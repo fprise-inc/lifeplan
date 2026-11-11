@@ -9,6 +9,9 @@
 //! - **記録**: 世帯ファイルの `consents`・`consentExplanations`・`aiShares`・`candidates` は本体だけが書く。画面から届いた本文に
 //!   これらの区画が入っていても使わない（ai-share の `HouseholdBook`）。読まれた記録・届いた候補は、裏の見回りが世帯ファイルへ書き戻す。
 //! - **候補**: AIの出したプランの候補は `candidates` に承認待ちで入るだけ。FPが画面で「プランとして保存」か「捨てる」を選んだ記録を残す。
+//! - **新しい世帯の候補**（0208）: AIが組み立てた世帯（計算の入力）は、受け取るときに計算エンジンで確かめ、メモリの中に承認待ちで置くだけ。
+//!   世帯の一覧は変わらない。FPが画面で中身と「架空」か「お客さま」かを確かめて「世帯として作る」を押したときだけ、本体が世帯を作る
+//!   （出どころの記録 `meta.origin` を本体が書き、架空なら世帯の一覧の札に印を付ける）。架空の世帯は、同意の記録が無くても渡せる
 //! - **書類から読んだ値の候補**（0151）: 届いた答えはメモリの中だけに置き、世帯ファイルには書かない（番号が混ざっていても残さない）。
 //!   画面が「同意とAIの記録」で受け取り、読み口（番号を落とす決まり）を通して読み取りの記録（本文の区画 `documents`）にしてから、
 //!   `ai_documents_taken` で承認待ちから外す。
@@ -25,9 +28,9 @@ use ai_share::clock::{iso8601, Clock, SystemClock};
 use ai_share::registry::ShareStatus;
 use ai_share::{
     AppEndpoint, ExternalAiConsentInput, GrantError, GrantOptions, HouseholdAiView, HouseholdBook,
-    Scope, ShareRegistry,
+    HouseholdCandidate, Scope, ShareRegistry,
 };
-use household_store::{Opened, Store, StoreError};
+use household_store::{CreateOptions, Opened, Store, StoreError};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -87,6 +90,8 @@ pub(crate) fn office_estimates_of(store: &Store) -> Option<serde_json::Value> {
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::error::Error>> {
     let registry = Arc::new(ShareRegistry::new());
     registry.require_consent(true);
+    // AIの新しい世帯の候補は、受け取るときに画面と同じ計算エンジンで確かめる（形・範囲。スキーマに無い欄も断る）
+    registry.set_household_check(Some(Arc::new(crate::engine::check_input)));
     // AI接続口の計算（calculate・explain_value の share_id）に、その時の事務所の推定の値を添える（0184）
     let handle = app.clone();
     registry.set_office_estimates(Some(Arc::new(move || {
@@ -149,6 +154,8 @@ impl AiState {
         let (mut book, screen) =
             HouseholdBook::from_opened(&o.id, Some(o.customer_no.clone()), o.generation, &o.body)
                 .map_err(str::to_owned)?;
+        // 架空の印は世帯の一覧の札から（本文には書かない。画面からは付けられない）
+        book.fictional = o.label.fictional;
         let mut books = lock(&self.books);
         let earlier = books
             .remove(&o.id)
@@ -221,6 +228,38 @@ impl AiState {
         if let Some(e) = e {
             lock(&self.parked).insert(id.to_owned(), e.book);
         }
+    }
+
+    /// 架空の世帯をお客さまの世帯にした: 帳面の印を外し、共有中なら渡す中身を置き換える（同意が無ければ、その場で閉じる）
+    pub fn on_made_client(&self, store: &Store, id: &str) {
+        let mut books = lock(&self.books);
+        let active = self.registry.active_share_ids(id);
+        match books.get_mut(id) {
+            Some(e) => {
+                e.book.fictional = false;
+                match e.book.source() {
+                    Some(src) => {
+                        for sid in &active {
+                            self.registry.update_source(sid, src.clone());
+                        }
+                    }
+                    None => {
+                        for sid in &active {
+                            self.registry.revoke(sid);
+                        }
+                    }
+                }
+            }
+            None => {
+                for sid in &active {
+                    self.registry.revoke(sid);
+                }
+            }
+        }
+        if let Some(p) = lock(&self.parked).get_mut(id) {
+            p.fictional = false;
+        }
+        self.persist_locked(store, &mut books);
     }
 
     /// 事務所の作業フォルダ（AIの受け口の場所）。共有フォルダに選ばせない場所の1つ（0023 の8）
@@ -535,6 +574,8 @@ pub struct AiStatus {
     dev: bool,
     /// AIから届いた、機能を有効にするコードの候補の数（承認待ち。中身は feature_codes_status で読む）
     feature_code_candidates: usize,
+    /// AIから届いた、新しい世帯の候補の数（承認待ち。中身は ai_household_candidates で読む）
+    household_candidates: usize,
 }
 
 fn status(ai: &AiState, store: &Store) -> AiStatus {
@@ -570,6 +611,7 @@ fn status(ai: &AiState, store: &Store) -> AiStatus {
         durations: DURATIONS_MIN.to_vec(),
         dev,
         feature_code_candidates: ai.registry.feature_code_candidates().len(),
+        household_candidates: ai.registry.household_candidates().len(),
     }
 }
 
@@ -614,6 +656,7 @@ pub async fn ai_set_enabled(app: AppHandle, enabled: bool) -> Result<AiStatus, S
         if !enabled {
             ai.registry.revoke_all();
             ai.registry.clear_feature_code_candidates();
+            ai.registry.clear_household_candidates();
             ai.persist_all(store);
             ai.close_endpoint();
         }
@@ -777,6 +820,144 @@ pub async fn ai_documents_taken(
         view(ai, &lock(&ai.books), &id)
     })
     .await
+}
+
+/// AIから届いた、新しい世帯の候補（承認待ち。届いた順。中身は信用しない: 画面の読み口で確かめてから見せる）
+#[tauri::command]
+pub async fn ai_household_candidates(app: AppHandle) -> Result<Vec<HouseholdCandidate>, String> {
+    blocking(app, |ai, _| Ok(ai.registry.household_candidates())).await
+}
+
+/// 新しい世帯の候補を捨てる（世帯は作らない）
+#[tauri::command]
+pub async fn ai_household_candidate_discard(
+    app: AppHandle,
+    candidate: String,
+) -> Result<Vec<HouseholdCandidate>, String> {
+    blocking(app, move |ai, _| {
+        ai.registry
+            .take_household_candidate(&candidate)
+            .ok_or("E_AI_CANDIDATE_UNKNOWN")?;
+        Ok(ai.registry.household_candidates())
+    })
+    .await
+}
+
+/// 新しい世帯の候補から、世帯を作る（FPが画面で中身と種類を確かめて「世帯として作る」を押したときだけ）。
+/// `kind` は FP が選んだ種類（`fictional`・`client`）、`body` は画面が候補の入力から組み立てた本文（番号らしい所を消し、値の出どころを AI にした物）。
+/// 本体は、候補がまだ承認待ちであることと、本文の家族が候補の家族と同じことを確かめ、出どころの記録（`meta.origin`）を書いて作る。
+/// 架空なら世帯の一覧の札に印を付ける。作ったら候補を承認待ちから外す
+#[tauri::command]
+pub async fn ai_household_candidate_create(
+    app: AppHandle,
+    candidate: String,
+    kind: String,
+    body: String,
+    summary: String,
+    category: Option<String>,
+) -> Result<Opened, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let ai = app.state::<AiState>();
+        let store = app.state::<StoreState>();
+        create_from_candidate(
+            &store.store,
+            &ai,
+            &candidate,
+            &kind,
+            &body,
+            summary,
+            category,
+        )
+    })
+    .await
+    .map_err(|_| "E_HOST_THREAD".to_owned())?
+}
+
+/// 家族の構成員の ID（並びの順は見ない）
+fn member_ids(input: &serde_json::Value) -> Option<Vec<String>> {
+    let mut v: Vec<String> = input
+        .get("household")?
+        .get("members")?
+        .as_array()?
+        .iter()
+        .map(|m| {
+            m.get("id")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+        .collect::<Option<Vec<_>>>()?;
+    v.sort();
+    Some(v)
+}
+
+/// 候補から世帯を作る（ai_household_candidate_create の中身。テストから呼ぶ）
+pub(crate) fn create_from_candidate(
+    store: &Store,
+    ai: &AiState,
+    candidate: &str,
+    kind: &str,
+    body: &str,
+    summary: String,
+    category: Option<String>,
+) -> Result<Opened, String> {
+    if !ai_share::households::KINDS.contains(&kind) {
+        return Err("E_AI_KIND".into());
+    }
+    let c = ai
+        .registry
+        .household_candidate(candidate)
+        .ok_or("E_AI_CANDIDATE_UNKNOWN")?;
+    let mut v: serde_json::Value =
+        serde_json::from_str(body).map_err(|_| code(StoreError::BODY))?;
+    let input = v
+        .get("household")
+        .and_then(|h| h.get("request"))
+        .and_then(|r| r.get("input"))
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    if !input.is_object() {
+        return Err(code(StoreError::BODY));
+    }
+    // 画面が組み立てた本文が、この候補から作った物か（家族の構成員が同じ）
+    if member_ids(&input).is_none() || member_ids(&input) != member_ids(&c.input) {
+        return Err("E_AI_CANDIDATE_BODY".into());
+    }
+    let Some(obj) = v.as_object_mut() else {
+        return Err(code(StoreError::BODY));
+    };
+    // 出どころの記録（本体が書く。本体が保存のたびに meta の知らない欄として持ち越す）
+    let mut origin = serde_json::json!({
+        "kind": "ai",
+        "candidateId": c.candidate_id,
+        "receivedAt": c.received_at,
+        "createdAt": now_iso(),
+        "createdAs": kind,
+        "approvedBy": "fp",
+    });
+    if let Some(con) = &c.connector {
+        origin["connector"] = serde_json::json!(con);
+    }
+    if let Some(a) = author_of(store) {
+        origin["approvedByMember"] = serde_json::json!({ "memberId": a.member_id, "name": a.name });
+    }
+    let meta = obj.entry("meta").or_insert_with(|| serde_json::json!({}));
+    if !meta.is_object() {
+        *meta = serde_json::json!({});
+    }
+    meta["origin"] = origin;
+    let o = crate::store::create_household(
+        store,
+        ai,
+        v.to_string(),
+        summary,
+        CreateOptions {
+            category,
+            sample: None,
+            fictional: kind == "fictional",
+        },
+    )?;
+    ai.registry.take_household_candidate(candidate);
+    Ok(o)
 }
 
 #[cfg(test)]
@@ -1116,6 +1297,203 @@ mod tests {
         assert!(file.get("consents").is_none() && file.get("candidates").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// AIの新しい世帯の候補を届いたことにする（接続口の受け口と同じ入口）
+    fn propose_household(pc: &Pc, kind: &str) -> String {
+        let r = pc
+            .ai
+            .registry
+            .handle_propose_household(
+                &serde_json::json!({ "kind": kind, "title": "セミナー用の架空の世帯", "note": "年収は推定", "input": model_input() }),
+                &ai_share::record::Caller {
+                    mcp_client_declared: Some("test-ai 1.0".into()),
+                    ..ai_share::record::Caller::default()
+                },
+            )
+            .unwrap();
+        serde_json::from_str::<serde_json::Value>(&r).unwrap()["candidateId"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    /// 新しい世帯の候補から作る: 候補が届いても世帯の一覧は変わらず、FPが作ったときだけ世帯ができる。出どころの記録を本体が書き、
+    /// 架空なら札に印が付き、同意の記録が無くても渡せる。お客さまの世帯は今までどおり同意が要る
+    #[test]
+    fn households_from_ai_candidates() {
+        let root = root("from-candidate");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        let id_f = propose_household(&pc1, "fictional");
+        assert!(
+            pc1.store.list().unwrap().is_empty(),
+            "候補が届いても世帯の一覧は変わらない"
+        );
+        // 種類・候補・本文の確かめ
+        assert_eq!(
+            create_from_candidate(
+                &pc1.store,
+                &pc1.ai,
+                &id_f,
+                "sample",
+                &body(),
+                "本人".into(),
+                None
+            )
+            .unwrap_err(),
+            "E_AI_KIND"
+        );
+        assert_eq!(
+            create_from_candidate(
+                &pc1.store,
+                &pc1.ai,
+                "x",
+                "fictional",
+                &body(),
+                "本人".into(),
+                None
+            )
+            .unwrap_err(),
+            "E_AI_CANDIDATE_UNKNOWN"
+        );
+        let mut other = model_input();
+        other["household"]["members"][0]["id"] =
+            serde_json::json!("6f1b0c2e-3d4a-4b5c-8d6e-7f8091a2b3c4");
+        let other_body =
+            serde_json::json!({ "household": { "request": { "input": other } } }).to_string();
+        assert_eq!(
+            create_from_candidate(
+                &pc1.store,
+                &pc1.ai,
+                &id_f,
+                "fictional",
+                &other_body,
+                "本人".into(),
+                None
+            )
+            .unwrap_err(),
+            "E_AI_CANDIDATE_BODY",
+            "別の世帯の本文では作らない"
+        );
+        assert!(pc1.store.list().unwrap().is_empty());
+        // 画面の本文に入れた架空の印・同意・出どころは使わない（本体が書く）
+        let forged = serde_json::json!({
+            "household": { "request": { "input": model_input() } },
+            "meta": { "origin": { "kind": "manual" } },
+            "consents": [{ "id": "forged" }],
+        })
+        .to_string();
+        let o = create_from_candidate(
+            &pc1.store,
+            &pc1.ai,
+            &id_f,
+            "fictional",
+            &forged,
+            "本人".into(),
+            None,
+        )
+        .unwrap();
+        assert!(o.label.fictional);
+        assert!(
+            pc1.ai.registry.household_candidate(&id_f).is_none(),
+            "作った候補は外れる"
+        );
+        let file = file_sections(&root, &secrets, &o.id);
+        assert_eq!(file["meta"]["origin"]["kind"], "ai");
+        assert_eq!(file["meta"]["origin"]["candidateId"], id_f);
+        assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
+        assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
+        assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
+        assert_eq!(
+            file["meta"]["formatVersion"],
+            household_store::migrate::CURRENT
+        );
+        assert!(file.get("consents").is_none());
+        assert_eq!(file["household"]["request"]["input"], model_input());
+        assert!(pc1.store.list().unwrap()[0].label.fictional);
+        // 架空の世帯は同意の記録が無くても渡せる
+        assert_eq!(pc1.state(&o.id), "none");
+        assert!(
+            view(&pc1.ai, &lock(&pc1.ai.books), &o.id)
+                .unwrap()
+                .fictional
+        );
+        let share = pc1.share(&o.id).expect("架空の世帯は同意なしで渡せる");
+        pc1.ai_reads(&share);
+        // 保存しても出どころの記録は残る（画面は meta を持たない本文で保存する）
+        let screen = pc1.open(&o.id);
+        pc1.ai
+            .save(&pc1.store, &o.id, &screen.body, "本人")
+            .unwrap();
+        let file = file_sections(&root, &secrets, &o.id);
+        assert_eq!(file["meta"]["origin"]["candidateId"], id_f);
+        assert_eq!(file["aiShares"][0]["consentAtGrant"]["state"], "fictional");
+        // お客さまの世帯にする（一方向）: 同意が無いので、共有中の共有はその場で止まり、もう渡せない
+        assert!(pc1.store.make_client(&o.id).unwrap());
+        pc1.ai.on_made_client(&pc1.store, &o.id);
+        assert!(pc1.ai.registry.active_share_ids(&o.id).is_empty());
+        assert!(matches!(
+            pc1.share(&o.id),
+            Err(GrantError::ConsentMissing { .. })
+        ));
+        let file = file_sections(&root, &secrets, &o.id);
+        assert_eq!(file["aiShares"][0]["endReason"], "consentWithdrawn");
+        // お客さまの世帯として作った世帯は、同意を記録するまで渡せない
+        let id_c = propose_household(&pc1, "client");
+        let c = create_from_candidate(
+            &pc1.store,
+            &pc1.ai,
+            &id_c,
+            "client",
+            &body(),
+            "本人".into(),
+            None,
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        assert!(!c.label.fictional);
+        let file = file_sections(&root, &secrets, &c.id);
+        assert_eq!(file["meta"]["origin"]["createdAs"], "client");
+        assert!(matches!(
+            pc1.share(&c.id),
+            Err(GrantError::ConsentMissing { .. })
+        ));
+        pc1.record(&c.id, "given");
+        pc1.share(&c.id).expect("同意を記録した後は渡せる");
+        // FP は作る前に種類を変えられる（AIが架空で出した候補を、お客さまの世帯として作る）
+        let id_g = propose_household(&pc1, "fictional");
+        let g = create_from_candidate(
+            &pc1.store,
+            &pc1.ai,
+            &id_g,
+            "client",
+            &body(),
+            "本人".into(),
+            None,
+        )
+        .unwrap();
+        assert!(!g.label.fictional);
+        assert!(matches!(
+            pc1.share(&g.id),
+            Err(GrantError::ConsentMissing { .. })
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 候補の入力は、受け取るときに画面と同じ計算エンジンで確かめる（計算できない入力は理由を返して断る）
+    #[test]
+    fn household_candidates_are_checked_by_the_engine() {
+        assert!(crate::engine::check_input(&model_input()).is_ok());
+        let mut bad = model_input();
+        bad["household"]["members"][0]["kind"] = serde_json::json!("boss");
+        let e = crate::engine::check_input(&bad).unwrap_err();
+        assert!(e.contains("calculate"), "{e}");
+        let mut extra = model_input();
+        extra["household"]["unknownField"] = serde_json::json!(1);
+        assert!(
+            crate::engine::check_input(&extra).is_err(),
+            "スキーマに無い欄は断る"
+        );
     }
 
     /// 同じ中身が読まれ続けるだけなら、世帯ファイルは読まれるたびには書き直さない（回数と最後の日時は間をおいて書く）

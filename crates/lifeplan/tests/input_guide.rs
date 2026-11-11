@@ -379,6 +379,7 @@ async fn recipe_for_a_shared_household() {
             record_id: "c-1".into(),
             documents: true,
         }),
+        fictional: false,
     };
     let g = reg
         .grant(

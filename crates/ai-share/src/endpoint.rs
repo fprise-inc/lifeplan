@@ -187,6 +187,21 @@ async fn serve(
             Request::ProposeFeatureCode { code } => {
                 registry.handle_propose_feature_code(code, &caller)
             }
+            Request::ProposeHousehold { proposal } => {
+                // 計算の入力の確かめは計算エンジンを動かすので、受け口の糸を止めない所で
+                let reg = registry.clone();
+                let (proposal, caller) = (proposal.clone(), caller.clone());
+                tokio::task::spawn_blocking(move || {
+                    reg.handle_propose_household(&proposal, &caller)
+                })
+                .await
+                .unwrap_or_else(|_| {
+                    Err((
+                        ErrorCode::Invalid,
+                        "候補を確かめられませんでした。".to_owned(),
+                    ))
+                })
+            }
         };
         let resp = match result {
             Ok(json) => Response::ok(env.id, json),

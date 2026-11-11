@@ -50,6 +50,8 @@ export interface HouseholdPanelProps {
   onSetCategory: (id: string, category: string) => Promise<string | null>;
   onAssignSerial: (id: string) => Promise<string | null>;
   onMakeSample: (id: string, req: SampleRequest) => Promise<string | null>;
+  /** 架空の世帯をお客さまの世帯にする（一方向。渡さなければ出さない） */
+  onMakeClient?: (id: string) => Promise<string | null>;
   onSaveCategories: (edits: CategoryEdit[]) => Promise<string | null>;
   onDelete: (id: string, confirm: string) => Promise<string | null>;
   /** 見本を開く（動かしても見本は変わらない） */
@@ -81,6 +83,10 @@ export interface HouseholdPanelProps {
 }
 
 const CUSTOMER_NO = /^[A-Za-z0-9_-]{1,16}$/;
+
+/** 架空の世帯をお客さまの世帯にするときの説明（一方向。お客さまの世帯を架空にはできない） */
+export const MAKE_CLIENT_TEXT =
+  "「架空」の印を外し、お客さまの世帯にします。外部AIへの提供の同意を記録するまで、AI には渡せなくなります（いま AI に渡していれば、その場で止めます）。お客さまの世帯を架空の世帯に戻すことはできません。顧客番号はそのままです。";
 
 /** 一覧の日時（ISO 8601 → 2026/10/18 14:03。端末の時刻で） */
 export function shortDate(iso: string): string {
@@ -305,7 +311,8 @@ type RowForm =
   | { kind: "rename"; id: string; value: string; error: string | null }
   | { kind: "category"; id: string; value: string; error: string | null }
   | { kind: "delete"; id: string; value: string; error: string | null }
-  | { kind: "sample"; id: string; value: SampleRequest; ok: boolean; error: string | null };
+  | { kind: "sample"; id: string; value: SampleRequest; ok: boolean; error: string | null }
+  | { kind: "client"; id: string; value: boolean; error: string | null };
 
 export function HouseholdPanel(p: HouseholdPanelProps) {
   const [tab, setTab] = useState<HouseholdTab>(p.initialTab ?? "customers");
@@ -425,6 +432,29 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
             </label>
             <button type="submit" class="btn" disabled={busy || !form.ok || form.value.name.trim() === ""} data-make-sample-go>
               見本に登録する
+            </button>
+            {cancel}
+            {err}
+          </form>
+        );
+      case "client":
+        return (
+          <form
+            class="pl-confirm hh-make-client"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const go = p.onMakeClient;
+              if (go !== undefined) run(form, () => go(h.id));
+            }}
+            data-make-client-form
+          >
+            <span>{MAKE_CLIENT_TEXT}</span>
+            <label>
+              <input type="checkbox" checked={form.value} onChange={(e) => setForm({ ...form, value: (e.currentTarget as HTMLInputElement).checked, error: null })} data-make-client-confirm />
+              架空の世帯には戻せないことを確かめました
+            </label>
+            <button type="submit" class="btn" disabled={busy || !form.value} data-make-client-go>
+              お客さまの世帯にする
             </button>
             {cancel}
             {err}
@@ -556,8 +586,13 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                             {h.customerNo}
                           </button>
                         )}
-                        {h.serial === undefined || h.id === p.currentId ? (
+                        {h.serial === undefined || h.id === p.currentId || h.fictional === true ? (
                           <div class="hh-tags">
+                            {h.fictional === true ? (
+                              <span class="pl-tag hh-fictional-tag" title="AIの候補から作った架空の世帯（お客さまの世帯ではありません。同意の記録が無くても AI に渡せます）" data-household-fictional={h.customerNo}>
+                                架空
+                              </span>
+                            ) : null}
                             {h.serial === undefined ? (
                               <span class="pl-tag hh-free" title={useCats ? "区分の記号＋通し番号の形でない番号（区分を変えても付け替えません）" : "通し番号の形でない番号"}>
                                 自由な番号
@@ -619,6 +654,11 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                             {h.serial === undefined ? (
                               <button type="button" class="link-btn" onClick={() => run({ kind: "rename", id: h.id, value: h.customerNo, error: null }, () => p.onAssignSerial(h.id))} title={useCats ? "区分の記号＋新しい通し番号に付け替えます（元の番号には戻りません）" : "新しい通し番号に付け替えます（元の番号には戻りません）"} data-assign-serial={h.customerNo}>
                                 通し番号を付ける
+                              </button>
+                            ) : null}
+                            {h.fictional === true && p.onMakeClient !== undefined ? (
+                              <button type="button" class="link-btn" onClick={() => setForm({ kind: "client", id: h.id, value: false, error: null })} data-make-client={h.customerNo}>
+                                お客さまの世帯にする
                               </button>
                             ) : null}
                             <button type="button" class="link-btn" onClick={() => setForm({ kind: "sample", id: h.id, value: { ...(h.id === p.currentId && p.currentShape !== null ? p.currentShape : { family: 3, age: 4 }), name: "", traits: [] }, ok: false, error: null })} data-make-sample={h.customerNo}>

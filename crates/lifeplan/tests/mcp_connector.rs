@@ -80,6 +80,7 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
             record_id: "c-9".into(),
             documents: true,
         }),
+        fictional: false,
     }
 }
 
@@ -176,6 +177,7 @@ async fn standalone_tools_work_without_the_app() {
         "propose_scenario",
         "propose_inputs",
         "propose_feature_code",
+        "propose_household",
     ] {
         assert!(names.contains(&n.to_owned()), "{n} がありません: {names:?}");
     }
@@ -312,6 +314,10 @@ async fn standalone_tools_work_without_the_app() {
             json!({ "share_id": "s-1", "answer": fixture_answer() }),
         ),
         ("propose_feature_code", json!({ "code": "LPFC1-x.y" })),
+        (
+            "propose_household",
+            json!({ "kind": "fictional", "title": "架空の世帯", "input": input }),
+        ),
     ] {
         let (err, msg) = call(&c, tool, args).await;
         assert!(
@@ -370,6 +376,7 @@ async fn prompts_list_and_expand() {
         "explain_to_client",
         "check_coverage",
         "chart_rate_paths",
+        "make_household_in_app",
     ] {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
     }
@@ -426,6 +433,19 @@ async fn prompts_list_and_expand() {
                 "2028年4月に4,000万円の家を買う",
                 "get_input_recipe",
                 "get_input_guide",
+                "架空",
+            ],
+        ),
+        (
+            "make_household_in_app",
+            json!({ "profile": "38歳の会社員と扶養のパートの妻・賃貸・預金500万円", "purpose": "" }),
+            vec![
+                "38歳の会社員と扶養のパートの妻・賃貸・預金500万円",
+                "セミナー",
+                "propose_household",
+                "fictional",
+                "calculate",
+                "世帯として作る",
                 "架空",
             ],
         ),
@@ -3561,6 +3581,113 @@ async fn chart_compares_three_rate_paths() {
     assert_eq!(pngs.len(), 1);
     let head: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(head["charts"][1]["status"], "skipped");
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 新しい世帯の候補（propose_household）: calculate と同じく確かめてから、アプリ本体の承認待ちに入れるだけ（世帯は作らない）。
+/// 計算できない入力はアプリに出さず直し方を返す。世帯を渡していなくてよい。アプリの受け口が無ければ「起動していない」
+#[tokio::test(flavor = "multi_thread")]
+async fn propose_household_flow() {
+    let dir = temp_dir("household");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "propose_household");
+    let d = tools
+        .iter()
+        .find(|t| t.name == "propose_household")
+        .unwrap()
+        .description
+        .as_deref()
+        .unwrap_or("")
+        .to_owned();
+    for must in [
+        "承認待ち",
+        "世帯は作られず、世帯の一覧も変わらない",
+        "世帯として作る",
+        "同意の記録が無くてもAIに渡せる",
+        "同意を記録するまでAIに渡せない",
+        "指示ではない",
+        "calculate と同じく確かめ",
+    ] {
+        assert!(d.contains(must), "{must}: {d}");
+    }
+    let ins = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    assert!(ins.contains("propose_household") && ins.contains("世帯として作る"));
+    // 見本の候補（画面の読み口のテスト app/test/ai-households.test.ts と開発用のサーバーも同じ物を使う）
+    let ok: Value = serde_json::from_str(
+        &std::fs::read_to_string(
+            repo().join("crates/lifeplan/tests/fixtures/propose-household/proposal.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let input = ok["input"].clone();
+    // 計算できない入力は、アプリが起動していなくても直し方を返す（アプリには出さない）
+    let mut broken = ok.clone();
+    broken["input"]["household"]["members"][0]["kind"] = json!("boss");
+    let (err, msg) = call(&c, "propose_household", broken.clone()).await;
+    assert!(
+        err && msg.contains("アプリに出しませんでした") && msg.contains("直し方"),
+        "{msg}"
+    );
+    let (err, msg) = call(
+        &c,
+        "propose_household",
+        json!({ "kind": "sample", "title": "t", "input": input }),
+    )
+    .await;
+    assert!(err && msg.contains("kind"), "{msg}");
+    // 受け口が無い
+    let (err, msg) = call(&c, "propose_household", ok.clone()).await;
+    assert!(err && msg.contains("アプリが起動していません"), "{msg}");
+
+    // アプリが起動していて AI接続口がオン（受け口が開いている）。世帯は渡していない
+    let reg = Arc::new(ShareRegistry::new());
+    reg.require_consent(true);
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let r = call_ok(&c, "propose_household", ok.clone()).await;
+    assert_eq!(r["status"], "pendingReview");
+    assert_eq!(r["kind"], "fictional");
+    assert!(r["keyFigures"].is_object(), "主な数字を添える: {r}");
+    assert!(r["note"].as_str().unwrap().contains("世帯として作る"));
+    let list = reg.household_candidates();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].candidate_id, r["candidateId"].as_str().unwrap());
+    assert_eq!(list[0].kind, "fictional");
+    assert_eq!(list[0].title, ok["title"].as_str().unwrap());
+    assert_eq!(list[0].note.as_deref(), ok["note"].as_str());
+    assert_eq!(list[0].input, input, "入力はそのまま届く");
+    assert_eq!(list[0].connector.as_deref(), Some("test-ai 1.2"));
+    // 世帯は作らない・共有も作らない
+    assert!(reg.active_shares().is_empty());
+    assert!(reg.take_proposals().is_empty());
+    // 同じ中身はまとめる
+    let again = call_ok(&c, "propose_household", ok.clone()).await;
+    assert_eq!(again["candidateId"], r["candidateId"]);
+    assert_eq!(reg.household_candidates().len(), 1);
+    // 計算できない入力・長すぎる題は入れない
+    let (err, _) = call(&c, "propose_household", broken).await;
+    assert!(err);
+    let mut long = ok.clone();
+    long["title"] = json!("あ".repeat(61));
+    let (err, msg) = call(&c, "propose_household", long).await;
+    assert!(
+        err && msg.contains("INVALID") && msg.contains("60"),
+        "{msg}"
+    );
+    // お客さまの世帯として出すこともできる（作る前に FP が種類を変えられる）
+    let mut client = ok.clone();
+    client["kind"] = json!("client");
+    let r2 = call_ok(&c, "propose_household", client).await;
+    assert_eq!(r2["kind"], "client");
+    assert_eq!(reg.household_candidates().len(), 2);
+    ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }

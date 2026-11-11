@@ -57,7 +57,7 @@ function devHearingFormCsp(): Plugin {
 }
 
 /** 開発用のサーバーの世帯の保存（メモリの中だけ。再起動で消える） */
-type DevLabel = { category?: string; serial?: number; branch?: string; sample?: { no: string; name: string; traits: string[] } };
+type DevLabel = { category?: string; serial?: number; branch?: string; sample?: { no: string; name: string; traits: string[] }; fictional?: boolean };
 const devStore = {
   households: new Map<string, { customerNo: string; summary: string; createdAt: string; updatedAt: string; body: string; generation: number; updatedBy?: string | null; openBy?: { name: string; since: string }[]; forks?: number; conflict?: boolean; label: DevLabel }>(),
   // 顧客番号の区分と次の通し番号（本体の numbering と同じ決まり。0033）。区分は最初から入れず、初めに「区分を使いますか？」と聞く
@@ -184,6 +184,14 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       h.label = l;
       h.customerNo = l.sample?.no as string;
       return { ok: true, value: { customerNo: h.customerNo, duplicate: false } };
+    }
+    case "makeClient": {
+      // 架空の世帯をお客さまの世帯にする（一方向。本体の store_make_client と同じ）。共有中で同意が無ければ止める
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (h.label.fictional !== true) return { ok: true, value: false };
+      delete h.label.fictional;
+      devAiOp("madeClient", { id: a.id });
+      return { ok: true, value: true };
     }
     case "updateSample":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
@@ -704,6 +712,8 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  * `/__dev/ai/simulate?kind=read|propose|documents` で、AI からの読み取り・プランの候補・書類から読んだ値の候補（0151。接続口の見本の答え）が届いたことにする。
  * `/__dev/ai/proposeFeatureCode`（POST {code}）で、機能を有効にするコードの候補が届いたことにする。
  * `/__dev/ai/oldConsent?id=<世帯の内部ID>` で、前の版の説明（書類を含まない）で同意した行を足す（0157。取り直しの画面を見る）
+ * `/__dev/ai/simulate?kind=household` で、AI から新しい世帯の候補（接続口の見本 crates/lifeplan/tests/fixtures/propose-household/proposal.json に、
+ * 番号らしい文字を1つ混ぜた物）が届いたことにする。`/__dev/ai/proposeHousehold`（POST {proposal}）で、任意の候補が届いたことにする
  */
 const devAi = {
   enabled: false,
@@ -711,6 +721,8 @@ const devAi = {
   share: null as null | { householdId: string; shareId: string; alias: string; expiresMs: number },
   /** 書類から読んだ値の候補（本体と同じく、メモリの中だけ。画面が受け取ったら takeDocuments で外す） */
   documents: [] as { candidateId: string; shareId: string; householdId: string; receivedAt: string; connector: string | null; answer: unknown }[],
+  /** 新しい世帯の候補（本体と同じく、メモリの中だけ。FP が作るか捨てるまで） */
+  households: [] as { candidateId: string; receivedAt: string; connector: string | null; kind: string; title: string; note: string | null; input: unknown }[],
 };
 const DEV_AI_SHEET_TEXT = "（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します";
 const DEV_AI_EXPLANATION = "（開発用の見本）ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAIを使うことがあります。\n計算や見直しの検討でAIに渡すのは、計算に必要な項目だけです。お名前・ご住所・FPのメモは渡しません。\n担当のFPは、書類から数字を読み取るときに、AIを使うことがあります。お名前・ご住所・各種の番号は伏せてから渡します。\nこの同意はいつでも撤回でき、撤回した後はAIに渡しません。";
@@ -736,11 +748,12 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
     devAi.share = null;
   };
   const consentState = (b: ReturnType<typeof book>) => (b.consents.at(-1)?.decision as string | undefined) ?? "none";
+  const fictional = (hid: string) => devStore.households.get(hid)?.label.fictional === true;
   const consentDocuments = (b: ReturnType<typeof book>) => consentState(b) === "given" && b.consents.at(-1)?.documents === true;
   const view = () => {
     const b = book();
     const sh = shareStatus();
-    return { consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, hearingSheetExplanation: DEV_AI_SHEET_TEXT, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
+    return { consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, hearingSheetExplanation: DEV_AI_SHEET_TEXT, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id), fictional: fictional(id) };
   };
   const setup = (title: string, client: string, text: string) => ({ client, title, text });
   switch (op) {
@@ -763,6 +776,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
           durations: [15, 60, 120, 240, 480],
           dev: true,
           featureCodeCandidates: devFeatures.candidates.length,
+          householdCandidates: devAi.households.length,
         },
       };
     }
@@ -771,6 +785,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       if (!devAi.enabled) {
         end("revoked");
         devFeatures.candidates = [];
+        devAi.households = [];
       }
       return devAiOp("status", {});
     case "proposeFeatureCode": {
@@ -801,12 +816,13 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
     case "startShare": {
       const b = book();
       if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
-      if (consentState(b) !== "given") return { ok: false, code: "E_AI_NO_CONSENT" };
+      // 架空の世帯は同意の記録が無くても渡せる（本体の registry.grant と同じ）
+      if (consentState(b) !== "given" && !fictional(id)) return { ok: false, code: "E_AI_NO_CONSENT" };
       if (active() !== null) return { ok: false, code: "E_AI_ALREADY_SHARED" };
       const minutes = Number(a.minutes);
       const shareId = `s-${crypto.randomUUID().slice(0, 8)}`;
       devAi.share = { householdId: id, shareId, alias: "共有中の世帯A", expiresMs: Date.now() + minutes * 60_000 };
-      b.records.push({ id: crypto.randomUUID(), kind: "household", shareId, grantedAt: now, expiresAt: new Date(Date.now() + minutes * 60_000).toISOString().replace(/\.\d+Z$/, "Z"), endedAt: null, endReason: null, scope: "reduced", allowlistVersion: "reduced@2", fields: view().fields, householdRevision: "generation-dev", destinationDeclared: String(a.destination), consentAtGrant: { state: "given", recordId: (b.consents.at(-1)?.id as string) ?? null, warned: false }, reads: [], proposals: [] });
+      b.records.push({ id: crypto.randomUUID(), kind: "household", shareId, grantedAt: now, expiresAt: new Date(Date.now() + minutes * 60_000).toISOString().replace(/\.\d+Z$/, "Z"), endedAt: null, endReason: null, scope: "reduced", allowlistVersion: "reduced@2", fields: view().fields, householdRevision: "generation-dev", destinationDeclared: String(a.destination), consentAtGrant: consentState(b) === "given" ? { state: "given", recordId: (b.consents.at(-1)?.id as string) ?? null, warned: false } : { state: "fictional", recordId: null, warned: false }, reads: [], proposals: [] });
       return { ok: true, value: view() };
     }
     case "stopShare":
@@ -819,6 +835,12 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       Object.assign(c, { status: a.accept === true ? "accepted" : "rejected", decidedAt: now, decidedBy: "fp", planId: a.accept === true ? a.plan : null });
       return { ok: true, value: view() };
     }
+    case "proposeHousehold":
+    case "householdCandidates":
+    case "discardHouseholdCandidate":
+    case "createFromCandidate":
+    case "madeClient":
+      return devHouseholdOp(op, a, now);
     case "oldConsent": {
       // 前の版の説明（書類を含まない）で同意した行（documents の欄が無い）を足す（0157。取り直しの画面の確かめ用）
       if (!devStore.households.has(id)) return { ok: false, code: "E_STORE_NOT_OPEN" };
@@ -831,9 +853,15 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
     }
     case "simulate": {
       const s = active();
+      const b = s !== null ? devAi.books.get(s.householdId)! : book();
+      const r = (s !== null ? b.records.find((x) => x.shareId === s.shareId)! : { reads: [], proposals: [] }) as { reads: Record<string, unknown>[]; proposals: Record<string, unknown>[] };
+      if (a.kind === "household") {
+        // 接続口の見本の候補に、番号らしい文字を混ぜる（読み口で消えることを画面で見る）。共有していなくてよい
+        const p = JSON.parse(readFileSync(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-household", "proposal.json"), "utf8")) as { input: { household: { periodicExpenses?: unknown[]; members: { id: string }[] } } };
+        p.input.household.periodicExpenses = [{ id: crypto.randomUUID(), row: "cf.expense.lumpSum.other", label: "家族旅行（予約番号 123456789012）", from: { at: "2027-08" }, to: { at: "2047-08" }, everyYears: 2, amount: { value: 300000, state: "estimated", origin: { kind: "manual" }, estimate: { method: "statistic", basis: "2人の国内旅行の平均的な費用" } } }];
+        return devHouseholdOp("proposeHousehold", { proposal: p }, now);
+      }
       if (s === null) return { ok: false, code: "E_AI_NOT_SHARED" };
-      const b = devAi.books.get(s.householdId)!;
-      const r = b.records.find((x) => x.shareId === s.shareId)! as { reads: Record<string, unknown>[]; proposals: Record<string, unknown>[] };
       if (a.kind === "documents") {
         // 前の版の説明の同意では、書類の候補を受けない（本体の handle_propose_documents と同じ。0157）
         if (!consentDocuments(b)) return { ok: false, code: "NOT_SHARED" };
@@ -851,6 +879,57 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         const last = r.reads.at(-1);
         if (last !== undefined && last.tool === "get_shared_household") Object.assign(last, { count: (last.count as number) + 1, lastAt: now });
         else r.reads.push({ firstAt: now, lastAt: now, count: 1, tool: "get_shared_household", fields: view().fields, digest: "sha256:3f6c0a9d2b71e4c85a0f19d6b2c3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b", caller: { connectorPid: 4242, connectorExe: "lifeplan", parentExe: "ai-app", mcpClientDeclared: "dev-client 1.0" } });
+      }
+      return { ok: true };
+    }
+  }
+  return { ok: false, code: "E_DEV_AI_OP" };
+}
+
+/** 開発用のサーバーの、新しい世帯の候補（本体の registry の household_candidates と ai_household_candidate_* の代わり。決まりは同じ） */
+function devHouseholdOp(op: string, a: Record<string, unknown>, now: string): { ok: true; value?: unknown } | { ok: false; code: string } {
+  const list = () => devAi.households;
+  switch (op) {
+    case "proposeHousehold": {
+      if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
+      const p = a.proposal as { kind?: unknown; title?: unknown; note?: unknown; input?: unknown } | undefined;
+      if (p === undefined || (p.kind !== "fictional" && p.kind !== "client") || typeof p.title !== "string" || p.title.trim() === "" || p.title.length > 60) return { ok: false, code: "INVALID" };
+      if (typeof p.input !== "object" || p.input === null) return { ok: false, code: "INVALID" };
+      if (list().length >= 5) return { ok: false, code: "INVALID" };
+      const candidateId = crypto.randomUUID();
+      list().push({ candidateId, receivedAt: now, connector: "dev-client 1.0", kind: p.kind, title: p.title.trim(), note: typeof p.note === "string" && p.note.trim() !== "" ? p.note.trim() : null, input: p.input });
+      return { ok: true, value: { candidateId, status: "pendingReview" } };
+    }
+    case "householdCandidates":
+      return { ok: true, value: list() };
+    case "discardHouseholdCandidate": {
+      const i = list().findIndex((c) => c.candidateId === a.candidate);
+      if (i < 0) return { ok: false, code: "E_AI_CANDIDATE_UNKNOWN" };
+      list().splice(i, 1);
+      return { ok: true, value: list() };
+    }
+    case "createFromCandidate": {
+      const c = list().find((x) => x.candidateId === a.candidate);
+      if (c === undefined) return { ok: false, code: "E_AI_CANDIDATE_UNKNOWN" };
+      if (a.kind !== "fictional" && a.kind !== "client") return { ok: false, code: "E_AI_KIND" };
+      const body = JSON.parse(String(a.body ?? "{}")) as Record<string, unknown>;
+      body.meta = { origin: { kind: "ai", candidateId: c.candidateId, receivedAt: c.receivedAt, createdAt: now, createdAs: a.kind, approvedBy: "fp", ...(c.connector !== null ? { connector: c.connector } : {}) } };
+      const r = devStoreOp("create", { body: JSON.stringify(body), summary: String(a.summary ?? ""), ...(typeof a.category === "string" ? { category: a.category } : {}) });
+      if (!r.ok) return r;
+      const opened = r.value as { id: string };
+      const e = devStore.households.get(opened.id);
+      if (e !== undefined && a.kind === "fictional") e.label.fictional = true;
+      devAi.households = list().filter((x) => x !== c);
+      return { ok: true, value: { ...(r.value as object), ...(a.kind === "fictional" ? { fictional: true } : {}) } };
+    }
+    case "madeClient": {
+      // 共有中で同意が無ければ止める（本体の on_made_client と同じ）
+      const s = devAi.share;
+      const b = devAi.books.get(String(a.id));
+      if (s !== null && s.householdId === a.id && (b?.consents.at(-1)?.decision ?? "none") !== "given") {
+        const rec = b?.records.find((x) => x.shareId === s.shareId);
+        if (rec !== undefined && rec.endedAt === null) Object.assign(rec, { endedAt: now, endReason: "consentWithdrawn" });
+        devAi.share = null;
       }
       return { ok: true };
     }

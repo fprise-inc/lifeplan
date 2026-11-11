@@ -1164,6 +1164,7 @@ mod tests {
                 serial: Some(1),
                 branch: None,
                 sample: None,
+                fictional: false,
             },
             extra: Default::default(),
         };
