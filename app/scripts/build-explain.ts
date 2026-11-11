@@ -1,6 +1,7 @@
 // AI接続口（crates/lifeplan）に同梱する「数字の根拠」の読み方（src/connector/explain.ts。0183）と計算の前の処理（src/connector/prepare.ts。0184）と主な数字（src/connector/summary.ts。0194）を、
 // 1つの JS（crates/lifeplan/dist/explain.js）にまとめる。プランの動かす項目（src/connector/plan.ts。0195）は、入力の欄の定義まで読むので大きく
 // （約2MB）、別の JS（crates/lifeplan/dist/plan.js）にまとめる（プランを当てないときの計算で読み込まない）。
+// 見本の世帯の一覧の名前と目印（src/connector/samples.ts。0199）は、JS ではなく JSON（crates/lifeplan/dist/samples.json）にする（接続口はそのまま埋め込む）。
 // - 接続口はこれを計算と同じ固めた実行環境（quickjs-ng）で動かす。画面の根拠のパネルと同じ関数なので、根拠の文が画面とずれない
 // - 外の部品（npm のパッケージ）を1つも入れない（入ったら止める）。動的な import をしない（1つの iife）
 // - 中身が変わっていなければ作り直さない（src/・report/src/・hearing/src/ の指紋で見る）
@@ -9,6 +10,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { build, type Plugin } from "vite";
+import { connectorSamples } from "../src/connector/samples.ts";
 import { APP_DIR, REPO_DIR } from "./lib.ts";
 
 export const EXPLAIN_OUT = join(REPO_DIR, "crates", "lifeplan", "dist");
@@ -35,7 +37,8 @@ function inputDigest(): string {
 }
 
 /**
- * プランの動かす項目の JS の頭に置く、画面の部品が使う組み込みの代わり（0195）。接続口の固めた実行環境（0005 の3）には、structuredClone が無く、
+ * まとめた JS の頭に置く、画面の部品が使う組み込みの代わり（0195）。Math.round・Math.pow は数字の根拠の JS（explain.js）にも置く
+ * （年金の見込みの世帯の月額の丸めに Math.round を使う。0199）。接続口の固めた実行環境（0005 の3）には、structuredClone が無く、
  * 結果がエンジンや OS で変わる Math の関数（round・pow など）は呼ぶとエラーになる。画面の部品はそれを使うので、まとめた JS の中だけで
  * 同じ名前を、OS に依らず同じ答えになる実装に置き換える（グローバルの組み込みは変えない）:
  * - Math.round: 仕様どおり（x − floor(x) は丸めずに出るので、0.5 以上なら切り上げ。負の数の 0 も仕様どおり）
@@ -48,7 +51,7 @@ function inputDigest(): string {
  *   四捨五入〔0 から遠い方〕・後ろの0を落とす・負の数は "-"）にする。数でない物は String（日時の文は画面だけで、プランを当てる道筋では使わない）
  * 残りの disabled な関数（sqrt・log など）はそのまま呼ぶとエラー（プランを当てる道筋では使わない。使えばテストで止まる）
  */
-export const PLAN_INTRO = `
+export const MATH_INTRO = `
 const Math = Object.create(globalThis.Math, {
   round: { value: (x) => { x = +x; const f = globalThis.Math.floor(x); const r = x - f >= 0.5 ? f + 1 : f; return r === 0 && (x < 0 || Object.is(x, -0)) ? -0 : r; } },
   pow: { value: (a, b) => {
@@ -59,6 +62,12 @@ const Math = Object.create(globalThis.Math, {
     return b < 0 ? 1 / out : out;
   } },
 });
+`;
+
+/**
+ * プランの動かす項目の JS の頭（MATH_INTRO に、structuredClone・数の toLocaleString・crypto.randomUUID・TextEncoder の代わりを足した物）
+ */
+export const PLAN_INTRO = `${MATH_INTRO}
 const structuredClone = (v) => {
   if (typeof v !== "object" || v === null) return v;
   if (Array.isArray(v)) return v.map(structuredClone);
@@ -197,12 +206,13 @@ async function bundle(entry: string, name: string, fileName: string, intro: stri
 export async function buildExplain(force = false): Promise<void> {
   const digest = inputDigest();
   const stamp = join(EXPLAIN_OUT, ".digest");
-  const outs = ["explain.js", "plan.js"].map((f) => join(EXPLAIN_OUT, f));
+  const outs = ["explain.js", "plan.js", "samples.json"].map((f) => join(EXPLAIN_OUT, f));
   if (!force && existsSync(stamp) && readFileSync(stamp, "utf8") === digest && outs.every((f) => existsSync(f))) return;
   rmSync(EXPLAIN_OUT, { recursive: true, force: true });
   mkdirSync(EXPLAIN_OUT, { recursive: true });
-  await bundle("explain.ts", "FinanciaExplain", "explain.js", undefined);
+  await bundle("explain.ts", "FinanciaExplain", "explain.js", MATH_INTRO);
   await bundle("plan.ts", "FinanciaPlan", "plan.js", PLAN_INTRO, [localeCalls()]);
+  writeFileSync(join(EXPLAIN_OUT, "samples.json"), `${JSON.stringify(connectorSamples(), null, 1)}\n`);
   writeFileSync(stamp, digest);
 }
 

@@ -11,7 +11,7 @@ AIのアプリ（Claude Code・Claude Desktop・Codex）が `lifeplan mcp` を�
 
 ```sh
 cd engine && npm ci && npm run build && cd ..   # 計算エンジンと制度データ・対応範囲の一覧（engine/dist）
-cd app && npm ci && npm run build:explain && cd ..   # 数字の根拠の読み方とプランの動かす項目（crates/lifeplan/dist/explain.js・plan.js。0183・0195）
+cd app && npm ci && npm run build:explain && cd ..   # 数字の根拠の読み方・プランの動かす項目・見本の名前と目印（crates/lifeplan/dist/explain.js・plan.js・samples.json。0183・0195・0199）
 cargo build --release -p lifeplan               # → target/release/lifeplan（Windows は lifeplan.exe）
 target/release/lifeplan --version
 ```
@@ -50,6 +50,7 @@ Claude Desktop は終了するときに設定ファイルを書き直すので�
 ```
 
 保存してから Claude Desktop を起動し、道具の一覧に `fprise-lifeplan` が出ることを確かめます。
+使い方の例（下の「使い方の例（プロンプト）」）は、Claude Desktop の接続口のプロンプトとして選べます。
 ワンクリックで入る拡張（MCPB）は、署名の回で用意します（0015 の10）。
 
 ## 4. Codex
@@ -66,22 +67,60 @@ args = ["mcp"]
 
 | 群 | 道具 | 使える条件 |
 |---|---|---|
-| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID（場所だけ違う項目は場所も）・今の値・範囲で。0195・0201）・`compare`（基本と最大8通りを1回で計算し、主な数字・基本との差・選んだ数字の系列を並べる。0198）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183）・`get_input_guide`（計算の入力の形の案内: 形の決まり・区分ごとの欄・必須・選べる値・例・計算できる最小の入力の例。0196）・`get_input_recipe`（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo・万一の想定の手本を、世帯に合わせた changes で。0196） | いつでも（アプリが起動していなくてよい。`list_plan_items`・`get_input_recipe`・`compare` の `share_id` は下の「世帯を扱う」と同じ条件） |
+| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧。アプリの見本の棚と同じ名前・目印で、目印で絞れる。0199）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID（場所だけ違う項目は場所も）・今の値・範囲で。0195・0201）・`compare`（基本と最大8通りを1回で計算し、主な数字・基本との差・選んだ数字の系列を並べる。0198）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183）・`get_input_guide`（計算の入力の形の案内: 形の決まり・区分ごとの欄・必須・選べる値・例・計算できる最小の入力の例。0196）・`get_input_recipe`（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo・万一の想定の手本を、世帯に合わせた changes で。0196） | いつでも（アプリが起動していなくてよい。`list_plan_items`・`get_input_recipe`・`compare` の `share_id` は下の「世帯を扱う」と同じ条件） |
 | 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value`・`list_plan_items`・`compare` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
 | 設定の候補を出す | `propose_feature_code`（FPが渡した「機能を有効にするコード」を、アプリの画面に承認待ちの候補として出す。コードは入らない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
 
 道具の名前と入出力は試験版です（予告して変えることがあります。0001・0015）。
 
-試しに、AIに次のように頼みます。
+### 頼み方の例
 
-- 「fprise-lifeplan の見本の世帯の一覧を見せて」
+AI に次のように頼みます（道具の名前は書かなくても、AI が選びます）。
+
+- 「この接続口で何ができる？例を見せて」
+- 「fprise-lifeplan の見本の世帯で、子育て中の世帯を見せて」（`list_sample_households` の `tags`）
 - 「salariedCoupleTwoKids で、物価上昇率を 1% にしたら老後の金融資産はどう変わる？」
 - 「salariedCoupleTwoKids で、働く最後の年齢を 60〜65歳で振ったら、金融資産がいちばん少ない年はどう変わる？」（`list_plan_items` → `calculate` の `plan_changes`）
-- 「salariedCoupleTwoKids で、働く最後の年齢を63歳にする・生活費を月25万円にする・NISA を月3万円にする、の3つを並べて」「dualNoKids と salariedCoupleTwoKids と single25 を比べて」（`compare`）
+- 「sampleSingle20s と sampleCoupleNoKids の、65歳・90歳の時点の資産を比べて」（`compare`）
+- 「salariedCoupleTwoKids で、働く最後の年齢を63歳にする・生活費を月25万円にする・NISA を月3万円にする、の3つを並べて」「sampleCoupleNoKids と salariedCoupleTwoKids と sampleSingle20s を比べて」（`compare`）
 - 「所得税の基礎控除の今の額と出典は？」
-- 「salariedCoupleTwoKids の2030年の税・社会保険料は、どんな計算で出ている？」（`explain_value`）
+- 「salariedCoupleTwoKids の2030年の税・社会保険料は、どんな計算で出ている？お客さまに分かる言葉で」（`explain_value`）
 - 「ファイナンシアに高額療養費は入っている？ iDeCo の受け取り方はどう計算している？」（`search_coverage`・`get_coverage`）
 - 「セミナー用に、35歳の会社員と扶養のパートの妻・3歳の子・賃貸の架空の世帯を作って、2028年に4,000万円の家を買ったら老後の資産はどうなるか計算して」（`get_input_guide`・`get_input_recipe`・`calculate`）
+
+ほかのライフプランソフトとの違いを聞いたとき、AI はファイナンシアの側を対応範囲の一覧と道具の答えで確かめた事実だけで答え、ほかのソフトのことは推測で断定しません（接続口の説明 INSTRUCTIONS に書いてあります。0199）。
+
+**お客さまの世帯の数字をブログ・セミナー・SNS に使うとき**（0199）: 接続口は止めませんが、AI が次の3つを一言添えます。FP も公開の前に確かめてください。
+
+1. 年齢・年収・資産の数字を丸める（例: 年齢は「30代」、年収は50万円単位）
+2. 家族構成と珍しい条件（職業・地域・珍しい制度）の組み合わせで人が分かりそうなら、変える
+3. お客さまに一言ことわる
+
+見本の世帯・架空の世帯の数字には要りません。
+
+### 使い方の例（プロンプト。0199）
+
+よくある頼み方を、MCP のプロンプトとして出しています。Claude Desktop など、プロンプトを扱える AI のアプリで一覧から選び、引数（世帯・場面など）を書くと、頼み方の文ができます。プロンプトを選んでも道具は呼ばれず、AI が文を読んで道具を使います。文の中の道具は、今ある道具だけです。
+
+| プロンプト | 名前 | 引数（* は必ず書く） |
+|---|---|---|
+| `what_can_you_do` | この接続口でできること | なし |
+| `compare_households` | 2つの世帯を比べる | `household_a`*・`household_b`*（見本の id か渡した世帯の share_id）・`focus`（比べたいこと） |
+| `compare_measures` | 対策をいくつか並べて比べる | `household`*・`measures`（並べたい対策。省くと AI が選ぶ）・`at_ages`（例「65・90」）・`market_stress`（相場が下がった場合も並べるか。`compare` の `market_stress`。0200） |
+| `make_seminar_household` | セミナー用の架空の世帯を作る | `profile`*（世帯の形）・`events`（起きること）・`output`（欲しい表） |
+| `prepare_meeting` | 面談の準備 | `household`（省くと渡されている世帯を確かめる）・`topic`（面談のテーマ） |
+| `explain_to_client` | 数字の根拠をお客さまに分かる言葉で説明する | `household`*・`number`*（例「2030年の税・社会保険料」） |
+| `check_coverage` | 制度や計算に入っているかを調べる | `topic`*（例「ふるさと納税」） |
+
+### 見本の世帯の一覧（0199）
+
+`list_sample_households` は、アプリの見本の棚と同じ見本を、棚と同じ名前・見本番号・目印で返します（既定で約 5.5KB）。目印は、家族の形（単身・夫婦のみ・夫婦と子・ひとり親・シニア）・年代・棚の絞り込みの項目（会社員・自営業・役員・年金生活・共働き・片働き・持ち家・賃貸・住宅ローン・教育費・資産運用・収益不動産・親の介護・相続など）と、そこから決まる場面の目印（子育て・シニア・合算BS）です。
+
+- `tags` で絞れます（どの目印にも当てはまる見本だけ。目印の一部でもよく、「介護」は「親の介護・相続」に当たります）。使える目印は答えの `tags` に出ます。
+- 家を買う・子が生まれるなどの場面は、近い見本に `get_input_recipe` の手本を重ねて作ります（見本の一覧に場面ごとの見本は持ちません）。
+- 棚に無いモデル世帯（`data/modelHouseholds` の、制度の計算を確かめるための世帯。表が2027年までの物が多い）は「開発の試験用」の目印で分け、既定では出しません。`include_test: true` か `tags: ["開発の試験用"]` で出ます。
+- 名前と目印は、アプリの見本の一覧（`app/src/workspace/catalog.ts`）と見本番号の読み方（`app/src/workspace/store/numbering.ts`）から `app/src/connector/samples.ts` が作り、`npm run build:explain` が `crates/lifeplan/dist/samples.json` にして接続口に埋め込みます。見本を足す・名前を変えると、接続口の一覧も一緒に変わります。
+- 合算BS の見本には「会社の数字は、アプリの画面でこの見本を開くと見られる」とだけ添えます（会社の数字は計算の入力ではないので、接続口では家計の側だけを計算します）。
 
 ### 計算の入力を組み立てる（0196）
 
@@ -93,17 +132,18 @@ args = ["mcp"]
 
 `calculate` の答えには、年ごとの数字のほかに次が付きます。
 
-- `keyFigures`（主な数字）: アプリの「プランを比べる」と同じ関数で数えた、`at_ages`（既定は95歳）の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りの合計・生涯の支出の合計・住宅ローンの返済の合計。
+- `keyFigures`（主な数字）: アプリの「プランを比べる」と同じ関数で数えた、`at_ages`（既定は95歳）の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りの合計・生涯の支出の合計・住宅ローンの返済の合計と、65歳からの年金の月額 `pension`（世帯の合計 `monthly`・受け取り開始からの月額 `claimedMonthly`・人ごと `people`。今の水準＝賃金・物価の伸びとマクロ経済スライドを外した額で、アプリの比較の表の年金の行と同じ。0200）。
+- 年ごとの数字・表の行・合計 `totals` は、アプリの画面の表に出す年からです（計算基準月が年の途中なら、数か月分しかない計算の最初の年は入れません。主な数字・数字の根拠と同じ。`totals.income − totals.taxSi` が生涯の手取りと同じになります。0200）。
 - `members` と年ごとの `ages`: 家族の年齢（アプリのキャッシュフロー表の年齢の行と同じ呼び方・同じ「世帯にいる年」）。
 - `protection`・`inheritanceTax`: 入力に必要保障額（`/protection`）・相続税の目安（`/inheritanceTax`。`points` に `now`・`bothAfter`・`contingency` を入れる）があれば、その答え（人に `self`・`spouse` などの鍵を添える）。
 
-答えは次で小さくできます（何も選ばなければ今までどおり）。比べる・振るときは主な数字だけを取ると、1通り 0.5KB ほどです。
+答えは次で小さくできます（何も選ばなければ今までどおり）。比べる・振るときは主な数字だけを取ると、1通り 0.7KB ほどです（年金の見込みは写しをもう1〜2回計算するので、要らなければ `omit` に `pension` を入れると速くなります）。
 
 | 選ぶ物 | 意味 |
 |---|---|
 | `every_years` | 何年おきの年だけ（1〜10。最初と最後の年はいつも入る） |
 | `fields` | summary の年ごとの数字を選ぶ（`income`・`taxSi`・`expense`・`net`・`financialAssets`・`debt`・`shortfall`） |
-| `omit` | 省く物（`notices`・`packs`・`totals`・`insurance`・`ages`・`years`・`keyFigures`・`protection`・`protectionDetail`・`inheritanceTax`） |
+| `omit` | 省く物（`notices`・`packs`・`totals`・`insurance`・`ages`・`years`・`keyFigures`・`protection`・`protectionDetail`・`inheritanceTax`・`pension`） |
 | `at_ages` | 主な数字の「○歳時点」の本人の年齢（5つまで） |
 
 `explain_value` も `omit`（`sources`＝出典の文・`params`＝使った制度の値・`message`＝読み方の案内）で小さくできます。出典は制度の値ID から `get_regulation_value` で引けます。
@@ -123,12 +163,14 @@ args = ["mcp"]
 
 「対策を3つ並べて」「この世帯とこの世帯を比べて」「物価 0%・1%・2% で並べて」のように何通りも並べるときは、`calculate` を何度も呼ばず `compare` を使います。
 
-- 基本の世帯（`sample_household_id`・`share_id`・`input` のどれか1つ）と、基本に当てる `changes`・`plan_changes`・`stress_test` を書き、`variants` に8通りまで並べます。
-- 世帯を書かない通りは基本に重ねます（基本の変更の後に、その通りの `plan_changes`・`changes` を当てる。`stress_test` は書けばその通りの物）。`sample_household_id`・`share_id`・`input` を書いた通りは、その世帯で計算します（見本の世帯どうし・渡された世帯どうしも並べられます）。
+- 基本の世帯（`sample_household_id`・`share_id`・`input` のどれか1つ）と、基本に当てる `changes`・`plan_changes`・`stress_test`（か `market_stress`）を書き、`variants` に8通りまで並べます。
+- 世帯を書かない通りは基本に重ねます（基本の変更の後に、その通りの `plan_changes`・`changes` を当てる。`stress_test`・`market_stress` はどちらかを書けばその通りの物、書かなければ基本の物）。`sample_household_id`・`share_id`・`input` を書いた通りは、その世帯で計算します（見本の世帯どうし・渡された世帯どうしも並べられます）。
 - 答えの `results` の1つ目が基本で、通りごとに主な数字 `keyFigures`（`calculate` と同じ。アプリの「プランを比べる」と同じ数え方）・基本との差 `diff`（この通り − 基本の円。資産が尽きる年は画面の比較の表と同じ文）・選んだ数字の年ごとの系列 `series`（`series` で選ぶ。既定は金融資産を5年ごと・家族の年齢つき。画面の表に出す年から）・当てたプランの変更 `planChanges` が出ます。
+- `market_stress` は、アプリの資産運用のタブの「相場が下がった場合」の型です: `drop`（退職の直後に株などが下がる）・`low`（取り崩しを始めてから、予定が無ければ退職から、しばらく利回りが低いまま）・`minus1`（利回りがずっと想定より1%低い）。画面と同じ関数で、プランの変更を当てた後に重ねます（`stress_test` とは1つの通りにどちらか1つ）。答えの `marketStress` に画面の文が出ます。頼み方の例: 「investmentCouple で、相場が下がった場合の3つを並べて」
+- 主な数字には65歳からの年金の月額が入り、`diff` に `pensionMonthly`・`pensionClaimedMonthly`（基本との月額の差）が出ます。
 - 形の違う通り・当てはまらない変更・読めない共有・計算できない入力・9通り目から後は、その通りだけ `status: "error"` と理由 `reason` を返し、ほかの通りは計算します。
 - 1通りの計算は `calculate` と同じ道（プランの変更 → 計算の前の処理 → 計算 → 主な数字）です。渡された世帯は `calculate` と同じくアプリ本体に頼み、読むたびに道具の名前 `compare` で「AIに渡した記録」に残ります（1回の呼び出しで同じ世帯は1回だけ読みます）。
-- 大きさと時間の目安（見本の世帯）: 基本＋3通りで約 7.6KB・0.4 秒、基本＋8通りで約 16KB・約1秒。`ages: false` で年齢を省くと1通り約 0.7KB 小さくなります。
+- 大きさと時間の目安（見本の世帯）: 基本＋3通りで約 9KB・0.7 秒、基本＋8通りで約 19KB・約 1.8 秒（年金の見込みを含む。0200）。`ages: false` で年齢を省くと1通り約 0.7KB 小さくなります。
 
 ### プランの動かす項目（画面と同じ。0195・0201）
 

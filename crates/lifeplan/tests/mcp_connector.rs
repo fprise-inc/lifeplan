@@ -196,9 +196,40 @@ async fn standalone_tools_work_without_the_app() {
         "{d}"
     );
 
-    let list = call_ok(&c, "list_sample_households", json!({})).await;
-    assert!(list["households"].as_array().unwrap().len() >= 40);
+    // 見本の世帯の一覧（0199）: 既定はアプリの見本の棚と同じ見本だけで、数KB。開発の試験用は include_test で出る
+    let (_, raw) = call(&c, "list_sample_households", json!({})).await;
+    assert!(raw.len() <= 8 * 1024, "{}", raw.len());
+    let list: Value = serde_json::from_str(&raw).unwrap();
+    let shelf = list["households"].as_array().unwrap();
+    assert!(shelf.len() >= 15 && shelf.len() < model_ids().len());
     assert!(list["notice"].as_str().unwrap().contains("架空"));
+    assert!(shelf.iter().all(|h| h["no"].is_string()
+        && h["tags"].as_array().is_some_and(|t| !t.is_empty())
+        && h["tags"] != json!(["開発の試験用"])));
+    let all = call_ok(
+        &c,
+        "list_sample_households",
+        json!({ "include_test": true }),
+    )
+    .await;
+    assert_eq!(
+        all["households"].as_array().unwrap().len(),
+        model_ids().len()
+    );
+    let kids = call_ok(
+        &c,
+        "list_sample_households",
+        json!({ "tags": ["子育て", "自営業"] }),
+    )
+    .await;
+    let kids: Vec<&str> = kids["households"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(kids, vec!["sampleSelfEmployedFamily"]);
+    check_schema_snapshot(&tools, "list_sample_households");
 
     let sample = call_ok(&c, "get_sample_household", json!({ "id": "single25" })).await;
     let input = sample["input"].clone();
@@ -212,7 +243,15 @@ async fn standalone_tools_work_without_the_app() {
     .await;
     let b = call_ok(&c, "calculate", json!({ "input": input })).await;
     assert_eq!(a["totals"], b["totals"]);
-    assert!(a["years"].as_array().unwrap().len() >= 2);
+    // single25 は表が 2027年まで。計算基準月が 2026-10 なので、年の途中の 2026年は画面の表と同じく出さない（0200）
+    let ys: Vec<i64> = a["years"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|y| y["year"].as_i64().unwrap())
+        .collect();
+    assert_eq!(ys, [2027]);
+    assert_eq!(a["keyFigures"]["years"]["from"], 2027);
     let higher = call_ok(
         &c,
         "calculate",
@@ -298,6 +337,180 @@ async fn standalone_tools_work_without_the_app() {
     let (err, msg) = call(&c, "list_shared_households", json!({})).await;
     assert!(err && msg.contains("アプリが起動していません"), "{msg}");
     assert!(call_ok(&c, "list_sample_households", json!({})).await["households"].is_array());
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 使い方の例（MCP のプロンプト。0199）: 一覧に出て、引数が文に入り、文の中の道具は今ある道具だけ
+#[tokio::test(flavor = "multi_thread")]
+async fn prompts_list_and_expand() {
+    use rmcp::model::GetPromptRequestParams;
+    let dir = temp_dir("prompts");
+    let (c, _) = connect(&dir).await;
+    assert!(c.peer_info().unwrap().capabilities.prompts.is_some());
+    let tools: Vec<String> = c
+        .list_all_tools()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|t| t.name.to_string())
+        .collect();
+    let prompts = c.list_all_prompts().await.unwrap();
+    let names: Vec<&str> = prompts.iter().map(|p| p.name.as_str()).collect();
+    for n in [
+        "what_can_you_do",
+        "compare_households",
+        "compare_measures",
+        "make_seminar_household",
+        "prepare_meeting",
+        "explain_to_client",
+        "check_coverage",
+    ] {
+        assert!(names.contains(&n), "{n} がありません: {names:?}");
+    }
+    for p in &prompts {
+        assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
+    }
+    let args_of = |name: &str| -> Vec<(String, bool)> {
+        let p = prompts.iter().find(|p| p.name == name).unwrap();
+        p.arguments
+            .iter()
+            .flatten()
+            .map(|a| (a.name.clone(), a.required.unwrap_or(false)))
+            .collect()
+    };
+    assert!(args_of("compare_households").contains(&("household_a".into(), true)));
+    assert!(args_of("compare_households").contains(&("focus".into(), false)));
+    assert!(args_of("compare_measures").contains(&("market_stress".into(), false)));
+    assert!(args_of("prepare_meeting").iter().all(|(_, req)| !req));
+    assert!(args_of("what_can_you_do").is_empty());
+
+    // 引数を入れて中身を取る（空の文字は書かなかったものとして扱う）
+    let cases: Vec<(&str, Value, Vec<&str>)> = vec![
+        ("what_can_you_do", json!({}), vec!["list_sample_households"]),
+        (
+            "compare_households",
+            json!({ "household_a": "sampleSingle20s", "household_b": "sampleCoupleNoKids", "focus": "65歳の時点の資産" }),
+            vec![
+                "sampleSingle20s",
+                "sampleCoupleNoKids",
+                "65歳の時点の資産",
+                "compare",
+                "variants",
+            ],
+        ),
+        (
+            "compare_measures",
+            json!({ "household": "salariedCoupleTwoKids", "measures": "65歳まで働く・NISA 月3万円", "at_ages": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "65歳まで働く・NISA 月3万円",
+                "65・90",
+                "list_plan_items",
+                "plan_changes",
+                "compare",
+                "market_stress",
+                "minus1",
+            ],
+        ),
+        (
+            "make_seminar_household",
+            json!({ "profile": "38歳の会社員と扶養のパートの妻・賃貸", "events": "2028年4月に4,000万円の家を買う" }),
+            vec![
+                "38歳の会社員と扶養のパートの妻・賃貸",
+                "2028年4月に4,000万円の家を買う",
+                "get_input_recipe",
+                "get_input_guide",
+                "架空",
+            ],
+        ),
+        (
+            "prepare_meeting",
+            json!({ "topic": "老後資金" }),
+            vec![
+                "老後資金",
+                "list_shared_households",
+                "preparation",
+                "keyFigures.pension",
+                "market_stress",
+            ],
+        ),
+        (
+            "explain_to_client",
+            json!({ "household": "salariedCoupleTwoKids", "number": "2030年の税・社会保険料" }),
+            vec![
+                "2030年の税・社会保険料",
+                "explain_value",
+                "get_regulation_value",
+            ],
+        ),
+        (
+            "check_coverage",
+            json!({ "topic": "ふるさと納税" }),
+            vec![
+                "ふるさと納税",
+                "search_coverage",
+                "get_coverage",
+                "要望・不具合を送る",
+            ],
+        ),
+    ];
+    // 道具の名前の形（英小文字と _）の言葉のうち、道具の引数・入力の鍵として書いた物
+    let not_tools = [
+        "sample_household_id",
+        "share_id",
+        "at_ages",
+        "every_years",
+        "plan_changes",
+        "market_stress",
+        "stress_test",
+    ];
+    for (name, args, wants) in cases {
+        let Value::Object(m) = args else { panic!() };
+        let r = c
+            .get_prompt(GetPromptRequestParams::new(name).with_arguments(m))
+            .await
+            .unwrap();
+        assert_eq!(r.messages.len(), 1, "{name}");
+        let text = r.messages[0].content.as_text().unwrap().text.clone();
+        for w in wants {
+            assert!(text.contains(w), "{name}: {w} がありません: {text}");
+        }
+        for w in text.split(|ch: char| !(ch.is_ascii_lowercase() || ch == '_')) {
+            if w.contains('_') && !w.starts_with('_') && !w.ends_with('_') {
+                assert!(
+                    tools.iter().any(|t| t == w) || not_tools.contains(&w),
+                    "{name}: {w} は今ある道具ではありません"
+                );
+            }
+        }
+        // 機能を有効にするコードの話は出さない
+        assert!(!text.contains("コード"), "{name}: {text}");
+    }
+    // 要る引数が無いときは失敗する
+    assert!(c
+        .get_prompt(
+            GetPromptRequestParams::new("compare_households")
+                .with_arguments(json!({ "household_a": "x" }).as_object().unwrap().clone())
+        )
+        .await
+        .is_err());
+    // 公開に使うときの案内と、ほかのソフトとの違いを推測で断定しないこと（INSTRUCTIONS）
+    let ins = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    for w in [
+        "ブログ・セミナー・SNS",
+        "年収は50万円単位",
+        "お客さまに一言ことわる",
+        "推測で断定しない",
+        "プロンプトの一覧",
+    ] {
+        assert!(ins.contains(w), "{w}");
+    }
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -681,6 +894,18 @@ async fn reduced_view_calculates_the_same_for_every_model_household() {
             let b: Value = serde_json::from_str(&sample.1).unwrap();
             assert_eq!(a["totals"], b["totals"], "{id}");
             assert_eq!(a["years"], b["years"], "{id}");
+            assert_eq!(a["keyFigures"], b["keyFigures"], "{id}");
+            // 年ごとの数字と合計は、主な数字と同じく画面の表に出す年から（計算基準月が年の途中なら、計算の最初の年を外す。0199）
+            let k = &b["keyFigures"];
+            assert_eq!(b["years"][0]["year"], k["years"]["from"], "{id}");
+            let t = &b["totals"];
+            let n = |v: &Value| v.as_i64().unwrap();
+            assert_eq!(
+                n(&t["income"]) - n(&t["taxSi"]),
+                n(&k["lifetimeTakeHome"]),
+                "{id}"
+            );
+            assert_eq!(n(&t["expense"]), n(&k["lifetimeExpense"]), "{id}");
         }
         reg.revoke(&g.share_id);
     }
@@ -1251,6 +1476,17 @@ async fn calculate_key_figures_match_the_screen() {
         ]
     );
     assert_eq!(small["keyFigures"]["assetsAtAge"][1]["age"], 90);
+    // 65歳からの年金の月額は既定で入り、omit の pension で省ける（写しの要求の計算もしない。0199）
+    assert!(small["keyFigures"]["pension"]["monthly"].is_number());
+    assert_eq!(small["keyFigures"]["pension"]["people"][0]["who"], "self");
+    let no_pension = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "omit": ["years", "pension"] }),
+    )
+    .await;
+    assert!(no_pension["keyFigures"].get("pension").is_none());
+    assert!(no_pension["keyFigures"]["depletion"].is_object());
 
     // 何年おき・どの数字だけ
     let five = call_ok(
@@ -2205,6 +2441,14 @@ async fn compare_matches_the_screen() {
             assert_eq!(r["label"], col["label"]);
             same_figures(&r["keyFigures"], &col["keyFigures"], &what);
             same_series(&r["series"], &col["financialAssets"], &what);
+            // 65歳からの年金の月額は、画面の比較の表の年金の行と同じ（0199）
+            let pension = &r["keyFigures"]["pension"];
+            assert_eq!(pension["monthly"], col["pension"]["std"], "{what}");
+            assert_eq!(
+                pension["claimedMonthly"], col["pension"]["claimed"],
+                "{what}"
+            );
+            assert_eq!(pension["anyClaim"], col["pension"]["anyClaim"], "{what}");
             if i == 0 {
                 assert!(r.get("diff").is_none());
                 continue;
@@ -2212,6 +2456,14 @@ async fn compare_matches_the_screen() {
             assert_eq!(r["from"], json!({ "onBase": true }));
             // 基本との差は画面の比較の表と同じ（資産が尽きる年の文）
             assert_eq!(r["diff"]["depletion"], case["depletionDiffs"][i], "{what}");
+            assert_eq!(
+                r["diff"]["pensionClaimedMonthly"].as_i64().unwrap(),
+                pension["claimedMonthly"].as_i64().unwrap()
+                    - results[0]["keyFigures"]["pension"]["claimedMonthly"]
+                        .as_i64()
+                        .unwrap(),
+                "{what}"
+            );
             let base = &results[0]["keyFigures"];
             for k in ["lifetimeTakeHome", "lifetimeExpense", "loanRepayment"] {
                 assert_eq!(
@@ -2251,6 +2503,67 @@ async fn compare_matches_the_screen() {
         );
     }
 
+    // 相場が下がった場合（画面の資産運用のタブの3つの型。0199）: 基本のプランの上に重ね、画面と同じ数字と型の文
+    for case in fx["market"].as_array().unwrap() {
+        let cols = case["columns"].as_array().unwrap();
+        let variants: Vec<Value> = cols[1..]
+            .iter()
+            .map(|c| json!({ "market_stress": c["key"] }))
+            .collect();
+        let got = call_ok(
+            &c,
+            "compare",
+            json!({ "sample_household_id": case["sample"], "plan_changes": case["changes"], "variants": variants, "every_years": 1 }),
+        )
+        .await;
+        for (r, col) in got["results"].as_array().unwrap().iter().zip(cols) {
+            let what = format!("{} {}", case["sample"], col["label"]);
+            assert_eq!(r["status"], "ok", "{what}: {r}");
+            same_figures(&r["keyFigures"], &col["keyFigures"], &what);
+            same_series(&r["series"], &col["financialAssets"], &what);
+            if col["key"].is_null() {
+                assert!(r.get("marketStress").is_none());
+            } else {
+                assert_eq!(
+                    r["marketStress"],
+                    json!({ "key": col["key"], "label": col["label"] }),
+                    "{what}"
+                );
+            }
+        }
+    }
+    // 型の誤り・エンジンの型と一緒の通りは、その通りだけ理由を返す
+    let got = call_ok(
+        &c,
+        "compare",
+        json!({ "sample_household_id": "investmentCouple", "market_stress": "drop", "variants": [
+            { "market_stress": "x" }, { "market_stress": "low", "stress_test": "rateRise" }, { "stress_test": "rateRise" }, { "label": "基本と同じ型" },
+        ] }),
+    )
+    .await;
+    let r = got["results"].as_array().unwrap();
+    assert!(
+        r[1]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("drop・low・minus1"),
+        "{}",
+        r[1]
+    );
+    assert!(
+        r[2]["reason"].as_str().unwrap().contains("どちらか1つ"),
+        "{}",
+        r[2]
+    );
+    // 通りにエンジンの型を書けば、基本の画面の型は重ねない。書かなければ基本の型
+    assert!(
+        r[3].get("marketStress").is_none() && r[3]["stressTest"] == "rateRise",
+        "{}",
+        r[3]
+    );
+    assert_eq!(r[4]["marketStress"]["key"], "drop");
+    assert_eq!(r[4]["keyFigures"], r[0]["keyFigures"]);
+
     // 見本の世帯どうし（別の世帯の通り）。既定の系列は5年ごと・年齢つき
     let samples = fx["samples"].as_array().unwrap();
     let variants: Vec<Value> = samples[1..]
@@ -2267,6 +2580,10 @@ async fn compare_matches_the_screen() {
         let what = s["sample"].as_str().unwrap();
         assert_eq!(r["status"], "ok", "{what}: {r}");
         same_figures(&r["keyFigures"], &s["keyFigures"], what);
+        assert_eq!(
+            r["keyFigures"]["pension"]["monthly"], s["pension"]["std"],
+            "{what}"
+        );
         assert_eq!(r["from"]["sampleHouseholdId"], s["sample"]);
         let series = r["series"].as_array().unwrap();
         let screen: Vec<i64> = s["financialAssets"]

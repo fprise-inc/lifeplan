@@ -365,7 +365,7 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
-      - name: 数字の根拠の読み方とプランの動かす項目をまとめる（外の部品が入ったら止める）
+      - name: 数字の根拠の読み方とプランの動かす項目をまとめ、見本の名前と目印を書き出す（外の部品が入ったら止める）
         run: npm run build:explain
       - uses: actions/upload-artifact@v4
         with:
@@ -373,6 +373,7 @@ jobs:
           path: |
             crates/lifeplan/dist/explain.js
             crates/lifeplan/dist/plan.js
+            crates/lifeplan/dist/samples.json
           if-no-files-found: error
 
   # Rust のホスト（quickjs-ng）のテストと、Node との一致テスト。Windows・macOS・Linux それぞれでビルドする（0005 の6）

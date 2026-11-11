@@ -414,11 +414,6 @@
   "screen": {
     "years": [
       {
-        "year": 2026,
-        "net": 503662,
-        "financialAssets": 9505974
-      },
-      {
         "year": 2027,
         "net": 181637,
         "financialAssets": 9697207
@@ -490,19 +485,14 @@
       }
     ],
     "totals": {
-      "income": 48959671,
-      "taxSi": 7279409,
-      "expense": 51953571,
-      "net": -10273309
+      "income": 47592013,
+      "taxSi": 7015413,
+      "expense": 51353571,
+      "net": -10776971
     }
   },
   "screenWithoutOffice": {
     "years": [
-      {
-        "year": 2026,
-        "net": 503662,
-        "financialAssets": 9505974
-      },
       {
         "year": 2027,
         "net": 181637,
@@ -575,10 +565,10 @@
       }
     ],
     "totals": {
-      "income": 48959671,
-      "taxSi": 7279409,
-      "expense": 49761465,
-      "net": -8081203
+      "income": 47592013,
+      "taxSi": 7015413,
+      "expense": 49161465,
+      "net": -8584865
     }
   },
   "evidence": [
