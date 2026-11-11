@@ -43,7 +43,7 @@ entries:
       - cf.balance.account.childNisa
       - cf.balance.nisaFrame
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
       account.contribution: 2
     related:
       - investment.taxableAccountTax
@@ -233,7 +233,7 @@ entries:
       - 「貯蓄・運用」の入力項目の「利回りの変化」
     rows: [cf.balance.return]
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
       account.ideco: 7
     related:
       - basics.financialAssets
@@ -275,7 +275,7 @@ entries:
       - 「貯蓄・運用」の入力項目の「引き出せない期間の終わり」
     rows: [cf.transfer.withdrawal, cf.expense.living.drawdown, cf.balance.shortfall]
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
     related:
       - basics.shortfall
       - investment.taxableAccountTax
@@ -307,7 +307,7 @@ entries:
       - incomeTax.defenseSurtax.rate
     rows: [cf.taxSi.incomeTax.capitalGains, cf.taxSi.residentTax.capitalGains, cf.balance.account.taxable, cf.transfer.investment]
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
     related:
       - investment.withdrawalOrder
       - investment.nisa
@@ -339,7 +339,7 @@ entries:
       - cf.taxSi.incomeTax.cryptoAsset
       - cf.taxSi.residentTax.cryptoAsset
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
     related:
       - investment.withdrawalOrder
 
@@ -358,6 +358,6 @@ entries:
     items: [account.kind, account.assetMix, account.expectedReturn, assumptions.depositReturn, assumptions.assetReturns]
     rows: [cf.balance.account.fxDeposit, cf.transfer.savings.deposit]
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
     related:
       - investment.returnSettings

@@ -94,7 +94,7 @@ entries:
       - "「前提条件」の入力項目の「計算の決まり: 運用益の数え方」"
     rows: [cf.net, cf.balance.return, cf.balance.financial, cf.balance.account]
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
       plan.flows: 15
     related:
       - basics.shortfall
@@ -117,7 +117,7 @@ entries:
       - 「貯蓄・運用」の入力項目の「お金の行き先」の「預金に残しておく額」
     rows: [cf.balance.shortfall, cf.transfer.withdrawal]
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
     related:
       - investment.withdrawalOrder
       - basics.financialAssets
@@ -175,7 +175,7 @@ entries:
     items: [assumptions.marketShocks, assumptions.returnShifts, assumptions.inflation, assumptions.loanRateShifts, assumptions.incomeShocks]
     rows: [cf.balance.financial, cf.balance.return]
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
       account.ideco: 7
       income.salary: 8
       income.business: 4

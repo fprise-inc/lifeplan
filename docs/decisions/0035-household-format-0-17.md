@@ -180,7 +180,7 @@
   - FP顧問料の単発の料金と改定の段 `advisoryFees[].terms.oneTime[]`・`terms.recurring.revision.steps[]`
   - 前提の列 `assumptions.marketShocks[]`・`loanRateShifts[]`・`incomeShocks[]`・`returnShifts[]`・`surplusSaving.changes[]`
   - 世帯の外の家族の家計を1つにする期間（4）、これから足す段階・例外の年・お金の行の中の並び（7）
-- ID を持たないままにする並び（物の一部の数の組で、1件ずつ足す・外すことが無い）: 資産の配分 `assetMix`・`investment.allocation.mix`、債務者 `debtors`、持分 `ownership`、受取人 `beneficiaries`、数表の行 `schedule.rows`、加入歴 `pensionRecord.history`、旧NISA の年ごとの残高 `lots`。これらは入力項目の値の全体を差分の1件で変える（0036 の2）。
+- ID を持たないままにする並び（物の一部の数の組で、1件ずつ足す・外すことが無い）: 資産の配分 `assetMix`・`investment.allocation.mix`、債務者 `debtors`、持分 `ownership`、受取人 `beneficiaries`、数表の行 `schedule.rows`、加入歴 `pensionRecord.history`、旧NISA の年ごとの残高 `lots`。これらは入力項目の値の全体を差分の1件で変える（0036 の2）。（2026-11-11 に、器の資産の配分 `assetMix`（器の利回りの段階の中も）と旧NISA の年ごとの残高 `lots`、借り換え `refinance` とその金利の段は要素の ID を持つことにした。形式 0.76。0206）
 - 新しく足す要素の ID は乱数（0004 の4）。0.17 の段で古い要素に振る ID は、段を純粋な関数のまま保つため、場所から決まった作り方で作る（10 の1）。
 - **関係を期間で持つ**: 同じ2人の配偶者の関係（`type: spouse`）を、期間（`from`・`to`）を分けて複数持てる（例: 事実婚 → 入籍）。期間は重ならない。関係の形は今のまま（`marriage`・`from`・`to`）で、要素の ID を足すだけ。エンジンが同じ2人の2本の関係を期間どおりに読むことを 0.17 の回にテストで確かめ、読めなければ直す。
 
@@ -439,3 +439,4 @@ entries:
 - 2026-11-01（子の奨学金の種類。0104 の追記）: 形式の版を 0.49 にした（子の貸与の奨学金の種類 `type` を足す。仮の印の新しい欄は作らない）。
 - 2026-11-03（人の属性で推定の数字を分けない。0118）: 2 の表の「表示だけの欄」の退職給付の学歴（`retirementBenefit.education`）は使わない欄にした（形式 0.58 の変換の段が外す。スキーマには残し、登録簿で `deprecated`）。8 の開いたときの知らせに `neutralEstimates`（直した数 `count`・プランの差分を変えた数 `plans`・入れ直す推定の数 `estimates`）を足した。
 - 2026-11-07（4 の計算の決まりの追記の訂正。0135 の1）: 2026-10-27 の追記の「介護の費用（`care.expense`。亡くなる見込みの月から出さない）は、もともと亡くなる見込みで止まっていた」は誤りで、`care.expense` は介護を受ける人の亡くなる見込みを見ていなかった。改訂5 で、介護を受ける人の亡くなる見込みの月から出さないようにした。
+- 2026-11-11（ID を持たなかった並びの要素の ID。0206）: 5 の「ID を持たないままにする並び」のうち、器の資産の配分の行 `accounts[].assetMix[]`（器の利回りの段階 `returnStages[].assetMix[]` の中も）と旧NISA の買付の年ごとの内訳 `accounts[].lots[]` を、ID を持つ並びにした。借り換え `debts[].refinance[]` とその新しい金利の段 `refinance[].rateSchedule[]` も ID を持つ。入力の画面と動かす項目が行ごとにできていて、AI接続口の場所 `at` で渡された世帯の行を指すため。形式の版を 0.76 にし、変換の段は、画面がその要素を指していた決まった ID（10 の1 の作り方）と同じ ID を振る（保存した差分・値の状態の欄は書き換えない）。数表の行・債務者・持分・受取人・加入歴・資産配分の段階の配分の行は今のまま。

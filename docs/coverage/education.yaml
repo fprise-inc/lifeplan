@@ -208,7 +208,7 @@ entries:
     rows: [cf.income.other.scholarship, cf.expense.debt.scholarship, cf.balance.debt.other]
     components:
       education.cost: 10
-      debt.schedule: 9
+      debt.schedule: 10
     related: [education.university]
 
   - id: education.schoolLunch

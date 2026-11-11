@@ -207,6 +207,10 @@ export function matchItems(d: Pick<ProposedChange, "target" | "item" | "at" | "l
   return found.filter((it, i) => found.findIndex((x) => placeOf(x) === placeOf(it)) === i);
 }
 
+/** 当てはまる動かす項目が1つに決まらない候補の理由（count は matchItems の数。接続口の感度・境目探しの振る項目も同じ文。0204） */
+export const unmatchedReason = (count: number): string =>
+  count === 0 ? "「結果」の画面のプランでは動かせない項目です（取り込みません。必要なら入力で直してください）" : "対応する欄が複数あるため、取り込みません";
+
 /** 候補の変更を、主画面の動かす項目に当てはめる（当てはまらないものは理由つきで返す） */
 export function candidateRows(c: { diffs: readonly ProposedChange[] }, wh: WorkingHousehold, cat: Catalog): CandidateRow[] {
   return c.diffs.map((d) => {
@@ -214,7 +218,7 @@ export function candidateRows(c: { diffs: readonly ProposedChange[] }, wh: Worki
     const placed = d.at !== undefined || d.lever !== undefined;
     const base = { diffId: d.id, note: d.note, place: placed && matches.length === 1 ? placeText(matches[0] as MovableItem) : null };
     if (matches.length !== 1) {
-      return { ...base, label: itemName(d.item), from: "—", to: short(unbox(d.value)), key: null, value: null, reason: matches.length === 0 ? "「結果」の画面のプランでは動かせない項目です（取り込みません。必要なら入力で直してください）" : "対応する欄が複数あるため、取り込みません" };
+      return { ...base, label: itemName(d.item), from: "—", to: short(unbox(d.value)), key: null, value: null, reason: unmatchedReason(matches.length) };
     }
     const it = matches[0] as MovableItem;
     const v = coerce(it, d.value);

@@ -883,7 +883,7 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["assetClass", "share"],
-            "properties": { "assetClass": { "$ref": "#/$defs/assetClass" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+            "properties": { "id": { "description": "0206: 要素の ID（プランの差分・値の状態の欄・AI接続口の場所 at が1件ずつ指す。0035 の5 の並びの要素の ID と同じ）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "assetClass": { "$ref": "#/$defs/assetClass" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
           }
         },
         "settlement": { "title": "決済口座（年の収支が入り、赤字のとき取り崩しで補う口座。省略は最初の預金）", "x-item": "account.settlement", "type": "boolean" },
@@ -927,6 +927,7 @@
             "additionalProperties": false,
             "required": ["vintageYear", "regime", "costBasis", "marketValue"],
             "properties": {
+              "id": { "description": "0206: 要素の ID（プランの差分・値の状態の欄・AI接続口の場所 at が1件ずつ指す。0035 の5 の並びの要素の ID と同じ）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "vintageYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
               "regime": { "enum": ["general", "tsumitate", "junior"] },
               "costBasis": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
@@ -1244,6 +1245,7 @@
             "additionalProperties": false,
             "required": ["at", "rateSchedule", "termMonths"],
             "properties": {
+              "id": { "description": "0206: 要素の ID（プランの差分・値の状態の欄・AI接続口の場所 at が1件ずつ指す。0035 の5 の並びの要素の ID と同じ）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
               "rateSchedule": { "$ref": "#/$defs/debt/properties/rateSchedule" },
               "termMonths": { "type": "integer", "minimum": 1, "maximum": 600 },
@@ -1863,7 +1865,7 @@
         "type": "object",
         "additionalProperties": false,
         "required": ["assetClass", "share"],
-        "properties": { "assetClass": { "$ref": "#/$defs/assetClass" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+        "properties": { "id": { "description": "0206: 要素の ID（プランの差分・値の状態の欄・AI接続口の場所 at が1件ずつ指す。0035 の5 の並びの要素の ID と同じ）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "assetClass": { "$ref": "#/$defs/assetClass" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
       }
     },
     "rampYears": {
