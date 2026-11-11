@@ -13,11 +13,6 @@
       "screen": {
         "years": [
           {
-            "year": 2026,
-            "net": 623302,
-            "financialAssets": 11049526
-          },
-          {
             "year": 2027,
             "net": 748899,
             "financialAssets": 11907900
@@ -294,10 +289,10 @@
           }
         ],
         "totals": {
-          "income": 319003432,
-          "taxSi": 50392839,
-          "expense": 297680228,
-          "net": -29069635
+          "income": 316243423,
+          "taxSi": 49823488,
+          "expense": 296112872,
+          "net": -29692937
         }
       },
       "evidence": {
@@ -343,11 +338,6 @@
       ],
       "screen": {
         "years": [
-          {
-            "year": 2026,
-            "net": 683302,
-            "financialAssets": 11109826
-          },
           {
             "year": 2027,
             "net": 991299,
@@ -625,10 +615,10 @@
           }
         ],
         "totals": {
-          "income": 314087571,
-          "taxSi": 51931609,
-          "expense": 283010460,
-          "net": -20854498
+          "income": 311327562,
+          "taxSi": 51362258,
+          "expense": 281503104,
+          "net": -21537800
         }
       }
     },
@@ -660,11 +650,6 @@
       ],
       "screen": {
         "years": [
-          {
-            "year": 2026,
-            "net": -2055991,
-            "financialAssets": 8369898
-          },
           {
             "year": 2027,
             "net": 2052307,
@@ -942,10 +927,10 @@
           }
         ],
         "totals": {
-          "income": 350210689,
-          "taxSi": 61043714,
-          "expense": 297716945,
-          "net": -8549970
+          "income": 346950683,
+          "taxSi": 60295073,
+          "expense": 293149589,
+          "net": -6493979
         }
       }
     },
@@ -961,11 +946,6 @@
       ],
       "screen": {
         "years": [
-          {
-            "year": 2026,
-            "net": 314216,
-            "financialAssets": 10831944
-          },
           {
             "year": 2027,
             "net": 776660,
@@ -1228,10 +1208,10 @@
           }
         ],
         "totals": {
-          "income": 331240517,
-          "taxSi": 94829387,
-          "expense": 292824622,
-          "net": -56413492
+          "income": 329055514,
+          "taxSi": 94258399,
+          "expense": 291524823,
+          "net": -56727708
         }
       }
     },
@@ -1247,11 +1227,6 @@
       ],
       "screen": {
         "years": [
-          {
-            "year": 2026,
-            "net": 2314026,
-            "financialAssets": 7847311
-          },
           {
             "year": 2027,
             "net": 7160168,
@@ -1349,10 +1324,10 @@
           }
         ],
         "totals": {
-          "income": 312898579,
-          "taxSi": 75212294,
-          "expense": 96301789,
-          "net": 141384496
+          "income": 308593567,
+          "taxSi": 74294012,
+          "expense": 95229085,
+          "net": 139070470
         }
       }
     },
@@ -1369,21 +1344,16 @@
       "screen": {
         "years": [
           {
-            "year": 2026,
-            "net": 1980593,
-            "financialAssets": 16984590
-          },
-          {
             "year": 2027,
             "net": 3141145,
             "financialAssets": 20144290
           }
         ],
         "totals": {
-          "income": 7016500,
-          "taxSi": 1894762,
+          "income": 4366500,
+          "taxSi": 1225355,
           "expense": 0,
-          "net": 5121738
+          "net": 3141145
         }
       }
     }
@@ -1400,11 +1370,6 @@
     "retireAge": 65,
     "screen": {
       "years": [
-        {
-          "year": 2026,
-          "net": 623302,
-          "financialAssets": 11049526
-        },
         {
           "year": 2027,
           "net": 748899,
@@ -1682,10 +1647,10 @@
         }
       ],
       "totals": {
-        "income": 322022195,
-        "taxSi": 50604411,
-        "expense": 298115155,
-        "net": -26697371
+        "income": 319262186,
+        "taxSi": 50035060,
+        "expense": 296547799,
+        "net": -27320673
       }
     }
   }

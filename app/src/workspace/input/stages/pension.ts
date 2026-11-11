@@ -11,8 +11,9 @@ import { ageSwitchMonth } from "../../timepoint.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { formatYearMonth } from "../units.ts";
 import { sameWhen } from "../when.ts";
+import { claimMonth, modeOf, pensionMembers, type PensionMode } from "../pensionLines.ts";
 import { estimatedBox, mutate, newId, periodsOf, standardBox, type WorkingHousehold } from "../household.ts";
-import { DOCUMENT_KINDS, earners, EMPLOYMENT_TYPES, HISTORY_CATEGORIES, memberLabel, PENSION_MODES } from "../labels.ts";
+import { DOCUMENT_KINDS, EMPLOYMENT_TYPES, HISTORY_CATEGORIES, memberLabel, PENSION_MODES } from "../labels.ts";
 import { incomeGroups, moneySections } from "../moneyRows.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { putRow, type StateRow } from "../rows.ts";
@@ -40,10 +41,9 @@ const isUnentered = (b: PensionAmount | undefined) => b !== undefined && b.state
 
 // ---- 入れ方の区分（推計／書類から／加入歴から） ----
 
-export type PensionMode = "" | "document" | "history";
-
-/** 記録の入れ方の区分（記録が無ければ推計） */
-export const modeOf = (rec: PensionRecord | undefined): PensionMode => (rec === undefined ? "" : rec.kind === "history" ? "history" : "document");
+// 区分（modeOf・PensionMode）・受け取り開始の月（claimMonth）・年金のカードに出す人（pensionMembers）は、AI接続口に同梱する年金の見込みの
+// 数え方と同じ物を使うため ../pensionLines.ts に移した（同じ名前で出し直す）
+export { claimMonth, modeOf, pensionMembers, type PensionMode } from "../pensionLines.ts";
 const modeOfKind = (kind: string): PensionMode => (kind === "" ? "" : kind === "history" ? "history" : "document");
 
 /** 書類からを選んだときの書類の種類の既定（年齢から: 65歳以上は改定通知書、50歳以上は定期便の50歳以上、それより下は定期便の50歳未満） */
@@ -239,8 +239,7 @@ export function pensionNotices(wh: WorkingHousehold): string[] {
 
 // ---- 受け取り開始 ----
 
-/** 受け取り開始の月 ↔ 年齢（その年齢に達した月の翌月から。0003・年金の決まり） */
-export const claimMonth = (m: Member, age: number): string => addMonths(ageReachedMonth(m, age), 1);
+/** 受け取り開始の月 → 年齢（その年齢に達した月の翌月から。0003・年金の決まり。年齢 → 月は claimMonth） */
 const claimAge = (m: Member, at: string) => ageAt(m, addMonths(at, -1));
 
 /**
@@ -905,8 +904,6 @@ function receivingSection(wh: WorkingHousehold): SectionDef {
 
 // ---- カード ----
 
-/** 年金のカードに出す人（本人・配偶者。世帯の外の家族の年金は介護・親の項目） */
-export const pensionMembers = (h: Household): Member[] => earners(h).filter((m) => (m.kind === "self" || m.kind === "spouse") && m.expected !== true && m.outside === undefined);
 
 export function pensionStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;

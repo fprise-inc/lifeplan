@@ -133,7 +133,12 @@ async fn guide_skeleton_and_recipes_build_a_household_from_scratch() {
     assert!(g["rules"].as_array().unwrap().len() >= 5);
     assert_eq!(g["freshIds"].as_array().unwrap().len(), 8);
     let skeleton = g["skeleton"].clone();
-    let base = call_ok(&c, "calculate", json!({ "input": skeleton })).await;
+    let base = call_ok(
+        &c,
+        "calculate",
+        json!({ "input": skeleton, "omit": ["pension"] }),
+    )
+    .await;
     assert!(base["years"].as_array().unwrap().len() > 40);
 
     // 区分ごとの説明（短く、例つき）
@@ -214,13 +219,13 @@ async fn guide_skeleton_and_recipes_build_a_household_from_scratch() {
         let alone = call(
             &c,
             "calculate",
-            json!({ "input": input, "changes": r["changes"] }),
+            json!({ "input": input, "changes": r["changes"], "omit": ["pension"] }),
         )
         .await;
         assert!(!alone.0, "{recipe}: {}", alone.1);
         input = r["input"].clone();
     }
-    let all = call_ok(&c, "calculate", json!({ "input": input, "output": "table", "rows": ["cf.expense.housing.purchase", "cf.expense.education", "cf.income.benefit.childAllowance", "cf.expense.housing.loan.prepayment", "cf.transfer.ideco", "cf.income.pension.survivor"] })).await;
+    let all = call_ok(&c, "calculate", json!({ "input": input, "omit": ["pension"], "output": "table", "rows": ["cf.expense.housing.purchase", "cf.expense.education", "cf.income.benefit.childAllowance", "cf.expense.housing.loan.prepayment", "cf.transfer.ideco", "cf.income.pension.survivor"] })).await;
     let rows: Vec<&str> = all["table"]
         .as_array()
         .unwrap()
@@ -340,7 +345,7 @@ async fn every_recipe_calculates_on_every_model_household() {
                 continue;
             }
             let r: Value = serde_json::from_str(&text).unwrap();
-            let (err, out) = call(&c, "calculate", json!({ "sample_household_id": id, "changes": r["changes"], "from_year": 2030, "to_year": 2030 })).await;
+            let (err, out) = call(&c, "calculate", json!({ "sample_household_id": id, "changes": r["changes"], "from_year": 2030, "to_year": 2030, "omit": ["pension"] })).await;
             assert!(!err, "{recipe} × {id}: {out}");
             applied += 1;
         }
@@ -386,7 +391,7 @@ async fn recipe_for_a_shared_household() {
         .unwrap();
     let r = call_ok(&c, "get_input_recipe", json!({ "recipe": "prepayment", "share_id": g.share_id, "params": { "amount": 2_000_000 } })).await;
     assert_eq!(r["shareId"], g.share_id.as_str());
-    let out = call_ok(&c, "calculate", json!({ "share_id": g.share_id, "changes": r["changes"], "output": "table", "rows": ["cf.expense.housing.loan.prepayment"] })).await;
+    let out = call_ok(&c, "calculate", json!({ "share_id": g.share_id, "changes": r["changes"], "omit": ["pension"], "output": "table", "rows": ["cf.expense.housing.loan.prepayment"] })).await;
     let total: i64 = out["table"]
         .as_array()
         .unwrap()

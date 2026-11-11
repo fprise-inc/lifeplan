@@ -301,6 +301,106 @@ describe("介護の始まりの推定の印", () => {
   });
 });
 
+describe("推定のままの介護の始まりは元の値についてくる", () => {
+  const careOf = (wh: WorkingHousehold, id: string) => wh.request.input.household.careExpenses!.find((x) => x.id === id)!;
+  const parentOf = (wh: WorkingHousehold) => wh.request.input.household.members.find((m) => m.kind === "parent")!;
+  const deathField = (wh: WorkingHousehold) => allFields(buildStage("care", wh)).find((x) => x.key === `family/${parentOf(wh).id}/leaves`)!;
+  /** 親の亡くなる見込みを、今の見込みの years 年後に直す（介護・親の項目の亡くなる見込みの欄） */
+  const moveDeath = (wh: WorkingHousehold, years: number) => {
+    const p = parentOf(wh);
+    const age = p.leaves!.memberAge!.years;
+    return deathField(wh).time!.setWhen(wh, { memberAge: { member: p.id, years: age + years } }, "auto");
+  };
+
+  it("亡くなる見込みを直すと、推定のままの始まりは新しい亡くなる見込みから作り直す（推定の印のまま。根拠の短い文も同じ）", () => {
+    const { wh, id } = withCare();
+    const was = careOf(wh, id).from;
+    const w1 = moveDeath(wh, 3);
+    const now = careOf(w1, id).from;
+    const p = parentOf(w1);
+    expect(now).toEqual(careTemplateStart(w1.request.input.household, p, BASE).from);
+    expect(now.memberAge!.years * 12 + (now.memberAge!.months ?? 0)).toBe(was.memberAge!.years * 12 + (was.memberAge!.months ?? 0) + 36);
+    const f = careField(w1, id, "from");
+    expect(fieldStatus(f, w1).status).toBe("estimated");
+    expect(w1.assumed[`ev/care/${id}/from`]).toBe(wh.assumed[`ev/care/${id}/from`]);
+    expect(fieldHtml(w1, f)).toContain(">亡くなる見込みから統計の平均の期間を逆算</span>");
+  });
+
+  it("亡くなる見込みが近くなって統計の平均の期間より短くなれば「来月から」に作り直す（根拠も直す）", () => {
+    const { wh, id } = withCare();
+    const p = parentOf(wh);
+    const w1 = deathField(wh).time!.setWhen(wh, { at: "2027-04" }, "auto");
+    expect(careOf(w1, id).from).toEqual({ at: "2026-11" });
+    expect(w1.assumed[`ev/care/${id}/from`]).toMatch(/^推定（亡くなる見込みまでが統計の平均より短く、来月から。/);
+    expect(careOf(w1, id).member).toBe(p.id);
+  });
+
+  it("FP が入れた始まり・「この値にする」で確定にした始まりは、亡くなる見込みを直しても動かさない", () => {
+    const { wh, id } = withCare();
+    const f = careField(wh, id, "from");
+    const typed = f.time!.setWhen(wh, { at: "2040-04" }, "auto");
+    expect(careOf(moveDeath(typed, 3), id).from).toEqual({ at: "2040-04" });
+    const confirmed = applyStateOp(wh, f, "confirm");
+    expect(careOf(moveDeath(confirmed, 3), id).from).toEqual(careOf(wh, id).from);
+    expect(moveDeath(confirmed, 3).assumed[`ev/care/${id}/from`]).toBeUndefined();
+  });
+
+  it("作り方の分からない印（ヒアリングシートの仮の値）の始まりは動かさない", () => {
+    const { wh, id } = withCare();
+    const hearing = { ...wh, assumed: { ...wh.assumed, [`ev/care/${id}/from`]: "仮の値（介護が始まっている。始まった年月はシートでお聞きしていません）" } };
+    const w1 = moveDeath(hearing, 3);
+    expect(careOf(w1, id).from).toEqual(careOf(wh, id).from);
+    expect(w1.assumed[`ev/care/${id}/from`]).toBe(hearing.assumed[`ev/care/${id}/from`]);
+  });
+
+  it("次の段階の始まりは、前の段階の期間・始まりを直すとついてくる。亡くなる見込みで前の段階が動けば、続けてついてくる", () => {
+    const { wh, id } = withCare();
+    const w0 = actionOf(wh, "care", `ev/care/${id}/nextStage`).run(wh);
+    const nextId = w0.request.input.household.careExpenses!.find((x) => x.id !== id)!.id;
+    const key = `ev/care/${nextId}/from`;
+    // 前の段階の期間を入れる: その期間だけずらした月に（根拠も入れた期間に）
+    const w1 = careField(w0, id, "months").set(w0, 24);
+    const first = careOf(w1, id).from.memberAge!;
+    const second = careOf(w1, nextId).from.memberAge!;
+    expect(second.years * 12 + (second.months ?? 0)).toBe(first.years * 12 + (first.months ?? 0) + 24);
+    expect(w1.assumed[key]).toBe("推定（前の段階の終わりの翌月。前の段階の始まりに、その期間（24か月）を足しています）");
+    // 亡くなる見込みを3年後に: 前の段階（推定のまま）が動き、次の段階も続けて動く
+    const w2 = moveDeath(w1, 3);
+    const s2 = careOf(w2, nextId).from.memberAge!;
+    expect(s2.years * 12 + (s2.months ?? 0)).toBe(second.years * 12 + (second.months ?? 0) + 36);
+    // 前の段階の始まりを FP が入れたら、次の段階はその始まりについてくる（前の段階は確定）
+    const w3 = careField(w2, id, "from").time!.setWhen(w2, { at: "2045-04" }, "auto");
+    expect(w3.assumed[`ev/care/${id}/from`]).toBeUndefined();
+    expect(careOf(w3, nextId).from).toEqual({ at: "2047-04" });
+    expect(fieldStatus(careField(w3, nextId, "from"), w3).status).toBe("estimated");
+    // 次の段階の始まりを FP が入れたら、前の段階を直しても動かさない
+    const w4 = careField(w3, nextId, "from").time!.setWhen(w3, { at: "2050-01" }, "auto");
+    const w5 = careField(w4, id, "months").set(w4, 36);
+    expect(careOf(w5, nextId).from).toEqual({ at: "2050-01" });
+  });
+
+  it("ご本人の介護の推定の始まりは、家族の項目で生年月を直すと（亡くなる見込みの推定が変わるので）ついてくる", () => {
+    let wh = blankHousehold(BASE, seq());
+    const self = wh.request.input.household.members[0]!;
+    wh = actionOf(wh, "care", "care/fillAdults").run(wh);
+    const id = wh.request.input.household.careExpenses![0]!.id;
+    const was = careOf(wh, id).from;
+    const birth = allFields(buildStage("family", wh)).find((x) => x.key === `family/${self.id}/birth`)!;
+    const w1 = birth.set(wh, "1961-06");
+    const m = w1.request.input.household.members[0]!;
+    expect(careOf(w1, id).from).toEqual(careTemplateStart(w1.request.input.household, m, BASE).from);
+    expect(careOf(w1, id).from).not.toEqual(was);
+    expect(w1.assumed[`ev/care/${id}/from`]).toMatch(/^推定（/);
+  });
+
+  it("元の値に関係しない欄を直しても、始まりは同じ（世帯の中の介護の物も同じ物のまま）", () => {
+    const { wh, id } = withCare();
+    const w1 = careField(wh, id, "place").set(wh, "facility");
+    expect(careOf(w1, id).from).toEqual(careOf(wh, id).from);
+    expect(w1.assumed).toEqual(wh.assumed);
+  });
+});
+
 describe("選ぶ欄の空の選択肢（iDeCo・企業型DC の受け取り方）", () => {
   it("空欄は「（推定: 一時金）」（エンジンは受け取り方が空なら一時金で計算する）", () => {
     const src = readFileSync(join(REPO_DIR, "engine", "src", "components", "account.idecoPayout", "index.ts"), "utf8");

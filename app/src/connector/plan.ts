@@ -14,6 +14,7 @@
 import type { EngineRequest } from "../engine/types.ts";
 import { demoHousehold } from "../workspace/catalog.ts";
 import { fromRequest, type PostRetirement, type WorkingHousehold } from "../workspace/input/household.ts";
+import { STRESS_KEYS, stressLabel, stressRequests, type StressKey } from "../workspace/invest/present.ts";
 import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
 import { candidateRows, candidateTargetOf, candidateValues, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
 import { buildCatalog, type Catalog, type ItemValue, type MovableItem } from "../workspace/plans/items.ts";
@@ -163,3 +164,17 @@ export function applyPlan(reqJson: string, changesJson: string, ctxJson: string)
   return JSON.stringify({ status: "ok", request: { ...req, input: applied.input }, changes: out });
 }
 
+
+/**
+ * 画面の資産運用のタブの「相場が下がった場合」（invest/present.ts の stressRequests・stressLabel。0026）の型を、計算の要求に重ねる（0199）。
+ * 画面と同じく、プランを当てた後の要求に重ねる（退職の年・取り崩しを始める年は、その要求から読む）。key は drop（退職の直後に株などが下がる）・
+ * low（取り崩しを始めてから利回りが低いまま）・minus1（利回りがずっと想定より1%低い）。戻り値は JSON の文字
+ * { status: "ok", request, label } か { status: "unknown", keys }
+ */
+export function marketStress(reqJson: string, key: string, _unused: string): string {
+  void _unused;
+  const req = JSON.parse(reqJson) as EngineRequest;
+  if (!(STRESS_KEYS as readonly string[]).includes(key)) return JSON.stringify({ status: "unknown", keys: STRESS_KEYS });
+  const k = key as StressKey;
+  return JSON.stringify({ status: "ok", request: stressRequests(req)[k], label: stressLabel(req, k) });
+}
