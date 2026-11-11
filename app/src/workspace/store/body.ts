@@ -119,6 +119,8 @@
 //   0.74 から: 本文の区画 meetings（面談の履歴。0182。下の meetings を見る）。足すだけ。本体の変換の段は版だけを書き換える
 //   0.75 から: 外から来た候補 candidates[] の変更 diffs[] に、場所 at・lever（0201）。候補の区画は本体だけが書く（画面の本文には来ない）。
 //   足すだけ。本体の変換の段は版だけを書き換える
+//   0.76 から: 資産の配分の行（器・器の利回りの段階）・旧NISA の買付の年ごとの内訳 lots・借り換え refinance とその新しい金利の段に要素の ID（0206）。
+//   本体の変換の段は、ID の無い要素に、画面がその要素を指していた決まった ID と同じ ID を振る。画面も開くときに同じ決まりで振る（elementIds.ts）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -191,7 +193,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.75";
+export const BODY_FORMAT_VERSION = "0.76";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

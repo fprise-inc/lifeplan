@@ -2195,6 +2195,14 @@ async fn plan_items_for_a_shared_household() {
         json!({ "share_id": g.share_id, "fields": true }),
     )
     .await;
+    // 資産の配分の行・買付の年ごとの内訳・借り換えも要素の ID を持つので（0206）、どの項目もプランの候補に出せる
+    let unproposable: Vec<&Value> = all["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|x| x["proposable"] != true)
+        .collect();
+    assert!(unproposable.is_empty(), "{unproposable:?}");
     let mut changes = Vec::new();
     for p in want["proposal"].as_array().unwrap() {
         let it = all["items"]
