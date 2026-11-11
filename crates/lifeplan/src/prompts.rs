@@ -1,0 +1,257 @@
+//! 使い方の例（MCP のプロンプト。0199）: Claude Desktop などの AI のアプリで、FP が一覧から選んで使う頼み方の型。
+//!
+//! - 中身は FP から AI への頼み方の文（利用者の役の1通）で、引数（世帯・場面など）をその場で埋める。道具は今ある物だけを名前で書く
+//! - 世帯の中身・顧客の情報は入れない（引数は FP がその場で書く文だけ）。プロンプトを選んでも道具は呼ばれず、AI が文を読んで道具を使う
+//! - 引数は MCP の決まりで文字だけ。空の文字は書かなかったものとして扱う（アプリによっては空で送ってくる）
+
+use crate::server::LifeplanMcp;
+use rmcp::handler::server::wrapper::Parameters;
+use rmcp::model::{GetPromptResult, PromptMessage, Role};
+use rmcp::{prompt, prompt_router, schemars};
+use serde::Deserialize;
+
+/// 何通りも比べるときの道具の使い方（比べる道具が入ったら、ここを compare に合わせる）
+const COMPARE_HOW: &str = "通りごとに calculate を呼び、omit に [\"years\"] を入れて主な数字（keyFigures）だけを取って並べる（1通り 0.5KB ほど）";
+
+/// 世帯の引数の読み方
+fn household(h: &str) -> String {
+    format!("世帯「{h}」（見本の世帯の id なら sample_household_id、FP が渡した世帯の share_id なら share_id として使う。どちらか分からなければ list_sample_households・list_shared_households で確かめる）")
+}
+
+/// 空の文字は書かなかったものとして扱う
+fn given(v: &Option<String>) -> Option<&str> {
+    v.as_deref().map(str::trim).filter(|s| !s.is_empty())
+}
+
+fn result(description: &str, text: String) -> GetPromptResult {
+    GetPromptResult::new(vec![PromptMessage::new_text(Role::User, text)])
+        .with_description(description)
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CompareHouseholdsArgs {
+    /// 1つ目の世帯（見本の世帯の id か、FP が渡した世帯の share_id。例 sampleSingle20s）
+    pub household_a: String,
+    /// 2つ目の世帯（同じく。例 sampleCoupleNoKids）
+    pub household_b: String,
+    /// 比べたいこと（例「65歳・90歳の時点の資産と、資産が尽きる年」）。省くと主な数字をひととおり
+    pub focus: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CompareMeasuresArgs {
+    /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id。例 salariedCoupleTwoKids）
+    pub household: String,
+    /// 並べたい対策（例「65歳まで働く・生活費を月27万円・NISA 月3万円・年金を70歳から」）。省くと AI が3〜5つ選ぶ
+    pub measures: Option<String>,
+    /// 主な数字を見る本人の年齢（例「65・90」）。省くと 65歳と90歳
+    pub at_ages: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SeminarHouseholdArgs {
+    /// 世帯の形（例「38歳の会社員と扶養のパートの妻・賃貸・預金500万円」）
+    pub profile: String,
+    /// 起きること（例「来年8月に子が生まれ、2028年4月に4,000万円の家を買う」）。省くと今のまま
+    pub events: Option<String>,
+    /// 欲しい表（例「5年ごとの金融資産とローン残高を、家族の年齢つきで」）。省くと5年ごとの金融資産
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MeetingPrepArgs {
+    /// 世帯（FP が渡した世帯の share_id か、見本の世帯の id）。省くと、渡されている世帯を確かめる
+    pub household: Option<String>,
+    /// 面談のテーマ（例「老後資金」「住宅購入」「保険の見直し」「教育費」）。省くと全体の見通し
+    pub topic: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ExplainForClientArgs {
+    /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id）
+    pub household: String,
+    /// 説明したい数字（例「2030年の税・社会保険料」「2045年の年金」）
+    pub number: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CheckCoverageArgs {
+    /// 調べたい制度や計算（例「高額療養費」「ふるさと納税」「iDeCo の受け取り方」）
+    pub topic: String,
+}
+
+#[prompt_router(vis = "pub(crate)")]
+impl LifeplanMcp {
+    #[prompt(
+        name = "what_can_you_do",
+        title = "この接続口でできること",
+        description = "ファイナンシアの AI接続口でできることを、見本の世帯で試しながら紹介してもらう"
+    )]
+    async fn what_can_you_do(&self) -> GetPromptResult {
+        result(
+            "この接続口でできること",
+            "ファイナンシアの AI接続口で何ができるかを、FP 向けに短く紹介してください。\n\
+             - できることを場面ごとに（計算・対策を並べて比べる・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・面談の準備・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
+             - アプリが起動していなくても見本の世帯（架空）で試せること、お客さまの世帯は FP がアプリで渡したときだけ読めることを一言。\n\
+             - 最後に、list_sample_households で見本を1つ選び、calculate（omit に [\"years\"]）で主な数字を1つ見せて、試し方の例にしてください。"
+                .to_owned(),
+        )
+    }
+
+    #[prompt(
+        name = "compare_households",
+        title = "2つの世帯を比べる",
+        description = "2つの世帯（見本の世帯か FP が渡した世帯）の主な数字を並べて比べる"
+    )]
+    async fn compare_households(
+        &self,
+        Parameters(a): Parameters<CompareHouseholdsArgs>,
+    ) -> GetPromptResult {
+        let focus = given(&a.focus).unwrap_or("65歳・90歳の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りと支出・住宅ローンの返済の合計");
+        result(
+            "2つの世帯を比べる",
+            format!(
+                "ファイナンシアの接続口で、次の2つの世帯を比べてください。\n\
+                 - A: {}\n- B: {}\n- 比べたいこと: {focus}\n\n\
+                 進め方:\n\
+                 1. 2つとも calculate で計算する。{COMPARE_HOW}。年齢の時点は at_ages で渡す。\n\
+                 2. 主な数字を1つの表（行が数字、列が A・B）に並べ、違いの大きい所を2〜3行で。家族の形・年齢・計算の期間が違うときは、そのことも書く。\n\
+                 3. 推移が要るときだけ、every_years に 5、fields に [\"financialAssets\"] を入れて取る。\n\
+                 4. 違いの理由は推測で断定しない。気になる数字は explain_value で根拠を確かめてから書く。",
+                household(&a.household_a),
+                household(&a.household_b),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "compare_measures",
+        title = "対策をいくつか並べて比べる",
+        description = "1つの世帯で、働く期間・生活費・NISA・年金の受け取り開始などの対策を並べて、どれが効くかを比べる"
+    )]
+    async fn compare_measures(
+        &self,
+        Parameters(a): Parameters<CompareMeasuresArgs>,
+    ) -> GetPromptResult {
+        let measures = given(&a.measures).map_or_else(
+            || "（指定なし。動かせる項目から、この世帯で効きそうな物を3〜5つ選ぶ）".to_owned(),
+            str::to_owned,
+        );
+        let ages = given(&a.at_ages).unwrap_or("65・90");
+        result(
+            "対策をいくつか並べて比べる",
+            format!(
+                "ファイナンシアの接続口で、{} に対策をいくつか当てて並べてください。\n\
+                 - 対策: {measures}\n- 主な数字を見る本人の年齢: {ages}\n\n\
+                 進め方:\n\
+                 1. list_plan_items で、この世帯で動かせる項目（対象・入力項目ID・今の値・動かせる範囲）を確かめる。\n\
+                 2. 対策ごとに plan_changes（target・item・value。画面のプランと同じ書き方）を作る。changes で欄を1つだけ書き換えない（画面と数字がずれる）。\n\
+                 3. 「今のまま」と各対策、効きそうな組み合わせ1つを計算する。{COMPARE_HOW}。\n\
+                 4. 表にする（行が通り、列が年齢の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年）。範囲の外などで計算されなかった通りは、返ってきた理由をそのまま書く。\n\
+                 5. どれが効くかを2〜3行で。前提（物価・利回りなど）しだいで変わることを一言添える。\n\
+                 6. FP が渡した世帯なら、FP に頼まれたときだけ、選んだ対策を同じ書き方で propose_scenario に渡してプランの候補にできると伝える。",
+                household(&a.household),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "make_seminar_household",
+        title = "セミナー用の架空の世帯を作る",
+        description = "セミナー・ブログ用に、架空の世帯を組み立てて計算し、スライドに使える表にする"
+    )]
+    async fn make_seminar_household(
+        &self,
+        Parameters(a): Parameters<SeminarHouseholdArgs>,
+    ) -> GetPromptResult {
+        let events = given(&a.events).unwrap_or("（なし。今のまま）");
+        let output = given(&a.output).unwrap_or("5年ごとの金融資産を、家族の年齢つきで");
+        result(
+            "セミナー用の架空の世帯を作る",
+            format!(
+                "ファイナンシアの接続口で、セミナー用の架空の世帯を作って計算してください（実在のお客さまの数字は使わない）。\n\
+                 - 世帯の形: {}\n- 起きること: {events}\n- 欲しい表: {output}\n\n\
+                 進め方:\n\
+                 1. 近い見本があれば list_sample_households の tags（例 [\"子育て\"]・[\"賃貸\"]）で探して get_sample_household の input を土台にする。無ければ get_input_guide の計算できる最小の例（skeleton）から組み立てる。\n\
+                 2. 家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo を始める・もしもの時は、get_input_recipe の手本（buyHome・newChild・retire・prepayment・startNisaIdeco・contingency）を使う。重ねるときは apply: true で返る input を次の手本に渡す。書かなかった物（頭金・諸費用・教育費など）は計算に入らない。\n\
+                 3. calculate で計算する。表は every_years（例 5）と fields（例 [\"financialAssets\", \"debt\"]）で絞り、年ごとの家族の年齢を添える。計算できなかったときは、答えの「直し方」で直してもう一度。\n\
+                 4. 表と、見どころを2〜3行で。表の下に「架空の世帯です」と、主な前提（物価・利回り・年収など）を書く。",
+                a.profile.trim(),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "prepare_meeting",
+        title = "面談の準備",
+        description = "面談の前に、世帯の見通し・話すとよい対策・お客さまに確かめることを1枚にまとめる"
+    )]
+    async fn prepare_meeting(&self, Parameters(a): Parameters<MeetingPrepArgs>) -> GetPromptResult {
+        let who = given(&a.household).map_or_else(
+            || "FP が渡した世帯（list_shared_households で確かめる。渡されていなければ、アプリで「この世帯をAIに渡す」をしてもらうよう伝える）".to_owned(),
+            household,
+        );
+        let topic = given(&a.topic).unwrap_or("全体の見通し（老後資金を中心に）");
+        result(
+            "面談の準備",
+            format!(
+                "ファイナンシアの接続口で、次の面談の準備をしてください。\n\
+                 - 世帯: {who}\n- テーマ: {topic}\n\n\
+                 進め方:\n\
+                 1. calculate で、omit に [\"years\"]、at_ages に [65, 90] を入れて主な数字を取る。preparation（計算の前に外した物・事務所の推定の値）と notices も見る。\n\
+                 2. 推移は every_years に 5、fields に [\"financialAssets\"] を入れて取る。\n\
+                 3. list_plan_items で動かせる項目を見て、テーマに合う対策を2〜3つ選び、plan_changes で計算する。{COMPARE_HOW}。\n\
+                 4. テーマが保険なら、必要保障額（get_input_recipe の contingency、入力の /protection）を、相続なら相続税の目安（/inheritanceTax）を足して計算する。\n\
+                 5. 1枚にまとめる: 見通しを一言・主な数字の表・話すとよい対策・お客さまに確かめること（推定や既定の値で計算している所、入っていなさそうな物）。\n\
+                 お名前・番号は扱わない。数字は計算の前提しだいで変わることを添える。"
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "explain_to_client",
+        title = "数字の根拠をお客さまに分かる言葉で説明する",
+        description = "キャッシュフロー表の1つの数字がどう計算されたかを、根拠を取り出してお客さま向けの言葉にする"
+    )]
+    async fn explain_to_client(
+        &self,
+        Parameters(a): Parameters<ExplainForClientArgs>,
+    ) -> GetPromptResult {
+        result(
+            "数字の根拠をお客さまに分かる言葉で説明する",
+            format!(
+                "ファイナンシアの接続口で、{} の「{}」がどう計算されたかを、お客さまに分かる言葉で説明してください。\n\n\
+                 進め方:\n\
+                 1. explain_value でその数字（キャッシュフロー表の行と年）の根拠を取り出す。行が分からなければ row を省いて行の一覧を見る。合計の行は内訳の行ごとに聞く。\n\
+                 2. 使った制度の値の出典は get_regulation_value で確かめる。近似している所は search_coverage・get_coverage で、どう近似しているかを確かめる。\n\
+                 3. お客さま向けの文にする: 結論（いくらか）→ 内訳（大きい順に2〜4つ）→ 前提（どんな決まり・仮定で計算したか）の順で、専門の言葉は言い換え、300字ほどで。\n\
+                 4. 根拠に無いことを推測で足さない。将来の額を約束する書き方をしない（制度や前提が変われば変わると添える）。",
+                household(&a.household),
+                a.number.trim(),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "check_coverage",
+        title = "制度や計算に入っているかを調べる",
+        description = "ある制度や計算がファイナンシアに入っているか（入っている・近似している・まだ入っていない）を、対応範囲の一覧で調べる"
+    )]
+    async fn check_coverage(
+        &self,
+        Parameters(a): Parameters<CheckCoverageArgs>,
+    ) -> GetPromptResult {
+        result(
+            "制度や計算に入っているかを調べる",
+            format!(
+                "ファイナンシアの計算に「{}」が入っているかを調べてください。\n\n\
+                 進め方:\n\
+                 1. search_coverage で対応範囲の一覧を探し、当たった項目を get_coverage で読む。\n\
+                 2. 「入っている（どう計算するか）」「近似している（どう近似するか・理由）」「まだ入っていない」のどれかで答える。制度の値（額・率）が要るときは get_regulation_value で値・適用期間・出典を添える。\n\
+                 3. 一覧に見当たらないときは、入っていると推測せず「一覧に見当たらない」と答える。まだ入っていない物は、アプリの「要望・不具合を送る」から送れると伝える（この接続口からは送らない）。\n\
+                 4. ほかのソフトとの違いを聞かれても、ほかのソフトのことは推測で断定しない（ファイナンシアの側は一覧で確かめた事実だけを書く）。",
+                a.topic.trim(),
+            ),
+        )
+    }
+}

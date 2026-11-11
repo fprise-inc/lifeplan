@@ -1,6 +1,7 @@
 // AI接続口（crates/lifeplan）に同梱する「数字の根拠」の読み方（src/connector/explain.ts。0183）と計算の前の処理（src/connector/prepare.ts。0184）と主な数字（src/connector/summary.ts。0194）を、
 // 1つの JS（crates/lifeplan/dist/explain.js）にまとめる。プランの動かす項目（src/connector/plan.ts。0195）は、入力の欄の定義まで読むので大きく
 // （約2MB）、別の JS（crates/lifeplan/dist/plan.js）にまとめる（プランを当てないときの計算で読み込まない）。
+// 見本の世帯の一覧の名前と目印（src/connector/samples.ts。0199）は、JS ではなく JSON（crates/lifeplan/dist/samples.json）にする（接続口はそのまま埋め込む）。
 // - 接続口はこれを計算と同じ固めた実行環境（quickjs-ng）で動かす。画面の根拠のパネルと同じ関数なので、根拠の文が画面とずれない
 // - 外の部品（npm のパッケージ）を1つも入れない（入ったら止める）。動的な import をしない（1つの iife）
 // - 中身が変わっていなければ作り直さない（src/・report/src/・hearing/src/ の指紋で見る）
@@ -9,6 +10,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { build, type Plugin } from "vite";
+import { connectorSamples } from "../src/connector/samples.ts";
 import { APP_DIR, REPO_DIR } from "./lib.ts";
 
 export const EXPLAIN_OUT = join(REPO_DIR, "crates", "lifeplan", "dist");
@@ -197,12 +199,13 @@ async function bundle(entry: string, name: string, fileName: string, intro: stri
 export async function buildExplain(force = false): Promise<void> {
   const digest = inputDigest();
   const stamp = join(EXPLAIN_OUT, ".digest");
-  const outs = ["explain.js", "plan.js"].map((f) => join(EXPLAIN_OUT, f));
+  const outs = ["explain.js", "plan.js", "samples.json"].map((f) => join(EXPLAIN_OUT, f));
   if (!force && existsSync(stamp) && readFileSync(stamp, "utf8") === digest && outs.every((f) => existsSync(f))) return;
   rmSync(EXPLAIN_OUT, { recursive: true, force: true });
   mkdirSync(EXPLAIN_OUT, { recursive: true });
   await bundle("explain.ts", "FinanciaExplain", "explain.js", undefined);
   await bundle("plan.ts", "FinanciaPlan", "plan.js", PLAN_INTRO, [localeCalls()]);
+  writeFileSync(join(EXPLAIN_OUT, "samples.json"), `${JSON.stringify(connectorSamples(), null, 1)}\n`);
   writeFileSync(stamp, digest);
 }
 

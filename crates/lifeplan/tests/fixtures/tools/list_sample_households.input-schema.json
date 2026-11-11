@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "include_test": {
+      "description": "開発の試験用の見本（制度の計算を確かめるための世帯。表が短い物が多い）も出すか。既定は出さない。tags に「開発の試験用」を入れても出る",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "tags": {
+      "description": "目印で絞る（例 [\"子育て\"]・[\"シニア\", \"収益不動産\"]）。どの目印にも当てはまる見本だけを返す。目印の一部でもよい（「介護」は「親の介護・相続」に当たる）。使える目印は答えの tags",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}
