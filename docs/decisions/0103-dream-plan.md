@@ -125,4 +125,4 @@
   - 額の決まっていない夢は、0円を確定の値で入れた（目標の区画・提案書では「額は未入力」「未定」と出る）。見本の棚の見本には、赤い未入力の入力項目を残さない決まり（0円で計算中の警告は赤くなる）のため。
   - 計算に入れない夢も含めてすべての夢を入れても、表の最後の年まで資金の不足は出ない（ほかの見本と同じく、見本の世帯の計算で不足を出さない）。計算に入れた夢4件だけの見方の要約は「計算に入れた夢（7件中4件）を入れても95歳まで足ります」。
   - ほかの見本・モデル世帯の数字は変えていない（足しただけ）。計算エンジン・世帯ファイルの形式は変えない。アプリの見本は16件、モデル世帯は58件。AI接続口の見本の一覧にも、ほかの見本と同じく出る。
-  - テスト: `app/test/dream-plan.test.ts`（見本の夢の並び・計算に入れるか・額・時期の文と、目標の区画の要約の1文）、`app/test/connector-prepare.test.ts`（AI接続口の計算の前の処理は、この見本では計算に入れない夢3件だけを外す。ほかのモデル世帯は前のまま何も外さない）。見本の共通の確かめ（`app/test/sample-households.test.ts`・`app/test/results-plan-diff-review.test.ts` の赤い未入力が無いこと・`app/test/connector-samples.test.ts`）にも入る。
+  - テスト: `app/test/dream-plan.test.ts`（見本の夢の並び・計算に入れるか・額・時期の文と、目標の区画の要約の1文）、`app/test/connector-prepare.test.ts`（AI接続口の計算の前の処理は、この見本では計算に入れない夢3件だけを外す。ほかのモデル世帯は前のまま何も外さない）。欄ごとの効き目の点検（`app/test/walkthrough/fieldEffectWatch.ts`）は、夢の入った見本ができて夢の欄も見るようになったので、ひとことメモを記録だけの欄に足した。見本の共通の確かめ（`app/test/sample-households.test.ts`・`app/test/results-plan-diff-review.test.ts` の赤い未入力が無いこと・`app/test/connector-samples.test.ts`）にも入る。
