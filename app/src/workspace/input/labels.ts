@@ -33,7 +33,25 @@ export function memberLabels(wh: WorkingHousehold, o: { nicknames?: boolean } = 
     out.set(r.member.id, nick !== undefined && nick !== "" ? `${base}（${nick}）` : base);
   }
   for (const m of h.members) if (!out.has(m.id)) out.set(m.id, elderLabel(wh, m) ?? KIND_LABEL[m.kind] ?? "ご家族");
+  // 孫は呼び名が無いと「孫」「孫」と並んで見分けられないので、同じ呼び方の孫が2人以上なら、足した順に「孫1」「孫2」…（呼び名のある孫は「孫（長男の子）」のまま）。
+  // 顧客に渡すファイル（呼び名を入れない）では、孫が2人以上なら全員に番号が付く
+  const grandchildren = h.members.filter((m) => m.kind === "grandchild").map((m) => ({ m, label: out.get(m.id) }));
+  for (const g of grandchildren) {
+    const same = grandchildren.filter((x) => x.label === g.label);
+    if (same.length < 2) continue;
+    const nick = o.nicknames === false ? undefined : wh.labelsByMember[g.m.id];
+    const no = `${KIND_LABEL.grandchild ?? "孫"}${String(same.indexOf(g) + 1)}`;
+    out.set(g.m.id, nick !== undefined && nick !== "" ? `${no}（${nick}）` : no);
+  }
   return out;
+}
+
+/**
+ * 時点 bothAfter（表の最後の年の12月）の呼び方: 配偶者のいる世帯（結婚の予定も。計算エンジンは世帯の中のご本人・配偶者の財産を合わせる）は「二人とも亡くなった後」、
+ * 一人の世帯は「表の最後の年」（二人がいないので「二人とも」と言わない）
+ */
+export function bothAfterLabel(h: Household): string {
+  return h.members.some((m) => m.kind === "spouse" && m.outside === undefined) ? "二人とも亡くなった後" : "表の最後の年";
 }
 
 export function memberLabel(wh: WorkingHousehold, id: string | undefined, o: { nicknames?: boolean } = {}): string {

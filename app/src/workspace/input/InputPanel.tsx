@@ -137,7 +137,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
   const nurseryFee = useNurseryFee(shown, itemId === "education", computeOne);
   /** 年金のカードの年金の見込み（計算の結果から読むだけ。プランを直しているときは、そのプランの額） */
   const pensionEst = usePensionEstimate(shown, itemId === "pension", computeOne);
-  const item = useMemo(() => itemOf(shown, itemId, { inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
+  const item = useMemo(() => itemOf(shown, itemId, { inheritanceTax: inheritanceTaxNote(inheritance, shown.request.input.household), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
   /**
    * 未入力の警告の欄は、入るまで標準に出す（raiseFields。2026-11-06 の利用者の判断）。開いている間は、入れた後も標準に残す
    * （入れた途端に欄が消えると、打った所を見失うため）。パネルを開き直すと、元の標準・詳細に戻る
