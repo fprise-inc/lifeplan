@@ -67,6 +67,19 @@
             "null"
           ]
         },
+        "market_stress": {
+          "description": "この通りに重ねる、アプリの画面の資産運用のタブの「相場が下がった場合」の型: drop（退職の直後に株などが下がる）・low（取り崩しを\n始めてから〔取り崩しの予定が無ければ退職から〕しばらく利回りが低いまま）・minus1（利回りがずっと想定より1%低い）。画面と同じく、\nプランの変更を当てた後に重ねる（下がる幅・年数は画面と同じ既定）。stress_test とは一緒に使えない",
+          "enum": [
+            "drop",
+            "low",
+            "minus1",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "plan_changes": {
           "description": "この通りで動かす画面のプランの動かす項目（calculate の plan_changes と同じ。list_plan_items の target・item と値）",
           "items": {
@@ -92,7 +105,7 @@
           ]
         },
         "stress_test": {
-          "description": "この通りのストレステストの型（calculate の stress_test と同じ。基本に重ねる通りで省くと基本と同じ）",
+          "description": "この通りのストレステストの型（calculate の stress_test と同じ。基本に重ねる通りで stress_test も market_stress も省くと基本と同じ）",
           "type": [
             "string",
             "null"
@@ -157,6 +170,19 @@
     },
     "label": {
       "description": "基本の名前（既定「基本」）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "market_stress": {
+      "description": "基本に重ねる、アプリの画面の「相場が下がった場合」の型（通りの market_stress と同じ。stress_test とは一緒に使えない）",
+      "enum": [
+        "drop",
+        "low",
+        "minus1",
+        null
+      ],
       "type": [
         "string",
         "null"

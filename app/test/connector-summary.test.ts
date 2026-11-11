@@ -5,10 +5,11 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_AT_AGE, summarize, summaryOf, type Summary } from "../src/connector/summary.ts";
+import { DEFAULT_AT_AGE, pensionRequests, summarize, summaryOf, type Summary, type SummaryArgs } from "../src/connector/summary.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { man } from "../src/presentation/format.ts";
+import { pensionEstimateRequest, planPensionOf } from "../src/workspace/input/pensionLines.ts";
 import { compareTable, metricsOf } from "../src/workspace/plans/compare.ts";
 import { ageRows } from "../src/workspace/present.ts";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
@@ -40,7 +41,22 @@ function caseRequest(c: (typeof CASES)[number]): EngineRequest {
   return { trace: "none", input: req.input } as EngineRequest;
 }
 
-const ask = (req: EngineRequest, atAges?: number[]): Summary => JSON.parse(summarize(JSON.stringify(preview(forEngine(req))), JSON.stringify(req), JSON.stringify(atAges !== undefined ? { atAges } : {}))) as Summary;
+/** 接続口と同じく、年金の見込みの写しの要求（pensionRequests）に計算の前の処理を当てて計算した結果（0199） */
+export function pensionResults(req: EngineRequest): NonNullable<SummaryArgs["pension"]> {
+  const r = JSON.parse(pensionRequests(JSON.stringify(req))) as { std: EngineRequest | null; claimed: EngineRequest | null };
+  const run = (x: EngineRequest | null) => (x === null ? null : preview(forEngine(x)));
+  return { std: run(r.std), claimed: run(r.claimed) };
+}
+
+/** 接続口の calculate と同じ問い（年金の見込みを含む） */
+const ask = (req: EngineRequest, atAges?: number[]): Summary =>
+  JSON.parse(summarize(JSON.stringify(preview(forEngine(req))), JSON.stringify(req), JSON.stringify({ ...(atAges !== undefined ? { atAges } : {}), pension: pensionResults(req) }))) as Summary;
+
+/** 画面の比較の表の年金の月額の文（plans/compare.ts の monthlyMan と同じ丸め） */
+const monthlyText = (v: number) => {
+  const m = Math.round(v / 1000) / 10;
+  return `月${Number.isInteger(m) ? String(m) : m.toFixed(1)}万円`;
+};
 
 describe("AI接続口の主な数字と家族の年齢（0194）", () => {
   it("年齢の既定は、画面の表示の設定の既定と同じ", () => {
@@ -68,6 +84,39 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
       expect(cell("depletion"), c.name).toBe(got.keyFigures.depletion === null ? "尽きない" : `${got.keyFigures.depletion.year}年（ご本人${got.keyFigures.depletion.selfAge}歳）`);
       expect(cell("min"), c.name).toBe(`${man(got.keyFigures.minimum.amount)}万円（${got.keyFigures.minimum.year}年）`);
     }
+  });
+
+  it("65歳からの年金の月額は、画面の比較の表の年金の行と同じ写しの要求・同じ数え方（0199）", () => {
+    const cases = [...CASES, { name: "受け取り開始を変えた（繰下げ）", sample: "deferral" }, { name: "受け取り中", sample: "sampleSeniorCouple" }];
+    let claimed = 0;
+    for (const c of cases) {
+      const req = caseRequest(c);
+      const got = ask(req, (c as { atAges?: number[] }).atAges).keyFigures.pension;
+      // 画面の比較の表（App.tsx の usePlanPensions と同じ写しの要求を、画面の計算〔forEngine〕で求めた年金の行）
+      const anyClaim = (req.input.household.pensionRecords ?? []).some((r) => r.claim !== undefined);
+      const std = preview(forEngine(pensionEstimateRequest(req, false)));
+      const cl = anyClaim ? preview(forEngine(pensionEstimateRequest(req, true))) : null;
+      const plan = planPensionOf(req, std, cl);
+      const table = compareTable(req, [{ name: "現状", table: preview(forEngine(req)).table }], DEFAULT_AT_AGE, 0, [plan]);
+      const row = (key: string) => table.rows.find((r) => r.key === key)?.cells[0]?.text;
+      if (got === null || got === undefined) {
+        expect(row("pension65"), c.name).toBe("—");
+        continue;
+      }
+      expect(got.monthly, c.name).toBe(plan.std);
+      expect(got.claimedMonthly, c.name).toBe(plan.claimed);
+      expect(row("pension65"), c.name).toBe(got.monthly === null ? "—" : monthlyText(got.monthly));
+      if (got.anyClaim) {
+        claimed += 1;
+        expect(row("pensionClaimed"), c.name).toBe(monthlyText(got.claimedMonthly!));
+        expect(got.claimedPeople?.length, c.name).toBe(got.people.length);
+      }
+      // 世帯の月額は人ごとの年額の合計÷12（画面と同じ丸め）
+      const annual = got.people.reduce((s, p) => s + (p.annual ?? 0), 0);
+      expect(got.monthly, c.name).toBe(got.people.some((p) => p.annual !== null) ? Math.round(annual / 12) : null);
+      expect(got.people.every((p) => ["self", "spouse"].includes(p.who)), c.name).toBe(true);
+    }
+    expect(claimed).toBeGreaterThan(0);
   });
 
   it("年ごとの年齢は、画面の表の年齢の行と同じ（同じ呼び方・世帯にいる年だけ）。世帯の物の ID は答えの鍵にしない", () => {

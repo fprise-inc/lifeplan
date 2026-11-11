@@ -3,9 +3,13 @@
 //   指定した年齢の時点の金融資産・資産が尽きる年・生涯の手取りの合計・生涯の支出の合計・金融資産がいちばん少ない年と額・住宅ローンの返済の合計。
 //   年齢の既定は、画面の表示の設定の既定（「○歳時点」の 95歳。workspace/settings.ts の DEFAULT_DISPLAY_SETTINGS。同じことをテストで確かめる）
 // - 年ごとの家族の年齢は、画面のキャッシュフロー表の年齢の行と同じ関数（workspace/present.ts の ageRows）で、同じ呼び方・同じ「世帯にいる年」で出す
+// - 65歳からの年金の月額（世帯の合計と人ごと。今の水準）は、画面の比較の表の年金の行（0075）と同じ写しの要求（input/pensionLines.ts の
+//   pensionEstimateRequest）を pensionRequests で作り、接続口が計算の前の処理を当てて計算した結果を summarize に渡して、同じ関数
+//   （pensionLines・planPensionOf）で数える（0199）
 // - 接続口は、計算した表（表示の形の出力）と、計算の前の処理を当てる前の要求（数字の根拠と同じ）を渡す。返すのは JSON の文字
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
+import { anyClaimOf, modeOf, pensionEstimateRequest, pensionLines, pensionMembers, planPensionOf, type PensionLine } from "../workspace/input/pensionLines.ts";
 import { metricsOf } from "../workspace/plans/compare.ts";
 import { ageRows, displayYears, yearsWithin } from "../workspace/present.ts";
 import { ageInYear, roles } from "../workspace/roles.ts";
@@ -16,6 +20,71 @@ export const DEFAULT_AT_AGE = 95;
 export interface SummaryArgs {
   /** 「○歳時点の金融資産」の年齢（本人）。最初の年齢が主な数字の年齢。省くと既定の年齢だけ */
   atAges?: number[];
+  /**
+   * 年金の見込みの写しの要求（pensionRequests）を計算の前の処理を当てて計算した結果（std は65歳から、claimed は受け取り開始を変えたまま。
+   * 計算できなければ null）。省くと keyFigures に pension を入れない
+   */
+  pension?: { std: PreviewResult | null; claimed: PreviewResult | null };
+}
+
+/** 年金の見込みの人ごとの1行（AI に返す形。年齢の鍵・受け取り開始・年額・月額・推計か） */
+export interface PensionPerson {
+  who: string;
+  from: string;
+  annual: number | null;
+  monthly: number | null;
+  /** 書類が無く、働き方の期間から推計した額 */
+  estimated: boolean;
+}
+
+/** 年金の見込み（画面の比較の表の年金の行と同じ。今の水準＝賃金・物価の伸びとマクロ経済スライドを外した額） */
+export interface PensionFigures {
+  /** 65歳からの世帯の合計の月額（受け取り中なら今の月額）。年額が出る人がいなければ null */
+  monthly: number | null;
+  /** 受け取り開始からの世帯の合計の月額（受け取り開始を変えた人がいなければ monthly と同じ） */
+  claimedMonthly: number | null;
+  /** 全員もう受け取っている */
+  receiving: boolean;
+  /** 受け取り開始を変えた人がいる */
+  anyClaim: boolean;
+  /** 人ごと（65歳から） */
+  people: PensionPerson[];
+  /** 人ごと（受け取り開始から。受け取り開始を変えた人がいるときだけ） */
+  claimedPeople?: PensionPerson[];
+}
+
+/**
+ * 年金の見込みの写しの要求（画面の比較の表の年金の行と同じ。reqJson は計算の前の処理を当てる前の要求）。年金のカードに出す人がいなければ
+ * std も null。戻り値は JSON の文字 { std, claimed }（接続口は、それぞれに計算の前の処理を当てて計算し、summarize の pension に渡す）
+ */
+export function pensionRequests(reqJson: string): string {
+  const req = JSON.parse(reqJson) as EngineRequest;
+  if (pensionMembers(req.input.household).length === 0) return JSON.stringify({ std: null, claimed: null });
+  return JSON.stringify({ std: pensionEstimateRequest(req, false), claimed: anyClaimOf(req) ? pensionEstimateRequest(req, true) : null });
+}
+
+/** 年金の見込みを、画面の比較の表と同じ関数で数える（年金のカードに出す人がいなければ null） */
+export function pensionOf(req: EngineRequest, p: NonNullable<SummaryArgs["pension"]>, keys: Record<string, string>): PensionFigures | null {
+  if (pensionMembers(req.input.household).length === 0) return null;
+  const plan = planPensionOf(req, p.std, p.claimed);
+  const recs = req.input.household.pensionRecords ?? [];
+  const person = (l: PensionLine): PensionPerson => ({
+    who: keys[l.member] ?? "",
+    from: l.from,
+    annual: l.annual,
+    // 人ごとの月額は、年金のカードと同じ丸め（年額÷12 を円に）
+    monthly: l.annual === null ? null : Math.round(l.annual / 12),
+    estimated: modeOf(recs.find((x) => x.member === l.member)) === "",
+  });
+  const out: PensionFigures = {
+    monthly: plan.std,
+    claimedMonthly: plan.claimed,
+    receiving: plan.receiving,
+    anyClaim: plan.anyClaim,
+    people: p.std === null ? [] : pensionLines({ request: req }, p.std, false).map(person),
+  };
+  if (plan.anyClaim && p.claimed !== null) out.claimedPeople = pensionLines({ request: req }, p.claimed, true).map(person);
+  return out;
 }
 
 export interface Summary {
@@ -34,6 +103,8 @@ export interface Summary {
     lifetimeTakeHome: number;
     lifetimeExpense: number;
     loanRepayment: number;
+    /** 年金の見込み（args の pension を渡したときだけ。年金のカードに出す人がいなければ null） */
+    pension?: PensionFigures | null;
   };
 }
 
@@ -84,6 +155,7 @@ export function summaryOf(req: EngineRequest, result: PreviewResult, a: SummaryA
       lifetimeTakeHome: m.takeHome,
       lifetimeExpense: m.expense,
       loanRepayment: m.loan,
+      ...(a.pension !== undefined ? { pension: pensionOf(req, a.pension, memberKeys) } : {}),
     },
   };
 }
