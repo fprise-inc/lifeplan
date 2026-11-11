@@ -100,7 +100,7 @@ entries:
       asset.realEstate: 10
       tax.totalIncomeBase: 3
       tax.lossCarryforward: 1
-      debt.schedule: 9
+      debt.schedule: 10
     related: [realEstate.depreciation, realEstate.sale]
 
   - id: realEstate.sale
@@ -132,7 +132,7 @@ entries:
     components:
       asset.realEstate: 10
       tax.realEstateSale: 3
-      debt.schedule: 9
+      debt.schedule: 10
     related: [realEstate.income, realEstate.analysis]
 
   - id: realEstate.analysis

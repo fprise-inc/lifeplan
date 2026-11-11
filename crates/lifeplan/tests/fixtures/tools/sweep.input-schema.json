@@ -64,11 +64,30 @@
     },
     "Vary": {
       "additionalProperties": false,
-      "description": "振る項目（plan_changes の1件から値を外した物。list_plan_items の target・item）",
+      "description": "振る項目（plan_changes の1件から値を外した物。list_plan_items の target・item と、一覧が添えた場所 at か lever）",
       "properties": {
+        "at": {
+          "default": null,
+          "description": "場所（list_plan_items が at を添えた項目だけ。そのまま渡す。plan_changes の at と同じ）。同じ対象・同じ入力項目ID で場所だけが違う欄\n（教育の段階ごとの欄・生活費の段階の割合など）を選ぶ。lever とどちらか1つ",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
         "item": {
-          "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・livingExpense.monthly〔毎月の生活費〕・\nassumptions.returnShifts〔運用の利回り〕・employment.type〔配偶者の働き方と年収。年収を振る〕）",
+          "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・livingExpense.monthly〔毎月の生活費〕・\nassumptions.returnShifts〔運用の利回り〕・employment.type〔配偶者の働き方と年収。年収を振る〕・account.contributions〔資産運用の積立。lever で選ぶ〕）",
           "type": "string"
+        },
+        "lever": {
+          "default": null,
+          "description": "合成の対策の名前（list_plan_items が lever を添えた項目だけ。そのまま渡す。plan_changes の lever と同じ。例: investMonthly〔資産運用の\n毎月の積立額〕・investStopAge〔積立をやめる年齢〕・drawdownStart〔取り崩しを始める年齢〕）。at とどちらか1つ",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "target": {
           "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",
@@ -108,7 +127,7 @@
       ]
     },
     "figures": {
-      "description": "表に入れる主な数字（既定は全部）: assetsAtAge（○歳時点の金融資産）・depletion（資産が尽きる年と本人の年齢）・minimum（金融資産が\nいちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense・loanRepayment・pension（65歳からの年金の世帯の月額と、受け取り開始からの\n月額。省くと年金の見込みの計算をしないので速くなる）",
+      "description": "表に入れる主な数字（既定は loanInterest のほか全部）: assetsAtAge（○歳時点の金融資産）・depletion（資産が尽きる年と本人の年齢）・minimum（金融資産が\nいちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense・loanRepayment・loanInterest（住宅ローンの利息の合計。選んだときだけ）・pension（65歳からの年金の世帯の月額と、受け取り開始からの\n月額。省くと年金の見込みの計算をしないので速くなる）",
       "items": {
         "enum": [
           "assetsAtAge",
@@ -117,6 +136,7 @@
           "lifetimeTakeHome",
           "lifetimeExpense",
           "loanRepayment",
+          "loanInterest",
           "pension"
         ],
         "type": "string"
@@ -192,7 +212,7 @@
     },
     "vary": {
       "$ref": "#/$defs/Vary",
-      "description": "振る項目（list_plan_items の target・item。plan_changes の1件から value を外した物）"
+      "description": "振る項目（list_plan_items の target・item と、一覧が添えた場所 at か lever。plan_changes の1件から value を外した物）"
     },
     "work_type": {
       "description": "kind が work の項目で、振る年収の働き方（list_plan_items の options の value）。省くと今の働き方",

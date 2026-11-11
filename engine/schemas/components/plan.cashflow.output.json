@@ -32,7 +32,7 @@
       }
     },
     "details": {
-      "description": "約束の版 1.2: 保障内容一覧・払込保険料の推移の材料（insurance）と贈与の税（gifts）。約束の版 1.4: 世帯の外の家族のお金が尽きる見込みの月（outsideWallets。0042）。約束の版 1.6: 住まい以外の不動産の物件ごとの数字（realEstate）。約束の版 1.7: 収益不動産の分析の数字（realEstateAnalysis。0082）。約束の版 1.8: 子が返す貸与の奨学金（childScholarships。0104）。エンジンが出力の summary に写す（任意の欄）",
+      "description": "約束の版 1.2: 保障内容一覧・払込保険料の推移の材料（insurance）と贈与の税（gifts）。約束の版 1.4: 世帯の外の家族のお金が尽きる見込みの月（outsideWallets。0042）。約束の版 1.6: 住まい以外の不動産の物件ごとの数字（realEstate）。約束の版 1.7: 収益不動産の分析の数字（realEstateAnalysis。0082）。約束の版 1.8: 子が返す貸与の奨学金（childScholarships。0104）。約束の版 1.9: 世帯の負債ごとの年ごとの利息と金利（loans。0205）。エンジンが出力の summary に写す（任意の欄）",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -56,6 +56,10 @@
         "childScholarships": {
           "description": "約束の版 1.8: 子が返す貸与の奨学金（education.cost の出力の childRepaid を子ごとに集めたもの。0104）",
           "$ref": "urn:financia:schema:engine.output#/$defs/childScholarships"
+        },
+        "loans": {
+          "description": "約束の版 1.9: 世帯の負債ごとの、年ごとの返済のうち利息に充てた額とその年の最後の返済に当てた金利、表の期間の利息の合計（debt.schedule の byYear。0205）",
+          "$ref": "urn:financia:schema:engine.output#/$defs/loans"
         }
       }
     }

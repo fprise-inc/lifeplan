@@ -88,8 +88,9 @@ pub struct CompareArgs {
     #[schemars(with = "Vec<VariantArgs>")]
     pub variants: Vec<Value>,
     /// 年ごとの系列に返す数字（既定 ["financialAssets"]。calculate の fields と同じ: income・taxSi・expense・net・financialAssets・debt・shortfall・
-    /// loanRepayment〔住宅ローンの返済。年額〕・loanBalance〔住宅ローン残高〕）
-    #[schemars(extend("items" = { "type": "string", "enum": ["income", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance"] }))]
+    /// loanRepayment〔住宅ローンの返済。年額〕・loanBalance〔住宅ローン残高〕・loanInterest〔住宅ローンの利息。年額〕・loanRate〔その年の住宅ローンの
+    /// 金利。10進の文字。返済の無い年・金利の違う住宅ローンを2本以上返している年は null〕）
+    #[schemars(extend("items" = { "type": "string", "enum": ["income", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate"] }))]
     pub series: Option<Vec<String>>,
     /// 系列の何年おき（1〜10。既定5）。画面の表の最初の年と最後の年はいつも入る
     #[schemars(range(min = 1, max = 10))]
@@ -215,6 +216,13 @@ pub fn diff(this: &Value, base: &Value) -> Value {
     ] {
         d.insert(key.into(), json!(num(this, path) - num(base, path)));
     }
+    // 住宅ローンの利息の合計の差（0205。どちらかにあるときだけ）
+    if this.get("loanInterest").is_some() || base.get("loanInterest").is_some() {
+        d.insert(
+            "loanInterest".into(),
+            json!(num(this, &["loanInterest"]) - num(base, &["loanInterest"])),
+        );
+    }
     Value::Object(d)
 }
 
@@ -231,7 +239,7 @@ pub fn plan_rows(rows: &Value) -> Value {
 }
 
 /// 比べる答えに添える説明
-pub const NOTE: &str = "results の1つ目が基本、2つ目からが通りです。keyFigures は calculate の keyFigures と同じ（アプリの「プランを比べる」と同じ数え方）、diff は基本との差（この通り − 基本。円。depletion は画面の比較の表と同じ文。pensionMonthly は65歳からの年金の世帯の月額の差）、series は選んだ数字の年ごとの系列（画面の表に出す年から、年末の残高・年額。ages は家族の年齢で、鍵は members）。from.onBase は基本の世帯に基本と通りの変更を重ねた通りです。marketStress は重ねた画面の「相場が下がった場合」の型です。keyFigures.pension は65歳からの年金の月額（世帯の合計と人ごと。今の水準＝賃金・物価の伸びとマクロ経済スライドを外した額。画面の比較の表の年金の行と同じ）です。status が error の通りは計算しておらず、reason に理由と直し方があります（ほかの通りは計算しています）。試したプランの変更は、そのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
+pub const NOTE: &str = "results の1つ目が基本、2つ目からが通りです。keyFigures は calculate の keyFigures と同じ（アプリの「プランを比べる」と同じ数え方）、diff は基本との差（この通り − 基本。円。depletion は画面の比較の表と同じ文。pensionMonthly は65歳からの年金の世帯の月額の差。loanInterest は住宅ローンの利息の合計の差）、series は選んだ数字の年ごとの系列（画面の表に出す年から、年末の残高・年額。ages は家族の年齢で、鍵は members）。from.onBase は基本の世帯に基本と通りの変更を重ねた通りです。marketStress は重ねた画面の「相場が下がった場合」の型です。keyFigures.pension は65歳からの年金の月額（世帯の合計と人ごと。今の水準＝賃金・物価の伸びとマクロ経済スライドを外した額。画面の比較の表の年金の行と同じ）です。status が error の通りは計算しておらず、reason に理由と直し方があります（ほかの通りは計算しています）。試したプランの変更は、そのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
 
 #[cfg(test)]
 mod tests {
@@ -274,6 +282,12 @@ mod tests {
             json!({ "assetsAtAge": [{ "age": 95, "amount": 150 }], "depletion": "尽きなくなる", "minimumAmount": 12,
                 "lifetimeTakeHome": 5, "lifetimeExpense": -2, "loanRepayment": 3 })
         );
+        // 住宅ローンの利息の合計の差（0205）
+        let mut b = base.clone();
+        let mut t = this.clone();
+        b["loanInterest"] = json!(2_800_000);
+        t["loanInterest"] = json!(4_100_000);
+        assert_eq!(diff(&t, &b)["loanInterest"], 1_300_000);
     }
 
     #[test]

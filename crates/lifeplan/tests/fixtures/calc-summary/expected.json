@@ -294,6 +294,7 @@
         "lifetimeTakeHome": 251212723,
         "lifetimeExpense": 295476499,
         "loanRepayment": 25468349,
+        "loanInterest": 3278604,
         "pension": {
           "monthly": 286678,
           "claimedMonthly": 286678,
@@ -629,6 +630,7 @@
         "lifetimeTakeHome": 242817699,
         "lifetimeExpense": 267093732,
         "loanRepayment": 25468349,
+        "loanInterest": 3278604,
         "pension": {
           "monthly": 286678,
           "claimedMonthly": 286678,
@@ -898,6 +900,7 @@
         "lifetimeTakeHome": 397099656,
         "lifetimeExpense": 78278061,
         "loanRepayment": 54116496,
+        "loanInterest": 14116496,
         "pension": {
           "monthly": 391811,
           "claimedMonthly": 391811,
@@ -962,6 +965,7 @@
         "lifetimeTakeHome": 3384160,
         "lifetimeExpense": 0,
         "loanRepayment": 0,
+        "loanInterest": 0,
         "pension": {
           "monthly": null,
           "claimedMonthly": null,
@@ -1264,6 +1268,7 @@
         "lifetimeTakeHome": 218192775,
         "lifetimeExpense": 126184105,
         "loanRepayment": 0,
+        "loanInterest": 0,
         "pension": {
           "monthly": 328527,
           "claimedMonthly": 328527,
@@ -1544,6 +1549,7 @@
         "lifetimeTakeHome": 182624475,
         "lifetimeExpense": 177450476,
         "loanRepayment": 33761656,
+        "loanInterest": 2803539,
         "pension": {
           "monthly": 324411,
           "claimedMonthly": 324411,
@@ -1735,6 +1741,7 @@
         "lifetimeTakeHome": 101942287,
         "lifetimeExpense": 116361980,
         "loanRepayment": 0,
+        "loanInterest": 0,
         "pension": {
           "monthly": 275764,
           "claimedMonthly": 297496,

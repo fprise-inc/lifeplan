@@ -225,7 +225,7 @@ entries:
       - 「基本生活費」の入力項目の「貯金に回る額の上限（年）」
     rows: [cf.expense.living.surplus]
     components:
-      plan.cashflow: 27
+      plan.cashflow: 28
     related:
       - income.livingExpense
       - investment.withdrawalOrder
