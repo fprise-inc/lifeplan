@@ -167,6 +167,8 @@ async fn standalone_tools_work_without_the_app() {
         "list_plan_items",
         "get_input_guide",
         "get_input_recipe",
+        "sweep",
+        "find_threshold",
         "list_shared_households",
         "get_shared_household",
         "propose_scenario",
@@ -2836,6 +2838,398 @@ async fn compare_shared_households() {
         .unwrap()
         .contains("基本の世帯を読めない"));
     assert_eq!(r[2]["status"], "ok");
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 感度・境目探しの表の1行を、calculate の主な数字から作る（列は sweep の columns と同じ）
+fn figures_row(value: &Value, kf: &Value, cols: &[Value]) -> Vec<Value> {
+    cols.iter()
+        .map(|c| match c.as_str().unwrap() {
+            "value" => value.clone(),
+            "depletionYear" => kf["depletion"]["year"].clone(),
+            "depletionAge" => kf["depletion"]["selfAge"].clone(),
+            "minimumYear" => kf["minimum"]["year"].clone(),
+            "minimumAmount" => kf["minimum"]["amount"].clone(),
+            "pensionMonthly" => kf["pension"]["monthly"].clone(),
+            "pensionClaimedMonthly" => kf["pension"]["claimedMonthly"].clone(),
+            k if k.starts_with("assetsAt") => {
+                let age: u64 = k["assetsAt".len()..].parse().unwrap();
+                kf["assetsAtAge"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|x| x["age"] == json!(age))
+                    .unwrap()["amount"]
+                    .clone()
+            }
+            k => kf[k].clone(),
+        })
+        .collect()
+}
+
+/// 見本の世帯の動かす項目を、入力項目ID で1つ選ぶ
+async fn plan_item(c: &Client, args: Value, item: &str) -> Value {
+    let list = call_ok(c, "list_plan_items", args).await;
+    list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["item"] == item)
+        .cloned()
+        .unwrap_or_else(|| panic!("{item} がありません"))
+}
+
+/// 感度（sweep）: 値ごとの主な数字が、同じ値を calculate の plan_changes で1つずつ計算したときと同じ（基本の plan_changes の上に重ねる）。
+/// 範囲の外の値は計算せずに理由、上限、引数の誤り
+#[tokio::test(flavor = "multi_thread")]
+async fn sweep_matches_calculate() {
+    let dir = temp_dir("sweep");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "sweep");
+    let id = "salariedCoupleTwoKids";
+    let sample = json!({ "sample_household_id": id });
+    let emp = plan_item(&c, sample.clone(), "employment.to").await;
+    let liv = plan_item(&c, sample.clone(), "livingExpense.monthly").await;
+    let vary = json!({ "target": emp["target"], "item": "employment.to" });
+    let base_change = json!([{ "target": liv["target"], "item": liv["item"], "value": 280000 }]);
+    let (_, text) = call(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "plan_changes": base_change, "vary": vary, "from": 61, "to": 65, "at_ages": [85, 95] }),
+    )
+    .await;
+    let got: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(got["computed"], 5, "{got}");
+    assert_eq!(got["vary"]["now"], emp["value"]);
+    let cols = got["columns"].as_array().unwrap();
+    assert!(cols.contains(&json!("assetsAt85")) && cols.contains(&json!("pensionMonthly")));
+    let rows = got["rows"].as_array().unwrap();
+    for (age, r) in (61..=65).zip(rows) {
+        let mut changes = base_change.as_array().unwrap().clone();
+        changes.push(json!({ "target": emp["target"], "item": "employment.to", "value": age }));
+        let one = call_ok(
+            &c,
+            "calculate",
+            json!({ "sample_household_id": id, "plan_changes": changes, "omit": ["years"], "at_ages": [85, 95] }),
+        )
+        .await;
+        assert_eq!(
+            r.as_array().unwrap(),
+            &figures_row(&json!(age), &one["keyFigures"], cols),
+            "{age}歳"
+        );
+    }
+    // 5つの値で約1KB
+    assert!(text.len() < 1500, "{}", text.len());
+
+    // 項目の範囲の外の値は計算せず、理由をまとめて返す（範囲の中の値は計算する）
+    let got = call_ok(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "vary": vary, "from": 47, "to": 51, "figures": ["depletion"] }),
+    )
+    .await;
+    assert_eq!(got["computed"], 2);
+    assert_eq!(
+        got["columns"],
+        json!(["value", "depletionYear", "depletionAge"])
+    );
+    let skipped = &got["notComputed"][0];
+    assert_eq!(skipped["values"], json!([47, 48, 49]));
+    assert!(
+        skipped["reason"].as_str().unwrap().contains("範囲"),
+        "{skipped}"
+    );
+    // 率は10進の文字列で振る。values でも並べられる
+    let ret = plan_item(&c, sample.clone(), "assumptions.returnShifts").await;
+    let got = call_ok(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "vary": { "target": ret["target"], "item": ret["item"] }, "from": "0.02", "to": 0.03, "step": "0.005", "figures": ["assetsAtAge"] }),
+    )
+    .await;
+    let values: Vec<Value> = got["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r[0].clone())
+        .collect();
+    assert_eq!(values, vec![json!("0.02"), json!("0.025"), json!("0.03")]);
+    let listed = call_ok(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "vary": { "target": ret["target"], "item": ret["item"] }, "values": ["0.03"], "figures": ["assetsAtAge"] }),
+    )
+    .await;
+    assert_eq!(listed["rows"][0], got["rows"][2]);
+
+    // 上限（21個）を超えれば計算せず、収まる刻みの目安を返す。引数の誤り
+    for (args, want) in [
+        (json!({ "from": 50, "to": 75 }), "21個"),
+        (json!({ "from": 60, "to": 62, "values": [60] }), "どちらか"),
+        (json!({ "to": 62 }), "どちらか"),
+        (json!({ "from": 60.5, "to": 62 }), "整数"),
+        (json!({ "from": 60, "to": 62, "figures": ["x"] }), "figures"),
+    ] {
+        let mut a = json!({ "sample_household_id": id, "vary": vary });
+        a.as_object_mut()
+            .unwrap()
+            .extend(args.as_object().unwrap().clone());
+        let (err, msg) = call(&c, "sweep", a).await;
+        assert!(err && msg.contains(want), "{args}: {msg}");
+    }
+    let (err, msg) = call(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "vary": { "target": "nope", "item": "employment.to" }, "from": 60, "to": 62 }),
+    )
+    .await;
+    assert!(err && msg.contains("list_plan_items"), "{msg}");
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 境目探し（find_threshold）: 二分探索の答えが刻みで振った答えと同じで、境目の値は条件を満たし、1つ外側は満たさない（calculate で確かめる）。
+/// 範囲の端・範囲に無い・範囲の外の値・単調でない項目は刻みで探す
+#[tokio::test(flavor = "multi_thread")]
+async fn find_threshold_matches_calculate() {
+    let dir = temp_dir("threshold");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "find_threshold");
+    let id = "salariedCoupleTwoKids";
+    let sample = json!({ "sample_household_id": id });
+    let liv = plan_item(&c, sample.clone(), "livingExpense.monthly").await;
+    let emp = plan_item(&c, sample.clone(), "employment.to").await;
+    let small = json!(["assetsAtAge", "depletion", "minimum"]);
+    let ask = |vary: &Value, more: Value| {
+        let mut a = json!({ "sample_household_id": id, "vary": { "target": vary["target"], "item": vary["item"] }, "condition": { "type": "noDepletion" }, "figures": small });
+        a.as_object_mut()
+            .unwrap()
+            .extend(more.as_object().unwrap().clone());
+        a
+    };
+    // 毎月の生活費の上限（最後まで尽きない）: 二分探索と刻みで同じ答え
+    let range = json!({ "from": 200000, "to": 300000, "step": 5000, "want": "max" });
+    let bisect = call_ok(&c, "find_threshold", ask(&liv, range.clone())).await;
+    assert_eq!(bisect["method"], "bisect", "{bisect}");
+    assert_eq!(bisect["status"], "found", "{bisect}");
+    let mut scan_args = ask(&liv, range);
+    scan_args["method"] = json!("scan");
+    let scan = call_ok(&c, "find_threshold", scan_args).await;
+    assert_eq!(scan["method"], "scan");
+    assert_eq!(scan["threshold"], bisect["threshold"]);
+    assert_eq!(scan["rows"], bisect["rows"]);
+    assert!(bisect["computed"].as_u64().unwrap() <= 7, "{bisect}");
+    // 境目の値は満たし、1つ外側（+5,000円）は満たさない。行は calculate と同じ数字
+    let th = bisect["threshold"].as_i64().unwrap();
+    let rows = bisect["rows"].as_array().unwrap();
+    let cols = bisect["columns"].as_array().unwrap();
+    for (r, v, meets) in [(&rows[0], th, true), (&rows[1], th + 5000, false)] {
+        let one = call_ok(
+            &c,
+            "calculate",
+            json!({ "sample_household_id": id, "plan_changes": [{ "target": liv["target"], "item": liv["item"], "value": v }], "omit": ["years", "pension"] }),
+        )
+        .await;
+        let mut want = figures_row(&json!(v), &one["keyFigures"], &cols[..cols.len() - 1]);
+        want.push(json!(meets));
+        assert_eq!(r.as_array().unwrap(), &want, "{v}");
+        assert_eq!(one["keyFigures"]["depletion"].is_null(), meets);
+    }
+    assert!(bisect["message"].as_str().unwrap().contains("円"));
+
+    // いちばん早い退職の年齢（want min）: 二分探索と刻みで同じ
+    let range = json!({ "from": 55, "to": 75, "want": "min" });
+    let bisect = call_ok(&c, "find_threshold", ask(&emp, range.clone())).await;
+    let mut scan_args = ask(&emp, range);
+    scan_args["method"] = json!("scan");
+    let scan = call_ok(&c, "find_threshold", scan_args).await;
+    assert_eq!(bisect["method"], "bisect");
+    assert_eq!(bisect["threshold"], scan["threshold"], "{bisect} {scan}");
+    assert_eq!(bisect["rows"], scan["rows"]);
+    assert_eq!(
+        bisect["range"],
+        json!({ "from": 55, "to": 75, "step": 1, "count": 21 })
+    );
+    let th = bisect["threshold"].as_i64().unwrap();
+    assert_eq!(bisect["rows"][0][0], json!(th - 1));
+    // 年金の見込みも入れると、答えの行だけ数え直す（境目は同じ）
+    let mut full = ask(&emp, json!({ "from": 55, "to": 75, "want": "min" }));
+    full.as_object_mut().unwrap().remove("figures");
+    let full = call_ok(&c, "find_threshold", full).await;
+    assert_eq!(full["threshold"], bisect["threshold"]);
+    assert_eq!(
+        full["computed"].as_u64().unwrap(),
+        bisect["computed"].as_u64().unwrap() + 2
+    );
+    let pcol = full["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|x| x == "pensionMonthly")
+        .unwrap();
+    assert!(full["rows"][1][pcol].is_number(), "{full}");
+
+    // 「○歳の時点で○円以上」: 範囲の端でも満たす（edge）・範囲に無い（notFound）
+    let at90 = json!({ "type": "assetsAtAge", "age": 90, "at_least": 0 });
+    let edge = call_ok(
+        &c,
+        "find_threshold",
+        ask(
+            &emp,
+            json!({ "from": 70, "to": 75, "want": "min", "condition": at90 }),
+        ),
+    )
+    .await;
+    assert_eq!(edge["status"], "edge", "{edge}");
+    assert_eq!(edge["threshold"], 70);
+    assert_eq!(edge["rows"].as_array().unwrap().len(), 1);
+    assert_eq!(edge["columns"][1], "assetsAt90");
+    let none = call_ok(
+        &c,
+        "find_threshold",
+        ask(
+            &liv,
+            json!({ "from": 500000, "to": 600000, "step": 10000, "want": "max" }),
+        ),
+    )
+    .await;
+    assert_eq!(none["status"], "notFound", "{none}");
+    assert!(none["threshold"].is_null());
+    assert_eq!(none["computed"], 2);
+    let ends: Vec<Value> = none["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r[0].clone())
+        .collect();
+    assert_eq!(ends, vec![json!(500000), json!(600000)]);
+
+    // 単調と分かっていない項目（年金の受け取り開始）は刻みで振る（21個まで）
+    let claim = plan_item(&c, sample.clone(), "pensionRecord.claim").await;
+    let got = call_ok(
+        &c,
+        "find_threshold",
+        ask(&claim, json!({ "from": 60, "to": 75, "want": "min", "condition": { "type": "minimumAtLeast", "at_least": -100000000 } })),
+    )
+    .await;
+    assert_eq!(got["method"], "scan", "{got}");
+    assert!(got["methodNote"].as_str().unwrap().contains("単調"));
+    let (err, msg) = call(
+        &c,
+        "find_threshold",
+        ask(
+            &liv,
+            json!({ "from": 100000, "to": 400000, "step": 1000, "want": "max", "method": "scan" }),
+        ),
+    )
+    .await;
+    assert!(err && msg.contains("21個"), "{msg}");
+
+    // 範囲の端が項目の範囲の外なら、計算せずに理由を返す。引数の誤り
+    let (err, msg) = call(
+        &c,
+        "find_threshold",
+        ask(&emp, json!({ "from": 40, "to": 60, "want": "min" })),
+    )
+    .await;
+    assert!(err && msg.contains("範囲"), "{msg}");
+    for (more, want) in [
+        (json!({ "from": 60, "to": 70, "want": "x" }), "want"),
+        (
+            json!({ "from": 60, "to": 70, "want": "min", "method": "x" }),
+            "method",
+        ),
+        (
+            json!({ "from": 60, "to": 70, "want": "min", "condition": { "type": "assetsAtAge" } }),
+            "age",
+        ),
+        (json!({ "from": 60, "to": 60, "want": "min" }), "2つ以上"),
+    ] {
+        let (err, msg) = call(&c, "find_threshold", ask(&emp, more.clone())).await;
+        assert!(err && msg.contains(want), "{more}: {msg}");
+    }
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 感度・境目探しで渡された世帯を使う: 世帯はアプリ本体に頼み（同意・期限・縮約を通す）、1回の呼び出しで1回だけ読み、道具の名前で
+/// 「AIに渡した記録」に残る。縮約版でも見本の世帯と同じ数字。人が書いた文・元の ID は答えに出ない。取り消した共有は読めない
+#[tokio::test(flavor = "multi_thread")]
+async fn sweep_and_threshold_for_a_shared_household() {
+    let dir = temp_dir("sweep-share");
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    let g = reg
+        .grant(source("salariedCoupleTwoKids", true), grant_opts())
+        .unwrap();
+    let shared = plan_item(&c, json!({ "share_id": g.share_id }), "employment.to").await;
+    let sample = plan_item(
+        &c,
+        json!({ "sample_household_id": "salariedCoupleTwoKids" }),
+        "employment.to",
+    )
+    .await;
+    let reads = |tool: &str| {
+        reg.records(HOUSEHOLD_ID)[0]
+            .reads
+            .iter()
+            .filter(|x| x.tool == tool)
+            .count()
+    };
+    let figures = json!(["assetsAtAge", "depletion"]);
+    let got = call_ok(
+        &c,
+        "sweep",
+        json!({ "share_id": g.share_id, "vary": { "target": shared["target"], "item": "employment.to" }, "from": 62, "to": 64, "figures": figures }),
+    )
+    .await;
+    // 値ごとに、同じ共有で calculate したときと同じ数字（共有の仮の ID の項目が当たる）
+    let cols = got["columns"].as_array().unwrap();
+    for (age, r) in (62..=64).zip(got["rows"].as_array().unwrap()) {
+        let one = call_ok(
+            &c,
+            "calculate",
+            json!({ "share_id": g.share_id, "plan_changes": [{ "target": shared["target"], "item": "employment.to", "value": age }], "omit": ["years", "pension"] }),
+        )
+        .await;
+        assert_eq!(
+            r.as_array().unwrap(),
+            &figures_row(&json!(age), &one["keyFigures"], cols),
+            "{age}歳"
+        );
+    }
+    assert_eq!(got["vary"]["target"], shared["target"]);
+    assert_ne!(shared["target"], sample["target"]);
+    assert_eq!(reads("sweep"), 1);
+    let th = call_ok(
+        &c,
+        "find_threshold",
+        json!({ "share_id": g.share_id, "vary": { "target": shared["target"], "item": "employment.to" }, "from": 55, "to": 75, "want": "min",
+            "condition": { "type": "noDepletion" }, "figures": figures }),
+    )
+    .await;
+    assert_eq!(th["status"], "found", "{th}");
+    assert_eq!(reads("find_threshold"), 1);
+    for s in [INJECTION, MEMO, HOUSEHOLD_ID, CUSTOMER_NUMBER] {
+        assert!(
+            !got.to_string().contains(s) && !th.to_string().contains(s),
+            "{s}"
+        );
+    }
+    reg.revoke(&g.share_id);
+    let (err, msg) = call(
+        &c,
+        "sweep",
+        json!({ "share_id": g.share_id, "vary": { "target": shared["target"], "item": "employment.to" }, "from": 62, "to": 64 }),
+    )
+    .await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
     ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);

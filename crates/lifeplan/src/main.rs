@@ -18,6 +18,7 @@ mod recipes;
 mod regulation;
 mod samples;
 mod server;
+mod sweep;
 
 use rmcp::ServiceExt;
 use std::process::ExitCode;
