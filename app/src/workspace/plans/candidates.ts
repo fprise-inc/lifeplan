@@ -4,6 +4,9 @@
 // - 画面の状態（帯・選んだプラン・保存していない変更）には依らない。世帯（WorkingHousehold）と動かす項目の一覧（Catalog）だけを読む
 // - 当てはめは対策の固定の項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・FP顧問料）を先に探し、当たらなければ入力の欄の項目を探す
 //   （同じ入力項目ID・同じ向き先の欄より、結果の画面の対策を選ぶ）
+// - 同じ対象・同じ入力項目ID で場所だけが違う項目（資産運用の積立額と積立をやめる年齢・教育の段階ごとの欄など）は、候補に場所を添えて選ぶ
+//   （0199）: 入力の欄の場所 at（プランの差分の当て先の at と同じ。0036 の2）か、合成の対策の名前 lever（差分の向き先 lever と同じ。0036 の3）。
+//   どちらも無い候補は今までどおり対象と入力項目ID だけで当てはめる
 import { ITEM_LABELS } from "../../generated/labels.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { rangeText, rateInRange, type PctRange } from "../input/rateRanges.ts";
@@ -17,8 +20,16 @@ const EXTRA_ITEM_LABELS: Record<string, string> = { postRetirement: "定年後�
 /** 入力項目IDの短い名前。知らない ID はそのまま */
 export const itemName = (id: string): string => ITEM_LABELS[id] || EXTRA_ITEM_LABELS[id] || id;
 
+/** 候補の場所（0199）: 入力の欄の値の中の道 at か、合成の対策の名前 lever のどちらか1つ。無ければ対象と入力項目ID だけで当てはめる */
+export interface ChangePlace {
+  /** 入力の欄の場所（プランの差分の当て先の at と同じ。並びの要素は ID、欄は名前。欄の値そのものなら []） */
+  at?: readonly string[];
+  /** 合成の対策の名前（プランの差分の向き先 lever と同じ。例 investMonthly・drawdownStart） */
+  lever?: string;
+}
+
 /** プランの候補の変更1件（propose_scenario の changes の1件と同じ中身。対象は物・構成員の ID か前提） */
-export interface ProposedChange {
+export interface ProposedChange extends ChangePlace {
   id: string;
   target: { object: string } | { plan: "assumptions" };
   item: string;
@@ -32,6 +43,8 @@ export interface CandidateRow {
   label: string;
   from: string;
   to: string;
+  /** 場所を添えた候補（0199）の、人が読める場所の区別（placeText）。場所を添えない候補・当てはまらない候補は null */
+  place: string | null;
   /** AIが書いた理由（信用しない文章） */
   note: string | null;
   /** プランにするときの動かす項目のキー。プランにできないときは null */
@@ -135,7 +148,7 @@ function readingsOf(cat: Catalog, input: Record<string, unknown>): (key: string)
  * 当て先を正にする（0036 の9）: 欄の当て先の向き先と入力項目ID が候補と同じ欄。今までの向き先（働き方の欄は構成員など、欄の
  * 一覧の向き先）で送る AI のアプリも当てはまるよう、どちらで合っても当てはめる。候補はまだ場所（at）を持たない
  */
-export function matchItems(d: Pick<ProposedChange, "target" | "item">, wh: WorkingHousehold, cat: Catalog): MovableItem[] {
+export function matchItems(d: Pick<ProposedChange, "target" | "item" | "at" | "lever">, wh: WorkingHousehold, cat: Catalog): MovableItem[] {
   const input = wh.request.input as unknown as Record<string, unknown>;
   // 働き方の値を構成員に向けて送る候補は、その人の今の働き方の期間の欄にも当てはめる（今の働き方の年収は標準では年収〔賞与込み〕の1欄で、
   // 年収・賞与の動かす項目は働き方の期間の欄にある。0078）
@@ -144,10 +157,18 @@ export function matchItems(d: Pick<ProposedChange, "target" | "item">, wh: Worki
   const period = memberId !== null && d.item?.startsWith("employment.") === true ? currentPeriodId(input, memberId) : null;
   const hits = (t: DiffTarget) => sameTarget(t, d.target) || (period !== null && sameTarget(t, { object: period }));
   const read = readingsOf(cat, input);
+  // 場所を添えた候補は、その場所の項目だけ（0199）: at は当て先の場所が同じ欄、lever は同じ合成の対策
+  const at = d.at !== undefined ? JSON.stringify(d.at) : null;
+  const inPlace = (r: Reading | null): boolean => {
+    if (d.lever !== undefined) return r !== null && r.kind === "lever" && r.lever === d.lever;
+    if (at !== null) return r !== null && r.kind === "address" && JSON.stringify(r.address.at) === at;
+    return true;
+  };
   const matchIn = (phase: (p: MovableItem["phase"]) => boolean) =>
     cat.items.filter((it) => {
       if (!phase(it.phase) || it.item !== d.item) return false;
       const r = read(it.key);
+      if (!inPlace(r)) return false;
       return (r !== null && r.kind === "address" && hits(r.address.target as DiffTarget)) || hits(it.target);
     });
   // 対策の固定の項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・FP顧問料。向き先は構成員・物）を先に探し、当たらなければ入力の欄の
@@ -165,8 +186,9 @@ export function matchItems(d: Pick<ProposedChange, "target" | "item">, wh: Worki
 /** 候補の変更を、主画面の動かす項目に当てはめる（当てはまらないものは理由つきで返す） */
 export function candidateRows(c: { diffs: readonly ProposedChange[] }, wh: WorkingHousehold, cat: Catalog): CandidateRow[] {
   return c.diffs.map((d) => {
-    const base = { diffId: d.id, note: d.note };
     const matches = matchItems(d, wh, cat);
+    const placed = d.at !== undefined || d.lever !== undefined;
+    const base = { diffId: d.id, note: d.note, place: placed && matches.length === 1 ? placeText(matches[0] as MovableItem) : null };
     if (matches.length !== 1) {
       return { ...base, label: itemName(d.item), from: "—", to: short(unbox(d.value)), key: null, value: null, reason: matches.length === 0 ? "「結果」の画面のプランでは動かせない項目です（取り込みません。必要なら入力で直してください）" : "対応する欄が複数あるため、取り込みません" };
     }
@@ -189,16 +211,57 @@ export function candidateValues(rows: readonly CandidateRow[]): Values {
   return out;
 }
 
+/** 候補の書き方での、動かす項目の選び方（対象と、要るときだけ場所。0199） */
+export interface CandidateRef extends ChangePlace {
+  target: string;
+}
+
+/**
+ * 動かす項目の、候補の書き方での選び方（0199）。対象と入力項目ID だけで1つに決まり、プランの候補にも出せるならそれだけ（今までと同じ書き方）。
+ * 決まらない（同じ対象・同じ入力項目ID で場所だけが違う）・前提を対象にする前提条件でない入力項目のときは、場所（入力の欄の at か合成の対策の
+ * lever）を添えて、その項目自身に1つに決まる選び方を返す。どれでも決まらなければ null（一覧に出さない）
+ */
+export function candidateRefOf(it: MovableItem, wh: WorkingHousehold, cat: Catalog): CandidateRef | null {
+  const target = candidateTargetOf(it, wh, cat);
+  if (target !== null && (target !== "assumptions" || it.item.startsWith("assumptions."))) return { target };
+  const r = readingsOf(cat, wh.request.input as unknown as Record<string, unknown>)(it.key);
+  const place: ChangePlace | null = r === null ? null : r.kind === "address" ? { at: r.address.at } : r.kind === "lever" ? { lever: r.lever } : null;
+  if (place === null) return target === null ? null : { target };
+  for (const t of targetsOf(it, r)) {
+    const matches = matchItems({ target: t === "assumptions" ? { plan: "assumptions" } : { object: t }, item: it.item, ...place }, wh, cat);
+    if (matches.length === 1 && matches[0]?.key === it.key) return { target: t, ...place };
+  }
+  return target === null ? null : { target };
+}
+
+/** 候補の書き方での対象の候補（項目の向き先と、当て先の向き先。物・構成員の ID か "assumptions"） */
+function targetsOf(it: MovableItem, r: Reading | null): string[] {
+  const tries: DiffTarget[] = [it.target, ...(r !== null && r.kind === "address" ? [r.address.target as DiffTarget] : [])];
+  const out: string[] = [];
+  for (const t of tries) {
+    const target = "plan" in t ? (t.plan === "assumptions" ? "assumptions" : null) : "object" in t ? t.object : t.member;
+    if (target !== null && !out.includes(target)) out.push(target);
+  }
+  return out;
+}
+
+/**
+ * 人が読める、場所だけ違う項目の区別（0199）: まとまり・欄の区切り・物の名前（例「子ども・教育 › 第1子 › 中学校（12歳から）」「資産運用」）。
+ * 同じ言葉は重ねない
+ */
+export function placeText(it: MovableItem): string {
+  const parts: string[] = [];
+  for (const p of [it.group, it.section, it.where]) if (p !== undefined && p !== "" && !parts.includes(p)) parts.push(p);
+  return parts.join(" › ");
+}
+
 /**
  * 動かす項目の、候補の書き方での対象（物・構成員の ID か "assumptions"）。この書き方で当てはめると、その項目自身に1つに決まるときだけ返す
  * （同じ入力項目ID・同じ対象の項目が2つ以上ある、同じ入力項目ID・同じ対象の対策の固定の項目に隠れる、などは null。一覧に出さない）
  */
 export function candidateTargetOf(it: MovableItem, wh: WorkingHousehold, cat: Catalog): string | null {
   const r = readingsOf(cat, wh.request.input as unknown as Record<string, unknown>)(it.key);
-  const tries: DiffTarget[] = [it.target, ...(r !== null && r.kind === "address" ? [r.address.target as DiffTarget] : [])];
-  for (const t of tries) {
-    const target = "plan" in t ? (t.plan === "assumptions" ? "assumptions" : null) : "object" in t ? t.object : t.member;
-    if (target === null) continue;
+  for (const target of targetsOf(it, r)) {
     const matches = matchItems({ target: target === "assumptions" ? { plan: "assumptions" } : { object: target }, item: it.item }, wh, cat);
     if (matches.length === 1 && matches[0]?.key === it.key) return target;
   }

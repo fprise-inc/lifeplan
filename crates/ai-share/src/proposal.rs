@@ -1,5 +1,7 @@
 //! AIのプランの候補（0015 の7）。外から来た候補（0008。画面では「AIからの候補」）に承認待ちで入るだけで、世帯のデータは1文字も変えない。
 //! 形は提案の差分と同じ（対象の物の ID・入力項目ID・新しい値）。変えられるのは入力値と前提条件だけ。
+//! 同じ対象・同じ入力項目ID で場所だけが違う欄は、場所を添えて選ぶ（0199）: 入力の欄の場所 `at`（プランの差分の当て先の `at` と同じ。
+//! 並びの要素は ID、欄は名前）か、合成の対策の名前 `lever`（差分の向き先 `lever` と同じ）のどちらか1つ。どちらも無い候補は今までと同じ。
 
 use crate::reduce::{allowlist, Pseudonyms, TEXT_ITEMS};
 use serde::{Deserialize, Serialize};
@@ -10,6 +12,11 @@ pub const MAX_SUMMARY_CHARS: usize = 2000;
 pub const MAX_NOTE_CHARS: usize = 500;
 pub const MAX_CHANGES: usize = 50;
 pub const MAX_PROPOSAL_BYTES: usize = 50 * 1024;
+/// 場所 `at` の段の数と、1段の文字数の上限（0199）
+pub const MAX_AT_STEPS: usize = 16;
+pub const MAX_AT_STEP_CHARS: usize = 100;
+/// 合成の対策の名前 `lever` の文字数の上限（英数字だけ。0199）
+pub const MAX_LEVER_CHARS: usize = 64;
 
 /// 前提条件を指す対象
 pub const ASSUMPTIONS_TARGET: &str = "assumptions";
@@ -38,6 +45,12 @@ pub struct ProposedDiff {
     /// 物の ID（元の ID に戻したもの）か `{"plan":"assumptions"}`
     pub target: Value,
     pub item: String,
+    /// 入力の欄の場所（0199。並びの要素の ID は元の ID に戻したもの）。場所を添えない候補には無い（前の版の候補と同じ形）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<Vec<String>>,
+    /// 合成の対策の名前（0199）。場所を添えない候補には無い
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lever: Option<String>,
     pub op: String,
     pub value: Value,
     pub note: Option<String>,
@@ -64,6 +77,10 @@ struct RawProposal {
 struct RawChange {
     target: String,
     item: String,
+    #[serde(default)]
+    at: Option<Vec<String>>,
+    #[serde(default)]
+    lever: Option<String>,
     value: Value,
     #[serde(default)]
     note: Option<String>,
@@ -111,9 +128,11 @@ pub(crate) fn validate(
                 "{n}件目: 理由は{MAX_NOTE_CHARS}文字までにしてください"
             ));
         }
+        let (at, lever) = place(n, c.at, c.lever, pseudonyms)?;
         let is_assumption = c.item.starts_with("assumptions.");
         let target = if c.target == ASSUMPTIONS_TARGET {
-            if !is_assumption {
+            // 場所を添えた変更は、世帯で1つの欄・対策（資産運用の積立・相続税の目安の欄など）を、前提を対象にして指せる（0199）
+            if !is_assumption && at.is_none() && lever.is_none() {
                 return Err(format!(
                     "{n}件目: target が assumptions のときは、前提条件の項目（assumptions.〜）だけを指せます"
                 ));
@@ -142,10 +161,67 @@ pub(crate) fn validate(
             id: crate::reduce::random_uuid_v4(),
             target,
             item: c.item,
+            at,
+            lever,
             op: "set".to_owned(),
             value,
             note: c.note,
         });
     }
     Ok((raw.title, raw.summary, diffs))
+}
+
+/// 候補の場所（0199）を確かめ、`at` の中の仮名を元の ID に戻す。`at` と `lever` はどちらか1つ
+fn place(
+    n: usize,
+    at: Option<Vec<String>>,
+    lever: Option<String>,
+    pseudonyms: &Pseudonyms,
+) -> Result<(Option<Vec<String>>, Option<String>), String> {
+    if at.is_some() && lever.is_some() {
+        return Err(format!(
+            "{n}件目: 場所は at か lever のどちらか1つにしてください（list_plan_items が添えた方）"
+        ));
+    }
+    let at = match at {
+        None => None,
+        Some(steps) => {
+            if steps.len() > MAX_AT_STEPS
+                || steps
+                    .iter()
+                    .any(|s| s.is_empty() || s.chars().count() > MAX_AT_STEP_CHARS)
+            {
+                return Err(format!(
+                    "{n}件目: at は{MAX_AT_STEPS}段まで・1段1〜{MAX_AT_STEP_CHARS}文字にしてください"
+                ));
+            }
+            let mut out = Vec::with_capacity(steps.len());
+            for s in steps {
+                if crate::reduce::is_uuid(&s) {
+                    match pseudonyms.original(&s) {
+                        Some(o) => out.push(o.to_owned()),
+                        None => {
+                            return Err(format!(
+                                "{n}件目: at の中の ID {s} はこの共有の世帯にありません"
+                            ))
+                        }
+                    }
+                } else {
+                    out.push(s);
+                }
+            }
+            Some(out)
+        }
+    };
+    if let Some(l) = &lever {
+        if l.is_empty()
+            || l.len() > MAX_LEVER_CHARS
+            || !l.bytes().all(|b| b.is_ascii_alphanumeric())
+        {
+            return Err(format!(
+                "{n}件目: lever は英数字の1〜{MAX_LEVER_CHARS}文字にしてください（list_plan_items が添えた名前）"
+            ));
+        }
+    }
+    Ok((at, lever))
 }

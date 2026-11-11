@@ -434,6 +434,9 @@ fn proposals_do_not_change_the_household_and_are_checked() {
         "仮名を元の ID に戻す"
     );
     assert_eq!(pending[0].diffs[0].target, json!({ "plan": "assumptions" }));
+    // 場所を添えない候補は、前の版の候補と同じ形（at・lever の欄を持たない。0199）
+    let saved = serde_json::to_value(&pending[0].diffs[0]).unwrap();
+    assert!(saved.get("at").is_none() && saved.get("lever").is_none(), "{saved}");
     assert_eq!(pending[0].origin.kind, "ai");
     assert_eq!(pending[0].origin.connector.as_deref(), Some("Claude 1.0"));
     assert_eq!(pending[0].household_id, HOUSEHOLD_ID);
@@ -444,7 +447,67 @@ fn proposals_do_not_change_the_household_and_are_checked() {
     assert_eq!(rec[0].proposals.len(), 1);
     assert_eq!(rec[0].proposals[0].candidate_id, pending[0].candidate_id);
 
+    // 場所を添えた候補（0199）: at の中の仮名も元の ID に戻す（ID でない段はそのまま）。lever はそのまま。
+    // 場所を添えた変更は、前提を対象にして前提条件でない入力項目を指せる
+    let placed = json!({
+        "title": "場所を添えた候補",
+        "changes": [
+            { "target": member_alias, "item": "goal.education", "at": ["stages", member_alias, "annualOverride"], "value": 1500000 },
+            { "target": "assumptions", "item": "account.contributions", "lever": "investStopAge", "value": 55 },
+            { "target": member_alias, "item": "goal.education", "at": [], "value": 1 }
+        ]
+    });
+    propose(&reg, &g.share_id, &placed, &caller).unwrap();
+    let pending = reg.take_proposals();
+    let d = &pending[0].diffs;
+    assert_eq!(
+        d[0].at,
+        Some(vec!["stages".to_owned(), member_orig.clone(), "annualOverride".to_owned()])
+    );
+    assert_eq!(d[0].lever, None);
+    assert_eq!(d[1].target, json!({ "plan": "assumptions" }));
+    assert_eq!(d[1].lever.as_deref(), Some("investStopAge"));
+    assert_eq!(d[2].at, Some(vec![]), "欄の値そのもの（[]）も場所");
+    let saved = serde_json::to_value(&d[1]).unwrap();
+    assert!(saved.get("at").is_none() && saved["lever"] == "investStopAge");
+
     let bad = |p: Value| propose(&reg, &g.share_id, &p, &caller).unwrap_err();
+    let placed_bad = |c: Value| bad(json!({ "title": "t", "changes": [c] }));
+    assert_eq!(
+        placed_bad(
+            json!({ "target": "assumptions", "item": "account.contributions", "value": 55 })
+        ),
+        "INVALID",
+        "場所の無い変更は、今までどおり前提を対象に前提条件でない項目を指せない"
+    );
+    assert_eq!(
+        placed_bad(
+            json!({ "target": member_alias, "item": "goal.education", "at": [], "lever": "x", "value": 1 })
+        ),
+        "INVALID",
+        "at と lever の両方"
+    );
+    assert_eq!(
+        placed_bad(
+            json!({ "target": member_alias, "item": "goal.education", "at": [member_orig], "value": 1 })
+        ),
+        "INVALID",
+        "at の中の元の ID（仮名でない）は知らない物"
+    );
+    assert_eq!(
+        placed_bad(
+            json!({ "target": member_alias, "item": "goal.education", "lever": "a-b", "value": 1 })
+        ),
+        "INVALID",
+        "lever は英数字だけ"
+    );
+    assert_eq!(
+        placed_bad(
+            json!({ "target": member_alias, "item": "goal.education", "at": vec!["x"; 17], "value": 1 })
+        ),
+        "INVALID",
+        "at の段が多すぎる"
+    );
     let change =
         json!({ "target": "assumptions", "item": "assumptions.inflation", "value": "0.01" });
     assert_eq!(

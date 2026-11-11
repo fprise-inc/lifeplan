@@ -1,6 +1,7 @@
 //! プランの動かす項目（0195）: 画面の結果のタブのプランと同じ関数（app/src/connector/plan.ts を同梱した JS）で、
 //! - この世帯で動かせる項目の一覧（list_plan_items）を返す
 //! - プランの候補と同じ書き方（対象・入力項目ID・値。propose_scenario の changes）の変更を、calculate・explain_value の計算の要求に当てる
+//! - 同じ対象・同じ入力項目ID で場所だけが違う項目は、一覧が添えた場所（入力の欄の at か合成の対策の lever。0199）も同じく運ぶ
 //!
 //! 接続口の側には当てはめ方・当て方を書かない（画面の関数に任せ、答えを運ぶだけ）。世帯の物の ID は AI に渡した世帯の ID のまま。
 
@@ -19,6 +20,14 @@ pub struct PlanChange {
     pub target: String,
     /// 入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・pensionRecord.claim・livingExpense.monthly）
     pub item: String,
+    /// 場所（list_plan_items が at を添えた項目だけ。そのまま渡す）。同じ対象・同じ入力項目ID で場所だけが違う欄（教育の段階ごとの欄・
+    /// 生活費の段階の割合など）を選ぶ。lever とどちらか1つ
+    #[serde(default)]
+    pub at: Option<Vec<String>>,
+    /// 合成の対策の名前（list_plan_items が lever を添えた項目だけ。そのまま渡す。例: investMonthly〔資産運用の毎月の積立額〕・
+    /// investStopAge〔積立をやめる年齢〕・drawdownStart〔取り崩しを始める年齢〕・mainEndAge〔定年後の予定の定年〕）。at とどちらか1つ
+    #[serde(default)]
+    pub lever: Option<String>,
     /// 新しい値（list_plan_items の kind・unit の形。年齢は整数の歳、金額は円の整数、率は10進の文字列 "0.02"）
     pub value: Value,
 }
@@ -97,10 +106,7 @@ pub fn apply(
             rows: Value::Null,
         });
     }
-    let list: Vec<Value> = changes
-        .iter()
-        .map(|c| json!({ "target": c.target, "item": c.item, "value": c.value }))
-        .collect();
+    let list: Vec<Value> = changes.iter().map(change_json).collect();
     let ctx = json!({ "args": args_json(sample, None, false, post), "office": office });
     let out = engine::plan(
         "applyPlan",
@@ -121,6 +127,18 @@ pub fn apply(
         Some("badInput") => Err(BAD_INPUT.into()),
         _ => Err("E_PLAN".into()),
     }
+}
+
+/// 変更1件を JS に渡す形（場所は添えてあるときだけ。0199）
+pub fn change_json(c: &PlanChange) -> Value {
+    let mut v = json!({ "target": c.target, "item": c.item, "value": c.value });
+    if let Some(at) = &c.at {
+        v["at"] = json!(at);
+    }
+    if let Some(l) = &c.lever {
+        v["lever"] = json!(l);
+    }
+    v
 }
 
 /// プランの変更の数を確かめる（多すぎれば道具の答えの文）
@@ -157,7 +175,7 @@ pub fn error_message(code: &str) -> Option<&'static str> {
 }
 
 /// 動かせる項目の一覧の答えに添える説明
-pub const LIST_NOTE: &str = "items の target・item と、kind・unit の形の value を、calculate・explain_value の plan_changes（[{target, item, value}]）にそのまま渡すと、アプリの画面のプランと同じ関数で当てて計算します（関係する欄も一緒に動きます）。propose_scenario の changes にも同じ書き方で渡せます（proposable が false の項目は、プランの候補には出せません）。value は今の値、min・max は入れてよい範囲、slider は画面のスライダーの幅です。入力の数の欄から作った項目は fields: true か group で出します。";
+pub const LIST_NOTE: &str = "items の target・item（at か lever が添えてあれば、それも）と、kind・unit の形の value を、calculate・explain_value の plan_changes（[{target, item, value}]、場所つきは [{target, item, at, value}] か [{target, item, lever, value}]）にそのまま渡すと、アプリの画面のプランと同じ関数で当てて計算します（関係する欄も一緒に動きます）。at・lever は、同じ対象・同じ入力項目ID で場所だけが違う項目を選ぶ印で、place が人の読める区別です（FP に伝えるときは place と label を使ってください）。propose_scenario の changes にも同じ書き方で渡せます（proposable が false の項目は、プランの候補には出せません）。value は今の値、min・max は入れてよい範囲、slider は画面のスライダーの幅です。入力の数の欄から作った項目は fields: true か group で出します。";
 
 /// プランの変更の当てはめを答えに添えるときの説明
 pub const PLAN_NOTE: &str = "plan_changes は、アプリの画面の結果のタブのプランと同じ関数で当てました（関係する欄も画面と同じく一緒に動きます）。status は applied（当てた）・same（今と同じ値なので変わらない）。この変更をそのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
@@ -171,8 +189,25 @@ mod tests {
         let one = PlanChange {
             target: "assumptions".into(),
             item: "assumptions.inflation".into(),
+            at: None,
+            lever: None,
             value: json!("0.01"),
         };
+        // 場所は添えたときだけ運ぶ（前の書き方は前と同じ形）
+        assert_eq!(
+            change_json(&one),
+            json!({ "target": "assumptions", "item": "assumptions.inflation", "value": "0.01" })
+        );
+        let at = PlanChange {
+            at: Some(vec!["stages".into(), "x".into()]),
+            ..one.clone()
+        };
+        assert_eq!(change_json(&at)["at"], json!(["stages", "x"]));
+        let lever = PlanChange {
+            lever: Some("investStopAge".into()),
+            ..one.clone()
+        };
+        assert_eq!(change_json(&lever)["lever"], json!("investStopAge"));
         assert!(check_count(Some(&vec![one.clone(); MAX_PLAN_CHANGES])).is_ok());
         assert!(check_count(Some(&vec![one; MAX_PLAN_CHANGES + 1])).is_err());
         assert_eq!(
