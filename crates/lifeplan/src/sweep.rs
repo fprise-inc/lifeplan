@@ -6,6 +6,7 @@
 //!
 //! 1つの値の計算は compare と同じ道（server.rs の compute: プランの変更 → 計算の前の処理 → 計算 → 主な数字）を通り、ここには書かない。
 //! 値が項目の範囲の外かどうかも、画面の関数（プランの当て方。0195）に任せる（範囲の外なら計算せずに、その理由を返す）。
+//! 振る項目を選ぶのも、plan_changes と同じ画面の当てはめ（場所 at・lever を含む。0201・0204）で、ここには選び方を書かない。
 
 use crate::calc::Change;
 use crate::plan::PlanChange;
@@ -36,36 +37,107 @@ pub const MONOTONE: &[(&str, &str)] = &[
     ),
 ];
 
-/// 振る項目（plan_changes の1件から値を外した物。list_plan_items の target・item）
+/// 振る項目（plan_changes の1件から値を外した物。list_plan_items の target・item と、一覧が添えた場所 at か lever）
 #[derive(Debug, Clone, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Vary {
     /// 対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら "assumptions"）
     pub target: String,
     /// 入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・livingExpense.monthly〔毎月の生活費〕・
-    /// assumptions.returnShifts〔運用の利回り〕・employment.type〔配偶者の働き方と年収。年収を振る〕）
+    /// assumptions.returnShifts〔運用の利回り〕・employment.type〔配偶者の働き方と年収。年収を振る〕・account.contributions〔資産運用の積立。lever で選ぶ〕）
     pub item: String,
+    /// 場所（list_plan_items が at を添えた項目だけ。そのまま渡す。plan_changes の at と同じ）。同じ対象・同じ入力項目ID で場所だけが違う欄
+    /// （教育の段階ごとの欄・生活費の段階の割合など）を選ぶ。lever とどちらか1つ
+    #[serde(default)]
+    pub at: Option<Vec<String>>,
+    /// 合成の対策の名前（list_plan_items が lever を添えた項目だけ。そのまま渡す。plan_changes の lever と同じ。例: investMonthly〔資産運用の
+    /// 毎月の積立額〕・investStopAge〔積立をやめる年齢〕・drawdownStart〔取り崩しを始める年齢〕）。at とどちらか1つ
+    #[serde(default)]
+    pub lever: Option<String>,
 }
 
 impl Vary {
-    /// この値を当てるプランの変更1件（場所 at・lever はまだ受けない。0202 の未確定）
+    /// この値を当てるプランの変更1件（場所はそのまま運ぶ）
     pub fn change(&self, value: Value) -> PlanChange {
         PlanChange {
             target: self.target.clone(),
             item: self.item.clone(),
-            at: None,
-            lever: None,
+            at: self.at.clone(),
+            lever: self.lever.clone(),
             value,
         }
     }
 
-    /// list_plan_items の一覧の項目がこの項目か
-    /// （場所 at・lever を添えた項目は、vary がまだ場所を受けないので選ばない。0201・0202 の未確定）
-    pub fn matches(&self, it: &Value) -> bool {
-        it["target"] == self.target.as_str()
-            && it["item"] == self.item.as_str()
-            && it["at"].is_null()
-            && it["lever"].is_null()
+    /// 場所（at か lever）を添えたか
+    pub fn placed(&self) -> bool {
+        self.at.is_some() || self.lever.is_some()
+    }
+
+    /// 画面の関数（pickPlanItem）に渡す形（plan_changes の1件から値を外した物）
+    pub fn pick_json(&self) -> Value {
+        let mut v = crate::plan::change_json(&self.change(Value::Null));
+        if let Some(o) = v.as_object_mut() {
+            o.remove("value");
+        }
+        v
+    }
+
+    /// 人が読める振る項目の書き方（target・item と、添えた場所）
+    fn text(&self) -> String {
+        let mut s = format!("target {}・item {}", self.target, self.item);
+        if let Some(at) = &self.at {
+            s.push_str(&format!("・at {}", json!(at)));
+        }
+        if let Some(l) = &self.lever {
+            s.push_str(&format!("・lever {l}"));
+        }
+        s
+    }
+
+    /// 振る項目を選べなかったときの道具の答え（pickPlanItem の rejected の reason・places から）。場所の要る項目に場所を書かなかったときは
+    /// （reason が無い）、選べる場所を list_plan_items と同じ形（at か lever・place・label）で並べる
+    pub fn rejected_message(&self, reason: Option<&str>, places: &[Value]) -> String {
+        let choices: Vec<String> = places
+            .iter()
+            .map(|p| {
+                let by = match (&p["at"], &p["lever"]) {
+                    (Value::Array(_), _) => format!("at {}", p["at"]),
+                    (_, Value::String(l)) => format!("lever \"{l}\""),
+                    _ => String::new(),
+                };
+                format!(
+                    "{by}（{} › {}）",
+                    p["place"].as_str().unwrap_or(""),
+                    p["label"].as_str().unwrap_or("")
+                )
+            })
+            .collect();
+        let message = match reason {
+            None => format!(
+                "vary（{}）は、場所だけが違う項目が{}件あるので、どれを振るかを at か lever で選んでください（list_plan_items が添えた at か lever を、そのまま vary に書きます）。選べる場所: {}。FP には place と label で伝えてください。",
+                self.text(),
+                places.len(),
+                choices.join("・")
+            ),
+            Some(r) => {
+                let mut m = format!(
+                    "vary（{}）は、この世帯の動かす項目に当てはまりません（{r}）。list_plan_items（入力の欄から作った項目は fields: true）で target・item・at・lever を確かめてください。",
+                    self.text()
+                );
+                if !choices.is_empty() {
+                    m.push_str(&format!(
+                        "同じ対象・同じ入力項目ID で選べる場所: {}。",
+                        choices.join("・")
+                    ));
+                }
+                m
+            }
+        };
+        let mut v = json!({ "message": message });
+        if !places.is_empty() {
+            v["places"] = json!(places);
+        }
+        v.to_string()
     }
 }
 
@@ -171,7 +243,7 @@ pub struct SweepArgs {
     /// 基本に重ねる、アプリの画面の「相場が下がった場合」の型（compare の market_stress と同じ。stress_test とは一緒に使えない）
     #[schemars(extend("enum" = ["drop", "low", "minus1", null]))]
     pub market_stress: Option<String>,
-    /// 振る項目（list_plan_items の target・item。plan_changes の1件から value を外した物）
+    /// 振る項目（list_plan_items の target・item と、一覧が添えた場所 at か lever。plan_changes の1件から value を外した物）
     pub vary: Vary,
     /// 振る範囲の始め（含む）。値の形は list_plan_items の kind に合わせる: 年齢・整数・金額は整数、率は10進の文字列（"0.01"）。
     /// 配偶者の働き方と年収（kind が work）は1年の収入（円）を振る
@@ -210,7 +282,7 @@ pub struct ThresholdArgs {
     /// 基本に重ねる、アプリの画面の「相場が下がった場合」の型（compare の market_stress と同じ。stress_test とは一緒に使えない）
     #[schemars(extend("enum" = ["drop", "low", "minus1", null]))]
     pub market_stress: Option<String>,
-    /// 境目を探す項目（list_plan_items の target・item）
+    /// 境目を探す項目（list_plan_items の target・item と、一覧が添えた場所 at か lever。sweep の vary と同じ）
     pub vary: Vary,
     /// 探す範囲の始め（含む。sweep の from と同じ形）
     pub from: Value,
@@ -586,7 +658,13 @@ pub fn vary_out(v: &Vary, item: &Value) -> Value {
     let mut o = Map::new();
     o.insert("target".into(), json!(v.target));
     o.insert("item".into(), json!(v.item));
-    for k in ["label", "kind", "unit"] {
+    if let Some(at) = &v.at {
+        o.insert("at".into(), json!(at));
+    }
+    if let Some(l) = &v.lever {
+        o.insert("lever".into(), json!(l));
+    }
+    for k in ["place", "label", "kind", "unit"] {
         if let Some(x) = item.get(k) {
             o.insert(k.into(), x.clone());
         }
@@ -650,11 +728,16 @@ impl Method {
     }
 }
 
-/// 探し方を決める（auto なら、単調と分かる項目だけ二分探索）と、その理由の文
-pub fn method_of(asked: Option<&str>, item: &str) -> Result<(Method, String), String> {
+/// 探し方を決める（auto なら、単調と分かる項目だけ二分探索）と、その理由の文。単調と分かる項目は場所の要らない項目だけ
+/// （placed は振る項目に場所 at・lever を添えたか）
+pub fn method_of(
+    asked: Option<&str>,
+    item: &str,
+    placed: bool,
+) -> Result<(Method, String), String> {
     let mono = MONOTONE
         .iter()
-        .find(|(i, _)| *i == item)
+        .find(|(i, _)| *i == item && !placed)
         .map(|(_, why)| *why);
     match asked.unwrap_or("auto") {
         "auto" => Ok(match mono {
@@ -1125,22 +1208,31 @@ mod tests {
     #[test]
     fn methods_follow_the_item() {
         assert_eq!(
-            method_of(None, "livingExpense.monthly").unwrap().0,
+            method_of(None, "livingExpense.monthly", false).unwrap().0,
             Method::Bisect
         );
         assert_eq!(
-            method_of(Some("auto"), "pensionRecord.claim").unwrap().0,
+            method_of(Some("auto"), "pensionRecord.claim", false)
+                .unwrap()
+                .0,
             Method::Scan
         );
         assert_eq!(
-            method_of(Some("bisect"), "pensionRecord.claim").unwrap().0,
+            method_of(Some("bisect"), "pensionRecord.claim", false)
+                .unwrap()
+                .0,
             Method::Bisect
         );
         assert_eq!(
-            method_of(Some("scan"), "employment.to").unwrap().0,
+            method_of(Some("scan"), "employment.to", false).unwrap().0,
             Method::Scan
         );
-        assert!(method_of(Some("x"), "employment.to").is_err());
+        assert!(method_of(Some("x"), "employment.to", false).is_err());
+        // 場所を添えた項目は、単調と分かる項目に入れない（刻みで振る）
+        assert_eq!(
+            method_of(None, "livingExpense.monthly", true).unwrap().0,
+            Method::Scan
+        );
     }
 
     #[test]
