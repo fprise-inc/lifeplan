@@ -4,7 +4,7 @@
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
-import type { PreviewResult } from "../src/engine/types.ts";
+import type { Household, PreviewResult } from "../src/engine/types.ts";
 import { noticeRows } from "../src/workspace/engineNotices.ts";
 import { checkButtonText, checkSummary } from "../src/workspace/input/CheckList.tsx";
 import { checkCounts, checkList, confirmAllEstimates, estimatedFields, structuresInUse, yearMonthText } from "../src/workspace/input/checkRows.ts";
@@ -292,6 +292,10 @@ describe("ホームの札の要約と1行", () => {
 
   it("相続税の1行は、どの場面の目安かを書く", () => {
     const r = { inheritanceTax: { points: [{ point: "bothAfter", status: "ok", state: "estimated", noTax: false, payable: 23_300_000, amount: 0 }] } } as unknown as PreviewResult;
-    expect(inheritanceTaxNote(r)).toBe("相続税（二人とも亡くなった後）: 約2,330万円");
+    const couple = { members: [{ id: "a", kind: "self" }, { id: "b", kind: "spouse" }] } as unknown as Household;
+    expect(inheritanceTaxNote(r, couple)).toBe("相続税（二人とも亡くなった後）: 約2,330万円");
+    // 一人の世帯は「二人とも」と言わず、表の最後の年の目安と書く
+    const single = { members: [{ id: "a", kind: "self" }] } as unknown as Household;
+    expect(inheritanceTaxNote(r, single)).toBe("相続税（表の最後の年）: 約2,330万円");
   });
 });

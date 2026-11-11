@@ -333,7 +333,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const inheritance = useInheritanceEstimate(shown, true, computeOne);
   const pensionEst = usePensionEstimate(shown, true, computeOne);
   /** 全部の入力項目（非表示の物も。「入力項目を選ぶ」の一覧） */
-  const allItems = useMemo(() => inputItems(shown, { layout, inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, layout, inheritance, pensionEst]);
+  const allItems = useMemo(() => inputItems(shown, { layout, inheritanceTax: inheritanceTaxNote(inheritance, shown.request.input.household), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, layout, inheritance, pensionEst]);
   /** ホームに出す入力項目（非表示にしてあり値の入っていない物を除く。プランで直した所のある項目は出す） */
   const items = useMemo(() => shownItems(allItems.map((i) => (i.hidden && (counts.get(i.id) ?? 0) > 0 ? { ...i, hidden: false } : i))), [allItems, counts]);
   const pins = useMemo(() => pinItems(shown, editing !== null ? wh : undefined), [shown, editing, wh]);
@@ -527,7 +527,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
             <p>入力項目を押すと、入力のパネルが開きます。入れ方（標準／詳細）は、パネルの見出しで項目ごとに切り替えます。</p>
             <p>右の「入力項目を選ぶ」で、この世帯で出す入力項目と、開いたときの入れ方を選べます。</p>
             <p>入れていない欄は統計の平均などで補って計算します（「推定で計算中」の印）。</p>
-            <p>保存した世帯は、世帯ごとに暗号化して自動で保存します（見本の世帯は保存しません。上の「世帯」から保存できます）。</p>
+            <p>保存した世帯は、世帯ごとに暗号化して自動で保存します（見本の世帯は保存しません。左上の世帯の選択から保存できます）。</p>
             <p>進み具合の「未入力」「入力済み」などを押すと、その入力項目だけに絞ります。</p>
           </Help>
         </h1>

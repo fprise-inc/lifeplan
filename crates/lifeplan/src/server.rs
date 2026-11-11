@@ -2,7 +2,9 @@
 //!
 //! 道具は2つの群に分ける（0015 の2）:
 //! - 単体で使える（アプリが起動していなくてよい）: list_sample_households・get_sample_household・calculate・explain_value・get_regulation_value・
-//!   search_coverage・get_coverage（対応範囲の一覧。顧客の情報を含まない。0183）・list_plan_items（画面のプランの動かす項目。0195）
+//!   search_coverage・get_coverage（対応範囲の一覧。顧客の情報を含まない。0183）・get_input_guide（入力の形の説明。0196）・
+//!   get_input_recipe（よくある場面の部品の手本。share_id を渡したときだけ、世帯を扱う群と同じくアプリ本体に頼む。0196）・
+//!   list_plan_items（画面のプランの動かす項目。0195）
 //! - 世帯を扱う（アプリが起動していて、FPが渡した世帯が期限内で取り消されていないときだけ）: list_shared_households・get_shared_household・
 //!   propose_scenario・propose_inputs、calculate・explain_value・list_plan_items の share_id
 //! - 書類から読んだ値の候補を出す（世帯を扱う群。0151）: propose_inputs（現状の入力の候補を、アプリの「書類の読み取り」に承認待ちで入れるだけ）
@@ -17,7 +19,7 @@
 
 use crate::calc::{self, Change, OutputMode, TableFilter, STRESS_TESTS};
 use crate::plan::{self, Applied, PlanChange, PlanItemsArgs};
-use crate::{coverage, engine, regulation, samples};
+use crate::{coverage, engine, guide, recipes, regulation, samples};
 use ai_ipc::client::{call_app, AppError, ClientHello};
 use ai_ipc::{McpClientInfo, Request};
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -32,6 +34,7 @@ use std::time::Instant;
 pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプランソフト）の AI接続口です。
 - 計算（calculate）・数字の根拠（explain_value）・動かせる項目（list_plan_items）・制度の値（get_regulation_value）・見本の世帯（list_sample_households・get_sample_household）・対応範囲の一覧（search_coverage・get_coverage）は、アプリが起動していなくても使えます。見本の世帯はすべて架空で、実在の顧客ではありません。
 - calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリで「確実な分だけ」などの結果の見方を選んでいるとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
+- 計算の入力（input）を組み立てるときは、get_input_guide で形の決まりと区分ごとの欄・必須・選べる値・例を引き、よくある場面（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo を始める・万一の想定）は get_input_recipe の手本（その世帯に合わせた changes）を使ってください。書かなかった物（家の頭金・諸費用、子の教育費・生活費など）は計算に入りません。計算できなかったときは、答えの「直し方」に足りない欄・選べる値・正しい形が出ます。
 - FP に「この数字はどんな計算？」と聞かれたら、推測で答えず、explain_value でその数字（キャッシュフロー表の行と年）の根拠を取り出して答えてください。アプリの画面で表の数字を押すと出る「数字の根拠」（内訳・式・使った制度の値と出典）と同じ中身です。制度の値をもっと詳しく見るときは、返ってきた制度の値ID を get_regulation_value に渡します。
 - FP に「退職を62歳にしたら？」「生活費を月25万円にしたら？」のように、アプリの画面のプランで動かす項目（働く最後の年齢・年金の受け取り開始・NISA の積立・生活費・配偶者の働き方と年収・繰上返済・金利の上昇・資産運用の配分など）を動かして試すときは、まず list_plan_items で動かせる項目（対象・入力項目ID・今の値・範囲）を確かめ、calculate・explain_value の plan_changes に、プランの候補（propose_scenario）と同じ書き方（target・item・value）で渡してください。画面のプランと同じ関数で当てるので、関係する欄も画面と同じく一緒に動きます（働く最後の年齢なら、生活費の退職の段階・積立の終わりも）。changes（JSON Pointer）で欄を1つだけ動かすと、画面と違う数字になることがあります。試した変更は、そのまま propose_scenario の changes に渡せます。
 - FP に「〇〇は入っている？」「〇〇はどう計算している？」と聞かれたら、推測で答えず、まず search_coverage で対応範囲の一覧を探し、get_coverage で項目の中身を読んでから答えてください。答えは「入っている（どう計算するか）」「近似している（どう近似するか・理由）」「まだ入っていない」のどれかです。一覧に無い話題は、入っていると推測せず「一覧に見当たらない」と伝えてください。まだ入っていない物は、返ってきた案内のとおり、FP がアプリの「要望・不具合を送る」から送れることを伝えてください（この接続口からは送りません）。
@@ -108,6 +111,31 @@ pub struct ExplainArgs {
     /// 使った制度の値を何件まで返すか（1〜24。既定24＝画面と同じ）
     #[schemars(range(min = 1, max = 24))]
     pub max_params: Option<u8>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct InputGuideArgs {
+    /// 区分の鍵（members・relations・employmentPeriods・accounts・residences・debts・insuranceContracts・goals・livingExpenses・
+    /// periodicExpenses・incomeFlows・pensionRecords・retirementBenefits・events・assumptions・contingencies・protection・plan〔入力の一番上〕）か、
+    /// 入力の中の場所（例 /household/residences/purchase。配列の番号は省いてよい）。省くと形の決まり・区分の一覧・計算できる最小の入力の例・新しい ID を返す
+    pub section: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct InputRecipeArgs {
+    /// 手本: buyHome（家を買う）・newChild（子が生まれる）・retire（退職の年齢）・prepayment（繰上返済）・startNisaIdeco（NISA と iDeCo を始める）・
+    /// contingency（万一の想定）。省くと手本の一覧と params の説明を返す
+    pub recipe: Option<String>,
+    /// 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
+    pub sample_household_id: Option<String>,
+    /// FPが渡した世帯の共有 ID。アプリが起動していて、共有が期限内のときだけ使える（読むとアプリの「AIに渡した記録」に残る）
+    pub share_id: Option<String>,
+    /// AIが組み立てた計算の入力（calculate の input と同じ形）
+    pub input: Option<Value>,
+    /// 手本ごとの引数（例 buyHome なら {"at": "2028-04", "price": 45000000}）。省いた物は既定の値
+    pub params: Option<Value>,
+    /// true なら、changes を当てた後の input も返す（手本を重ねるときに、次の手本の input に渡す）。既定 false
+    pub apply: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -538,7 +566,7 @@ fn with_changes(
     stress_test: Option<&String>,
 ) -> Result<Value, String> {
     let mut input = calc::apply_changes(base, changes.unwrap_or(&[]))
-        .map_err(|e| format!("changes を当てられません: {e}"))?;
+        .map_err(|e| format!("changes を当てられません: {e}。{}", guide::CHANGE_TIP))?;
     if let Some(st) = stress_test {
         if !STRESS_TESTS.contains(&st.as_str()) {
             return Err(format!(
@@ -549,6 +577,37 @@ fn with_changes(
         input["stressTest"] = json!({ "template": st });
     }
     Ok(input)
+}
+
+/// 計算できなかったときの答え（エンジンのコードと場所に、同じスキーマで確かめ直した直し方を添える。0196）
+fn engine_failure(code: &str, ids: &Value, input: &Value) -> String {
+    format!(
+        "計算できませんでした（{code}）。関係する ID: {ids}。\n{}",
+        guide::engine_error_help(code, ids, input)
+    )
+}
+
+/// 計算エンジンを動かせなかったとき（入力の形が大きく外れていると、計算の前の処理で止まることがある）
+fn host_failure(input: &Value) -> String {
+    if guide::check_input(input).is_empty() {
+        return "計算エンジンを動かせませんでした。".to_owned();
+    }
+    format!(
+        "計算エンジンを動かせませんでした。入力の形が違うかもしれません。\n{}",
+        guide::engine_error_help("E_INPUT_SCHEMA", &Value::Null, input)
+    )
+}
+
+/// プランの動かす項目の部品が読めない形の入力（0195）: プランの答えに、入力の形の直し方（0196）を添える
+fn plan_bad_input(input: &Value) -> String {
+    let msg = plan::error_message(plan::BAD_INPUT).unwrap_or_default();
+    if guide::check_input(input).is_empty() {
+        return msg.to_owned();
+    }
+    format!(
+        "{msg}\n{}",
+        guide::engine_error_help("E_INPUT_SCHEMA", &Value::Null, input)
+    )
 }
 
 /// 根拠の読み方の答えの最大の大きさ（これを超えたら、制度の値を減らすよう伝える）
@@ -661,13 +720,15 @@ impl LifeplanMcp {
             log("calculate", t, "INVALID");
             return Ok(fail(msg));
         }
+        // 計算できなかったときの直し方（0196）のために、計算に渡す入力を残す（プランの変更を当てたら、当てた後の入力に置き換える）
+        let mut checked = input.clone();
         let request = json!({ "trace": "none", "input": input });
         let (plan_changes, sample) = (
             a.plan_changes.clone().unwrap_or_default(),
             a.sample_household_id.clone(),
         );
         // プランの変更（画面のプランと同じ関数。0195）→ 計算の前の処理（0184）→ 計算
-        type Run = Result<(Value, Value, Value), Value>;
+        type Run = Result<(Value, Value, Value, Value), Value>;
         let run = tokio::task::spawn_blocking(move || -> Result<Run, String> {
             let (request, rows) =
                 match plan::apply(request, &plan_changes, sample.as_deref(), &office, &post)? {
@@ -675,14 +736,23 @@ impl LifeplanMcp {
                     Applied::Rejected { rows } => return Ok(Err(rows)),
                 };
             let p = prepare(&request, &office)?;
-            Ok(Ok((engine::run_preview(&p.request)?, p.applied, rows)))
+            let out = engine::run_preview(&p.request)?;
+            Ok(Ok((out, p.applied, rows, request["input"].clone())))
         })
         .await;
         let (out, applied, plan_rows) = match run {
-            Ok(Ok(Ok(v))) => v,
+            Ok(Ok(Ok((out, applied, rows, planned)))) => {
+                checked = planned;
+                (out, applied, rows)
+            }
             Ok(Ok(Err(rows))) => {
                 log("calculate", t, "INVALID");
                 return Ok(fail(plan::rejected_message(&rows)));
+            }
+            // プランの部品が読めない形の入力: 入力の形の直し方（0196）を返す
+            Ok(Err(code)) if code == plan::BAD_INPUT => {
+                log("calculate", t, "INVALID");
+                return Ok(fail(plan_bad_input(&checked)));
             }
             Ok(Err(code)) if plan::error_message(&code).is_some() => {
                 log("calculate", t, "INVALID");
@@ -690,16 +760,13 @@ impl LifeplanMcp {
             }
             _ => {
                 log("calculate", t, "E_HOST");
-                return Ok(fail("計算エンジンを動かせませんでした。"));
+                return Ok(fail(host_failure(&checked)));
             }
         };
         if let Some(err) = out.get("error") {
             let code = err["code"].as_str().unwrap_or("E_ENGINE").to_owned();
             log("calculate", t, &code);
-            return Ok(fail(format!(
-                "計算できませんでした（{code}）。関係する ID: {}。入力の形は get_sample_household の input を手本にしてください。",
-                err["ids"]
-            )));
+            return Ok(fail(engine_failure(&code, &err["ids"], &checked)));
         }
         let filter = TableFilter {
             rows: a.rows.unwrap_or_default(),
@@ -770,6 +837,7 @@ impl LifeplanMcp {
             log(tool, t, "INVALID");
             return Ok(fail(msg));
         }
+        let checked = input.clone();
         let request = json!({ "trace": "full", "input": input });
         let (plan_changes, sample) = (
             a.plan_changes.clone().unwrap_or_default(),
@@ -792,8 +860,8 @@ impl LifeplanMcp {
         // プランの変更（画面のプランと同じ関数。0195）を当ててから、計算は画面と同じ計算の前の処理を当てた要求で、根拠の読み方には
         // 画面の根拠のパネルと同じく処理の前の要求を渡す（0184）
         type Answer = Result<(String, Value, Value), Value>;
-        let answer =
-            tokio::task::spawn_blocking(move || -> Result<Result<Answer, String>, String> {
+        let answer = tokio::task::spawn_blocking(
+            move || -> Result<Result<Answer, (String, Value)>, String> {
                 let (request, rows) =
                     match plan::apply(request, &plan_changes, sample.as_deref(), &office, &post)? {
                         Applied::Ok { request, rows } => (request, rows),
@@ -802,33 +870,36 @@ impl LifeplanMcp {
                 let p = prepare(&request, &office)?;
                 let full = engine::run_full(&p.request)?;
                 if full.trim_start().starts_with("{\"error\"") {
-                    return Ok(Err(full));
+                    // 直し方（0196）は、プランの変更を当てた後の入力で作る
+                    return Ok(Err((full, request["input"].clone())));
                 }
                 engine::explain(&full, &request.to_string(), &args)
                     .map(|v| Ok(Ok((v, p.applied, rows))))
-            })
-            .await;
+            },
+        )
+        .await;
         let (answer, applied, plan_rows) = match answer {
             Ok(Ok(Ok(Ok(v)))) => v,
             Ok(Ok(Ok(Err(rows)))) => {
                 log(tool, t, "INVALID");
                 return Ok(fail(plan::rejected_message(&rows)));
             }
+            Ok(Err(code)) if code == plan::BAD_INPUT => {
+                log(tool, t, "INVALID");
+                return Ok(fail(plan_bad_input(&checked)));
+            }
             Ok(Err(code)) if plan::error_message(&code).is_some() => {
                 log(tool, t, "INVALID");
                 return Ok(fail(plan::error_message(&code).unwrap_or_default()));
             }
-            Ok(Ok(Err(engine_error))) => {
+            Ok(Ok(Err((engine_error, planned)))) => {
                 let err: Value = serde_json::from_str(&engine_error).unwrap_or(Value::Null);
                 let code = err["error"]["code"]
                     .as_str()
                     .unwrap_or("E_ENGINE")
                     .to_owned();
                 log(tool, t, &code);
-                return Ok(fail(format!(
-                    "計算できませんでした（{code}）。関係する ID: {}。入力の形は get_sample_household の input を手本にしてください。",
-                    err["error"]["ids"]
-                )));
+                return Ok(fail(engine_failure(&code, &err["error"]["ids"], &planned)));
             }
             _ => {
                 log(tool, t, "E_HOST");
@@ -912,6 +983,7 @@ impl LifeplanMcp {
                 return Ok(fail(msg));
             }
         };
+        let checked = base.clone();
         let request = json!({ "trace": "none", "input": base });
         let (sample, group, fields) = (
             a.sample_household_id.clone(),
@@ -939,8 +1011,9 @@ impl LifeplanMcp {
             }
         };
         let bad = match v["status"].as_str() {
-            Some("noSelf") => plan::error_message(plan::NO_SELF),
-            Some("badInput") => plan::error_message(plan::BAD_INPUT),
+            Some("noSelf") => plan::error_message(plan::NO_SELF).map(str::to_owned),
+            // 入力の形の直し方（0196）を添える
+            Some("badInput") => Some(plan_bad_input(&checked)),
             _ => None,
         };
         if let Some(msg) = bad {
@@ -1037,6 +1110,109 @@ impl LifeplanMcp {
                     )))
                 }
             },
+        }
+    }
+
+    #[tool(
+        description = "計算の入力（calculate の input。エンジンへの要求の input）の形の案内を、エンジンと同じスキーマから短く返す。section を省くと、形の決まり（ID は UUID・金額は値の箱・率は文字・時点の形）・区分の一覧・計算できる最小の入力の例（skeleton）・新しい UUID（freshIds）を返す。section に区分の鍵（members・employmentPeriods・accounts・residences・debts・insuranceContracts・goals・livingExpenses・assumptions・contingencies など）か入力の中の場所（例 /household/residences/purchase）を渡すと、その物の欄（必須・形・選べる値・入力項目ID）・条件・枝・見本の世帯から取った例・注意（書かないと入らない物）・関係する手本を返す。AI が世帯を一から組み立てるとき・入力の形が分からないときに使う。顧客の情報を含まず、アプリが起動していなくても使える。",
+        annotations(
+            title = "入力の形の案内",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn get_input_guide(
+        &self,
+        Parameters(a): Parameters<InputGuideArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let t = Instant::now();
+        let tool = "get_input_guide";
+        match a
+            .section
+            .as_deref()
+            .map(str::trim)
+            .filter(|x| !x.is_empty())
+        {
+            None => {
+                log(tool, t, "ok");
+                Ok(text(&guide::overview()))
+            }
+            Some(s) => match guide::section(s) {
+                Ok(v) => {
+                    log(tool, t, "ok");
+                    Ok(text(&v))
+                }
+                Err(e) => {
+                    log(tool, t, "NOT_FOUND");
+                    Ok(fail(format!("{e}。section を省くと区分の一覧を返します。")))
+                }
+            },
+        }
+    }
+
+    #[tool(
+        description = "よくある場面の部品の手本を、世帯に合わせた changes（calculate の changes と同じ JSON Pointer の add・replace・remove）で返す: buyHome（家を買う。頭金・諸費用・入居・住宅ローン・住宅ローン控除の住宅の情報・固定資産税・修繕費、今の住まいの住み終わり）・newChild（子が生まれる。子・親子の関係・教育の目標・子の生活費）・retire（退職の年齢。働き方の期間・退職の段階の生活費・積立の終わりも）・prepayment（繰上返済）・startNisaIdeco（NISA と iDeCo を始める）・contingency（万一の想定。必要保障額も選べる）。世帯は calculate と同じく見本の世帯（sample_household_id）・FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）・AIが組み立てた入力（input）のどれか1つ。params で額・時期を変えられる（省くと既定。答えに使った値を出す）。返した changes は、同じ世帯と一緒に calculate に渡せば計算できる。手本を重ねるときは apply を true にして、返った input を次の手本の input に渡す。recipe を省くと一覧。世帯のデータそのものは変えない。",
+        annotations(
+            title = "場面の手本",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn get_input_recipe(
+        &self,
+        Parameters(a): Parameters<InputRecipeArgs>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let t = Instant::now();
+        let tool = "get_input_recipe";
+        let Some(recipe) = a.recipe.as_deref().map(str::trim).filter(|x| !x.is_empty()) else {
+            log(tool, t, "ok");
+            return Ok(text(&recipes::list()));
+        };
+        let (base, _office, _post) = match base_input(
+            &ctx,
+            tool,
+            a.sample_household_id.as_ref(),
+            a.share_id.as_ref(),
+            a.input.as_ref(),
+        )
+        .await
+        {
+            Ok(v) => v,
+            Err((msg, code)) => {
+                log(tool, t, &code);
+                return Ok(fail(msg));
+            }
+        };
+        match recipes::build(recipe, &base, a.params.as_ref().unwrap_or(&Value::Null)) {
+            Ok(b) => {
+                let mut v = json!({
+                    "recipe": recipe,
+                    "params": b.used,
+                    "changes": b.changes,
+                    "notes": b.notes,
+                    "next": "calculate に、同じ世帯（sample_household_id・share_id・input）とこの changes を渡すと計算できます。ほかの手本と重ねるときは apply: true で受け取った input を次の手本の input に渡し、最後にその input で calculate を呼びます（changes を別々に作って並べると、配列の位置がずれることがあります）。",
+                });
+                if a.apply == Some(true) {
+                    v["input"] = b.input;
+                }
+                if let Some(id) = &a.share_id {
+                    v["shareId"] = json!(id);
+                }
+                if let Some(id) = &a.sample_household_id {
+                    v["sampleHouseholdId"] = json!(id);
+                }
+                log(tool, t, "ok");
+                Ok(text(&v))
+            }
+            Err(e) => {
+                log(tool, t, "INVALID");
+                Ok(fail(e))
+            }
         }
     }
 

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "apply": {
+      "description": "true なら、changes を当てた後の input も返す（手本を重ねるときに、次の手本の input に渡す）。既定 false",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "input": {
+      "description": "AIが組み立てた計算の入力（calculate の input と同じ形）"
+    },
+    "params": {
+      "description": "手本ごとの引数（例 buyHome なら {\"at\": \"2028-04\", \"price\": 45000000}）。省いた物は既定の値"
+    },
+    "recipe": {
+      "description": "手本: buyHome（家を買う）・newChild（子が生まれる）・retire（退職の年齢）・prepayment（繰上返済）・startNisaIdeco（NISA と iDeCo を始める）・\ncontingency（万一の想定）。省くと手本の一覧と params の説明を返す",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sample_household_id": {
+      "description": "見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "share_id": {
+      "description": "FPが渡した世帯の共有 ID。アプリが起動していて、共有が期限内のときだけ使える（読むとアプリの「AIに渡した記録」に残る）",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

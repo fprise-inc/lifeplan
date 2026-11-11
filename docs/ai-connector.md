@@ -66,7 +66,7 @@ args = ["mcp"]
 
 | 群 | 道具 | 使える条件 |
 |---|---|---|
-| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID・今の値・範囲で。0195）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183） | いつでも（アプリが起動していなくてよい） |
+| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID・今の値・範囲で。0195）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183）・`get_input_guide`（計算の入力の形の案内: 形の決まり・区分ごとの欄・必須・選べる値・例・計算できる最小の入力の例。0196）・`get_input_recipe`（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo・万一の想定の手本を、世帯に合わせた changes で。0196） | いつでも（アプリが起動していなくてよい。`list_plan_items`・`get_input_recipe` の `share_id` は下の「世帯を扱う」と同じ条件） |
 | 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value`・`list_plan_items` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
 | 設定の候補を出す | `propose_feature_code`（FPが渡した「機能を有効にするコード」を、アプリの画面に承認待ちの候補として出す。コードは入らない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
 
@@ -80,6 +80,13 @@ args = ["mcp"]
 - 「所得税の基礎控除の今の額と出典は？」
 - 「salariedCoupleTwoKids の2030年の税・社会保険料は、どんな計算で出ている？」（`explain_value`）
 - 「ファイナンシアに高額療養費は入っている？ iDeCo の受け取り方はどう計算している？」（`search_coverage`・`get_coverage`）
+- 「セミナー用に、35歳の会社員と扶養のパートの妻・3歳の子・賃貸の架空の世帯を作って、2028年に4,000万円の家を買ったら老後の資産はどうなるか計算して」（`get_input_guide`・`get_input_recipe`・`calculate`）
+
+### 計算の入力を組み立てる（0196）
+
+- `get_input_guide` を `section` なしで呼ぶと、形の決まり（ID は UUID 第4版・金額は値の箱・率は文字・時点の形）、区分の一覧、計算できる最小の入力の例（`skeleton`）、新しい UUID が返ります。`section` に区分の鍵（`residences` など）か入力の中の場所（`/household/residences/purchase` など）を渡すと、その物の欄・条件・例を返します。どれもエンジンと同じスキーマから作ります。
+- `get_input_recipe` は、場面の手本を、その世帯の ID と配列の位置に合わせた `changes` で返します（関係する欄も一緒に。家なら頭金・諸費用・入居・住宅ローン・住宅ローン控除の住宅の情報、子なら親子の関係・教育の目標・子の生活費）。`params` で時期や額を変えられます。手本を重ねるときは `apply: true` で返る `input` を次の手本に渡します。
+- `calculate`・`explain_value` が入力の形の誤りで止まったときは、エラーの文に「直し方」（足りない欄・知らない欄・選べる値・正しい形）が付きます。同じスキーマで確かめ直した手がかりで、判定はエンジンが正です。入力の値はエラーの文に写しません。
 
 ### 計算の前の処理（画面と同じ。0184）
 

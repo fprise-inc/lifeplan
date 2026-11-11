@@ -453,20 +453,52 @@ function monthsInto(m: Member, ym: string): number {
  * 欄に推定の印と「この値にする」を出す）。前は期間に統計の月数を入れた値として書いていた（推定の印が付かなかった。0041 の追記 2026-11-10）
  */
 export function careTemplate(h: Household, m: Member, baseMonth: string, id: string = newId()): CareExpense {
+  return { id, member: m.id, from: careTemplateStart(h, m, baseMonth).from, place: "home" };
+}
+
+/** 介護の物の始まりの欄の仮の印のキー（欄のキー。ヒアリングシートの取り込みの仮の値の印と同じ） */
+export const careStartKey = (careId: string): string => `ev/care/${careId}/from`;
+
+/**
+ * 介護の目安の物の始まりと、その推定の根拠（始まりの欄の仮の印にする。0041 の追記 2026-11-11）。根拠は「推定（短い文。詳しい根拠）」の形で、
+ * 短い文（careStartShort）は欄の横に出し、全部は「推定」の印を押すと開く。置き方は前のまま（亡くなる見込みから統計の平均の期間だけ前。
+ * 今より前なら来月から。亡くなる見込みが出せなければ1年後）
+ */
+export function careTemplateStart(h: Household, m: Member, baseMonth: string): { from: Timepoint; basis: string } {
   // 置く時期を決める統計の期間（事務所の推定の値があればその値）。統計の写しが読めないとき（無い想定）の予備も同じ値から（直書きしない）
-  const months = careEstimate("home")?.months ?? masterAmount("care.statistics.months") ?? 0;
+  const stat = careEstimate("home");
+  const months = stat?.months ?? masterAmount("care.statistics.months") ?? 0;
+  const source = `介護の期間の統計の平均（${String(months)}か月。${stat?.basis ?? "統計の平均"}）`;
   const death = deathMonth(h, m, baseMonth);
   const start = death === null ? addMonths(baseMonth, 12) : addMonths(death, -months);
-  const from: Timepoint = start <= baseMonth ? { at: addMonths(baseMonth, 1) } : hasBirth(m) ? { memberAge: { member: m.id, years: Math.max(0, ageAt(m, start)), months: monthsInto(m, start) } } : { at: start };
-  return { id, member: m.id, from, place: "home" };
+  const soon = start <= baseMonth;
+  const from: Timepoint = soon ? { at: addMonths(baseMonth, 1) } : hasBirth(m) ? { memberAge: { member: m.id, years: Math.max(0, ageAt(m, start)), months: monthsInto(m, start) } } : { at: start };
+  const basis =
+    death === null
+      ? "推定（亡くなる見込みが無いため1年後。介護を受ける人の亡くなる見込みが出せないため、1年後に置いています）"
+      : soon
+        ? `推定（亡くなる見込みまでが統計の平均より短く、来月から。亡くなる見込みまでが${source}より短いため、来月に置いています）`
+        : `推定（亡くなる見込みから統計の平均の期間を逆算。${source}を、介護を受ける人の亡くなる見込みの前に置いています）`;
+  return { from, basis };
+}
+
+/** 介護の始まりの推定の根拠から、欄の横に出す短い文（「推定（短い文。…）」の短い文。その形でない根拠〔ヒアリングシートの仮の値など〕は null） */
+export const careStartShort = (basis: string | undefined): string | null => /^推定（([^。）]+)。/.exec(basis ?? "")?.[1] ?? null;
+
+/** 介護の目安の物を1件足す（始まりに推定の印を付ける。期間・額は空欄＝統計の平均の推定） */
+export function addCareTemplate(wh: WorkingHousehold, memberId: string, id: string = newId()): WorkingHousehold {
+  const m = wh.request.input.household.members.find((x) => x.id === memberId);
+  if (m === undefined) return wh;
+  const { from, basis } = careTemplateStart(wh.request.input.household, m, wh.request.input.baseMonth);
+  const next = mutate(wh, (hh) => void (hh.careExpenses ??= []).push({ id, member: m.id, from, place: "home" }));
+  return { ...next, assumed: { ...next.assumed, [careStartKey(id)]: basis } };
 }
 
 /** この人の介護の目安を入れる（この人の介護がもう有れば同じ世帯） */
 export function fillCareFor(wh: WorkingHousehold, memberId: string): WorkingHousehold {
   const h = wh.request.input.household;
-  const m = h.members.find((x) => x.id === memberId);
-  if (m === undefined || (h.careExpenses ?? []).some((c) => c.member === memberId)) return wh;
-  return mutate(wh, (hh, req) => void (hh.careExpenses ??= []).push(careTemplate(hh, m, req.input.baseMonth)));
+  if (!h.members.some((x) => x.id === memberId) || (h.careExpenses ?? []).some((c) => c.member === memberId)) return wh;
+  return addCareTemplate(wh, memberId);
 }
 
 /** 本人・配偶者のうち、介護の費用がまだ無い人 */

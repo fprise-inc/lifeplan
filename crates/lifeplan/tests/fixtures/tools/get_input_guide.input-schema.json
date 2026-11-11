@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "section": {
+      "description": "区分の鍵（members・relations・employmentPeriods・accounts・residences・debts・insuranceContracts・goals・livingExpenses・\nperiodicExpenses・incomeFlows・pensionRecords・retirementBenefits・events・assumptions・contingencies・protection・plan〔入力の一番上〕）か、\n入力の中の場所（例 /household/residences/purchase。配列の番号は省いてよい）。省くと形の決まり・区分の一覧・計算できる最小の入力の例・新しい ID を返す",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

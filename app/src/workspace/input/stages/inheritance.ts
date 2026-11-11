@@ -12,7 +12,7 @@
 import type { Household, InheritanceTaxRequest, Member, Timepoint } from "../../../engine/types.ts";
 import { afterWrite, field, removeAction, resolveTimepoint, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
-import { donorLabel, donorUses, GIFT_PURPOSES, memberLabel } from "../labels.ts";
+import { bothAfterLabel, donorLabel, donorUses, GIFT_PURPOSES, memberLabel } from "../labels.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import type { Address } from "../../store/readings.ts";
 import { formatYearMonth } from "../units.ts";
@@ -447,7 +447,7 @@ export const TAX_OVERRIDE_TITLE = "税理士などが出した相続税の額";
 export const TAX_OVERRIDE_OPEN = "＋ 税理士などが出した額を入れる";
 /** 各欄の説明（5つの欄で同じ文。説明の一覧の id が同じ field:plan.inheritanceTax/overrides のため） */
 const OVERRIDE_HELP =
-  "入れると、ソフトの目安の代わりにこの額を出します。いま亡くなったら・二人とも亡くなった後の額は、この入力項目の下の「相続税の目安」に、万一のタブの死亡の想定の額は、そのタブの相続税の欄に「相続税: ○万円（FP が入れた額）」と出ます。ソフトの目安と内訳は、この入力項目の下の「相続税の目安」の「内訳」に残ります。キャッシュフロー表・金融資産の推移・必要保障額は変わりません（相続税はお金の流れに入れていないため）。消せば目安に戻ります";
+  "入れると、ソフトの目安の代わりにこの額を出します。いま亡くなったら・二人とも亡くなった後（一人の世帯は表の最後の年）の額は、この入力項目の下の「相続税の目安」に、万一のタブの死亡の想定の額は、そのタブの相続税の欄に「相続税: ○万円（FP が入れた額）」と出ます。ソフトの目安と内訳は、この入力項目の下の「相続税の目安」の「内訳」に残ります。キャッシュフロー表・金融資産の推移・必要保障額は変わりません（相続税はお金の流れに入れていないため）。消せば目安に戻ります";
 
 /** 万一のタブに死亡の想定がある人（遺族〔配偶者・子〕がいる大人。contingency/requests.ts の scenarios と同じ） */
 const deathScenarioMembers = (wh: WorkingHousehold): Set<string> => new Set(scenarios(wh).filter((s) => s.kind === "death").map((s) => s.member));
@@ -464,7 +464,7 @@ function overrideFields(wh: WorkingHousehold): FieldDef[] {
   const has = (point: string, decedent: string | undefined) => stored.some((x) => x.point === point && x.decedent === decedent);
   const points: { point: "now" | "bothAfter" | "contingency"; decedent?: string; label: string; orphan?: boolean }[] = [
     ...couple.map((m) => ({ point: "now" as const, decedent: m.id, label: `いま${memberLabel(wh, m.id)}が亡くなったら` })),
-    ...(couple.length > 0 ? [{ point: "bothAfter" as const, label: couple.length === 2 ? "二人とも亡くなった後" : "表の最後の年" }] : []),
+    ...(couple.length > 0 ? [{ point: "bothAfter" as const, label: bothAfterLabel(h) }] : []),
     ...couple
       .filter((m) => deaths.has(m.id) || has("contingency", m.id))
       .map((m) => ({ point: "contingency" as const, decedent: m.id, label: `万一のタブの${memberLabel(wh, m.id)}の死亡の想定`, orphan: !deaths.has(m.id) })),
@@ -496,7 +496,7 @@ export function overrideLead(wh: WorkingHousehold, fields: readonly FieldDef[]):
   return [
     "税理士などから相続税の額の試算をもらっているときは、ここに入れてください。入れなければ、ソフトの目安のままです。",
     "入れた額は、ソフトの目安の代わりに次の所に出ます。",
-    `・いま亡くなったら・${couple.length === 2 ? "二人とも亡くなった後" : "表の最後の年"}: この入力項目の下の「相続税の目安」に「いま${who}が亡くなったら: 1,000万円（FP が入れた額）」のように出ます。ソフトの目安と内訳は「内訳」に残ります`,
+    `・いま亡くなったら・${bothAfterLabel(wh.request.input.household)}: この入力項目の下の「相続税の目安」に「いま${who}が亡くなったら: 1,000万円（FP が入れた額）」のように出ます。ソフトの目安と内訳は「内訳」に残ります`,
     ...(contingency ? ["・万一のときのタブの死亡の想定: そのタブの相続税の欄に「相続税: 1,000万円（FP が入れた額）」と出ます"] : []),
     "キャッシュフロー表・金融資産の推移は変わりません（相続税はお金の流れに入れていないため）。",
   ];
@@ -541,6 +541,7 @@ function legacyCleanup(f: FieldDef): FieldDef {
 }
 
 export function inheritanceStage(wh: WorkingHousehold): StageDef {
+  const h = wh.request.input.household;
   const lines = giftLines(wh);
   const groupsOf = (g: GroupDef | null): GroupDef[] => (g !== null ? [g] : []);
   // 受け取る予定の相続・贈与（入るお金）と、あげる贈与（出るお金）の行（moneyRows.ts の区画「inherit」。0044）。今ある援助の物は読むだけの1行を後ろに足す
@@ -596,7 +597,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/legacy",
       title: "遺したい額",
-      note: "表の最後の年（二人とも亡くなった後）に遺したい額。表示だけで、取り崩しの計算は変えません",
+      note: `${bothAfterLabel(h) === "表の最後の年" ? "表の最後の年" : "表の最後の年（二人とも亡くなった後）"}に遺したい額。表示だけで、取り崩しの計算は変えません`,
       level: "simple",
       groups: [{ key: "inherit/legacy", level: "simple", fields: [legacyCleanup(legacyField())], actions: [] }],
       actions: [],
@@ -604,7 +605,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/tax",
       title: "相続税の目安の設定",
-      note: "相続税の目安（いま亡くなったら・二人とも亡くなった後・万一の死亡の想定）の計算の前提です。目安は表示だけで、お金の流れには入れません。路線価などで分かる値があれば、ここで直します。税理士などが出した相続税の額は、下の「税理士などが出した相続税の額」に入れます",
+      note: `相続税の目安（いま亡くなったら・${bothAfterLabel(h)}・万一の死亡の想定）の計算の前提です。目安は表示だけで、お金の流れには入れません。路線価などで分かる値があれば、ここで直します。税理士などが出した相続税の額は、下の「税理士などが出した相続税の額」に入れます`,
       level: "detail",
       groups: [{ key: "inherit/tax", level: "detail", fields: taxSettingFields(wh), actions: [] }],
       actions: [],

@@ -165,6 +165,8 @@ async fn standalone_tools_work_without_the_app() {
         "search_coverage",
         "get_coverage",
         "list_plan_items",
+        "get_input_guide",
+        "get_input_recipe",
         "list_shared_households",
         "get_shared_household",
         "propose_scenario",
@@ -1524,6 +1526,17 @@ async fn plan_changes_match_the_screen() {
     )
     .await;
     assert!(err && msg.contains("入力の形"), "{msg}");
+    // 形の違う入力に plan_changes を付けても、プランを当てる前に止まり、入力の形の直し方（0196）を返す
+    let (err, msg) = call(
+        &c,
+        "calculate",
+        json!({ "input": { "household": "x" }, "plan_changes": first["changes"] }),
+    )
+    .await;
+    assert!(
+        err && msg.contains("入力の形") && msg.contains("get_input_guide"),
+        "{msg}"
+    );
     let pointer = call_ok(
         &c,
         "calculate",
