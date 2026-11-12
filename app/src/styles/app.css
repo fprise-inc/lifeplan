@@ -1375,10 +1375,11 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pip-btn[aria-pressed="true"] { background: var(--ink); color: var(--on-fill); border-color: var(--ink); }
 .pip-i, .pip-btn .pop-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; margin: 0; }
 .pip .pip-btn { width: 1.75rem; height: 1.75rem; border-width: 1.5px; }
-/* グラフの右上: 凡例の行（凡例・使い方の文）の右端に小窓のボタン。凡例は折り返して残りの幅に収め、ボタンが入らない幅ではボタンだけ凡例の下の右端に回る（重ならない） */
+/* グラフの右上: 凡例の行（凡例・使い方の文）の右端に小窓のボタン。凡例は折り返して残りの幅に収め、ボタンが入らない幅ではボタンだけ凡例の下の右端に回る（重ならない）。
+   ボタンは凡例の最後の行と下の端をそろえる（全部のプランを重ねる表示では、見出しの下のプランのボタンの行と同じ高さに並ぶ。凡例が1行なら、その行の真ん中） */
 .chart-top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 12px; margin: 6px 0 0; }
 .chart-top > .main-legend { flex: 1 1 18rem; min-width: 0; margin: 0; padding-top: 0.2rem; }
-.chart-top > .pip-btn { margin-left: auto; }
+.chart-top > .pip-btn { margin-left: auto; align-self: flex-end; }
 /* 小窓の帯の閉じるボタン: ほかの閉じると同じ「×」の字（太字・補助の文字の色） */
 .pip-x { font-size: 1.1rem; font-weight: 700; line-height: 1; color: var(--ink-2); }
 .pip-x:hover { color: var(--ink); }

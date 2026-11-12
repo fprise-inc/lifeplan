@@ -1,5 +1,6 @@
-// 対策に最初から出す項目（事務所の既定値。0084）: 既定は4つ（働く最後の年齢・年金の受け取り開始・生活費・配偶者の働き方と年収）と FP顧問料・
-// 選ぶと出る／外すと消える・ローンと口座ごとの項目は種類で選ぶ・外しても値が入っていれば出す・FP顧問料を外しても計算は変わらない・
+// 対策に最初から出す項目（事務所の既定値。0084）: 既定は4つ（働く最後の年齢・年金の受け取り開始・生活費・配偶者の働き方と年収）。FP顧問料は既定では出さない・
+// 選ぶと出る／外すと消える・ローンと口座ごとの項目は種類で選ぶ・外しても値が入っていれば出す（FP顧問料は除く）・FP顧問料を出さなくても計算は変わらない・
+// 「外す」は現状の値に戻し、土台のプランが動かした項目も必ず消える（保存しても戻らない）・
 // 古い事務所データは既定のまま・既定の組み合わせは1か所で差し替えられる・配偶者の働き方と年収の項目（当てる・保存して読み戻す）
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -46,18 +47,23 @@ const spouseKey = (wh: WorkingHousehold) => `spouse:${wh.request.input.household
 const MODELS = ["singleEarnerTwoKids", "salariedCoupleTwoKids", "pairLoan", "investmentCouple", "lifetime100Plan", "advisoryFeeProposal", "dualAssetsTwoKids", "surplusSaving", "single25"];
 
 describe("既定（事務所が何も選んでいないとき）", () => {
-  it("働く最後の年齢・年金の受け取り開始・毎月の生活費・配偶者の働き方と年収の4つと、FP顧問料（契約がある世帯）。NISA は出さず、追加の一覧に出る", () => {
-    expect(DEFAULT_LEVER_KINDS).toEqual(["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", "spouse:work", "lever:fee"]);
+  it("働く最後の年齢・年金の受け取り開始・毎月の生活費・配偶者の働き方と年収の4つ。NISA と FP顧問料（契約がある世帯でも）は出さず、追加の一覧に出る", () => {
+    expect(DEFAULT_LEVER_KINDS).toEqual(["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", "spouse:work"]);
     expect(startKinds({})).toEqual(DEFAULT_LEVER_KINDS);
     for (const id of MODELS) {
       const wh = addAdvisoryFee(open(id), ids());
       const cat = catOf(wh);
       const v = leverView(cat, {}, [], {});
-      // 前の5つ（builtin）から NISA を除き、配偶者がいれば配偶者の働き方と年収を足した物
-      const want = keys(cat.items.filter((it) => (it.builtin && it.key !== "lever:nisaMonthly") || it.key.startsWith("spouse:")));
+      // 前の5つ（builtin）から NISA と FP顧問料を除き、配偶者がいれば配偶者の働き方と年収を足した物
+      const want = keys(cat.items.filter((it) => (it.builtin && it.key !== "lever:nisaMonthly" && it.key !== "lever:fee") || it.key.startsWith("spouse:")));
       expect(keys(v.top), id).toEqual(want);
       expect(v.added, id).toEqual([]);
-      expect(v.top.some((it) => it.key === "lever:fee"), id).toBe(true);
+      expect(cat.byKey.has("lever:fee"), id).toBe(true);
+      expect(v.top.some((it) => it.key === "lever:fee"), id).toBe(false);
+      // 見本の最初のプランのように顧問料を「入れる」にしていても、既定では出さない（入れているかは結論の下の一文で分かる）
+      expect(leverView(cat, {}, [], { "lever:fee": true }).top.some((it) => it.key === "lever:fee"), id).toBe(false);
+      const feeMenu = renderToString(h(ItemMenu, { catalog: cat, shown: visibleKeys(v), fixed: v.fixed, onPick: noop, onClose: noop }));
+      expect(feeMenu, id).toContain('data-pick="lever:fee"');
       expect(v.top.some((it) => it.key.startsWith("spouse:")), id).toBe(id !== "single25");
       if (cat.byKey.has("lever:nisaMonthly")) {
         const menu = renderToString(h(ItemMenu, { catalog: cat, shown: visibleKeys(v), fixed: v.fixed, onPick: noop, onClose: noop }));
@@ -172,11 +178,13 @@ describe("値が入っていれば、外しても出す", () => {
   it("選んだプランで値が入っている項目は、最初から出さない項目でも出す（外せる）。値が無ければ出さない", () => {
     const wh = addAdvisoryFee(open("salariedCoupleTwoKids"), ids());
     const cat = catOf(wh);
-    const c: LeverChoice = { hidden: ["lever:fee", "spouse:work"] };
+    const c: LeverChoice = { hidden: ["spouse:work"] };
     const none = leverView(cat, c, [], {});
     expect(keys(none.top)).toEqual(["lever:retireAge", "lever:pensionAge", "lever:livingMonthly"]);
+    // FP顧問料だけは、値が入っていても出さない（最初から出すか、足したときだけ）
     const v = leverView(cat, c, [], { "lever:nisaMonthly": 50_000, "lever:fee": true, "inv:rate": "0.04" });
-    expect(keys(v.top)).toEqual(["lever:retireAge", "lever:pensionAge", "lever:nisaMonthly", "lever:livingMonthly", "lever:fee"]);
+    expect(keys(v.top)).toEqual(["lever:retireAge", "lever:pensionAge", "lever:nisaMonthly", "lever:livingMonthly"]);
+    expect(keys(leverView(cat, c, ["lever:fee"], { "lever:fee": true }).top)).toEqual(["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", "lever:fee"]);
     // 外した配偶者の働き方と年収も、値が入っていれば足した項目として出す（外せる）
     expect(keys(leverView(cat, c, [], { [spouseKey(wh)]: { type: "regular", annual: 3_000_000 } }).added)).toEqual([spouseKey(wh)]);
     expect(v.fixed.has("lever:nisaMonthly")).toBe(false);
@@ -187,20 +195,37 @@ describe("値が入っていれば、外しても出す", () => {
   });
 });
 
-describe("FP顧問料を外す（顧問料を取らない事務所）", () => {
+describe("FP顧問料（既定では出さない。事務所の既定値で足せる）", () => {
+  it("事務所の既定値で足すと、契約がある世帯に今までどおり出る。外すと出さない", () => {
+    const wh = addAdvisoryFee(open("salariedCoupleTwoKids"), ids());
+    const cat = catOf(wh);
+    const c = withStart({}, "lever:fee", true);
+    expect(c).toEqual({ shown: ["lever:fee"] });
+    const v = leverView(cat, c, [], {});
+    expect(keys(v.top)).toEqual(["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", spouseKey(wh), "lever:fee"]);
+    // 最初から出すので外せない（「外す」を付けない）
+    expect(v.fixed.has("lever:fee")).toBe(true);
+    // 既定に無いので、外しても何も持たない（前の事務所データの hidden は読めば残るが、出さないのは同じ）
+    expect(isEmptyLeverChoice(withStart(c, "lever:fee", false))).toBe(true);
+    expect(leverView(cat, readLeverChoice({ hidden: ["lever:fee"] }), [], {}).top.some((it) => it.key === "lever:fee")).toBe(false);
+    // 契約の無い世帯は、足しても出ない
+    const plain = catOf(open("salariedCoupleTwoKids"));
+    expect(keys(leverView(plain, c, [], {}).top)).toEqual(keys(leverView(plain, {}, [], {}).top));
+  });
+
   it("対策に出さないだけで、計算は変わらない（現状に入れていない契約は顧問料0のまま。プランで入れたものは入る）", () => {
     const wh = addAdvisoryFee(open("salariedCoupleTwoKids"), ids());
     const cat = catOf(wh);
-    const c = withStart({}, "lever:fee", false);
-    expect(c).toEqual({ hidden: ["lever:fee"] });
+    const c: LeverChoice = {};
     expect(leverView(cat, c, [], {}).top.some((it) => it.key === "lever:fee")).toBe(false);
     // 選び方は計算の要求に入らない: 値の無いプランの要求は、契約を現状のまま持つ
     const req = applyValues(wh, {}, cat);
     expect(req.input.household.advisoryFees).toEqual(wh.request.input.household.advisoryFees);
     expect(advisoryFeeSummary(preview(req))).toBeNull();
-    // プランで入れた（値が入っている）なら、外していても対策に出し、計算にも入る
+    // プランで入れた（値が入っている）なら、対策に出していなくても計算に入る。「＋ 動かす項目を追加」で足せば切り替えが出る
     const on = { "lever:fee": true };
-    expect(leverView(cat, c, [], on).top.some((it) => it.key === "lever:fee")).toBe(true);
+    expect(leverView(cat, c, [], on).top.some((it) => it.key === "lever:fee")).toBe(false);
+    expect(leverView(cat, c, ["lever:fee"], on).top.some((it) => it.key === "lever:fee")).toBe(true);
     expect(advisoryFeeSummary(preview(applyValues(wh, on, cat)))?.total).toBeGreaterThan(0);
     // 契約の無い世帯は、そもそも FP顧問料の項目が無い
     const plain = catOf(open("salariedCoupleTwoKids"));
@@ -247,6 +272,9 @@ describe("事務所の既定値の画面", () => {
     const html2 = renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, levers: { shown: ["loan:rate"], hidden: ["lever:fee"] } }, onSave: async () => undefined, shared: false, onClose: noop }));
     const checked2 = [...html2.matchAll(/<input type="checkbox"([^>]*)data-office-lever-show="([^"]+)"/g)].filter((m) => /checked/.test(m[1] ?? "")).map((m) => m[2]);
     expect(checked2).toEqual(["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", "spouse:work", "loan:rate"]);
+    // FP顧問料は既定ではチェックが無く、説明の文で既定では出さないこと・足せることを書く
+    expect(checked).not.toContain("lever:fee");
+    expect(html).toContain("FP顧問料は、既定では出しません");
   });
 });
 

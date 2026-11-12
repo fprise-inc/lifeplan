@@ -90,7 +90,7 @@ import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
 import { leverView, visibleKeys } from "./plans/leverChoice.ts";
 import { ageSliderBounds, amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
-import { acknowledge, applyValues, changesOf, changesOfValues, copyPlan, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
+import { acknowledge, applyValues, backToCurrent, changesOf, changesOfValues, copyPlan, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, movedValues, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
 import { cashflowTable, displayYears, eventsOf, firstAgeOf, toPresentation, withDiff } from "./present.ts";
 import { withoutRemovedAssumptions } from "./surplus.ts";
 import { roles } from "./roles.ts";
@@ -2475,7 +2475,7 @@ export function App() {
   const pinnedYear = selectedYear !== null && model?.selectedYear === selectedYear ? selectedYear : null;
   const baseValues = opened === null ? {} : valuesOf(opened.wh, work, work.base);
   // 対策に出す項目: 事務所の既定値で最初から出す項目・足した項目・選んだプランで値が入っている項目（0084）
-  const levView = opened === null ? null : leverView(opened.catalog, officeSettings.levers, shown, work.sel === CURRENT ? {} : selValues);
+  const levView = opened === null ? null : leverView(opened.catalog, officeSettings.levers, shown, work.sel === CURRENT ? {} : movedValues(selValues, opened.wh, opened.catalog));
   fixedRef.current = levView?.fixed ?? new Set<string>();
   const onTop = new Set((levView?.top ?? []).map((it) => it.key));
   const leverRows: LeverRow[] =
@@ -2523,10 +2523,8 @@ export function App() {
     const w = workRef.current;
     const cur = valuesOf(o.wh, w, w.sel);
     if (lockReason(w, letterOf) !== null || !Object.hasOwn(cur, k)) return;
-    const { [k]: _drop, ...rest } = cur;
-    void _drop;
     const saved = savedValues(o.wh, w.sel);
-    const nv = normalizeValues(rest, saved, o.wh, o.catalog);
+    const nv = normalizeValues(backToCurrent(cur, k, o.wh, o.catalog), saved, o.wh, o.catalog);
     const drafts = { ...w.drafts };
     if (sameValues(nv, saved, o.catalog)) delete drafts[w.sel];
     else drafts[w.sel] = nv;
