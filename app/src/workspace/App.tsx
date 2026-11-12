@@ -3384,7 +3384,7 @@ export function App() {
                     </div>
                   ))}
                   <EndYearNote wh={opened.wh} onFix={edit} />
-                  {/* 計算のお知らせと気づきは、閉じているとき控えめな1行に並べる（0064・0074 の追記） */}
+                  {/* 計算のお知らせとポイントは、閉じているとき控えめな1行に並べる（0064・0074 の追記） */}
                   <div class="result-quiet">
                     <CalcNotices rows={calcNotices} onOpenCard={openCard} {...(initial.notices === true ? { initialOpen: true } : {})} />
                     {selReq !== null ? <Insights req={selReq} result={selRes} months={bsSettings.moneyThree.months} inheritance={insightInheritance} onYear={pinYear} onLevers={() => document.querySelector("[data-levers]")?.scrollIntoView({ block: "start", behavior: "smooth" })} /> : null}

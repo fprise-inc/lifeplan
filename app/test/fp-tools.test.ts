@@ -115,12 +115,13 @@ describe("気づき", () => {
     expect(inheritancePayable(null)).toBeNull();
   });
 
-  it("結果のタブ: 閉じているときは「気づき ○件 ▸」の1行だけ。開くと一覧と「その年を見る」「対策を考える」（0074 の追記 2026-11-12）", () => {
+  it("結果のタブ: 閉じているときは「ポイント ○件 ▸」の1行だけ。開くと一覧と「その年を見る」「対策を考える」（0074 の追記 2026-11-12）", () => {
     const table: TableCell[] = [...years.map((y) => cell("cf.expense.living.base", y, 3600000)), ...years.map((y, i) => cell("cf.balance.account.deposit", y, i < 3 ? 5000000 : 1000000))];
     const result = { header: {} as never, table, summary: null };
     const props = { req, result, months: 6, onYear: () => undefined, onLevers: () => undefined };
     const closed = renderToString(h(Insights, props));
-    expect(closed).toContain("気づき 1件");
+    expect(closed).toContain("ポイント 1件");
+    expect(closed).not.toContain("気づき");
     expect(closed).toContain('aria-expanded="false"');
     expect(closed).not.toContain("data-insight=");
     const opened = renderToString(h(Insights, { ...props, initialOpen: true }));
