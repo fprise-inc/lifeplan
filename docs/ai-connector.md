@@ -69,6 +69,7 @@ args = ["mcp"]
 |---|---|---|
 | 単体で使える | `list_sample_households`（架空の見本の世帯の一覧。アプリの見本の棚と同じ名前・目印で、目印で絞れる。0199）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID（場所だけ違う項目は場所も）・今の値・範囲で。0195・0201）・`compare`（基本と最大8通りを1回で計算し、主な数字・基本との差・選んだ数字の系列を並べる。0198）・`sweep`（1つの動かす項目を範囲で振り、値ごとの主な数字を1つの表で返す。0202）・`find_threshold`（「最後まで足りる生活費の上限」「いちばん早い退職の年齢」のような、主な数字の条件を満たす境目を接続口の中で探す。0202）・`chart`（`compare` と同じ書き方で計算した答えを、画面のグラフと同じ見た目の PNG・SVG にする。0203）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183）・`get_input_guide`（計算の入力の形の案内: 形の決まり・区分ごとの欄・必須・選べる値・例・計算できる最小の入力の例。0196）・`get_input_recipe`（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo・万一の想定の手本を、世帯に合わせた changes で。0196） | いつでも（アプリが起動していなくてよい。`list_plan_items`・`get_input_recipe`・`compare`・`sweep`・`find_threshold`・`chart` の `share_id` は下の「世帯を扱う」と同じ条件） |
 | 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value`・`list_plan_items`・`compare`・`sweep`・`find_threshold`・`chart` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
+| 単体で使える（表にする。0209） | `table`（`compare` と同じ道で計算した年ごとの表を、CSV か Markdown の文で返す。`share_id` の世帯は世帯を扱う群と同じくアプリ本体に頼む） | 見本の世帯・AIが組み立てた入力はアプリが起動していなくてよい。`share_id` は世帯を扱う群と同じ条件 |
 | 設定の候補を出す | `propose_feature_code`（FPが渡した「機能を有効にするコード」を、アプリの画面に承認待ちの候補として出す。コードは入らない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
 | 新しい世帯の候補を出す | `propose_household`（AIが組み立てた世帯〔`calculate` の `input` と同じ形〕を、架空かお客さまか・題・推定したことと一緒に、アプリの画面に「新しい世帯の候補」として承認待ちで出す。世帯は作られない。0208） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい。計算できない入力の直し方は、アプリが起動していなくても返る） |
 
@@ -90,6 +91,8 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 「同じ3通りで、住宅ローンの利息の合計と、10年後の金利を並べて」（`compare` の `keyFigures.loanInterest`・`diff.loanInterest` と `series` の `loanRate`。0205）
 - 「salariedCoupleTwoKids で、退職を60・65・70歳の3パターンにして、金融資産と年間収支をグラフにして」（`chart` の `series` に `financialAssets`・`net`。0207）
 - 「子の進路を公立・今のまま・私立の3パターンにして、教育費の推移と支出の内訳をグラフにして」（`chart` の `series` に `expenseEducation`、`charts` に `expenseBreakdown`。0207）
+- 「salariedCoupleTwoKids のキャッシュフロー表を、5年ごと・家族の年齢つき・万円で CSV にして」「退職60・65・70歳の金融資産と年間収支を Markdown の表にして」（`table`。0209）
+- 「その数字を受け取って、自分でグラフにして」（`table` の数字と注を使い、数字を変えずに描く。画面と同じ見た目なら `chart`。0209）
 - 「所得税の基礎控除の今の額と出典は？」
 - 「salariedCoupleTwoKids の2030年の税・社会保険料は、どんな計算で出ている？お客さまに分かる言葉で」（`explain_value`）
 - 「ファイナンシアに高額療養費は入っている？ iDeCo の受け取り方はどう計算している？」（`search_coverage`・`get_coverage`）
@@ -123,6 +126,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 | `chart_three_patterns` | 3パターンを比較してグラフに（0207） | `household`*・`lever`（比較したいこと。例「退職の年齢 60・65・70歳」。省くと AI が選ぶ）・`show`（グラフにする数字。例「金融資産と年間収支」「教育費」）・`purpose`（使う先） |
 | `chart_rate_paths` | 金利の上がり方を3通り比較してグラフにする（0203） | `household`*（変動金利の住宅ローンのある世帯）・`paths`（比較する上がり方。省くと今のまま・10年で+1%・10年で+2%）・`purpose`（使う先） |
 | `find_boundary` | 境目を探す（何歳まで働けば足りる？など。0204） | `household`*・`question`（探したい境目。例「90歳の時点で資産が残る、毎月の生活費の上限」。省くと、最後まで資産が尽きない、いちばん早い退職の年齢） |
+| `make_table` | 表にする（CSV・Markdown。自分でグラフにするときも。0209） | `household`*・`what`（表にしたい数字と年。省くと5年ごとの収入・税と社会保険料・支出・年間収支・金融資産残高を家族の年齢つきで）・`variants`（並べたい通り。例「退職60・65・70歳」）・`purpose`（例「Excel で開く」「受け取った数字で自分でグラフにする」） |
 
 ### 見本の世帯の一覧（0199）
 
@@ -274,6 +278,40 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 支出の内訳（`expense` で始まる10個）は、画面のキャッシュフロー表の支出の行と同じ当て方（`app/src/workspace/present.ts` の `rowDefs`）で数え、医療・介護だけを「その他の支出」から分けています。全部足すと、その年の `expense` になります（接続口のテストで、どの年も合うことを確かめています）。値の無い内訳は 0 です。
 - 内訳と `pension` は、接続口に同梱した画面の関数（`app/src/connector/summary.ts` の `flowYearsOf`）で数えます。`takeHome` は `income` − `taxSi` です。
 - グラフの題・単位の注の言葉は `app/src/connector/chart.ts` の `SERIES` にあります。
+### 年ごとの表にする（0209）
+
+「キャッシュフロー表を5年ごと・家族の年齢つきで CSV にして」「退職60・65・70歳の金融資産と年間収支を表にして」のように表が欲しいときは、`table` を使います。AI が `calculate`・`compare` の JSON から表を組み立て直す必要がなく、数字を写し間違えません。
+
+- 世帯と通りの書き方は `compare` と同じです（基本の世帯は `sample_household_id`・`share_id`・`input` のどれか1つ。`changes`・`plan_changes`・`stress_test`・`market_stress` も当てられ、`variants` は8通りまで。省くと基本だけの表）。計算も `compare` と同じ道で、数字は AI から受け取りません。どれかの通りを計算できないときは、表を作らずに `compare` と同じ理由を返します。
+- 年・年齢・数字は画面のキャッシュフロー表と同じです（表に出す年は計算基準月が年の途中なら翌年から。年齢はその年に迎える年齢。万円は画面と同じ四捨五入）。
+- 行（`rows`。既定は `income`・`taxSi`・`expense`・`net`・`financialAssets`）: 上の「系列の名前」のどれでも選べます（同じ名前・同じ数字。支出の内訳 `expenseLiving`〜`expenseOther` も）。`expenseBreakdown` は、支出の内訳のうち、どれかの通りに値のある物をまとめて選びます（全部足すと `expense`）。`loanRate` は %（10進の文字を百倍した数。丸めない）、ほかは単位（`unit`）の金額です。
+- 年（`from_year`・`to_year`・`every_years`。既定5年ごと。最初の年と最後の年はいつも入る）、年齢の列にする家族（`members`: `self`・`spouse`・`child1`…。既定は全員、`[]` で無し）、単位（`unit`: `man`＝万円〔既定〕・`yen`＝円）、形（`format`: `csv`〔既定。負の数は `-`、桁の区切りなし〕・`markdown`〔画面と同じく3桁の区切りと ▲〕）を選べます。
+- 通りが2つ以上のときの並べ方（`layout`）: `byRow`（数字ごとに通りを列に並べる。CSV は「金融資産残高・65歳で退職（万円）」のような列の1つの表、Markdown は数字ごとの表。既定）・`byVariant`（通りごとに分ける。CSV は先頭の「通り」の列で縦に積んだ1つの表、Markdown は通りごとの表）。別の世帯の通りがあるときの既定は `byVariant` です（`byRow` の年齢の列は基本の世帯の年齢）。
+- 表の下に、必ず「※」の注が入ります: 前提（物価上昇率・運用利回り。通りで違えば通りごと）・相場などの想定（重ねた「相場が下がった場合」・ストレステスト。無ければ「なし」）・単位・選んだ行の意味・計算基準月と「将来の結果を約束するものではありません」の旨。注は表の一部で、外せません。「ファイナンシアで試算」の出典は `credit: true` のときだけ入ります（既定は入れない。`chart` の `credit` と同じ）。CSV では、表の後の空の行から下が注です（プログラムで読むときは、最初の空の行までを表として読む）。
+- 日本語の Windows の Excel は、BOM の無い UTF-8 の CSV ファイルを文字化けして開くことがあります。Excel で開くファイルにするときは `bom: true`（表の文の頭に BOM〔U+FEFF〕を付ける）にするか、UTF-8（BOM付き）で保存します。既定で付けないのは、AI のアプリやプログラムが表の文を読むときに、見えない文字が頭に付いて列の名前が崩れることがあるためです。
+- 答えは2つの文です: 短い説明の JSON（`note`・`format`・`unit`・`layout`・`rows`・`years`・`variants`・`bytes`）と、表の文（そのままファイルにできる）。
+- 大きさの目安（見本の世帯 salariedCoupleTwoKids）: CSV の表の文は、同じ数字を返す `compare`・`calculate` の答え（JSON）より小さくなります。退職60・65・70歳の3通りで金融資産残高と年間収支を5年ごと: CSV 約 1.3KB・`compare` 約 8.2KB（約6.5分の1）。同じ3通りで6つの数字を毎年: CSV 約 6.1KB・`compare` 約 31KB（約5分の1）。1通りで6つの数字を毎年: CSV 約 2.8KB・`calculate` 約 9.1KB（約3分の1）。1通りを5年ごとのような小さな表では、表の下の注（約 0.5KB）の分だけ差が縮みます（約 1.2KB・約 2.3KB で約2分の1）。
+
+例:
+
+```json
+{ "sample_household_id": "salariedCoupleTwoKids", "label": "60歳で退職",
+  "plan_changes": [{ "target": "<ご本人の ID>", "item": "employment.to", "value": 60 }],
+  "variants": [
+    { "label": "65歳で退職", "plan_changes": [{ "target": "<ご本人の ID>", "item": "employment.to", "value": 65 }] },
+    { "label": "70歳で退職", "plan_changes": [{ "target": "<ご本人の ID>", "item": "employment.to", "value": 70 }] } ],
+  "rows": ["financialAssets", "net"], "members": ["self", "spouse"], "format": "markdown" }
+```
+
+### AI が受け取った数字で自分でグラフを描くとき（0209）
+
+チャットの画面の部品やコードの実行で、AI が数字を受け取って自分でグラフや図を描くことがあります。接続口の説明（INSTRUCTIONS）で、AI に次を守るよう伝えています。
+
+1. 数字は `table`（か `compare` の `series`）から取り、足し引き・丸め直し・なめらかにする・間を埋める・先へ延ばすなどで変えない（表に無い年は描かない）。
+2. 単位（万円）と、年・年齢の軸を書く。
+3. `table` の表の下の注（前提・相場などの想定・試算の時点と、将来の結果を約束するものではない旨）を必ず図に添える。
+4. 「ファイナンシアで試算」の出典は、FP が望んだときだけ入れる（既定は入れない。`chart`・`table` の `credit` と同じ）。
+5. 画面と同じ見た目のグラフが要るとき・資料にそのまま使うグラフは、自分で描かず `chart` を使う。
 
 ### 住宅ローンの利息と金利（0205）
 

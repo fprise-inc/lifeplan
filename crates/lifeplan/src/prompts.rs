@@ -120,6 +120,18 @@ pub struct FindBoundaryArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MakeTableArgs {
+    /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id。例 salariedCoupleTwoKids）
+    pub household: String,
+    /// 表にしたい数字と年（例「5年ごとの収入・支出・年間収支・金融資産残高を、夫婦の年齢つきで」）。省くと、5年ごとの収入・税と社会保険料・支出・年間収支・金融資産残高を家族の年齢つきで
+    pub what: Option<String>,
+    /// 並べたい通り（例「退職60・65・70歳」「NISA 月3万円を足す」）。省くと今のままだけ
+    pub variants: Option<String>,
+    /// 使い方（例「Excel で開く」「資料に貼る」「受け取った数字で自分でグラフにする」）。省くと会話に表で見せる
+    pub purpose: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CheckCoverageArgs {
     /// 調べたい制度や計算（例「高額療養費」「ふるさと納税」「iDeCo の受け取り方」）
     pub topic: String,
@@ -393,6 +405,33 @@ impl LifeplanMcp {
                  3. status が edge なら範囲を広げて探し直す。notFound なら、範囲の中に満たす値が無いと伝える。\n\
                  4. 答えの message と rows（境目の値と、その1つ外側の値の主な数字）で、境目を一言と小さな表にする。境目の前後を見たいときは、sweep でその近くを振って表にする。\n\
                  5. 境目は前提（物価・利回り・年収など）しだいで動くことを添える。",
+                household(&a.household),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "make_table",
+        title = "表にする（CSV・Markdown。自分でグラフにするときも）",
+        description = "世帯の年ごとの数字（キャッシュフロー表）を、画面と同じ数字のまま CSV か Markdown の表にする。受け取った数字で AI が自分でグラフを描くときの決まりも添える"
+    )]
+    async fn make_table(&self, Parameters(a): Parameters<MakeTableArgs>) -> GetPromptResult {
+        let what = given(&a.what).unwrap_or(
+            "5年ごとの収入・税と社会保険料・支出・年間収支・金融資産残高を、家族の年齢つきで",
+        );
+        let variants = given(&a.variants).unwrap_or("（なし。今のままだけ）");
+        let purpose = given(&a.purpose).unwrap_or("この会話で表として見せる");
+        result(
+            "表にする",
+            format!(
+                "ファイナンシアの接続口で、{} の年ごとの数字を表にしてください。\n\
+                 - 表にしたい数字と年: {what}\n- 並べたい通り: {variants}\n- 使い方: {purpose}\n\n\
+                 進め方:\n\
+                 1. 通りがあれば、list_plan_items で動かす項目（働く最後の年齢・生活費・NISA など）の target・item を確かめ、通り（label と plan_changes）にする。label には通りの違いだけを書き、お客さまの名前を書かない。\n\
+                 2. table を呼ぶ（calculate・compare の JSON から自分で表を組み立てない）。rows（compare の series と同じ名前: income・takeHome・taxSi・expense・net・financialAssets・debt・loanRepayment・loanBalance・loanInterest・loanRate・pension・shortfall と、支出の内訳 expenseLiving・expenseHousing・expenseEducation など。支出の内訳をまとめて選ぶなら expenseBreakdown）・every_years・from_year・to_year・members（self・spouse・child1…）・unit（man＝万円か yen）を選ぶ。会話や資料に貼るなら format は markdown、Excel やプログラムで読むなら csv（日本語の Windows の Excel で開くなら bom: true）。通りが2つ以上なら、数字ごとに通りを並べる layout: byRow か、通りごとに分ける byVariant。\n\
+                 3. 返った表の文を、数字を変えずにそのまま出す。表の下の「※」の注（前提・相場などの想定・単位・試算の時点と、将来の結果を約束するものではない旨）も必ず一緒に出す。「ファイナンシアで試算」の旨は、FP が望んだときだけ credit: true で入れる。\n\
+                 4. 受け取った数字で自分でグラフを描くときは: 数字を足し引き・丸め直し・なめらかにする・間を埋める・先へ延ばすなどで変えない（表に無い年は描かない）。単位（万円）と年・年齢の軸を書き、表の下の注を図に添える。画面と同じ見た目のグラフや、資料にそのまま使うグラフが要るなら、自分で描かず chart を使う。\n\
+                 5. 実在のお客さまの世帯をブログ・セミナーなどに使うなら、金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。",
                 household(&a.household),
             ),
         )

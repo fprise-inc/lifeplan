@@ -168,6 +168,7 @@ async fn standalone_tools_work_without_the_app() {
         "list_plan_items",
         "compare",
         "chart",
+        "table",
         "get_input_guide",
         "get_input_recipe",
         "sweep",
@@ -378,6 +379,7 @@ async fn prompts_list_and_expand() {
         "chart_rate_paths",
         "chart_three_patterns",
         "find_boundary",
+        "make_table",
         "make_household_in_app",
     ] {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
@@ -472,6 +474,23 @@ async fn prompts_list_and_expand() {
             ],
         ),
         (
+            "make_table",
+            json!({ "household": "salariedCoupleTwoKids", "variants": "退職60・65・70歳", "purpose": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "退職60・65・70歳",
+                "5年ごとの収入",
+                "list_plan_items",
+                "table",
+                "expenseBreakdown",
+                "bom: true",
+                "「※」の注",
+                "credit: true",
+                "なめらかにする",
+                "chart",
+            ],
+        ),
+        (
             "chart_rate_paths",
             json!({ "household": "salariedCoupleTwoKids", "paths": "" }),
             vec![
@@ -539,6 +558,8 @@ async fn prompts_list_and_expand() {
         "plan_changes",
         "market_stress",
         "stress_test",
+        "from_year",
+        "to_year",
     ];
     for (name, args, wants) in cases {
         let Value::Object(m) = args else { panic!() };
@@ -4121,6 +4142,357 @@ async fn chart_compares_three_rate_paths() {
     assert_eq!(pngs.len(), 1);
     let head: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(head["charts"][1]["status"], "skipped");
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 年ごとの表の道具を呼ぶ: (失敗か, 文章の欄ごと)
+async fn call_table(c: &Client, args: Value) -> (bool, Vec<String>) {
+    let mut p = CallToolRequestParams::new("table".to_owned());
+    if let Value::Object(m) = args {
+        p = p.with_arguments(m);
+    }
+    let r = c.call_tool(p).await.unwrap();
+    let texts = r
+        .content
+        .iter()
+        .filter_map(|b| b.as_text().map(|t| t.text.clone()))
+        .collect();
+    (r.is_error.unwrap_or(false), texts)
+}
+
+/// CSV の表（見出しと行。最初の空の行まで）と注（空の行の後）
+fn csv_parts(text: &str) -> (Vec<String>, Vec<Vec<String>>, Vec<String>) {
+    let text = text.trim_start_matches('\u{feff}');
+    let (body, foot) = text.split_once("\n\n").unwrap();
+    let mut lines = body.lines();
+    let head: Vec<String> = lines
+        .next()
+        .unwrap()
+        .split(',')
+        .map(str::to_owned)
+        .collect();
+    let rows = lines
+        .map(|l| l.split(',').map(str::to_owned).collect())
+        .collect();
+    let notes = foot
+        .lines()
+        .map(|l| l.trim_matches('"').to_owned())
+        .collect();
+    (head, rows, notes)
+}
+
+/// 画面と同じ万円の丸め（presentation/format.ts の toMan。四捨五入・符号は対称）
+fn to_man(yen: i64) -> i64 {
+    let v = (yen.abs() + 5_000) / 10_000;
+    if yen < 0 {
+        -v
+    } else {
+        v
+    }
+}
+
+/// 年ごとの表（table。0209）: 退職の年齢を3通りにした見本の世帯で、表の数字（円）が compare の系列（毎年）と同じこと、手取り・支出・住宅ローンの
+/// 返済と利息の年ごとの合計が主な数字と同じこと、支出の内訳を足すと支出になること、公的年金が calculate の表の年金の行と同じこと、万円は画面と同じ丸め、
+/// 表の下に注が必ず入ること、CSV が同じ数字の JSON（compare の答え）よりずっと小さいこと、選び方の誤り・計算できない通りの理由
+#[tokio::test(flavor = "multi_thread")]
+async fn table_matches_compare() {
+    let dir = temp_dir("table");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "table");
+    let id = "salariedCoupleTwoKids";
+    let items = call_ok(&c, "list_plan_items", json!({ "sample_household_id": id })).await;
+    let retire = items["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|it| it["item"] == "employment.to")
+        .unwrap()
+        .clone();
+    let at = |age: i64| vec![change_of(&retire, json!(age))];
+    let args = json!({ "sample_household_id": id, "label": "60歳で退職", "plan_changes": at(60), "variants": [
+        { "label": "65歳で退職", "plan_changes": at(65) }, { "label": "70歳で退職", "plan_changes": at(70) } ] });
+    let fields = [
+        "income",
+        "taxSi",
+        "expense",
+        "net",
+        "financialAssets",
+        "debt",
+        "shortfall",
+        "loanRepayment",
+        "loanBalance",
+        "loanInterest",
+        "loanRate",
+        "takeHome",
+        "pension",
+        "expenseLiving",
+        "expenseSurplus",
+        "expenseHousing",
+        "expenseEducation",
+        "expenseInsurance",
+        "expenseLumpSum",
+        "expenseCar",
+        "expenseCare",
+        "expenseRealEstate",
+        "expenseOther",
+    ];
+    let mut cmp_args = args.clone();
+    cmp_args["series"] = json!(fields);
+    cmp_args["every_years"] = json!(1);
+    let cmp = call_ok(&c, "compare", cmp_args).await;
+    let results = cmp["results"].as_array().unwrap();
+    assert_eq!(cmp["computed"], 3, "{cmp}");
+
+    // 円・毎年・通りごと（CSV は「通り」の列で縦に積む）
+    let mut t_args = args.clone();
+    t_args["rows"] = json!([
+        "income",
+        "takeHome",
+        "taxSi",
+        "expense",
+        "expenseBreakdown",
+        "net",
+        "financialAssets",
+        "debt",
+        "loanRepayment",
+        "loanBalance",
+        "loanInterest",
+        "loanRate",
+        "pension",
+        "shortfall"
+    ]);
+    t_args["unit"] = json!("yen");
+    t_args["every_years"] = json!(1);
+    t_args["layout"] = json!("byVariant");
+    let (err, texts) = call_table(&c, t_args).await;
+    assert!(!err, "{texts:?}");
+    assert_eq!(texts.len(), 2);
+    let head: Value = serde_json::from_str(&texts[0]).unwrap();
+    assert_eq!(head["layout"], "byVariant");
+    assert_eq!(head["unit"], "円");
+    assert_eq!(head["bytes"], texts[1].len());
+    let (h, rows, notes) = csv_parts(&texts[1]);
+    let col = |name: &str| {
+        h.iter()
+            .position(|x| x == name)
+            .unwrap_or_else(|| panic!("{name} がありません: {h:?}"))
+    };
+    let labels = [
+        ("income", "収入合計（円）"),
+        ("taxSi", "税・社会保険料（円）"),
+        ("expense", "支出（円）"),
+        ("net", "年間収支（円）"),
+        ("financialAssets", "金融資産残高（円）"),
+        ("debt", "負債の残高（円）"),
+        ("shortfall", "資金不足（円）"),
+        ("takeHome", "手取り（円）"),
+        ("pension", "公的年金（円）"),
+        ("expenseLiving", "支出の内訳: 生活費（円）"),
+        (
+            "expenseHousing",
+            "支出の内訳: 住居費（ローン・税・修繕）（円）",
+        ),
+        ("expenseEducation", "支出の内訳: 教育費（円）"),
+        ("loanRepayment", "住宅ローンの返済（円）"),
+        ("loanBalance", "住宅ローン残高（円）"),
+        ("loanInterest", "住宅ローンの利息（円）"),
+    ];
+    let breakdown: Vec<usize> = h
+        .iter()
+        .enumerate()
+        .filter(|(_, x)| x.starts_with("支出の内訳: "))
+        .map(|(i, _)| i)
+        .collect();
+    assert!(breakdown.len() >= 3, "{h:?}");
+    let num =
+        |r: &[String], i: usize| -> i64 { r[i].parse().unwrap_or_else(|_| panic!("{r:?} {i}")) };
+    for r in results {
+        let label = r["label"].as_str().unwrap();
+        let mine: Vec<&Vec<String>> = rows.iter().filter(|x| x[0] == label).collect();
+        let series = r["series"].as_array().unwrap();
+        assert_eq!(mine.len(), series.len(), "{label}: 年の数");
+        let (mut take, mut exp, mut loan, mut interest) = (0, 0, 0, 0);
+        for (row, s) in mine.iter().zip(series) {
+            let y = s["year"].as_i64().unwrap();
+            assert_eq!(num(row, col("年")), y, "{label}");
+            for (k, name) in labels {
+                assert_eq!(
+                    num(row, col(name)),
+                    s[k].as_i64().unwrap(),
+                    "{label} {y}年 {k}"
+                );
+            }
+            // その年の住宅ローンの金利（%）は、系列の金利（10進の文字）の100倍
+            let rate = &row[col("住宅ローンの金利（%）")];
+            match s["loanRate"].as_str() {
+                None => assert_eq!(rate, "", "{label} {y}年"),
+                Some(d) => {
+                    let want: f64 = d.parse::<f64>().unwrap() * 100.0;
+                    assert!(
+                        (rate.parse::<f64>().unwrap() - want).abs() < 1e-9,
+                        "{label} {y}年 {rate} {d}"
+                    );
+                }
+            }
+            // 年齢の列は compare の系列の年齢と同じ
+            for (k, name) in [
+                ("self", "ご本人（歳）"),
+                ("spouse", "配偶者（歳）"),
+                ("child1", "第1子（歳）"),
+            ] {
+                let want = s["ages"][k]
+                    .as_i64()
+                    .map(|a| a.to_string())
+                    .unwrap_or_default();
+                assert_eq!(row[col(name)], want, "{label} {y}年 {k}");
+            }
+            let income = num(row, col("収入合計（円）"));
+            let tax = num(row, col("税・社会保険料（円）"));
+            let e = num(row, col("支出（円）"));
+            assert_eq!(num(row, col("手取り（円）")), income - tax, "{label} {y}年");
+            assert_eq!(
+                breakdown.iter().map(|i| num(row, *i)).sum::<i64>(),
+                e,
+                "{label} {y}年: 支出の内訳の合計"
+            );
+            take += income - tax;
+            exp += e;
+            loan += num(row, col("住宅ローンの返済（円）"));
+            interest += num(row, col("住宅ローンの利息（円）"));
+        }
+        let kf = &r["keyFigures"];
+        assert_eq!(take, kf["lifetimeTakeHome"].as_i64().unwrap(), "{label}");
+        assert_eq!(exp, kf["lifetimeExpense"].as_i64().unwrap(), "{label}");
+        assert_eq!(loan, kf["loanRepayment"].as_i64().unwrap(), "{label}");
+        assert_eq!(interest, kf["loanInterest"].as_i64().unwrap(), "{label}");
+    }
+    // 公的年金は、calculate の表の年金の行（cf.income.pension）の年ごとの合計と同じ（70歳で退職の通り）
+    let joined: Vec<Value> = at(60).into_iter().chain(at(70)).collect();
+    let calc = call_ok(&c, "calculate", json!({ "sample_household_id": id, "plan_changes": joined, "output": "table", "rows": ["cf.income.pension"], "omit": ["notices", "packs", "keyFigures", "ages", "insurance"] })).await;
+    let mut pension = std::collections::BTreeMap::<i64, i64>::new();
+    for cell in calc["table"].as_array().unwrap() {
+        *pension.entry(cell["year"].as_i64().unwrap()).or_default() +=
+            cell["amount"].as_i64().unwrap();
+    }
+    assert!(pension.values().any(|v| *v > 0));
+    for row in rows.iter().filter(|x| x[0] == "70歳で退職") {
+        let y = num(row, col("年"));
+        assert_eq!(
+            num(row, col("公的年金（円）")),
+            pension.get(&y).copied().unwrap_or(0),
+            "{y}年"
+        );
+    }
+    // 表の下の注（前提・相場などの想定・単位・試算の時点と旨）。「ファイナンシアで試算」は既定では入れない
+    assert!(
+        notes
+            .iter()
+            .any(|n| n.starts_with("※ 前提\u{3000}物価上昇率 年")),
+        "{notes:?}"
+    );
+    assert!(
+        notes.iter().any(|n| n.starts_with("※ 相場などの想定")),
+        "{notes:?}"
+    );
+    assert!(
+        notes.iter().any(|n| n.starts_with("※ 単位は円")),
+        "{notes:?}"
+    );
+    assert!(
+        notes
+            .last()
+            .unwrap()
+            .ends_with("将来の結果を約束するものではありません。"),
+        "{notes:?}"
+    );
+    assert!(!texts[1].contains("ファイナンシアで試算"));
+
+    // 万円・5年ごと・行ごとに通りを列に並べる（既定）: 画面と同じ丸めで、compare の系列（5年ごと）と同じ年
+    let mut m_args = args.clone();
+    m_args["rows"] = json!(["financialAssets", "net"]);
+    m_args["members"] = json!(["self"]);
+    let (err, texts) = call_table(&c, m_args.clone()).await;
+    assert!(!err, "{texts:?}");
+    let (h, rows, _) = csv_parts(&texts[1]);
+    assert_eq!(
+        h[..3],
+        ["年", "ご本人（歳）", "金融資産残高・60歳で退職（万円）"]
+    );
+    let mut c5 = args.clone();
+    c5["series"] = json!(["financialAssets", "net"]);
+    let cmp5 = call_ok(&c, "compare", c5.clone()).await;
+    for (vi, r) in cmp5["results"].as_array().unwrap().iter().enumerate() {
+        let series = r["series"].as_array().unwrap();
+        assert_eq!(rows.len(), series.len());
+        for (row, s) in rows.iter().zip(series) {
+            assert_eq!(row[0], s["year"].to_string());
+            assert_eq!(row[1], s["ages"]["self"].to_string());
+            assert_eq!(
+                num(row, 2 + vi),
+                to_man(s["financialAssets"].as_i64().unwrap())
+            );
+            assert_eq!(num(row, 5 + vi), to_man(s["net"].as_i64().unwrap()));
+        }
+    }
+    // 同じ数字の JSON（compare の答え）より CSV がずっと小さい
+    c5["ages"] = json!(false);
+    let cmp_bytes = call(&c, "compare", c5).await.1.len();
+    assert!(
+        texts[1].len() * 3 < cmp_bytes,
+        "CSV {} / JSON {cmp_bytes}",
+        texts[1].len()
+    );
+
+    // Markdown・BOM・「ファイナンシアで試算」
+    let mut md = m_args.clone();
+    md["format"] = json!("markdown");
+    md["credit"] = json!(true);
+    let (err, texts) = call_table(&c, md).await;
+    assert!(!err);
+    assert!(
+        texts[1].contains("**金融資産残高（万円）**"),
+        "{}",
+        texts[1]
+    );
+    assert!(texts[1].contains("| 年 | ご本人（歳） | 60歳で退職 | 65歳で退職 | 70歳で退職 |"));
+    assert!(texts[1].contains("▲"));
+    assert!(texts[1].contains("ファイナンシアで試算（"));
+    let mut bom = m_args.clone();
+    bom["bom"] = json!(true);
+    let (_, texts) = call_table(&c, bom).await;
+    assert!(texts[1].starts_with('\u{feff}'));
+    // 通りを書かなければ基本だけの表。相場が下がった場合を重ねると注に出る
+    let (err, texts) = call_table(
+        &c,
+        json!({ "sample_household_id": id, "market_stress": "drop", "every_years": 10 }),
+    )
+    .await;
+    assert!(!err, "{texts:?}");
+    let head: Value = serde_json::from_str(&texts[0]).unwrap();
+    assert_eq!(head["layout"], "single");
+    assert_eq!(head["years"]["every"], 10);
+    let (_, _, notes) = csv_parts(&texts[1]);
+    assert!(
+        notes
+            .iter()
+            .any(|n| n.starts_with("※ 相場などの想定") && !n.contains("なし")),
+        "{notes:?}"
+    );
+    // 別の世帯の通りがあれば、既定は通りごと
+    let (err, texts) = call_table(&c, json!({ "sample_household_id": id, "variants": [{ "label": "単身", "sample_household_id": "sampleSingle20s" }], "rows": ["financialAssets"] })).await;
+    assert!(!err, "{texts:?}");
+    let head: Value = serde_json::from_str(&texts[0]).unwrap();
+    assert_eq!(head["layout"], "byVariant");
+    // 選び方の誤り・計算できない通り
+    let (err, texts) = call_table(&c, json!({ "sample_household_id": id, "rows": ["pie"] })).await;
+    assert!(err && texts[0].contains("rows に選べるのは"), "{texts:?}");
+    let (err, texts) = call_table(&c, json!({ "sample_household_id": id, "variants": [{ "label": "範囲の外", "plan_changes": at(200) }] })).await;
+    assert!(
+        err && texts[0].contains("計算できない通りがあるため"),
+        "{texts:?}"
+    );
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }

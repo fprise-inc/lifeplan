@@ -6,6 +6,7 @@
 //!   get_input_recipe（よくある場面の部品の手本。share_id を渡したときだけ、世帯を扱う群と同じくアプリ本体に頼む。0196）・
 //!   list_plan_items（画面のプランの動かす項目。0195）・compare（1回で何通りも計算して並べる。0198）・sweep（1つの項目を範囲で振る）・
 //!   find_threshold（主な数字の条件を満たす境目を探す。sweep・find_threshold は 0202）・chart（比較した答えのグラフ。0203）
+//!   ・table（年ごとの表を CSV か Markdown の文で返す。0209。share_id は世帯を扱う群と同じくアプリ本体に頼む）
 //! - 世帯を扱う（アプリが起動していて、FPが渡した世帯が期限内で取り消されていないときだけ）: list_shared_households・get_shared_household・
 //!   propose_scenario・propose_inputs、calculate・explain_value・list_plan_items・compare・sweep・find_threshold・chart の share_id
 //! - 書類から読んだ値の候補を出す（世帯を扱う群。0151）: propose_inputs（現状の入力の候補を、アプリの「書類の読み取り」に承認待ちで入れるだけ）
@@ -26,7 +27,7 @@ use crate::calc::{self, Change, OutputMode, TableFilter, STRESS_TESTS};
 use crate::compare::{self, CompareArgs, VariantArgs};
 use crate::plan::{self, Applied, PlanChange, PlanItemsArgs};
 use crate::sweep::{self, SweepArgs, ThresholdArgs};
-use crate::{answer, chart, coverage, engine, guide, recipes, regulation, samples};
+use crate::{answer, chart, coverage, engine, guide, recipes, regulation, samples, table};
 use ai_ipc::client::{call_app, AppError, ClientHello};
 use ai_ipc::{McpClientInfo, Request};
 use base64::Engine as _;
@@ -50,6 +51,8 @@ pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプ�
 - 「対策を3つ並べて」「この世帯とこの世帯を比較して」「物価0%・1%・2%で並べて」のように何通りも並べるときは、calculate を何度も呼ばず、compare で基本と最大8通りを1回で計算してください。通りに世帯を書かなければ基本に重ね（plan_changes・changes・stress_test、アプリの「相場が下がった場合」の型 market_stress）、sample_household_id・share_id・input を書けばその世帯で計算します。返るのは通りごとの主な数字・基本との差・選んだ数字の年ごとの系列（既定は金融資産を5年ごと・年齢つき）だけです。
 - 「変動金利が今のまま・10年で+1%・10年で+2% で比較してグラフにして」のように、比較した答えをグラフ（セミナーの資料・ブログに使う画像）にするときは、数字を自分で描かず、chart を使ってください（compare と同じ書き方で、画面のグラフと同じ目盛り・色の PNG と SVG を返します。題・凡例・単位・前提の注〔物価上昇率・運用利回り・相場の想定〕・試算の時点と「将来の結果を約束するものではない」旨が必ず入ります。「ファイナンシアで試算」の出典は credit: true のときだけ入り、既定は入りません）。変動金利の上がり方は、list_plan_items の住宅ローンの「金利の見込み（変動金利）」の項目（kind が rateOutlook）を通りの plan_changes に入れます（value は型の名前 flat・up1・up2 か、5年ごとの上乗せ {adds: [\"0.005\", \"0.01\"]}。入力の「金利の見込み」の欄と同じ関数で当たります）。stress_test の rateRise は上げ幅を選べない決まった型です。
 - compare の series で返る年ごとの数字（income・takeHome・taxSi・expense・net・financialAssets・debt・shortfall・住宅ローンの loanRepayment・loanBalance・loanInterest・loanRate・公的年金 pension・支出の内訳 expenseLiving・expenseHousing・expenseEducation・expenseInsurance・expenseCar・expenseCare など）は、どれも chart の series に同じ名前を入れるとグラフにできます（基本と8通りまで）。「退職を60・65・70歳にして金融資産と年間収支をグラフに」なら series に [\"financialAssets\", \"net\"]、「進路を3通りにして教育費をグラフに」なら [\"expenseEducation\"]、支出の内訳の合計を通りごとに並べるなら charts に expenseBreakdown です。1つの項目を3通りにして比較するときの進め方は、プロンプトの chart_three_patterns にあります。
+- 「キャッシュフロー表を5年ごと・家族の年齢つきで CSV にして」「退職60・65・70歳の金融資産と年間収支を表にして」のように表が欲しいときは、calculate・compare の JSON から自分で表を組み立てず、table を使ってください（世帯と通りの書き方は compare と同じで、通りを省けば基本だけ）。行（rows。名前は compare の series と同じで、支出の内訳 expenseLiving などをまとめて選ぶ expenseBreakdown も使える）・年（from_year・to_year・every_years）・年齢の列にする家族（members）・単位（unit。既定は万円で、画面と同じ四捨五入）・形（format。csv か markdown）・通りの並べ方（layout）を選べ、画面の表と同じ年・年齢・数字の表の文が返ります。表の下の「※」の注（前提・相場などの想定・単位・試算の時点と、将来の結果を約束するものではない旨）は表の一部なので、表を見せる・貼る・ファイルにするときも必ず一緒に出してください。日本語の Windows の Excel でファイルにして開くなら、bom: true で BOM を付けるか、UTF-8（BOM付き）で保存するよう伝えます。
+- 数字を受け取って自分でグラフや図を描くとき（チャットの画面の部品・コードの実行など）は、数字を table（か compare の series）から取り、次を守ってください: ①数字を足し引き・丸め直し・なめらかにする・間を埋める・先へ延ばすなどで変えない（表に無い年は描かない）②単位（万円）と、年・年齢の軸を書く ③table の表の下の注（前提・相場などの想定・試算の時点と、将来の結果を約束するものではない旨）を必ず図に添える ④「ファイナンシアで試算」の出典は、FP が望んだときだけ入れる（既定は入れない。chart・table の credit と同じ）⑤画面と同じ見た目のグラフが要るとき・資料にそのまま使うグラフは、自分で描かず chart を使う。
 - 住宅ローンの利息の合計（返済のうち利息に充てた額。住宅ローンの返済の合計と同じ年で数える）は、calculate・compare の keyFigures.loanInterest に入り、compare の diff.loanInterest が基本との差です（「利息の合計は今のままで X 万円、+2% で Y 万円」のように答えるときに使う）。年ごとの利息とその年の金利（その年の最後の返済に当てた金利。変動金利の5年ルール・125%ルール・繰上返済・借り換え・返し終えた年まで、エンジンの計算のまま）は、calculate の fields・compare の series に loanInterest・loanRate を入れると年ごとに返ります。金利の違う住宅ローンを2本以上返している年の loanRate は null で、ローンごとの数字は calculate の output: table の summary.loans（ローンの ID ごと）にあります。chart の interest（利息の推移）・rate（金利の推移）でグラフにもできます。
 - 「何歳まで働けば足りる？」「生活費は月いくらまでなら使える？」「最後まで足りる最低の運用の利回りは？」のような境目は、calculate を何度も呼んで探さず、find_threshold で接続口の中で探してください（vary に list_plan_items の target・item〔一覧が at か lever を添えた項目は、それもそのまま。資産運用の毎月の積立額・積立をやめる年齢・退職後の生活費の割合など〕、範囲・刻み、条件〔資産が尽きない・○歳の時点で○円以上・いちばん少ない年でも○円以上〕と、いちばん大きい値か小さい値か）。「退職を60〜70歳で1歳ずつ変えたら？」「生活費を25万〜35万円で振ったら？」のように1つの項目を範囲で振って表にするときは sweep（21個まで）を使います。どちらも答えは主な数字の小さな表で、値ごとの計算は calculate の plan_changes と同じです。
 - 計算の入力（input）を組み立てるときは、get_input_guide で形の決まりと区分ごとの欄・必須・選べる値・例を引き、よくある場面（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo を始める・万一の想定）は get_input_recipe の手本（その世帯に合わせた changes）を使ってください。書かなかった物（家の頭金・諸費用、子の教育費・生活費など）は計算に入りません。計算できなかったときは、答えの「直し方」に足りない欄・選べる値・正しい形が出ます。
@@ -701,6 +704,8 @@ struct Computed {
     market: Value,
     /// 計算の前提（プランの変更と「相場が下がった場合」の型を当てた後の要求の assumptions。グラフの注に使う。0203）
     assumptions: Value,
+    /// 計算の前の処理を当てる前の要求（プランの変更と「相場が下がった場合」の型を当てた後。年ごとの表に使う。0209）
+    request: Value,
 }
 
 /// 計算の入力（changes・stress_test を当てた後）に、プランの変更（画面のプランと同じ関数。0195）→ 計算の前の処理（0184）→ 計算 →
@@ -768,6 +773,7 @@ fn compute(
         summary,
         market,
         assumptions: planned["assumptions"].clone(),
+        request,
     })
 }
 
@@ -830,6 +836,8 @@ struct Compared {
     assumptions: Vec<Value>,
     /// 基本の計算基準月（グラフの試算の時点の文。基本を計算できなければ null）
     base_month: Value,
+    /// 通りごとの（表示の形の出力, 計算の前の処理を当てる前の要求）。internal.keep_raw のときだけ（年ごとの表に使う。0209）
+    raw: Vec<Option<(Value, Value)>>,
 }
 
 impl LifeplanMcp {
@@ -850,6 +858,7 @@ impl LifeplanMcp {
         if a.ages == Some(false) {
             omit.push("ages".to_owned());
         }
+        omit.extend(a.internal.omit.iter().cloned());
         let opts = match answer::Options::new(
             Some(a.every_years.unwrap_or(compare::DEFAULT_EVERY_YEARS)),
             Some(&series),
@@ -859,7 +868,7 @@ impl LifeplanMcp {
             Ok(o) => o,
             Err(msg) => return Err((msg.replace("fields", "series"), "INVALID")),
         };
-        if a.variants.is_empty() {
+        if a.variants.is_empty() && !a.internal.base_only {
             return Err((
                 format!(
                     "variants に、基本と並べる通りを1〜{}通り書いてください。",
@@ -1032,6 +1041,7 @@ impl LifeplanMcp {
         let mut assumptions: Vec<Value> = Vec::new();
         let mut base_month = Value::Null;
         let mut base_figures = Value::Null;
+        let mut raw: Vec<Option<(Value, Value)>> = Vec::new();
         let mut done = 0usize;
         for (i, ((label, from, stress, reason), got)) in rows.into_iter().zip(computed).enumerate()
         {
@@ -1067,6 +1077,7 @@ impl LifeplanMcp {
                         }
                     }
                     assumptions.push(Value::Null);
+                    raw.push(None);
                     results.push(Value::Object(r));
                     continue;
                 }
@@ -1075,6 +1086,7 @@ impl LifeplanMcp {
                     r.insert("status".into(), json!("error"));
                     r.insert("reason".into(), json!("計算エンジンを動かせませんでした。"));
                     assumptions.push(Value::Null);
+                    raw.push(None);
                     results.push(Value::Object(r));
                     continue;
                 }
@@ -1117,6 +1129,7 @@ impl LifeplanMcp {
             }
             r.insert("series".into(), shaped["years"].take());
             assumptions.push(c.assumptions.clone());
+            raw.push(a.internal.keep_raw.then_some((c.out, c.request)));
             results.push(Value::Object(r));
         }
         let mut v = json!({
@@ -1135,6 +1148,7 @@ impl LifeplanMcp {
             done,
             assumptions,
             base_month,
+            raw,
         })
     }
 }
@@ -1752,6 +1766,7 @@ impl LifeplanMcp {
             ages: Some(true),
             from_year: a.from_year,
             to_year: a.to_year,
+            internal: compare::Internal::default(),
         };
         let got = match self.run_compare(&c, &ctx, tool).await {
             Ok(x) => x,
@@ -1896,6 +1911,150 @@ impl LifeplanMcp {
         content.extend(blocks);
         log(tool, t, "ok");
         Ok(CallToolResult::success(content))
+    }
+
+    #[tool(
+        description = "計算の答えを年ごとの表にして、CSV か Markdown の文で返す（表にする）。「キャッシュフロー表を5年ごと・家族の年齢つきで CSV にして」「退職60・65・70歳の金融資産と年間収支を表にして」「数字を受け取って自分でグラフにしたい」のときに使う。世帯と通りの書き方は compare と同じ（基本の世帯は sample_household_id・share_id〔アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る〕・input のどれか1つで、changes・plan_changes・stress_test・market_stress も当てられる。variants の通りは8通りまでで、省くと基本だけ）で、compare と同じ道で計算した数字だけを並べる（数字は AI から受け取らない。画面の表と同じ年〔計算基準月が年の途中なら翌年から〕・同じ年齢・同じ数え方）。rows で行を選ぶ（既定は income・taxSi・expense・net・financialAssets。名前は compare の series と同じ: income・takeHome〔手取り〕・taxSi・expense・net・financialAssets・debt・shortfall・loanRepayment・loanBalance・loanInterest・loanRate〔%〕・pension〔公的年金の世帯の合計〕・支出の内訳 expenseLiving・expenseSurplus・expenseHousing・expenseEducation・expenseInsurance・expenseLumpSum・expenseCar・expenseCare・expenseRealEstate・expenseOther〔全部足すと expense〕。expenseBreakdown は支出の内訳のうち値のある物をまとめて選ぶ）、members で年齢の列にする家族（self・spouse・child1…。既定は全員、[] で無し）、from_year・to_year・every_years（既定5。最初と最後の年はいつも入る）で年を選ぶ。unit は man（万円。画面と同じ四捨五入。既定）か yen（円）、format は csv（既定。負の数は -）か markdown（画面と同じく3桁の区切りと ▲）。通りが2つ以上なら layout で並べ方を選ぶ: byRow（行ごとに通りを列に並べる。既定）・byVariant（通りごとに分ける。CSV は「通り」の列で縦に積む。別の世帯の通りがあるときの既定）。表の下に必ず注（前提の物価上昇率と運用利回り・相場などの想定・単位・計算基準月と、将来の結果を約束するものではない旨）が入り、これも表の一部として添えること。「ファイナンシアで試算」の出典は credit: true のときだけ（既定は入らない。chart と同じ）。bom: true で CSV の頭に BOM を付ける（日本語の Windows の Excel でファイルにして開くとき）。答えは、短い説明の JSON と、表の文（そのままファイルにできる）の2つ。数字を足し引き・丸め直し・なめらかに・先へ延ばさずに使うこと。お客さまの名前・ID は入れない（通りの名前 label に書いた文字はそのまま入るので、お客さまの名前を書かない）。どれかの通りを計算できないときは、表を作らずに compare と同じ理由を返す。世帯のデータそのものは変えない。",
+        annotations(
+            title = "表にする",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn table(
+        &self,
+        Parameters(a): Parameters<table::TableArgs>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let t = Instant::now();
+        let tool = "table";
+        let chosen = match table::check(&a) {
+            Ok(x) => x,
+            Err(msg) => {
+                log(tool, t, "INVALID");
+                return Ok(fail(msg));
+            }
+        };
+        // compare と同じ道で計算する（主な数字・年金の見込み・年齢は使わないので数えない。表は同梱した画面の関数が作る）
+        let c = CompareArgs {
+            sample_household_id: a.sample_household_id.clone(),
+            share_id: a.share_id.clone(),
+            input: a.input.clone(),
+            label: a.label.clone(),
+            changes: a.changes.clone(),
+            plan_changes: a.plan_changes.clone(),
+            stress_test: a.stress_test.clone(),
+            market_stress: a.market_stress.clone(),
+            variants: a.variants.clone().unwrap_or_default(),
+            series: None,
+            every_years: Some(chosen.every),
+            at_ages: None,
+            ages: Some(false),
+            from_year: a.from_year,
+            to_year: a.to_year,
+            internal: compare::Internal {
+                base_only: true,
+                keep_raw: true,
+                omit: vec!["keyFigures".to_owned(), "pension".to_owned()],
+            },
+        };
+        let got = match self.run_compare(&c, &ctx, tool).await {
+            Ok(x) => x,
+            Err((msg, code)) => {
+                log(tool, t, code);
+                return Ok(fail(msg));
+            }
+        };
+        let results = got.answer["results"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        // どれかの通りを計算できなければ、表を作らない（足りない通りのある表は誤解を生む。グラフと同じ）
+        if got.done != results.len() {
+            log(tool, t, "INVALID");
+            let mut v = got.answer.clone();
+            if let Some(rs) = v["results"].as_array_mut() {
+                for r in rs.iter_mut().filter_map(Value::as_object_mut) {
+                    for k in ["keyFigures", "series"] {
+                        r.remove(k);
+                    }
+                }
+            }
+            v["message"] = json!("計算できない通りがあるため、表を作っていません。results の status が error の通りの reason を見て直してください（compare と同じ理由です）。");
+            return Ok(CallToolResult::error(vec![ContentBlock::text(
+                v.to_string(),
+            )]));
+        }
+        let variants: Vec<Value> = results
+            .iter()
+            .zip(&got.raw)
+            .map(|(r, raw)| {
+                let (out, request) = raw
+                    .as_ref()
+                    .map_or((&Value::Null, &Value::Null), |(o, q)| (o, q));
+                table::variant(&r["label"], request, out, table::stress_of(r))
+            })
+            .collect();
+        // 並べ方の既定: 別の世帯の通りがあれば通りごと（行ごとに並べると、年齢の列が基本の世帯だけになる）
+        let other = results.iter().skip(1).any(|r| r["from"]["onBase"] != true);
+        let layout = chosen
+            .layout
+            .clone()
+            .unwrap_or_else(|| if other { "byVariant" } else { "byRow" }.to_owned());
+        let mut args = json!({
+            "variants": variants, "baseMonth": got.base_month, "everyYears": chosen.every,
+            "unit": chosen.unit, "format": chosen.format, "layout": layout,
+            "bom": a.bom == Some(true), "credit": a.credit == Some(true),
+        });
+        if !chosen.rows.is_empty() {
+            args["rows"] = json!(chosen.rows);
+        }
+        if let Some(m) = &a.members {
+            args["members"] = json!(m);
+        }
+        if let Some(y) = a.from_year {
+            args["fromYear"] = json!(y);
+        }
+        if let Some(y) = a.to_year {
+            args["toYear"] = json!(y);
+        }
+        let built = tokio::task::spawn_blocking(move || table::build(&args)).await;
+        let v = match built {
+            Ok(Ok(v)) => v,
+            Ok(Err(code)) => {
+                log(tool, t, &code);
+                return Ok(fail(format!("表を作れませんでした（{code}）。")));
+            }
+            Err(_) => {
+                log(tool, t, "E_HOST");
+                return Ok(fail("表を作れませんでした。"));
+            }
+        };
+        if v["status"] != "ok" {
+            log(tool, t, "INVALID");
+            return Ok(fail(
+                v["reason"].as_str().unwrap_or("表を作れませんでした。"),
+            ));
+        }
+        let body = v["text"].as_str().unwrap_or("").to_owned();
+        let years = v["years"].as_array().cloned().unwrap_or_default();
+        let head = json!({
+            "note": table::NOTE,
+            "format": chosen.format,
+            "unit": if chosen.unit == "man" { "万円" } else { "円" },
+            "layout": v["layout"],
+            "rows": v["rows"],
+            "years": { "from": years.first(), "to": years.last(), "count": years.len(), "every": chosen.every },
+            "variants": results.iter().map(|r| r["label"].clone()).collect::<Vec<_>>(),
+            "bytes": body.len(),
+        });
+        log(tool, t, "ok");
+        Ok(CallToolResult::success(vec![
+            ContentBlock::text(head.to_string()),
+            ContentBlock::text(body),
+        ]))
     }
 
     #[tool(

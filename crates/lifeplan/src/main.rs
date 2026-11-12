@@ -20,6 +20,7 @@ mod regulation;
 mod samples;
 mod server;
 mod sweep;
+mod table;
 
 use rmcp::ServiceExt;
 use std::process::ExitCode;

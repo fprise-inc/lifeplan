@@ -1,0 +1,337 @@
+{
+  "$defs": {
+    "Change": {
+      "properties": {
+        "op": {
+          "description": "`replace`（今の値を置き換える）・`add`（物の項目を足す／配列に足す。末尾は `-`）・`remove`（消す）",
+          "type": "string"
+        },
+        "path": {
+          "description": "計算の入力（`input`）の中の場所（JSON Pointer。例: `/assumptions/inflation`、`/household/members/0/birth/birthYearMonth`）",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "description": "新しい値（`remove` では使わない）"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "type": "object"
+    },
+    "PlanChange": {
+      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）",
+      "properties": {
+        "at": {
+          "default": null,
+          "description": "場所（list_plan_items が at を添えた項目だけ。そのまま渡す）。同じ対象・同じ入力項目ID で場所だけが違う欄（教育の段階ごとの欄・\n生活費の段階の割合など）を選ぶ。lever とどちらか1つ",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "item": {
+          "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・pensionRecord.claim・livingExpense.monthly）",
+          "type": "string"
+        },
+        "lever": {
+          "default": null,
+          "description": "合成の対策の名前（list_plan_items が lever を添えた項目だけ。そのまま渡す。例: investMonthly〔資産運用の毎月の積立額〕・\ninvestStopAge〔積立をやめる年齢〕・drawdownStart〔取り崩しを始める年齢〕・mainEndAge〔定年後の予定の定年〕）。at とどちらか1つ",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",
+          "type": "string"
+        },
+        "value": {
+          "description": "新しい値（list_plan_items の kind・unit の形。年齢は整数の歳、金額は円の整数、率は10進の文字列 \"0.02\"）"
+        }
+      },
+      "required": [
+        "target",
+        "item",
+        "value"
+      ],
+      "type": "object"
+    },
+    "VariantArgs": {
+      "additionalProperties": false,
+      "description": "通り1つ（基本に重ねるか、別の世帯か）",
+      "properties": {
+        "changes": {
+          "description": "この通りで当てる JSON Pointer の変更（calculate の changes と同じ）",
+          "items": {
+            "$ref": "#/$defs/Change"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "input": {
+          "description": "別の、AIが組み立てた入力で比較する（calculate の input と同じ形）"
+        },
+        "label": {
+          "description": "通りの名前（答えにそのまま出す。例: 「退職を63歳に」「物価2%」）。省くと「通り1」…",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "market_stress": {
+          "description": "この通りに重ねる、アプリの画面の資産運用のタブの「相場が下がった場合」の型: drop（退職の直後に株などが下がる）・low（取り崩しを\n始めてから〔取り崩しの予定が無ければ退職から〕しばらく利回りが低いまま）・minus1（利回りがずっと想定より1%低い）。画面と同じく、\nプランの変更を当てた後に重ねる（下がる幅・年数は画面と同じ既定）。stress_test とは一緒に使えない",
+          "enum": [
+            "drop",
+            "low",
+            "minus1",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "plan_changes": {
+          "description": "この通りで動かす画面のプランの動かす項目（calculate の plan_changes と同じ。list_plan_items の target・item と値）",
+          "items": {
+            "$ref": "#/$defs/PlanChange"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "sample_household_id": {
+          "description": "別の見本の世帯で比較する（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の\nchanges・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "share_id": {
+          "description": "別の、FPが渡した世帯で比較する（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stress_test": {
+          "description": "この通りのストレステストの型（calculate の stress_test と同じ。基本に重ねる通りで stress_test も market_stress も省くと基本と同じ）",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "bom": {
+      "description": "true なら CSV の頭に BOM（U+FEFF）を付ける（日本語の Windows の Excel でファイルを開いたときに文字化けさせない。既定 false）",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "changes": {
+      "description": "基本に当てる JSON Pointer の変更（compare と同じ）",
+      "items": {
+        "$ref": "#/$defs/Change"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "credit": {
+      "description": "true なら表の下の注に「ファイナンシアで試算」の旨を入れる（既定 false）",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "every_years": {
+      "description": "何年おき（1〜10。既定5）。最初の年と最後の年はいつも入る。毎年の表は 1",
+      "format": "uint8",
+      "maximum": 10,
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "format": {
+      "description": "形: csv（既定。表計算ソフトに読み込める）か markdown（チャットや資料にそのまま貼れる表）",
+      "enum": [
+        "csv",
+        "markdown",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "from_year": {
+      "description": "この年から（含む）",
+      "format": "int64",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "input": {
+      "description": "基本の世帯: AIが組み立てた計算の入力（calculate の input と同じ形）"
+    },
+    "label": {
+      "description": "基本の名前（既定「基本」。通りを並べたときの列・見出しに出る。お客さまの名前を書かない）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "layout": {
+      "description": "通りが2つ以上のときの並べ方: byRow（行ごとに通りを列に並べる。比較しやすい。既定）か byVariant（通りごとに表を分ける。CSV は先頭の「通り」の列で\n縦に積む）。通りに別の世帯があるときの既定は byVariant（byRow の年齢の列は基本の世帯）",
+      "enum": [
+        "byRow",
+        "byVariant",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "market_stress": {
+      "description": "基本に重ねる「相場が下がった場合」の型（compare と同じ）",
+      "enum": [
+        "drop",
+        "low",
+        "minus1",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "members": {
+      "description": "年齢の列にする家族（年齢の鍵: self・spouse・child1・child2…。compare の系列の ages の鍵と同じ）。省くと世帯の全員、[] なら年齢の列なし",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "plan_changes": {
+      "description": "基本で動かす画面のプランの動かす項目（compare と同じ）",
+      "items": {
+        "$ref": "#/$defs/PlanChange"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "rows": {
+      "description": "行（既定 income・taxSi・expense・net・financialAssets）。名前は compare の系列と同じ: income（収入合計）・takeHome（手取り＝収入−税・社会保険料）・\ntaxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産残高）・debt（負債の残高の合計）・\nshortfall（資金不足）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高。画面の表の行と同じ）・loanInterest（住宅ローンの利息。\n年額）・loanRate（その年の住宅ローンの金利。%）・pension（公的年金の世帯の合計。年額）・支出の内訳 expenseLiving・expenseSurplus・expenseHousing・\nexpenseEducation・expenseInsurance・expenseLumpSum・expenseCar・expenseCare・expenseRealEstate・expenseOther（全部足すと expense）。\nexpenseBreakdown は、支出の内訳のうちどれかの通りに値のある物をまとめて選ぶ",
+      "items": {
+        "enum": [
+          "income",
+          "takeHome",
+          "taxSi",
+          "expense",
+          "net",
+          "financialAssets",
+          "debt",
+          "shortfall",
+          "loanRepayment",
+          "loanBalance",
+          "loanInterest",
+          "loanRate",
+          "pension",
+          "expenseLiving",
+          "expenseSurplus",
+          "expenseHousing",
+          "expenseEducation",
+          "expenseInsurance",
+          "expenseLumpSum",
+          "expenseCar",
+          "expenseCare",
+          "expenseRealEstate",
+          "expenseOther",
+          "expenseBreakdown"
+        ],
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "sample_household_id": {
+      "description": "基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "share_id": {
+      "description": "基本の世帯: FPが渡した世帯の共有 ID（list_shared_households）。アプリが起動していて、共有が期限内のときだけ使える",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stress_test": {
+      "description": "基本のストレステストの型（compare と同じ）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "to_year": {
+      "description": "この年まで（含む）",
+      "format": "int64",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "unit": {
+      "description": "単位: man（万円。万円未満は四捨五入。画面と同じ丸め。既定）か yen（円）",
+      "enum": [
+        "man",
+        "yen",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "variants": {
+      "description": "並べる通り（compare の variants と同じ。8通りまで。省くと基本だけの表）。通りの label は列・見出しに出るので、お客さまの名前を書かない",
+      "items": {
+        "$ref": "#/$defs/VariantArgs"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

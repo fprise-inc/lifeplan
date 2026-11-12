@@ -65,6 +65,17 @@ impl VariantArgs {
     }
 }
 
+/// 比較の道具の道を、ほかの道具（年ごとの表。0209）が使うときの選び方（道具の入力には出さない）
+#[derive(Debug, Clone, Default)]
+pub struct Internal {
+    /// 通りが無くてもよい（基本だけを計算する）
+    pub base_only: bool,
+    /// 通りごとに、表示の形の出力と計算の前の処理を当てる前の要求を残す（Compared の raw）
+    pub keep_raw: bool,
+    /// 答えから省く物を足す（主な数字・年金の見込み・年齢を省くと、同梱した画面の関数を動かさないので速い）
+    pub omit: Vec<String>,
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CompareArgs {
     /// 基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
@@ -108,6 +119,9 @@ pub struct CompareArgs {
     pub from_year: Option<i64>,
     /// 系列のこの年まで（含む）
     pub to_year: Option<i64>,
+    /// ほかの道具が使うときの選び方（道具の入力には出さない）
+    #[serde(skip)]
+    pub internal: Internal,
 }
 
 /// 通りの世帯の出どころ（答えの from）
