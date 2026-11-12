@@ -177,7 +177,16 @@ describe("差分の3つの種類と当てる順番（0036 の6）", () => {
     expect(st(diffs.unresolved)).toBe("unresolved");
     const rows = changesOf(w.proposals, "B", w, cat);
     expect(rows.filter((r) => r.state !== "ok").length).toBeGreaterThanOrEqual(6);
-    expect(rows.find((r) => r.label.startsWith("読み替えられなかった差分"))?.reviewNote).toBe("読み替えられなかった差分です");
+    expect(rows.find((r) => r.label.startsWith("読み替えられなかった差分"))?.reviewNote).toBe("アプリの更新で、この違いを今の形に読み替えられませんでした");
+    // 要確認の文は「現状のプラン」と言い、内部の言い方（入力（現状）・差分・相手）を出さない
+    const note = (d: PlanDiff) => a.reviews.get(d.id)?.note;
+    expect(note(diffs.setGone)).toBe("現状のプランから、この物が無くなりました");
+    expect(note(diffs.setChanged)).toMatch(/^現状のプランが .+→.+ に変わりました$/);
+    expect(note(diffs.removeGone)).toBe("このプランで外していた物は、現状のプランでももう無くなっています");
+    expect(note(diffs.removeChanged)).toBe("このプランで外していた物の中身が、現状のプランで変わりました");
+    expect(note(diffs.addExists)).toBe("このプランで足していた物は、現状のプランにもう入っています");
+    expect(note(diffs.addOrphan)).toBe("この物に関わる家族（名義・契約者など）が、現状のプランにいません");
+    for (const r of rows.filter((x) => x.state !== "ok")) expect(r.reviewNote ?? "").not.toMatch(/入力（現状）|差分|相手/);
   });
 
   it("置き換えの組は一覧で1件に見せ、戻すと組ごとに外れる", () => {

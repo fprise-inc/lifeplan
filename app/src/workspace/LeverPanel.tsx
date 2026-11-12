@@ -96,6 +96,8 @@ export interface LeverCardProps {
   onDrop: ((key: string) => void) | null;
   /** 開いた直後に保存の欄を開く（画面の確かめ用） */
   initialSave?: boolean;
+  /** 開いた直後に「変えたこと」の一覧を開く（画面の確かめ用） */
+  initialOpen?: boolean;
   /** 最初から出す項目のうち、対策の固定の項目でない物の行（固定の項目の後ろ、FP顧問料の前。0084） */
   fixedRows?: ComponentChildren;
   /** 足した動かす項目の行 */
@@ -106,12 +108,39 @@ export interface LeverCardProps {
   extra?: ComponentChildren;
 }
 
+/** 要確認のうち、アプリの更新で出る物（ほかは現状のプランが変わって出る物） */
+const APP_UPDATE: ReadonlySet<ChangeRow["state"]> = new Set(["retired", "unresolved"]);
+
+/**
+ * 開いた「変えたこと」の一覧の、要確認の行の上に出す説明。なぜ出ているかと、出ているボタンでどうするかを短く言う
+ * （「確認した（このまま）」は現状のプランの値が変わった行だけ、「この差分を外す」は要確認の行すべてに出る。保存していない変更があるときは出ない）
+ */
+export function reviewGuide(review: readonly ChangeRow[], canAck: boolean, canDrop: boolean): string | null {
+  if (review.length === 0) return null;
+  const app = review.some((c) => APP_UPDATE.has(c.state));
+  const plan = review.some((c) => !APP_UPDATE.has(c.state));
+  const why = plan && app ? "現状のプランが変わったか、アプリが更新されたため" : app ? "アプリが更新されたため" : "現状のプランが変わったため";
+  const out = [`${why}、このプランで変えていた所を確かめてください。`];
+  const changed = review.some((c) => c.state === "changed");
+  const unapplied = review.some((c) => c.state !== "changed");
+  if (!canAck && !canDrop) out.push("保存していない変更を保存するか取り消すと、ここで選べます。");
+  else {
+    if (changed && canAck && canDrop) out.push("このプランの値をそのまま使うときは「確認した（このまま）」、現状のプランに合わせるときは「この差分を外す」を選んでください。");
+    else if (changed && canAck) out.push("このプランの値をそのまま使うときは「確認した（このまま）」を選んでください。");
+    if (unapplied && canDrop) out.push(changed ? "「この差分を外す」だけの行は、計算に入っていません。要らなければ外してください。" : "これらの変更は計算に入っていません。要らなければ「この差分を外す」を選んでください。");
+  }
+  return out.join("");
+}
+
 export function LeverCard(p: LeverCardProps) {
   const [saving, setSaving] = useState(p.initialSave === true);
   const [name, setName] = useState(p.initialSave === true ? p.suggested : "");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(p.initialOpen === true);
   const locked = p.locked !== null;
   const review = p.changes.filter((c) => c.state !== "ok");
+  // 一覧は要確認の行を先に並べる（「! 要確認」で開いたときに探さなくてよいように。中の順はそのまま）
+  const listed = [...review, ...p.changes.filter((c) => c.state === "ok")];
+  const guide = reviewGuide(review, p.onAck !== null, p.onDrop !== null);
   const baseTag = (t: string) => `基準（${p.baseLetter}）: ${t}`;
   return (
     <section class="card levers" aria-labelledby="h-lev" data-levers data-reveal-root>
@@ -133,8 +162,9 @@ export function LeverCard(p: LeverCardProps) {
           </button>
         ) : null}
         {review.length > 0 ? (
-          <button type="button" class="pb-review" onClick={() => setOpen(true)} data-plan-review>
+          <button type="button" class="pb-review" aria-expanded={open} onClick={() => setOpen(!open)} data-plan-review>
             ! 要確認 {review.length}
+            {locked ? (open ? " ▴" : " ▾") : null}
           </button>
         ) : null}
         {p.onOpenInput != null ? (
@@ -165,7 +195,12 @@ export function LeverCard(p: LeverCardProps) {
       {open ? (
         <ul class="pb-list" aria-label="変えたこと">
           {p.changes.length === 0 ? <li class="in-note">現状から変えたことはありません（スライダーを動かすと、ここに並びます）</li> : null}
-          {p.changes.map((c) => (
+          {guide !== null ? (
+            <li class="in-note pb-guide" data-plan-review-guide>
+              {guide}
+            </li>
+          ) : null}
+          {listed.map((c) => (
             <li key={c.key} class={c.state !== "ok" ? "review" : ""}>
               <span class="pb-l">{c.label}</span>
               <span class="pb-v">

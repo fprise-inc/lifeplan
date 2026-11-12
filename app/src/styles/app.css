@@ -897,6 +897,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .plan-bar .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .pb-list { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line-2); display: grid; gap: 4px; }
 .pb-list li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 0.92rem; }
+.pb-list li.pb-guide { display: block; margin: 0 0 2px; line-height: 1.6; }
 .pb-list li.review { background: var(--est-bg); border-left: 4px solid var(--est); padding: 4px 8px; border-radius: 4px; }
 .pb-l { font-weight: 700; }
 .pb-v b { color: var(--prop); }

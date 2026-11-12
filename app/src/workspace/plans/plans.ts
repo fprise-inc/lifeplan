@@ -165,14 +165,17 @@ export interface Review {
   note: string | null;
 }
 
+// 要確認の文は FP がお客さまに画面を見せても分かる言葉にする。現状（入力の画面の値）は、ここでは「現状のプラン」と呼ぶ
 const REVIEW_NOTES: Record<Exclude<ReviewState, "ok" | "changed">, string> = {
-  missing: "この差分が指していた物が、入力（現状）から無くなりました",
-  gone: "外す物がもうありません",
-  exists: "もう入っています",
-  noOwner: "足す物の相手がありません",
-  retired: "意味の変わった欄です",
-  unresolved: "読み替えられなかった差分です",
+  missing: "現状のプランから、この物が無くなりました",
+  gone: "このプランで外していた物は、現状のプランでももう無くなっています",
+  exists: "このプランで足していた物は、現状のプランにもう入っています",
+  noOwner: "この物に関わる家族（名義・契約者など）が、現状のプランにいません",
+  retired: "アプリの更新で、この欄の意味が変わりました",
+  unresolved: "アプリの更新で、この違いを今の形に読み替えられませんでした",
 };
+/** 現状の値が、差分を作った時点から変わったときの文 */
+const changedNote = (was: string, now: string): string => `現状のプランが ${was}→${now} に変わりました`;
 const review = (state: ReviewState, note: string | null = null): Review => ({ state, note: state === "ok" || state === "changed" ? note : (note ?? REVIEW_NOTES[state]) });
 
 /** 当てた結果: 作業中の世帯の要求と、そのプランの万一の前提、差分ごとの要確認（差分の ID → 要確認） */
@@ -214,7 +217,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
       const base = readPath(wh.contingency, path);
       const was = d.before === null || d.before === undefined ? undefined : (unbox(d.before) ?? undefined);
       const changed = d.before !== undefined && !sameJson(was ?? null, base ?? null);
-      return void reviews.set(d.id, changed ? review("changed", `共通の前提が ${shortText(was ?? null)}→${shortText(base ?? null)} に変わりました`) : review("ok"));
+      return void reviews.set(d.id, changed ? review("changed", `全プラン共通の前提が ${shortText(was ?? null)}→${shortText(base ?? null)} に変わりました`) : review("ok"));
     }
     if (ITEM_PLACES[a.item]?.status !== "active") return void reviews.set(d.id, review("retired"));
     // どのプランにも共通の項目（表の最後の年）は当てない（前の版の差分は読むときに外す。ここは残った物の守り。0043 の追記 2026-11-05）
@@ -223,7 +226,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     written.push({ address: a, value: d.value as DiffBox });
     const base = readAt(now, a);
     const changed = d.before !== null && d.before !== undefined && !sameJson(unbox(base), unbox(d.before));
-    reviews.set(d.id, changed ? review("changed", `入力（現状）が ${shortText(d.before)}→${shortText(base)} に変わりました`) : review("ok"));
+    reviews.set(d.id, changed ? review("changed", changedNote(shortText(d.before), shortText(base))) : review("ok"));
   };
   for (const p of plans) {
     const live = p.diffs.filter((d) => d.enabled);
@@ -241,7 +244,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
         continue;
       }
       const base = removedNow(now, d);
-      reviews.set(d.id, base !== undefined && d.before !== null && !sameJson(base, d.before) ? review("changed", "外す物が変わっていました") : review("ok"));
+      reviews.set(d.id, base !== undefined && d.before !== null && !sameJson(base, d.before) ? review("changed", "このプランで外していた物の中身が、現状のプランで変わりました") : review("ok"));
       const t = d.target as { object?: unknown; member?: unknown };
       const own = d.item === null ? (typeof t.object === "string" ? t.object : typeof t.member === "string" ? t.member : null) : null;
       if (d.pair != null && own !== null) slots.set(d.pair, indexOfObject(input, own));
@@ -249,7 +252,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     }
     for (const d of ok.filter((x) => x.op === "add")) {
       const r = addAt(input, d, d.pair != null ? slots.get(d.pair) : undefined);
-      reviews.set(d.id, r === "ok" ? review("ok") : r === "exists" ? review("exists") : r === "noOwner" ? review("noOwner") : review("missing", "足す先がありません"));
+      reviews.set(d.id, r === "ok" ? review("ok") : r === "exists" ? review("exists") : r === "noOwner" ? review("noOwner") : review("missing", "このプランで足していた物の入れ先が、現状のプランにありません"));
     }
     for (const d of later) {
       if (removedNow(input, d) === undefined) {
@@ -600,7 +603,7 @@ export function changesOf(list: readonly Proposal[], id: string, wh: WorkingHous
       to: it.text(v),
       inherited,
       state: changed ? "changed" : "ok",
-      reviewNote: changed ? `入力（現状）が ${it.text(unbox(diff.before) as ItemValue)}→${it.text(now)} に変わりました${it.same(v, now) ? "（このプランと同じ値になりました）" : ""}` : null,
+      reviewNote: changed ? `${changedNote(it.text(unbox(diff.before) as ItemValue), it.text(now))}${it.same(v, now) ? "（このプランと同じ値になりました）" : ""}` : null,
     });
   }
   return out;
