@@ -6,7 +6,7 @@ import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, nameWithAge, presentInYear, roles, type Role } from "./roles.ts";
 import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
-import { dreamIncluded, dreamList, dreamSummary } from "../../../report/src/dreams.ts";
+import { dreamIncluded, dreamList, dreamPaid, dreamSummary } from "../../../report/src/dreams.ts";
 import { NOT_INCLUDED_NOTE, noAmountNote, paidNote, type DreamPayment } from "./dreamWording.ts";
 import { ROW_NAMES, rowName, type OfficeRowNames } from "../../../report/src/rowNames.ts";
 import { childScholarshipNotes } from "../../../report/src/childScholarships.ts";
@@ -380,18 +380,6 @@ function dreamWhen(req: EngineRequest, self: Role | undefined, p: NonNullable<En
   return `${y0}年${who(y0)}から${to === null ? "最後まで" : `${parseYm(to).y}年まで`}・${every}`;
 }
 
-/** 払う年の数字（その夢の出るお金が表にある年。表に出す年だけ）。払う年が表に無ければ null */
-function dreamPayment(p: NonNullable<EngineRequest["input"]["household"]["periodicExpenses"]>[number], proposed: readonly TableCell[], years: readonly number[], fin: Map<number, number>, short: Map<number, number>): DreamPayment | null {
-  const shown = new Set(years);
-  const paid = [...sumByYear(proposed, (c) => c.object === p.id && under(c.row, "cf.expense")).entries()].filter(([y, v]) => v > 0 && shown.has(y)).map(([y]) => y).sort((x, y) => x - y);
-  if (paid.length === 0) return null;
-  const isShort = (y: number) => (fin.get(y) ?? 0) < 0 || (short.get(y) ?? 0) > 0;
-  // 資金が不足する最初の年。無ければ、払う年のうち金融資産がいちばん少ない年（同じなら早い年）
-  const year = paid.find(isShort) ?? paid.reduce((m, y) => ((fin.get(y) ?? 0) < (fin.get(m) ?? 0) ? y : m));
-  const v = p.amount.value ?? 0;
-  return { count: paid.length, total: v * paid.length * (p.monthly === true ? 12 : 1), year, after: fin.get(year) ?? 0, short: isShort(year) };
-}
-
 /**
  * 夢のカードと要約の1文。夢ごとの一言: 計算に入れている夢は、払う年の終わりの金融資産（払った後。何年ごと・毎年の夢は、払う年のうち
  * いちばん少ない年）と、その年の資金の不足。計算に入れていない夢は「外している物」で入れて比較できる案内だけ（数字の目安は出さない）。
@@ -403,13 +391,13 @@ function dreamGoals(req: EngineRequest, proposed: readonly TableCell[], dreams: 
   const self = roles(raw).find((r) => r.key === "self");
   if (list.length === 0) return { cards: [{ category: "夢", title: "まだ入れていません", when: "ライフイベントの入力項目の「夢プラン」で入れます", amount: null, note: null }], line: null };
   const inView = new Map((req.input.household.periodicExpenses ?? []).map((p) => [p.id, p]));
-  const fin = financialOf(proposed);
-  const short = sumByYear(proposed, (c) => c.row === SHORTFALL_ROW);
   const cards: GoalCard[] = list.map((p, i) => {
     const now = inView.get(p.id);
     const included = now !== undefined && dreamIncluded(now);
     const v = p.amount.value ?? 0;
-    const pay = now !== undefined && included && v > 0 ? dreamPayment(now, proposed, years, fin, short) : null;
+    // 払う年の金融資産（提案書の「ご家族の夢」の表の「払った後の金融資産」と同じ数字。report/src/dreams.ts の dreamPaid）
+    const paid = included && v > 0 ? dreamPaid(p.id, proposed, years) : null;
+    const pay: DreamPayment | null = paid === null ? null : { ...paid, total: v * paid.count * (p.monthly === true ? 12 : 1) };
     return {
       category: `夢${i + 1}`,
       title: p.label !== undefined && p.label !== "" ? p.label : "夢",

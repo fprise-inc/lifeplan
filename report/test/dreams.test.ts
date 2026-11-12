@@ -1,9 +1,9 @@
-// 提案書の「ご家族の夢」の章（夢プラン。0103）: 順位・夢・時期・金額・計算に入れるかと要約の1文、ライフイベント表の★
+// 提案書の「ご家族の夢」の章（夢プラン。0103）: 順位・夢・時期・金額・計算に入れるか・払った後の金融資産と要約の1文、ライフイベント表の★
 import { describe, expect, it } from "vitest";
 import { buildProposalInput } from "../src/build.ts";
 import type { EngineRequest, ProposalBundle } from "../src/bundle.ts";
 import { CHAPTERS, hasMaterial, selectChapters } from "../src/chapters.ts";
-import { requestWithoutDreams } from "../src/dreams.ts";
+import { dreamPaid, requestWithoutDreams } from "../src/dreams.ts";
 import { modelHousehold, run } from "../scripts/engine.ts";
 import { renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
 import { normalize } from "./helpers.ts";
@@ -60,6 +60,49 @@ describe("ご家族の夢の章", () => {
     expect(input.dreams!.summary).toMatch(/^計算に入れた夢（3件中2件）を入れ(ても\d+歳まで足ります|ると\d+歳で不足します（.+）)$/u);
   });
 
+  it("払った後の金融資産: 計算に入れる夢で額があるときだけ、払う年の終わりの金融資産（キャッシュフロー表の金融資産と同じ）。入れない夢・額の無い夢は null", () => {
+    const fin = (y: number) => bundleOf(req).proposal.result.table.filter((c) => c.row === "cf.balance.financial" && c.year === y).reduce((s, c) => s + c.amount, 0);
+    expect(input.dreams!.rows.map((r) => r.paid ?? null)).toEqual([null, { count: 1, year: 2030, after: fin(2030), short: false }, null]);
+  });
+
+  it("払った後の金融資産（見本 3-4-06）: 何年ごとの夢は払う年のうちいちばん少ない年。計算に入れない3件は null", () => {
+    const raw = modelHousehold("sampleFamilyDreams");
+    const b = bundleOf(raw);
+    const rows = buildProposalInput(b).dreams!.rows;
+    const fin = new Map<number, number>();
+    for (const c of b.proposal.result.table) if (c.row === "cf.balance.financial") fin.set(c.year, (fin.get(c.year) ?? 0) + c.amount);
+    expect(rows.map((r) => [r.included, r.paid?.count ?? null])).toEqual([
+      [true, 1],
+      [true, 4],
+      [true, 1],
+      [true, 1],
+      [false, null],
+      [false, null],
+      [false, null],
+    ]);
+    const car = rows[1]!.paid!;
+    expect([2029, 2036, 2043, 2050]).toContain(car.year);
+    for (const y of [2029, 2036, 2043, 2050]) expect(car.after).toBeLessThanOrEqual(fin.get(y)!);
+    expect(car.after).toBe(fin.get(car.year));
+    expect(rows.every((r) => r.paid == null || r.paid.short === false)).toBe(true);
+  });
+
+  it("払った後の金融資産の年の選び方: 不足する年があればその最初の年。払う年が表に無ければ null", () => {
+    const id = "x";
+    const cell = (row: string, year: number, amount: number, object?: string) => ({ row, year, amount, ...(object !== undefined ? { object } : {}) });
+    const table = [
+      ...[2030, 2035, 2040].map((y) => cell("cf.expense.lumpSum.other", y, 1_000_000, id)),
+      cell("cf.balance.financial", 2030, 5_000_000),
+      cell("cf.balance.financial", 2035, 1_000_000),
+      cell("cf.balance.financial", 2040, 3_000_000),
+      cell("cf.balance.shortfall", 2040, 200_000),
+    ];
+    expect(dreamPaid(id, table, [2030, 2035, 2040])).toEqual({ count: 3, year: 2040, after: 3_000_000, short: true });
+    expect(dreamPaid(id, table, [2030, 2035])).toEqual({ count: 2, year: 2035, after: 1_000_000, short: false });
+    expect(dreamPaid(id, table, [2041])).toBeNull();
+    expect(dreamPaid("y", table, [2030, 2035, 2040])).toBeNull();
+  });
+
   it("夢を外した計算が無いときは、要約の1文を出さない。夢の無い世帯・章を外したときは章を載せない", () => {
     expect(buildProposalInput(bundleOf(req, false)).dreams!.summary).toBeNull();
     const plain = buildProposalInput(bundleOf(structuredClone(modelHousehold("salariedCoupleTwoKids"))));
@@ -94,5 +137,32 @@ describe.skipIf(bin === null)("ご家族の夢の PDF", () => {
     // ライフイベント表の額はキャッシュフロー表と同じその年の額（0068 の追記 2026-11-01）
     expect(all).toContain(normalize("金額は、キャッシュフロー表と同じく、その年の見込みの額（物価の上昇などを見込んだ額）です。"));
     expect(all).toContain(normalize(input.events.flatMap((e) => e.items).find((t) => t.startsWith("★憧れの車")) as string));
+    // 払った後の金融資産の列と注記（計算に入れる夢だけ数字。キャッシュフロー表と同じく物価の上昇などを見込んだ計算の額）
+    const dreamPage = normalize(r.pages.find((p) => normalize(p).includes(normalize("ご家族がかなえたいこと"))) ?? "");
+    expect(dreamPage).toContain("払った後の金融資産");
+    expect(dreamPage).toContain(normalize(`${(Math.round(input.dreams!.rows[1]!.paid!.after / 10000)).toLocaleString("ja-JP")}万円`));
+    expect(dreamPage).toContain(normalize("物価の上昇などを見込んだ計算の額です"));
+  });
+
+  it("払った後の金融資産の欄の無い前の版の入力は、前と同じ5列で組む", () => {
+    const bundle = bundleOf(withDreams());
+    const input = buildProposalInput(bundle);
+    const old = { ...input, dreams: { ...input.dreams!, rows: input.dreams!.rows.map((r) => { const o = { ...r }; delete o.paid; return o; }) } };
+    const r = renderAndExtract(bin as string, old, sampleFrame(bundle, old));
+    const dreamPage = normalize(r.pages.find((p) => normalize(p).includes(normalize("ご家族がかなえたいこと"))) ?? "");
+    expect(dreamPage).toContain("憧れの車");
+    expect(dreamPage).not.toContain("払った後の金融資産");
+  });
+
+  it("資金が不足する年の夢は、払った後の金融資産に「不足」を添える", () => {
+    const req = withDreams();
+    const big = req.input.household.periodicExpenses!.find((p) => p.id === id(1))!;
+    (big.amount as { value: number }).value = 300_000_000;
+    const bundle = bundleOf(req);
+    const input = buildProposalInput(bundle);
+    expect(input.dreams!.rows[1]!.paid).toMatchObject({ year: 2030, short: true });
+    const r = renderAndExtract(bin as string, input, sampleFrame(bundle, input));
+    const dreamPage = normalize(r.pages.find((p) => normalize(p).includes(normalize("ご家族がかなえたいこと"))) ?? "");
+    expect(dreamPage).toContain(normalize("（不足）"));
   });
 });

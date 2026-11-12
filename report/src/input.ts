@@ -532,6 +532,12 @@ export interface DreamsView {
     amount: Yen | null;
     /** 計算に入れているか */
     included: boolean;
+    /**
+     * 払った後の金融資産（計算に入れている夢で、額があり、払う年が表にあるときだけ。ほかは null）: 払う年の終わりの金融資産（物価の上昇などを
+     * 見込んだ計算の答え）。何年ごと・毎年の夢（count が2以上）は、払う年のうち資金が不足する最初の年、無ければ金融資産がいちばん少ない年。
+     * 結果の画面の夢ごとの一言と同じ数字。省略は、この欄の前の版の入力
+     */
+    paid?: { year: number; after: Yen; short: boolean; count: number } | null;
   }[];
   /** 「夢をすべて入れても100歳まで足ります」など（材料の計算が無ければ null） */
   summary: string | null;
