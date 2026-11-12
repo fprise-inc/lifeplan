@@ -160,7 +160,7 @@
       }
     },
     "dreams": {
-      "description": "ご家族の夢（夢プラン。0103）: 順位の順の夢（名前・時期・額・計算に入れているか）と、夢を入れた・入れない計算の要約の1文。夢が無い・章を外したときは null。省略は、この欄の前の版の入力",
+      "description": "ご家族の夢（夢プラン。0103）: 順位の順の夢（名前・時期・額・計算に入れているか・払った後の金融資産）と、夢を入れた・入れない計算の要約の1文。夢が無い・章を外したときは null。省略は、この欄の前の版の入力",
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["rows", "summary"],
@@ -171,7 +171,25 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["rank", "name", "when", "amount", "included"],
-            "properties": { "rank": { "type": "integer", "minimum": 1 }, "name": { "type": "string" }, "when": { "type": "string" }, "amount": { "$ref": "#/$defs/yenOrNull" }, "included": { "type": "boolean" } }
+            "properties": {
+              "rank": { "type": "integer", "minimum": 1 },
+              "name": { "type": "string" },
+              "when": { "type": "string" },
+              "amount": { "$ref": "#/$defs/yenOrNull" },
+              "included": { "type": "boolean" },
+              "paid": {
+                "description": "払った後の金融資産（計算に入れている夢で、額があり、払う年が表にあるときだけ。ほかは null）: 払う年の終わりの金融資産（物価の上昇などを見込んだ計算の答え）。何年ごと・毎年の夢（count が2以上）は、払う年のうち資金が不足する最初の年、無ければ金融資産がいちばん少ない年。short はその年に資金の不足があるか。省略は、この欄の前の版の入力",
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["year", "after", "short", "count"],
+                    "properties": { "year": { "$ref": "#/$defs/year" }, "after": { "$ref": "#/$defs/yen" }, "short": { "type": "boolean" }, "count": { "type": "integer", "minimum": 1 } }
+                  }
+                ]
+              }
+            }
           }
         },
         "summary": { "type": ["string", "null"] }

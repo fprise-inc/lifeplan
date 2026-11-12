@@ -78,8 +78,8 @@ describe("提示用の値を作る", () => {
     expect(texts).toContain("2031 学 第1子 大学入学（私立文系・自宅外）（第1子19歳）");
     expect(texts.some((t) => t.startsWith("2046 退 ご本人 退職（ご本人65歳）"))).toBe(true);
     expect(texts.some((t) => t.startsWith("2046 年 ご本人 年金の受け取り開始（65歳）"))).toBe(true);
-    expect(model.goals.cards.map((c) => c.title)).toEqual(["第1子の大学", "第2子の大学", "住宅ローンの完済", "老後の生活資金", "何年かごとの支出", "まだ入れていません"]);
-    expect(model.goals.needReady).toBe(model.goals.needTotal);
+    // ご家族の夢の区画: 教育・住宅ローンの完済・老後の生活資金・ほかの出るお金のカードは出さない。夢の無い世帯は案内の1枚だけ
+    expect(model.goals.cards.map((c) => [c.category, c.title, c.note])).toEqual([["夢", "まだ入れていません", null]]);
   });
 
   it("年の内訳", () => {
@@ -103,6 +103,8 @@ describe("0016 の2: 提示層は内部情報を受け取らない", () => {
     const noop = () => undefined;
     const html = renderToString(h("div", null, h(GoalCards, { model: model.goals }), h(ResultCard, { model, verdict: model.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop }), h(CashflowTable, { model: model.table, selectedYear: 2031, onSelectYear: noop, onEvidence: noop })));
     expect(html).toContain("100歳まで足ります");
+    expect(html).toContain("<h2>ご家族の夢</h2>");
+    expect(html).not.toContain("準備OK");
     expect(html).not.toContain(MARK);
     for (const m of base.input.household.members) expect(html).not.toContain(m.id);
   });

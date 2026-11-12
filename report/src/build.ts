@@ -12,7 +12,7 @@ import { selectChapters } from "./chapters.ts";
 import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, OTHER_ASSET_LINES, otherAssetLine, type BsGroup, type BsHousehold } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
 import { carPurchaseMonths } from "../../engine/src/sdk/cars.ts";
-import { dreamIncluded, dreamList, dreamSummary } from "./dreams.ts";
+import { dreamIncluded, dreamList, dreamPaid, dreamSummary } from "./dreams.ts";
 import { addMonths, monthOfTimepoint, parseYm, ym, yearOfTimepoint } from "./timepoint.ts";
 import {
   type Comparison,
@@ -684,7 +684,7 @@ function dreamWhen(ctx: Ctx, h: Household, p: { from: Timepoint; to?: Timepoint 
 }
 
 /**
- * ご家族の夢（夢プラン。0103）: 順位の順の夢（名前・時期・額・計算に入れているか）と、要約の1文（夢を入れた提案と、夢を全部外した提案の
+ * ご家族の夢（夢プラン。0103）: 順位の順の夢（名前・時期・額・計算に入れているか・払った後の金融資産）と、要約の1文（夢を入れた提案と、夢を全部外した提案の
  * 資産が尽きる年から。夢を外した計算が無ければ null）。夢が無ければ null
  */
 function dreams(ctx: Ctx): DreamsView | null {
@@ -692,9 +692,13 @@ function dreams(ctx: Ctx): DreamsView | null {
   const h = req.input.household;
   const list = dreamList(h.periodicExpenses);
   if (list.length === 0) return null;
+  const table = ctx.bundle.proposal.result.table;
   const rows = list.map((p, i) => {
     const v = p.amount.value ?? 0;
-    return { rank: i + 1, name: p.label !== undefined && p.label !== "" ? p.label : "夢", when: dreamWhen(ctx, h, p), amount: v > 0 ? v : null, included: dreamIncluded(p) };
+    const included = dreamIncluded(p);
+    // 払った後の金融資産（計算に入れている夢で額があるときだけ。結果の画面の夢ごとの一言と同じ数字）
+    const paid = included && v > 0 ? dreamPaid(p.id, table, ctx.years) : null;
+    return { rank: i + 1, name: p.label !== undefined && p.label !== "" ? p.label : "夢", when: dreamWhen(ctx, h, p), amount: v > 0 ? v : null, included, paid };
   });
   const included = rows.filter((r) => r.included).length;
   const withYear = depletionYear(ctx.bundle.proposal.result, ctx.years);

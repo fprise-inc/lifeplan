@@ -111,17 +111,41 @@
   note("金額は、キャッシュフロー表と同じく、その年の見込みの額（物価の上昇などを見込んだ額）です。" + if data.events.any(e => e.items.any(i => i.starts-with("★"))) { "★はご家族の夢（夢プラン）です。" } else { "" })
 }
 
-/// ご家族の夢（夢プラン。0103）: 順位・夢・時期・金額・計算に入れているかと、夢を入れた・入れない計算の要約の1文
+/// 払った後の金融資産の欄（計算に入れている夢だけ。ほかは「—」）: 1回の夢は「1,239万円」、何年ごと・毎年の夢は「987万円（2029年）」。
+/// 資金が不足する年は赤で「（不足）」「（2036年・不足）」を添える（結果の画面の夢ごとの一言と同じ数字）
+#let dream-paid(r) = {
+  let p = r.at("paid", default: none)
+  if p == none { return text(fill: muted, "—") }
+  let tail = if p.count > 1 and p.short { "（" + str(p.year) + "年・不足）" } else if p.count > 1 { "（" + str(p.year) + "年）" } else if p.short { "（不足）" } else { "" }
+  let body = man-unit(p.after) + tail
+  if p.short { text(fill: warn, weight: "bold", body) } else { body }
+}
+
+/// ご家族の夢（夢プラン。0103）: 順位・夢・時期・金額・計算に入れているか・払った後の金融資産と、夢を入れた・入れない計算の要約の1文。
+/// 払った後の金融資産の列は、入力にその欄があるときだけ（前の版の入力は前と同じ5列）
 #let dreams(data) = {
   let d = data.dreams
+  let has-paid = d.rows.any(r => "paid" in r)
   chapter("ご家族の夢", sub: "ご家族がかなえたいことを、大切な順に並べました。")
   if d.summary != none { callout(text(size: 11pt, d.summary)) }
   v(6pt)
-  data-table(
-    columns: (auto, 1fr, auto, auto, auto),
-    header: ("順位", "夢", "時期", "金額", "計算"),
-    align: (x, y) => if x == 0 or x == 4 { center + horizon } else if x == 3 { right + horizon } else { left + horizon },
-    d.rows.map(r => (str(r.rank), r.name, r.when, if r.amount == none { text(fill: muted, "未定") } else { man-unit(r.amount) }, if r.included { "入れる" } else { text(fill: muted, "入れない") })).flatten(),
-  )
-  note("金額は入れた額のままです。「計算」が「入れない」の夢は、キャッシュフロー表に入れていません。")
+  let cells(r) = (str(r.rank), r.name, r.when, if r.amount == none { text(fill: muted, "未定") } else { man-unit(r.amount) }, if r.included { "入れる" } else { text(fill: muted, "入れない") })
+  if has-paid {
+    data-table(
+      // 列が1つ増えるので、夢の名前と時期で幅を分ける（時期の長い文は折り返す。名前を細かく折り返さない）
+      columns: (auto, 1fr, 1fr, auto, auto, auto),
+      header: ("順位", "夢", "時期", "金額", "計算", "払った後の金融資産"),
+      align: (x, y) => if x == 0 or x == 4 { center + horizon } else if x == 3 or x == 5 { right + horizon } else { left + horizon },
+      d.rows.map(r => (..cells(r), dream-paid(r))).flatten(),
+    )
+    note("金額は入れた額のままです。「計算」が「入れない」の夢は、キャッシュフロー表に入れていません。「払った後の金融資産」は、払う年の終わりの金融資産で、キャッシュフロー表と同じく物価の上昇などを見込んだ計算の額です（「計算」が「入れる」の夢だけ）。何年ごと・毎年の夢は、払う年のうち金融資産がいちばん少ない年（資金が不足する年があればその年）の額と年です。")
+  } else {
+    data-table(
+      columns: (auto, 1fr, auto, auto, auto),
+      header: ("順位", "夢", "時期", "金額", "計算"),
+      align: (x, y) => if x == 0 or x == 4 { center + horizon } else if x == 3 { right + horizon } else { left + horizon },
+      d.rows.map(cells).flatten(),
+    )
+    note("金額は入れた額のままです。「計算」が「入れない」の夢は、キャッシュフロー表に入れていません。")
+  }
 }

@@ -72,15 +72,16 @@ export function Legend({ labels }: { labels?: { proposal: string; current: strin
   );
 }
 
+/**
+ * 結果の画面の「ご家族の夢」の区画（提案書の章と同じ名前）: 夢の要約の1文・子が返す奨学金の書き添えと、夢のカード（順位の順）。
+ * 夢ごとの一言（払った後の金融資産・資金の不足・案内）をカードの下に出す。夢が無ければ入れる所を案内する1枚
+ */
 export function GoalCards({ model }: { model: GoalsModel }) {
   return (
-    <section class="card">
+    <section class="card" data-goals>
       <div class="card-h">
-        <h2>目標</h2>
-        <span class="aside">優先度: 必ず／できれば</span>
-      </div>
-      <div class="goal-sum">
-        「必ず」の目標 {model.needTotal}件中 <span class="big">{model.needReady}件</span> 準備OK
+        <h2>ご家族の夢</h2>
+        <span class="aside">夢プランの夢（順位の順）</span>
       </div>
       {model.dreamLine !== null ? (
         <p class="goal-dream-line" data-dream-line>
@@ -95,8 +96,8 @@ export function GoalCards({ model }: { model: GoalsModel }) {
       <div class="goals">
         {model.cards.map((g, i) =>
           g.dream !== undefined ? (
-            // 夢プランの1件（0103）: 順位・名前・時期・額・計算に入れているか
-            <div class={`goal dream${g.dream.included ? "" : " off"}`} key={i} data-dream-card={g.dream.rank}>
+            // 夢プランの1件（0103）: 順位・名前・時期・額・計算に入れているかと、夢ごとの一言
+            <div class={`goal dream${g.dream.included ? "" : " off"}${g.note?.tone === "short" ? " ng" : ""}`} key={i} data-dream-card={g.dream.rank}>
               <div class="goal-top">
                 <span class="goal-cat">{g.category}</span>
                 <span class="prio p2">{g.dream.included ? "最初から計算に入れる" : "最初から計算に入れない"}</span>
@@ -111,31 +112,20 @@ export function GoalCards({ model }: { model: GoalsModel }) {
               ) : (
                 <div class="amt">額は未入力</div>
               )}
+              {g.note !== null ? (
+                <div class={`goal-note ${g.note.tone}`} data-dream-note={g.note.tone}>
+                  {g.note.status !== null ? <span class={`st ${g.note.tone === "short" ? "ng" : "ok"}`}>{g.note.status}</span> : null}
+                  <p>{g.note.text}</p>
+                </div>
+              ) : null}
             </div>
-          ) : g.ready === null ? (
+          ) : (
             <div class="goal dream" key={i}>
               <div class="goal-top">
                 <span class="goal-cat">{g.category}</span>
-                <span class="prio p2">{g.priority}</span>
               </div>
               <h3>{g.title}</h3>
               <div class="when">{g.when}</div>
-            </div>
-          ) : (
-            <div class={`goal${g.ready ? "" : " ng"}`} key={i}>
-              <div class="goal-top">
-                <span class="goal-cat">{g.category}</span>
-                <span class={`prio${g.priority === "できれば" ? " p2" : ""}`}>{g.priority}</span>
-              </div>
-              <h3>{g.title}</h3>
-              <div class="when">{g.when}</div>
-              {g.amount !== null ? (
-                <div class="amt num">
-                  {man(g.amount)}
-                  <span class="u">万円</span>
-                </div>
-              ) : null}
-              {g.ready ? <span class="st ok">準備できています</span> : <span class="st ng">{g.shortNote}</span>}
             </div>
           ),
         )}

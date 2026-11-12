@@ -215,8 +215,11 @@ html.big .chart .dep-txt { font-size: 15px; }
 .goal.dream { border: 2px dashed var(--ink-2); background: transparent; color: var(--ink-2); }
 .goal.dream.off { opacity: 0.6; }
 .goal-dream-line { font-weight: 700; font-size: 0.92rem; margin: 0 0 8px; }
-.goal-sum { font-weight: 700; font-size: 0.92rem; margin-bottom: 8px; }
-.goal-sum .big { font-size: 1.25rem; }
+.goal.dream.ng { border-color: var(--short); }
+.goal-note { margin-top: 6px; font-size: 0.85rem; }
+.goal-note p { margin: 4px 0 0; }
+.goal-note.ok p { color: var(--ink); font-weight: 700; }
+.goal-note.short p { color: var(--short-ink); font-weight: 700; }
 .st { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 0.88rem; border-radius: 99px; padding: 1px 10px 1px 4px; white-space: nowrap; }
 .st::before { display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; border-radius: 50%; color: var(--on-fill); font-size: 0.85em; }
 .st.ok { background: var(--prop-bg); color: var(--prop); }

@@ -164,8 +164,8 @@ describe("編集の対象の箱の違いの一覧", () => {
   });
 });
 
-describe("結果の目標・上の行・資産と負債", () => {
-  it("目標のカードの贈与の行: 1回は「2027年11月 110万円」、毎年は「毎年 …」。優先度は行の値", () => {
+describe("結果のご家族の夢・上の行・資産と負債", () => {
+  it("ご家族の夢の区画に、ふつうの出るお金の行（贈与など）のカードは出さない（夢の無い世帯は案内の1枚だけ）", () => {
     const req = structuredClone(modelHousehold("parentMoney")) as EngineRequest;
     const h0 = req.input.household;
     h0.periodicExpenses = [
@@ -174,11 +174,7 @@ describe("結果の目標・上の行・資産と負債", () => {
     ] as never;
     const res = preview(req);
     const m = toPresentation({ base: req, proposal: req, current: res, proposed: res, targetAge: 95, selectedYear: null, provisional: false });
-    const cards = m.goals.cards.filter((c) => c.category === "その他");
-    expect(cards.map((c) => [c.when, c.priority])).toEqual([
-      ["2027年11月 110万円", "できれば"],
-      ["毎年 50万円", "必ず"],
-    ]);
+    expect(m.goals.cards.map((c) => [c.category, c.title])).toEqual([["夢", "まだ入れていません"]]);
   });
 
   it("結果の上の行（世帯の人の並び）に、世帯の外の家族を出さない", () => {

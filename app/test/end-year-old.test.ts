@@ -1,8 +1,9 @@
 // 表の最後の年の年齢の数え方と、表が今年より前に終わる世帯（0169）:
 // - 「○歳になる年」は、表の年齢の行・年齢の欄と同じく、その年の12月末に○歳の年（生まれ年＋年齢）。1月1日生まれも同じ年
 // - 若い方がすでにその年齢に近い・過ぎている（101歳以上など）ときは、表を少なくとも5年分にする（計算エンジンが endYear で止まらない）
-// - 今の入力で計算できなかったプランは、前の計算の残りの結果で「足りる」「準備できています」を出さない
+// - 今の入力で計算できなかったプランは、前の計算の残りの結果で「足りる」「残ります」を出さない
 import { describe, expect, it } from "vitest";
+import { forEngine, withoutDreams } from "../src/engine/moneyRows.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, endAgeOf, endYearForAge, followedEndAge, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
@@ -75,15 +76,23 @@ describe("若い方がすでにその年齢を過ぎている世帯（H6-008）"
   });
 });
 
-describe("計算できなかったプランに「足りる」「準備できています」を出さない（H6-008）", () => {
+describe("計算できなかったプランに「足りる」「残ります」を出さない（H6-008）", () => {
   const req = modelHousehold("pensionCouple");
   const res = preview(req);
-  it("目標の札は「計算できていません」、結論の1文は計算できなかった旨", () => {
-    const ok = toPresentation({ base: req, proposal: req, current: res, proposed: res, targetAge: 90, selectedYear: null, provisional: false, names: { selected: "現状", base: "現状", same: true } });
-    expect(ok.goals.cards.some((c) => c.ready === true)).toBe(true);
-    const p = toPresentation({ base: req, proposal: req, current: res, proposed: res, targetAge: 90, selectedYear: null, provisional: false, names: { selected: "現状", base: "現状", same: true }, failed: true });
-    expect(p.goals.needReady).toBe(0);
-    expect(p.goals.cards.filter((c) => c.ready !== null).every((c) => c.ready === false && c.shortNote === NOT_COMPUTED)).toBe(true);
+  it("夢ごとの数字の一言は「計算できていません」（案内の一言はそのまま）、要約の1文は出さない、結論の1文は計算できなかった旨", () => {
+    const raw = modelHousehold("sampleFamilyDreams");
+    const fe = forEngine(raw);
+    const r = preview(fe);
+    const dreams = { raw, withoutDreams: preview(forEngine(withoutDreams(raw))) };
+    const same = { selected: "現状", base: "現状", same: true };
+    const ok = toPresentation({ base: raw, proposal: fe, current: r, proposed: r, targetAge: 90, selectedYear: null, provisional: false, names: same, dreams });
+    expect(ok.goals.cards.some((c) => c.note?.tone === "ok")).toBe(true);
+    expect(ok.goals.dreamLine).not.toBeNull();
+    const p = toPresentation({ base: raw, proposal: fe, current: r, proposed: r, targetAge: 90, selectedYear: null, provisional: false, names: same, dreams, failed: true });
+    expect(p.goals.dreamLine).toBeNull();
+    expect(p.goals.cards.map((c) => c.note?.tone)).toEqual(ok.goals.cards.map(() => "info"));
+    expect(p.goals.cards.filter((c) => c.dream?.included === true && c.amount !== null).every((c) => c.note?.text === NOT_COMPUTED)).toBe(true);
+    expect(p.goals.cards.filter((c) => c.dream?.included === false).map((c) => c.note)).toEqual(ok.goals.cards.filter((c) => c.dream?.included === false).map((c) => c.note));
     expect(p.result.parts.map((x) => x.text).join("")).toBe("今の入力では計算できませんでした");
     expect(p.verdict.parts.map((x) => x.text).join("")).not.toContain("足り");
   });
