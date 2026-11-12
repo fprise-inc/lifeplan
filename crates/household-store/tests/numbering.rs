@@ -65,6 +65,7 @@ fn with(store: &Store, category: Option<&str>) -> household_store::Opened {
             CreateOptions {
                 category: category.map(str::to_owned),
                 sample: None,
+                ..Default::default()
             },
         )
         .unwrap()
@@ -153,7 +154,8 @@ fn category_and_serial() {
             req(),
             CreateOptions {
                 category: Some("Z".into()),
-                sample: None
+                sample: None,
+                ..Default::default()
             }
         )
         .err(),
@@ -244,6 +246,7 @@ fn with_err(store: &Store, category: &str) -> Option<StoreError> {
             CreateOptions {
                 category: Some(category.into()),
                 sample: None,
+                ..Default::default()
             },
         )
         .err()
@@ -366,6 +369,7 @@ fn sample_shelf() {
             CreateOptions {
                 category: None,
                 sample: Some(r),
+                ..Default::default()
             },
         )
         .unwrap()
@@ -420,7 +424,8 @@ fn sample_shelf() {
                 req(),
                 CreateOptions {
                     category: None,
-                    sample: Some(bad)
+                    sample: Some(bad),
+                    ..Default::default()
                 }
             )
             .err(),
@@ -485,6 +490,7 @@ fn office_wide_serials_categories_and_samples() {
             CreateOptions {
                 category: None,
                 sample: Some(sample(2, 3, "夫婦のみ")),
+                ..Default::default()
             },
         )
         .unwrap();
@@ -495,6 +501,7 @@ fn office_wide_serials_categories_and_samples() {
             CreateOptions {
                 category: None,
                 sample: Some(sample(2, 3, "夫婦のみ・二つ目")),
+                ..Default::default()
             },
         )
         .unwrap();
@@ -529,4 +536,114 @@ fn office_decides_once() {
     assert!(st.categories.is_empty());
     assert_eq!(a.create(req()).unwrap().customer_no, "0001");
     assert_eq!(b.create(req()).unwrap().customer_no, "0002");
+}
+
+/// 架空の世帯の印: アプリ本体が作るときだけ付き、一覧と開いた世帯に出る。番号を変えても残り、外すのは一方向（お客さまの世帯にする）だけ。
+/// 見本に登録すると印は外れる（見本は今までどおり）。事務所で共有しているときも、世帯の札に載る
+#[test]
+fn fictional_mark_is_set_by_the_app_and_only_removed() {
+    let base = Base::new();
+    let s = base.store("pc");
+    s.status().unwrap();
+    use_categories(&s);
+    let f = s
+        .create_with(
+            req(),
+            CreateOptions {
+                fictional: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(f.label.fictional);
+    assert_eq!(f.customer_no, "C0001", "番号の付け方はお客さまの世帯と同じ");
+    let c = s.create(req()).unwrap();
+    assert!(!c.label.fictional);
+    let listed = |id: &str| s.list().unwrap().into_iter().find(|e| e.id == id).unwrap();
+    assert!(listed(&f.id).label.fictional);
+    assert!(!listed(&c.id).label.fictional);
+    // 一覧の欄に出る（画面に返す形）。印の無い世帯には欄が無い
+    let json = serde_json::to_value(listed(&f.id)).unwrap();
+    assert_eq!(json["fictional"], true);
+    assert!(serde_json::to_value(listed(&c.id))
+        .unwrap()
+        .get("fictional")
+        .is_none());
+    assert!(s.open(&f.id).unwrap().label.fictional, "開いた世帯にも出る");
+    // 番号を変える・区分を変える・自由な番号に通し番号を付けても印は残る
+    s.rename(&f.id, "A0042").unwrap();
+    assert!(listed(&f.id).label.fictional);
+    s.rename(&f.id, "seminar-1").unwrap();
+    assert!(listed(&f.id).label.fictional);
+    s.assign_serial(&f.id).unwrap();
+    assert!(listed(&f.id).label.fictional);
+    s.set_category(&f.id, "B").unwrap();
+    assert!(listed(&f.id).label.fictional);
+    // 閉じて開き直しても残る（事務所データに書いてある）
+    s.forget_session();
+    s.status().unwrap();
+    assert!(listed(&f.id).label.fictional);
+    // お客さまの世帯にする（一方向）。印の無い世帯では何もしない
+    assert!(!s.make_client(&c.id).unwrap());
+    assert!(s.make_client(&f.id).unwrap());
+    assert!(!listed(&f.id).label.fictional);
+    assert!(!s.make_client(&f.id).unwrap());
+    // 見本に登録すると印は外れる
+    let g = s
+        .create_with(
+            req(),
+            CreateOptions {
+                fictional: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    s.make_sample(&g.id, &sample(1, 3, "単身")).unwrap();
+    let shelf = s.list_samples().unwrap();
+    assert!(shelf.iter().all(|e| !e.label.fictional));
+    // 見本として作るときは付けない
+    let h = s
+        .create_with(
+            req(),
+            CreateOptions {
+                sample: Some(sample(1, 3, "単身・二つ目")),
+                fictional: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(!h.label.fictional);
+}
+
+/// 事務所で共有しているとき、架空の印は世帯の札に載り、ほかの PC の一覧にも出る
+#[test]
+fn fictional_mark_travels_on_the_shared_card() {
+    let base = Base::new();
+    let folder = base.0.join("共有フォルダ");
+    std::fs::create_dir_all(&folder).unwrap();
+    let a = base.store("a");
+    let b = base.store("b");
+    a.status().unwrap();
+    use_categories(&a);
+    a.office_start(&folder, "担当A", true, &[]).unwrap();
+    a.acknowledge_recovery().unwrap();
+    b.status().unwrap();
+    let st = b.office_join(&folder, "担当B", true, &[]).unwrap();
+    let fp = st.my_fingerprint.unwrap();
+    let rq = a.office_status().unwrap().requests;
+    a.office_approve(&rq[0].request_id, &fp).unwrap();
+    assert_eq!(b.office_status().unwrap().state, "member");
+    let f = a
+        .create_with(
+            req(),
+            CreateOptions {
+                fictional: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let on_b = |id: &str| b.list().unwrap().into_iter().find(|e| e.id == id).unwrap();
+    assert!(on_b(&f.id).label.fictional);
+    assert!(b.make_client(&f.id).unwrap());
+    assert!(!a.list().unwrap().iter().any(|e| e.label.fictional));
 }

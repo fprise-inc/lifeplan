@@ -18,11 +18,13 @@ pub const FIELDS: &[&str] = &[
     "shortfall",
     "loanRepayment",
     "loanBalance",
+    "loanInterest",
+    "loanRate",
 ];
 
-/// 年ごとの住宅ローンの数字（0203）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数（summary.ts の
-/// loanYearsOf）で数える
-pub const LOAN_FIELDS: &[&str] = &["loanRepayment", "loanBalance"];
+/// 年ごとの住宅ローンの数字（0203。利息と金利は 0205）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数
+/// （summary.ts の loanYearsOf）で数える。loanRate は10進の文字か null（返済の無い年・金利の違う住宅ローンを2本以上返している年）
+pub const LOAN_FIELDS: &[&str] = &["loanRepayment", "loanBalance", "loanInterest", "loanRate"];
 
 /// 答えから省ける物
 pub const OMITS: &[&str] = &[
@@ -37,6 +39,7 @@ pub const OMITS: &[&str] = &[
     "protectionDetail",
     "inheritanceTax",
     "pension",
+    "loanInterest",
 ];
 
 /// 何年おきの上限
@@ -283,7 +286,12 @@ pub fn finish(shaped: &mut Value, out: &Value, summary: &Value, mode: OutputMode
                         let year = o.get("year").and_then(Value::as_i64).unwrap_or(0);
                         let l = &loans[year.to_string()];
                         for k in LOAN_FIELDS {
-                            o.insert((*k).into(), json!(l[*k].as_i64().unwrap_or(0)));
+                            let v = if *k == "loanRate" {
+                                l[*k].as_str().map_or(Value::Null, |s| json!(s))
+                            } else {
+                                json!(l[*k].as_i64().unwrap_or(0))
+                            };
+                            o.insert((*k).into(), v);
                         }
                     }
                     if let Some(f) = &opts.fields {
@@ -316,15 +324,26 @@ pub fn finish(shaped: &mut Value, out: &Value, summary: &Value, mode: OutputMode
                     .collect();
                 r.insert("ages".into(), Value::Array(list));
             }
-            if opts.omits("insurance") {
-                if let Some(s) = r.get_mut("summary").and_then(Value::as_object_mut) {
+            if let Some(s) = r.get_mut("summary").and_then(Value::as_object_mut) {
+                if opts.omits("insurance") {
                     s.remove("insurance");
+                }
+                // ローンごとの年ごとの利息と金利（エンジンの要約の loans。0205）
+                if opts.omits("loanInterest") {
+                    s.remove("loans");
                 }
             }
         }
     }
     if !opts.omits("keyFigures") && summary["keyFigures"].is_object() {
-        r.insert("keyFigures".into(), summary["keyFigures"].clone());
+        let mut kf = summary["keyFigures"].clone();
+        // 住宅ローンの利息の合計（0205）は omit の loanInterest で省ける
+        if opts.omits("loanInterest") {
+            if let Some(o) = kf.as_object_mut() {
+                o.remove("loanInterest");
+            }
+        }
+        r.insert("keyFigures".into(), kf);
     }
     if !opts.omits("protection") {
         if let Some(p) = out.get("protection") {
@@ -539,6 +558,47 @@ mod tests {
         );
         assert!(t["summary"].get("insurance").is_none());
         assert!(t["summary"]["totals"].is_object());
+    }
+
+    #[test]
+    fn loan_interest_and_rate_are_chosen_and_omitted() {
+        let o = out();
+        let mut s = summary_answer();
+        s["keyFigures"]["loanInterest"] = json!(7807);
+        s["loanYears"] = json!({ "2027": { "loanRepayment": 100, "loanBalance": 900, "loanInterest": 10, "loanRate": "0.0065" }, "2028": { "loanRepayment": 100, "loanBalance": 800, "loanInterest": 9, "loanRate": null } });
+        // 選んだときだけ年ごとに入る（金利は10進の文字か null）
+        let mut got = shape(&o, OutputMode::Summary, &all_years());
+        let opts = Options::new(
+            None,
+            Some(&["loanInterest".to_owned(), "loanRate".to_owned()]),
+            None,
+            None,
+        )
+        .unwrap();
+        finish(&mut got, &o, &s, OutputMode::Summary, &opts);
+        assert_eq!(got["years"][0]["loanInterest"], 10);
+        assert_eq!(got["years"][0]["loanRate"], "0.0065");
+        assert!(got["years"][1]["loanRate"].is_null());
+        assert!(got["years"][0].get("loanRepayment").is_none());
+        assert_eq!(got["keyFigures"]["loanInterest"], 7807);
+        // 既定では年ごとに入れない
+        let mut plain = shape(&o, OutputMode::Summary, &all_years());
+        finish(
+            &mut plain,
+            &o,
+            &s,
+            OutputMode::Summary,
+            &Options::default_for_test(),
+        );
+        assert!(plain["years"][0].get("loanInterest").is_none());
+        // omit の loanInterest で、主な数字の利息の合計と、table の要約のローンごとの数字を省く
+        let mut t = shape(&o, OutputMode::Table, &all_years());
+        t["summary"]["loans"] = json!([{ "object": "x" }]);
+        let opts = Options::new(None, None, Some(&["loanInterest".to_owned()]), None).unwrap();
+        finish(&mut t, &o, &s, OutputMode::Table, &opts);
+        assert!(t["keyFigures"].get("loanInterest").is_none());
+        assert!(t["summary"].get("loans").is_none());
+        assert_eq!(t["keyFigures"]["lifetimeTakeHome"], 1);
     }
 
     #[test]

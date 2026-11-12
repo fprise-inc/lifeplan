@@ -5,7 +5,7 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_AT_AGE, pensionRequests, summarize, summaryOf, type Summary, type SummaryArgs } from "../src/connector/summary.ts";
+import { DEFAULT_AT_AGE, engineLoansOf, pensionRequests, summarize, summaryOf, type Summary, type SummaryArgs } from "../src/connector/summary.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { man } from "../src/presentation/format.ts";
@@ -152,6 +152,30 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
       const { from, to } = r.keyFigures.years!;
       for (let y = from; y <= to; y++) expect(r.ages[String(y)]?.self, `${id} ${y}`).toBeTypeOf("number");
     }
+  });
+
+  it("住宅ローンの利息の合計と年ごとの利息・金利は、エンジンの要約の住宅ローンの数字を、住宅ローンの返済の合計と同じ年で足した物（0205）", () => {
+    for (const sample of ["salariedCoupleTwoKids", "pairLoan", "housingPurchase", "single25"]) {
+      const req = caseRequest({ name: sample, sample });
+      const result = preview(forEngine(req));
+      const got = summaryOf(req, result);
+      const loans = engineLoansOf(result.summary).filter((l) => l.kind === "mortgage");
+      const { from, to } = got.keyFigures.years!;
+      let total = 0;
+      for (const l of loans) for (const e of l.years) if (e.year >= from && e.year <= to) total += e.interest;
+      expect(got.keyFigures.loanInterest, sample).toBe(total);
+      // 返済のある年の利息は、返済の額より小さい（返済のうち利息に充てた額）
+      for (const [y, v] of Object.entries(got.loanYears)) if (v.loanInterest > 0) expect(v.loanInterest, `${sample} ${y}`).toBeLessThan(v.loanRepayment);
+    }
+    // 変動金利の住宅ローン1本（今 0.65%・2031年4月 1.1%・2036年4月 1.6%）: その年の最後の返済に当てた金利
+    const one = summaryOf(caseRequest({ name: "", sample: "salariedCoupleTwoKids" }), preview(forEngine(caseRequest({ name: "", sample: "salariedCoupleTwoKids" }))));
+    expect([2027, 2030, 2031, 2035, 2036, 2040].map((y) => one.loanYears[String(y)]?.loanRate)).toEqual(["0.0065", "0.0065", "0.011", "0.011", "0.016", "0.016"]);
+    expect(one.keyFigures.loanInterest).toBeGreaterThan(0);
+    // 金利の違う住宅ローンを2本返している年（ペアローン: 固定1.85% と 固定期間選択1.2%）は null
+    const pair = summaryOf(caseRequest({ name: "", sample: "pairLoan" }), preview(forEngine(caseRequest({ name: "", sample: "pairLoan" }))));
+    expect(pair.loanYears["2030"]?.loanRate).toBeNull();
+    // 住宅ローンの無い世帯は 0
+    expect(summaryOf(caseRequest({ name: "", sample: "single25" }), preview(forEngine(caseRequest({ name: "", sample: "single25" })))).keyFigures.loanInterest).toBe(0);
   });
 
   it("接続口のテストの見本（画面の関数の答え）が今の答えと同じ", () => {

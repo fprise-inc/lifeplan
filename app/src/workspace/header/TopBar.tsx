@@ -28,7 +28,7 @@ export interface TopBarProps<T extends string> {
   tab: T;
   onTab: (t: T) => void;
   /** 世帯の選択（本体・開発用のサーバーにつながっていないときは null） */
-  household: { no: string; sub: string; open: boolean; onToggle: () => void } | null;
+  household: { no: string; sub: string; open: boolean; onToggle: () => void; /** 架空の世帯（「架空」の印を出す） */ fictional?: boolean } | null;
   alerts: readonly BarAlert[];
   /** お知らせの一覧（ベル。常に出す。0087） */
   notices: NoticeCenterProps;
@@ -84,8 +84,13 @@ export function TopBar<T extends string>(p: TopBarProps<T>) {
       <div class="top-l">
         <Brand brand={p.brand ?? null} />
         {p.household !== null ? (
-          <button type="button" class="hh-btn" aria-expanded={p.household.open} aria-haspopup="dialog" aria-label={`世帯の選択（${p.household.no}）`} title={p.household.sub !== "" ? `${p.household.no} ${p.household.sub}` : p.household.no} onClick={p.household.onToggle} data-household-button>
+          <button type="button" class="hh-btn" aria-expanded={p.household.open} aria-haspopup="dialog" aria-label={`世帯の選択（${p.household.no}${p.household.fictional === true ? "・架空の世帯" : ""}）`} title={p.household.sub !== "" ? `${p.household.no} ${p.household.sub}` : p.household.no} onClick={p.household.onToggle} data-household-button>
             <span class="hh-no">{p.household.no}</span>
+            {p.household.fictional === true ? (
+              <span class="pl-tag hh-fictional-tag" title="AIの候補から作った架空の世帯（お客さまの世帯ではありません）" data-household-fictional>
+                架空
+              </span>
+            ) : null}
             {p.household.sub !== "" ? <span class="hh-sub">{p.household.sub}</span> : null}
             <span class="caret" aria-hidden="true">
               {p.household.open ? "▲" : "▼"}

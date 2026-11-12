@@ -35,9 +35,13 @@ if (browserPath === undefined) {
 }
 
 // ブラウザを起こして DevTools の口が開いて答えるのを待つ（決まった時間でなく口が開いた印を待つ。起動に失敗したら1回だけやり直す。headless.ts）
-const { proc: browser, wsUrl } = await launchHeadless(browserPath, ["--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-sync", "--host-resolver-rules=MAP * ~NOTFOUND", ...(process.env.CI !== undefined ? ["--no-sandbox"] : []), "about:blank"], { prefix: "financia-takeaway-check-" });
+const browser = await launchHeadless(browserPath, ["--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-sync", "--host-resolver-rules=MAP * ~NOTFOUND", ...(process.env.CI !== undefined ? ["--no-sandbox"] : []), "about:blank"], { prefix: "financia-takeaway-check-" });
 
-const ws = await openSocket(wsUrl);
+// 途中で失敗しても、ブラウザを残さない（下の finally で止める。終わるとき・Ctrl+C でも headless.ts が止める）
+const ws = await openSocket(browser.wsUrl).catch(async (e: unknown) => {
+  await browser.close();
+  throw e;
+});
 let nextId = 1;
 const pending = new Map<number, { ok: (v: unknown) => void; ng: (e: Error) => void }>();
 type Listener = (params: Record<string, unknown>, sessionId: string | undefined) => void;
@@ -190,7 +194,7 @@ try {
   check("確かめの途中で止まりました", false, e instanceof Error ? e.message : String(e));
 } finally {
   ws.close();
-  browser.kill();
+  await browser.close();
 }
 
 const ng = report.filter((r) => !r.ok);

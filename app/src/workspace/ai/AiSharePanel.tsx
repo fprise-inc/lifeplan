@@ -90,6 +90,8 @@ export function AiSharePanel(p: AiSharePanelProps) {
   const text = SHARE_STATE_TEXT[state];
   const latest = v?.consents.filter((c) => c.kind === "externalAi" && c.origin === "thisOffice").at(-1);
   const enabled = p.status?.enabled === true;
+  // 架空の世帯（AIの候補から架空として作った世帯）: お客さまの情報を含まないので、同意の記録は要らない（期限・取り消し・記録は同じ）
+  const fictional = v?.fictional === true;
   // 書類を含まない同意（前の版の説明・ヒアリングシートの同意欄）の世帯: 計算の項目は渡せるが、書類を AI に渡す前に取り直す（0157・0172）
   const renew = v !== null && v.consentState === "given" && v.consentDocuments !== true;
   // ヒアリングシートの同意欄で記録する（シートの文で、書類を含まない。取り直しでは選べない。0172）
@@ -98,7 +100,10 @@ export function AiSharePanel(p: AiSharePanelProps) {
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel ai-panel" role="dialog" aria-modal="true" aria-labelledby="ai-share-title" tabIndex={-1} data-ai-share-panel={tab}>
-        <h2 id="ai-share-title">AIとの共有（顧客番号 {p.customerNo}）</h2>
+        <h2 id="ai-share-title">
+          AIとの共有（顧客番号 {p.customerNo}
+          {fictional ? "・架空の世帯" : ""}）
+        </h2>
         <div class={`ai-state s-${state}`} data-ai-state={state}>
           <b>{state === "sharing" && v?.share != null ? `共有中・${remainingText(v.share.expiresInSec)}` : text.short.replace(/^AI: /, "")}</b>
           <span>{text.long}</span>
@@ -121,7 +126,12 @@ export function AiSharePanel(p: AiSharePanelProps) {
         ) : tab === "consent" ? (
           <>
             <h3>外部AIへの提供の同意</h3>
-            {latest !== undefined ? (
+            {fictional ? (
+              <p class="in-note" data-ai-fictional-note>
+                この世帯は、AIの候補から作った架空の世帯です（お客さまの情報を含みません）。同意の記録が無くても AI に渡せます。期限・取り消し・共有の記録・渡すのは計算に要る項目だけ（縮約版）は、お客さまの世帯と同じです。お客さまの世帯にしたら（世帯の一覧の「お客さまの世帯にする」）、同意を記録するまで渡せません。
+              </p>
+            ) : null}
+            {fictional ? null : latest !== undefined ? (
               <p class="ai-latest" data-ai-consent-latest={latest.decision}>
                 いまの記録: <b>{DECISION_LABELS[latest.decision]}</b>（{latest.obtainedOn}・{methodLabel(latest.method)}
                 {providerText(latest.externalAi) !== null ? `・提供先 ${providerText(latest.externalAi)}` : ""}
@@ -135,7 +145,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 この世帯の同意は{latest?.method === "hearingSheet" ? "ヒアリングシートの同意欄" : "前の版の説明"}でいただいたもので、書類の読み取りで書類を AI に渡すことは含まれていません。計算に要る項目を AI に渡すことは、このまま続けられます。書類を AI に渡す前に、お客さまに今の説明を見せて、同意を記録し直してください。今の説明に同意いただけないときは、記録しなくてかまいません（書類は AI に渡さず、手で入れてください）。
               </p>
             ) : null}
-            {v.consentState !== "given" || renew ? (
+            {!fictional && (v.consentState !== "given" || renew) ? (
               <form
                 class="ai-form"
                 onSubmit={(e) => {
@@ -269,7 +279,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                   共有を取り消す
                 </button>
               </div>
-            ) : v.consentState !== "given" ? (
+            ) : v.consentState !== "given" && !fictional ? (
               <p class="in-note">外部AIへの提供の同意を記録すると、渡せるようになります。</p>
             ) : (
               <form

@@ -188,6 +188,64 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(marital.is_none(), "{v}: 婚姻の状態は変換で書き足さない");
         }
+        // 0.76 から: 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利の段も要素の ID を持つ（0206）。前の版の見本は
+        // 変換で、画面がその要素を指していた決まった ID（場所から作る）と同じ ID が付く。0.76 の見本は ID を書いた形で、借り換えも持つ
+        let hh = &now["household"]["request"]["input"]["household"];
+        let mid = |p: String| Value::String(household_store::readings::migration_id(&p));
+        let mut mixes = 0;
+        for a in hh["accounts"].as_array().into_iter().flatten() {
+            let acc = a["id"].as_str().unwrap();
+            for (i, m) in a["assetMix"].as_array().into_iter().flatten().enumerate() {
+                mixes += 1;
+                assert!(m["id"].is_string(), "{v}: 資産の配分の行の ID");
+                if migrate::parse(v).unwrap() < (0, 76) {
+                    let old = &expected["household"]["request"]["input"]["household"]["accounts"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|x| x["id"] == acc)
+                        .unwrap()["assetMix"][i];
+                    if old.get("id").is_none() {
+                        assert_eq!(
+                            m["id"],
+                            mid(format!("{acc}/assetMix/{i}")),
+                            "{v}: 決まった ID"
+                        );
+                    }
+                }
+            }
+            for x in a["lots"].as_array().into_iter().flatten() {
+                assert!(x["id"].is_string(), "{v}: 買付の年ごとの内訳の ID");
+            }
+            for st in a["returnStages"].as_array().into_iter().flatten() {
+                for m in st["assetMix"].as_array().into_iter().flatten() {
+                    assert!(
+                        m["id"].is_string(),
+                        "{v}: 利回りの段階の資産の配分の行の ID"
+                    );
+                }
+            }
+        }
+        if migrate::parse(v).unwrap() >= (0, 16) {
+            assert!(mixes > 0, "{v}: 見本は資産の配分の行を持つ");
+        }
+        let mut refis = 0;
+        for d in hh["debts"].as_array().into_iter().flatten() {
+            for r in d["refinance"].as_array().into_iter().flatten() {
+                refis += 1;
+                assert!(r["id"].is_string(), "{v}: 借り換えの ID");
+                for x in r["rateSchedule"].as_array().into_iter().flatten() {
+                    assert!(x["id"].is_string(), "{v}: 借り換えの金利の段の ID");
+                }
+            }
+        }
+        if migrate::parse(v).unwrap() >= (0, 76) {
+            assert_eq!(refis, 1, "{v}: 0.76 の見本は借り換えを持つ");
+            assert_eq!(
+                now["household"], expected["household"],
+                "{v}: 今の版は変換しない"
+            );
+        }
         // 0.75 から: 外から来た候補の変更の場所 at・lever（0201）。変換で中身を変えない。前の版の見本には候補の区画が無い。
         // 場所を添えない候補（前の版と同じ形）と、場所（lever・at）を添えた候補を持つ
         let candidates = now.get("candidates");

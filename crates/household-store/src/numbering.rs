@@ -88,6 +88,7 @@ pub struct SampleRequest {
 /// - 体系の番号: `serial` があり、表示の番号は `記号＋通し番号[-枝番]`。区分を使わないときは `category` が無く、表示の番号は通し番号だけ（`0001`）
 /// - 自由な番号: `serial` が無い（`category` はあってもよい。区分で絞り込むため）
 /// - 見本: `sample` がある（顧客番号を持たない。表示の番号は見本番号）
+/// - 架空の世帯: `fictional` が true（顧客の一覧に「架空」の印つきで出る。番号の付け方はお客さまの世帯と同じ）
 ///
 /// 欄の無い古い札・事務所データは、区分なしの自由な番号として読む（今までの「PCの接頭辞＋連番」の番号は壊さない。
 /// 接頭辞が区分の記号と同じでも、表示の番号の形から体系の番号を作り直さない）
@@ -102,6 +103,11 @@ pub struct Label {
     pub branch: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sample: Option<SampleInfo>,
+    /// 架空の世帯（AIの候補から「架空」として作った世帯。セミナー・研修に使う。お客さまの情報を含まない）。
+    /// アプリ本体が作るときだけ付け、外すのは「お客さまの世帯にする」だけ（一方向。お客さまの世帯を架空にはしない）。
+    /// 見本には付けない。欄の無い札・事務所データはお客さまの世帯
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fictional: bool,
 }
 
 impl Label {
@@ -497,6 +503,7 @@ mod tests {
             serial: Some(42),
             branch: Some("C".into()),
             sample: None,
+            fictional: false,
         };
         assert_eq!(s.display().as_deref(), Some("A0042-C"));
         assert_eq!(

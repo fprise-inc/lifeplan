@@ -3,6 +3,8 @@
 export interface HouseholdNowProps {
   /** 顧客番号、または見本の名前 */
   title: string;
+  /** 架空の世帯（「架空」の印を出す） */
+  fictional?: boolean;
   /** 例: 「ご本人 45歳・配偶者 43歳」 */
   members: string | null;
   /** 例: 「2026年10月時点」 */
@@ -20,6 +22,11 @@ export function HouseholdNow(p: HouseholdNowProps) {
           <dt>開いている世帯</dt>
           <dd>
             <b>{p.title}</b>
+            {p.fictional === true ? (
+              <span class="pl-tag hh-fictional-tag" title="AIの候補から作った架空の世帯（お客さまの世帯ではありません）" data-household-now-fictional>
+                架空
+              </span>
+            ) : null}
             {p.members !== null ? <span class="hh-now-members">{p.members}</span> : null}
             {p.asOf !== null ? <span class="tag">{p.asOf}の計算</span> : null}
           </dd>

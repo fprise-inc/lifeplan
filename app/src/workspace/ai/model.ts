@@ -27,6 +27,8 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_CANDIDATE_DECIDED: "この候補はもう判断済みです",
   E_AI_CANDIDATE_UNKNOWN: "この候補は見つかりません",
   E_AI_CANDIDATE_PLAN: "プランを保存できませんでした",
+  E_AI_CANDIDATE_BODY: "候補の中身と作ろうとした世帯が合いません。候補を開き直してください",
+  E_AI_KIND: "架空の世帯かお客さまの世帯かを選んでください",
   E_AI_PERSIST: "記録を世帯ファイルに書けませんでした。もう一度試してください",
   E_AI_RECORDS: "同意とAIの記録が書き換えられていたため、保存を止めました",
   E_AI_CONNECTOR_MISSING: "AI接続口の実行ファイルが見つかりません",
@@ -92,13 +94,15 @@ export function todayText(now: Date = new Date()): string {
 export { itemName } from "../plans/candidates.ts";
 
 /** 世帯の「AIとの共有」の状態（カード・上の帯の印） */
-export type ShareState = "off" | "unsaved" | "none" | "refused" | "withdrawn" | "given" | "sharing";
+export type ShareState = "off" | "unsaved" | "none" | "refused" | "withdrawn" | "given" | "fictional" | "sharing";
 
 export function shareState(status: AiStatus | null, view: AiHouseholdView | null): ShareState {
   if (view !== null && view.share !== null) return "sharing";
   if (status === null || !status.enabled) return "off";
   if (view === null || !view.saved) return "unsaved";
   if (view.consentState === "given") return "given";
+  // 架空の世帯（AIの候補から架空として作った世帯）は、同意の記録が無くても渡せる
+  if (view.fictional === true) return "fictional";
   if (view.consentState === "refused") return "refused";
   if (view.consentState === "withdrawn") return "withdrawn";
   return "none";
@@ -111,6 +115,7 @@ export const SHARE_STATE_TEXT: Record<ShareState, { short: string; long: string 
   refused: { short: "AI: 共有しない（同意なし）", long: "顧客は外部AIへの提供に同意しませんでした。AIに渡せません" },
   withdrawn: { short: "AI: 共有しない（撤回）", long: "顧客は外部AIへの提供の同意を撤回しました。AIに渡せません" },
   given: { short: "AI: 同意あり・共有していない", long: "同意があります。いまはAIに渡していません" },
+  fictional: { short: "AI: 架空の世帯・共有していない", long: "架空の世帯なので、同意の記録が無くてもAIに渡せます。いまはAIに渡していません" },
   sharing: { short: "AI: 共有中", long: "この世帯をAIに渡しています（縮約版。期限つき）" },
 };
 
