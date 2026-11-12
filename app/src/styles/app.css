@@ -382,6 +382,10 @@ html.big .lever input[type="range"] { height: 36px; }
 .grp-more .grp-more-btn:hover .grp-more-text, .grp-more .grp-more-btn:focus-visible .grp-more-text { text-decoration: underline; }
 .grp-more-body { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--card-line); }
 .in-group.compact .grp-more, .in-group.compact .grp-more-body { grid-column: 1 / -1; }
+/* 推定のままの欄の1行（GroupDef の estimateLine。介護の物など）: 欄とボタンの下に小さく。「推定」の印は欄の印と同じ（.badge.est） */
+.in-est-line { margin: 6px 0 0; font-size: 0.8rem; line-height: 1.5; color: var(--ink-2); word-break: keep-all; overflow-wrap: anywhere; }
+.in-est-line .in-est-names { margin-left: 0.5em; }
+.in-group.compact .in-est-line { grid-column: 1 / -1; }
 /* 「▸ 詳しく」で欄を入れ替えた所の知らせ（例: 受け取り開始を基礎と厚生に分けた。0078 の 2026-10-29 の追記） */
 .grp-more-swap { margin: 4px 0 0; font-size: 0.8rem; color: var(--ink-2); }
 /* 説明の欄（値ではなく説明の文。幅いっぱい・見出しの左に ⓘ・見出しを押して折りたたむ。InfoNote.tsx） */

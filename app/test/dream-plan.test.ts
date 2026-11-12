@@ -14,6 +14,7 @@ import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { viewRows } from "../src/workspace/rowsView.ts";
 import { toPresentation } from "../src/workspace/present.ts";
+import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
 import { addMonths } from "../src/workspace/levers.ts";
 import { dreamSummary } from "../../report/src/dreams.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -317,5 +318,54 @@ describe("子への援助の優先度（必ず・できれば）", () => {
     const old = mutate(wh, (hh) => hh.goals!.forEach((g) => g.education?.gifts?.forEach((x) => delete x.priority)));
     expect(viewCandidates(old.request.input.household).some((c) => c.side === "gift")).toBe(false);
     expect(edu[0]!.get(old).value).toBe("need");
+  });
+});
+
+describe("夢プランの見本の世帯（sampleFamilyDreams。架空）", () => {
+  const raw = modelHousehold("sampleFamilyDreams");
+  const h = raw.input.household;
+
+  it("見本の棚にあり、夢は7件（計算に入れる4件・入れない3件、額の無い夢・何年ごと・毎年の夢を混ぜる）。ふつうの出るお金の行も1件ある", () => {
+    expect(DEMO_HOUSEHOLDS.find((d) => d.id === "sampleFamilyDreams")).toMatchObject({ sampleNo: "3-4-06", title: "共働きの夫婦と子2人・40代（夢プランの見本）" });
+    const list = dreamRows(h);
+    expect(list.map((p) => [p.label, p.dream?.include !== false, p.amount.value])).toEqual([
+      ["家族で海外旅行", true, 1200000],
+      ["車の買い替え", true, 4000000],
+      ["自宅のリフォーム（水回り・外壁）", true, 6000000],
+      ["趣味を始める（夫婦でキャンプ）", true, 300000],
+      ["長女の結婚の援助", false, 2000000],
+      ["退職後の夫婦のゴルフ", false, 240000],
+      ["海の近くで二拠点の暮らし", false, 0],
+    ]);
+    expect(list.some((p) => p.everyYears === 7)).toBe(true);
+    expect(list.some((p) => p.everyYears === 1 && JSON.stringify(p.to) !== JSON.stringify(p.from))).toBe(true);
+    expect((h.periodicExpenses ?? []).filter((p) => p.kind !== "dream")).toHaveLength(1);
+  });
+
+  it("目標の区画: 夢のカードは順位の順で、額の無い夢は額が空。要約の1文は計算に入れた夢4件の見方", () => {
+    const req = forEngine(raw);
+    const r = preview(req);
+    const nd = preview(forEngine(withoutDreams(raw)));
+    const m = toPresentation({ base: raw, proposal: req, current: r, proposed: r, targetAge: 95, selectedYear: null, provisional: false, dreams: { raw, withoutDreams: nd } });
+    const dreams = m.goals.cards.filter((c) => c.dream !== undefined);
+    expect(dreams.map((c) => [c.category, c.dream!.included, c.amount])).toEqual([
+      ["夢1", true, 1200000],
+      ["夢2", true, 4000000],
+      ["夢3", true, 6000000],
+      ["夢4", true, 300000],
+      ["夢5", false, 2000000],
+      ["夢6", false, 240000],
+      ["夢7", false, null],
+    ]);
+    expect(dreams.map((c) => c.when)).toEqual([
+      "2028年（ご本人46歳）",
+      "2029年（ご本人47歳）から2050年まで・7年ごと",
+      "2040年（ご本人58歳）",
+      "2027年（ご本人45歳）",
+      "2044年（ご本人62歳）",
+      "2047年（ご本人65歳）から2057年まで・毎年",
+      "2042年（ご本人60歳）",
+    ]);
+    expect(m.goals.dreamLine).toBe("計算に入れた夢（7件中4件）を入れても95歳まで足ります");
   });
 });

@@ -27,6 +27,7 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
   { shape: "insurance:ins/*/label", why: "契約の表示名（表示用）" },
   { shape: "events:ev/*/label", why: "行の名前（表示用）" },
   { shape: "events:ev/*/priority", why: "優先度（表示と「確実な分だけ」の見方だけ。計算には使わない）" },
+  { shape: "events:ev/*/dreamNote", why: "夢のひとことメモ（なぜかなえたいか。表示用。0103）" },
   { shape: "housing:housing/debt/*/label", why: "ローンの名前（表示用）" },
   { shape: "housing:housing/res/*/style", why: "建て方（表示と推定の元だけ）" },
   { shape: "housing:housing/debt/*/credit/newBuild", why: "新築か中古か（表示と推定の元だけ）" },
