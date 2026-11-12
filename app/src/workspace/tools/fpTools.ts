@@ -361,7 +361,7 @@ export interface BigSpendYear {
   items: BigSpendItem[];
   /** 支出の合計（税・社会保険料・黒字の貯まり・取り崩し・繰上返済を除く） */
   total: number;
-  /** 前後5年（その年を除く）の支出の合計の中央値。比べる年が3つ未満なら null */
+  /** 前後5年（その年を除く）の支出の合計の中央値。比較する年が3つ未満なら null */
   usual: number | null;
   /** 生活費（黒字の貯まり・取り崩しを除く） */
   living: number;
@@ -473,7 +473,7 @@ export function bigSpendOverlaps(req: EngineRequest, t: readonly TableCell[], ru
   return bigSpendByYear(req, t, rule).filter((y) => rule.hit(y));
 }
 
-/** 前後の年より何割多いか（「約8割」「約2.3倍」。1割未満・比べる年が無ければ null） */
+/** 前後の年より何割多いか（「約8割」「約2.3倍」。1割未満・比較する年が無ければ null） */
 function moreText(y: BigSpendYear): string | null {
   if (y.usual === null || y.usual <= 0) return null;
   const r = y.total / y.usual;
