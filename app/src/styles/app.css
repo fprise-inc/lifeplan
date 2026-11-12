@@ -1243,17 +1243,24 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .fee-note.input-notice { border-color: #c99a30; background: var(--wash-warm, #fffaf0); }
 .fee-note.input-notice .fee-tag { border-color: var(--memo-ink, #7a5800); color: var(--memo-ink, #7a5800); }
 /* 計算の知らせ（0064）: 閉じているときは1行。入力が足りない・計算に入れていない知らせがあるときは枠を強く */
-.calc-notices { margin-top: 8px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); font-size: 0.95rem; line-height: 1.5; }
-.calc-notices.urgent { border-color: #c99a30; background: var(--wash-warm, #fffaf0); }
-.calc-notices.urgent .cn-bar .fee-tag { border-color: var(--memo-ink, #7a5800); color: var(--memo-ink, #7a5800); }
-.cn-bar { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
-.cn-counts { color: var(--ink-2); }
+/* 計算のお知らせと気づき（0064・0074 の追記 2026-11-12）: 閉じているときは灰色の小さい1行に並べる。色の強い枠・背景は使わない。
+   2つの外枠は display: contents にして、押す所（.quiet-toggle）を同じ行に、開いた中身（.cn-body・.ins-body）をその下の全幅に出す */
+.result-quiet { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 18px; margin-top: 6px; }
+.result-quiet > .calc-notices, .result-quiet > .fp-insights { display: contents; }
+.result-quiet .cn-body, .result-quiet .ins-body { order: 1; flex-basis: 100%; min-width: 0; }
+.quiet-toggle { appearance: none; border: 0; background: none; padding: 2px 0; margin: 0; font: inherit; font-size: 0.82rem; line-height: 1.5; color: var(--base-ink); cursor: pointer; }
+.quiet-toggle:hover { color: var(--ink); text-decoration: underline; }
+.quiet-toggle[aria-expanded="true"] { color: var(--ink-2); }
+.quiet-caret { margin-left: 4px; }
+.cn-urgent { color: var(--short-ink); font-weight: 600; }
+.calc-notices { font-size: 0.95rem; line-height: 1.5; }
+.cn-body { padding: 0 0 4px; }
 .cn-kind h3 { font-size: 0.9rem; margin: 10px 0 4px; }
 .cn-kind ul { list-style: none; margin: 0; padding: 0; }
 .cn-kind li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 5px 8px; border-bottom: 1px solid var(--line-2); font-size: 0.88rem; }
 .cn-input li, .cn-missing li { border-left: 4px solid var(--short); }
 .cn-outside li, .cn-assumed li { border-left: 4px solid var(--est); }
-.cn-data li { border-left: 4px dashed var(--base); }
+.cn-data li { border-left: 4px solid var(--base); }
 .cn-text { flex: 1 1 24em; }
 .cn-meta { flex-basis: 100%; color: var(--ink-2); font-size: 0.8rem; }
 .cn-office { flex-basis: 100%; color: var(--ink-2); font-size: 0.8rem; }
@@ -1723,9 +1730,7 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .mt-area { display: grid; gap: 2px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); }
 .mt-area textarea { width: 100%; box-sizing: border-box; border: 1.5px solid var(--field); border-radius: 6px; padding: 6px 8px; font: inherit; font-weight: 400; color: var(--ink); background: var(--card); resize: vertical; }
 .mt-check { display: inline-flex; gap: 6px; align-items: center; font-size: 0.86rem; }
-.fp-insights { margin-top: 10px; }
-.fp-insights h3 { font-size: 0.92rem; margin: 0 0 4px; }
-.fp-insights ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ins-body { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
 .fp-insights li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 0.88rem; }
 /* 説明の「?」（丸に ?。presentation/Help.tsx。0077）: カーソル・フォーカス・押すで開く。開いた説明は画面に固定して重ねる（周りの配置を動かさない） */
 .help { display: inline-flex; align-items: center; vertical-align: middle; flex: none; }

@@ -169,14 +169,18 @@ describe("確かめの一覧と結果のタブ", () => {
     expect(checkList(wh).some((r) => r.kind === "calc")).toBe(false);
   });
 
-  it("結果のタブ: 閉じているときは種類ごとの数の1行。開くと種類ごとの行と「入力で開く」", () => {
+  it("結果のタブ: 閉じているときは「計算のお知らせ ○件 ▸」の控えめな1行（入力が足りない知らせだけ数を添える）。開くと種類ごとの行と「入力で開く」", () => {
     const req = modelWithGaps("sampleSingleParent");
     const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
     const closed = renderToString(h(CalcNotices, { rows }));
-    expect(closed).toContain("入力が足りない 1");
+    expect(closed).toContain(`計算のお知らせ ${rows.length}件`);
+    expect(closed).toContain("（入力が足りない 1）");
+    expect(closed).toContain('data-cn-urgent="1"');
+    expect(closed).toContain('aria-expanded="false"');
     expect(closed).not.toContain("data-cn-row");
     const open = renderToString(h(CalcNotices, { rows, initialOpen: true, onOpenCard: () => undefined }));
     expect(open).toContain('data-cn-open="education"');
+    expect(open).toContain('aria-expanded="true"');
     expect(open).toContain("入力が足りないため、計算できていない所（1）");
     expect(renderToString(h(CalcNotices, { rows: [] }))).toBe("");
   });

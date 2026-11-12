@@ -31,31 +31,40 @@ export function inheritancePayable(r: PreviewResult | null): number | null {
   return Math.max(...ps.map((p) => p.payable));
 }
 
-export function Insights({ req, result, months, inheritance, onYear, onLevers }: { req: EngineRequest; result: PreviewResult | null; months?: number; inheritance?: PreviewResult | null; onYear?: (y: number) => void; onLevers?: () => void }) {
+export function Insights({ req, result, months, inheritance, onYear, onLevers, initialOpen = false }: { req: EngineRequest; result: PreviewResult | null; months?: number; inheritance?: PreviewResult | null; onYear?: (y: number) => void; onLevers?: () => void; initialOpen?: boolean }) {
+  // 閉じているときは灰色の小さい1行（「気づき ○件 ▸」）。押すと一覧が開き、もう一度押すと閉じる（0074 の追記 2026-11-12）
+  const [open, setOpen] = useState(initialOpen);
   if (result === null) return null;
   const list = insights(req, result, { ...(months !== undefined ? { months } : {}), inheritanceTax: inheritancePayable(inheritance ?? null) });
   if (list.length === 0) return null;
   return (
-    <section class="fp-insights" aria-label="気づき" data-insights>
-      <h3>気づき（{list.length}）</h3>
-      <ul>
-        {list.map((i) => (
-          <li key={i.key} data-insight={i.key}>
-            <span class="fee-tag">{i.title}</span>
-            <span>{i.text}</span>
-            {i.year !== null && onYear !== undefined ? (
-              <button type="button" class="link-btn" onClick={() => onYear(i.year as number)}>
-                その年を見る
-              </button>
-            ) : null}
-            {onLevers !== undefined ? (
-              <button type="button" class="link-btn" onClick={onLevers}>
-                対策を考える
-              </button>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+    <section class={`fp-insights${open ? " open" : ""}`} aria-label="気づき" data-insights={list.length}>
+      <button type="button" class="quiet-toggle" aria-expanded={open} onClick={() => setOpen(!open)} data-insights-open>
+        気づき {list.length}件
+        <span class="quiet-caret" aria-hidden="true">
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+      {open ? (
+        <ul class="ins-body">
+          {list.map((i) => (
+            <li key={i.key} data-insight={i.key}>
+              <span class="fee-tag">{i.title}</span>
+              <span>{i.text}</span>
+              {i.year !== null && onYear !== undefined ? (
+                <button type="button" class="link-btn" onClick={() => onYear(i.year as number)}>
+                  その年を見る
+                </button>
+              ) : null}
+              {onLevers !== undefined ? (
+                <button type="button" class="link-btn" onClick={onLevers}>
+                  対策を考える
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }
