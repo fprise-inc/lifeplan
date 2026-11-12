@@ -373,6 +373,29 @@ export function normalizeValues(values: Values, baseValues: Values, wh: WorkingH
   return out;
 }
 
+/**
+ * 対策の「外す」の値: その項目を、このプランで変えた値から現状のプランの値に戻す。キーを消すのでなく現状の値を入れる
+ * （土台のプランがその項目を動かしているとき、消すと保存したときに土台の値に戻ってしまうため。続けて normalizeValues で整えると、
+ * 土台も保存した値も動かしていない項目は消える）。一覧に無いキーは消す
+ */
+export function backToCurrent(values: Values, key: string, wh: WorkingHousehold, cat: Catalog): Values {
+  const { [key]: _drop, ...rest } = values;
+  void _drop;
+  const it = cat.byKey.get(key);
+  return it === undefined ? rest : { ...rest, [key]: it.read(wh) };
+}
+
+/** 動かす項目の値のうち、現状と違う値だけ（対策に出す項目を決めるとき。leverChoice.ts の leverView）。一覧に無いキーはそのまま */
+export function movedValues(values: Values, wh: WorkingHousehold, cat: Catalog): Values {
+  const out: Values = {};
+  for (const [k, v] of Object.entries(values)) {
+    const it = cat.byKey.get(k);
+    if (it !== undefined && it.same(v, it.read(wh))) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 export function sameValues(a: Values, b: Values, cat: Catalog): boolean {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
   for (const k of keys) {
@@ -596,6 +619,8 @@ export function changesOf(list: readonly Proposal[], id: string, wh: WorkingHous
       continue;
     }
     const changed = !it.same(unbox(diff.before) as ItemValue, now);
+    // 現状と同じ値に戻している差分（土台のプランが動かした項目を、このプランで「外す」で現状に戻したもの）は、現状から変えたことではないので出さない
+    if (!changed && it.same(v, now)) continue;
     out.push({
       key: k,
       label: it.label,
