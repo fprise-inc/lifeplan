@@ -6,11 +6,12 @@ import { resolveTimepoint } from "../timepoint.ts";
 import { displayYears, financialOf } from "../present.ts";
 import { fromRequest, type WorkingHousehold } from "../input/household.ts";
 import { inputItems } from "../input/items.ts";
-import { memberLabel } from "../input/labels.ts";
-import { INCOME_KINDS } from "../input/moneyRows.ts";
+import { memberLabel, memberLabels } from "../input/labels.ts";
+import { INCOME_KINDS, OUT_KINDS } from "../input/moneyRows.ts";
+import { creditActive } from "../input/stages/housingLoans.ts";
 import { amountText as yenText, formatYearMonth, wareki } from "../input/units.ts";
 import { fieldValueText, objectCards, planIndex } from "../plans/planEdit.ts";
-import { man } from "../../presentation/format.ts";
+import { man, toMan } from "../../presentation/format.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -291,11 +292,324 @@ const sumBy = (t: readonly TableCell[], pred: (c: TableCell) => boolean): Map<nu
   return m;
 };
 
+/** 働いて得る収入の行（給与・役員報酬・事業の収入。再雇用・パートの給与も入る） */
+const isWorkRow = (row: string) => row === "cf.income.salary" || row === "cf.income.salary.executive" || row === "cf.income.business";
+/** 公的年金（老齢年金）の行（遺族年金・障害年金・企業年金は入れない） */
+const PENSION_ROW = "cf.income.pension";
+
+/** ご本人・配偶者の、表に出す年のうち働いて得る収入がある年と、年金の受け取りが始まる年 */
+interface Adult {
+  id: string;
+  label: string;
+  birthYear: number;
+  /** 働いて得る収入のある年（昇順） */
+  work: number[];
+  /** 表の最初の年の働いて得る収入と、表の期間の合計 */
+  firstIncome: number;
+  totalIncome: number;
+  /** 老齢年金の受け取りが始まる年（表の中に無ければ null） */
+  pension: number | null;
+}
+
+function adultsOf(req: EngineRequest, t: readonly TableCell[], years: readonly number[]): Adult[] {
+  const shown = new Set(years);
+  const out: Adult[] = [];
+  for (const m of req.input.household.members) {
+    if (m.kind !== "self" && m.kind !== "spouse") continue;
+    const work = new Map<number, number>();
+    const pension = new Set<number>();
+    for (const c of t) {
+      if (c.member !== m.id || !shown.has(c.year) || c.amount <= 0) continue;
+      if (isWorkRow(c.row)) work.set(c.year, (work.get(c.year) ?? 0) + c.amount);
+      else if (c.row === PENSION_ROW) pension.add(c.year);
+    }
+    out.push({
+      id: m.id,
+      label: m.kind === "self" ? "ご本人" : "配偶者",
+      birthYear: parseYm(m.birth.birthYearMonth).y,
+      work: [...work.keys()].sort((a, b) => a - b),
+      firstIncome: work.get(years[0] ?? NaN) ?? 0,
+      totalIncome: [...work.values()].reduce((s, v) => s + v, 0),
+      pension: years.find((y) => pension.has(y)) ?? null,
+    });
+  }
+  return out;
+}
+
 /**
- * ポイント（前の名前は気づき。決まりで数件。入力は増えない）: 預金が少なくなる年・赤字が続く・教育と介護が重なる・NISA の枠を使い切る年・相続税がかかる見込み。
- * months は「生活費の何か月分」（お金の3つの分け方の設定。既定は6か月）
+ * いまの家計の主な働き手: 表の最初の年の働いて得る収入が多い方（その年にどちらも無ければ、表の期間の合計が多い方）。
+ * だれも働いて得る収入が無ければ null（年金で暮らしている世帯など）
  */
-export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: number; inheritanceTax?: number | null } = {}): Insight[] {
+function mainEarner(adults: readonly Adult[]): Adult | null {
+  const by = (f: (a: Adult) => number) => adults.filter((a) => f(a) > 0).sort((a, b) => f(b) - f(a))[0];
+  return by((a) => a.firstIncome) ?? by((a) => a.totalIncome) ?? null;
+}
+
+// ---- 大きな支出が重なる年 ----
+
+/** 大きな支出の1件（その年の額）。教育費は子ごと・介護は人ごと・夢やライフイベントの支出は行ごと・車の買い替えは車ごと */
+export interface BigSpendItem {
+  key: string;
+  label: string;
+  amount: number;
+}
+
+/** ある年の支出（決め方で選んだ大きな支出・支出の合計・前後の年のふだんの額・生活費） */
+export interface BigSpendYear {
+  year: number;
+  /** 決め方の「大きな支出」の額以上の物（額の多い順） */
+  items: BigSpendItem[];
+  /** 支出の合計（税・社会保険料・黒字の貯まり・取り崩し・繰上返済を除く） */
+  total: number;
+  /** 前後5年（その年を除く）の支出の合計の中央値。比べる年が3つ未満なら null */
+  usual: number | null;
+  /** 生活費（黒字の貯まり・取り崩しを除く） */
+  living: number;
+}
+
+/** 大きな支出が重なる年の決め方（差し替えられるように1つの形にする。見本の世帯での比較は 0074 の追記 2026-11-12） */
+export interface OverlapRule {
+  id: string;
+  /** 決め方の説明（設計記録・比較の表に書く） */
+  label: string;
+  /** この額以上の支出を「大きな支出」と数える */
+  minItem: number;
+  hit: (y: BigSpendYear) => boolean;
+}
+
+const itemsTotal = (y: BigSpendYear) => y.items.reduce((s, x) => s + x.amount, 0);
+
+export const OVERLAP_RULES = {
+  /** 案1: 100万円以上の大きな支出が2件以上ある年 */
+  count: { id: "count", label: "100万円以上の大きな支出が2件以上ある年", minItem: 1_000_000, hit: (y) => y.items.length >= 2 },
+  /** 案2（採用）: 支出の合計が前後の年のふだんの額より2割以上多く、50万円以上の大きな支出が2件以上ある年 */
+  usual: {
+    id: "usual",
+    label: "支出の合計が前後5年のふだんの額（中央値）より2割以上多く、50万円以上の大きな支出が2件以上ある年",
+    minItem: 500_000,
+    hit: (y) => y.items.length >= 2 && y.usual !== null && y.total >= y.usual * 1.2,
+  },
+  /** 案3: 50万円以上の大きな支出が2件以上あり、その合計がその年の生活費の半分以上の年 */
+  living: { id: "living", label: "50万円以上の大きな支出が2件以上あり、その合計がその年の生活費の半分以上の年", minItem: 500_000, hit: (y) => y.items.length >= 2 && itemsTotal(y) >= y.living * 0.5 },
+} satisfies Record<string, OverlapRule>;
+
+/** ポイントに使う決め方 */
+export const OVERLAP_RULE: OverlapRule = OVERLAP_RULES.usual;
+
+const LUMP_LABEL: Record<string, string> = {
+  "cf.expense.lumpSum.car": "車の買い替え",
+  "cf.expense.lumpSum.wedding": "結婚の費用",
+  "cf.expense.lumpSum.funeral": "葬儀の費用",
+  "cf.expense.lumpSum.gift": "贈与・援助",
+  "cf.expense.lumpSum.other": "一時的な支出",
+  "cf.expense.other": "その他の支出",
+};
+
+/** 表の1つの値が、どの大きな支出の物か（大きな支出に数えない行は null）。ふだんの住まいの修繕費・生活費・ローンの返済・保険料などは数えない */
+function bigItemOf(c: TableCell, h: EngineRequest["input"]["household"], names: ReadonlyMap<string, string>): { key: string; label: string } | null {
+  const row = c.row;
+  const who = (id: string | undefined) => (id === undefined ? "ご家族" : (names.get(id) ?? "ご家族"));
+  // 出るお金の行（夢・ライフイベントの支出・修繕・リフォーム・留学など）は行ごと
+  const p = (h.periodicExpenses ?? []).find((x) => x.id === c.object);
+  if (p !== undefined && (row.startsWith("cf.expense.lumpSum") || row.startsWith("cf.expense.education") || row === "cf.expense.other" || row === "cf.expense.housing.maintenance")) {
+    const label = typeof p.label === "string" && p.label !== "" ? p.label : (OUT_KINDS.find((k) => k.kind === p.kind)?.label ?? LUMP_LABEL[row] ?? "支出");
+    return { key: `p:${p.id}`, label: p.kind === "dream" ? `夢「${label}」` : label };
+  }
+  if (row.startsWith("cf.expense.education")) {
+    const g = (h.goals ?? []).find((x) => x.id === c.object);
+    const child = g?.owner ?? c.member;
+    return { key: `edu:${child ?? c.object ?? ""}`, label: child === undefined ? "教育費" : `${who(child)}の教育費` };
+  }
+  if (row.startsWith("cf.expense.care")) {
+    const k = (h.careExpenses ?? []).find((x) => x.id === c.object);
+    return { key: `care:${k?.member ?? c.member ?? c.object ?? ""}`, label: `${who(k?.member ?? c.member)}の介護` };
+  }
+  if (row.startsWith("cf.expense.housing.purchase")) return { key: `buy:${c.object ?? ""}`, label: "住まいの購入（頭金・諸費用）" };
+  if (row.startsWith("cf.expense.lumpSum") || row === "cf.expense.other") return { key: `${row}:${c.object ?? ""}`, label: LUMP_LABEL[row] ?? "一時的な支出" };
+  return null;
+}
+
+const median = (a: readonly number[]): number => {
+  const s = [...a].sort((x, y) => x - y);
+  const n = s.length;
+  return n % 2 === 1 ? (s[(n - 1) / 2] as number) : ((s[n / 2 - 1] as number) + (s[n / 2] as number)) / 2;
+};
+
+/** 表に出す年ごとの支出（大きな支出は rule の額以上の物だけ）。読むだけ */
+export function bigSpendByYear(req: EngineRequest, t: readonly TableCell[], rule: OverlapRule = OVERLAP_RULE): BigSpendYear[] {
+  const years = displayYears(req);
+  const h = req.input.household;
+  const names = memberLabels(fromRequest(req));
+  const items = new Map<number, Map<string, BigSpendItem>>();
+  const total = new Map<number, number>();
+  const living = new Map<number, number>();
+  for (const c of t) {
+    if (!c.row.startsWith("cf.expense.")) continue;
+    if (c.row.startsWith("cf.expense.living.surplus") || c.row.startsWith("cf.expense.living.drawdown") || c.row === "cf.expense.housing.loan.prepayment") continue;
+    total.set(c.year, (total.get(c.year) ?? 0) + c.amount);
+    if (c.row.startsWith("cf.expense.living")) living.set(c.year, (living.get(c.year) ?? 0) + c.amount);
+    const it = bigItemOf(c, h, names);
+    if (it === null) continue;
+    const m = items.get(c.year) ?? new Map<string, BigSpendItem>();
+    const x = m.get(it.key) ?? { key: it.key, label: it.label, amount: 0 };
+    x.amount += c.amount;
+    m.set(it.key, x);
+    items.set(c.year, m);
+  }
+  return years.map((year) => {
+    const near = years.filter((y) => y !== year && Math.abs(y - year) <= 5).map((y) => total.get(y) ?? 0);
+    return {
+      year,
+      items: [...(items.get(year)?.values() ?? [])].filter((x) => x.amount >= rule.minItem).sort((a, b) => b.amount - a.amount),
+      total: total.get(year) ?? 0,
+      usual: near.length >= 3 ? median(near) : null,
+      living: living.get(year) ?? 0,
+    };
+  });
+}
+
+/** 大きな支出が重なる年（rule に当たる年。年の順） */
+export function bigSpendOverlaps(req: EngineRequest, t: readonly TableCell[], rule: OverlapRule = OVERLAP_RULE): BigSpendYear[] {
+  return bigSpendByYear(req, t, rule).filter((y) => rule.hit(y));
+}
+
+/** 前後の年より何割多いか（「約8割」「約2.3倍」。1割未満・比べる年が無ければ null） */
+function moreText(y: BigSpendYear): string | null {
+  if (y.usual === null || y.usual <= 0) return null;
+  const r = y.total / y.usual;
+  if (r < 1.1) return null;
+  return r >= 2 ? `約${(Math.round(r * 10) / 10).toFixed(1)}倍に` : `約${String(Math.round((r - 1) * 10))}割多く`;
+}
+
+/** 年の並びの短い文（続く年は「2031〜2033年」、離れた年は「・」でつなぐ。4つ目のまとまりからは「など」） */
+function yearsText(ys: readonly number[]): string {
+  const runs: [number, number][] = [];
+  for (const y of [...ys].sort((a, b) => a - b)) {
+    const last = runs.at(-1);
+    if (last !== undefined && y === last[1] + 1) last[1] = y;
+    else runs.push([y, y]);
+  }
+  const parts = runs.slice(0, 3).map(([a, b]) => (a === b ? String(a) : `${String(a)}〜${String(b)}`));
+  return `${parts.join("・")}年${runs.length > 3 ? "など" : ""}`;
+}
+
+function bigSpendInsight(req: EngineRequest, t: readonly TableCell[], rule: OverlapRule): Insight | null {
+  const hits = bigSpendOverlaps(req, t, rule);
+  if (hits.length === 0) return null;
+  // いちばん大きく重なる年（大きな支出の合計が多い年）を出し、ほかの年は括弧に
+  const peak = [...hits].sort((a, b) => itemsTotal(b) - itemsTotal(a) || a.year - b.year)[0] as BigSpendYear;
+  const shown = peak.items.slice(0, 3).map((x) => `${x.label}${man(x.amount)}万円`);
+  const list = `${shown.join("・")}${peak.items.length > 3 ? "など" : ""}`;
+  const more = moreText(peak);
+  const others = hits.filter((y) => y.year !== peak.year).map((y) => y.year);
+  const rest = others.length === 0 ? "" : `（ほかに${yearsText(others)}）`;
+  return { key: "bigSpend", title: "大きな支出が重なる年", text: `${peak.year}年に、${list}が重なり${more !== null ? `、支出が前後の年より${more}なります` : "ます"}${rest}`, year: peak.year };
+}
+
+// ---- 住宅ローン控除が終わる年 ----
+
+/**
+ * 住宅ローン控除を受けない計算の要求（控除の期間の中か、これから入居する住宅ローンの控除を止めた写し）。そういうローンが無ければ null。
+ * 控除が終わる年と手取りの減り方は、この計算と今の計算の所得税・住民税の違いから読む（計算エンジンの表に控除の額の行は無い）
+ */
+export function withoutHousingCredit(req: EngineRequest): EngineRequest | null {
+  const h = req.input.household;
+  const active = (h.debts ?? []).filter((d) => d.housing !== undefined && creditActive(h, d.housing, req.input.baseMonth));
+  if (active.length === 0) return null;
+  const ids = new Set(active.map((d) => d.id));
+  const q = structuredClone(req) as EngineRequest;
+  for (const d of q.input.household.debts ?? []) if (ids.has(d.id) && d.housing !== undefined) (d.housing as { creditDisabled?: boolean }).creditDisabled = true;
+  return q;
+}
+
+const TAX_ROWS = new Set(["cf.taxSi.incomeTax", "cf.taxSi.residentTax"]);
+
+/** 住宅ローン控除を受ける（今の）計算と受けない計算の結果の組 */
+export interface CreditPair {
+  on: PreviewResult;
+  off: PreviewResult;
+}
+
+function creditInsight(years: readonly number[], { on: r, off }: CreditPair): Insight | null {
+  const tax = (t: readonly TableCell[], row: string) => sumBy(t, (c) => c.row === row);
+  const itNow = tax(r.table, "cf.taxSi.incomeTax");
+  const itOff = tax(off.table, "cf.taxSi.incomeTax");
+  const allNow = sumBy(r.table, (c) => TAX_ROWS.has(c.row));
+  const allOff = sumBy(off.table, (c) => TAX_ROWS.has(c.row));
+  // 1,000円未満の違いは端数とみる
+  const credited = (a: Map<number, number>, b: Map<number, number>) => years.filter((y) => (b.get(y) ?? 0) - (a.get(y) ?? 0) >= 1000);
+  // 控除の最後の年: 所得税が軽くなる最後の年（所得税から引ききれない分の住民税の軽減は翌年・翌々年にずれて出るので、所得税で決める）
+  const last = credited(itNow, itOff).at(-1) ?? credited(allNow, allOff).at(-1);
+  if (last === undefined || last === years.at(-1)) return null;
+  const amount = (allOff.get(last) ?? 0) - (allNow.get(last) ?? 0);
+  return {
+    key: "housingCredit",
+    title: "住宅ローン控除が終わる年",
+    text: `${last}年で住宅ローン控除が終わり、翌年から手取りが年${man(amount)}万円ほど減ります（${last}年の所得税・住民税の軽減の額）`,
+    year: last,
+  };
+}
+
+// ---- 退職から年金までの空白・退職後もローンが残る ----
+
+function retireGapInsights(adults: readonly Adult[]): Insight[] {
+  const out: Insight[] = [];
+  for (const a of adults) {
+    const last = a.work.at(-1);
+    // 年の単位で見るので、1年の違い（退職の翌年に年金が始まる）は月の違いのことがあり、出さない
+    if (last === undefined || a.pension === null || a.pension - last < 2) continue;
+    const partner = adults.find((x) => x.id !== a.id);
+    const pw = partner === undefined ? [] : partner.work.filter((y) => y > last && y < (a.pension as number));
+    const note = partner === undefined || pw.length === 0 ? "" : pw.length === a.pension - last - 1 ? `（その間も${partner.label}の働く収入があります）` : `（${partner.label}の働く収入は${String(pw.at(-1))}年まで）`;
+    out.push({
+      key: `retireGap:${a.id}`,
+      title: "退職から年金までの空白",
+      text: `${a.label}が${String(last - a.birthYear)}歳で退職してから年金の受け取りまで${String(a.pension - last)}年、収入が少ない期間があります${note}`,
+      year: last + 1,
+    });
+  }
+  return out;
+}
+
+const DEBT_NAME: Record<string, string> = { mortgage: "住宅ローン", car: "自動車ローン", scholarship: "奨学金", other: "その他のローン" };
+
+function loanAfterRetireInsights(req: EngineRequest, t: readonly TableCell[], years: readonly number[], adults: readonly Adult[]): Insight[] {
+  const out: Insight[] = [];
+  const end = years.at(-1);
+  if (end === undefined) return out;
+  for (const d of req.input.household.debts ?? []) {
+    const debtor = d.debtors.find((x) => x.role === "primary") ?? d.debtors.find((x) => x.role !== "guarantor");
+    const a = adults.find((x) => x.id === debtor?.member);
+    const retire = a?.work.at(-1);
+    if (a === undefined || retire === undefined || retire >= end) continue;
+    const bal = sumBy(t, (c) => c.object === d.id && c.row.startsWith("cf.balance.debt"));
+    const lastOwed = years.filter((y) => (bal.get(y) ?? 0) > 0).at(-1);
+    if (lastOwed === undefined) continue;
+    const name = `${DEBT_NAME[d.kind] ?? "ローン"}${typeof d.label === "string" && d.label !== "" ? `「${d.label}」` : ""}${adults.length > 1 ? `（${a.label}）` : ""}`;
+    if (lastOwed === end) {
+      out.push({ key: `loanAfterRetire:${d.id}`, title: "退職後もローンが残る", text: `${name}は表の最後の年（${String(end)}年）まで返済が続き、退職後も${String(end - retire)}年以上返済があります`, year: retire + 1 });
+      continue;
+    }
+    // 年末の残高が0になる年が完済の年（繰上返済の予定も計算に入っている）
+    const payoff = lastOwed + 1;
+    if (payoff <= retire) continue;
+    out.push({
+      key: `loanAfterRetire:${d.id}`,
+      title: "退職後もローンが残る",
+      text: `${name}の完済は${String(payoff - a.birthYear)}歳（${String(payoff)}年）で、${payoff - retire === 1 ? "退職の翌年まで" : `退職後も${String(payoff - retire)}年`}返済が続きます`,
+      year: payoff,
+    });
+  }
+  return out;
+}
+
+/**
+ * ポイント（前の名前は気づき。決まりで数件。入力は増えない。0074 の追記 2026-11-12 で見直した）: 預金が少なくなる年・赤字が続く（働いている間）・
+ * 大きな支出が重なる年・退職から年金までの空白・退職後もローンが残る・住宅ローン控除が終わる年・相続税がかかる見込み。
+ * months は「生活費の何か月分」（お金の3つの分け方の設定。既定は6か月）。credit は住宅ローン控除を受ける・受けない計算の組（`withoutHousingCredit`。無ければ控除のポイントは出さない）。
+ * overlapRule は大きな支出が重なる年の決め方（既定は OVERLAP_RULE）
+ */
+export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: number; inheritanceTax?: number | null; credit?: CreditPair | null; overlapRule?: OverlapRule } = {}): Insight[] {
   const years = displayYears(req);
   const t = r.table;
   const out: Insight[] = [];
@@ -304,34 +618,31 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
   const living = sumBy(t, (c) => c.row.startsWith("cf.expense.living") && !c.row.startsWith("cf.expense.living.surplus") && !c.row.startsWith("cf.expense.living.drawdown"));
   if (deposit.size > 0) {
     const y = years.find((yy) => (living.get(yy) ?? 0) > 0 && (deposit.get(yy) ?? 0) < ((living.get(yy) ?? 0) / 12) * months);
-    if (y !== undefined) out.push({ key: "deposit", title: "預金が少なくなる年", text: `${y}年に預金が生活費の${months}か月分（${man(((living.get(y) ?? 0) / 12) * months)}万円）を下回ります（${man(deposit.get(y) ?? 0)}万円）`, year: y });
-  }
-  const net = sumBy(t, (c) => c.row === "cf.net");
-  let run: number[] = [];
-  for (const y of years) {
-    if ((net.get(y) ?? 0) < 0) run.push(y);
-    else if (run.length >= 3) break;
-    else run = [];
-  }
-  if (run.length >= 3) out.push({ key: "deficit", title: "赤字が続く", text: `${run[0]}年から${run.at(-1)}年まで${run.length}年続けて年間収支が赤字です`, year: run[0] ?? null });
-  const edu = sumBy(t, (c) => c.row.startsWith("cf.expense.education"));
-  const care = sumBy(t, (c) => c.row.startsWith("cf.expense.care"));
-  const both = years.filter((y) => (edu.get(y) ?? 0) > 0 && (care.get(y) ?? 0) > 0);
-  if (both.length > 0) out.push({ key: "eduCare", title: "教育と介護が重なる", text: `${both[0]}年${both.length > 1 ? `から${both.length}年` : ""}、教育費と介護の費用が同じ年にかかります`, year: both[0] ?? null });
-  const frame = new Map<string, Map<number, number>>();
-  for (const c of t) {
-    if (c.row !== "cf.balance.nisaFrame") continue;
-    const k = c.member ?? "";
-    const m = frame.get(k) ?? new Map<number, number>();
-    m.set(c.year, (m.get(c.year) ?? 0) + c.amount);
-    frame.set(k, m);
-  }
-  for (const [member, m] of frame) {
-    const y = years.find((yy, i) => i > 0 && (m.get(yy) ?? 1) <= 0 && (m.get(years[i - 1] as number) ?? 0) > 0);
     if (y !== undefined) {
-      const who = req.input.household.members.find((x) => x.id === member);
-      out.push({ key: `nisa:${member}`, title: "NISA の枠を使い切る年", text: `${y}年に${who?.kind === "spouse" ? "配偶者の" : who?.kind === "self" ? "ご本人の" : ""}NISA の生涯の投資枠を使い切ります（その後の積立は課税口座で計算します）`, year: y });
+      const left = deposit.get(y) ?? 0;
+      out.push({ key: "deposit", title: "預金が少なくなる年", text: `${y}年に、預金が生活費の${months}か月分（${man(((living.get(y) ?? 0) / 12) * months)}万円）を下回り、${toMan(left) <= 0 ? "なくなります" : `${man(left)}万円になります`}`, year: y });
     }
+  }
+  // 赤字が続く: 働いている間（いまの主な働き手が働く最後の年まで）だけで見る。退職した後の赤字は貯めたお金の取り崩しで、出るのが当たり前なので出さない
+  const adults = adultsOf(req, t, years);
+  const workEnd = mainEarner(adults)?.work.at(-1);
+  if (workEnd !== undefined) {
+    const net = sumBy(t, (c) => c.row === "cf.net");
+    let run: number[] = [];
+    for (const y of years.filter((yy) => yy <= workEnd)) {
+      if ((net.get(y) ?? 0) < 0) run.push(y);
+      else if (run.length >= 3) break;
+      else run = [];
+    }
+    if (run.length >= 3) out.push({ key: "deficit", title: "赤字が続く", text: `働いている間の${run[0]}年から${run.at(-1)}年まで、${run.length}年続けて年間収支が赤字です`, year: run[0] ?? null });
+  }
+  const big = bigSpendInsight(req, t, opts.overlapRule ?? OVERLAP_RULE);
+  if (big !== null) out.push(big);
+  out.push(...retireGapInsights(adults));
+  out.push(...loanAfterRetireInsights(req, t, years, adults));
+  if (opts.credit != null) {
+    const c = creditInsight(years, opts.credit);
+    if (c !== null) out.push(c);
   }
   if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: `いま亡くなったときの相続税の目安は${man(opts.inheritanceTax)}万円です（相続・贈与の項目）`, year: null });
   return out;

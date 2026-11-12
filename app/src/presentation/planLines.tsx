@@ -33,11 +33,11 @@ export function PlanSwatch({ style, w = 34, h = 14 }: { style: PlanStyle; w?: nu
 
 /**
  * グラフの種類ごとに、各プランの何の線を描くか（見出し・凡例・年の表示に出す）。zone は 0未満の範囲の読み方（凡例の右端とグラフの薄い地の中）。
- * 金融資産は出さない（0未満が不足なのは見れば分かるため。AI接続口のグラフ〔connector/chart.ts〕は別に持つ）
+ * 金融資産（2026-11-12）・収支（2026-11-13）とも出さない（0未満が不足・赤字なのは見れば分かるため。AI接続口のグラフ〔connector/chart.ts〕は別に持つ）
  */
 export const MULTI_WHAT: Record<ChartMode, { lead: string; caption: string; zone: string | null }> = {
   assets: { lead: "金融資産", caption: "全部のプランの金融資産の推移（色で描き分け）", zone: null },
-  flows: { lead: "年間収支", caption: "全部のプランの年間収支（収入−支出）の線（積み上げの棒は出しません）", zone: "0未満は赤字" },
+  flows: { lead: "年間収支", caption: "全部のプランの年間収支（収入−支出）の線（積み上げの棒は出しません）", zone: null },
 };
 
 /** そのプランのその種類の線（計算中は null） */
