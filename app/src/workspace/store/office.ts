@@ -32,7 +32,7 @@ export const OFFICE_MESSAGES: Record<string, string> = {
   E_STORE_NO_FORK: "選ぶ分岐がありません",
 };
 
-/** 事務所の確かめ用の番号の入力を比べられる形にする（指紋と同じく区切り・空白・小文字・全角を吸収。O→0、I・L→1）。16文字でなければ null */
+/** 事務所の確かめ用の番号の入力を比較できる形にする（指紋と同じく区切り・空白・小文字・全角を吸収。O→0、I・L→1）。16文字でなければ null */
 export const normalizeOfficeCode = normalizeFingerprint;
 
 /** 外す画面と外した後に、目立つ形で出す案内（0023 の4・残る危険） */
@@ -40,7 +40,7 @@ export const syncShareNotice = (name: string) => `共有フォルダの共有の
 
 export const officeMessage = (code: string) => OFFICE_MESSAGES[code] ?? `事務所の共有の操作に失敗しました（${code}）`;
 
-/** 指紋の入力を比べられる形にする（区切り・空白・小文字・全角を吸収。O→0、I・L→1）。16文字でなければ null */
+/** 指紋の入力を比較できる形にする（区切り・空白・小文字・全角を吸収。O→0、I・L→1）。16文字でなければ null */
 export function normalizeFingerprint(input: string): string | null {
   const s = input
     .replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))

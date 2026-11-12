@@ -185,9 +185,9 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
     expect(retire(m.baseCharts.events)).toBe(retire(toPresentation({ base: demo.wh.request, proposal: reqB, current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false }).events));
   });
 
-  it("表示の設定に「比べ方: 重ねる（既定）／左右に並べる」。URL の #layout=side でも開ける", () => {
+  it("表示の設定に「比較の仕方: 重ねる（既定）／左右に並べる」。URL の #layout=side でも開ける", () => {
     const html = renderToString(h(DisplaySettingsPanel, { value: DEFAULT_DISPLAY_SETTINGS, onChange: noop, onClose: noop, feeAvailable: false }));
-    expect(html).toContain("比べ方");
+    expect(html).toContain("比較の仕方");
     expect(html).toMatch(/value="overlay" checked/);
     expect(html).toContain("重ねる（既定）");
     expect(html).toContain("左右に並べる");

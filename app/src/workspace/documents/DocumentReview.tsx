@@ -352,7 +352,7 @@ export function DocumentReview(p: DocumentReviewProps) {
                       <tr key={x.id} data-documents-reference={x.id}>
                         <td>{x.label}</td>
                         <td>{yen(x.amount)}</td>
-                        <td>{x.calc !== null ? yen(x.calc) : <span class="in-note">比べられません</span>}</td>
+                        <td>{x.calc !== null ? yen(x.calc) : <span class="in-note">比較できません</span>}</td>
                         <td>{x.calc !== null ? `${x.calc >= x.amount ? "+" : "−"}${yen(x.calc - x.amount)}` : "—"}</td>
                       </tr>
                     ))}

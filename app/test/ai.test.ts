@@ -64,7 +64,7 @@ const candidate = (diffs: AiCandidate["diffs"], title = "物価の想定を下�
   shareId: "s-1",
   receivedAt: NOW,
   title,
-  summary: "比べるため",
+  summary: "比較するため",
   diffs,
   origin: { kind: "ai", connector: "client 1.0" },
   status: "pending",
@@ -203,7 +203,7 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     }
   });
 
-  it("出すかは、AIに渡している世帯の保存した現状の入力と、画面の現状の入力を中身で比べて決める（0184 の追記）", () => {
+  it("出すかは、AIに渡している世帯の保存した現状の入力と、画面の現状の入力を中身で比較して決める（0184 の追記）", () => {
     const { wh } = open();
     const body = (w: typeof wh) => bodyOf({ wh: w, workspace: { template: null, band: [], base: "current", selected: "current", shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY });
     const saved = savedInputOf(body(wh));

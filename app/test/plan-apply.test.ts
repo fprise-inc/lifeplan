@@ -13,7 +13,7 @@ import { roles } from "../src/workspace/roles.ts";
 import { resolveKey } from "../src/workspace/store/readings.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
-/** 欄の並びを問わずに比べる JSON */
+/** 欄の並びを問わずに比較する JSON */
 const canon = (v: unknown): string => JSON.stringify(v, (_k, x: unknown) => (x !== null && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1))) : x));
 const ids = readdirSync(join(REPO_DIR, "data", "modelHouseholds")).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""));
 

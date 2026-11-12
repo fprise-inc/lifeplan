@@ -79,7 +79,7 @@
   - `point` … その年の指標。率は書式を当てた文字列（`5.2%`・`1.16倍`。分母が0・無いときは `—`）: `grossYield` 表面利回り（民泊・宿は `—`。`actualRent` の物件は今の収入での表面利回り）・`netYield` 実質利回り・`breakEven` 損益分岐の入居率（`actualRent` の物件は `—`）・`repaymentRatio` 返済比率・`dscr` 返済余裕率・`ltv` 借入の割合・`ccr` 自己資金に対する手残りの割合。`monthlyBeforeTax`・`monthlyAfterTax` 月の手残り（円）、`unrealizedGain` 含み益（評価額−帳簿価額〔取得価額＋取得時の諸費用−減価償却の累計〕。取得価額が無ければ null）、`equity` 売ったときの手残りの目安（評価額−ローン残高。売却の費用・税は引かない）、`age`・`remainingLife` 築年数・残りの耐用年数、`lodging` 民泊・宿の稼働率・1泊の単価・営業日数・年の売上
   - `years[]` … 年ごと（表の年のうち持っている年）: `rent`・`expenses`・`repairs`・`depreciation`・`interest`・`income`・`repayment`・`cashBeforeTax`・`tax`（その物件で増える税と社会保険料の近似）・`cashAfterTax`・`loanBalance`・`value`・`deadCross`（その年が元金の返済が減価償却費を上回る最初の年か）
   - `exit` … 今の予定の売却（手取り・ローンの一括返済・譲渡所得の税・税引後の手取り `net`）。売らなければ null
-  - `saleCompare` … 売る年を変えた比べ（`rows[]` の `label`・`current`・`net` 税引後の手取り・`financialEnd` 表の最後の年の金融資産・`diff` 今の予定との差・`equityEnd` 表の最後の年の評価額−ローン残高）。材料が無ければ null
+  - `saleCompare` … 売る年を変えた比較（`rows[]` の `label`・`current`・`net` 税引後の手取り・`financialEnd` 表の最後の年の金融資産・`diff` 今の予定との差・`equityEnd` 表の最後の年の評価額−ローン残高）。材料が無ければ null
 - `rental.total` … 全物件の合計（物件が2件以上のとき。`point` と `years`）。1件なら null
 
 ## 見本

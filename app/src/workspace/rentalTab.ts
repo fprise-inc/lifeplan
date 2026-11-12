@@ -4,7 +4,7 @@
 // - 年は他の画面と同じ並び（displayYears。計算基準月が1月でなければ翌年から）。指標を見る年の既定は表の最初の年
 // - 月の手残り＝年換算÷12＝その年の手残り÷貸している月数（円未満は0の側へ切り捨て）。全体の月の手残りは物件の月の手残り（切り捨てた後の、
 //   行に出す額）の合計。端数を足してから切り捨てると、物件の行の合計と合計の行が1円ずれるため（提案書の全体の1枚も同じ）
-// - 売る年を変えた比べ（report/src/rentalSale.ts）: 見ているプランの要求から、見ている物件の売る年だけを変えた写しの要求を作り、画面の側の計算で求める。
+// - 売る年を変えた比較（report/src/rentalSale.ts）: 見ているプランの要求から、見ている物件の売る年だけを変えた写しの要求を作り、画面の側の計算で求める。
 //   今の予定の売り方は計算し直さず、そのプランの結果を使う。タブを開いて物件を見ている間だけ求め、計算し直している間は前の結果を見せる
 // - 入力項目「収益不動産」の物件の一覧表の利回り・月の手残り（rentalFigures）も、同じ数字の表の最初の年から読む
 import { useEffect, useMemo, useState } from "preact/hooks";
@@ -360,7 +360,7 @@ export interface RentalUi {
   year: number | null;
 }
 
-/** 売る年を変えた比べの今の状態（useRentalSale） */
+/** 売る年を変えた比較の今の状態（useRentalSale） */
 export type RentalSaleState = { object: string; status: "loading" } | { object: string; status: "ready"; compare: SaleCompare | null };
 
 const saleModelOf = (s: RentalSaleState | null, object: string): RentalSaleModel | null => {
@@ -403,12 +403,12 @@ export function rentalTabModel(p: { req: EngineRequest; result: PreviewResult; u
 
 // ---- 写しの要求の計算（画面の側。0075 の「写しの要求」） ----
 
-// ---- 売る年を変えた比べの行から、その売り方のプランを作る（0128）----
+// ---- 売る年を変えた比較の行から、その売り方のプランを作る（0128）----
 // 作り方は帯の「＋ このプランを元に作る」（見ているプランを土台にした新しいプラン）と同じで、そのプランに、入力画面でプランを直したときと
-// 同じ差分の記録（recordPlanEdit）で、その物件の売る年だけを変えた差分を足す。売り方は比べの行の写しの要求（saleVariantRequest）と同じ:
+// 同じ差分の記録（recordPlanEdit）で、その物件の売る年だけを変えた差分を足す。売り方は比較の行の写しの要求（saleVariantRequest）と同じ:
 // 売る年（持ち続けるなら売却の予定を外す）・その年の評価額で売る（売却価格は外す）・売却の費用の割合と売ったときにローンを返すかは今の予定のまま
 
-/** 比べの行の鍵から売り方（今の予定の行・見つからない鍵は null） */
+/** 比較の行の鍵から売り方（今の予定の行・見つからない鍵は null） */
 export function saleVariantOf(req: EngineRequest, object: string, key: string): SaleVariant | null {
   const v = saleVariants(asReport(req), object).find((x) => x.key === key);
   return v === undefined || v.current ? null : v;
@@ -426,26 +426,26 @@ export function recordSaleVariant(wh: WorkingHousehold, cat: Catalog, pid: strin
   return recordPlanEdit(wh, cat, pid, before, after);
 }
 
-/** 物件の名前（物件名、無ければ「物件1」…。比べの行のプランの名前に使う） */
+/** 物件の名前（物件名、無ければ「物件1」…。比較の行のプランの名前に使う） */
 export const rentalPropertyName = (req: EngineRequest, object: string): string => nameOf(req, object).name;
 
 type ComputeOne = (req: EngineRequest) => Promise<PreviewResult | null>;
 
-/** 物件の売る年の比べに要る写しの要求（今の予定は null＝プランの結果を使う）。比べる売り方が1つ以下なら null */
+/** 物件の売る年の比較に要る写しの要求（今の予定は null＝プランの結果を使う）。比較する売り方が1つ以下なら null */
 export function saleJobs(req: EngineRequest, object: string): { variants: SaleVariant[]; requests: (EngineRequest | null)[] } | null {
   const variants = saleVariants(asReport(req), object);
   if (variants.length < 2) return null;
   return { variants, requests: variants.map((v) => (v.current ? null : asApp(saleVariantRequest(asReport(req), object, v)))) };
 }
 
-/** 写しの結果から比べの行を作る（current はプランの結果） */
+/** 写しの結果から比較の行を作る（current はプランの結果） */
 export function saleCompareFrom(req: EngineRequest, object: string, variants: readonly SaleVariant[], results: readonly (PreviewResult | null)[], current: PreviewResult): SaleCompare | null {
   const rs = variants.map((v, i) => (v.current ? current : (results[i] ?? null))) as unknown as (SaleResult | null)[];
   return saleCompareOf(object, req.input.endYear, variants, rs);
 }
 
 /**
- * 売る年を変えた比べ（見ている物件の分だけ）。active の間だけ求め、計算し直している間は前の結果（同じ物件のもの）を見せる。
+ * 売る年を変えた比較（見ている物件の分だけ）。active の間だけ求め、計算し直している間は前の結果（同じ物件のもの）を見せる。
  * 初めて求める物件は loading。計算の道が無ければ null
  */
 export function useRentalSale(req: EngineRequest | null, result: PreviewResult | null, object: string | null, active: boolean, computeOne: ComputeOne | undefined): RentalSaleState | null {

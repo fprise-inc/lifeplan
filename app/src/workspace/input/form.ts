@@ -355,7 +355,7 @@ export interface StageDef {
   sections: SectionDef[];
 }
 
-// ---- 値の比べ方 ----
+// ---- 値の比較の仕方 ----
 
 export function sameVal(a: Val, b: Val, kind: FieldDef["kind"]): boolean {
   if (kind === "pct" || kind === "decimal") return sameRate(a as string | null, b as string | null);
@@ -383,7 +383,7 @@ export function field(def: FieldDef): FieldDef {
     ...(def.kind === "pct" && (def.min !== undefined || def.max !== undefined) ? { get: outOfRangeNotice(def, write) } : {}),
     set: (wh, v) => {
       const cur = def.get(wh);
-      // 時点の欄は、時点の形で渡されたら入っている形と比べる（年月の文字なら年月で比べる）。同じなら推定でも何も変えない（0041）
+      // 時点の欄は、時点の形で渡されたら入っている形と比較する（年月の文字なら年月で比較する）。同じなら推定でも何も変えない（0041）
       const now = def.kind === "when" && typeof v === "object" ? (cur.when?.raw ?? null) : cur.value;
       if (sameVal(now, v, def.kind)) return wh;
       return write(wh, v);

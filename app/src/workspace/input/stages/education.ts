@@ -72,12 +72,12 @@ export const COURSE_PRESETS: { value: string; label: string; sectors: Record<str
 ];
 
 /**
- * 段の並びが当たる進路の型（当たらなければ ""＝自分で選ぶ）。型に無い段は、型のどの段の代わりかで比べる:
+ * 段の並びが当たる進路の型（当たらなければ ""＝自分で選ぶ）。型に無い段は、型のどの段の代わりかで比較する:
  * 高校のあとの短大・専門学校は大学の代わり、高専は高校の代わり（型を選ぶとその段の公立・私立は変えないので、合わなければ「自分で選ぶ」になる）。
- * 代わりに比べるときは、国立と公立を同じ側（国公立）として比べる。大学院は型の外なので比べない
+ * 代わりに比較するときは、国立と公立を同じ側（国公立）として比較する。大学院は型の外なので比較しない
  */
 export function presetOf(stages: readonly EducationStage[]): string {
-  // 公立・私立の欄で「公立」を選ぶと値が空になる（空は公立。計算も同じ）ので、空は公立として型と比べる
+  // 公立・私立の欄で「公立」を選ぶと値が空になる（空は公立。計算も同じ）ので、空は公立として型と比較する
   const side = (x: string) => (x === "national" ? "public" : x);
   const matches = (p: (typeof COURSE_PRESETS)[number], s: EducationStage): boolean => {
     const sector = s.sector ?? "public";

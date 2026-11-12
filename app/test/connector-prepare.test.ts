@@ -1,7 +1,7 @@
 // AI接続口の計算の前の処理（0184）: 接続口に同梱する prepare（src/connector/prepare.ts）が、画面がエンジンへ渡す前に当てる処理
 // （engine/moneyRows.ts の forEngine。事務所の推定の値は、画面が事務所データを読んで publishOfficeSettings で入れた物）と同じ要求を作ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の calculation_matches_the_screen_after_preparation）は、ここで作る見本
-// （前処理が効く世帯・事務所の推定の値・画面の数字と根拠）を、本物の接続口に渡された世帯として MCP で計算させて比べる。
+// （前処理が効く世帯・事務所の推定の値・画面の数字と根拠）を、本物の接続口に渡された世帯として MCP で計算させて比較する。
 // 見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

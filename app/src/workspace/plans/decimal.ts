@@ -44,7 +44,7 @@ export function divRate(a: string, b: string, digits = 10): string {
   return toText(num / den, digits).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
 }
 
-/** a と b の比べ方（a<b: -1, 同じ: 0, a>b: 1） */
+/** a と b の比較の仕方（a<b: -1, 同じ: 0, a>b: 1） */
 export function cmpRate(a: string, b: string): number {
   const s = subRate(a, b);
   return s === "0" ? 0 : s.startsWith("-") ? -1 : 1;

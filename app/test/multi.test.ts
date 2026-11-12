@@ -1,4 +1,4 @@
-// 比べ方「全部のプランを色分けで重ねる」: プランごとの線の色（実線・同じ丸。色はプランの内部 ID ごとに固定）、資産・収支の2つのグラフ（資産と負債の推移は「資産と負債」のタブ）、
+// 比較の仕方「全部のプランを色分けで重ねる」: プランごとの線の色（実線・同じ丸。色はプランの内部 ID ごとに固定）、資産・収支の2つのグラフ（資産と負債の推移は「資産と負債」のタブ）、
 // 凡例の強調と一時的に隠す（縦の目盛りはできるだけ動かさない）、年の表示（全部のプランの値を帯の順に）、帯のカードの印、説明モードでは1本のまま、
 // 提示層に渡すのはプランの名前と色の番号と数字だけ
 import { readFileSync } from "node:fs";
@@ -477,7 +477,7 @@ describe("凡例と帯のカード", () => {
 });
 
 describe("表示の設定", () => {
-  it("比べ方に「全部のプランを色分けで重ねる」。既定は重ねるのまま。URL の #layout=all でも開ける", () => {
+  it("比較の仕方に「全部のプランを色分けで重ねる」。既定は重ねるのまま。URL の #layout=all でも開ける", () => {
     expect(DEFAULT_DISPLAY_SETTINGS.layout).toBe("overlay");
     expect(LAYOUT_CHOICES.map((c) => c.key)).toEqual(["overlay", "side", "all"]);
     const html = renderToString(h(DisplaySettingsPanel, { value: { ...DEFAULT_DISPLAY_SETTINGS, layout: "all" }, onChange: noop, onClose: noop, feeAvailable: false }));

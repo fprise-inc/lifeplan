@@ -24,7 +24,7 @@ export interface MedicalPart {
 
 /**
  * 病気の想定で受け取る見込み（給付ごと。0円の給付は入れない。計算エンジンの insurance.policy と同じ決まり）。
- * 起きる月に保障が続いているかは見ない（呼ぶ側が計算の結果の額と比べる）
+ * 起きる月に保障が続いているかは見ない（呼ぶ側が計算の結果の額と比較する）
  */
 export function medicalParts(c: InsuranceContract, member: string, ill: Illness): MedicalPart[] {
   const out: MedicalPart[] = [];

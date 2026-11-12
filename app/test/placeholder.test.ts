@@ -1,5 +1,5 @@
 // 欄の灰色の入力例（placeholder）が欄の幅に収まること（0077）: 見本の世帯と空の世帯で、どのカードのパネルも標準・詳細で描き、
-// 入力例のある欄をすべて集めて、欄の種類ごとの幅の目安（placeholder.ts）と比べる。収まらない例は短くするか「?」の中へ
+// 入力例のある欄をすべて集めて、欄の種類ごとの幅の目安（placeholder.ts）と比較する。収まらない例は短くするか「?」の中へ
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

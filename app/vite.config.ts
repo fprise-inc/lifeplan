@@ -873,7 +873,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         r.proposals.push({ candidateId: cid, at: now });
       } else if (a.kind === "propose") {
         const cid = crypto.randomUUID();
-        b.candidates.push({ id: cid, source: "ai", shareId: s.shareId, receivedAt: now, title: "物価の上がり方を年1.5%で見直したプラン", summary: "物価の前提を少し高めにし、老後の金融資産がどれだけ変わるかを比べるためのプランです。", diffs: [{ id: crypto.randomUUID(), target: { plan: "assumptions" }, item: "assumptions.inflation", op: "set", value: "0.015", note: "最近の物価の動きに合わせて高めに見る" }, { id: crypto.randomUUID(), target: { plan: "assumptions" }, item: "assumptions.marketShocks", op: "set", value: [{ year: 2030, drop: "0.3" }], note: "下落の年を足す" }], origin: { kind: "ai", connector: "dev-client 1.0" }, status: "pending", decidedAt: null, decidedBy: null, planId: null });
+        b.candidates.push({ id: cid, source: "ai", shareId: s.shareId, receivedAt: now, title: "物価の上がり方を年1.5%で見直したプラン", summary: "物価の前提を少し高めにし、老後の金融資産がどれだけ変わるかを比較するためのプランです。", diffs: [{ id: crypto.randomUUID(), target: { plan: "assumptions" }, item: "assumptions.inflation", op: "set", value: "0.015", note: "最近の物価の動きに合わせて高めに見る" }, { id: crypto.randomUUID(), target: { plan: "assumptions" }, item: "assumptions.marketShocks", op: "set", value: [{ year: 2030, drop: "0.3" }], note: "下落の年を足す" }], origin: { kind: "ai", connector: "dev-client 1.0" }, status: "pending", decidedAt: null, decidedBy: null, planId: null });
         r.proposals.push({ candidateId: cid, at: now });
       } else {
         const last = r.reads.at(-1);

@@ -29,7 +29,7 @@ export interface SlotView {
   stale: boolean;
   /**
    * 表示する結果を計算した要求の札（set・slide で要求と一緒に渡した文字。無ければ null）。要求を置き直してから新しい結果が出るまでは、
-   * 前の要求の札のまま（呼ぶ側は、見出しと違う要求の結果を出さないために、今の札と比べる）
+   * 前の要求の札のまま（呼ぶ側は、見出しと違う要求の結果を出さないために、今の札と比較する）
    */
   tag: string | null;
 }
@@ -54,7 +54,7 @@ interface Slot {
   source: ResultSource | null;
   error: string | null;
   errorIds: readonly string[];
-  /** 先出しの表（正の計算と比べるため。rev ごと） */
+  /** 先出しの表（正の計算と比較するため。rev ごと） */
   previewTable: { rev: number; table: string } | null;
 }
 

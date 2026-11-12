@@ -351,7 +351,7 @@ describe("画面の大枠の状態", () => {
     expect(describeSnap(snap(), snap({ settings: { ...DEFAULT_DISPLAY_SETTINGS, atAge: 80 } }), none)).toBe("表示の設定");
     expect(describeSnap(snap(), snap({ wh: { ...wh, proposals: [] , labelsByMember: { a: "b" } } }), { control: "保存", dialog: "仕事と収入" })).toBe("入力（仕事と収入）");
   });
-  it("中身の比べ方", () => {
+  it("中身の比較の仕方", () => {
     expect(deepEqual({ a: [1, { b: 2 }] }, { a: [1, { b: 2 }] })).toBe(true);
     expect(deepEqual({ a: 1, b: undefined }, { a: 1 })).toBe(true);
     expect(deepEqual([1, 2], [2, 1])).toBe(false);

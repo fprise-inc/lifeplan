@@ -1,7 +1,8 @@
-// AI接続口のグラフ（connector/chart.ts。0203）: 比べた答えの通りごとの数字から、題・凡例・単位・前提の注・試算の旨と出典の入った SVG を作ること。
+// AI接続口のグラフ（connector/chart.ts。0203）: 比較した答えの通りごとの数字から、題・凡例・単位・前提の注・試算の旨と出典の入った SVG を作ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の chart_compares_three_rate_paths）は、本物の接続口で同じ関数を動かし、PNG にもする
 import { describe, expect, it } from "vitest";
-import { chart, chartNotes, textWidth, wrap, type ChartArgs, type ChartVariant } from "../src/connector/chart.ts";
+import { chart, chartNotes, EXPENSE_KEYS, SERIES, SERIES_KEYS, seriesTitle, textWidth, wrap, type ChartArgs, type ChartVariant } from "../src/connector/chart.ts";
+import { FLOW_FIELDS } from "../src/connector/summary.ts";
 
 const years = Array.from({ length: 30 }, (_, i) => 2027 + i);
 const v = (label: string, k: number, extra: Partial<ChartVariant> = {}): ChartVariant => ({
@@ -21,7 +22,7 @@ const draw = (a: ChartArgs) => JSON.parse(chart(JSON.stringify(a), "", "")) as {
 /** SVG の文字（タグを外して、実体参照を戻す） */
 const texts = (svg: string) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => (m[1] as string).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
 
-describe("比べた答えのグラフ", () => {
+describe("比較した答えのグラフ", () => {
   for (const kind of ["assets", "repayment", "keyFigures"] as const) {
     it(`${kind}: 題・凡例・単位・前提の注・試算の旨と出典が入る`, () => {
       const out = draw(args(kind));
@@ -32,11 +33,14 @@ describe("比べた答えのグラフ", () => {
       expect(all[0]).toBe(out.title);
       for (const [i, l] of ["今のまま", "10年で+1%", "10年で+2%"].entries()) expect(all).toContain(`${"ABC"[i]}\u3000${l}`);
       expect(all).toContain("（万円）");
-      const notes = all.filter((x) => x.startsWith("前提") || x.startsWith("単位は万円") || x.startsWith("ファイナンシアで試算") || x.startsWith("通りの違い"));
+      const notes = all.filter((x) => x.startsWith("前提") || x.startsWith("単位は万円") || x.startsWith("通りの違い"));
       expect(notes.some((x) => x.startsWith("通りの違い"))).toBe(true);
       expect(notes.some((x) => x.includes("物価上昇率 年1%") && x.includes("運用利回り 年1%"))).toBe(true);
       expect(notes.some((x) => x.startsWith("単位は万円"))).toBe(true);
-      expect(all.some((x) => x.startsWith("ファイナンシアで試算（2026年10月時点の入力による試算"))).toBe(true);
+      // 出典は既定では入れない。試算の時点・将来を約束しない旨・相場の想定はいつも入る（0207）
+      expect(all.some((x) => x.includes("ファイナンシアで試算"))).toBe(false);
+      expect(all.some((x) => x.startsWith("2026年10月時点の入力による試算で、将来の結果を約束するものではありません"))).toBe(true);
+      expect(all.some((x) => x.startsWith("相場などの想定"))).toBe(true);
       // 開き・閉じのそろった1つの SVG（PNG にするときに読めないと困る）
       expect((out.svg.match(/<text/g) ?? []).length).toBe((out.svg.match(/<\/text>/g) ?? []).length);
       expect(out.svg.trimEnd().endsWith("</svg>")).toBe(true);
@@ -77,7 +81,7 @@ describe("比べた答えのグラフ", () => {
   });
 
   it("題は渡した物、長ければ折り返す。返済の無い世帯の返済額のグラフは作らない", () => {
-    expect(draw(args("assets", { title: "変動金利の上がり方で比べた金融資産" })).title).toBe("変動金利の上がり方で比べた金融資産");
+    expect(draw(args("assets", { title: "変動金利の上がり方で比較した金融資産" })).title).toBe("変動金利の上がり方で比較した金融資産");
     const long = draw(args("assets", { title: "あ".repeat(60) }));
     expect(texts(long.svg).filter((x) => x.startsWith("あ")).length).toBeGreaterThan(1);
     const none = draw({ ...args("repayment"), variants: three.map((x) => ({ ...x, series: x.series.map((p) => ({ ...p, loanRepayment: 0 })) })) });
@@ -93,7 +97,7 @@ describe("比べた答えのグラフ", () => {
     }));
     const i = draw({ ...args("interest"), variants: withLoan });
     expect(i.status).toBe("ok");
-    expect(i.title).toBe("住宅ローンの利息の推移の比べ（年額）");
+    expect(i.title).toBe("住宅ローンの利息の推移の比較（年額）");
     expect(texts(i.svg)).toContain("（万円）");
     expect(texts(i.svg)).not.toContain("2055");
     expect(texts(i.svg).some((x) => x.startsWith("単位は万円（年額。返済のうち利息に充てた額"))).toBe(true);
@@ -125,6 +129,64 @@ describe("比べた答えのグラフ", () => {
     expect(n.find((x) => x.startsWith("前提"))).toBe("前提\u3000A: 物価上昇率 年1%・運用利回り 年1%（資産ごとの指定が無いもの）／B: 物価上昇率 年2%");
     expect(n).toContain("相場などの想定\u3000B: 退職の直後に株などが下がる");
     expect(n.find((x) => x.startsWith("通りの違い"))).toContain("A: 金利の見込み（変動金利） 今の金利のまま");
+  });
+
+  it("credit を true にしたときだけ「ファイナンシアで試算」の出典を入れる（0207）", () => {
+    const on = texts(draw(args("assets", { credit: true })).svg);
+    expect(on.some((x) => x.startsWith("ファイナンシアで試算（2026年10月時点の入力による試算で、将来の結果を約束するものではありません）"))).toBe(true);
+    const off = chartNotes(args("assets"));
+    expect(off.at(-1)).toBe("2026年10月時点の入力による試算で、将来の結果を約束するものではありません。");
+    // 相場の想定を重ねていなければその旨、物価を省いた入力は 0%
+    expect(off).toContain("相場などの想定\u3000相場の下落などは重ねていない（運用利回りのとおりに計算）");
+    const noInfl = chartNotes({ ...args("assets"), variants: three.map((x) => ({ ...x, assumptions: { investmentReturn: { default: "0.03" } } })) });
+    expect(noInfl.find((x) => x.startsWith("前提"))).toBe("前提\u3000物価上昇率 年0%・運用利回り 年3%（資産ごとの指定が無いもの）");
+  });
+
+  it("比較の道具のどの系列も折れ線にできる（series と field。0207）", () => {
+    // 系列の名前は接続口の年ごとの数字と同じ（支出の内訳は summary.ts の FLOW_FIELDS と同じ並び）
+    expect(FLOW_FIELDS.filter((k) => k !== "pension")).toEqual(EXPENSE_KEYS);
+    for (const k of FLOW_FIELDS) expect(SERIES_KEYS).toContain(k);
+    const withFlows = three.map((x, k) => ({
+      ...x,
+      series: x.series.map((p, i) => ({ ...p, net: (5 - i) * 300_000 * (k + 1), expenseEducation: p.year <= 2040 ? 1_000_000 + k * 500_000 : 0, takeHome: 6_000_000 })),
+    }));
+    const net = draw({ ...args("series"), field: "net", variants: withFlows });
+    expect(net.status).toBe("ok");
+    expect(net.title).toBe("年間収支の推移の比較（年額）");
+    expect(net.svg).toContain('data-field="net"');
+    expect(texts(net.svg)).toContain("↓ 0未満は赤字");
+    expect(texts(net.svg).some((x) => x.startsWith("単位は万円（年額。収入 − 税・社会保険料 − 支出"))).toBe(true);
+    const edu = draw({ ...args("series"), field: "expenseEducation", variants: withFlows });
+    expect(edu.title).toBe(seriesTitle("expenseEducation"));
+    // 教育費が無くなった後の年は描かない
+    expect(texts(edu.svg)).not.toContain("2045");
+    expect([...edu.svg.matchAll(/data-line="([A-Z])"/g)].map((m) => m[1])).toEqual(["A", "B", "C"]);
+    // 値の無い系列・名前の違う系列は描かない
+    expect(draw({ ...args("series"), field: "expenseCar", variants: withFlows }).status).toBe("invalid");
+    expect(draw({ ...args("series"), field: "nope" as never }).status).toBe("invalid");
+    // どの系列にも題と単位の言葉がある
+    for (const k of SERIES_KEYS) expect(SERIES[k].title).not.toBe("");
+  });
+
+  it("支出の内訳は、表の期間の合計を通りごとの横の棒で並べる（0207）", () => {
+    const withFlows = three.map((x, k) => ({
+      ...x,
+      series: x.series.map((p) => ({ ...p, expenseLiving: 3_000_000, expenseHousing: 1_200_000, expenseEducation: p.year <= 2040 ? 1_000_000 + k * 500_000 : 0, expenseCar: 0 })),
+    }));
+    const out = draw({ ...args("expenseBreakdown"), variants: withFlows });
+    expect(out.status).toBe("ok");
+    expect(out.title).toBe("支出の内訳の比較（表の期間の合計）");
+    const bars = [...out.svg.matchAll(/data-bar="([a-zA-Z]+):([A-Z])"/g)].map((m) => `${m[1]}:${m[2]}`);
+    // 0 の内訳（車）は出さない
+    expect(bars).toEqual(["expenseLiving:A", "expenseLiving:B", "expenseLiving:C", "expenseHousing:A", "expenseHousing:B", "expenseHousing:C", "expenseEducation:A", "expenseEducation:B", "expenseEducation:C"]);
+    // 教育費の合計（14年 × 100万・150万・200万）
+    expect(texts(out.svg)).toContain("1,400");
+    expect(texts(out.svg)).toContain("2,800");
+    expect(texts(out.svg)).toContain("教育費");
+    expect(out.alt).toContain("C（10年で+2%）: 生活費9,000万円・住居費（ローン・税・修繕）3,600万円・教育費2,800万円");
+    expect(texts(out.svg).some((x) => x.startsWith("単位は万円（表の期間の合計"))).toBe(true);
+    // 内訳の無い通りしか無ければ描かない
+    expect(draw(args("expenseBreakdown")).status).toBe("invalid");
   });
 
   it("文字の幅の目安と折り返し", () => {

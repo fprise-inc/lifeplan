@@ -1,5 +1,5 @@
 // 結果のタブの表示の設定（作業の層の部品。結果のグラフの右上の「表示の設定」で、結論の下に開く。別の窓は出さない）。
-// FP が結果に出す数字と、グラフの比べ方（重ねる／左右に並べる／全部の案を色分けで重ねる）を選ぶ。既定では何も足さず、重ねる。
+// FP が結果に出す数字と、グラフの比較の仕方（重ねる／左右に並べる／全部の案を色分けで重ねる）を選ぶ。既定では何も足さず、重ねる。
 // 資産と負債のタブの設定（時点を並べるの既定・家計の体力の目安の幅）は、そのタブの表示の設定にある（BalanceTab.tsx）
 import { ageOptionsFor, LAYOUT_CHOICES, METRIC_CHOICES, shows, toggleMetric, type DisplaySettings } from "./settings.ts";
 
@@ -47,8 +47,8 @@ export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable, f
           );
         })}
       </div>
-      <div class="ds-layout" role="radiogroup" aria-label="比べ方" data-layout-choices>
-        <span class="ds-k">比べ方</span>
+      <div class="ds-layout" role="radiogroup" aria-label="比較の仕方" data-layout-choices>
+        <span class="ds-k">比較の仕方</span>
         {LAYOUT_CHOICES.map((c) => (
           <label key={c.key} class={`ds-item${value.layout === c.key ? " on" : ""}`}>
             <input type="radio" name="chart-layout" value={c.key} checked={value.layout === c.key} onChange={() => onChange({ ...value, layout: c.key })} data-layout={c.key} />

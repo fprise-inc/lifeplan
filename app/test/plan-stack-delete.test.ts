@@ -20,7 +20,7 @@ function setup(id = "salariedCoupleTwoKids"): { wh: WorkingHousehold; cat: Catal
   const wh = { ...fromRequest(req, {}), proposals: [plan("B"), plan("C", "B"), plan("D", "C")] };
   return { wh, cat: buildCatalog(wh, self.id, null) };
 }
-/** プランの中身（計算の要求の入力。キーの順をそろえて比べる） */
+/** プランの中身（計算の要求の入力。キーの順をそろえて比較する） */
 /** キーの順をそろえ、空の並びの欄は無い欄と同じとみる（物をすべて外した集まり〔cars: []〕と、足さなかった集まりは同じ中身） */
 const sorted = (v: unknown): unknown =>
   Array.isArray(v)

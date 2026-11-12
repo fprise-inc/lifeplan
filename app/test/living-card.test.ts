@@ -916,7 +916,7 @@ describe("目安の共益費・ペットのひな形・答え合わせの差（0
     expect(line.text).toBe(`計算では年 ${man(computed)}、実際は年 ${man(c.actualSavings.value)}、差 ▲${man(gap)}`);
     expect(line.value).toBeNull();
     expect(line.detail.join("\n")).toContain("使途不明金");
-    // エンジンが毎年の支出に入れる使途不明金（比べた年）と同じ額
+    // エンジンが毎年の支出に入れる使途不明金（比較した年）と同じ額
     const unexplained = preview(wh.request).table.filter((x) => x.row === "cf.expense.other.unexplained" && x.year === year).reduce((s, x) => s + Number(x.amount ?? 0), 0);
     expect(unexplained).toBe(gap);
     // 実際のほうが多いときは「+」で、差は入れていない
@@ -924,7 +924,7 @@ describe("目安の共益費・ペットのひな形・答え合わせの差（0
     const up = savingsCheckLine(more, table)!;
     expect(up.text).toMatch(/、差 \+30万円$/);
     expect(up.detail.join("\n")).toContain("差は支出に入れていません");
-    // 比べる年: 計算基準月が1月でなければ翌年
+    // 比較する年: 計算基準月が1月でなければ翌年
     expect(comparedYear({ ...wh.request, input: { ...wh.request.input, baseMonth: "2026-10" } }, 2026)).toBe(2027);
     expect(comparedYear({ ...wh.request, input: { ...wh.request.input, baseMonth: "2026-01" } }, 2026)).toBe(2026);
     // 答え合わせの無い世帯は出さない

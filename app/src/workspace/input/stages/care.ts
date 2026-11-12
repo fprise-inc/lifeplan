@@ -110,7 +110,7 @@ function nicknameExample(h: Household, m: Member): string {
   }
 }
 
-/** 親の扶養の境目の1行の全文（扶養の欄の「?」）。年金の額が分かれば、その額と比べる */
+/** 親の扶養の境目の1行の全文（扶養の欄の「?」）。年金の額が分かれば、その額と比較する */
 export function dependentLimitText(wh: WorkingHousehold, m: Member): string | null {
   if (!hasBirth(m)) return null;
   const base = wh.request.input.baseMonth;
@@ -275,7 +275,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
     // 仕送りの行（相手がこの人）があれば、扶養の判定は行の額を使うので、仕送りの額の欄は出さない（前に入れた欄の値は残す。行が無くなれば使う）。
     // 行が無ければ欄を出し（扶養の判定にだけ使う）、「＋ 仕送り（毎月）」で行も足せる
     const rowsTo = (h.periodicExpenses ?? []).filter((p) => p.kind === "allowance" && p.counterparty === m.id);
-    if (rowsTo.length > 0) fields.push(infoLine(`care/outside/${m.id}/allowanceRows`, "仕送りの額（扶養の判定）", "親への仕送りの行の額を使います", "別居の親の健康保険の扶養の判定は、この人を相手にした仕送りの行の額（月額の12か月分）と比べます"));
+    if (rowsTo.length > 0) fields.push(infoLine(`care/outside/${m.id}/allowanceRows`, "仕送りの額（扶養の判定）", "親への仕送りの行の額を使います", "別居の親の健康保険の扶養の判定は、この人を相手にした仕送りの行の額（月額の12か月分）と比較します"));
     else fields.push(onMember(m.id, plain({ key: `${k}/allowance`, item: "member.support", label: "仕送りの額（月額）", level: "detail", kind: "yen", basis: "monthly", find, path: ["support", "allowance"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, help: ALLOWANCE_HELP }), ["allowance"]));
   }
   // この人の年金（年額）: 扶養の境目・家計を1つにする期間の収入・親のお金のどれにも使うので、人の詳細に置く（値の場所は親のお金 member.wallet.pension のまま）
@@ -346,7 +346,7 @@ export function joinHousehold(wh: WorkingHousehold, id: string): WorkingHousehol
 function pensionField(m: Member): FieldDef {
   const find = byId(members, m.id);
   return {
-    ...yenBox({ key: `family/${m.id}/wallet/pension`, item: "member.wallet", label: "この人の年金（年額）", level: "detail", basis: "annual", find, path: ["wallet", "pension"], optional: true, help: "推定は年金の推計です。入れると、今から毎年この額（額面）を入れます。扶養の境目（目安）と比べるとき・家計を1つにする期間の「収入を世帯に入れる」月・親のお金が持つかを見るときに、この額を使います" }),
+    ...yenBox({ key: `family/${m.id}/wallet/pension`, item: "member.wallet", label: "この人の年金（年額）", level: "detail", basis: "annual", find, path: ["wallet", "pension"], optional: true, help: "推定は年金の推計です。入れると、今から毎年この額（額面）を入れます。扶養の境目（目安）と比較するとき・家計を1つにする期間の「収入を世帯に入れる」月・親のお金が持つかを見るときに、この額を使います" }),
     address: () => ({ target: { member: m.id }, item: "member.wallet", at: ["pension"] }),
   };
 }

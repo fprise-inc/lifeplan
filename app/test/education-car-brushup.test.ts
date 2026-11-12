@@ -1,4 +1,4 @@
-// 子ども・教育と車の入力項目の手直し（0134）: 進路の型の比べ方・標準の公立私立・専門学校の学費の目安・子の見出しの教育費・学校外の費用の1つの欄・
+// 子ども・教育と車の入力項目の手直し（0134）: 進路の型の比較の仕方・標準の公立私立・専門学校の学費の目安・子の見出しの教育費・学校外の費用の1つの欄・
 // 奨学金と教育ローンの見出し・留学の万一・子への援助の出す人・子の行の時期・受け取るお金の1つのボタン・車の手放す時期の既定・名義の候補・ローンの1行など
 import { describe, expect, it } from "vitest";
 import type { EducationStage, Goal } from "../src/engine/types.ts";
@@ -50,7 +50,7 @@ function vocational(): WorkingHousehold {
 }
 const stageIndex = (wh: WorkingHousehold, stage: string) => goalOf(wh).education!.stages.findIndex((s) => s.stage === stage);
 
-describe("進路の型の比べ方（高校のあとが大学でないとき）", () => {
+describe("進路の型の比較の仕方（高校のあとが大学でないとき）", () => {
   it("専門学校（私立）なのに「すべて公立」にしない。大学の代わりに専門学校を見て、合わなければ「自分で選ぶ」。型で変わらない段階を欄の下に書く", () => {
     const pub = (stage: string, sector = "public"): EducationStage => ({ stage, sector });
     const k12 = [pub("elementary"), pub("juniorHigh"), pub("highSchool")];

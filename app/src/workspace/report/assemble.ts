@@ -181,7 +181,7 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
   const compare = on.has("comparison") ? choice.compare.filter((id, i, a) => a.indexOf(id) === i).slice(0, 6) : [];
   if (compare.length >= 2) for (const id of compare) if (id !== CURRENT && id !== choice.proposal) requests[`plan:${id}`] = applyValues(wh, ctx.valuesOf(id), cat);
 
-  // 収益不動産のまとめ: 物件ごとの売る年を変えた比べ（今の予定は提案の計算）
+  // 収益不動産のまとめ: 物件ごとの売る年を変えた比較（今の予定は提案の計算）
   type ReportRequest = Parameters<typeof saleVariants>[0];
   const rentalSale: { object: string; variants: { variant: SaleVariant; key: string | null }[] }[] = [];
   if (on.has("rental")) {

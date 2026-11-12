@@ -315,5 +315,5 @@ export function removedNow(input: Obj, d: PlanDiff): unknown {
   return readAt(input, { target: d.target, item: d.item, at: d.at });
 }
 
-/** 値の箱の値（比べるため。箱でなければそのまま） */
+/** 値の箱の値（比較するため。箱でなければそのまま） */
 export const valueOfBox = (v: unknown): unknown => unbox(v);

@@ -27,7 +27,7 @@ const livingField = (wh: WorkingHousehold): FieldDef => allFields(buildStage("li
 
 /** 新しい世帯（画面の新しい世帯と同じ順: 推定を入れてから印を付ける） */
 const newHousehold = (): WorkingHousehold => withOfficeSources(withRefreshedEstimates(blankHousehold("2026-10")), null);
-/** 世帯を直したとき（画面の現状の置き換えと同じ順: 推定を入れ直してから、直す前と比べて印を付ける） */
+/** 世帯を直したとき（画面の現状の置き換えと同じ順: 推定を入れ直してから、直す前と比較して印を付ける） */
 const edited = (next: WorkingHousehold, prev: WorkingHousehold): WorkingHousehold => withOfficeSources(withRefreshedEstimates(next), prev);
 /** 推定と関係の無い所を直す（表の最後の年） */
 const touch = (wh: WorkingHousehold): WorkingHousehold => ({ ...wh, request: { ...wh.request, input: { ...wh.request.input, endYear: wh.request.input.endYear + 1 } } });

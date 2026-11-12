@@ -166,7 +166,7 @@ export interface ResultCardProps {
   provisional: boolean;
   mode: ChartMode;
   onMode: (m: ChartMode) => void;
-  /** 比べ方（省略は重ねる） */
+  /** 比較の仕方（省略は重ねる） */
   layout?: ChartLayout;
   explain: { model: ExplainModel; step: number } | null;
   onExplain: (step: number | null) => void;

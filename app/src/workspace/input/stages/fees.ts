@@ -61,7 +61,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       path: ["enabled"],
       optional: true,
       fallback: true,
-      help: "すでに契約しているときに入れます。まだのときは入れなくて構いません（結果の画面で、入れた場合と比べられます）",
+      help: "すでに契約しているときに入れます。まだのときは入れなくて構いません（結果の画面で、入れた場合と比較できます）",
       hint: (v) => (v === true ? null : "今は、結果の画面の対策で「入れる」にしたプランだけで計算します"),
     }),
   ];
@@ -365,7 +365,7 @@ export function feeSections(wh: WorkingHousehold): SectionDef[] {
     {
       key: "ev/fees",
       title: "FP顧問料",
-      note: "FP への相談料・顧問料です。生活費とは別に計算します。まだ契約していなければ、結果の画面で、顧問料を入れた場合と比べられます",
+      note: "FP への相談料・顧問料です。生活費とは別に計算します。まだ契約していなければ、結果の画面で、顧問料を入れた場合と比較できます",
       level: "simple",
       groups: list.flatMap((c, i) => feeGroups(wh, c, i)),
       actions: [{ key: "ev/addFee", label: "＋ FP顧問料の契約", level: "simple", run: (w) => addAdvisoryFee(w) }],

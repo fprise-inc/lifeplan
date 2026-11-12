@@ -1,4 +1,4 @@
-// 収益不動産の「売る年を変えた比べ」（0082）。アプリの結果の画面の収益不動産のタブと、提案書の収益不動産のまとめで同じ部品を使う。
+// 収益不動産の「売る年を変えた比較」（0082）。アプリの結果の画面の収益不動産のタブと、提案書の収益不動産のまとめで同じ部品を使う。
 // - 物件ごとに、売る年だけを変えた写しの要求を作り（世帯の物は変えない）、計算の結果から、税引後の手取り（エンジンの分析の数字の exit.net）と
 //   表の最後の年の金融資産（cf.balance.financial）、その差（今の予定との差）、表の最後の年に持っている物件の評価額−ローン残高を読む。
 // - 案: 売る予定があれば「今の予定・その5年前・その5年後・持ち続ける」、無ければ「持ち続ける（今の予定）・5年後に売る・10年後に売る」。
@@ -110,7 +110,7 @@ export function saleVariantRequest(req: EngineRequest, object: string, v: SaleVa
   return out;
 }
 
-/** 案ごとの計算の結果から比べの行を作る（results は variants と同じ並び。求められなかった案は null で、行に入れない） */
+/** 案ごとの計算の結果から比較の行を作る（results は variants と同じ並び。求められなかった案は null で、行に入れない） */
 export function saleCompareOf(object: string, endYear: number, variants: readonly SaleVariant[], results: readonly (SaleResult | null)[]): SaleCompare | null {
   const fin = (r: SaleResult) => r.table.filter((c) => c.year === endYear && c.row === "cf.balance.financial").reduce((s, c) => s + c.amount, 0);
   const cur = variants.findIndex((v) => v.current);

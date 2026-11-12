@@ -230,7 +230,7 @@ export function rentalPropertyBundle(): ProposalBundle {
   if (condo?.property !== undefined) (condo as unknown as { property: Record<string, unknown> }).property = { ...condo.property, sale: { at: { at: saleAt } } };
   const retireYear = Number(addMonths(ageReachedMonth(me, 60), -1).slice(0, 4));
   const wdYear = Number(ageReachedMonth(me, 65).slice(0, 4));
-  // 売る年を変えた比べ（今の予定・5年前・5年後・持ち続ける。今の予定は提案の計算）
+  // 売る年を変えた比較（今の予定・5年前・5年後・持ち続ける。今の予定は提案の計算）
   const variants = condo === undefined ? [] : saleVariants(proposal, condo.id);
   const extra = variants.filter((v) => !v.current).map((v) => saleVariantRequest(proposal, (condo as { id: string }).id, v));
   const runs = runAll([current, proposal, ...extra]);

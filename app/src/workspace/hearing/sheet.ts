@@ -253,14 +253,14 @@ const KIND_FIELDS = ["kind", "type", "template", "mode", "stage"];
 
 const lists = (h: Household): Lists => h as unknown as Lists;
 
-/** 値の箱を値にし、ID・出どころ・承認・推定の根拠を外した形（同じ中身かを比べる） */
+/** 値の箱を値にし、ID・出どころ・承認・推定の根拠を外した形（同じ中身かを比較する） */
 function plain(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(plain);
   if (v === null || typeof v !== "object") return v;
   const o = v as Record<string, unknown>;
   if ("state" in o && "origin" in o) return o.state === "confirmed" || o.state === "estimated" ? plain(o.value) : o.state;
   const out: Record<string, unknown> = {};
-  // 住宅ローン控除の仮の条件の入居のイベント（moveIn）の ID は、取り込みのたびに新しくなるので比べない
+  // 住宅ローン控除の仮の条件の入居のイベント（moveIn）の ID は、取り込みのたびに新しくなるので比較しない
   for (const k of Object.keys(o).sort()) if (k !== "id" && k !== "origin" && k !== "approval" && k !== "estimate" && k !== "moveIn") out[k] = plain(o[k]);
   return out;
 }
@@ -478,7 +478,7 @@ function currentWork(h: Household, member: string, type: unknown, base: string, 
   return live.find((o) => o.type === type) ?? live[0];
 }
 
-/** 終わりを推定で入れたときに足す、辞めた後の給付を受け取るかの推定（シートで聞かない。比べない） */
+/** 終わりを推定で入れたときに足す、辞めた後の給付を受け取るかの推定（シートで聞かない。比較しない） */
 const AUTO_CLAIMS = [
   ["unemploymentClaim", "employment.unemploymentClaim"],
   ["elderlyContinuationClaim", "employment.elderlyContinuationClaim"],
@@ -624,7 +624,7 @@ function titleOf(c: Candidate, imp: EngineRequest, slots: ReadonlyMap<string, nu
   return group;
 }
 
-// ---- 今の値と届いた値を比べる（今の値を壊さない。お答えの無い欄は今の値のまま・今の方が詳しければ既定で残す） ----
+// ---- 今の値と届いた値を比較する（今の値を壊さない。お答えの無い欄は今の値のまま・今の方が詳しければ既定で残す） ----
 
 /** 物の中の場所（JSON Pointer の形 /a/b/0）の値 */
 function valueAt(o: unknown, path: string): unknown {
@@ -634,7 +634,7 @@ function valueAt(o: unknown, path: string): unknown {
     .reduce<unknown>((x, seg) => (x !== null && typeof x === "object" ? (x as Record<string, unknown>)[seg] : undefined), o);
 }
 
-/** 比べるための欄の値: 年月の時点がイベントなどで決まる欄（timepointPath）は、解いた年月 */
+/** 比較するための欄の値: 年月の時点がイベントなどで決まる欄（timepointPath）は、解いた年月 */
 function fieldValue(o: Obj, path: string, h: Household): unknown {
   const tp = timepointPath(o, path);
   if (tp === null) return valueAt(o, path);
@@ -888,10 +888,10 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold, wait
     }
     const mapped = remap(v, match);
     // 本人・配偶者・子の、シートで聞かない欄（連帯保証の額の版1・性別の記入が無いとき・世帯を離れる時期・確定申告の仕方の答えが無いとき など）は、
-    // 記録のある欄だけを重ねる形（patchRow）で今の値のまま残るので、比べるのも重ねた後の行で
+    // 記録のある欄だけを重ねる形（patchRow）で今の値のまま残るので、比較するのも重ねた後の行で
     const work = c.collection === "employmentPeriods" && found !== undefined && found.type !== v.type ? workChangeOf(wh, c, v, found, names, choicesOf("hs.work.type")) : null;
     // 定年の「わからない」「該当なし」（終わり無し）と、今の終わりが働く最後の年齢の推定（取り込みの後に入れた推定など）は同じとみる
-    // （取り込み直しで「変わった」に出さない。承認しても推定が入り直す。0139 の追記 2026-11-07）。推定と一緒に入れた辞めた後の給付の推定も比べない
+    // （取り込み直しで「変わった」に出さない。承認しても推定が入り直す。0139 の追記 2026-11-07）。推定と一緒に入れた辞めた後の給付の推定も比較しない
     const endEstimated = c.collection === "employmentPeriods" && found !== undefined && endEstimatedOf(wh, found.member as string);
     const sameOpenEnd = work === null && endEstimated && c.fields.some((f) => f.path === "/to" && f.noAnswer !== true) && mapped.to === null;
     if (found !== undefined && sameOpenEnd) found = withoutAutoClaims({ ...found, to: null });
@@ -933,8 +933,8 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold, wait
     const refs = MEMBER_REFS.map((k) => mapped[k]).filter((x): x is string => typeof x === "string");
     const quietNew = found === undefined && c.collection !== "members" && c.fields.length > 0 && c.fields.every((f) => f.noAnswer === true) && refs.length > 0 && refs.every((id) => cur.members.some((m) => m.id === id));
     side.set(c.id, { refs, quietNew, filled });
-    // 親はシートで聞いた欄（生年月・性別・同居か）だけで比べる（亡くなる見込みなど、聞かない欄は承認しても今の値を残す）。
-    // ほかの物は、記録のある欄だけを重ねた行で比べる（聞かない欄は承認しても今の値を残す。patchRow）
+    // 親はシートで聞いた欄（生年月・性別・同居か）だけで比較する（亡くなる見込みなど、聞かない欄は承認しても今の値を残す）。
+    // ほかの物は、記録のある欄だけを重ねた行で比較する（聞かない欄は承認しても今の値を残す。patchRow）
     const whole = !parent && found !== undefined && JSON.stringify(plain(shaped)) !== JSON.stringify(plain({ ...found, id: v.id }));
     const kind: CandidateKind = found === undefined ? "new" : changedFields > 0 ? "changed" : keptFields > 0 ? "noAnswer" : whole ? "changed" : "same";
     const seen = new Set<string>();

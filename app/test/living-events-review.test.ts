@@ -116,7 +116,7 @@ describe("段の見出し・割合の名前・欄の下の読み", () => {
 });
 
 describe("内訳の平均の行・総額の年額・伸び率の名前", () => {
-  it("内訳が推定のまま（平均から作った値）なら平均の行を出さない。FP が直した内訳だけ「同じ人数の世帯の平均 月○万円」を比べとして出す", () => {
+  it("内訳が推定のまま（平均から作った値）なら平均の行を出さない。FP が直した内訳だけ「同じ人数の世帯の平均 月○万円」を比較として出す", () => {
     const wh = put(family(), "living", (f) => f.key.endsWith("/mode") && f.item === "livingExpense.mode", "byCategory");
     const cats = allFields(buildStage("living", wh)).filter((f) => /\/cat\/\d+$/.test(f.key));
     expect(cats.length).toBeGreaterThan(5);

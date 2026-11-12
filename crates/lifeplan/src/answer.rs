@@ -1,5 +1,5 @@
 //! 計算の答えの足し引き（0194）: calculate の答え（calc::shape の形）に、エンジンが計算しているのに落ちていた数字（必要保障額・相続税の目安）と、
-//! 年ごとの家族の年齢・主な数字（画面の「プランを比べる」と同じ数え方。同梱した画面の関数 summarize で数える）を足し、
+//! 年ごとの家族の年齢・主な数字（画面の「プランを比較」と同じ数え方。同梱した画面の関数 summarize で数える）を足し、
 //! AI が選んだ大きさ（何年おき・どの数字だけ・省く物）に絞る。何も選ばなければ、今までの答えに足すだけ（今までの項目は変えない）
 
 use crate::calc::OutputMode;
@@ -20,6 +20,34 @@ pub const FIELDS: &[&str] = &[
     "loanBalance",
     "loanInterest",
     "loanRate",
+    "takeHome",
+    "pension",
+    "expenseLiving",
+    "expenseSurplus",
+    "expenseHousing",
+    "expenseEducation",
+    "expenseInsurance",
+    "expenseLumpSum",
+    "expenseCar",
+    "expenseCare",
+    "expenseRealEstate",
+    "expenseOther",
+];
+
+/// 年ごとの収支の内訳（0207）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数（summary.ts の flowYearsOf）で、
+/// 画面のキャッシュフロー表の行と同じ当て方で数える。pension は公的年金の年額、expense〜 は支出（税・社会保険料を除く）の内訳で、全部足すと expense
+pub const FLOW_FIELDS: &[&str] = &[
+    "pension",
+    "expenseLiving",
+    "expenseSurplus",
+    "expenseHousing",
+    "expenseEducation",
+    "expenseInsurance",
+    "expenseLumpSum",
+    "expenseCar",
+    "expenseCare",
+    "expenseRealEstate",
+    "expenseOther",
 ];
 
 /// 年ごとの住宅ローンの数字（0203。利息と金利は 0205）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数
@@ -122,9 +150,22 @@ impl Options {
             .is_some_and(|f| LOAN_FIELDS.iter().any(|k| f.contains(*k)))
     }
 
+    /// fields・series でその数字を選んだか
+    fn wants(&self, k: &str) -> bool {
+        self.fields.as_ref().is_some_and(|f| f.contains(k))
+    }
+
+    /// 年ごとの収支の内訳を選んだか（0207）
+    fn wants_flows(&self) -> bool {
+        self.fields
+            .as_ref()
+            .is_some_and(|f| FLOW_FIELDS.iter().any(|k| f.contains(*k)))
+    }
+
     /// 同梱した画面の関数（年齢・主な数字）を動かす要るか（年齢も主な数字も、人の鍵を添える物も要らなければ動かさない）
     fn needs_summary(&self, out: &Value) -> bool {
         self.wants_loans()
+            || self.wants_flows()
             || !self.omits("ages")
             || !self.omits("keyFigures")
             || (!self.omits("protection") && out.get("protection").is_some())
@@ -279,8 +320,23 @@ pub fn finish(shaped: &mut Value, out: &Value, summary: &Value, mode: OutputMode
         OutputMode::Summary => {
             if let Some(list) = r.get_mut("years").and_then(Value::as_array_mut) {
                 let loans = &summary["loanYears"];
+                let flows = &summary["flowYears"];
                 for y in list {
                     let Some(o) = y.as_object_mut() else { continue };
+                    // 手取り（収入 − 税・社会保険料。主な数字の生涯の手取りの合計と同じ数え方。選んだときだけ。0207）
+                    if opts.wants("takeHome") {
+                        let num = |k: &str| o.get(k).and_then(Value::as_i64).unwrap_or(0);
+                        let take_home = num("income") - num("taxSi");
+                        o.insert("takeHome".into(), json!(take_home));
+                    }
+                    // 年ごとの収支の内訳は、選んだときだけ（0207）
+                    if opts.wants_flows() {
+                        let year = o.get("year").and_then(Value::as_i64).unwrap_or(0);
+                        let f = &flows[year.to_string()];
+                        for k in FLOW_FIELDS {
+                            o.insert((*k).into(), json!(f[*k].as_i64().unwrap_or(0)));
+                        }
+                    }
                     // 年ごとの住宅ローンの数字は、選んだときだけ（0203）
                     if opts.wants_loans() {
                         let year = o.get("year").and_then(Value::as_i64).unwrap_or(0);

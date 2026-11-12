@@ -44,7 +44,7 @@
       "type": "object"
     },
     "DocReferenceArg": {
-      "description": "照合だけの値（特約の保障の額・積立金の額など。入力にせず、FPが見比べる）",
+      "description": "照合だけの値（特約の保障の額・積立金の額など。入力にせず、FPが比較する）",
       "properties": {
         "amount": {
           "description": "書類の額（円の整数）",
@@ -57,7 +57,7 @@
           "type": "string"
         },
         "row": {
-          "description": "比べるキャッシュフロー表の行 ID（例 cf.taxSi.incomeTax。保険の書類ではふつう書かない）",
+          "description": "比較するキャッシュフロー表の行 ID（例 cf.taxSi.incomeTax。保険の書類ではふつう書かない）",
           "pattern": "^cf(\\.[a-z][a-zA-Z0-9]*)+$",
           "type": [
             "string",
@@ -75,7 +75,7 @@
           ]
         },
         "year": {
-          "description": "比べる年",
+          "description": "比較する年",
           "format": "int32",
           "maximum": 2200,
           "minimum": 1900,
