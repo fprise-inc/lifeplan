@@ -1,6 +1,6 @@
 // お金の行（0044）の欄: 出るお金の行（周期的な支出 periodicExpenses）と入るお金の行（incomeFlows）を、どのカードでも同じ形で入れる。
 // - 1行のまとまり（簡易）: 名前・種類（そのカードで選べる種類が2つ以上のとき）・相手・回数（1回／毎月／年ごと）・額・時期（1回）か
-//   始まり（くり返し）・何年ごと・終わり・札（入るお金は見込み、出るお金は優先度）。並びは「相手→回数→額→時期→見込み／優先度」
+//   始まり（くり返し）・何年ごと・終わり・見込み（入るお金も出るお金も「確実／不確実」）。並びは「相手→回数→額→時期→見込み」
 //   （入力項目をまたぐ言葉の決まり。相手は家族と相続・贈与の区画で簡易、ほかは詳細）
 // - 足したときの始まり: 毎月・毎年の行は今の月から（今続いているお金。推定の印「今から」）。1回の行・何年かごとの行は1年後（今のまま）
 // - 詳細は3つのまとまり: 課税の扱い（入るお金）・あげる贈与（出るお金）／受け取る人・払う人・相手・伸び方・万一のときの扱い・表の行（と、受け取る
@@ -347,20 +347,31 @@ const EVENTS_INCOME_CADENCE_HELP = "1回か年ごとで入れます。毎月の�
 const EVENTS_INCOME_MONTHLY_LEGACY = "前の版で「毎月」にした行です。今の額を毎月として計算しています。毎月の収入は「働き方と収入」で入れ、この行は1回か年ごとに直してください";
 
 /**
- * 札の選択肢は2つずつ（0044 の追記）: 見込みは「確実／当てにしない」、優先度は「必ず／できれば」。計算はもとから「たぶん＝確実」「希望＝夢」で
- * 同じ扱いなので、古い値（likely・wish）は同じ扱いの札で見せる（読み替えるだけで、世帯ファイルの値は書き換えない）。新しく選ぶと certain・uncertain・need・want を書く
+ * 見込みの選択肢は2つ（0044 の追記）: 入るお金（値 likelihood）も出るお金（値 priority）も「確実／不確実」（2026-11-12 に、入るお金の「当てにしない」と
+ * 出るお金の優先度「必ず／できれば」を、見込みの「確実／不確実」にそろえた。値は変えない）。計算はもとから「たぶん＝確実」「希望＝夢」で
+ * 同じ扱いなので、古い値（likely・wish）は同じ扱いの選択肢で見せる（読み替えるだけで、世帯ファイルの値は書き換えない）。新しく選ぶと certain・uncertain・need・want を書く
  */
 const LIKELIHOODS: Option[] = [
   { value: "certain", label: "確実" },
-  { value: "uncertain", label: "当てにしない" },
+  { value: "uncertain", label: "不確実" },
 ];
-const PRIORITIES: Option[] = [
-  { value: "need", label: "必ず" },
-  { value: "want", label: "できれば" },
+export const PRIORITIES: Option[] = [
+  { value: "need", label: "確実" },
+  { value: "want", label: "不確実" },
 ];
-export const LIKELIHOOD_LABEL: Record<string, string> = { likely: "確実", certain: "確実", uncertain: "当てにしない" };
-export const PRIORITY_LABEL: Record<string, string> = { need: "必ず", want: "できれば", wish: "できれば" };
-/** 札の古い値を、同じ扱いの選択肢の値で見せる（likely → certain、wish → want） */
+export const LIKELIHOOD_LABEL: Record<string, string> = { likely: "確実", certain: "確実", uncertain: "不確実" };
+export const PRIORITY_LABEL: Record<string, string> = { need: "確実", want: "不確実", wish: "不確実" };
+
+/**
+ * 見込みの欄の「?」（0044 の追記 2026-11-12）。どの欄も「不確実」にしたときの扱いを書く:
+ * - ふつうの入るお金・出るお金・子への援助: ふだんの計算には入り、結果の画面の「確実な分だけ」で外れる
+ * - 受け取る相続・贈与と相続で受け継ぐ借金: ふだんの計算からも外れ、行の「この行を計算に入れる」で入れられる
+ */
+export const UNCERTAIN_IN_VIEW_HELP =
+  "「不確実」にしても、ふだんの計算には入ります。結果の画面の「これからの大きなお金」で「確実な分だけ」を選ぶと外れます（1件ずつ入れ外しして比較することもできます）";
+export const uncertainBaseHelp = (what: string): string =>
+  `「不確実」にすると、${what}をふだんの計算からも外します。行の「この行を計算に入れる」を押すと、見込みは「不確実」のまま計算に入れられます。結果の画面の「これからの大きなお金」でも、入れた場合と比較できます`;
+/** 古い値を、同じ扱いの選択肢の値で見せる（likely → certain、wish → want） */
 const BADGE_ALIAS: Record<string, string> = { likely: "certain", wish: "want" };
 
 /** 回数（入れ方）: 1回／毎月／年ごと（年ごとは下の「何年ごと」で間隔を入れる。1は毎年） */
@@ -893,8 +904,8 @@ const withoutAssumedKey = (wh: WorkingHousehold, key: string): WorkingHousehold 
   wh.assumed[key] === undefined ? wh : { ...wh, assumed: Object.fromEntries(Object.entries(wh.assumed).filter(([k]) => k !== key)) };
 
 /**
- * 札（見込み）の欄。ライフイベントのカードの入るお金の行では詳細（今の結果には効かず、「確実な分だけ」の見方でだけ効く。既定の確実のままで
- * 結果は同じ。0078）。ほかのカード（受け取る相続の見込みは基本の計算に入れるかが決まる）は標準。出るお金の行の優先度は、どのカードでも標準
+ * 見込みの欄。ライフイベントのカードの入るお金の行では詳細（今の結果には効かず、「確実な分だけ」の見方でだけ効く。既定の確実のままで
+ * 結果は同じ。0078）。ほかのカード（受け取る相続の見込みは基本の計算に入れるかが決まる）は標準。出るお金の行の見込みは、どのカードでも標準
  */
 const badgeLevel = (card: MoneyCard): Level => (card === "events" ? "detail" : "simple");
 /** 行の名前の欄。相続・贈与のカードの行は詳細（名前が空なら種類の名前を見出しに出し、相手は標準の欄で選ぶ。0078） */
@@ -904,8 +915,8 @@ function badgeField(key: string, item: string, label: string, options: Option[],
 }
 
 /**
- * 札の欄の古い値（likely・wish）を、同じ扱いの選択肢で見せる（読むだけ）。見せている値をそのまま入れ直しても書き換えない
- * （古い値は黙って書き換えない。別の札を選び直したときだけ書く）
+ * 見込みの欄の古い値（likely・wish）を、同じ扱いの選択肢で見せる（読むだけ）。見せている値をそのまま入れ直しても書き換えない
+ * （古い値は黙って書き換えない。別の選択肢を選び直したときだけ書く）
  */
 function aliasBadge(f: FieldDef): FieldDef {
   const { get, set } = f;
@@ -1137,7 +1148,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
         address(f.id, "incomeFlow.to"),
       ),
     );
-  fields.push(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, inherit ? "「当てにしない」にすると、この相続・贈与を除いて計算します。結果の画面で、入れた場合と比較できます" : "結果の「確実な分だけ」で、「当てにしない」の行を外して見られます", badgeLevel(card)));
+  fields.push(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, inherit ? uncertainBaseHelp("この相続・贈与") : UNCERTAIN_IN_VIEW_HELP, badgeLevel(card)));
   const badge = stagedBadge(f as unknown as Record<string, unknown>, ["stages"], ["exceptions"], amountName(c, f.everyYears));
   const detailNotes = [
     ...(f.taxTreatment !== undefined && f.kind !== "sideJob" ? [`課税: ${TAX_TREATMENTS.find((t) => t.value === f.taxTreatment)?.label ?? ""}`] : []),
@@ -1148,7 +1159,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
     key: k,
     title: rowTitle(h, f.label !== undefined && f.label !== "" ? f.label : def.label, f),
     ...(excluded || detailNotes.length > 0
-      ? { note: [...(excluded ? ["計算に入れていません（見込みを「当てにしない」にした受け取る相続・贈与）。「詳細」の「基本の計算に入れる」で入れられます"] : []), ...(detailNotes.length > 0 ? [`詳細あり: ${detailNotes.join("・")}`] : [])].join("。") }
+      ? { note: [...(excluded ? ["計算に入れていません（見込みを「不確実」にした受け取る相続・贈与）。「詳細」の「基本の計算に入れる」で入れられます"] : []), ...(detailNotes.length > 0 ? [`詳細あり: ${detailNotes.join("・")}`] : [])].join("。") }
       : {}),
     level: "simple",
     fields,
@@ -1223,7 +1234,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   whoFields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], on: f.onContingency, level: "detail" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
   whoFields.push(withAddress(plain({ key: `${k}/row`, item: "incomeFlow.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: incomeRowChoices(f), find, path: ["row"], optional: true, fallback: incomeRowOf(h, { ...f, row: undefined } as IncomeFlow), ...rowHelp(f.row !== undefined && !incomeRowChoices({ kind: f.kind }).some((o) => o.value === f.row)) }), address(f.id, "incomeFlow.row")));
   if (f.kind === "inheritance" || f.kind === "giftReceived")
-    whoFields.push(withAddress(plain({ key: `${k}/includeInBase`, item: "incomeFlow.includeInBase", label: "基本の計算に入れる", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false, help: "見込みが「当てにしない」でも、見込みはそのままで、この行を計算に入れます。プランを直しているときは、このプランでだけ入れます" }), address(f.id, "incomeFlow.includeInBase")));
+    whoFields.push(withAddress(plain({ key: `${k}/includeInBase`, item: "incomeFlow.includeInBase", label: "基本の計算に入れる", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false, help: "見込みが「不確実」でも、見込みはそのままで、この行を計算に入れます。プランを直しているときは、このプランでだけ入れます" }), address(f.id, "incomeFlow.includeInBase")));
   // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 開くと出るまとまりの代表（副業は課税の扱いを標準で選ぶので必要経費）
   main.moreLabel = fixedTax !== undefined ? (tax === "gift" ? "課税の方法・受け取る人を入れる" : `受け取る人・${growthLabel(onceAmount)}を入れる`) : incomeMoreLabel(taxFields.length > 0 ? (sideJob ? "cost" : "tax") : null, onceAmount);
   return [
@@ -1282,7 +1293,7 @@ export function addIncome(wh: WorkingHousehold, kind: IncomeFlowKind, id: string
       ...(def.cadence === "monthly" ? { monthly: true } : {}),
       amount: standardBox(0, "未入力（額を入れてください。0円で計算中）"),
       ...(counterparty !== undefined ? { counterparty } : {}),
-      // 受け取る予定の相続・贈与の見込みは、事務所の既定値（「当てにしない」なら基本の計算に入れない。0073）
+      // 受け取る予定の相続・贈与の見込みは、事務所の既定値（「不確実」なら基本の計算に入れない。0073）
       ...(def.card === "inherit" && officeNow().inheritLikelihood === "uncertain" ? { likelihood: "uncertain" as const } : {}),
     };
     // 伸び方の既定: 額を変えない種類と、ライフイベント・相続・贈与の1回の行は「変えない」（0008 の追記 2026-11-02・2026-11-03。0044 の追記 2026-11-10）
@@ -1294,7 +1305,7 @@ export function addIncome(wh: WorkingHousehold, kind: IncomeFlowKind, id: string
 
 // ---- 出るお金の行 ----
 
-/** 出るお金の行のまとまりに足す欄: 種類（そのカードで2つ以上選べるとき）・相手（相続・贈与の区画は簡易）と、札の優先度 */
+/** 出るお金の行のまとまりに足す欄: 種類（そのカードで2つ以上選べるとき）・相手（相続・贈与の区画は簡易）と、見込み */
 export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card: MoneyCard): FieldDef[] {
   const find = byId(periodic, p.id);
   const k = `ev/${p.id}`;
@@ -1316,9 +1327,9 @@ export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card
   return fields;
 }
 
-/** 出るお金の行の札（優先度）。どのカードでも標準に出す（ライフイベントの行も、行の右で「必ず」「できれば」を選ぶ。0068 の追記 2026-10-31） */
+/** 出るお金の行の見込み（値は priority）。どのカードでも標準に出す（ライフイベントの行も、行の右で「確実」「不確実」を選ぶ。0068 の追記 2026-10-31） */
 export function expensePriorityField(p: PeriodicExpense): FieldDef {
-  return badgeField(`ev/${p.id}/priority`, "periodicExpense.priority", "優先度", PRIORITIES, "need", byId(periodic, p.id), "priority", p.id, "結果の「確実な分だけ」で、「できれば」の行を外して見られます", "simple");
+  return badgeField(`ev/${p.id}/priority`, "periodicExpense.priority", "見込み", PRIORITIES, "need", byId(periodic, p.id), "priority", p.id, UNCERTAIN_IN_VIEW_HELP, "simple");
 }
 
 /** 出るお金の行の詳細のまとまり（あげる贈与／払う人・相手・伸び方・万一のときの扱い） */
@@ -1455,7 +1466,7 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
     fields,
     actions: [
       ...(support ? supportActions(wh, "out", k, p, (h) => h.periodicExpenses) : []),
-      // 古い値の優先度「夢」（wish）の行は「できれば」で見せ、FP が夢プランへ移せる（0103。自動では移さない）
+      // 古い値「夢」（priority が wish）の行は見込み「不確実」で見せ、FP が夢プランへ移せる（0103。自動では移さない）
       ...(p.priority === "wish" && p.kind !== "dream" ? [{ key: `${k}/toDream`, label: "夢にする", help: "この行を夢プランの1件にします（名前・額・時期はそのまま）", level: "simple" as const, run: (w: WorkingHousehold) => toDream(w, p.id) }] : []),
       removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.periodicExpenses = (h.periodicExpenses ?? []).filter((x) => x.id !== p.id))),
     ],
@@ -1468,7 +1479,7 @@ export function periodicGroups(wh: WorkingHousehold, p: PeriodicExpense): GroupD
   return [periodicGroup(wh, p, card), ...expenseDetailGroups(wh, p, card), ...periodicStageGroups(wh, p)];
 }
 
-/** 周期的な支出の額の変化（段階と例外の年。0040。1回だけの支出には出さない）。行の額の近く（優先度の欄の前）に並べる */
+/** 周期的な支出の額の変化（段階と例外の年。0040。1回だけの支出には出さない）。行の額の近く（見込みの欄の前）に並べる */
 export function periodicStageGroups(wh: WorkingHousehold, p: PeriodicExpense): GroupDef[] {
   const h0 = wh.request.input.household;
   const once = p.everyYears === 1 && p.to != null && resolveTimepoint(h0, p.to) !== null && resolveTimepoint(h0, p.to) === resolveTimepoint(h0, p.from);
@@ -1559,14 +1570,14 @@ export function inheritedDebtGroups(wh: WorkingHousehold): GroupDef[] {
       key: k,
       title: `相続で受け継ぐ借金（${memberLabel(wh, d.debtors[0]?.member)}）`,
       note: [
-        ...(excludedDebt(d) ? ["計算に入れていません（見込みが「当てにしない」）。「基本の計算に入れる」で入れられます"] : []),
+        ...(excludedDebt(d) ? ["計算に入れていません（見込みが「不確実」）。「基本の計算に入れる」で入れられます"] : []),
         "借入額・金利・返済は住まい・ローンの項目の「住宅ローン以外のローン」で入れます",
       ].join("。"),
       level: "simple",
       fields: [
         withAddress(plain({ key: `${k}/from`, item: "debt.inheritedFrom", label: "元の借り手", level: "simple", kind: "select", options: counterpartyOptions(wh).slice(1), find, path: ["inheritedFrom"] }), address(d.id, "debt.inheritedFrom")),
-        withAddress(aliasBadge(plain({ key: `${k}/likelihood`, item: "debt.likelihood", label: "見込み", level: "simple", kind: "select", options: LIKELIHOODS, find, path: ["likelihood"], optional: true, fallback: "likely", help: "「当てにしない」にすると、このお金を除いて計算します。結果の画面で、入れた場合と比較できます" })), address(d.id, "debt.likelihood")),
-        withAddress(plain({ key: `${k}/includeInBase`, item: "debt.includeInBase", label: "基本の計算に入れる", help: "見込みが「当てにしない」でも、この行を計算に入れます", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false }), address(d.id, "debt.includeInBase")),
+        withAddress(aliasBadge(plain({ key: `${k}/likelihood`, item: "debt.likelihood", label: "見込み", level: "simple", kind: "select", options: LIKELIHOODS, find, path: ["likelihood"], optional: true, fallback: "likely", help: uncertainBaseHelp("この借金") })), address(d.id, "debt.likelihood")),
+        withAddress(plain({ key: `${k}/includeInBase`, item: "debt.includeInBase", label: "基本の計算に入れる", help: "見込みが「不確実」でも、この行を計算に入れます", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false }), address(d.id, "debt.includeInBase")),
       ],
       actions: [removeAction(`${k}/remove`, "外す", "simple", (hh) => void (hh.debts = (hh.debts ?? []).filter((x) => x.id !== d.id)))],
     };

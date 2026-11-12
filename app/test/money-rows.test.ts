@@ -71,7 +71,7 @@ describe("基本の計算に入れない物（0035 の7・0036 の6）", () => {
     expect(ids).toContain(id(21));
   });
 
-  it("確実な分だけ: 見込みが「当てにしない」の入るお金のすべてと、優先度が「できれば」（want・wish）の出るお金を外す（保存しない）", () => {
+  it("確実な分だけ: 見込みが「不確実」の入るお金のすべてと、見込みが「不確実」（want・wish）の出るお金を外す（保存しない）", () => {
     const pe = (n: number, priority?: PeriodicExpense["priority"]): PeriodicExpense => ({ id: id(n), row: "cf.expense.lumpSum.other", from: { at: "2030-04" }, to: { at: "2030-04" }, everyYears: 1, amount: box(100000), ...(priority !== undefined ? { priority } : {}) });
     const req = withRows(base(), { incomes: [income(1, { likelihood: "uncertain" }), income(2, { kind: "sideJob", likelihood: "uncertain" }), income(3, { kind: "sideJob" })], expenses: [pe(10, "need"), pe(11, "want"), pe(12, "wish"), pe(13)] });
     expect(viewCandidates(req.input.household).map((c) => [c.id, c.reason])).toEqual([
@@ -147,7 +147,7 @@ describe("種類の既定とカードの区画", () => {
         moved++;
       }
     expect(moved).toBeGreaterThan(20);
-    // 古い周期的な支出（種類・優先度の無い行）はライフイベントの出るお金の行で、何も書き換えない
+    // 古い周期的な支出（種類・見込みの無い行）はライフイベントの出るお金の行で、何も書き換えない
     const old = (wh.request.input.household.periodicExpenses ?? []).find((p) => p.id === id(30)) as PeriodicExpense;
     expect(expenseCard(wh.request.input.household, old)).toBe("events");
     const fields = allFields(buildStage("events", wh)).filter((f) => f.key.startsWith(`ev/${id(30)}/`));
@@ -213,7 +213,7 @@ describe("プランで足す・外す・基本の計算に入れる（0036）", 
     const { wh, cat } = setup(withRows(base(), { incomes: [income(1, { likelihood: "uncertain" })] }));
     expect(forEngine(wh.request).input.household.incomeFlows).toEqual([]);
     const view = planView(wh, cat, "B");
-    // 相続・贈与の入力項目では、チェックの欄「基本の計算に入れる」は出さず、見込みが「当てにしない」の行の1押し（0143）
+    // 相続・贈与の入力項目では、チェックの欄「基本の計算に入れる」は出さず、見込みが「不確実」の行の1押し（0143）
     expect(allFields(buildStage("inheritance", view)).find((x) => x.key === `in/${id(1)}/includeInBase`)).toBeUndefined();
     const a = buildStage("inheritance", view).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((x) => x.key === `in/${id(1)}/includeInBase`)!;
     const w = recordPlanEdit(wh, cat, "B", view, a.run(view));

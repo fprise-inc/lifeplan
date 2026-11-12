@@ -202,24 +202,32 @@ html.big .chart .dep-txt { font-size: 15px; }
 .chip .yr { font-weight: 700; font-variant-numeric: tabular-nums; }
 .chip.on { border-color: var(--sel); border-width: 2.5px; background: var(--sel-bg); }
 
-/* 目標カード */
-.goals { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.goal { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px; background: var(--card); border-bottom: 4px solid var(--prop); }
-.goal.ng { border-bottom-color: var(--short); }
-.goal-top { display: flex; justify-content: space-between; gap: 6px; align-items: center; font-size: 0.8rem; }
-.goal-cat { font-weight: 700; color: var(--ink-2); }
-.goal h3 { font-size: 1.02rem; margin: 3px 0 0; }
-.goal .when { font-size: 0.85rem; color: var(--ink-2); }
-.goal .amt { font-weight: 700; font-size: 1.05rem; margin-top: 2px; }
-.goal .st { margin-top: 6px; }
-.goal.dream { border: 2px dashed var(--ink-2); background: transparent; color: var(--ink-2); }
-.goal.dream.off { opacity: 0.6; }
-.goal-dream-line { font-weight: 700; font-size: 0.92rem; margin: 0 0 8px; }
-.goal.dream.ng { border-color: var(--short); }
-.goal-note { margin-top: 6px; font-size: 0.85rem; }
-.goal-note p { margin: 4px 0 0; }
-.goal-note.ok p { color: var(--ink); font-weight: 700; }
-.goal-note.short p { color: var(--short-ink); font-weight: 700; }
+/* これからの大きなお金（結果のグラフのすぐ下。0044・0103 の追記 2026-11-12）: 1件1行。チェックの無い行は確実な物、薄い行は計算に入れていない物 */
+.big-money .card-h { flex-wrap: wrap; }
+.bm-mode { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.bm-mode .seg-g button { font-size: 13px; padding: 2px 10px; }
+.bm-line { font-weight: 700; font-size: 0.95rem; margin: 0 0 8px; }
+.bm-table { width: auto; min-width: min(100%, 720px); max-width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.bm-when, .bm-amt, .bm-after { padding-left: 18px !important; }
+.bm-table tbody + tbody .bm-gh th { padding-top: 12px; }
+.bm-gh th { text-align: left; font-size: 0.8rem; font-weight: 700; color: var(--ink-2); padding: 4px 6px 3px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.bm-gh th.bm-after-h { text-align: right; font-weight: 400; font-size: 0.75rem; }
+.bm-row td { padding: 4px 6px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+.bm-check { width: 1.6em; padding-right: 0 !important; }
+.bm-check input { margin: 0; vertical-align: middle; }
+.bm-name { font-weight: 700; }
+.bm-name label { cursor: pointer; }
+.bm-when { color: var(--ink-2); white-space: nowrap; }
+.bm-amt, .bm-after { text-align: right; white-space: nowrap; }
+.bm-after.short { color: var(--short-ink); font-weight: 700; }
+.bm-tag { width: 4.5em; text-align: right; white-space: nowrap; }
+.bm-t { display: inline-block; font-size: 0.72rem; line-height: 1.5; padding: 0 5px; border: 1px dashed var(--ink-2); border-radius: 4px; color: var(--ink-2); }
+.bm-t.sure { border-style: solid; }
+.bm-row.off td { color: var(--muted, #8a939d); }
+.bm-row.off .bm-name, .bm-row.off .bm-amt { font-weight: 400; }
+.bm-row.off .bm-t { opacity: 0.7; }
+.bm-note { margin: 8px 0 0; font-size: 0.85rem; color: var(--ink-2); }
+.bm-notes { margin: 0 0 12px; }
 .st { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 0.88rem; border-radius: 99px; padding: 1px 10px 1px 4px; white-space: nowrap; }
 .st::before { display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; border-radius: 50%; color: var(--on-fill); font-size: 0.85em; }
 .st.ok { background: var(--prop-bg); color: var(--prop); }
@@ -1559,21 +1567,6 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .ih-target-diffs.off { visibility: hidden; }
 .ih-target-diffs[data-review] { color: var(--est-ink); }
 
-/* 結果の見方（0044 の追記）: すべて入れる｜確実な分だけ・外している物の一覧（保存しない） */
-.rows-view { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 0 6px; font-size: 13px; }
-.rows-view .seg-g button { font-size: 13px; padding: 2px 10px; }
-.rows-view.on .seg-g { border-color: var(--prop); }
-.rows-view.on .seg-g button[aria-pressed="true"] { background: var(--prop); }
-.rows-view-pop { position: relative; display: inline-block; }
-.rows-view-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 420px; max-width: min(640px, 92vw); max-height: 320px; overflow: auto; padding: 6px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); box-shadow: 0 6px 20px rgb(0 0 0 / 12%); }
-.rows-view-row { display: grid; grid-template-columns: auto auto minmax(8em, 1fr) auto auto auto; align-items: center; gap: 4px 10px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
-.rows-view-row:hover { background: color-mix(in srgb, var(--prop) 6%, var(--card)); }
-.rows-view-row.off .rv-name, .rows-view-row.off .rv-amt, .rows-view-row.off .rv-when { color: var(--muted, #666); text-decoration: line-through; }
-.rows-view-row .rv-dir { font-weight: 700; }
-.rows-view-row .rv-amt { text-align: right; white-space: nowrap; }
-.rows-view-row .rv-when { white-space: nowrap; color: var(--muted, #666); }
-.rows-view-row .rv-tag { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; white-space: nowrap; color: var(--muted, #666); }
-.rows-view-empty { margin: 4px 6px; color: var(--muted, #666); }
 /* 確かめの一覧の今の値・出どころ・確かさの札・次回確かめるの印（0072） */
 .ck-value { font-variant-numeric: tabular-nums; }
 .ck-tag { font-size: 0.74rem; border: 1px solid var(--line-2); border-radius: 999px; padding: 0 6px; color: var(--ink-2); }

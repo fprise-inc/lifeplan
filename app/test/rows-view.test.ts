@@ -1,5 +1,6 @@
 // 結果の見方（0044 の追記）: 「すべて入れる｜確実な分だけ」と物ごとの入れ外し（保存しない）、基本の計算に入れない物を「入れて見る」、
-// 一覧の名前・額・時期、入れ外しできる物の無い世帯では出さないこと、札の言葉を2つずつにしたこと（古い値は同じ扱いの札で見せ、書き換えない）
+// 結果のグラフのすぐ下の区画「これからの大きなお金」の行（名前・時期・額・見込み・入れ外し）、入れ外しできる物の無い世帯では切り替えを出さないこと、
+// 見込みの言葉を「確実／不確実」の2つにそろえたこと（古い値は同じ扱いの選択肢で見せ、書き換えない）
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
@@ -9,8 +10,8 @@ import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { LIKELIHOOD_LABEL, PRIORITY_LABEL } from "../src/workspace/input/moneyRows.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { RowsViewBar } from "../src/workspace/RowsViewBar.tsx";
-import { viewRows } from "../src/workspace/rowsView.ts";
+import { BigMoneyCard } from "../src/workspace/BigMoneyCard.tsx";
+import { bigMoneyOf } from "../src/workspace/bigMoney.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -37,7 +38,7 @@ const inIds = (r: EngineRequest) => (r.input.household.incomeFlows ?? []).map((f
 const outIds = (r: EngineRequest) => (r.input.household.periodicExpenses ?? []).map((p) => p.id).filter((x) => x.startsWith("00000000-0000-4000-8000-0000000b"));
 
 describe("結果の見方（保存しない）", () => {
-  it("入れ外しできる物: 基本の計算に入れない物（当てにしない受け取る相続・受け継ぐ借金）・当てにしない入るお金・できればの出るお金", () => {
+  it("入れ外しできる物: 基本の計算に入れない物（不確実な受け取る相続・受け継ぐ借金）・不確実な入るお金・不確実な出るお金", () => {
     const c = viewCandidates(sample().input.household);
     expect(c.map((x) => [x.key, x.reason])).toEqual([
       [`in:${id(1)}`, "base"],
@@ -56,7 +57,7 @@ describe("結果の見方（保存しない）", () => {
     expect(c.filter((x) => viewExcluded(x, ALL_ROWS)).map((x) => x.key)).toEqual([`in:${id(1)}`, `debt:${id(20)}`]);
   });
 
-  it("確実な分だけ: 当てにしない入るお金と、できれば（want・wish）の出るお金を外す。たぶん（古い値）は確実と同じに入れる", () => {
+  it("確実な分だけ: 不確実な入るお金と、不確実（want・wish）の出るお金を外す。たぶん（古い値）は確実と同じに入れる", () => {
     const r = applyRowsView(sample(), viewMode(true));
     expect(inIds(r)).toEqual([id(3)]);
     expect(outIds(r)).toEqual([id(12)]);
@@ -71,7 +72,7 @@ describe("結果の見方（保存しない）", () => {
     expect(v1.pick).toEqual({ [`out:${id(10)}`]: true });
     expect(outIds(applyRowsView(sample(), v1))).toEqual([id(10), id(12)]);
     expect(pickRow(v1, trip, false)).toEqual(viewMode(true));
-    // すべて入れるで、当てにしない副業だけ外す
+    // すべて入れるで、不確実な副業だけ外す
     const side = c.find((x) => x.id === id(2))!;
     const v2 = pickRow(ALL_ROWS, side, false);
     expect(isAllRows(v2)).toBe(false);
@@ -95,56 +96,73 @@ describe("結果の見方（保存しない）", () => {
     expect(inIds(r2)).toEqual([id(1), id(3)]);
   });
 
-  it("入れ外しできる物の無い世帯: 確実な分だけでも要求は同じ物。見方の帯は出さない", () => {
+  it("入れ外しできる物の無い世帯: 確実な分だけでも要求は同じ物。区画に切り替えと一行の結論は出さない", () => {
     const plain = modelHousehold("dualNoKids");
     expect(applyRowsView(plain, viewMode(true))).toBe(plain);
-    const rows = viewRows([plain.input.household], ALL_ROWS);
-    expect(rows).toEqual([]);
-    expect(renderToString(h(RowsViewBar, { rows, view: ALL_ROWS, onMode: () => undefined, onPick: () => undefined }))).toBe("");
+    const bm = bigMoneyOf(plain, [], { raw: plain, view: ALL_ROWS, certainTable: null });
+    expect(bm.groups.flatMap((g) => g.rows).some((r) => r.pick !== null)).toBe(false);
+    expect(bm.line).toBeNull();
+    const html = renderToString(h(BigMoneyCard, { model: bm, notes: [] }));
+    expect(html).not.toContain("data-view-mode");
+    expect(html).not.toContain('type="checkbox"');
   });
 });
 
-describe("見方の一覧（名前・額・時期）", () => {
-  it("選んでいるプランの世帯を先に、現状の世帯の物を足す。外しているかは今の見方で", () => {
+describe("これからの大きなお金の行（名前・時期・額・見込み）", () => {
+  const ours = (r: { key: string }) => r.key.includes("0000000b");
+  it("選んでいるプランの世帯を先に、現状の世帯の物を足す。まとまりごとに年の順。計算に入れているかは今の見方で", () => {
     const cur = sample();
     const plan = structuredClone(cur);
     plan.input.household.incomeFlows![1]!.label = "副業（プラン）";
-    const rows = viewRows([plan.input.household, cur.input.household], viewMode(true));
-    expect(rows.map((r) => [r.name, r.amount, r.when, r.tag, r.excluded])).toEqual([
-      ["父からの相続", "1,000万円・1回", "2035年4月", "基本の計算に入れない", true],
-      ["副業（プラン）", "月3万円", "2027年1月〜最後まで", "当てにしない", true],
-      ["入れた相続", "1,000万円・1回", "2035年4月", "当てにしない", true],
-      ["海外旅行", "50万円・3年ごと", "2030年4月〜2039年4月", "できれば", true],
-      ["車の買い替え", "50万円・1回", "2030年4月", "できれば", true],
-      ["相続で受け継ぐ借金", "100万円", "2031年1月から", "基本の計算に入れない", true],
+    const bm = bigMoneyOf(plan, [], { raw: plan, current: cur, view: viewMode(true), certainTable: null });
+    const rows = (k: string) => bm.groups.find((g) => g.key === k)!.rows.filter(ours).map((r) => [r.name, r.when, r.amount, r.tag, r.included, r.pick !== null]);
+    expect(rows("pay")).toEqual([
+      ["海外旅行", "2030〜2039年・3年ごと", "50万円", "不確実", false, true],
+      ["車の買い替え", "2030年", "50万円", "不確実", false, true],
+      ["修繕", "2030年", "50万円", "確実", true, false],
     ]);
-    const all = viewRows([cur.input.household], ALL_ROWS);
-    expect(all.filter((r) => r.excluded).map((r) => r.name)).toEqual(["父からの相続", "相続で受け継ぐ借金"]);
+    // 確実な副業（likely）は並べない。受け取る相続は確実も不確実も並べる
+    expect(rows("receive")).toEqual([
+      ["副業（プラン）", "2027年〜・毎月", "月3万円", "不確実", false, true],
+      ["相続で受け継ぐ借金", "2031年", "100万円", "不確実", false, true],
+      ["父からの相続", "2035年", "1,000万円", "不確実", false, true],
+      ["入れた相続", "2035年", "1,000万円", "不確実", false, true],
+    ]);
+    const all = bigMoneyOf(cur, [], { raw: cur, view: ALL_ROWS, certainTable: null });
+    expect(all.groups.flatMap((g) => g.rows).filter((r) => ours(r) && !r.included).map((r) => r.name)).toEqual(["相続で受け継ぐ借金", "父からの相続"]);
+    expect(all.certainOnly).toBe(false);
+    expect(bm.certainOnly).toBe(true);
   });
 
-  it("帯: すべて入れる｜確実な分だけの切り替えと、外している物の件数", () => {
-    const rows = viewRows([sample().input.household], viewMode(true));
-    const html = renderToString(h(RowsViewBar, { rows, view: viewMode(true), onMode: () => undefined, onPick: () => undefined }));
+  it("区画の頭: すべて入れる｜確実な分だけの切り替えと「?」。行の左にチェック、右に「確実」「不確実」、外している行は薄く", () => {
+    const r = sample();
+    const html = renderToString(h(BigMoneyCard, { model: bigMoneyOf(r, [], { raw: r, view: viewMode(true), certainTable: null }), notes: [] }));
     expect(html).toContain("すべて入れる");
     expect(html).toContain("確実な分だけ");
-    expect(html).toContain("外している物（6件）▾");
     expect(html).toMatch(/data-view-mode="certain"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*data-view-mode="certain"/);
     expect(html).toContain("保存はしません");
+    expect(html).toContain("<h2>これからの大きなお金</h2>");
+    expect(html).toContain("支払いの予定");
+    expect(html).toContain("受け取りの予定");
+    expect(html).toContain("受け取った後の金融資産");
+    expect(html).toContain('class="bm-row off"');
+    expect(html).toContain(">不確実<");
+    expect(html).not.toContain("外している物");
   });
 });
 
-describe("札の言葉（2つずつ）", () => {
-  it("見込みは確実／当てにしない、優先度は必ず／できれば。古い値は同じ扱いの札で読む", () => {
-    expect(LIKELIHOOD_LABEL).toEqual({ likely: "確実", certain: "確実", uncertain: "当てにしない" });
-    expect(PRIORITY_LABEL).toEqual({ need: "必ず", want: "できれば", wish: "できれば" });
+describe("見込みの言葉（確実／不確実の2つ）", () => {
+  it("入るお金も出るお金も見込みは確実／不確実（値は変えない）。古い値は同じ扱いの選択肢で読む", () => {
+    expect(LIKELIHOOD_LABEL).toEqual({ likely: "確実", certain: "確実", uncertain: "不確実" });
+    expect(PRIORITY_LABEL).toEqual({ need: "確実", want: "不確実", wish: "不確実" });
   });
 
-  it("欄の選択肢は2つ。likely は確実、wish はできればで見せ、黙って書き換えない。選び直すと certain・uncertain・want を書く", () => {
+  it("欄の選択肢は2つ。likely は確実、wish は不確実で見せ、黙って書き換えない。選び直すと certain・uncertain・want を書く。出るお金の欄の名前も「見込み」", () => {
     const r = sample();
     const wh = fromRequest(r);
     const fields = allFields(buildStage("work", wh));
     const like = fields.find((f) => f.key === `in/${id(3)}/likelihood`) as FieldDef & { options: { value: string; label: string }[] };
-    expect(like.options.map((o) => o.label)).toEqual(["確実", "当てにしない"]);
+    expect(like.options.map((o) => o.label)).toEqual(["確実", "不確実"]);
     expect(like.get(wh).value).toBe("certain");
     expect(wh.request.input.household.incomeFlows![2]!.likelihood).toBe("likely");
     const unc = like.set(wh, "uncertain");
@@ -154,7 +172,8 @@ describe("札の言葉（2つずつ）", () => {
 
     const ev = allFields(buildStage("events", wh));
     const prio = ev.find((f) => f.key === `ev/${id(10)}/priority`) as FieldDef & { options: { value: string; label: string }[] };
-    expect(prio.options.map((o) => o.label)).toEqual(["必ず", "できれば"]);
+    expect(prio.options.map((o) => o.label)).toEqual(["確実", "不確実"]);
+    expect(prio.label).toBe("見込み");
     expect(prio.get(wh).value).toBe("want");
     // 見せている値をそのまま入れ直しても書き換えない
     expect(like.set(wh, "certain")).toBe(wh);

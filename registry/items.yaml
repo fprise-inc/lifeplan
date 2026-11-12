@@ -1954,7 +1954,7 @@ entries:
     path: [payer]
   - id: periodicExpense.priority
     status: active
-    label: "優先度（必要・希望・夢。計算には使わない。0044）"
+    label: "見込み（need 確実・want 不確実。wish は前の版の夢で不確実と同じ。計算には使わない。0044）"
     since: draft
     aliases: []
     replacedBy: null

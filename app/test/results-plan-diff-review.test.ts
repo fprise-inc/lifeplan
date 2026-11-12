@@ -3,7 +3,7 @@
 // - 違いの一覧・変えたこと・世帯の中身の一覧の言葉（内部の名前・生の値を出さない。変えたことは違いの一覧と同じ文。提案書の変更点にも入る）
 // - 世帯の中身の一覧の人の置き場所と、介護・FP顧問料の額
 // - 編集の対象の箱の「違いの一覧（n）」と、違いの一覧の見出し・閉じる・「計算に入れる」
-// - 目標のカードの1回・毎年の行の時期と優先度、結果の上の行に世帯の外の家族を出さない、資産と負債の今の年の札と生活費の内訳
+// - 目標のカードの1回・毎年の行の時期と見込み（2026-11-12 から区画「これからの大きなお金」）、結果の上の行に世帯の外の家族を出さない、資産と負債の今の年の印と生活費の内訳
 // - 見本の棚の世帯に赤い未入力が無い
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -23,6 +23,8 @@ import { flowChart, rowDefs, toPresentation } from "../src/workspace/present.ts"
 import { householdContents } from "../src/workspace/tools/fpTools.ts";
 import { livingBasisText } from "../src/presentation/BalanceTab.tsx";
 import { roles } from "../src/workspace/roles.ts";
+import { bigMoneyOf } from "../src/workspace/bigMoney.ts";
+import { ALL_ROWS } from "../src/engine/moneyRows.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const open = (id: string): WorkingHousehold => fromRequest(modelHousehold(id));
@@ -165,7 +167,7 @@ describe("編集の対象の箱の違いの一覧", () => {
 });
 
 describe("結果のご家族の夢・上の行・資産と負債", () => {
-  it("ご家族の夢の区画に、ふつうの出るお金の行（贈与など）のカードは出さない（夢の無い世帯は案内の1枚だけ）", () => {
+  it("これからの大きなお金: ふつうの出るお金の行（贈与など）は「支払いの予定」に1行ずつ（夢の無い世帯は「ご家族の夢」を出さない）", () => {
     const req = structuredClone(modelHousehold("parentMoney")) as EngineRequest;
     const h0 = req.input.household;
     h0.periodicExpenses = [
@@ -173,8 +175,12 @@ describe("結果のご家族の夢・上の行・資産と負債", () => {
       { id: "22222222-2222-4222-8222-222222222222", row: "cf.expense.lumpSum.gift", label: "あげる贈与", from: { at: "2027-01" }, to: { at: "2031-12" }, everyYears: 1, amount: { value: 500_000, state: "confirmed", origin: { kind: "manual" } }, kind: "gift" },
     ] as never;
     const res = preview(req);
-    const m = toPresentation({ base: req, proposal: req, current: res, proposed: res, targetAge: 95, selectedYear: null, provisional: false });
-    expect(m.goals.cards.map((c) => [c.category, c.title])).toEqual([["夢", "まだ入れていません"]]);
+    const bm = bigMoneyOf(req, res.table, { raw: req, view: ALL_ROWS, certainTable: null });
+    expect(bm.groups.map((g) => g.key)).toEqual(["pay"]);
+    expect(bm.groups[0]!.rows.map((r) => [r.name, r.when, r.amount, r.tag, r.pick !== null])).toEqual([
+      ["あげる贈与", "2027〜2031年・毎年", "年50万円", "確実", false],
+      ["あげる贈与", "2027年", "110万円", "不確実", true],
+    ]);
   });
 
   it("結果の上の行（世帯の人の並び）に、世帯の外の家族を出さない", () => {

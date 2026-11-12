@@ -2029,7 +2029,7 @@
         "kind": { "title": "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift と、世帯の外の子への養育費・仕送りの行がある間の扶養の判定が変える。0044）", "x-item": "periodicExpense.kind", "$ref": "#/$defs/moneyOutKind" },
         "counterparty": { "title": "相手（誰へ。構成員。多くは世帯の外の家族。0044）", "x-item": "periodicExpense.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "payer": { "title": "払う人（世帯の中の人。万一のときの扱いは、この人の万一だけが該当。省略は世帯）", "x-item": "periodicExpense.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
-        "priority": { "title": "優先度（必要・希望・夢。計算には使わない。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },
+        "priority": { "title": "見込み（need 確実・want 不確実。wish は前の版の夢で不確実と同じ。計算には使わない。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },
         "dream": {
           "title": "夢プラン（種類 dream の行だけ。順位・計算に入れるか〔省略は入れる〕・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103）",
           "x-item": "periodicExpense.dream",
@@ -2059,8 +2059,8 @@
       "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他／dream 夢プランの1件。0103／assetCost 持っている資産の毎年の費用〔貸していない不動産の固定資産税・管理費など。つながる物 object を書く。0123〕）",
       "enum": ["general", "allowance", "childSupport", "gift", "education", "repair", "realEstateCost", "livingAnnual", "car", "other", "dream", "assetCost"]
     },
-    "priority": { "description": "0044: 優先度（need 必要・want 希望・wish 夢）", "enum": ["need", "want", "wish"] },
-    "likelihood": { "description": "0044: 見込み（certain 確実・likely たぶん・uncertain 不確か。省略は「たぶん」と読む）", "enum": ["certain", "likely", "uncertain"] },
+    "priority": { "description": "0044: 出るお金の見込み（need 確実・want 不確実・wish 前の版の夢〔不確実と同じ〕）", "enum": ["need", "want", "wish"] },
+    "likelihood": { "description": "0044: 見込み（certain 確実・likely たぶん〔画面は確実〕・uncertain 不確実。省略は「たぶん」と読む）", "enum": ["certain", "likely", "uncertain"] },
     "incomeFlow": {
       "description": "0044: 入るお金の行（名前・種類・課税の扱い・額・時期・受け取る人・相手・見込み・伸び方・段階・例外の年・万一のときの扱い・表の行）",
       "type": "object",
@@ -2664,7 +2664,7 @@
                   "donor": { "description": "世帯の外の贈与者（donors の ID）が出すとき（世帯からは出さない）。同じ贈与者からの贈与を合わせて数える", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] },
                   "housingExemption": { "description": "住宅資金の援助で住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] },
-                  "priority": { "description": "0103: 優先度（need 必ず・want できれば。省略は必ず。計算には使わない。画面の「確実な分だけ」の見方で「できれば」を外す）", "enum": ["need", "want"] }
+                  "priority": { "description": "0103: 見込み（need 確実・want 不確実。省略は確実。計算には使わない。画面の「確実な分だけ」の見方で「不確実」を外す）", "enum": ["need", "want"] }
                 }
               }
             },

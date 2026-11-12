@@ -923,7 +923,7 @@ export interface PeriodicExpenseInput {
   readonly counterparty?: string;
   /** お金の行（0044）: 払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯） */
   readonly payer?: string;
-  /** お金の行（0044）: 優先度（必要・希望・夢。計算には使わない。確実な分だけで見るときに、希望・夢を外す） */
+  /** お金の行（0044）: 見込み（need・want・wish。画面は need が「確実」、want・wish が「不確実」。計算には使わない。確実な分だけで見るときに want・wish を外す） */
   readonly priority?: "need" | "want" | "wish";
   /** お金の行（0044）: あげる贈与（相手は世帯の外の家族。贈与税は受け取る人が払うので世帯から出さず、要約に出す） */
   readonly gift?: OutgoingGiftInput;
@@ -1215,7 +1215,7 @@ export interface EducationGoalInput {
     readonly donor?: string;
     readonly taxMethod?: "calendar" | "settlement";
     readonly housingExemption?: "energySaving" | "other" | "none";
-    /** 優先度（必ず・できれば。計算には使わない。画面の「確実な分だけ」の見方で「できれば」を外す。0103） */
+    /** 見込み（need 確実・want 不確実。計算には使わない。画面の「確実な分だけ」の見方で「不確実」を外す。0103） */
     readonly priority?: "need" | "want";
   }[];
   readonly childAllowance?: boolean;

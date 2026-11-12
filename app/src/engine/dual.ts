@@ -109,7 +109,7 @@ export class DualEngine {
   private put(requests: Record<string, EngineRequest>, tags: Readonly<Record<string, string>> = {}): string[] {
     const changed: string[] = [];
     for (const [id, req] of Object.entries(requests)) {
-      // 基本の計算に入れない物（見込みが「当てにしない」の受け取る相続・贈与など）は、エンジンへ渡す要求から外す（0044）
+      // 基本の計算に入れない物（見込みが「不確実」の受け取る相続・贈与など）は、エンジンへ渡す要求から外す（0044）
       const text = JSON.stringify(forEngine(req));
       const tag = tags[id] ?? null;
       const s = this.slots.get(id);

@@ -281,7 +281,7 @@ export const TEMPLATE_GROUPS: readonly { key: EventTemplateGroup; label: string 
 ];
 
 /**
- * 出るお金のひな形: ボタンの名前・足した行の名前・まとまり・額（1回の額。null は未入力の警告）・何年ごと（1回は null）・優先度・
+ * 出るお金のひな形: ボタンの名前・足した行の名前・まとまり・額（1回の額。null は未入力の警告）・何年ごと（1回は null）・見込み（値は priority）・
  * 足したかを見分ける名前の形（行の名前は FP が直せるので、名前の形で見る）
  */
 export interface EventTemplate {
@@ -311,7 +311,7 @@ const amountOf = (id: string) => ({
 export const OUT_TEMPLATES: readonly EventTemplate[] = [
   { key: "wedding", label: "結婚の費用", name: "結婚の費用", group: "family", amount: null, everyYears: null, priority: "need", help: "時期は、配偶者が家族に加わる時期（入っていなければ1年後）です。額は入れてください", match: /結婚の費用|挙式|結婚式/u },
   { key: "comingOfAge", label: "子の成人式（振袖・スーツ・写真）", name: "成人式", group: "family", ...amountOf("preset.events.comingOfAge"), everyYears: null, priority: "need", help: "これから成人式を迎える子ごとに、その子が20歳になる年度（4月〜翌年3月）の1月で1行ずつ足します（1人15万円の目安）。時期はその子の年齢で持つので、子の生年月を直すと一緒に動きます", match: /成人式/u },
-  { key: "childWedding", label: "子の結婚の援助", name: "結婚の援助", group: "family", ...amountOf("preset.education.childGift.amount"), everyYears: null, priority: "want", help: "子ども・教育の入力項目の「子への援助（結婚資金）」として、30歳前の子ごとに、その子が30歳になる時期で足します（1人100万円の目安）。直すときは子ども・教育の入力項目で直します。援助の優先度は「できれば」にします（結果の「確実な分だけ」で外して見られます。子ども・教育の入力項目で直せます）", match: /結婚の援助/u },
+  { key: "childWedding", label: "子の結婚の援助", name: "結婚の援助", group: "family", ...amountOf("preset.education.childGift.amount"), everyYears: null, priority: "want", help: "子ども・教育の入力項目の「子への援助（結婚資金）」として、30歳前の子ごとに、その子が30歳になる時期で足します（1人100万円の目安）。直すときは子ども・教育の入力項目で直します。援助の見込みは「不確実」にします（結果の「確実な分だけ」で外して見られます。子ども・教育の入力項目で直せます）", match: /結婚の援助/u },
   { key: "funeral", label: "親の葬儀（世帯が払う分）", name: "葬儀", group: "parents", ...amountOf("preset.events.funeral"), everyYears: null, priority: "need", help: "親ごとに1行ずつ、世帯が払う分を足します（1回120万円の目安）。時期は、親の年齢と性別から平均余命で見た推定です（亡くなる見込みが入っていればその時期）。香典は入るお金で入れられます。葬儀の費用を相続税から引く扱いは、相続・贈与の入力項目で見ます。親を介護・親の入力項目に入れていないときは、ご本人より30歳上の親として1行だけ入れます（介護・親で親を足すと、親ごとに1行ずつ入ります）", match: /葬儀|葬式/u },
   { key: "memorial", label: "法事", name: "法事", group: "parents", ...amountOf("preset.events.memorial"), everyYears: null, priority: "need", help: "時期は、葬儀の行があればその1年後（一周忌）、無ければ1年後です", match: /法事|法要|一周忌|回忌/u },
   { key: "grave", label: "お墓・仏壇", name: "お墓・仏壇", group: "parents", amount: null, everyYears: null, priority: "need", help: "お墓や仏壇の費用は、墓じまい・永代供養・新しく建てるなどで0〜300万円ほどと幅があります。額を入れてください", match: /墓|仏壇/u },
@@ -683,7 +683,7 @@ function childWeddingLines(wh: WorkingHousehold): GroupDef | null {
   const h = wh.request.input.household;
   const lines = childWeddingGifts(h).map((x, i) => {
     const ym = resolveTimepoint(h, x.at);
-    return readLine(`events/childWedding/${String(i)}`, `${memberLabel(wh, x.child.id)}の結婚の援助`, `${ym === null ? "" : `${String(Number(ym.slice(0, 4)))}年・`}${manYen(x.amount)}・${x.priority === "want" ? "できれば" : "必ず"}`, "子ども・教育");
+    return readLine(`events/childWedding/${String(i)}`, `${memberLabel(wh, x.child.id)}の結婚の援助`, `${ym === null ? "" : `${String(Number(ym.slice(0, 4)))}年・`}${manYen(x.amount)}・${x.priority === "want" ? "不確実" : "確実"}`, "子ども・教育");
   });
   return readGroup("events/childWedding", "子への援助（結婚資金）", lines, "子ども・教育の入力項目の「子への援助」です。直すときは子ども・教育の入力項目で直します（ここと二重には数えません）");
 }
@@ -848,7 +848,7 @@ function scheduleSection(wh: WorkingHousehold): SectionDef {
 
 /** 出るお金の区画の説明: 起きること・備えを入れ、やりたいことは夢プラン。ほかの入力項目で入れる物の行き先（ふだんの旅行・帰省・家電・スマホは基本生活費、住まい・車・教育・介護・贈与はそれぞれ） */
 export const OUT_NOTE =
-  "ご家族に起きること（結婚・成人式・葬儀・法事など）と備えを入れます。やりたいこと（旅行・趣味など）は上の夢プラン、ふだんの旅行・家電の買い替えは基本生活費、住まい・車・教育・介護・贈与はそれぞれの入力項目へ。「できれば」を選んだ支出は、結果で外した場合と比較できます";
+  "ご家族に起きること（結婚・成人式・葬儀・法事など）と備えを入れます。やりたいこと（旅行・趣味など）は上の夢プラン、ふだんの旅行・家電の買い替えは基本生活費、住まい・車・教育・介護・贈与はそれぞれの入力項目へ。見込みを「不確実」にした支出も、ふだんの計算に入ります。結果の画面の「確実な分だけ」で、外した場合と比較できます";
 
 /** 「＋ ほかの支出を足す」: ひな形に無い支出（1回・1年後。額は目安＝推定。名前は FP が書く） */
 export function addOtherExpense(wh: WorkingHousehold, id: string = newId()): WorkingHousehold {
@@ -875,8 +875,8 @@ export const DREAM_EXCLUDED = "（最初から計算に入れない）";
 /** 夢の「計算に入れるか」の説明（選ぶと計算と結果がどう変わるか、計算に入れない夢の使い方） */
 export const DREAM_INCLUDE_HELP = [
   "「最初から計算に入れる」にすると、この夢の額をキャッシュフロー表の一時的支出に入れて、ふだんの結果（お金の推移・足りなくなる時期）を計算します。",
-  "「最初から計算に入れない」にすると、この夢は夢プランに残したまま、ふだんの計算には入れません。結果の画面の夢のカードには「最初から計算に入れない」と出ます。",
-  "「最初から計算に入れない」にした夢は、結果の画面の「外している物」で1件ずつ入れて、かなえた場合と比較できます（見方の切り替えで、保存はしません）。",
+  "「最初から計算に入れない」にすると、この夢は夢プランに残したまま、ふだんの計算には入れません。結果の画面の「これからの大きなお金」では、左のチェックが外れた行で出ます。",
+  "「最初から計算に入れない」にした夢は、結果の画面の「これからの大きなお金」で1件ずつチェックを入れて、かなえた場合と比較できます（見方の切り替えで、保存はしません）。",
   "たとえば、まず必ずかなえたい夢だけを「最初から計算に入れる」にして結果を見ていただき、ほかの夢は「最初から計算に入れない」にしておいて、その夢にかかるお金と、かなえたときの違いを別に示しながら、お客さまとあとで決められます。",
   "順位とひとことメモは、どちらを選んでも残ります。あとからいつでも、ここで選び直せます。",
 ].join("");
@@ -911,7 +911,7 @@ function dreamIncludeField(b: FieldDef): FieldDef {
 
 /**
  * 夢の1件のまとまり（1件を1つの枠に。0077 の追記）: 名前・時期（1回／年ごと）・額・始まり・何年ごと・終わり・ひとことメモ・計算に入れるか（最初から計算に入れる／最初から計算に入れない）。
- * 優先度の欄は無い（夢はふつうの行の「必ず」「できれば」と別の物）。順位は「↑ 上へ」「↓ 下へ」で動かす
+ * 見込みの欄は無い（夢はふつうの行の見込み「確実」「不確実」と別の物）。順位は「↑ 上へ」「↓ 下へ」で動かす
  */
 function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, count: number): GroupDef {
   const h = wh.request.input.household;

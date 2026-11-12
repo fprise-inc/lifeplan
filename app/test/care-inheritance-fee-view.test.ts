@@ -308,7 +308,7 @@ describe("相続・贈与", () => {
     expect(resolveTimepoint(h0, row.from)).toBe(addMonths(resolveTimepoint(h0, father.leaves!)!, INHERIT_AFTER_MONTHS));
   });
 
-  it("見込みと「計算に入れる」は1つの考え方: 確実ならチェックの欄を出さず計算に入れる。当てにしないときだけ「この行を計算に入れる」、入れた後は「計算から外す」", () => {
+  it("見込みと「計算に入れる」は1つの考え方: 確実ならチェックの欄を出さず計算に入れる。不確実のときだけ「この行を計算に入れる」、入れた後は「計算から外す」", () => {
     let wh = actionOf("inheritance", couple(), "money/inherit/in/add/inheritance").run(couple());
     const row = () => (hh(wh).incomeFlows ?? []).find((f) => f.kind === "inheritance")!;
     const id = row().id;

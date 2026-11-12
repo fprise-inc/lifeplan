@@ -37,9 +37,9 @@ function fixtureRequest(): EngineRequest {
   const self = h.members.find((m) => m.kind === "self")!;
   const parent = h.members.find((m) => m.kind === "parent")!;
   const income = (n: number, o: Partial<IncomeFlow>): IncomeFlow => ({ id: id(n), kind: "inheritance", from: { at: "2034-04" }, to: { at: "2034-04" }, everyYears: 1, amount: box(8000000), ...o });
-  // 当てにしない受け取る相続（計算に入れない）・当てにする相続（入れる）
+  // 不確実な受け取る相続（計算に入れない）・確実な相続（入れる）
   h.incomeFlows = [income(1, { likelihood: "uncertain" }), income(2, { likelihood: "likely", amount: box(1000000) })];
-  // 当てにしない、相続で受け継ぐ借金（計算に入れない）
+  // 不確実な、相続で受け継ぐ借金（計算に入れない）
   const debt: Debt = { id: id(10), kind: "other", debtors: [{ member: self.id, role: "primary" }], principal: 2000000, start: { at: "2034-05" }, rateSchedule: [{ from: { at: "2034-05" }, type: "fixed", rate: "0.02" }], repayment: { method: "equalPayment", termMonths: 60 }, inheritedFrom: parent.id, likelihood: "uncertain" };
   h.debts = [debt];
   // 「計算に入れない」夢（外す）と、入れる夢

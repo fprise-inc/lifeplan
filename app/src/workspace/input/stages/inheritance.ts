@@ -1,6 +1,6 @@
 // 13. 相続・贈与: 世代をまたぐお金を1枚に集める。
-// - 区画A 受け取る予定の相続・贈与（入るお金の行と、相続で受け継ぐ借金）: moneyRows.ts の区画「inherit」。見込み（確実・当てにしない）は簡易。
-//   「当てにしない」の行は基本の計算に入れない（0044 の5）。行に「この行を計算に入れる」の1押し。相続の受け取る時期は、相手の亡くなる見込みの10か月後を推定で
+// - 区画A 受け取る予定の相続・贈与（入るお金の行と、相続で受け継ぐ借金）: moneyRows.ts の区画「inherit」。見込み（確実・不確実）は簡易。
+//   「不確実」の行は基本の計算に入れない（0044 の5）。行に「この行を計算に入れる」の1押し。相続の受け取る時期は、相手の亡くなる見込みの10か月後を推定で
 // - 区画B あげる贈与（出るお金の行）。今ある援助の物（子への援助 goals.education.gifts・住宅資金の援助 residences.purchase.gifts）は物の形を変えず、
 //   子ども・教育／住まい・ローンのカードで入れ、ここには読むだけで並べる。あげる贈与の相手の孫（世帯の外の家族）はこのカードに置く（呼び名・生年月・外す）
 // - 親・祖父母（相続の相手・贈与する人）: 物と欄は介護・親の項目の世帯の外の家族の区画。ここは人ごとに「使っているところ」の1行と「外す」、「＋ 足す」
@@ -291,8 +291,8 @@ const INCLUDE_NOTE = "「この行を計算に入れる」で入れられます"
 
 /**
  * 見込みと「基本の計算に入れる」を1つの考え方にする（受け取る相続・贈与の行と、相続で受け継ぐ借金）: 見込みが「確実」なら計算に入る（チェックの欄は出さない。
- * 前は「確実」でも空のチェックが並び、外れているように見えた）。「当てにしない」のときだけ「この行を計算に入れる」の1押し、入れた後は「計算から外す」の1押し
- * （どちらも見込みは「当てにしない」のまま。プランを直しているときは、そのプランの差分になる）
+ * 前は「確実」でも空のチェックが並び、外れているように見えた）。「不確実」のときだけ「この行を計算に入れる」の1押し、入れた後は「計算から外す」の1押し
+ * （どちらも見込みは「不確実」のまま。プランを直しているときは、そのプランの差分になる）
  */
 function withIncludeAction(wh: WorkingHousehold, g: GroupDef): GroupDef {
   const income = g.key.startsWith("in/") && !g.key.slice(3).includes("/") ? g.key.slice(3) : null;
@@ -315,12 +315,12 @@ function withIncludeAction(wh: WorkingHousehold, g: GroupDef): GroupDef {
   const actions: ActionDef[] = !uncertain
     ? []
     : row.includeInBase === true
-      ? [{ key: `${prefix}/excludeFromBase`, label: "計算から外す（見込みは「当てにしない」のまま）", level: "simple", run: set(false) }]
-      : [{ key: `${prefix}/includeInBase`, label: "この行を計算に入れる（見込みは「当てにしない」のまま）", level: "simple", run: set(true) }];
+      ? [{ key: `${prefix}/excludeFromBase`, label: "計算から外す（見込みは「不確実」のまま）", level: "simple", run: set(false) }]
+      : [{ key: `${prefix}/includeInBase`, label: "この行を計算に入れる（見込みは「不確実」のまま）", level: "simple", run: set(true) }];
   return { ...g, ...(note !== undefined ? { note } : {}), actions: [...actions, ...g.actions] };
 }
 
-/** 「基本の計算に入れる」のチェックの欄（行の詳細のまとまりにある）を出さない。代わりに見込みが「当てにしない」の行の1押し（withIncludeAction） */
+/** 「基本の計算に入れる」のチェックの欄（行の詳細のまとまりにある）を出さない。代わりに見込みが「不確実」の行の1押し（withIncludeAction） */
 const INCLUDE_FIELD = /^(in|inherit\/debt)\/[^/]+\/includeInBase$/;
 const withoutIncludeField = (g: GroupDef): GroupDef => (g.fields.some((f) => INCLUDE_FIELD.test(f.key)) ? { ...g, fields: g.fields.filter((f) => !INCLUDE_FIELD.test(f.key)) } : g);
 
@@ -559,7 +559,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "受け取れるかどうかの見込み（確実・当てにしない）を行ごとに選びます。「確実」の行は計算に入れ、「当てにしない」にした行は除いて計算します（「この行を計算に入れる」で入れられます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ、区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」で足してから相手に選びます",
+      note: "受け取れるかどうかの見込み（確実・不確実）を行ごとに選びます。「確実」の行は計算に入れ、「不確実」にした行はふだんの計算からも外します（「この行を計算に入れる」で入れられます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ、区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」で足してから相手に選びます",
       level: "simple",
       groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, withCounterpartyFollow(withoutIncludeField(g)))), ...inheritedDebtGroups(wh).map((g) => withIncludeAction(wh, withoutIncludeField(g))), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [

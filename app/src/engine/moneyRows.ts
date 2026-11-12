@@ -1,19 +1,19 @@
 // お金の行（0044）の、計算の要求を作るときの決まり（0035 の7・0036 の6）:
-// - 基本の計算に入れない: 見込みが「当てにしない」（uncertain）で includeInBase が true でない、受け取る相続・遺贈・贈与の入るお金の行（種類が inheritance・giftReceived）と、
+// - 基本の計算に入れない: 見込みが「不確実」（uncertain）で includeInBase が true でない、受け取る相続・遺贈・贈与の入るお金の行（種類が inheritance・giftReceived）と、
 //   相続で受け継ぐ借金（inheritedFrom のある負債）。世帯のデータからは消さず、エンジンへ渡す要求からだけ外す（エンジンは変えない）。
 //   ほかの種類の入るお金には広げない（当てにならない遺産で楽な結果を見る誤りは、相続に特有なため）
-// - 結果の見方（保存しない自動の差分。0036 の6・0044 の追記）: 「すべて入れる」か「確実な分だけ」（見込みが「当てにしない」〔uncertain〕の入るお金の行の
-//   すべてと、優先度が「できれば」〔want・wish〕の出るお金の行を外す）と、物ごとの入れ外し。基本の計算に入れない物も、ここで「入れて見る」ができる
+// - 結果の見方（保存しない自動の差分。0036 の6・0044 の追記）: 「すべて入れる」か「確実な分だけ」（見込みが「不確実」〔uncertain〕の入るお金の行の
+//   すべてと、見込み（値は priority）が「不確実」〔want・wish〕の出るお金の行を外す）と、物ごとの入れ外し。基本の計算に入れない物も、ここで「入れて見る」ができる
 //   （要求の写しで includeInBase を true にする。世帯もプランも変えない）
-// どちらも差分を当てた後の作業中の世帯から作る要求に当てるので、プランでの見込み・includeInBase・優先度の set が効く
+// どちらも差分を当てた後の作業中の世帯から作る要求に当てるので、プランでの見込み（likelihood・priority）・includeInBase の set が効く
 // - 世帯に保存した表示だけの設定（相続税の目安の設定・遺したい額。0060）も、エンジンへ渡すときに外す（withoutStoredSettings）
 // - 夢プラン（0103）: 種類が夢（dream）の出るお金の行は、エンジンにはふつうの一時的支出の行として渡す。「計算に入れない」（dream.include が false）の夢は
 //   要求から外す。結果の見方では、夢は理由「夢」で1件ずつ入れ外しでき、「確実な分だけ」では外す。子への援助（教育の目標の gifts）の
-//   優先度が「できれば」の物も、確実な分だけで外す
+//   見込みが「不確実」の物も、確実な分だけで外す
 import type { Debt, EngineRequest, Household, IncomeFlow, IncomeFlowKind, PeriodicExpense } from "./types.ts";
 import { officeEstimateNoFill, officeEstimateValues } from "./officeValues.ts";
 
-/** 見込みが「当てにしない」なら基本の計算に入れない入るお金の種類（受け取る相続・遺贈・贈与） */
+/** 見込みが「不確実」なら基本の計算に入れない入るお金の種類（受け取る相続・遺贈・贈与） */
 export const BASE_EXCLUDED_KINDS: ReadonlySet<IncomeFlowKind> = new Set(["inheritance", "giftReceived"]);
 
 /** この入るお金の行を基本の計算から外すか */
@@ -89,10 +89,10 @@ export function withoutStoredSettings(req: EngineRequest): EngineRequest {
   return { ...req, input: { ...rest, ...(dropTax || inheritanceTax === undefined ? {} : { inheritanceTax }) } as EngineRequest["input"] };
 }
 
-/** 確実な分だけで外す行か（入るお金は見込みが「当てにしない」、出るお金は優先度が「できれば」。古い値の likely は確実、wish はできればと同じ扱い） */
+/** 確実な分だけで外す行か（入るお金は見込みが「不確実」、出るお金は見込み〔priority〕が「不確実」。古い値の likely は確実、wish は不確実と同じ扱い） */
 export const notCertainIncome = (f: Pick<IncomeFlow, "likelihood">): boolean => f.likelihood === "uncertain";
 export const notNeededExpense = (e: Pick<PeriodicExpense, "priority">): boolean => e.priority === "want" || e.priority === "wish";
-/** 確実な分だけで外す子への援助か（優先度が「できれば」。0103） */
+/** 確実な分だけで外す子への援助か（見込み〔priority〕が「不確実」。0103） */
 export const notNeededGift = (g: { priority?: string }): boolean => g.priority === "want";
 
 /** 結果の見方（保存しない）: 確実な分だけか（false は「すべて入れる」）と、物ごとの入れ外し（候補のキー → 入れるなら true。決まりのとおりの物は持たない） */
@@ -112,7 +112,7 @@ export interface ViewCandidate {
   side: "in" | "out" | "debt" | "gift";
   id: string;
   /**
-   * 外れる理由: base＝基本の計算に入れない決まり（当てにしない受け取る相続・贈与・受け継ぐ借金）、uncertain＝見込みが当てにしない、priority＝優先度ができれば、
+   * 外れる理由: base＝基本の計算に入れない決まり（不確実な受け取る相続・贈与・受け継ぐ借金）、uncertain＝見込みが不確実、priority＝出るお金・子への援助の見込み（priority）が不確実、
    * dream＝夢プランの1件（0103。「計算に入れない」を選んだ夢は off）
    */
   reason: "base" | "uncertain" | "priority" | "dream";
