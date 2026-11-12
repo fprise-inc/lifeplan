@@ -241,7 +241,7 @@ export function generateLater(known: readonly ReadingEntry[], previous: readonly
   for (const p of bad.keys()) rows.delete(p);
   const until = new Map(previous.map((e) => [e.from, e.until]));
   const entries: ReadingEntry[] = [...rows].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([from, to]) => ({ from, until: until.get(from) ?? version, to }));
-  // 行で当て先に書くと、欄に書いたのと同じ世帯になること（値の状態の行は比べない: 欄は、書いた値を含む並び全体の推定の行〔標準の
+  // 行で当て先に書くと、欄に書いたのと同じ世帯になること（値の状態の行は比較しない: 欄は、書いた値を含む並び全体の推定の行〔標準の
   // 進路の型など〕も外すことがあるが、当て先に書く差分は当て先の行だけを書く。0.16 の欄の行と同じ）
   for (const c of checks) {
     const r = resolveKey(c.key, c.input, [...known, ...entries]);

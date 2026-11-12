@@ -1,5 +1,5 @@
 // 収益不動産を持つ見本の世帯（見本 3-4-05。架空）で、0128 の直し: キャッシュフロー表の「不動産の売却」の行、収益不動産のタブの
-// 「年ごとの手残りとローン残高」のグラフ、売る年を変えた比べの行からその売り方のプランを作る
+// 「年ごとの手残りとローン残高」のグラフ、売る年を変えた比較の行からその売り方のプランを作る
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, TableCell } from "../src/engine/types.ts";
@@ -131,7 +131,7 @@ describe("収益不動産のタブの「年ごとの手残りとローン残高�
   });
 });
 
-describe("売る年を変えた比べの行から、その売り方のプランを作る", () => {
+describe("売る年を変えた比較の行から、その売り方のプランを作る", () => {
   const demo = DEMO_HOUSEHOLDS.find((d) => d.id === ID) as DemoHousehold;
   const self = req.input.household.members.find((m) => m.kind === "self")!;
   const wh0 = fromRequest(req, { memo: demo.memo });
@@ -147,7 +147,7 @@ describe("売る年を変えた比べの行から、その売り方のプラン�
   });
 
   for (const key of ["earlier", "later", "hold"] as const) {
-    it(`${key}: 新しいプランは売る年だけが違う差分を持ち、計算は比べの行と同じ。現状は変えない`, () => {
+    it(`${key}: 新しいプランは売る年だけが違う差分を持ち、計算は比較の行と同じ。現状は変えない`, () => {
       const v = saleVariantOf(req, HEIGHTS, key)!;
       const s = savePlan(wh0, cat, { name: "テスト", base: null, values: {}, now: "2026-11-06T00:00:00Z" });
       const wh = recordSaleVariant(s.wh, cat, s.id, HEIGHTS, v);

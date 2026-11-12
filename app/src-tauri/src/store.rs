@@ -176,7 +176,31 @@ pub async fn store_create(
     sample: Option<SampleRequest>,
 ) -> Result<Opened, String> {
     with_ai(app, move |s, ai| {
-        create_household(s, ai, body, summary, CreateOptions { category, sample })
+        create_household(
+            s,
+            ai,
+            body,
+            summary,
+            CreateOptions {
+                category,
+                sample,
+                fictional: false,
+            },
+        )
+    })
+    .await
+}
+
+/// 架空の世帯をお客さまの世帯にする（一方向。お客さまの世帯を架空にする命令は無い。0208）。共有中なら、同意が無ければその場で止める。
+/// 印を外したら true（印の無い世帯では何もしない）
+#[tauri::command]
+pub async fn store_make_client(app: AppHandle, id: String) -> Result<bool, String> {
+    with_ai(app, move |s, ai| {
+        let changed = s.make_client(&id).map_err(code)?;
+        if changed {
+            ai.on_made_client(s, &id);
+        }
+        Ok(changed)
     })
     .await
 }

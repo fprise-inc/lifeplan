@@ -77,7 +77,7 @@
           ]
         },
         "input": {
-          "description": "別の、AIが組み立てた入力で比べる（calculate の input と同じ形）"
+          "description": "別の、AIが組み立てた入力で比較する（calculate の input と同じ形）"
         },
         "label": {
           "description": "通りの名前（答えにそのまま出す。例: 「退職を63歳に」「物価2%」）。省くと「通り1」…",
@@ -110,14 +110,14 @@
           ]
         },
         "sample_household_id": {
-          "description": "別の見本の世帯で比べる（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の\nchanges・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる",
+          "description": "別の見本の世帯で比較する（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の\nchanges・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる",
           "type": [
             "string",
             "null"
           ]
         },
         "share_id": {
-          "description": "別の、FPが渡した世帯で比べる（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）",
+          "description": "別の、FPが渡した世帯で比較する（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）",
           "type": [
             "string",
             "null"
@@ -160,19 +160,27 @@
       ]
     },
     "charts": {
-      "description": "作るグラフ（既定は assets・repayment・keyFigures）: assets（通りごとの金融資産の推移。折れ線）・repayment（通りごとの住宅ローンの返済額の推移。\n年額の折れ線）・keyFigures（主な数字の比べ。棒）・interest（通りごとの住宅ローンの利息の推移。年額の折れ線）・rate（通りごとの住宅ローンの金利の\n推移。その年の最後の返済に当てた金利の折れ線。縦の目盛りは %。金利の違う住宅ローンを2本以上返している年は描かない）",
+      "description": "作るグラフ（既定は、series を書かなければ assets・repayment・keyFigures、書けば無し）: assets（通りごとの金融資産の推移。折れ線）・repayment\n（通りごとの住宅ローンの返済額の推移。年額の折れ線）・keyFigures（主な数字の比較。棒）・interest（通りごとの住宅ローンの利息の推移。年額の折れ線）・\nrate（通りごとの住宅ローンの金利の推移。その年の最後の返済に当てた金利の折れ線。縦の目盛りは %。金利の違う住宅ローンを2本以上返している年は描かない）・\nexpenseBreakdown（支出の内訳の比較。生活費・住居費・教育費・保険料・車・医療・介護などの表の期間の合計を、通りごとの横の棒で並べる）",
       "items": {
         "enum": [
           "assets",
           "repayment",
           "keyFigures",
           "interest",
-          "rate"
+          "rate",
+          "expenseBreakdown"
         ],
         "type": "string"
       },
       "type": [
         "array",
+        "null"
+      ]
+    },
+    "credit": {
+      "description": "true なら、注に「ファイナンシアで試算」の出典を入れる（既定 false＝入れない。ブログ・セミナーの資料に FP の名前で使うときは入れなくてよい）。\n前提の注（物価上昇率・運用利回り・相場の想定）・試算の時点・将来の結果を約束するものではない旨は、どちらでもいつも入る",
+      "type": [
+        "boolean",
         "null"
       ]
     },
@@ -255,6 +263,41 @@
         "null"
       ]
     },
+    "series": {
+      "description": "折れ線にする年ごとの数字（compare の series と同じ名前。1つにつき1枚の折れ線のグラフ。charts と合わせて8枚まで）: income（収入）・takeHome（手取り）・\ntaxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産）・debt（負債の残高）・shortfall（資金不足）・\nloanRepayment・loanBalance・loanInterest・loanRate（住宅ローンの返済額・残高・利息・金利）・pension（公的年金）・支出の内訳 expenseLiving（生活費）・\nexpenseSurplus（ゆとりの支出）・expenseHousing（住居費）・expenseEducation（教育費）・expenseInsurance（保険料）・expenseLumpSum（一時的支出）・\nexpenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・expenseOther（その他の支出）。\n例: 退職の年齢を3通りにして [\"financialAssets\", \"net\"]、教育の進路を3通りにして [\"expenseEducation\"]",
+      "items": {
+        "enum": [
+          "income",
+          "takeHome",
+          "taxSi",
+          "expense",
+          "net",
+          "financialAssets",
+          "debt",
+          "shortfall",
+          "loanRepayment",
+          "loanBalance",
+          "loanInterest",
+          "loanRate",
+          "pension",
+          "expenseLiving",
+          "expenseSurplus",
+          "expenseHousing",
+          "expenseEducation",
+          "expenseInsurance",
+          "expenseLumpSum",
+          "expenseCar",
+          "expenseCare",
+          "expenseRealEstate",
+          "expenseOther"
+        ],
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
     "share_id": {
       "description": "基本の世帯: FPが渡した世帯の共有 ID（list_shared_households）。アプリが起動していて、共有が期限内のときだけ使える",
       "type": [
@@ -282,7 +325,7 @@
       ]
     },
     "title": {
-      "description": "題（グラフの種類が1つのときだけ。省くと種類ごとの既定の題。お客さまの名前を書かない）",
+      "description": "題（作るグラフが1枚のときだけ。省くと種類ごとの既定の題。お客さまの名前を書かない）",
       "type": [
         "string",
         "null"

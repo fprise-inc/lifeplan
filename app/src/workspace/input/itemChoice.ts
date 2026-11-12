@@ -40,7 +40,7 @@ export function readItemChoice(v: unknown): ItemChoice {
 /** 何も決めていない（全部出す・全部標準で開く） */
 export const isEmptyChoice = (c: ItemChoice | undefined | null): boolean => c === undefined || c === null || ((c.hidden ?? []).length === 0 && Object.keys(c.levels ?? {}).length === 0);
 
-/** 同じ選び方か（形を確かめた後の並びで比べる。事務所の既定と世帯の選び方を比べる） */
+/** 同じ選び方か（形を確かめた後の並びで比較する。事務所の既定と世帯の選び方を比較する） */
 export const sameChoice = (a: ItemChoice | undefined | null, b: ItemChoice | undefined | null): boolean => JSON.stringify(readItemChoice(a ?? {})) === JSON.stringify(readItemChoice(b ?? {}));
 
 /** 非表示にしてある（値が入っていて出すかは見ない） */

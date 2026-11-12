@@ -1,7 +1,7 @@
 // AI接続口の計算の前の処理（0184）: 接続口に同梱する prepare（src/connector/prepare.ts）が、画面がエンジンへ渡す前に当てる処理
 // （engine/moneyRows.ts の forEngine。事務所の推定の値は、画面が事務所データを読んで publishOfficeSettings で入れた物）と同じ要求を作ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の calculation_matches_the_screen_after_preparation）は、ここで作る見本
-// （前処理が効く世帯・事務所の推定の値・画面の数字と根拠）を、本物の接続口に渡された世帯として MCP で計算させて比べる。
+// （前処理が効く世帯・事務所の推定の値・画面の数字と根拠）を、本物の接続口に渡された世帯として MCP で計算させて比較する。
 // 見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -16,6 +16,8 @@ import { full, modelHousehold, preview, screenTotals, screenYears } from "./help
 
 const REPO = join(import.meta.dirname, "..", "..");
 const FIXTURE = join(REPO, "crates", "lifeplan", "tests", "fixtures", "prepare", "expected.json");
+/** 夢プランの見本の世帯（計算に入れない夢がある。0103 の追記 2026-11-12） */
+const DREAM_SAMPLE = "sampleFamilyDreams";
 
 // 画面と同じく、事務所データを読んで今の事務所の値にする（App.tsx の putOfficeSettings）。テストの後は事務所の値を外す
 const useOffice = (estimates: OfficeEstimates | null) => publishOfficeSettings(readOfficeSettings(estimates === null ? {} : { estimates }));
@@ -101,9 +103,9 @@ describe("AI接続口の計算の前の処理（0184）", () => {
     }
   });
 
-  it("どのモデル世帯（見本の世帯）にも、当てても要求は変わらない（見本に事務所の値は無く、計算に入れない物も無い）", () => {
+  it("どのモデル世帯（見本の世帯）にも、当てても要求は変わらない（見本に事務所の値は無く、計算に入れない物も無い。夢プランの見本は下で見る）", () => {
     const dir = join(REPO, "data", "modelHouseholds");
-    const ids = readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5));
+    const ids = readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)).filter((x) => x !== DREAM_SAMPLE);
     expect(ids.length).toBeGreaterThan(10);
     for (const x of ids) {
       const req = modelHousehold(x);
@@ -111,6 +113,18 @@ describe("AI接続口の計算の前の処理（0184）", () => {
       expect(got.request, x).toEqual(req);
       expect(Object.values(got.applied).every((l) => l.length === 0), x).toBe(true);
     }
+  });
+
+  it("夢プランの見本（計算に入れない夢が3件ある）では、その3件の夢だけを外し、ほかは変えない（画面と同じ。0103）", () => {
+    const req = modelHousehold(DREAM_SAMPLE);
+    const off = (req.input.household.periodicExpenses ?? []).filter((p) => p.kind === "dream" && p.dream?.include === false).map((p) => p.id);
+    expect(off).toHaveLength(3);
+    const got = prepared(req, null);
+    expect(got.applied.offDreams).toEqual(off);
+    expect(Object.entries(got.applied).filter(([k]) => k !== "offDreams").every(([, l]) => l.length === 0)).toBe(true);
+    const rest = (req.input.household.periodicExpenses ?? []).filter((p) => !off.includes(p.id));
+    expect(got.request.input.household.periodicExpenses).toEqual(rest);
+    expect({ ...got.request.input.household, periodicExpenses: [] }).toEqual({ ...req.input.household, periodicExpenses: [] });
   });
 
   it("接続口のテストの見本（画面の数字と根拠）が今の答えと同じ", () => {

@@ -1,4 +1,4 @@
-// AI接続口の比べる道具（compare）: 1回で何通りも計算して並べたときの主な数字が、画面の「プランを比べる」の比較の表（plans/compare.ts の
+// AI接続口の比較の道具（compare）: 1回で何通りも計算して並べたときの主な数字が、画面の「プランを比較」の比較の表（plans/compare.ts の
 // compareTable・metricsOf）で同じプランを並べたときと同じになるかを、接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の
 // compare_matches_the_screen）が確かめるための見本を作る。
 // - プランの通り: 画面で見本の世帯を開き、結果のタブのつまみを動かしたプラン（applyValues）を、比較の表に現状と並べたときの数字
@@ -86,10 +86,10 @@ const financial = (req: EngineRequest, r: PreviewResult) => {
   return Object.fromEntries(displayYears(req).map((y) => [String(y), fin.get(y) ?? 0]));
 };
 
-/** 比べるプランの見本（基本の世帯・基本に動かす物・通りごとに動かす物） */
+/** 比較するプランの見本（基本の世帯・基本に動かす物・通りごとに動かす物） */
 const PLAN_CASES: { name: string; sample: string; base: Moves; variants: { label: string; moves: Moves }[] }[] = [
   {
-    // 0203: 叶えたい使い方（変動金利の上がり方を3通りにして比べる）。入力の「金利の見込み」の欄と同じ型
+    // 0203: 叶えたい使い方（変動金利の上がり方を3通りにして比較する）。入力の「金利の見込み」の欄と同じ型
     name: "変動金利の上がり方を3通り（今のまま・10年で+1%・10年で+2%）",
     sample: "salariedCoupleTwoKids",
     base: { "loan:*:outlook": () => ({ adds: [] }) },
@@ -144,10 +144,10 @@ const MARKET_CASES: { sample: string; base: Moves }[] = [
   { sample: "salariedCoupleTwoKids", base: { "lever:retireAge": () => 63 } },
 ];
 
-/** 比べる見本の世帯どうし */
+/** 比較する見本の世帯どうし */
 const SAMPLES = ["dualNoKids", "salariedCoupleTwoKids", "single25", "sampleSeniorCouple"];
 
-describe("AI接続口の比べる道具（compare）", () => {
+describe("AI接続口の比較の道具（compare）", () => {
   it("接続口のテストの見本（画面の比較の表で同じプランを並べたときの数字）が今の答えと同じ", () => {
     const plans = PLAN_CASES.map((c) => {
       const s = screen(c.sample);

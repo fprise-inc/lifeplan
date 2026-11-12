@@ -77,7 +77,7 @@
           ]
         },
         "input": {
-          "description": "別の、AIが組み立てた入力で比べる（calculate の input と同じ形）"
+          "description": "別の、AIが組み立てた入力で比較する（calculate の input と同じ形）"
         },
         "label": {
           "description": "通りの名前（答えにそのまま出す。例: 「退職を63歳に」「物価2%」）。省くと「通り1」…",
@@ -110,14 +110,14 @@
           ]
         },
         "sample_household_id": {
-          "description": "別の見本の世帯で比べる（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の\nchanges・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる",
+          "description": "別の見本の世帯で比較する（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の\nchanges・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる",
           "type": [
             "string",
             "null"
           ]
         },
         "share_id": {
-          "description": "別の、FPが渡した世帯で比べる（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）",
+          "description": "別の、FPが渡した世帯で比較する（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）",
           "type": [
             "string",
             "null"
@@ -246,23 +246,33 @@
       ]
     },
     "rows": {
-      "description": "行（既定 income・taxSi・expense・net・financialAssets）: income（収入合計）・takeHome（手取り＝収入−税・社会保険料）・taxSi（税・社会保険料）・\nexpense（支出。税・社会保険料を除く）・expenseBreakdown（支出の内訳。画面のキャッシュフロー表の支出の行ごと〔基本生活費・住居費・教育費・保険料…〕。\n値のある行だけ）・net（年間収支）・financialAssets（金融資産残高）・debt（負債の残高の合計）・loanRepayment（住宅ローンの返済。年額）・\nloanBalance（住宅ローン残高。画面の表の行と同じ）・loanInterest（住宅ローンの利息。年額）・loanRate（その年の住宅ローンの金利。%）・\npension（公的年金の世帯の合計。年額）・shortfall（資金の不足）。名前は compare の系列と同じ",
+      "description": "行（既定 income・taxSi・expense・net・financialAssets）。名前は compare の系列と同じ: income（収入合計）・takeHome（手取り＝収入−税・社会保険料）・\ntaxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産残高）・debt（負債の残高の合計）・\nshortfall（資金不足）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高。画面の表の行と同じ）・loanInterest（住宅ローンの利息。\n年額）・loanRate（その年の住宅ローンの金利。%）・pension（公的年金の世帯の合計。年額）・支出の内訳 expenseLiving・expenseSurplus・expenseHousing・\nexpenseEducation・expenseInsurance・expenseLumpSum・expenseCar・expenseCare・expenseRealEstate・expenseOther（全部足すと expense）。\nexpenseBreakdown は、支出の内訳のうちどれかの通りに値のある物をまとめて選ぶ",
       "items": {
         "enum": [
           "income",
           "takeHome",
           "taxSi",
           "expense",
-          "expenseBreakdown",
           "net",
           "financialAssets",
           "debt",
+          "shortfall",
           "loanRepayment",
           "loanBalance",
           "loanInterest",
           "loanRate",
           "pension",
-          "shortfall"
+          "expenseLiving",
+          "expenseSurplus",
+          "expenseHousing",
+          "expenseEducation",
+          "expenseInsurance",
+          "expenseLumpSum",
+          "expenseCar",
+          "expenseCare",
+          "expenseRealEstate",
+          "expenseOther",
+          "expenseBreakdown"
         ],
         "type": "string"
       },

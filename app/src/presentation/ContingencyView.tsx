@@ -692,7 +692,7 @@ export function ProtectionLegend() {
 export function Breakdown({ model }: { model: ScenarioModel["breakdown"] }) {
   return (
     <table class="cg-break">
-      <caption>万一なしと比べた増減（▲は減る）</caption>
+      <caption>万一なしと比較した増減（▲は減る）</caption>
       <thead>
         <tr>
           <th scope="col">項目</th>

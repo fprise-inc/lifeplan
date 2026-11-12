@@ -239,7 +239,7 @@ describe("面談の履歴の画面", () => {
     expect(gone).toContain("つないだ控えは外されています");
   });
 
-  it("前回から変わったことから前回の面談の記録に飛べる（比べる控えをつないだ記録があればその記録）", async () => {
+  it("前回から変わったことから前回の面談の記録に飛べる（比較する控えをつないだ記録があればその記録）", async () => {
     const snap = await makeSnapshot({ wh: wh0(), drafts: {}, draft: { trigger: "manual", memo: "", plan: null }, appVersion: "0.1.0" });
     const list = [{ ...markedMeetings()[0]!, snapshot: snap.id }, markedMeetings()[1]!];
     expect(meetingForReview(list, snap.id)?.id).toBe("m-1");

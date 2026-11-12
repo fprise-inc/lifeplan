@@ -141,7 +141,7 @@ export function parseFeed(text: string | null): FeedNotice[] {
   return out;
 }
 
-/** 版の比べ方（x.y.z を数で） */
+/** 版の比較の仕方（x.y.z を数で） */
 export function compareVersions(a: string, b: string): number {
   const pa = a.split(/[.+-]/).slice(0, 3).map(Number);
   const pb = b.split(/[.+-]/).slice(0, 3).map(Number);

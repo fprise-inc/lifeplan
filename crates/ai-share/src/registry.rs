@@ -3,6 +3,7 @@
 
 use crate::clock::{iso8601, Clock, SystemClock};
 use crate::documents::{self, PendingDocumentProposal};
+use crate::households::{self, HouseholdCandidate};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
 use crate::record::{
     verify_append_only, AiShareRecord, Caller, ConsentAtGrant, EndReason, ProposalEntry,
@@ -116,6 +117,8 @@ struct State {
     /// 書類から読んだ値の候補（0151。画面が読み口を通して読み取りの記録にするまで、メモリの中だけに置く）
     document_proposals: Vec<PendingDocumentProposal>,
     feature_codes: Vec<FeatureCodeCandidate>,
+    /// AIが組み立てた新しい世帯の候補（承認待ち。アプリのメモリの中だけ。FPが画面で作るか捨てるまで）
+    household_candidates: Vec<HouseholdCandidate>,
     /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
@@ -126,7 +129,11 @@ pub struct ShareRegistry {
     state: Mutex<State>,
     clock: Arc<dyn Clock>,
     office: Mutex<Option<OfficeEstimatesSource>>,
+    household_check: Mutex<Option<HouseholdCheck>>,
 }
+
+/// 新しい世帯の候補の計算の入力を確かめる所（アプリ本体が入れる。計算エンジンのスキーマと同じ確かめ）。Err は AI に見せてよい理由
+pub type HouseholdCheck = Arc<dyn Fn(&Value) -> Result<(), String> + Send + Sync>;
 
 /// 事務所の推定の値（事務所データの `defaults.estimates`。無ければ None）を読む所。アプリ本体が入れる（0184）
 pub type OfficeEstimatesSource = Arc<dyn Fn() -> Option<Value> + Send + Sync>;
@@ -150,6 +157,7 @@ impl ShareRegistry {
             state: Mutex::new(State::default()),
             clock,
             office: Mutex::new(None),
+            household_check: Mutex::new(None),
         }
     }
 
@@ -171,6 +179,14 @@ impl ShareRegistry {
     /// 返事に、そのときの値を添える（共有した後に事務所の値を変えても、次の計算から今の値になる。画面と同じ）
     pub fn set_office_estimates(&self, source: Option<OfficeEstimatesSource>) {
         *self.office.lock().unwrap_or_else(|p| p.into_inner()) = source;
+    }
+
+    /// 新しい世帯の候補の計算の入力を確かめる所を入れる（アプリ本体が起動したときに入れる）。入れなければ形の外側だけを確かめる
+    pub fn set_household_check(&self, check: Option<HouseholdCheck>) {
+        *self
+            .household_check
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = check;
     }
 
     /// 記録が変わった回数（世帯ファイルへ書き戻すかどうかの判定に使う）
@@ -207,7 +223,9 @@ impl ShareRegistry {
             },
             None => "none",
         };
-        let warned = consent_state != "given";
+        // 架空の世帯は、お客さまの情報を含まないので同意の記録が無くても渡せる（期限・取り消し・記録・縮約版は同じ）
+        let fictional = source.fictional && consent_state != "given";
+        let warned = !fictional && consent_state != "given";
         if warned && (!opts.proceed_without_consent || self.lock().require_consent) {
             return Err(GrantError::ConsentMissing {
                 state: consent_state.to_owned(),
@@ -236,7 +254,12 @@ impl ShareRegistry {
             household_revision: source.revision.clone(),
             destination_declared: opts.destination_declared.clone(),
             consent_at_grant: ConsentAtGrant {
-                state: consent_state.to_owned(),
+                state: if fictional {
+                    "fictional"
+                } else {
+                    consent_state
+                }
+                .to_owned(),
                 record_id: source
                     .external_ai_consent
                     .as_ref()
@@ -276,7 +299,7 @@ impl ShareRegistry {
         let now = self.now();
         let mut st = self.lock();
         let require = st.require_consent;
-        let consent_ok = consent_given(&source);
+        let consent_ok = may_share(&source);
         let updated = match st.shares.get_mut(share_id) {
             Some(s) if s.ended.is_none() && s.source.household_id == source.household_id => {
                 s.source = source;
@@ -496,6 +519,35 @@ impl ShareRegistry {
         self.lock().feature_codes.clear();
     }
 
+    /// 承認待ちの、新しい世帯の候補（届いた順）
+    pub fn household_candidates(&self) -> Vec<HouseholdCandidate> {
+        self.lock().household_candidates.clone()
+    }
+
+    /// 承認待ちの新しい世帯の候補の1つ（無ければ None）
+    pub fn household_candidate(&self, candidate_id: &str) -> Option<HouseholdCandidate> {
+        self.lock()
+            .household_candidates
+            .iter()
+            .find(|c| c.candidate_id == candidate_id)
+            .cloned()
+    }
+
+    /// 新しい世帯の候補を承認待ちから外す（FPが画面で世帯を作った・捨てた）。外した候補を返す
+    pub fn take_household_candidate(&self, candidate_id: &str) -> Option<HouseholdCandidate> {
+        let mut st = self.lock();
+        let i = st
+            .household_candidates
+            .iter()
+            .position(|c| c.candidate_id == candidate_id)?;
+        Some(st.household_candidates.remove(i))
+    }
+
+    /// 新しい世帯の候補をすべて外す（AI接続口をオフにしたとき）
+    pub fn clear_household_candidates(&self) {
+        self.lock().household_candidates.clear();
+    }
+
     // ------------------------------------------------------------ 接続口からの依頼（受け口（endpoint）から呼ぶ。成功は返す JSON の文字列）
 
     /// 機能を有効にするコードを、承認待ちの候補に入れる（コードは入れない）。同じコードの候補が既にあれば、それを返す
@@ -542,6 +594,59 @@ impl ShareRegistry {
             "candidateId": id,
             "status": "pendingReview",
             "message": "機能を有効にするコードの候補を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん下）に承認待ちで出しました。FPが画面で中身（有効になる機能・名前・期限）と、入れる前と後を確かめて「このコードを入れる」を押したときだけ入ります。この道具ではコードは入りません。",
+        })
+        .to_string())
+    }
+
+    /// AIが組み立てた新しい世帯を、承認待ちの候補に入れる（世帯は作らない）。世帯を渡していなくてよい。
+    /// 同じ中身（種類・題・推定したこと・入力）の候補が既にあれば、それを返す
+    pub fn handle_propose_household(
+        &self,
+        proposal: &Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let c = households::validate(proposal).map_err(|m| (ErrorCode::Invalid, m))?;
+        // 計算の入力の中身を確かめる（計算エンジンのスキーマと同じ。重いので、台帳のロックの外で）
+        let check = self
+            .household_check
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        if let Some(f) = check {
+            f(&c.input).map_err(|m| (ErrorCode::Invalid, m))?;
+        }
+        let now = self.now();
+        let mut st = self.lock();
+        let same = st.household_candidates.iter().find(|x| {
+            x.kind == c.kind && x.title == c.title && x.note == c.note && x.input == c.input
+        });
+        let id = match same {
+            Some(x) => x.candidate_id.clone(),
+            None => {
+                if st.household_candidates.len() >= households::MAX_PENDING {
+                    return Err((
+                        ErrorCode::Invalid,
+                        format!("承認待ちの新しい世帯の候補が多すぎます（{}件まで）。FPがアプリの画面で今の候補を作るか捨てるまで、新しい候補は出せません。", households::MAX_PENDING),
+                    ));
+                }
+                let id = reduce::random_uuid_v4();
+                st.household_candidates.push(HouseholdCandidate {
+                    candidate_id: id.clone(),
+                    received_at: iso8601(now),
+                    connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
+                    kind: c.kind.clone(),
+                    title: c.title.clone(),
+                    note: c.note.clone(),
+                    input: c.input.clone(),
+                });
+                id
+            }
+        };
+        Ok(json!({
+            "candidateId": id,
+            "status": "pendingReview",
+            "kind": c.kind,
+            "message": "新しい世帯の候補を、アプリの画面（上の帯の「AIから新しい世帯の候補が届いています」）に承認待ちで出しました。FPが画面で中身（家族・収入・資産・住まいとローン・推定したこと）と、架空かお客さまかを確かめて「世帯として作る」を押したときだけ、世帯が作られます。この道具では世帯は作られず、世帯の一覧も変わりません。",
         })
         .to_string())
     }
@@ -626,7 +731,7 @@ impl ShareRegistry {
         let mut list: Vec<(String, serde_json::Value)> = st
             .shares
             .iter()
-            .filter(|(_, s)| s.ended.is_none() && (!require || consent_given(&s.source)))
+            .filter(|(_, s)| s.ended.is_none() && (!require || may_share(&s.source)))
             .map(|(id, s)| {
                 (
                     s.alias.clone(),
@@ -796,12 +901,18 @@ fn consent_given(source: &SharedHouseholdSource) -> bool {
         .is_some_and(|c| c.decision == ConsentDecision::Given)
 }
 
-/// 書類を AI に渡すことを含む説明（版2〜）で同意した世帯か（0157）
+/// 渡してよい世帯か: 外部AIへの提供の同意が `given` か、架空の世帯（お客さまの情報を含まない）
+fn may_share(source: &SharedHouseholdSource) -> bool {
+    source.fictional || consent_given(source)
+}
+
+/// 書類を AI に渡すことを含む説明（版2〜）で同意した世帯か（0157）。架空の世帯は同意が要らない
 fn consent_covers_documents(source: &SharedHouseholdSource) -> bool {
-    source
-        .external_ai_consent
-        .as_ref()
-        .is_some_and(|c| c.decision == ConsentDecision::Given && c.documents)
+    source.fictional
+        || source
+            .external_ai_consent
+            .as_ref()
+            .is_some_and(|c| c.decision == ConsentDecision::Given && c.documents)
 }
 
 fn not_shared() -> Refusal {
@@ -831,7 +942,7 @@ fn usable(st: &mut State, share_id: &str, now: u64) -> Result<(), Refusal> {
         expire(st, share_id);
         return Err(expired_refusal());
     }
-    if st.require_consent && !consent_given(&s.source) {
+    if st.require_consent && !may_share(&s.source) {
         end_share(st, share_id, iso8601(now), EndReason::ConsentWithdrawn);
         return Err((
             ErrorCode::Revoked,

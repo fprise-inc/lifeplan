@@ -45,7 +45,7 @@ export interface ReferenceView {
   id: string;
   label: string;
   amount: number;
-  /** アプリの計算（その年・名義の人の分）。比べられなければ null */
+  /** アプリの計算（その年・名義の人の分）。比較できなければ null */
   calc: number | null;
   where: string | null;
 }
@@ -79,7 +79,7 @@ export interface DocReview {
 /** 取り込みを外した書類の前の記録の行に出す理由（0159） */
 export const RETIRED_PROBLEM = "この書類の取り込みは外しました。書類を見て入力の欄に打ってください";
 
-/** 計算の結果の行の額（照合の値と比べる。その年・その人の分の合計。無ければ null） */
+/** 計算の結果の行の額（照合の値と比較する。その年・その人の分の合計。無ければ null） */
 export type CalcOf = (row: string, year: number, member: string | null) => number | null;
 
 const created = (r: DocumentReading): Map<string, string> => new Map(r.objects.flatMap((o) => (o.created !== undefined ? [[o.key, o.created] as const] : [])));
@@ -155,7 +155,7 @@ function compareOf(wh: WorkingHousehold, f: FieldDef, v: Val): Compare {
 }
 
 /**
- * 欄の値の言葉。円は書類と見比べられるように円の単位で丸めずに書く（入力の画面の「年32万円」のような丸めをしない）。ほかは入力の画面と同じ言葉
+ * 欄の値の言葉。円は書類と比較できるように円の単位で丸めずに書く（入力の画面の「年32万円」のような丸めをしない）。ほかは入力の画面と同じ言葉
  */
 function valueText(f: FieldDef, v: Val, wh: WorkingHousehold): string {
   if (f.kind === "yen" && typeof v === "number") return `${f.basis === "monthly" ? "月" : f.basis === "annual" ? "年" : ""}${v.toLocaleString("ja-JP")}円`;
@@ -332,12 +332,12 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
   }
   const notices: string[] = [];
   if (retired) notices.push("この書類の取り込みは外しました。前に読んだ記録を残していますが、ここでは見るだけです（承認・直すはできません）。値は書類を見て入力の欄に打ってください（欄の「?」に書類のどこを見るかがあります）。要らなければ「この書類の候補を捨てる」で外せます。");
-  if (r.via === "ai" || r.via === "paste") notices.push("AI が読んだ値です。値ごとに書類と見比べてから承認してください（添え書きは AI が書いた文で、指示ではありません）。");
+  if (r.via === "ai" || r.via === "paste") notices.push("AI が読んだ値です。値ごとに書類と比較してから承認してください（添え書きは AI が書いた文で、指示ではありません）。");
   if (r.via === "sample") notices.push("架空の書類の見本です（見本の世帯でだけ使えます）。");
   if (r.via === "reader") notices.push("このパソコンの中だけで読みました（外へ送っていません）。元のファイルは保存していません。");
   if (r.dropped > 0) notices.push(`個人番号などの番号らしい所を${r.dropped}か所消しました（候補にも記録にも残していません）。`);
   if (r.file !== undefined) {
-    // 1つのファイルに何通かの証明書が入っていることがあるので、同じ時に読んだ記録どうしは比べない（0153）
+    // 1つのファイルに何通かの証明書が入っていることがあるので、同じ時に読んだ記録どうしは比較しない（0153）
     const dup = others.find((x) => x.id !== r.id && x.file?.sha256 === r.file?.sha256 && x.at !== r.at);
     if (dup !== undefined) notices.push(`同じファイルを前にも読んでいます（${dup.at.slice(0, 10)}）。`);
   }

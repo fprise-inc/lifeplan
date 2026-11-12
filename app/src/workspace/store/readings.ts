@@ -509,7 +509,7 @@ export function keysOf(reading: Reading, input: Obj, kind: "item" | "assumed" = 
     }
     if (candidate === null) continue;
     const back = resolveKey(candidate, input, entries);
-    // 合成の対策は、表の行が持たせる物（object・member・element）だけを比べる（ほかに書いてある物は、画面の差分の向き先の控え）
+    // 合成の対策は、表の行が持たせる物（object・member・element）だけを比較する（ほかに書いてある物は、画面の差分の向き先の控え）
     const strip = (r: Reading | null): unknown => {
       if (r === null) return null;
       if (r.kind === "address") return { kind: r.kind, address: r.address };

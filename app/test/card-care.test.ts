@@ -204,7 +204,7 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(String(line.get(wh).value)).toBe("税の扶養は、年金だけなら年172万円まで");
     expect(line.help).toContain("年172万円まで");
     expect(line.help).toContain("180万円未満");
-    // 年金の額を入れると、その額と比べる
+    // 年金の額を入れると、その額と比較する
     const withPension = mutate(wh, (h) => {
       const x = h.members.find((m) => m.id === p.id)!;
       x.wallet = { pension: { value: 2000000, state: "confirmed", origin: { kind: "manual" } } };
@@ -290,8 +290,8 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     expect(gapsOf(declined).filter((g) => g.card === "care")).toEqual([]);
     // 入れないと決めた印は、もう一度保存しても残る（入力項目の ID でなくても消さない）
     expect(gapsOf(saveItem(declined, "care")).filter((g) => g.card === "care")).toEqual([]);
-    // 区画のボタン「…の介護は入れない」も同じ
-    expect(gapsOf(actionOf(wh, "care/declineAdults").run(wh)).filter((g) => g.card === "care")).toEqual([]);
+    // 区画には「…の介護は入れない」のボタンを置かない（帯・確かめの一覧の「該当なし」か、入力項目の「当てはまらない」で決める。0143 の追記 2026-11-12）
+    expect(() => actionOf(wh, "care/declineAdults")).toThrow();
   });
 
   it("事務所の設定の既定: 既定（warn）は何もせず、「最初から入れる」（fill）なら新しい世帯に目安を入れる", () => {

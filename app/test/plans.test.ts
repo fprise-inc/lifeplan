@@ -383,7 +383,7 @@ describe("比較の数字がエンジンの出力と一致する", () => {
     expect(t2.rows.find((r) => r.key === "target")!.cells[2]!.diff).toBeNull();
     const man = (n: number) => `${n === 0 ? "±" : n > 0 ? "+" : "▲"}${Math.round(Math.abs(n) / 10000).toLocaleString("en-US")}`.replace("±0", "±0");
     expect(t2.rows.find((r) => r.key === "target")!.cells[1]!.diff).toBe(`${man(fin(results[0]!, 2076) - fin(results[1]!, 2076))}万円`);
-    // 7列目以降は比べない（現状＋5案）
+    // 7列目以降は比較しない（現状＋5案）
     expect(compareTable(wh.request, [{ name: "現状", table: cur.table }, ...named, ...named], 95).columns).toHaveLength(6);
     const html = renderToString(h(CompareTable, { model: table }));
     expect(html).toContain("案5");

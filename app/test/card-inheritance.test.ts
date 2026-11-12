@@ -1,5 +1,5 @@
 // 相続・贈与のカード（0060）: 受け取る相続の時期の推定（相手の亡くなる見込みの10か月後）、不確かな行の「計算に入れる」、贈与する人は読むだけ、
-// 遺したい額（表示だけ。表の最後の年の金融資産と比べる）、相続税の目安の設定（世帯に保存し、計算の要求からは外れる）と時点ごとの見せ方
+// 遺したい額（表示だけ。表の最後の年の金融資産と比較する）、相続税の目安の設定（世帯に保存し、計算の要求からは外れる）と時点ごとの見せ方
 import { describe, expect, it } from "vitest";
 import type { Household, Member, PreviewResult } from "../src/engine/types.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
@@ -224,7 +224,7 @@ describe("相続・贈与のカード: 遺したい額（区画C）", () => {
     expect(cleared.request.input.legacy).toBeUndefined();
   });
 
-  it("表の最後の年の金融資産と、物価上昇率で表の最後の年の値段にした遺したい額を比べる", () => {
+  it("表の最後の年の金融資産と、物価上昇率で表の最後の年の値段にした遺したい額を比較する", () => {
     const wh0 = fromRequest(modelHousehold("lifetime100Assets"));
     const r = estimate(wh0);
     expect(legacyLine(wh0, r)).toBeNull();

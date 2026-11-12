@@ -1,5 +1,5 @@
-//! 比べる道具（compare）の入出力の形と、答えのまとめ方。1回の呼び出しで、基本と最大8通り（基本に重ねるプランの変更・見本の世帯・
-//! FPが渡した世帯・AIが組み立てた入力）を計算し、通りごとの主な数字（calculate の keyFigures と同じ。画面の「プランを比べる」と同じ数え方）と、
+//! 比較の道具（compare）の入出力の形と、答えのまとめ方。1回の呼び出しで、基本と最大8通り（基本に重ねるプランの変更・見本の世帯・
+//! FPが渡した世帯・AIが組み立てた入力）を計算し、通りごとの主な数字（calculate の keyFigures と同じ。画面の「プランを比較」と同じ数え方）と、
 //! 基本との差、選んだ数字の年ごとの系列だけを返す。
 //!
 //! 計算そのもの（プランの変更 → 計算の前の処理 → 計算 → 主な数字）は calculate と同じ道（server.rs の compute）を通り、ここには書かない。
@@ -31,12 +31,12 @@ pub const OMIT: &[&str] = &["notices", "packs", "protection", "inheritanceTax"];
 pub struct VariantArgs {
     /// 通りの名前（答えにそのまま出す。例: 「退職を63歳に」「物価2%」）。省くと「通り1」…
     pub label: Option<String>,
-    /// 別の見本の世帯で比べる（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の
+    /// 別の見本の世帯で比較する（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の
     /// changes・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる
     pub sample_household_id: Option<String>,
-    /// 別の、FPが渡した世帯で比べる（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）
+    /// 別の、FPが渡した世帯で比較する（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）
     pub share_id: Option<String>,
-    /// 別の、AIが組み立てた入力で比べる（calculate の input と同じ形）
+    /// 別の、AIが組み立てた入力で比較する（calculate の input と同じ形）
     pub input: Option<Value>,
     /// この通りで当てる JSON Pointer の変更（calculate の changes と同じ）
     pub changes: Option<Vec<Change>>,
@@ -98,10 +98,15 @@ pub struct CompareArgs {
     /// 並べる通り（8通りまで。9通り目から後は計算せず理由を返す）。通りごとに、世帯を書かなければ基本に重ね、書けばその世帯で計算する
     #[schemars(with = "Vec<VariantArgs>")]
     pub variants: Vec<Value>,
-    /// 年ごとの系列に返す数字（既定 ["financialAssets"]。calculate の fields と同じ: income・taxSi・expense・net・financialAssets・debt・shortfall・
-    /// loanRepayment〔住宅ローンの返済。年額〕・loanBalance〔住宅ローン残高〕・loanInterest〔住宅ローンの利息。年額〕・loanRate〔その年の住宅ローンの
-    /// 金利。10進の文字。返済の無い年・金利の違う住宅ローンを2本以上返している年は null〕）
-    #[schemars(extend("items" = { "type": "string", "enum": ["income", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate"] }))]
+    /// 年ごとの系列に返す数字（既定 ["financialAssets"]。calculate の fields と同じ名前で、どれも chart の series でグラフにできる）: income（収入）・
+    /// takeHome（手取り＝収入 − 税・社会保険料）・taxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産。
+    /// 年末）・debt（負債の残高。年末）・shortfall（資金の不足。年末）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高）・
+    /// loanInterest（住宅ローンの利息。年額）・loanRate（その年の住宅ローンの金利。10進の文字。返済の無い年・金利の違う住宅ローンを2本以上返している年は
+    /// null）・pension（公的年金の年額）と、支出の内訳（画面のキャッシュフロー表の支出の行と同じ当て方。全部足すと expense）: expenseLiving（生活費）・
+    /// expenseSurplus（ゆとりの支出）・expenseHousing（住居費。ローン・税・修繕）・expenseEducation（教育費）・expenseInsurance（保険料）・
+    /// expenseLumpSum（一時的支出）・expenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・
+    /// expenseOther（その他の支出）
+    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther"] }))]
     pub series: Option<Vec<String>>,
     /// 系列の何年おき（1〜10。既定5）。画面の表の最初の年と最後の年はいつも入る
     #[schemars(range(min = 1, max = 10))]
@@ -240,7 +245,7 @@ pub fn diff(this: &Value, base: &Value) -> Value {
     Value::Object(d)
 }
 
-/// プランの変更の当てはめを、比べる答えの形に縮める（名前・前・後・当てたか）
+/// プランの変更の当てはめを、比較する答えの形に縮める（名前・前・後・当てたか）
 pub fn plan_rows(rows: &Value) -> Value {
     match rows.as_array() {
         Some(list) => Value::Array(
@@ -252,8 +257,8 @@ pub fn plan_rows(rows: &Value) -> Value {
     }
 }
 
-/// 比べる答えに添える説明
-pub const NOTE: &str = "results の1つ目が基本、2つ目からが通りです。keyFigures は calculate の keyFigures と同じ（アプリの「プランを比べる」と同じ数え方）、diff は基本との差（この通り − 基本。円。depletion は画面の比較の表と同じ文。pensionMonthly は65歳からの年金の世帯の月額の差。loanInterest は住宅ローンの利息の合計の差）、series は選んだ数字の年ごとの系列（画面の表に出す年から、年末の残高・年額。ages は家族の年齢で、鍵は members）。from.onBase は基本の世帯に基本と通りの変更を重ねた通りです。marketStress は重ねた画面の「相場が下がった場合」の型です。keyFigures.pension は65歳からの年金の月額（世帯の合計と人ごと。今の水準＝賃金・物価の伸びとマクロ経済スライドを外した額。画面の比較の表の年金の行と同じ）です。status が error の通りは計算しておらず、reason に理由と直し方があります（ほかの通りは計算しています）。試したプランの変更は、そのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
+/// 比較する答えに添える説明
+pub const NOTE: &str = "results の1つ目が基本、2つ目からが通りです。keyFigures は calculate の keyFigures と同じ（アプリの「プランを比較」と同じ数え方）、diff は基本との差（この通り − 基本。円。depletion は画面の比較の表と同じ文。pensionMonthly は65歳からの年金の世帯の月額の差。loanInterest は住宅ローンの利息の合計の差）、series は選んだ数字の年ごとの系列（画面の表に出す年から、年末の残高・年額。ages は家族の年齢で、鍵は members）。from.onBase は基本の世帯に基本と通りの変更を重ねた通りです。marketStress は重ねた画面の「相場が下がった場合」の型です。keyFigures.pension は65歳からの年金の月額（世帯の合計と人ごと。今の水準＝賃金・物価の伸びとマクロ経済スライドを外した額。画面の比較の表の年金の行と同じ）です。status が error の通りは計算しておらず、reason に理由と直し方があります（ほかの通りは計算しています）。試したプランの変更は、そのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
 
 #[cfg(test)]
 mod tests {

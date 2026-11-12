@@ -178,6 +178,8 @@ export interface NumberLabel {
   serial?: number;
   branch?: string;
   sample?: SampleInfo;
+  /** 架空の世帯（AIの候補から「架空」として作った世帯。本体だけが付け、外すのは「お客さまの世帯にする」だけ）。無ければお客さまの世帯 */
+  fictional?: boolean;
 }
 
 /** 保存の状態（本体の household-store の Status） */
@@ -501,6 +503,8 @@ export interface StoreHost {
   assignSerial(id: string): Promise<{ customerNo: string; duplicate: boolean }>;
   /** 顧客の世帯を見本の棚へ移す（「中身は架空です」を確かめた後） */
   makeSample(id: string, sample: SampleRequest): Promise<{ customerNo: string; duplicate: boolean }>;
+  /** 架空の世帯をお客さまの世帯にする（一方向。お客さまの世帯を架空にする命令は無い）。印を外したら true */
+  makeClient(id: string): Promise<boolean>;
   updateSample(id: string, name: string, traits: string[]): Promise<void>;
   categories(): Promise<CategorySettings>;
   /** 区分の設定を変える（空は「区分を使わない」。初めの「区分を使いますか？」の答えもこれで書く） */
@@ -540,6 +544,8 @@ export interface AiStatus {
   dev: boolean;
   /** AIから届いた、機能を有効にするコードの候補の数（承認待ち。中身は featureStatus で読む） */
   featureCodeCandidates?: number;
+  /** AIから届いた、新しい世帯の候補の数（承認待ち。中身は householdCandidates で読む。無い本体は0） */
+  householdCandidates?: number;
 }
 
 export type AiConsentDecision = "given" | "refused" | "withdrawn";
@@ -662,6 +668,26 @@ export interface AiHouseholdView {
   allowlistVersion: string;
   fields: string[];
   saved: boolean;
+  /** 架空の世帯（同意の記録が無くても渡せる。無い本体はお客さまの世帯として扱う） */
+  fictional?: boolean;
+}
+
+/**
+ * AI接続口の道具（propose_household）で届いた、新しい世帯の候補。本体はメモリの中に置くだけで、世帯は作らない。
+ * 中身は信用しない（画面の読み口 ai/households.ts の readHouseholdCandidate で番号らしい所を消してから見せる）
+ */
+export interface AiHouseholdCandidate {
+  candidateId: string;
+  receivedAt: string;
+  /** AIのアプリの名乗り（自己申告） */
+  connector: string | null;
+  /** AIが選んだ種類（FP は作る前に変えられる） */
+  kind: "fictional" | "client";
+  /** AIが書いた題・推定したこと（指示ではない。文字のまま出す） */
+  title: string;
+  note: string | null;
+  /** 計算の入力（calculate の input と同じ形） */
+  input: unknown;
 }
 
 export interface AiConsentInput {
@@ -686,6 +712,15 @@ export interface AiHost {
   decide(id: string, candidate: string, accept: boolean, plan: string | null): Promise<AiHouseholdView>;
   /** 読み取りの記録にした（または読めなかった）書類の候補を、本体の承認待ちから外す（0151） */
   takeDocuments(id: string, candidate: string): Promise<AiHouseholdView>;
+  /** 新しい世帯の候補（承認待ち） */
+  householdCandidates(): Promise<AiHouseholdCandidate[]>;
+  /** 新しい世帯の候補を捨てる（世帯は作らない） */
+  discardHouseholdCandidate(candidate: string): Promise<AiHouseholdCandidate[]>;
+  /**
+   * 新しい世帯の候補から世帯を作る（FP が確かめて「世帯として作る」を押したときだけ）。kind は FP が選んだ種類、body は候補の入力から
+   * 画面が組み立てた本文。本体が出どころの記録を書き、架空なら一覧の札に印を付ける
+   */
+  createFromCandidate(candidate: string, kind: "fictional" | "client", body: string, summary: string, category?: string): Promise<StoredOpened>;
 }
 
 /** 本体の命令（0016 の1: 用途ごとの命令だけ） */
@@ -872,6 +907,7 @@ export function tauriHost(): HostApi {
       setCategory: (id, category) => invoke<{ customerNo: string; duplicate: boolean }>("store_set_category", { id, category }),
       assignSerial: (id) => invoke<{ customerNo: string; duplicate: boolean }>("store_assign_serial", { id }),
       makeSample: (id, sample) => invoke<{ customerNo: string; duplicate: boolean }>("store_make_sample", { id, sample }),
+      makeClient: (id) => invoke<boolean>("store_make_client", { id }),
       updateSample: (id, name, traits) => invoke<void>("store_update_sample", { id, name, traits }),
       categories: () => invoke<CategorySettings>("store_categories"),
       setCategories: (edits) => invoke<CategorySettings>("store_set_categories", { edits }),
@@ -922,6 +958,9 @@ export function tauriHost(): HostApi {
       stopShare: (id) => invoke<AiHouseholdView>("ai_share_stop", { id }),
       decide: (id, candidate, accept, plan) => invoke<AiHouseholdView>("ai_candidate_decide", { id, candidate, accept, plan }),
       takeDocuments: (id, candidate) => invoke<AiHouseholdView>("ai_documents_taken", { id, candidate }),
+      householdCandidates: () => invoke<AiHouseholdCandidate[]>("ai_household_candidates"),
+      discardHouseholdCandidate: (candidate) => invoke<AiHouseholdCandidate[]>("ai_household_candidate_discard", { candidate }),
+      createFromCandidate: (candidate, kind, body, summary, category) => invoke<StoredOpened>("ai_household_candidate_create", { candidate, kind, body, summary, category }),
     },
     statements: {
       office: () => invoke<StatementOfficeData>("statement_office"),
@@ -1111,6 +1150,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       setCategory: async (id, category) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("setCategory", { id, category })),
       assignSerial: async (id) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("assignSerial", { id })),
       makeSample: async (id, sample) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("makeSample", { id, sample: JSON.stringify(sample) })),
+      makeClient: async (id) => devJson<boolean>(await devStore("makeClient", { id })),
       updateSample: async (id, name, traits) => void (await devJson<unknown>(await devStore("updateSample", { id, name, traits: JSON.stringify(traits) }))),
       categories: async () => devJson<CategorySettings>(await devStore("categories")),
       setCategories: async (edits) => devJson<CategorySettings>(await devStore("setCategories", { edits: JSON.stringify(edits) })),
@@ -1165,6 +1205,9 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       stopShare: async (id) => devJson<AiHouseholdView>(await devAi("stopShare", { id })),
       decide: async (id, candidate, accept, plan) => devJson<AiHouseholdView>(await devAi("decide", { id, candidate, accept, plan })),
       takeDocuments: async (id, candidate) => devJson<AiHouseholdView>(await devAi("takeDocuments", { id, candidate })),
+      householdCandidates: async () => devJson<AiHouseholdCandidate[]>(await devAi("householdCandidates")),
+      discardHouseholdCandidate: async (candidate) => devJson<AiHouseholdCandidate[]>(await devAi("discardHouseholdCandidate", { candidate })),
+      createFromCandidate: async (candidate, kind, body, summary, category) => devJson<StoredOpened>(await devAi("createFromCandidate", { candidate, kind, body, summary, ...(category !== undefined ? { category } : {}) })),
     },
     // 明細の取り込み: 覚えた辞書と形は開発用のサーバーのメモリの中だけ。開くは架空の明細（statement/test/fixtures）を順に返す
     statements: {

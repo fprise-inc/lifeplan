@@ -1,5 +1,5 @@
 // 事務所の推定の値（0111）を変える前に、代表の世帯（アプリの見本の世帯。架空）で主な結果がどう変わるかを見る。
-// 比べるのは、今の事務所の値と、変えようとしている値。どちらも、推定で埋まる欄（基本生活費・給与と賞与・事業所得）を推定のままとして入れ直し
+// 比較するのは、今の事務所の値と、変えようとしている値。どちらも、推定で埋まる欄（基本生活費・給与と賞与・事業所得）を推定のままとして入れ直し
 // （空欄だった世帯なら入る値）、計算のときに引く値（介護・学校の費用の目安・平均余命など）は計算の要求の estimateValues で渡す。
 // 物差しは案の比較と同じ（plans/compare.ts の metricsOf）: 90歳時点の金融資産・資産が尽きる年・生涯の支出の合計
 import { businessEstimate, livingEstimate, salaryEstimate } from "../../../../hearing/src/estimates.ts";
@@ -41,7 +41,7 @@ const auto = (value: number, basis: string): Box<number> => ({ value, state: "es
 
 /**
  * 推定で埋まる欄を、今の推定の目安（重ねた事務所の値）で入れ直した要求。基本生活費（総額で入れる物）・給与と賞与・事業所得を推定の値にし、
- * そのほかの推定のままの値（進路・退職金の目安など）も入れ直す。世帯の欄が空欄だったら入る値で比べるため
+ * そのほかの推定のままの値（進路・退職金の目安など）も入れ直す。世帯の欄が空欄だったら入る値で比較するため
  */
 export function asEstimated(req: EngineRequest): EngineRequest {
   const r = structuredClone(req);

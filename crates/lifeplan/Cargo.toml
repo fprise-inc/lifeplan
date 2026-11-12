@@ -19,7 +19,7 @@ engine-host = { path = "../engine-host" }
 rmcp = { version = "=3.5.1", default-features = false, features = ["server", "macros", "transport-io"] }
 # 0196: 入力の形の確かめ直し（スキーマの pattern）。ほかの crate が使っている版と同じ
 regex = "1"
-# 0203: 比べた答えのグラフの SVG を PNG にする（Rust だけ。ほかの crate〔typst〕が使っている版と同じ。OS の字体・外の画像は読まない）
+# 0203: 比較した答えのグラフの SVG を PNG にする（Rust だけ。ほかの crate〔typst〕が使っている版と同じ。OS の字体・外の画像は読まない）
 resvg = { version = "=0.47.0", default-features = false, features = ["text"] }
 # 0203: PNG を MCP の image の中身（base64）にする（report-pdf と同じ版）
 base64 = "0.22"

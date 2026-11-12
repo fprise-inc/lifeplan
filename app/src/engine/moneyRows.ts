@@ -64,7 +64,7 @@ export function forEngine(req0: EngineRequest): EngineRequest {
 /**
  * 事務所の推定の値（0111。事務所の既定値の画面で変えたマスタデータの値とエンジンが引く目安）と、推定で埋めない目安（0111 の2回目）を
  * 計算の要求に足す。要求がもう estimateValues・estimateNoFill を持っていればそのまま（事務所の既定値の画面の「代表の世帯で差を見る」は、
- * 比べる値を自分で入れる）。事務所の値が無ければ同じ物を返す
+ * 比較する値を自分で入れる）。事務所の値が無ければ同じ物を返す
  */
 export function withOfficeEstimateValues(req: EngineRequest): EngineRequest {
   const v = officeEstimateValues();
@@ -193,7 +193,7 @@ export function applyRowsView(req: EngineRequest, v: RowsView): EngineRequest {
   });
 }
 
-/** 夢を全部外した要求（夢の無い場合と比べる1回の計算。0103）。計算に入る夢が無ければ同じ物を返す */
+/** 夢を全部外した要求（夢の無い場合と比較する1回の計算。0103）。計算に入る夢が無ければ同じ物を返す */
 export function withoutDreams(req: EngineRequest): EngineRequest {
   const h = req.input.household;
   const expenses = h.periodicExpenses ?? [];

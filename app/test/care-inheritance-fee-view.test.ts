@@ -10,8 +10,9 @@ import { allFields, resolveTimepoint, type ActionDef, type FieldDef, type GroupD
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { inheritanceView, NO_HEIRS_HINT } from "../src/workspace/input/inheritanceLine.ts";
 import { findEntries, findInInput } from "../src/workspace/input/inputSearch.ts";
-import { inputItems, saveItem } from "../src/workspace/input/items.ts";
-import { addOutside, addParentsOf, careSpan, joinHousehold } from "../src/workspace/input/stages/care.ts";
+import { inputItems, notApplicableCard, saveItem } from "../src/workspace/input/items.ts";
+import { addOutside, addParentsOf, CARE_ESTIMATE_LINE, careSpan, joinHousehold } from "../src/workspace/input/stages/care.ts";
+import { estimatedFieldLabels } from "../src/workspace/input/FieldViews.tsx";
 import { addMember } from "../src/workspace/input/stages/family.ts";
 import { INHERIT_AFTER_MONTHS } from "../src/workspace/input/stages/inheritance.ts";
 import { donorOptions, memberLabel as memberLabelOf } from "../src/workspace/input/labels.ts";
@@ -58,18 +59,32 @@ describe("ご本人・配偶者の介護を「入れない」と決めるのは�
     expect(stage("care", saved).sections.find((s) => s.key === "care/costs")!.note).toContain("0円で計算しています");
   });
 
-  it("帯の「該当なし（介護の費用を入れない）」・区画の「…の介護は入れない」で決めると消え、もう一度保存しても戻らない", () => {
+  it("帯の「該当なし（介護の費用を入れない）」・入力項目の「当てはまらない」で決めると消え、もう一度保存しても戻らない（区画には「入れない」のボタンを置かない）", () => {
     const wh = couple();
+    // 区画のボタンは「…の介護を入れる」と「＋ 介護の費用」だけ（入れた物を外すのは、その物の「外す」。0143 の追記 2026-11-12）
+    expect(actionsOf("care", wh).map((a) => a.key)).not.toContain("care/declineAdults");
     const band = gapsOf(wh).find((g) => g.card === "care")!;
     const byBand = band.none!(wh);
     expect(byBand.confirmed).toContain(ADULT_CARE_NONE);
     expect(gapsOf(byBand).filter((g) => g.card === "care")).toEqual([]);
     expect(gapsOf(saveItem(byBand, "care")).filter((g) => g.card === "care")).toEqual([]);
-    const bySection = actionOf("care", wh, "care/declineAdults").run(wh);
-    expect(gapsOf(bySection).filter((g) => g.card === "care")).toEqual([]);
-    // 決めた後は区画の「入れない」は出さない（推定で入れるは残す）
-    expect(actionsOf("care", bySection).map((a) => a.key)).not.toContain("care/declineAdults");
-    expect(actionsOf("care", bySection).map((a) => a.key)).toContain("care/fillAdults");
+    const byCard = notApplicableCard(wh, "care");
+    expect(byCard.confirmed).toContain(ADULT_CARE_NONE);
+    expect(gapsOf(byCard).filter((g) => g.card === "care")).toEqual([]);
+    // 決めた後も「…の介護を入れる」は残す（後から入れられる）
+    expect(actionsOf("care", byBand).map((a) => a.key)).toContain("care/fillAdults");
+    // 区画の説明（「?」）は、新しいボタンの名前と帯の「該当なし」を案内し、消したボタンを案内しない
+    const note = stage("care", wh).sections.find((s) => s.key === "care/costs")!.note!;
+    expect(note).toContain("「ご本人・配偶者の介護を入れる」");
+    expect(note).toContain("「該当なし（介護の費用を入れない）」");
+    expect(note).not.toContain("推定で入れる");
+    expect(note).not.toContain("介護は入れない");
+  });
+
+  it("前の版の区画のボタンで入れないと決めた世帯（印 care/adultsNone）は、そのまま入れないと決めた扱いで読む", () => {
+    const wh = { ...couple(), confirmed: ["care", ADULT_CARE_NONE] };
+    expect(gapsOf(wh).filter((g) => g.card === "care")).toEqual([]);
+    expect(stage("care", wh).sections.find((s) => s.key === "care/costs")!.note).not.toContain("0円で計算しています");
   });
 
   it("前の版で項目を保存しただけの世帯（印が「care」だけ）は、未入力に戻る", () => {
@@ -77,12 +92,30 @@ describe("ご本人・配偶者の介護を「入れない」と決めるのは�
     expect(gapsOf(wh).filter((g) => g.card === "care")).toHaveLength(2);
   });
 
-  it("推定を入れる操作の言葉は「…の介護を推定で入れる」（人の名前を入れる）", () => {
+  it("介護を入れる操作の言葉は「…の介護を入れる」（人の名前を入れる。入れた後に詳細を入れると推定でなくなるので「推定で」は付けない。0143 の追記 2026-11-12）", () => {
     let wh = couple();
-    expect(actionOf("care", wh, "care/fillAdults").label).toBe("ご本人・配偶者の介護を推定で入れる");
+    expect(actionOf("care", wh, "care/fillAdults").label).toBe("ご本人・配偶者の介護を入れる");
     wh = addOutside(wh, "parent", { sex: "male" });
     const father = parents(wh)[0]!;
-    expect(actionOf("care", wh, `family/${father.id}/care/estimate`).label).toBe("＋ 父の介護を推定で入れる");
+    expect(actionOf("care", wh, `family/${father.id}/care/estimate`).label).toBe("＋ 父の介護を入れる");
+  });
+
+  it("入れた介護の物の下に「詳細の項目を入れない所は、この条件で推定した数字を使います」と、推定のままの欄の名前。入れた欄は名前が消える", () => {
+    let wh = couple();
+    wh = addOutside(wh, "parent", { sex: "female" });
+    const mother = parents(wh)[0]!;
+    wh = actionOf("care", wh, `family/${mother.id}/care/estimate`).run(wh);
+    const c = hh(wh).careExpenses![0]!;
+    const g = () => groupsOf("care", wh).find((x) => x.key === `ev/care/${c.id}`)!;
+    expect(g().estimateLine).toBe(CARE_ESTIMATE_LINE);
+    expect(estimatedFieldLabels(g(), wh)).toEqual(["始まり", "期間", "月々の費用（自己負担の合計）", "一時費用"]);
+    // 月々の費用と期間を入れると、その2つは推定でなくなる
+    wh = mutate(wh, (h) => {
+      const x = h.careExpenses![0]!;
+      x.otherMonthly = { value: 80000, state: "confirmed", origin: { kind: "manual" } };
+      x.months = 36;
+    });
+    expect(estimatedFieldLabels(g(), wh)).toEqual(["始まり", "一時費用"]);
   });
 });
 
@@ -147,7 +180,7 @@ describe("世帯の外の家族の欄", () => {
     expect(pension.level).toBe("detail");
     expect(pension.label).toBe("この人の年金（年額）");
     wh = pension.set(wh, 1200000);
-    // 年金を入れると扶養の境目の1行がその額と比べる
+    // 年金を入れると扶養の境目の1行がその額と比較する
     expect(String(fieldOf("care", wh, `ro/care/outside/${p.id}/dependentLimit`)!.get(wh).value)).toBe("年金 年120万円は、税の扶養の範囲です");
     // 年金だけなら親のお金の区画に年金の欄は無く、外すボタンも無い
     const walletSec = () => stage("care", wh).sections.find((s) => s.key === "care/wallet")!;

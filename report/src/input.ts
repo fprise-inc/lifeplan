@@ -149,7 +149,7 @@ export interface Comparison {
     values: (number | null)[];
     /** その額の年（min の行だけ。ほかは空） */
     years: (number | null)[];
-    /** 基準との差（基準の列と、比べられないときは null） */
+    /** 基準との差（基準の列と、比較できないときは null） */
     diffs: (number | null)[];
   }[];
 }
@@ -362,7 +362,7 @@ export interface RentalPropertyView {
   years: RentalYearRow[];
   /** 今の予定の売却（税引後の手取り）。売らなければ null */
   exit: { month: string; price: Yen; costs: Yen; proceeds: Yen; loanPayoff: Yen; tax: Yen; net: Yen } | null;
-  /** 売る年を変えた比べ（材料が無ければ null） */
+  /** 売る年を変えた比較（材料が無ければ null） */
   saleCompare: { endYear: number; rows: { label: string; current: boolean; net: Yen | null; financialEnd: Yen; diff: Yen; equityEnd: Yen | null }[] } | null;
 }
 

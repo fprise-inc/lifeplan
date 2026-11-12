@@ -21,7 +21,7 @@ export interface FpToolsProps {
   onOpen: (card: string) => void;
   /** 控えを取る（前回から変わったことの1つ目） */
   onSnapshot?: ((memo: string) => Promise<void>) | undefined;
-  /** 資産と負債のタブの「前回と比べる」へ */
+  /** 資産と負債のタブの「前回と比較」へ */
   onBalance?: (() => void) | undefined;
   /** 「○歳時点」の年齢（結果のタブの表示の設定） */
   atAge?: number;
@@ -189,7 +189,7 @@ export function SnapshotCompare({ wh, snap, result, computeOne, onOpen, onBalanc
       </table>
       {onBalance !== undefined ? (
         <button type="button" class="link-btn" onClick={onBalance}>
-          見込んでいた今の純資産と今の実際を比べる（資産と負債のタブ）
+          見込んでいた今の純資産と今の実際を比較する（資産と負債のタブ）
         </button>
       ) : null}
       <p class="fp-sub">入力の違い（{changes.length}件）</p>
@@ -214,7 +214,7 @@ export function SnapshotCompare({ wh, snap, result, computeOne, onOpen, onBalanc
   );
 }
 
-/** 前回から変わったことから開く面談の記録: 比べる控えをつないだ記録があればそれ、無ければいちばん新しい記録（0182） */
+/** 前回から変わったことから開く面談の記録: 比較する控えをつないだ記録があればそれ、無ければいちばん新しい記録（0182） */
 export function meetingForReview(list: readonly Meeting[], snapId: string | null): Meeting | null {
   const linked = snapId === null ? undefined : [...list].reverse().find((m) => m.snapshot === snapId);
   return linked ?? latestMeeting(list);
@@ -233,7 +233,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
       <Head title="前回から変わったこと" note="控えを取り、過ぎた予定・ヒアリングシート・前回の控えとの違いを確かめて、見直しの面談に進みます" onClose={onClose} />
       <ol class="fp-steps">
         <li>
-          <b>控えを取る</b>（比べる前の今の入力と結果を残します）
+          <b>控えを取る</b>（比較する前の今の入力と結果を残します）
           {onSnapshot !== undefined ? (
             <button
               type="button"
@@ -284,11 +284,11 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
             </p>
           ) : null}
           {snaps.length === 0 || snap === null ? (
-            <p class="in-note">控えがまだありません。面談の区切りで「この時点を残す」を押すと、次の面談で比べられます。</p>
+            <p class="in-note">控えがまだありません。面談の区切りで「この時点を残す」を押すと、次の面談で比較できます。</p>
           ) : (
             <>
               <label class="fp-sel">
-                比べる控え
+                比較する控え
                 <select value={snap.id} onChange={(e) => setSel((e.currentTarget as HTMLSelectElement).value)} data-fp-review-select>
                   {snaps.map((s) => (
                     <option key={s.id} value={s.id}>

@@ -76,7 +76,7 @@ const balanceLoan = () => {
 
 describe("時点の欄は、欄の set と画面の書き方（time.setWhen）で同じ世帯になる", () => {
   const STAGES: StageId[] = ["family", "work", "retirement", "pension", "living", "education", "housing", "insurance", "savings", "rental", "events", "car", "care", "inheritance", "fee", "assumptions"];
-  // 足すたびに作る ID は、出てきた順の番号に置き換えて比べる
+  // 足すたびに作る ID は、出てきた順の番号に置き換えて比較する
   const norm = (wh: WorkingHousehold): string => {
     const seen = new Map<string, number>();
     return JSON.stringify([wh.request.input.household, wh.assumed]).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, (u) => `#${seen.get(u) ?? (seen.set(u, seen.size), seen.size - 1)}`);

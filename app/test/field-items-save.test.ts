@@ -191,7 +191,7 @@ function roundTrip(wh: WorkingHousehold, cat: Catalog, it: MovableItem): string 
   const target = resolveKey(it.key, back.request.input as never);
   const got = Object.entries(values).find(([k]) => k === it.key || (target !== null && sameJson(resolveKey(k, back.request.input as never), target)));
   if (got === undefined || !it.same(got[1], v1)) return `開き直すと値が残りません ${JSON.stringify(got?.[1])} / ${JSON.stringify(v1)}`;
-  // 当てた中身は、開き直した現状の欄に書いたのと同じ（開き直しで現状の形が整うことがあるので、開き直した現状で比べる）
+  // 当てた中身は、開き直した現状の欄に書いたのと同じ（開き直しで現状の形が整うことがあるので、開き直した現状で比較する）
   const it2 = cat2.byKey.get(it.key) ?? cat2.byKey.get(got[0]);
   if (it2 === undefined) return "開き直すと動かす項目がありません";
   const applied = withIds(() => applyPlan(back, saved.id, cat2).request);

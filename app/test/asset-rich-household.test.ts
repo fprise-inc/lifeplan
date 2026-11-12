@@ -1,6 +1,6 @@
-// 見本の世帯「共働きの夫婦と子2人（資産が多め）」（data/modelHouseholds/dualAssetsTwoKids.json）: 資産と負債のタブ・資産運用・前回と比べるの
+// 見本の世帯「共働きの夫婦と子2人（資産が多め）」（data/modelHouseholds/dualAssetsTwoKids.json）: 資産と負債のタブ・資産運用・前回と比較の
 // 機能が全部働く見本。入力の中身（口座の種類・資産配分・受け取り方・車・保険・住まい以外の不動産）、計算の結果（資産の合計＝負債の合計＋純資産・
-// 不足やマイナスが出ない）、開いたときに入れるプラン4つと控え2つ（指紋・前回と比べる）を確かめる
+// 不足やマイナスが出ない）、開いたときに入れるプラン4つと控え2つ（指紋・前回と比較）を確かめる
 import { describe, expect, it } from "vitest";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { agoText, bsPlan, bsPrev } from "../src/workspace/balanceTab.ts";
@@ -140,7 +140,7 @@ describe("開いたときに入れるプランと控え", () => {
     }
   });
 
-  it("控え2つ（1年前・2年前）は指紋が合い、前回と比べるで見込みと今の実際の差が出る", async () => {
+  it("控え2つ（1年前・2年前）は指紋が合い、前回と比較で見込みと今の実際の差が出る", async () => {
     const seeded = await seedDemo(wh, cat, demo, { now: "2026-10-20T00:00:00.000Z", appVersion: "0.1.0" });
     const snaps = seeded.wh.snapshots ?? [];
     expect(snaps.map((s) => agoText(s.createdAt, req.input.baseMonth))).toEqual(["2年前", "1年前"]);

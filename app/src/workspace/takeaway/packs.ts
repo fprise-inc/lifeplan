@@ -32,7 +32,7 @@ export function prune(packs: readonly unknown[], ids: ReadonlySet<string>): unkn
   return (packs as PackLike[]).map((p) => ({ ...p, values: p.values.filter((v) => ids.has(v.id)) }));
 }
 
-/** まとめて計算して、結果の表と要約を比べられる形にする（エラーは null） */
+/** まとめて計算して、結果の表と要約を比較できる形にする（エラーは null） */
 function results(engine: WebEngine, requests: readonly EngineRequest[], packsJson: string): (string | null)[] {
   const outs = JSON.parse(engine.runBatch(JSON.stringify(requests.map((r) => ({ ...r, trace: "none" }))), packsJson, '{"preview":true}')) as { error?: unknown; table?: unknown; summary?: unknown }[] | { error: unknown };
   if (!Array.isArray(outs)) return requests.map(() => null);

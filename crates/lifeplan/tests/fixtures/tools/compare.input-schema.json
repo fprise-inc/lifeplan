@@ -77,7 +77,7 @@
           ]
         },
         "input": {
-          "description": "別の、AIが組み立てた入力で比べる（calculate の input と同じ形）"
+          "description": "別の、AIが組み立てた入力で比較する（calculate の input と同じ形）"
         },
         "label": {
           "description": "通りの名前（答えにそのまま出す。例: 「退職を63歳に」「物価2%」）。省くと「通り1」…",
@@ -110,14 +110,14 @@
           ]
         },
         "sample_household_id": {
-          "description": "別の見本の世帯で比べる（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の\nchanges・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる",
+          "description": "別の見本の世帯で比較する（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の\nchanges・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる",
           "type": [
             "string",
             "null"
           ]
         },
         "share_id": {
-          "description": "別の、FPが渡した世帯で比べる（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）",
+          "description": "別の、FPが渡した世帯で比較する（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）",
           "type": [
             "string",
             "null"
@@ -225,10 +225,11 @@
       ]
     },
     "series": {
-      "description": "年ごとの系列に返す数字（既定 [\"financialAssets\"]。calculate の fields と同じ: income・taxSi・expense・net・financialAssets・debt・shortfall・\nloanRepayment〔住宅ローンの返済。年額〕・loanBalance〔住宅ローン残高〕・loanInterest〔住宅ローンの利息。年額〕・loanRate〔その年の住宅ローンの\n金利。10進の文字。返済の無い年・金利の違う住宅ローンを2本以上返している年は null〕）",
+      "description": "年ごとの系列に返す数字（既定 [\"financialAssets\"]。calculate の fields と同じ名前で、どれも chart の series でグラフにできる）: income（収入）・\ntakeHome（手取り＝収入 − 税・社会保険料）・taxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産。\n年末）・debt（負債の残高。年末）・shortfall（資金の不足。年末）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高）・\nloanInterest（住宅ローンの利息。年額）・loanRate（その年の住宅ローンの金利。10進の文字。返済の無い年・金利の違う住宅ローンを2本以上返している年は\nnull）・pension（公的年金の年額）と、支出の内訳（画面のキャッシュフロー表の支出の行と同じ当て方。全部足すと expense）: expenseLiving（生活費）・\nexpenseSurplus（ゆとりの支出）・expenseHousing（住居費。ローン・税・修繕）・expenseEducation（教育費）・expenseInsurance（保険料）・\nexpenseLumpSum（一時的支出）・expenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・\nexpenseOther（その他の支出）",
       "items": {
         "enum": [
           "income",
+          "takeHome",
           "taxSi",
           "expense",
           "net",
@@ -238,7 +239,18 @@
           "loanRepayment",
           "loanBalance",
           "loanInterest",
-          "loanRate"
+          "loanRate",
+          "pension",
+          "expenseLiving",
+          "expenseSurplus",
+          "expenseHousing",
+          "expenseEducation",
+          "expenseInsurance",
+          "expenseLumpSum",
+          "expenseCar",
+          "expenseCare",
+          "expenseRealEstate",
+          "expenseOther"
         ],
         "type": "string"
       },

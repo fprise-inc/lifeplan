@@ -366,6 +366,7 @@ fn regenerate_shared_fixture() {
             serial: Some(42),
             branch: None,
             sample: None,
+            fictional: false,
         },
         extra: Default::default(),
     };

@@ -1,6 +1,6 @@
 // AI接続口の「数字の根拠」（explain_value。0183）: 接続口に同梱する読み方（src/connector/explain.ts）が、画面の根拠のパネル（buildEvidence）と同じ中身を返すこと。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の explain_value_matches_the_screen）は、ここで作る見本（画面の関数の答え）と、
-// 接続口が quickjs-ng で動かした答えを1文字ずつ比べる。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
+// 接続口が quickjs-ng で動かした答えを1文字ずつ比較する。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";

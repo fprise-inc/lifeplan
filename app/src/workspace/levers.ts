@@ -47,7 +47,7 @@ export function ageReachedMonth(member: Member, age: number): string {
   return addMonths(ym(y + age, m), member.birth.bornOnFirst ? -1 : 0);
 }
 
-/** 月の時点の比較用（"YYYY-MM" は文字列のまま比べられる）。年齢・出来事で決めた時点も年月に解く */
+/** 月の時点の比較用（"YYYY-MM" は文字列のまま比較できる）。年齢・出来事で決めた時点も年月に解く */
 function atOf(h: Household, t: Timepoint | null | undefined): string | null {
   return resolveTimepoint(h, t);
 }
@@ -242,7 +242,7 @@ export function hasAdvisoryFee(req: EngineRequest): boolean {
   return (req.input.household.advisoryFees ?? []).length > 0;
 }
 
-/** 顧問料を入れているか（入れる契約が1件でもあるか。持ち帰りのつまみ・提案書の顧問料なしの比べに使う） */
+/** 顧問料を入れているか（入れる契約が1件でもあるか。持ち帰りのつまみ・提案書の顧問料なしの比較に使う） */
 export function advisoryFeeInCurrent(req: EngineRequest): boolean {
   return (req.input.household.advisoryFees ?? []).some((c) => c.enabled !== false);
 }

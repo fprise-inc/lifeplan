@@ -2,7 +2,7 @@
 // 万一のときのタブには表示の設定が無い（グラフを小窓で出すボタンはグラフの見出しにある）。
 // 結果のタブ: 主画面に出す数字を FP が選ぶ。既定では何も足さない（「○歳時点の資産」も出さない。2026-10-17）。
 // 選んだ数字は、案の帯のカード・結論の2行目・グラフ（○歳時点の印）に出す。
-// グラフの比べ方（基準の案と選んだ案を1つのグラフに重ねるか、左右に2つ並べるか、帯の全部の案を色分けで重ねるか）もここで選ぶ。既定は重ねる。
+// グラフの比較の仕方（基準の案と選んだ案を1つのグラフに重ねるか、左右に2つ並べるか、帯の全部の案を色分けで重ねるか）もここで選ぶ。既定は重ねる。
 // 資産と負債のタブ: 家計の体力の目安の幅と、時点を並べるときの既定の時点（と、この世帯で見出しから選んだ時点）、お金の3つの分け方（0032）。
 // どちらも世帯ファイルの本文の display に、タブごとの区画（display.result・display.balance）で書く（形式の版 0.8 から。store/body.ts）
 import { man, manDiff } from "../presentation/format.ts";
@@ -23,7 +23,7 @@ export interface DisplaySettings {
   metrics: MetricKey[];
   /** 「○歳時点の金融資産」の年齢（本人） */
   atAge: number;
-  /** グラフの比べ方: 重ねる（既定）／左右に並べる／全部の案を色分けで重ねる */
+  /** グラフの比較の仕方: 重ねる（既定）／左右に並べる／全部の案を色分けで重ねる */
   layout: ChartLayout;
   /** 資産の推移に口座の内訳を積み上げて出す（0026。既定は出さない） */
   invBreakdown: boolean;
@@ -50,7 +50,7 @@ export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = { guide: DEFAULT_BS_GUI
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
   { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる（既定）" },
   { key: "side", label: "左右に並べる", note: "基準のプランと選んだプランを2つのグラフにして並べる。縦の目盛りはそろえる" },
-  { key: "all", label: "全部のプランを色分けで重ねる", note: "帯に並べた全部のプラン（現状を含め最大6本）を1つのグラフに、色で描き分ける（プランごとに色が決まっています）。収支は年間収支の線で比べる" },
+  { key: "all", label: "全部のプランを色分けで重ねる", note: "帯に並べた全部のプラン（現状を含め最大6本）を1つのグラフに、色で描き分ける（プランごとに色が決まっています）。収支は年間収支の線で比較する" },
 ];
 
 export const METRIC_CHOICES: readonly { key: MetricKey; label: string; note: string }[] = [

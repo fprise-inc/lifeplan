@@ -183,7 +183,7 @@ describe("書き出しから取り込みまでの往復（画面の中の流れ�
     expect(h.events?.find((e) => e.id === d?.housing?.moveIn)).toMatchObject({ kind: "moveIn", at: { at: "2024-04" } });
     expect(out.wh.assumed[`housing/debt/${d?.id}/credit`]).toContain("仮の条件");
     expect(preview(withRefreshedEstimates(out.wh).request).table.length).toBeGreaterThan(0);
-    // 同じシートを取り込み直すと、住宅ローンは「同じ」（入居のイベントの ID は比べない）で、入居のイベントは増えない
+    // 同じシートを取り込み直すと、住宅ローンは「同じ」（入居のイベントの ID は比較しない）で、入居のイベントは増えない
     const again = await importSheet(sheet.bytes, out.wh, seq);
     if (!again.ok) throw new Error("取り込めない");
     expect(again.view.candidates.find((c) => c.group === "住宅ローン")?.kind).toBe("same");

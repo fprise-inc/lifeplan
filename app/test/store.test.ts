@@ -25,7 +25,7 @@ import { checkList } from "../src/workspace/input/checkRows.ts";
 import { insuranceOverlapNotices } from "../src/workspace/input/insuranceView.ts";
 import { setNoticeAck } from "../src/workspace/input/noticeAck.ts";
 
-/** 保存すると並びの要素に ID が付く（0035 の5）。読み戻した世帯と比べるときは、元の世帯にも同じ ID を付ける */
+/** 保存すると並びの要素に ID が付く（0035 の5）。読み戻した世帯と比較するときは、元の世帯にも同じ ID を付ける */
 function withIds<T extends { request: { input: unknown } }>(wh: T): T {
   const r = structuredClone(wh);
   giveElementIds(r.request.input as Record<string, unknown>);
@@ -1453,7 +1453,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(s.wh.proposals).toEqual([]);
     expect(s.workspace.selected).toBe(CURRENT);
     expect(s.carry).toEqual(EMPTY_CARRY);
-    // 表示の設定の知らない値は既定に戻す（グラフの比べ方を含む）
+    // 表示の設定の知らない値は既定に戻す（グラフの比較の仕方を含む）
     const d = fromBody(JSON.stringify({ household: { request: sample().wh.request }, display: { result: { metrics: ["x", "takeHome"], atAge: "9", layout: "diagonal", dock: "large" }, balance: { points: ["now"] } } })).display;
     expect(d).toEqual({ result: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"] }, balance: DEFAULT_BALANCE_SETTINGS });
     // 区画の無い 0.7 までの形（直下に平ら）も読む。なくした「操作中はグラフを上に表示」（dock）は持たない

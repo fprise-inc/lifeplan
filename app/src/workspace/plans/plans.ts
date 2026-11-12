@@ -193,7 +193,7 @@ const shortText = (v: unknown): string => {
  * 差分を現状に当てる（0036 の6）: 土台のいちばん下からプランごとに 外す → 足す → 値を変える。そのあと、動かす項目のキーに戻せる
  * 値の差分（当て先の set）と合成の対策を、同じキーは後のプランが勝つように重ね、欄 → 対策 → FP顧問料の順（欄どうしは動かす項目の
  * 一覧の順）で1回ずつ当てる（合成の対策は今の値からの増減で当てるものがあるので、0.16 と同じ順に当てる）。`extra` は結果のタブで
- * 動かしている値（最後に勝つ）。要確認（0036 の7）は、当て先・外す物を作業中の世帯で、作った時点の値を現状で比べる
+ * 動かしている値（最後に勝つ）。要確認（0036 の7）は、当て先・外す物を作業中の世帯で、作った時点の値を現状で比較する
  */
 export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; diffs: readonly PlanDiff[] }[], cat: Catalog, extra: Values = {}): Applied {
   const now = inputOf(wh);

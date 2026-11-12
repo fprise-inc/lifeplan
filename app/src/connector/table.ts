@@ -1,9 +1,9 @@
 // AI接続口（crates/lifeplan）に同梱する、計算の答えの年ごとの表（CSV・Markdown の文。0209）。比較の道具（compare）と同じ道で計算した
 // 通りごとの表（表示の形の計算の出力）から、選んだ行・年・家族の年齢の列の表を作る:
 // - 数字は画面と同じ関数で数える: 年は画面の表に出す年（present.ts の displayYears・yearsWithin）、年齢は表の年齢の行（summary.ts の summaryOf）、
-//   住宅ローンの返済・残高・利息・金利は比較の道具の系列と同じ関数（summary.ts の loanYearsOf）、支出の内訳と公的年金は画面のキャッシュフロー表の
-//   行の決め方（present.ts の rowDefs）。収入・税と社会保険料・支出・年間収支・金融資産・負債・不足は、比較の道具の系列（calc.rs の shape）と
-//   同じ行の足し方（同じになることを接続口のテストで確かめる）。万円は画面と同じ丸め（presentation/format.ts の toMan。四捨五入）
+//   住宅ローンの返済・残高・利息・金利と、公的年金・支出の内訳は比較の道具の系列と同じ関数（summary.ts の loanYearsOf・flowYearsOf）。
+//   収入・税と社会保険料・支出・年間収支・金融資産・負債・不足は、比較の道具の系列（calc.rs の shape）と同じ行の足し方（同じになることを
+//   接続口のテストで確かめる）。行の名前は比較の道具の系列の名前と同じ（chart.ts の SERIES_KEYS。0207）。万円は画面と同じ丸め（presentation/format.ts の toMan。四捨五入）
 // - 表の下に必ず注を入れる: 前提（物価上昇率・運用利回り）・相場などの想定・単位・計算基準月と「将来の結果を約束するものではない」旨。
 //   「ファイナンシアで試算」の旨は credit を選んだときだけ（既定は入れない）
 // - お客さまの名前・物の ID は入れない（列の名前は行の名前・家族の呼び方〔ご本人・配偶者・第1子…〕・通りの名前だけ）
@@ -11,30 +11,31 @@
 import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
 import { group, toMan } from "../presentation/format.ts";
 import { pctText } from "../workspace/plans/decimal.ts";
-import { displayYears, rowDefs, yearsWithin, type RowDef } from "../workspace/present.ts";
-import { summaryOf } from "./summary.ts";
+import { displayYears, yearsWithin } from "../workspace/present.ts";
+import { EXPENSE_KEYS, SERIES, SERIES_KEYS, type SeriesKey } from "./chart.ts";
+import { FLOW_FIELDS, summaryOf } from "./summary.ts";
 
-/** 選べる行（比較の道具の系列と同じ名前。expenseBreakdown は画面の支出の行ごとに開く） */
-export const TABLE_ROWS = ["income", "takeHome", "taxSi", "expense", "expenseBreakdown", "net", "financialAssets", "debt", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "shortfall"] as const;
-export type TableRowKey = (typeof TABLE_ROWS)[number];
+/** 選べる行（比較の道具の系列と同じ名前。expenseBreakdown は支出の内訳〔expense で始まる10個〕のうち、どれかの通りに値のある物に開く） */
+export const TABLE_ROWS = [...SERIES_KEYS, "expenseBreakdown"] as const;
+export type TableRowKey = SeriesKey | "expenseBreakdown";
 /** 既定の行（収入・税と社会保険料・支出・年間収支・金融資産残高。年間収支＝収入−税と社会保険料−支出） */
 export const DEFAULT_TABLE_ROWS: readonly TableRowKey[] = ["income", "taxSi", "expense", "net", "financialAssets"];
 
 /** 行の名前（画面の表の行と同じ数え方の行は、画面の名前） */
-export const ROW_LABELS: Record<Exclude<TableRowKey, "expenseBreakdown">, string> = {
+export const ROW_LABELS: Record<Exclude<SeriesKey, (typeof EXPENSE_KEYS)[number]>, string> = {
   income: "収入合計",
   takeHome: "手取り",
   taxSi: "税・社会保険料",
   expense: "支出",
   net: "年間収支",
   financialAssets: "金融資産残高",
-  debt: "負債残高",
+  debt: "負債の残高",
   loanRepayment: "住宅ローンの返済",
   loanBalance: "住宅ローン残高",
   loanInterest: "住宅ローンの利息",
   loanRate: "住宅ローンの金利",
   pension: "公的年金",
-  shortfall: "資金の不足",
+  shortfall: "資金不足",
 };
 
 export type TableUnit = "man" | "yen";
@@ -102,14 +103,14 @@ interface VariantData {
   values: Map<number, Record<string, Cell>>;
   ages: Record<string, Record<string, number>>;
   members: { key: string; label: string }[];
-  /** 値のある支出の内訳の行（画面の表と同じく、表に出す年のどこにも値の無い行は出さない） */
-  breakdown: { key: string; label: string }[];
+  /** 値のある支出の内訳（表に出す年のどこかに値のある物） */
+  breakdown: SeriesKey[];
 }
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 
-/** 支出の内訳の行: 画面の表の支出のまとまりの行のうち、税・社会保険料（別の行）の外の物 */
-const expenseRows = (defs: readonly RowDef[]) => defs.filter((d) => d.group === "expense" && d.kind === "value" && d.key !== "taxSi");
+/** 列の名前（支出の内訳は「支出の内訳: 」を頭に付けたグラフの題の言葉） */
+const labelOf = (k: SeriesKey): string => (EXPENSE_KEYS.includes(k) ? `支出の内訳: ${SERIES[k].title}` : ROW_LABELS[k as keyof typeof ROW_LABELS]);
 
 /** 何年おき（最初の年と最後の年はいつも入る。接続口の calculate・compare と同じ選び方） */
 export function everyYears(years: readonly number[], n: number): number[] {
@@ -126,9 +127,6 @@ export function dataOf(v: TableVariant, a: Pick<TableArgs, "fromYear" | "toYear"
   const shown = yearsWithin(table, displayYears(req)).filter((y) => (a.fromYear === undefined || y >= a.fromYear) && (a.toYear === undefined || y <= a.toYear));
   const ys = new Set(shown);
   const s = summaryOf(req, v.result as PreviewResult);
-  const defs = rowDefs(req);
-  const pension = defs.filter((d) => d.key.startsWith("pension:"));
-  const exp = expenseRows(defs);
   const values = new Map<number, Record<string, Cell>>();
   const zero = (): Record<string, Cell> => ({
     income: 0,
@@ -138,8 +136,6 @@ export function dataOf(v: TableVariant, a: Pick<TableArgs, "fromYear" | "toYear"
     financialAssets: 0,
     debt: 0,
     shortfall: 0,
-    pension: 0,
-    ...Object.fromEntries(exp.map((d) => [`expense.${d.key}`, 0])),
   });
   const add = (r: Record<string, Cell>, k: string, n: number) => {
     r[k] = ((r[k] as number | undefined) ?? 0) + n;
@@ -156,9 +152,6 @@ export function dataOf(v: TableVariant, a: Pick<TableArgs, "fromYear" | "toYear"
     else if (c.row === "cf.balance.financial") add(r, "financialAssets", c.amount);
     else if (under(c.row, "cf.balance.debt")) add(r, "debt", c.amount);
     else if (c.row === "cf.balance.shortfall") add(r, "shortfall", c.amount);
-    // 画面の表の行の決め方（公的年金は人ごとの年金の行の合計、支出の内訳は支出の行ごと）
-    if (pension.some((d) => d.match(c))) add(r, "pension", c.amount);
-    for (const d of exp) if (d.match(c)) add(r, `expense.${d.key}`, c.amount);
   }
   for (const [y, r] of values) {
     r.takeHome = (r.income as number) - (r.taxSi as number);
@@ -167,8 +160,11 @@ export function dataOf(v: TableVariant, a: Pick<TableArgs, "fromYear" | "toYear"
     r.loanBalance = l?.loanBalance ?? 0;
     r.loanInterest = l?.loanInterest ?? 0;
     r.loanRate = l?.loanRate ?? null;
+    // 公的年金と支出の内訳（比較の道具の系列と同じ関数 flowYearsOf。画面の表の行の当て方で、医療・介護だけを「その他の支出」から分けた物）
+    const f = s.flowYears[String(y)];
+    for (const k of FLOW_FIELDS) r[k] = f?.[k] ?? 0;
   }
-  const breakdown = exp.filter((d) => shown.some((y) => (values.get(y)?.[`expense.${d.key}`] ?? 0) !== 0)).map((d) => ({ key: `expense.${d.key}`, label: d.label }));
+  const breakdown = EXPENSE_KEYS.filter((k) => shown.some((y) => (values.get(y)?.[k] ?? 0) !== 0));
   return {
     label: v.label,
     shown,
@@ -179,29 +175,16 @@ export function dataOf(v: TableVariant, a: Pick<TableArgs, "fromYear" | "toYear"
   };
 }
 
-/** 選んだ行を列にする（支出の内訳は、どれかの通りに値のある画面の支出の行ごと。並びは画面の表と同じ） */
+/** 選んだ行を列にする（expenseBreakdown は、どれかの通りに値のある支出の内訳。並びは系列の名前の並び） */
 function columnsOf(rows: readonly TableRowKey[], data: readonly VariantData[]): Column[] {
   const out: Column[] = [];
   for (const k of rows) {
     if (k === "expenseBreakdown") {
-      const seen = new Set<string>();
-      for (const d of data)
-        for (const b of d.breakdown) {
-          if (seen.has(b.key)) continue;
-          seen.add(b.key);
-          out.push({
-            key: b.key,
-            label: `支出の内訳: ${b.label}`,
-            kind: "money",
-          });
-        }
+      for (const e of EXPENSE_KEYS) if (data.some((d) => d.breakdown.includes(e)) && !out.some((c) => c.key === e)) out.push({ key: e, label: labelOf(e), kind: "money" });
       continue;
     }
-    out.push({
-      key: k,
-      label: ROW_LABELS[k],
-      kind: k === "loanRate" ? "rate" : "money",
-    });
+    if (out.some((c) => c.key === k)) continue;
+    out.push({ key: k, label: labelOf(k), kind: k === "loanRate" ? "rate" : "money" });
   }
   return out;
 }
@@ -279,10 +262,10 @@ export function tableNotes(a: TableArgs, cols: readonly Column[]): string[] {
   const terms = [
     has("takeHome") ? "手取り＝収入合計−税・社会保険料" : null,
     has("expense") ? `支出は税・社会保険料を除く${has("net") ? "（年間収支＝収入合計−税・社会保険料−支出）" : ""}` : null,
-    cols.some((c) => c.key.startsWith("expense.")) ? "支出の内訳は画面のキャッシュフロー表の支出の行と同じ分け方" : null,
-    has("debt") ? "負債残高は住宅ローン以外も含む負債の合計" : null,
+    cols.some((c) => (EXPENSE_KEYS as readonly string[]).includes(c.key)) ? "支出の内訳は画面のキャッシュフロー表の支出の行と同じ分け方（医療・介護だけを「その他の支出」から分けた物。全部足すと支出）" : null,
+    has("debt") ? "負債の残高は住宅ローン以外も含む負債の合計" : null,
     has("pension") ? "公的年金は世帯の合計（企業年金・個人年金は含まない）" : null,
-    has("shortfall") ? "資金の不足は、預金と取り崩せる資産で払えなかった額" : null,
+    has("shortfall") ? "資金不足は、預金と取り崩せる資産で払えなかった額" : null,
   ].filter((x) => x !== null);
   if (terms.length > 0) notes.push(`${terms.join("。")}。`);
   if (cols.some((c) => c.kind === "rate")) notes.push("住宅ローンの金利は%（その年の最後の返済に当てた金利。金利の違う住宅ローンを2本以上返している年と返済の無い年は空欄）。");

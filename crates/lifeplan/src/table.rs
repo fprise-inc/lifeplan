@@ -13,23 +13,13 @@ use rmcp::schemars;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-/// 選べる行（table.ts の TABLE_ROWS と同じ。名前は compare の系列と同じ）
-pub const ROWS: &[&str] = &[
-    "income",
-    "takeHome",
-    "taxSi",
-    "expense",
-    "expenseBreakdown",
-    "net",
-    "financialAssets",
-    "debt",
-    "loanRepayment",
-    "loanBalance",
-    "loanInterest",
-    "loanRate",
-    "pension",
-    "shortfall",
-];
+/// 支出の内訳をまとめて選ぶ名前（どれかの通りに値のある支出の内訳 expense〜 に開く）
+pub const BREAKDOWN: &str = "expenseBreakdown";
+
+/// 選べる行か（table.ts の TABLE_ROWS と同じ: compare の系列の名前〔answer::FIELDS。0207〕と expenseBreakdown）
+pub fn is_row(r: &str) -> bool {
+    r == BREAKDOWN || crate::answer::FIELDS.contains(&r)
+}
 /// 単位: man（万円。四捨五入。既定）・yen（円）
 pub const UNITS: &[&str] = &["man", "yen"];
 /// 形: csv（既定）・markdown
@@ -61,12 +51,13 @@ pub struct TableArgs {
     /// 並べる通り（compare の variants と同じ。8通りまで。省くと基本だけの表）。通りの label は列・見出しに出るので、お客さまの名前を書かない
     #[schemars(with = "Option<Vec<VariantArgs>>")]
     pub variants: Option<Vec<Value>>,
-    /// 行（既定 income・taxSi・expense・net・financialAssets）: income（収入合計）・takeHome（手取り＝収入−税・社会保険料）・taxSi（税・社会保険料）・
-    /// expense（支出。税・社会保険料を除く）・expenseBreakdown（支出の内訳。画面のキャッシュフロー表の支出の行ごと〔基本生活費・住居費・教育費・保険料…〕。
-    /// 値のある行だけ）・net（年間収支）・financialAssets（金融資産残高）・debt（負債の残高の合計）・loanRepayment（住宅ローンの返済。年額）・
-    /// loanBalance（住宅ローン残高。画面の表の行と同じ）・loanInterest（住宅ローンの利息。年額）・loanRate（その年の住宅ローンの金利。%）・
-    /// pension（公的年金の世帯の合計。年額）・shortfall（資金の不足）。名前は compare の系列と同じ
-    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "expenseBreakdown", "net", "financialAssets", "debt", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "shortfall"] }))]
+    /// 行（既定 income・taxSi・expense・net・financialAssets）。名前は compare の系列と同じ: income（収入合計）・takeHome（手取り＝収入−税・社会保険料）・
+    /// taxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産残高）・debt（負債の残高の合計）・
+    /// shortfall（資金不足）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高。画面の表の行と同じ）・loanInterest（住宅ローンの利息。
+    /// 年額）・loanRate（その年の住宅ローンの金利。%）・pension（公的年金の世帯の合計。年額）・支出の内訳 expenseLiving・expenseSurplus・expenseHousing・
+    /// expenseEducation・expenseInsurance・expenseLumpSum・expenseCar・expenseCare・expenseRealEstate・expenseOther（全部足すと expense）。
+    /// expenseBreakdown は、支出の内訳のうちどれかの通りに値のある物をまとめて選ぶ
+    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther", "expenseBreakdown"] }))]
     pub rows: Option<Vec<String>>,
     /// 年齢の列にする家族（年齢の鍵: self・spouse・child1・child2…。compare の系列の ages の鍵と同じ）。省くと世帯の全員、[] なら年齢の列なし
     pub members: Option<Vec<String>>,
@@ -106,14 +97,11 @@ pub struct Chosen {
 /// 表の選び方を確かめる
 pub fn check(a: &TableArgs) -> Result<Chosen, String> {
     let rows = a.rows.clone().unwrap_or_default();
-    let bad: Vec<&String> = rows
-        .iter()
-        .filter(|r| !ROWS.contains(&r.as_str()))
-        .collect();
+    let bad: Vec<&String> = rows.iter().filter(|r| !is_row(r)).collect();
     if !bad.is_empty() {
         return Err(format!(
-            "rows に選べるのは {} です（{}）。",
-            ROWS.join("・"),
+            "rows に選べるのは {}・{BREAKDOWN} です（{}）。",
+            crate::answer::FIELDS.join("・"),
             bad.iter()
                 .map(|s| s.as_str())
                 .collect::<Vec<_>>()
@@ -216,23 +204,11 @@ mod tests {
         assert!(check(&args(json!({ "layout": "wide" }))).is_err());
         assert!(check(&args(json!({ "every_years": 11 }))).is_err());
         assert!(check(&args(json!({ "members": [""] }))).is_err());
-        // 行の名前は table.ts と同じ並び（compare の系列の名前を使い回す）
-        for r in [
-            "income",
-            "taxSi",
-            "expense",
-            "net",
-            "financialAssets",
-            "debt",
-            "shortfall",
-            "loanRepayment",
-            "loanBalance",
-            "loanInterest",
-            "loanRate",
-        ] {
-            assert!(ROWS.contains(&r), "{r}");
-            assert!(crate::answer::FIELDS.contains(&r), "{r}");
+        // 行の名前は compare の系列の名前と同じ（支出の内訳も）
+        for r in crate::answer::FIELDS {
+            assert!(is_row(r), "{r}");
         }
+        assert!(is_row("expenseBreakdown") && !is_row("expense.living"));
     }
 
     #[test]

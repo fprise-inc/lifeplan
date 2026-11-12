@@ -48,7 +48,7 @@ import type { InsuranceAccountInput } from "../../../engine/types.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 
 /** 保険契約の区画の「?」に置く入れ漏れの気づき（0159。控除証明書の取り込みのかわり） */
-export const DEDUCTION_COUNT_NOTE = "生命保険料・地震保険料の控除証明書があれば、控除証明書の枚数と、入れた契約の数を見比べてください（入れ漏れに気づけます。掛け捨ての医療保険・共済も控除の対象なら証明書が届きます）。";
+export const DEDUCTION_COUNT_NOTE = "生命保険料・地震保険料の控除証明書があれば、控除証明書の枚数と、入れた契約の数を比較してください（入れ漏れに気づけます。掛け捨ての医療保険・共済も控除の対象なら証明書が届きます）。";
 
 type Obj = Record<string, unknown>;
 const contracts = (h: Household) => h.insuranceContracts;
@@ -1303,7 +1303,7 @@ export function insuranceStage(wh: WorkingHousehold): StageDef {
   const section: SectionDef = {
     key: "ins/contracts",
     title: "保険契約",
-    // 入れ漏れの気づき（0159）: 控除証明書の取り込みを外したかわりに、証明書の枚数と入れた契約の数を見比べてもらう一言を「?」に置く
+    // 入れ漏れの気づき（0159）: 控除証明書の取り込みを外したかわりに、証明書の枚数と入れた契約の数を比較してもらう一言を「?」に置く
     note: `${list.length === 0 ? "保険に入っていなければ、何も入れなくても計算できます（保障は無しで計算します）。\n" : ""}${DEDUCTION_COUNT_NOTE}`,
     level: "simple",
     groups: list.flatMap((c, i) => contractGroups(wh, c, i)),

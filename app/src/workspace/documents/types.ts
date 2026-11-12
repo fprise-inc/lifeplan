@@ -172,7 +172,7 @@ export interface DocObject {
 
 /**
  * 照合だけの値（源泉徴収税額・社会保険料の額など）。入力にせず、アプリの計算と並べて差を見せる（0004 の7 の参照値と同じ考え）。
- * row・year があれば、計算の結果のその行・その年（書類の名義の人の分）と比べる
+ * row・year があれば、計算の結果のその行・その年（書類の名義の人の分）と比較する
  */
 export interface DocReference {
   id: string;

@@ -180,7 +180,7 @@
 
 #let market-drop(data) = {
   let m = data.marketDrop
-  chapter("相場が下がった場合", sub: "よくある下がり方で計算し、金融資産がいつまで持つかを比べたものです。")
+  chapter("相場が下がった場合", sub: "よくある下がり方で計算し、金融資産がいつまで持つかを比較したものです。")
   let colors = (rgb("#b03a2e"), rgb("#8a5a00"), rgb("#5b3f99"))
   let dashes = ("solid", "dashed", "dotted")
   line-chart(data.basis.years, (

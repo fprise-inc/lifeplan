@@ -20,7 +20,7 @@ export interface EstimatesSectionProps {
   value: OfficeEstimates;
   /** 保存する（すぐ事務所データへ。失敗したら投げる） */
   onChange: (next: OfficeEstimates) => Promise<void>;
-  /** 代表の世帯で、今の値（before）と変えようとしている値（after）の主な結果を比べる（無ければ「差を見る」を出さない） */
+  /** 代表の世帯で、今の値（before）と変えようとしている値（after）の主な結果を比較する（無ければ「差を見る」を出さない） */
   preview?: (before: OfficeEstimates, after: OfficeEstimates) => Promise<PreviewRow[]>;
   /** 今日（YYYY-MM-DD） */
   today: () => string;

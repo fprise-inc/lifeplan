@@ -318,6 +318,12 @@ export interface GroupDef {
    * 閉じるリンクも出さない（入れた値を隠さない）。開け閉めは見せ方だけで、値は何も変えない。欄の一覧（allFields）は今のまま
    */
   folded?: { name: string; lead: readonly string[]; open: string; startOpen: boolean };
+  /**
+   * 推定のままの欄の1行（例: 介護の物の「詳細の項目を入れない所は、この条件で推定した数字を使います」）。この文の後ろに、このまとまりの欄のうち
+   * 値の状態が推定の欄の名前を「推定」の印と並べ、欄とボタンの下（「▸」の前）に出す（標準で見えない詳細の欄も数える）。推定のままの欄が無ければ出さない
+   * （入れた欄は名前が消えるので、入れた所が推定でなくなるのが見て分かる。0041 の印・0143 の追記 2026-11-12）。見せ方だけで、欄の一覧（allFields）は今のまま
+   */
+  estimateLine?: string;
 }
 
 /** まとまりをその入れ方で出すか（標準は標準のまとまりだけ、詳細は標準だけのまとまりを除く全部） */
@@ -349,7 +355,7 @@ export interface StageDef {
   sections: SectionDef[];
 }
 
-// ---- 値の比べ方 ----
+// ---- 値の比較の仕方 ----
 
 export function sameVal(a: Val, b: Val, kind: FieldDef["kind"]): boolean {
   if (kind === "pct" || kind === "decimal") return sameRate(a as string | null, b as string | null);
@@ -377,7 +383,7 @@ export function field(def: FieldDef): FieldDef {
     ...(def.kind === "pct" && (def.min !== undefined || def.max !== undefined) ? { get: outOfRangeNotice(def, write) } : {}),
     set: (wh, v) => {
       const cur = def.get(wh);
-      // 時点の欄は、時点の形で渡されたら入っている形と比べる（年月の文字なら年月で比べる）。同じなら推定でも何も変えない（0041）
+      // 時点の欄は、時点の形で渡されたら入っている形と比較する（年月の文字なら年月で比較する）。同じなら推定でも何も変えない（0041）
       const now = def.kind === "when" && typeof v === "object" ? (cur.when?.raw ?? null) : cur.value;
       if (sameVal(now, v, def.kind)) return wh;
       return write(wh, v);

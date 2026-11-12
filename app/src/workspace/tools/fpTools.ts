@@ -225,7 +225,7 @@ export interface InputChange {
 }
 
 /**
- * 控えの現状の入力と、今の入力の違い（欄ごと。足した物・外した物は物ごとに1行）。向き先と入力項目ID（当て先）で比べるので、
+ * 控えの現状の入力と、今の入力の違い（欄ごと。足した物・外した物は物ごとに1行）。向き先と入力項目ID（当て先）で比較するので、
  * 欄の並びや見せ方が変わっても同じ値は同じと読む
  */
 export function inputChanges(prevReq: EngineRequest, wh: WorkingHousehold): InputChange[] {

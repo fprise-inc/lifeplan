@@ -31,7 +31,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
   { id: "moneyThree", label: "お金の3つの分け方（説明用の図）", fixed: false },
   { id: "education", label: "教育費の推移", fixed: false },
   { id: "housing", label: "住宅ローン", fixed: false },
-  { id: "rental", label: "収益不動産のまとめ（物件ごとの数字と売る年の比べ）", fixed: false },
+  { id: "rental", label: "収益不動産のまとめ（物件ごとの数字と売る年の比較）", fixed: false },
   { id: "retirement", label: "老後の必要資金と年金の受取予想", fixed: false },
   { id: "investment", label: "資産運用の計画（運用の期間・口座ごとの推移・資産の内訳）", fixed: false },
   { id: "marketDrop", label: "相場が下がった場合", fixed: false },

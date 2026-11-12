@@ -1,5 +1,5 @@
 // AI接続口（crates/lifeplan）に同梱する、計算の答えの「主な数字」と家族の年齢（0194）。
-// - 主な数字は、画面の「プランを比べる」の比較の表と同じ関数（workspace/plans/compare.ts の metricsOf）で数える:
+// - 主な数字は、画面の「プランを比較」の比較の表と同じ関数（workspace/plans/compare.ts の metricsOf）で数える:
 //   指定した年齢の時点の金融資産・資産が尽きる年・生涯の手取りの合計・生涯の支出の合計・金融資産がいちばん少ない年と額・住宅ローンの返済の合計。
 //   住宅ローンの利息の合計（0205）は、画面に同じ数字が無いので、エンジンの要約の負債ごとの年ごとの利息（summary.loans）を、住宅ローンの返済の合計と
 //   同じ年（画面の表に出す年）で足す
@@ -89,7 +89,7 @@ export function pensionOf(req: EngineRequest, p: NonNullable<SummaryArgs["pensio
   return out;
 }
 
-/** 年ごとの住宅ローンの数字（0203。比べる道具の系列・グラフの返済額に使う） */
+/** 年ごとの住宅ローンの数字（0203。比較の道具の系列・グラフの返済額に使う） */
 export interface LoanYear {
   /** 住宅ローンの返済（年額。繰上返済・手数料を含む。主な数字の住宅ローンの返済の合計と同じ数え方で、表に出す年の合計がその合計になる） */
   loanRepayment: number;
@@ -143,6 +143,82 @@ export function loanYearsOf(req: EngineRequest, table: PreviewResult["table"], s
   return out;
 }
 
+/**
+ * 年ごとの収支の内訳（0207。比較の道具の系列・グラフに使う）。支出の内訳は、画面のキャッシュフロー表の支出の行（present.ts の rowDefs）と同じ当て方で、
+ * 医療・介護（cf.expense.care の下）だけを「その他の支出」から分けた物。内訳を全部足すと、年ごとの支出（expense。税・社会保険料を除く）になる
+ */
+export interface FlowYear {
+  /** 公的年金（年額。画面の表の「○○の年金」の行の合計。企業年金・個人年金は入れない） */
+  pension: number;
+  /** 生活費（画面の表の「生活費」の行。車の費用・ゆとりの支出は入れない） */
+  expenseLiving: number;
+  /** ゆとりの支出（黒字のうち貯まらない分） */
+  expenseSurplus: number;
+  /** 住居費（ローン・税・修繕。住まい以外の不動産のローンの返済は入れない） */
+  expenseHousing: number;
+  /** 教育費 */
+  expenseEducation: number;
+  /** 保険料（車の保険は入れない） */
+  expenseInsurance: number;
+  /** 一時的支出（旅行・家電・冠婚葬祭など。車の買い替えは入れない） */
+  expenseLumpSum: number;
+  /** 車の費用（買い替え・維持費・ローンの返済） */
+  expenseCar: number;
+  /** 医療・介護（医療費の窓口の負担・介護の費用・施設の費用） */
+  expenseCare: number;
+  /** 住まい以外の不動産の経費・大きな修繕・ローンの返済 */
+  expenseRealEstate: number;
+  /** その他の支出（画面の表の「その他の支出」から医療・介護を除いた物。奨学金などの返済・FP への顧問料など） */
+  expenseOther: number;
+}
+
+/** 年ごとの収支の内訳の数字の名前（FlowYear の鍵。接続口の answer.rs の FLOW_FIELDS と同じ並び） */
+export const FLOW_FIELDS: readonly (keyof FlowYear)[] = [
+  "pension",
+  "expenseLiving",
+  "expenseSurplus",
+  "expenseHousing",
+  "expenseEducation",
+  "expenseInsurance",
+  "expenseLumpSum",
+  "expenseCar",
+  "expenseCare",
+  "expenseRealEstate",
+  "expenseOther",
+];
+
+/** 画面の表の支出の行の鍵 → 内訳の名前（その他の支出は、医療・介護を分けてから） */
+const EXPENSE_OF: Record<string, keyof FlowYear> = {
+  living: "expenseLiving",
+  surplusSpend: "expenseSurplus",
+  housing: "expenseHousing",
+  education: "expenseEducation",
+  insurance: "expenseInsurance",
+  lumpSum: "expenseLumpSum",
+  car: "expenseCar",
+  realEstateExpense: "expenseRealEstate",
+  realEstateLoan: "expenseRealEstate",
+  expenseOther: "expenseOther",
+};
+
+const under = (row: string, prefix: string): boolean => row === prefix || row.startsWith(`${prefix}.`);
+
+/** 年ごとの収支の内訳（表の年ごと。0207） */
+export function flowYearsOf(req: EngineRequest, table: PreviewResult["table"]): Record<string, FlowYear> {
+  const defs = rowDefs(req).filter((d) => d.group === "expense" && d.kind === "value" && EXPENSE_OF[d.key] !== undefined);
+  const out: Record<string, FlowYear> = {};
+  const at = (y: number): FlowYear => (out[String(y)] ??= Object.fromEntries(FLOW_FIELDS.map((k) => [k, 0])) as unknown as FlowYear);
+  for (const c of table) {
+    if (under(c.row, "cf.income.pension")) at(c.year).pension += c.amount;
+    if (!under(c.row, "cf.expense")) continue;
+    const d = defs.find((x) => x.match(c));
+    if (d === undefined) continue;
+    const k = d.key === "expenseOther" && under(c.row, "cf.expense.care") ? "expenseCare" : (EXPENSE_OF[d.key] as keyof FlowYear);
+    at(c.year)[k] += c.amount;
+  }
+  return out;
+}
+
 export interface Summary {
   /** 家族（年齢の鍵と呼び方。並びは画面の表の年齢の行と同じ） */
   members: { key: string; label: string }[];
@@ -152,6 +228,8 @@ export interface Summary {
   memberKeys: Record<string, string>;
   /** 年ごとの住宅ローンの数字（接続口が年ごとの数字の loanRepayment・loanBalance に写す。0203） */
   loanYears: Record<string, LoanYear>;
+  /** 年ごとの収支の内訳（接続口が年ごとの数字の pension・expense〜 に写す。0207） */
+  flowYears: Record<string, FlowYear>;
   keyFigures: {
     /** 数えた年（画面の表に出す年。計算基準月が年の途中なら翌年から） */
     years: { from: number; to: number } | null;
@@ -211,6 +289,7 @@ export function summaryOf(req: EngineRequest, result: PreviewResult, a: SummaryA
     ages,
     memberKeys,
     loanYears,
+    flowYears: flowYearsOf(req, table),
     keyFigures: {
       years: shown,
       assetsAtAge: ms.map((x) => ({ age: x.targetAge, year: x.targetYear, amount: x.target })),

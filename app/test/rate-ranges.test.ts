@@ -248,7 +248,7 @@ describe("率の欄の範囲（0098）", () => {
       shareId: "s-1",
       receivedAt: "2026-10-19T01:00:00.000Z",
       title: "利回りを上げる",
-      summary: "比べるため",
+      summary: "比較するため",
       diffs: [
         { id: "d1", target: { plan: "assumptions" }, item: "assumptions.inflation", op: "set", value: "9.99", note: null },
         { id: "d2", target: { plan: "assumptions" }, item: "assumptions.inflation", op: "set", value: "0.02", note: null },

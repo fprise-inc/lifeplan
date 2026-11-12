@@ -1,6 +1,6 @@
 // 入力画面でプランを直す（0036 の8・0043）。入力の部品は現状の編集と同じものを使い、書く先だけを変える:
 // - 画面に見せるのは、そのプランの中身（現状に土台から順に差分を当てた作業中の世帯。planView）
-// - 部品が返した新しい作業中の世帯と、直す前の作業中の世帯を比べ、違いをそのプランの差分にする（recordPlanEdit）。
+// - 部品が返した新しい作業中の世帯と、直す前の作業中の世帯を比較し、違いをそのプランの差分にする（recordPlanEdit）。
 //   値が変わった所は値を変える差分（set）、物・並びの要素が増えた所は足す差分（add）、無くなった所は外す差分（remove）、
 //   物の種類が変わった所（賃貸⇄持ち家・働き方の種類など）は置き換えの組（同じ pair の remove と add）
 // - 現状と違う所の印・戻す・違いの一覧（diffRows）・カードごとの数もここで作る
@@ -27,7 +27,7 @@ const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !
 const isBox = (v: unknown): boolean => isObj(v) && typeof v.state === "string" && isObj(v.origin);
 const inputOf = (wh: WorkingHousehold): Obj => wh.request.input as unknown as Obj;
 
-// ---- 当て先の比べ方 ----
+// ---- 当て先の比較の仕方 ----
 
 /** 欄の当て先（欄の読み方が物を見つけられないときは null） */
 function safeAddress(f: FieldDef, wh: WorkingHousehold): Address | null {
@@ -291,7 +291,7 @@ export function householdChanges(before: Obj, after: Obj): Change[] {
     const sub = { [item]: getPath(before, p.path), valueStates: rowsFor(before, item) };
     const sub2 = { [item]: getPath(after, p.path), valueStates: rowsFor(after, item) };
     if (sameJson(sub, sub2)) continue;
-    // 要求の入力の項目は、その項目だけを持つ入れ物として比べる（場所はその項目の値の中）
+    // 要求の入力の項目は、その項目だけを持つ入れ物として比較する（場所はその項目の値の中）
     ownerChangesPlan(sub, sub2, target, item, out);
   }
   return out;

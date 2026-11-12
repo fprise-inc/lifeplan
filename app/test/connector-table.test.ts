@@ -2,6 +2,8 @@
 // CSV・Markdown の文にすること。万円は画面と同じ丸め（presentation/format.ts の man）。表の下の注（前提・相場などの想定・単位・試算の時点と旨）が必ず入ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の table_matches_compare）は、本物の接続口で同じ関数を動かし、compare の系列と同じ数字になることを確かめる
 import { describe, expect, it } from "vitest";
+import { EXPENSE_KEYS, SERIES } from "../src/connector/chart.ts";
+import { flowYearsOf, type FlowYear } from "../src/connector/summary.ts";
 import { table, TABLE_ROWS, type TableArgs, type TableOut, type TableVariant } from "../src/connector/table.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
@@ -81,13 +83,17 @@ describe("AI接続口の年ごとの表（0209）", () => {
     expect(col("年間収支（円）")).toEqual(cells("net"));
     expect(col("金融資産残高（円）")).toEqual(cells("financial"));
     expect(col("住宅ローン残高（円）")).toEqual(cells("debt"));
-    // 支出の内訳は画面の表の支出の行（値のある行だけ）と同じ名前・数字で、足すと支出（税・社会保険料を除く）になる
-    const exp = screen.rows.filter((r) => r.kind === "value" && r.key !== "taxSi" && screen.rows.indexOf(r) > screen.rows.findIndex((x) => x.key === "group:expense") && screen.rows.indexOf(r) < screen.rows.findIndex((x) => x.key === "expenseTotal"));
-    expect(exp.length).toBeGreaterThan(2);
-    const parts = exp.map((r) => {
-      expect(col(`支出の内訳: ${r.label}（円）`)).toEqual(cells(r.key));
-      return col(`支出の内訳: ${r.label}（円）`).map(Number);
+    // 支出の内訳は比較の道具の系列と同じ関数（flowYearsOf。画面の表の支出の行の当て方で、医療・介護だけを分けた物）の数字で、足すと支出になる
+    const flows = flowYearsOf(req, result.table);
+    const parts = EXPENSE_KEYS.map((k) => {
+      const got = col(`支出の内訳: ${SERIES[k].title}（円）`);
+      expect(got, k).toEqual(shown.map((y) => String(flows[String(y)]?.[k as keyof FlowYear] ?? 0)));
+      return got.map(Number);
     });
+    expect(parts.filter((p) => p.some((x) => x !== 0)).length).toBeGreaterThan(2);
+    // 画面の表の「基本生活費」の行は、支出の内訳の生活費と同じ
+    const living = screen.rows.find((r) => r.key === "living");
+    expect(col(`支出の内訳: ${SERIES.expenseLiving.title}（円）`)).toEqual(cells(living?.key ?? "living"));
     const expense = col("支出（円）").map(Number);
     expense.forEach((e, i) => expect(parts.reduce((a, p) => a + (p[i] ?? 0), 0)).toBe(e));
     // 支出＋税・社会保険料は画面の「支出合計」、手取りは収入−税・社会保険料
