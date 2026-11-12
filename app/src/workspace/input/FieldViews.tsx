@@ -581,6 +581,26 @@ export function MoreToggle({ groupKey, open, toggle, label, text, swapNotes = []
   );
 }
 
+/** まとまりの欄のうち、値の状態が推定の欄の名前（GroupDef の estimateLine。標準で見えない詳細の欄も数える。同じ名前は1つに） */
+export function estimatedFieldLabels(group: Pick<GroupDef, "fields">, wh: WorkingHousehold): string[] {
+  return [...new Set(group.fields.filter((f) => f.readOnly === undefined && fieldStatus(f, wh).status === "estimated").map((f) => f.label))];
+}
+
+/** 推定のままの欄の1行（GroupDef の estimateLine）: 文の後ろに「推定」の印（0041 の印と同じ見た目）と、推定のままの欄の名前 */
+function EstimateLine({ group, wh }: { group: GroupDef; wh: WorkingHousehold }) {
+  if (group.estimateLine === undefined) return null;
+  const names = estimatedFieldLabels(group, wh);
+  if (names.length === 0) return null;
+  return (
+    <p class="in-est-line" data-est-line={group.key}>
+      {group.estimateLine}
+      <span class="in-est-names">
+        <span class="badge est">推定</span>のまま: {names.join("・")}
+      </span>
+    </p>
+  );
+}
+
 /**
  * まとまり1つ。sub は物1件の中のまとまり（entryParts。枠の最後に描く）。
  * nested は、ほかのまとまりの枠の中に描くまとまり（枠と地の色を付けず、見出しと薄い区切りの線だけ。1件 = 1つの枠）
@@ -648,6 +668,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       {group.band === true ? sub : null}
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
       {moreLast && group.band !== true ? sub : null}
+      <EstimateLine group={group} wh={wh} />
       {fold?.closable === true ? <FoldClose groupKey={group.key} label={group.title ?? group.folded?.name ?? "この欄"} onClose={fold.toggle} /> : null}
       {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} text={group.moreLabel} swapNotes={swapNotesOf(group, more.open)} /> : null}
       {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
