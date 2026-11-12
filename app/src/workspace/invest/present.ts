@@ -8,6 +8,7 @@ import { CLASSES, drawdownOf, INVEST_KINDS, investmentOf, KIND_INFO, methodOf, r
 import { ageReachedMonth, parseYm } from "../levers.ts";
 import { depletionYear } from "../present.ts";
 import { ageInYear } from "../roles.ts";
+import { OFFICIAL_WORDING, type Wording } from "../resultTexts.ts";
 import { presetNum, presetRate } from "../../../../hearing/src/presets.ts";
 
 /** 口座の内訳のまとまり（下から積む順） */
@@ -49,26 +50,34 @@ const manText = (yen: number) => {
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 };
 
-/** 取り崩しの条件の文（例: 「65歳から毎月17万円ずつ取り崩す場合」） */
-export function drawdownText(req: EngineRequest): string {
+/**
+ * 取り崩しの条件の文（例: 「65歳から毎月17万円ずつ取り崩す場合」）。予定が無いときは「取り崩しの予定を入れず、足りない年だけ取り崩す場合」
+ * （前の「足りない年だけ取り崩す場合（取り崩しの予定なし）」は、取り崩すのに予定なしと読めて分かりにくかった。0212）。
+ * 提案書の資産運用の条件は公式の文のまま（w を渡さない）
+ */
+export function drawdownText(req: EngineRequest, w: Wording = OFFICIAL_WORDING): string {
   const d = drawdownOf(req);
-  if (d.method === "none") return "足りない年だけ取り崩す場合（取り崩しの予定なし）";
-  return d.method === "fixed" ? `${d.startAge}歳から毎月${manText(d.monthly)}万円ずつ取り崩す場合` : `${d.startAge}歳から毎年${(Number(d.rate) * 100).toFixed(1)}%ずつ取り崩す場合`;
+  if (d.method === "none") return w.text("result:invest/conditionNone");
+  return d.method === "fixed" ? w.text("result:invest/conditionFixed", { age: `${d.startAge}歳`, amount: `${manText(d.monthly)}万円` }) : w.text("result:invest/conditionRate", { age: `${d.startAge}歳`, rate: `${(Number(d.rate) * 100).toFixed(1)}%` });
 }
 
-/** 結論の1文（資産の推移のとき）: 「金融資産は 99歳 まで持ちます」＋条件、基準のプランは2行目 */
-export function investVerdict(names: SeriesNames, sel: { req: EngineRequest; table: readonly TableCell[] }, base: { req: EngineRequest; table: readonly TableCell[] } | null, years: readonly number[]): ResultVerdict {
+/**
+ * 結論の1文（資産の推移のとき）: 「金融資産は 99歳 まで持ちます」＋条件、基準のプランは2行目。
+ * 文は結果の画面の文の表（resultTexts.ts の result:invest/…）から。事務所の文を承認していれば、その文に同じ値を差し込む（0212）
+ */
+export function investVerdict(names: SeriesNames, sel: { req: EngineRequest; table: readonly TableCell[] }, base: { req: EngineRequest; table: readonly TableCell[] } | null, years: readonly number[], w: Wording = OFFICIAL_WORDING): ResultVerdict {
   const a = lastsAge(sel.req, sel.table, years);
   const b = base === null ? null : lastsAge(base.req, base.table, years);
-  const parts: VerdictPart[] = [{ text: names.same ? "金融資産は " : `${names.selected}では、金融資産は ` }, { text: a === null ? "—" : `${a}歳`, strong: true }, { text: " まで持ちます" }];
-  const sub: VerdictPart[] = [{ text: drawdownText(sel.req) }];
-  if (!names.same && b !== null) sub.push({ text: `／${names.base}（基準）は${b}歳まで` });
+  const age = a === null ? "—" : `${a}歳`;
+  const parts: VerdictPart[] = names.same ? w.parts("result:invest/verdictSame", { age }) : w.parts("result:invest/verdict", { plan: names.selected, age });
+  const sub: VerdictPart[] = [{ text: drawdownText(sel.req, w) }];
+  if (!names.same && b !== null) sub.push({ text: `／${w.text("result:invest/verdictBase", { basePlan: names.base, baseAge: `${b}歳` })}` });
   const tone = names.same || b === null || a === null ? "flat" : a > b ? "up" : a < b ? "down" : "flat";
   return { tone, parts, sub };
 }
 
-/** 運用の期間の帯（選んだプランの要求から。ages は x 軸の年の本人の年齢） */
-export function bandOf(req: EngineRequest, ages: readonly (number | null)[]): InvestBandModel | null {
+/** 運用の期間の帯（選んだプランの要求から。ages は x 軸の年の本人の年齢）。提案書の運用の期間は公式の文のまま（w を渡さない） */
+export function bandOf(req: EngineRequest, ages: readonly (number | null)[], w: Wording = OFFICIAL_WORDING): InvestBandModel | null {
   const h = req.input.household;
   const self = selfOf(h);
   if (self === undefined || !(h.accounts ?? []).some((a) => a.kind !== "realEstate" && a.kind !== "otherAsset")) return null;
@@ -95,7 +104,7 @@ export function bandOf(req: EngineRequest, ages: readonly (number | null)[]): In
     steps,
     accumText: `積み立てる ${now}〜${stopAge - 1}歳`,
     holdText: "据え置く",
-    holdSub: wdAge === null ? `${stopAge}歳〜（足りない年だけ取り崩す）` : wdAge > stopAge ? `${stopAge}〜${wdAge - 1}歳` : "",
+    holdSub: wdAge === null ? w.text("result:invest/holdNone", { age: `${stopAge}歳` }) : wdAge > stopAge ? `${stopAge}〜${wdAge - 1}歳` : "",
     wdText: "取り崩す",
     wdSub: wdAge === null ? "" : d.method === "fixed" ? `${wdAge}歳〜 月${manText(d.monthly)}万円` : `${wdAge}歳〜 年${(Number(d.rate) * 100).toFixed(1)}%`,
     minAge: (now ?? 0) + 1,
@@ -137,13 +146,13 @@ export function stressLabel(req: EngineRequest, key: StressKey): string {
   return "利回りがずっと想定より1%低い";
 }
 
-export function stressLines(req: EngineRequest, results: Partial<Record<StressKey, PreviewResult | null>>, years: readonly number[]): StressLineModel[] {
+export function stressLines(req: EngineRequest, results: Partial<Record<StressKey, PreviewResult | null>>, years: readonly number[], w: Wording = OFFICIAL_WORDING): StressLineModel[] {
   return STRESS_KEYS.map((key) => {
     const r = results[key] ?? null;
     const fin = new Map<number, number>();
     if (r !== null) for (const c of r.table) if (c.row === "cf.balance.financial") fin.set(c.year, (fin.get(c.year) ?? 0) + c.amount);
     const a = r === null ? null : lastsAge(req, r.table, years);
-    return { key, label: stressLabel(req, key), values: r === null ? null : years.map((y) => fin.get(y) ?? 0), lasts: a === null ? "計算しています" : `${a}歳まで持つ` };
+    return { key, label: stressLabel(req, key), values: r === null ? null : years.map((y) => fin.get(y) ?? 0), lasts: a === null ? "計算しています" : w.text("result:invest/stressLasts", { age: `${a}歳` }) };
   });
 }
 
@@ -154,12 +163,15 @@ export function investChart(input: {
   ages: readonly (number | null)[];
   stress: Partial<Record<StressKey, PreviewResult | null>> | null;
   view: InvestChartModel["view"];
+  /** 結果の画面の文（承認した事務所の文を当てた物。省略は公式の文。0212） */
+  wording?: Wording;
 }): InvestChartModel {
   const { sel, years, ages } = input;
+  const w = input.wording ?? OFFICIAL_WORDING;
   return {
     breakdown: methodOf(sel.req) === "total" ? null : breakdownOf(sel.res.table, years),
-    band: bandOf(sel.req, ages),
-    stress: input.stress === null ? null : stressLines(sel.req, input.stress, years),
+    band: bandOf(sel.req, ages, w),
+    stress: input.stress === null ? null : stressLines(sel.req, input.stress, years, w),
     view: input.view,
   };
 }

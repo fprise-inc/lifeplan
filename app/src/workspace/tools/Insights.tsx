@@ -1,10 +1,12 @@
 // 結果のタブのポイント（0074。2026-11-12 に「気づき」から改めた）: 選んでいるプランの結果から、決まりで数件（預金が少なくなる年・赤字が続く・教育と介護が重なる・NISA の枠を
 // 使い切る年・相続税がかかる見込み）。入力は増えない。年のあるポイントは「その年を見る」、どれも「対策を考える」で対策へ
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useContext, useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { inheritanceRequest } from "../input/inheritanceLine.ts";
 import { endYearOff, endYearToStandard } from "../input/stages/assumptions.ts";
+import { OfficeTextsContext } from "../office/customTexts.ts";
+import { wordingOf } from "../resultTexts.ts";
 import { insights } from "./fpTools.ts";
 
 /** 相続税の目安を計算する（active のときだけ。要求が変わったら計算し直す） */
@@ -34,8 +36,11 @@ export function inheritancePayable(r: PreviewResult | null): number | null {
 export function Insights({ req, result, months, inheritance, onYear, onLevers, initialOpen = false }: { req: EngineRequest; result: PreviewResult | null; months?: number; inheritance?: PreviewResult | null; onYear?: (y: number) => void; onLevers?: () => void; initialOpen?: boolean }) {
   // 閉じているときは灰色の小さい1行（「ポイント ○件 ▸」）。押すと一覧が開き、もう一度押すと閉じる（0074 の追記 2026-11-12）
   const [open, setOpen] = useState(initialOpen);
+  // ポイントの文は、承認した事務所の文があれば当てる（結果の画面の文の一覧の result:main/point…。0212）
+  const office = useContext(OfficeTextsContext);
+  const wording = useMemo(() => wordingOf(office), [office]);
   if (result === null) return null;
-  const list = insights(req, result, { ...(months !== undefined ? { months } : {}), inheritanceTax: inheritancePayable(inheritance ?? null) });
+  const list = insights(req, result, { ...(months !== undefined ? { months } : {}), inheritanceTax: inheritancePayable(inheritance ?? null), wording });
   if (list.length === 0) return null;
   return (
     <section class={`fp-insights${open ? " open" : ""}`} aria-label="ポイント" data-insights={list.length}>

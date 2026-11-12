@@ -57,20 +57,21 @@ function fromRows(k: Kind, rows: Row[]): unknown[] {
   return rows.map((r) => ({ id: r.id, ...(r.do === "hide" ? { hide: true } : {}), ...(r.order !== undefined ? { order: r.order } : {}) }));
 }
 
-function read(k: Kind): { bytes: Buffer | null; rows: Row[] | null; errors: Issue[]; unused: string[] } {
-  if (!existsSync(file(k))) return { bytes: null, rows: null, errors: [], unused: [] };
+function read(k: Kind): { bytes: Buffer | null; rows: Row[] | null; errors: Issue[]; warnings: Issue[]; unused: string[] } {
+  if (!existsSync(file(k))) return { bytes: null, rows: null, errors: [], warnings: [], unused: [] };
   const bytes = readFileSync(file(k));
   const errors: Issue[] = [];
+  const warnings: Issue[] = [];
   const unused: string[] = [];
   let v: unknown;
   try {
     v = JSON.parse(bytes.toString("utf8"));
   } catch {
-    return { bytes, rows: null, errors: [{ row: null, id: null, code: "E_TEXTS_JSON", message: "JSON として読めません" }], unused };
+    return { bytes, rows: null, errors: [{ row: null, id: null, code: "E_TEXTS_JSON", message: "JSON として読めません" }], warnings, unused };
   }
   const o = v as { schema?: unknown; entries?: unknown };
   if (o.schema !== `${k}@1.0`) errors.push({ row: null, id: null, code: "E_SCHEMA", message: `schema は "${k}@1.0" にしてください` });
-  if (!Array.isArray(o.entries)) return { bytes, rows: null, errors: [...errors, { row: null, id: null, code: "E_ENTRIES", message: "entries（行の並び）がありません" }], unused };
+  if (!Array.isArray(o.entries)) return { bytes, rows: null, errors: [...errors, { row: null, id: null, code: "E_ENTRIES", message: "entries（行の並び）がありません" }], warnings, unused };
   const cat = catalog(k);
   const seen = new Set<string>();
   const rows = toRows(k, o.entries as unknown[], errors);
@@ -80,8 +81,13 @@ function read(k: Kind): { bytes: Buffer | null; rows: Row[] | null; errors: Issu
     const e = cat.get(r.id);
     if (e === undefined) return void unused.push(r.id);
     if (k !== "fields" && !e.ops.includes(r.do)) errors.push({ row: i, id: r.id, code: "E_TEXTS_NOT_HIDEABLE", message: "この文は消せません。言い方は書き換えられます" });
+    // 差し込みの印（本体の E_TEXTS_PLACEHOLDER・W_TEXTS_VAR_MISSING の簡単な代わり。0212）
+    const names = [...(r.text ?? "").replace(/\{\{|\}\}/g, "").matchAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/g)].map((m) => m[1] as string);
+    for (const n of names) if (!e.vars.includes(n)) errors.push({ row: i, id: r.id, code: "E_TEXTS_PLACEHOLDER", message: `この文では使えない差し込みの印 {${n}} があります` });
+    const missing = r.do === "replace" ? (e.numberVars ?? []).filter((n) => !names.includes(n)) : [];
+    if (missing.length > 0) warnings.push({ row: i, id: r.id, code: "W_TEXTS_VAR_MISSING", message: `計算の値が入る差し込みの印 ${missing.map((n) => `{${n}}`).join("・")} がありません（その値が画面に出なくなります。わざと外すのでなければ入れてください）` });
   });
-  return { bytes, rows, errors, unused };
+  return { bytes, rows, errors, warnings, unused };
 }
 
 function status(k: Kind): unknown {
@@ -110,7 +116,7 @@ function status(k: Kind): unknown {
     const e = cat.get(r.id);
     return e === undefined ? [] : [{ id: r.id, do: r.do, text: r.text ?? null, ...(r.order !== undefined ? { order: r.order } : {}), official: e.text, officialChanged: r.basedOn !== "" && e.hash !== r.basedOn }];
   });
-  return { kind: k, dir: dir(), isDefaultDir: process.env.FINANCIA_DEV_CUSTOM_DIR === undefined, folderExists: existsSync(dir()), file: f.bytes === null ? "none" : "present", fingerprint: cur, state, errors: f.errors, warnings: [], unused: f.unused, approved: approved === null ? null : { fingerprint: approved.fingerprint, approvedAt: approved.at }, ledgerReset: false, approvedMissing: false, rows, updates, effective, catalogSize: cat.size };
+  return { kind: k, dir: dir(), isDefaultDir: process.env.FINANCIA_DEV_CUSTOM_DIR === undefined, folderExists: existsSync(dir()), file: f.bytes === null ? "none" : "present", fingerprint: cur, state, errors: f.errors, warnings: f.warnings, unused: f.unused, approved: approved === null ? null : { fingerprint: approved.fingerprint, approvedAt: approved.at }, ledgerReset: false, approvedMissing: false, rows, updates, effective, catalogSize: cat.size };
 }
 
 /** 命令の代わり。失敗は符号を投げる */

@@ -1001,3 +1001,129 @@ fn terms_and_fields_schema_files_match_the_rules() {
     );
     assert_eq!(row["properties"]["hide"]["const"], json!(true));
 }
+
+/// 結果の画面の文（`result:…`。0212）: 差し込みの印つきの公式の文。知らない印は承認できず、計算の値の入る印を落とした書き換えは注意（承認はできる）。
+/// アプリの更新で公式の文が変わったときは、ほかの文と同じく使い続けて知らせる
+fn result_entry(id: &str, text: &str, vars: &[&str], numbers: &[&str]) -> serde_json::Value {
+    let mut v = entry(id, text, &[Op::Replace]);
+    v["audience"] = json!("customer");
+    v["vars"] = json!(vars);
+    v["numberVars"] = json!(numbers);
+    v["varsHelp"] = json!(vars
+        .iter()
+        .map(|n| (n.to_string(), json!(format!("{n} の意味"))))
+        .collect::<serde_json::Map<_, _>>());
+    v
+}
+
+#[test]
+fn result_texts_check_placeholders_and_follow_updates() {
+    let old = catalog_of(vec![
+        result_entry(
+            "result:invest/verdict",
+            "{plan}では、金融資産は {age} まで持ちます",
+            &["plan", "age"],
+            &["age"],
+        ),
+        result_entry(
+            "result:invest/conditionNone",
+            "足りない年だけ取り崩す場合",
+            &[],
+            &[],
+        ),
+    ]);
+    let e = old.get("result:invest/verdict").unwrap();
+    assert_eq!(e.number_vars, vec!["age".to_owned()]);
+    assert_eq!(
+        e.vars_help.get("age").map(String::as_str),
+        Some("age の意味")
+    );
+    let env = Env::new("result");
+    let h = hash(&old, "result:invest/verdict");
+    // 知らない印は誤り（承認できない）
+    env.write(&file(vec![json!({ "id": "result:invest/verdict", "do": "replace", "text": "{plan}は{years}年", "basedOn": h })]));
+    let st = env.ctx(&old).status();
+    assert!(
+        codes(&st).contains(&"E_TEXTS_PLACEHOLDER"),
+        "{:?}",
+        st.errors
+    );
+    // 結果の画面の文は消せない（一覧の ops に hide が無い）
+    env.write(&file(vec![
+        json!({ "id": "result:invest/verdict", "do": "hide", "basedOn": h }),
+    ]));
+    assert!(codes(&env.ctx(&old).status()).contains(&"E_TEXTS_NOT_HIDEABLE"));
+    // 計算の値の入る印 {age} を落とした書き換えは注意だけ（名前の {plan} は落としても注意しない）
+    env.write(&file(vec![json!({ "id": "result:invest/verdict", "do": "replace", "text": "資産は長く持ちます", "basedOn": h })]));
+    let st = env.ctx(&old).status();
+    assert!(st.errors.is_empty(), "{:?}", st.errors);
+    let warns: Vec<_> = st
+        .warnings
+        .iter()
+        .map(|w| (w.code, w.message.clone()))
+        .collect();
+    assert!(
+        warns.iter().any(|(c, m)| *c == "W_TEXTS_VAR_MISSING"
+            && m.contains("{age}")
+            && !m.contains("{plan}")),
+        "{warns:?}"
+    );
+    // 印を入れた書き換えは注意なし。承認すると効く
+    env.write(&file(vec![
+        json!({ "id": "result:invest/verdict", "do": "replace", "text": "{plan}の場合、金融資産が続くのは {age} までです", "basedOn": h }),
+        json!({ "id": "result:invest/conditionNone", "do": "replace", "text": "予定を入れずに、不足の年だけ取り崩したとき", "basedOn": hash(&old, "result:invest/conditionNone") }),
+    ]));
+    let ctx = env.ctx(&old);
+    let st = ctx.status();
+    assert!(
+        st.errors.is_empty() && st.warnings.is_empty(),
+        "{:?} {:?}",
+        st.errors,
+        st.warnings
+    );
+    ctx.approve(&st.fingerprint, 1).unwrap();
+    assert_eq!(ctx.effective().len(), 2);
+    // アプリの更新で公式の文が変わった（取り崩しの条件の言い方を直した）: 使い続けて知らせる
+    let new = catalog_of(vec![
+        result_entry(
+            "result:invest/verdict",
+            "{plan}では、金融資産は {age} まで持ちます",
+            &["plan", "age"],
+            &["age"],
+        ),
+        result_entry(
+            "result:invest/conditionNone",
+            "取り崩しの予定を入れず、足りない年だけ取り崩す場合",
+            &[],
+            &[],
+        ),
+    ]);
+    let st = env.ctx(&new).status();
+    let up: Vec<_> = st
+        .updates
+        .iter()
+        .map(|u| (u.id.as_str(), u.stopped))
+        .collect();
+    assert_eq!(up, vec![("result:invest/conditionNone", false)]);
+    let eff: Vec<_> = st
+        .effective
+        .iter()
+        .map(|e| (e.id.as_str(), e.official_changed))
+        .collect();
+    assert_eq!(
+        eff,
+        vec![
+            ("result:invest/verdict", false),
+            ("result:invest/conditionNone", true)
+        ]
+    );
+}
+
+#[test]
+fn number_vars_must_be_listed_in_vars() {
+    let bad = result_entry("result:x/y", "{age}まで", &["age"], &["years"]);
+    let err =
+        Catalog::parse(&json!({ "schema": catalog::CATALOG_SCHEMA, "entries": [bad] }).to_string())
+            .unwrap_err();
+    assert!(err.contains("numberVars"), "{err}");
+}

@@ -11,6 +11,7 @@ import { INCOME_KINDS } from "../input/moneyRows.ts";
 import { amountText as yenText, formatYearMonth, wareki } from "../input/units.ts";
 import { fieldValueText, objectCards, planIndex } from "../plans/planEdit.ts";
 import { man } from "../../presentation/format.ts";
+import { OFFICIAL_WORDING, type Wording } from "../resultTexts.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -295,7 +296,9 @@ const sumBy = (t: readonly TableCell[], pred: (c: TableCell) => boolean): Map<nu
  * ポイント（前の名前は気づき。決まりで数件。入力は増えない）: 預金が少なくなる年・赤字が続く・教育と介護が重なる・NISA の枠を使い切る年・相続税がかかる見込み。
  * months は「生活費の何か月分」（お金の3つの分け方の設定。既定は6か月）
  */
-export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: number; inheritanceTax?: number | null } = {}): Insight[] {
+export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: number; inheritanceTax?: number | null; wording?: Wording } = {}): Insight[] {
+  // 文は結果の画面の文の表（resultTexts.ts の result:main/point…）から。事務所の文を承認していれば、その文に同じ値を差し込む（0212）
+  const w = opts.wording ?? OFFICIAL_WORDING;
   const years = displayYears(req);
   const t = r.table;
   const out: Insight[] = [];
@@ -304,7 +307,7 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
   const living = sumBy(t, (c) => c.row.startsWith("cf.expense.living") && !c.row.startsWith("cf.expense.living.surplus") && !c.row.startsWith("cf.expense.living.drawdown"));
   if (deposit.size > 0) {
     const y = years.find((yy) => (living.get(yy) ?? 0) > 0 && (deposit.get(yy) ?? 0) < ((living.get(yy) ?? 0) / 12) * months);
-    if (y !== undefined) out.push({ key: "deposit", title: "預金が少なくなる年", text: `${y}年に預金が生活費の${months}か月分（${man(((living.get(y) ?? 0) / 12) * months)}万円）を下回ります（${man(deposit.get(y) ?? 0)}万円）`, year: y });
+    if (y !== undefined) out.push({ key: "deposit", title: "預金が少なくなる年", text: w.text("result:main/pointDeposit", { year: `${y}年`, months: `${months}か月`, need: `${man(((living.get(y) ?? 0) / 12) * months)}万円`, deposit: `${man(deposit.get(y) ?? 0)}万円` }), year: y });
   }
   const net = sumBy(t, (c) => c.row === "cf.net");
   let run: number[] = [];
@@ -313,11 +316,11 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
     else if (run.length >= 3) break;
     else run = [];
   }
-  if (run.length >= 3) out.push({ key: "deficit", title: "赤字が続く", text: `${run[0]}年から${run.at(-1)}年まで${run.length}年続けて年間収支が赤字です`, year: run[0] ?? null });
+  if (run.length >= 3) out.push({ key: "deficit", title: "赤字が続く", text: w.text("result:main/pointDeficit", { from: `${run[0]}年`, to: `${run.at(-1)}年`, years: `${run.length}年` }), year: run[0] ?? null });
   const edu = sumBy(t, (c) => c.row.startsWith("cf.expense.education"));
   const care = sumBy(t, (c) => c.row.startsWith("cf.expense.care"));
   const both = years.filter((y) => (edu.get(y) ?? 0) > 0 && (care.get(y) ?? 0) > 0);
-  if (both.length > 0) out.push({ key: "eduCare", title: "教育と介護が重なる", text: `${both[0]}年${both.length > 1 ? `から${both.length}年` : ""}、教育費と介護の費用が同じ年にかかります`, year: both[0] ?? null });
+  if (both.length > 0) out.push({ key: "eduCare", title: "教育と介護が重なる", text: both.length > 1 ? w.text("result:main/pointEduCareYears", { year: `${both[0]}年`, years: `${both.length}年` }) : w.text("result:main/pointEduCare", { year: `${both[0]}年` }), year: both[0] ?? null });
   const frame = new Map<string, Map<number, number>>();
   for (const c of t) {
     if (c.row !== "cf.balance.nisaFrame") continue;
@@ -330,9 +333,10 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
     const y = years.find((yy, i) => i > 0 && (m.get(yy) ?? 1) <= 0 && (m.get(years[i - 1] as number) ?? 0) > 0);
     if (y !== undefined) {
       const who = req.input.household.members.find((x) => x.id === member);
-      out.push({ key: `nisa:${member}`, title: "NISA の枠を使い切る年", text: `${y}年に${who?.kind === "spouse" ? "配偶者の" : who?.kind === "self" ? "ご本人の" : ""}NISA の生涯の投資枠を使い切ります（その後の積立は課税口座で計算します）`, year: y });
+      const person = who?.kind === "spouse" ? "配偶者" : who?.kind === "self" ? "ご本人" : null;
+      out.push({ key: `nisa:${member}`, title: "NISA の枠を使い切る年", text: person === null ? w.text("result:main/pointNisaNoPerson", { year: `${y}年` }) : w.text("result:main/pointNisa", { year: `${y}年`, person }), year: y });
     }
   }
-  if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: `いま亡くなったときの相続税の目安は${man(opts.inheritanceTax)}万円です（相続・贈与の項目）`, year: null });
+  if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: w.text("result:main/pointInheritanceTax", { amount: `${man(opts.inheritanceTax)}万円` }), year: null });
   return out;
 }

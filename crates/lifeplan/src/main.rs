@@ -11,6 +11,7 @@ mod calc;
 mod chart;
 mod compare;
 mod coverage;
+mod custom_texts;
 mod engine;
 mod guide;
 mod plan;

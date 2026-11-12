@@ -4,7 +4,8 @@
 //! （0016 の 2026-11-02 の追記「名前の差し替え・隠す・並べ替え・推定の根拠の文」）。
 //!
 //! 1件の中身: `id`・`kind`・`where`（画面のどこの文か）・`audience`（`fp`／`customer`）・`text`（公式の文）・`vars`（差し込みの印）・
-//! `hash`（`text` の SHA-256）・`ops`（できる操作）・任意の `formerIds`・`meaningChanged`・`noticeKind`（計算の知らせの種類）。
+//! `hash`（`text` の SHA-256）・`ops`（できる操作）・任意の `formerIds`・`meaningChanged`・`noticeKind`（計算の知らせの種類）・
+//! `varsHelp`（差し込みの印の意味）・`numberVars`（計算の値が入る印。結果の画面の文。0212）。
 
 use std::collections::BTreeMap;
 
@@ -74,6 +75,12 @@ pub struct CatalogEntry {
     /// 計算の知らせの種類（`input`・`missing`・`outside`・`assumed`・`data`。0064 の2）。知らせのときだけ
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notice_kind: Option<String>,
+    /// 差し込みの印の意味（AI と承認の画面のため。0016 の 2026-11-02 の追記）
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub vars_help: BTreeMap<String, String>,
+    /// 計算の値（年齢・年・額・率）が入る印。書き換えた文がこの印を落とすと注意を出す（結果の画面の文。0212）
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub number_vars: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -147,6 +154,9 @@ impl Catalog {
             }
             if e.audience != "fp" && e.audience != "customer" {
                 return Err(format!("audience が違います: {}", e.id));
+            }
+            if let Some(v) = e.number_vars.iter().find(|v| !e.vars.contains(v)) {
+                return Err(format!("numberVars の {v} が vars にありません: {}", e.id));
             }
             for old in &e.former_ids {
                 c.former.insert(old.clone(), e.id.clone());

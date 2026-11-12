@@ -132,6 +132,14 @@ pub struct MakeTableArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct OfficeWordingArgs {
+    /// 直したい文や名前（例「資産運用の結論の1文と取り崩しの条件」「結果のタブのポイント」「キャッシュフロー表の行の名前」）。省くと結果の画面の文
+    pub target: Option<String>,
+    /// 事務所の言い方（例「お客さまに『です・ます』でやわらかく」「専門用語を避ける」「いつも使っている言い方: 資金計画」）。省くと、今の文を見て AI が案を出す
+    pub style: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CheckCoverageArgs {
     /// 調べたい制度や計算（例「高額療養費」「ふるさと納税」「iDeCo の受け取り方」）
     pub topic: String,
@@ -433,6 +441,34 @@ impl LifeplanMcp {
                  4. 受け取った数字で自分でグラフを描くときは: 数字を足し引き・丸め直し・なめらかにする・間を埋める・先へ延ばすなどで変えない（表に無い年は描かない）。単位（万円）と年・年齢の軸を書き、表の下の注を図に添える。画面と同じ見た目のグラフや、資料にそのまま使うグラフが要るなら、自分で描かず chart を使う。\n\
                  5. 実在のお客さまの世帯をブログ・セミナーなどに使うなら、金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。",
                 household(&a.household),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "office_wording",
+        title = "事務所の言い方に文言を直す",
+        description = "結果の画面の結論の1文・取り崩しの条件・ポイント・説明の文や、欄・表の行の名前を、事務所の言い方に直す下書き（カスタム層の settings/texts.json・settings/terms.json）を作る。FP がアプリで承認したときだけ画面に出る"
+    )]
+    async fn office_wording(
+        &self,
+        Parameters(a): Parameters<OfficeWordingArgs>,
+    ) -> GetPromptResult {
+        let target = given(&a.target).unwrap_or("結果の画面の文（結論の1文・取り崩しの条件・グラフの注・ポイント・万一のときの結論の1文）");
+        let style = given(&a.style).unwrap_or(
+            "（指定なし。今の公式の文を読んで、お客さまに伝わりやすい言い方の案を出す）",
+        );
+        result(
+            "事務所の言い方に文言を直す",
+            format!(
+                "ファイナンシアの画面の文言を、事務所の言い方に直す下書きを作ってください。\n\
+                 - 直したい文や名前: {target}\n- 事務所の言い方: {style}\n\n\
+                 進め方:\n\
+                 1. list_custom_texts で差し替えられる文を引く（結果の画面の文は kind に result、名前は file に terms。prefix・query でも絞れる）。1件ごとに id・画面のどこに出るか（where）・公式の文・使える差し込みの印（vars）・できる操作（ops）・指紋（hash）が返る。\n\
+                 2. 直す文ごとに、公式の文と直した案を並べて FP に見せ、どれを直すか確かめる。年齢・年・額・率・プランの名前は、差し込みの印（例 {{age}}・{{plan}}）のまま残す（数字を文に書き込まない。差し込む値は単位まで入るので、{{age}}歳 のように単位を重ねない）。vars に無い印は使わない。お客さまに見える文（audience が customer）は、お客さまに断定しすぎない言い方にする。\n\
+                 3. FP が決めた分だけ、答えの howTo の形で settings/texts.json（文）・settings/terms.json（名前）の下書きを作る。basedOn には一覧の hash をそのまま写す。すでにファイルがあれば、ほかの行を消さずに足す・直す。\n\
+                 4. 下書きは、カスタム層のフォルダ（アプリの事務所の既定値の画面に場所が出る）の settings/ に置く。この接続口はファイルを書かないので、あなたがそのフォルダに書けなければ、中身を FP に渡して置いてもらう。\n\
+                 5. 置いたら、アプリの事務所の既定値の画面の「説明の文（カスタム層）」「名前（カスタム層）」で中身を確かめて承認するよう FP に伝える。承認するまで画面は公式の文のままで、計算の結果はどの文でも変わらない。注意（数字の入る印が無い など）が出たら、その行を直す。",
             ),
         )
     }

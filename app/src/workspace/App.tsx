@@ -57,6 +57,7 @@ import { checkBase } from "../presentation/theme.ts";
 import { keepWebLog } from "./hearing/web.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
+import { wordingOf } from "./resultTexts.ts";
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
 import { previewOfficeChange } from "./office/estimatePreview.ts";
 import type { AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";
@@ -558,6 +559,8 @@ export function App() {
   const officeNames = useMemo(() => (customTerms === null || customTerms.effective.length === 0 ? NO_OFFICE_NAMES : officeTextsFrom(customTerms.effective)), [termsKey]);
   const officeFields = useMemo(() => (customFields === null || customFields.effective.length === 0 ? NO_OFFICE_FIELDS : officeFieldsFrom(customFields.effective)), [fieldsKey]);
   const rowNames = useMemo(() => rowNamesOf(officeNames), [officeNames]);
+  // 結果の画面の文（結論の1文・取り崩しの条件・グラフの注など。説明の一覧の result:…）に、承認した事務所の文を当てる（0212）
+  const wording = useMemo(() => wordingOf(officeTexts), [officeTexts]);
   const putCustomStatus = (st: CustomTextsStatus) => (st.kind === "terms" ? setCustomTerms(st) : st.kind === "fields" ? setCustomFields(st) : setCustomTexts(st));
   // お知らせの一覧（0087）: 配信元のお知らせ（本体が確かめた一覧）と、手元の既読の印・受付番号（この PC のアプリのデータ。何も送り返さない）
   const [feedText, setFeedText] = useState<string | null>(null);
@@ -2239,11 +2242,11 @@ export function App() {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
     const fee = feeShown ? { on: feeOn, alt: altRes } : undefined;
     const dreams = { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), withoutDreams: noDreamRes };
-    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, failed, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}) });
+    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, failed, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}), wording });
     if (failed) return m;
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
-  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames]);
+  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames, wording]);
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
@@ -2355,8 +2358,8 @@ export function App() {
   const investModel = useMemo(() => {
     if (model === null || selReq === null || selRes === null || chartMode !== "assets") return null;
     const stress = stressOn ? (Object.fromEntries(STRESS_KEYS.map((k, i) => [k, stressRes[i] ?? null])) as Record<StressKey, PreviewResult | null>) : null;
-    return investChart({ sel: { req: selReq, res: selRes }, years: model.chart.years, ages: model.chart.ages, stress, view: { breakdown: settings.invBreakdown, band: bandShown(settings.invPeriods, selReq), stressHidden } });
-  }, [model, selReq, selRes, chartMode, stressOn, settings.invBreakdown, settings.invPeriods, stressHidden, ...stressRes]);
+    return investChart({ sel: { req: selReq, res: selRes }, years: model.chart.years, ages: model.chart.ages, stress, view: { breakdown: settings.invBreakdown, band: bandShown(settings.invPeriods, selReq), stressHidden }, wording });
+  }, [model, selReq, selRes, chartMode, stressOn, settings.invBreakdown, settings.invPeriods, stressHidden, wording, ...stressRes]);
   const chartModel = useMemo(() => {
     if (model === null || opened === null) return model;
     const m = investModel === null ? model : { ...model, invest: investModel };
@@ -2370,10 +2373,10 @@ export function App() {
   const verdictView = useMemo(() => {
     if (model === null) return null;
     if (chartMode !== "assets" || opened === null || selReq === null || selRes === null || baseRes === null || baseReq === null) return model.result;
-    const v = investVerdict(names, { req: selReq, table: selRes.table }, names.same ? null : { req: baseReq, table: baseRes.table }, model.chart.years);
+    const v = investVerdict(names, { req: selReq, table: selRes.table }, names.same ? null : { req: baseReq, table: baseRes.table }, model.chart.years, wording);
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return { ...v, sub: [...v.sub, ...extra] };
-  }, [model, chartMode, opened, selReq, selRes, baseReq, baseRes, settings, names.selected, names.base, names.same]);
+  }, [model, chartMode, opened, selReq, selRes, baseReq, baseRes, settings, names.selected, names.base, names.same, wording]);
   // 資産の内訳（ドーナツ）: 基準のプランと選んだプランを同じ年で（グラフで固定した年。固定していなければ取り崩しを始める年）。
   // グラフの上の「口座の内訳を表示」にチェックが入っているときだけ出す（既定は出さない）
   const donutOn = donutShown(settings.invBreakdown, investModel !== null && investModel.breakdown !== null, multiView);
@@ -2396,8 +2399,8 @@ export function App() {
     const year = fixed ?? donutYear(selReq, model.chart.years);
     const age = model.chart.ages[model.chart.years.indexOf(year)] ?? null;
     const panes = donutPanes({ base: { name: names.base, req: baseReq, table: baseRes.table }, sel: { name: names.selected, req: selReq, table: selRes.table }, same: names.same, year, age, who: model.who, by: donutBy });
-    return <DonutCard panes={panes} by={donutBy} onBy={setDonutBy} note={fixed !== null ? "グラフで固定した年の内訳です（もう一度押すと外れます）" : "グラフで年を押して固定すると、その年の内訳になります（いまは取り崩しを始める年）"} />;
-  }, [donutOn, model, selReq, selRes, baseReq, baseRes, chartMode, selectedYear, names.base, names.selected, names.same, donutBy]);
+    return <DonutCard panes={panes} by={donutBy} onBy={setDonutBy} note={wording.note(fixed !== null ? "result:invest/donutPinned" : "result:invest/donutHint")} />;
+  }, [donutOn, model, selReq, selRes, baseReq, baseRes, chartMode, selectedYear, names.base, names.selected, names.same, donutBy, wording]);
   // 収益不動産のタブ（0082）: 物件のある世帯だけ。見ているプランの結果の分析の数字と、見ている物件の売る年を変えた比較（写しの要求）
   const hasRental = opened !== null && hasRentalProperty(opened.wh.request);
   const shownTabs = useMemo(() => tabsFor(opened === null ? null : opened.wh.request), [opened]);
@@ -3346,6 +3349,7 @@ export function App() {
                         stressOn={stressOn}
                         onStress={toggleStress}
                         onStressLine={(k) => setStressHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}
+                        stressNote={wording.note("result:invest/stressNote")}
                       />
                     ),
                     ...(donut !== null ? { after: donut } : {}),

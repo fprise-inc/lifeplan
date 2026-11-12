@@ -377,6 +377,8 @@ jobs:
             crates/lifeplan/dist/explain.js
             crates/lifeplan/dist/plan.js
             crates/lifeplan/dist/samples.json
+            crates/lifeplan/dist/texts-catalog.json
+            crates/lifeplan/dist/terms-catalog.json
           if-no-files-found: error
 
   # Rust のホスト（quickjs-ng）のテストと、Node との一致テスト。Windows・macOS・Linux それぞれでビルドする（0005 の6）

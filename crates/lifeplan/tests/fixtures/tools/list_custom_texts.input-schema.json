@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "file": {
+      "description": "どちらの一覧か: texts（文。settings/texts.json に書く。既定）か terms（名前。settings/terms.json に書く）",
+      "enum": [
+        "texts",
+        "terms",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kind": {
+      "description": "分野で絞る。texts は field（入力の欄の「?」の説明）・notice（計算の知らせ）・estimate（推定の根拠の文）・result（結果の画面の文）、\nterms は field（入力の欄の名前）・row（キャッシュフロー表の行の名前）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "limit": {
+      "description": "返す数（1〜200。既定50）。続きは答えの next の offset で取る",
+      "format": "uint16",
+      "maximum": 200,
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "offset": {
+      "description": "何件目から返すか（既定0）",
+      "format": "uint32",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "prefix": {
+      "description": "id の頭で絞る（例 \"result:invest/\"・\"result:main/point\"・\"notice:N_NOT_SUPPORTED\"）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "query": {
+      "description": "id・画面のどこの文か（where）・公式の文に入っている言葉で絞る（例 「取り崩し」）",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

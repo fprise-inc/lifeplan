@@ -165,6 +165,7 @@ async fn standalone_tools_work_without_the_app() {
         "get_regulation_value",
         "search_coverage",
         "get_coverage",
+        "list_custom_texts",
         "list_plan_items",
         "compare",
         "chart",
@@ -381,6 +382,7 @@ async fn prompts_list_and_expand() {
         "find_boundary",
         "make_table",
         "make_household_in_app",
+        "office_wording",
     ] {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
     }
@@ -536,6 +538,18 @@ async fn prompts_list_and_expand() {
                 "want",
                 "edge",
                 "sweep",
+            ],
+        ),
+        (
+            "office_wording",
+            json!({ "target": "資産運用の結論の1文", "style": "" }),
+            vec![
+                "資産運用の結論の1文",
+                "list_custom_texts",
+                "settings/texts.json",
+                "basedOn",
+                "{age}",
+                "承認",
             ],
         ),
         (
@@ -1913,6 +1927,153 @@ async fn calculation_matches_the_screen_after_preparation() {
     let plain = call_ok(&c, "calculate", json!({ "share_id": g.share_id })).await;
     same_as(&plain, &fx["screenWithoutOffice"], "事務所の値なし");
     ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 差し替えられる文の一覧（list_custom_texts。0212）: アプリが起動していなくても使え、結果の画面の文（result:…）を分野・id の頭・言葉で絞って、
+/// 公式の文・差し込みの印（意味と数字の入る印）・指紋・書き方を返す。読むだけで、書く道具は無い
+#[tokio::test(flavor = "multi_thread")]
+async fn custom_texts_list_the_replaceable_texts() {
+    let dir = temp_dir("custom-texts");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "list_custom_texts");
+    let t = tools
+        .iter()
+        .find(|t| t.name == "list_custom_texts")
+        .unwrap();
+    let ann = t.annotations.as_ref().unwrap();
+    assert_eq!(ann.read_only_hint, Some(true));
+    let d = t.description.as_deref().unwrap_or("");
+    assert!(d.contains("書かない") && d.contains("承認"), "{d}");
+    let ins = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    assert!(
+        ins.contains("list_custom_texts")
+            && ins.contains("settings/texts.json")
+            && ins.contains("settings/terms.json")
+            && ins.contains("この接続口はカスタム層のファイルを書きません"),
+        "{ins}"
+    );
+
+    // 結果の画面の文: 資産運用の結論の1文・取り崩しの条件
+    let v = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "kind": "result", "limit": 200 }),
+    )
+    .await;
+    let es = v["entries"].as_array().unwrap();
+    assert!(
+        es.len() >= 25 && v["total"].as_u64() == Some(es.len() as u64),
+        "{v}"
+    );
+    assert!(v["next"].is_null());
+    assert!(es
+        .iter()
+        .all(|e| e["kind"] == "result" && e["audience"] == "customer"));
+    let verdict = es
+        .iter()
+        .find(|e| e["id"] == "result:invest/verdict")
+        .unwrap();
+    assert_eq!(verdict["text"], "{plan}では、金融資産は {age} まで持ちます");
+    assert_eq!(verdict["ops"], json!(["replace"]));
+    assert!(verdict["hash"].as_str().unwrap().starts_with("sha256:"));
+    let age = verdict["vars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["name"] == "age")
+        .unwrap();
+    assert_eq!(age["number"], true);
+    assert!(age["meaning"].as_str().unwrap().contains("84歳"));
+    let plan = verdict["vars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["name"] == "plan")
+        .unwrap();
+    assert!(plan.get("number").is_none());
+    assert!(verdict["where"].as_str().unwrap().contains("結論の1文"));
+    let none = es
+        .iter()
+        .find(|e| e["id"] == "result:invest/conditionNone")
+        .unwrap();
+    assert_eq!(
+        none["text"],
+        "取り崩しの予定を入れず、足りない年だけ取り崩す場合"
+    );
+    // 分野の数・書き方・承認の案内
+    let areas = v["areas"].as_array().unwrap();
+    for k in ["field", "notice", "estimate", "result"] {
+        assert!(
+            areas
+                .iter()
+                .any(|a| a["kind"] == k && a["count"].as_u64().unwrap() > 0),
+            "{k}: {areas:?}"
+        );
+    }
+    assert_eq!(v["howTo"]["file"], "settings/texts.json");
+    assert!(v["approval"].as_str().unwrap().contains("承認"));
+
+    // id の頭・言葉で絞る。数を絞ると next が付く
+    let p = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "prefix": "result:main/point" }),
+    )
+    .await;
+    let ids: Vec<&str> = p["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap())
+        .collect();
+    assert!(
+        ids.len() >= 5 && ids.iter().all(|i| i.starts_with("result:main/point")),
+        "{ids:?}"
+    );
+    let q = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "query": "取り崩", "kind": "result" }),
+    )
+    .await;
+    assert!(q["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["id"] == "result:invest/conditionFixed"));
+    let page = call_ok(&c, "list_custom_texts", json!({ "limit": 3 })).await;
+    assert_eq!(page["entries"].as_array().unwrap().len(), 3);
+    assert_eq!(page["next"]["offset"], 3);
+    let page2 = call_ok(&c, "list_custom_texts", json!({ "limit": 3, "offset": 3 })).await;
+    assert_ne!(page2["entries"][0]["id"], page["entries"][0]["id"]);
+
+    // 名前の一覧
+    let n = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "file": "terms", "kind": "row", "limit": 200 }),
+    )
+    .await;
+    assert_eq!(n["howTo"]["file"], "settings/terms.json");
+    assert!(n["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|e| e["id"].as_str().unwrap().starts_with("row:")));
+
+    // 間違った問い
+    let (err, msg) = call(&c, "list_custom_texts", json!({ "file": "fields" })).await;
+    assert!(err && msg.contains("texts"), "{msg}");
+    let (err, msg) = call(&c, "list_custom_texts", json!({ "kind": "row" })).await;
+    assert!(err && msg.contains("result"), "{msg}");
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -2,6 +2,8 @@
 // 1つの JS（crates/lifeplan/dist/explain.js）にまとめる。プランの動かす項目（src/connector/plan.ts。0195）は、入力の欄の定義まで読むので大きく
 // （約2MB）、別の JS（crates/lifeplan/dist/plan.js）にまとめる（プランを当てないときの計算で読み込まない）。
 // 見本の世帯の一覧の名前と目印（src/connector/samples.ts。0199）は、JS ではなく JSON（crates/lifeplan/dist/samples.json）にする（接続口はそのまま埋め込む）。
+// カスタム層の説明の一覧と名前の一覧（scripts/textsCatalog.ts。0016 の追記・0212）も JSON（crates/lifeplan/dist/texts-catalog.json・terms-catalog.json）にする
+// （接続口の list_custom_texts が返す。アプリ本体が埋め込む app/src/generated の物と同じ中身）。
 // - 接続口はこれを計算と同じ固めた実行環境（quickjs-ng）で動かす。画面の根拠のパネルと同じ関数なので、根拠の文が画面とずれない
 // - 外の部品（npm のパッケージ）を1つも入れない（入ったら止める）。動的な import をしない（1つの iife）
 // - 中身が変わっていなければ作り直さない（src/・report/src/・hearing/src/ の指紋で見る）
@@ -206,13 +208,16 @@ async function bundle(entry: string, name: string, fileName: string, intro: stri
 export async function buildExplain(force = false): Promise<void> {
   const digest = inputDigest();
   const stamp = join(EXPLAIN_OUT, ".digest");
-  const outs = ["explain.js", "plan.js", "samples.json"].map((f) => join(EXPLAIN_OUT, f));
+  const outs = ["explain.js", "plan.js", "samples.json", "texts-catalog.json", "terms-catalog.json"].map((f) => join(EXPLAIN_OUT, f));
   if (!force && existsSync(stamp) && readFileSync(stamp, "utf8") === digest && outs.every((f) => existsSync(f))) return;
   rmSync(EXPLAIN_OUT, { recursive: true, force: true });
   mkdirSync(EXPLAIN_OUT, { recursive: true });
   await bundle("explain.ts", "FinanciaExplain", "explain.js", MATH_INTRO);
   await bundle("plan.ts", "FinanciaPlan", "plan.js", PLAN_INTRO, [localeCalls()]);
   writeFileSync(join(EXPLAIN_OUT, "samples.json"), `${JSON.stringify(connectorSamples(), null, 1)}\n`);
+  const { buildTermsCatalog, buildTextsCatalog } = await import("./textsCatalog.ts");
+  writeFileSync(join(EXPLAIN_OUT, "texts-catalog.json"), `${JSON.stringify(buildTextsCatalog(), null, 1)}\n`);
+  writeFileSync(join(EXPLAIN_OUT, "terms-catalog.json"), `${JSON.stringify(buildTermsCatalog(), null, 1)}\n`);
   writeFileSync(stamp, digest);
 }
 

@@ -247,6 +247,8 @@ export interface ProtectionChartModel {
   coverage: Yen[];
   /** 不足（金融資産を含む額が死亡保険金を上回る）がいちばん大きい年。無ければ null */
   maxShort: { year: number; amount: Yen } | null;
+  /** グラフの見出しの1文（例: 「ご本人が亡くなった場合、保障の不足は最大1,200万円（2030年）」。作業の層が文を当てて作る。0212） */
+  verdict: VerdictPart[];
   /** 2028年4月以後に亡くなる年の遺族年金は見直し前の制度で計算している（その最初の年） */
   reformFrom: number | null;
   /** 気づき（保険が切れる年と、その年の不足。0055・0071 の追記） */
