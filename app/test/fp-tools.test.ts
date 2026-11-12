@@ -1,4 +1,6 @@
 // 面談の準備（0074）: 世帯の中身の一覧・次の1年に起きること・過ぎた予定・前回（控え）との入力の違い・気づき・見直しの面談の時期
+import { h } from "preact";
+import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import type { TableCell } from "../src/engine/types.ts";
 import { fromRequest, mutate } from "../src/workspace/input/household.ts";
@@ -6,7 +8,7 @@ import { addMonths } from "../src/workspace/levers.ts";
 import { addMember } from "../src/workspace/input/stages/family.ts";
 import { householdContents, inputChanges, insights, nextYearEvents, pastPlans } from "../src/workspace/tools/fpTools.ts";
 import { reviewTiming } from "../src/workspace/tools/FpTools.tsx";
-import { inheritancePayable } from "../src/workspace/tools/Insights.tsx";
+import { Insights, inheritancePayable } from "../src/workspace/tools/Insights.tsx";
 import type { Snapshot } from "../src/workspace/snapshots/snapshots.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -111,6 +113,23 @@ describe("気づき", () => {
     expect(inheritancePayable(r)).toBe(3200000);
     expect(insights(req, { header: {} as never, table: [], summary: null }, { inheritanceTax: 3200000 }).map((x) => x.key)).toEqual(["inheritanceTax"]);
     expect(inheritancePayable(null)).toBeNull();
+  });
+
+  it("結果のタブ: 閉じているときは「ポイント ○件 ▸」の1行だけ。開くと一覧と「その年を見る」「対策を考える」（0074 の追記 2026-11-12）", () => {
+    const table: TableCell[] = [...years.map((y) => cell("cf.expense.living.base", y, 3600000)), ...years.map((y, i) => cell("cf.balance.account.deposit", y, i < 3 ? 5000000 : 1000000))];
+    const result = { header: {} as never, table, summary: null };
+    const props = { req, result, months: 6, onYear: () => undefined, onLevers: () => undefined };
+    const closed = renderToString(h(Insights, props));
+    expect(closed).toContain("ポイント 1件");
+    expect(closed).not.toContain("気づき");
+    expect(closed).toContain('aria-expanded="false"');
+    expect(closed).not.toContain("data-insight=");
+    const opened = renderToString(h(Insights, { ...props, initialOpen: true }));
+    expect(opened).toContain('aria-expanded="true"');
+    expect(opened).toContain('data-insight="deposit"');
+    expect(opened).toContain("その年を見る");
+    expect(opened).toContain("対策を考える");
+    expect(renderToString(h(Insights, { ...props, result: { ...result, table: [] } }))).toBe("");
   });
 
   it("見本の世帯でも計算でき、読むだけ", () => {

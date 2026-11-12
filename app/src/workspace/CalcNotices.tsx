@@ -1,4 +1,5 @@
-// 計算の知らせ（結果のタブ。0064）: 計算エンジンの知らせを、種類ごとにまとめて出す。閉じているときは1行（種類ごとの数）。
+// 計算の知らせ（結果のタブ。0064）: 計算エンジンの知らせを、種類ごとにまとめて出す。閉じているときは灰色の小さい1行（「計算のお知らせ ○件 ▸」）で、
+// 押すと開き、もう一度押すと閉じる（0064 の追記 2026-11-12）。
 // 入力で直せる知らせは「入力で開く」でそのカードを開く（開くだけ。値は変えない）
 // 事務所の文（カスタム層の説明の文の差し替え。0016 の追記）を当てた行は、小さく「事務所の文」と出し、公式の文を開ける。
 // 事務所の設定で隠した知らせ（前提の外・仮の値・制度データの知らせだけ）は、一覧の最後の「事務所の設定で隠している知らせ（○件）」から開ける
@@ -34,21 +35,18 @@ export function CalcNotices({ rows, onOpenCard, initialOpen = false }: { rows: r
   const hidden = rows.filter((r) => r.hidden === true);
   const shown = rows.filter((r) => r.hidden !== true);
   const counts = noticeCounts(shown);
-  const urgent = counts.input + counts.missing;
+  // 急ぎの知らせ（入力が足りないため計算できていない所）だけ、閉じた1行にも種類と数を濃い字で出す（枠・背景は付けない。0064 の追記 2026-11-12）
+  const urgent = counts.input;
+  const breakdown = [...NOTICE_KINDS.filter((k) => counts[k.id] > 0).map((k) => `${k.short} ${counts[k.id]}`), ...(hidden.length > 0 ? [`事務所の設定で隠している ${hidden.length}`] : [])].join("・");
   return (
-    <div class={`calc-notices${urgent > 0 ? " urgent" : ""}`} data-calc-notices={rows.length}>
-      <div class="cn-bar">
-        <span class="fee-tag">計算のお知らせ</span>
-        <span class="cn-counts">
-          {NOTICE_KINDS.filter((k) => counts[k.id] > 0)
-            .map((k) => `${k.short} ${counts[k.id]}`)
-            .join("・")}
-          {hidden.length > 0 ? `${shown.length > 0 ? "・" : ""}事務所の設定で隠している ${hidden.length}` : ""}
+    <div class={`calc-notices${open ? " open" : ""}`} data-calc-notices={rows.length} {...(urgent > 0 ? { "data-cn-urgent": urgent } : {})}>
+      <button type="button" class="quiet-toggle" aria-expanded={open} title={breakdown} onClick={() => setOpen(!open)} data-calc-notices-open>
+        計算のお知らせ {shown.length > 0 ? shown.length : hidden.length}件
+        {urgent > 0 ? <span class="cn-urgent">（入力が足りない {urgent}）</span> : null}
+        <span class="quiet-caret" aria-hidden="true">
+          {open ? "▾" : "▸"}
         </span>
-        <button type="button" class="link-btn" aria-expanded={open} onClick={() => setOpen(!open)} data-calc-notices-open>
-          {open ? "閉じる" : "見る"}
-        </button>
-      </div>
+      </button>
       {open ? (
         <div class="cn-body">
           {NOTICE_KINDS.map((k) => {
