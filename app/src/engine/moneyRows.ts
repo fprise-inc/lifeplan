@@ -1,27 +1,30 @@
-// お金の行（0044）の、計算の要求を作るときの決まり（0035 の7・0036 の6）:
-// - 基本の計算に入れない: 見込みが「不確実」（uncertain）で includeInBase が true でない、受け取る相続・遺贈・贈与の入るお金の行（種類が inheritance・giftReceived）と、
-//   相続で受け継ぐ借金（inheritedFrom のある負債）。世帯のデータからは消さず、エンジンへ渡す要求からだけ外す（エンジンは変えない）。
-//   ほかの種類の入るお金には広げない（当てにならない遺産で楽な結果を見る誤りは、相続に特有なため）
-// - 結果の見方（保存しない自動の差分。0036 の6・0044 の追記）: 「すべて入れる」か「確実な分だけ」（見込みが「不確実」〔uncertain〕の入るお金の行の
-//   すべてと、見込み（値は priority）が「不確実」〔want・wish〕の出るお金の行を外す）と、物ごとの入れ外し。基本の計算に入れない物も、ここで「入れて見る」ができる
-//   （要求の写しで includeInBase を true にする。世帯もプランも変えない）
+// お金の行（0044）の、計算の要求を作るときの決まり（0035 の7・0036 の6。2026-11-12 に見込みの扱いをそろえた）:
+// - ふだんの計算に入れない: 見込みが「不確実」の物すべて。入るお金の行（likelihood が uncertain）・出るお金の行（priority が want・wish。夢を除く）・
+//   子への援助（教育の目標の gifts の priority が want）・相続で受け継ぐ借金（likelihood が uncertain）。古い値の likely は確実、wish は不確実と読む。
+//   入るお金の行と借金の includeInBase（前の版の「この行を計算に入れる」）が true なら、見込みが「不確実」でも入れる（確実と同じに読む。世帯ファイルは書き換えない）。
+//   世帯のデータからは消さず、エンジンへ渡す要求からだけ外す（エンジンは変えない）。前は受け取る相続・贈与と借金だけを外していた
+// - 夢プラン（0103）: 種類が夢（dream）の出るお金の行は、エンジンにはふつうの一時的支出の行として渡す。「最初から計算に入れない」（dream.include が false）の夢は外す
+// - 結果の見方（保存しない自動の差分。0036 の6・0044 の追記）: 結果の画面の区画「これからの大きなお金」の物ごとのチェック。確実な物は外して見られ、
+//   不確実な物と入れない夢は入れて見られる（要求の写しで includeInBase・priority・dream.include を書き換える。世帯もプランも変えない）
 // どちらも差分を当てた後の作業中の世帯から作る要求に当てるので、プランでの見込み（likelihood・priority）・includeInBase の set が効く
 // - 世帯に保存した表示だけの設定（相続税の目安の設定・遺したい額。0060）も、エンジンへ渡すときに外す（withoutStoredSettings）
-// - 夢プラン（0103）: 種類が夢（dream）の出るお金の行は、エンジンにはふつうの一時的支出の行として渡す。「計算に入れない」（dream.include が false）の夢は
-//   要求から外す。結果の見方では、夢は理由「夢」で1件ずつ入れ外しでき、「確実な分だけ」では外す。子への援助（教育の目標の gifts）の
-//   見込みが「不確実」の物も、確実な分だけで外す
 import type { Debt, EngineRequest, Household, IncomeFlow, IncomeFlowKind, PeriodicExpense } from "./types.ts";
 import { officeEstimateNoFill, officeEstimateValues } from "./officeValues.ts";
 
-/** 見込みが「不確実」なら基本の計算に入れない入るお金の種類（受け取る相続・遺贈・贈与） */
+/** 受け取る相続・遺贈・贈与の入るお金の種類（区画「これからの大きなお金」では、確実な物も「受け取りの予定」に並べる） */
 export const BASE_EXCLUDED_KINDS: ReadonlySet<IncomeFlowKind> = new Set(["inheritance", "giftReceived"]);
 
-/** この入るお金の行を基本の計算から外すか */
-export function excludedIncome(f: Pick<IncomeFlow, "kind" | "likelihood" | "includeInBase">): boolean {
-  return BASE_EXCLUDED_KINDS.has(f.kind) && f.likelihood === "uncertain" && f.includeInBase !== true;
+/** 見込みが「不確実」か（入るお金・借金は likelihood が uncertain、出るお金は priority が want・wish、子への援助は priority が want） */
+export const notCertainIncome = (f: Pick<IncomeFlow, "likelihood">): boolean => f.likelihood === "uncertain";
+export const notNeededExpense = (e: Pick<PeriodicExpense, "priority">): boolean => e.priority === "want" || e.priority === "wish";
+export const notNeededGift = (g: { priority?: string }): boolean => g.priority === "want";
+
+/** この入るお金の行をふだんの計算から外すか（見込みが「不確実」で、前の版の「この行を計算に入れる」〔includeInBase〕でない） */
+export function excludedIncome(f: Pick<IncomeFlow, "likelihood" | "includeInBase">): boolean {
+  return notCertainIncome(f) && f.includeInBase !== true;
 }
 
-/** この負債（相続で受け継ぐ借金）を基本の計算から外すか */
+/** この負債（相続で受け継ぐ借金）をふだんの計算から外すか */
 export function excludedDebt(d: Pick<Debt, "inheritedFrom" | "likelihood" | "includeInBase">): boolean {
   return d.inheritedFrom !== undefined && d.likelihood === "uncertain" && d.includeInBase !== true;
 }
@@ -29,18 +32,26 @@ export function excludedDebt(d: Pick<Debt, "inheritedFrom" | "likelihood" | "inc
 /** 夢プランの1件（種類が夢の出るお金の行。0103） */
 export const isDream = (p: Pick<PeriodicExpense, "kind">): boolean => p.kind === "dream";
 
-/** 計算に入れない夢か（「計算に入れない」を選んだ夢。省略は入れる） */
+/** 計算に入れない夢か（「最初から計算に入れない」を選んだ夢。省略は入れる） */
 export const dreamOff = (p: Pick<PeriodicExpense, "kind" | "dream">): boolean => isDream(p) && p.dream?.include === false;
 
-/** 基本の計算に入れていない物の ID（入るお金の行・負債） */
-export function excludedFromBase(h: Household): { incomes: string[]; debts: string[] } {
-  return { incomes: (h.incomeFlows ?? []).filter(excludedIncome).map((f) => f.id), debts: (h.debts ?? []).filter(excludedDebt).map((d) => d.id) };
+/** この出るお金の行をふだんの計算から外すか（見込みが「不確実」のふつうの行と、入れない夢） */
+export const excludedExpense = (p: Pick<PeriodicExpense, "kind" | "dream" | "priority">): boolean => (isDream(p) ? dreamOff(p) : notNeededExpense(p));
+
+/** ふだんの計算に入れていない物の ID（入るお金の行・負債・出るお金の行〔夢を除く〕・子への援助〔ID のある物〕） */
+export function excludedFromBase(h: Household): { incomes: string[]; debts: string[]; expenses: string[]; gifts: string[] } {
+  return {
+    incomes: (h.incomeFlows ?? []).filter(excludedIncome).map((f) => f.id),
+    debts: (h.debts ?? []).filter(excludedDebt).map((d) => d.id),
+    expenses: (h.periodicExpenses ?? []).filter((p) => !isDream(p) && notNeededExpense(p)).map((p) => p.id),
+    gifts: (h.goals ?? []).flatMap((g) => (g.education?.gifts ?? []).filter((x) => notNeededGift(x) && typeof x.id === "string").map((x) => x.id as string)),
+  };
 }
 
 const withHousehold = (req: EngineRequest, h: Household): EngineRequest => ({ ...req, input: { ...req.input, household: h } });
 
 /**
- * エンジンへ渡す要求（基本の計算に入れない物を外す）。外す物が無ければ同じ物を返す（要求の文字列が変わらず、計算し直さない）。
+ * エンジンへ渡す要求（ふだんの計算に入れない物を外す）。外す物が無ければ同じ物を返す（要求の文字列が変わらず、計算し直さない）。
  * 外した入るお金の行・負債を指す物は無い（贈与・移し替えの結び付けは外した行を指しても計算に使わない）
  */
 export function forEngine(req0: EngineRequest): EngineRequest {
@@ -49,15 +60,18 @@ export function forEngine(req0: EngineRequest): EngineRequest {
   const incomes = h.incomeFlows ?? [];
   const debts = h.debts ?? [];
   const expenses = h.periodicExpenses ?? [];
+  const goals = h.goals ?? [];
   const dropIncome = incomes.some(excludedIncome);
   const dropDebt = debts.some(excludedDebt);
-  const dropDream = expenses.some(dreamOff);
-  if (!dropIncome && !dropDebt && !dropDream) return req;
+  const dropExpense = expenses.some(excludedExpense);
+  const dropGift = goals.some((g) => (g.education?.gifts ?? []).some(notNeededGift));
+  if (!dropIncome && !dropDebt && !dropExpense && !dropGift) return req;
   return withHousehold(req, {
     ...h,
     ...(dropIncome ? { incomeFlows: incomes.filter((f) => !excludedIncome(f)) } : {}),
     ...(dropDebt ? { debts: debts.filter((d) => !excludedDebt(d)) } : {}),
-    ...(dropDream ? { periodicExpenses: expenses.filter((p) => !dreamOff(p)) } : {}),
+    ...(dropExpense ? { periodicExpenses: expenses.filter((p) => !excludedExpense(p)) } : {}),
+    ...(dropGift ? { goals: goals.map((g) => (g.education?.gifts === undefined || !g.education.gifts.some(notNeededGift) ? g : { ...g, education: { ...g.education, gifts: g.education.gifts.filter((x) => !notNeededGift(x)) } })) } : {}),
   });
 }
 
@@ -89,117 +103,119 @@ export function withoutStoredSettings(req: EngineRequest): EngineRequest {
   return { ...req, input: { ...rest, ...(dropTax || inheritanceTax === undefined ? {} : { inheritanceTax }) } as EngineRequest["input"] };
 }
 
-/** 確実な分だけで外す行か（入るお金は見込みが「不確実」、出るお金は見込み〔priority〕が「不確実」。古い値の likely は確実、wish は不確実と同じ扱い） */
-export const notCertainIncome = (f: Pick<IncomeFlow, "likelihood">): boolean => f.likelihood === "uncertain";
-export const notNeededExpense = (e: Pick<PeriodicExpense, "priority">): boolean => e.priority === "want" || e.priority === "wish";
-/** 確実な分だけで外す子への援助か（見込み〔priority〕が「不確実」。0103） */
-export const notNeededGift = (g: { priority?: string }): boolean => g.priority === "want";
-
-/** 結果の見方（保存しない）: 確実な分だけか（false は「すべて入れる」）と、物ごとの入れ外し（候補のキー → 入れるなら true。決まりのとおりの物は持たない） */
+/** 結果の見方（保存しない）: 物ごとの入れ外し（候補のキー → 入れるなら true。最初のとおりの物は持たない） */
 export interface RowsView {
-  certainOnly: boolean;
   pick: Readonly<Record<string, boolean>>;
 }
 
-/** すべて入れる（いつもの計算。基本の計算に入れない物は外れたまま） */
-export const ALL_ROWS: RowsView = { certainOnly: false, pick: {} };
+/** いつもの計算（物ごとの入れ外しなし） */
+export const ALL_ROWS: RowsView = { pick: {} };
 
-/** 見方で入れ外しできる物 */
+/** 見方で入れ外しできる物（区画「これからの大きなお金」のチェックのある行） */
 export interface ViewCandidate {
-  /** 入れ外しのキー（「in:」「out:」「debt:」「gift:」＋ ID） */
+  /** 入れ外しのキー（「in:」「out:」「debt:」「gift:」＋ ID、繰上返済は「prepay:」＋借入の ID・「:」・何番目か） */
   key: string;
-  /** gift は子への援助（教育の目標の gifts の1件。0103） */
-  side: "in" | "out" | "debt" | "gift";
+  /** gift は子への援助（教育の目標の gifts の1件。0103）、prepay は借入の繰上返済の1件 */
+  side: "in" | "out" | "debt" | "gift" | "prepay";
   id: string;
-  /**
-   * 外れる理由: base＝基本の計算に入れない決まり（不確実な受け取る相続・贈与・受け継ぐ借金）、uncertain＝見込みが不確実、priority＝出るお金・子への援助の見込み（priority）が不確実、
-   * dream＝夢プランの1件（0103。「計算に入れない」を選んだ夢は off）
-   */
-  reason: "base" | "uncertain" | "priority" | "dream";
-  /** 夢で「計算に入れない」を選んでいる（ふだんも外れている。ここで入れて見られる） */
+  /** certain＝確実な物、uncertain＝見込みが不確実な物、dream＝夢プランの1件（0103） */
+  reason: "certain" | "uncertain" | "dream";
+  /** ふだんの計算に入れていない（見込みが不確実〔前の版の「この行を計算に入れる」を除く〕・「最初から計算に入れない」夢）。最初はチェックなし */
   off?: boolean;
 }
 
-/** 世帯の中の、見方で入れ外しできる物（入るお金・出るお金・受け継ぐ借金の並びの順） */
+/**
+ * 世帯の中の、見方で入れ外しできる物: 入るお金は見込みが不確実な物と受け取る相続・贈与、出るお金は夢と、月々でない物（見込みが不確実なら月々の物も）、
+ * 子への援助（ID のある物）、繰上返済、相続で受け継ぐ借金。家の購入（頭金）は入れ外ししない
+ */
 export function viewCandidates(h: Household): ViewCandidate[] {
   const out: ViewCandidate[] = [];
+  const add = (side: ViewCandidate["side"], id: string, reason: ViewCandidate["reason"], off: boolean) => out.push({ key: `${side}:${id}`, side, id, reason, ...(off ? { off: true } : {}) });
   for (const f of h.incomeFlows ?? []) {
-    if (excludedIncome(f)) out.push({ key: `in:${f.id}`, side: "in", id: f.id, reason: "base" });
-    else if (notCertainIncome(f)) out.push({ key: `in:${f.id}`, side: "in", id: f.id, reason: "uncertain" });
+    const unc = notCertainIncome(f) && f.includeInBase !== true;
+    if (unc || BASE_EXCLUDED_KINDS.has(f.kind)) add("in", f.id, unc ? "uncertain" : "certain", unc);
   }
   for (const e of h.periodicExpenses ?? []) {
-    if (isDream(e)) out.push({ key: `out:${e.id}`, side: "out", id: e.id, reason: "dream", ...(dreamOff(e) ? { off: true } : {}) });
-    else if (notNeededExpense(e)) out.push({ key: `out:${e.id}`, side: "out", id: e.id, reason: "priority" });
+    if (isDream(e)) add("out", e.id, "dream", dreamOff(e));
+    else if (notNeededExpense(e)) add("out", e.id, "uncertain", true);
+    else if (e.monthly !== true) add("out", e.id, "certain", false);
   }
-  for (const g of h.goals ?? []) for (const x of g.education?.gifts ?? []) if (notNeededGift(x) && typeof x.id === "string") out.push({ key: `gift:${x.id}`, side: "gift", id: x.id, reason: "priority" });
-  for (const d of h.debts ?? []) if (excludedDebt(d)) out.push({ key: `debt:${d.id}`, side: "debt", id: d.id, reason: "base" });
+  for (const g of h.goals ?? []) for (const x of g.education?.gifts ?? []) if (typeof x.id === "string") add("gift", x.id, notNeededGift(x) ? "uncertain" : "certain", notNeededGift(x));
+  for (const d of h.debts ?? []) {
+    (d.prepayments ?? []).forEach((_p, i) => add("prepay", `${d.id}:${String(i)}`, "certain", false));
+    if (d.inheritedFrom !== undefined) add("debt", d.id, excludedDebt(d) ? "uncertain" : "certain", excludedDebt(d));
+  }
   return out;
 }
 
-/** 決まりのとおりなら外すか（基本の計算に入れない物と「計算に入れない」夢はいつも外す。ほかは確実な分だけのときに外す） */
-export const ruleExcluded = (c: Pick<ViewCandidate, "reason" | "off">, certainOnly: boolean): boolean => c.reason === "base" || c.off === true || certainOnly;
+/** 物ごとの入れ外しが無いときに外すか（ふだんの計算に入れていない物） */
+export const ruleExcluded = (c: Pick<ViewCandidate, "off">): boolean => c.off === true;
 
-/** この見方で外すか（物ごとの入れ外しがあればそれ、無ければ決まりのとおり） */
-export function viewExcluded(c: Pick<ViewCandidate, "key" | "reason" | "off">, v: RowsView): boolean {
+/** この見方で外すか（物ごとの入れ外しがあればそれ、無ければふだんの計算のとおり） */
+export function viewExcluded(c: Pick<ViewCandidate, "key" | "off">, v: RowsView): boolean {
   const p = v.pick[c.key];
-  return p !== undefined ? !p : ruleExcluded(c, v.certainOnly);
+  return p !== undefined ? !p : ruleExcluded(c);
 }
 
-/** 物ごとの入れ外しを置く（決まりのとおりに戻すなら持たない） */
-export function pickRow(v: RowsView, c: Pick<ViewCandidate, "key" | "reason" | "off">, include: boolean): RowsView {
+/** 物ごとの入れ外しを置く（ふだんの計算のとおりに戻すなら持たない） */
+export function pickRow(v: RowsView, c: Pick<ViewCandidate, "key" | "off">, include: boolean): RowsView {
   const { [c.key]: _old, ...rest } = v.pick;
   void _old;
-  return { ...v, pick: include === !ruleExcluded(c, v.certainOnly) ? rest : { ...rest, [c.key]: include } };
+  return { pick: include === !ruleExcluded(c) ? rest : { ...rest, [c.key]: include } };
 }
 
-/** 「すべて入れる｜確実な分だけ」を切り替える（物ごとの入れ外しは決まりのとおりに戻す） */
-export const viewMode = (certainOnly: boolean): RowsView => ({ certainOnly, pick: {} });
-
-/** いつもの計算と同じ見方か（すべて入れる・物ごとの入れ外しなし） */
-export const isAllRows = (v: RowsView): boolean => !v.certainOnly && Object.keys(v.pick).length === 0;
+/** いつもの計算と同じ見方か（物ごとの入れ外しなし） */
+export const isAllRows = (v: RowsView): boolean => Object.keys(v.pick).length === 0;
 
 /**
- * 見方を当てた要求（保存しない自動の差分）: 外す入るお金・出るお金の行を要求から外し、入れる基本の計算に入れない物は includeInBase を true にする。
- * 外す受け継ぐ借金は、エンジンへ渡すときにいつものとおり外れる（forEngine）。変える物が無ければ同じ物を返す（計算し直さない）
+ * 見方を当てた要求（保存しない自動の差分）: 外す物を要求から外し、ふだんは入れていない物を入れるときは要求の写しで入れる
+ * （入るお金・借金は includeInBase を true、不確実な出るお金・子への援助は priority を need、夢は dream.include を true）。
+ * 変える物が無ければ同じ物を返す（計算し直さない）
  */
 export function applyRowsView(req: EngineRequest, v: RowsView): EngineRequest {
   if (isAllRows(v)) return req;
   const h = req.input.household;
-  const cs = viewCandidates(h);
-  if (cs.length === 0) return req;
   const drop = new Set<string>();
   const include = new Set<string>();
-  for (const c of cs) {
+  for (const c of viewCandidates(h)) {
     const ex = viewExcluded(c, v);
-    if (ex && c.side !== "debt") drop.add(c.key);
-    else if (!ex && (c.reason === "base" || c.off === true)) include.add(c.key);
+    if (ex && c.off !== true) drop.add(c.key);
+    else if (!ex && c.off === true) include.add(c.key);
   }
   if (drop.size === 0 && include.size === 0) return req;
+  const has = (k: string) => drop.has(k) || include.has(k);
   const incomes = h.incomeFlows ?? [];
   const expenses = h.periodicExpenses ?? [];
   const debts = h.debts ?? [];
   const goals = h.goals ?? [];
-  const touch = (side: string, ids: readonly { id: string }[]) => ids.some((x) => drop.has(`${side}:${x.id}`) || include.has(`${side}:${x.id}`));
-  const gifts = goals.flatMap((g) => (g.education?.gifts ?? []).flatMap((x) => (typeof x.id === "string" ? [{ id: x.id }] : [])));
+  const gift = (x: Record<string, unknown>) => `gift:${String(x.id)}`;
   return withHousehold(req, {
     ...h,
-    ...(touch("in", incomes) ? { incomeFlows: incomes.filter((f) => !drop.has(`in:${f.id}`)).map((f) => (include.has(`in:${f.id}`) ? { ...f, includeInBase: true } : f)) } : {}),
-    // 「計算に入れない」夢を入れて見るときは、要求の写しで入れる（世帯もプランも変えない）
-    ...(touch("out", expenses) ? { periodicExpenses: expenses.filter((e) => !drop.has(`out:${e.id}`)).map((e) => (include.has(`out:${e.id}`) ? { ...e, dream: { ...e.dream, include: true } } : e)) } : {}),
-    ...(touch("debt", debts) ? { debts: debts.map((d) => (include.has(`debt:${d.id}`) ? { ...d, includeInBase: true } : d)) } : {}),
-    ...(touch("gift", gifts)
-      ? { goals: goals.map((g) => (g.education?.gifts === undefined || !g.education.gifts.some((x) => drop.has(`gift:${String(x.id)}`)) ? g : { ...g, education: { ...g.education, gifts: g.education.gifts.filter((x) => !drop.has(`gift:${String(x.id)}`)) } })) }
+    ...(incomes.some((f) => has(`in:${f.id}`)) ? { incomeFlows: incomes.filter((f) => !drop.has(`in:${f.id}`)).map((f) => (include.has(`in:${f.id}`) ? { ...f, includeInBase: true } : f)) } : {}),
+    ...(expenses.some((e) => has(`out:${e.id}`))
+      ? { periodicExpenses: expenses.filter((e) => !drop.has(`out:${e.id}`)).map((e) => (!include.has(`out:${e.id}`) ? e : isDream(e) ? { ...e, dream: { ...e.dream, include: true } } : { ...e, priority: "need" as const })) }
+      : {}),
+    ...(debts.some((d) => has(`debt:${d.id}`) || (d.prepayments ?? []).some((_p, i) => drop.has(`prepay:${d.id}:${String(i)}`)))
+      ? {
+          debts: debts
+            .filter((d) => !drop.has(`debt:${d.id}`))
+            .map((d) => {
+              const pre = d.prepayments?.filter((_p, i) => !drop.has(`prepay:${d.id}:${String(i)}`));
+              const d2 = pre !== undefined && pre.length !== d.prepayments?.length ? { ...d, prepayments: pre } : d;
+              return include.has(`debt:${d.id}`) ? { ...d2, includeInBase: true } : d2;
+            }),
+        }
+      : {}),
+    ...(goals.some((g) => (g.education?.gifts ?? []).some((x) => has(gift(x))))
+      ? { goals: goals.map((g) => (g.education?.gifts === undefined ? g : { ...g, education: { ...g.education, gifts: g.education.gifts.filter((x) => !drop.has(gift(x))).map((x) => (include.has(gift(x)) ? { ...x, priority: "need" as const } : x)) } })) }
       : {}),
   });
 }
 
-/** 夢を全部外した要求（夢の無い場合と比較する1回の計算。0103）。計算に入る夢が無ければ同じ物を返す */
+/** 夢を全部外した要求（提案書の「ご家族の夢」の要約の1回の計算。0103）。計算に入る夢が無ければ同じ物を返す */
 export function withoutDreams(req: EngineRequest): EngineRequest {
   const h = req.input.household;
   const expenses = h.periodicExpenses ?? [];
   if (!expenses.some((p) => isDream(p) && !dreamOff(p))) return req;
   return withHousehold(req, { ...h, periodicExpenses: expenses.filter((p) => !isDream(p)) });
 }
-
-/** 確実な分だけの要求（物ごとの入れ外しなし） */
-export const certainOnly = (req: EngineRequest): EngineRequest => applyRowsView(req, viewMode(true));

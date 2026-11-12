@@ -1,100 +1,145 @@
 // 結果の画面の区画「これからの大きなお金」（結果のグラフのすぐ下。0044・0103 の追記 2026-11-12）。前のグラフの上の切り替え（RowsViewBar）と
 // 「ご家族の夢」の区画（GoalCards）を1つにまとめた。値は bigMoney.ts の bigMoneyOf。入れ外しは見方の切り替えで、保存しない（App.tsx の putRowsView）。
-// 行の key は物の ID を含むので、提示層（presentation/）でなく作業の層に置く（0016 の2）
+// 行の key は物の ID を含むので、提示層（presentation/）でなく作業の層に置く（0016 の2）。
+// 並べ方（3列）: 物のあるまとまりだけを横に並べ、列の数はまとまりの数に合わせる。
+// - まとまりが1つ: 読みやすい幅の表を1つ。7件以上なら、同じまとまりを左右2列に分けて並べる（年の順に左の列の上から）
+// - 1つのまとまりが多い: 2つ以上のまとまりを並べるときは、まとまりごとに最初の8件だけを出し、残りは「ほか○件を見る」で開く
+// - 区画の幅が狭いとき（区画の幅で切り替える。app.css）は、3列 → 2列 → 1列
+import type { ComponentChildren } from "preact";
+import { useState } from "preact/hooks";
 import { Help } from "../presentation/Help.tsx";
-import type { BigMoneyModel, BigMoneyPick } from "./bigMoney.ts";
+import type { BigMoneyGroup, BigMoneyModel, BigMoneyPick, BigMoneyRow } from "./bigMoney.ts";
 
 /** 区画「これからの大きなお金」の「?」の説明（0044・0103 の追記 2026-11-12） */
 export const BIG_MONEY_HELP = [
-  "「確実な分だけ」は、見込みが「不確実」の入るお金・出るお金・子への援助と、夢プランの夢を外して、並べた全部のプランを計算し直します。",
-  "行の左のチェックで、1件ずつ入れたり外したりもできます（チェックの入っている物を計算に入れます）。見込みが「不確実」の受け取る相続・贈与と相続で受け継ぐ借金、「最初から計算に入れない」にした夢は、ふだんも外れています。ここでチェックを入れると、入れた場合を見られます。",
-  "右の数字は、払った年（受け取った年）の終わりの金融資産です。何年ごと・毎年の物は、いちばん少ない年（資金が不足する年があればその年）の額と年です。計算に入れている物だけに出します。",
-  "どれも見方の切り替えで、保存はしません。プランに残すときは、入力の画面で見込みや夢の「最初から計算に入れる」を直してください（受け取る相続・贈与と相続で受け継ぐ借金は「この行を計算に入れる」）。",
+  "行の左のチェックで、計算に入れる物を1件ずつ入れたり外したりできます（チェックの入っている物を計算に入れます）。グラフと上の1文、並べた全部のプランを計算し直します。",
+  "最初は、確実な物と「最初から計算に入れる」の夢にチェックが入っています。見込みが「不確実」の物と「最初から計算に入れない」の夢は、ふだんの計算に入れていません。チェックを入れると、入れた場合と比較できます。家の購入の頭金は外せません。",
+  "どれも見方の切り替えで、保存はしません。プランに残すときは、入力の画面で見込みや夢の「最初から計算に入れる」を直してください。",
 ];
+
+/** 2つ以上のまとまりを並べるとき、まとまりごとに最初に出す件数（残りが2件以上なら「ほか○件を見る」で開く） */
+export const BIG_MONEY_FOLD = 8;
+/** まとまりが1つのとき、左右2列に分ける件数 */
+export const BIG_MONEY_SPLIT = 7;
+
+type OnPick = (pick: BigMoneyPick, include: boolean) => void;
 
 export interface BigMoneyCardProps {
   model: BigMoneyModel;
   /** 子が返す貸与の奨学金の書き添え（PresentationModel の childRepaid） */
   notes: readonly string[];
-  /** 「すべて入れる」（false）・「確実な分だけ」（true）を選んだ */
-  onMode?: (certainOnly: boolean) => void;
   /** 1件を入れる（true）・外す（false） */
-  onPick?: (pick: BigMoneyPick, include: boolean) => void;
+  onPick?: OnPick;
+}
+
+function Row({ r, dream, onPick }: { r: BigMoneyRow; dream: boolean; onPick: OnPick | undefined }) {
+  const cells = (
+    <>
+      <span class="bm-nm">{r.name}</span>
+      <span class="bm-wh">{r.when}</span>
+      <span class="bm-am num">{r.amount}</span>
+      {dream ? null : <span class="bm-tg">{r.tag !== null ? <span class={`bm-t${r.tag === "不確実" ? " unsure" : ""}`}>{r.tag}</span> : null}</span>}
+    </>
+  );
+  const cls = `bm-row${r.included ? "" : " off"}`;
+  if (r.pick === null)
+    return (
+      <div class={`${cls} fixed`} data-bm-row={r.key} data-included="1">
+        <span class="bm-ck" />
+        {cells}
+      </div>
+    );
+  const pick = r.pick;
+  // 行の全体を押すとチェックが入れ外しされる（label）。読み上げは名前と見込み
+  return (
+    <label class={cls} data-bm-row={r.key} data-included={r.included ? "1" : "0"}>
+      <span class="bm-ck">
+        <input type="checkbox" checked={r.included} onChange={(e) => onPick?.(pick, (e.currentTarget as HTMLInputElement).checked)} aria-label={`${r.name}${r.tag !== null ? `（${r.tag}）` : ""}を計算に入れる`} />
+      </span>
+      {cells}
+    </label>
+  );
+}
+
+function Column({ g, rows, onPick, cont, more }: { g: BigMoneyGroup; rows: readonly BigMoneyRow[]; onPick: OnPick | undefined; cont?: boolean; more?: ComponentChildren }) {
+  const dream = g.key === "dreams";
+  return (
+    <div class={`bm-col${dream ? " nt" : ""}${cont === true ? " cont" : ""}`} data-bm-group={g.key} role="group" aria-label={g.title}>
+      <div class="bm-gh">
+        {/* 左右2列に分けた右の列は、まとまりの名前を繰り返さない（時期・金額の見出しだけ） */}
+        <span class="bm-ttl">
+          {cont === true ? null : (
+            <>
+              {g.title}
+              <span class="bm-n">
+                {g.included}/{g.rows.length}件
+              </span>
+            </>
+          )}
+        </span>
+        <span class="bm-h">時期</span>
+        <span class="bm-h r">金額</span>
+        {dream ? null : <span />}
+      </div>
+      {rows.map((r) => (
+        <Row key={r.key} r={r} dream={dream} onPick={onPick} />
+      ))}
+      {more}
+    </div>
+  );
 }
 
 /**
- * 区画「これからの大きなお金」（結果のグラフのすぐ下）: 頭は「すべて入れる｜確実な分だけ」の切り替えと一行の結論だけ（説明は「?」の中）。
- * 中身は「ご家族の夢」「支払いの予定」「受け取りの予定」のまとまりで、1件1行（名前・時期・金額・払った後〔受け取った後〕の金融資産）。
- * 不確実な物と夢は行の左にチェック、確実な物は行の右に小さく「確実」、不確実な物は「不確実」。計算に入れていない行は薄くする。
- * 並べる物が無ければ区画を出さない（子が返す奨学金の書き添えだけがあれば、それだけを出す）
+ * 区画「これからの大きなお金」（結果のグラフのすぐ下）: 頭は名前と「?」と一行の結論だけ。中身は「ご家族の夢」「支払いの予定」「受け取りの予定」を
+ * 横に並べ、1件1行（チェック・名前・時期・金額・見込み）。並べる物が無ければ区画を出さない（子が返す奨学金の書き添えだけがあれば、それだけを出す）
  */
-export function BigMoneyCard({ model, notes: noteTexts, onMode, onPick }: BigMoneyCardProps) {
+export function BigMoneyCard({ model, notes: noteTexts, onPick }: BigMoneyCardProps) {
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   const notes = noteTexts.map((t, i) => (
     <p class="bm-note" key={`c${i}`} data-child-repaid>
       {t}
     </p>
   ));
   if (model.groups.length === 0) return notes.length > 0 ? <div class="bm-notes">{notes}</div> : null;
-  const toggles = model.certainOnly || model.groups.some((g) => g.rows.some((r) => r.pick !== null));
+  const one = model.groups.length === 1 ? model.groups[0]! : null;
+  const split = one !== null && one.rows.length >= BIG_MONEY_SPLIT;
+  let cols: ComponentChildren;
+  if (one !== null) {
+    const half = Math.ceil(one.rows.length / 2);
+    cols = split
+      ? [<Column key="a" g={one} rows={one.rows.slice(0, half)} onPick={onPick} />, <Column key="b" g={one} rows={one.rows.slice(half)} onPick={onPick} cont />]
+      : [<Column key="a" g={one} rows={one.rows} onPick={onPick} />];
+  } else {
+    cols = model.groups.map((g) => {
+      const foldable = g.rows.length > BIG_MONEY_FOLD + 1;
+      const fold = foldable && open[g.key] !== true;
+      const more = foldable ? (
+        <button type="button" class="link-btn bm-more" aria-expanded={!fold} onClick={() => setOpen((o) => ({ ...o, [g.key]: fold }))} data-bm-more={g.key}>
+          {fold ? `ほか${String(g.rows.length - BIG_MONEY_FOLD)}件を見る ▾` : "閉じる ▴"}
+        </button>
+      ) : null;
+      return <Column key={g.key} g={g} rows={fold ? g.rows.slice(0, BIG_MONEY_FOLD) : g.rows} onPick={onPick} more={more} />;
+    });
+  }
+  const n = one !== null ? (split ? "s" : "1") : String(model.groups.length);
   return (
     <section class="card big-money" aria-label="これからの大きなお金" data-big-money>
       <div class="card-h">
         <h2>これからの大きなお金</h2>
-        {toggles ? (
-          <span class="bm-mode">
-            <span class="seg-g" role="group" aria-label="計算に入れる物">
-              <button type="button" aria-pressed={!model.certainOnly} onClick={() => onMode?.(false)} data-view-mode="all">
-                すべて入れる
-              </button>
-              <button type="button" aria-pressed={model.certainOnly} onClick={() => onMode?.(true)} data-view-mode="certain">
-                確実な分だけ
-              </button>
-            </span>
-            <Help label="計算に入れる物" id="big-money">
-              {BIG_MONEY_HELP.map((t, i) => (
-                <p key={i}>{t}</p>
-              ))}
-            </Help>
-          </span>
-        ) : null}
+        <Help label="これからの大きなお金" id="big-money">
+          {BIG_MONEY_HELP.map((t, i) => (
+            <p key={i}>{t}</p>
+          ))}
+        </Help>
       </div>
       {model.line !== null ? (
         <p class="bm-line" data-big-money-line>
           {model.line}
         </p>
       ) : null}
-      <table class="bm-table">
-        {model.groups.map((g) => (
-          <tbody key={g.key} data-bm-group={g.key}>
-            <tr class="bm-gh">
-              <th scope="colgroup" colSpan={4}>
-                {g.title}
-              </th>
-              <th scope="col" class="bm-after-h">
-                {g.afterLabel}
-              </th>
-              <th aria-hidden="true" />
-            </tr>
-            {g.rows.map((r) => {
-              const id = `bm-${r.key}`;
-              return (
-                <tr class={`bm-row${r.included ? "" : " off"}`} key={r.key} data-bm-row={r.key} data-included={r.included ? "1" : "0"}>
-                  <td class="bm-check">
-                    {r.pick !== null ? <input type="checkbox" id={id} checked={r.included} onChange={(e) => onPick?.(r.pick as BigMoneyPick, (e.currentTarget as HTMLInputElement).checked)} aria-label={`${r.name}を計算に入れる`} /> : null}
-                  </td>
-                  <td class="bm-name">{r.pick !== null ? <label for={id}>{r.name}</label> : r.name}</td>
-                  <td class="bm-when">{r.when}</td>
-                  <td class="bm-amt num">{r.amount}</td>
-                  <td class={`bm-after num${r.short ? " short" : ""}`} data-bm-after={r.short ? "short" : r.after === null ? "none" : "ok"}>
-                    {r.after ?? "—"}
-                  </td>
-                  <td class="bm-tag">{r.tag !== null ? <span class={`bm-t${r.tag === "確実" ? " sure" : ""}`}>{r.tag}</span> : null}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        ))}
-      </table>
+      <div class={`bm-cols n${n}`} data-bm-cols={n}>
+        {cols}
+      </div>
       {notes}
     </section>
   );

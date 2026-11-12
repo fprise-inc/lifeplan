@@ -1776,7 +1776,7 @@ async fn explain_value_for_a_shared_household() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// 計算の前の処理（0184）: 前処理が効く世帯（不確実な受け取る相続・相続で受け継ぐ借金・「計算に入れない」夢と、事務所の推定の値）を
+/// 計算の前の処理（0184）: 前処理が効く世帯（不確実な受け取る相続・相続で受け継ぐ借金・出るお金・「計算に入れない」夢と、事務所の推定の値）を
 /// 渡された世帯として計算させると、画面の数字と根拠（app/test/connector-prepare.test.ts が画面の関数で作る見本）と同じ。
 /// AIが組み立てた入力では、事務所の値の無い画面と同じ。事務所の値と根拠の文は AI に見せず、AIに渡した記録は今までと同じ
 #[tokio::test(flavor = "multi_thread")]
@@ -1815,7 +1815,7 @@ async fn calculation_matches_the_screen_after_preparation() {
         .as_str()
         .unwrap()
         .contains("アプリの画面と同じ"));
-    for k in ["incomeFlows", "inheritedDebts", "dreams"] {
+    for k in ["incomeFlows", "inheritedDebts", "periodicExpenses", "dreams"] {
         assert_eq!(
             prep["notInCalculation"][k].as_array().map(Vec::len),
             Some(1),

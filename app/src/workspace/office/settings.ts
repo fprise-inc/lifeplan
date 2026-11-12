@@ -102,7 +102,7 @@ export interface OfficeSettings {
   protection: ProtectionSetting;
   /** 本人・配偶者の介護を最初から目安で入れるか */
   care: CareDefaults;
-  /** 受け取る予定の相続・贈与の見込みの既定（「不確実」〔値は uncertain〕なら、受け取る予定を基本の計算に入れないのが事務所の決まりになる） */
+  /** 受け取る予定の相続・贈与の見込みの既定（「不確実」〔値は uncertain〕なら、受け取る予定をふだんの計算に入れないのが事務所の決まりになる） */
   inheritLikelihood: InheritLikelihood;
   /** 前提条件の標準値（無い系列は 既定の値） */
   assumptions: Partial<Record<OfficeAssumption, string>>;

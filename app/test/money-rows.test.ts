@@ -1,8 +1,8 @@
-// お金の行（0044）の画面の側: 基本の計算に入れない物（不確かな受け取る相続・贈与と受け継ぐ借金）を要求から外す・確実な分だけで見る・
+// お金の行（0044）の画面の側: ふだんの計算に入れない物（見込みが不確実な物）を要求から外す・確実な分だけで見る・
 // 種類の既定（エンジンと同じ表）・カードごとの区画・欄の往復・古い周期的な支出がそのまま読めること・プランでの足す外すと「基本の計算に入れる」
 import { describe, expect, it } from "vitest";
 import { INCOME_KIND_DEFAULTS } from "../../engine/src/sdk/incomeKinds.ts";
-import { certainOnly, forEngine, viewCandidates } from "../src/engine/moneyRows.ts";
+import { forEngine, viewCandidates } from "../src/engine/moneyRows.ts";
 import type { EngineRequest, IncomeFlow, PeriodicExpense } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -31,8 +31,8 @@ const base = () => modelHousehold("dualNoKids");
 // 介護・親・相続・贈与の行は、それぞれのカード（0045）
 const stageOf = (c: MoneyCard): StageId => (c === "inherit" ? "inheritance" : c);
 
-describe("基本の計算に入れない物（0035 の7・0036 の6）", () => {
-  it("見込みが不確かな受け取る相続・遺贈・贈与だけを外す（includeInBase で入れる。ほかの種類は不確かでも入れる）。世帯のデータは変えない", () => {
+describe("ふだんの計算に入れない物（0035 の7・0036 の6・0044 の追記 2026-11-12）", () => {
+  it("見込みが「不確実」の入るお金の行は、種類によらず外す（前の版の includeInBase の行は入れる）。世帯のデータは変えない", () => {
     const req = withRows(base(), {
       incomes: [
         income(1, { likelihood: "uncertain" }),
@@ -45,7 +45,7 @@ describe("基本の計算に入れない物（0035 の7・0036 の6）", () => {
     });
     const before = JSON.stringify(req);
     const sent = forEngine(req);
-    expect((sent.input.household.incomeFlows ?? []).map((f) => f.id)).toEqual([id(3), id(4), id(5), id(6)]);
+    expect((sent.input.household.incomeFlows ?? []).map((f) => f.id)).toEqual([id(3), id(4), id(6)]);
     expect(JSON.stringify(req)).toBe(before);
     // 外す物が無ければ同じ物（計算し直さない）
     const plain = base();
@@ -71,24 +71,17 @@ describe("基本の計算に入れない物（0035 の7・0036 の6）", () => {
     expect(ids).toContain(id(21));
   });
 
-  it("確実な分だけ: 見込みが「不確実」の入るお金のすべてと、見込みが「不確実」（want・wish）の出るお金を外す（保存しない）", () => {
+  it("見込みが「不確実」（want・wish）の出るお金の行と子への援助も外す。夢は「最初から計算に入れない」だけを外す", () => {
     const pe = (n: number, priority?: PeriodicExpense["priority"]): PeriodicExpense => ({ id: id(n), row: "cf.expense.lumpSum.other", from: { at: "2030-04" }, to: { at: "2030-04" }, everyYears: 1, amount: box(100000), ...(priority !== undefined ? { priority } : {}) });
     const req = withRows(base(), { incomes: [income(1, { likelihood: "uncertain" }), income(2, { kind: "sideJob", likelihood: "uncertain" }), income(3, { kind: "sideJob" })], expenses: [pe(10, "need"), pe(11, "want"), pe(12, "wish"), pe(13)] });
-    expect(viewCandidates(req.input.household).map((c) => [c.id, c.reason])).toEqual([
-      [id(1), "base"],
-      [id(2), "uncertain"],
-      [id(11), "priority"],
-      [id(12), "priority"],
-    ]);
-    const c = certainOnly(req);
+    const c = forEngine(req);
     expect((c.input.household.incomeFlows ?? []).map((f) => f.id)).toEqual([id(3)]);
     const kept = (c.input.household.periodicExpenses ?? []).map((p) => p.id);
     expect(kept).toContain(id(10));
     expect(kept).toContain(id(13));
     expect(kept).not.toContain(id(11));
     expect(kept).not.toContain(id(12));
-    const plain = base();
-    expect(certainOnly(plain)).toBe(plain);
+    expect(viewCandidates(req.input.household).filter((x) => x.off === true).map((x) => x.id)).toEqual([id(1), id(2), id(11), id(12)]);
   });
 });
 
@@ -187,7 +180,7 @@ describe("種類の既定とカードの区画", () => {
   });
 });
 
-describe("プランで足す・外す・基本の計算に入れる（0036）", () => {
+describe("プランで足す・外す・見込みを変える（0036）", () => {
   const plan = (pid: string): Proposal => ({ id: pid, name: `プラン${pid}`, createdAt: "2026-10-26T00:00:00Z", updatedAt: "2026-10-26T00:00:00Z", base: null, tags: [], diffs: [] });
   const setup = (req: EngineRequest) => {
     const self = roles(req).find((r) => r.key === "self")!.member;
@@ -209,17 +202,31 @@ describe("プランで足す・外す・基本の計算に入れる（0036）", 
     expect((applyPlan(w2, "B", cat).request.input.household.incomeFlows ?? []).map((f) => f.id)).toEqual([id(50)]);
   });
 
-  it("不確かな受け取る相続は現状では計算に入らず、プランで「この行を計算に入れる」を押すと、そのプランだけ入る", () => {
+  it("不確実な受け取る相続は現状では計算に入らず、プランで見込みを「確実」にすると、そのプランだけ入る（「この行を計算に入れる」の1押しは無い）", () => {
     const { wh, cat } = setup(withRows(base(), { incomes: [income(1, { likelihood: "uncertain" })] }));
     expect(forEngine(wh.request).input.household.incomeFlows).toEqual([]);
     const view = planView(wh, cat, "B");
-    // 相続・贈与の入力項目では、チェックの欄「基本の計算に入れる」は出さず、見込みが「不確実」の行の1押し（0143）
-    expect(allFields(buildStage("inheritance", view)).find((x) => x.key === `in/${id(1)}/includeInBase`)).toBeUndefined();
-    const a = buildStage("inheritance", view).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((x) => x.key === `in/${id(1)}/includeInBase`)!;
-    const w = recordPlanEdit(wh, cat, "B", view, a.run(view));
-    const d = w.proposals[0]!.diffs;
-    expect(d.map((x) => [x.op, x.item, x.at])).toEqual([["set", "incomeFlow.includeInBase", []]]);
+    const st = buildStage("inheritance", view);
+    expect(allFields(st).find((x) => x.key === `in/${id(1)}/includeInBase`)).toBeUndefined();
+    expect(st.sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).some((x) => x.key.endsWith("/includeInBase") || x.key.endsWith("/excludeFromBase"))).toBe(false);
+    const f = allFields(st).find((x) => x.key === `in/${id(1)}/likelihood`)!;
+    const w = recordPlanEdit(wh, cat, "B", view, f.set(view, "certain"));
+    expect(w.proposals[0]!.diffs.map((x) => [x.op, x.item])).toEqual([["set", "incomeFlow.likelihood"]]);
     expect((forEngine(applyPlan(w, "B", cat).request).input.household.incomeFlows ?? []).map((x) => x.id)).toEqual([id(1)]);
     expect(forEngine(w.request).input.household.incomeFlows).toEqual([]);
   });
+
+  it("前の版で「この行を計算に入れる」にした行（includeInBase）は計算に入り、見込みは「確実」で見せる。見込みを選び直すと includeInBase を外す（世帯ファイルは黙って書き換えない）", () => {
+    const wh = fromRequest(withRows(base(), { incomes: [income(1, { likelihood: "uncertain", includeInBase: true })] }), {});
+    expect((forEngine(wh.request).input.household.incomeFlows ?? []).map((x) => x.id)).toEqual([id(1)]);
+    const f = allFields(buildStage("inheritance", wh)).find((x) => x.key === `in/${id(1)}/likelihood`)!;
+    expect(f.get(wh).value).toBe("certain");
+    expect(f.set(wh, "certain")).toBe(wh);
+    const unc = f.set(wh, "uncertain");
+    const row = unc.request.input.household.incomeFlows![0]!;
+    expect(row.likelihood).toBe("uncertain");
+    expect(row.includeInBase).toBeUndefined();
+    expect(forEngine(unc.request).input.household.incomeFlows).toEqual([]);
+  });
+
 });

@@ -44,7 +44,9 @@ function fixtureRequest(): EngineRequest {
   h.debts = [debt];
   // 「計算に入れない」夢（外す）と、入れる夢
   const dream = (n: number, include: boolean, amount: number): PeriodicExpense => ({ id: id(n), kind: "dream", row: "cf.expense.lumpSum.other", from: { at: "2030-04" }, to: { at: "2030-04" }, everyYears: 1, amount: box(amount), dream: { rank: n - 19, include } });
-  h.periodicExpenses = [dream(20, false, 3000000), dream(21, true, 500000)];
+  // 見込みが「不確実」の出るお金の行（外す。2026-11-12 から）
+  const unsure: PeriodicExpense = { id: id(22), label: "できたら行く旅行", row: "cf.expense.lumpSum.other", from: { at: "2031-04" }, to: { at: "2031-04" }, everyYears: 1, amount: box(700000), priority: "want" };
+  h.periodicExpenses = [dream(20, false, 3000000), dream(21, true, 500000), unsure];
   return { trace: "none", input: req.input } as EngineRequest;
 }
 
@@ -66,7 +68,7 @@ describe("AI接続口の計算の前の処理（0184）", () => {
     const screen = forEngine(req);
     const got = prepared(req, OFFICE);
     expect(got.request).toEqual(screen);
-    expect(got.applied).toEqual({ excludedIncomes: [id(1)], excludedDebts: [id(10)], offDreams: [id(20)], officeEstimateValues: ["care.statistics.monthlyHome", "care.statistics.months"], officeNoFill: ["education"] });
+    expect(got.applied).toEqual({ excludedIncomes: [id(1)], excludedDebts: [id(10)], excludedExpenses: [id(22)], excludedGifts: [], offDreams: [id(20)], officeEstimateValues: ["care.statistics.monthlyHome", "care.statistics.months"], officeNoFill: ["education"] });
     // 前処理が数字を変える世帯であること（外した相続・夢、事務所の値）
     const raw = preview(req);
     const done = preview(screen);

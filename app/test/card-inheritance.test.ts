@@ -96,7 +96,7 @@ describe("相続・贈与のカード: 受け取る予定（区画A）", () => {
     expect(wh.assumed[`in/${wh.request.input.household.incomeFlows![0]!.id}/from`]).toBeUndefined();
   });
 
-  it("「不確か」の行は基本の計算に入れず、「この行を計算に入れる」の1押しで入れる（プランでは差分になる）", () => {
+  it("「不確実」の行はふだんの計算に入れない（「この行を計算に入れる」の1押しは無い）。見込みを「確実」にすると入る（プランでは差分になる）", () => {
     const req = modelHousehold("parentCare");
     const w0 = fromRequest(req);
     const parent = w0.request.input.household.members.find((m) => m.kind === "parent")!;
@@ -107,17 +107,17 @@ describe("相続・贈与のカード: 受け取る予定（区画A）", () => {
     expect(wh.request.input.household.incomeFlows![0]!.counterparty).toBe(parent.id);
     expect(forEngine(wh.request).input.household.incomeFlows ?? []).toEqual([]);
     const g = stage(wh).sections.find((s) => s.key === "inherit/receive")!.groups.find((x) => x.key === `in/${id}`)!;
-    expect(g.note).toContain("計算に入れていません");
-    const included = actionOf(wh, `in/${id}/includeInBase`).run(wh);
-    expect(forEngine(included.request).input.household.incomeFlows).toHaveLength(1);
-    expect(() => actionOf(included, `in/${id}/includeInBase`)).toThrow();
-    // プランで押すと、そのプランの差分（includeInBase の set）。現状は変わらない
+    expect(g.note).toContain("ふだんの計算に入れていません");
+    expect(g.actions.some((x) => x.key === `in/${id}/includeInBase`)).toBe(false);
+    const sure = fieldOf(wh, `in/${id}/likelihood`).set(wh, "certain");
+    expect(forEngine(sure.request).input.household.incomeFlows).toHaveLength(1);
+    // プランで「確実」にすると、そのプランの差分（likelihood の set）。現状は変わらない
     const withPlan: WorkingHousehold = { ...wh, proposals: [{ id: "B", name: "プランB", createdAt: "2026-10-26T00:00:00Z", updatedAt: "2026-10-26T00:00:00Z", base: null, tags: [], diffs: [] }] };
     const cat = buildCatalog(withPlan, roles(req).find((r) => r.key === "self")!.member.id, null);
     const view = planView(withPlan, cat, "B");
-    const w = recordPlanEdit(withPlan, cat, "B", view, actionOf(view, `in/${id}/includeInBase`).run(view));
+    const w = recordPlanEdit(withPlan, cat, "B", view, fieldOf(view, `in/${id}/likelihood`).set(view, "certain"));
     expect(w.request).toEqual(withPlan.request);
-    expect(w.proposals[0]!.diffs.map((d) => [d.op, d.item])).toEqual([["set", "incomeFlow.includeInBase"]]);
+    expect(w.proposals[0]!.diffs.map((d) => [d.op, d.item])).toEqual([["set", "incomeFlow.likelihood"]]);
   });
 
   it("贈与する人は読むだけの1行と「外す」（物と欄は介護・親のカードの世帯の外の家族）。「＋ 足す」はこのカードに残る", () => {

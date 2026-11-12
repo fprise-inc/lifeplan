@@ -1,30 +1,27 @@
-// 結果の画面の区画「これからの大きなお金」（0044・0103 の追記 2026-11-12）: 結果のグラフのすぐ下に、計算に入れる物の見方
-// （「すべて入れる｜確実な分だけ」と物ごとの入れ外し。保存しない。engine/moneyRows.ts の RowsView）と、これからの大きなお金を
-// 3つのまとまりで並べる（どれも年の順。中身の無いまとまりは出さない）:
+// 結果の画面の区画「これからの大きなお金」（0044・0103 の追記 2026-11-12）: 結果のグラフのすぐ下に、これからの大きなお金を
+// 3つのまとまりで並べ、1件ずつのチェックで計算に入れる物を入れ外しする（見方の切り替えで保存しない。engine/moneyRows.ts の RowsView）:
 // - ご家族の夢: 夢プランの夢
 // - 支払いの予定: 子への援助・1回と年ごとの出るお金（確実も不確実も）・繰上返済・住まいの購入の頭金・月々の出るお金のうち不確実な物
 // - 受け取りの予定: 不確実な入るお金（月々の物も）・受け取る相続・贈与と相続で受け継ぐ借金（確実も不確実も）
-// 1件1行（名前・時期・金額・払った後〔受け取った後〕の金融資産）。不確実な物と夢は行の左にチェック（入れ外し）、確実な物は入れ外しできない。
-// 金融資産の数字は report/src/dreams.ts の paidIn（提案書の「ご家族の夢」の表の dreamPaid と同じ年の選び方。何年ごと・毎年の物は、
-// いちばん少ない年〔資金が不足する年があればその年〕の額と年）。計算に入れていない物は数字を出さない（0103 の追記 2026-11-12 と同じ）
+// どれも年の順で、中身の無いまとまりは出さない。1件1行（チェック・名前・時期・金額・見込み）。最初のチェックはふだんの計算のとおり
+// （確実な物と「入れる」の夢はあり、不確実な物と「入れない」の夢はなし）。家の購入の頭金だけは外せない（チェックを置かず「確実」）
 import type { EngineRequest, Household, PeriodicExpense, TableCell, Timepoint } from "../engine/types.ts";
 import { BASE_EXCLUDED_KINDS, isDream, notCertainIncome, notNeededExpense, notNeededGift, viewCandidates, viewExcluded, type RowsView, type ViewCandidate } from "../engine/moneyRows.ts";
-import { group, man } from "../presentation/format.ts";
-import { dreamList, objectYears, paidIn, type DreamPaid } from "../../../report/src/dreams.ts";
+import { group } from "../presentation/format.ts";
+import { dreamList, objectYears } from "../../../report/src/dreams.ts";
 import { expenseName, incomeName } from "./input/moneyRows.ts";
 import { DEBT_KINDS } from "./input/labels.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 import { depletionYear, displayYears } from "./present.ts";
 import { ageInYear, roles } from "./roles.ts";
 
-/** 「これからの大きなお金」の行の入れ外しの相手（結果の見方の候補。engine/moneyRows.ts の ViewCandidate の key・reason・off） */
+/** 「これからの大きなお金」の行の入れ外しの相手（engine/moneyRows.ts の ViewCandidate の key・off） */
 export interface BigMoneyPick {
   key: string;
-  reason: "base" | "uncertain" | "priority" | "dream";
   off?: boolean;
 }
 
-/** 「これからの大きなお金」の1行（1件1行。行の key は物の ID を含むので、作業の層だけで持つ〔提示層の PresentationModel には入れない。0016 の2〕。名前・時期・金額・払った後〔受け取った後〕の金融資産） */
+/** 「これからの大きなお金」の1行（1件1行。行の key は物の ID を含むので、作業の層だけで持つ〔提示層の PresentationModel には入れない。0016 の2〕） */
 export interface BigMoneyRow {
   key: string;
   name: string;
@@ -32,15 +29,11 @@ export interface BigMoneyRow {
   when: string;
   /** 「120万円」「年24万円」「月3万円」。額の無い物は「未定」 */
   amount: string;
-  /** 払った後（受け取った後）の金融資産（「1,239万円」、何年ごと・毎年の物は「987万円（2029年）」）。計算に入れていない・額が無い・計算できていないときは null */
-  after: string | null;
-  /** その年に資金の不足がある（数字を不足の色にする） */
-  short: boolean;
   /** 行の右に小さく出す見込み（夢は null） */
   tag: "確実" | "不確実" | null;
-  /** 今の見方で計算に入れているか（入れていない行は薄くする） */
+  /** 今の見方で計算に入れているか（チェックあり。入れていない行は薄くする） */
   included: boolean;
-  /** 入れ外しできる物（行の左のチェック）。確実な物は null */
+  /** 入れ外しできる物（行の左のチェック）。家の購入（頭金）は null（外せない） */
   pick: BigMoneyPick | null;
 }
 
@@ -48,16 +41,14 @@ export interface BigMoneyGroup {
   key: "dreams" | "pay" | "receive";
   /** 「ご家族の夢」「支払いの予定」「受け取りの予定」 */
   title: string;
-  /** 数字の列の見出し（「払った後の金融資産」「受け取った後の金融資産」） */
-  afterLabel: string;
   rows: BigMoneyRow[];
+  /** 計算に入れている行の数（見出しの「4/7件」の4） */
+  included: number;
 }
 
 /** 結果の画面の区画「これからの大きなお金」（結果のグラフのすぐ下。0044・0103 の追記 2026-11-12） */
 export interface BigMoneyModel {
-  /** 「確実な分だけ」を選んでいるか */
-  certainOnly: boolean;
-  /** 一行の結論（「チェックした4件（7件中）を入れても95歳まで足ります」など。入れ外しできる物が無い・計算中・計算できていないときは null） */
+  /** 一行の結論（「チェックした8件（15件中）を入れても102歳まで足ります」など。入れ外しできる物が無い・計算できていないときは null） */
   line: string | null;
   /** 中身のあるまとまりだけ（全部無ければ空で、区画を出さない） */
   groups: BigMoneyGroup[];
@@ -70,15 +61,11 @@ export interface BigMoneyInput {
   /** 現状の要求（選んでいるプランで外した物の入れ外しも出す）。省略は raw だけ */
   current?: EngineRequest;
   view: RowsView;
-  /** 確実な分だけの計算の表（一行の結論の比較。今の見方が確実な分だけなら要らない。まだ無ければ null） */
-  certainTable: readonly TableCell[] | null;
 }
 
 interface BigMoneyContext {
-  table: readonly TableCell[];
   years: readonly number[];
   depP: number | null;
-  depletionOf: (table: readonly TableCell[]) => number | null;
   ageText: (year: number) => string;
   until: string;
   failed: boolean;
@@ -97,14 +84,12 @@ interface Item {
   tag: BigMoneyRow["tag"];
   pick: ViewCandidate | null;
   included: boolean;
-  /** 払う年・受け取る年（計算に入れているときだけ読む） */
-  years: () => readonly number[];
 }
 
-const GROUPS: { key: GroupKey; title: string; afterLabel: string }[] = [
-  { key: "dreams", title: "ご家族の夢", afterLabel: "払った後の金融資産" },
-  { key: "pay", title: "支払いの予定", afterLabel: "払った後の金融資産" },
-  { key: "receive", title: "受け取りの予定", afterLabel: "受け取った後の金融資産" },
+const GROUPS: { key: GroupKey; title: string }[] = [
+  { key: "dreams", title: "ご家族の夢" },
+  { key: "pay", title: "支払いの予定" },
+  { key: "receive", title: "受け取りの予定" },
 ];
 
 const GIFT_PURPOSE: Record<string, string> = { wedding: "結婚資金", housing: "住宅資金", other: "援助" };
@@ -165,11 +150,13 @@ function itemsOf(households: readonly Household[], view: RowsView, table: readon
   const push = (main: boolean, it: Omit<Item, "pick" | "included" | "tag"> & { certain: boolean }) => {
     if (seen.has(it.key)) return;
     const st = status(it.key);
-    // 確実な物（入れ外しできない物）は、選んでいるプランの世帯の物だけ
+    // 入れ外しできない物（家の購入の頭金など）は、選んでいるプランの世帯の物だけ
     if (st.pick === null && !main) return;
     seen.add(it.key);
     const { certain, ...rest } = it;
-    out.push({ ...rest, tag: rest.group === "dreams" ? null : certain ? "確実" : "不確実", pick: st.pick, included: st.included });
+    // 見込みは入れ外しの候補の見方で（前の版の「この行を計算に入れる」の行は確実と読む）。候補でない物（家の購入の頭金など）は行の値で
+    const sure = st.pick !== null ? st.pick.reason !== "uncertain" : certain;
+    out.push({ ...rest, tag: rest.group === "dreams" ? null : sure ? "確実" : "不確実", pick: st.pick, included: st.included });
   };
   households.forEach((h, i) => {
     const main = i === 0;
@@ -177,7 +164,7 @@ function itemsOf(households: readonly Household[], view: RowsView, table: readon
     // ご家族の夢（夢プランの夢。並べる順は払い始める年。同じ年は順位の順）
     for (const p of dreamList(h.periodicExpenses)) {
       if ((endYear(h, p) ?? Infinity) < firstYear) continue;
-      push(main, { group: "dreams", key: `out:${p.id}`, name: p.label !== undefined && p.label !== "" ? p.label : "夢", sortAt: at(p.from), when: whenText(h, p), amount: amountText(h, p), certain: false, years: () => objectYears(table, p.id, "cf.expense") });
+      push(main, { group: "dreams", key: `out:${p.id}`, name: p.label !== undefined && p.label !== "" ? p.label : "夢", sortAt: at(p.from), when: whenText(h, p), amount: amountText(h, p), certain: false });
     }
     // 支払いの予定: 出るお金の行（夢を除く。月々の物は不確実な物だけ）
     for (const p of (h.periodicExpenses ?? []) as PeriodicExpense[]) {
@@ -185,7 +172,7 @@ function itemsOf(households: readonly Household[], view: RowsView, table: readon
       const uncertain = notNeededExpense(p);
       if (p.monthly === true && !uncertain) continue;
       if ((endYear(h, p) ?? Infinity) < firstYear) continue;
-      push(main, { group: "pay", key: `out:${p.id}`, name: expenseName(h, p), sortAt: at(p.from), when: whenText(h, p), amount: amountText(h, p), certain: !uncertain, years: () => objectYears(table, p.id, "cf.expense") });
+      push(main, { group: "pay", key: `out:${p.id}`, name: expenseName(h, p), sortAt: at(p.from), when: whenText(h, p), amount: amountText(h, p), certain: !uncertain });
     }
     // 子への援助（教育の目標の gifts。贈与する人から出す援助は世帯のお金から出さないので並べない）
     const kids = h.members.filter((m) => m.kind === "child" && m.outside === undefined).sort((a, b) => a.birth.birthYearMonth.localeCompare(b.birth.birthYearMonth));
@@ -204,7 +191,6 @@ function itemsOf(households: readonly Household[], view: RowsView, table: readon
           when: y === null ? "時期は未定" : `${String(y)}年`,
           amount: x.amount > 0 ? yenShort(x.amount) : "未定",
           certain: !notNeededGift(x),
-          years: () => (y === null || x.amount <= 0 ? [] : [y]),
         });
       });
     }
@@ -214,7 +200,7 @@ function itemsOf(households: readonly Household[], view: RowsView, table: readon
         const ym = resolveTimepoint(h, pp.at);
         const y = yearOf(ym);
         if (y === null || y < firstYear) return;
-        push(main, { group: "pay", key: `prepay:${d.id}:${String(n)}`, name: `繰上返済（${debtName(d)}）`, sortAt: ym ?? "9999-12", when: `${String(y)}年`, amount: pp.amount > 0 ? yenShort(pp.amount) : "未定", certain: true, years: () => (pp.amount > 0 ? [y] : []) });
+        push(main, { group: "pay", key: `prepay:${d.id}:${String(n)}`, name: `繰上返済（${debtName(d)}）`, sortAt: ym ?? "9999-12", when: `${String(y)}年`, amount: pp.amount > 0 ? yenShort(pp.amount) : "未定", certain: true });
       });
     }
     // 家の購入・住み替えの頭金（住まいの purchase。頭金を払う年は表の頭金の行から読む。注文住宅は引き渡しの前に払う年もある）
@@ -225,8 +211,9 @@ function itemsOf(households: readonly Household[], view: RowsView, table: readon
       const paid = objectYears(table, r.id, "cf.expense.housing.purchase.downPayment");
       const y = paid[0] ?? yearOf(ym);
       if (y === null || (paid.at(-1) ?? y) < firstYear) continue;
-      const before = (h.residences ?? []).some((o) => o.id !== r.id && (resolveTimepoint(h, o.from) ?? "9999-12") < (resolveTimepoint(h, r.from) ?? "9999-12"));
-      push(main, { group: "pay", key: `purchase:${r.id}`, name: before ? "住み替えの頭金" : "家の購入の頭金", sortAt: ym ?? `${String(y)}-01`, when: `${String(y)}年`, amount: yenShort(down), certain: true, years: () => (paid.length > 0 ? paid : [y]) });
+      // 前に持ち家があれば住み替え（賃貸からの購入は家の購入）
+      const before = (h.residences ?? []).some((o) => o.id !== r.id && o.kind === "own" && (resolveTimepoint(h, o.from) ?? "9999-12") < (resolveTimepoint(h, r.from) ?? "9999-12"));
+      push(main, { group: "pay", key: `purchase:${r.id}`, name: before ? "住み替えの頭金" : "家の購入の頭金", sortAt: ym ?? `${String(y)}-01`, when: `${String(y)}年`, amount: yenShort(down), certain: true });
     }
     // 受け取りの予定: 不確実な入るお金（月々の物も）と、受け取る相続・贈与（確実も不確実も）
     for (const f of h.incomeFlows ?? []) {
@@ -234,7 +221,7 @@ function itemsOf(households: readonly Household[], view: RowsView, table: readon
       const uncertain = notCertainIncome(f);
       if (!base && !uncertain) continue;
       if ((endYear(h, f) ?? Infinity) < firstYear) continue;
-      push(main, { group: "receive", key: `in:${f.id}`, name: incomeName(f), sortAt: at(f.from), when: whenText(h, f), amount: amountText(h, f), certain: !uncertain, years: () => objectYears(table, f.id, "cf.income") });
+      push(main, { group: "receive", key: `in:${f.id}`, name: incomeName(f), sortAt: at(f.from), when: whenText(h, f), amount: amountText(h, f), certain: !uncertain });
     }
     // 相続で受け継ぐ借金（確実も不確実も。数字は受け継ぐ年の終わり）
     for (const d of h.debts ?? []) {
@@ -251,84 +238,63 @@ function itemsOf(households: readonly Household[], view: RowsView, table: readon
         when: y === null ? "時期は未定" : `${String(y)}年`,
         amount: v > 0 ? yenShort(v) : "未定",
         certain: d.likelihood !== "uncertain",
-        years: () => (y === null ? [] : [y]),
       });
     }
   });
   return out;
 }
 
-/** 数字の文字（1回は「1,239万円」、何年ごと・毎年は「987万円（2029年）」） */
-const afterText = (p: DreamPaid): string => `${man(p.after)}万円${p.count > 1 ? `（${String(p.year)}年）` : ""}`;
-
 export interface BigMoneySummaryInput {
-  /** 入れ外しできる物の数と、そのうち今の見方で計算に入れている数 */
+  /** チェックのある物（入れ外しできる物）の数と、そのうちチェックの入っている数 */
   total: number;
   included: number;
   /** 今の見方で資産が尽きる年（尽きなければ null） */
   withYear: number | null;
-  /** 確実な分だけで資産が尽きる年（尽きなければ null） */
-  withoutYear: number | null;
   ageText: (year: number) => string;
   until: string;
 }
 
 /**
- * 一行の結論（入れ外しできる物が無ければ null）。夢だけの世帯の「計算に入れた夢（7件中4件）を入れても95歳まで足ります」（0103）を、
- * 不確実な物と夢の全体に広げた言い方（入れ外しは行の左のチェックなので「チェックした○件」）:
- * - 「チェックした4件（7件中）を入れても95歳まで足ります」「すべてを入れても95歳まで足ります」
- * - 「チェックした4件（7件中）を入れると82歳で不足します（確実な分だけなら足ります）」
- * - 「…を入れると82歳で不足します（確実な分だけなら88歳で不足します）」（不確実な入るお金を外すと早まることもあるので、年は数字で言う）
- * - 「…を入れて95歳まで足ります（確実な分だけなら82歳で不足します）」（不確実な入るお金が効いているとき）
- * - 「確実な分だけでも82歳で不足します（チェックした物で時期は変わりません）」
- * - どれも入れていなければ「確実な分だけで95歳まで足ります」「確実な分だけでは82歳で不足します」
+ * 一行の結論（チェックのある物が無ければ null）。チェックの状態をそのまま言う:
+ * - 「チェックした8件（15件中）を入れても102歳まで足ります」「すべて（7件）を入れても95歳まで足ります」
+ * - 「チェックした8件（15件中）を入れると82歳で不足します」
+ * - どれもチェックしていなければ「どれも入れずに95歳まで足ります」「どれも入れずに82歳で不足します」
  */
 export function bigMoneySummary(x: BigMoneySummaryInput): string | null {
   if (x.total === 0) return null;
-  if (x.included === 0) return x.withYear === null ? `確実な分だけで${x.until}足ります` : `確実な分だけでは${x.ageText(x.withYear)}で不足します`;
-  const which = x.included === x.total ? "すべてを" : `チェックした${String(x.included)}件（${String(x.total)}件中）を`;
-  if (x.withYear === null) return x.withoutYear === null ? `${which}入れても${x.until}足ります` : `${which}入れて${x.until}足ります（確実な分だけなら${x.ageText(x.withoutYear)}で不足します）`;
-  if (x.withoutYear === null) return `${which}入れると${x.ageText(x.withYear)}で不足します（確実な分だけなら足ります）`;
-  if (x.withoutYear === x.withYear) return `確実な分だけでも${x.ageText(x.withYear)}で不足します（チェックした物で時期は変わりません）`;
-  return `${which}入れると${x.ageText(x.withYear)}で不足します（確実な分だけなら${x.ageText(x.withoutYear)}で不足します）`;
+  const end = x.withYear === null ? `${x.until}足ります` : `${x.ageText(x.withYear)}で不足します`;
+  if (x.included === 0) return `どれも入れずに${end}`;
+  const which = x.included === x.total ? `すべて（${String(x.total)}件）を` : `チェックした${String(x.included)}件（${String(x.total)}件中）を`;
+  return `${which}${x.withYear === null ? "入れても" : "入れると"}${end}`;
 }
 
 /**
  * 区画の値（App.tsx が作る。proposal は今の見方を当てた選んでいるプランの要求、table はその答えの表。failed は選んだプランか基準のプランが
- * 計算できなかった〔金融資産の数字と一行の結論を出さない。0169〕）
+ * 計算できなかった〔一行の結論を出さない。0169〕）
  */
 export function bigMoneyOf(proposal: EngineRequest, table: readonly TableCell[], input: BigMoneyInput, failed = false): BigMoneyModel {
   const years = displayYears(proposal);
   const self = roles(proposal).find((r) => r.key === "self");
   const last = years.at(-1) ?? proposal.input.endYear;
-  return bigMoneyModel(input, {
-    table,
+  const ctx: BigMoneyContext = {
     years,
     depP: depletionYear(table, years),
-    depletionOf: (t) => depletionYear(t, years),
     ageText: (y) => (self !== undefined ? `${String(ageInYear(self.member, y))}歳` : `${String(y)}年`),
     until: self !== undefined ? `${String(ageInYear(self.member, last))}歳まで` : "最後まで",
     failed,
-  });
-}
-
-function bigMoneyModel(input: BigMoneyInput, ctx: BigMoneyContext): BigMoneyModel {  const hs = [input.raw.input.household, ...(input.current !== undefined ? [input.current.input.household] : [])];
-  const items = itemsOf(hs, input.view, ctx.table, ctx.years[0] ?? 0);
+  };
+  const hs = [input.raw.input.household, ...(input.current !== undefined ? [input.current.input.household] : [])];
+  const items = itemsOf(hs, input.view, table, ctx.years[0] ?? 0);
   const groups: BigMoneyGroup[] = [];
   for (const g of GROUPS) {
-    const list = items
+    const rows = items
       .map((it, i) => ({ it, i }))
       .filter((x) => x.it.group === g.key)
       .sort((a, b) => a.it.sortAt.localeCompare(b.it.sortAt) || a.i - b.i)
-      .map(({ it }): BigMoneyRow => {
-        const paid = it.included && !ctx.failed ? paidIn(it.years(), ctx.table, ctx.years) : null;
-        return { key: it.key, name: it.name, when: it.when, amount: it.amount, after: paid === null ? null : afterText(paid), short: paid?.short === true, tag: it.tag, included: it.included, pick: it.pick === null ? null : { key: it.pick.key, reason: it.pick.reason, ...(it.pick.off === true ? { off: true } : {}) } };
-      });
-    if (list.length > 0) groups.push({ ...g, rows: list });
+      .map(({ it }): BigMoneyRow => ({ key: it.key, name: it.name, when: it.when, amount: it.amount, tag: it.tag, included: it.included, pick: it.pick === null ? null : { key: it.pick.key, ...(it.pick.off === true ? { off: true } : {}) } }));
+    if (rows.length > 0) groups.push({ ...g, rows, included: rows.filter((r) => r.included).length });
   }
   const picks = groups.flatMap((g) => g.rows).filter((r) => r.pick !== null);
-  const included = picks.filter((r) => r.included).length;
-  const withoutYear = included === 0 ? ctx.depP : input.certainTable === null ? undefined : ctx.depletionOf(input.certainTable);
-  const line = ctx.failed || withoutYear === undefined ? null : bigMoneySummary({ total: picks.length, included, withYear: ctx.depP, withoutYear, ageText: ctx.ageText, until: ctx.until });
-  return { certainOnly: input.view.certainOnly, line, groups };
+  const line = ctx.failed ? null : bigMoneySummary({ total: picks.length, included: picks.filter((r) => r.included).length, withYear: ctx.depP, ageText: ctx.ageText, until: ctx.until });
+  return { line, groups };
 }

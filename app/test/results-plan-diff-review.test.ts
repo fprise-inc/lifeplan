@@ -175,10 +175,10 @@ describe("結果のご家族の夢・上の行・資産と負債", () => {
       { id: "22222222-2222-4222-8222-222222222222", row: "cf.expense.lumpSum.gift", label: "あげる贈与", from: { at: "2027-01" }, to: { at: "2031-12" }, everyYears: 1, amount: { value: 500_000, state: "confirmed", origin: { kind: "manual" } }, kind: "gift" },
     ] as never;
     const res = preview(req);
-    const bm = bigMoneyOf(req, res.table, { raw: req, view: ALL_ROWS, certainTable: null });
+    const bm = bigMoneyOf(req, res.table, { raw: req, view: ALL_ROWS });
     expect(bm.groups.map((g) => g.key)).toEqual(["pay"]);
     expect(bm.groups[0]!.rows.map((r) => [r.name, r.when, r.amount, r.tag, r.pick !== null])).toEqual([
-      ["あげる贈与", "2027〜2031年・毎年", "年50万円", "確実", false],
+      ["あげる贈与", "2027〜2031年・毎年", "年50万円", "確実", true],
       ["あげる贈与", "2027年", "110万円", "不確実", true],
     ]);
   });

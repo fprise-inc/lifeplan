@@ -923,7 +923,7 @@ export interface PeriodicExpenseInput {
   readonly counterparty?: string;
   /** お金の行（0044）: 払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯） */
   readonly payer?: string;
-  /** お金の行（0044）: 見込み（need・want・wish。画面は need が「確実」、want・wish が「不確実」。計算には使わない。確実な分だけで見るときに want・wish を外す） */
+  /** お金の行（0044）: 見込み（need・want・wish。画面は need が「確実」、want・wish が「不確実」。計算には使わない。want・wish の行は、アプリが要求から外す） */
   readonly priority?: "need" | "want" | "wish";
   /** お金の行（0044）: あげる贈与（相手は世帯の外の家族。贈与税は受け取る人が払うので世帯から出さず、要約に出す） */
   readonly gift?: OutgoingGiftInput;
@@ -1006,7 +1006,7 @@ export interface IncomeFlowInput {
   readonly counterparty?: string;
   /** 見込み（計算には使わない。アプリが、不確かな受け取る相続・贈与を要求から外す。0035 の7・0036 の6） */
   readonly likelihood?: "certain" | "likely" | "uncertain";
-  /** 基本の計算に入れる（true で、不確かでも入れる。省略は見込みで決める。計算には使わない） */
+  /** 計算に入れる（前の版の「この行を計算に入れる」。true で、不確実でもアプリが要求に残す。省略は見込みで決める。計算には使わない） */
   readonly includeInBase?: boolean;
   /** 贈与税で見るときの課税の方法（省略は暦年課税） */
   readonly giftMethod?: "calendar" | "settlement";
@@ -1215,7 +1215,7 @@ export interface EducationGoalInput {
     readonly donor?: string;
     readonly taxMethod?: "calendar" | "settlement";
     readonly housingExemption?: "energySaving" | "other" | "none";
-    /** 見込み（need 確実・want 不確実。計算には使わない。画面の「確実な分だけ」の見方で「不確実」を外す。0103） */
+    /** 見込み（need 確実・want 不確実。計算には使わない。「不確実」の援助は、アプリが要求から外す。0103） */
     readonly priority?: "need" | "want";
   }[];
   readonly childAllowance?: boolean;

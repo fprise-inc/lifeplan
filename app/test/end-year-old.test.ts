@@ -3,7 +3,7 @@
 // - 若い方がすでにその年齢に近い・過ぎている（101歳以上など）ときは、表を少なくとも5年分にする（計算エンジンが endYear で止まらない）
 // - 今の入力で計算できなかったプランは、前の計算の残りの結果で「足りる」「残ります」を出さない
 import { describe, expect, it } from "vitest";
-import { ALL_ROWS, certainOnly, forEngine } from "../src/engine/moneyRows.ts";
+import { ALL_ROWS, forEngine } from "../src/engine/moneyRows.ts";
 import { bigMoneyOf } from "../src/workspace/bigMoney.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, endAgeOf, endYearForAge, followedEndAge, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -80,19 +80,17 @@ describe("若い方がすでにその年齢を過ぎている世帯（H6-008）"
 describe("計算できなかったプランに「足りる」「残ります」を出さない（H6-008）", () => {
   const req = modelHousehold("pensionCouple");
   const res = preview(req);
-  it("これからの大きなお金の金融資産の数字と一行の結論は出さない（並べる物とチェックはそのまま）、結論の1文は計算できなかった旨", () => {
+  it("これからの大きなお金の一行の結論は出さない（並べる物とチェックはそのまま）、結論の1文は計算できなかった旨", () => {
     const raw = modelHousehold("sampleFamilyDreams");
     const fe = forEngine(raw);
     const r = preview(fe);
-    const input = { raw, view: ALL_ROWS, certainTable: preview(forEngine(certainOnly(raw))).table };
+    const input = { raw, view: ALL_ROWS };
     const same = { selected: "現状", base: "現状", same: true };
     const ok = bigMoneyOf(raw, r.table, input);
-    expect(ok.groups.flatMap((g) => g.rows).some((x) => x.after !== null)).toBe(true);
     expect(ok.line).not.toBeNull();
     const ng = bigMoneyOf(raw, r.table, input, true);
     expect(ng.line).toBeNull();
-    expect(ng.groups.flatMap((g) => g.rows).every((x) => x.after === null)).toBe(true);
-    expect(ng.groups.flatMap((g) => g.rows).map((x) => [x.name, x.included])).toEqual(ok.groups.flatMap((g) => g.rows).map((x) => [x.name, x.included]));
+    expect(ng.groups).toEqual(ok.groups);
     const p = toPresentation({ base: raw, proposal: fe, current: r, proposed: r, targetAge: 90, selectedYear: null, provisional: false, names: same, failed: true });
     expect(p.result.parts.map((x) => x.text).join("")).toBe("今の入力では計算できませんでした");
     expect(p.verdict.parts.map((x) => x.text).join("")).not.toContain("足り");

@@ -5,7 +5,7 @@ import { h as el } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, PeriodicExpense } from "../src/engine/types.ts";
-import { applyRowsView, certainOnly, forEngine, pickRow, viewCandidates, viewMode, withoutDreams } from "../src/engine/moneyRows.ts";
+import { ALL_ROWS, applyRowsView, forEngine, pickRow, viewCandidates, withoutDreams } from "../src/engine/moneyRows.ts";
 import { allFields, type GroupDef, type SectionDef } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addDream, DREAM_TEMPLATES, dreamRows, moveDream, toDream } from "../src/workspace/input/dreams.ts";
@@ -16,8 +16,6 @@ import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { bigMoneyOf } from "../src/workspace/bigMoney.ts";
 import { BigMoneyCard } from "../src/workspace/BigMoneyCard.tsx";
-import { financialOf } from "../src/workspace/present.ts";
-import { man } from "../src/presentation/format.ts";
 import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
 import { addMonths } from "../src/workspace/levers.ts";
 import { dreamSummary } from "../../report/src/dreams.ts";
@@ -226,7 +224,7 @@ describe("計算と結果の見方", () => {
     expect(lump(r, ids[2])).toBeGreaterThanOrEqual(400000);
   });
 
-  it("結果の見方: 夢は理由「夢」で並び、1件ずつ入れ外しできる。「確実な分だけ」は夢を外す。「計算に入れない」夢は、ここで入れて見られる", () => {
+  it("結果の見方: 夢は1件ずつ入れ外しできる（チェック）。「最初から計算に入れない」夢は、ここで入れて見られる", () => {
     const wh = mutate(threeDreams(), (h) => void (h.periodicExpenses!.find((p) => p.id === ids[1])!.dream!.include = false));
     const h = wh.request.input.household;
     const cs = viewCandidates(h).filter((c) => c.reason === "dream");
@@ -235,23 +233,20 @@ describe("計算と結果の見方", () => {
       [ids[1], true],
       [ids[2], false],
     ]);
-    const rows = bigMoneyOf(reqOf(wh), preview(forEngine(reqOf(wh))).table, { raw: reqOf(wh), view: viewMode(false), certainTable: null }).groups.find((g) => g.key === "dreams")!.rows;
-    expect(Object.fromEntries(rows.map((r) => [r.name, [r.included, r.pick?.reason, r.tag]]))).toEqual({
-      特別な旅行: [true, "dream", null],
-      憧れの車: [false, "dream", null],
-      "学び直し・資格": [true, "dream", null],
+    const rows = bigMoneyOf(reqOf(wh), preview(forEngine(reqOf(wh))).table, { raw: reqOf(wh), view: ALL_ROWS }).groups.find((g) => g.key === "dreams")!.rows;
+    expect(Object.fromEntries(rows.map((r) => [r.name, [r.included, r.pick !== null, r.tag]]))).toEqual({
+      特別な旅行: [true, true, null],
+      憧れの車: [false, true, null],
+      "学び直し・資格": [true, true, null],
     });
-    // 確実な分だけ: 夢を全部外す
-    const certain = certainOnly(reqOf(wh));
-    expect((certain.input.household.periodicExpenses ?? []).some((p) => p.kind === "dream")).toBe(false);
     // 計算に入れない夢を入れて見る（要求の写しで include を true。世帯は変えない）
     const c1 = cs[1]!;
-    const v = pickRow(viewMode(false), c1, true);
+    const v = pickRow(ALL_ROWS, c1, true);
     const seen = forEngine(applyRowsView(reqOf(wh), v));
     expect((seen.input.household.periodicExpenses ?? []).find((p) => p.id === ids[1])?.dream?.include).toBe(true);
     expect(h.periodicExpenses!.find((p) => p.id === ids[1])!.dream!.include).toBe(false);
     // 入れている夢を1件だけ外す
-    const off = applyRowsView(reqOf(wh), pickRow(viewMode(false), cs[0]!, false));
+    const off = applyRowsView(reqOf(wh), pickRow(ALL_ROWS, cs[0]!, false));
     expect((off.input.household.periodicExpenses ?? []).map((p) => p.id)).not.toContain(ids[0]);
   });
 
@@ -280,8 +275,7 @@ describe("計算と結果の見方", () => {
     const wh = mutate(threeDreams(), (h) => void (h.periodicExpenses!.find((p) => p.id === ids[2])!.dream!.include = false));
     const req = wh.request;
     const r = preview(forEngine(req));
-    const cert = preview(forEngine(certainOnly(req)));
-    const bm = bigMoneyOf(req, r.table, { raw: req, view: viewMode(false), certainTable: cert.table });
+    const bm = bigMoneyOf(req, r.table, { raw: req, view: ALL_ROWS });
     const dreams = bm.groups.find((g) => g.key === "dreams")!.rows;
     expect(Object.fromEntries(dreams.map((d) => [d.name, [d.amount, d.included, d.pick !== null, d.tag]]))).toEqual({
       特別な旅行: ["150万円", true, true, null],
@@ -289,17 +283,17 @@ describe("計算と結果の見方", () => {
       "学び直し・資格": ["40万円", false, true, null],
     });
     expect(dreams.every((d) => /^\d{4}(年|〜)/u.test(d.when))).toBe(true);
-    expect(bm.line).toMatch(/^チェックした2件（3件中）を入れ(ても\d+歳まで足ります|ると\d+歳で不足します（.+）)$/u);
+    expect(bm.line).toMatch(/^チェックした\d+件（\d+件中）を入れ(ても\d+歳まで足ります|ると\d+歳で不足します)$/u);
     // 夢の無い世帯は「ご家族の夢」のまとまりを出さない
     const plain = bare().request;
     const r0 = preview(plain);
-    const m0 = bigMoneyOf(plain, r0.table, { raw: plain, view: viewMode(false), certainTable: null });
+    const m0 = bigMoneyOf(plain, r0.table, { raw: plain, view: ALL_ROWS });
     expect(m0.groups.some((g) => g.key === "dreams")).toBe(false);
   });
 });
 
 describe("子への援助の見込み（確実・不確実。値は need・want）", () => {
-  it("子の結婚の援助のひな形は「不確実」。子ども・教育の援助の欄に見込み（省略は確実）。「確実な分だけ」で「不確実」の援助を外す", () => {
+  it("子の結婚の援助のひな形は「不確実」。子ども・教育の援助の欄に見込み（省略は確実）。「不確実」の援助はふだんの計算に入れない（チェックで入れて見られる）", () => {
     const wh = addOutTemplate(bare(), "childWedding", seq("a"));
     const h = wh.request.input.household;
     const gifts = (h.goals ?? []).flatMap((g) => g.education?.gifts ?? []);
@@ -309,17 +303,18 @@ describe("子への援助の見込み（確実・不確実。値は need・want�
     expect(edu.map((f) => f.get(wh).value)).toEqual(gifts.map(() => "want"));
     const cs = viewCandidates(h).filter((c) => c.side === "gift");
     expect(cs).toHaveLength(gifts.length);
-    const pay = bigMoneyOf(wh.request, preview(wh.request).table, { raw: wh.request, view: viewMode(true), certainTable: null }).groups.find((g) => g.key === "pay")!.rows.filter((x) => x.name.includes("への援助"));
+    const pay = bigMoneyOf(wh.request, preview(wh.request).table, { raw: wh.request, view: ALL_ROWS }).groups.find((g) => g.key === "pay")!.rows.filter((x) => x.name.includes("への援助"));
     expect(pay.map((x) => [x.name, x.tag, x.included, x.pick !== null])).toEqual([
       ["第1子への援助（結婚資金）", "不確実", false, true],
       ["第2子への援助（結婚資金）", "不確実", false, true],
     ]);
     const wed = (x: ReturnType<typeof preview>) => x.table.filter((c) => c.row === "cf.expense.lumpSum.wedding").reduce((s, c) => s + c.amount, 0);
-    expect(wed(preview(certainOnly(wh.request)))).toBe(wed(preview(bare().request)));
-    expect(wed(preview(wh.request))).toBeGreaterThan(wed(preview(bare().request)));
-    // 前の援助（見込みなし）は「確実」のまま（確実な分だけでも外さない）
+    expect(wed(preview(forEngine(wh.request)))).toBe(wed(preview(forEngine(bare().request))));
+    const v = cs.reduce((acc, c) => pickRow(acc, c, true), ALL_ROWS);
+    expect(wed(preview(forEngine(applyRowsView(wh.request, v))))).toBeGreaterThan(wed(preview(forEngine(bare().request))));
+    // 前の援助（見込みなし）は「確実」のまま（ふだんの計算に入る。チェックで外して見られる）
     const old = mutate(wh, (hh) => hh.goals!.forEach((g) => g.education?.gifts?.forEach((x) => delete x.priority)));
-    expect(viewCandidates(old.request.input.household).some((c) => c.side === "gift")).toBe(false);
+    expect(viewCandidates(old.request.input.household).filter((c) => c.side === "gift").every((c) => c.reason === "certain" && c.off !== true)).toBe(true);
     expect(edu[0]!.get(old).value).toBe("need");
   });
 });
@@ -345,18 +340,17 @@ describe("夢プランの見本の世帯（sampleFamilyDreams。架空）", () =
     expect((h.periodicExpenses ?? []).filter((p) => p.kind !== "dream")).toHaveLength(1);
   });
 
-  /** 見本の区画（計算に入れる夢4件だけの見方。一行の結論は確実な分だけの計算と比較する） */
+  /** 見本の区画（計算に入れる夢4件と確実な支払い1件にチェック） */
   const sample = () => {
     const r = preview(forEngine(raw));
-    const cert = preview(forEngine(certainOnly(raw)));
-    return { r, bm: bigMoneyOf(raw, r.table, { raw, view: viewMode(false), certainTable: cert.table }) };
+    return { r, bm: bigMoneyOf(raw, r.table, { raw, view: ALL_ROWS }) };
   };
 
   it("これからの大きなお金: 夢は払い始める年の順で、額の無い夢は「未定」。ふつうの出るお金の行は「支払いの予定」。一行の結論は計算に入れた4件の見方", () => {
     const { bm } = sample();
-    expect(bm.groups.map((g) => [g.key, g.title, g.afterLabel])).toEqual([
-      ["dreams", "ご家族の夢", "払った後の金融資産"],
-      ["pay", "支払いの予定", "払った後の金融資産"],
+    expect(bm.groups.map((g) => [g.key, g.title, g.included, g.rows.length])).toEqual([
+      ["dreams", "ご家族の夢", 4, 7],
+      ["pay", "支払いの予定", 1, 1],
     ]);
     expect(bm.groups[0]!.rows.map((x) => [x.name, x.when, x.amount, x.included])).toEqual([
       ["趣味を始める（夫婦でキャンプ）", "2027年", "30万円", true],
@@ -367,60 +361,41 @@ describe("夢プランの見本の世帯（sampleFamilyDreams。架空）", () =
       ["長女の結婚の援助", "2044年", "200万円", false],
       ["退職後の夫婦のゴルフ", "2047〜2057年・毎年", "年24万円", false],
     ]);
-    expect(bm.groups[1]!.rows.map((x) => [x.name, x.when, x.amount, x.tag, x.pick])).toEqual([["家電・家具の買い替え", "2028〜2068年・5年ごと", "30万円", "確実", null]]);
-    expect(bm.line).toBe("チェックした4件（7件中）を入れても95歳まで足ります");
+    expect(bm.groups[1]!.rows.map((x) => [x.name, x.when, x.amount, x.tag, x.included, x.pick !== null])).toEqual([["家電・家具の買い替え", "2028〜2068年・5年ごと", "30万円", "確実", true, true]]);
+    expect(bm.line).toBe("チェックした5件（8件中）を入れても95歳まで足ります");
   });
 
-  it("払った後の金融資産: 1回の夢は払う年、何年ごとは払う年でいちばん少ない年の額と年。計算に入れていない夢・額の無い夢は出さない", () => {
-    const { r, bm } = sample();
-    const fin = financialOf(r.table);
-    const yen = (y: number) => `${man(fin.get(y) ?? 0)}万円`;
-    const dreams = bm.groups[0]!.rows;
-    expect(dreams[0]!.after).toBe(yen(2027));
-    expect(dreams[1]!.after).toBe(yen(2028));
-    expect(dreams[3]!.after).toBe(yen(2040));
-    // 車の買い替え（2029〜2050年・7年ごと）: 2029・2036・2043・2050年の4回。いちばん少ない年
-    const car = dreamRows(raw.input.household)[1]!;
-    const paid = [...new Set(r.table.filter((c) => c.object === car.id && c.amount > 0).map((c) => c.year))].sort();
-    expect(paid).toEqual([2029, 2036, 2043, 2050]);
-    const low = paid.reduce((a, y) => ((fin.get(y) ?? 0) < (fin.get(a) ?? 0) ? y : a));
-    expect(dreams[2]!.after).toBe(`${yen(low)}（${low}年）`);
-    expect(dreams.slice(4).map((x) => x.after)).toEqual([null, null, null]);
-    expect(dreams.some((x) => x.short)).toBe(false);
-  });
-
-  it("払う年に資金が不足する夢は数字を不足の色に。見方で入れた夢は、入れている夢と同じく数字を出す", () => {
+  it("資金が不足すると一行の結論は不足の年。見方で入れた夢はチェックが入る（金融資産の数字は区画に出さない。グラフで見る）", () => {
     // リフォームを大きくして2040年に不足させる
     const big = structuredClone(raw);
     const reform = dreamRows(big.input.household)[2]!;
     (reform.amount as { value: number }).value = 200_000_000;
     const r = preview(forEngine(big));
-    const bm = bigMoneyOf(big, r.table, { raw: big, view: viewMode(false), certainTable: null });
-    const row = bm.groups[0]!.rows.find((x) => x.name.startsWith("自宅のリフォーム"))!;
-    expect(row.short).toBe(true);
-    expect(row.after).toMatch(/^▲[\d,]+万円$/u);
-    expect(bm.line).toBeNull();
-    // 「最初から計算に入れない」夢を見方で入れると、その夢も払った後の金融資産を出す
+    const bm = bigMoneyOf(big, r.table, { raw: big, view: ALL_ROWS });
+    expect(bm.line).toMatch(/^チェックした5件（8件中）を入れると\d+歳で不足します$/u);
+    // 「最初から計算に入れない」夢を見方で入れる
     const wedding = dreamRows(raw.input.household)[4]!;
     const cand = viewCandidates(raw.input.household).find((c) => c.id === wedding.id)!;
-    const view = pickRow(viewMode(false), cand, true);
+    const view = pickRow(ALL_ROWS, cand, true);
     const ra = preview(forEngine(applyRowsView(raw, view)));
-    const ma = bigMoneyOf(raw, ra.table, { raw, view, certainTable: null });
-    const w = ma.groups[0]!.rows.find((x) => x.name === "長女の結婚の援助")!;
-    expect(w.included).toBe(true);
-    expect(w.after).toBe(`${man(financialOf(ra.table).get(2044) ?? 0)}万円`);
+    const ma = bigMoneyOf(raw, ra.table, { raw, view });
+    expect(ma.groups[0]!.rows.find((x) => x.name === "長女の結婚の援助")!.included).toBe(true);
+    expect(ma.groups[0]!.included).toBe(5);
+    expect(ma.line).toMatch(/^チェックした6件（8件中）を入れ/u);
   });
 
-  it("区画の表示: 名前は「これからの大きなお金」。切り替え・一行の結論・1件1行（チェック・確実）。長い案内の文と自動の目標は出さない", () => {
+  it("区画の表示: 名前は「これからの大きなお金」。一行の結論・1件1行（チェック・確実）。切り替え・金融資産の数字・長い案内の文と自動の目標は出さない", () => {
     const { bm } = sample();
     const html = renderToString(el(BigMoneyCard, { model: bm, notes: [] }));
     expect(html).toContain("<h2>これからの大きなお金</h2>");
-    expect(html).toContain("チェックした4件（7件中）を入れても95歳まで足ります");
-    expect(html).toContain('data-view-mode="certain"');
+    expect(html).toContain("チェックした5件（8件中）を入れても95歳まで足ります");
+    expect(html).not.toContain("data-view-mode");
     expect(html.match(/data-bm-row=/gu)).toHaveLength(8);
-    expect(html.match(/type="checkbox"/gu)).toHaveLength(7);
+    expect(html.match(/type="checkbox"/gu)).toHaveLength(8);
     expect(html.match(/data-included="0"/gu)).toHaveLength(3);
     expect(html.match(/>確実</gu)).toHaveLength(1);
-    for (const gone of ["準備OK", "準備できています", "老後の生活資金", "住宅ローンの完済", "の大学", "グラフの上", "外している物", "額が決まると", "残ります"]) expect(html).not.toContain(gone);
+    expect(html).toContain("4/7件");
+    expect(html).toContain('data-bm-cols="2"');
+    for (const gone of ["準備OK", "準備できています", "老後の生活資金", "住宅ローンの完済", "の大学", "グラフの上", "外している物", "額が決まると", "残ります", "払った後", "確実な分だけ"]) expect(html).not.toContain(gone);
   });
 });

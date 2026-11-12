@@ -346,7 +346,7 @@ export interface EducationGift {
   purpose: string;
   payer?: string;
   donor?: string;
-  /** 見込み（画面は need 確実・want 不確実。省略は確実。計算には使わない。「確実な分だけ」の見方で「不確実」を外す。0103） */
+  /** 見込み（画面は need 確実・want 不確実。省略は確実。計算には使わない。「不確実」の援助は、ふだんの計算から外す〔engine/moneyRows.ts の forEngine〕。0103） */
   priority?: "need" | "want";
   [key: string]: unknown;
 }
