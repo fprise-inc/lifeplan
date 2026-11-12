@@ -1,4 +1,4 @@
-// 面談の準備（0074）の中身: 世帯の中身の一覧・次の1年に起きること・過ぎた予定・前回（控え）との入力の違い・気づきの知らせ。
+// 面談の準備（0074）の中身: 世帯の中身の一覧・次の1年に起きること・過ぎた予定・前回（控え）との入力の違い・ポイント（結果のタブ）の知らせ。
 // どれも世帯の物と計算の結果から読むだけで、世帯も計算も変えない（入力は増えない）
 import type { EngineRequest, Member, PreviewResult, TableCell, Timepoint } from "../../engine/types.ts";
 import { addMonths, ageReachedMonth, parseYm } from "../levers.ts";
@@ -276,7 +276,7 @@ export function resultFigures(req: EngineRequest, r: PreviewResult, age: number)
   return { depletion, atAge: years.includes(year) ? { age, year, amount: fin.get(year) ?? 0 } : null };
 }
 
-// ---- 気づきの知らせ（結果のタブ） ----
+// ---- ポイントの知らせ（結果のタブ。前の名前は気づき） ----
 
 export interface Insight {
   key: string;
@@ -292,7 +292,7 @@ const sumBy = (t: readonly TableCell[], pred: (c: TableCell) => boolean): Map<nu
 };
 
 /**
- * 気づき（決まりで数件。入力は増えない）: 預金が少なくなる年・赤字が続く・教育と介護が重なる・NISA の枠を使い切る年・相続税がかかる見込み。
+ * ポイント（前の名前は気づき。決まりで数件。入力は増えない）: 預金が少なくなる年・赤字が続く・教育と介護が重なる・NISA の枠を使い切る年・相続税がかかる見込み。
  * months は「生活費の何か月分」（お金の3つの分け方の設定。既定は6か月）
  */
 export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: number; inheritanceTax?: number | null } = {}): Insight[] {
