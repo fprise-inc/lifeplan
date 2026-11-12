@@ -116,23 +116,31 @@ export interface CashflowTableModel {
   rows: TableRowModel[];
 }
 
+/** 「ご家族の夢」の区画の夢ごとの一言（言い方は workspace/dreamWording.ts で決める） */
+export interface DreamNote {
+  /** ok: 払う年に資金の不足が無い。short: 払う年に資金の不足がある。info: 数字の無い案内（計算に入れていない・額が無い・計算できていない） */
+  tone: "ok" | "short" | "info";
+  /** 札の文字（「払えます」など。言い方によっては無い） */
+  status: string | null;
+  /** 一言の文（「払った後も1,159万円残ります」など） */
+  text: string;
+}
+
+/** 「ご家族の夢」の区画の1枚（夢プランの夢1件。夢が無いときは入れる所を案内する1枚） */
 export interface GoalCard {
+  /** 「夢1」。案内の1枚は「夢」 */
   category: string;
-  priority: "必ず" | "できれば";
   title: string;
   when: string;
   amount: Yen | null;
-  /** 準備できているか（null は未入力の「やりたいこと」のカード） */
-  ready: boolean | null;
-  /** 不足のときの文（例: 「2061年から資金が不足」） */
-  shortNote: string | null;
-  /** 夢プランの1件（0103）: 順位と、計算に入れているか（今の見方で）。額は amount（未入力は null） */
+  /** 夢プランの1件（0103）: 順位と、計算に入れているか（今の見方で）。額は amount（未入力は null）。案内の1枚には無い */
   dream?: { rank: number; included: boolean };
+  /** 夢ごとの一言（案内の1枚は null） */
+  note: DreamNote | null;
 }
 
+/** 結果の画面の「ご家族の夢」の区画（夢プランの夢だけを順位の順に出す） */
 export interface GoalsModel {
-  needTotal: number;
-  needReady: number;
   cards: GoalCard[];
   /** 夢のひとことの要約（「夢をすべて入れても100歳まで足ります」など。夢が無い・計算中は null。0103） */
   dreamLine: string | null;

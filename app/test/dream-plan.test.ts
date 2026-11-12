@@ -1,6 +1,8 @@
 // 夢プラン（0103）: ライフイベントの入力項目のいちばん上の区画・夢のひな形（名前と時期だけ）・順位の上下・計算に入れる／入れない・
 // ひとことメモ・古い「夢」（wish）の行を夢にする・結果の見方（理由「夢」・確実な分だけで外す）・夢を外した1回の計算と要約の1文・
 // 目標の区画の夢のカード・子への援助の優先度
+import { h as el } from "preact";
+import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, PeriodicExpense } from "../src/engine/types.ts";
 import { applyRowsView, certainOnly, forEngine, pickRow, viewCandidates, viewMode, withoutDreams } from "../src/engine/moneyRows.ts";
@@ -13,7 +15,9 @@ import { addOutTemplate, eventExpenses } from "../src/workspace/input/stages/eve
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { viewRows } from "../src/workspace/rowsView.ts";
-import { toPresentation } from "../src/workspace/present.ts";
+import { financialOf, toPresentation } from "../src/workspace/present.ts";
+import { GoalCards } from "../src/presentation/MainView.tsx";
+import { man } from "../src/presentation/format.ts";
 import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
 import { addMonths } from "../src/workspace/levers.ts";
 import { dreamSummary } from "../../report/src/dreams.ts";
@@ -367,5 +371,72 @@ describe("夢プランの見本の世帯（sampleFamilyDreams。架空）", () =
       "2042年（ご本人60歳）",
     ]);
     expect(m.goals.dreamLine).toBe("計算に入れた夢（7件中4件）を入れても95歳まで足ります");
+  });
+
+  /** 見本の区画（計算に入れる夢4件だけの見方） */
+  const sample = () => {
+    const req = forEngine(raw);
+    const r = preview(req);
+    const nd = preview(forEngine(withoutDreams(raw)));
+    return { r, m: toPresentation({ base: raw, proposal: req, current: r, proposed: r, targetAge: 95, selectedYear: null, provisional: false, dreams: { raw, withoutDreams: nd } }) };
+  };
+
+  it("夢ごとの一言: 計算に入れる夢は払う年の払った後の金融資産（何年ごとは払う年でいちばん少ない年と回数・合計）。入れない夢・額の無い夢は案内だけ", () => {
+    const { r, m } = sample();
+    const fin = financialOf(r.table);
+    const yen = (y: number) => `${man(fin.get(y) ?? 0)}万円`;
+    const dreams = m.goals.cards.filter((c) => c.dream !== undefined);
+    expect(dreams.map((c) => c.note?.tone)).toEqual(["ok", "ok", "ok", "ok", "info", "info", "info"]);
+    expect(dreams[0]!.note).toEqual({ tone: "ok", status: null, text: `払った後も${yen(2028)}残ります` });
+    expect(dreams[2]!.note!.text).toBe(`払った後も${yen(2040)}残ります`);
+    expect(dreams[3]!.note!.text).toBe(`払った後も${yen(2027)}残ります`);
+    // 車の買い替え（2029〜2050年・7年ごと）: 2029・2036・2043・2050年の4回。いちばん少ない年
+    const car = dreamRows(raw.input.household)[1]!;
+    const paid = [...new Set(r.table.filter((c) => c.object === car.id && c.amount > 0).map((c) => c.year))].sort();
+    expect(paid).toEqual([2029, 2036, 2043, 2050]);
+    const low = paid.reduce((a, y) => ((fin.get(y) ?? 0) < (fin.get(a) ?? 0) ? y : a));
+    expect(dreams[1]!.note!.text).toBe(`4回・合計1,600万円。払った後も、いちばん少ない${low}年で${yen(low)}残ります`);
+    // 最初から計算に入れない夢は数字の目安を出さず、結果の見方の「外している物」へ案内する。額の無い夢は額の案内
+    expect(dreams[4]!.note!.text).toBe("計算に入れていません。グラフの上の「外している物」で入れて比較できます");
+    expect(dreams[5]!.note!.text).toBe(dreams[4]!.note!.text);
+    expect(dreams[6]!.note!.text).toBe("額が決まると、グラフの上の「外している物」で入れて比較できます");
+    // 自動の目標（教育・住宅ローンの完済・老後の生活資金・ほかの出るお金）は出さない
+    expect(m.goals.cards).toHaveLength(7);
+  });
+
+  it("払う年に資金が不足する夢は「○年に資金が不足します」。結果の見方で入れた夢は、入れている夢と同じく数字を出す", () => {
+    // リフォームを大きくして2040年に不足させる
+    const big = structuredClone(raw);
+    const reform = dreamRows(big.input.household)[2]!;
+    (reform.amount as { value: number }).value = 200_000_000;
+    const req = forEngine(big);
+    const r = preview(req);
+    const m = toPresentation({ base: big, proposal: req, current: r, proposed: r, targetAge: 95, selectedYear: null, provisional: false, dreams: { raw: big, withoutDreams: null } });
+    const note = m.goals.cards[2]!.note!;
+    expect(note.tone).toBe("short");
+    expect(note.status).toBe("資金が不足");
+    expect(note.text).toMatch(/^2040年に資金が不足します（払った後の金融資産 ▲[\d,]+万円）$/u);
+    expect(m.goals.dreamLine).toBeNull();
+    // 「最初から計算に入れない」夢を見方で入れると、その夢も払った後の金融資産を出す
+    const wedding = dreamRows(raw.input.household)[4]!;
+    const cand = viewCandidates(raw.input.household).find((c) => c.id === wedding.id)!;
+    const all = forEngine(applyRowsView(raw, pickRow(viewMode(false), cand, true)));
+    const ra = preview(all);
+    const ma = toPresentation({ base: raw, proposal: all, current: ra, proposed: ra, targetAge: 95, selectedYear: null, provisional: false, dreams: { raw, withoutDreams: null } });
+    expect(ma.goals.cards[4]!.dream!.included).toBe(true);
+    expect(ma.goals.cards[4]!.note!.text).toBe(`払った後も${man(financialOf(ra.table).get(2044) ?? 0)}万円残ります`);
+  });
+
+  it("区画の表示: 名前は「ご家族の夢」。夢のカードと一言だけで、「必ず」の目標の件数・準備OKは出さない", () => {
+    const { m } = sample();
+    const html = renderToString(el(GoalCards, { model: m.goals }));
+    expect(html).toContain("<h2>ご家族の夢</h2>");
+    expect(html).toContain("夢プランの夢（順位の順）");
+    expect(html).toContain("計算に入れた夢（7件中4件）を入れても95歳まで足ります");
+    expect(html.match(/data-dream-card=/gu)).toHaveLength(7);
+    expect(html.match(/data-dream-note="ok"/gu)).toHaveLength(4);
+    expect(html.match(/data-dream-note="info"/gu)).toHaveLength(3);
+    expect(html).toContain("払った後も");
+    for (const gone of ["準備OK", "準備できています", "老後の生活資金", "住宅ローンの完済", "の大学", "何年かごとの支出", "家電・家具の買い替え"]) expect(html).not.toContain(gone);
   });
 });

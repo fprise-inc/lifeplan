@@ -3461,7 +3461,7 @@ export function App() {
             >
               {addedRows}
             </LeverCard>
-            {/* 目標と夢プラン（0103。夢のカードと、夢を入れた・入れない計算の要約の1文） */}
+            {/* ご家族の夢（0103。夢のカードと夢ごとの一言、夢を入れた・入れない計算の要約の1文） */}
             <GoalCards model={model.goals} />
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
