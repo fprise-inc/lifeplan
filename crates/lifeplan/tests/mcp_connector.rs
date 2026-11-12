@@ -1815,7 +1815,12 @@ async fn calculation_matches_the_screen_after_preparation() {
         .as_str()
         .unwrap()
         .contains("アプリの画面と同じ"));
-    for k in ["incomeFlows", "inheritedDebts", "periodicExpenses", "dreams"] {
+    for k in [
+        "incomeFlows",
+        "inheritedDebts",
+        "periodicExpenses",
+        "dreams",
+    ] {
         assert_eq!(
             prep["notInCalculation"][k].as_array().map(Vec::len),
             Some(1),
