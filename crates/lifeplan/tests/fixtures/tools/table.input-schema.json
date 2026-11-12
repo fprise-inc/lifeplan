@@ -182,8 +182,18 @@
         "null"
       ]
     },
+    "from_age": {
+      "description": "本人がこの年齢になる年から（含む。年齢はその年に迎える年齢で、画面の表の年齢の行と同じ）。例: 60歳から90歳までなら from_age 60・to_age 90。\n年で選ぶ from_year・to_year とは一緒に書けない。通りに別の世帯があれば、通りごとにその世帯の本人の年齢で選ぶ",
+      "format": "uint8",
+      "maximum": 120,
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
     "from_year": {
-      "description": "この年から（含む）",
+      "description": "この年から（含む）。本人の年齢で選ぶ from_age・to_age とは一緒に書けない",
       "format": "int64",
       "type": [
         "integer",
@@ -235,6 +245,18 @@
         "null"
       ]
     },
+    "orientation": {
+      "description": "表の向き: yearsDown（年を行に、数字を列に並べる。グラフを描く・プログラムで読むのに向く。既定）か yearsAcross（年を列に、数字を行に並べる。\n画面のキャッシュフロー表と同じ向き。年齢も行になる）。表の下の注はどちらでも同じ",
+      "enum": [
+        "yearsDown",
+        "yearsAcross",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "plan_changes": {
       "description": "基本で動かす画面のプランの動かす項目（compare と同じ）",
       "items": {
@@ -246,7 +268,7 @@
       ]
     },
     "rows": {
-      "description": "行（既定 income・taxSi・expense・net・financialAssets）。名前は compare の系列と同じ: income（収入合計）・takeHome（手取り＝収入−税・社会保険料）・\ntaxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産残高）・debt（負債の残高の合計）・\nshortfall（資金不足）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高。画面の表の行と同じ）・loanInterest（住宅ローンの利息。\n年額）・loanRate（その年の住宅ローンの金利。%）・pension（公的年金の世帯の合計。年額）・支出の内訳 expenseLiving・expenseSurplus・expenseHousing・\nexpenseEducation・expenseInsurance・expenseLumpSum・expenseCar・expenseCare・expenseRealEstate・expenseOther（全部足すと expense）。\nexpenseBreakdown は、支出の内訳のうちどれかの通りに値のある物をまとめて選ぶ",
+      "description": "行（既定 income・taxSi・expense・net・financialAssets）。名前は compare の系列と同じ: income（収入合計）・takeHome（手取り＝収入−税・社会保険料）・\ntaxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産残高）・debt（負債の残高の合計）・\nshortfall（資金不足）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高。画面の表の行と同じ）・loanInterest（住宅ローンの利息。\n年額）・loanRate（その年の住宅ローンの金利。%）・pension（公的年金の世帯の合計。年額）・支出の内訳 expenseLiving・expenseSurplus・expenseHousing・\nexpenseEducation・expenseInsurance・expenseLumpSum・expenseCar・expenseCare・expenseRealEstate・expenseOther（全部足すと expense）・収入の内訳\nincomeSalary（給与）・incomeBusiness（事業所得）・incomePension（公的年金）・incomeCorporatePension（企業年金・個人年金）・incomeRetirement（退職金）・\nincomeBenefit（給付・手当）・incomeRealEstate（家賃収入・不動産の売却）・incomeOther（その他の収入）（全部足すと income）・nisaContribution（NISAへの積立。\n年額）・nisaBalance（NISA の残高。年末）。expenseBreakdown・incomeBreakdown は、支出・収入の内訳のうちどれかの通りに値のある物をまとめて選ぶ",
       "items": {
         "enum": [
           "income",
@@ -262,6 +284,14 @@
           "loanInterest",
           "loanRate",
           "pension",
+          "incomeSalary",
+          "incomeBusiness",
+          "incomePension",
+          "incomeCorporatePension",
+          "incomeRetirement",
+          "incomeBenefit",
+          "incomeRealEstate",
+          "incomeOther",
           "expenseLiving",
           "expenseSurplus",
           "expenseHousing",
@@ -272,7 +302,10 @@
           "expenseCare",
           "expenseRealEstate",
           "expenseOther",
-          "expenseBreakdown"
+          "nisaContribution",
+          "nisaBalance",
+          "expenseBreakdown",
+          "incomeBreakdown"
         ],
         "type": "string"
       },
@@ -299,6 +332,16 @@
       "description": "基本のストレステストの型（compare と同じ）",
       "type": [
         "string",
+        "null"
+      ]
+    },
+    "to_age": {
+      "description": "本人がこの年齢になる年まで（含む）",
+      "format": "uint8",
+      "maximum": 120,
+      "minimum": 0,
+      "type": [
+        "integer",
         "null"
       ]
     },

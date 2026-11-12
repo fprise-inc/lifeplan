@@ -29,6 +29,9 @@ import { accountsOf, drawdownOf, drawdownStartDefault, INVEST_KINDS, methodOf, N
 import { clampRate, RETURN_RANGE, type PctRange } from "../input/rateRanges.ts";
 import { rateText as loanRateText } from "../input/loanMath.ts";
 import { isVariableNow, outlookBase, OUTLOOK_STEP_MONTHS, rateOutlookAdds, rateOutlooks, setRateOutlook } from "../input/stages/housingLoans.ts";
+import { COURSE_PRESETS, courseField, educationFinished, presetOutsideStages } from "../input/stages/education.ts";
+import { stageEnded } from "../input/fill.ts";
+import { SCHOOL_STAGES, SECTORS } from "../input/labels.ts";
 
 /** 変動金利の上乗せ（前提の assumptions.loanRateShifts の1件） */
 export interface RateShift {
@@ -85,6 +88,11 @@ export type Control =
    * current は今（借入の月）の金利、from は見込みの起点の月（今か借入の月）
    */
   | { kind: "outlook"; presets: { value: string; label: string; adds: string[] }[]; current: string; from: string; maxSteps: number; range: { min: string; max: string } }
+  /**
+   * 決まった選択肢から1つ選ぶ（子の進路の型。入力の欄と同じ型）。options は選べる値と言葉。今の値が選択肢に当たらなければ null
+   * （入力で段階ごとに選んだ物。そのまま）
+   */
+  | { kind: "choice"; options: { value: string; label: string }[] }
   /** 働き方の種類（選ぶ）と年収（1万円の刻みのスライダーと数値の欄）。estimate は種類を選び直したときの年収の目安 */
   | { kind: "work"; options: Option[]; max: number; estimate: (type: string) => number }
   /** 入力の欄と同じ形の数値の欄（金額の欄は、1万円の刻みのスライダーも付ける） */
@@ -956,6 +964,64 @@ function outlookItem(wh: WorkingHousehold, d: Debt, name: string): MovableItem |
 /** 率の数を10進の文字に（入力の欄の金利と同じ丸め。input/loanMath.ts の rateText） */
 const rateTextOf = (x: number): string => loanRateText(x);
 
+/**
+ * 子の進路の型（子ごと。0211）: 入力の子ども・教育の「進路の型」の欄の定義（courseField）の読み・書きをそのまま使い、型が決める段（幼稚園〜大学）の
+ * 公立・私立を一度に変える。欄が出る子（教育の目標があり、教育の段が全部は過ぎていない子）のうち、型が決める段でまだ終わって
+ * いない段がある子にだけ出す。
+ * 値は型の名前（COURSE_PRESETS の value）。今の段が型に当たらなければ null（段階ごとに選んだ進路。そのまま）。名前には呼び名を入れない
+ * （グラフ・表の注に「第1子の進路の型 中学から私立」と出るため）
+ */
+function courseItems(wh: WorkingHousehold): MovableItem[] {
+  const req = wh.request;
+  const h = req.input.household;
+  const base = req.input.baseMonth;
+  const out: MovableItem[] = [];
+  for (const child of h.members.filter((m) => m.kind === "child")) {
+    const goal = (h.goals ?? []).find((g) => g.kind === "education" && g.owner === child.id);
+    const edu = goal?.education;
+    if (goal === undefined || edu === undefined || educationFinished(child, goal, base)) continue;
+    const controlled = (s: { stage: string }) => COURSE_PRESETS.some((p) => p.sectors[s.stage] !== undefined);
+    if (!edu.stages.some((s) => controlled(s) && !stageEnded(child, s, base))) continue;
+    const who = memberLabel(wh, child.id, { nicknames: false });
+    const f = courseField(goal.id);
+    const options = COURSE_PRESETS.map((p) => ({ value: p.value, label: p.label }));
+    const labelOf = (v: ItemValue) => options.find((o) => o.value === v)?.label ?? null;
+    const outside = presetOutsideStages(edu.stages);
+    out.push({
+      key: `edu:${goal.id}:course`,
+      item: "goal.education",
+      target: { object: goal.id },
+      label: `${who}の進路の型`,
+      short: "進路の型",
+      group: "よく使う",
+      builtin: false,
+      phase: "field",
+      control: { kind: "choice", options },
+      read: (w) => {
+        const v = f.get(w).value;
+        return typeof v === "string" && v !== "" ? v : null;
+      },
+      // 入力の欄と同じ書き方（今と同じ型なら何も変えない・値の状態の行の後始末も同じ）
+      apply: (w, v) => (typeof v === "string" ? f.set(w, v) : w),
+      text: (v) => labelOf(v) ?? "段階ごとに選んだ進路（型に当たらない）",
+      same: (a, b) => (a ?? null) === (b ?? null),
+      note: (v) => {
+        const p = COURSE_PRESETS.find((x) => x.value === v);
+        // これからの段の公立・私立（型を当てた後）。型に無い段（短大・専門学校・高専など）は型では変わらない
+        const ahead = edu.stages.filter((s) => !stageEnded(child, s, base));
+        const sector = (s: { stage: string; sector?: string }) => {
+          const x = p?.sectors[s.stage] ?? s.sector ?? "public";
+          return SECTORS.find((o) => o.value === x)?.label ?? x;
+        };
+        const list = ahead.map((s) => `${SCHOOL_STAGES.find((o) => o.value === s.stage)?.label ?? s.stage} ${sector(s)}`);
+        const tail = outside.length > 0 ? `（${outside.join("・")}の公立・私立は型では変わりません）` : "";
+        return list.length > 0 ? `これからの学校: ${list.join("・")}${tail}。学費は学校の種類ごとの統計の平均` : null;
+      },
+    });
+  }
+  return out;
+}
+
 const MIX_KINDS = new Set(["deposit", "taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit"]);
 
 /** 配分の見せ方: 「株式60%・債券20%・預金20%（年2.48%）」 */
@@ -1111,7 +1177,7 @@ export function buildCatalog(wh: WorkingHousehold, selfId: string, demo: DemoHou
 }
 
 function buildCatalogOf(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null): Catalog {
-  const items = [...leverItems(wh, selfId, demo), ...spouseWorkItem(wh), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), fieldSkips(wh, selfId))];
+  const items = [...leverItems(wh, selfId, demo), ...spouseWorkItem(wh), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...courseItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), fieldSkips(wh, selfId))];
   return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
 }
 

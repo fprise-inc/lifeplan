@@ -22,6 +22,14 @@ pub const FIELDS: &[&str] = &[
     "loanRate",
     "takeHome",
     "pension",
+    "incomeSalary",
+    "incomeBusiness",
+    "incomePension",
+    "incomeCorporatePension",
+    "incomeRetirement",
+    "incomeBenefit",
+    "incomeRealEstate",
+    "incomeOther",
     "expenseLiving",
     "expenseSurplus",
     "expenseHousing",
@@ -32,12 +40,23 @@ pub const FIELDS: &[&str] = &[
     "expenseCare",
     "expenseRealEstate",
     "expenseOther",
+    "nisaContribution",
+    "nisaBalance",
 ];
 
 /// 年ごとの収支の内訳（0207）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数（summary.ts の flowYearsOf）で、
-/// 画面のキャッシュフロー表の行と同じ当て方で数える。pension は公的年金の年額、expense〜 は支出（税・社会保険料を除く）の内訳で、全部足すと expense
+/// 画面のキャッシュフロー表の行と同じ当て方で数える。pension は公的年金の年額、income〜 は収入の内訳で全部足すと income（0211）、expense〜 は
+/// 支出（税・社会保険料を除く）の内訳で、全部足すと expense。nisaContribution は NISAへの積立（年額）、nisaBalance は NISA の残高（年末。0211）
 pub const FLOW_FIELDS: &[&str] = &[
     "pension",
+    "incomeSalary",
+    "incomeBusiness",
+    "incomePension",
+    "incomeCorporatePension",
+    "incomeRetirement",
+    "incomeBenefit",
+    "incomeRealEstate",
+    "incomeOther",
     "expenseLiving",
     "expenseSurplus",
     "expenseHousing",
@@ -48,6 +67,8 @@ pub const FLOW_FIELDS: &[&str] = &[
     "expenseCare",
     "expenseRealEstate",
     "expenseOther",
+    "nisaContribution",
+    "nisaBalance",
 ];
 
 /// 年ごとの住宅ローンの数字（0203。利息と金利は 0205）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数

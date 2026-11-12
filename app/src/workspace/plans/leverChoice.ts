@@ -31,6 +31,7 @@ export const LEVER_KINDS = [
   { kind: "loan:prepay", group: "よく使う", label: "住宅ローンの繰上返済", note: "もう借りているローンごと" },
   { kind: "loan:rate", group: "よく使う", label: "住宅ローンの金利", note: "ローンごと" },
   { kind: "loan:outlook", group: "よく使う", label: "住宅ローンの金利の見込み（変動金利）", note: "変動金利の住宅ローンごと（入力の「金利の見込み」の欄と同じ型。0203）" },
+  { kind: "edu:course", group: "よく使う", label: "子の進路の型", note: "進路を入れた子ごと（入力の「進路の型」の欄と同じ型。0211）" },
   { kind: "rates:shift", group: "よく使う", label: "変動金利の上昇", note: "変動金利のローンがある世帯だけ" },
   { kind: "mix", group: "よく使う", label: "資産運用の配分", note: "口座ごと" },
 ] as const satisfies readonly { kind: string; group: string; label: string; note?: string }[];
@@ -99,6 +100,7 @@ export function leverKindOf(key: string): LeverKind | null {
   const loan = /^loan:.+:(principal|prepay|rate|outlook)$/.exec(key);
   if (loan !== null) return `loan:${loan[1] as "principal" | "prepay" | "rate" | "outlook"}`;
   if (key.startsWith("mix:")) return "mix";
+  if (/^edu:.+:course$/.test(key)) return "edu:course";
   return null;
 }
 

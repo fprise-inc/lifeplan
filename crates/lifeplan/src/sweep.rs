@@ -574,8 +574,17 @@ pub fn listed(
         .collect())
 }
 
-/// 振った値の人が読める文（年齢は「64歳」、金額・年収は「275,000円」、率は「6.8%」）
+/// 振った値の人が読める文（年齢は「64歳」、金額・年収は「275,000円」、率は「6.8%」、選択肢は言葉〔例「中学から私立」〕）
 pub fn value_text(item: &Value, v: &Value) -> String {
+    if item["kind"] == "choice" {
+        if let Some(l) = item["options"]
+            .as_array()
+            .and_then(|os| os.iter().find(|o| o["value"] == *v || o["label"] == *v))
+            .and_then(|o| o["label"].as_str())
+        {
+            return l.to_owned();
+        }
+    }
     match (item["kind"].as_str(), Dec::parse(v)) {
         (Some("age"), Some(d)) => format!("{}歳", d.text()),
         (Some("amount" | "work"), Some(d)) => d
@@ -683,6 +692,12 @@ pub fn vary_out(v: &Vary, item: &Value) -> Value {
     }
     if item["kind"] == "work" {
         o.insert("shown".into(), json!("value の列は1年の収入（円）"));
+    }
+    // 選択肢の項目（子の進路の型。0211）は、value の列の値の言葉
+    if item["kind"] == "choice" {
+        if let Some(os) = item.get("options") {
+            o.insert("options".into(), os.clone());
+        }
     }
     Value::Object(o)
 }
@@ -1190,6 +1205,9 @@ mod tests {
     #[test]
     fn values_read_as_text() {
         assert_eq!(value_text(&json!({ "kind": "age" }), &json!(64)), "64歳");
+        let course = json!({ "kind": "choice", "options": [{ "value": "juniorPrivate", "label": "中学から私立" }] });
+        assert_eq!(value_text(&course, &json!("juniorPrivate")), "中学から私立");
+        assert_eq!(value_text(&course, &json!("中学から私立")), "中学から私立");
         assert_eq!(
             value_text(&json!({ "kind": "amount" }), &json!(275000)),
             "275,000円"

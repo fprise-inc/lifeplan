@@ -12,6 +12,7 @@
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { anyClaimOf, modeOf, pensionEstimateRequest, pensionLines, pensionMembers, planPensionOf, type PensionLine } from "../workspace/input/pensionLines.ts";
+import { GROUPS } from "../workspace/invest/present.ts";
 import { metricsOf } from "../workspace/plans/compare.ts";
 import { ageRows, displayYears, rowDefs, yearsWithin } from "../workspace/present.ts";
 import { ageInYear, roles } from "../workspace/roles.ts";
@@ -144,12 +145,30 @@ export function loanYearsOf(req: EngineRequest, table: PreviewResult["table"], s
 }
 
 /**
- * 年ごとの収支の内訳（0207。比較の道具の系列・グラフに使う）。支出の内訳は、画面のキャッシュフロー表の支出の行（present.ts の rowDefs）と同じ当て方で、
- * 医療・介護（cf.expense.care の下）だけを「その他の支出」から分けた物。内訳を全部足すと、年ごとの支出（expense。税・社会保険料を除く）になる
+ * 年ごとの収支の内訳（0207。比較の道具の系列・グラフ・表に使う）。支出の内訳は、画面のキャッシュフロー表の支出の行（present.ts の rowDefs）と同じ当て方で、
+ * 医療・介護（cf.expense.care の下）だけを「その他の支出」から分けた物。内訳を全部足すと、年ごとの支出（expense。税・社会保険料を除く）になる。
+ * 収入の内訳（0211）は、画面の表の収入の行と同じ当て方で、人ごとの行（給与・事業所得・年金）を世帯の合計にし、家賃収入と不動産の売却を1つにした物。
+ * 全部足すと、年ごとの収入（income）になる。NISA は画面の表の「NISAへの積立」の行と、資産運用のタブの「NISA」の残高（0211）
  */
 export interface FlowYear {
   /** 公的年金（年額。画面の表の「○○の年金」の行の合計。企業年金・個人年金は入れない） */
   pension: number;
+  /** 給与（年額。画面の表の「○○の給与」の行の世帯の合計。賞与込み・税と社会保険料を引く前） */
+  incomeSalary: number;
+  /** 事業所得（年額。画面の表の「○○の事業所得」の行の世帯の合計） */
+  incomeBusiness: number;
+  /** 公的年金（年額。画面の表の「○○の年金」の行の世帯の合計。収入の内訳としての名前で、数は pension と同じ） */
+  incomePension: number;
+  /** 企業年金・個人年金（年額。年金で受け取る企業年金・iDeCo・個人年金保険など） */
+  incomeCorporatePension: number;
+  /** 退職金（年額） */
+  incomeRetirement: number;
+  /** 給付・手当（年額。児童手当・失業給付・遺族年金以外の給付など。画面の表の「給付・手当」の行） */
+  incomeBenefit: number;
+  /** 住まい以外の不動産の家賃収入と売却（年額。画面の表の「家賃収入」「不動産の売却」の行） */
+  incomeRealEstate: number;
+  /** その他の収入（年額。画面の表の「その他の収入」の行。満期金・住まいの売却・相続など） */
+  incomeOther: number;
   /** 生活費（画面の表の「生活費」の行。車の費用・ゆとりの支出は入れない） */
   expenseLiving: number;
   /** ゆとりの支出（黒字のうち貯まらない分） */
@@ -170,11 +189,23 @@ export interface FlowYear {
   expenseRealEstate: number;
   /** その他の支出（画面の表の「その他の支出」から医療・介護を除いた物。奨学金などの返済・FP への顧問料など） */
   expenseOther: number;
+  /** NISAへの積立（年額。画面の表の「NISAへの積立」の行。つみたて投資枠・成長投資枠・こどもNISA の合計） */
+  nisaContribution: number;
+  /** NISA の残高（年末。資産運用のタブの「NISA」と同じ器の種類〔NISA・こどもNISA・ジュニアNISA・旧NISA〕の残高の合計） */
+  nisaBalance: number;
 }
 
 /** 年ごとの収支の内訳の数字の名前（FlowYear の鍵。接続口の answer.rs の FLOW_FIELDS と同じ並び） */
 export const FLOW_FIELDS: readonly (keyof FlowYear)[] = [
   "pension",
+  "incomeSalary",
+  "incomeBusiness",
+  "incomePension",
+  "incomeCorporatePension",
+  "incomeRetirement",
+  "incomeBenefit",
+  "incomeRealEstate",
+  "incomeOther",
   "expenseLiving",
   "expenseSurplus",
   "expenseHousing",
@@ -185,6 +216,8 @@ export const FLOW_FIELDS: readonly (keyof FlowYear)[] = [
   "expenseCare",
   "expenseRealEstate",
   "expenseOther",
+  "nisaContribution",
+  "nisaBalance",
 ];
 
 /** 画面の表の支出の行の鍵 → 内訳の名前（その他の支出は、医療・介護を分けてから） */
@@ -201,15 +234,41 @@ const EXPENSE_OF: Record<string, keyof FlowYear> = {
   expenseOther: "expenseOther",
 };
 
+/** 画面の表の収入の行の鍵（人ごとの行は「salary:」などの頭） → 内訳の名前（0211） */
+const INCOME_OF: Record<string, keyof FlowYear> = {
+  salary: "incomeSalary",
+  business: "incomeBusiness",
+  pension: "incomePension",
+  corporatePension: "incomeCorporatePension",
+  retirement: "incomeRetirement",
+  benefit: "incomeBenefit",
+  rent: "incomeRealEstate",
+  realEstateSale: "incomeRealEstate",
+  incomeOther: "incomeOther",
+};
+const incomeKeyOf = (key: string): keyof FlowYear | undefined => INCOME_OF[key.split(":")[0] as string];
+
+/** NISA の残高に数える器の種類（資産運用のタブの「NISA」のまとまりと同じ） */
+const NISA_KINDS = GROUPS.find((g) => g.key === "nisa")?.kinds ?? [];
+
 const under = (row: string, prefix: string): boolean => row === prefix || row.startsWith(`${prefix}.`);
 
-/** 年ごとの収支の内訳（表の年ごと。0207） */
+/** 年ごとの収支の内訳（表の年ごと。0207・0211） */
 export function flowYearsOf(req: EngineRequest, table: PreviewResult["table"]): Record<string, FlowYear> {
-  const defs = rowDefs(req).filter((d) => d.group === "expense" && d.kind === "value" && EXPENSE_OF[d.key] !== undefined);
+  const all = rowDefs(req);
+  const defs = all.filter((d) => d.group === "expense" && d.kind === "value" && EXPENSE_OF[d.key] !== undefined);
+  const incomes = all.filter((d) => d.group === "income" && d.kind === "value" && incomeKeyOf(d.key) !== undefined);
   const out: Record<string, FlowYear> = {};
   const at = (y: number): FlowYear => (out[String(y)] ??= Object.fromEntries(FLOW_FIELDS.map((k) => [k, 0])) as unknown as FlowYear);
   for (const c of table) {
     if (under(c.row, "cf.income.pension")) at(c.year).pension += c.amount;
+    if (under(c.row, "cf.income")) {
+      const d = incomes.find((x) => x.match(c));
+      if (d !== undefined) at(c.year)[incomeKeyOf(d.key) as keyof FlowYear] += c.amount;
+      continue;
+    }
+    if (under(c.row, "cf.transfer.nisa")) at(c.year).nisaContribution += c.amount;
+    if (c.row.startsWith("cf.balance.account.") && NISA_KINDS.includes(c.row.slice("cf.balance.account.".length))) at(c.year).nisaBalance += c.amount;
     if (!under(c.row, "cf.expense")) continue;
     const d = defs.find((x) => x.match(c));
     if (d === undefined) continue;

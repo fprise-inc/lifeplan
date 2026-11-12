@@ -90,9 +90,11 @@ pub struct ChartArgs {
     /// taxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産）・debt（負債の残高）・shortfall（資金不足）・
     /// loanRepayment・loanBalance・loanInterest・loanRate（住宅ローンの返済額・残高・利息・金利）・pension（公的年金）・支出の内訳 expenseLiving（生活費）・
     /// expenseSurplus（ゆとりの支出）・expenseHousing（住居費）・expenseEducation（教育費）・expenseInsurance（保険料）・expenseLumpSum（一時的支出）・
-    /// expenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・expenseOther（その他の支出）。
-    /// 例: 退職の年齢を3通りにして ["financialAssets", "net"]、教育の進路を3通りにして ["expenseEducation"]
-    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther"] }))]
+    /// expenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・expenseOther（その他の支出）・収入の内訳
+    /// incomeSalary（給与）・incomeBusiness・incomePension・incomeCorporatePension・incomeRetirement・incomeBenefit・incomeRealEstate・incomeOther・
+    /// nisaContribution（NISAへの積立）・nisaBalance（NISA の残高）。
+    /// 例: 退職の年齢を3通りにして ["financialAssets", "net"]、子の進路の型を3通りにして ["expenseEducation"]
+    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "incomeSalary", "incomeBusiness", "incomePension", "incomeCorporatePension", "incomeRetirement", "incomeBenefit", "incomeRealEstate", "incomeOther", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther", "nisaContribution", "nisaBalance"] }))]
     pub series: Option<Vec<String>>,
     /// keyFigures の棒にする数字（既定 assetsAtAge・minimum・loanRepayment）: assetsAtAge（at_ages の最初の年齢の時点の金融資産）・minimum
     /// （金融資産がいちばん少ない額）・loanRepayment（住宅ローンの返済の合計）・loanInterest（住宅ローンの利息の合計）・lifetimeTakeHome（生涯の手取りの合計）・
@@ -254,6 +256,19 @@ pub fn stress_text(key: &str) -> &'static str {
     }
 }
 
+/// 通りの当てたプランの変更（注の「通りの違い」に使う。当てた変更の項目の名前と後の値の文だけ。今と同じ値の変更は入れない）。表（table.rs）も同じ
+pub fn plan_of(r: &Value) -> Vec<Value> {
+    r["planChanges"]
+        .as_array()
+        .map(|l| {
+            l.iter()
+                .filter(|c| c["status"] == "applied")
+                .map(|c| json!({ "label": c["label"], "to": c["to"] }))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// 比較する答えの通り（results の1つ）と、その通りの前提（assumptions）から、chart.ts に渡す通り（名前と数字だけ）を作る
 pub fn variant_of(r: &Value, assumptions: &Value) -> Value {
     let series: Vec<Value> = r["series"]
@@ -272,15 +287,7 @@ pub fn variant_of(r: &Value, assumptions: &Value) -> Value {
         })
         .unwrap_or_default();
     let k = &r["keyFigures"];
-    let plan: Vec<Value> = r["planChanges"]
-        .as_array()
-        .map(|l| {
-            l.iter()
-                .filter(|c| c["status"] == "applied")
-                .map(|c| json!({ "label": c["label"], "to": c["to"] }))
-                .collect()
-        })
-        .unwrap_or_default();
+    let plan = plan_of(r);
     let stress = if let Some(l) = r["marketStress"]["label"].as_str() {
         Some(l.to_owned())
     } else {
