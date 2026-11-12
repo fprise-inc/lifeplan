@@ -64,7 +64,7 @@ describe("並びの要素の ID（0035 の5）: 番号で当てない", () => {
     expect(a.reviews.get(set.id)?.state).toBe("missing");
   });
 
-  it("その差分が動かす項目の一覧にある鍵でも、変えたことの一覧と要確認の数に「指していた物が無くなりました」で出る", () => {
+  it("その差分が動かす項目の一覧にある鍵でも、変えたことの一覧と要確認の数に「現状のプランから、この物が無くなりました」で出る", () => {
     const { wh, cat } = open();
     const living = wh.request.input.household.livingExpenses![0]!;
     const s1 = (living.stages![1] as unknown as Obj).id as string;
@@ -80,7 +80,7 @@ describe("並びの要素の ID（0035 の5）: 番号で当てない", () => {
     expect(cat.byKey.has(key!)).toBe(true);
     const row = changesOf(w.proposals, "C", w, cat).find((r) => r.key === key);
     expect(row?.state).toBe("missing");
-    expect(row?.reviewNote).toBe("この差分が指していた物が、入力（現状）から無くなりました");
+    expect(row?.reviewNote).toBe("現状のプランから、この物が無くなりました");
     expect(row?.label).toBe(cat.byKey.get(key!)!.label);
     expect(reviewCount(w.proposals, "C", w, cat)).toBe(1);
     // 土台で外していなければ ok のまま
