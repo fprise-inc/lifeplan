@@ -96,6 +96,8 @@ export interface LeverCardProps {
   onDrop: ((key: string) => void) | null;
   /** 開いた直後に保存の欄を開く（画面の確かめ用） */
   initialSave?: boolean;
+  /** 開いた直後に「変えたこと」の一覧を開く（画面の確かめ用） */
+  initialOpen?: boolean;
   /** 最初から出す項目のうち、対策の固定の項目でない物の行（固定の項目の後ろ、FP顧問料の前。0084） */
   fixedRows?: ComponentChildren;
   /** 足した動かす項目の行 */
@@ -109,9 +111,11 @@ export interface LeverCardProps {
 export function LeverCard(p: LeverCardProps) {
   const [saving, setSaving] = useState(p.initialSave === true);
   const [name, setName] = useState(p.initialSave === true ? p.suggested : "");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(p.initialOpen === true);
   const locked = p.locked !== null;
   const review = p.changes.filter((c) => c.state !== "ok");
+  // 一覧は要確認の行を先に並べる（「! 要確認」で開いたときに探さなくてよいように。中の順はそのまま）
+  const listed = [...review, ...p.changes.filter((c) => c.state === "ok")];
   const baseTag = (t: string) => `基準（${p.baseLetter}）: ${t}`;
   return (
     <section class="card levers" aria-labelledby="h-lev" data-levers data-reveal-root>
@@ -133,8 +137,9 @@ export function LeverCard(p: LeverCardProps) {
           </button>
         ) : null}
         {review.length > 0 ? (
-          <button type="button" class="pb-review" onClick={() => setOpen(true)} data-plan-review>
+          <button type="button" class="pb-review" aria-expanded={open} onClick={() => setOpen(!open)} data-plan-review>
             ! 要確認 {review.length}
+            {locked ? (open ? " ▴" : " ▾") : null}
           </button>
         ) : null}
         {p.onOpenInput != null ? (
@@ -165,7 +170,7 @@ export function LeverCard(p: LeverCardProps) {
       {open ? (
         <ul class="pb-list" aria-label="変えたこと">
           {p.changes.length === 0 ? <li class="in-note">現状から変えたことはありません（スライダーを動かすと、ここに並びます）</li> : null}
-          {p.changes.map((c) => (
+          {listed.map((c) => (
             <li key={c.key} class={c.state !== "ok" ? "review" : ""}>
               <span class="pb-l">{c.label}</span>
               <span class="pb-v">
