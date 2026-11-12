@@ -85,6 +85,8 @@ export default tseslint.config(
     // 0195: プランの動かす項目（plan）は、画面の結果のタブのプランの部品（plans/candidates・items・plans）と、作業中の世帯を作る所
     // （input/household）・役割（roles）・見本の目盛り（catalog）を読む。画面の状態（帯・選んだプラン）を持つ部品は読まない。
     // 0199: 見本の世帯の一覧（samples）は、見本の棚と同じ名前と絞り込みの項目（catalog・store/numbering）を読む。
+    // 0210: 計算のお知らせ（notices）は、画面の知らせの文の表（engineNotices）と入力項目の名前（input/stageOrder）を、入力の確かめ（check）は
+    // 画面の確かめの一覧（input/checkRows）と、入力項目の名前（input/items）・時点の読み方（timepoint）を読む。
     // 画面の部品（preact）・本体の命令・画面の大枠は読み込めない（まとめる道具 scripts/build-explain.ts も、外の部品が入ったら止める）
     files: ["src/connector/**/*.ts"],
     rules: {
@@ -92,7 +94,7 @@ export default tseslint.config(
         "error",
         {
           patterns: [
-            { regex: "(^|/)workspace/(?!(evidence|present|office/estimates|catalog|roles|store/numbering|input/(household|pensionLines)|invest/present|plans/(candidates|items|plans|compare|decimal))\\.ts$)", message: "AI接続口の根拠の読み方・計算の前の処理・プランの動かす項目・主な数字・グラフは、作業の層のうち evidence・present・office/estimates・catalog・roles・input/household・input/pensionLines・invest/present・plans/candidates・plans/items・plans/plans・plans/compare・plans/decimal・store/numbering だけを読める（0183・0184・0194・0195・0199・0203）" },
+            { regex: "(^|/)workspace/(?!(evidence|present|engineNotices|timepoint|office/estimates|catalog|roles|store/numbering|input/(household|pensionLines|stageOrder|checkRows|items)|invest/present|plans/(candidates|items|plans|compare|decimal))\\.ts$)", message: "AI接続口の根拠の読み方・計算の前の処理・プランの動かす項目・主な数字・グラフは、作業の層のうち evidence・present・office/estimates・catalog・roles・input/household・input/pensionLines・invest/present・plans/candidates・plans/items・plans/plans・plans/compare・plans/decimal・store/numbering・engineNotices・timepoint・input/stageOrder・input/checkRows・input/items だけを読める（0183・0184・0194・0195・0199・0203・0210）" },
             { regex: "^preact", message: "AI接続口の根拠の読み方は、画面の部品を読めない（0183）" },
             { regex: "(^|/)engine/(host|dual)(\\.ts)?$", message: "AI接続口の根拠の読み方は、本体の命令・二本立ての部品を読めない（0183）" },
             { regex: "(^|/)App(\\.tsx)?$", message: "AI接続口の根拠の読み方は、画面の大枠を読み込めない（0183）" },

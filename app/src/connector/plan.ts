@@ -14,28 +14,22 @@
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）。世帯の物の ID は、AI に渡した世帯の ID
 //   （渡された世帯では共有の仮の ID）のまま返す
 import type { EngineRequest } from "../engine/types.ts";
-import { demoHousehold } from "../workspace/catalog.ts";
-import { fromRequest, type PostRetirement, type WorkingHousehold } from "../workspace/input/household.ts";
+import type { WorkingHousehold } from "../workspace/input/household.ts";
 import { STRESS_KEYS, stressLabel, stressRequests, type StressKey } from "../workspace/invest/present.ts";
 import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
 import { candidateRefOf, candidateRows, candidateValues, matchItems, placeText, unmatchedReason, type CandidateRef, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
 import { buildCatalog, OUTLOOK_STEP_YEARS, type Catalog, type ItemValue, type MovableItem } from "../workspace/plans/items.ts";
 import { applyValues } from "../workspace/plans/plans.ts";
-import { roles } from "../workspace/roles.ts";
+import { workingOf, type WorkingArgs } from "./working.ts";
 
-/** 接続口から渡す引数（JSON の文字） */
-export interface PlanArgs {
-  /** 見本の世帯の ID（見本の目盛り・定年後の働き方を画面と同じに使う。見本でなければ省く） */
-  sampleId?: string;
+export { checkInputs } from "./check.ts";
+
+/** 接続口から渡す引数（JSON の文字）。見本の世帯の ID と渡された世帯の定年後の働き方の条件は working.ts */
+export interface PlanArgs extends WorkingArgs {
   /** 一覧を絞る: 項目のまとまり（group）の名前 */
   group?: string;
   /** 一覧を絞る: 入力の数の欄から作った項目（fields）も入れるか（既定は入れない。対策・資産運用・貯まり方・よく使う項目だけ） */
   fields?: boolean;
-  /**
-   * 渡された世帯の定年後の働き方の条件（縮約版の postRetirement。構成員の ID → 条件）。あれば、画面で保存した世帯を開いたときと同じく
-   * これをそのまま使う（無い構成員は条件なし。入力の働き方の期間から推し量らない）。見本の世帯・AI が組み立てた入力では省く
-   */
-  postRetirement?: Record<string, PostRetirement>;
 }
 
 /** プランの候補の書き方の1件（propose_scenario の changes の1件と同じ）。場所 at・lever は、一覧が添えた項目だけ（どちらか1つ。0201） */
@@ -63,14 +57,9 @@ function open(req: EngineRequest, a: PlanArgs): Opened | null | "badInput" {
 }
 
 function opened(req: EngineRequest, a: PlanArgs): Opened | null {
-  const self = roles(req).find((r) => r.key === "self");
-  if (self === undefined) return null;
-  const demo = a.sampleId === undefined ? null : (demoHousehold(a.sampleId) ?? null);
-  const re = demo?.reemployment;
-  const wh0 = fromRequest(req, re !== undefined ? { postRetirement: { [self.member.id]: { ...re, type: re.type as "contract" } } } : {});
-  // 渡された世帯: 保存した条件をそのまま（store/body.ts の fromBody と同じ。0195）
-  const wh = a.postRetirement !== undefined ? { ...wh0, postRetirement: { ...a.postRetirement } } : wh0;
-  return { wh, cat: buildCatalog(wh, self.member.id, demo) };
+  const w = workingOf(req, a);
+  if (w === null) return null;
+  return { wh: w.wh, cat: buildCatalog(w.wh, w.self, w.demo) };
 }
 
 /** 項目の値の入れ方と動かせる範囲（AI に見せる形。画面のスライダー・欄と同じ範囲） */

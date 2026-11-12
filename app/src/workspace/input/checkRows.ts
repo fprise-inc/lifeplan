@@ -110,6 +110,8 @@ export interface CheckRow {
   certainty?: Certainty | null;
   /** 欄の当て先の物・構成員の ID（プランで足した物の行を見分ける） */
   holder?: string | null;
+  /** 欄の入力項目ID（欄の定義の item。欄の行だけ。AI接続口の入力の確かめが、聞くことの決まりを引くのに使う。0210） */
+  item?: string;
   /**
    * 書類待ちの行だけ: 確かめる書類（欄の定義の docCheck）・書類の持ち主（docFor か当て先の物）・欄の名前（まとまりの名前を付けない）。
    * 書類のお願いの一覧（docRequests.ts）が、書類と持ち主ごとにまとめるのに使う（0102）
@@ -342,7 +344,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
       // 空欄のまま推定で計算する欄（blankEstimate）は、推定の値を見せる（値の無い「根拠 ▾」だけの行にしない。通しの確かめ。0150）
       const blankEst = s.status === "estimated" && (st.value === null || st.value === undefined) && f.blankEstimate !== undefined ? f.blankEstimate(wh) : null;
       const value = s.status === "missing" || s.status === "notApplicable" ? null : blankEst !== null ? withAge(fieldValueText(f, blankEst, wh), f, wh, holder) : st.value === null || st.value === undefined ? null : withAge(fieldValueText(f, st.value, wh), f, wh, holder);
-      const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder };
+      const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder, ...(f.item !== null ? { item: f.item } : {}) };
       // ずっと前に終わった物の推定・書類待ちは出さない（結果に効かない）
       if ((s.status === "estimated" || s.status === "unknown") && endedLongAgo(wh, holder)) continue;
       // 仮の値（生年月など）は推定と分け、未入力の側に（「この値にする」を出さない。欄に入れてもらう値）

@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "Change": {
+      "properties": {
+        "op": {
+          "description": "`replace`（今の値を置き換える）・`add`（物の項目を足す／配列に足す。末尾は `-`）・`remove`（消す）",
+          "type": "string"
+        },
+        "path": {
+          "description": "計算の入力（`input`）の中の場所（JSON Pointer。例: `/assumptions/inflation`、`/household/members/0/birth/birthYearMonth`）",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "description": "新しい値（`remove` では使わない）"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "type": "object"
+    },
+    "PlanChange": {
+      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）",
+      "properties": {
+        "at": {
+          "default": null,
+          "description": "場所（list_plan_items が at を添えた項目だけ。そのまま渡す）。同じ対象・同じ入力項目ID で場所だけが違う欄（教育の段階ごとの欄・\n生活費の段階の割合など）を選ぶ。lever とどちらか1つ",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "item": {
+          "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・pensionRecord.claim・livingExpense.monthly）",
+          "type": "string"
+        },
+        "lever": {
+          "default": null,
+          "description": "合成の対策の名前（list_plan_items が lever を添えた項目だけ。そのまま渡す。例: investMonthly〔資産運用の毎月の積立額〕・\ninvestStopAge〔積立をやめる年齢〕・drawdownStart〔取り崩しを始める年齢〕・mainEndAge〔定年後の予定の定年〕）。at とどちらか1つ",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",
+          "type": "string"
+        },
+        "value": {
+          "description": "新しい値（list_plan_items の kind・unit の形。年齢は整数の歳、金額は円の整数、率は10進の文字列 \"0.02\"）"
+        }
+      },
+      "required": [
+        "target",
+        "item",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "changes": {
+      "description": "プランを確かめるとき: 入力に当てる変更（calculate の changes と同じ JSON Patch）",
+      "items": {
+        "$ref": "#/$defs/Change"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "input": {
+      "description": "AIが組み立てた計算の入力（calculate の input と同じ形）"
+    },
+    "kinds": {
+      "description": "出す種類（既定は missing・notStarted・unknown・notice・calc・estimated。画面の確かめの一覧の既定と同じ）。missing＝未入力（0円で計算中）・\nnotStarted＝まだ入れていない項目・unknown＝書類待ち・notice＝確かめの注意（範囲の外の値・ほかの入力と合わない値・購入の払い方が無いなど）・\ncalc＝計算のお知らせのうち入力で直せる所・estimated＝推定（結果に効く順）・certainty＝確かさが本人の申告・概算の値・premise＝前提条件の標準の値",
+      "items": {
+        "enum": [
+          "missing",
+          "notStarted",
+          "unknown",
+          "notice",
+          "calc",
+          "estimated",
+          "certainty",
+          "premise"
+        ],
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "max_items": {
+      "description": "返す行の上限（1〜100。既定 30）。並びは画面の確かめの一覧と同じで、超えた分は truncated と counts で分かる",
+      "format": "uint16",
+      "maximum": 100,
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "plan_changes": {
+      "description": "プランを確かめるとき: アプリの画面のプランの動かす項目の変更（calculate の plan_changes と同じ書き方。list_plan_items で分かる）。50件まで",
+      "items": {
+        "$ref": "#/$defs/PlanChange"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "sample_household_id": {
+      "description": "見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "share_id": {
+      "description": "FPが渡した世帯の共有 ID（list_shared_households）。アプリが起動していて、共有が期限内のときだけ使える。読むとアプリの「AIに渡した記録」に残る",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}
