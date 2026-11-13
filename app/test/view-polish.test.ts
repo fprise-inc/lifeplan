@@ -456,6 +456,13 @@ describe("グラフを小窓で表示", () => {
     expect(cg.slice(cg.indexOf('class="cc-tools"'), cg.indexOf("</div>", cg.indexOf('class="cc-tools"')))).not.toContain("data-pip-toggle");
   });
 
+  it("小窓のボタンは凡例の最後の行と下の端をそろえる（全部のプランを重ねる表示では、見出しの下のプランのボタンの行に並ぶ。重ねる表示と同じ高さ）", () => {
+    const css = readFileSync(join(import.meta.dirname, "../src/styles/app.css"), "utf8");
+    const rule = /\.chart-top > \.pip-btn \{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toContain("margin-left: auto");
+    expect(rule).toContain("align-self: flex-end");
+  });
+
   it("小窓の中のグラフには小窓のボタンを出さない（帯の「×」で閉じる）", () => {
     const html = renderToString(h(PipResult, { model: pm, provisional: false, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, height: 240 }));
     expect(html).not.toContain("data-pip-toggle");

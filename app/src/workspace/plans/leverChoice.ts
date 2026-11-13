@@ -6,7 +6,8 @@
 //   当てはまる物が無い世帯には出ない
 // - 事務所データ（office/settings.ts の levers）には、既定の組み合わせとの違いだけを持つ（入力項目の選び方 input/itemChoice.ts と同じ考え方）。
 //   既定の組み合わせは DEFAULT_LEVER_KINDS の1か所。差し替えると、事務所が足した・外した種類はそのままで、触っていない種類は新しい既定に従う
-// - 見せ方だけ: 値も計算も変えない。外した項目でも、選んだプランで値が入っていれば出す（黙って値を隠さない。0083 の4と同じ）
+// - 見せ方だけ: 値も計算も変えない。外した項目でも、選んだプランで現状と違う値が入っていれば出す（黙って値を隠さない。0083 の4と同じ）。
+//   ただし FP顧問料は値が入っていても出さない（提案の側に入れるのが既定で、ほとんどのプランに値が入るため。入れているかは結論の下の一文で分かる）
 // - 世帯ごとには持たない（その場で「＋ 動かす項目を追加」で足せる。足した項目は今までどおり世帯の作業の状態 shownItems）
 import type { Catalog, MovableItem } from "./items.ts";
 import type { Values } from "./plans.ts";
@@ -38,10 +39,10 @@ export type LeverKind = (typeof LEVER_KINDS)[number]["kind"];
 
 /**
  * 既定の組み合わせ（事務所が何も選んでいないとき）。**差し替えるのはここだけ**。
- * 今は、働く最後の年齢・年金の受け取り開始・毎月の生活費・配偶者の働き方と年収の4つと、FP顧問料（顧問料の契約がある世帯だけ。4つの後ろの別の行）。
- * NISA の積立は既定から外した（「＋ 動かす項目を追加」で足せる。事務所の設定で戻せる）
+ * 今は、働く最後の年齢・年金の受け取り開始・毎月の生活費・配偶者の働き方と年収の4つ。
+ * NISA の積立と FP顧問料は既定から外した（「＋ 動かす項目を追加」で足せる。事務所の設定で戻せる。FP顧問料は顧問料の契約がある世帯だけに出る）
  */
-export const DEFAULT_LEVER_KINDS: readonly LeverKind[] = ["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", "spouse:work", "lever:fee"];
+export const DEFAULT_LEVER_KINDS: readonly LeverKind[] = ["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", "spouse:work"];
 
 export interface LeverChoice {
   /** 既定に無いが、最初から出す種類（一覧の並び） */
@@ -123,13 +124,15 @@ export interface LeverView {
 const isLeverPhase = (it: MovableItem) => it.phase === "lever" || it.phase === "fee";
 
 /**
- * 対策に出す項目を決める。values は選んだプランの値（現状のときは空）。
- * 最初から出す項目・「＋ 動かす項目を追加」で足した項目（shown）・選んだプランで値が入っている項目を出す
+ * 対策に出す項目を決める。values は選んだプランで現状と違う値（plans.ts の movedValues。現状のときは空）。
+ * 最初から出す項目・「＋ 動かす項目を追加」で足した項目（shown）・選んだプランで値が入っている項目を出す。
+ * 現状と同じ値（「外す」で現状に戻した値。土台のプランが動かした項目を戻すと、値として残る）は values に入れない（入れると「外す」を押しても消えない）。
+ * FP顧問料は、値が入っていても出さない（最初から出すか、足したときだけ。上の注記）
  */
 export function leverView(cat: Catalog, c: LeverChoice | undefined, shown: readonly string[], values: Values, defaults: readonly LeverKind[] = DEFAULT_LEVER_KINDS): LeverView {
   const fixed = startKeys(cat, c, defaults);
   const picked = new Set(shown);
-  const valued = (k: string) => Object.hasOwn(values, k);
+  const valued = (k: string) => k !== "lever:fee" && Object.hasOwn(values, k);
   const top = cat.items.filter((it) => fixed.has(it.key) || (isLeverPhase(it) && (picked.has(it.key) || valued(it.key))));
   const inTop = new Set(top.map((it) => it.key));
   const rest = (it: MovableItem | undefined): it is MovableItem => it !== undefined && !inTop.has(it.key);

@@ -1,5 +1,5 @@
-// 結果のタブの気づき（0074）: 選んでいるプランの結果から、決まりで数件（預金が少なくなる年・赤字が続く・教育と介護が重なる・NISA の枠を
-// 使い切る年・相続税がかかる見込み）。入力は増えない。年のある気づきは「その年を見る」、どれも「対策を考える」で対策へ
+// 結果のタブのポイント（0074。2026-11-12 に「気づき」から改めた）: 選んでいるプランの結果から、決まりで数件（預金が少なくなる年・赤字が続く・教育と介護が重なる・NISA の枠を
+// 使い切る年・相続税がかかる見込み）。入力は増えない。年のあるポイントは「その年を見る」、どれも「対策を考える」で対策へ
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -31,38 +31,47 @@ export function inheritancePayable(r: PreviewResult | null): number | null {
   return Math.max(...ps.map((p) => p.payable));
 }
 
-export function Insights({ req, result, months, inheritance, onYear, onLevers }: { req: EngineRequest; result: PreviewResult | null; months?: number; inheritance?: PreviewResult | null; onYear?: (y: number) => void; onLevers?: () => void }) {
+export function Insights({ req, result, months, inheritance, onYear, onLevers, initialOpen = false }: { req: EngineRequest; result: PreviewResult | null; months?: number; inheritance?: PreviewResult | null; onYear?: (y: number) => void; onLevers?: () => void; initialOpen?: boolean }) {
+  // 閉じているときは灰色の小さい1行（「ポイント ○件 ▸」）。押すと一覧が開き、もう一度押すと閉じる（0074 の追記 2026-11-12）
+  const [open, setOpen] = useState(initialOpen);
   if (result === null) return null;
   const list = insights(req, result, { ...(months !== undefined ? { months } : {}), inheritanceTax: inheritancePayable(inheritance ?? null) });
   if (list.length === 0) return null;
   return (
-    <section class="fp-insights" aria-label="気づき" data-insights>
-      <h3>気づき（{list.length}）</h3>
-      <ul>
-        {list.map((i) => (
-          <li key={i.key} data-insight={i.key}>
-            <span class="fee-tag">{i.title}</span>
-            <span>{i.text}</span>
-            {i.year !== null && onYear !== undefined ? (
-              <button type="button" class="link-btn" onClick={() => onYear(i.year as number)}>
-                その年を見る
-              </button>
-            ) : null}
-            {onLevers !== undefined ? (
-              <button type="button" class="link-btn" onClick={onLevers}>
-                対策を考える
-              </button>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+    <section class={`fp-insights${open ? " open" : ""}`} aria-label="ポイント" data-insights={list.length}>
+      <button type="button" class="quiet-toggle" aria-expanded={open} onClick={() => setOpen(!open)} data-insights-open>
+        ポイント {list.length}件
+        <span class="quiet-caret" aria-hidden="true">
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+      {open ? (
+        <ul class="ins-body">
+          {list.map((i) => (
+            <li key={i.key} data-insight={i.key}>
+              <span class="fee-tag">{i.title}</span>
+              <span>{i.text}</span>
+              {i.year !== null && onYear !== undefined ? (
+                <button type="button" class="link-btn" onClick={() => onYear(i.year as number)}>
+                  その年を見る
+                </button>
+              ) : null}
+              {onLevers !== undefined ? (
+                <button type="button" class="link-btn" onClick={onLevers}>
+                  対策を考える
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }
 
 /**
  * 表の最後の年が標準から大きく外れている世帯（若い方の大人が85〜105歳の外。古い世帯・前の版の見本の写しなど）の、結果のタブの入力の確認。
- * 前提条件の詳細の欄の中だけでは気づかないので、グラフの下（気づきの上）にも出す。押したときだけ既定にする（黙って直さない）。
+ * 前提条件の詳細の欄の中だけでは気づかないので、グラフの下（ポイントの上）にも出す。押したときだけ既定にする（黙って直さない）。
  * wh は現状（入力）の世帯
  */
 export function EndYearNote({ wh, onFix }: { wh: WorkingHousehold; onFix: (next: WorkingHousehold) => void }) {

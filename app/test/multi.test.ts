@@ -293,10 +293,14 @@ describe("全部のプランを色分けで重ねるグラフ", () => {
     expect(html.match(/class="ml-end-base"/g)).toHaveLength(1);
   });
 
-  it("0未満の範囲は線に塗りを付けず、薄い地と言葉で示す（不足が出るプランがあるとき）", () => {
+  it("0未満の範囲は線に塗りを付けず、薄い地で示す（不足が出るプランがあるとき）。金融資産は「0未満は不足」の言葉を出さない（見れば分かる）", () => {
     const html = draw("assets");
     expect(html).toContain('class="multi-zone"');
-    expect(html).toContain("0未満は不足");
+    expect(html).not.toContain("0未満は不足");
+    expect(html).not.toContain('class="unit zone-t"');
+    // 収支は今までどおり「0未満は赤字」を添える（0未満の範囲があるとき）
+    const flows = draw("flows");
+    if (flows.includes('class="multi-zone"')) expect(flows).toContain("0未満は赤字");
   });
 
   it("年を固定すると、全部のプランの線の上に丸、表示に全部のプランの値を帯の順で（読み上げは1か所）", () => {
@@ -440,10 +444,12 @@ describe("凡例と帯のカード", () => {
     expect(html).toContain('<span class="ml-tag">基準</span>');
   });
 
-  it("凡例の右端の文は0未満の読み方だけ（操作の説明は出さない。広い画面・狭い画面で同じ文）", () => {
-    for (const [mode, zone] of [["assets", "0未満は不足"], ["flows", "0未満は赤字"]] as const) {
+  it("凡例の右端の文は0未満の読み方だけ（操作の説明は出さない。広い画面・狭い画面で同じ文）。金融資産は出さない", () => {
+    for (const [mode, zone] of [["assets", null], ["flows", "0未満は赤字"]] as const) {
       const html = renderToString(h(MultiLegend, { plans: lines([]), mode, focus: null, onFocus: noop, hidden: [], onToggle: noop }));
-      expect(html).toContain(`<span class="hint">${zone}</span>`);
+      if (zone === null) expect(html).not.toContain('class="hint"');
+      else expect(html).toContain(`<span class="hint">${zone}</span>`);
+      expect(html).not.toContain("0未満は不足");
       expect(html).not.toMatch(/hint-long|hint-short|名前に合わせる|名前を押す|グラフに合わせる|グラフを押す/);
     }
   });
