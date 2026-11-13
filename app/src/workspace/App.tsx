@@ -56,7 +56,8 @@ import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart
 import { checkBase } from "../presentation/theme.ts";
 import { keepWebLog } from "./hearing/web.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
-import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
+import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, officeFieldsFrom, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
+import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "./office/customTextsContext.ts";
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
 import { previewOfficeChange } from "./office/estimatePreview.ts";
 import type { AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";

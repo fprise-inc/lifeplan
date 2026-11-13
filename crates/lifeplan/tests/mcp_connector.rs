@@ -169,6 +169,7 @@ async fn standalone_tools_work_without_the_app() {
         "compare",
         "chart",
         "table",
+        "check_inputs",
         "get_input_guide",
         "get_input_recipe",
         "sweep",
@@ -381,9 +382,12 @@ async fn prompts_list_and_expand() {
         "find_boundary",
         "make_table",
         "make_household_in_app",
+        "prepare_questions",
     ] {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
     }
+    // 使い方の例は13個（0210 で prepare_questions を足した）
+    assert_eq!(prompts.len(), 13, "{names:?}");
     for p in &prompts {
         assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
     }
@@ -463,6 +467,24 @@ async fn prompts_list_and_expand() {
                 "keyFigures.pension",
                 "market_stress",
             ],
+        ),
+        (
+            "prepare_questions",
+            json!({ "household": "salariedCoupleTwoKids", "topic": "住宅購入", "plan": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "住宅購入",
+                "今の入力（現状）",
+                "check_inputs",
+                "question",
+                "plan_changes",
+                "FP が確かめること",
+            ],
+        ),
+        (
+            "prepare_meeting",
+            json!({ "topic": "住宅購入" }),
+            vec!["住宅購入", "check_inputs"],
         ),
         (
             "explain_to_client",
@@ -560,6 +582,7 @@ async fn prompts_list_and_expand() {
         "stress_test",
         "from_year",
         "to_year",
+        "max_items",
     ];
     for (name, args, wants) in cases {
         let Value::Object(m) = args else { panic!() };
@@ -1779,6 +1802,131 @@ async fn explain_value_for_a_shared_household() {
 /// 計算の前の処理（0184）: 前処理が効く世帯（不確実な受け取る相続・相続で受け継ぐ借金・出るお金・「計算に入れない」夢と、事務所の推定の値）を
 /// 渡された世帯として計算させると、画面の数字と根拠（app/test/connector-prepare.test.ts が画面の関数で作る見本）と同じ。
 /// AIが組み立てた入力では、事務所の値の無い画面と同じ。事務所の値と根拠の文は AI に見せず、AIに渡した記録は今までと同じ
+/// 計算のお知らせ（calculate の notices。0210）: 見本の世帯で、画面の結果のタブの「計算のお知らせ」の関数（app/test/connector-notices.test.ts が作る見本）と
+/// 同じ文の行を、quickjs-ng で動かした接続口が返す。noticeText を省くと文と内訳の無い小さな行、notices を省くと無い
+#[tokio::test(flavor = "multi_thread")]
+async fn calculate_notices_match_the_screen() {
+    let dir = temp_dir("calc-notices");
+    let (c, _) = connect(&dir).await;
+    let p = repo().join("crates/lifeplan/tests/fixtures/notices/expected.json");
+    let cases: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+    assert!(cases.len() >= 3);
+    for case in &cases {
+        let name = case["name"].as_str().unwrap();
+        let mut args =
+            json!({ "sample_household_id": case["sample"], "omit": ["years", "pension"] });
+        if let Some(v) = case.get("changes") {
+            args["changes"] = v.clone();
+        }
+        let got = call_ok(&c, "calculate", args.clone()).await;
+        assert_eq!(
+            got["notices"], case["expected"]["notices"],
+            "{name}: 画面の計算のお知らせと違います"
+        );
+        args["omit"] = json!(["years", "pension", "noticeText"]);
+        let brief = call_ok(&c, "calculate", args.clone()).await;
+        assert_eq!(brief["notices"], case["expected"]["brief"], "{name}");
+        assert_eq!(brief["keyFigures"], got["keyFigures"], "{name}");
+        args["omit"] = json!(["years", "pension", "notices"]);
+        let none = call_ok(&c, "calculate", args).await;
+        assert!(none.get("notices").is_none(), "{name}");
+    }
+    // 文は画面と同じ（コードと ID だけの形ではない）。物の ID は返さない
+    let got = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": "salariedCoupleTwoKids", "omit": ["years", "pension"] }),
+    )
+    .await;
+    let n = got["notices"].as_array().unwrap();
+    assert!(n
+        .iter()
+        .all(|x| x["text"].is_string() && x["kind"].is_string() && x.get("code").is_none()));
+    assert!(
+        !got["notices"].to_string().contains("-4"),
+        "{}",
+        got["notices"]
+    );
+}
+
+/// 入力の確かめ（check_inputs。0210）: 見本の世帯で、画面の確かめの一覧の関数（app/test/connector-check.test.ts が作る見本）と同じ行・同じ聞く文を、
+/// quickjs-ng で動かした接続口が返す。プランの変更・選び方の誤り・計算できない入力も確かめる
+#[tokio::test(flavor = "multi_thread")]
+async fn check_inputs_match_the_screen() {
+    let dir = temp_dir("check-inputs");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "check_inputs");
+    let p = repo().join("crates/lifeplan/tests/fixtures/check/expected.json");
+    let cases: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+    assert!(cases.len() >= 5);
+    for case in &cases {
+        let name = case["name"].as_str().unwrap();
+        let mut args = json!({ "sample_household_id": case["sample"] });
+        if let Some(v) = case.get("changes") {
+            args["changes"] = v.clone();
+        }
+        if let Some(v) = case.get("kinds") {
+            args["kinds"] = v.clone();
+        }
+        if let Some(v) = case.get("max") {
+            args["max_items"] = v.clone();
+        }
+        let got = call_ok(&c, "check_inputs", args).await;
+        let want = &case["expected"];
+        for k in ["total", "counts", "groups", "truncated"] {
+            assert_eq!(
+                got[k], want[k],
+                "{name}: {k} が画面の確かめの一覧と違います"
+            );
+        }
+        assert!(got["note"].as_str().unwrap().contains("確かめの一覧"));
+        assert_eq!(got["sampleHouseholdId"], case["sample"]);
+        // 世帯の物の ID は返さない
+        assert!(
+            !got["groups"].to_string().contains("-4"),
+            "{name}: {}",
+            got["groups"]
+        );
+    }
+
+    // プランを確かめる（plan_changes を当てた世帯の確かめの一覧。当てた変更が答えに出る）
+    let id = "salariedCoupleTwoKids";
+    let item = plan_item(&c, json!({ "sample_household_id": id }), "employment.to").await;
+    let changes = json!([{ "target": item["target"], "item": "employment.to", "value": 63 }]);
+    let planned = call_ok(
+        &c,
+        "check_inputs",
+        json!({ "sample_household_id": id, "plan_changes": changes }),
+    )
+    .await;
+    assert_eq!(planned["planChanges"]["changes"][0]["status"], "applied");
+    assert!(planned["total"].as_u64().unwrap() > 0);
+
+    // 選び方の誤り・計算できない入力（頭金を省いた購入は、calculate と同じ直し方）
+    let (err, msg) = call(
+        &c,
+        "check_inputs",
+        json!({ "sample_household_id": id, "kinds": ["nope"] }),
+    )
+    .await;
+    assert!(err && msg.contains("kinds"), "{msg}");
+    let (err, msg) = call(
+        &c,
+        "check_inputs",
+        json!({ "sample_household_id": id, "max_items": 0 }),
+    )
+    .await;
+    assert!(err && msg.contains("max_items"), "{msg}");
+    let (err, msg) = call(
+        &c,
+        "check_inputs",
+        json!({ "sample_household_id": "housingPurchase", "changes": [{ "op": "remove", "path": "/household/residences/1/purchase/downPayment" }] }),
+    )
+    .await;
+    assert!(err && msg.contains("計算できませんでした"), "{msg}");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn calculation_matches_the_screen_after_preparation() {
     let p = repo().join("crates/lifeplan/tests/fixtures/prepare/expected.json");

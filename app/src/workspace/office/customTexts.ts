@@ -3,7 +3,7 @@
 // - 当てるのは本体が承認した中身から作った物（OfficeTextEntry）だけ。画面はカスタム層のファイルを読まない
 // - 今の公式の文が、承認したときに一覧にあった公式の文と同じときだけ当てる（同じ id で世帯によって文が違う所・知らない文には当てない）
 // - 文はただの文字。HTML として差し込まない（画面の部品は文字として描く）
-import { createContext } from "preact";
+// - 画面の部品に渡す入れ物（preact の context）は customTextsContext.ts。ここは画面の部品を読まない（計算のお知らせの文を AI接続口にも同梱する。0210）
 import type { OfficeRowNames } from "../../../../report/src/rowNames.ts";
 
 export type TextOp = "replace" | "append" | "hide" | "order";
@@ -24,9 +24,6 @@ export interface OfficeTextEntry {
 export type OfficeTexts = ReadonlyMap<string, OfficeTextEntry>;
 
 export const NO_OFFICE_TEXTS: OfficeTexts = new Map();
-
-/** 入力の画面などに事務所の文を渡す（App が本体から読んだ物を置く） */
-export const OfficeTextsContext = createContext<OfficeTexts>(NO_OFFICE_TEXTS);
 
 export const officeTextsFrom = (list: readonly OfficeTextEntry[]): OfficeTexts => new Map(list.map((e) => [e.id, e]));
 
@@ -61,7 +58,6 @@ export const officeLabel = (e: OfficeTextEntry): string => (e.officialChanged ? 
 /** 事務所の名前（名前の一覧の id → 承認した名前）。入力の欄の名前（field:…）と表の行の名前（row:…） */
 export type OfficeNames = ReadonlyMap<string, OfficeTextEntry>;
 export const NO_OFFICE_NAMES: OfficeNames = new Map();
-export const OfficeNamesContext = createContext<OfficeNames>(NO_OFFICE_NAMES);
 
 /** 名前を当てた結果（当てていなければ office は null。official は今の公式の名前） */
 export interface NamedLabel {
@@ -87,7 +83,6 @@ export function rowNamesOf(names: OfficeNames): OfficeRowNames | undefined {
 /** 事務所の欄の見せ方（欄の一覧の id → 隠す・何番目に出すか） */
 export type OfficeFields = ReadonlyMap<string, { hide: boolean; order: number | null }>;
 export const NO_OFFICE_FIELDS: OfficeFields = new Map();
-export const OfficeFieldsContext = createContext<OfficeFields>(NO_OFFICE_FIELDS);
 
 export const officeFieldsFrom = (list: readonly OfficeTextEntry[]): OfficeFields => new Map(list.map((e) => [e.id, { hide: e.do === "hide", order: e.order ?? null }]));
 

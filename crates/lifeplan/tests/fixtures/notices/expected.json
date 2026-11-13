@@ -1,0 +1,456 @@
+[
+  {
+    "name": "会社員の夫婦子2人",
+    "sample": "salariedCoupleTwoKids",
+    "expected": {
+      "notices": [
+        {
+          "kind": "計算に入れていない",
+          "text": "大学などの修学支援（授業料の減免・給付型奨学金）は、資産の要件と理工農系の学部への支援を見ずに計算しています"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "高校の就学支援金は、支給の要件（国籍・在留資格）を満たすものとして計算しています",
+          "subjects": [
+            "第1子",
+            "第2子"
+          ]
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "住民税の非課税の基準は、1級地（大都市）の額で計算しています"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "65歳以上の介護保険料は、全国平均の基準額で計算しています（お住まいの市区町村の額は入れていません）"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "後期高齢者医療の保険料は、全国平均の料率で計算しています"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "国民健康保険料は、全国の標準の料率で計算しています（お住まいの市区町村の料率は入れていません）"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "住民税は標準の税率で計算しています（政令指定都市の税率の配分と、市区町村の超過課税は入れていません）"
+        },
+        {
+          "kind": "データの確認待ち",
+          "text": "制度の値が決まっていない先の年は、最後に決まっている値をそのまま使うか、前提（賃金・物価）で延ばして計算しています",
+          "parts": [
+            "介護保険の第1号被保険者の保険料の基準額（2046〜2081年）",
+            "介護保険の第1号被保険者の保険料の割合（2046〜2081年）",
+            "後期高齢者医療の子ども・子育て支援金分の所得割率（2056〜2081年）",
+            "後期高齢者医療の子ども・子育て支援金分の均等割額（2056〜2081年）",
+            "後期高齢者医療の所得割率（2056〜2081年）",
+            "後期高齢者医療の被保険者均等割額（2056〜2081年）",
+            "年金額の改定率（2027〜2081年）",
+            "年金生活者支援給付金（老齢）の給付基準額（2046〜2048年）",
+            "年金生活者支援給付金（老齢）の所得基準額（2045〜2081年）",
+            "国民年金保険料（2028〜2043年）"
+          ]
+        },
+        {
+          "kind": "データの確認待ち",
+          "text": "国民健康保険の子ども・子育て支援金分の標準の料率が制度データに無いので、その分は保険料に入れていません"
+        }
+      ],
+      "brief": [
+        {
+          "kind": "計算に入れていない",
+          "key": "N_NOT_SUPPORTED|education.support|educationSupport.higher.assetTest"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_ASSUMED|education.support|educationSupport.highSchool.nationality",
+          "subjects": [
+            "第1子",
+            "第2子"
+          ]
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|residentTax.exemption|residentTax.exemption.perCapita.gradeOne"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.careFirst|socialInsurance.care.firstInsured.nationalAverage"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.lateElderly|socialInsurance.lateElderly.nationalAverage"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.nationalHealth|socialInsurance.nationalHealth.nationalStandard"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_NOT_SUPPORTED|residentTax.annual|residentTax.designatedCityAllocation"
+        },
+        {
+          "kind": "データの確認待ち",
+          "key": "future"
+        },
+        {
+          "kind": "データの確認待ち",
+          "key": "N_PARAM_MISSING|socialInsurance.nationalHealth|socialInsurance.nationalHealth.childSupport.nationalStandard"
+        }
+      ]
+    }
+  },
+  {
+    "name": "親の介護（世帯の外の家族・介護の目安）",
+    "sample": "sampleParentsCare",
+    "expected": {
+      "notices": [
+        {
+          "kind": "計算に入れていない",
+          "text": "受け取る相続の相続税は、計算に入れていません（受け取る額をそのまま入れています）",
+          "item": "相続・贈与"
+        },
+        {
+          "kind": "前提の外",
+          "text": "仕送り・援助などのお金の行は、相手が亡くなる見込みの月で止めました（行の終わりの値はそのままです）",
+          "subjects": [
+            "父"
+          ],
+          "item": "介護・親"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "介護の費用のうち入っていない所は、目安（統計の平均。事務所の推定の値があればその値）で計算しています",
+          "subjects": [
+            "父の介護",
+            "ご本人の介護",
+            "配偶者の介護"
+          ],
+          "parts": [
+            "始めにかかる費用",
+            "月々の費用"
+          ],
+          "item": "介護・親"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "住民税の非課税の基準は、1級地（大都市）の額で計算しています"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "65歳以上の介護保険料は、全国平均の基準額で計算しています（お住まいの市区町村の額は入れていません）"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "後期高齢者医療の保険料は、全国平均の料率で計算しています"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "国民健康保険料は、全国の標準の料率で計算しています（お住まいの市区町村の料率は入れていません）"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "年金の加入記録（ねんきん定期便）が入っていないので、働き方の入力から推計して計算しています",
+          "subjects": [
+            "ご本人",
+            "配偶者"
+          ],
+          "item": "年金"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "住民税は標準の税率で計算しています（政令指定都市の税率の配分と、市区町村の超過課税は入れていません）"
+        },
+        {
+          "kind": "データの確認待ち",
+          "text": "制度の値が決まっていない先の年は、最後に決まっている値をそのまま使うか、前提（賃金・物価）で延ばして計算しています",
+          "parts": [
+            "基本手当の賃金日額の上限額（2032〜2040年）",
+            "基本手当の賃金日額の下限額（2032〜2040年）",
+            "基本手当の給付率が45%になる賃金日額（2037〜2040年）",
+            "基本手当の給付率が80%から下がり始める賃金日額（2037〜2040年）",
+            "高年齢雇用継続給付の最低限度額（2032〜2039年）",
+            "高年齢雇用継続給付の支給限度額（2032〜2039年）",
+            "介護保険の第1号被保険者の保険料の基準額（2027〜2067年）",
+            "介護保険の第1号被保険者の保険料の割合（2027〜2067年）",
+            "後期高齢者医療の子ども・子育て支援金分の所得割率（2027〜2067年）",
+            "後期高齢者医療の子ども・子育て支援金分の均等割額（2027〜2067年）",
+            "後期高齢者医療の所得割率（2028〜2067年）",
+            "後期高齢者医療の被保険者均等割額（2028〜2067年）",
+            "年金額の改定率（2027〜2067年）",
+            "年金生活者支援給付金（老齢）の給付基準額（2027〜2067年）",
+            "年金生活者支援給付金（老齢）の所得基準額（2027〜2067年）",
+            "補足的老齢年金生活者支援給付金の補足的所得基準額（2027〜2067年）"
+          ]
+        },
+        {
+          "kind": "データの確認待ち",
+          "text": "国民健康保険の子ども・子育て支援金分の標準の料率が制度データに無いので、その分は保険料に入れていません"
+        }
+      ],
+      "brief": [
+        {
+          "kind": "計算に入れていない",
+          "key": "N_NOT_SUPPORTED|income.flows|incomeFlow.inheritanceTax",
+          "item": "相続・贈与"
+        },
+        {
+          "kind": "前提の外",
+          "key": "N_LIMIT_APPLIED|expense.periodic|moneyRow.counterpartyDeath",
+          "subjects": [
+            "父"
+          ],
+          "item": "介護・親"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "care.default",
+          "subjects": [
+            "父の介護",
+            "ご本人の介護",
+            "配偶者の介護"
+          ],
+          "item": "介護・親"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|residentTax.exemption|residentTax.exemption.perCapita.gradeOne"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.careFirst|socialInsurance.care.firstInsured.nationalAverage"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.lateElderly|socialInsurance.lateElderly.nationalAverage"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.nationalHealth|socialInsurance.nationalHealth.nationalStandard"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_ESTIMATED|pension.record|pensionRecord",
+          "subjects": [
+            "ご本人",
+            "配偶者"
+          ],
+          "item": "年金"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_NOT_SUPPORTED|residentTax.annual|residentTax.designatedCityAllocation"
+        },
+        {
+          "kind": "データの確認待ち",
+          "key": "future"
+        },
+        {
+          "kind": "データの確認待ち",
+          "key": "N_PARAM_MISSING|socialInsurance.nationalHealth|socialInsurance.nationalHealth.childSupport.nationalStandard"
+        }
+      ]
+    }
+  },
+  {
+    "name": "収益不動産",
+    "sample": "rentalSample",
+    "expected": {
+      "notices": [
+        {
+          "kind": "計算に入れていない",
+          "text": "大学などの修学支援（授業料の減免・給付型奨学金）は、資産の要件と理工農系の学部への支援を見ずに計算しています"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "収益不動産の大きな修繕は、全額をその年の経費として計算しています",
+          "subjects": [
+            "ご本人の口座・資産"
+          ],
+          "item": "収益不動産"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "高校の就学支援金は、支給の要件（国籍・在留資格）を満たすものとして計算しています",
+          "subjects": [
+            "第1子"
+          ]
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "収益不動産を売ったときの譲渡所得の税は、特例（特別控除・買換えなど）と、引ききれない所得控除を譲渡所得から引く扱いを入れずに計算しています",
+          "subjects": [
+            "ご本人の口座・資産"
+          ],
+          "item": "収益不動産"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "65歳以上の介護保険料は、全国平均の基準額で計算しています（お住まいの市区町村の額は入れていません）"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "後期高齢者医療の保険料は、全国平均の料率で計算しています"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "国民健康保険料は、全国の標準の料率で計算しています（お住まいの市区町村の料率は入れていません）"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "住民税は標準の税率で計算しています（政令指定都市の税率の配分と、市区町村の超過課税は入れていません）"
+        },
+        {
+          "kind": "データの確認待ち",
+          "text": "制度の値が決まっていない先の年は、最後に決まっている値をそのまま使うか、前提（賃金・物価）で延ばして計算しています",
+          "parts": [
+            "介護保険の第1号被保険者の保険料の基準額（2046〜2076年）",
+            "介護保険の第1号被保険者の保険料の割合（2046〜2076年）",
+            "後期高齢者医療の子ども・子育て支援金分の所得割率（2056〜2076年）",
+            "後期高齢者医療の子ども・子育て支援金分の均等割額（2056〜2076年）",
+            "後期高齢者医療の所得割率（2056〜2076年）",
+            "後期高齢者医療の被保険者均等割額（2056〜2076年）",
+            "年金額の改定率（2027〜2076年）",
+            "年金生活者支援給付金（老齢）の給付基準額（2046〜2048年）",
+            "年金生活者支援給付金（老齢）の所得基準額（2045〜2076年）",
+            "補足的老齢年金生活者支援給付金の補足的所得基準額（2047年）",
+            "国民年金保険料（2028〜2036年）"
+          ]
+        },
+        {
+          "kind": "データの確認待ち",
+          "text": "国民健康保険の子ども・子育て支援金分の標準の料率が制度データに無いので、その分は保険料に入れていません"
+        }
+      ],
+      "brief": [
+        {
+          "kind": "計算に入れていない",
+          "key": "N_NOT_SUPPORTED|education.support|educationSupport.higher.assetTest"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_ASSUMED|asset.realEstate|realEstate.repairExpensed",
+          "subjects": [
+            "ご本人の口座・資産"
+          ],
+          "item": "収益不動産"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_ASSUMED|education.support|educationSupport.highSchool.nationality",
+          "subjects": [
+            "第1子"
+          ]
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_ASSUMED|tax.realEstateSale|realEstate.saleTaxSimplified",
+          "subjects": [
+            "ご本人の口座・資産"
+          ],
+          "item": "収益不動産"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.careFirst|socialInsurance.care.firstInsured.nationalAverage"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.lateElderly|socialInsurance.lateElderly.nationalAverage"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.nationalHealth|socialInsurance.nationalHealth.nationalStandard"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_NOT_SUPPORTED|residentTax.annual|residentTax.designatedCityAllocation"
+        },
+        {
+          "kind": "データの確認待ち",
+          "key": "future"
+        },
+        {
+          "kind": "データの確認待ち",
+          "key": "N_PARAM_MISSING|socialInsurance.nationalHealth|socialInsurance.nationalHealth.childSupport.nationalStandard"
+        }
+      ]
+    }
+  },
+  {
+    "name": "家を買う",
+    "sample": "housingPurchase",
+    "expected": {
+      "notices": [
+        {
+          "kind": "仮の値・推定",
+          "text": "土地と建物の割合が入っていないので、既定の割合で時価の変わり方を計算しています",
+          "subjects": [
+            "持ち家"
+          ],
+          "item": "住まい・ローン"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "65歳以上の介護保険料は、全国平均の基準額で計算しています（お住まいの市区町村の額は入れていません）"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "年金の加入記録（ねんきん定期便）が入っていないので、働き方の入力から推計して計算しています",
+          "subjects": [
+            "ご本人",
+            "配偶者"
+          ],
+          "item": "年金"
+        },
+        {
+          "kind": "仮の値・推定",
+          "text": "住民税は標準の税率で計算しています（政令指定都市の税率の配分と、市区町村の超過課税は入れていません）"
+        },
+        {
+          "kind": "データの確認待ち",
+          "text": "制度の値が決まっていない先の年は、最後に決まっている値をそのまま使うか、前提（賃金・物価）で延ばして計算しています",
+          "parts": [
+            "介護保険の第1号被保険者の保険料の基準額（2059〜2065年）",
+            "介護保険の第1号被保険者の保険料の割合（2059〜2065年）",
+            "年金額の改定率（2027〜2065年）",
+            "年金生活者支援給付金（老齢）の所得基準額（2058〜2065年）",
+            "国民年金保険料（2028〜2065年）"
+          ]
+        }
+      ],
+      "brief": [
+        {
+          "kind": "仮の値・推定",
+          "key": "landShare",
+          "subjects": [
+            "持ち家"
+          ],
+          "item": "住まい・ローン"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_DEFAULT_USED|socialInsurance.careFirst|socialInsurance.care.firstInsured.nationalAverage"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_ESTIMATED|pension.record|pensionRecord",
+          "subjects": [
+            "ご本人",
+            "配偶者"
+          ],
+          "item": "年金"
+        },
+        {
+          "kind": "仮の値・推定",
+          "key": "N_NOT_SUPPORTED|residentTax.annual|residentTax.designatedCityAllocation"
+        },
+        {
+          "kind": "データの確認待ち",
+          "key": "future"
+        }
+      ]
+    }
+  }
+]

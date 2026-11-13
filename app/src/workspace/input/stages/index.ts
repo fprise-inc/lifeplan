@@ -24,24 +24,10 @@ import { retirementStage } from "./retirement.ts";
 import { savingsStage } from "./savings.ts";
 import { workStage } from "./work.ts";
 import { moneySections, type MoneyCard } from "../moneyRows.ts";
+import { STAGE_ORDER } from "../stageOrder.ts";
 
-export const STAGE_ORDER: readonly { id: StageId; label: string }[] = [
-  { id: "family", label: "家族" },
-  { id: "work", label: "働き方と収入" },
-  { id: "retirement", label: "退職金・企業年金" },
-  { id: "pension", label: "年金" },
-  { id: "living", label: "基本生活費" },
-  { id: "education", label: "子ども・教育" },
-  { id: "housing", label: "住まい・ローン" },
-  { id: "insurance", label: "保険" },
-  { id: "savings", label: "貯蓄・運用" },
-  { id: "rental", label: "収益不動産" },
-  { id: "events", label: "ライフイベント" },
-  { id: "car", label: "車" },
-  { id: "care", label: "介護・親" },
-  { id: "inheritance", label: "相続・贈与" },
-  { id: "assumptions", label: "前提条件" },
-];
+// 15項目の標準の順番と名前は stageOrder.ts（画面の部品を読まない所〔AI接続口の計算のお知らせ。0210〕からも読むので、段階の定義と分けた）
+export { STAGE_ORDER };
 
 const BUILDERS: Record<StageId, (wh: WorkingHousehold) => StageDef> = {
   family: familyStage,

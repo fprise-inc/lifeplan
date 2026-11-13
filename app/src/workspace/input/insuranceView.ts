@@ -1,6 +1,6 @@
 // 保険の入力項目の「保険料と解約返戻金」（0055。読むだけ）: 保険料の合計とこれから払う総額・貯蓄型の解約返戻金の元本割れ。
 // 必要保障額との過不足は万一のタブで見る（ここでは必要保障額を計算しない）。計算は万一の場面の無い要求を画面の側で1回だけ計算して読む（世帯は変えない）
-import { useEffect, useMemo, useState } from "preact/hooks";
+// 画面の部品が使う計算の入れ物（useInsuranceView）は useInsuranceView.ts（ここは画面の部品を読まない。確かめの一覧を AI接続口にも同梱する。0210）
 import type { EngineRequest, InsuranceContract, PreviewResult } from "../../engine/types.ts";
 import { baseRequest } from "../contingency/requests.ts";
 import type { WorkingHousehold } from "./household.ts";
@@ -109,24 +109,4 @@ export function insuranceView(wh: WorkingHousehold, base: PreviewResult | null):
     savings.push({ object: c.id, label, text: `${text}${estimate}` });
   }
   return { premium: { monthly, annual: monthly * 12, remaining }, savings };
-}
-
-/** 保険料と解約返戻金の計算（世帯が変わったら計算し直す）。計算の道が無ければ null のまま */
-export function useInsuranceView(wh: WorkingHousehold, active: boolean, computeOne: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined): InsuranceView | null {
-  const req = useMemo(() => (active && computeOne !== undefined && (wh.request.input.household.insuranceContracts ?? []).length > 0 ? insuranceRequest(wh) : null), [active, computeOne, wh]);
-  const [res, setRes] = useState<InsuranceView | null>(null);
-  useEffect(() => {
-    if (req === null || computeOne === undefined) return;
-    let alive = true;
-    void computeOne(req)
-      .catch(() => null)
-      .then((r) => {
-        if (alive) setRes(insuranceView(wh, r));
-      });
-    return () => {
-      alive = false;
-    };
-  }, [req, computeOne, wh]);
-  // 計算し直している間は、前の結果を見せておく（数字が消えてちらつかないように）
-  return req === null ? null : res;
 }
