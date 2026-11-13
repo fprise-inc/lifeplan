@@ -370,6 +370,26 @@
             "rank": 2,
             "include": true
           }
+        },
+        {
+          "id": "00000000-0000-4000-8000-0000000b0022",
+          "label": "できたら行く旅行",
+          "row": "cf.expense.lumpSum.other",
+          "from": {
+            "at": "2031-04"
+          },
+          "to": {
+            "at": "2031-04"
+          },
+          "everyYears": 1,
+          "amount": {
+            "value": 700000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "priority": "want"
         }
       ]
     },

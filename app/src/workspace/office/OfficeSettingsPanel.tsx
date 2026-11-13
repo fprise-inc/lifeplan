@@ -605,11 +605,11 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
           <h3 id="os-inherit">受け取る予定の相続・贈与の見込み</h3>
           <label class="os-radio">
             <input type="radio" name="os-inherit" checked={s.inheritLikelihood === "likely"} onChange={() => setS({ ...s, inheritLikelihood: "likely" })} data-office-inherit="likely" />
-            確実（基本の計算に入れる。既定）
+            確実（計算に入れる。既定）
           </label>
           <label class="os-radio">
             <input type="radio" name="os-inherit" checked={s.inheritLikelihood === "uncertain"} onChange={() => setS({ ...s, inheritLikelihood: "uncertain" })} data-office-inherit="uncertain" />
-            当てにしない（足した行を基本の計算に入れない。行ごとに直せます。相続で受け継ぐ借金も同じ）
+            不確実（足した行を計算に入れない。結果の画面の「これからの大きなお金」でチェックを入れると比較できます。相続で受け継ぐ借金も同じ）
           </label>
         </section>
         <section class="os-sec" aria-labelledby="os-assume">

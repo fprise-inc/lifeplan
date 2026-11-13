@@ -346,7 +346,7 @@ export interface EducationGift {
   purpose: string;
   payer?: string;
   donor?: string;
-  /** 優先度（必ず need・できれば want。省略は必ず。計算には使わない。「確実な分だけ」の見方で「できれば」を外す。0103） */
+  /** 見込み（画面は need 確実・want 不確実。省略は確実。計算には使わない。「不確実」の援助は、ふだんの計算から外す〔engine/moneyRows.ts の forEngine〕。0103） */
   priority?: "need" | "want";
   [key: string]: unknown;
 }
@@ -398,7 +398,7 @@ export interface PeriodicExpense {
   onContingency?: OnContingency;
   /** お金の行（0044）: 額は月額（最初の月から終わりの月まで毎月。何年ごとは1だけ） */
   monthly?: boolean;
-  /** お金の行（0044）: 出るお金の種類・相手・払う人・優先度・あげる贈与 */
+  /** お金の行（0044）: 出るお金の種類・相手・払う人・見込み（priority）・あげる贈与 */
   kind?: MoneyOutKind;
   counterparty?: string;
   payer?: string;
@@ -421,7 +421,7 @@ export interface DreamInfo {
   note?: string;
 }
 
-/** お金の行（0044）の見込み・優先度 */
+/** お金の行（0044）の見込み（入るお金は likelihood、出るお金は priority。画面はどちらも「確実／不確実」） */
 export type Likelihood = "certain" | "likely" | "uncertain";
 export type Priority = "need" | "want" | "wish";
 

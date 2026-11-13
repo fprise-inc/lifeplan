@@ -829,7 +829,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
 
 /**
  * 受け取る予定の相続・贈与（詳細版の版3から）: 「ある」なら、相続・遺贈の入るお金の行を1件（時期は記入の年の1月・無ければ1年後、額は目安の額・
- * 無ければ未入力。伸び方は「その時の額のまま」＝入れた額のまま。相続の入力項目の1回の行と同じ。0044 の追記 2026-11-11）。見込みは「当てにしない」（基本の計算に入れない。面談で確かめて「確実」にする）。相手（誰から）はシートで聞かない
+ * 無ければ未入力。伸び方は「その時の額のまま」＝入れた額のまま。相続の入力項目の1回の行と同じ。0044 の追記 2026-11-11）。見込みは「不確実」（ふだんの計算に入れない。面談で確かめて「確実」にする）。相手（誰から）はシートで聞かない
  */
 function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
   const I = "hs.inherit";
@@ -852,7 +852,7 @@ function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
   // 額の記入が無ければ、お答えの無い欄（今の世帯に同じ行があれば今の額を残す。0139）
   c.field(id, `${I}.amount`, undefined, "incomeFlow.amount", "/amount", amount.status === "value" ? "confirmed" : "estimated");
   (h.incomeFlows ??= []).push(flow);
-  c.candidate("incomeFlows", "incomeFlow.kind", flow, undefined, "見込みは「当てにしない」（基本の計算に入れない）で入れました。相手（誰から）・見込みは面談で確かめてください");
+  c.candidate("incomeFlows", "incomeFlow.kind", flow, undefined, "見込みは「不確実」（ふだんの計算に入れない）で入れました。相手（誰から）・見込みは面談で確かめてください");
 }
 
 // ---- 働き方と収入 ----

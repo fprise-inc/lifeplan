@@ -5,7 +5,10 @@ import { applyLevers } from "../src/workspace/levers.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { depletionYear, displayYears, schoolEntryYear, toPresentation } from "../src/workspace/present.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { CashflowTable, GoalCards, ResultCard } from "../src/presentation/MainView.tsx";
+import { CashflowTable, ResultCard } from "../src/presentation/MainView.tsx";
+import { bigMoneyOf } from "../src/workspace/bigMoney.ts";
+import { BigMoneyCard } from "../src/workspace/BigMoneyCard.tsx";
+import { ALL_ROWS } from "../src/engine/moneyRows.ts";
 import type { TableCell } from "../src/engine/types.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -78,8 +81,11 @@ describe("提示用の値を作る", () => {
     expect(texts).toContain("2031 学 第1子 大学入学（私立文系・自宅外）（第1子19歳）");
     expect(texts.some((t) => t.startsWith("2046 退 ご本人 退職（ご本人65歳）"))).toBe(true);
     expect(texts.some((t) => t.startsWith("2046 年 ご本人 年金の受け取り開始（65歳）"))).toBe(true);
-    // ご家族の夢の区画: 教育・住宅ローンの完済・老後の生活資金・ほかの出るお金のカードは出さない。夢の無い世帯は案内の1枚だけ
-    expect(model.goals.cards.map((c) => [c.category, c.title, c.note])).toEqual([["夢", "まだ入れていません", null]]);
+    // これからの大きなお金: 教育・住宅ローンの完済・老後の生活資金のカードは出さない。夢の無い世帯は「ご家族の夢」のまとまりを出さない
+    const bm = bigMoneyOf(proposal, proposed.table, { raw: proposal, view: ALL_ROWS });
+    expect(bm.groups.some((g) => g.key === "dreams")).toBe(false);
+    expect(bm.groups.flatMap((g) => g.rows).every((r) => !/教育|完済|老後/u.test(r.name))).toBe(true);
+    expect(model.childRepaid).toEqual([]);
   });
 
   it("年の内訳", () => {
@@ -101,11 +107,14 @@ describe("0016 の2: 提示層は内部情報を受け取らない", () => {
   it("提示層の部品を描いた結果に、メモの目印も物の ID も出ない", () => {
     // メモを持つのは作業の層だけ。提示層の部品は PresentationModel しか受け取れないので、目印は出ようがない
     const noop = () => undefined;
-    const html = renderToString(h("div", null, h(GoalCards, { model: model.goals }), h(ResultCard, { model, verdict: model.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop }), h(CashflowTable, { model: model.table, selectedYear: 2031, onSelectYear: noop, onEvidence: noop })));
+    const html = renderToString(h("div", null, h(ResultCard, { model, verdict: model.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop }), h(CashflowTable, { model: model.table, selectedYear: 2031, onSelectYear: noop, onEvidence: noop })));
     expect(html).toContain("100歳まで足ります");
-    expect(html).toContain("<h2>ご家族の夢</h2>");
     expect(html).not.toContain("準備OK");
     expect(html).not.toContain(MARK);
     for (const m of base.input.household.members) expect(html).not.toContain(m.id);
+    // 区画「これからの大きなお金」は作業の層の部品（行の key に物の ID を持つ）。出るお金の行の ID は出るが、人の ID・メモは出ない
+    const big = renderToString(h(BigMoneyCard, { model: bigMoneyOf(proposal, proposed.table, { raw: proposal, view: ALL_ROWS }), notes: model.childRepaid }));
+    expect(big).not.toContain(MARK);
+    for (const m of base.input.household.members) expect(big).not.toContain(m.id);
   });
 });

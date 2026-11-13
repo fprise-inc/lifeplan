@@ -47,7 +47,7 @@ use std::time::Instant;
 
 pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプランソフト）の AI接続口です。
 - 計算（calculate）・数字の根拠（explain_value）・動かせる項目（list_plan_items）・入力の確かめ（check_inputs）・制度の値（get_regulation_value）・見本の世帯（list_sample_households・get_sample_household）・対応範囲の一覧（search_coverage・get_coverage）は、アプリが起動していなくても使えます。見本の世帯はすべて架空で、実在の顧客ではありません。
-- calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリで「確実な分だけ」などの結果の見方を選んでいるとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
+- calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「不確実」の入るお金・出るお金・子への援助・受け取る相続・遺贈・贈与・相続で受け継ぐ借金と、「最初から計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリの結果の画面で物ごとの入れ外し（「これからの大きなお金」のチェック）をしているとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
 - calculate の答えは大きくなりやすいので、要る物だけを取ってください。比較する・振るときは omit に years を入れて keyFigures（主な数字。アプリの「プランを比較」と同じ数え方）だけを取り、推移を見るときは every_years（例 5）と fields（例 [\"financialAssets\"]）で絞ります。計算のお知らせ（notices）・制度データの版（packs）は要らなければ omit で省きます。見本の世帯の一覧（list_sample_households）は tags（例 [\"子育て\"]・[\"シニア\"]）で絞り、explain_value は omit・depth で小さくできます。主な数字には65歳からの年金の月額（keyFigures.pension。今の水準の額）も入り、要らなければ omit に pension を入れると計算も省きます。年ごとの数字は画面の表と同じ年から始まります（計算基準月が年の途中なら翌年から）。
 - calculate の notices（計算のお知らせ）は、アプリの画面の結果のタブの「計算のお知らせ」と同じ関数で作った、同じ文の行です（同じ知らせは1行。kind は画面の種類〔入力が足りない・計算に入れていない・前提の外・仮の値・推定・データの確認待ち〕、text は画面の文、subjects は対象の人・物、years は年、parts は内訳、item は入力で直すときの入力項目）。FP にお知らせを伝えるときは、text を言い換えずにそのまま使ってください（画面と同じ言葉になります）。同じ世帯を何度も計算するときは、omit に noticeText（文と内訳を省き、種類と鍵 key だけ）か notices を入れて小さくします。
 - 面談の前に「お客さまに聞くこと」「確かめておくこと」を頼まれたら、推測で並べず check_inputs を使ってください。アプリの入力のタブの「確かめの一覧」と同じ関数・同じ並びで、推定や既定の値で埋めた所・入っていなさそうな所（子がいるのに教育の進路が無い・家を買うのに頭金や残りの払い方が無い・ねんきん定期便の記録が無い・退職金・生活費・住まい・保険・介護の費用が無いなど）・範囲の外の値・入力で直せる計算のお知らせを、入力項目（item）・欄（field）・今の値（value）・短い理由（reason）・お客さまに聞く文の案（question）で返します。プランを確かめるときは plan_changes を当てます。question は案なので、FP が面談の前に確かめるよう添えてください。まとめ方はプロンプトの prepare_questions にあります。
@@ -603,10 +603,13 @@ fn preparation(applied: &Value, with_ids: bool) -> Option<Value> {
         list("excludedDebts"),
         list("offDreams"),
     );
+    let (expenses, gifts) = (list("excludedExpenses"), list("excludedGifts"));
     let (values, no_fill) = (list("officeEstimateValues"), list("officeNoFill"));
     if incomes.is_empty()
         && debts.is_empty()
         && dreams.is_empty()
+        && expenses.is_empty()
+        && gifts.is_empty()
         && values.is_empty()
         && no_fill.is_empty()
     {
@@ -614,12 +617,19 @@ fn preparation(applied: &Value, with_ids: bool) -> Option<Value> {
     }
     let mut p = serde_json::Map::new();
     p.insert("note".into(), json!(PREPARATION_NOTE));
-    if !(incomes.is_empty() && debts.is_empty() && dreams.is_empty()) {
+    if !(incomes.is_empty()
+        && debts.is_empty()
+        && dreams.is_empty()
+        && expenses.is_empty()
+        && gifts.is_empty())
+    {
         p.insert(
             "notInCalculation".into(),
             json!({
                 "incomeFlows": objects("excludedIncomes"),
                 "inheritedDebts": objects("excludedDebts"),
+                "periodicExpenses": objects("excludedExpenses"),
+                "gifts": objects("excludedGifts"),
                 "dreams": objects("offDreams"),
             }),
         );
@@ -641,7 +651,7 @@ fn results_have_preparation(v: &Value) -> bool {
 }
 
 /// 計算の前の処理の印の説明
-const PREPARATION_NOTE: &str = "アプリの画面と同じく、計算の前に次を当てました（世帯のデータは変えていません）。notInCalculation は計算に入れない物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）で、表の数字に入っていません。officeEstimates は、FPの事務所が既定値の画面で変えた推定の値（values は値ID）と推定で埋めない目安（noFill）です。";
+const PREPARATION_NOTE: &str = "アプリの画面と同じく、計算の前に次を当てました（世帯のデータは変えていません）。notInCalculation は計算に入れない物（見込みが「不確実」の入るお金・相続で受け継ぐ借金・出るお金・子への援助と、「最初から計算に入れない」を選んだ夢）で、表の数字に入っていません。officeEstimates は、FPの事務所が既定値の画面で変えた推定の値（values は値ID）と推定で埋めない目安（noFill）です。";
 
 /// 変更とストレステストを当てる
 fn with_changes(

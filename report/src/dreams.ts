@@ -83,16 +83,29 @@ export interface DreamPaid {
 
 /** 夢の払う年の金融資産（払った後）。id は夢の行の ID、years は表に出す年。払う年が表に無い（計算に入っていない・額が無い）ときは null */
 export function dreamPaid(id: string, table: readonly Cell[], years: readonly number[]): DreamPaid | null {
+  return paidIn(objectYears(table, id, "cf.expense"), table, years);
+}
+
+/** 表で、物（object が id）のお金が prefix の行（その行かその下の行）にある年（額がプラスの年。年の順） */
+export function objectYears(table: readonly Cell[], id: string, prefix: string): number[] {
+  const by = new Map<number, number>();
+  for (const c of table) if (c.object === id && (c.row === prefix || c.row.startsWith(`${prefix}.`))) by.set(c.year, (by.get(c.year) ?? 0) + c.amount);
+  return [...by.entries()].filter(([, v]) => v > 0).map(([y]) => y).sort((a, b) => a - b);
+}
+
+/**
+ * 払う年（受け取る年）の金融資産（払った後・受け取った後）: paidYears のうち表に出す年で、資金が不足する最初の年、無ければ金融資産がいちばん少ない年
+ * （同じなら早い年）。夢の dreamPaid と、結果の画面の「これからの大きなお金」の支払い・受け取りの行が同じ選び方を使う。表に出す年が無ければ null
+ */
+export function paidIn(paidYears: readonly number[], table: readonly Cell[], years: readonly number[]): DreamPaid | null {
   const shown = new Set(years);
-  const paidBy = new Map<number, number>();
   const fin = new Map<number, number>();
   const short = new Map<number, number>();
   for (const c of table) {
-    if (c.object === id && (c.row === "cf.expense" || c.row.startsWith("cf.expense."))) paidBy.set(c.year, (paidBy.get(c.year) ?? 0) + c.amount);
     if (c.row === "cf.balance.financial") fin.set(c.year, (fin.get(c.year) ?? 0) + c.amount);
     if (c.row === "cf.balance.shortfall") short.set(c.year, (short.get(c.year) ?? 0) + c.amount);
   }
-  const paid = [...paidBy.entries()].filter(([y, v]) => v > 0 && shown.has(y)).map(([y]) => y).sort((a, b) => a - b);
+  const paid = [...new Set(paidYears)].filter((y) => shown.has(y)).sort((a, b) => a - b);
   if (paid.length === 0) return null;
   const isShort = (y: number) => (fin.get(y) ?? 0) < 0 || (short.get(y) ?? 0) > 0;
   const year = paid.find(isShort) ?? paid.reduce((m, y) => ((fin.get(y) ?? 0) < (fin.get(m) ?? 0) ? y : m));

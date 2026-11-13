@@ -26,7 +26,6 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
   { shape: "education:edu/*/lesson/*/kind", why: "塾・習い事の行の種類（表示と既定の名前だけ）" },
   { shape: "insurance:ins/*/label", why: "契約の表示名（表示用）" },
   { shape: "events:ev/*/label", why: "行の名前（表示用）" },
-  { shape: "events:ev/*/priority", why: "優先度（表示と「確実な分だけ」の見方だけ。計算には使わない）" },
   { shape: "events:ev/*/dreamNote", why: "夢のひとことメモ（なぜかなえたいか。表示用。0103）" },
   { shape: "housing:housing/debt/*/label", why: "ローンの名前（表示用）" },
   { shape: "housing:housing/res/*/style", why: "建て方（表示と推定の元だけ）" },
@@ -50,10 +49,8 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
   { shape: "living:living/*/stage/*/label", why: "段階の節目の名前（時期は「いつから」で決まる）" },
   // 親の介護と相続の見本（2026-11-07 に足した見本）で、はじめてたどった欄
   { shape: "care:ev/*/label", why: "お金の行の名前（表示用）" },
-  { shape: "care:ev/*/priority", why: "優先度（表示と「確実な分だけ」の見方だけ。計算には使わない）" },
   { shape: "inheritance:in/*/label", why: "入るお金の行の名前（表示用）" },
   { shape: "inheritance:ev/*/label", why: "出るお金の行の名前（表示用）" },
-  { shape: "inheritance:ev/*/priority", why: "優先度（表示と「確実な分だけ」の見方だけ。計算には使わない）" },
 ];
 
 /**
@@ -83,7 +80,6 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "education:edu/*/scholar/*/rate", why: "子が返す奨学金は世帯の収支に入れない" },
   { shape: "education:edu/*/scholar/*/term", why: "子が返す奨学金は世帯の収支に入れない" },
   { shape: "education:edu/*/scholar/*/repay", why: "子が返す奨学金は世帯の収支に入れない" },
-  { shape: "education:edu/*/gift/*/priority", why: "優先度は「確実な分だけ」の見方だけ" },
   { shape: "education:edu/*/gift/*/tax", why: "贈与税の課税の方法は、非課税の枠を超える援助のときだけ" },
   { shape: "education:edu/*/gift/*/exempt", why: "非課税の扱いは、非課税の枠を超える援助のときだけ" },
   { shape: "housing:housing/res/*/purchase/gift/*/exempt", why: "住宅取得等資金の非課税は、非課税の枠を超える援助のときだけ" },
