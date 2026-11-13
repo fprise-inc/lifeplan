@@ -145,7 +145,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     expect(chip(grave, "grave").chip!.added).toMatch(/^入れた（\d{4}年・額は未入力）$/u);
   });
 
-  it("額は推定（根拠はよくある目安）、額の無いひな形は未入力の警告。表の行はどれも一時的支出、優先度はひな形どおり", () => {
+  it("額は推定（根拠はよくある目安）、額の無いひな形は未入力の警告。表の行はどれも一時的支出、見込みはひな形どおり", () => {
     let wh = bare();
     const ids = seq();
     for (const k of ["wedding", "memorial", "grave"]) wh = addOutTemplate(wh, k, ids);
@@ -153,7 +153,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     expect(byLabel("法事")).toMatchObject({ kind: "general", row: "cf.expense.lumpSum.other", everyYears: 1, amount: { value: 200000, state: "estimated" } });
     expect(byLabel("結婚の費用")).toMatchObject({ row: "cf.expense.lumpSum.other" });
     for (const l of ["結婚の費用", "法事", "お墓・仏壇"]) expect(byLabel(l).priority).toBeUndefined();
-    // できればのひな形は子の結婚の援助だけ（ほかは必ず）
+    // 不確実のひな形は子の結婚の援助だけ（ほかは確実）
     expect(OUT_TEMPLATES.filter((t) => t.priority === "want").map((t) => t.key)).toEqual(["childWedding"]);
     for (const p of rowsOf(wh).filter((x) => expenseCard(wh.request.input.household, x) === "events")) expect(p.to).toEqual(p.from);
     const f = (id: string, suffix: string) => allFields(events(wh)).find((x) => x.key === `ev/${id}/${suffix}`)!;
@@ -358,7 +358,7 @@ describe("人ごとのひな形", () => {
 });
 
 describe("ライフイベントの行の欄", () => {
-  it("種類と表の行は選ばない（表の行は一時的支出）。時期は1回・年ごと（毎月は出さない）。優先度は標準", () => {
+  it("種類と表の行は選ばない（表の行は一時的支出）。時期は1回・年ごと（毎月は出さない）。見込みは標準", () => {
     const wh = addOtherExpense(bare(), "00000000-0000-4000-8000-0000000000b1");
     const p = rowsOf(wh).at(-1)!;
     expect(p).toMatchObject({ kind: "general", row: "cf.expense.lumpSum.other", amount: { value: 500000, state: "estimated" } });

@@ -832,7 +832,7 @@ entries:
     path: [housing]
   - id: debt.includeInBase
     status: active
-    label: "基本の計算に入れる（相続で受け継ぐ借金だけ。true で、見込みが不確かでも入れる。計算には使わない）"
+    label: "計算に入れる（相続で受け継ぐ借金だけ。前の版の「この行を計算に入れる」。true で、見込みが不確実でもアプリが要求に残す。計算には使わない）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1376,7 +1376,7 @@ entries:
     path: [growth]
   - id: incomeFlow.includeInBase
     status: active
-    label: "基本の計算に入れる（true で、見込みが不確かでも入れる。省略は見込みで決める。計算には使わない）"
+    label: "計算に入れる（前の版の「この行を計算に入れる」。true で、見込みが不確実でもアプリが要求に残す。省略は見込みで決める。計算には使わない）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1400,7 +1400,7 @@ entries:
     path: [label]
   - id: incomeFlow.likelihood
     status: active
-    label: "見込み（計算には使わない。不確かな受け取る相続・贈与は、アプリが要求から外す。0035 の7・0036 の6）"
+    label: "見込み（計算には使わない。「不確実」の行は、アプリが要求から外す。0035 の7・0036 の6・0044）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1954,7 +1954,7 @@ entries:
     path: [payer]
   - id: periodicExpense.priority
     status: active
-    label: "優先度（必要・希望・夢。計算には使わない。0044）"
+    label: "見込み（need 確実・want 不確実。wish は前の版の夢で不確実と同じ。計算には使わない。「不確実」の行は、アプリが要求から外す。0044）"
     since: draft
     aliases: []
     replacedBy: null

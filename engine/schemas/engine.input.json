@@ -1178,7 +1178,7 @@
         "property": { "title": "この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028）", "x-item": "debt.property", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "inheritedFrom": { "title": "相続で受け継ぐ借金の、元の借り手（構成員。多くは世帯の外の家族。計算には使わない。見込みが不確かなら、アプリが要求から外す。0044）", "x-item": "debt.inheritedFrom", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "likelihood": { "title": "見込み（相続で受け継ぐ借金だけ。計算には使わない。0035 の7）", "x-item": "debt.likelihood", "$ref": "#/$defs/likelihood" },
-        "includeInBase": { "title": "基本の計算に入れる（相続で受け継ぐ借金だけ。true で、見込みが不確かでも入れる。計算には使わない）", "x-item": "debt.includeInBase", "type": "boolean" },
+        "includeInBase": { "title": "計算に入れる（相続で受け継ぐ借金だけ。前の版の「この行を計算に入れる」。true で、見込みが不確実でもアプリが要求に残す。計算には使わない）", "x-item": "debt.includeInBase", "type": "boolean" },
         "principal": { "title": "借入額（実行の時）", "x-item": "debt.principal", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
         "start": { "title": "借入の月（最初の返済はその翌月）", "x-item": "debt.start", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "balance": { "title": "残高（balanceAsOf の月の返済の後。既に借りているローン）", "x-item": "debt.balance", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
@@ -2029,7 +2029,7 @@
         "kind": { "title": "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift と、世帯の外の子への養育費・仕送りの行がある間の扶養の判定が変える。0044）", "x-item": "periodicExpense.kind", "$ref": "#/$defs/moneyOutKind" },
         "counterparty": { "title": "相手（誰へ。構成員。多くは世帯の外の家族。0044）", "x-item": "periodicExpense.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "payer": { "title": "払う人（世帯の中の人。万一のときの扱いは、この人の万一だけが該当。省略は世帯）", "x-item": "periodicExpense.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
-        "priority": { "title": "優先度（必要・希望・夢。計算には使わない。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },
+        "priority": { "title": "見込み（need 確実・want 不確実。wish は前の版の夢で不確実と同じ。計算には使わない。「不確実」の行は、アプリが要求から外す。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },
         "dream": {
           "title": "夢プラン（種類 dream の行だけ。順位・計算に入れるか〔省略は入れる〕・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103）",
           "x-item": "periodicExpense.dream",
@@ -2059,8 +2059,8 @@
       "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他／dream 夢プランの1件。0103／assetCost 持っている資産の毎年の費用〔貸していない不動産の固定資産税・管理費など。つながる物 object を書く。0123〕）",
       "enum": ["general", "allowance", "childSupport", "gift", "education", "repair", "realEstateCost", "livingAnnual", "car", "other", "dream", "assetCost"]
     },
-    "priority": { "description": "0044: 優先度（need 必要・want 希望・wish 夢）", "enum": ["need", "want", "wish"] },
-    "likelihood": { "description": "0044: 見込み（certain 確実・likely たぶん・uncertain 不確か。省略は「たぶん」と読む）", "enum": ["certain", "likely", "uncertain"] },
+    "priority": { "description": "0044: 出るお金の見込み（need 確実・want 不確実・wish 前の版の夢〔不確実と同じ〕）", "enum": ["need", "want", "wish"] },
+    "likelihood": { "description": "0044: 見込み（certain 確実・likely たぶん〔画面は確実〕・uncertain 不確実。省略は「たぶん」と読む）", "enum": ["certain", "likely", "uncertain"] },
     "incomeFlow": {
       "description": "0044: 入るお金の行（名前・種類・課税の扱い・額・時期・受け取る人・相手・見込み・伸び方・段階・例外の年・万一のときの扱い・表の行）",
       "type": "object",
@@ -2135,8 +2135,8 @@
         "onContingency": { "title": "万一のときの扱い（受け取る人を入れたときは、その人の万一だけが該当）", "x-item": "incomeFlow.onContingency", "$ref": "#/$defs/onContingency" },
         "recipient": { "title": "受け取る人（世帯の中の構成員。省略は世帯。課税の扱いのある行の税は、省略なら本人）", "x-item": "incomeFlow.recipient", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "counterparty": { "title": "相手（誰から。構成員。多くは世帯の外の家族）", "x-item": "incomeFlow.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
-        "likelihood": { "title": "見込み（計算には使わない。不確かな受け取る相続・贈与は、アプリが要求から外す。0035 の7・0036 の6）", "x-item": "incomeFlow.likelihood", "$ref": "#/$defs/likelihood" },
-        "includeInBase": { "title": "基本の計算に入れる（true で、見込みが不確かでも入れる。省略は見込みで決める。計算には使わない）", "x-item": "incomeFlow.includeInBase", "type": "boolean" },
+        "likelihood": { "title": "見込み（計算には使わない。「不確実」の行は、アプリが要求から外す。0035 の7・0036 の6・0044）", "x-item": "incomeFlow.likelihood", "$ref": "#/$defs/likelihood" },
+        "includeInBase": { "title": "計算に入れる（前の版の「この行を計算に入れる」。true で、見込みが不確実でもアプリが要求に残す。省略は見込みで決める。計算には使わない）", "x-item": "incomeFlow.includeInBase", "type": "boolean" },
         "giftMethod": { "title": "贈与税で見るときの課税の方法（省略は暦年課税）", "x-item": "incomeFlow.giftMethod", "enum": ["calendar", "settlement"] },
         "pensionType": { "title": "受給中の遺族年金・障害年金の種類（種類が survivorPension の行。表示と終わりの推定だけで、計算には使わない。0066）", "x-item": "incomeFlow.pensionType", "enum": ["survivorBasic", "survivorEmployee", "widow", "disabilityBasic", "disabilityEmployee"] }
       },
@@ -2664,7 +2664,7 @@
                   "donor": { "description": "世帯の外の贈与者（donors の ID）が出すとき（世帯からは出さない）。同じ贈与者からの贈与を合わせて数える", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] },
                   "housingExemption": { "description": "住宅資金の援助で住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] },
-                  "priority": { "description": "0103: 優先度（need 必ず・want できれば。省略は必ず。計算には使わない。画面の「確実な分だけ」の見方で「できれば」を外す）", "enum": ["need", "want"] }
+                  "priority": { "description": "0103: 見込み（need 確実・want 不確実。省略は確実。計算には使わない。「不確実」の援助は、アプリが要求から外す）", "enum": ["need", "want"] }
                 }
               }
             },
