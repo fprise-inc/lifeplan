@@ -15,10 +15,12 @@ use serde_json::{json, Value};
 
 /// 支出の内訳をまとめて選ぶ名前（どれかの通りに値のある支出の内訳 expense〜 に開く）
 pub const BREAKDOWN: &str = "expenseBreakdown";
+/// 収入の内訳をまとめて選ぶ名前（どれかの通りに値のある収入の内訳 income〜 に開く。0211）
+pub const INCOME_BREAKDOWN: &str = "incomeBreakdown";
 
-/// 選べる行か（table.ts の TABLE_ROWS と同じ: compare の系列の名前〔answer::FIELDS。0207〕と expenseBreakdown）
+/// 選べる行か（table.ts の TABLE_ROWS と同じ: compare の系列の名前〔answer::FIELDS。0207〕と expenseBreakdown・incomeBreakdown）
 pub fn is_row(r: &str) -> bool {
-    r == BREAKDOWN || crate::answer::FIELDS.contains(&r)
+    r == BREAKDOWN || r == INCOME_BREAKDOWN || crate::answer::FIELDS.contains(&r)
 }
 /// 単位: man（万円。四捨五入。既定）・yen（円）
 pub const UNITS: &[&str] = &["man", "yen"];
@@ -26,8 +28,12 @@ pub const UNITS: &[&str] = &["man", "yen"];
 pub const FORMATS: &[&str] = &["csv", "markdown"];
 /// 通りが2つ以上のときの並べ方: byRow（行ごとに通りを列に並べる）・byVariant（通りごとに分ける）
 pub const LAYOUTS: &[&str] = &["byRow", "byVariant"];
+/// 表の向き: yearsDown（年を行にする。既定）・yearsAcross（年を列にする。画面のキャッシュフロー表と同じ向き。0211）
+pub const ORIENTATIONS: &[&str] = &["yearsDown", "yearsAcross"];
 /// 何年おきの既定（compare の系列と同じ）
 pub const DEFAULT_EVERY_YEARS: u8 = 5;
+/// 本人の年齢で年を選ぶときの年齢の上限
+pub const MAX_AGE: u8 = 120;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct TableArgs {
@@ -55,16 +61,25 @@ pub struct TableArgs {
     /// taxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産残高）・debt（負債の残高の合計）・
     /// shortfall（資金不足）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高。画面の表の行と同じ）・loanInterest（住宅ローンの利息。
     /// 年額）・loanRate（その年の住宅ローンの金利。%）・pension（公的年金の世帯の合計。年額）・支出の内訳 expenseLiving・expenseSurplus・expenseHousing・
-    /// expenseEducation・expenseInsurance・expenseLumpSum・expenseCar・expenseCare・expenseRealEstate・expenseOther（全部足すと expense）。
-    /// expenseBreakdown は、支出の内訳のうちどれかの通りに値のある物をまとめて選ぶ
-    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther", "expenseBreakdown"] }))]
+    /// expenseEducation・expenseInsurance・expenseLumpSum・expenseCar・expenseCare・expenseRealEstate・expenseOther（全部足すと expense）・収入の内訳
+    /// incomeSalary（給与）・incomeBusiness（事業所得）・incomePension（公的年金）・incomeCorporatePension（企業年金・個人年金）・incomeRetirement（退職金）・
+    /// incomeBenefit（給付・手当）・incomeRealEstate（家賃収入・不動産の売却）・incomeOther（その他の収入）（全部足すと income）・nisaContribution（NISAへの積立。
+    /// 年額）・nisaBalance（NISA の残高。年末）。expenseBreakdown・incomeBreakdown は、支出・収入の内訳のうちどれかの通りに値のある物をまとめて選ぶ
+    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "incomeSalary", "incomeBusiness", "incomePension", "incomeCorporatePension", "incomeRetirement", "incomeBenefit", "incomeRealEstate", "incomeOther", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther", "nisaContribution", "nisaBalance", "expenseBreakdown", "incomeBreakdown"] }))]
     pub rows: Option<Vec<String>>,
     /// 年齢の列にする家族（年齢の鍵: self・spouse・child1・child2…。compare の系列の ages の鍵と同じ）。省くと世帯の全員、[] なら年齢の列なし
     pub members: Option<Vec<String>>,
-    /// この年から（含む）
+    /// この年から（含む）。本人の年齢で選ぶ from_age・to_age とは一緒に書けない
     pub from_year: Option<i64>,
     /// この年まで（含む）
     pub to_year: Option<i64>,
+    /// 本人がこの年齢になる年から（含む。年齢はその年に迎える年齢で、画面の表の年齢の行と同じ）。例: 60歳から90歳までなら from_age 60・to_age 90。
+    /// 年で選ぶ from_year・to_year とは一緒に書けない。通りに別の世帯があれば、通りごとにその世帯の本人の年齢で選ぶ
+    #[schemars(range(min = 0, max = 120))]
+    pub from_age: Option<u8>,
+    /// 本人がこの年齢になる年まで（含む）
+    #[schemars(range(min = 0, max = 120))]
+    pub to_age: Option<u8>,
     /// 何年おき（1〜10。既定5）。最初の年と最後の年はいつも入る。毎年の表は 1
     #[schemars(range(min = 1, max = 10))]
     pub every_years: Option<u8>,
@@ -78,6 +93,10 @@ pub struct TableArgs {
     /// 縦に積む）。通りに別の世帯があるときの既定は byVariant（byRow の年齢の列は基本の世帯）
     #[schemars(extend("enum" = ["byRow", "byVariant", null]))]
     pub layout: Option<String>,
+    /// 表の向き: yearsDown（年を行に、数字を列に並べる。グラフを描く・プログラムで読むのに向く。既定）か yearsAcross（年を列に、数字を行に並べる。
+    /// 画面のキャッシュフロー表と同じ向き。年齢も行になる）。表の下の注はどちらでも同じ
+    #[schemars(extend("enum" = ["yearsDown", "yearsAcross", null]))]
+    pub orientation: Option<String>,
     /// true なら CSV の頭に BOM（U+FEFF）を付ける（日本語の Windows の Excel でファイルを開いたときに文字化けさせない。既定 false）
     pub bom: Option<bool>,
     /// true なら表の下の注に「ファイナンシアで試算」の旨を入れる（既定 false）
@@ -91,6 +110,7 @@ pub struct Chosen {
     pub unit: String,
     pub format: String,
     pub layout: Option<String>,
+    pub orientation: String,
     pub every: u8,
 }
 
@@ -100,7 +120,7 @@ pub fn check(a: &TableArgs) -> Result<Chosen, String> {
     let bad: Vec<&String> = rows.iter().filter(|r| !is_row(r)).collect();
     if !bad.is_empty() {
         return Err(format!(
-            "rows に選べるのは {}・{BREAKDOWN} です（{}）。",
+            "rows に選べるのは {}・{BREAKDOWN}・{INCOME_BREAKDOWN} です（{}）。",
             crate::answer::FIELDS.join("・"),
             bad.iter()
                 .map(|s| s.as_str())
@@ -122,6 +142,32 @@ pub fn check(a: &TableArgs) -> Result<Chosen, String> {
         None => None,
         Some(_) => Some(pick(&a.layout, LAYOUTS, "layout")?),
     };
+    let orientation = pick(&a.orientation, ORIENTATIONS, "orientation")?;
+    // 年は、年で選ぶか本人の年齢で選ぶかのどちらか一方（両方を書くと、どちらに合わせるか決まらない）
+    if (a.from_year.is_some() || a.to_year.is_some())
+        && (a.from_age.is_some() || a.to_age.is_some())
+    {
+        return Err("年は from_year・to_year（年）か from_age・to_age（本人の年齢）のどちらか一方で選んでください（両方は書けません）。".to_owned());
+    }
+    if [a.from_age, a.to_age]
+        .iter()
+        .flatten()
+        .any(|x| *x > MAX_AGE)
+    {
+        return Err(format!(
+            "from_age・to_age は 0〜{MAX_AGE} 歳にしてください。"
+        ));
+    }
+    if let (Some(f), Some(t)) = (a.from_age, a.to_age) {
+        if f > t {
+            return Err("from_age は to_age 以下にしてください。".to_owned());
+        }
+    }
+    if let (Some(f), Some(t)) = (a.from_year, a.to_year) {
+        if f > t {
+            return Err("from_year は to_year 以下にしてください。".to_owned());
+        }
+    }
     let every = a.every_years.unwrap_or(DEFAULT_EVERY_YEARS);
     if !(1..=10).contains(&every) {
         return Err("every_years は 1〜10 にしてください。".to_owned());
@@ -138,6 +184,7 @@ pub fn check(a: &TableArgs) -> Result<Chosen, String> {
         unit,
         format,
         layout,
+        orientation,
         every,
     })
 }
@@ -158,13 +205,19 @@ pub fn build(args: &Value) -> Result<Value, String> {
     serde_json::from_str(&out).map_err(|e| e.to_string())
 }
 
-/// 通り1つ（table.ts の TableVariant）: 名前・計算の前の処理を当てる前の要求・表示の形の出力の表と、要約のうち住宅ローンの利息と金利（loans）
-pub fn variant(label: &Value, request: &Value, out: &Value, stress: Option<String>) -> Value {
+/// 通り1つ（table.ts の TableVariant）: 名前・計算の前の処理を当てる前の要求・表示の形の出力の表と、要約のうち住宅ローンの利息と金利（loans）・
+/// 当てたプランの変更（注の「通りの違い」。グラフと同じ。0211）
+pub fn variant(r: &Value, request: &Value, out: &Value) -> Value {
     let mut v = json!({
-        "label": label.as_str().unwrap_or(""),
+        "label": r["label"].as_str().unwrap_or(""),
         "request": request,
         "result": { "table": out["table"], "summary": { "loans": out["summary"]["loans"] } },
     });
+    let plan = crate::chart::plan_of(r);
+    if !plan.is_empty() {
+        v["planChanges"] = json!(plan);
+    }
+    let stress = stress_of(r);
     if v["result"]["summary"]["loans"].is_null() {
         v["result"]["summary"] = json!({});
     }
@@ -204,27 +257,48 @@ mod tests {
         assert!(check(&args(json!({ "layout": "wide" }))).is_err());
         assert!(check(&args(json!({ "every_years": 11 }))).is_err());
         assert!(check(&args(json!({ "members": [""] }))).is_err());
+        // 本人の年齢で選ぶ年（0211）: 年と一緒には書けない
+        let c = check(&args(json!({ "from_age": 60, "to_age": 90, "rows": ["incomeBreakdown", "nisaBalance"], "orientation": "yearsAcross" }))).unwrap();
+        assert_eq!(c.orientation, "yearsAcross");
+        assert_eq!(c.rows, ["incomeBreakdown", "nisaBalance"]);
+        assert_eq!(check(&args(json!({}))).unwrap().orientation, "yearsDown");
+        let both = check(&args(json!({ "from_year": 2040, "to_age": 90 }))).unwrap_err();
+        assert!(
+            both.contains("from_year") && both.contains("from_age"),
+            "{both}"
+        );
+        assert!(check(&args(json!({ "from_age": 90, "to_age": 60 }))).is_err());
+        assert!(check(&args(json!({ "to_age": 121 }))).is_err());
+        assert!(check(&args(json!({ "from_year": 2050, "to_year": 2040 }))).is_err());
+        assert!(check(&args(json!({ "orientation": "sideways" }))).is_err());
         // 行の名前は compare の系列の名前と同じ（支出の内訳も）
         for r in crate::answer::FIELDS {
             assert!(is_row(r), "{r}");
         }
-        assert!(is_row("expenseBreakdown") && !is_row("expense.living"));
+        assert!(
+            is_row("expenseBreakdown") && is_row("incomeBreakdown") && !is_row("expense.living")
+        );
     }
 
     #[test]
     fn variants_carry_only_the_table_and_loans() {
         let out = json!({ "header": { "baseMonth": "2026-10" }, "table": [{ "row": "cf.net", "year": 2027, "amount": 1 }], "summary": { "loans": [], "insurance": [1] } });
-        let v = variant(
-            &json!("基本"),
-            &json!({ "input": {} }),
-            &out,
-            Some("相場".into()),
-        );
+        let r = json!({ "label": "基本", "marketStress": { "key": "drop", "label": "相場" }, "planChanges": [{ "label": "第1子の進路の型", "from": "a", "to": "中学から私立", "status": "applied" }, { "label": "同じ", "to": "c", "status": "same" }] });
+        let v = variant(&r, &json!({ "input": {} }), &out);
         assert_eq!(v["result"]["summary"], json!({ "loans": [] }));
         assert_eq!(v["stress"], "相場");
-        let v = variant(&json!("基本"), &json!({}), &json!({ "table": [] }), None);
+        // 当てたプランの変更（通りの違い）は、当てた物の名前と後の値だけ（グラフと同じ）
+        assert_eq!(
+            v["planChanges"],
+            json!([{ "label": "第1子の進路の型", "to": "中学から私立" }])
+        );
+        let v = variant(
+            &json!({ "label": "基本" }),
+            &json!({}),
+            &json!({ "table": [] }),
+        );
         assert_eq!(v["result"]["summary"], json!({}));
-        assert!(v.get("stress").is_none());
+        assert!(v.get("stress").is_none() && v.get("planChanges").is_none());
         assert_eq!(
             stress_of(&json!({ "marketStress": { "key": "drop", "label": "退職の直後に下がる" } }))
                 .as_deref(),

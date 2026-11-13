@@ -178,7 +178,7 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
     expect(summaryOf(caseRequest({ name: "", sample: "single25" }), preview(forEngine(caseRequest({ name: "", sample: "single25" })))).keyFigures.loanInterest).toBe(0);
   });
 
-  it("年ごとの収支の内訳: 支出の内訳を全部足すと支出、行ごとには画面の表の支出の行と同じ（0207）", () => {
+  it("年ごとの収支の内訳: 支出・収入の内訳を全部足すと支出・収入、行ごとには画面の表の行と同じ（0207・0211）", () => {
     for (const sample of ["salariedCoupleTwoKids", "dualAssetsTwoKids", "rentalSample", "sampleParentsCare", "surplusSaving", "advisoryFeeProposal"]) {
       const req = caseRequest({ name: "", sample });
       const res = preview(forEngine(req));
@@ -188,13 +188,20 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
       for (const y of years) {
         const f = flows[String(y)];
         const expense = sum(y, (r) => r === "cf.expense" || r.startsWith("cf.expense."));
-        const parts = FLOW_FIELDS.filter((k) => k !== "pension").reduce((a, k) => a + (f?.[k] ?? 0), 0);
+        const parts = FLOW_FIELDS.filter((k) => k.startsWith("expense")).reduce((a, k) => a + (f?.[k] ?? 0), 0);
         expect(parts, `${sample} ${y}`).toBe(expense);
         expect(f?.pension ?? 0, `${sample} ${y}`).toBe(sum(y, (r) => r === "cf.income.pension" || r.startsWith("cf.income.pension.")));
+        // 収入の内訳（0211）: 全部足すと収入。公的年金は pension と同じ数
+        const income = sum(y, (r) => r === "cf.income" || r.startsWith("cf.income."));
+        expect(FLOW_FIELDS.filter((k) => k.startsWith("income")).reduce((a, k) => a + (f?.[k] ?? 0), 0), `${sample} ${y}`).toBe(income);
+        expect(f?.incomePension ?? 0, `${sample} ${y}`).toBe(f?.pension ?? 0);
+        // NISA（0211）: 積立は画面の表の「NISAへの積立」の行、残高は資産運用のタブの「NISA」の器の残高
+        expect(f?.nisaContribution ?? 0, `${sample} ${y}`).toBe(sum(y, (r) => r.startsWith("cf.transfer.nisa")));
+        expect(f?.nisaBalance ?? 0, `${sample} ${y}`).toBe(sum(y, (r) => ["nisa", "childNisa", "juniorNisa", "legacyNisa"].some((k) => r === `cf.balance.account.${k}`)));
       }
       // 画面の表の行と同じ当て方（生活費・住居費・教育費の行と同じ額）
       const defs = rowDefs(req);
-      for (const [key, field] of [["living", "expenseLiving"], ["housing", "expenseHousing"], ["education", "expenseEducation"]] as const) {
+      for (const [key, field] of [["living", "expenseLiving"], ["housing", "expenseHousing"], ["education", "expenseEducation"], ["retirement", "incomeRetirement"], ["corporatePension", "incomeCorporatePension"], ["incomeOther", "incomeOther"], ["nisaIn", "nisaContribution"]] as const) {
         const d = defs.find((x) => x.key === key)!;
         for (const y of years) expect(flows[String(y)]?.[field] ?? 0, `${sample} ${key} ${y}`).toBe(res.table.filter((c) => c.year === y && d.match(c)).reduce((a, c) => a + c.amount, 0));
       }
@@ -204,6 +211,10 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
     expect(Object.values(car).some((f) => f.expenseCar > 0)).toBe(true);
     const re = flowYearsOf(caseRequest({ name: "", sample: "rentalSample" }), preview(forEngine(caseRequest({ name: "", sample: "rentalSample" }))).table);
     expect(Object.values(re).some((f) => f.expenseRealEstate > 0)).toBe(true);
+    expect(Object.values(re).some((f) => f.incomeRealEstate > 0)).toBe(true);
+    // 給与は人ごとの行（画面の「○○の給与」）の世帯の合計、NISA の積立と残高もある
+    const two = flowYearsOf(caseRequest({ name: "", sample: "salariedCoupleTwoKids" }), preview(forEngine(caseRequest({ name: "", sample: "salariedCoupleTwoKids" }))).table);
+    expect(Object.values(two).some((f) => f.incomeSalary > 0 && f.nisaContribution > 0 && f.nisaBalance > 0)).toBe(true);
   });
 
   it("接続口のテストの見本（画面の関数の答え）が今の答えと同じ", () => {

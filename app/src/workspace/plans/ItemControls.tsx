@@ -378,6 +378,43 @@ function OutlookRow({ item, value, base, onSlide, onRelease, baseLabel = "現状
   );
 }
 
+/**
+ * 決まった選択肢から1つ選ぶ（子の進路の型。入力の「進路の型」の欄と同じ型。0211）。今の値が選択肢に当たらないとき（入力で段階ごとに選んだ進路）は、
+ * その値を選べる行として残す（選び直すと型の値になる）
+ */
+function ChoiceRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "choice" } } }) {
+  const c = item.control;
+  const hit = c.options.find((o) => o.value === value);
+  return (
+    <div class="shift">
+      <label class="shift-from">
+        {item.short}
+        <select
+          value={hit?.value ?? "other"}
+          data-item={item.key}
+          onChange={(e) => {
+            const o = c.options.find((x) => x.value === (e.currentTarget as HTMLSelectElement).value);
+            if (o === undefined) return;
+            onSlide(item.key, o.value);
+            onRelease();
+          }}>
+          {c.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+          {hit === undefined ? <option value="other">{item.text(value)}</option> : null}
+        </select>
+      </label>
+      <div class="range-scale">
+        <span class="base-mark">
+          {baseLabel}: {item.text(base)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** 年齢のスライダー（1歳ずつ。資産運用の積立をやめる年齢・取り崩しを始める年齢。0026） */
 function AgeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "age" } } }) {
   const c = item.control;
@@ -480,6 +517,7 @@ export function ItemRow(props: ItemRowProps) {
   else if (c.kind === "mix") control = <MixRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "shift") control = <ShiftRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "outlook") control = <OutlookRow {...props} item={item as MovableItem & { control: typeof c }} />;
+  else if (c.kind === "choice") control = <ChoiceRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "age") control = <AgeRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "work") control = <WorkRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "field") {

@@ -111,7 +111,7 @@ pub struct RatePathChartArgs {
 pub struct PatternsChartArgs {
     /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id。例 salariedCoupleTwoKids）
     pub household: String,
-    /// 比較したいこと（動かす項目と3つの値。例「退職の年齢 60・65・70歳」「子の進路 公立・今のまま・私立」「物価上昇率 0%・1%・2%」）。
+    /// 比較したいこと（動かす項目と3つの値。例「退職の年齢 60・65・70歳」「子の進路 今のまま・すべて公立・中学から私立」「物価上昇率 0%・1%・2%」）。
     /// 省くと、AI がこの世帯で効きそうな項目を1つ選ぶ
     pub lever: Option<String>,
     /// グラフにする数字（例「金融資産と年間収支」「教育費」「支出の内訳」）。省くと、動かす項目に合う数字を AI が選ぶ
@@ -133,7 +133,7 @@ pub struct FindBoundaryArgs {
 pub struct MakeTableArgs {
     /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id。例 salariedCoupleTwoKids）
     pub household: String,
-    /// 表にしたい数字と年（例「5年ごとの収入・支出・年間収支・金融資産残高を、夫婦の年齢つきで」）。省くと、5年ごとの収入・税と社会保険料・支出・年間収支・金融資産残高を家族の年齢つきで
+    /// 表にしたい数字と年（例「5年ごとの収入・支出・年間収支・金融資産残高を、夫婦の年齢つきで」「60〜90歳を5年ごとに、収入の内訳と NISA の残高も」）。省くと、5年ごとの収入・税と社会保険料・支出・年間収支・金融資産残高を家族の年齢つきで
     pub what: Option<String>,
     /// 並べたい通り（例「退職60・65・70歳」「NISA 月3万円を足す」）。省くと今のままだけ
     pub variants: Option<String>,
@@ -413,7 +413,7 @@ impl LifeplanMcp {
                  6. 実在のお客さまの世帯なら、使う前に金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。グラフに「ファイナンシアで試算」と入れたいときだけ credit: true。\n\n\
                  項目と数字の例（項目の ID は list_plan_items の物）:\n\
                  - 退職の年齢（例 60・65・70歳）: 「ご本人が働く最後の年齢」（item が employment.to）。series は financialAssets・net・takeHome\n\
-                 - 子の進路（例 公立・今のまま・私立）: 進路の項目が一覧に無ければ、get_sample_household・get_shared_household の教育の目標（household.goals の education.stages の sector〔public・private〕）を changes で書き換える。series は expenseEducation、charts に expenseBreakdown\n\
+                 - 子の進路（例 今のまま・すべて公立・中学から私立）: 子ごとの「第1子の進路の型」（lever が educationCourse・kind が choice）。value は options の型の名前（allPublic＝すべて公立・juniorPrivate＝中学から私立など）。子が2人以上なら、通りごとに子の数だけ plan_changes に入れる。「今のまま」は基本にして plan_changes を書かない。changes で教育の段を書き換えない（グラフの注に進路の違いが出なくなる）。series は expenseEducation・financialAssets、charts に expenseBreakdown\n\
                  - 家の値段（例 3,500万・4,500万・5,500万円）: get_input_recipe の buyHome を値段ごとに作り、返った changes を通りの changes に入れる。series は financialAssets・loanBalance・expenseHousing\n\
                  - 物価上昇率（例 0%・1%・2%）: 「経済の前提: 物価上昇率（年）」（item が assumptions.inflation。group に 前提条件）。series は financialAssets・expense\n\
                  - 運用の利回り（例 2%・4%・6%）: 「運用の利回り（預金を除く）」（item が assumptions.returnShifts）。series は financialAssets\n\
@@ -466,7 +466,7 @@ impl LifeplanMcp {
                  - 表にしたい数字と年: {what}\n- 並べたい通り: {variants}\n- 使い方: {purpose}\n\n\
                  進め方:\n\
                  1. 通りがあれば、list_plan_items で動かす項目（働く最後の年齢・生活費・NISA など）の target・item を確かめ、通り（label と plan_changes）にする。label には通りの違いだけを書き、お客さまの名前を書かない。\n\
-                 2. table を呼ぶ（calculate・compare の JSON から自分で表を組み立てない）。rows（compare の series と同じ名前: income・takeHome・taxSi・expense・net・financialAssets・debt・loanRepayment・loanBalance・loanInterest・loanRate・pension・shortfall と、支出の内訳 expenseLiving・expenseHousing・expenseEducation など。支出の内訳をまとめて選ぶなら expenseBreakdown）・every_years・from_year・to_year・members（self・spouse・child1…）・unit（man＝万円か yen）を選ぶ。会話や資料に貼るなら format は markdown、Excel やプログラムで読むなら csv（日本語の Windows の Excel で開くなら bom: true）。通りが2つ以上なら、数字ごとに通りを並べる layout: byRow か、通りごとに分ける byVariant。\n\
+                 2. table を呼ぶ（calculate・compare の JSON から自分で表を組み立てない）。rows（compare の series と同じ名前: income・takeHome・taxSi・expense・net・financialAssets・debt・loanRepayment・loanBalance・loanInterest・loanRate・pension・shortfall と、支出の内訳 expenseLiving・expenseHousing・expenseEducation など、収入の内訳 incomeSalary・incomePension・incomeOther など、NISA の nisaContribution〔積立〕・nisaBalance〔残高〕。内訳をまとめて選ぶなら expenseBreakdown・incomeBreakdown）・every_years・年（from_year・to_year。「60〜90歳」のように本人の年齢で選ぶなら from_age・to_age。両方は書けない）・members（self・spouse・child1…）・unit（man＝万円か yen）を選ぶ。画面のキャッシュフロー表と同じく年を列にしたいときは orientation: yearsAcross。会話や資料に貼るなら format は markdown、Excel やプログラムで読むなら csv（日本語の Windows の Excel で開くなら bom: true）。通りが2つ以上なら、数字ごとに通りを並べる layout: byRow か、通りごとに分ける byVariant。\n\
                  3. 返った表の文を、数字を変えずにそのまま出す。表の下の「※」の注（前提・相場などの想定・単位・試算の時点と、将来の結果を約束するものではない旨）も必ず一緒に出す。「ファイナンシアで試算」の旨は、FP が望んだときだけ credit: true で入れる。\n\
                  4. 受け取った数字で自分でグラフを描くときは: 数字を足し引き・丸め直し・なめらかにする・間を埋める・先へ延ばすなどで変えない（表に無い年は描かない）。単位（万円）と年・年齢の軸を書き、表の下の注を図に添える。画面と同じ見た目のグラフや、資料にそのまま使うグラフが要るなら、自分で描かず chart を使う。\n\
                  5. 実在のお客さまの世帯をブログ・セミナーなどに使うなら、金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。",

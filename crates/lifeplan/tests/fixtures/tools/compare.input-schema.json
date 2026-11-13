@@ -225,7 +225,7 @@
       ]
     },
     "series": {
-      "description": "年ごとの系列に返す数字（既定 [\"financialAssets\"]。calculate の fields と同じ名前で、どれも chart の series でグラフにできる）: income（収入）・\ntakeHome（手取り＝収入 − 税・社会保険料）・taxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産。\n年末）・debt（負債の残高。年末）・shortfall（資金の不足。年末）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高）・\nloanInterest（住宅ローンの利息。年額）・loanRate（その年の住宅ローンの金利。10進の文字。返済の無い年・金利の違う住宅ローンを2本以上返している年は\nnull）・pension（公的年金の年額）と、支出の内訳（画面のキャッシュフロー表の支出の行と同じ当て方。全部足すと expense）: expenseLiving（生活費）・\nexpenseSurplus（ゆとりの支出）・expenseHousing（住居費。ローン・税・修繕）・expenseEducation（教育費）・expenseInsurance（保険料）・\nexpenseLumpSum（一時的支出）・expenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・\nexpenseOther（その他の支出）",
+      "description": "年ごとの系列に返す数字（既定 [\"financialAssets\"]。calculate の fields と同じ名前で、どれも chart の series でグラフにできる）: income（収入）・\ntakeHome（手取り＝収入 − 税・社会保険料）・taxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産。\n年末）・debt（負債の残高。年末）・shortfall（資金の不足。年末）・loanRepayment（住宅ローンの返済。年額）・loanBalance（住宅ローン残高）・\nloanInterest（住宅ローンの利息。年額）・loanRate（その年の住宅ローンの金利。10進の文字。返済の無い年・金利の違う住宅ローンを2本以上返している年は\nnull）・pension（公的年金の年額）と、支出の内訳（画面のキャッシュフロー表の支出の行と同じ当て方。全部足すと expense）: expenseLiving（生活費）・\nexpenseSurplus（ゆとりの支出）・expenseHousing（住居費。ローン・税・修繕）・expenseEducation（教育費）・expenseInsurance（保険料）・\nexpenseLumpSum（一時的支出）・expenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・\nexpenseOther（その他の支出）、収入の内訳（画面の表の収入の行と同じ当て方。全部足すと income）: incomeSalary（給与）・incomeBusiness（事業所得）・\nincomePension（公的年金）・incomeCorporatePension（企業年金・個人年金）・incomeRetirement（退職金）・incomeBenefit（給付・手当）・\nincomeRealEstate（家賃収入・不動産の売却）・incomeOther（その他の収入）、nisaContribution（NISAへの積立。年額）・nisaBalance（NISA の残高。年末）",
       "items": {
         "enum": [
           "income",
@@ -241,6 +241,14 @@
           "loanInterest",
           "loanRate",
           "pension",
+          "incomeSalary",
+          "incomeBusiness",
+          "incomePension",
+          "incomeCorporatePension",
+          "incomeRetirement",
+          "incomeBenefit",
+          "incomeRealEstate",
+          "incomeOther",
           "expenseLiving",
           "expenseSurplus",
           "expenseHousing",
@@ -250,7 +258,9 @@
           "expenseCar",
           "expenseCare",
           "expenseRealEstate",
-          "expenseOther"
+          "expenseOther",
+          "nisaContribution",
+          "nisaBalance"
         ],
         "type": "string"
       },

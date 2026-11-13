@@ -27,7 +27,7 @@ export const CHART_KINDS: readonly ChartKind[] = ["assets", "repayment", "keyFig
  * 折れ線にできる年ごとの数字（compare の series・calculate の fields と同じ名前。0207）。title は題の言葉、flow は年額（false は年末の残高）、
  * unit は単位の注の括弧の中、trim は値の無くなった後の年を描かない、zone は 0 未満の範囲に添える言葉
  */
-export const SERIES_KEYS = ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther"] as const;
+export const SERIES_KEYS = ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "incomeSalary", "incomeBusiness", "incomePension", "incomeCorporatePension", "incomeRetirement", "incomeBenefit", "incomeRealEstate", "incomeOther", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther", "nisaContribution", "nisaBalance"] as const;
 export type SeriesKey = (typeof SERIES_KEYS)[number];
 export interface SeriesMeta {
   title: string;
@@ -50,6 +50,14 @@ export const SERIES: Record<SeriesKey, SeriesMeta> = {
   loanInterest: { title: "住宅ローンの利息", flow: true, unit: "年額。返済のうち利息に充てた額", trim: true },
   loanRate: { title: "住宅ローンの金利", flow: false, unit: "", trim: true },
   pension: { title: "公的年金", flow: true, unit: "年額。世帯の合計。企業年金・個人年金は含まない" },
+  incomeSalary: { title: "給与", flow: true, unit: "年額。世帯の合計。賞与込み・税と社会保険料を引く前", trim: true },
+  incomeBusiness: { title: "事業所得", flow: true, unit: "年額。世帯の合計", trim: true },
+  incomePension: { title: "公的年金", flow: true, unit: "年額。世帯の合計。企業年金・個人年金は含まない" },
+  incomeCorporatePension: { title: "企業年金・個人年金", flow: true, unit: "年額。年金で受け取る企業年金・iDeCo・個人年金保険など" },
+  incomeRetirement: { title: "退職金", flow: true, unit: "年額" },
+  incomeBenefit: { title: "給付・手当", flow: true, unit: "年額" },
+  incomeRealEstate: { title: "家賃収入・不動産の売却", flow: true, unit: "年額。住まい以外の不動産" },
+  incomeOther: { title: "その他の収入", flow: true, unit: "年額" },
   expenseLiving: { title: "生活費", flow: true, unit: "年額。車の費用・ゆとりの支出は除く" },
   expenseSurplus: { title: "ゆとりの支出", flow: true, unit: "年額。黒字のうち貯まらない分", trim: true },
   expenseHousing: { title: "住居費（ローン・税・修繕）", flow: true, unit: "年額" },
@@ -60,7 +68,11 @@ export const SERIES: Record<SeriesKey, SeriesMeta> = {
   expenseCare: { title: "医療・介護の費用", flow: true, unit: "年額", trim: true },
   expenseRealEstate: { title: "不動産の経費・ローン", flow: true, unit: "年額。住まい以外の不動産", trim: true },
   expenseOther: { title: "その他の支出", flow: true, unit: "年額" },
+  nisaContribution: { title: "NISAへの積立", flow: true, unit: "年額。つみたて投資枠・成長投資枠・こどもNISA の合計", trim: true },
+  nisaBalance: { title: "NISAの残高", flow: false, unit: "年末の残高。こどもNISA・ジュニアNISA・旧NISA を含む", trim: true },
 };
+/** 収入の内訳（全部足すと income。画面のキャッシュフロー表の収入の行と同じ当て方で、人ごとの行を世帯の合計にした物。0211） */
+export const INCOME_KEYS: readonly SeriesKey[] = ["incomeSalary", "incomeBusiness", "incomePension", "incomeCorporatePension", "incomeRetirement", "incomeBenefit", "incomeRealEstate", "incomeOther"];
 /** 支出の内訳（全部足すと expense。画面のキャッシュフロー表の支出の行と同じ当て方で、医療・介護だけを「その他の支出」から分けた物） */
 export const EXPENSE_KEYS: readonly SeriesKey[] = ["expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther"];
 /** グラフの種類ごとの折れ線の数字（series は field で選ぶ） */
