@@ -92,6 +92,50 @@ export function presetOf(stages: readonly EducationStage[]): string {
   return "";
 }
 
+/**
+ * 進路の型を当てる（入力の「進路の型」の欄と、結果のタブの動かす項目「進路の型」で同じ関数）: 教育の目標の段のうち、型が決める段
+ * （幼稚園〜大学）の公立・私立を型のとおりにする。公立・私立が変わった段は、前の学校の推定の額をそのまま入れた年額・入学金を外す
+ * （dropStaleEstimates）。型に無い段（短大・専門学校・高専・大学院・保育園）は変えない。知らない型・教育の目標が無いときは変えない
+ */
+export function setCoursePreset(w: WorkingHousehold, goalId: string, preset: string): WorkingHousehold {
+  const p = COURSE_PRESETS.find((x) => x.value === preset);
+  if (p === undefined) return w;
+  return mutate(w, (hh) => {
+    const g = (hh.goals ?? []).find((x) => x.id === goalId);
+    if (g?.education === undefined) return;
+    for (const s of g.education.stages) {
+      if (p.sectors[s.stage] === undefined) continue;
+      const prev = structuredClone(s);
+      s.sector = p.sectors[s.stage];
+      if ((prev.sector ?? "public") !== s.sector) dropStaleEstimates(prev, s, lunchOf(g));
+    }
+  });
+}
+
+/**
+ * 子の「進路の型」の欄（教育の目標ごと）。結果のタブの動かす項目「進路の型」（plans/items.ts）も、この欄の読み・書き（同じ型・同じ関数・同じ後始末）で動かす
+ */
+export function courseField(goalId: string): FieldDef {
+  const find = byId(goals, goalId);
+  return field({
+    key: `edu/${goalId}/preset`,
+    item: "goal.education",
+    label: "進路の型",
+    level: "simple",
+    kind: "select",
+    options: [{ value: "", label: "自分で選ぶ" }, ...COURSE_PRESETS.map((p) => ({ value: p.value, label: p.label }))],
+    structural: true,
+    // 進路の推定・該当なしの印（値の状態の行）は、進路の段の並び全体に付く（fill.ts）
+    address: () => educationStagesAddress(goalId),
+    get: (w) => {
+      const st = ((find(w.request.input.household, w) as Goal | undefined)?.education?.stages ?? []) as EducationStage[];
+      const outside = presetOutsideStages(st);
+      return { value: presetOf(st), ...(outside.length > 0 ? { hint: `${outside.join("・")}の公立・私立は型では変わりません（その段階で選びます）` } : {}) };
+    },
+    set: (w, v) => (typeof v === "string" ? setCoursePreset(w, goalId, v) : w),
+  });
+}
+
 /** 進路の型で公立・私立が変わらない段（高校のあとの短大・専門学校・高専）の名前。型の欄の下の1行に出す */
 export function presetOutsideStages(stages: readonly EducationStage[]): string[] {
   return stages.filter((s) => s.stage === "juniorCollege" || s.stage === "vocational" || s.stage === "kosen").map((s) => stageLabel(s.stage));
@@ -1581,34 +1625,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
         if (v !== true && has) g.education.stages = g.education.stages.filter((s) => s.stage !== "nursery");
       }),
   });
-  const course = field({
-    key: `edu/${goal.id}/preset`,
-    item: "goal.education",
-    label: "進路の型",
-    level: "simple",
-    kind: "select",
-    options: [{ value: "", label: "自分で選ぶ" }, ...COURSE_PRESETS.map((p) => ({ value: p.value, label: p.label }))],
-    structural: true,
-    // 進路の推定・該当なしの印（値の状態の行）は、進路の段の並び全体に付く（fill.ts）
-    address: () => educationStagesAddress(goal.id),
-    get: (w) => {
-      const st = ((find(w.request.input.household, w) as Goal | undefined)?.education?.stages ?? []) as EducationStage[];
-      const outside = presetOutsideStages(st);
-      return { value: presetOf(st), ...(outside.length > 0 ? { hint: `${outside.join("・")}の公立・私立は型では変わりません（その段階で選びます）` } : {}) };
-    },
-    set: (w, v) =>
-      mutate(w, (hh) => {
-        const p = COURSE_PRESETS.find((x) => x.value === v);
-        const g = find(hh, w) as Goal | undefined;
-        if (p === undefined || g?.education === undefined) return;
-        for (const s of g.education.stages) {
-          if (p.sectors[s.stage] === undefined) continue;
-          const prev = structuredClone(s);
-          s.sector = p.sectors[s.stage];
-          if ((prev.sector ?? "public") !== s.sector) dropStaleEstimates(prev, s, lunchOf(g));
-        }
-      }),
-  });
+  const course = courseField(goal.id);
   const higher = field({
     key: `edu/${goal.id}/higher`,
     item: "goal.education",

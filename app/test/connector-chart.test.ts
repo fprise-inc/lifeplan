@@ -1,7 +1,7 @@
 // AI接続口のグラフ（connector/chart.ts。0203）: 比較した答えの通りごとの数字から、題・凡例・単位・前提の注・試算の旨と出典の入った SVG を作ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の chart_compares_three_rate_paths）は、本物の接続口で同じ関数を動かし、PNG にもする
 import { describe, expect, it } from "vitest";
-import { chart, chartNotes, EXPENSE_KEYS, SERIES, SERIES_KEYS, seriesTitle, textWidth, wrap, type ChartArgs, type ChartVariant } from "../src/connector/chart.ts";
+import { chart, chartNotes, EXPENSE_KEYS, INCOME_KEYS, SERIES, SERIES_KEYS, seriesTitle, textWidth, wrap, type ChartArgs, type ChartVariant } from "../src/connector/chart.ts";
 import { FLOW_FIELDS } from "../src/connector/summary.ts";
 
 const years = Array.from({ length: 30 }, (_, i) => 2027 + i);
@@ -144,7 +144,8 @@ describe("比較した答えのグラフ", () => {
 
   it("比較の道具のどの系列も折れ線にできる（series と field。0207）", () => {
     // 系列の名前は接続口の年ごとの数字と同じ（支出の内訳は summary.ts の FLOW_FIELDS と同じ並び）
-    expect(FLOW_FIELDS.filter((k) => k !== "pension")).toEqual(EXPENSE_KEYS);
+    expect(FLOW_FIELDS.filter((k) => k.startsWith("expense"))).toEqual(EXPENSE_KEYS);
+    expect(FLOW_FIELDS.filter((k) => k.startsWith("income"))).toEqual(INCOME_KEYS);
     for (const k of FLOW_FIELDS) expect(SERIES_KEYS).toContain(k);
     const withFlows = three.map((x, k) => ({
       ...x,

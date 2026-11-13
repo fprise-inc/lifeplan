@@ -264,7 +264,7 @@
       ]
     },
     "series": {
-      "description": "折れ線にする年ごとの数字（compare の series と同じ名前。1つにつき1枚の折れ線のグラフ。charts と合わせて8枚まで）: income（収入）・takeHome（手取り）・\ntaxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産）・debt（負債の残高）・shortfall（資金不足）・\nloanRepayment・loanBalance・loanInterest・loanRate（住宅ローンの返済額・残高・利息・金利）・pension（公的年金）・支出の内訳 expenseLiving（生活費）・\nexpenseSurplus（ゆとりの支出）・expenseHousing（住居費）・expenseEducation（教育費）・expenseInsurance（保険料）・expenseLumpSum（一時的支出）・\nexpenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・expenseOther（その他の支出）。\n例: 退職の年齢を3通りにして [\"financialAssets\", \"net\"]、教育の進路を3通りにして [\"expenseEducation\"]",
+      "description": "折れ線にする年ごとの数字（compare の series と同じ名前。1つにつき1枚の折れ線のグラフ。charts と合わせて8枚まで）: income（収入）・takeHome（手取り）・\ntaxSi（税・社会保険料）・expense（支出。税・社会保険料を除く）・net（年間収支）・financialAssets（金融資産）・debt（負債の残高）・shortfall（資金不足）・\nloanRepayment・loanBalance・loanInterest・loanRate（住宅ローンの返済額・残高・利息・金利）・pension（公的年金）・支出の内訳 expenseLiving（生活費）・\nexpenseSurplus（ゆとりの支出）・expenseHousing（住居費）・expenseEducation（教育費）・expenseInsurance（保険料）・expenseLumpSum（一時的支出）・\nexpenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・expenseOther（その他の支出）・収入の内訳\nincomeSalary（給与）・incomeBusiness・incomePension・incomeCorporatePension・incomeRetirement・incomeBenefit・incomeRealEstate・incomeOther・\nnisaContribution（NISAへの積立）・nisaBalance（NISA の残高）。\n例: 退職の年齢を3通りにして [\"financialAssets\", \"net\"]、子の進路の型を3通りにして [\"expenseEducation\"]",
       "items": {
         "enum": [
           "income",
@@ -280,6 +280,14 @@
           "loanInterest",
           "loanRate",
           "pension",
+          "incomeSalary",
+          "incomeBusiness",
+          "incomePension",
+          "incomeCorporatePension",
+          "incomeRetirement",
+          "incomeBenefit",
+          "incomeRealEstate",
+          "incomeOther",
           "expenseLiving",
           "expenseSurplus",
           "expenseHousing",
@@ -289,7 +297,9 @@
           "expenseCar",
           "expenseCare",
           "expenseRealEstate",
-          "expenseOther"
+          "expenseOther",
+          "nisaContribution",
+          "nisaBalance"
         ],
         "type": "string"
       },

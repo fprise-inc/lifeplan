@@ -105,8 +105,10 @@ pub struct CompareArgs {
     /// null）・pension（公的年金の年額）と、支出の内訳（画面のキャッシュフロー表の支出の行と同じ当て方。全部足すと expense）: expenseLiving（生活費）・
     /// expenseSurplus（ゆとりの支出）・expenseHousing（住居費。ローン・税・修繕）・expenseEducation（教育費）・expenseInsurance（保険料）・
     /// expenseLumpSum（一時的支出）・expenseCar（車の費用）・expenseCare（医療・介護）・expenseRealEstate（住まい以外の不動産の経費・ローン）・
-    /// expenseOther（その他の支出）
-    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther"] }))]
+    /// expenseOther（その他の支出）、収入の内訳（画面の表の収入の行と同じ当て方。全部足すと income）: incomeSalary（給与）・incomeBusiness（事業所得）・
+    /// incomePension（公的年金）・incomeCorporatePension（企業年金・個人年金）・incomeRetirement（退職金）・incomeBenefit（給付・手当）・
+    /// incomeRealEstate（家賃収入・不動産の売却）・incomeOther（その他の収入）、nisaContribution（NISAへの積立。年額）・nisaBalance（NISA の残高。年末）
+    #[schemars(extend("items" = { "type": "string", "enum": ["income", "takeHome", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance", "loanInterest", "loanRate", "pension", "incomeSalary", "incomeBusiness", "incomePension", "incomeCorporatePension", "incomeRetirement", "incomeBenefit", "incomeRealEstate", "incomeOther", "expenseLiving", "expenseSurplus", "expenseHousing", "expenseEducation", "expenseInsurance", "expenseLumpSum", "expenseCar", "expenseCare", "expenseRealEstate", "expenseOther", "nisaContribution", "nisaBalance"] }))]
     pub series: Option<Vec<String>>,
     /// 系列の何年おき（1〜10。既定5）。画面の表の最初の年と最後の年はいつも入る
     #[schemars(range(min = 1, max = 10))]

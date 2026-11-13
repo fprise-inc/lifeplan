@@ -94,6 +94,11 @@ export function coerce(it: MovableItem, raw: unknown): ItemValue | undefined {
     }
     case "outlook":
       return outlookValue(c, v);
+    case "choice": {
+      // 選択肢の値（例 "juniorPrivate"）か、選択肢の言葉そのもの（例「中学から私立」）。{preset: 値} でもよい
+      const s = typeof v === "string" ? v.trim() : isObj(v) && typeof v.preset === "string" && Object.keys(v).length === 1 ? v.preset : null;
+      return s === null ? undefined : (c.options.find((o) => o.value === s) ?? c.options.find((o) => o.label === s))?.value;
+    }
     case "work": {
       // 働き方の種類（選択肢のどれか）と1年の収入（0〜上限の整数の円）。スライダーと同じ範囲
       if (!isObj(v) || typeof v.type !== "string" || !c.options.some((o) => o.value === v.type)) return undefined;

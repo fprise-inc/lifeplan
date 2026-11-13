@@ -201,6 +201,7 @@ function bump(f: FieldDef, v: unknown): unknown {
 function bumpItem(v: ItemValue, kind: string): unknown {
   if (kind === "shift") return { add: "0.01", from: "2031-01" };
   if (kind === "outlook") return { adds: ["0.005", "0.01"] };
+  if (kind === "choice") return v === "allPublic" ? "allPrivate" : "allPublic";
   if (kind === "mix") return [{ assetClass: "equity.global", share: "0.6" }, { assetClass: "cash.deposit", share: "0.4" }];
   if (typeof v === "number") return v + (v >= 1000 ? 10000 : 1);
   if (typeof v === "string") return String(Math.round((Number(v) + 0.0125) * 10000) / 10000);

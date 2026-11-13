@@ -91,6 +91,9 @@ function controlOf(it: MovableItem, now: ItemValue): Record<string, unknown> {
         maxSteps: c.maxSteps,
         addRange: c.range,
       };
+    case "choice":
+      // 決まった選択肢から1つ（子の進路の型。入力の「進路の型」の欄と同じ型・同じ関数。0211）
+      return { kind: "choice", unit: "options の value（文字）。言葉（label）でもよい", options: c.options };
     case "work":
       return { kind: "work", unit: "{type: 働き方, annual: 1年の収入（円の整数。給与は賞与込みの年収・自営業は事業所得）}", options: c.options.map((o) => ({ value: o.value, label: o.label })), max: c.max };
     case "field": {
