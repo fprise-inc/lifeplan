@@ -10,7 +10,7 @@ import { screenNoticeRows } from "../src/connector/notices.ts";
 import { workingOf } from "../src/connector/working.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
-import { CHECK_KIND_LABELS, checkList, DEFAULT_KINDS } from "../src/workspace/input/checkRows.ts";
+import { CHECK_KIND_LABELS, checkList, DEFAULT_KINDS, ZERO_DOWN_PAYMENT_TEXT } from "../src/workspace/input/checkRows.ts";
 import { STAGE_ORDER } from "../src/workspace/input/stageOrder.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 import { applyPatch, type PatchOp } from "./patch.ts";
@@ -73,10 +73,8 @@ describe("AI接続口の入力の確かめ（0210）", () => {
       const w = workingOf(req, { sampleId: c.sample });
       const screen = checkList(w!.wh, screenNoticeRows(req, result)).filter((r) => DEFAULT_KINDS.includes(r.kind));
       const flat = got.groups.flatMap((g) => g.items.map((i) => ({ kind: g.kind, ...i })));
-      // 画面の行（これからの購入の0円の頭金は、接続口が確かめの注意に足す）
-      const added = (i: (typeof flat)[number]) => i.rule === "downPayment" && !screen.some((r) => r.label === i.field && r.kind === "notice");
-      const fromScreen = flat.filter((i) => !added(i));
-      expect(fromScreen.map((i) => [i.kind, i.item, i.field, i.value ?? null]), c.name).toEqual(screen.slice(0, DEFAULT_MAX).map((r) => [CHECK_KIND_LABELS[r.kind], r.cardLabel, r.label, r.value ?? null]));
+      // 接続口は行を足さない（画面の一覧の行だけ）
+      expect(flat.map((i) => [i.kind, i.item, i.field, i.value ?? null]), c.name).toEqual(screen.slice(0, DEFAULT_MAX).map((r) => [CHECK_KIND_LABELS[r.kind], r.cardLabel, r.label, r.value ?? null]));
       expect(got.total, c.name).toBe(Object.values(got.counts).reduce((a, n) => a + n, 0));
     }
   });
@@ -120,6 +118,21 @@ describe("AI接続口の入力の確かめ（0210）", () => {
     expect(items(got).length).toBe(3);
     expect(got.truncated).toBe(true);
     expect(got.counts[CHECK_KIND_LABELS.estimated]).toBeGreaterThan(3);
+  });
+
+  it("画面の確かめの一覧: これから買う家の頭金が0円なら確かめの注意に出す（もう買った家・頭金のある家には出さない）", () => {
+    const rowsOf = (changes: PatchOp[]) => {
+      const req = caseRequest({ name: "", sample: "housingPurchase", changes, rules: [] });
+      return checkList(workingOf(req, { sampleId: "housingPurchase" })!.wh).filter((r) => r.id.startsWith("notice:zeroDownPayment:"));
+    };
+    const zero = rowsOf([{ op: "replace", path: "/household/residences/1/purchase/downPayment", value: 0 }]);
+    expect(zero.map((r) => [r.kind, r.cardLabel, r.label, r.value, r.detail, r.fieldKey?.endsWith("/purchase/down")])).toEqual([["notice", "住まい・ローン", "住宅の購入: 頭金", "0円", ZERO_DOWN_PAYMENT_TEXT, true]]);
+    // 頭金のある家・もう買った家（買う月が計算基準月より前）には出ない
+    expect(rowsOf([])).toEqual([]);
+    expect(rowsOf([{ op: "replace", path: "/household/residences/1/purchase/downPayment", value: 0 }, { op: "replace", path: "/household/residences/1/from", value: { at: "2020-04" } }])).toEqual([]);
+    // 接続口の入力の確かめは同じ行に聞く文を添える
+    const got = items(ask(CASES[3]!).got).filter((i) => i.field === "住宅の購入: 頭金");
+    expect(got.map((i) => i.rule)).toEqual(["downPayment"]);
   });
 
   it("短い理由は、かっこの中の「。」では切らない", () => {

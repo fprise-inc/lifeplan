@@ -8,10 +8,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import type { NoticeRow } from "../workspace/engineNotices.ts";
 import { CHECK_KIND_LABELS, checkList, DEFAULT_KINDS, KIND_ORDER, type CheckKind, type CheckRow } from "../workspace/input/checkRows.ts";
-import type { WorkingHousehold } from "../workspace/input/household.ts";
-import { inputItems } from "../workspace/input/items.ts";
 import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
-import { resolveTimepoint } from "../workspace/timepoint.ts";
 import { KIND_SHORT, screenNoticeRows } from "./notices.ts";
 import { workingOf, type WorkingArgs } from "./working.ts";
 
@@ -197,7 +194,7 @@ export const RULES: readonly CheckRule[] = [
   // ---- 欄（入力項目ID） ----
   {
     id: "downPayment",
-    match: (c) => c.row.id.startsWith("downPayment:") || (c.row.item === "residence.purchase" && (c.row.fieldKey ?? "").endsWith("/down") && (c.row.kind === "missing" || c.row.kind === "estimated")),
+    match: (c) => c.row.id.startsWith("notice:zeroDownPayment:") || (c.row.item === "residence.purchase" && (c.row.fieldKey ?? "").endsWith("/down") && (c.row.kind === "missing" || c.row.kind === "estimated")),
     question: () => "家を買うときの頭金は、いくらくらいをお考えですか（頭金なしのご予定か、親御さんなどからの援助があればその額も）。",
   },
   {
@@ -258,25 +255,6 @@ export function itemOf(c: CheckCtx): CheckItem {
   };
 }
 
-/**
- * これからの住宅の購入で、頭金が0円の物（計算の入力では頭金を省けないので、入っていない頭金は0円になる。画面の欄は0円を確定の値として
- * 見せるので、確かめの一覧には出ない）。頭金なしで買う予定か、入れていないだけかを確かめる行を、確かめの注意に入れる。
- * 計算の基準の月より前に買った家は出さない（もう払った頭金は、これからの計算に効かない）
- */
-export function zeroDownPaymentRows(wh: WorkingHousehold): CheckRow[] {
-  const h = wh.request.input.household;
-  const base = wh.request.input.baseMonth;
-  const label = inputItems(wh).find((i) => i.id === "housing")?.label ?? "住まい・ローン";
-  const out: CheckRow[] = [];
-  for (const r of h.residences ?? []) {
-    if (r.kind !== "own" || r.purchase === undefined || r.purchase.price <= 0 || (r.purchase.downPayment ?? 0) > 0) continue;
-    const at = resolveTimepoint(h, r.from);
-    if (at === null || at < base) continue;
-    out.push({ id: `downPayment:${r.id}`, kind: "notice", card: "housing", cardLabel: label, label: "住宅の購入: 頭金", detail: "これから買う家の頭金が0円です（頭金なしで、物件の価格を住宅ローンか手元のお金で払う計算です）", fieldKey: null, level: "simple", impact: 0, actions: [], value: "0円", item: "residence.purchase" });
-  }
-  return out;
-}
-
 /** 選べる種類 */
 export const CHECK_KINDS: readonly CheckKind[] = KIND_ORDER;
 
@@ -297,11 +275,7 @@ export function checkInputs(reqJson: string, previewJson: string, ctxJson: strin
     const w = workingOf(req, a);
     if (w === null) return JSON.stringify({ status: "noSelf" });
     notices = preview === null ? [] : screenNoticeRows(req, preview);
-    const list = checkList(w.wh, notices);
-    // 頭金が0円のこれからの購入は、確かめの注意の並びの最後に
-    const extra = zeroDownPaymentRows(w.wh);
-    const at = list.findIndex((r) => KIND_ORDER.indexOf(r.kind) > KIND_ORDER.indexOf("notice"));
-    rows = at < 0 ? [...list, ...extra] : [...list.slice(0, at), ...extra, ...list.slice(at)];
+    rows = checkList(w.wh, notices);
   } catch {
     return JSON.stringify({ status: "badInput" });
   }

@@ -29,6 +29,7 @@ import { PRESET_HEAD } from "./household.ts";
 import { ageAt } from "../levers.ts";
 import { nameWithAge } from "../roles.ts";
 import { memberLabel } from "./labels.ts";
+import { resolveTimepoint } from "../timepoint.ts";
 import type { Household } from "../../engine/types.ts";
 
 export { endedLongAgo, holderOfField, isPremiseField };
@@ -417,12 +418,36 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
     if (n === null || rows.some((x) => x.fieldKey === n.fieldKey)) continue;
     rows.push({ id: `notice:unfundedPurchase:${r.id}`, kind: "notice", card: "housing", cardLabel: labels.get("housing") ?? "住まい・ローン", label: "住宅の購入: どう買うか", detail: n.detail, fieldKey: n.fieldKey, level: "simple", impact: 0, actions: n.fix !== null ? [{ key: "fix", label: n.fix.label, run: n.fix.run }] : [] });
   }
+  // これから買う家の頭金が0円（空欄も0円。計算の入力では頭金を省けない）: 頭金なしで買う予定か、入れていないだけかを確かめの注意に出す
+  // （欄は0円を確定の値として見せるので、ほかの行には出ない。同じ欄の行が既にあれば出さない。0210）
+  for (const r of zeroDownPayments(wh)) {
+    const fieldKey = `housing/res/${r.id}/purchase/down`;
+    if (rows.some((x) => x.fieldKey === fieldKey)) continue;
+    rows.push({ id: `notice:zeroDownPayment:${r.id}`, kind: "notice", card: "housing", cardLabel: labels.get("housing") ?? "住まい・ローン", label: "住宅の購入: 頭金", detail: ZERO_DOWN_PAYMENT_TEXT, fieldKey, level: "simple", impact: 0, actions: [], value: "0円", item: "residence.purchase" });
+  }
   const order = new Map(items.map((i, n) => [i.id, n]));
   return rows.sort((x, y) => {
     const k = KIND_ORDER.indexOf(x.kind) - KIND_ORDER.indexOf(y.kind);
     if (k !== 0) return k;
     if (x.kind === "estimated" && x.impact !== y.impact) return y.impact - x.impact;
     return (order.get(x.card) ?? 99) - (order.get(y.card) ?? 99);
+  });
+}
+
+/** これから買う家の頭金が0円の行の文（確かめの注意。0210） */
+export const ZERO_DOWN_PAYMENT_TEXT = "これから買う家の頭金が0円です（頭金なしで、物件の価格を住宅ローンか手元のお金で払う計算です）。頭金なしで買う予定か確かめてください";
+
+/**
+ * これから買う家（買う月が計算基準月より後か同じ）のうち、頭金が0円（空欄を含む）で物件の価格がある物。
+ * もう買った家は出さない（払った頭金は、これからの計算に効かない）。現金で買う形は頭金＝物件の価格なので当たらない
+ */
+export function zeroDownPayments(wh: WorkingHousehold): NonNullable<Household["residences"]> {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  return (h.residences ?? []).filter((r) => {
+    if (r.kind !== "own" || r.purchase === undefined || r.purchase.price <= 0 || (r.purchase.downPayment ?? 0) > 0) return false;
+    const at = resolveTimepoint(h, r.from);
+    return at !== null && at >= base;
   });
 }
 
