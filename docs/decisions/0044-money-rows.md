@@ -291,3 +291,4 @@
       - 1つのまとまりが多いとき（2つ以上のまとまりを並べていて10件以上）: 最初の8件だけを出し、「ほか○件を見る」で開く（「閉じる」で畳む）。1件だけ隠すのは「ほか1件」のほうが長いので、9件までは全部出す。
       - 狭い画面（区画の幅で切り替える）: 1240px 以下は2列（3つ目のまとまりは1つ目の下）、980px 以下は1列。1列にする幅は、2列のままだと名前が3〜4文字で折り返して読みにくかったので、目安の 900px より少し広くした。
   - テスト: `app/test/rows-view.test.ts`（ふだんの計算・入れ外し・繰上返済・家の購入・区画の頭）、`app/test/money-rows.test.ts`（不確実を種類によらず外す・プランで見込みを「確実」にする・前の版の `includeInBase` の読み方）、`app/test/card-inheritance.test.ts`・`app/test/care-inheritance-fee-view.test.ts`（1押しが無いこと）、`app/test/dream-plan.test.ts`、`app/test/connector-prepare.test.ts` と `crates/lifeplan/tests/mcp_connector.rs`（接続口の前処理が不確実な出るお金も外す）。欄ごとの効き目の点検（`app/test/walkthrough/fieldEffectWatch.ts`）から、出るお金の行・子への援助の見込みを記録だけの欄から外した（今は結果に効く）。
+- 2026-11-13（区画の置き場所）: 区画「これからの大きなお金」を、結果のグラフのすぐ下から**対策の区画のすぐ下**（生涯キャッシュフロー表の上）に移した。グラフを見てすぐ対策で動かせるようにし、入れ外しで比較したいときはその下で行う。中身・入れ外しの決まり・保存しないことは変えない（`app/src/workspace/App.tsx`）。

@@ -910,7 +910,7 @@ export function App() {
   const reqCache = useRef(new Map<string, EngineRequest>());
   /**
    * 結果の見方（保存しない自動の差分。0044 の追記）: 物ごとの入れ外しを当てた要求で、全部の枠を計算する。確実な物は外して見られ、
-   * ふだんの計算に入れない物（見込みが「不確実」の物・入れない夢）は入れて見られる。入れ外しは、結果のグラフのすぐ下の区画「これからの大きなお金」（BigMoneyCard）
+   * ふだんの計算に入れない物（見込みが「不確実」の物・入れない夢）は入れて見られる。入れ外しは、対策のすぐ下の区画「これからの大きなお金」（BigMoneyCard）
    */
   const viewRef = useRef<RowsView>(ALL_ROWS);
   const [rowsView, setRowsView] = useState<RowsView>(ALL_ROWS);
@@ -3384,8 +3384,6 @@ export function App() {
                 </>
               }
             />
-            {/* これからの大きなお金（結果のグラフのすぐ下。夢・支払い・受け取りの予定と、1件ずつのチェックの入れ外し〔保存しない〕。0044・0103） */}
-            {bigMoney !== null ? <BigMoneyCard model={bigMoney} notes={model.childRepaid} onPick={(r, inc) => putRowsView(pickRow(viewRef.current, r, inc))} /> : null}
             {/* ③ 対策 */}
             <LeverCard
               selected={names.selected}
@@ -3458,6 +3456,8 @@ export function App() {
             >
               {addedRows}
             </LeverCard>
+            {/* これからの大きなお金（対策のすぐ下。夢・支払い・受け取りの予定と、1件ずつのチェックの入れ外し〔保存しない〕。0044・0103） */}
+            {bigMoney !== null ? <BigMoneyCard model={bigMoney} notes={model.childRepaid} onPick={(r, inc) => putRowsView(pickRow(viewRef.current, r, inc))} /> : null}
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
               <CashflowTable
