@@ -364,7 +364,7 @@ export const PRIORITY_LABEL: Record<string, string> = { need: "確実", want: "�
 
 /**
  * 見込みの欄の「?」（0044 の追記 2026-11-12）。「不確実」にした物はどれもふだんの計算に入らない。必ず払う（受け取る）つもりの物は「確実」にし、
- * 不確実な物は結果の画面の「これからの大きなお金」でチェックを入れて比較する
+ * 不確実な物は結果の画面の「夢と予定」でチェックを入れて比較する
  */
 export type LikelihoodOf = "pay" | "gift" | "receive" | "inherit" | "debt";
 const LIKELIHOOD_WHAT: Record<LikelihoodOf, { sure: string; what: string }> = {
@@ -376,10 +376,10 @@ const LIKELIHOOD_WHAT: Record<LikelihoodOf, { sure: string; what: string }> = {
 };
 export function likelihoodHelp(of: LikelihoodOf): string {
   const w = LIKELIHOOD_WHAT[of];
-  return `${w.sure}「確実」にしてください。「不確実」にした${w.what}は、計算には入りません。結果の画面の「これからの大きなお金」でチェックを入れると、計算に入れて比較できます`;
+  return `${w.sure}「確実」にしてください。「不確実」にした${w.what}は、計算には入りません。結果の画面の「夢と予定」でチェックを入れると、計算に入れて比較できます`;
 }
 /** 見込みが「不確実」の行の注記（ふだんの計算に入れていない） */
-export const UNCERTAIN_NOTE = "見込みが「不確実」なので、計算に入れていません（結果の画面の「これからの大きなお金」でチェックを入れると比較できます）";
+export const UNCERTAIN_NOTE = "見込みが「不確実」なので、計算に入れていません（結果の画面の「夢と予定」でチェックを入れると比較できます）";
 
 /**
  * 見込みの欄（入るお金・相続で受け継ぐ借金）の、前の版の「この行を計算に入れる」（includeInBase が true）の読み方: ふだんの計算に入るので「確実」で見せる

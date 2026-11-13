@@ -1,4 +1,4 @@
-// 結果の画面の区画「これからの大きなお金」（対策のすぐ下。0044・0103 の追記 2026-11-12）。前のグラフの上の切り替え（RowsViewBar）と
+// 結果の画面の区画「夢と予定」（対策のすぐ下。0044・0103 の追記 2026-11-12）。前のグラフの上の切り替え（RowsViewBar）と
 // 「ご家族の夢」の区画（GoalCards）を1つにまとめた。値は bigMoney.ts の bigMoneyOf。入れ外しは見方の切り替えで、保存しない（App.tsx の putRowsView）。
 // 行の key は物の ID を含むので、提示層（presentation/）でなく作業の層に置く（0016 の2）。
 // 並べ方（3列）: 物のあるまとまりだけを横に並べ、列の数はまとまりの数に合わせる。
@@ -10,7 +10,7 @@ import { useState } from "preact/hooks";
 import { Help } from "../presentation/Help.tsx";
 import type { BigMoneyGroup, BigMoneyModel, BigMoneyPick, BigMoneyRow } from "./bigMoney.ts";
 
-/** 区画「これからの大きなお金」の「?」の説明（0044・0103 の追記 2026-11-12） */
+/** 区画「夢と予定」の「?」の説明（0044・0103 の追記 2026-11-12） */
 export const BIG_MONEY_HELP = [
   "行の左のチェックで、計算に入れる物を1件ずつ入れたり外したりできます（チェックの入っている物を計算に入れます）。グラフと上の1文、並べた全部のプランを計算し直します。",
   "最初は、確実な物と「最初から計算に入れる」の夢にチェックが入っています。見込みが「不確実」の物と「最初から計算に入れない」の夢は、計算に入れていません。チェックを入れると、入れた場合と比較できます。家の購入の頭金は外せません。",
@@ -90,7 +90,7 @@ function Column({ g, rows, onPick, cont, more }: { g: BigMoneyGroup; rows: reado
 }
 
 /**
- * 区画「これからの大きなお金」（対策のすぐ下）: 頭は名前と「?」と一行の結論だけ。中身は「ご家族の夢」「支払いの予定」「受け取りの予定」を
+ * 区画「夢と予定」（対策のすぐ下）: 頭は名前と「?」と一行の結論だけ。中身は「ご家族の夢」「支払いの予定」「受け取りの予定」を
  * 横に並べ、1件1行（チェック・名前・時期・金額・見込み）。並べる物が無ければ区画を出さない（子が返す奨学金の書き添えだけがあれば、それだけを出す）
  */
 export function BigMoneyCard({ model, notes: noteTexts, onPick }: BigMoneyCardProps) {
@@ -123,10 +123,10 @@ export function BigMoneyCard({ model, notes: noteTexts, onPick }: BigMoneyCardPr
   }
   const n = one !== null ? (split ? "s" : "1") : String(model.groups.length);
   return (
-    <section class="card big-money" aria-label="これからの大きなお金" data-big-money>
+    <section class="card big-money" aria-label="夢と予定" data-big-money>
       <div class="card-h">
-        <h2>これからの大きなお金</h2>
-        <Help label="これからの大きなお金" id="big-money">
+        <h2>夢と予定</h2>
+        <Help label="夢と予定" id="big-money">
           {BIG_MONEY_HELP.map((t, i) => (
             <p key={i}>{t}</p>
           ))}

@@ -408,7 +408,7 @@ export interface PresentInput {
   wording?: Wording;
   /**
    * 選んだプランか基準のプランが今の入力で計算できなかった（計算エンジンのエラー。結果は前の計算の残り）。結論の1文に「足りる」を出さない（0169。
-   * 区画「これからの大きなお金」の数字と一行の結論は workspace/bigMoney.ts の bigMoneyOf で出さない）
+   * 区画「夢と予定」の数字と一行の結論は workspace/bigMoney.ts の bigMoneyOf で出さない）
    */
   failed?: boolean;
 }

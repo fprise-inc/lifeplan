@@ -1,6 +1,6 @@
 // 夢プラン（0103）: ライフイベントの入力項目のいちばん上の区画・夢のひな形（名前と時期だけ）・順位の上下・計算に入れる／入れない・
 // ひとことメモ・古い「夢」（wish）の行を夢にする・結果の見方（理由「夢」・確実な分だけで外す）・夢を外した1回の計算と要約の1文・
-// 結果の画面の「これからの大きなお金」の「ご家族の夢」のまとまり・子への援助の見込み
+// 結果の画面の「夢と予定」の「ご家族の夢」のまとまり・子への援助の見込み
 import { h as el } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
@@ -271,7 +271,7 @@ describe("計算と結果の見方", () => {
     expect(dreamSummary({ ...base, total: 0, included: 0, withYear: null, withoutYear: null })).toBeNull();
   });
 
-  it("これからの大きなお金の「ご家族の夢」: 夢の行（名前・時期・額・チェック）と一行の結論。夢の無い世帯は「ご家族の夢」を出さない", () => {
+  it("区画「夢と予定」の「ご家族の夢」: 夢の行（名前・時期・額・チェック）と一行の結論。夢の無い世帯は「ご家族の夢」を出さない", () => {
     const wh = mutate(threeDreams(), (h) => void (h.periodicExpenses!.find((p) => p.id === ids[2])!.dream!.include = false));
     const req = wh.request;
     const r = preview(forEngine(req));
@@ -346,7 +346,7 @@ describe("夢プランの見本の世帯（sampleFamilyDreams。架空）", () =
     return { r, bm: bigMoneyOf(raw, r.table, { raw, view: ALL_ROWS }) };
   };
 
-  it("これからの大きなお金: 夢は払い始める年の順で、額の無い夢は「未定」。ふつうの出るお金の行は「支払いの予定」。一行の結論は計算に入れた4件の見方", () => {
+  it("区画「夢と予定」: 夢は払い始める年の順で、額の無い夢は「未定」。ふつうの出るお金の行は「支払いの予定」。一行の結論は計算に入れた4件の見方", () => {
     const { bm } = sample();
     expect(bm.groups.map((g) => [g.key, g.title, g.included, g.rows.length])).toEqual([
       ["dreams", "ご家族の夢", 4, 7],
@@ -384,10 +384,10 @@ describe("夢プランの見本の世帯（sampleFamilyDreams。架空）", () =
     expect(ma.line).toMatch(/^チェックした6件（8件中）を入れ/u);
   });
 
-  it("区画の表示: 名前は「これからの大きなお金」。一行の結論・1件1行（チェック・確実）。切り替え・金融資産の数字・長い案内の文と自動の目標は出さない", () => {
+  it("区画の表示: 名前は「夢と予定」。一行の結論・1件1行（チェック・確実）。切り替え・金融資産の数字・長い案内の文と自動の目標は出さない", () => {
     const { bm } = sample();
     const html = renderToString(el(BigMoneyCard, { model: bm, notes: [] }));
-    expect(html).toContain("<h2>これからの大きなお金</h2>");
+    expect(html).toContain("<h2>夢と予定</h2>");
     expect(html).toContain("チェックした5件（8件中）を入れても95歳まで足ります");
     expect(html).not.toContain("data-view-mode");
     expect(html.match(/data-bm-row=/gu)).toHaveLength(8);

@@ -1,5 +1,5 @@
 // ふだんの計算（見込みが「不確実」の物は外す）と結果の見方（0044 の追記）: 物ごとの入れ外し（保存しない）、不確実な物を「入れて見る」・確実な物を外して見る、
-// 結果のグラフのすぐ下の区画「これからの大きなお金」の行（名前・時期・額・見込み・入れ外し）、並べる物の無い世帯では区画を出さないこと、
+// 対策のすぐ下の区画「夢と予定」の行（名前・時期・額・見込み・入れ外し）、並べる物の無い世帯では区画を出さないこと、
 // 見込みの言葉を「確実／不確実」の2つにそろえたこと（古い値は同じ扱いの選択肢で見せ、書き換えない）
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -102,7 +102,7 @@ describe("ふだんの計算と結果の見方（保存しない）", () => {
   });
 });
 
-describe("これからの大きなお金の行（名前・時期・額・見込み）", () => {
+describe("区画「夢と予定」の行（名前・時期・額・見込み）", () => {
   const ours = (r: { key: string }) => r.key.includes("0000000b");
   it("選んでいるプランの世帯を先に、現状の世帯の物を足す。まとまりごとに年の順。チェックは今の見方で（最初はふだんの計算のとおり）", () => {
     const cur = sample();
@@ -139,7 +139,7 @@ describe("これからの大きなお金の行（名前・時期・額・見込�
   it("区画の頭は名前と「?」と一行の結論だけ（切り替えは無い）。列ごとに時期・金額の見出しと「入れた件数/件数」。確実・不確実は行の右", () => {
     const r = sample();
     const html = renderToString(h(BigMoneyCard, { model: bigMoneyOf(r, [], { raw: r, view: ALL_ROWS }), notes: [] }));
-    expect(html).toContain("<h2>これからの大きなお金</h2>");
+    expect(html).toContain("<h2>夢と予定</h2>");
     expect(html).not.toContain("すべて入れる");
     expect(html).not.toContain("確実な分だけ");
     expect(html).not.toContain("data-view-mode");

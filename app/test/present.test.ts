@@ -81,7 +81,7 @@ describe("提示用の値を作る", () => {
     expect(texts).toContain("2031 学 第1子 大学入学（私立文系・自宅外）（第1子19歳）");
     expect(texts.some((t) => t.startsWith("2046 退 ご本人 退職（ご本人65歳）"))).toBe(true);
     expect(texts.some((t) => t.startsWith("2046 年 ご本人 年金の受け取り開始（65歳）"))).toBe(true);
-    // これからの大きなお金: 教育・住宅ローンの完済・老後の生活資金のカードは出さない。夢の無い世帯は「ご家族の夢」のまとまりを出さない
+    // 区画「夢と予定」: 教育・住宅ローンの完済・老後の生活資金のカードは出さない。夢の無い世帯は「ご家族の夢」のまとまりを出さない
     const bm = bigMoneyOf(proposal, proposed.table, { raw: proposal, view: ALL_ROWS });
     expect(bm.groups.some((g) => g.key === "dreams")).toBe(false);
     expect(bm.groups.flatMap((g) => g.rows).every((r) => !/教育|完済|老後/u.test(r.name))).toBe(true);
@@ -112,7 +112,7 @@ describe("0016 の2: 提示層は内部情報を受け取らない", () => {
     expect(html).not.toContain("準備OK");
     expect(html).not.toContain(MARK);
     for (const m of base.input.household.members) expect(html).not.toContain(m.id);
-    // 区画「これからの大きなお金」は作業の層の部品（行の key に物の ID を持つ）。出るお金の行の ID は出るが、人の ID・メモは出ない
+    // 区画「夢と予定」は作業の層の部品（行の key に物の ID を持つ）。出るお金の行の ID は出るが、人の ID・メモは出ない
     const big = renderToString(h(BigMoneyCard, { model: bigMoneyOf(proposal, proposed.table, { raw: proposal, view: ALL_ROWS }), notes: model.childRepaid }));
     expect(big).not.toContain(MARK);
     for (const m of base.input.household.members) expect(big).not.toContain(m.id);
