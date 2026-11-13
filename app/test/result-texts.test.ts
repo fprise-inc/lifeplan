@@ -240,3 +240,36 @@ describe("承認した事務所の文を当てる", () => {
     ).toBe("ご本人が亡くなった場合、保障は足りています");
   });
 });
+
+describe("見直したポイントの文（0074 の追記 2026-11-12）", () => {
+  it("見本の世帯に出ない言い方も、前の書き方と同じ文になる", () => {
+    const w = OFFICIAL_WORDING;
+    expect(w.text("result:main/pointBigSpend", { year: "2041年", items: "第1子の教育費120万円・車の買い替え250万円", others: w.text("result:main/pointBigSpendOthers", { years: "2031〜2033年" }) })).toBe(
+      "2041年に、第1子の教育費120万円・車の買い替え250万円が重なります（ほかに2031〜2033年）",
+    );
+    expect(w.text("result:main/pointBigSpendMore", { year: "2041年", items: "夢「旅行」80万円", more: "約8割多く", others: "" })).toBe("2041年に、夢「旅行」80万円が重なり、支出が前後の年より約8割多くなります");
+    expect(w.text("result:main/pointLoanToEnd", { loan: "住宅ローン", end: "2081年", years: "15年" })).toBe("住宅ローンは表の最後の年（2081年）まで返済が続き、退職後も15年以上返済があります");
+    expect(w.text("result:main/pointLoanPayoffNext", { loan: "住宅ローン", age: "66歳", year: "2047年" })).toBe("住宅ローンの完済は66歳（2047年）で、退職の翌年まで返済が続きます");
+    expect(w.text("result:main/pointRetireGap", { person: "ご本人", age: "60歳", years: "5年", note: w.text("result:main/pointRetireGapPartnerUntil", { partner: "配偶者", year: "2042年" }) })).toBe(
+      "ご本人が60歳で退職してから年金の受け取りまで5年、収入が少ない期間があります（配偶者の働く収入は2042年まで）",
+    );
+    expect(w.text("result:main/pointHousingCredit", { year: "2038年", amount: "21万円" })).toBe("2038年で住宅ローン控除が終わり、翌年から手取りが年21万円ほど減ります（2038年の所得税・住民税の軽減の額）");
+  });
+
+  it("無くなった種類（教育と介護が重なる・NISA の枠を使い切る年）は一覧に無い", () => {
+    const ids = RESULT_TEXTS.map((d) => d.id);
+    expect(ids.some((id) => /pointEduCare|pointNisa/.test(id))).toBe(false);
+    expect(ids.filter((id) => id.startsWith("result:main/point")).length).toBe(14);
+  });
+
+  it("預金が少なくなる年: 事務所の文にも、その年の預金と生活費の月数分が入る", () => {
+    const req = modelHousehold("salariedCoupleTwoKids");
+    const years = displayYears(req);
+    const table: TableCell[] = [...years.map((y) => ({ row: "cf.expense.living.base", year: y, amount: 3600000 })), ...years.map((y, i) => ({ row: "cf.balance.account.deposit", year: y, amount: i < 3 ? 5000000 : 1000000 }))];
+    const w = wordingOf(officeTextsFrom([office("result:main/pointDeposit", "replace", "{year}は預金が{deposit}まで減ります（目安は{months}分の{need}）")]));
+    const r = { header: {} as never, table, summary: null };
+    const mine = insights(req, r, { months: 6, wording: w }).find((x) => x.key === "deposit")!;
+    expect(mine.text).toBe(`${years[3]}年は預金が100万円まで減ります（目安は6か月分の180万円）`);
+    expect(insights(req, r, { months: 6 }).find((x) => x.key === "deposit")!.text).toBe(`${years[3]}年に、預金が100万円になり、生活費の6か月分（180万円）を下回ります`);
+  });
+});

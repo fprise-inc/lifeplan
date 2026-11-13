@@ -134,7 +134,7 @@ function sample018(): BodyState {
 
 /**
  * 0.20 の見本の世帯（0044）: sample018() に、入るお金の行（相続〔不確か・基本の計算に入れる〕・副業〔必要経費・段階・例外の年〕・月額の援助）、
- * 出るお金の行に足した欄（月額・種類・相手・払う人・優先度・あげる贈与）、口座の間の移し替えの入れ物、相続で受け継ぐ借金の欄を足す
+ * 出るお金の行に足した欄（月額・種類・相手・払う人・見込み・あげる贈与）、口座の間の移し替えの入れ物、相続で受け継ぐ借金の欄を足す
  */
 function sample020(): BodyState {
   const s = sample018();
@@ -655,7 +655,7 @@ function sample045(): BodyState {
 
 /**
  * 0.46 の見本の世帯（0103）: sample045() に、夢プランの夢を3件（2件目は「計算に入れない」・順位は2→1→3の並び・ひとことメモつき）と、
- * 第1子への援助（結婚資金・優先度「できれば」）を足す
+ * 第1子への援助（結婚資金・見込み「不確実」〔want〕）を足す
  */
 function sample046(): BodyState {
   const s = sample045();
@@ -1982,7 +1982,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(of(id(4), (c) => c.row === "cf.expense.lumpSum.car")).toHaveLength(0);
   });
 
-  it("0.46 の形（0103）: 夢プランの夢（順位・計算に入れるか・ひとことメモ）と子への援助の優先度を保存して読み戻し、計算に入れない夢だけを外して計算する", () => {
+  it("0.46 の形（0103）: 夢プランの夢（順位・計算に入れるか・ひとことメモ）と子への援助の見込み（priority）を保存して読み戻し、計算に入れない夢だけを外して計算する", () => {
     const s = sample046();
     const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
     const h = stored.household.request.input.household;

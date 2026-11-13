@@ -116,37 +116,6 @@ export interface CashflowTableModel {
   rows: TableRowModel[];
 }
 
-/** 「ご家族の夢」の区画の夢ごとの一言（言い方は workspace/dreamWording.ts で決める） */
-export interface DreamNote {
-  /** ok: 払う年に資金の不足が無い。short: 払う年に資金の不足がある。info: 数字の無い案内（計算に入れていない・額が無い・計算できていない） */
-  tone: "ok" | "short" | "info";
-  /** 札の文字（「払えます」など。言い方によっては無い） */
-  status: string | null;
-  /** 一言の文（「払った後も1,159万円残ります」など） */
-  text: string;
-}
-
-/** 「ご家族の夢」の区画の1枚（夢プランの夢1件。夢が無いときは入れる所を案内する1枚） */
-export interface GoalCard {
-  /** 「夢1」。案内の1枚は「夢」 */
-  category: string;
-  title: string;
-  when: string;
-  amount: Yen | null;
-  /** 夢プランの1件（0103）: 順位と、計算に入れているか（今の見方で）。額は amount（未入力は null）。案内の1枚には無い */
-  dream?: { rank: number; included: boolean };
-  /** 夢ごとの一言（案内の1枚は null） */
-  note: DreamNote | null;
-}
-
-/** 結果の画面の「ご家族の夢」の区画（夢プランの夢だけを順位の順に出す） */
-export interface GoalsModel {
-  cards: GoalCard[];
-  /** 夢のひとことの要約（「夢をすべて入れても100歳まで足ります」など。夢が無い・計算中は null。0103） */
-  dreamLine: string | null;
-  /** 子が返す貸与の奨学金の書き添え（世帯の収支に入れていない返済。子ごとに1文。無ければ空。0104） */
-  childRepaid?: string[];
-}
 
 /** 主画面の結論の1文（例: 「B案は100歳まで足ります」＋「A案（基準）は80歳で資産が尽きます」） */
 export interface ResultVerdict {
@@ -194,7 +163,8 @@ export interface PresentationModel {
   yearDetail: YearDetail | null;
   events: EventChip[];
   table: CashflowTableModel;
-  goals: GoalsModel;
+  /** 子が返す貸与の奨学金の書き添え（世帯の収支に入れていない返済。子ごとに1文。無ければ空。0104。結果の画面の区画「これからの大きなお金」の下に出す） */
+  childRepaid: string[];
   /** FP顧問料を対策で ON/OFF しているときの一文（顧問料の契約が無ければ null） */
   fee: FeeLine | null;
   /** 数字が確定前（画面側の先出し）か。0005 の5: 控えめに示す */

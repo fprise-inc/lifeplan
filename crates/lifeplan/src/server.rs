@@ -48,7 +48,7 @@ use std::time::Instant;
 
 pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプランソフト）の AI接続口です。
 - 計算（calculate）・数字の根拠（explain_value）・動かせる項目（list_plan_items）・制度の値（get_regulation_value）・見本の世帯（list_sample_households・get_sample_household）・対応範囲の一覧（search_coverage・get_coverage）は、アプリが起動していなくても使えます。見本の世帯はすべて架空で、実在の顧客ではありません。
-- calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリで「確実な分だけ」などの結果の見方を選んでいるとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
+- calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「不確実」の入るお金・出るお金・子への援助・受け取る相続・遺贈・贈与・相続で受け継ぐ借金と、「最初から計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリの結果の画面で物ごとの入れ外し（「これからの大きなお金」のチェック）をしているとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
 - calculate の答えは大きくなりやすいので、要る物だけを取ってください。比較する・振るときは omit に years を入れて keyFigures（主な数字。アプリの「プランを比較」と同じ数え方）だけを取り、推移を見るときは every_years（例 5）と fields（例 [\"financialAssets\"]）で絞ります。知らせ（notices）・制度データの版（packs）は要らなければ omit で省きます。見本の世帯の一覧（list_sample_households）は tags（例 [\"子育て\"]・[\"シニア\"]）で絞り、explain_value は omit・depth で小さくできます。主な数字には65歳からの年金の月額（keyFigures.pension。今の水準の額）も入り、要らなければ omit に pension を入れると計算も省きます。年ごとの数字は画面の表と同じ年から始まります（計算基準月が年の途中なら翌年から）。
 - 「対策を3つ並べて」「この世帯とこの世帯を比較して」「物価0%・1%・2%で並べて」のように何通りも並べるときは、calculate を何度も呼ばず、compare で基本と最大8通りを1回で計算してください。通りに世帯を書かなければ基本に重ね（plan_changes・changes・stress_test、アプリの「相場が下がった場合」の型 market_stress）、sample_household_id・share_id・input を書けばその世帯で計算します。返るのは通りごとの主な数字・基本との差・選んだ数字の年ごとの系列（既定は金融資産を5年ごと・年齢つき）だけです。
 - 「変動金利が今のまま・10年で+1%・10年で+2% で比較してグラフにして」のように、比較した答えをグラフ（セミナーの資料・ブログに使う画像）にするときは、数字を自分で描かず、chart を使ってください（compare と同じ書き方で、画面のグラフと同じ目盛り・色の PNG と SVG を返します。題・凡例・単位・前提の注〔物価上昇率・運用利回り・相場の想定〕・試算の時点と「将来の結果を約束するものではない」旨が必ず入ります。「ファイナンシアで試算」の出典は credit: true のときだけ入り、既定は入りません）。変動金利の上がり方は、list_plan_items の住宅ローンの「金利の見込み（変動金利）」の項目（kind が rateOutlook）を通りの plan_changes に入れます（value は型の名前 flat・up1・up2 か、5年ごとの上乗せ {adds: [\"0.005\", \"0.01\"]}。入力の「金利の見込み」の欄と同じ関数で当たります）。stress_test の rateRise は上げ幅を選べない決まった型です。
@@ -621,10 +621,13 @@ fn preparation(applied: &Value, with_ids: bool) -> Option<Value> {
         list("excludedDebts"),
         list("offDreams"),
     );
+    let (expenses, gifts) = (list("excludedExpenses"), list("excludedGifts"));
     let (values, no_fill) = (list("officeEstimateValues"), list("officeNoFill"));
     if incomes.is_empty()
         && debts.is_empty()
         && dreams.is_empty()
+        && expenses.is_empty()
+        && gifts.is_empty()
         && values.is_empty()
         && no_fill.is_empty()
     {
@@ -632,12 +635,19 @@ fn preparation(applied: &Value, with_ids: bool) -> Option<Value> {
     }
     let mut p = serde_json::Map::new();
     p.insert("note".into(), json!(PREPARATION_NOTE));
-    if !(incomes.is_empty() && debts.is_empty() && dreams.is_empty()) {
+    if !(incomes.is_empty()
+        && debts.is_empty()
+        && dreams.is_empty()
+        && expenses.is_empty()
+        && gifts.is_empty())
+    {
         p.insert(
             "notInCalculation".into(),
             json!({
                 "incomeFlows": objects("excludedIncomes"),
                 "inheritedDebts": objects("excludedDebts"),
+                "periodicExpenses": objects("excludedExpenses"),
+                "gifts": objects("excludedGifts"),
                 "dreams": objects("offDreams"),
             }),
         );
@@ -659,7 +669,7 @@ fn results_have_preparation(v: &Value) -> bool {
 }
 
 /// 計算の前の処理の印の説明
-const PREPARATION_NOTE: &str = "アプリの画面と同じく、計算の前に次を当てました（世帯のデータは変えていません）。notInCalculation は計算に入れない物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）で、表の数字に入っていません。officeEstimates は、FPの事務所が既定値の画面で変えた推定の値（values は値ID）と推定で埋めない目安（noFill）です。";
+const PREPARATION_NOTE: &str = "アプリの画面と同じく、計算の前に次を当てました（世帯のデータは変えていません）。notInCalculation は計算に入れない物（見込みが「不確実」の入るお金・相続で受け継ぐ借金・出るお金・子への援助と、「最初から計算に入れない」を選んだ夢）で、表の数字に入っていません。officeEstimates は、FPの事務所が既定値の画面で変えた推定の値（values は値ID）と推定で埋めない目安（noFill）です。";
 
 /// 変更とストレステストを当てる
 fn with_changes(

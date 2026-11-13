@@ -787,7 +787,7 @@ fn every_format_version_has_a_fixture_and_opens() {
             }
         }
         if *v == "0.46" {
-            // 0.46 から: 夢プランの夢（種類 dream・順位・計算に入れるか・ひとことメモ）と子への援助の優先度（0103）
+            // 0.46 から: 夢プランの夢（種類 dream・順位・計算に入れるか・ひとことメモ）と子への援助の見込み（priority。0103）
             let h = &now["household"]["request"]["input"]["household"];
             let dreams: Vec<&serde_json::Value> = h["periodicExpenses"]
                 .as_array()
@@ -813,7 +813,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                 .collect();
             assert!(
                 gifts.iter().any(|x| x["priority"] == "want"),
-                "{v}: 「できれば」の子への援助がある"
+                "{v}: 見込みが「不確実」（want）の子への援助がある"
             );
         }
         if *v == "0.45" {
