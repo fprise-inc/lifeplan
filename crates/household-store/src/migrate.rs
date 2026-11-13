@@ -147,8 +147,8 @@ pub const CURRENT: &str = "0.76";
 ///   借り始め・契約の年数・月額に含む物）を足した（0101。足すだけの MINOR。リースの車は `purchase` を持たない。前の版のアプリは、知らない欄を
 ///   読み落として書き戻し、リースの車を読めないので、版を上げて閲覧だけにする）。変換の段は形式の版だけを書き換える（買い替えの無い車は買い替え続ける）
 /// - 0.46: 夢プランを出るお金の行の種類 `dream` と、その行の `dream`（順位・計算に入れるか・ひとことメモ）で持ち、子への援助
-///   `goals[].education.gifts[]` に優先度 `priority`（必ず・できれば）を足した（0103。足すだけの MINOR。前の版のアプリは種類 dream の行を読めず、
-///   援助の優先度を読み落として書き戻すので、版を上げて閲覧だけにする）。変換の段は形式の版だけを書き換える（前の援助は「必ず」のまま）
+///   `goals[].education.gifts[]` に見込み `priority`（need・want。画面は「確実」「不確実」）を足した（0103。足すだけの MINOR。前の版のアプリは種類 dream の行を読めず、
+///   援助の見込みを読み落として書き戻すので、版を上げて閲覧だけにする）。変換の段は形式の版だけを書き換える（前の援助は need〔確実〕と同じ扱いのまま）
 /// - 0.47: 子の貸与の奨学金 `goals[].education.scholarships[]` に返すのは誰か `repaidBy`（`child` 子が返す・`household` 世帯で返す。省略は子）を
 ///   足し、ほかのローンの種類 `debts[].subtype` に `scholarshipFree`（第一種・無利子）を、時点の年齢の規則 `ageSwitch` に `schoolYearJanuary`
 ///   （その年齢になる年度の1月。子の成人式）を足した（0104。MINOR。前の版のアプリは返す人を読み落として書き戻し、新しい規則の時点を読めないので、
@@ -1828,7 +1828,7 @@ fn v0_44_to_0_45(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.45 → 0.46: 足した欄（夢プランの種類 `dream` と行の `dream`、子への援助の優先度 `priority`。0103）は任意なので足さない。形式の版だけを書き換える
+/// 0.45 → 0.46: 足した欄（夢プランの種類 `dream` と行の `dream`、子への援助の見込み `priority`。0103）は任意なので足さない。形式の版だけを書き換える
 fn v0_45_to_0_46(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
@@ -4482,7 +4482,7 @@ mod tests {
 
     #[test]
     fn v0_45_to_0_46_only_bumps_version() {
-        // 足した欄（夢プラン・子への援助の優先度。0103）は任意なので、前の版の行と援助はそのまま（援助は「必ず」）
+        // 足した欄（夢プラン・子への援助の見込み。0103）は任意なので、前の版の行と援助はそのまま（援助は確実と同じ扱い）
         let b = serde_json::json!({
             "meta": {"formatVersion": "0.45"},
             "household": {"request": {"input": {"baseMonth": "2026-10", "household": {

@@ -1,5 +1,5 @@
 // 夢プラン（0103）の1件の作り方と並べ方: 夢は出るお金の行（periodicExpenses）の種類 dream で持ち、順位・計算に入れるか・ひとことメモを
-// 行の dream に書く。表の行は一時的支出（ほかのライフイベントの行と同じ）。ふつうの行の優先度（必ず・できれば）とは別の物で、優先度の欄は持たない。
+// 行の dream に書く。表の行は一時的支出（ほかのライフイベントの行と同じ）。ふつうの行の見込み（値は priority。確実・不確実）とは別の物で、見込みの欄は持たない。
 // 画面の区画は stages/events.ts（ライフイベントの入力項目のいちばん上）。このファイルは moneyRows.ts から読むので、moneyRows.ts を読まない
 import type { Household, PeriodicExpense, Timepoint } from "../../engine/types.ts";
 import { isDream } from "../../engine/moneyRows.ts";
@@ -118,7 +118,7 @@ export function addDream(wh: WorkingHousehold, t: DreamTemplate | null = null, i
 }
 
 /**
- * ふつうの行を夢にする（古い値の優先度「夢」〔wish〕の行で FP が押す。0103）: 種類を夢にし、優先度を外し、いちばん下の順位にする。
+ * ふつうの行を夢にする（古い値「夢」〔priority が wish〕の行で FP が押す。0103）: 種類を夢にし、見込み（priority）を外し、いちばん下の順位にする。
  * 名前・額・時期はそのまま。表の行は一時的支出にする（夢はどれも一時的支出の行）
  */
 export function toDream(wh: WorkingHousehold, id: string): WorkingHousehold {

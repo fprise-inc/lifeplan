@@ -363,7 +363,7 @@ describe("貯蓄・運用", () => {
 });
 
 describe("ライフイベント・車・相続・前提条件", () => {
-  it("ライフイベントの出るお金の行の優先度は標準（行の右で必ず・できれば）、入るお金の行の見込みは詳細。相続・贈与の行の名前は詳細", () => {
+  it("ライフイベントの出るお金の行の見込みは標準（行の右で確実・不確実）、入るお金の行の見込みは詳細。相続・贈与の行の名前は詳細", () => {
     const wh = open("salariedCoupleTwoKids");
     const ev = fieldsOf(wh, "events");
     const pri = ev.filter((f) => f.key.endsWith("/priority"));
