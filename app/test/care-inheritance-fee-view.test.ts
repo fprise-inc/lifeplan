@@ -308,18 +308,16 @@ describe("相続・贈与", () => {
     expect(resolveTimepoint(h0, row.from)).toBe(addMonths(resolveTimepoint(h0, father.leaves!)!, INHERIT_AFTER_MONTHS));
   });
 
-  it("見込みと「計算に入れる」は1つの考え方: 確実ならチェックの欄を出さず計算に入れる。当てにしないときだけ「この行を計算に入れる」、入れた後は「計算から外す」", () => {
+  it("見込みだけで計算に入れるかが決まる: チェックの欄と「この行を計算に入れる」「計算から外す」の1押しは無い。「不確実」の行の注記はふだんの計算に入れていないこと", () => {
     let wh = actionOf("inheritance", couple(), "money/inherit/in/add/inheritance").run(couple());
     const row = () => (hh(wh).incomeFlows ?? []).find((f) => f.kind === "inheritance")!;
     const id = row().id;
     expect(fieldOf("inheritance", wh, `in/${id}/includeInBase`)).toBeUndefined();
-    expect(actionsOf("inheritance", wh).map((a) => a.key)).not.toContain(`in/${id}/includeInBase`);
     wh = fieldOf("inheritance", wh, `in/${id}/likelihood`)!.set(wh, "uncertain");
+    expect(actionsOf("inheritance", wh).map((a) => a.key).filter((k) => k.includes(id) && /includeInBase|excludeFromBase/u.test(k))).toEqual([]);
     const g = groupsOf("inheritance", wh).find((x) => x.key === `in/${id}`)!;
-    expect(g.note ?? "").not.toContain("「詳細」の「基本の計算に入れる」");
-    wh = actionOf("inheritance", wh, `in/${id}/includeInBase`).run(wh);
-    expect(row().includeInBase).toBe(true);
-    wh = actionOf("inheritance", wh, `in/${id}/excludeFromBase`).run(wh);
+    expect(g.note ?? "").toContain("計算に入れていません");
+    expect(g.note ?? "").not.toContain("基本の計算に入れる");
     expect(row().includeInBase).toBeUndefined();
   });
 

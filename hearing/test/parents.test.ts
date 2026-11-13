@@ -78,7 +78,7 @@ describe("ご両親のお金と介護の取り込み", () => {
     expect(bad.issues.some((i) => i.code === "H_CONTRADICTION" && i.key === "hs.family.parent.careMonthly")).toBe(true);
   });
 
-  it("受け取る予定の相続・贈与が「ある」なら、相続・遺贈の行（時期は記入の年の1月・見込みは当てにしない）。時期の無いときは1年後で仮の印", () => {
+  it("受け取る予定の相続・贈与が「ある」なら、相続・遺贈の行（時期は記入の年の1月・見込みは不確実）。時期の無いときは1年後で仮の印", () => {
     const r = run(...base, a("hs.inherit.expected", "yes"), a("hs.inherit.year", 2035), a("hs.inherit.amount", 10000000));
     const f = r.request.input.household.incomeFlows![0]!;
     expect(f).toMatchObject({ kind: "inheritance", label: "相続・遺贈", from: { at: "2035-01" }, to: { at: "2035-01" }, likelihood: "uncertain", amount: { value: 10000000, state: "confirmed" } });

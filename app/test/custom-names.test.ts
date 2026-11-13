@@ -14,7 +14,8 @@ import { fromRequest, type WorkingHousehold } from "../src/workspace/input/house
 import { buildStage, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { estimateTextId, fieldTextId } from "../src/workspace/input/textIds.ts";
 import { fieldStatus, hasFieldValue } from "../src/workspace/input/valueState.ts";
-import { arrangeFields, NO_OFFICE_NAMES, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf, type OfficeTextEntry } from "../src/workspace/office/customTexts.ts";
+import { arrangeFields, NO_OFFICE_NAMES, officeFieldsFrom, officeTextsFrom, rowNamesOf, type OfficeTextEntry } from "../src/workspace/office/customTexts.ts";
+import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "../src/workspace/office/customTextsContext.ts";
 import { customCenterNotice } from "../src/workspace/office/customNotice.ts";
 import { CustomTextsSection, rowTextLabel } from "../src/workspace/office/CustomTextsSection.tsx";
 import { CURRENT } from "../src/workspace/plans/band.ts";

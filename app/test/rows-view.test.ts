@@ -1,18 +1,19 @@
-// 結果の見方（0044 の追記）: 「すべて入れる｜確実な分だけ」と物ごとの入れ外し（保存しない）、基本の計算に入れない物を「入れて見る」、
-// 一覧の名前・額・時期、入れ外しできる物の無い世帯では出さないこと、札の言葉を2つずつにしたこと（古い値は同じ扱いの札で見せ、書き換えない）
+// ふだんの計算（見込みが「不確実」の物は外す）と結果の見方（0044 の追記）: 物ごとの入れ外し（保存しない）、不確実な物を「入れて見る」・確実な物を外して見る、
+// 結果のグラフのすぐ下の区画「これからの大きなお金」の行（名前・時期・額・見込み・入れ外し）、並べる物の無い世帯では区画を出さないこと、
+// 見込みの言葉を「確実／不確実」の2つにそろえたこと（古い値は同じ扱いの選択肢で見せ、書き換えない）
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
-import { ALL_ROWS, applyRowsView, forEngine, isAllRows, pickRow, viewCandidates, viewExcluded, viewMode } from "../src/engine/moneyRows.ts";
+import { ALL_ROWS, applyRowsView, forEngine, isAllRows, pickRow, viewCandidates } from "../src/engine/moneyRows.ts";
 import type { Debt, EngineRequest, IncomeFlow, PeriodicExpense } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { LIKELIHOOD_LABEL, PRIORITY_LABEL } from "../src/workspace/input/moneyRows.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { RowsViewBar } from "../src/workspace/RowsViewBar.tsx";
-import { viewRows } from "../src/workspace/rowsView.ts";
+import { BigMoneyCard } from "../src/workspace/BigMoneyCard.tsx";
+import { bigMoneyOf } from "../src/workspace/bigMoney.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { modelHousehold } from "./helpers.ts";
+import { modelHousehold, preview } from "./helpers.ts";
 
 const box = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
 const id = (n: number) => `00000000-0000-4000-8000-0000000b${String(n).padStart(4, "0")}`;
@@ -36,115 +37,138 @@ const sample = (): EngineRequest => {
 const inIds = (r: EngineRequest) => (r.input.household.incomeFlows ?? []).map((f) => f.id);
 const outIds = (r: EngineRequest) => (r.input.household.periodicExpenses ?? []).map((p) => p.id).filter((x) => x.startsWith("00000000-0000-4000-8000-0000000b"));
 
-describe("結果の見方（保存しない）", () => {
-  it("入れ外しできる物: 基本の計算に入れない物（当てにしない受け取る相続・受け継ぐ借金）・当てにしない入るお金・できればの出るお金", () => {
-    const c = viewCandidates(sample().input.household);
-    expect(c.map((x) => [x.key, x.reason])).toEqual([
-      [`in:${id(1)}`, "base"],
-      [`in:${id(2)}`, "uncertain"],
-      [`in:${id(4)}`, "uncertain"],
-      [`out:${id(10)}`, "priority"],
-      [`out:${id(11)}`, "priority"],
-      [`debt:${id(20)}`, "base"],
-    ]);
-  });
-
-  it("すべて入れる（いつもの計算）は要求をそのまま返す。決まりのとおり基本の計算に入れない物は外れている", () => {
-    const r = sample();
-    expect(applyRowsView(r, ALL_ROWS)).toBe(r);
-    const c = viewCandidates(r.input.household);
-    expect(c.filter((x) => viewExcluded(x, ALL_ROWS)).map((x) => x.key)).toEqual([`in:${id(1)}`, `debt:${id(20)}`]);
-  });
-
-  it("確実な分だけ: 当てにしない入るお金と、できれば（want・wish）の出るお金を外す。たぶん（古い値）は確実と同じに入れる", () => {
-    const r = applyRowsView(sample(), viewMode(true));
-    expect(inIds(r)).toEqual([id(3)]);
+describe("ふだんの計算と結果の見方（保存しない）", () => {
+  const ours = (k: string) => k.includes("0000000b");
+  it("ふだんの計算は、見込みが「不確実」の物をすべて外す（入るお金・出るお金・受け継ぐ借金）。前の版の「この行を計算に入れる」の行と確実な物は入れる", () => {
+    const r = forEngine(sample());
+    expect(inIds(r)).toEqual([id(3), id(4)]);
     expect(outIds(r)).toEqual([id(12)]);
-    // 受け継ぐ借金は要求には残り、エンジンへ渡すときにいつものとおり外れる
-    expect(forEngine(r).input.household.debts?.some((d) => d.id === id(20))).toBe(false);
+    expect(r.input.household.debts?.some((d) => d.id === id(20))).toBe(false);
   });
 
-  it("1件ずつ入れる・外す: 決まりのとおりに戻すと物ごとの入れ外しを持たない", () => {
-    const c = viewCandidates(sample().input.household);
-    const trip = c.find((x) => x.id === id(10))!;
-    const v1 = pickRow(viewMode(true), trip, true);
-    expect(v1.pick).toEqual({ [`out:${id(10)}`]: true });
-    expect(outIds(applyRowsView(sample(), v1))).toEqual([id(10), id(12)]);
-    expect(pickRow(v1, trip, false)).toEqual(viewMode(true));
-    // すべて入れるで、当てにしない副業だけ外す
-    const side = c.find((x) => x.id === id(2))!;
-    const v2 = pickRow(ALL_ROWS, side, false);
-    expect(isAllRows(v2)).toBe(false);
-    expect(inIds(forEngine(applyRowsView(sample(), v2)))).toEqual([id(3), id(4)]);
-    // 切り替えると物ごとの入れ外しは決まりのとおりに戻る
-    expect(viewMode(false)).toEqual(ALL_ROWS);
+  it("入れ外しできる物: 区画に並ぶ物（家の購入の頭金を除く）。最初の状態はふだんの計算のとおり（不確実な物はチェックなし）", () => {
+    const c = viewCandidates(sample().input.household).filter((x) => ours(x.key));
+    expect(c.map((x) => [x.key, x.reason, x.off === true])).toEqual([
+      [`in:${id(1)}`, "uncertain", true],
+      [`in:${id(2)}`, "uncertain", true],
+      [`in:${id(4)}`, "certain", false],
+      [`out:${id(10)}`, "uncertain", true],
+      [`out:${id(11)}`, "uncertain", true],
+      [`out:${id(12)}`, "certain", false],
+      [`debt:${id(20)}`, "uncertain", true],
+    ]);
+    expect(applyRowsView(sample(), ALL_ROWS)).toEqual(sample());
   });
 
-  it("基本の計算に入れない物を「入れて見る」: 要求の写しで includeInBase を true にする（世帯は変えない）", () => {
+  it("1件ずつ入れる・外す: 不確実な物を入れて見る（要求の写しで書き換える。世帯は変えない）・確実な物を外して見る・最初に戻すと入れ外しを持たない", () => {
     const r0 = sample();
     const before = structuredClone(r0);
     const c = viewCandidates(r0.input.household);
-    let v = pickRow(ALL_ROWS, c.find((x) => x.id === id(1))!, true);
-    v = pickRow(v, c.find((x) => x.id === id(20))!, true);
+    const of = (n: number) => c.find((x) => x.id === id(n))!;
+    let v = pickRow(ALL_ROWS, of(1), true);
+    v = pickRow(v, of(10), true);
+    v = pickRow(v, of(20), true);
+    v = pickRow(v, of(12), false);
+    expect(v.pick).toEqual({ [`in:${id(1)}`]: true, [`out:${id(10)}`]: true, [`debt:${id(20)}`]: true, [`out:${id(12)}`]: false });
     const r = forEngine(applyRowsView(r0, v));
-    expect(inIds(r)).toContain(id(1));
+    expect(inIds(r)).toEqual([id(1), id(3), id(4)]);
+    expect(outIds(r)).toEqual([id(10)]);
     expect(r.input.household.debts?.some((d) => d.id === id(20))).toBe(true);
     expect(r0).toEqual(before);
-    // 確実な分だけでも、入れた物は入る
-    const r2 = forEngine(applyRowsView(r0, pickRow(viewMode(true), c.find((x) => x.id === id(1))!, true)));
-    expect(inIds(r2)).toEqual([id(1), id(3)]);
+    expect(pickRow(pickRow(ALL_ROWS, of(10), true), of(10), false)).toEqual(ALL_ROWS);
+    expect(isAllRows(v)).toBe(false);
   });
 
-  it("入れ外しできる物の無い世帯: 確実な分だけでも要求は同じ物。見方の帯は出さない", () => {
-    const plain = modelHousehold("dualNoKids");
-    expect(applyRowsView(plain, viewMode(true))).toBe(plain);
-    const rows = viewRows([plain.input.household], ALL_ROWS);
-    expect(rows).toEqual([]);
-    expect(renderToString(h(RowsViewBar, { rows, view: ALL_ROWS, onMode: () => undefined, onPick: () => undefined }))).toBe("");
+  it("繰上返済も外して見られる（何番目かで外す）", () => {
+    const r0 = sample();
+    const d = r0.input.household.debts!.find((x) => x.id === id(20))!;
+    d.likelihood = "certain";
+    d.prepayments = [{ at: { at: "2033-01" }, amount: 300000, mode: "shortenTerm" }, { at: { at: "2034-01" }, amount: 200000, mode: "shortenTerm" }];
+    const c = viewCandidates(r0.input.household).find((x) => x.key === `prepay:${id(20)}:0`)!;
+    expect(c).toMatchObject({ side: "prepay", reason: "certain" });
+    const r = forEngine(applyRowsView(r0, pickRow(ALL_ROWS, c, false)));
+    expect(r.input.household.debts!.find((x) => x.id === id(20))!.prepayments).toEqual([d.prepayments[1]]);
+  });
+
+  it("並べる物の無い世帯: 区画を出さない", () => {
+    const plain = structuredClone(modelHousehold("dualNoKids"));
+    plain.input.household.periodicExpenses = (plain.input.household.periodicExpenses ?? []).filter((p) => p.monthly === true);
+    plain.input.household.debts = (plain.input.household.debts ?? []).map((d) => { const { prepayments: _p, ...rest } = d; void _p; return rest; });
+    plain.input.household.residences = (plain.input.household.residences ?? []).map((r) => { const { purchase: _p, ...rest } = r; void _p; return rest; });
+    const bm = bigMoneyOf(plain, [], { raw: plain, view: ALL_ROWS });
+    expect(bm.groups).toEqual([]);
+    expect(bm.line).toBeNull();
+    expect(renderToString(h(BigMoneyCard, { model: bm, notes: [] }))).toBe("");
   });
 });
 
-describe("見方の一覧（名前・額・時期）", () => {
-  it("選んでいるプランの世帯を先に、現状の世帯の物を足す。外しているかは今の見方で", () => {
+describe("これからの大きなお金の行（名前・時期・額・見込み）", () => {
+  const ours = (r: { key: string }) => r.key.includes("0000000b");
+  it("選んでいるプランの世帯を先に、現状の世帯の物を足す。まとまりごとに年の順。チェックは今の見方で（最初はふだんの計算のとおり）", () => {
     const cur = sample();
     const plan = structuredClone(cur);
     plan.input.household.incomeFlows![1]!.label = "副業（プラン）";
-    const rows = viewRows([plan.input.household, cur.input.household], viewMode(true));
-    expect(rows.map((r) => [r.name, r.amount, r.when, r.tag, r.excluded])).toEqual([
-      ["父からの相続", "1,000万円・1回", "2035年4月", "基本の計算に入れない", true],
-      ["副業（プラン）", "月3万円", "2027年1月〜最後まで", "当てにしない", true],
-      ["入れた相続", "1,000万円・1回", "2035年4月", "当てにしない", true],
-      ["海外旅行", "50万円・3年ごと", "2030年4月〜2039年4月", "できれば", true],
-      ["車の買い替え", "50万円・1回", "2030年4月", "できれば", true],
-      ["相続で受け継ぐ借金", "100万円", "2031年1月から", "基本の計算に入れない", true],
+    const bm = bigMoneyOf(plan, [], { raw: plan, current: cur, view: ALL_ROWS });
+    const rows = (k: string) => bm.groups.find((g) => g.key === k)!.rows.filter(ours).map((r) => [r.name, r.when, r.amount, r.tag, r.included, r.pick !== null]);
+    expect(rows("pay")).toEqual([
+      ["海外旅行", "2030〜2039年・3年ごと", "50万円", "不確実", false, true],
+      ["車の買い替え", "2030年", "50万円", "不確実", false, true],
+      ["修繕", "2030年", "50万円", "確実", true, true],
     ]);
-    const all = viewRows([cur.input.household], ALL_ROWS);
-    expect(all.filter((r) => r.excluded).map((r) => r.name)).toEqual(["父からの相続", "相続で受け継ぐ借金"]);
+    // 確実な副業（likely）は並べない。受け取る相続は確実も不確実も並べる。前の版の「この行を計算に入れる」の相続は確実
+    expect(rows("receive")).toEqual([
+      ["副業（プラン）", "2027年〜・毎月", "月3万円", "不確実", false, true],
+      ["相続で受け継ぐ借金", "2031年", "100万円", "不確実", false, true],
+      ["父からの相続", "2035年", "1,000万円", "不確実", false, true],
+      ["入れた相続", "2035年", "1,000万円", "確実", true, true],
+    ]);
+    const g = bm.groups.find((x) => x.key === "receive")!;
+    expect(g.included).toBe(g.rows.filter((r) => r.included).length);
   });
 
-  it("帯: すべて入れる｜確実な分だけの切り替えと、外している物の件数", () => {
-    const rows = viewRows([sample().input.household], viewMode(true));
-    const html = renderToString(h(RowsViewBar, { rows, view: viewMode(true), onMode: () => undefined, onPick: () => undefined }));
-    expect(html).toContain("すべて入れる");
-    expect(html).toContain("確実な分だけ");
-    expect(html).toContain("外している物（6件）▾");
-    expect(html).toMatch(/data-view-mode="certain"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*data-view-mode="certain"/);
+  it("家の購入の頭金は外せない（チェックを置かず「確実」）", () => {
+    const r = structuredClone(modelHousehold("housingPurchase"));
+    const res = preview(forEngine(r));
+    const pay = bigMoneyOf(r, res.table, { raw: r, view: ALL_ROWS }).groups.find((g) => g.key === "pay")!.rows;
+    const buy = pay.find((x) => x.name === "家の購入の頭金")!;
+    expect(buy).toMatchObject({ tag: "確実", included: true, pick: null, amount: "500万円" });
+    expect(pay.find((x) => x.name.startsWith("繰上返済"))).toMatchObject({ tag: "確実", included: true });
+    expect(pay.find((x) => x.name.startsWith("繰上返済"))!.pick).not.toBeNull();
+  });
+
+  it("区画の頭は名前と「?」と一行の結論だけ（切り替えは無い）。列ごとに時期・金額の見出しと「入れた件数/件数」。確実・不確実は行の右", () => {
+    const r = sample();
+    const html = renderToString(h(BigMoneyCard, { model: bigMoneyOf(r, [], { raw: r, view: ALL_ROWS }), notes: [] }));
+    expect(html).toContain("<h2>これからの大きなお金</h2>");
+    expect(html).not.toContain("すべて入れる");
+    expect(html).not.toContain("確実な分だけ");
+    expect(html).not.toContain("data-view-mode");
     expect(html).toContain("保存はしません");
+    expect(html).toContain("支払いの予定");
+    expect(html).toContain("受け取りの予定");
+    expect(html.match(/>時期</gu)!.length).toBeGreaterThanOrEqual(2);
+    expect(html.match(/>金額</gu)!.length).toBeGreaterThanOrEqual(2);
+    expect(html).toMatch(/\d+\/\d+件/u);
+    expect(html).toContain('class="bm-row off"');
+    expect(html).toContain(">不確実<");
+    expect(html).toContain("（不確実）を計算に入れる");
+    expect(html).not.toContain("払った後");
+    expect(html).not.toContain("外している物");
   });
 });
 
-describe("札の言葉（2つずつ）", () => {
-  it("見込みは確実／当てにしない、優先度は必ず／できれば。古い値は同じ扱いの札で読む", () => {
-    expect(LIKELIHOOD_LABEL).toEqual({ likely: "確実", certain: "確実", uncertain: "当てにしない" });
-    expect(PRIORITY_LABEL).toEqual({ need: "必ず", want: "できれば", wish: "できれば" });
+describe("見込みの言葉（確実／不確実の2つ）", () => {
+  it("入るお金も出るお金も見込みは確実／不確実（値は変えない）。古い値は同じ扱いの選択肢で読む", () => {
+    expect(LIKELIHOOD_LABEL).toEqual({ likely: "確実", certain: "確実", uncertain: "不確実" });
+    expect(PRIORITY_LABEL).toEqual({ need: "確実", want: "不確実", wish: "不確実" });
   });
 
-  it("欄の選択肢は2つ。likely は確実、wish はできればで見せ、黙って書き換えない。選び直すと certain・uncertain・want を書く", () => {
+  it("欄の選択肢は2つ。likely は確実、wish は不確実で見せ、黙って書き換えない。選び直すと certain・uncertain・want を書く。出るお金の欄の名前も「見込み」", () => {
     const r = sample();
     const wh = fromRequest(r);
     const fields = allFields(buildStage("work", wh));
     const like = fields.find((f) => f.key === `in/${id(3)}/likelihood`) as FieldDef & { options: { value: string; label: string }[] };
-    expect(like.options.map((o) => o.label)).toEqual(["確実", "当てにしない"]);
+    expect(like.options.map((o) => o.label)).toEqual(["確実", "不確実"]);
     expect(like.get(wh).value).toBe("certain");
     expect(wh.request.input.household.incomeFlows![2]!.likelihood).toBe("likely");
     const unc = like.set(wh, "uncertain");
@@ -154,7 +178,8 @@ describe("札の言葉（2つずつ）", () => {
 
     const ev = allFields(buildStage("events", wh));
     const prio = ev.find((f) => f.key === `ev/${id(10)}/priority`) as FieldDef & { options: { value: string; label: string }[] };
-    expect(prio.options.map((o) => o.label)).toEqual(["必ず", "できれば"]);
+    expect(prio.options.map((o) => o.label)).toEqual(["確実", "不確実"]);
+    expect(prio.label).toBe("見込み");
     expect(prio.get(wh).value).toBe("want");
     // 見せている値をそのまま入れ直しても書き換えない
     expect(like.set(wh, "certain")).toBe(wh);

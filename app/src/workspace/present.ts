@@ -1,13 +1,11 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
 import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
-import type { AgeAxisRow, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
+import type { AgeAxisRow, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, nameWithAge, presentInYear, roles, type Role } from "./roles.ts";
 import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
-import { dreamIncluded, dreamList, dreamPaid, dreamSummary } from "../../../report/src/dreams.ts";
-import { NOT_INCLUDED_NOTE, noAmountNote, paidNote, type DreamPayment } from "./dreamWording.ts";
 import { ROW_NAMES, rowName, type OfficeRowNames } from "../../../report/src/rowNames.ts";
 import { childScholarshipNotes } from "../../../report/src/childScholarships.ts";
 
@@ -358,82 +356,6 @@ export function resultVerdict(names: SeriesNames, self: Role | undefined, depP: 
   return { tone: better, parts: [{ text: names.selected, strong: true }, { text: "は" }, { text: st(depP), strong: true }], sub: [{ text: `${names.base}（基準）は${st(depC)}` }] };
 }
 
-/**
- * 目標の区画の夢の材料（0103）: 見方で外す前の要求（夢の並び。見方で外した夢も出す）と、夢を全部外した1回の計算の結果（まだ無ければ null）。
- * 見方で外した後の要求（提案の要求）に残っていて「計算に入れない」でない夢を、計算に入れている夢と数える
- */
-export interface DreamsInput {
-  raw: EngineRequest;
-  withoutDreams: PreviewResult | null;
-}
-
-/** 夢の時期の文（「2031年（ご本人60歳）」「2031〜2040年・毎年」） */
-function dreamWhen(req: EngineRequest, self: Role | undefined, p: NonNullable<EngineRequest["input"]["household"]["periodicExpenses"]>[number]): string {
-  const h = req.input.household;
-  const from = resolveTimepoint(h, p.from);
-  if (from === null) return "時期は未定";
-  const y0 = parseYm(from).y;
-  const who = (y: number) => (self !== undefined ? `（${self.label}${ageInYear(self.member, y)}歳）` : "");
-  const to = p.to == null ? null : resolveTimepoint(h, p.to);
-  if (to !== null && to === from && p.monthly !== true) return `${y0}年${who(y0)}`;
-  const every = p.monthly === true ? "毎月" : p.everyYears === 1 ? "毎年" : `${p.everyYears}年ごと`;
-  return `${y0}年${who(y0)}から${to === null ? "最後まで" : `${parseYm(to).y}年まで`}・${every}`;
-}
-
-/**
- * 夢のカードと要約の1文。夢ごとの一言: 計算に入れている夢は、払う年の終わりの金融資産（払った後。何年ごと・毎年の夢は、払う年のうち
- * いちばん少ない年）と、その年の資金の不足。計算に入れていない夢は「外している物」で入れて比較できる案内だけ（数字の目安は出さない）。
- * 額の無い夢は額を入れる案内
- */
-function dreamGoals(req: EngineRequest, proposed: readonly TableCell[], dreams: DreamsInput | undefined, years: readonly number[], depP: number | null): { cards: GoalCard[]; line: string | null } {
-  const raw = dreams?.raw ?? req;
-  const list = dreamList(raw.input.household.periodicExpenses);
-  const self = roles(raw).find((r) => r.key === "self");
-  if (list.length === 0) return { cards: [{ category: "夢", title: "まだ入れていません", when: "ライフイベントの入力項目の「夢プラン」で入れます", amount: null, note: null }], line: null };
-  const inView = new Map((req.input.household.periodicExpenses ?? []).map((p) => [p.id, p]));
-  const cards: GoalCard[] = list.map((p, i) => {
-    const now = inView.get(p.id);
-    const included = now !== undefined && dreamIncluded(now);
-    const v = p.amount.value ?? 0;
-    // 払う年の金融資産（提案書の「ご家族の夢」の表の「払った後の金融資産」と同じ数字。report/src/dreams.ts の dreamPaid）
-    const paid = included && v > 0 ? dreamPaid(p.id, proposed, years) : null;
-    const pay: DreamPayment | null = paid === null ? null : { ...paid, total: v * paid.count * (p.monthly === true ? 12 : 1) };
-    return {
-      category: `夢${i + 1}`,
-      title: p.label !== undefined && p.label !== "" ? p.label : "夢",
-      when: dreamWhen(raw, self, p),
-      amount: v > 0 ? v : null,
-      dream: { rank: i + 1, included },
-      note: v <= 0 ? noAmountNote(included) : !included ? NOT_INCLUDED_NOTE : pay !== null ? paidNote(pay) : null,
-    };
-  });
-  const included = cards.filter((c) => c.dream?.included === true).length;
-  const last = years.at(-1) ?? req.input.endYear;
-  const until = self !== undefined ? `${ageInYear(self.member, last)}歳まで` : "最後まで";
-  const ageText = (y: number) => (self !== undefined ? `${ageInYear(self.member, y)}歳` : `${y}年`);
-  const withoutYear = included === 0 ? depP : dreams?.withoutDreams == null ? undefined : depletionYear(dreams.withoutDreams.table, years);
-  const line = withoutYear === undefined ? null : dreamSummary({ total: cards.length, included, withYear: depP, withoutYear, ageText, until });
-  return { cards, line };
-}
-
-/**
- * 結果の画面の「ご家族の夢」の区画: 夢の要約の1文と夢のカードだけ（夢が無ければ入れる所を案内する1枚）と、子が返す奨学金の書き添え。
- * 前に出していた教育・住宅ローンの完済・老後の生活資金・ほかの出るお金のカードと「『必ず』の目標 ○件中 ○件 準備OK」は出さない
- * （どれも資産が尽きる年1つで判定していて、上の結論の1文と同じことを言っていたため。利用者（FP）の声）
- */
-function goals(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], depP: number | null, dreams?: DreamsInput, summary?: unknown): GoalsModel {
-  const rs = roles(req);
-  const d = dreamGoals(req, proposed, dreams, years, depP);
-  // 子が返す貸与の奨学金（世帯の収支に入れていない返済の額を書き添える。0104）
-  const childRepaid = childScholarshipNotes(summary, (id) => rs.find((r) => r.member.id === id)?.label ?? "子");
-  return { cards: d.cards, dreamLine: d.line, childRepaid };
-}
-
-/** 計算できなかったときの区画（前の計算の残りの数字を出さない。夢ごとの数字の一言は「計算できていません」、案内の一言はそのまま。0169） */
-function failedGoals(g: GoalsModel): GoalsModel {
-  return { ...g, dreamLine: null, cards: g.cards.map((c) => (c.note === null || c.note.tone === "info" ? c : { ...c, note: { tone: "info", status: null, text: NOT_COMPUTED } })) };
-}
-
 /** FP顧問料の ON/OFF の材料（顧問料の契約があるときだけ） */
 export interface FeeInput {
   on: boolean;
@@ -478,19 +400,14 @@ export interface PresentInput {
   names?: SeriesNames;
   /** 基準の案の要求（基準の案の年のイベントに使う）。省略は base */
   baseProposal?: EngineRequest;
-  /** 目標の区画の夢の材料（0103。省略は提案の要求の夢だけで、要約の1文は出さない） */
-  dreams?: DreamsInput;
   /** 表の行の事務所の名前（カスタム層の名前の差し替え。省略は公式の名前） */
   rowNames?: OfficeRowNames;
   /**
-   * 選んだプランか基準のプランが今の入力で計算できなかった（計算エンジンのエラー。結果は前の計算の残り）。結論の1文と目標の札に
-   * 「足りる」「準備できています」を出さない（0169）
+   * 選んだプランか基準のプランが今の入力で計算できなかった（計算エンジンのエラー。結果は前の計算の残り）。結論の1文に「足りる」を出さない（0169。
+   * 区画「これからの大きなお金」の数字と一行の結論は workspace/bigMoney.ts の bigMoneyOf で出さない）
    */
   failed?: boolean;
 }
-
-/** 計算できなかったときの目標の札の文（0169） */
-export const NOT_COMPUTED = "計算できていません";
 
 export function toPresentation(input: PresentInput): PresentationModel {
   const { base, proposal, current, proposed } = input;
@@ -567,7 +484,8 @@ export function toPresentation(input: PresentInput): PresentationModel {
     yearDetail,
     events: evs,
     table,
-    goals: input.failed === true ? failedGoals(goals(proposal, proposed.table, years, depP, input.dreams, proposed.summary)) : goals(proposal, proposed.table, years, depP, input.dreams, proposed.summary),
+    // 子が返す貸与の奨学金（世帯の収支に入れていない返済の額を書き添える。0104）
+    childRepaid: childScholarshipNotes(proposed.summary, (id) => roles(proposal).find((r) => r.member.id === id)?.label ?? "子"),
     fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC, ...(custom ? { baseLabel: `${names.base}（基準）` } : {}) }),
     provisional: input.provisional,
   };

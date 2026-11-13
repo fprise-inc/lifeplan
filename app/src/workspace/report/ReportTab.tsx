@@ -21,7 +21,8 @@ import { BS_POINT_CHOICES, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, estimatedCards, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
 import { ReportViewer } from "./ReportViewer.tsx";
 import { TakeawayPanel } from "../takeaway/TakeawayPanel.tsx";
-import { OfficeNamesContext, rowNamesOf } from "../office/customTexts.ts";
+import { rowNamesOf } from "../office/customTexts.ts";
+import { OfficeNamesContext } from "../office/customTextsContext.ts";
 import type { LoadedExtension } from "../extensions/manifest.ts";
 
 interface Props {

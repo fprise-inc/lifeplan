@@ -9,6 +9,7 @@
 mod answer;
 mod calc;
 mod chart;
+mod check;
 mod compare;
 mod coverage;
 mod engine;

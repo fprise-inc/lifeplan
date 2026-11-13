@@ -605,12 +605,12 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           縦の目盛りを表示中の線に合わせています
         </text>,
       );
-    // 0未満の範囲: 線には塗りを付けず、薄い地（収支は言葉も）で示す（0の線は太く）
+    // 0未満の範囲: 線には塗りを付けず、薄い地で示す（0の線は太く）
     if (s.min < 0) {
       const y0 = s.y(0);
       const y1 = s.y(s.min * 10000);
       body.push(<rect key="zone" x={f.left} y={y0} width={Math.max(0, f.width - f.left - f.right)} height={Math.max(0, y1 - y0)} class="multi-zone" />);
-      // 言葉は範囲の下の端に置く（0の近くを通る線と重ならないように。範囲が狭ければ出さない。金融資産は言葉を出さない。planLines.tsx の MULTI_WHAT）
+      // 言葉は範囲の下の端に置く（0の近くを通る線と重ならないように。範囲が狭ければ出さない。いまは金融資産・収支とも言葉を出さない。planLines.tsx の MULTI_WHAT）
       if (what.zone !== null && y1 - y0 > 28 * fs)
         body.push(
           <text key="zone-t" x={f.left + 6} y={y1 - 7 * fs} class="unit zone-t">

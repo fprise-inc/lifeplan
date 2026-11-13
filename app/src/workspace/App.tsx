@@ -5,9 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DualEngine } from "../engine/dual.ts";
 import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type PreviousGeneration, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
-import { ALL_ROWS, applyRowsView, forEngine, pickRow, viewMode, withoutDreams, type RowsView } from "../engine/moneyRows.ts";
-import { RowsViewBar } from "./RowsViewBar.tsx";
-import { viewRows } from "./rowsView.ts";
+import { ALL_ROWS, applyRowsView, forEngine, pickRow, type RowsView } from "../engine/moneyRows.ts";
 import { CalcNotices } from "./CalcNotices.tsx";
 import { noticeRows } from "./engineNotices.ts";
 import { engineErrorText, HOST_BUSY_TEXT, isHostBusy } from "./engineErrors.ts";
@@ -15,7 +13,9 @@ import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
 import { ChartPip, closePip, openPip } from "../presentation/ChartPip.tsx";
-import { CashflowTable, FeeNote, GoalCards, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
+import { CashflowTable, FeeNote, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
+import { BigMoneyCard } from "./BigMoneyCard.tsx";
+import { bigMoneyOf } from "./bigMoney.ts";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
@@ -56,7 +56,8 @@ import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart
 import { checkBase } from "../presentation/theme.ts";
 import { keepWebLog } from "./hearing/web.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
-import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
+import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, officeFieldsFrom, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
+import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "./office/customTextsContext.ts";
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
 import { previewOfficeChange } from "./office/estimatePreview.ts";
 import type { AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";
@@ -905,8 +906,8 @@ export function App() {
   // ---- 計算の要求（枠: 現状・帯の案。表示の設定で FP顧問料の一文を出すときは、選んだ案の顧問料を入れ替えた枠 alt も）----
   const reqCache = useRef(new Map<string, EngineRequest>());
   /**
-   * 結果の見方（保存しない自動の差分。0044 の追記）: 「すべて入れる｜確実な分だけ」と物ごとの入れ外しを当てた要求で、全部の枠を計算する。
-   * 確実な分だけは、見込みが「当てにしない」の入るお金と優先度が「できれば」の出るお金を外す。基本の計算に入れない物も、ここで入れて見られる
+   * 結果の見方（保存しない自動の差分。0044 の追記）: 物ごとの入れ外しを当てた要求で、全部の枠を計算する。確実な物は外して見られ、
+   * ふだんの計算に入れない物（見込みが「不確実」の物・入れない夢）は入れて見られる。入れ外しは、結果のグラフのすぐ下の区画「これからの大きなお金」（BigMoneyCard）
    */
   const viewRef = useRef<RowsView>(ALL_ROWS);
   const [rowsView, setRowsView] = useState<RowsView>(ALL_ROWS);
@@ -950,12 +951,6 @@ export function App() {
       for (const id of w.band) out[id] = reqOf(o, valuesOf(o.wh, w, id));
       const alt = altFor(o, w, s);
       if (alt !== null) out.alt = alt;
-      // 夢を全部外した選んでいるプラン（目標の区画の要約の1文。計算に入る夢があるときだけ。0103）
-      const sel = out[w.sel];
-      if (sel !== undefined) {
-        const nd = withoutDreams(sel);
-        if (nd !== sel) out.nodream = nd;
-      }
       // 相場が下がった場合（重ねているときだけ。選んだプランに3つの型を重ねた枠。0026）
       if (stressRef.current) {
         const sr = stressRequests(out[w.sel] as EngineRequest);
@@ -982,8 +977,8 @@ export function App() {
       if (all.alt !== undefined) focus.alt = all.alt;
       dual.current.slide(w.sel, focus);
       if (mode === "release") void dual.current.release();
-      // 相場が下がった場合の枠と夢を外した枠は、指を離してから計算し直す
-      const stress = Object.entries(all).filter(([k]) => k.startsWith("stress:") || k === "nodream");
+      // 相場が下がった場合の枠は、指を離してから計算し直す
+      const stress = Object.entries(all).filter(([k]) => k.startsWith("stress:"));
       if (mode === "release" && stress.length > 0) void dual.current.set(Object.fromEntries(stress));
     },
     [requestsFor],
@@ -2217,14 +2212,7 @@ export function App() {
   const baseRes = resultOf(work.base);
   const selView = views.get(work.sel) ?? null;
   const altRes = dual.current?.view("alt").result ?? null;
-  const ndView = dual.current?.view("nodream") ?? null;
-  const noDreamRes = ndView === null || ndView.stale ? null : ndView.result;
   const selValues = opened === null ? {} : valuesOf(opened.wh, work, work.sel);
-  /** 結果の見方の一覧（選んでいるプランと現状の世帯から） */
-  const viewList = useMemo(
-    () => (opened === null ? [] : viewRows([rawReqOf(opened, valuesOf(opened.wh, work, work.sel)).input.household, opened.wh.request.input.household], rowsView)),
-    [opened, work, rawReqOf, rowsView],
-  );
   const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf, rowsView]);
   const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf, rowsView]);
   const feeState = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
@@ -2238,12 +2226,16 @@ export function App() {
   const model = useMemo(() => {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
     const fee = feeShown ? { on: feeOn, alt: altRes } : undefined;
-    const dreams = { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), withoutDreams: noDreamRes };
-    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, failed, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}) });
+    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, failed, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}) });
     if (failed) return m;
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
-  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames]);
+  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames]);
+  /** 区画「これからの大きなお金」（見方を当てる前の選んでいるプランから並べ、今の見方の答えで一行の結論を出す） */
+  const bigMoney = useMemo(
+    () => (opened === null || selReq === null || selRes === null ? null : bigMoneyOf(selReq, selRes.table, { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), current: opened.wh.request, view: rowsView }, failed)),
+    [opened, work, rawReqOf, selReq, selRes, rowsView, failed],
+  );
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
@@ -3318,8 +3310,6 @@ export function App() {
                 {compareModel !== null ? <CompareTable model={compareModel} /> : null}
               </section>
             ) : null}
-            {/* 結果の見方（0044 の追記。入れ外しできる物がある世帯だけ。保存しない） */}
-            <RowsViewBar rows={viewList} view={rowsView} onMode={(c) => putRowsView(viewMode(c))} onPick={(r, inc) => putRowsView(pickRow(viewRef.current, r, inc))} />
             {/* ② グラフ */}
             <ResultCard
               model={chartModel ?? model}
@@ -3385,11 +3375,13 @@ export function App() {
                   {/* 計算のお知らせとポイントは、閉じているとき控えめな1行に並べる（0064・0074 の追記） */}
                   <div class="result-quiet">
                     <CalcNotices rows={calcNotices} onOpenCard={openCard} {...(initial.notices === true ? { initialOpen: true } : {})} />
-                    {selReq !== null ? <Insights req={selReq} result={selRes} months={bsSettings.moneyThree.months} inheritance={insightInheritance} onYear={pinYear} onLevers={() => document.querySelector("[data-levers]")?.scrollIntoView({ block: "start", behavior: "smooth" })} /> : null}
+                    {selReq !== null ? <Insights req={selReq} result={selRes} months={bsSettings.moneyThree.months} inheritance={insightInheritance} computeOne={computeOne} onYear={pinYear} onLevers={() => document.querySelector("[data-levers]")?.scrollIntoView({ block: "start", behavior: "smooth" })} /> : null}
                   </div>
                 </>
               }
             />
+            {/* これからの大きなお金（結果のグラフのすぐ下。夢・支払い・受け取りの予定と、1件ずつのチェックの入れ外し〔保存しない〕。0044・0103） */}
+            {bigMoney !== null ? <BigMoneyCard model={bigMoney} notes={model.childRepaid} onPick={(r, inc) => putRowsView(pickRow(viewRef.current, r, inc))} /> : null}
             {/* ③ 対策 */}
             <LeverCard
               selected={names.selected}
@@ -3462,8 +3454,6 @@ export function App() {
             >
               {addedRows}
             </LeverCard>
-            {/* ご家族の夢（0103。夢のカードと夢ごとの一言、夢を入れた・入れない計算の要約の1文） */}
-            <GoalCards model={model.goals} />
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
               <CashflowTable

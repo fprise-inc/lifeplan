@@ -9,6 +9,7 @@
 //   pensionEstimateRequest）を pensionRequests で作り、接続口が計算の前の処理を当てて計算した結果を summarize に渡して、同じ関数
 //   （pensionLines・planPensionOf）で数える（0199）
 // - 接続口は、計算した表（表示の形の出力）と、計算の前の処理を当てる前の要求（数字の根拠と同じ）を渡す。返すのは JSON の文字
+// - 計算のお知らせ（notices.ts。画面の結果のタブの「計算のお知らせ」と同じ関数・同じ文。0210）も、頼まれたときだけここで一緒に作る
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { anyClaimOf, modeOf, pensionEstimateRequest, pensionLines, pensionMembers, planPensionOf, type PensionLine } from "../workspace/input/pensionLines.ts";
@@ -16,6 +17,7 @@ import { GROUPS } from "../workspace/invest/present.ts";
 import { metricsOf } from "../workspace/plans/compare.ts";
 import { ageRows, displayYears, rowDefs, yearsWithin } from "../workspace/present.ts";
 import { ageInYear, roles } from "../workspace/roles.ts";
+import { noticesOf, type ConnectorNotice } from "./notices.ts";
 
 /** 「○歳時点の金融資産」の年齢の既定（画面の表示の設定の既定と同じ） */
 export const DEFAULT_AT_AGE = 95;
@@ -28,6 +30,11 @@ export interface SummaryArgs {
    * 計算できなければ null）。省くと keyFigures に pension を入れない
    */
   pension?: { std: PreviewResult | null; claimed: PreviewResult | null };
+  /**
+   * 計算のお知らせ（画面の結果のタブと同じ文の行。notices.ts。0210）を返すか。full は画面の文つき、brief は文を省いて鍵だけ。
+   * 省くと返さない
+   */
+  notices?: "full" | "brief";
 }
 
 /** 年金の見込みの人ごとの1行（AI に返す形。年齢の鍵・受け取り開始・年額・月額・推計か） */
@@ -303,6 +310,8 @@ export interface Summary {
     /** 年金の見込み（args の pension を渡したときだけ。年金のカードに出す人がいなければ null） */
     pension?: PensionFigures | null;
   };
+  /** 計算のお知らせ（args の notices を渡したときだけ。画面の結果のタブの「計算のお知らせ」と同じ行。0210） */
+  notices?: ConnectorNotice[];
 }
 
 /** 主な数字と年齢。resultJson は表示の形の計算の出力、reqJson は計算の前の処理を当てる前の要求 */
@@ -360,5 +369,6 @@ export function summaryOf(req: EngineRequest, result: PreviewResult, a: SummaryA
       loanInterest,
       ...(a.pension !== undefined ? { pension: pensionOf(req, a.pension, memberKeys) } : {}),
     },
+    ...(a.notices !== undefined ? { notices: noticesOf(req, result, a.notices === "brief") } : {}),
   };
 }

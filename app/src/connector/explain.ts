@@ -9,6 +9,7 @@
 // - 同じ1つの JS に、計算の答えの主な数字と家族の年齢（summary.ts。画面の「プランを比較」と表の年齢の行と同じ関数。0194）も入れる
 // - 同じ1つの JS に、比較した答えのグラフ（chart.ts。画面のグラフと同じ座標・色の SVG。0203）も入れる
 // - 同じ1つの JS に、年ごとの表（table.ts。CSV・Markdown の文。画面と同じ数え方。0209）も入れる
+// - 計算のお知らせ（notices.ts。画面の結果のタブと同じ文の行。0210）は、summarize の中で作る
 import type { EngineRequest, FullResult, TableCell } from "../engine/types.ts";
 import { evidenceDetail } from "../workspace/evidence.ts";
 import { displayYears, rowDefs, type RowDef } from "../workspace/present.ts";

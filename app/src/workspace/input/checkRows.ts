@@ -29,6 +29,7 @@ import { PRESET_HEAD } from "./household.ts";
 import { ageAt } from "../levers.ts";
 import { nameWithAge } from "../roles.ts";
 import { memberLabel } from "./labels.ts";
+import { resolveTimepoint } from "../timepoint.ts";
 import type { Household } from "../../engine/types.ts";
 
 export { endedLongAgo, holderOfField, isPremiseField };
@@ -110,6 +111,8 @@ export interface CheckRow {
   certainty?: Certainty | null;
   /** 欄の当て先の物・構成員の ID（プランで足した物の行を見分ける） */
   holder?: string | null;
+  /** 欄の入力項目ID（欄の定義の item。欄の行だけ。AI接続口の入力の確かめが、聞くことの決まりを引くのに使う。0210） */
+  item?: string;
   /**
    * 書類待ちの行だけ: 確かめる書類（欄の定義の docCheck）・書類の持ち主（docFor か当て先の物）・欄の名前（まとまりの名前を付けない）。
    * 書類のお願いの一覧（docRequests.ts）が、書類と持ち主ごとにまとめるのに使う（0102）
@@ -342,7 +345,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
       // 空欄のまま推定で計算する欄（blankEstimate）は、推定の値を見せる（値の無い「根拠 ▾」だけの行にしない。通しの確かめ。0150）
       const blankEst = s.status === "estimated" && (st.value === null || st.value === undefined) && f.blankEstimate !== undefined ? f.blankEstimate(wh) : null;
       const value = s.status === "missing" || s.status === "notApplicable" ? null : blankEst !== null ? withAge(fieldValueText(f, blankEst, wh), f, wh, holder) : st.value === null || st.value === undefined ? null : withAge(fieldValueText(f, st.value, wh), f, wh, holder);
-      const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder };
+      const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder, ...(f.item !== null ? { item: f.item } : {}) };
       // ずっと前に終わった物の推定・書類待ちは出さない（結果に効かない）
       if ((s.status === "estimated" || s.status === "unknown") && endedLongAgo(wh, holder)) continue;
       // 仮の値（生年月など）は推定と分け、未入力の側に（「この値にする」を出さない。欄に入れてもらう値）
@@ -415,12 +418,36 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
     if (n === null || rows.some((x) => x.fieldKey === n.fieldKey)) continue;
     rows.push({ id: `notice:unfundedPurchase:${r.id}`, kind: "notice", card: "housing", cardLabel: labels.get("housing") ?? "住まい・ローン", label: "住宅の購入: どう買うか", detail: n.detail, fieldKey: n.fieldKey, level: "simple", impact: 0, actions: n.fix !== null ? [{ key: "fix", label: n.fix.label, run: n.fix.run }] : [] });
   }
+  // これから買う家の頭金が0円（空欄も0円。計算の入力では頭金を省けない）: 頭金なしで買う予定か、入れていないだけかを確かめの注意に出す
+  // （欄は0円を確定の値として見せるので、ほかの行には出ない。同じ欄の行が既にあれば出さない。0210）
+  for (const r of zeroDownPayments(wh)) {
+    const fieldKey = `housing/res/${r.id}/purchase/down`;
+    if (rows.some((x) => x.fieldKey === fieldKey)) continue;
+    rows.push({ id: `notice:zeroDownPayment:${r.id}`, kind: "notice", card: "housing", cardLabel: labels.get("housing") ?? "住まい・ローン", label: "住宅の購入: 頭金", detail: ZERO_DOWN_PAYMENT_TEXT, fieldKey, level: "simple", impact: 0, actions: [], value: "0円", item: "residence.purchase" });
+  }
   const order = new Map(items.map((i, n) => [i.id, n]));
   return rows.sort((x, y) => {
     const k = KIND_ORDER.indexOf(x.kind) - KIND_ORDER.indexOf(y.kind);
     if (k !== 0) return k;
     if (x.kind === "estimated" && x.impact !== y.impact) return y.impact - x.impact;
     return (order.get(x.card) ?? 99) - (order.get(y.card) ?? 99);
+  });
+}
+
+/** これから買う家の頭金が0円の行の文（確かめの注意。0210） */
+export const ZERO_DOWN_PAYMENT_TEXT = "これから買う家の頭金が0円です（頭金なしで、物件の価格を住宅ローンか手元のお金で払う計算です）。頭金なしで買う予定か確かめてください";
+
+/**
+ * これから買う家（買う月が計算基準月より後か同じ）のうち、頭金が0円（空欄を含む）で物件の価格がある物。
+ * もう買った家は出さない（払った頭金は、これからの計算に効かない）。現金で買う形は頭金＝物件の価格なので当たらない
+ */
+export function zeroDownPayments(wh: WorkingHousehold): NonNullable<Household["residences"]> {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  return (h.residences ?? []).filter((r) => {
+    if (r.kind !== "own" || r.purchase === undefined || r.purchase.price <= 0 || (r.purchase.downPayment ?? 0) > 0) return false;
+    const at = resolveTimepoint(h, r.from);
+    return at !== null && at >= base;
   });
 }
 

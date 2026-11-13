@@ -75,9 +75,10 @@ pub const FLOW_FIELDS: &[&str] = &[
 /// （summary.ts の loanYearsOf）で数える。loanRate は10進の文字か null（返済の無い年・金利の違う住宅ローンを2本以上返している年）
 pub const LOAN_FIELDS: &[&str] = &["loanRepayment", "loanBalance", "loanInterest", "loanRate"];
 
-/// 答えから省ける物
+/// 答えから省ける物。noticeText は計算のお知らせの文（画面と同じ文。0210）だけを省き、行の種類・鍵・対象・年・入力項目は残す
 pub const OMITS: &[&str] = &[
     "notices",
+    "noticeText",
     "packs",
     "totals",
     "insurance",
@@ -183,9 +184,15 @@ impl Options {
             .is_some_and(|f| FLOW_FIELDS.iter().any(|k| f.contains(*k)))
     }
 
-    /// 同梱した画面の関数（年齢・主な数字）を動かす要るか（年齢も主な数字も、人の鍵を添える物も要らなければ動かさない）
+    /// 計算のお知らせを画面と同じ文の行にして返すか（0210）。省かなければ返す
+    fn wants_notices(&self) -> bool {
+        !self.omits("notices")
+    }
+
+    /// 同梱した画面の関数（年齢・主な数字・計算のお知らせ）を動かす要るか（年齢も主な数字も知らせも、人の鍵を添える物も要らなければ動かさない）
     fn needs_summary(&self, out: &Value) -> bool {
-        self.wants_loans()
+        self.wants_notices()
+            || self.wants_loans()
             || self.wants_flows()
             || !self.omits("ages")
             || !self.omits("keyFigures")
@@ -212,6 +219,15 @@ pub fn summary(
     }
     if opts.wants_pension() {
         args.insert("pension".into(), pension_results(request, office)?);
+    }
+    // 計算のお知らせ（画面の結果のタブと同じ関数・同じ文。0210）。noticeText を省くと文の代わりに鍵だけ
+    if opts.wants_notices() {
+        let level = if opts.omits("noticeText") {
+            "brief"
+        } else {
+            "full"
+        };
+        args.insert("notices".into(), json!(level));
     }
     let args = Value::Object(args);
     let s = engine::summarize(&out.to_string(), &request.to_string(), &args.to_string())?;
@@ -432,6 +448,10 @@ pub fn finish(shaped: &mut Value, out: &Value, summary: &Value, mode: OutputMode
         if let Some(t) = out.get("inheritanceTax") {
             r.insert("inheritanceTax".into(), inheritance(t, keys));
         }
+    }
+    // 計算のお知らせ: エンジンのコードと ID の代わりに、画面の結果のタブの「計算のお知らせ」と同じ文の行（同じ知らせは1行。0210）
+    if let Some(n) = summary.get("notices").filter(|n| n.is_array()) {
+        r.insert("notices".into(), n.clone());
     }
     for k in ["notices", "packs", "totals"] {
         if opts.omits(k) {

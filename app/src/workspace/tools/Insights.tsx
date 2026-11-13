@@ -1,11 +1,12 @@
-// 結果のタブのポイント（0074。2026-11-12 に「気づき」から改めた）: 選んでいるプランの結果から、決まりで数件（預金が少なくなる年・赤字が続く・教育と介護が重なる・NISA の枠を
-// 使い切る年・相続税がかかる見込み）。入力は増えない。年のあるポイントは「その年を見る」、どれも「対策を考える」で対策へ
+// 結果のタブのポイント（0074。2026-11-12 に「気づき」から改め、中身を見直した）: 選んでいるプランの結果から、決まりで数件（預金が少なくなる年・赤字が続く〔働いている間〕・
+// 大きな支出が重なる年・退職から年金までの空白・退職後もローンが残る・住宅ローン控除が終わる年・相続税がかかる見込み）。入力は増えない。
+// 年のあるポイントは「その年を見る」、どれも「対策を考える」で対策へ
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { inheritanceRequest } from "../input/inheritanceLine.ts";
 import { endYearOff, endYearToStandard } from "../input/stages/assumptions.ts";
-import { insights } from "./fpTools.ts";
+import { insights, withoutHousingCredit, type CreditPair } from "./fpTools.ts";
 
 /** 相続税の目安を計算する（active のときだけ。要求が変わったら計算し直す） */
 export function useInheritanceFor(req: EngineRequest | null, active: boolean, computeOne: ((r: EngineRequest) => Promise<PreviewResult | null>) | undefined): PreviewResult | null {
@@ -25,18 +26,69 @@ export function useInheritanceFor(req: EngineRequest | null, active: boolean, co
   return q === null ? null : res;
 }
 
+/**
+ * 住宅ローン控除を受けない計算と、同じ時に計算し直した今の計算の組（控除の期間の中のローンがあるときだけ。要求が変わったら計算し直す）。
+ * 控除が終わる年のポイントに使う。組で計算するのは、表に出ている結果が入力の途中の古い答えでも、控除の違いだけを比較できるようにするため
+ */
+export function useCreditPairFor(req: EngineRequest | null, computeOne: ((r: EngineRequest) => Promise<PreviewResult | null>) | undefined): CreditPair | null {
+  const pair = useMemo(() => {
+    const off = req !== null && computeOne !== undefined ? withoutHousingCredit(req) : null;
+    return off === null || req === null ? null : { on: req, off };
+  }, [req, computeOne]);
+  const [res, setRes] = useState<{ key: object; r: CreditPair | null } | null>(null);
+  useEffect(() => {
+    if (pair === null || computeOne === undefined) return;
+    let alive = true;
+    void Promise.all([computeOne(pair.on), computeOne(pair.off)]).then(
+      ([on, off]) => alive && setRes({ key: pair, r: on != null && off != null ? { on, off } : null }),
+      () => alive && setRes({ key: pair, r: null }),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [pair, computeOne]);
+  // 前の要求の答え（別のプラン・直す前の入力）は使わない
+  return pair === null || res?.key !== pair ? null : res.r;
+}
+
 export function inheritancePayable(r: PreviewResult | null): number | null {
   const ps = (r?.inheritanceTax?.points ?? []).filter((p) => p.status === "ok" && p.point === "now" && !p.noTax);
   if (ps.length === 0) return null;
   return Math.max(...ps.map((p) => p.payable));
 }
 
-export function Insights({ req, result, months, inheritance, onYear, onLevers, initialOpen = false }: { req: EngineRequest; result: PreviewResult | null; months?: number; inheritance?: PreviewResult | null; onYear?: (y: number) => void; onLevers?: () => void; initialOpen?: boolean }) {
+export function Insights({
+  req,
+  result,
+  months,
+  inheritance,
+  computeOne,
+  credit,
+  onYear,
+  onLevers,
+  initialOpen = false,
+}: {
+  req: EngineRequest;
+  result: PreviewResult | null;
+  months?: number;
+  inheritance?: PreviewResult | null;
+  /** 住宅ローン控除を受けない計算に使う（無ければ控除が終わる年のポイントは出さない） */
+  computeOne?: (r: EngineRequest) => Promise<PreviewResult | null>;
+  /** 住宅ローン控除を受ける・受けない計算の組を外から渡す（テスト用。渡すと computeOne では計算しない） */
+  credit?: CreditPair | null;
+  onYear?: (y: number) => void;
+  onLevers?: () => void;
+  initialOpen?: boolean;
+}) {
   // 閉じているときは灰色の小さい1行（「ポイント ○件 ▸」）。押すと一覧が開き、もう一度押すと閉じる（0074 の追記 2026-11-12）
   const [open, setOpen] = useState(initialOpen);
-  if (result === null) return null;
-  const list = insights(req, result, { ...(months !== undefined ? { months } : {}), inheritanceTax: inheritancePayable(inheritance ?? null) });
-  if (list.length === 0) return null;
+  const computed = useCreditPairFor(credit === undefined ? req : null, computeOne);
+  const pair = credit !== undefined ? credit : computed;
+  const list = useMemo(
+    () => (result === null ? [] : insights(req, result, { ...(months !== undefined ? { months } : {}), inheritanceTax: inheritancePayable(inheritance ?? null), credit: pair })),
+    [req, result, months, inheritance, pair],
+  );
+  if (result === null || list.length === 0) return null;
   return (
     <section class={`fp-insights${open ? " open" : ""}`} aria-label="ポイント" data-insights={list.length}>
       <button type="button" class="quiet-toggle" aria-expanded={open} onClick={() => setOpen(!open)} data-insights-open>

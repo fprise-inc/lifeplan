@@ -18,7 +18,7 @@ import { isSchoolLinkedLeaves, mutate, newId, presetBasis, standardBox, type Wor
 import { amountText, formatYearMonth, formatYen } from "../units.ts";
 import { EDUCATION_BASIS, educationStagesAddress, fillEducation, leavesToSchool, stageEnded } from "../fill.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
-import { addIncome, expenseCard, incomeCard, incomeGroups, incomeMoreLabel, moneySections, periodicGroups } from "../moneyRows.ts";
+import { addIncome, expenseCard, incomeCard, incomeGroups, incomeMoreLabel, moneySections, periodicGroups, PRIORITIES, likelihoodHelp } from "../moneyRows.ts";
 import { boardingStatistic, INTERNATIONAL_MISSING, KOSEN_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, STAGE_START_AGE, stagePeriod, stageStatistic, stageYears, VOCATIONAL_GUIDE } from "../educationCost.ts";
 import { masterAmount, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { childOfPeriodic } from "./events.ts";
@@ -1518,11 +1518,8 @@ function leavesGroups(child: Member): GroupDef[] {
   ];
 }
 
-/** 子への援助の優先度（0103。ふつうの出るお金の行と同じ2つ） */
-const GIFT_PRIORITIES = [
-  { value: "need", label: "必ず" },
-  { value: "want", label: "できれば" },
-];
+/** 子への援助の見込み（値は priority。0103。ふつうの出るお金の行と同じ「確実」「不確実」） */
+const GIFT_PRIORITIES = PRIORITIES;
 
 /**
  * 子への援助の「出す人」の選択肢: 「世帯から出す」と、贈与する人ごとの「（名前）から出す」。贈与する人がいなければ空（欄を出さない）。
@@ -1552,8 +1549,8 @@ function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string
         plain({ key: `${k}/purpose`, item: "goal.education", label: "使い道", level: "simple", kind: "select", options: GIFT_PURPOSES, find: findG, path: ["purpose"] }),
         plain({ key: `${k}/amount`, item: "goal.education", label: "額", level: "simple", kind: "yen", basis: "once", find: findG, path: ["amount"] }),
         timepointField({ key: `${k}/at`, item: "goal.education", label: "時期", level: "simple", find: findG, path: ["at"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
-        // 優先度（0103）: ふつうの出るお金の行と同じ「必ず」「できれば」。「確実な分だけ」の見方で「できれば」の援助を外す。省略は必ず
-        plain({ key: `${k}/priority`, item: "goal.education", label: "優先度", level: "simple", kind: "select", options: GIFT_PRIORITIES, find: findG, path: ["priority"], optional: true, fallback: "need", help: "結果の「確実な分だけ」で、「できれば」の援助を外して見られます" }),
+        // 見込み（値は priority。0103）: ふつうの出るお金の行と同じ「確実」「不確実」。「不確実」の援助はふだんの計算に入れない。省略は確実
+        plain({ key: `${k}/priority`, item: "goal.education", label: "見込み", level: "simple", kind: "select", options: GIFT_PRIORITIES, find: findG, path: ["priority"], optional: true, fallback: "need", help: likelihoodHelp("gift") }),
         // 出す人: 世帯の外の贈与する人がいなければ欄を出さない（世帯から出す。見出しの下の1行で読む）。いれば「世帯から出す」「（名前）から出す」
         ...(donors.length > 0 || gift.donor !== undefined
           ? [plain({ key: `${k}/donor`, item: "goal.education", label: "出す人", level: "simple", kind: "select", options: donors, find: findG, path: ["donor"], optional: true, fallback: "", help: "世帯のお金から出すか、家族の入力項目で登録した親・祖父母から出すか（贈与する人から出すと、援助の額を世帯から出しません）" })]

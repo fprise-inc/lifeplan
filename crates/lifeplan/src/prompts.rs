@@ -72,6 +72,16 @@ pub struct HouseholdToAppArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct QuestionsArgs {
+    /// 世帯（FP が渡した世帯の share_id か、見本の世帯の id）。省くと、渡されている世帯を確かめる
+    pub household: Option<String>,
+    /// 面談のテーマ（例「住宅購入」「老後資金」「保険の見直し」）。省くと全体
+    pub topic: Option<String>,
+    /// 確かめたいプラン（例「65歳まで働く」「2028年に4,000万円の家を買う」）。省くと今の入力（現状）
+    pub plan: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MeetingPrepArgs {
     /// 世帯（FP が渡した世帯の share_id か、見本の世帯の id）。省くと、渡されている世帯を確かめる
     pub household: Option<String>,
@@ -148,7 +158,7 @@ impl LifeplanMcp {
         result(
             "この接続口でできること",
             "ファイナンシアの AI接続口で何ができるかを、FP 向けに短く紹介してください。\n\
-             - できることを場面ごとに（計算・対策を並べて比較する・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・作った世帯をアプリに入れる・面談の準備・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
+             - できることを場面ごとに（計算・対策を並べて比較する・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・作った世帯をアプリに入れる・面談の準備・面談でお客さまに聞くことのまとめ・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
              - アプリが起動していなくても見本の世帯（架空）で試せること、お客さまの世帯は FP がアプリで渡したときだけ読めることを一言。\n\
              - 最後に、list_sample_households で見本を1つ選び、calculate（omit に [\"years\"]）で主な数字を1つ見せて、試し方の例にしてください。"
                 .to_owned(),
@@ -290,8 +300,36 @@ impl LifeplanMcp {
                  3. list_plan_items で動かせる項目を見て、テーマに合う対策を2〜3つ選び、variants の通り（label と plan_changes）にして並べる。{COMPARE_HOW}。\n\
                  4. テーマが老後資金・資産運用なら、{MARKET_STRESS_HOW}（基本に重ねて、相場が下がっても足りるかを見る）。\n\
                  5. テーマが保険なら、必要保障額（get_input_recipe の contingency、入力の /protection）を、相続なら相続税の目安（/inheritanceTax）を足して計算する。\n\
-                 6. 1枚にまとめる: 見通しを一言・主な数字の表・話すとよい対策・お客さまに確かめること（推定や既定の値で計算している所、入っていなさそうな物）。\n\
+                 6. お客さまに確かめることは、check_inputs（入力の確かめ。推定や既定の値で計算している所・入っていなさそうな物・範囲の外の値を、聞く文の案 question つきで返す）で取る。\n\
+                 7. 1枚にまとめる: 見通しを一言・主な数字の表・話すとよい対策・お客さまに確かめること（check_inputs の行から、テーマに合う物を5つほど）。\n\
                  お名前・番号は扱わない。数字は計算の前提しだいで変わることを添える。"
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "prepare_questions",
+        title = "面談の前に、お客さまに聞くことをまとめる",
+        description = "入力の確かめ（check_inputs）で、推定や既定の値で埋めた所・入っていなさそうな所・範囲の外の値を見て、面談でお客さまに聞くことを1枚にまとめる"
+    )]
+    async fn prepare_questions(&self, Parameters(a): Parameters<QuestionsArgs>) -> GetPromptResult {
+        let who = given(&a.household).map_or_else(
+            || "FP が渡した世帯（list_shared_households で確かめる。渡されていなければ、アプリで「この世帯をAIに渡す」をしてもらうよう伝える）".to_owned(),
+            household,
+        );
+        let topic = given(&a.topic).unwrap_or("全体");
+        let plan = given(&a.plan).unwrap_or("今の入力（現状）");
+        result(
+            "面談の前に、お客さまに聞くことをまとめる",
+            format!(
+                "ファイナンシアの接続口で、次の面談の前に「お客さまに聞くこと」をまとめてください。\n\
+                 - 世帯: {who}\n- 面談のテーマ: {topic}\n- 確かめるプラン: {plan}\n\n\
+                 進め方:\n\
+                 1. check_inputs を呼ぶ。プランを確かめるなら、list_plan_items で動かす項目の target・item を確かめて plan_changes に入れる（家を買う・子が生まれるなどの場面は get_input_recipe の changes）。truncated が true なら、max_items を増やすか kinds で種類を絞って呼び直す。\n\
+                 2. 返った行（groups の items）を、テーマに関係の深い順に並べ直し、多くても10問ほどに絞る。同じことを聞く行（同じ人のねんきん定期便と年金の額など）は1問にまとめる。\n\
+                 3. 「お客さまに聞くこと」として、1問ごとに: 聞く文（question をもとに、お客さまに分かる丁寧な言葉で）・なぜ聞くか（reason を一言で）・持ってきてもらうとよい書類（ねんきん定期便・源泉徴収票・保険証券・住宅ローンの返済予定表など、行から分かる物だけ）。\n\
+                 4. 入力項目が「前提条件」の行（物価上昇率・表の最後の年など）は、お客さまに聞かず FP が決める物なので、「FP が確かめること」として分けて書く。\n\
+                 5. 今の値（value）・推定の値は答えのまま書き、推測で数字を足さない。お名前・番号は扱わない。question は案なので、FP が面談の前に確かめて直すよう添える。"
             ),
         )
     }
