@@ -67,9 +67,10 @@ const Math = Object.create(globalThis.Math, {
 `;
 
 /**
- * プランの動かす項目の JS の頭（MATH_INTRO に、structuredClone・数の toLocaleString・crypto.randomUUID・TextEncoder の代わりを足した物）
+ * 世帯の要求を写す・要素の ID を振る部品が使う組み込みの代わり（structuredClone・crypto.randomUUID・TextEncoder。上の説明のとおり）。
+ * プランの動かす項目の JS と、数字の根拠の JS（計算のお知らせの物の呼び名を引くとき、画面と同じく作業中の世帯を作る。0210）の両方に置く
  */
-export const PLAN_INTRO = `${MATH_INTRO}
+export const CLONE_INTRO = `
 const structuredClone = (v) => {
   if (typeof v !== "object" || v === null) return v;
   if (Array.isArray(v)) return v.map(structuredClone);
@@ -79,6 +80,38 @@ const structuredClone = (v) => {
   for (const k of Object.keys(v)) o[k] = structuredClone(v[k]);
   return o;
 };
+let uuidCount = 0;
+const crypto = {
+  randomUUID: () => {
+    uuidCount += 1;
+    return "00000000-0000-4000-8000-" + uuidCount.toString(16).padStart(12, "0");
+  },
+};
+class TextEncoder {
+  encode(s) {
+    s = String(s);
+    const out = [];
+    for (let i = 0; i < s.length; i++) {
+      let c = s.charCodeAt(i);
+      if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
+        const d = s.charCodeAt(i + 1);
+        if (d >= 0xdc00 && d <= 0xdfff) { c = 0x10000 + ((c - 0xd800) << 10) + (d - 0xdc00); i++; }
+        else c = 0xfffd;
+      } else if (c >= 0xd800 && c <= 0xdfff) c = 0xfffd;
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+      else if (c < 0x10000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+      else out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    }
+    return new Uint8Array(out);
+  }
+}
+`;
+
+/**
+ * プランの動かす項目の JS の頭（MATH_INTRO と CLONE_INTRO に、数の toLocaleString の代わりを足した物）
+ */
+export const PLAN_INTRO = `${MATH_INTRO}${CLONE_INTRO}
 const __fxLocale = (x, locale, opts) => {
   if (typeof x !== "number") return String(x);
   if (Number.isNaN(x)) return "NaN";
@@ -114,32 +147,6 @@ const __fxLocale = (x, locale, opts) => {
   int = int.replace(/^0+(?=\\d)/, "").replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");
   return (neg ? "-" : "") + int + (frac.length > 0 ? "." + frac : "");
 };
-let uuidCount = 0;
-const crypto = {
-  randomUUID: () => {
-    uuidCount += 1;
-    return "00000000-0000-4000-8000-" + uuidCount.toString(16).padStart(12, "0");
-  },
-};
-class TextEncoder {
-  encode(s) {
-    s = String(s);
-    const out = [];
-    for (let i = 0; i < s.length; i++) {
-      let c = s.charCodeAt(i);
-      if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
-        const d = s.charCodeAt(i + 1);
-        if (d >= 0xdc00 && d <= 0xdfff) { c = 0x10000 + ((c - 0xd800) << 10) + (d - 0xdc00); i++; }
-        else c = 0xfffd;
-      } else if (c >= 0xd800 && c <= 0xdfff) c = 0xfffd;
-      if (c < 0x80) out.push(c);
-      else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
-      else if (c < 0x10000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
-      else out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
-    }
-    return new Uint8Array(out);
-  }
-}
 `;
 
 /** まとめた JS の中の `x.toLocaleString(…)` を `__fxLocale(x, …)` に書き換える（PLAN_INTRO の __fxLocale。プランの動かす項目の JS だけ） */
@@ -212,7 +219,7 @@ export async function buildExplain(force = false): Promise<void> {
   if (!force && existsSync(stamp) && readFileSync(stamp, "utf8") === digest && outs.every((f) => existsSync(f))) return;
   rmSync(EXPLAIN_OUT, { recursive: true, force: true });
   mkdirSync(EXPLAIN_OUT, { recursive: true });
-  await bundle("explain.ts", "FinanciaExplain", "explain.js", MATH_INTRO);
+  await bundle("explain.ts", "FinanciaExplain", "explain.js", `${MATH_INTRO}${CLONE_INTRO}`);
   await bundle("plan.ts", "FinanciaPlan", "plan.js", PLAN_INTRO, [localeCalls()]);
   writeFileSync(join(EXPLAIN_OUT, "samples.json"), `${JSON.stringify(connectorSamples(), null, 1)}\n`);
   const { buildTermsCatalog, buildTextsCatalog } = await import("./textsCatalog.ts");

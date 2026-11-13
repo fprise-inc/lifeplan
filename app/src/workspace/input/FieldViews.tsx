@@ -18,7 +18,8 @@ import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LAB
 import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseDatedYearMonth, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
-import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext, type OfficeTextEntry } from "../office/customTexts.ts";
+import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, type OfficeTextEntry } from "../office/customTexts.ts";
+import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "../office/customTextsContext.ts";
 import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId } from "./textIds.ts";
 import { fillName } from "../../../../report/src/rowNames.ts";
 import { ageExample, birthFromAge, convertWhen, endBeforeStart, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, typingCtx, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";

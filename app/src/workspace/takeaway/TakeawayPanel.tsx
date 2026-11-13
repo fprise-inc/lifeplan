@@ -5,7 +5,8 @@
 // - 保存は本体の平文の書き出しの出口（0020 の5）。パスワードなしのときは毎回、平文の注意を出す。保存したら控え（きっかけ「持ち帰り用のレポート」）を残す
 import { brandingNow, reportAccent } from "../office/branding.ts";
 import { useContext, useEffect, useMemo, useState } from "preact/hooks";
-import { OfficeNamesContext, rowNamesOf } from "../office/customTexts.ts";
+import { rowNamesOf } from "../office/customTexts.ts";
+import { OfficeNamesContext } from "../office/customTextsContext.ts";
 import { webEngine, type HostApi, type SaveOutcome } from "../../engine/host.ts";
 import type { MoneyThreeSettings } from "../../presentation/model.ts";
 import type { TakeawayData, TakeawayLeverKey } from "../../takeaway/model.ts";

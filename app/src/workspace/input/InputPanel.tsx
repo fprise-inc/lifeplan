@@ -37,7 +37,7 @@ import { docStartOf, STAGE_STARTS, type DocStart } from "../documents/start.ts";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
 import { RentalOverview } from "./RentalOverview.tsx";
 import { useRentalFigures } from "../rentalTab.ts";
-import { useInsuranceView } from "./insuranceView.ts";
+import { useInsuranceView } from "./useInsuranceView.ts";
 import { useNurseryFee } from "./nurseryFeeView.ts";
 import { nurseryMethodNote } from "./stages/education.ts";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";

@@ -7,7 +7,7 @@
 // - 文はただの文字。HTML として差し込まない（画面の部品は文字として描く）
 // 一覧（app/scripts/textsCatalog.ts）はこの表から作る。文を足すときは表に1行足せばよく、id は一度出したら別の意味に使い回さない
 import type { VerdictPart } from "../presentation/model.ts";
-// 事務所の文の形だけを読む（customTexts.ts は画面の部品〔preact〕を読むので、値は読み込まない。AI接続口の JS に画面の部品を入れないため）
+// 事務所の文の形だけを読む（AI接続口の JS にも入るので、画面の部品〔preact の context〕は読まない）
 import type { OfficeTexts } from "./office/customTexts.ts";
 
 /** 公式の文の段（文字か、太字の文字） */

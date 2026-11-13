@@ -16,7 +16,7 @@ import type { ContingencyModel, ProtectionChartModel } from "../../presentation/
 import type { WorkingHousehold } from "../input/household.ts";
 import { depletionYear, displayYears } from "../present.ts";
 import { roles } from "../roles.ts";
-import { OfficeTextsContext } from "../office/customTexts.ts";
+import { OfficeTextsContext } from "../office/customTextsContext.ts";
 import { wordingOf } from "../resultTexts.ts";
 import { CURRENT } from "../plans/band.ts";
 import { sceneView, YearSweep, type ContingencyEngine } from "./engine.ts";

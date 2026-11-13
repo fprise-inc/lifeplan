@@ -6,7 +6,7 @@ import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { inheritanceRequest } from "../input/inheritanceLine.ts";
 import { endYearOff, endYearToStandard } from "../input/stages/assumptions.ts";
-import { OfficeTextsContext } from "../office/customTexts.ts";
+import { OfficeTextsContext } from "../office/customTextsContext.ts";
 import { wordingOf } from "../resultTexts.ts";
 import { insights, withoutHousingCredit, type CreditPair } from "./fpTools.ts";
 
