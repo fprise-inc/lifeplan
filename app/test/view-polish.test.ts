@@ -528,7 +528,7 @@ describe("言葉の統一", () => {
   it("場面のカード: 不足がなければ「保障は足りています」。結果の行（最後まで足りる・○年に不足）は出さない。起きる年のプルダウンも無い", () => {
     const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const scs = scenarios(wh);
-    const chart = { key: "self", title: "", sub: "", years: [2030], ages: [40], axis: [{ label: "ご本人", ages: [40] }], need: [0], needWithAssets: [0], coverage: [0], maxShort: null, reformFrom: null, insights: [] };
+    const chart = { key: "self", title: "", sub: "", years: [2030], ages: [40], axis: [{ label: "ご本人", ages: [40] }], need: [0], needWithAssets: [0], coverage: [0], maxShort: null, verdict: [{ text: "保障は足りています", strong: true }], reformFrom: null, insights: [] };
     const protection: ContingencyModel["protection"] = { status: "ready", charts: [chart], error: null, ms: 1 };
     const cards = scenarioCards({ req: wh.request, scenarios: scs, selected: scs[0]!.key, protection, grade: undefined });
     expect(cards.find((c) => c.key === "death:self")!.status).toBe("保障は足りています");

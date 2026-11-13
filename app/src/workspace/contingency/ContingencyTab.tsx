@@ -7,7 +7,7 @@
 // 当てた前提を使う。前提のパネルの「直す先」で、共通を直すか、そのプランだけ直すかを選ぶ。グラフの枠の名前はプランごとに分け、プランを戻したときは前の結果をすぐ出す。
 // 計算はアプリの側が持つ ContingencyEngine で行う（タブを切り替えても結果を捨てない。同じ内容ならすぐ出す）。
 // 画面の側のエンジンで先に出し、本体の正の計算で置き換える（見通しと同じ二本立て）。FP用のメモは画面に出さず、上部の引き出しに置く
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { HostApi } from "../../engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { ChartPip } from "../../presentation/ChartPip.tsx";
@@ -16,6 +16,8 @@ import type { ContingencyModel, ProtectionChartModel } from "../../presentation/
 import type { WorkingHousehold } from "../input/household.ts";
 import { depletionYear, displayYears } from "../present.ts";
 import { roles } from "../roles.ts";
+import { OfficeTextsContext } from "../office/customTextsContext.ts";
+import { wordingOf } from "../resultTexts.ts";
 import { CURRENT } from "../plans/band.ts";
 import { sceneView, YearSweep, type ContingencyEngine } from "./engine.ts";
 import { premiseItems, SCENE_NOTES } from "./inputs.ts";
@@ -181,6 +183,9 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
 
   /** 保険の契約の名前（必要保障額の推移の気づき・大きな病気の場面の保険金・給付金の内訳。0055・0071 の追記） */
   const insLabels = useMemo(() => contractLabels(wh), [wh]);
+  // 結論の1文に、承認した事務所の文を当てる（結果の画面の文の一覧の result:contingency/…。0212）
+  const officeTexts = useContext(OfficeTextsContext);
+  const wording = useMemo(() => wordingOf(officeTexts), [officeTexts]);
   const model: ContingencyModel = useMemo(() => {
     const charts: ProtectionChartModel[] = [];
     let protStatus: ContingencyModel["protection"]["status"] = "ready";
@@ -194,7 +199,7 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
       } else if (s?.result == null || req === undefined) {
         if (protStatus !== "error") protStatus = "loading";
       } else if (s.result.protection !== undefined) {
-        const c = protectionChart(req, s.result.protection, s.result, m, lapseInsights(s.result.protection, m, insLabels));
+        const c = protectionChart(req, s.result.protection, s.result, m, lapseInsights(s.result.protection, m, insLabels), wording);
         if (c !== null) charts.push(c);
       }
     });
@@ -207,6 +212,7 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
       scenario = {
         status: "ready",
         model: scenarioModel({ req: wh.request, scenario: sc, year, result: sr.result, none: none.result, targetAge, choice: wh.contingency.oldAgeChoice[sc.member], plan: wh.contingency, ...(wh.contingency.market?.drop !== undefined ? { drop: wh.contingency.market.drop } : {}),
+          wording,
           ...(sc.kind === "illness" ? { benefits: { details: illnessBenefits(wh, sc, year, sr.result, none.result, insLabels), note: illnessBenefitNote(wh) } } : {}),
         }),
         error: null,
@@ -232,7 +238,7 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
       scenario,
     };
     // view() は engine の中の結果を読む（engine の知らせのたびに tick が進むので、読み直す）
-  }, [tick, engine, requests, protMembers, sc, scs, wh, year, targetAge, options, sweepList, dragging, planSaved.request, planId, insLabels]);
+  }, [tick, engine, requests, protMembers, sc, scs, wh, year, targetAge, options, sweepList, dragging, planSaved.request, planId, insLabels, wording]);
 
   // ---- 年を選ぶ・1年ずつ見せる ----
   const setYear = (y: number) => {

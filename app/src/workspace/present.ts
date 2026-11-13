@@ -7,6 +7,7 @@ import { ageInYear, leaveYear, nameWithAge, presentInYear, roles, type Role } fr
 import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 import { ROW_NAMES, rowName, type OfficeRowNames } from "../../../report/src/rowNames.ts";
+import { OFFICIAL_WORDING, type Wording } from "./resultTexts.ts";
 import { childScholarshipNotes } from "../../../report/src/childScholarships.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
@@ -347,13 +348,14 @@ function verdict(self: Role | undefined, depP: number | null, depC: number | nul
  * 主画面の結論の1文: 「B案は100歳まで足ります」＋2行目「A案（基準）は80歳で資産が尽きます」。
  * 選んだ案が基準の案のときは「A案（基準）：80歳で資産が尽きます」の1行。○歳時点の資産は既定では出さない（表示の設定で足す）
  */
-export function resultVerdict(names: SeriesNames, self: Role | undefined, depP: number | null, depC: number | null, endAge: number | null): ResultVerdict {
+export function resultVerdict(names: SeriesNames, self: Role | undefined, depP: number | null, depC: number | null, endAge: number | null, w: Wording = OFFICIAL_WORDING): ResultVerdict {
+  // 文は結果の画面の文の表（resultTexts.ts の result:main/…）から。事務所の文を承認していれば、その文に同じ値を差し込む（0212）
   const age = (y: number) => (self !== undefined ? ageInYear(self.member, y) : y);
-  const until = endAge !== null ? `${endAge}歳まで足ります` : "最後まで足ります";
-  const st = (d: number | null) => (d === null ? until : `${age(d)}歳で資産が尽きます`);
-  if (names.same) return { tone: depP === null ? "up" : "down", parts: [{ text: `${names.selected}（基準）`, strong: true }, { text: "：" }, { text: st(depP), strong: true }], sub: [] };
+  const until = endAge !== null ? w.text("result:main/lasts", { age: `${endAge}歳` }) : w.text("result:main/lastsToEnd");
+  const st = (d: number | null) => (d === null ? until : w.text("result:main/runsOut", { age: `${age(d)}歳` }));
+  if (names.same) return { tone: depP === null ? "up" : "down", parts: w.parts("result:main/verdictSame", { plan: names.selected, status: st(depP) }), sub: [] };
   const better = depP === depC ? "flat" : depP === null ? "up" : depC === null ? "down" : depP > depC ? "up" : "down";
-  return { tone: better, parts: [{ text: names.selected, strong: true }, { text: "は" }, { text: st(depP), strong: true }], sub: [{ text: `${names.base}（基準）は${st(depC)}` }] };
+  return { tone: better, parts: w.parts("result:main/verdict", { plan: names.selected, status: st(depP) }), sub: w.parts("result:main/verdictBase", { basePlan: names.base, baseStatus: st(depC) }) };
 }
 
 /** FP顧問料の ON/OFF の材料（顧問料の契約があるときだけ） */
@@ -402,6 +404,8 @@ export interface PresentInput {
   baseProposal?: EngineRequest;
   /** 表の行の事務所の名前（カスタム層の名前の差し替え。省略は公式の名前） */
   rowNames?: OfficeRowNames;
+  /** 結果の画面の文（承認した事務所の文を当てた物。省略は公式の文。0212） */
+  wording?: Wording;
   /**
    * 選んだプランか基準のプランが今の入力で計算できなかった（計算エンジンのエラー。結果は前の計算の残り）。結論の1文に「足りる」を出さない（0169。
    * 区画「これからの大きなお金」の数字と一行の結論は workspace/bigMoney.ts の bigMoneyOf で出さない）
@@ -473,7 +477,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     asOf: `${by}年${bm}月時点`,
     headline,
     verdict: input.failed === true ? { tone: "flat", parts: [{ text: "今の入力では計算できませんでした", strong: true }] } : verdict(self, depP, depC, endAge),
-    result: input.failed === true ? { tone: "flat", parts: [{ text: "今の入力では計算できませんでした", strong: true }], sub: [] } : resultVerdict(names, self, depP, depC, endAge),
+    result: input.failed === true ? { tone: "flat", parts: [{ text: "今の入力では計算できませんでした", strong: true }], sub: [] } : resultVerdict(names, self, depP, depC, endAge, input.wording),
     names,
     chart,
     flows: flowChart(proposal, proposed.table, years, "収支の推移（提案）"),

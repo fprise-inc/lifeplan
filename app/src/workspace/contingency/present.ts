@@ -6,6 +6,7 @@ import { man } from "../../presentation/format.ts";
 import { REFORM_TEXT } from "../engineNotices.ts";
 import { parseYm } from "../levers.ts";
 import { ageAxis, depletionYear, displayYears, familyText, financialOf, personLabel, sumByYear } from "../present.ts";
+import { OFFICIAL_WORDING, type Wording } from "../resultTexts.ts";
 import { ageInYear, roles } from "../roles.ts";
 import { OLD_AGE_CHOICE_LABEL } from "./inputs.ts";
 import type { ContingencyPlan } from "./planData.ts";
@@ -32,8 +33,11 @@ export function hasReformNotice(r: PreviewResult): boolean {
   return (r.header.notices ?? []).some((n) => n.code === REFORM_NOTICE);
 }
 
-/** 必要保障額の推移（構成員1人）の提示用の値。insights は気づき（保険が切れる年。insuranceLines.ts の lapseInsights） */
-export function protectionChart(req: EngineRequest, out: ProtectionOutput, result: PreviewResult, memberId: string, insights: readonly ProtectionInsightModel[] = []): ProtectionChartModel | null {
+/**
+ * 必要保障額の推移（構成員1人）の提示用の値。insights は気づき（保険が切れる年。insuranceLines.ts の lapseInsights）。
+ * 結論の1文（verdict）は結果の画面の文の表の result:contingency/protection…（0212）
+ */
+export function protectionChart(req: EngineRequest, out: ProtectionOutput, result: PreviewResult, memberId: string, insights: readonly ProtectionInsightModel[] = [], w: Wording = OFFICIAL_WORDING): ProtectionChartModel | null {
   const m = out.members.find((x) => x.member === memberId);
   const rs = roles(req);
   const who = rs.find((r) => r.member.id === memberId);
@@ -49,9 +53,11 @@ export function protectionChart(req: EngineRequest, out: ProtectionOutput, resul
     if (s > 0 && (maxShort === null || s > maxShort.amount)) maxShort = { year: y.year, amount: s };
   }
   const reform = hasReformNotice(result) ? (m.years.find((y) => y.death >= "2028-04")?.year ?? null) : null;
+  const title = `${who.label}が亡くなった場合`;
   return {
     key: who.key,
-    title: `${who.label}が亡くなった場合`,
+    title,
+    verdict: maxShort !== null ? w.parts("result:contingency/protectionShort", { event: title, amount: `${man(maxShort.amount)}万円`, year: `${maxShort.year}年` }) : w.parts("result:contingency/protectionEnough", { event: title }),
     sub: `${until}${horizon !== undefined ? `（${horizon}年）` : ""}までの資金。遺族は${surv?.label ?? "お子さま"}`,
     years,
     ages: years.map((y) => ageInYear(who.member, y)),
@@ -126,6 +132,8 @@ export interface ScenarioInput {
   plan?: Pick<ContingencyPlan, "incomeDrop" | "stackMarket" | "market">;
   /** 大きな病気の場面の保険金・給付金の契約ごとの内訳と、表の下の一文（insuranceLines.ts の illnessBenefits） */
   benefits?: { details: readonly BenefitDetailModel[]; note: string };
+  /** 結果の画面の文（承認した事務所の文を当てた物。省略は公式の文。0212） */
+  wording?: Wording;
 }
 
 /** 収入が減る人の言い方（前提の「誰の収入」） */
@@ -185,13 +193,14 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
     diff: (finS.get(targetYear) ?? 0) - (finN.get(targetYear) ?? 0),
     currentNote: depN !== null ? `${self?.label ?? ""}${age(depN) ?? depN}歳で不足` : null,
   };
+  // 結論の1文は結果の画面の文の表（resultTexts.ts の result:contingency/…）から。事務所の文を承認していれば、その文に同じ値を差し込む（0212）
+  const w = input.wording ?? OFFICIAL_WORDING;
   let verdict: Verdict;
-  if (depS === null) verdict = { tone: depN === null ? "flat" : "up", parts: [{ text: `${event}も、` }, { text: "資産は最後まで尽きません", strong: true }] };
-  else
-    verdict = {
-      tone: "down",
-      parts: [{ text: `${event}、資産は ` }, { text: `${depS}年（${watcher?.label ?? ""}${wAge(depS) ?? ""}歳）に尽きます`, strong: true }, { text: depN === null ? "（万一なしは尽きません）" : `（万一なしは${depN}年）` }],
-    };
+  if (depS === null) verdict = { tone: depN === null ? "flat" : "up", parts: w.parts("result:contingency/lasts", { event }) };
+  else {
+    const at = { event, year: `${depS}年`, person: watcher?.label ?? "", age: `${wAge(depS) ?? ""}歳` };
+    verdict = { tone: "down", parts: depN === null ? w.parts("result:contingency/runsOut", at) : w.parts("result:contingency/runsOutBoth", { ...at, noneYear: `${depN}年` }) };
+  }
   const depletions: Depletion[] = [];
   if (depN !== null) depletions.push({ series: "current", year: depN });
   if (depS !== null) depletions.push({ series: "proposal", year: depS });

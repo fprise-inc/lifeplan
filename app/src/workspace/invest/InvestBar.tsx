@@ -3,6 +3,7 @@
 // （「口座の内訳を表示」にチェックが入っているときだけ出す）
 import { DonutPair, type DonutPane } from "../../presentation/Donut.tsx";
 import type { InvestChartModel } from "../../presentation/model.ts";
+import { OFFICIAL_WORDING } from "../resultTexts.ts";
 
 export interface InvestBarProps {
   invest: InvestChartModel;
@@ -13,10 +14,13 @@ export interface InvestBarProps {
   stressOn: boolean;
   onStress: (on: boolean) => void;
   onStressLine: (key: string) => void;
+  /** 相場が下がった場合の一覧の最後の注（事務所の文で消したときは null。省略は公式の文。0212） */
+  stressNote?: string | null;
 }
 
 export function InvestBar(p: InvestBarProps) {
   const inv = p.invest;
+  const stressNote = p.stressNote === undefined ? OFFICIAL_WORDING.text("result:invest/stressNote") : p.stressNote;
   const bd = inv.view.breakdown && inv.breakdown !== null && inv.breakdown.length > 0;
   return (
     <div class="inv-bar" data-invest-bar>
@@ -61,7 +65,7 @@ export function InvestBar(p: InvestBarProps) {
               </li>
             );
           })}
-          <li class="note">行き過ぎた予測ではなく、よくある下がり方で計算した目安です。線を押すと外せます</li>
+          {stressNote !== null ? <li class="note">{stressNote}</li> : null}
         </ul>
       ) : null}
     </div>
@@ -72,8 +76,8 @@ export interface DonutCardProps {
   panes: DonutPane[];
   by: "account" | "class";
   onBy: (by: "account" | "class") => void;
-  /** 例: 「グラフで年を押して固定すると、その年の内訳になります」 */
-  note: string;
+  /** 例: 「グラフで年を押して固定すると、その年の内訳になります」。事務所の文で消したときは null（0212） */
+  note: string | null;
 }
 
 /** 資産の内訳（ドーナツ）の欄。プランA と選んだプランを同じ年で並べる */
@@ -90,7 +94,7 @@ export function DonutCard(p: DonutCardProps) {
             資産の種類ごと
           </button>
         </span>
-        <span class="donut-note">{p.note}</span>
+        {p.note !== null ? <span class="donut-note">{p.note}</span> : null}
       </div>
       <DonutPair panes={p.panes} />
     </section>

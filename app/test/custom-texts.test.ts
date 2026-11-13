@@ -40,7 +40,8 @@ describe("説明の一覧（画面の定義から作る）", () => {
       expect(e.id, e.id).not.toMatch(UUID);
       expect(e.id.startsWith(`${e.kind}:`)).toBe(true);
       expect(e.hash).toBe(sha(e.text));
-      expect(e.audience).toBe("fp");
+      // 結果の画面の文（result:…）はお客さまと一緒に見る画面の文（0212）。ほかは FP 向け
+      expect(e.audience).toBe(e.kind === "result" ? "customer" : "fp");
       expect(ids.has(e.id)).toBe(false);
       ids.add(e.id);
     }

@@ -1355,7 +1355,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
                 <NumBox value={dd.startAge} unit="age" size="s" label="取り崩しを始める年齢" onCommit={(v) => typeof v === "number" && v > now && setDd({ startAge: Math.min(95, v) })} /> 歳から
               </>
             ) : (
-              "予定なし（足りないときだけ取り崩す）"
+              "予定を入れず、足りない年だけ取り崩す"
             )}
           </div>
         </div>
@@ -1363,7 +1363,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
       <div class="sv-fld">
         <span class="lbl">
           取り崩し方
-          <Help label="取り崩し方">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→暗号資産→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</Help>
+          <Help label="取り崩し方">「予定なし」は、取り崩しの予定を入れず、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→暗号資産→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</Help>
         </span>
         <div class="ctl">
           <span class="seg-g sm" role="group" aria-label="取り崩し方">

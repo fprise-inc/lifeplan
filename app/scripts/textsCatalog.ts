@@ -8,7 +8,11 @@
 // - 推定の根拠の文（`estimate:<入力項目ID>[/<道>]`。2026-11-02 の追記の4）: 見本の世帯すべてで推定の欄を集める。公式の文は世帯ごとに違う
 //   （統計の版・人数・額が入る）ので、一覧の公式の文は差し込みの印 {basis}（公式の根拠の文）だけ。事務所の文には {basis}・{value}（推定の値）を
 //   差し込める。消せない（書き換える・足すだけ）
+// - 結果の画面の文（`result:<タブ>/<名前>`。0212）: 結論の1文・その2行目・取り崩しの条件・グラフの注・結果のタブのポイント・万一のときのタブの
+//   結論の1文。表は src/workspace/resultTexts.ts（公式の文は差し込みの印つきの型）。結果の画面はお客さまと一緒に見るので audience は customer。
+//   書き換えるだけ（消せるのはグラフの注だけ）。計算の値が入る印は numberVars（書き換えで落とすと本体の検査が注意を出す）
 // まだ載せない物（後の回）: 当て先の無い欄（`field:ui.…`）・区画とまとまりの説明・ボタンの説明・入力項目の見出し・確かめの注意・提示層の文
+//   （説明モード・お客さまに見せる画面）・提案書の文
 //
 // 名前の一覧（terms-catalog.json。`terms-reference@1.0`）と欄の一覧（fields-catalog.json。`fields-reference@1.0`）も、同じ画面の定義から作る
 // （2026-11-02 の追記の1・2）:
@@ -25,6 +29,7 @@ import { fromRequest } from "../src/workspace/input/household.ts";
 import { buildStage, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { ESTIMATE_OFFICIAL, estimateTextId, fieldTextId } from "../src/workspace/input/textIds.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
+import { RESULT_TEXTS, resultOfficialText } from "../src/workspace/resultTexts.ts";
 import { ROW_NAME_VARS, ROW_NAMES } from "../../report/src/rowNames.ts";
 import { APP_DIR, REPO_DIR } from "./lib.ts";
 
@@ -44,12 +49,14 @@ export interface CatalogEntry {
   noticeKind?: string;
   /** 差し込みの印の意味（AI と承認の画面のため） */
   varsHelp?: Record<string, string>;
+  /** 計算の値（年齢・年・額・率）が入る印。書き換えで落とすと本体の検査が注意を出す（結果の画面の文。0212） */
+  numberVars?: string[];
 }
 
 export interface TextsCatalog {
   schema: string;
   /** 作った元の数（載せなかった物の数も。確かめ用） */
-  summary: { fields: number; fieldsVarying: number; notices: number; estimates: number };
+  summary: { fields: number; fieldsVarying: number; notices: number; estimates: number; results: number };
   entries: CatalogEntry[];
 }
 
@@ -118,8 +125,24 @@ export function buildTextsCatalog(): TextsCatalog {
     const hideable = n.kind === "outside" || n.kind === "assumed" || n.kind === "data";
     entries.push({ id: `notice:${n.key}`, kind: "notice", where: "結果のタブの「計算のお知らせ」", audience: "fp", text, vars: [], hash: sha(text), ops: hideable ? ["replace", "append", "hide"] : ["replace", "append"], noticeKind: n.kind });
   }
+  for (const d of RESULT_TEXTS) {
+    const text = resultOfficialText(d);
+    const vars = Object.keys(d.vars);
+    entries.push({
+      id: d.id,
+      kind: "result",
+      where: d.where,
+      audience: "customer",
+      text,
+      vars,
+      hash: sha(text),
+      ops: d.hideable === true ? ["replace", "hide"] : ["replace"],
+      ...(vars.length > 0 ? { varsHelp: { ...d.vars } } : {}),
+      ...(d.numberVars.length > 0 ? { numberVars: [...d.numberVars] } : {}),
+    });
+  }
   entries.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return { schema: CATALOG_SCHEMA, summary: { fields: fields.size - varying, fieldsVarying: varying, notices: notices.length, estimates: estimates.size }, entries };
+  return { schema: CATALOG_SCHEMA, summary: { fields: fields.size - varying, fieldsVarying: varying, notices: notices.length, estimates: estimates.size, results: RESULT_TEXTS.length }, entries };
 }
 
 export interface NamedCatalog {

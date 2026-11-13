@@ -334,6 +334,15 @@ mod tests {
                 e.id
             );
         }
+        // 結果の画面の文（0212）: お客さまと一緒に見る文で、計算の値の入る印を持つ。消せるのはグラフの注だけ
+        let results: Vec<_> = c.entries().filter(|e| e.kind == "result").collect();
+        assert!(results.len() >= 25, "{}", results.len());
+        assert!(results.iter().all(|e| e.audience == "customer"));
+        assert!(results.iter().any(|e| !e.number_vars.is_empty()));
+        assert!(results
+            .iter()
+            .filter(|e| e.ops.contains(&custom_layer::Op::Hide))
+            .all(|e| e.id.contains("Note") || e.id.contains("donut")));
     }
 
     #[test]

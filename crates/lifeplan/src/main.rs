@@ -12,6 +12,7 @@ mod chart;
 mod check;
 mod compare;
 mod coverage;
+mod custom_texts;
 mod engine;
 mod guide;
 mod plan;

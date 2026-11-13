@@ -840,8 +840,7 @@ export function ContingencyVerdict({ model, mode }: { model: ContingencyModel; m
     );
   return prot !== undefined ? (
     <p class={`verdict-line cg-verdict ${prot.maxShort !== null ? "down" : "flat"}`} aria-live="polite" data-verdict>
-      <span>{prot.title}、</span>
-      {prot.maxShort !== null ? <b>保障の不足は最大{man(prot.maxShort.amount)}万円（{prot.maxShort.year}年）</b> : <b>保障は足りています</b>}
+      <Parts parts={prot.verdict} />
       <span class="v-sub">{prot.sub}</span>
     </p>
   ) : (

@@ -1,11 +1,13 @@
 // 結果のタブのポイント（0074。2026-11-12 に「気づき」から改め、中身を見直した）: 選んでいるプランの結果から、決まりで数件（預金が少なくなる年・赤字が続く〔働いている間〕・
 // 大きな支出が重なる年・退職から年金までの空白・退職後もローンが残る・住宅ローン控除が終わる年・相続税がかかる見込み）。入力は増えない。
 // 年のあるポイントは「その年を見る」、どれも「対策を考える」で対策へ
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useContext, useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { inheritanceRequest } from "../input/inheritanceLine.ts";
 import { endYearOff, endYearToStandard } from "../input/stages/assumptions.ts";
+import { OfficeTextsContext } from "../office/customTextsContext.ts";
+import { wordingOf } from "../resultTexts.ts";
 import { insights, withoutHousingCredit, type CreditPair } from "./fpTools.ts";
 
 /** 相続税の目安を計算する（active のときだけ。要求が変わったら計算し直す） */
@@ -82,11 +84,14 @@ export function Insights({
 }) {
   // 閉じているときは灰色の小さい1行（「ポイント ○件 ▸」）。押すと一覧が開き、もう一度押すと閉じる（0074 の追記 2026-11-12）
   const [open, setOpen] = useState(initialOpen);
+  // ポイントの文は、承認した事務所の文があれば当てる（結果の画面の文の一覧の result:main/point…。0212）
+  const office = useContext(OfficeTextsContext);
+  const wording = useMemo(() => wordingOf(office), [office]);
   const computed = useCreditPairFor(credit === undefined ? req : null, computeOne);
   const pair = credit !== undefined ? credit : computed;
   const list = useMemo(
-    () => (result === null ? [] : insights(req, result, { ...(months !== undefined ? { months } : {}), inheritanceTax: inheritancePayable(inheritance ?? null), credit: pair })),
-    [req, result, months, inheritance, pair],
+    () => (result === null ? [] : insights(req, result, { ...(months !== undefined ? { months } : {}), inheritanceTax: inheritancePayable(inheritance ?? null), credit: pair, wording })),
+    [req, result, months, inheritance, pair, wording],
   );
   if (result === null || list.length === 0) return null;
   return (

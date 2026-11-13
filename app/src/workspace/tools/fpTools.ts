@@ -12,6 +12,7 @@ import { creditActive } from "../input/stages/housingLoans.ts";
 import { amountText as yenText, formatYearMonth, wareki } from "../input/units.ts";
 import { fieldValueText, objectCards, planIndex } from "../plans/planEdit.ts";
 import { man, toMan } from "../../presentation/format.ts";
+import { OFFICIAL_WORDING, type Wording } from "../resultTexts.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -493,7 +494,7 @@ function yearsText(ys: readonly number[]): string {
   return `${parts.join("・")}年${runs.length > 3 ? "など" : ""}`;
 }
 
-function bigSpendInsight(req: EngineRequest, t: readonly TableCell[], rule: OverlapRule): Insight | null {
+function bigSpendInsight(req: EngineRequest, t: readonly TableCell[], rule: OverlapRule, w: Wording): Insight | null {
   const hits = bigSpendOverlaps(req, t, rule);
   if (hits.length === 0) return null;
   // いちばん大きく重なる年（大きな支出の合計が多い年）を出し、ほかの年は括弧に
@@ -502,8 +503,9 @@ function bigSpendInsight(req: EngineRequest, t: readonly TableCell[], rule: Over
   const list = `${shown.join("・")}${peak.items.length > 3 ? "など" : ""}`;
   const more = moreText(peak);
   const others = hits.filter((y) => y.year !== peak.year).map((y) => y.year);
-  const rest = others.length === 0 ? "" : `（ほかに${yearsText(others)}）`;
-  return { key: "bigSpend", title: "大きな支出が重なる年", text: `${peak.year}年に、${list}が重なり${more !== null ? `、支出が前後の年より${more}なります` : "ます"}${rest}`, year: peak.year };
+  const rest = others.length === 0 ? "" : w.text("result:main/pointBigSpendOthers", { years: yearsText(others) });
+  const at = { year: `${peak.year}年`, items: list, others: rest };
+  return { key: "bigSpend", title: "大きな支出が重なる年", text: more !== null ? w.text("result:main/pointBigSpendMore", { ...at, more }) : w.text("result:main/pointBigSpend", at), year: peak.year };
 }
 
 // ---- 住宅ローン控除が終わる年 ----
@@ -530,7 +532,7 @@ export interface CreditPair {
   off: PreviewResult;
 }
 
-function creditInsight(years: readonly number[], { on: r, off }: CreditPair): Insight | null {
+function creditInsight(years: readonly number[], { on: r, off }: CreditPair, w: Wording): Insight | null {
   const tax = (t: readonly TableCell[], row: string) => sumBy(t, (c) => c.row === row);
   const itNow = tax(r.table, "cf.taxSi.incomeTax");
   const itOff = tax(off.table, "cf.taxSi.incomeTax");
@@ -545,14 +547,14 @@ function creditInsight(years: readonly number[], { on: r, off }: CreditPair): In
   return {
     key: "housingCredit",
     title: "住宅ローン控除が終わる年",
-    text: `${last}年で住宅ローン控除が終わり、翌年から手取りが年${man(amount)}万円ほど減ります（${last}年の所得税・住民税の軽減の額）`,
+    text: w.text("result:main/pointHousingCredit", { year: `${last}年`, amount: `${man(amount)}万円` }),
     year: last,
   };
 }
 
 // ---- 退職から年金までの空白・退職後もローンが残る ----
 
-function retireGapInsights(adults: readonly Adult[]): Insight[] {
+function retireGapInsights(adults: readonly Adult[], w: Wording): Insight[] {
   const out: Insight[] = [];
   for (const a of adults) {
     const last = a.work.at(-1);
@@ -560,11 +562,16 @@ function retireGapInsights(adults: readonly Adult[]): Insight[] {
     if (last === undefined || a.pension === null || a.pension - last < 2) continue;
     const partner = adults.find((x) => x.id !== a.id);
     const pw = partner === undefined ? [] : partner.work.filter((y) => y > last && y < (a.pension as number));
-    const note = partner === undefined || pw.length === 0 ? "" : pw.length === a.pension - last - 1 ? `（その間も${partner.label}の働く収入があります）` : `（${partner.label}の働く収入は${String(pw.at(-1))}年まで）`;
+    const note =
+      partner === undefined || pw.length === 0
+        ? ""
+        : pw.length === a.pension - last - 1
+          ? w.text("result:main/pointRetireGapPartnerAll", { partner: partner.label })
+          : w.text("result:main/pointRetireGapPartnerUntil", { partner: partner.label, year: `${String(pw.at(-1))}年` });
     out.push({
       key: `retireGap:${a.id}`,
       title: "退職から年金までの空白",
-      text: `${a.label}が${String(last - a.birthYear)}歳で退職してから年金の受け取りまで${String(a.pension - last)}年、収入が少ない期間があります${note}`,
+      text: w.text("result:main/pointRetireGap", { person: a.label, age: `${String(last - a.birthYear)}歳`, years: `${String(a.pension - last)}年`, note }),
       year: last + 1,
     });
   }
@@ -573,7 +580,7 @@ function retireGapInsights(adults: readonly Adult[]): Insight[] {
 
 const DEBT_NAME: Record<string, string> = { mortgage: "住宅ローン", car: "自動車ローン", scholarship: "奨学金", other: "その他のローン" };
 
-function loanAfterRetireInsights(req: EngineRequest, t: readonly TableCell[], years: readonly number[], adults: readonly Adult[]): Insight[] {
+function loanAfterRetireInsights(req: EngineRequest, t: readonly TableCell[], years: readonly number[], adults: readonly Adult[], w: Wording): Insight[] {
   const out: Insight[] = [];
   const end = years.at(-1);
   if (end === undefined) return out;
@@ -587,7 +594,7 @@ function loanAfterRetireInsights(req: EngineRequest, t: readonly TableCell[], ye
     if (lastOwed === undefined) continue;
     const name = `${DEBT_NAME[d.kind] ?? "ローン"}${typeof d.label === "string" && d.label !== "" ? `「${d.label}」` : ""}${adults.length > 1 ? `（${a.label}）` : ""}`;
     if (lastOwed === end) {
-      out.push({ key: `loanAfterRetire:${d.id}`, title: "退職後もローンが残る", text: `${name}は表の最後の年（${String(end)}年）まで返済が続き、退職後も${String(end - retire)}年以上返済があります`, year: retire + 1 });
+      out.push({ key: `loanAfterRetire:${d.id}`, title: "退職後もローンが残る", text: w.text("result:main/pointLoanToEnd", { loan: name, end: `${String(end)}年`, years: `${String(end - retire)}年` }), year: retire + 1 });
       continue;
     }
     // 年末の残高が0になる年が完済の年（繰上返済の予定も計算に入っている）
@@ -596,7 +603,10 @@ function loanAfterRetireInsights(req: EngineRequest, t: readonly TableCell[], ye
     out.push({
       key: `loanAfterRetire:${d.id}`,
       title: "退職後もローンが残る",
-      text: `${name}の完済は${String(payoff - a.birthYear)}歳（${String(payoff)}年）で、${payoff - retire === 1 ? "退職の翌年まで" : `退職後も${String(payoff - retire)}年`}返済が続きます`,
+      text:
+        payoff - retire === 1
+          ? w.text("result:main/pointLoanPayoffNext", { loan: name, age: `${String(payoff - a.birthYear)}歳`, year: `${String(payoff)}年` })
+          : w.text("result:main/pointLoanPayoff", { loan: name, age: `${String(payoff - a.birthYear)}歳`, year: `${String(payoff)}年`, years: `${String(payoff - retire)}年` }),
       year: payoff,
     });
   }
@@ -609,7 +619,9 @@ function loanAfterRetireInsights(req: EngineRequest, t: readonly TableCell[], ye
  * months は「生活費の何か月分」（お金の3つの分け方の設定。既定は6か月）。credit は住宅ローン控除を受ける・受けない計算の組（`withoutHousingCredit`。無ければ控除のポイントは出さない）。
  * overlapRule は大きな支出が重なる年の決め方（既定は OVERLAP_RULE）
  */
-export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: number; inheritanceTax?: number | null; credit?: CreditPair | null; overlapRule?: OverlapRule } = {}): Insight[] {
+export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: number; inheritanceTax?: number | null; credit?: CreditPair | null; overlapRule?: OverlapRule; wording?: Wording } = {}): Insight[] {
+  // 文は結果の画面の文の表（resultTexts.ts の result:main/point…）から。事務所の文を承認していれば、その文に同じ値を差し込む（0212）
+  const w = opts.wording ?? OFFICIAL_WORDING;
   const years = displayYears(req);
   const t = r.table;
   const out: Insight[] = [];
@@ -621,7 +633,8 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
     if (y !== undefined) {
       const left = deposit.get(y) ?? 0;
       const reserve = man(((living.get(y) ?? 0) / 12) * months);
-      const text = toMan(left) <= 0 ? `${y}年に、預金がなくなります（手元に置く目安の生活費${months}か月分は${reserve}万円です）` : `${y}年に、預金が${man(left)}万円になり、生活費の${months}か月分（${reserve}万円）を下回ります`;
+      const at = { year: `${y}年`, months: `${months}か月`, need: `${reserve}万円` };
+      const text = toMan(left) <= 0 ? w.text("result:main/pointDepositGone", at) : w.text("result:main/pointDeposit", { ...at, deposit: `${man(left)}万円` });
       out.push({ key: "deposit", title: "預金が少なくなる年", text, year: y });
     }
   }
@@ -636,16 +649,16 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
       else if (run.length >= 3) break;
       else run = [];
     }
-    if (run.length >= 3) out.push({ key: "deficit", title: "赤字が続く", text: `働いている間の${run[0]}年から${run.at(-1)}年まで、${run.length}年続けて年間収支が赤字です`, year: run[0] ?? null });
+    if (run.length >= 3) out.push({ key: "deficit", title: "赤字が続く", text: w.text("result:main/pointDeficit", { from: `${run[0]}年`, to: `${run.at(-1)}年`, years: `${run.length}年` }), year: run[0] ?? null });
   }
-  const big = bigSpendInsight(req, t, opts.overlapRule ?? OVERLAP_RULE);
+  const big = bigSpendInsight(req, t, opts.overlapRule ?? OVERLAP_RULE, w);
   if (big !== null) out.push(big);
-  out.push(...retireGapInsights(adults));
-  out.push(...loanAfterRetireInsights(req, t, years, adults));
+  out.push(...retireGapInsights(adults, w));
+  out.push(...loanAfterRetireInsights(req, t, years, adults, w));
   if (opts.credit != null) {
-    const c = creditInsight(years, opts.credit);
+    const c = creditInsight(years, opts.credit, w);
     if (c !== null) out.push(c);
   }
-  if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: `いま亡くなったときの相続税の目安は${man(opts.inheritanceTax)}万円です（相続・贈与の項目）`, year: null });
+  if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: w.text("result:main/pointInheritanceTax", { amount: `${man(opts.inheritanceTax)}万円` }), year: null });
   return out;
 }

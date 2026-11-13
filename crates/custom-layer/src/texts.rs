@@ -544,6 +544,29 @@ fn check_row(i: usize, r: &Row, catalog: &Catalog, out: &mut Checked) {
             }
         }
     }
+    // 書き換えた文が、計算の値（年齢・年・額・率）の入る印を落としている（その値が画面に出なくなる。結果の画面の文。0212）。
+    // 足す（append）は公式の文が残るので見ない
+    if let (Op::Replace, Some(t)) = (r.op, &r.text) {
+        if let Ok(names) = placeholders(t) {
+            let missing: Vec<String> = e
+                .number_vars
+                .iter()
+                .filter(|v| !names.contains(v))
+                .map(|v| format!("{{{v}}}"))
+                .collect();
+            if !missing.is_empty() {
+                out.warnings.push(issue(
+                    Some(i),
+                    id,
+                    "W_TEXTS_VAR_MISSING",
+                    format!(
+                        "計算の値が入る差し込みの印 {} がありません（その値が画面に出なくなります。わざと外すのでなければ入れてください）",
+                        missing.join("・")
+                    ),
+                ));
+            }
+        }
+    }
     if moved {
         out.warnings.push(issue(
             Some(i),

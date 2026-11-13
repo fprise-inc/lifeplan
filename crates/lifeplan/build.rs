@@ -41,10 +41,18 @@ fn main() {
     let explain_js = manifest_dir.join("dist/explain.js");
     let plan_js = manifest_dir.join("dist/plan.js");
     let samples_json = manifest_dir.join("dist/samples.json");
+    // カスタム層の説明の一覧・名前の一覧（0016 の追記・0212。list_custom_texts が返す。アプリ本体が埋め込む物と同じ中身）
+    let texts_catalog = manifest_dir.join("dist/texts-catalog.json");
+    let terms_catalog = manifest_dir.join("dist/terms-catalog.json");
     let coverage = repo.join("engine/dist/coverage.json");
-    if !explain_js.exists() || !plan_js.exists() || !samples_json.exists() {
+    if !explain_js.exists()
+        || !plan_js.exists()
+        || !samples_json.exists()
+        || !texts_catalog.exists()
+        || !terms_catalog.exists()
+    {
         panic!(
-            "AI接続口の「数字の根拠」の読み方・プランの動かす項目・見本の世帯の名前と目印（crates/lifeplan/dist/explain.js・plan.js・samples.json）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
+            "AI接続口の「数字の根拠」の読み方・プランの動かす項目・見本の世帯の名前と目印・説明の一覧（crates/lifeplan/dist/explain.js・plan.js・samples.json・texts-catalog.json・terms-catalog.json）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
         );
     }
     if !coverage.exists() {
@@ -55,6 +63,8 @@ fn main() {
     println!("cargo:rerun-if-changed={}", explain_js.display());
     println!("cargo:rerun-if-changed={}", plan_js.display());
     println!("cargo:rerun-if-changed={}", samples_json.display());
+    println!("cargo:rerun-if-changed={}", texts_catalog.display());
+    println!("cargo:rerun-if-changed={}", terms_catalog.display());
     println!("cargo:rerun-if-changed={}", coverage.display());
     println!("cargo:rerun-if-changed={}", engine_js.display());
     println!("cargo:rerun-if-changed={}", regulation.display());
@@ -87,6 +97,13 @@ fn main() {
         out,
         "/// アプリの見本の棚と同じ見本の名前と目印（app/src/connector/samples.ts を JSON にした物。0199）\npub const SAMPLES_JSON: &str = include_str!({:?});",
         samples_json.display().to_string()
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "/// カスタム層の説明の一覧（app/scripts/textsCatalog.ts。texts-reference@1.0。0016 の追記・0212）\npub const TEXTS_CATALOG_JSON: &str = include_str!({:?});\n/// カスタム層の名前の一覧（terms-reference@1.0）\npub const TERMS_CATALOG_JSON: &str = include_str!({:?});",
+        texts_catalog.display().to_string(),
+        terms_catalog.display().to_string()
     )
     .unwrap();
     out.push_str("/// 制度データ・マスタのパック（engine/dist/regulation/*.json。名前の順）\npub const PACKS: &[&str] = &[\n");
