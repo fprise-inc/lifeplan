@@ -489,7 +489,11 @@ export function toPresentation(input: PresentInput): PresentationModel {
     events: evs,
     table,
     // 子が返す貸与の奨学金（世帯の収支に入れていない返済の額を書き添える。0104）
-    childRepaid: childScholarshipNotes(proposed.summary, (id) => roles(proposal).find((r) => r.member.id === id)?.label ?? "子"),
+    childRepaid: childScholarshipNotes(
+      proposed.summary,
+      (id) => roles(proposal).find((r) => r.member.id === id)?.label ?? "子",
+      (v) => (input.wording ?? OFFICIAL_WORDING).text("result:bigMoney/childRepaid", { ...v }),
+    ),
     fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC, ...(custom ? { baseLabel: `${names.base}（基準）` } : {}) }),
     provisional: input.provisional,
   };

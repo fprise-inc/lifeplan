@@ -2236,8 +2236,8 @@ export function App() {
   }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames, wording]);
   /** 区画「これからの大きなお金」（見方を当てる前の選んでいるプランから並べ、今の見方の答えで一行の結論を出す） */
   const bigMoney = useMemo(
-    () => (opened === null || selReq === null || selRes === null ? null : bigMoneyOf(selReq, selRes.table, { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), current: opened.wh.request, view: rowsView }, failed)),
-    [opened, work, rawReqOf, selReq, selRes, rowsView, failed],
+    () => (opened === null || selReq === null || selRes === null ? null : bigMoneyOf(selReq, selRes.table, { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), current: opened.wh.request, view: rowsView }, failed, wording)),
+    [opened, work, rawReqOf, selReq, selRes, rowsView, failed, wording],
   );
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),

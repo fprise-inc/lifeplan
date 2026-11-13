@@ -6,16 +6,20 @@
 // - 1つのまとまりが多い: 2つ以上のまとまりを並べるときは、まとまりごとに最初の8件だけを出し、残りは「ほか○件を見る」で開く
 // - 区画の幅が狭いとき（区画の幅で切り替える。app.css）は、3列 → 2列 → 1列
 import type { ComponentChildren } from "preact";
-import { useState } from "preact/hooks";
+import { useContext, useMemo, useState } from "preact/hooks";
 import { Help } from "../presentation/Help.tsx";
 import type { BigMoneyGroup, BigMoneyModel, BigMoneyPick, BigMoneyRow } from "./bigMoney.ts";
+import { OfficeTextsContext } from "./office/customTextsContext.ts";
+import { OFFICIAL_WORDING, wordingOf, type Wording } from "./resultTexts.ts";
 
-/** 区画「これからの大きなお金」の「?」の説明（0044・0103 の追記 2026-11-12） */
-export const BIG_MONEY_HELP = [
-  "行の左のチェックで、計算に入れる物を1件ずつ入れたり外したりできます（チェックの入っている物を計算に入れます）。グラフと上の1文、並べた全部のプランを計算し直します。",
-  "最初は、確実な物と「最初から計算に入れる」の夢にチェックが入っています。見込みが「不確実」の物と「最初から計算に入れない」の夢は、計算に入れていません。チェックを入れると、入れた場合と比較できます。家の購入の頭金は外せません。",
-  "どれも見方の切り替えで、保存はしません。プランに残すときは、入力の画面で見込みや夢の「最初から計算に入れる」を直してください。",
-];
+/** 区画「これからの大きなお金」の「?」の説明の段落の id（結果の画面の文の表の result:bigMoney/help…。0044・0103 の追記 2026-11-12・0212 の追記） */
+const HELP_IDS = ["result:bigMoney/helpPick", "result:bigMoney/helpDefault", "result:bigMoney/helpNotSaved"] as const;
+
+/** 「?」の説明の段落（事務所の文を承認していればその文） */
+export const bigMoneyHelp = (w: Wording): string[] => HELP_IDS.map((id) => w.text(id));
+
+/** 区画「これからの大きなお金」の「?」の説明（公式の文） */
+export const BIG_MONEY_HELP = bigMoneyHelp(OFFICIAL_WORDING);
 
 /** 2つ以上のまとまりを並べるとき、まとまりごとに最初に出す件数（残りが2件以上なら「ほか○件を見る」で開く） */
 export const BIG_MONEY_FOLD = 8;
@@ -95,6 +99,8 @@ function Column({ g, rows, onPick, cont, more }: { g: BigMoneyGroup; rows: reado
  */
 export function BigMoneyCard({ model, notes: noteTexts, onPick }: BigMoneyCardProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const office = useContext(OfficeTextsContext);
+  const help = useMemo(() => bigMoneyHelp(wordingOf(office)), [office]);
   const notes = noteTexts.map((t, i) => (
     <p class="bm-note" key={`c${i}`} data-child-repaid>
       {t}
@@ -127,7 +133,7 @@ export function BigMoneyCard({ model, notes: noteTexts, onPick }: BigMoneyCardPr
       <div class="card-h">
         <h2>これからの大きなお金</h2>
         <Help label="これからの大きなお金" id="big-money">
-          {BIG_MONEY_HELP.map((t, i) => (
+          {help.map((t, i) => (
             <p key={i}>{t}</p>
           ))}
         </Help>

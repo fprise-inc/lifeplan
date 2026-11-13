@@ -1,5 +1,5 @@
 // 結果の画面の文（説明の一覧の `result:<タブ>/<名前>`。0212・0016 の 2026-11-13 の追記）: 結論の1文・その2行目・取り崩しの条件・
-// グラフの注・結果のタブのポイント・万一のときのタブの結論の1文を、ここに1か所で書く。
+// グラフの注・結果のタブのポイント・「これからの大きなお金」の区画の文・万一のときのタブの結論の1文を、ここに1か所で書く。
 // - 公式の文は差し込みの印（`{age}` など）つきの型で書き、数字・名前はいつも印に入れる（事務所の文にも、計算した値が入る）
 // - 差し込む値は単位まで入れた文字（年齢「84歳」・年「2045年」・額「17万円」・率「4.0%」）。印を読み直さない（値は字のまま入る）
 // - 太字は公式の文の段（`{ b: … }`）で決める。事務所の文では、公式の文で太字の段に入っていた印の値だけを太字にする
@@ -31,6 +31,10 @@ export interface ResultTextDef {
 const PLAN = "選んだプランの名前（例: プランC）";
 const BASE_PLAN = "基準のプランの名前（例: プランA）";
 const YEAR = "年（例: 2045年。「年」まで入る）";
+const UNTIL = "表の最後の年のご本人の年齢と「まで」（例: 102歳まで。年齢が分からないときは「最後まで」）";
+const SHORT_AGE = "資産が尽きる年のご本人の年齢（例: 82歳。年齢が分からないときは年〔例: 2050年〕）";
+const COUNT = "チェックした件数（例: 8件。「件」まで入る）";
+const TOTAL = "チェックのある物の件数（例: 15件。「件」まで入る）";
 
 const DEFS = [
   // ---- 結果のタブの結論の1文（グラフが資産の推移でないとき。present.ts の resultVerdict）----
@@ -322,6 +326,78 @@ const DEFS = [
     official: ["いま亡くなったときの相続税の目安は{amount}です（相続・贈与の項目）"],
     vars: { amount: "相続税の目安（例: 320万円。「万円」まで入る）" },
     numberVars: ["amount"],
+  },
+
+  // ---- 結果のタブの区画「これからの大きなお金」（bigMoney.ts の bigMoneySummary・BigMoneyCard.tsx・子が返す奨学金の書き添え。0044・0103 の追記 2026-11-12）----
+  {
+    id: "result:bigMoney/lineNoneLasts",
+    where: "結果のタブの「これからの大きなお金」の一行の結論（どれもチェックしていず、資産が尽きないとき）",
+    official: ["どれも入れずに{until}足ります"],
+    vars: { until: UNTIL },
+    numberVars: ["until"],
+  },
+  {
+    id: "result:bigMoney/lineNoneShort",
+    where: "結果のタブの「これからの大きなお金」の一行の結論（どれもチェックしていず、資産が尽きるとき）",
+    official: ["どれも入れずに{age}で不足します"],
+    vars: { age: SHORT_AGE },
+    numberVars: ["age"],
+  },
+  {
+    id: "result:bigMoney/lineAllLasts",
+    where: "結果のタブの「これからの大きなお金」の一行の結論（すべてにチェックがあり、資産が尽きないとき）",
+    official: ["すべて（{total}）を入れても{until}足ります"],
+    vars: { total: TOTAL, until: UNTIL },
+    numberVars: ["total", "until"],
+  },
+  {
+    id: "result:bigMoney/lineAllShort",
+    where: "結果のタブの「これからの大きなお金」の一行の結論（すべてにチェックがあり、資産が尽きるとき）",
+    official: ["すべて（{total}）を入れると{age}で不足します"],
+    vars: { total: TOTAL, age: SHORT_AGE },
+    numberVars: ["total", "age"],
+  },
+  {
+    id: "result:bigMoney/lineSomeLasts",
+    where: "結果のタブの「これからの大きなお金」の一行の結論（一部にチェックがあり、資産が尽きないとき）",
+    official: ["チェックした{count}（{total}中）を入れても{until}足ります"],
+    vars: { count: COUNT, total: TOTAL, until: UNTIL },
+    numberVars: ["count", "total", "until"],
+  },
+  {
+    id: "result:bigMoney/lineSomeShort",
+    where: "結果のタブの「これからの大きなお金」の一行の結論（一部にチェックがあり、資産が尽きるとき）",
+    official: ["チェックした{count}（{total}中）を入れると{age}で不足します"],
+    vars: { count: COUNT, total: TOTAL, age: SHORT_AGE },
+    numberVars: ["count", "total", "age"],
+  },
+  {
+    id: "result:bigMoney/helpPick",
+    where: "結果のタブの「これからの大きなお金」の「?」の説明の1段落目（チェックの使い方）",
+    official: ["行の左のチェックで、計算に入れる物を1件ずつ入れたり外したりできます（チェックの入っている物を計算に入れます）。グラフと上の1文、並べた全部のプランを計算し直します。"],
+    vars: {},
+    numberVars: [],
+  },
+  {
+    id: "result:bigMoney/helpDefault",
+    where: "結果のタブの「これからの大きなお金」の「?」の説明の2段落目（最初のチェックと、不確実な物は計算に入れていないこと）",
+    official: ["最初は、確実な物と「最初から計算に入れる」の夢にチェックが入っています。見込みが「不確実」の物と「最初から計算に入れない」の夢は、計算に入れていません。チェックを入れると、入れた場合と比較できます。家の購入の頭金は外せません。"],
+    vars: {},
+    numberVars: [],
+  },
+  {
+    id: "result:bigMoney/helpNotSaved",
+    where: "結果のタブの「これからの大きなお金」の「?」の説明の3段落目（見方の切り替えで保存しないこと）",
+    official: ["どれも見方の切り替えで、保存はしません。プランに残すときは、入力の画面で見込みや夢の「最初から計算に入れる」を直してください。"],
+    vars: {},
+    numberVars: [],
+  },
+  {
+    id: "result:bigMoney/childRepaid",
+    where: "結果のタブの「これからの大きなお金」の下の、子が返す貸与の奨学金の書き添え（子ごとに1文。提案書の前提の注は公式の文のまま）",
+    official: ["{child}の奨学金の返済（{from}〜{to}・月々{monthly}・合計{total}）は、{child}が返すので世帯の収支に入れていません"],
+    vars: { child: "子の呼び方（例: 第2子）", from: "返し始める年月（例: 2038年10月）", to: "返し終わる年月（例: 2053年9月）", monthly: "最初の月の返済額（例: 約1.4万円。「約」と単位まで入る）", total: "表の期間の中の返済の合計（例: 約257万円。「約」と単位まで入る）" },
+    numberVars: ["from", "to", "monthly", "total"],
   },
 
   // ---- 万一のときのタブの結論の1文（contingency/present.ts の scenarioModel・protectionChart）----

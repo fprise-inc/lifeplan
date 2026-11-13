@@ -4,10 +4,14 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import type { PreviewResult, TableCell } from "../src/engine/types.ts";
+import { childScholarshipNotes } from "../../report/src/childScholarships.ts";
 import { ContingencyVerdict } from "../src/presentation/ContingencyView.tsx";
 import { ResultVerdictView } from "../src/presentation/MainView.tsx";
 import type { ContingencyModel, ProtectionChartModel } from "../src/presentation/model.ts";
+import { bigMoneySummary } from "../src/workspace/bigMoney.ts";
+import { BIG_MONEY_HELP, BigMoneyCard, bigMoneyHelp } from "../src/workspace/BigMoneyCard.tsx";
 import { DonutCard, InvestBar } from "../src/workspace/invest/InvestBar.tsx";
+import { OfficeTextsContext } from "../src/workspace/office/customTextsContext.ts";
 import { bandOf, drawdownText, investVerdict, stressLines } from "../src/workspace/invest/present.ts";
 import { officeTextsFrom, type OfficeTextEntry } from "../src/workspace/office/customTexts.ts";
 import { displayYears, resultVerdict } from "../src/workspace/present.ts";
@@ -40,7 +44,7 @@ describe("結果の画面の文の一覧（result:…）", () => {
     expect(cat.summary.results).toBe(RESULT_TEXTS.length);
     expect(RESULT_TEXTS.length).toBeGreaterThanOrEqual(25);
     for (const e of results) {
-      expect(e.id).toMatch(/^result:(main|invest|contingency)\/[a-zA-Z]+$/);
+      expect(e.id).toMatch(/^result:(main|invest|contingency|bigMoney)\/[a-zA-Z]+$/);
       expect(e.audience).toBe("customer");
       expect(e.ops.includes("append")).toBe(false);
       expect(e.ops[0]).toBe("replace");
@@ -271,5 +275,61 @@ describe("見直したポイントの文（0074 の追記 2026-11-12）", () => 
     const mine = insights(req, r, { months: 6, wording: w }).find((x) => x.key === "deposit")!;
     expect(mine.text).toBe(`${years[3]}年は預金が100万円まで減ります（目安は6か月分の180万円）`);
     expect(insights(req, r, { months: 6 }).find((x) => x.key === "deposit")!.text).toBe(`${years[3]}年に、預金が100万円になり、生活費の6か月分（180万円）を下回ります`);
+  });
+});
+
+describe("これからの大きなお金の区画の文（0212 の追記）", () => {
+  it("公式の文は今までと同じ（「?」の説明の3段落）", () => {
+    expect(BIG_MONEY_HELP).toEqual([
+      "行の左のチェックで、計算に入れる物を1件ずつ入れたり外したりできます（チェックの入っている物を計算に入れます）。グラフと上の1文、並べた全部のプランを計算し直します。",
+      "最初は、確実な物と「最初から計算に入れる」の夢にチェックが入っています。見込みが「不確実」の物と「最初から計算に入れない」の夢は、計算に入れていません。チェックを入れると、入れた場合と比較できます。家の購入の頭金は外せません。",
+      "どれも見方の切り替えで、保存はしません。プランに残すときは、入力の画面で見込みや夢の「最初から計算に入れる」を直してください。",
+    ]);
+    const base = { ageText: (y: number) => `${y - 1980}歳`, until: "102歳まで" };
+    expect(bigMoneySummary({ ...base, total: 15, included: 8, withYear: null })).toBe("チェックした8件（15件中）を入れても102歳まで足ります");
+    expect(bigMoneySummary({ ...base, total: 7, included: 7, withYear: null })).toBe("すべて（7件）を入れても102歳まで足ります");
+    expect(bigMoneySummary({ ...base, total: 15, included: 8, withYear: 2062 })).toBe("チェックした8件（15件中）を入れると82歳で不足します");
+    expect(bigMoneySummary({ ...base, total: 3, included: 0, withYear: 2062 })).toBe("どれも入れずに82歳で不足します");
+    expect(bigMoneySummary({ ...base, total: 0, included: 0, withYear: null })).toBeNull();
+  });
+
+  it("一行の結論・「?」の説明・子が返す奨学金の書き添えに、事務所の文と同じ値を入れる", () => {
+    const w = wordingOf(
+      officeTextsFrom([
+        office("result:bigMoney/lineSomeShort", "replace", "{total}のうち{count}を入れると、{age}で資金が足りなくなります"),
+        office("result:bigMoney/helpPick", "replace", "チェックで入れ外しできます"),
+        office("result:bigMoney/childRepaid", "replace", "{child}が自分で返す奨学金（合計{total}）は、家計に入れていません"),
+      ]),
+    );
+    expect(bigMoneySummary({ ageText: () => "82歳", until: "102歳まで", total: 15, included: 8, withYear: 2062, wording: w })).toBe("15件のうち8件を入れると、82歳で資金が足りなくなります");
+    expect(bigMoneyHelp(w)[0]).toBe("チェックで入れ外しできます");
+    expect(bigMoneyHelp(w)[1]).toBe(BIG_MONEY_HELP[1]);
+    const html = renderToString(
+      h(
+        OfficeTextsContext.Provider,
+        { value: officeTextsFrom([office("result:bigMoney/helpNotSaved", "replace", "<i>保存しません</i>")]) },
+        h(BigMoneyCard, {
+          model: { line: null, groups: [{ key: "pay", title: "支払いの予定", included: 0, rows: [{ key: "out:x", name: "車", when: "2030年", amount: "200万円", tag: "不確実", included: false, pick: { key: "out:x" } }] }] },
+          notes: [],
+        }),
+      ),
+    );
+    expect(html).toContain("&lt;i>保存しません&lt;/i>");
+    const summary = { childScholarships: [{ object: "s", member: "c2", principal: 2400000, monthly: 14000, from: "2038-10", to: "2053-09", total: 2570000 }] };
+    expect(childScholarshipNotes(summary, () => "第2子")).toEqual(["第2子の奨学金の返済（2038年10月〜2053年9月・月々約1.4万円・合計約257万円）は、第2子が返すので世帯の収支に入れていません"]);
+    expect(
+      childScholarshipNotes(
+        summary,
+        () => "第2子",
+        (v) => OFFICIAL_WORDING.text("result:bigMoney/childRepaid", { ...v }),
+      ),
+    ).toEqual(childScholarshipNotes(summary, () => "第2子"));
+    expect(
+      childScholarshipNotes(
+        summary,
+        () => "第2子",
+        (v) => w.text("result:bigMoney/childRepaid", { ...v }),
+      ),
+    ).toEqual(["第2子が自分で返す奨学金（合計約257万円）は、家計に入れていません"]);
   });
 });

@@ -2199,6 +2199,24 @@ async fn custom_texts_list_the_replaceable_texts() {
         ids.len() >= 5 && ids.iter().all(|i| i.starts_with("result:main/point")),
         "{ids:?}"
     );
+    // これからの大きなお金の区画の文（0212 の追記）
+    let bm = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "prefix": "result:bigMoney/" }),
+    )
+    .await;
+    let bm_ids: Vec<&str> = bm["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap())
+        .collect();
+    assert!(
+        bm_ids.contains(&"result:bigMoney/lineSomeLasts")
+            && bm_ids.contains(&"result:bigMoney/childRepaid"),
+        "{bm_ids:?}"
+    );
     let q = call_ok(
         &c,
         "list_custom_texts",
