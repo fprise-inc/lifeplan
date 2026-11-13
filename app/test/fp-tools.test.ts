@@ -93,13 +93,13 @@ describe("ポイント（0074 の追記 2026-11-12 の見直し）", () => {
   const res = (table: TableCell[]) => ({ header: {} as never, table, summary: null });
   const [a, b, c, d, e, f, g] = years as [number, number, number, number, number, number, number];
 
-  it("預金が少なくなる年: 下回る年と、その年の預金の額（「下回り、○万円になります」。0円以下は「なくなります」）", () => {
+  it("預金が少なくなる年: 下回る年と、その年の預金の額（「○万円になり、…を下回ります」。0円以下は「なくなります（…目安…）」）", () => {
     const table: TableCell[] = [...years.map((y) => cell("cf.expense.living.base", y, 3600000)), ...years.map((y, i) => cell("cf.balance.account.deposit", y, i < 3 ? 5000000 : 1000000))];
     const dep = insights(req, res(table), { months: 6 }).find((x) => x.key === "deposit")!;
     expect(dep.year).toBe(d);
-    expect(dep.text).toBe(`${d}年に、預金が生活費の6か月分（180万円）を下回り、100万円になります`);
+    expect(dep.text).toBe(`${d}年に、預金が100万円になり、生活費の6か月分（180万円）を下回ります`);
     const none = insights(req, res([...years.map((y) => cell("cf.expense.living.base", y, 3600000)), ...years.map((y) => cell("cf.balance.account.deposit", y, 0))]), { months: 6 });
-    expect(none.find((x) => x.key === "deposit")!.text).toBe(`${a}年に、預金が生活費の6か月分（180万円）を下回り、なくなります`);
+    expect(none.find((x) => x.key === "deposit")!.text).toBe(`${a}年に、預金がなくなります（手元に置く目安の生活費6か月分は180万円です）`);
   });
 
   it("赤字が続く: 働いている間（いまの主な働き手が働く最後の年まで）だけで見る。退職した後の赤字（取り崩し）は出さない", () => {

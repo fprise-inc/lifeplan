@@ -620,7 +620,9 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
     const y = years.find((yy) => (living.get(yy) ?? 0) > 0 && (deposit.get(yy) ?? 0) < ((living.get(yy) ?? 0) / 12) * months);
     if (y !== undefined) {
       const left = deposit.get(y) ?? 0;
-      out.push({ key: "deposit", title: "預金が少なくなる年", text: `${y}年に、預金が生活費の${months}か月分（${man(((living.get(y) ?? 0) / 12) * months)}万円）を下回り、${toMan(left) <= 0 ? "なくなります" : `${man(left)}万円になります`}`, year: y });
+      const reserve = man(((living.get(y) ?? 0) / 12) * months);
+      const text = toMan(left) <= 0 ? `${y}年に、預金がなくなります（手元に置く目安の生活費${months}か月分は${reserve}万円です）` : `${y}年に、預金が${man(left)}万円になり、生活費の${months}か月分（${reserve}万円）を下回ります`;
+      out.push({ key: "deposit", title: "預金が少なくなる年", text, year: y });
     }
   }
   // 赤字が続く: 働いている間（いまの主な働き手が働く最後の年まで）だけで見る。退職した後の赤字は貯めたお金の取り崩しで、出るのが当たり前なので出さない
