@@ -316,7 +316,7 @@ describe("相続・贈与", () => {
     wh = fieldOf("inheritance", wh, `in/${id}/likelihood`)!.set(wh, "uncertain");
     expect(actionsOf("inheritance", wh).map((a) => a.key).filter((k) => k.includes(id) && /includeInBase|excludeFromBase/u.test(k))).toEqual([]);
     const g = groupsOf("inheritance", wh).find((x) => x.key === `in/${id}`)!;
-    expect(g.note ?? "").toContain("ふだんの計算に入れていません");
+    expect(g.note ?? "").toContain("計算に入れていません");
     expect(g.note ?? "").not.toContain("基本の計算に入れる");
     expect(row().includeInBase).toBeUndefined();
   });

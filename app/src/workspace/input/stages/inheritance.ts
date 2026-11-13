@@ -520,7 +520,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "受け取れるかどうかの見込み（確実・不確実）を行ごとに選びます。「確実」の行は計算に入れ、「不確実」にした行はふだんの計算に入れません（結果の画面の「これからの大きなお金」でチェックを入れると比較できます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ、区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」で足してから相手に選びます",
+      note: "受け取れるかどうかの見込み（確実・不確実）を行ごとに選びます。「確実」の行は計算に入れ、「不確実」にした行は計算に入れません（結果の画面の「これからの大きなお金」でチェックを入れると比較できます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ、区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」で足してから相手に選びます",
       level: "simple",
       groups: [...(moneyIn?.groups ?? []).map((g) => withCounterpartyFollow(g)), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [

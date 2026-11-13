@@ -376,10 +376,10 @@ const LIKELIHOOD_WHAT: Record<LikelihoodOf, { sure: string; what: string }> = {
 };
 export function likelihoodHelp(of: LikelihoodOf): string {
   const w = LIKELIHOOD_WHAT[of];
-  return `${w.sure}「確実」にしてください。「不確実」にした${w.what}は、ふだんの計算には入りません。結果の画面の「これからの大きなお金」でチェックを入れると、計算に入れて比較できます`;
+  return `${w.sure}「確実」にしてください。「不確実」にした${w.what}は、計算には入りません。結果の画面の「これからの大きなお金」でチェックを入れると、計算に入れて比較できます`;
 }
 /** 見込みが「不確実」の行の注記（ふだんの計算に入れていない） */
-export const UNCERTAIN_NOTE = "見込みが「不確実」なので、ふだんの計算に入れていません（結果の画面の「これからの大きなお金」でチェックを入れると比較できます）";
+export const UNCERTAIN_NOTE = "見込みが「不確実」なので、計算に入れていません（結果の画面の「これからの大きなお金」でチェックを入れると比較できます）";
 
 /**
  * 見込みの欄（入るお金・相続で受け継ぐ借金）の、前の版の「この行を計算に入れる」（includeInBase が true）の読み方: ふだんの計算に入るので「確実」で見せる

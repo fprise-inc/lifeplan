@@ -107,7 +107,7 @@ describe("相続・贈与のカード: 受け取る予定（区画A）", () => {
     expect(wh.request.input.household.incomeFlows![0]!.counterparty).toBe(parent.id);
     expect(forEngine(wh.request).input.household.incomeFlows ?? []).toEqual([]);
     const g = stage(wh).sections.find((s) => s.key === "inherit/receive")!.groups.find((x) => x.key === `in/${id}`)!;
-    expect(g.note).toContain("ふだんの計算に入れていません");
+    expect(g.note).toContain("計算に入れていません");
     expect(g.actions.some((x) => x.key === `in/${id}/includeInBase`)).toBe(false);
     const sure = fieldOf(wh, `in/${id}/likelihood`).set(wh, "certain");
     expect(forEngine(sure.request).input.household.incomeFlows).toHaveLength(1);
