@@ -92,7 +92,9 @@ describe("前提条件の標準の値は推定の数とまとめての操作か�
     expect(sum.total).toBe(rows.filter((r) => r.kind !== "premise" && r.kind !== "certainty").length);
     expect(estimatedFields(wh).some((f) => f.key.startsWith("assume/"))).toBe(false);
     const after = confirmAllEstimates(wh).wh;
-    expect(fieldStatus(fieldOf(after, "assumptions", "assume/inflation"), after).status).toBe("estimated");
+    // 前提条件は推定でなく事務所の既定値（0213）。まとめての操作でも変わらない
+    expect(fieldStatus(fieldOf(after, "assumptions", "assume/inflation"), after)).toMatchObject({ status: "confirmed", premise: { state: "office" } });
+    expect(premise.every((r) => r.actions.length === 0 || !r.fieldKey?.startsWith("assume/inflation"))).toBe(true);
   });
 
   it("世帯の建物の構造: 持ち家（マンションは鉄筋コンクリート造・ほかは木造）と物件", () => {
@@ -100,16 +102,19 @@ describe("前提条件の標準の値は推定の数とまとめての操作か�
     expect(structuresInUse(blankHousehold("2026-11", seq()).request.input.household).size).toBe(0);
   });
 
-  it("前提条件の札: 既定の値のままなら「既定の値で計算中」、打つか「この値にする」で「入力済み」。要約は物価と運用利回り", () => {
+  it("前提条件の札: 事務所の既定値どおりなら「事務所の既定値どおり」、この世帯だけの値を入れると「入力済み」、戻すとまた既定値どおり。要約は物価と運用利回り", () => {
     const wh = blankHousehold("2026-11", seq());
     const a = itemOf(wh, "assumptions");
     expect(a?.status).toBe("std");
-    expect(statusText(a ?? { status: "std", estimated: 0 })).toBe("既定の値で計算中");
+    expect(statusText(a ?? { status: "std", estimated: 0 })).toBe("事務所の既定値どおり");
     expect(a?.summary).toEqual({ pre: "物価 ", main: "1.0", unit: "%・運用 1.0%" });
     expect(progressOf(inputItems(wh)).std).toBe(1);
     const inf = fieldOf(wh, "assumptions", "assume/inflation");
-    expect(itemOf(inf.set(wh, "0.02"), "assumptions")?.status).toBe("done");
-    expect(itemOf(applyStateOp(wh, inf, "confirm"), "assumptions")?.status).toBe("done");
+    const own = inf.set(wh, "0.02");
+    expect(itemOf(own, "assumptions")?.status).toBe("done");
+    expect(itemOf(inf.get(own).premise!.reset(own), "assumptions")?.status).toBe("std");
+    // 「この値にする」は無い（押しても変わらない）
+    expect(applyStateOp(wh, inf, "confirm")).toBe(wh);
   });
 
   it("FP顧問料の契約があれば、前提条件の要約の下に1行（提案の側）", () => {

@@ -11,7 +11,8 @@ import { blankHousehold, type WorkingHousehold } from "../src/workspace/input/ho
 import { switchMethod } from "../src/workspace/input/savings/model.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
-import { officeAssumptionOfKey, setOfficeNow, STANDARD_OFFICE_NOW } from "../src/workspace/office/current.ts";
+import { setOfficeNow, STANDARD_OFFICE_NOW } from "../src/workspace/office/current.ts";
+import { premiseOfKey } from "../src/workspace/input/premiseDefaults.ts";
 import { OfficeSettingsPanel } from "../src/workspace/office/OfficeSettingsPanel.tsx";
 import { applyOfficeDefaults, ASSUMPTION_STANDARDS, DEFAULT_OFFICE_SETTINGS, OFFICE_ASSUMPTIONS, publishOfficeSettings, readOfficeSettings, type OfficeSettings } from "../src/workspace/office/settings.ts";
 import { preview } from "./helpers.ts";
@@ -49,7 +50,8 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     expect(wh0.request.input.assumptions?.assetReturns?.realEstate).toBeUndefined();
   });
 
-  it("新しい世帯に推定の印（根拠「事務所の既定値（年月）」）で写す。預金は前提条件の預金の利回り、不動産は資産の種類ごとの利回りの不動産", () => {
+  it("新しい世帯に「事務所の既定値（年月）」の印で写す（決まった値の「事務所の既定値」。0213）。預金は前提条件の預金の利回り、不動産は資産の種類ごとの利回りの不動産", () => {
+    publishOfficeSettings(SETTINGS);
     const wh = applyOfficeDefaults(blankHousehold("2026-11", ids()), SETTINGS);
     const a = wh.request.input.assumptions!;
     expect(a.depositReturn?.default).toBe("0.002");
@@ -59,7 +61,8 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     for (const key of ["assume/depositReturn", ESTATE_KEY]) {
       const f = fieldIn(wh, "assumptions", key)!;
       expect(f, key).toBeDefined();
-      expect(fieldStatus(f, wh), key).toMatchObject({ status: "estimated", basis: "事務所の既定値（2026-11）" });
+      expect(wh.assumed[key], key).toBe("事務所の既定値（2026-11）");
+      expect(fieldStatus(f, wh), key).toMatchObject({ status: "confirmed", premise: { state: "office", decided: true } });
     }
   });
 
@@ -75,19 +78,20 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     expect(estateAt(own, office.a.id, 2028)).toBe(estateAt(own, office.a.id, 2027));
   });
 
-  it("後で事務所の値を変えたら、推定のままの世帯の確かめの一覧に「事務所の新しい値があります」（不動産の値動きも）。押すと事務所の値になる", () => {
+  it("後で事務所の値を変えたら、事務所の既定値を写した世帯の確かめの一覧に「事務所の既定値が変わりました」（不動産の値動きも）。押すと事務所の値になる", () => {
     const wh = applyOfficeDefaults(blankHousehold("2026-11", ids()), SETTINGS);
-    expect(officeAssumptionOfKey(ESTATE_KEY)).toBe("heldEstateGrowth");
-    expect(officeAssumptionOfKey("assume/depositReturn")).toBe("depositReturn");
-    expect(officeAssumptionOfKey("assume/assetReturns/equity.global/default")).toBeNull();
+    expect(premiseOfKey(ESTATE_KEY)?.id).toBe("assetReturns.realEstate");
+    expect(premiseOfKey("assume/depositReturn")?.id).toBe("depositReturn");
+    expect(premiseOfKey("assume/assetReturns/equity.global/default")?.id).toBe("assetReturns.equity.global");
     publishOfficeSettings({ ...SETTINGS, assumptions: { depositReturn: "0.003", heldEstateGrowth: "0.005" }, changedOn: "2026-12-01" });
     const rows = checkList(wh);
     const estate = rows.find((r) => r.fieldKey === ESTATE_KEY && r.kind === "notice")!;
-    expect(estate.detail).toContain("事務所の新しい値があります（0.5%）");
-    expect(rows.find((r) => r.fieldKey === "assume/depositReturn" && r.kind === "notice")!.detail).toContain("事務所の新しい値があります（0.3%）");
+    expect(estate.detail).toContain("事務所の既定値が変わりました（1%→0.5%）");
+    expect(rows.find((r) => r.fieldKey === "assume/depositReturn" && r.kind === "notice")!.detail).toContain("事務所の既定値が変わりました（0.2%→0.3%）");
     const next = estate.actions.find((x) => x.key === "office")!.run(wh);
     expect(next.request.input.assumptions?.assetReturns?.realEstate?.default).toBe("0.005");
-    expect(fieldStatus(fieldIn(next, "assumptions", ESTATE_KEY)!, next)).toMatchObject({ status: "estimated", basis: "事務所の既定値（2026-12）" });
+    expect(fieldStatus(fieldIn(next, "assumptions", ESTATE_KEY)!, next)).toMatchObject({ status: "confirmed", premise: { state: "office" } });
+    expect(next.assumed[ESTATE_KEY]).toBe("事務所の既定値（2026-12）");
   });
 
   it("資産配分に切り替えて戻しても、事務所の既定値で写した不動産の値動きは外さない（資産配分の目安の期待リターンだけ外す）", () => {
@@ -99,12 +103,12 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     expect(back.assumed[ESTATE_KEY]).toBe("事務所の既定値（2026-11）");
   });
 
-  it("「＋ 不動産」で資産の種類ごとの利回りに不動産を足すと、今の計算と同じ0%から始める（足しただけで値動きを変えない）", () => {
+  it("資産の種類ごとの利回りの不動産は、値が無ければ今の計算と同じ0%を見せる（12種類を全部並べる。0213 の4）", () => {
     const wh = blankHousehold("2026-11", ids());
-    const sec = buildStage("assumptions", wh).sections.find((s) => s.key === "assume/assetReturns")!;
-    const next = sec.actions.find((a) => a.key === "assume/addReturn/realEstate")!.run(wh);
-    expect(next.request.input.assumptions?.assetReturns?.realEstate?.default).toBe("0");
-    expect(fieldIn(next, "assumptions", ESTATE_KEY)!.help).toContain("貸していない不動産");
+    const f = fieldIn(wh, "assumptions", ESTATE_KEY)!;
+    expect(f.get(wh)).toMatchObject({ value: "0", premise: { state: "office" } });
+    expect(wh.request.input.assumptions?.assetReturns?.realEstate).toBeUndefined();
+    expect(f.help).toContain("貸していない不動産");
   });
 
   it("事務所データを読むときは系列ごとの欄の範囲で確かめる（-10%〜は読み、範囲の外は読まない）", () => {
@@ -116,9 +120,10 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
   it("事務所の既定値の画面の「前提条件の既定値」に2つの欄が出る（入れなければ既定の値）", () => {
     const html = renderToString(h(OfficeSettingsPanel, { value: SETTINGS, onSave: async () => undefined, shared: false, onClose: () => undefined }));
     expect(html).toContain("預金の利回り（年）");
-    expect(html).toContain("貸していない不動産（空き家・土地・別荘）の値動き（年）");
+    expect(html).toContain("不動産（貸していない不動産の値動き）");
     expect(html).toContain('data-office-setting="depositReturn"');
-    expect(html).toContain('data-office-setting="heldEstateGrowth"');
-    expect(html).toContain("入れなければ0%（評価額のまま）");
+    // 置き場所は版 1 からの assumptions.heldEstateGrowth（id は assetReturns.realEstate。0213 の2）
+    expect(html).toContain('data-office-setting="assetReturns.realEstate"');
+    expect(html).toContain('data-office-premises="assetReturns"');
   });
 });

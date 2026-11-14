@@ -2,17 +2,15 @@
 // 並び（上から）: ① 未入力（0円で計算中）② まだ入れていない項目（入れ始める前の項目。警告にせず、見落としに気づける所として1か所にまとめる。0045 の追記）
 // ③ 書類待ち（「書類で確かめる」にした欄。確かめる書類を添える）④ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）
 // ⑤ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑥ 推定（結果に効く順）⑦ 確かさが申告・概算の確定の値（絞り込みで出す）
-// ⑧ 前提条件の標準の値（前提条件の入力項目の、既定の値のままの前提。推定の数と「この値にする」のまとめての操作に入れず、一覧のいちばん下の折りたたみ。0041 の追記 2026-11-06）
+// ⑧ 前提条件（事務所の既定値どおり）（前提条件の入力項目の、事務所の既定値のままの前提。決まった値なので推定の数と操作に入れず、一覧のいちばん下の
+//   折りたたみに並べるだけ。0041 の追記 2026-11-06・0213 の7）。事務所の既定値が変わった前提は ④ 確かめの注意に「事務所の既定値が変わりました」
 // - 仮の値（生年月など、推定が成り立たない欄に置いた値）は推定と分け、①未入力の側に出す（「この値にする」を出さない）
 // - 過去に終わった物（ずっと前に終わった働き方の期間・終わった住まいなど）の推定と、値を出さない推定（決まりで決まる推定）は出さない
 // - 1行は「カード › まとまり: 欄」・今の値・状態の印・根拠・出どころ（手で・ヒアリング・取り込み・AI）・確かさ（書類・申告・概算）と操作
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
-import { officeAssumptionOfKey, officeNow } from "../office/current.ts";
 import { estimateEntry } from "../office/estimateCatalog.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
-import { pctText } from "../plans/decimal.ts";
-import { sameRate } from "./units.ts";
 import { allFields, type FieldDef, type Level } from "./form.ts";
 import { fillAll, gapsOf, retirementNotices, type Gap } from "./fill.ts";
 import type { NoticeRow } from "../engineNotices.ts";
@@ -44,7 +42,7 @@ export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   calc: "計算のお知らせ（入力で直せる所）",
   estimated: "推定",
   certainty: "確かさが申告・概算の値",
-  premise: "前提条件の標準の値",
+  premise: "前提条件（事務所の既定値どおり）",
 };
 
 export const KIND_ORDER: readonly CheckKind[] = ["missing", "notStarted", "unknown", "notice", "calc", "estimated", "certainty", "premise"];
@@ -356,17 +354,25 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
       if (s.status === "missing") rows.push({ ...base, id: `field:${f.key}`, kind: "missing", detail: s.basis ?? "空欄（0円で計算しています）", impact: 0, actions: [] });
       else if (s.status === "unknown")
         rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: unknownDetail(f, s), impact: impactOf(f, wh), actions: [], ...(f.docCheck !== undefined ? { doc: { name: f.docCheck, holder: f.docFor ?? holder, field: f.label } } : {}) });
-      else if (s.status === "estimated" && officeNewer(f, wh) !== null) {
-        // 事務所の既定値が、この世帯の推定の値と違う（作った後に事務所の値を変えた・事務所の値を決める前の世帯。0073）。値は変えない
-        const v = officeNewer(f, wh) as string;
-        rows.push({
-          ...base,
-          id: `field:${f.key}`,
-          kind: "notice",
-          detail: `事務所の新しい値があります（${pctText(v)}）。この世帯は今の推定の値（${s.basis ?? "推定"}）で計算しています`,
-          impact: 0,
-          actions: [{ key: "office", label: "事務所の値にする", title: "推定の印のまま、事務所の今の値にします", run: (w) => withOfficeValue(w, f, v) }],
-        });
+      else if (s.premise !== undefined) {
+        // 前提条件の事務所の既定値（0213）: 事務所の既定値を使っていて、その後に事務所の既定値が変わった前提は確かめの注意（値は変えない。1押しで当てる）。
+        // 事務所の既定値どおりの前提は、いちばん下の折りたたみに操作なしで並べる（耐用年数は、その構造の建物がある世帯だけ）。この世帯だけの値は出さない
+        const p = s.premise;
+        // 範囲の外の値・高すぎる値の注意が先（直すボタンつき）
+        if (st.warn != null) rows.push({ ...base, id: `field:${f.key}`, kind: "notice", detail: st.warn, impact: 0, actions: st.warnFix != null ? [{ key: "fix", label: st.warnFix.label, run: st.warnFix.run }] : [] });
+        else if (p.state === "officeChanged")
+          rows.push({
+            ...base,
+            id: `field:${f.key}`,
+            kind: "notice",
+            detail: `事務所の既定値が変わりました（${p.wasText ?? "—"}→${p.officeText}）。この世帯は前の値で計算しています`,
+            impact: 0,
+            actions: [{ key: "office", label: "この世帯に当てる", title: `この世帯の値を、事務所の今の既定値（${p.officeText}）にします`, run: (w) => p.reset(w) }],
+          });
+        else if (p.state === "office" && item.id === "assumptions") {
+          const life = lifeStructure(f);
+          if (life === null || structures().has(life)) rows.push({ ...base, id: `field:${f.key}`, kind: "premise", detail: p.decided ? "事務所の既定値" : "事務所の既定値（提供元の既定の値のまま）", impact: 0, actions: [] });
+        }
       } else if (s.status === "estimated" && s.office !== undefined && s.office.changed.length > 0) {
         // 事務所の推定の値から作った推定で、作った後にその値を変えた・公式に戻した（値の箱の印。0111 の追記 2026-11-03）。値は変えない
         const names = s.office.changed.map((id) => estimateEntry(id)?.name ?? id);
@@ -387,7 +393,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
         // 値を出さない推定（決まりで決まる推定で、「この値にする」もできない欄）は出さない
         if (value === null && !confirm) continue;
         const actions: CheckAction[] = confirm ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [];
-        // 前提条件の標準の値: 推定の数・まとめての操作に入れず、いちばん下の折りたたみに（耐用年数は、その構造の建物がある世帯だけ）
+        // 前提条件の推定のまま（表の最後の年・資産配分の期待リターンの目安など）: 推定の数・まとめての操作に入れず、いちばん下の折りたたみに（耐用年数は、その構造の建物がある世帯だけ）
         if (item.id === "assumptions" && isPremiseField(f)) {
           const life = lifeStructure(f);
           if (life === null || structures().has(life)) rows.push({ ...base, id: `field:${f.key}`, kind: "premise", detail: s.basis, impact: 0, actions });
@@ -477,22 +483,6 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
     });
   }
   return out;
-}
-
-/** 前提条件の欄で、事務所の既定値がこの世帯の値と違うときの事務所の値（同じ・事務所の値が無い・前提条件の欄でないときは null） */
-function officeNewer(f: FieldDef, wh: WorkingHousehold): string | null {
-  const name = officeAssumptionOfKey(f.key);
-  const v = name === null ? undefined : officeNow().assumptions[name];
-  if (v === undefined) return null;
-  const cur = f.get(wh).value;
-  return typeof cur === "string" && sameRate(cur, v) ? null : v;
-}
-
-/** 事務所の値を推定の印で入れる（根拠「事務所の標準（年月）」） */
-function withOfficeValue(wh: WorkingHousehold, f: FieldDef, v: string): WorkingHousehold {
-  const next = f.set(wh, v);
-  if (next === wh) return wh;
-  return { ...next, assumed: { ...next.assumed, [f.key]: officeNow().basis } };
 }
 
 /** 目安のボタンと同じ値を、確かめた値として確定にする（根拠に「確かめた」を残し、記録の無い確定と見分ける） */

@@ -8,9 +8,9 @@ import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, firstTableYear, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { assumptionRows, setAgreed } from "../src/workspace/input/assumptionList.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { endYearNotice, rateWarning, STANDARD_BASIS, yearRanges } from "../src/workspace/input/stages/assumptions.ts";
+import { endYearNotice, rateWarning, yearRanges } from "../src/workspace/input/stages/assumptions.ts";
 import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
-import { applyStateOp, fieldStatus } from "../src/workspace/input/valueState.ts";
+import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
@@ -34,39 +34,40 @@ const action = (wh: WorkingHousehold, key: string) => {
 };
 const total = (req: WorkingHousehold["request"], row: string) => preview(req).table.filter((c) => c.row === row).reduce((s, c) => s + c.amount, 0);
 
-describe("経済の前提: 既定の値（仮の値）の推定", () => {
-  it("標準と同じ値で行が無ければ推定。確定は「この値にする」だけで、値は変えない", () => {
+describe("経済の前提: 事務所の既定値（0213。推定にしない）", () => {
+  it("既定の値と同じ値は決まった値で「事務所の既定値」。違う値を打つと「この世帯だけ」、空欄で事務所の既定値に戻る", () => {
     const wh = open();
     const f = fieldOf(wh, "assume/inflation");
-    expect(fieldStatus(f, wh)).toMatchObject({ status: "estimated", basis: STANDARD_BASIS });
-    // 同じ値を書き戻しても確定にしない（0041）
+    expect(fieldStatus(f, wh)).toMatchObject({ status: "confirmed", premise: { state: "office", officeText: "1%" } });
+    expect(availableOps(f, wh)).toEqual([]);
+    // 同じ値を書き戻しても何も変えない（0041）
     expect(f.set(wh, "0.01")).toBe(wh);
-    const c = applyStateOp(wh, f, "confirm");
-    expect(fieldStatus(f, c).status).toBe("confirmed");
-    expect(c.request.input.assumptions?.inflation?.default).toBe("0.01");
-    // 違う値を打つと確定。空欄にすると標準（推定）に戻る
     const w2 = f.set(wh, "0.02");
-    expect(fieldStatus(f, w2).status).toBe("confirmed");
+    expect(fieldStatus(f, w2)).toMatchObject({ status: "confirmed", premise: { state: "household", wasText: "2%" } });
     const w3 = f.set(w2, null);
     expect(w3.request.input.assumptions?.inflation?.default).toBe("0.01");
-    expect(fieldStatus(f, w3).status).toBe("estimated");
+    expect(fieldStatus(f, w3).premise?.state).toBe("office");
+    // 「事務所の既定値に戻す」も同じ
+    expect(f.get(w2).premise!.reset(w2).request).toEqual(w3.request);
   });
 
-  it("教育費の上昇率・厚生年金の調整率は、空欄なら物価・基礎年金の調整率と同じ（推定）。確定すると値を書く。結果は変わらない", () => {
+  it("教育費の上昇率・厚生年金の調整率は、空欄なら物価・基礎年金の調整率と同じ（事務所の既定値）。値を入れると「この世帯だけ」", () => {
     const wh = open();
     const edu = fieldOf(wh, "assume/educationInflation");
     expect(wh.request.input.assumptions?.educationInflation).toBeUndefined();
-    expect(edu.get(wh)).toMatchObject({ value: "0.01", estimated: "物価上昇率と同じ" });
-    const c = applyStateOp(wh, edu, "confirm");
+    expect(edu.get(wh)).toMatchObject({ value: null, hint: "物価上昇率と同じ（1%）", premise: { state: "office", officeText: "物価上昇率と同じ" } });
+    const c = edu.set(wh, "0.01");
     expect(c.request.input.assumptions?.educationInflation).toEqual({ default: "0.01" });
-    expect(fieldStatus(edu, c).status).toBe("confirmed");
+    expect(fieldStatus(edu, c).premise?.state).toBe("household");
     expect(preview(c.request).table).toEqual(preview(wh.request).table);
     const emp = fieldOf(wh, "assume/pensionMacroSlideEmployee");
-    expect(emp.get(wh)).toMatchObject({ value: "0.004", estimated: "基礎年金の調整率と同じ" });
+    expect(emp.get(wh)).toMatchObject({ value: null, hint: "基礎年金の調整率と同じ（0.4%）" });
     // 厚生年金だけ調整率を変えると、年金の額が変わる
     const w2 = emp.set(wh, "0.01");
     expect(w2.request.input.assumptions?.pensionMacroSlideEmployee).toEqual({ default: "0.01" });
     expect(total(w2.request, "cf.income.pension")).toBeLessThan(total(wh.request, "cf.income.pension"));
+    // 空欄にすると物価と同じに戻る
+    expect(emp.set(w2, null).request.input.assumptions?.pensionMacroSlideEmployee).toBeUndefined();
   });
 
   it("高すぎる値の注意の線: 欄の知らせと確かめの一覧の注意（値は変えない）", () => {
@@ -119,7 +120,7 @@ describe("例外の年（範囲で入れる）", () => {
 
   it("資産の種類ごとの利回り・土地の上昇率にも例外の年", () => {
     let wh = open("investmentCouple");
-    if (wh.request.input.assumptions?.assetReturns?.["equity.global"] === undefined) wh = action(wh, "assume/addReturn/equity.global").run(wh);
+    if (wh.request.input.assumptions?.assetReturns?.["equity.global"] === undefined) wh = fieldOf(wh, "assume/assetReturns/equity.global/default").set(wh, "0.05");
     wh = action(wh, "assume/assetReturns/equity.global/ex/add").run(wh);
     expect(Object.keys(wh.request.input.assumptions?.assetReturns?.["equity.global"]?.byYear ?? {}).length).toBeGreaterThan(0);
     wh = action(wh, "assume/realEstate/landGrowth/ex/add").run(wh);
@@ -233,7 +234,11 @@ describe("前提と推定の一覧", () => {
   it("経済の前提・計算の範囲・推定の目安（各カード）・万一の前提を並べる。確かめた記録はプランごと", () => {
     const wh = open();
     const rows = assumptionRows(wh);
-    expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "推定", value: "1%" });
+    // 前提条件の既定の値は「事務所の既定値」（推定と言わない）。お客さまと確かめる値ではないので確かめた印を出さない（0213 の7）
+    expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "事務所の既定値", value: "1%", source: "提供元の既定の値（事務所の既定値の画面で変えられます）", agreeable: false });
+    const own = fieldOf(wh, "assume/inflation").set(wh, "0.02");
+    expect(assumptionRows(own).find((r) => r.id === "field:assume/inflation")).toMatchObject({ state: "この世帯だけ", value: "2%", agreeable: true });
+    expect(assumptionRows(wh).filter((r) => r.group === "assetReturns")).toHaveLength(12);
     expect(rows.find((r) => r.id === "field:assume/endYear")).toMatchObject({ group: "range" });
     expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "基本生活費")).toBe(true);
     // 仮の値（新しい顧客の生年月）は推定の根拠に並べない（推定と分けて未入力の側。0041 の追記 2026-11-06）

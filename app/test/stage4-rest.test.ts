@@ -74,7 +74,8 @@ describe("推定と同じ値を打っても確定にする（0150。打つのは
         expect(f.get(w).value, f.key).toEqual(v);
         count++;
       }
-    expect(count).toBeGreaterThan(0);
+    // 前提条件は推定でなく事務所の既定値（0213）なので、前提条件のほかに推定の無い見本では0か所
+    expect(count).toBeGreaterThanOrEqual(id === "selfEmployed" ? 1 : 0);
   });
 
   it("時点の欄（働く最後の年齢など）も、同じ時点の文字を打って離れると確定になる。推定でない欄・値の無い推定は変えない", () => {

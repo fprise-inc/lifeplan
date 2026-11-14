@@ -390,25 +390,30 @@ describe("既定の値の推定の印は、明示の操作をした欄では確�
     for (const k of ["structure", "builtYear", "landShare", "vacancy"]) expect(st(all, `sav/${ID}/property/${k}`), k).toBe("confirmed");
   });
 
-  it("前提条件: 不動産の評価の目安・土地の上昇率・経済の前提も、打った値は標準と同じでも確定（空欄にすると推定に戻る）", () => {
+  it("前提条件: 不動産の評価・土地の上昇率・経済の前提は推定でなく事務所の既定値（0213）。違う値は「この世帯だけ」、既定の値に戻すと「事務所の既定値」", () => {
     let wh = open("salariedCoupleTwoKids");
-    const a = (k: string) => st(wh, k, "assumptions");
-    expect(a("assume/realEstate/landShare")).toBe("estimated");
+    const p = (k: string) => fieldStatus(fieldOf(wh, k, "assumptions"), wh).premise?.state;
+    expect(p("assume/realEstate/landShare")).toBe("office");
     wh = fieldOf(wh, "assume/realEstate/landShare", "assumptions").set(wh, "0.35");
+    expect(p("assume/realEstate/landShare")).toBe("household");
     wh = fieldOf(wh, "assume/realEstate/landShare", "assumptions").set(wh, "0.3");
-    expect(a("assume/realEstate/landShare")).toBe("confirmed");
+    expect(p("assume/realEstate/landShare")).toBe("office");
+    // 既定の値と同じ値は世帯に持たない（事務所の推定の値でその場の値になる）
+    expect(wh.request.input.assumptions?.realEstateValuation?.landShare).toBeUndefined();
     const inf = wh.request.input.assumptions!.inflation!.default;
     wh = fieldOf(wh, "assume/realEstate/landGrowth", "assumptions").set(wh, "0.02");
+    expect(p("assume/realEstate/landGrowth")).toBe("household");
+    // 物価上昇率と同じ値を入れると、その値に決めた「この世帯だけ」（物価を変えても付いていかない）
     wh = fieldOf(wh, "assume/realEstate/landGrowth", "assumptions").set(wh, inf);
-    expect(a("assume/realEstate/landGrowth")).toBe("confirmed");
+    expect(p("assume/realEstate/landGrowth")).toBe("household");
     wh = fieldOf(wh, "assume/realEstate/landGrowth", "assumptions").set(wh, null);
-    expect(a("assume/realEstate/landGrowth")).toBe("estimated");
-    expect(a("assume/inflation")).toBe("estimated");
+    expect(p("assume/realEstate/landGrowth")).toBe("office");
+    expect(p("assume/inflation")).toBe("office");
     wh = fieldOf(wh, "assume/inflation", "assumptions").set(wh, "0.02");
+    expect(p("assume/inflation")).toBe("household");
     wh = fieldOf(wh, "assume/inflation", "assumptions").set(wh, "0.01");
-    expect(a("assume/inflation")).toBe("confirmed");
-    wh = fieldOf(wh, "assume/inflation", "assumptions").set(wh, null);
-    expect(a("assume/inflation")).toBe("estimated");
+    expect(p("assume/inflation")).toBe("office");
+    expect(st(wh, "assume/inflation", "assumptions")).toBe("confirmed");
   });
 
   it("プランで既定の値の欄を直して既定の値に戻すと、確定の印の違いだけでは差分を残さない", () => {

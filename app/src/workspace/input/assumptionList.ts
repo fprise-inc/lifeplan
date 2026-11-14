@@ -1,7 +1,9 @@
 // 前提と推定の一覧（0070）: 前提条件のカードの道具。計算の前提（経済の前提・計算の範囲・持ち家の評価）と、ほかのカードの推定（確かめの一覧と
 // 同じ行を前提の側から見る）、万一の前提を、区分・値・状態・値段の基準・出典・確かめた記録で並べる。行から欄へ移れる（前提条件の欄だけ）。
 // 「お客さまと確かめた」はプランごと（現状は "current"）に、確かめた日とメモを画面の側の値 agreed に持つ（計算には使わない）。
-// 一覧は世帯の欄の定義から毎回作る（保存しない）
+// 一覧は世帯の欄の定義から毎回作る（保存しない）。
+// 前提条件の事務所の既定値の欄（0213）は、状態を「事務所の既定値」「この世帯だけ」「事務所の既定値が変わりました」、出典を事務所の既定値の年月か
+// 提供元の既定の値で見せる（推定と言わない）。事務所の既定値どおりの行は世帯ごとに確かめる値でないので「お客さまと確かめた」を出さない（agreeable）
 import { ILLNESS_DEFAULT, marketDropDefault } from "../contingency/requests.ts";
 import { checkList } from "./checkRows.ts";
 import { allFields, type FieldDef, type Level } from "./form.ts";
@@ -9,14 +11,16 @@ import type { WorkingHousehold } from "./household.ts";
 import { assumptionsStage } from "./stages/assumptions.ts";
 import { fieldStatus, STATUS_LABELS } from "./valueState.ts";
 import { pctText } from "../plans/decimal.ts";
+import { officeNow } from "../office/current.ts";
 import { presetValue } from "../../../../hearing/src/presets.ts";
 
-export type ListGroup = "economy" | "range" | "realEstate" | "estimate" | "contingency";
+export type ListGroup = "economy" | "range" | "realEstate" | "assetReturns" | "estimate" | "contingency";
 
 export const LIST_GROUP_LABELS: Readonly<Record<ListGroup, string>> = {
   economy: "経済の前提",
   range: "計算の範囲・決まり",
   realEstate: "不動産の評価（持ち家・収益不動産など）",
+  assetReturns: "資産の種類ごとの利回り",
   estimate: "推定の根拠（各入力項目）",
   contingency: "万一の前提",
 };
@@ -38,7 +42,12 @@ export interface AssumptionRow {
   card: string | null;
   /** 高すぎる値の注意など */
   warn: string | null;
+  /** 「お客さまと確かめた」の印を出すか（事務所の既定値どおりの前提条件は出さない。0213 の7） */
+  agreeable: boolean;
 }
+
+/** 前提条件の事務所の既定値の状態の言葉（0213） */
+export const PREMISE_STATE_LABELS = { office: "事務所の既定値", household: "この世帯だけ", officeChanged: "事務所の既定値が変わりました" } as const;
 
 const ECONOMY = new Set(["assume/inflation", "assume/wageGrowth", "assume/investmentReturn", "assume/depositReturn", "assume/educationInflation", "assume/pensionMacroSlide", "assume/pensionMacroSlideEmployee"]);
 
@@ -59,12 +68,29 @@ export function assumptionRows(wh: WorkingHousehold): AssumptionRow[] {
     if (sec.key.startsWith("ev/")) continue;
     for (const g of sec.groups)
       for (const f of g.fields) {
-        const group: ListGroup | null = ECONOMY.has(f.key) ? "economy" : sec.key === "assume/main" ? "range" : sec.key === "assume/realEstate" && g.key === "assume/realEstate/fields" ? "realEstate" : null;
+        const group: ListGroup | null = ECONOMY.has(f.key) ? "economy" : sec.key === "assume/main" ? "range" : sec.key === "assume/realEstate" && g.key === "assume/realEstate/fields" ? "realEstate" : sec.key === "assume/assetReturns" && g.key === "assume/assetReturns/grid" ? "assetReturns" : null;
         // 表の最後の年は年の欄の行1つ（年齢で入れる欄・何歳まで見るかの選び方は同じ値の別の入れ方）
         if (group === null || f.key.startsWith("assume/endYear/age/") || f.key === "assume/endYear/choice") continue;
         const st = f.get(wh);
         const s = fieldStatus(f, wh);
         const ex = st.derived ?? null;
+        const p = s.premise;
+        if (p !== undefined) {
+          rows.push({
+            id: `field:${f.key}`,
+            group,
+            label: f.label,
+            value: `${valueText(f, wh)}${ex !== null ? `（${ex.replace(/（.*$/, "")}）` : ""}`,
+            state: PREMISE_STATE_LABELS[p.state],
+            source: p.state === "office" ? (p.decided ? officeNow().basis : "提供元の既定の値（事務所の既定値の画面で変えられます）") : p.state === "household" ? `この世帯で入れた値（事務所の既定値は ${p.officeText}）` : `前の事務所の既定値（今は ${p.officeText}）`,
+            fieldKey: f.key,
+            level: sec.level === "detail" || g.level === "detail" || f.level === "detail" ? "detail" : "simple",
+            card: null,
+            warn: st.warn ?? null,
+            agreeable: p.state !== "office",
+          });
+          continue;
+        }
         rows.push({
           id: `field:${f.key}`,
           group,
@@ -76,19 +102,20 @@ export function assumptionRows(wh: WorkingHousehold): AssumptionRow[] {
           level: sec.level === "detail" || g.level === "detail" || f.level === "detail" ? "detail" : "simple",
           card: null,
           warn: st.warn ?? null,
+          agreeable: true,
         });
       }
   }
   // ほかのカードの推定（確かめの一覧の推定の行と同じ）
   for (const r of checkList(wh)) {
     if (r.card === "assumptions" || r.kind !== "estimated") continue;
-    rows.push({ id: r.id, group: "estimate", label: r.label, value: "—", state: "推定", source: r.detail, fieldKey: null, level: r.level, card: r.cardLabel, warn: null });
+    rows.push({ id: r.id, group: "estimate", label: r.label, value: "—", state: "推定", source: r.detail, fieldKey: null, level: r.level, card: r.cardLabel, warn: null, agreeable: true });
   }
   // 万一の前提（全プラン共通の値。万一のタブで直す）
   const c = wh.contingency;
   const lr = c.survivor.livingRatio ?? {};
   const cg = (id: string, label: string, v: string, given: boolean, source: string) =>
-    rows.push({ id: `cg:${id}`, group: "contingency", label, value: v, state: given ? "確定" : "推定", source: given ? "入れた値（万一のタブ）" : source, fieldKey: null, level: "simple", card: "万一のタブ", warn: null });
+    rows.push({ id: `cg:${id}`, group: "contingency", label, value: v, state: given ? "確定" : "推定", source: given ? "入れた値（万一のタブ）" : source, fieldKey: null, level: "simple", card: "万一のタブ", warn: null, agreeable: true });
   cg("living/before", "遺族の生活費（子がいる間）", pctText(lr.beforeIndependence ?? String(presetValue("preset.survivor.livingRatio.beforeIndependence"))), lr.beforeIndependence !== undefined, "既定の値（出典は確かめ前）");
   cg("living/after", "遺族の生活費（末子の独立の後）", pctText(lr.afterIndependence ?? String(presetValue("preset.survivor.livingRatio.afterIndependence"))), lr.afterIndependence !== undefined, "既定の値（出典は確かめ前）");
   cg("living/noKids", "遺族の生活費（子がいない世帯）", pctText(lr.noChildren ?? String(presetValue("preset.survivor.livingRatio.noChildren"))), lr.noChildren !== undefined, "既定の値（出典は確かめ前）");

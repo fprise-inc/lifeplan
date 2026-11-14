@@ -499,6 +499,14 @@ html.big .lever input[type="range"] { height: 36px; }
 .badge.unk { color: var(--est-ink); }
 .badge.na { color: var(--ink-2); }
 .badge.missing { color: var(--short-ink); }
+/* 前提条件の事務所の既定値の印（0213）: 推定の印と違う、決まった値の小さな札。事務所の既定値は控えめ、この世帯だけは基調の色、変わった物は注意の色 */
+.fld-premise { font-size: 0.7rem; font-weight: 700; border-radius: 3px; padding: 0 5px; white-space: nowrap; color: var(--ink-2); background: var(--line-2); }
+.fld-premise.household { color: var(--prop-ink); background: var(--prop-bg); }
+.fld-premise.officeChanged { color: var(--est-ink); background: var(--est-bg); }
+.ip-premise-fold { margin: 4px 0 12px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 6px; background: var(--card); }
+.ip-premise-fold > .link-btn { font-weight: 700; color: var(--ink); text-align: left; }
+.ip-premise-fold-act { font-weight: 400; color: var(--ink-2); margin-left: 4px; }
+.fld-premise-act { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
 .fld.is-missing .fld-c input[type="text"] { border-color: var(--short); }
 .fld.is-na .fld-c input[type="text"] { background: var(--base-bg); }
 .fld.jumped { outline: 2px solid var(--prop); outline-offset: 4px; border-radius: 6px; }
@@ -1636,6 +1644,11 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .os-radio { display: flex; gap: 6px; align-items: baseline; font-size: 0.88rem; margin: 3px 0; }
 .os-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 16px; }
 .os-pct { display: grid; gap: 2px; font-size: 0.88rem; }
+/* 前提条件の既定値の不動産の評価・資産の種類ごとの利回り: 世帯の前提条件と同じ3列の小さな欄の並び（0213 の4） */
+.os-premise + .os-premise { margin-top: 12px; }
+.os-premise h4 { font-size: 0.9rem; margin: 8px 0 2px; }
+.os-grid.os-compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 14px; }
+.os-grid.os-compact .os-in input { width: 5em; }
 .os-in input { width: 6em; margin-right: 4px; }
 .os-pct small { color: var(--ink-2); font-size: 0.76rem; }
 /* 万一のときのタブの既定（0085）: 長い選択肢は欄の幅で切る */

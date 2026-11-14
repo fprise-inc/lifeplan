@@ -79,7 +79,7 @@
       "description": "AIが組み立てた計算の入力（calculate の input と同じ形）"
     },
     "kinds": {
-      "description": "出す種類（既定は missing・notStarted・unknown・notice・calc・estimated。画面の確かめの一覧の既定と同じ）。missing＝未入力（0円で計算中）・\nnotStarted＝まだ入れていない項目・unknown＝書類待ち・notice＝確かめの注意（範囲の外の値・ほかの入力と合わない値・購入の払い方が無いなど）・\ncalc＝計算のお知らせのうち入力で直せる所・estimated＝推定（結果に効く順）・certainty＝確かさが本人の申告・概算の値・premise＝前提条件の標準の値",
+      "description": "出す種類（既定は missing・notStarted・unknown・notice・calc・estimated。画面の確かめの一覧の既定と同じ）。missing＝未入力（0円で計算中）・\nnotStarted＝まだ入れていない項目・unknown＝書類待ち・notice＝確かめの注意（範囲の外の値・ほかの入力と合わない値・購入の払い方が無いなど）・\ncalc＝計算のお知らせのうち入力で直せる所・estimated＝推定（結果に効く順）・certainty＝確かさが本人の申告・概算の値・premise＝前提条件（事務所の既定値どおり）",
       "items": {
         "enum": [
           "missing",

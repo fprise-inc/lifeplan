@@ -1,8 +1,8 @@
 // 10. 前提条件（0070）: 物価上昇率・賃金上昇率・運用利回り・教育費の上昇率・年金のマクロ経済スライド（基礎・厚生）の年ごとの列の既定の値と
 // 例外の年（0008 の8・0040）、資産の種類ごとの利回り（と例外の年）、持ち家の評価の前提（土地の上昇率の例外の年を含む）、表の最後の年
 // （年か人の年齢で）・計算の基準の月と計算の決まり（読むだけ）、FP顧問料（単発・継続・料金の段階。stages/fees.ts）。
-// - 経済の前提の値は「既定の値（仮の値）」の推定として見せる（標準と同じ値で、値の状態の行が無いとき。古い世帯も書き換えずに読む）。
-//   空欄にすると標準（教育費・厚生年金の調整率は、物価・基礎年金の調整率と同じ）に戻る。確定は「この値にする」だけ（0041）
+// - 前提条件の既定の値のある欄（経済の前提・不動産の評価・資産の種類ごとの利回り）は、事務所の既定値と比較して「事務所の既定値」
+//   「この世帯だけ」と見せる（推定にしない。0213。input/premiseDefaults.ts）。空欄にすると事務所の既定値に戻る
 // - 高すぎる値の注意の線（運用利回りが年5%を超える・物価が0%未満か4%を超える・賃金が物価を2ポイント超えて上回る・資産の種類ごとの
 //   利回りが年8%を超える）は、欄の知らせと確かめの一覧の注意に出す（値は変えない）
 // - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳〔事務所の既定値で選んだ年齢〕になる年）と同じなら推定。確定にしたら家族の生年月を直しても追いかけない。
@@ -13,14 +13,13 @@
 import type { Household, ReturnShift, YearSeries } from "../../../engine/types.ts";
 import { ageInYear } from "../../roles.ts";
 import type { Address } from "../../store/readings.ts";
-import { field, getPath, plain, type ActionDef, type FieldDef, type FieldState, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { field, getPath, plain, sameVal, type ActionDef, type FieldDef, type FieldState, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { DEFAULT_ASSUMPTIONS, defaultEndAge, END_AGES, endAgeOf, endYearForAge, firstTableYear, MIN_TABLE_YEARS, mutate, STANDARD_END_AGE, standardEndYear, type WorkingHousehold } from "../household.ts";
 import { ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import { sameRate, ymWithEra } from "../units.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
-import { markDefault } from "../defaultMark.ts";
-import { putRow, rowAt } from "../rows.ts";
+import { followsHint, ownsRealEstate, PREMISE_DEFS, premiseAddress, premiseMark, premiseOfKey, premiseShown, premiseValue, resetPremise, typePremise, type PremiseDef } from "../premiseDefaults.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../rateRanges.ts";
 import { presetNum } from "../../../../../hearing/src/presets.ts";
 
@@ -30,8 +29,6 @@ type Assumptions = NonNullable<WorkingHousehold["request"]["input"]["assumptions
 /** 不動産の評価の区画の名前（持ち家だけでなく、収益不動産・貸していない不動産の計算にも使う） */
 export const REAL_ESTATE_SECTION = "不動産の評価（持ち家・収益不動産など）";
 
-/** 既定の値（仮の値）の根拠の文（事務所の標準値ができるまで。0070） */
-export const STANDARD_BASIS = "既定の値（仮の値。事務所で根拠を確かめて直してください）";
 
 /** 経済の前提の標準の値（新しい世帯に入れる値と同じ。household.ts の DEFAULT_ASSUMPTIONS） */
 const STANDARD: Readonly<Record<string, string>> = {
@@ -114,49 +111,32 @@ function writeSeries(wh: WorkingHousehold, sp: SeriesPlace, next: YearSeries | u
   return { ...wh, request };
 }
 
-/** 年ごとの列の既定の値（default）の欄（経済の前提） */
+/**
+ * 年ごとの列の既定の値（default）の欄（経済の前提）。値は事務所の既定値（0213）と比較して「事務所の既定値」「この世帯だけ」と見せ、推定にしない。
+ * 空欄にすると事務所の既定値に戻る（教育費・厚生年金の調整率は、事務所で決めていなければ物価・基礎年金の調整率と同じ）
+ */
 function seriesField(name: string, label: string, help: string, level: "simple" | "detail"): FieldDef {
   const sp: SeriesPlace = { path: [name], item: `assumptions.${name}` };
+  const def = premiseOfKey(`assume/${name}`) as PremiseDef;
   const follows = FOLLOWS[name];
-  const standard = STANDARD[name];
-  const address = (): Address => ({
-    target: { plan: "assumptions" },
-    item: sp.item,
-    at: ["default"],
-  });
-  const blankSeries = (wh: WorkingHousehold, cur: YearSeries | undefined): WorkingHousehold => {
-    if (follows !== undefined) {
-      if (cur?.byYear === undefined) return writeSeries(wh, sp, undefined);
-      const f = (getPath(assumptionsOf(wh), [follows.name, "default"]) as string | undefined) ?? "0";
-      return writeSeries(wh, sp, { ...cur, default: f });
-    }
-    if (standard === undefined) return writeSeries(wh, sp, undefined);
-    return writeSeries(wh, sp, { ...cur, default: standard });
-  };
+  const address = (): Address => premiseAddress(def);
   const seriesState = (wh: WorkingHousehold): FieldState => {
     const s = seriesAt(wh, sp);
     const a = assumptionsOf(wh);
     const ex = s?.byYear !== undefined ? Object.keys(s.byYear).length : 0;
     const derived = ex > 0 ? `例外の年 ${ex}年（「詳細」の「例外の年」で直します）` : null;
     const warn = rateWarning(name, a);
-    if (follows !== undefined && s === undefined) {
-      const v = (getPath(a, [follows.name, "default"]) as string | undefined) ?? null;
-      return { value: v, estimated: follows.basis, derived, warn };
-    }
+    const mark = premiseMark(def, wh);
+    const premise = mark !== null ? { premise: mark } : {};
+    // ほかの前提と同じ値になる前提（教育費・厚生年金の調整率）で値が無い: 空欄で、横に「物価上昇率と同じ（1.0%）」
+    if (follows !== undefined && s === undefined) return { value: null, hint: followsHint(def, wh), derived, warn, ...premise };
     // 預金の利回りの無い前の要求（変換の段を通らない計算の要求の写しなど）は空欄で、計算は運用利回りと同じと添える（入れるとその率。0137）
     if (s === undefined && name === "depositReturn") {
       const inv = (getPath(a, ["investmentReturn", "default"]) as string | undefined) ?? null;
-      return { value: null, hint: `空欄（運用利回りと同じ${inv !== null ? ` ${pctText(inv)}` : ""}で計算しています）`, derived, warn };
+      return { value: null, hint: `空欄（運用利回りと同じ${inv !== null ? ` ${pctText(inv)}` : ""}で計算しています）`, derived, warn, ...premise };
     }
-    if (s === undefined) return { value: null, hint: "入れない（0%で計算）", derived, warn };
-    const fv = follows !== undefined ? ((getPath(a, [follows.name, "default"]) as string | undefined) ?? null) : null;
-    const est = standard !== undefined && sameRate(s.default, standard) ? STANDARD_BASIS : follows !== undefined && fv !== null && sameRate(s.default, fv) ? follows.basis : null;
-    return {
-      value: s.default,
-      ...(est !== null ? { estimated: est } : {}),
-      derived,
-      warn,
-    };
+    if (s === undefined) return { value: null, hint: "入れない（0%で計算）", derived, warn, ...premise };
+    return { value: s.default, derived, warn, ...premise };
   };
   return field({
     key: `assume/${name}`,
@@ -166,7 +146,6 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
     kind: "pct",
     ...SERIES_RANGES[name],
     optional: true,
-    blankIsEstimate: true,
     help,
     address,
     get: (wh): FieldState => {
@@ -176,23 +155,26 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
       const own = name === "depositReturn" ? ASSET_CLASSES.filter((o) => o.value.startsWith("cash.") && a?.assetReturns?.[o.value] !== undefined) : [];
       return own.length === 0 ? st : { ...st, hint: `${own.map((o) => `${o.label}は「資産の種類ごとの利回り」の${o.label}（${pctText(a?.assetReturns?.[o.value]?.default ?? "0")}）`).join("、")}で計算しています` };
     },
-    set: (wh, v) => {
-      const cur = seriesAt(wh, sp);
-      if (v === null) {
-        // 空欄: 標準の値に戻す（ほかの前提と同じ値になる前提は、例外の年が無ければ列を外す）。打った値の確定の行も外す（推定に戻す）
-        const w0 = rowAt(wh.request.input as unknown as Record<string, unknown>, address()) === undefined ? wh : mutate(wh, (_h, req) => void putRow(req.input as unknown as Record<string, unknown>, address(), undefined));
-        return blankSeries(w0, cur);
-      }
-      if (cur !== undefined && sameRate(cur.default, String(v))) return wh;
-      const next = writeSeries(wh, sp, { ...cur, default: String(v) });
-      // 打った値が標準（ほかの前提と同じ値になる前提はその値）と同じでも、打ったので確定（標準の値は推定に見せるので、確定の行で記録する。
-      // 値が変わると行は外れる。0145 の追記）
-      const fv = follows !== undefined ? ((getPath(assumptionsOf(wh), [follows.name, "default"]) as string | undefined) ?? null) : null;
-      const same = (standard !== undefined && sameRate(String(v), standard)) || (fv !== null && sameRate(String(v), fv));
-      if (!same) return next;
-      return mutate(next, (_h, req) => void putRow(req.input as unknown as Record<string, unknown>, address(), { state: "confirmed", origin: { kind: "manual" } }));
-    },
+    // 空欄: 事務所の既定値に戻す。打った値: 事務所の既定値と同じなら「事務所の既定値」、違えば「この世帯だけ」（premiseDefaults.ts）
+    set: (wh, v) => (v === null ? resetPremise(def, wh) : typePremise(def, wh, String(v))),
   });
+}
+
+/** 前提条件の事務所の既定値の欄にする（plain の欄の値の読み書きを、事務所の既定値と比較して見せる形に。0213） */
+function premised(f: FieldDef, def: PremiseDef): FieldDef {
+  const put = (w: WorkingHousehold, v: Val) => (v === null || v === "" ? resetPremise(def, w) : typePremise(def, w, String(v)));
+  return {
+    ...f,
+    address: () => premiseAddress(def),
+    get: (w) => {
+      const st = f.get(w);
+      const mark = premiseMark(def, w);
+      // 写したときの仮の印は「事務所の既定値に従う」の印で、推定ではない（印は見せ方の premise で出す）
+      return mark === null ? st : { ...st, assumed: null, premise: mark };
+    },
+    set: (w, v) => (sameVal(f.get(w).value, v, f.kind) ? w : put(w, v)),
+    write: put,
+  };
 }
 
 // ---- 例外の年（0040・0070）: 年ごとの値（byYear）を、続いた年で同じ率のまとまり（範囲）で見せて直す ----
@@ -354,69 +336,60 @@ function shiftFields(wh: WorkingHousehold): FieldDef[] {
   return [...returns, ...loans];
 }
 
-function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
-  const ar = wh.request.input.assumptions?.assetReturns ?? {};
-  return Object.keys(ar).flatMap((cls) => {
-    const label = ASSET_CLASSES.find((o) => o.value === cls)?.label ?? cls;
-    const ex = exceptionGroups(wh, `assume/assetReturns/${cls}`, { path: ["assetReturns", cls], item: "assumptions.assetReturns" }, label, "0.03", RETURN_RANGE);
-    const main: GroupDef = {
-      key: `assume/assetReturns/${cls}`,
-      title: label,
-      level: "detail" as const,
-      fields: [
-        plain({
-          key: `assume/assetReturns/${cls}/default`,
-          item: "assumptions.assetReturns",
-          label: "利回り（年・費用と税を引く前）",
-          level: "detail",
-          kind: "pct",
-          ...RETURN_RANGE,
-          find: (_h, w) => (getPath(w.request.input.assumptions, ["assetReturns", cls]) as Obj | undefined) ?? undefined,
-          path: ["default"],
-          hint: (v) => (v !== null && Number(v) > 0.08 ? "年8%を超えています（事務所の注意の線）" : null),
-          // 不動産は、資産配分の種類でなく、貸していない不動産（空き家・土地・別荘）の値動きに使う（事務所の既定値で写すこともある。0073 の追記 2026-11-07）
-          ...(cls === "realEstate" ? { help: "貯蓄・運用の貸していない不動産（空き家・土地・別荘など）で、評価額の増減率を入れていない物の値動きです。外すと0%（評価額のまま）。持ち家・収益不動産には使いません（土地の上昇率と建物の耐用年数で動きます）" } : {}),
-        }),
-      ],
-      actions: [
-        ex.add,
-        {
-          key: `assume/assetReturns/${cls}/remove`,
-          label: "外す",
-          level: "detail" as const,
-          danger: true,
-          run: (w: WorkingHousehold) => {
-            const request = structuredClone(w.request);
-            const a = request.input.assumptions;
-            if (a?.assetReturns !== undefined) {
-              delete a.assetReturns[cls];
-              if (Object.keys(a.assetReturns).length === 0) delete a.assetReturns;
-            }
-            return { ...w, request };
-          },
-        },
-      ],
-    };
-    return [main, ...ex.groups];
+/**
+ * 資産の種類ごとの利回り（0213 の4）: 12種類を全部、不動産の評価と同じ3列の小さな欄の並びで出す。空欄は計算と同じ値（預金・外貨預金は預金の利回り、
+ * 不動産は0%、ほかは運用利回り）を見せ、空にすると事務所の既定値に戻る。この世帯だけ値を入れた種類には例外の年を足せる
+ */
+function assetReturnSection(wh: WorkingHousehold): { groups: GroupDef[]; actions: ActionDef[] } {
+  const defs = PREMISE_DEFS.filter((d) => d.section === "assetReturns");
+  const fields = defs.map((def) => {
+    const cls = def.path[1] as string;
+    return field({
+      key: def.key,
+      item: "assumptions.assetReturns",
+      label: def.label,
+      level: "detail",
+      kind: "pct",
+      ...RETURN_RANGE,
+      optional: true,
+      address: () => premiseAddress(def),
+      // 不動産は、資産配分の種類でなく、貸していない不動産（空き家・土地・別荘）の値動きに使う（事務所の既定値で写すこともある。0073 の追記 2026-11-07）
+      ...(cls === "realEstate" ? { help: "貯蓄・運用の貸していない不動産（空き家・土地・別荘など）で、評価額の増減率を入れていない物の値動きです。外すと0%（評価額のまま）。持ち家・収益不動産には使いません（土地の上昇率と建物の耐用年数で動きます）" } : {}),
+      get: (w): FieldState => {
+        const shown = premiseShown(def, w);
+        const mark = premiseMark(def, w);
+        const high = shown !== null && Number(shown) > 0.08 ? "年8%を超えています（事務所の注意の線）" : null;
+        return { value: shown, hint: high ?? followsHint(def, w), ...(mark !== null ? { premise: mark } : {}) };
+      },
+      set: (w, v) => (v === null ? resetPremise(def, w) : typePremise(def, w, String(v))),
+    });
   });
+  const groups: GroupDef[] = [{ key: "assume/assetReturns/grid", level: "detail", fields, actions: [] }];
+  const actions: ActionDef[] = [];
+  for (const def of defs) {
+    if (premiseValue(def, wh) === null) continue;
+    const cls = def.path[1] as string;
+    const ex = exceptionGroups(wh, `assume/assetReturns/${cls}`, { path: ["assetReturns", cls], item: "assumptions.assetReturns" }, def.label, premiseShown(def, wh) ?? "0", RETURN_RANGE);
+    groups.push(...ex.groups);
+    actions.push(ex.add);
+  }
+  return { groups, actions };
 }
 
-/** 不動産（持ち家・購入の予定・収益不動産・貸していない不動産）を持つ世帯か。無ければ不動産の評価の区画を出さない */
-export const ownsRealEstate = (w: WorkingHousehold): boolean => (w.request.input.household.residences ?? []).some((r) => r.kind === "own") || (w.request.input.household.accounts ?? []).some((x) => x.kind === "realEstate");
+/** 不動産（持ち家・購入の予定・収益不動産・貸していない不動産）を持つ世帯か。無ければ不動産の評価の区画を出さない（premiseDefaults.ts） */
+export { ownsRealEstate };
 
-/** 不動産の評価の前提（assumptions.realEstateValuation。持ち家・収益不動産・貸していない不動産の計算に使う。空欄は計算エンジンの目安を推定として見せる。0025） */
+/**
+ * 不動産の評価の前提（assumptions.realEstateValuation。持ち家・収益不動産・貸していない不動産の計算に使う。0025）。値は事務所の既定値（0213）と
+ * 比較して見せ、空欄は事務所の既定値に戻る（土地の割合・建物の残りの価値の下限・売却の費用は事務所の推定の値〔0111〕で、空欄ならその場の値）
+ */
 function valuationGroups(wh: WorkingHousehold): GroupDef[] {
   const find = (_h: Household, w: WorkingHousehold) => w.request.input.assumptions as Record<string, unknown> | undefined;
   const item = "assumptions.realEstateValuation";
   const R = "realEstateValuation";
-  /** 空欄は目安（推定。根拠 0025 の目安）。持ち家・不動産が無い世帯では使わないので、推定の数に入れない */
-  const owns = ownsRealEstate;
-  // 推定に見せるのは、値が無く目安で埋まっているときだけ（目安と同じ値でも、入れてあれば確定。0145 の追記。defaultMark.ts）
-  const est = (f: FieldDef, basis: string, path: readonly string[]): FieldDef => {
-    const m = markDefault(f, basis, (_h, w) => w.request.input.assumptions as Record<string, unknown> | undefined, [R, ...path]);
-    return { ...m, get: (w) => (owns(w) ? m.get(w) : f.get(w)) };
-  };
+  const def = (key: string) => premiseOfKey(key) as PremiseDef;
   const ex = exceptionGroups(wh, "assume/realEstate/landGrowth", { path: [R, "landGrowth"], item }, "土地の上昇率", wh.request.input.assumptions?.inflation?.default ?? "0", GROWTH_RANGE);
+  const landGrowth = def("assume/realEstate/landGrowth");
   return [
     {
       key: "assume/realEstate/fields",
@@ -430,25 +403,17 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
           kind: "pct",
           ...GROWTH_RANGE,
           optional: true,
-          blankIsEstimate: true,
           help: "持ち家・収益不動産の土地の値動きです。入れなければ物価上昇率と同じ。貸していない土地・別荘・空き家には使いません（その物の評価額の増減率で動き、入れなければ「資産の種類ごとの利回り」の不動産。それも無ければ0%）",
-          address: () => ({ target: { plan: "assumptions" }, item, at: ["landGrowth", "default"] }),
-          // 空欄は物価上昇率と同じ（推定。見せる値は物価上昇率）
-          // 空欄だけ推定（物価上昇率と同じ）。物価上昇率と同じ値でも、入れてあれば確定（0145 の追記）
+          address: () => premiseAddress(landGrowth),
+          // 値が無ければ物価上昇率と同じ（見せる値は物価上昇率）
           get: (w) => {
             const raw = w.request.input.assumptions?.realEstateValuation?.landGrowth?.default;
-            const inf = w.request.input.assumptions?.inflation?.default ?? null;
-            return raw === undefined ? { value: inf, estimated: "物価上昇率と同じ" } : { value: raw };
+            const mark = premiseMark(landGrowth, w);
+            return { value: raw ?? null, hint: followsHint(landGrowth, w), ...(mark !== null ? { premise: mark } : {}) };
           },
-          set: (w, v) => {
-            const sp: SeriesPlace = { path: [R, "landGrowth"], item };
-            const cur = seriesAt(w, sp);
-            if (v !== null) return writeSeries(w, sp, { ...cur, default: String(v) });
-            if (cur?.byYear === undefined) return writeSeries(w, sp, undefined);
-            return writeSeries(w, sp, { ...cur, default: w.request.input.assumptions?.inflation?.default ?? "0" });
-          },
+          set: (w, v) => (v === null ? resetPremise(landGrowth, w) : typePremise(landGrowth, w, String(v))),
         }),
-        est(
+        premised(
           plain({
             key: "assume/realEstate/landShare",
             item,
@@ -463,11 +428,10 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
             fallback: VALUATION_DEFAULTS.landShare,
             help: "物件に入れていないときに使います。目安は3割（土地付きの注文住宅の土地の取得費の全国の割合）。地域で大きく違うので物件ごとに直します",
           }),
-          "目安（土地付きの注文住宅の土地の割合）",
-          ["landShare"],
+          def("assume/realEstate/landShare"),
         ),
         ...BUILDING_STRUCTURES.map((o) =>
-          est(
+          premised(
             plain({
               key: `assume/realEstate/life/${o.value}`,
               item,
@@ -483,11 +447,10 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
               fallback: USEFUL_LIFE[o.value] ?? 22,
               help: "建物はこの年数で定額で減らします（目安は住宅用の建物の法定耐用年数）",
             }),
-            "目安（住宅用の建物の法定耐用年数）",
-            ["usefulLife", o.value],
+            def(`assume/realEstate/life/${o.value}`),
           ),
         ),
-        est(
+        premised(
           plain({
             key: "assume/realEstate/floor",
             item,
@@ -502,10 +465,9 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
             fallback: VALUATION_DEFAULTS.residualFloor,
             help: "建てた時の価値に対する割合。目安は2割（固定資産の評価で古い家屋の価値を下げる下限と同じ）",
           }),
-          "目安（固定資産の評価の下限と同じ）",
-          ["residualFloor"],
+          def("assume/realEstate/floor"),
         ),
-        est(
+        premised(
           plain({
             key: "assume/realEstate/saleCost",
             item,
@@ -520,8 +482,7 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
             fallback: VALUATION_DEFAULTS.saleCostRate,
             help: "仲介手数料（上限は価格の3%＋6万円と消費税）・印紙税・登記などの目安",
           }),
-          "目安（仲介手数料の上限・印紙税・登記）",
-          ["saleCostRate"],
+          def("assume/realEstate/saleCost"),
         ),
       ],
       actions: [ex.add],
@@ -737,18 +698,7 @@ function conventionFields(): FieldDef[] {
   ];
 }
 
-/** 推定のままの経済の前提の数（カードの上の1行に使う） */
-export function standardCount(wh: WorkingHousehold): number {
-  const a = wh.request.input.assumptions;
-  const rows = (wh.request.input as { valueStates?: Record<string, unknown> }).valueStates ?? {};
-  return Object.entries(STANDARD).filter(([name, v]) => {
-    const s = a?.[name] as YearSeries | undefined;
-    return s !== undefined && sameRate(s.default, v) && rows[`assumptions.${name}/default`] === undefined;
-  }).length;
-}
-
 export function assumptionsStage(wh: WorkingHousehold): StageDef {
-  const have = new Set(Object.keys(wh.request.input.assumptions?.assetReturns ?? {}));
   const baseMonth = field({
     key: "assume/baseMonth",
     item: "plan.baseMonth",
@@ -779,13 +729,13 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     exGroups.push(...ex.groups);
     exAdds.push(ex.add);
   }
-  const std = standardCount(wh);
   const shifts = shiftFields(wh);
+  const assetReturns = assetReturnSection(wh);
   const sections: SectionDef[] = [
     {
       key: "assume/main",
       title: "経済の前提",
-      note: `${std > 0 ? `前提は既定の値（仮の値）で計算中です（${std}か所）。` : ""}事務所の既定値（設定）はまだありません。入れる額は計算の基準の年の値段で、物価で伸びます`,
+      note: "値は事務所の既定値の画面で決めた値です（欄の横に「事務所の既定値」）。この世帯だけ変えた欄は「この世帯だけ」と出て、「事務所の既定値に戻す」で戻せます。入れる額は計算の基準の年の値段で、物価で伸びます",
       level: "simple",
       groups: [
         {
@@ -825,7 +775,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
           {
             key: "assume/realEstate",
             title: REAL_ESTATE_SECTION,
-            note: "持ち家・収益不動産の土地は上昇率で動き、建物は構造の耐用年数で定額で減らします（物件ごとに入れた値があればそちら）。入れなければ推定で計算します",
+            note: "持ち家・収益不動産の土地は上昇率で動き、建物は構造の耐用年数で定額で減らします（物件ごとに入れた値があればそちら）。空欄は事務所の既定値で計算します",
             level: "detail" as const,
             groups: valuationGroups(wh),
             actions: [],
@@ -837,25 +787,8 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
       title: "資産の種類ごとの利回り",
       note: "貯蓄・運用の項目の資産配分と同じ値です（どちらで直しても同じ）。資産の種類ごとの利回りは、信託報酬などの運用の費用を引く前の年率です（費用は資産配分の信託報酬で引きます。税は計算で引きます）。運用利回り・預金の利回りは費用を引いた後の率です",
       level: "detail",
-      groups: assetReturnGroups(wh),
-      // 足すボタンは、まだ足していない資産の種類を全部出す（先頭の6つだけにしない）
-      actions: ASSET_CLASSES.filter((o) => !have.has(o.value))
-        .map((o) => ({
-          key: `assume/addReturn/${o.value}`,
-          label: `＋ ${o.label}`,
-          level: "detail" as const,
-          run: (w: WorkingHousehold) => {
-            const request = structuredClone(w.request);
-            const a = (request.input.assumptions ??= {
-              investmentReturn: { default: "0.01" },
-            });
-            // 預金・外貨預金は今の預金の利回り（無ければ既定の値）から、不動産は今の計算と同じ0%から始める（足しただけで貸していない不動産の値動きを変えない）
-            (a.assetReturns ??= {})[o.value] = {
-              default: o.value.startsWith("cash") ? (a.depositReturn?.default ?? DEFAULT_ASSUMPTIONS.depositReturn.default) : o.value === "realEstate" ? "0" : "0.03",
-            };
-            return { ...w, request };
-          },
-        })),
+      groups: assetReturns.groups,
+      actions: assetReturns.actions,
     },
     ...feeSections(wh),
   ];

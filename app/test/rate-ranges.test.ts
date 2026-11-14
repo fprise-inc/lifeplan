@@ -36,7 +36,8 @@ const BY_LABEL: Readonly<Record<string, PctRange>> = {
   "運用利回り（年）": RETURN_RANGE,
   "年金の調整率（基礎年金・年）": SLIDE_RANGE,
   "年金の調整率（厚生年金・年）": SLIDE_RANGE,
-  "利回り（年・費用と税を引く前）": RETURN_RANGE,
+  // 資産の種類ごとの利回り（0213 で種類の名前の欄の並びにした）
+  国内株式: RETURN_RANGE,
   "土地の上昇率（年）": GROWTH_RANGE,
   "利回り（年）": RETURN_RANGE,
   "平均の利回り（年）": RETURN_RANGE,

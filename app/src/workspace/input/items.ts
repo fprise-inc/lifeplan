@@ -34,7 +34,7 @@ import { ALWAYS_SHOWN, isHiddenIn } from "./itemChoice.ts";
 
 /**
  * カードの状態: 入力済み・推定で計算中・未入力（0円の所あり）・当てはまらない・まだ入れていない（入れ始める前。赤い知らせを出さない）と、
- * 前提条件の入力項目だけの「既定の値で計算中」（前提を1つも打っていない・「この値にする」を押していない。灰色。0041 の追記 2026-11-06）
+ * 前提条件の入力項目だけの「事務所の既定値どおり」（この世帯だけの前提が無い。灰色。0041 の追記 2026-11-06・0213）
  */
 export type ItemStatus = "done" | "est" | "missing" | "na" | "empty" | "std";
 
@@ -688,14 +688,14 @@ export function startedOf(c: { hasData: boolean; confirmed: boolean; none: boole
  * カードの状態（4つと、まだ入れていない）:
  * 0. まだ入れていない: 入れ始める前（startedOf が偽。started を渡したときだけ）で、下の 1 に当たるとき
  * 1. 未入力（0円の所あり）: 0円で計算している欄か、入っていない物がある。物が無く「当てはまらない」も決めていないときも
- * 2. 推定で計算中: 推定・書類待ち（代わりの値）・仮の値の欄がある（前提条件の標準の値は数えない）。前提条件は、既定の値のままなら「既定の値で計算中」（std）
+ * 2. 推定で計算中: 推定・書類待ち（代わりの値）・仮の値の欄がある（前提条件の標準の値は数えない）。前提条件は、事務所の既定値どおりなら「事務所の既定値どおり」（std。0213）
  * 3. 当てはまらない: 無いと決めてある（子がいない・退職金の制度が無いなど）か、物が無くて FP が保存した・「当てはまらない」を押した
  * 4. 入力済み: 物があり、上のどれでもない
  */
 export function statusOf(c: { estimated: number; missing: number; hasData: boolean; confirmed: boolean; none: boolean; countEstimates?: boolean; started?: boolean; standard?: boolean }): ItemStatus {
   const gap: ItemStatus = c.started === false ? "empty" : "missing";
   if (c.missing > 0) return gap;
-  // 前提条件: 既定の値のまま（前提を1つも打っていない・「この値にする」を押していない）なら「既定の値で計算中」（0041 の追記 2026-11-06）
+  // 前提条件: 事務所の既定値どおりなら「事務所の既定値どおり」（0041 の追記 2026-11-06・0213）
   if (c.standard === true && c.hasData) return "std";
   if (c.estimated > 0 && c.countEstimates !== false) return "est";
   if (c.none) return "na";
@@ -889,13 +889,16 @@ export interface ItemOptions {
 }
 
 /**
- * 前提条件が既定の値のままか: 前提の欄（前提条件の標準の値の欄。表の最後の年の決め方・年齢の欄・読むだけの欄を除く）に、FP が打った値・「この値にする」で
- * 確定にした値が1つも無い（0041 の追記 2026-11-06）。既定のままなら札は「既定の値で計算中」、1つでも入れれば「入力済み」
+ * 前提条件が事務所の既定値どおりか: 前提条件の事務所の既定値の欄（0213）が全部「事務所の既定値」で、ほかの前提の欄（表の最後の年・例外の年など。
+ * 表の最後の年の決め方・年齢の欄・読むだけの欄を除く）に、FP が打った値・「この値にする」で確定にした値が1つも無い（0041 の追記 2026-11-06）。
+ * 既定値どおりなら札は「事務所の既定値どおり」、この世帯だけの値が1つでもあれば「入力済み」
  */
 export function premiseUntouched(stage: StageDef, wh: WorkingHousehold): boolean {
   return !allFields(stage).some((f) => {
     if (!isPremiseField(f) || f.readOnly !== undefined || f.key === "assume/endYear/choice" || f.key.startsWith("assume/endYear/age/")) return false;
-    return fieldStatus(f, wh).status === "confirmed" && f.get(wh).implicit !== true;
+    const s = fieldStatus(f, wh);
+    if (s.premise !== undefined) return s.premise.state !== "office";
+    return s.status === "confirmed" && f.get(wh).implicit !== true;
   });
 }
 
@@ -986,7 +989,7 @@ export interface Progress {
   na: number;
   /** まだ入れていない（赤い数には入れない） */
   empty: number;
-  /** 既定の値で計算中（前提条件の入力項目だけ） */
+  /** 事務所の既定値どおり（前提条件の入力項目だけ。0213） */
   std: number;
 }
 

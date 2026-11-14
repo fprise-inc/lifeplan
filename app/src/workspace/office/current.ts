@@ -1,5 +1,5 @@
 // 画面の側の操作が読む、今の事務所の既定値（0073）。アプリが開いている間だけ持つ（事務所の既定値を読み込んだとき・保存したときに入れる）。
-// 世帯の物を足す操作（受け取る予定の相続・贈与の行を足すなど）と、確かめの一覧の「事務所の新しい値があります」がここを読む。
+// 世帯の物を足す操作（受け取る予定の相続・贈与の行を足すなど）と、前提条件の欄の「事務所の既定値」の見せ方・確かめの一覧の「事務所の既定値が変わりました」（0213）がここを読む。
 // FP顧問料の契約を足す操作（stages/fees.ts）も、ここの料金表を読む。ほかの所に頼らないよう、何も読み込まない
 
 /**
@@ -25,8 +25,11 @@ export const STANDARD_FEE_TABLE: FeeTable = { oneTime: 300000, per: "month", amo
 export interface OfficeNow {
   /** 受け取る予定の相続・贈与と、相続で受け継ぐ借金の見込みの既定 */
   inheritLikelihood: "likely" | "uncertain";
-  /** 前提条件の標準値（系列の名前 → 小数の文字）。無い系列は 既定の値 */
-  assumptions: Readonly<Record<string, string>>;
+  /**
+   * 前提条件の事務所の既定値（前提条件の id → 値の文字。率は小数の文字、耐用年数は年の数の文字。0213 の2）。無い id は提供元の既定の値。
+   * id は input/premiseDefaults.ts の PREMISE_DEFS（事務所の推定の値で決める土地の割合などは入れない）
+   */
+  premises: Readonly<Record<string, string>>;
   /** 推定の根拠の文（例: 「事務所の標準（2026-10）」） */
   basis: string;
   /** FP顧問料の料金表 */
@@ -35,7 +38,7 @@ export interface OfficeNow {
   endAge: number | null;
 }
 
-export const STANDARD_OFFICE_NOW: OfficeNow = { inheritLikelihood: "likely", assumptions: {}, basis: "事務所の既定値", fee: STANDARD_FEE_TABLE, endAge: null };
+export const STANDARD_OFFICE_NOW: OfficeNow = { inheritLikelihood: "likely", premises: {}, basis: "事務所の既定値", fee: STANDARD_FEE_TABLE, endAge: null };
 
 let now: OfficeNow = STANDARD_OFFICE_NOW;
 
@@ -43,20 +46,4 @@ export const officeNow = (): OfficeNow => now;
 
 export function setOfficeNow(n: OfficeNow): void {
   now = n;
-}
-
-/**
- * 前提条件の標準値の系列のうち、前提条件の年ごとの列（assumptions.<名前>。欄のキー assume/<名前>）でない物の置き場所（0073 の追記 2026-11-07）:
- * 貸していない不動産（空き家・土地・別荘）の値動きは、計算が評価額の増減率の無い貸していない不動産に当てる「資産の種類ごとの利回り」の不動産
- * （assumptions.assetReturns.realEstate。無ければ0%）に写す。欄のキーと仮の印のキーは、その欄（assume/assetReturns/realEstate/default）
- */
-export const NESTED_OFFICE_ASSUMPTIONS: Readonly<Record<string, { path: readonly string[]; key: string }>> = {
-  heldEstateGrowth: { path: ["assetReturns", "realEstate"], key: "assume/assetReturns/realEstate/default" },
-};
-
-/** 前提条件の欄のキー → 前提条件の標準値の系列の名前（前提条件の欄でなければ null。確かめの一覧の「事務所の新しい値があります」が使う） */
-export function officeAssumptionOfKey(key: string): string | null {
-  for (const [name, p] of Object.entries(NESTED_OFFICE_ASSUMPTIONS)) if (p.key === key) return name;
-  const m = /^assume\/([a-zA-Z]+)$/.exec(key);
-  return m === null ? null : (m[1] as string);
 }

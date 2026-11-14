@@ -12,7 +12,7 @@ import { findObject, readAt, resolveAssumedKey, resolveKey, type Address } from 
 import { resolveTimepoint } from "../timepoint.ts";
 import { addMonths } from "../levers.ts";
 import type { Timepoint } from "../../engine/types.ts";
-import type { FieldDef, Val } from "./form.ts";
+import type { FieldDef, PremiseMark, Val } from "./form.ts";
 import { mutate, type WorkingHousehold } from "./household.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { officeSourceView, type OfficeSourceView } from "./officeSource.ts";
@@ -38,6 +38,8 @@ export interface FieldStatus {
    * 確かめの一覧では未入力の側に出す（推定と分ける。0041 の追記 2026-11-06）
    */
   provisional?: true;
+  /** 前提条件の事務所の既定値の見せ方（0213）。ある欄は確定と読む（推定の数・「この値にする」に入れない） */
+  premise?: PremiseMark;
 }
 
 /** 値の状態の操作。unknown は「書類で確かめる」（書類を見るまで今の値か推定を代わりに使う。前の「わからない」。0041 の追記 2026-10-31） */
@@ -135,6 +137,8 @@ const basisOf = (b: Obj | undefined): string | null => (isObj(b?.estimate) && ty
 export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
   const st = f.get(wh);
   const plainStatus = (s: ValueStatus, basis: string | null = null, explicit = false, approved = false): FieldStatus => ({ status: s, basis, explicit, approved });
+  // 前提条件の事務所の既定値の欄（0213）: 事務所の既定値・この世帯だけのどちらも決まった値（写したときの仮の印は「事務所の既定値に従う」の印で、推定ではない）
+  if (st.premise !== undefined) return { status: "confirmed", basis: null, explicit: false, approved: false, premise: st.premise };
   // 事務所の推定の値から作った推定の印（推定・書類待ちの代わりの値だけ）
   const marked = (st: FieldStatus, estimate: unknown): FieldStatus => {
     const o = officeSourceView(estimate);
@@ -202,6 +206,8 @@ const hasEstimate = (f: FieldDef, s: FieldStatus): boolean => f.blankIsEstimate 
  */
 export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus = fieldStatus(f, wh)): StateOp[] {
   if (f.readOnly !== undefined) return [];
+  // 前提条件の事務所の既定値の欄は、欄の横の「事務所の既定値に戻す」で戻す（推定に戻す・この値にするは無い。0213）
+  if (s.premise !== undefined) return [];
   const out: StateOp[] = [];
   const a = fieldAddress(f, wh);
   const stateful = f.boxed !== undefined || a !== null;

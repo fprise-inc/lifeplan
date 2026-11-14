@@ -135,7 +135,7 @@ interface Props {
 }
 
 /** 進み具合の状態の名前（絞り込みの文） */
-const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "該当なし", empty: "まだ入れていない", std: "既定の値で計算中" };
+const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "該当なし", empty: "まだ入れていない", std: "事務所の既定値どおり" };
 
 interface CardActions {
   /** 「当てはまらない」の1押し（プランの編集中は押せない。ボタンは出したまま、配置を動かさない） */
@@ -572,7 +572,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
                 <>
                   ・
                   <button type="button" class={`ih-prog-f${statusFilter === "std" ? " sel" : ""}`} aria-pressed={statusFilter === "std"} onClick={() => filterBy("std")} data-progress-filter="std">
-                    既定の値で計算中 <span class="n">{p.std}</span>
+                    事務所の既定値どおり <span class="n">{p.std}</span>
                   </button>
                 </>
               ) : null}
