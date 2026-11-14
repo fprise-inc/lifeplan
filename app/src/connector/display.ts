@@ -15,7 +15,7 @@ import { readLivingLayout, STANDARD_LIVING_LAYOUT, STANDARD_LIVING_NAMES, rowLab
 import { LEVER_KINDS, leverKindOf, readLeverChoice, startKinds } from "../workspace/plans/leverChoice.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../workspace/balanceTab.ts";
 import { readMoneyThree } from "../workspace/moneyThree.ts";
-import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../workspace/settings.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../workspace/settings.ts";
 import { buildDisplayCatalog, GUIDE_BASIS_CHOICES, type DisplayCatalog, type DisplaySetting } from "./displayCatalog.ts";
 
 /** 1つの設定の今の値（value は事務所データ・世帯ファイルと同じ形。text は画面の言葉の短い要約） */
@@ -87,6 +87,7 @@ export function readDisplaySettings(v: unknown): { result: DisplaySettings; bala
       invPeriods: typeof r.invPeriods === "boolean" ? r.invPeriods : DEFAULT_DISPLAY_SETTINGS.invPeriods,
     },
     balance: {
+      health: typeof bal?.health === "boolean" ? bal.health : DEFAULT_BALANCE_SETTINGS.health,
       guide: readBsGuide(bal !== null ? bal.guide : d.bsGuide),
       points: readBsPoints(bal !== null ? bal.points : d.bsPoints),
       columns: readBsColumns(bal !== null ? bal.columns : d.bsColumns),
@@ -150,6 +151,7 @@ export function householdCurrent(raw: unknown): Record<string, CurrentValue> {
   out["result.layout"] = current("result.layout", d.result.layout, labelOf("result.layout", d.result.layout));
   out["result.invBreakdown"] = current("result.invBreakdown", d.result.invBreakdown, labelOf("result.invBreakdown", d.result.invBreakdown));
   out["result.invPeriods"] = current("result.invPeriods", d.result.invPeriods, labelOf("result.invPeriods", d.result.invPeriods));
+  out["balance.health"] = current("balance.health", d.balance.health, labelOf("balance.health", d.balance.health));
   const g = d.balance.guide;
   const basisText = g.basis === undefined ? "分母は世帯から決める" : (GUIDE_BASIS_CHOICES.find((x) => x.value === g.basis)?.label ?? g.basis);
   out["balance.guide"] = current("balance.guide", g, `すぐ使えるお金 ${g.months[0]}〜${g.months[1]}か月分（${basisText}）・値動きのある資産 ${g.risk[0]}〜${g.risk[1]}%・負債の重さ ${g.debt}%未満`);

@@ -240,7 +240,7 @@ pub struct DisplaySettingsArgs {
     /// FPが渡した世帯の共有 ID（list_shared_households）。書くと、その世帯の今の値（結果のタブ・資産と負債のタブの表示の設定・
     /// 入力項目の選び方・対策に足した項目）も返す。省くと事務所の既定値だけ
     pub share_id: Option<String>,
-    /// 返す設定の id（例 ["result.levers", "balance.guide"]）。省くと全部（20件・約30KB）
+    /// 返す設定の id（例 ["result.levers", "balance.guide"]）。省くと全部（21件・約30KB）
     pub ids: Option<Vec<String>>,
 }
 

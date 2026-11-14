@@ -106,6 +106,7 @@ export const RESULT_SETTING_IDS: Readonly<Record<keyof typeof DEFAULT_DISPLAY_SE
 
 /** 資産と負債のタブの表示の設定の欄 → 一覧の id（BalanceSettings の欄すべて。moneyThree は3つの id） */
 export const BALANCE_SETTING_IDS: Readonly<Record<keyof typeof DEFAULT_BALANCE_SETTINGS, readonly string[]>> = {
+  health: ["balance.health"],
   guide: ["balance.guide"],
   points: ["balance.points"],
   columns: ["balance.columns"],
@@ -308,6 +309,22 @@ export function buildDisplayCatalog(): DisplayCatalog {
       note: "その世帯で最後に見た場面があれば、そちらを出します。世帯に無い場面・並べない場面のときは、並べる場面の最初です",
     },
     {
+      id: "balance.health",
+      label: "家計の体力の目安を表示する",
+      scope: "household",
+      screen: "資産と負債のタブの家計の体力の目安（1年ずつ見るときの図の下の区画）",
+      change: { household: `${BALANCE_SETTINGS}の「家計の体力の目安」の「家計の体力の目安を表示する」` },
+      stored: { household: "display.balance.health" },
+      reaches: { proposal: false, takeaway: false, note: "提案書・持ち帰り用のレポートには、もともと家計の体力の目安を載せていない" },
+      type: "boolean",
+      choices: [
+        { value: true, label: "表示する" },
+        { value: false, label: "表示しない" },
+      ],
+      default: DEFAULT_BALANCE_SETTINGS.health,
+      note: "表示しないと、区画ごと出しません（目安の幅の欄も出しません）。値も計算の結果も変わりません",
+    },
+    {
       id: "balance.guide",
       label: "家計の体力の目安の幅",
       scope: "household",
@@ -431,6 +448,6 @@ export function buildDisplayCatalog(): DisplayCatalog {
       "Web のヒアリングのひな形と話題",
       "画面の文と名前（カスタム層の settings/texts.json・settings/terms.json。list_custom_texts）と、入力の欄の隠す・並べ替え（settings/fields.json。list_custom_texts の file: fields）",
     ],
-    pending: [{ id: "balance.health", label: "家計の体力の目安を表示する", note: "資産と負債のタブの「家計の体力の目安」を表示・非表示にする設定（世帯ごと）。別の変更で作っている途中で、入ったらこの一覧に載せる" }],
+    pending: [],
   };
 }

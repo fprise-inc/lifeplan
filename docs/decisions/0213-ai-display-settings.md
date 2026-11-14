@@ -48,7 +48,7 @@
 - 一覧は画面の定数からビルドの時に作る（`app/src/connector/displayCatalog.ts` の `buildDisplayCatalog`。`npm run build:explain` が `crates/lifeplan/dist/display-catalog.json` に書き、接続口が埋め込む）。選べる種類・既定は画面の定数（`LEVER_KINDS`・`DEFAULT_LEVER_KINDS`・`PREMISE_KINDS`・`DEFAULT_PREMISE_KINDS`・`SCENE_KINDS`・`OPEN_SCENES`・`STAGE_ORDER`・`ALWAYS_SHOWN`・`STANDARD_LIVING_NAMES`・`METRIC_CHOICES`・`AGE_OPTIONS`・`LAYOUT_CHOICES`・`DEFAULT_DISPLAY_SETTINGS`・`BS_POINT_CHOICES`・`DEFAULT_BS_POINTS`・`DEFAULT_BS_GUIDE`・`MONEY_THREE_NAME_CHOICES`・何か月分と何年先までの範囲）をそのまま使い、手で写さない。種類を足す・既定を変えると、接続口の一覧も一緒に変わる。
 - 1件の欄: `id`（変えない id。画面の区画.設定）・`label`（画面と同じ名前）・`scope`（`office`＝事務所の既定値・`household`＝世帯ごと・`both`）・`screen`（効く画面）・`change`（アプリのどこで変えるか。`office`・`household` ごとに画面と区画の名前）・`stored`（事務所データ・世帯ファイルの本文の欄）・`officeEffect`（事務所の既定値の効き方: `live`＝どの世帯にもすぐ効く・`newHouseholds`＝新しく作る世帯に写すだけ）・`reaches`（提案書の PDF・持ち帰り用のレポートに出るか）・`type`（値の形）・`choices`（選べる値と画面の言葉。見出し `group`・補足 `note`・外せない印 `fixed`）・`min`・`max`・`shape`（値の形の補い）・`default`・`readOnly`・`note`。
 - 一覧の外の欄: `neverHidden`（どの設定でも隠せない物）・`outOfScope`（1 の載せない物）・`pending`（作っている途中で、まだ載せていない設定）。
-- 今の20件:
+- 今の21件:
 
 | id | 名前 | どこで決めるか | お客さまに渡す物 |
 |---|---|---|---|
@@ -65,6 +65,7 @@
 | `contingency.premises` | 想定の前提に最初から出す項目 | 事務所（すぐ効く） | 出ない |
 | `contingency.scenes` | 場面の帯に並べる場面 | 事務所（すぐ効く） | 出ない |
 | `contingency.openScene` | 開いたときに選んでおく場面 | 事務所（すぐ効く） | 出ない |
+| `balance.health` | 家計の体力の目安を表示する | 世帯 | 出ない（もともと載せていない） |
 | `balance.guide` | 家計の体力の目安の幅 | 世帯 | 出ない |
 | `balance.points` | 「時点を並べる」の既定 | 世帯 | 提案書のバランスシートの図 |
 | `balance.columns` | この世帯で並べる時点 | 世帯だけ（事務所の既定にはしない） | 提案書のバランスシートの図 |
@@ -74,7 +75,7 @@
 | `features.combinedBs` | 合算BS（経営者個人と会社のバランスシート）を使う | 事務所（読むだけ。機能を有効にするコードが要る） | 提案書の合算BS の章 |
 
 - 結果のタブ・資産と負債のタブの表示の設定の欄すべてに id があることを、テストで確かめる（`RESULT_SETTING_IDS`・`BALANCE_SETTING_IDS` は `DisplaySettings`・`BalanceSettings` の欄の名前を鍵にした表。欄を足すと型の検査で止まる）。
-- 作っている途中の設定: 資産と負債のタブの「家計の体力の目安」を表示・非表示にする設定（世帯ごと。別の変更で作っている）は、入ったら `balance.health` としてこの一覧に載せる（今は `pending` に書いた）。
+- 資産と負債のタブの「家計の体力の目安」を表示・非表示にする設定（世帯ごと。0027 の 2026-11-13 の追記）は、同じ時期に入ったので `balance.health` として載せた。作っている途中の設定は、答えの `pending` に書く（今は無し）。
 
 ### 6. 今の値（アプリが起動していて、AI接続口がオンのとき）
 
@@ -112,7 +113,7 @@
     "text": "働く最後の年齢（ご本人）・年金を受け取り始める年齢（ご本人）・NISAの積立額（月）・毎月の生活費・配偶者の働き方と年収" } } }
 ```
 
-- 大きさ: 一覧の全部（20件）で約 30KB。`ids` で設定を選ぶと小さくなる（1件で約 1〜3KB）。
+- 大きさ: 一覧の全部（21件）で約 30KB。`ids` で設定を選ぶと小さくなる（1件で約 1〜3KB）。
 
 ## 理由
 

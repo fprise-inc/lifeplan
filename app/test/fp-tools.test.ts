@@ -193,10 +193,10 @@ describe("ポイント（0074 の追記 2026-11-12 の見直し）", () => {
     expect(insights(req, res([]))).toEqual([]);
   });
 
-  it("結果のタブ: 閉じているときは「ポイント ○件 ▸」の1行だけ。開くと一覧と「その年を見る」「対策を考える」（0074 の追記 2026-11-12）", () => {
+  it("結果のタブ: 閉じているときは「ポイント ○件 ▸」の1行だけ。開くと一覧と「その年を見る」（「対策を考える」は出さない。0074 の追記 2026-11-12・2026-11-13）", () => {
     const table: TableCell[] = [...years.map((y) => cell("cf.expense.living.base", y, 3600000)), ...years.map((y, i) => cell("cf.balance.account.deposit", y, i < 3 ? 5000000 : 1000000))];
     const result = res(table);
-    const props = { req, result, months: 6, onYear: () => undefined, onLevers: () => undefined };
+    const props = { req, result, months: 6, onYear: () => undefined };
     const closed = renderToString(h(Insights, props));
     expect(closed).toContain("ポイント 1件");
     expect(closed).not.toContain("気づき");
@@ -206,7 +206,7 @@ describe("ポイント（0074 の追記 2026-11-12 の見直し）", () => {
     expect(opened).toContain('aria-expanded="true"');
     expect(opened).toContain('data-insight="deposit"');
     expect(opened).toContain("その年を見る");
-    expect(opened).toContain("対策を考える");
+    expect(opened).not.toContain("対策を考える");
     expect(renderToString(h(Insights, { ...props, result: { ...result, table: [] } }))).toBe("");
   });
 

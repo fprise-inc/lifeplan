@@ -2368,6 +2368,7 @@ async fn display_settings_list_the_catalog_and_current_values() {
         "result.layout",
         "result.invBreakdown",
         "result.invPeriods",
+        "balance.health",
         "balance.guide",
         "balance.points",
         "balance.columns",

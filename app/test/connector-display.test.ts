@@ -104,7 +104,8 @@ describe("今の値の読み方は画面と同じ", () => {
     {},
     { result: { metrics: ["takeHome", "x"], atAge: 90, layout: "all", invBreakdown: true, invPeriods: false }, balance: { guide: { months: [3, 9], risk: [5, 50], debt: 40, basis: "livingLoan" }, points: ["now", "age65"], columns: [{ point: "now" }, { year: 2040 }], moneyThree: { months: 3, years: 20, wording: "time" } } },
     { metrics: ["minAssets"], atAge: 80, bsGuide: { months: [1, 2], risk: [0, 10], debt: 10 }, bsPoints: ["now", "retire"], bsColumns: null },
-    { result: { layout: "bad", atAge: "95" }, balance: { guide: { months: [9, 3] }, points: ["now"], moneyThree: { months: 99 } } },
+    { result: { layout: "bad", atAge: "95" }, balance: { health: false, guide: { months: [9, 3] }, points: ["now"], moneyThree: { months: 99 } } },
+    { balance: { health: "no" } },
   ];
   it.each(displays.map((d, i) => [i, d]))("世帯ファイルの本文の表示の設定 %i", (_i, raw) => {
     expect(readDisplaySettings(raw)).toEqual(readDisplay(raw));

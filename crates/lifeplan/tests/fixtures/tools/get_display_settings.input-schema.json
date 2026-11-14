@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "ids": {
-      "description": "返す設定の id（例 [\"result.levers\", \"balance.guide\"]）。省くと全部（20件・約30KB）",
+      "description": "返す設定の id（例 [\"result.levers\", \"balance.guide\"]）。省くと全部（21件・約30KB）",
       "items": {
         "type": "string"
       },
