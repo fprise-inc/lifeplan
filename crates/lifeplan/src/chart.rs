@@ -256,13 +256,14 @@ pub fn stress_text(key: &str) -> &'static str {
     }
 }
 
-/// 通りの当てたプランの変更（注の「通りの違い」に使う。当てた変更の項目の名前と後の値の文だけ。今と同じ値の変更は入れない）。表（table.rs）も同じ
+/// 通りの当てたプランの変更（注の「通りの違い」に使う。当てた変更の項目の名前と後の値の文だけ）。今と同じ値の変更・後の変更に置き換わった変更は
+/// 入れない。前の同じ項目の変更を取り消して今の値に戻す変更（restored）は、その通りの違いなので入れる。表（table.rs）も同じ
 pub fn plan_of(r: &Value) -> Vec<Value> {
     r["planChanges"]
         .as_array()
         .map(|l| {
             l.iter()
-                .filter(|c| c["status"] == "applied")
+                .filter(|c| c["status"] == "applied" || c["status"] == "restored")
                 .map(|c| json!({ "label": c["label"], "to": c["to"] }))
                 .collect()
         })
@@ -458,7 +459,7 @@ mod tests {
             "key": "v1", "label": "10年で+1%", "status": "ok", "from": { "onBase": true },
             "series": [{ "year": 2027, "financialAssets": 100, "loanRepayment": 5, "ages": { "self": 40 } }],
             "keyFigures": { "assetsAtAge": [{ "age": 95, "year": 2081, "amount": 7 }], "loanRepayment": 9, "depletion": null },
-            "planChanges": [{ "label": "金利", "from": "a", "to": "b", "status": "applied" }, { "label": "同じ", "to": "c", "status": "same" }],
+            "planChanges": [{ "label": "金利", "from": "a", "to": "b", "status": "applied" }, { "label": "同じ", "to": "c", "status": "same" }, { "label": "生活費", "from": "月30万円", "to": "月31万円", "status": "replaced" }, { "label": "生活費", "from": "月30万円", "to": "月30万円", "status": "restored" }],
             "members": [{ "key": "self", "label": "ご本人" }],
             "stressTest": "rateRise",
         });
@@ -469,7 +470,11 @@ mod tests {
             v["series"],
             json!([{ "year": 2027, "financialAssets": 100, "loanRepayment": 5 }])
         );
-        assert_eq!(v["planChanges"], json!([{ "label": "金利", "to": "b" }]));
+        // 後の変更に置き換わった変更は入れず、前の変更を取り消して今の値に戻す変更は入れる
+        assert_eq!(
+            v["planChanges"],
+            json!([{ "label": "金利", "to": "b" }, { "label": "生活費", "to": "月30万円" }])
+        );
         assert_eq!(v["stress"], "変動金利が上がる（エンジンの既定の型）");
         assert!(v.get("members").is_none());
         assert!(v["keyFigures"].get("depletion").is_none());
