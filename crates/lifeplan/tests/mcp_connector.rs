@@ -2476,7 +2476,7 @@ async fn display_settings_list_the_catalog_and_current_values() {
         "workspace": { "shownItems": [format!("spouse:{spouse}:work"), "inv:rate"] },
         "display": {
             "result": { "metrics": ["takeHome", "nope"], "atAge": 90, "layout": "side" },
-            "balance": { "guide": { "months": [3, 9], "risk": [10, 40], "debt": 50 }, "points": ["now", "age65"], "moneyThree": { "months": 12, "years": 5, "wording": "time" } },
+            "balance": { "health": false, "guide": { "months": [3, 9], "risk": [10, 40], "debt": 50 }, "points": ["now", "age65"], "moneyThree": { "months": 12, "years": 5, "wording": "time" } },
         },
     });
     src.display = Some(ai_share::display::household_display_of(
@@ -2514,6 +2514,9 @@ async fn display_settings_list_the_catalog_and_current_values() {
         cur("balance.points")["household"]["value"],
         json!(["now", "age65"])
     );
+    // 家計の体力の目安を表示するか（display.balance.health。0027 の 2026-11-13 の追記）も渡された世帯の値で
+    assert_eq!(cur("balance.health")["household"]["value"], false);
+    assert_eq!(cur("balance.health")["household"]["text"], "表示しない");
     assert_eq!(cur("balance.columns")["household"]["value"], Value::Null);
     assert_eq!(
         cur("balance.moneyThree.wording")["household"]["value"],
