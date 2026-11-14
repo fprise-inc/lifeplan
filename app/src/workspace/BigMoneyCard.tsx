@@ -5,10 +5,11 @@
 // - まとまりが1つ: 読みやすい幅の表を1つ。7件以上なら、同じまとまりを左右2列に分けて並べる（年の順に左の列の上から）
 // - 1つのまとまりが多い: 2つ以上のまとまりを並べるときは、まとまりごとに最初の8件だけを出し、残りは「ほか○件を見る」で開く
 // - 区画の幅が狭いとき（区画の幅で切り替える。app.css）は、3列 → 2列 → 1列
+// 選んでいるプランで外した物の行は、チェックを置かず薄くし、名前の下に「このプランでは外しています」（見出しの件数に数えない。0044 の追記 2026-11-14）
 import type { ComponentChildren } from "preact";
 import { useContext, useMemo, useState } from "preact/hooks";
 import { Help } from "../presentation/Help.tsx";
-import type { BigMoneyGroup, BigMoneyModel, BigMoneyPick, BigMoneyRow } from "./bigMoney.ts";
+import { BIG_MONEY_REMOVED_NOTE, type BigMoneyGroup, type BigMoneyModel, type BigMoneyPick, type BigMoneyRow } from "./bigMoney.ts";
 import { OfficeTextsContext } from "./office/customTextsContext.ts";
 import { OFFICIAL_WORDING, wordingOf, type Wording } from "./resultTexts.ts";
 
@@ -39,7 +40,10 @@ export interface BigMoneyCardProps {
 function Row({ r, dream, onPick }: { r: BigMoneyRow; dream: boolean; onPick: OnPick | undefined }) {
   const cells = (
     <>
-      <span class="bm-nm">{r.name}</span>
+      <span class="bm-nm">
+        {r.name}
+        {r.removed === true ? <span class="bm-rm">{BIG_MONEY_REMOVED_NOTE}</span> : null}
+      </span>
       <span class="bm-wh">{r.when}</span>
       <span class="bm-am num">{r.amount}</span>
       {dream ? null : <span class="bm-tg">{r.tag !== null ? <span class={`bm-t${r.tag === "不確実" ? " unsure" : ""}`}>{r.tag}</span> : null}</span>}
@@ -48,7 +52,7 @@ function Row({ r, dream, onPick }: { r: BigMoneyRow; dream: boolean; onPick: OnP
   const cls = `bm-row${r.included ? "" : " off"}`;
   if (r.pick === null)
     return (
-      <div class={`${cls} fixed`} data-bm-row={r.key} data-included="1">
+      <div class={`${cls} fixed${r.removed === true ? " removed" : ""}`} data-bm-row={r.key} data-included={r.included ? "1" : "0"} {...(r.removed === true ? { "data-bm-removed": "1" } : {})}>
         <span class="bm-ck" />
         {cells}
       </div>
@@ -76,7 +80,7 @@ function Column({ g, rows, onPick, cont, more }: { g: BigMoneyGroup; rows: reado
             <>
               {g.title}
               <span class="bm-n">
-                {g.included}/{g.rows.length}件
+                {g.included}/{g.count}件
               </span>
             </>
           )}
