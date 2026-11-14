@@ -121,6 +121,8 @@
 //   足すだけ。本体の変換の段は版だけを書き換える
 //   0.76 から: 資産の配分の行（器・器の利回りの段階）・旧NISA の買付の年ごとの内訳 lots・借り換え refinance とその新しい金利の段に要素の ID（0206）。
 //   本体の変換の段は、ID の無い要素に、画面がその要素を指していた決まった ID と同じ ID を振る。画面も開くときに同じ決まりで振る（elementIds.ts）
+//   0.77 から: 資産と負債のタブの表示の設定に、家計の体力の目安を表示するか display.balance.health（0027 の 2026-11-13 の追記）。足すだけ。
+//   本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝表示する）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -137,7 +139,8 @@
 // - display: 表示の設定（世帯ごと。タブごとの区画に分ける。0.8 から）:
 //   - display.result: 結果のタブ（出す数字・○歳時点の年齢・グラフの比較の仕方・資産の推移の口座の内訳と運用の期間の帯）
 //   - display.balance: 資産と負債のタブ（家計の体力の目安の幅 guide・時点を並べるときの既定の時点 points・この世帯で選んだ時点 columns、
-//     0.13 から お金の3つの分け方 moneyThree（何か月分 months・何年先まで years・呼び方 wording。0032））
+//     0.13 から お金の3つの分け方 moneyThree（何か月分 months・何年先まで years・呼び方 wording。0032）、
+//     0.77 から 家計の体力の目安を表示するか health（true・false。無ければ true＝表示する。0027 の 2026-11-13 の追記））
 //   0.7 までは display の直下に平らに置いていた（bsGuide・bsPoints・bsColumns と、なくした「操作中はグラフを上に表示」の dock）。
 //   本体の変換の段（0.7 → 0.8）が区画へ移す。画面の側も、区画の無い本文は直下の値から読む
 // - snapshots: 控え（0009 の2。PDF を書き出した時点・FP が残した時点の写し。0.3 から。控えが無ければ区画を作らない）。
@@ -190,10 +193,10 @@ import { hasDocuments, readDocumentLog } from "../documents/log.ts";
 import { meetingSection, readMeetings, type MeetingLog } from "../meetings/meetings.ts";
 import type { DocumentLog } from "../documents/types.ts";
 import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
-import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.76";
+export const BODY_FORMAT_VERSION = "0.77";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -427,6 +430,7 @@ export function readDisplay(v: unknown): StoredDisplay {
       invPeriods: typeof r.invPeriods === "boolean" ? r.invPeriods : DEFAULT_DISPLAY_SETTINGS.invPeriods,
     },
     balance: {
+      health: typeof bal?.health === "boolean" ? bal.health : DEFAULT_BALANCE_SETTINGS.health,
       guide: readBsGuide(bal !== null ? bal.guide : d.bsGuide),
       points: readBsPoints(bal !== null ? bal.points : d.bsPoints),
       columns: readBsColumns(bal !== null ? bal.columns : d.bsColumns),
