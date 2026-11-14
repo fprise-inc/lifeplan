@@ -327,8 +327,8 @@ export function bsPrev(o: { key: string; label: string; createdAt: string; baseM
  * customViews: カスタマイズで足す見るもの（0027 の8）。公式の画面が足すのは、事務所の設定で使うと決めた法人経営者向けの機能
  * （会社と合わせたバランスシート。役員として働く人のいる世帯だけ。0107）だけ。ほかは空
  */
-export function balanceTabModel(o: { plans: BsPlanModel[]; selected: string; base: string; guide: BsGuide; guideBasis?: BsGuideBasis; pointDefaults: BsPointKey[]; columns: BsColumn[] | null; prevChoices: { key: string; label: string }[]; prev: BalanceTabModel["prev"]; provisional: boolean; who: string; customViews?: BsCustomViewModel[]; hiddenNote?: string }): BalanceTabModel {
+export function balanceTabModel(o: { plans: BsPlanModel[]; selected: string; base: string; health?: boolean; guide: BsGuide; guideBasis?: BsGuideBasis; pointDefaults: BsPointKey[]; columns: BsColumn[] | null; prevChoices: { key: string; label: string }[]; prev: BalanceTabModel["prev"]; provisional: boolean; who: string; customViews?: BsCustomViewModel[]; hiddenNote?: string }): BalanceTabModel {
   const groups = Object.fromEntries((Object.keys(BS_GROUP_LABEL) as BsGroup[]).map((k) => [k, { name: BS_GROUP_LABEL[k], short: BS_GROUP_SHORT[k] }])) as BalanceTabModel["groups"];
   const { customViews, ...rest } = o;
-  return { ...rest, guideBasis: o.guideBasis ?? "living", groups, pointChoices: BS_POINT_CHOICES, customViews: customViews ?? [] };
+  return { ...rest, health: o.health ?? true, guideBasis: o.guideBasis ?? "living", groups, pointChoices: BS_POINT_CHOICES, customViews: customViews ?? [] };
 }

@@ -1498,6 +1498,8 @@ html.big .yc { min-width: 3.9rem; flex-basis: 3.9rem; }
 .chart .ml-end { font-weight: 700; font-size: 0.8rem; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
 .chart .ml-end-base { font-size: 0.68rem; fill: var(--base-ink); }
 .chart .fit-t { fill: var(--ink-2); font-size: 0.72rem; }
+/* 0の線の上と下が何か（収支の推移・説明モード）。グラフの面の上に小さく */
+.chart .zero-t { fill: var(--ink-2); font-size: 0.72rem; }
 .chart .pl-mk { stroke-width: 1.5; }
 .chart .hv-mk { stroke-width: 2; }
 html.big .chart .hv-mk { stroke-width: 2.5; }
