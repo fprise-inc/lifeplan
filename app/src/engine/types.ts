@@ -288,6 +288,12 @@ export interface EducationStage {
   monthly?: number;
   hours?: "standard" | "short";
   feeRatio?: string;
+  /** 保育所の施設の種類（licensed 認可〔省略〕・unlicensed 認可外・employer 企業主導型。0029 の追記 2026-11-14） */
+  facility?: "licensed" | "unlicensed" | "employer";
+  /** 保育所の自治体の独自の無償化（認可の施設だけ。first 第1子から・second 第2子から） */
+  localFree?: "first" | "second";
+  /** 保育所の延長保育の月額 */
+  extendedMonthly?: number;
   exam?: { amount?: number; deposits?: number };
   annualOverride?: number;
   entranceOverride?: number;

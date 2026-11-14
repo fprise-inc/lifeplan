@@ -1158,6 +1158,12 @@ export interface EducationStageInput {
   readonly hours?: "standard" | "short";
   /** 保育料の自動の計算で、国の基準に掛ける自治体の水準の割合（省略は目安の 0.8。0029） */
   readonly feeRatio?: string;
+  /** 保育所の段の施設の種類（licensed 認可〔省略〕・unlicensed 認可外・employer 企業主導型。認可外・企業主導型は月額を入れた額だけ。0029 の追記 2026-11-14） */
+  readonly facility?: "licensed" | "unlicensed" | "employer";
+  /** 保育所の段の、自治体の独自の無償化（認可の施設だけ。first は第1子から、second は第2子から〔年長のきょうだいがいれば〕0円） */
+  readonly localFree?: "first" | "second";
+  /** 保育所の段の延長保育の月額（計算基準年の価格。無償化の対象外） */
+  readonly extendedMonthly?: Yen;
   readonly school?: {
     readonly school: string;
     readonly unit: string;
@@ -1169,6 +1175,7 @@ export interface EducationStageInput {
   readonly annualOverride?: Yen;
   readonly entranceOverride?: Yen;
   readonly exam?: { readonly amount?: Yen; readonly deposits?: Yen };
+  /** 学校外活動費。幼〜高のほかの段は統計の平均が無いので、月額を入れたときだけ数える（education.cost の改訂11。0063 の追記 2026-11-14） */
   readonly outOfSchool?: "statistics" | "none" | { readonly monthly: Yen };
   readonly boarding?: { readonly monthly?: Yen; readonly initial?: Yen };
   readonly scienceAgriculture?: boolean;

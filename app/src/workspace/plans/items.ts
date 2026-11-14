@@ -965,7 +965,7 @@ function outlookItem(wh: WorkingHousehold, d: Debt, name: string): MovableItem |
 const rateTextOf = (x: number): string => loanRateText(x);
 
 /**
- * 子の進路の型（子ごと。0211）: 入力の子ども・教育の「進路の型」の欄の定義（courseField）の読み・書きをそのまま使い、型が決める段（幼稚園〜大学）の
+ * 子の進路の型（子ごと。0211）: 進路の型の欄の定義（courseField。入力の欄としては 2026-11-14 に外した）の読み・書きをそのまま使い、型が決める段（幼稚園〜大学）の
  * 公立・私立を一度に変える。欄が出る子（教育の目標があり、教育の段が全部は過ぎていない子）のうち、型が決める段でまだ終わって
  * いない段がある子にだけ出す。
  * 値は型の名前（COURSE_PRESETS の value）。今の段が型に当たらなければ null（段階ごとに選んだ進路。そのまま）。名前には呼び名を入れない

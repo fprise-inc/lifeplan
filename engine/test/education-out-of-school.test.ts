@@ -45,4 +45,33 @@ describe("学校外の費用の入れ方（0062）", () => {
     const fixed = cost({ outOfSchoolMode: "rows", stages: [{ stage: "elementary", sector: "public", outOfSchool: { monthly: 10000 } }] });
     expect(sum(fixed, "education.cost.outOfSchool")).toBe(0);
   });
+
+  it("高専・大学などの段（改訂11）: 月額を入れた段だけ在学中に数える。省略・統計・無しは0円、行で入れるときは数えない", () => {
+    // 2008年6月生まれ: 大学は2027年4月〜2031年3月
+    const uni = (education: Obj, outOfSchool?: unknown) => {
+      const r = household({
+        members: [member("a", "self", "1975-01"), member("e", "child", "2008-06")],
+        relations: [{ type: "parentOf", parent: uid("a"), child: uid("e") }],
+        periods: [],
+        baseMonth: "2027-01",
+        endYear: 2032,
+      });
+      ((r.input as unknown as Obj).household as Obj).goals = [{ id: uid("g"), kind: "education", owner: uid("e"), education: { stages: [{ stage: "university", sector: "private", ...(outOfSchool !== undefined ? { outOfSchool } : {}) }], ...education } }];
+      return runEngine(r, fictionalPacks(), { checkInternal: true, entry: { component: "education.cost", input: { member: uid("e") } } }).entryOutput as EducationCostOutput;
+    };
+    const out = (o: EducationCostOutput) => (o.flows as unknown as Flow[]).filter((f) => f.row === "cf.expense.education.outOfSchool");
+    expect(out(uni({}))).toEqual([]);
+    expect(out(uni({}, "statistics"))).toEqual([]);
+    expect(out(uni({}, "none"))).toEqual([]);
+    const flows = out(uni({ outOfSchoolMode: "statistics" }, { monthly: 10000 }));
+    // 2027年4月〜2031年3月の48か月（教育費の上昇率で伸びる）
+    expect(flows.length).toBe(48);
+    expect(flows[0]).toMatchObject({ ym: "2027-04", formula: "education.cost.outOfSchool" });
+    expect(flows.at(-1)!.ym).toBe("2031-03");
+    expect(flows[0]!.amount).toBeGreaterThanOrEqual(10000);
+    expect(out(uni({ outOfSchoolMode: "rows" }, { monthly: 10000 }))).toEqual([]);
+    // 学費は月額を入れても変わらない
+    const tuition = (o: EducationCostOutput) => sum(o, "education.cost.tuition", "2028");
+    expect(tuition(uni({}, { monthly: 10000 }))).toBe(tuition(uni({})));
+  });
 });

@@ -66,7 +66,7 @@ export const LATER_ENTRIES: readonly ReadingEntry[] = [
   { from: "field:work/{member}/postSalary", until: "0.35", to: { lever: "postRetirementSalary", member: true } },
   // 住宅ローン1本の変動金利の見込み（入力の「金利の見込み（変動金利）」の欄と同じ型・同じ関数。今の段より後の段を置き換える。0036 の追記 2026-11-11・0203）
   { from: "loan:{object}:outlook", until: "0.74", to: { lever: "loanRateOutlook", object: true } },
-  // 子の進路の型（入力の子ども・教育の「進路の型」の欄と同じ型・同じ関数。型が決める段の公立・私立をまとめて変える。物は教育の目標。0036 の追記 2026-11-13・0211）
+  // 子の進路の型（進路の型の欄の定義〔courseField〕と同じ型・同じ関数。型が決める段の公立・私立をまとめて変える。物は教育の目標。0036 の追記 2026-11-13・0211）
   { from: "edu:{object}:course", until: "0.76", to: { lever: "educationCourse", object: true } },
 ];
 
