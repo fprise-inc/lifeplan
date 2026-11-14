@@ -14,6 +14,7 @@ import { DEBT_KINDS } from "./input/labels.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 import { depletionYear, displayYears } from "./present.ts";
 import { ageInYear, roles } from "./roles.ts";
+import { OFFICIAL_WORDING, type Wording } from "./resultTexts.ts";
 
 /** 「夢と予定」の行の入れ外しの相手（engine/moneyRows.ts の ViewCandidate の key・off） */
 export interface BigMoneyPick {
@@ -252,6 +253,8 @@ export interface BigMoneySummaryInput {
   withYear: number | null;
   ageText: (year: number) => string;
   until: string;
+  /** 結果の画面の文（承認した事務所の文を当てた物。省略は公式の文。0212 の追記） */
+  wording?: Wording;
 }
 
 /**
@@ -262,17 +265,20 @@ export interface BigMoneySummaryInput {
  */
 export function bigMoneySummary(x: BigMoneySummaryInput): string | null {
   if (x.total === 0) return null;
-  const end = x.withYear === null ? `${x.until}足ります` : `${x.ageText(x.withYear)}で不足します`;
-  if (x.included === 0) return `どれも入れずに${end}`;
-  const which = x.included === x.total ? `すべて（${String(x.total)}件）を` : `チェックした${String(x.included)}件（${String(x.total)}件中）を`;
-  return `${which}${x.withYear === null ? "入れても" : "入れると"}${end}`;
+  // 文は結果の画面の文の表（resultTexts.ts の result:dreamsAndPlans/line…）から。事務所の文を承認していれば、その文に同じ値を差し込む（0212 の追記）
+  const w = x.wording ?? OFFICIAL_WORDING;
+  const lasts = x.withYear === null;
+  const at = { until: x.until, age: x.withYear === null ? "" : x.ageText(x.withYear), total: `${String(x.total)}件`, count: `${String(x.included)}件` };
+  if (x.included === 0) return lasts ? w.text("result:dreamsAndPlans/lineNoneLasts", at) : w.text("result:dreamsAndPlans/lineNoneShort", at);
+  if (x.included === x.total) return lasts ? w.text("result:dreamsAndPlans/lineAllLasts", at) : w.text("result:dreamsAndPlans/lineAllShort", at);
+  return lasts ? w.text("result:dreamsAndPlans/lineSomeLasts", at) : w.text("result:dreamsAndPlans/lineSomeShort", at);
 }
 
 /**
  * 区画の値（App.tsx が作る。proposal は今の見方を当てた選んでいるプランの要求、table はその答えの表。failed は選んだプランか基準のプランが
  * 計算できなかった〔一行の結論を出さない。0169〕）
  */
-export function bigMoneyOf(proposal: EngineRequest, table: readonly TableCell[], input: BigMoneyInput, failed = false): BigMoneyModel {
+export function bigMoneyOf(proposal: EngineRequest, table: readonly TableCell[], input: BigMoneyInput, failed = false, wording: Wording = OFFICIAL_WORDING): BigMoneyModel {
   const years = displayYears(proposal);
   const self = roles(proposal).find((r) => r.key === "self");
   const last = years.at(-1) ?? proposal.input.endYear;
@@ -295,6 +301,6 @@ export function bigMoneyOf(proposal: EngineRequest, table: readonly TableCell[],
     if (rows.length > 0) groups.push({ ...g, rows, included: rows.filter((r) => r.included).length });
   }
   const picks = groups.flatMap((g) => g.rows).filter((r) => r.pick !== null);
-  const line = ctx.failed ? null : bigMoneySummary({ total: picks.length, included: picks.filter((r) => r.included).length, withYear: ctx.depP, ageText: ctx.ageText, until: ctx.until });
+  const line = ctx.failed ? null : bigMoneySummary({ total: picks.length, included: picks.filter((r) => r.included).length, withYear: ctx.depP, ageText: ctx.ageText, until: ctx.until, wording });
   return { line, groups };
 }
