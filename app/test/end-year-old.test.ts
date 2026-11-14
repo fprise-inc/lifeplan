@@ -80,7 +80,7 @@ describe("若い方がすでにその年齢を過ぎている世帯（H6-008）"
 describe("計算できなかったプランに「足りる」「残ります」を出さない（H6-008）", () => {
   const req = modelHousehold("pensionCouple");
   const res = preview(req);
-  it("これからの大きなお金の一行の結論は出さない（並べる物とチェックはそのまま）、結論の1文は計算できなかった旨", () => {
+  it("区画「夢と予定」の一行の結論は出さない（並べる物とチェックはそのまま）、結論の1文は計算できなかった旨", () => {
     const raw = modelHousehold("sampleFamilyDreams");
     const fe = forEngine(raw);
     const r = preview(fe);

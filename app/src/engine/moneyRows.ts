@@ -4,14 +4,14 @@
 //   入るお金の行と借金の includeInBase（前の版の「この行を計算に入れる」）が true なら、見込みが「不確実」でも入れる（確実と同じに読む。世帯ファイルは書き換えない）。
 //   世帯のデータからは消さず、エンジンへ渡す要求からだけ外す（エンジンは変えない）。前は受け取る相続・贈与と借金だけを外していた
 // - 夢プラン（0103）: 種類が夢（dream）の出るお金の行は、エンジンにはふつうの一時的支出の行として渡す。「最初から計算に入れない」（dream.include が false）の夢は外す
-// - 結果の見方（保存しない自動の差分。0036 の6・0044 の追記）: 結果の画面の区画「これからの大きなお金」の物ごとのチェック。確実な物は外して見られ、
+// - 結果の見方（保存しない自動の差分。0036 の6・0044 の追記）: 結果の画面の区画「夢と予定」の物ごとのチェック。確実な物は外して見られ、
 //   不確実な物と入れない夢は入れて見られる（要求の写しで includeInBase・priority・dream.include を書き換える。世帯もプランも変えない）
 // どちらも差分を当てた後の作業中の世帯から作る要求に当てるので、プランでの見込み（likelihood・priority）・includeInBase の set が効く
 // - 世帯に保存した表示だけの設定（相続税の目安の設定・遺したい額。0060）も、エンジンへ渡すときに外す（withoutStoredSettings）
 import type { Debt, EngineRequest, Household, IncomeFlow, IncomeFlowKind, PeriodicExpense } from "./types.ts";
 import { officeEstimateNoFill, officeEstimateValues } from "./officeValues.ts";
 
-/** 受け取る相続・遺贈・贈与の入るお金の種類（区画「これからの大きなお金」では、確実な物も「受け取りの予定」に並べる） */
+/** 受け取る相続・遺贈・贈与の入るお金の種類（区画「夢と予定」では、確実な物も「受け取りの予定」に並べる） */
 export const BASE_EXCLUDED_KINDS: ReadonlySet<IncomeFlowKind> = new Set(["inheritance", "giftReceived"]);
 
 /** 見込みが「不確実」か（入るお金・借金は likelihood が uncertain、出るお金は priority が want・wish、子への援助は priority が want） */
@@ -111,7 +111,7 @@ export interface RowsView {
 /** いつもの計算（物ごとの入れ外しなし） */
 export const ALL_ROWS: RowsView = { pick: {} };
 
-/** 見方で入れ外しできる物（区画「これからの大きなお金」のチェックのある行） */
+/** 見方で入れ外しできる物（区画「夢と予定」のチェックのある行） */
 export interface ViewCandidate {
   /** 入れ外しのキー（「in:」「out:」「debt:」「gift:」＋ ID、繰上返済は「prepay:」＋借入の ID・「:」・何番目か） */
   key: string;

@@ -1,4 +1,4 @@
-// 結果の画面の区画「これからの大きなお金」（0044・0103 の追記 2026-11-12）: 結果のグラフのすぐ下に、これからの大きなお金を
+// 結果の画面の区画「夢と予定」（0044・0103 の追記 2026-11-12）: 対策のすぐ下に、ご家族の夢と支払い・受け取りの予定を
 // 3つのまとまりで並べ、1件ずつのチェックで計算に入れる物を入れ外しする（見方の切り替えで保存しない。engine/moneyRows.ts の RowsView）:
 // - ご家族の夢: 夢プランの夢
 // - 支払いの予定: 子への援助・1回と年ごとの出るお金（確実も不確実も）・繰上返済・住まいの購入の頭金・月々の出るお金のうち不確実な物
@@ -15,13 +15,13 @@ import { resolveTimepoint } from "./timepoint.ts";
 import { depletionYear, displayYears } from "./present.ts";
 import { ageInYear, roles } from "./roles.ts";
 
-/** 「これからの大きなお金」の行の入れ外しの相手（engine/moneyRows.ts の ViewCandidate の key・off） */
+/** 「夢と予定」の行の入れ外しの相手（engine/moneyRows.ts の ViewCandidate の key・off） */
 export interface BigMoneyPick {
   key: string;
   off?: boolean;
 }
 
-/** 「これからの大きなお金」の1行（1件1行。行の key は物の ID を含むので、作業の層だけで持つ〔提示層の PresentationModel には入れない。0016 の2〕） */
+/** 「夢と予定」の1行（1件1行。行の key は物の ID を含むので、作業の層だけで持つ〔提示層の PresentationModel には入れない。0016 の2〕） */
 export interface BigMoneyRow {
   key: string;
   name: string;
@@ -46,7 +46,7 @@ export interface BigMoneyGroup {
   included: number;
 }
 
-/** 結果の画面の区画「これからの大きなお金」（結果のグラフのすぐ下。0044・0103 の追記 2026-11-12） */
+/** 結果の画面の区画「夢と予定」（対策のすぐ下。0044・0103 の追記 2026-11-12） */
 export interface BigMoneyModel {
   /** 一行の結論（「チェックした8件（15件中）を入れても102歳まで足ります」など。入れ外しできる物が無い・計算できていないときは null） */
   line: string | null;

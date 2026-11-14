@@ -202,7 +202,7 @@ html.big .chart .dep-txt { font-size: 15px; }
 .chip .yr { font-weight: 700; font-variant-numeric: tabular-nums; }
 .chip.on { border-color: var(--sel); border-width: 2.5px; background: var(--sel-bg); }
 
-/* これからの大きなお金（結果のグラフのすぐ下。0044・0103 の追記 2026-11-12）: 物のあるまとまりだけを横に並べる（列の数はまとまりの数）。
+/* 夢と予定（対策のすぐ下。0044・0103 の追記 2026-11-12）: 物のあるまとまりだけを横に並べる（列の数はまとまりの数）。
    1件1行で、列ごとに時期・金額の幅をそろえる（subgrid）。区画の幅で 3列 → 2列（1240px 以下）→ 1列（980px 以下。2列のままだと名前が
    3〜4文字で折り返して読みにくいため）。名前は「…」で切らずに折り返す。薄い行は計算に入れていない物 */
 .big-money { container-type: inline-size; }

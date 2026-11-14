@@ -1,5 +1,5 @@
 // 提示層の部品（主画面）。受け取るのは PresentationModel（とその一部）と、年・根拠を選ぶ手続きだけ（0016 の2）。
-// 配置（上から）: 案の帯（PlanBand.tsx）→ グラフ（ResultCard）→ これからの大きなお金（作業の層の BigMoneyCard）→ 対策（作業の層）→ 生涯キャッシュフロー表（CashflowTable）
+// 配置（上から）: 案の帯（PlanBand.tsx）→ グラフ（ResultCard）→ 対策（作業の層）→ 夢と予定（作業の層の BigMoneyCard）→ 生涯キャッシュフロー表（CashflowTable）
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { AgeMark, CashflowTableModel, EventChip, ExplainModel, FeeLine, Headline as HeadlineModel, ResultVerdict, Verdict as VerdictModel, VerdictPart } from "./model.ts";
