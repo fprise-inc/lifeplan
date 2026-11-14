@@ -193,7 +193,7 @@ describe("前提条件の足すボタン（0137）", () => {
 
   it("運用利回りの説明は費用を引いた後（税は計算で引く）", () => {
     const wh = blankHousehold("2026-10", seq());
-    expect(fieldIn(buildStage("assumptions", wh), "assume/investmentReturn").help).toMatch(/預金以外で、資産の配分を入れていない口座の利回りです（運用の費用を引いた後。税は計算で引きます）/);
+    expect(fieldIn(buildStage("assumptions", wh), "assume/investmentReturn").help).toMatch(/預金以外の口座の利回りです（運用の費用を引いた後。税は計算で引きます）/);
   });
 });
 
