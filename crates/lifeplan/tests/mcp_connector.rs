@@ -2929,14 +2929,27 @@ async fn compare_matches_the_screen() {
                     "{what}"
                 );
             }
-            // 当てたプランの変更は、基本と通りの両方
+            // 当てたプランの変更は、基本と通りの両方。通りが基本と同じ項目を動かすなら、基本の変更は使わない（後の値が勝つ。replaced）
             let applied = r["planChanges"].as_array().unwrap();
+            let own = col["changes"].as_array().unwrap().len();
             assert_eq!(
                 applied.len(),
-                cols[0]["changes"].as_array().unwrap().len()
-                    + col["changes"].as_array().unwrap().len()
+                cols[0]["changes"].as_array().unwrap().len() + own
             );
-            assert!(applied.iter().all(|x| x["status"] == "applied"), "{what}");
+            let (from_base, from_variant) = applied.split_at(applied.len() - own);
+            assert!(
+                from_variant.iter().all(|x| x["status"] == "applied"),
+                "{what}"
+            );
+            for x in from_base {
+                // 答えの planChanges は項目の名前と前と後の文だけ（compare.rs）なので、名前で見る
+                let replaced = from_variant.iter().any(|y| y["label"] == x["label"]);
+                assert_eq!(
+                    x["status"],
+                    if replaced { "replaced" } else { "applied" },
+                    "{what} {x}"
+                );
+            }
         }
         // 基本に重ねる通りは、calculate に基本と通りの変更をつないで渡したときと同じ主な数字
         let last = cols.last().unwrap();
