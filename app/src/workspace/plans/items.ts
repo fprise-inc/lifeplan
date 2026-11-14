@@ -1169,6 +1169,19 @@ export function catalogKeysOf(input: object): ReadonlySet<string> | undefined {
   return CATALOG_KEYS.get(input);
 }
 
+/**
+ * プランの世帯（土台のプランとそのプランを当てた後）→ そこで作る動かす項目のキー。現状の一覧に無い鍵が、そのプランでは今の物の欄か
+ * （土台のプランで種類を変えて置き換えた物の、今の種類の欄か）を確かめるため（plans.ts の changesOf。0036 の追記 2026-11-15）
+ */
+const PLAN_KEYS = new WeakMap<object, ReadonlySet<string>>();
+export function catalogKeysIn(wh: WorkingHousehold, selfId: string): ReadonlySet<string> {
+  const hit = PLAN_KEYS.get(wh.request.input);
+  if (hit !== undefined) return hit;
+  const keys: ReadonlySet<string> = new Set(buildCatalogOf(wh, selfId, null).items.map((i) => i.key));
+  PLAN_KEYS.set(wh.request.input, keys);
+  return keys;
+}
+
 /** 動かす項目の一覧を作る（現状の世帯から。現状が変わったら作り直す） */
 export function buildCatalog(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null): Catalog {
   const cat = buildCatalogOf(wh, selfId, demo);
