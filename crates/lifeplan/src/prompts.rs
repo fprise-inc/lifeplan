@@ -150,6 +150,15 @@ pub struct OfficeWordingArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct OfficeDisplayArgs {
+    /// 変えたい見せ方（例「対策に最初から NISA も出したい」「家計の体力の目安の幅を変えたい」「万一のときのタブを収入が減るの場面で開きたい」）。
+    /// 省くと、今の設定と変えられることをひととおり
+    pub want: Option<String>,
+    /// 世帯ごとの設定も見たい世帯（FP が渡した世帯の share_id）。省くと事務所の既定値だけ
+    pub household: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CheckCoverageArgs {
     /// 調べたい制度や計算（例「高額療養費」「ふるさと納税」「iDeCo の受け取り方」）
     pub topic: String,
@@ -507,6 +516,35 @@ impl LifeplanMcp {
                  3. FP が決めた分だけ、答えの howTo の形で settings/texts.json（文）・settings/terms.json（名前）の下書きを作る。basedOn には一覧の hash をそのまま写す。すでにファイルがあれば、ほかの行を消さずに足す・直す。\n\
                  4. 下書きは、カスタム層のフォルダ（アプリの事務所の既定値の画面に場所が出る）の settings/ に置く。この接続口はファイルを書かないので、あなたがそのフォルダに書けなければ、中身を FP に渡して置いてもらう。\n\
                  5. 置いたら、アプリの事務所の既定値の画面の「説明の文（カスタム層）」「名前（カスタム層）」で中身を確かめて承認するよう FP に伝える。承認するまで画面は公式の文のままで、計算の結果はどの文でも変わらない。注意（数字の入る印が無い など）が出たら、その行を直す。",
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "office_display",
+        title = "画面の見せ方の設定を確かめる",
+        description = "対策に最初から出す項目・万一のときのタブの場面・入力項目の出し方・結果のタブと資産と負債のタブの表示の設定など、画面の見せ方だけの設定の今の値と変えられることを説明し、アプリのどこで変えるかを伝える（変える案を出すのは次の段。今は FP がアプリで変える）"
+    )]
+    async fn office_display(
+        &self,
+        Parameters(a): Parameters<OfficeDisplayArgs>,
+    ) -> GetPromptResult {
+        let want = given(&a.want).unwrap_or("（指定なし。今の設定と、変えられることをひととおり）");
+        let household = given(&a.household).map_or_else(
+            || "（指定なし。事務所の既定値だけを見る。世帯ごとの設定も見るなら、FP が渡した世帯の share_id を get_display_settings の share_id に渡す）".to_owned(),
+            |h| format!("{h}（FP が渡した世帯の share_id として get_display_settings の share_id に渡す。分からなければ list_shared_households で確かめる）"),
+        );
+        result(
+            "画面の見せ方の設定を確かめる",
+            format!(
+                "ファイナンシアの画面の見せ方の設定を確かめて、変えたいことの進め方を教えてください。\n\
+                 - 変えたい見せ方: {want}\n- 世帯: {household}\n\n\
+                 進め方:\n\
+                 1. get_display_settings で表示の設定の一覧を引く（変えたいことが決まっていれば ids で絞る）。1件ごとに id・画面と同じ名前（label）・どこで決めるか（scope: office は事務所の既定値でどの世帯にも効く・household はその世帯だけ・both は両方）・効く画面・アプリのどこで変えるか（change）・提案書と持ち帰り用のレポートに出るか（reaches）・選べる値（choices）・既定（default）と、アプリが起動していれば今の値（current）が返る。アプリが起動していなければ一覧と既定だけなので、今の値は FP に確かめる。\n\
+                 2. 変えたいことに当たる設定を選び、今の値と、変えた後の見え方を、画面の名前で短く説明する（例: 対策に最初から出す項目に「NISAの積立額（月）」を足すと、どの世帯の結果のタブの対策にも最初から出る。値も計算の結果も変わらない）。事務所の既定値の中でも、新しく作る世帯に写すだけの物（officeEffect が newHouseholds）は、作った世帯は変わらないことを添える。\n\
+                 3. 変える所を、答えの change の画面と区画の名前のまま FP に伝える。**この接続口からは、まだ設定を変えられない**（変える案をアプリに承認待ちで出す道具は次の段で足す予定）。設定を変えたと言わない。\n\
+                 4. 一覧に無いこと（計算の結果を変える設定〔前提条件の標準値・推定の値など〕・名前やロゴ・ヒアリングのひな形）は、この一覧の外だと伝える。画面の文や名前を事務所の言い方に直したい・入力の欄を隠したいときは、list_custom_texts でカスタム層の下書き（settings/texts.json・settings/terms.json・settings/fields.json）を作る進め方にする。\n\
+                 5. 計算のお知らせの「入力が足りない」「計算に入れていない」と確かめの注意は、どの設定でも隠せない（答えの neverHidden）。隠したいと言われても、隠す方法は案内しない。",
             ),
         )
     }
