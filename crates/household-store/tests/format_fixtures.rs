@@ -1009,6 +1009,15 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: お金の3つの分け方の設定は 0.13 から（変換の段では足さない）"
             );
         }
+        if migrate::parse(v).unwrap() >= (0, 77) {
+            // 0.77 から: 家計の体力の目安を表示するか（0027 の 2026-11-13 の追記）。0.77 の見本は表示しない
+            assert_eq!(now["display"]["balance"]["health"], false);
+        } else {
+            assert!(
+                now["display"]["balance"].get("health").is_none(),
+                "{v}: 家計の体力の目安を表示するかは 0.77 から（変換の段では足さない＝表示する）"
+            );
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }
