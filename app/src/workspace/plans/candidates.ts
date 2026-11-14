@@ -14,6 +14,8 @@ import { currentPeriodId, resolveKey, type Reading } from "../store/readings.ts"
 import type { Catalog, DiffTarget, ItemValue, MovableItem } from "./items.ts";
 import type { Values } from "./plans.ts";
 import { addRate, cmpRate } from "./decimal.ts";
+import { group } from "../../presentation/format.ts";
+import type { YenBasis } from "../input/units.ts";
 
 /** 入力項目の外で縮約版に入る項目の名前（AIに渡した記録・共有の画面の「渡す項目」。0195） */
 const EXTRA_ITEM_LABELS: Record<string, string> = { postRetirement: "定年後の働き方の条件" };
@@ -157,6 +159,33 @@ function leverOutOfRange(it: MovableItem, v: ItemValue, now: ItemValue): string 
   return null;
 }
 
+/**
+ * 金額の上の端（円）。円と万円の取り違え・桁の誤り（月30万円のつもりの 3,000,000,000 など）を止める。入力の欄の「桁を確かめてください」の目安
+ * （月額1,000万円・年額1億円。input/units.ts の amountWarning）の10倍で、一時の額（借入額・繰上返済など）は年額の10倍。画面のスライダーの幅は
+ * 目盛りなので使わない。今の値が上の端より大きければ、今の値まで広げる（年齢の上の端と同じ）
+ */
+export const AMOUNT_LIMITS: Readonly<Record<YenBasis, number>> = { monthly: 100_000_000, annual: 1_000_000_000, once: 10_000_000_000 };
+
+/** 金額の項目の月額・年額・一時の別（金額でない項目は null）。数のスライダー（range）は per、入力の欄の金額は欄の basis */
+function amountBasis(it: MovableItem): YenBasis | null {
+  const c = it.control;
+  if (c.kind === "range") return c.per === "月" ? "monthly" : c.per === "年" ? "annual" : "once";
+  if (c.kind === "field" && c.field.kind === "yen") return c.field.basis;
+  return null;
+}
+
+const yenLimitText = (v: number): string => (v % 100_000_000 === 0 ? `${group(v / 100_000_000)}億円` : `${group(v)}円`);
+
+/** 金額の値が上の端（AMOUNT_LIMITS）を超えていれば理由（今と同じ値は確かめない）。対策の固定の項目にも、入力の欄の項目にも当てる */
+export function amountOutOfRange(it: MovableItem, v: ItemValue, now: ItemValue): string | null {
+  const basis = amountBasis(it);
+  if (basis === null || typeof v !== "number" || it.same(v, now)) return null;
+  const limit = Math.max(AMOUNT_LIMITS[basis], typeof now === "number" ? now : 0);
+  if (v <= limit) return null;
+  const per = basis === "monthly" ? "月" : basis === "annual" ? "年" : "";
+  return `入れてよい範囲（${per}${yenLimitText(limit)}まで）の外の値のため、取り込みません（金額は円の整数で書きます。万円との取り違え・桁の誤りではありませんか）`;
+}
+
 /** 動かす項目のキーの読み替え（resolveKey）を、一覧と現状ごとに1回だけ作る（一覧のすべての項目を当てはめ直す listPlanItems のため） */
 const READINGS = new WeakMap<Catalog, { input: object; map: Map<string, Reading | null> }>();
 function readingsOf(cat: Catalog, input: Record<string, unknown>): (key: string) => Reading | null {
@@ -231,7 +260,7 @@ export function candidateRows(c: { diffs: readonly ProposedChange[] }, wh: Worki
     if (v === undefined) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: "値の形がこの項目に合わないため、取り込みません" };
     const range = rangeOf(it);
     if (range !== null && typeof v === "string" && !rateInRange(v, range)) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: `入れてよい範囲（${rangeText(range)}）の外の値のため、取り込みません` };
-    const out = it.phase === "field" ? null : leverOutOfRange(it, v, now);
+    const out = (it.phase === "field" ? null : leverOutOfRange(it, v, now)) ?? amountOutOfRange(it, v, now);
     if (out !== null) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: out };
     return { ...base, label: it.label, from: it.text(now), to: it.text(v), key: it.key, value: v, reason: it.same(v, now) ? "今と同じ値です" : null };
   });

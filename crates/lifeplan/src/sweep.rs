@@ -141,6 +141,22 @@ impl Vary {
     }
 }
 
+/// 境目探しの条件の年齢が表の範囲の外のときの理由の頭（探すのをやめた理由と見分ける）
+pub const OUTSIDE_PREFIX: &str = "condition の assetsAtAge の age";
+
+/// 表の範囲の外の年齢の列（列の名前・年齢・理由。主な数字の年齢の行に reason がある物だけ。無ければ None）
+pub fn ages_outside(kf: &Value) -> Option<Value> {
+    let out: Vec<Value> = kf["assetsAtAge"]
+        .as_array()?
+        .iter()
+        .filter_map(|x| {
+            let r = x["reason"].as_str()?;
+            Some(json!({ "column": format!("assetsAt{}", x["age"]), "age": x["age"], "reason": r }))
+        })
+        .collect();
+    (!out.is_empty()).then(|| json!(out))
+}
+
 /// 境目探しの条件
 #[derive(Debug, Clone, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -178,10 +194,10 @@ impl Condition {
     pub fn met(&self, kf: &Value) -> bool {
         match self.r#type.as_str() {
             "noDepletion" => kf["depletion"].is_null(),
+            // 表の範囲の外の年齢は金額が null（端の年の残高で代えない。outside で先に断る）
             "assetsAtAge" => kf["assetsAtAge"]
                 .as_array()
                 .and_then(|a| a.iter().find(|x| x["age"] == json!(self.age)))
-                .or_else(|| kf["assetsAtAge"].get(0))
                 .and_then(|x| x["amount"].as_i64())
                 .is_some_and(|v| v >= self.at_least.unwrap_or(0)),
             "minimumAtLeast" => kf["minimum"]["amount"]
@@ -189,6 +205,22 @@ impl Condition {
                 .is_some_and(|v| v >= self.at_least.unwrap_or(0)),
             _ => false,
         }
+    }
+
+    /// assetsAtAge の年齢が表の範囲の外なら、その理由（主な数字の年齢の行の reason から。OUTSIDE_PREFIX で始まる）
+    pub fn outside(&self, kf: &Value) -> Option<String> {
+        if self.r#type != "assetsAtAge" {
+            return None;
+        }
+        let x = kf["assetsAtAge"]
+            .as_array()?
+            .iter()
+            .find(|x| x["age"] == json!(self.age))?;
+        let r = x["reason"].as_str()?;
+        Some(format!(
+            "{OUTSIDE_PREFIX}（{}歳）は、{r}。age を表の範囲の中の年齢にしてください。",
+            self.age.unwrap_or(0)
+        ))
     }
 
     /// 人が読める条件の文
@@ -227,6 +259,7 @@ fn group(v: i64) -> String {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SweepArgs {
     /// 基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -256,7 +289,7 @@ pub struct SweepArgs {
     pub values: Option<Vec<Value>>,
     /// kind が work の項目で、振る年収の働き方（list_plan_items の options の value）。省くと今の働き方
     pub work_type: Option<String>,
-    /// 「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]）
+    /// 「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]）。表の範囲の外の年齢の列は null で、答えの outOfRange に理由を返す
     pub at_ages: Option<Vec<u8>>,
     /// 表に入れる主な数字（既定は loanInterest のほか全部）: assetsAtAge（○歳時点の金融資産）・depletion（資産が尽きる年と本人の年齢）・minimum（金融資産が
     /// いちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense・loanRepayment・loanInterest（住宅ローンの利息の合計。選んだときだけ）・pension（65歳からの年金の世帯の月額と、受け取り開始からの
@@ -266,6 +299,7 @@ pub struct SweepArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ThresholdArgs {
     /// 基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -480,11 +514,12 @@ pub fn grid(
     let form = if kind == Kind::Decimal {
         "10進の文字列（\"0.01\" など）か数"
     } else {
-        "整数"
+        "整数の数（\"310000\" のような文字は受けません）"
     };
+    // 年齢・整数・金額は JSON の数だけを受ける（"310000" のような文字は、数に直さず断る。率だけ10進の文字を受ける）
     let parse = |v: &Value, name: &str| {
         Dec::parse(v)
-            .filter(|d| kind == Kind::Decimal || d.is_integer())
+            .filter(|d| kind == Kind::Decimal || (v.is_number() && d.is_integer()))
             .ok_or_else(|| format!("{name} は{form}で書いてください（{v}）。"))
     };
     let (a, b) = (parse(from, "from")?, parse(to, "to")?);
@@ -552,20 +587,28 @@ pub fn listed(
     if values.is_empty() || values.len() > MAX_POINTS {
         return Err(format!("values は1〜{MAX_POINTS}個にしてください。"));
     }
+    // 年齢・整数・金額（と働き方の年収）の項目は、値を JSON の数で受ける。文字（"310000"）は数に直さず断る
+    // （答えの表の value の列に文字が混じらないように。率の項目は10進の文字が正しい形なので、今までどおり受ける）
+    let kind = Kind::of(item["kind"].as_str().unwrap_or(""));
+    if matches!(kind, Kind::Integer | Kind::Work) {
+        if let Some(bad) = values.iter().find(|v| v.is_string()) {
+            return Err(format!(
+                "values は数で書いてください（{bad} は文字です）。この項目（{}。kind は {}）の値は、JSON の数（例 310000）で並べます。10進の文字（\"0.01\"）で書くのは率の項目だけです。",
+                item["label"].as_str().unwrap_or(""),
+                item["kind"].as_str().unwrap_or("")
+            ));
+        }
+    }
     let work = work_type
         .map(str::to_owned)
         .or_else(|| item["value"]["type"].as_str().map(str::to_owned));
     Ok(values
         .iter()
         .map(|v| match (&work, v) {
-            (Some(t), Value::Number(_))
-                if Kind::of(item["kind"].as_str().unwrap_or("")) == Kind::Work =>
-            {
-                Point {
-                    shown: v.clone(),
-                    value: json!({ "type": t, "annual": v }),
-                }
-            }
+            (Some(t), Value::Number(_)) if kind == Kind::Work => Point {
+                shown: v.clone(),
+                value: json!({ "type": t, "annual": v }),
+            },
             _ => Point {
                 shown: v.clone(),
                 value: v.clone(),

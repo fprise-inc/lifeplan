@@ -135,6 +135,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "bom": {
       "description": "true なら CSV の頭に BOM（U+FEFF）を付ける（日本語の Windows の Excel でファイルを開いたときに文字化けさせない。既定 false）",

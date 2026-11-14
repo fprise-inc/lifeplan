@@ -142,7 +142,8 @@ pub fn list(f: &Filter) -> Value {
     } else {
         &catalogs().texts
     };
-    let q = f.query.map(str::to_lowercase);
+    // 全角・半角の違いで結果が変わらないよう、言葉と文の両方を NFKC にそろえて照らし合わせる（fold.rs）
+    let q = f.query.map(crate::fold::fold);
     let hits: Vec<&Value> = all
         .iter()
         .filter(|e| f.kind.is_none_or(|k| e["kind"] == k))
@@ -152,9 +153,11 @@ pub fn list(f: &Filter) -> Value {
         })
         .filter(|e| {
             q.as_deref().is_none_or(|q| {
-                ["id", "where", "text"]
-                    .iter()
-                    .any(|k| e[*k].as_str().is_some_and(|s| s.to_lowercase().contains(q)))
+                ["id", "where", "text"].iter().any(|k| {
+                    e[*k]
+                        .as_str()
+                        .is_some_and(|s| crate::fold::fold(s).contains(q))
+                })
             })
         })
         .collect();

@@ -345,7 +345,7 @@ async fn every_recipe_calculates_on_every_model_household() {
                 continue;
             }
             let r: Value = serde_json::from_str(&text).unwrap();
-            let (err, out) = call(&c, "calculate", json!({ "sample_household_id": id, "changes": r["changes"], "from_year": 2030, "to_year": 2030, "omit": ["pension"] })).await;
+            let (err, out) = call(&c, "calculate", json!({ "sample_household_id": id, "changes": r["changes"], "omit": ["pension", "years"] })).await;
             assert!(!err, "{recipe} × {id}: {out}");
             applied += 1;
         }

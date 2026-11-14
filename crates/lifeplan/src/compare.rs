@@ -51,6 +51,19 @@ pub struct VariantArgs {
     pub market_stress: Option<String>,
 }
 
+/// 通りに書ける名前（入力の形の properties から。知らない名前の理由に並べる。args.rs）
+pub fn variant_keys() -> Vec<String> {
+    let s = schemars::schema_for!(VariantArgs);
+    let mut v: Vec<String> = s
+        .as_object()
+        .and_then(|o| o.get("properties"))
+        .and_then(Value::as_object)
+        .map(|p| p.keys().cloned().collect())
+        .unwrap_or_default();
+    v.sort();
+    v
+}
+
 impl VariantArgs {
     /// 世帯を書いた数（0 なら基本に重ねる）
     pub fn households(&self) -> usize {
@@ -77,6 +90,7 @@ pub struct Internal {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CompareArgs {
     /// 基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -113,7 +127,8 @@ pub struct CompareArgs {
     /// 系列の何年おき（1〜10。既定5）。画面の表の最初の年と最後の年はいつも入る
     #[schemars(range(min = 1, max = 10))]
     pub every_years: Option<u8>,
-    /// keyFigures の「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]＝アプリの画面の既定）
+    /// keyFigures の「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]＝アプリの画面の既定）。表の範囲の外の年齢（今より若い・表の最後の年より先）は、
+    /// 端の年の残高で代えず amount を null にして reason を添える（diff も null）
     pub at_ages: Option<Vec<u8>>,
     /// false なら、系列に家族の年齢（ages）と members を付けない（答えが通りごとに約0.7KB小さくなる）。既定 true
     pub ages: Option<bool>,
@@ -202,7 +217,12 @@ pub fn diff(this: &Value, base: &Value) -> Value {
                 .enumerate()
                 .map(|(i, x)| {
                     let b = &base["assetsAtAge"][i];
-                    json!({ "age": x["age"], "amount": x["amount"].as_i64().unwrap_or_default() - b["amount"].as_i64().unwrap_or_default() })
+                    // 表の範囲の外の年齢（金額が null）は、差も null
+                    let amount = match (x["amount"].as_i64(), b["amount"].as_i64()) {
+                        (Some(t), Some(b)) => json!(t - b),
+                        _ => Value::Null,
+                    };
+                    json!({ "age": x["age"], "amount": amount })
                 })
                 .collect()
         })

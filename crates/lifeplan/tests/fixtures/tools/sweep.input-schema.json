@@ -102,9 +102,10 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "at_ages": {
-      "description": "「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]）",
+      "description": "「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]）。表の範囲の外の年齢の列は null で、答えの outOfRange に理由を返す",
       "items": {
         "format": "uint8",
         "maximum": 255,

@@ -64,6 +64,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "changes": {
       "description": "プランを確かめるとき: 入力に当てる変更（calculate の changes と同じ JSON Patch）",

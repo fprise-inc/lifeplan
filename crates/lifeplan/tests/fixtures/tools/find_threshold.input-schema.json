@@ -139,6 +139,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "changes": {
       "description": "基本に当てる JSON Pointer の変更（calculate の changes と同じ）",
