@@ -187,13 +187,13 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
   reverseAge: v.protection.protection?.reverseUntilAge !== undefined ? String(v.protection.protection.reverseUntilAge) : "",
 });
 
-/** 前提条件の欄の空欄のときの言葉（提供元の既定の値。ほかの値と同じになる物はその言葉） */
-const premisePlaceholder = (d: PremiseDef): string => (d.standard === null ? (d.follows?.text ?? "") : premiseInput(d, d.standard));
+/** 前提条件の欄の空欄のときの言葉（提供元の既定の値。ほかの値と同じになる物は空。言葉は区画の説明・欄の下の1行に書く。小さな欄に収まらないため） */
+const premisePlaceholder = (d: PremiseDef): string => (d.standard === null ? "" : premiseInput(d, d.standard));
 
 /** 前提条件の区画ごとの説明（区画の見出しの下） */
 const PREMISE_SECTION_NOTES: Readonly<Record<PremiseSection, string>> = {
   economy: "空欄は提供元の既定の値（仮の値）です。長い期間の平均の目安で入れます。",
-  realEstate: "持ち家・収益不動産の評価に使います（物件ごとに入れた値があればそちら）。空欄は提供元の既定の値。土地の割合・建物の残りの価値の下限・売却の費用は「事務所の推定の値」と同じ値で、世帯に写さず、空欄の物件はその場の値で計算します。",
+  realEstate: "持ち家・収益不動産の評価に使います（物件ごとに入れた値があればそちら）。空欄は提供元の既定の値（土地の上昇率は物価上昇率と同じ）。土地の割合・建物の残りの価値の下限・売却の費用は「事務所の推定の値」と同じ値で、世帯に写さず、空欄の物件はその場の値で計算します。",
   assetReturns: "資産配分の種類ごとの利回り（信託報酬などを引く前の年率）。空欄は、預金・外貨預金は預金の利回り、不動産（貸していない不動産の値動き）は0%、ほかは運用利回りで計算します。",
 };
 
