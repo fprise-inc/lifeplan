@@ -35,9 +35,21 @@ const totalText = (yen: number): string =>
  * 子が返す奨学金の書き添え（子ごとに1文）。例: 「第2子の奨学金の返済（2038年10月〜2053年9月・月々約1.4万円・合計約257万円）は、第2子が返すので世帯の収支に入れていません」。
  * 1人に2件以上あれば、期間は最初から最後まで、月々の額は最初の月の合計、合計は足した額。labelOf は子の呼び方（第1子など）
  */
+/** 書き添えの文に入れる値（単位まで入れた文字） */
+export interface ChildScholarshipNoteValues {
+  child: string;
+  from: string;
+  to: string;
+  monthly: string;
+  total: string;
+}
+
 export function childScholarshipNotes(
   summary: unknown,
   labelOf: (member: string) => string,
+  /** 文の作り方（アプリの結果の画面で事務所の文を当てるとき。省略は公式の文。0212 の追記） */
+  text: (v: ChildScholarshipNoteValues) => string = (v) =>
+    `${v.child}の奨学金の返済（${v.from}〜${v.to}・月々${v.monthly}・合計${v.total}）は、${v.child}が返すので世帯の収支に入れていません`,
 ): string[] {
   const byChild = new Map<string, ChildScholarship[]>();
   for (const c of childScholarshipsOf(summary))
@@ -52,7 +64,12 @@ export function childScholarshipNotes(
       .filter((c) => c.from === from)
       .reduce((s, c) => s + c.monthly, 0);
     const total = list.reduce((s, c) => s + c.total, 0);
-    const who = labelOf(member);
-    return `${who}の奨学金の返済（${ymText(from)}〜${ymText(to)}・月々${monthlyText(monthly)}・合計${totalText(total)}）は、${who}が返すので世帯の収支に入れていません`;
+    return text({
+      child: labelOf(member),
+      from: ymText(from),
+      to: ymText(to),
+      monthly: monthlyText(monthly),
+      total: totalText(total),
+    });
   });
 }
