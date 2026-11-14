@@ -1,4 +1,4 @@
-// 前提条件は事務所の既定値で決め、世帯では「事務所の既定値」か「この世帯だけ」と見せる（0213）:
+// 前提条件は事務所の既定値で決め、世帯では「事務所の既定値」か「この世帯だけ」と見せる（0214）:
 // 事務所データの形（版 2・版 1 も読む）、新しい世帯に写す、欄の印と「事務所の既定値に戻す」、たたんだ1行の数、事務所の既定値を変えたときの知らせ、
 // 古い世帯の読み方、見本の世帯の計算の結果が変わらないこと、事務所の既定値の画面の3つの区画
 import { readdirSync } from "node:fs";
@@ -55,7 +55,7 @@ function withHome(wh: WorkingHousehold): WorkingHousehold {
 
 afterEach(() => setOfficeNow(STANDARD_OFFICE_NOW));
 
-describe("事務所データの形（版 2。0213 の2）", () => {
+describe("事務所データの形（版 2。0214 の2）", () => {
   it("版 1 の事務所データはそのまま読め、読んだら版 2（足した欄は「決めていない」）", () => {
     const v1 = { version: 1, assumptions: { inflation: "0.015", heldEstateGrowth: "0.01" }, realEstateRatio: "0.7", changedOn: "2026-10-27" };
     const r = readOfficeSettings(v1);
@@ -157,7 +157,7 @@ describe("新しい世帯に写す・欄の印", () => {
   });
 });
 
-describe("たたんだ1行（0213 の4）", () => {
+describe("たたんだ1行（0214 の4）", () => {
   it("ふだんは1行（経済の前提・例外の年・不動産の評価・資産の種類ごとの利回りを出さない）。この世帯だけの数・変わった数を数える", () => {
     let wh = blankHousehold("2026-11", ids());
     const html = panel(wh);
@@ -184,7 +184,7 @@ describe("たたんだ1行（0213 の4）", () => {
   });
 });
 
-describe("事務所の既定値を後で変えたとき（0213 の5）", () => {
+describe("事務所の既定値を後で変えたとき（0214 の5）", () => {
   it("写した値は変えず、確かめの一覧に「事務所の既定値が変わりました（前→今）」。1押しで当てる（今回足した欄も）", () => {
     publishOfficeSettings(OFFICE);
     const wh = withHome(applyOfficeDefaults(blankHousehold("2026-11", ids()), OFFICE));
@@ -227,7 +227,7 @@ describe("事務所の既定値を後で変えたとき（0213 の5）", () => {
     expect(rows.find((r) => r.id === "field:assume/wageGrowth")).toMatchObject({ state: "この世帯だけ", agreeable: true });
   });
 
-  it("資産配分の期待リターンの目安（推定の目安から書いた値）は推定のまま（0213 の4 の例外）", () => {
+  it("資産配分の期待リターンの目安（推定の目安から書いた値）は推定のまま（0214 の4 の例外）", () => {
     const wh = blankHousehold("2026-11", ids());
     const w = { ...wh, assumed: { ...wh.assumed, "assume/assetReturns/equity.global/default": "外国株式の期待リターンの目安 6%" }, request: mutate(wh, (_h, req) => void ((req.input.assumptions!.assetReturns ??= {})["equity.global"] = { default: "0.06" })).request };
     const s = fieldStatus(fieldOf(w, "assume/assetReturns/equity.global/default"), w);
@@ -236,7 +236,7 @@ describe("事務所の既定値を後で変えたとき（0213 の5）", () => {
   });
 });
 
-describe("見本の世帯の計算の結果は変わらない（0213 の6）", () => {
+describe("見本の世帯の計算の結果は変わらない（0214 の6）", () => {
   it.each(MODELS)("%s: 読むだけで計算の要求を変えず、事務所の既定値を変えても計算の結果は同じ", (id) => {
     const wh = fromRequest(modelHousehold(id), {});
     const before = JSON.stringify(wh.request);
@@ -251,7 +251,7 @@ describe("見本の世帯の計算の結果は変わらない（0213 の6）", (
   });
 });
 
-describe("事務所の既定値の画面の前提条件（0213 の1・4）", () => {
+describe("事務所の既定値の画面の前提条件（0214 の1・4）", () => {
   it("経済の前提・不動産の評価・資産の種類ごとの利回りの3つの区画。不動産の評価と資産の種類ごとの利回りは小さな欄の並び", () => {
     const html = renderToString(h(OfficeSettingsPanel, { value: OFFICE, onSave: async () => undefined, shared: false, onClose: noop }));
     for (const sec of ["economy", "realEstate", "assetReturns"]) expect(html).toContain(`data-office-premises="${sec}"`);

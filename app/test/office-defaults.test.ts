@@ -82,7 +82,7 @@ describe("新しい世帯に写す", () => {
     expect(fieldStatus(f, next)).toMatchObject({ status: "confirmed", premise: { state: "office" } });
     expect(next.assumed["assume/inflation"]).toBe("事務所の既定値（2026-11）");
     expect(checkList(next).some((r) => r.fieldKey === "assume/inflation" && r.kind === "notice")).toBe(false);
-    // 事務所の既定値どおりの前提は「前提条件（事務所の既定値どおり）」の行（操作なし。0213 の7）
+    // 事務所の既定値どおりの前提は「前提条件（事務所の既定値どおり）」の行（操作なし。0214 の7）
     const conf = checkList(wh).find((r) => r.fieldKey === "assume/wageGrowth");
     expect(conf).toMatchObject({ kind: "premise", actions: [] });
     // この世帯だけの値には知らせを出さない

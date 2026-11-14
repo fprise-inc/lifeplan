@@ -116,7 +116,7 @@ function jumpTo(el: HTMLElement): void {
   box.classList.add("jumped");
 }
 
-/** 前提条件のカードで1行にたたむ区画（経済の前提・例外の年・不動産の評価・資産の種類ごとの利回り。結果のタブで動かした前提と FP顧問料はたたまない。0213 の4） */
+/** 前提条件のカードで1行にたたむ区画（経済の前提・例外の年・不動産の評価・資産の種類ごとの利回り。結果のタブで動かした前提と FP顧問料はたたまない。0214 の4） */
 const PREMISE_FOLD = new Set(["assume/main", "assume/exceptions", "assume/realEstate", "assume/assetReturns"]);
 
 /** たたむ区画の欄・まとまりのキーか */
@@ -136,7 +136,7 @@ function PremiseFoldLine({ wh, open, onToggle }: { wh: WorkingHousehold; open: b
 
 export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, onReadDoc, focusKey, focusAt, plan, groupOpen, docs }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(wh);
-  // 前提条件の事務所の既定値の区画は、ふだん1行にたたむ（0213 の4）。確かめの一覧・検索からその欄へ来たときは開いて出す
+  // 前提条件の事務所の既定値の区画は、ふだん1行にたたむ（0214 の4）。確かめの一覧・検索からその欄へ来たときは開いて出す
   const [premiseOpen, setPremiseOpen] = useState(() => itemId === "assumptions" && (inPremiseFold(focusKey) || inPremiseFold(focusAt?.key) || inPremiseFold(focusAt?.section)));
   const [dirty, setDirty] = useState(false);
   /** 保存していない変更があるか（描く前にも読めるように。閉じる前に打ちかけの値を決めた直後など） */

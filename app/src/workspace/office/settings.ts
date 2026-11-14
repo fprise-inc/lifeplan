@@ -1,8 +1,8 @@
 // 事務所の既定値（0073）: 事務所全体で使う既定を、事務所データ（暗号化。0011 の6）に持つ。世帯ファイルには入れない。
-// - 新しい世帯を作るときに写す（前提条件の既定値〔経済の前提・不動産の評価・資産の種類ごとの利回り。0213〕・本人と配偶者の介護を最初から入れるか・
+// - 新しい世帯を作るときに写す（前提条件の既定値〔経済の前提・不動産の評価・資産の種類ごとの利回り。0214〕・本人と配偶者の介護を最初から入れるか・
 //   相続税の目安の評価の割合）。写した前提条件は「事務所の既定値（年月）」の印で、世帯では決まった値として「事務所の既定値」と見せる。
 //   後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の既定値が変わりました」）
-// - 形の版は 2（0213 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足した。版 1 の事務所データもそのまま読む）
+// - 形の版は 2（0214 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足した。版 1 の事務所データもそのまま読む）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
 // - 画面の側で読むだけの既定（入力項目の並び・対策に最初から出す項目・万一のタブの想定の前提に最初から出す項目と場面の帯の並べ方・
 //   受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む。
@@ -36,7 +36,7 @@ export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 /**
  * 事務所データの assumptions の系列（値は小数の文字。例: "0.01"）。系列の名前は前提条件の年ごとの列の名前（assumptions.<名前>）で、前提条件の id と同じ。
  * heldEstateGrowth（貸していない不動産の値動き）は、資産の種類ごとの利回りの不動産（id assetReturns.realEstate）の置き場所（版 1 からの名前。0073 の追記 2026-11-07）。
- * 前提条件の欄の全部は input/premiseDefaults.ts の PREMISE_DEFS（0213）
+ * 前提条件の欄の全部は input/premiseDefaults.ts の PREMISE_DEFS（0214）
  */
 export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "depositReturn", "educationInflation", "pensionMacroSlide", "pensionMacroSlideEmployee", "heldEstateGrowth"] as const;
 export type OfficeAssumption = (typeof OFFICE_ASSUMPTIONS)[number];
@@ -83,7 +83,7 @@ export const ASSUMPTION_STANDARDS: Readonly<Record<OfficeAssumption, string | nu
 /** 前提条件の id → 事務所データの assumptions の系列の名前（その置き場所でなければ null） */
 const assumptionNameOf = (id: string): OfficeAssumption | null => (id === "assetReturns.realEstate" ? "heldEstateGrowth" : (OFFICE_ASSUMPTIONS as readonly string[]).includes(id) && id !== "heldEstateGrowth" ? (id as OfficeAssumption) : null);
 
-/** 事務所データの不動産の評価（0213。土地の割合・建物の残りの価値の下限・売却の費用は事務所の推定の値〔estimates〕で持つ） */
+/** 事務所データの不動産の評価（0214。土地の割合・建物の残りの価値の下限・売却の費用は事務所の推定の値〔estimates〕で持つ） */
 export interface OfficeValuation {
   /** 土地の上昇率（小数の文字。無ければ物価上昇率と同じ） */
   landGrowth?: string;
@@ -103,7 +103,7 @@ export const DEFAULT_FEATURES: OfficeFeatures = { combinedBs: false };
 export type InheritLikelihood = "likely" | "uncertain";
 
 export interface OfficeSettings {
-  /** 形の版（この画面の側の形。1 から。0213 で 2。版 1 の事務所データもそのまま読み、読んだら 2） */
+  /** 形の版（この画面の側の形。1 から。0214 で 2。版 1 の事務所データもそのまま読み、読んだら 2） */
   version: 2;
   /** 入力項目の並び（null は標準） */
   layout: CardLayout | null;
@@ -123,9 +123,9 @@ export interface OfficeSettings {
   inheritLikelihood: InheritLikelihood;
   /** 前提条件の標準値（無い系列は 既定の値） */
   assumptions: Partial<Record<OfficeAssumption, string>>;
-  /** 前提条件の不動産の評価の既定値（0213。無ければ提供元の既定の値） */
+  /** 前提条件の不動産の評価の既定値（0214。無ければ提供元の既定の値） */
   realEstateValuation?: OfficeValuation;
-  /** 前提条件の資産の種類ごとの利回りの既定値（0213。種類 → 小数の文字。不動産は assumptions.heldEstateGrowth。無い種類は入れない） */
+  /** 前提条件の資産の種類ごとの利回りの既定値（0214。種類 → 小数の文字。不動産は assumptions.heldEstateGrowth。無い種類は入れない） */
   assetReturns?: Readonly<Partial<Record<string, string>>>;
   /** 相続税の目安の不動産の評価の割合（時価に掛ける。null は標準の80%） */
   realEstateRatio: string | null;
@@ -203,7 +203,7 @@ function readCoreSettings(v: unknown): OfficeSettings {
   const assumptions: Partial<Record<OfficeAssumption, string>> = {};
   if (isObj(v.assumptions)) for (const k of OFFICE_ASSUMPTIONS) if (assumptionOk(k, v.assumptions[k])) assumptions[k] = v.assumptions[k] as string;
   const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
-  // 不動産の評価と資産の種類ごとの利回り（0213。欄の無い版 1 の事務所データは決めていない）
+  // 不動産の評価と資産の種類ごとの利回り（0214。欄の無い版 1 の事務所データは決めていない）
   const premises = readPremises(v);
   // 表の最後の年の既定の年齢（選び方の年齢だけ。100歳は既定と同じなので持たない）
   const endAge = typeof v.endAge === "number" && END_AGES.includes(v.endAge) && v.endAge !== STANDARD_END_AGE ? v.endAge : undefined;
@@ -245,7 +245,7 @@ function readPremises(v: Record<string, unknown>): Pick<OfficeSettings, "realEst
   return out;
 }
 
-/** 事務所で決めた前提条件（前提条件の id → 値の文字。事務所の推定の値で決める物〔土地の割合など〕は入れない。0213 の2） */
+/** 事務所で決めた前提条件（前提条件の id → 値の文字。事務所の推定の値で決める物〔土地の割合など〕は入れない。0214 の2） */
 export function officePremises(s: OfficeSettings): Record<string, string> {
   const out: Record<string, string> = {};
   for (const d of PREMISE_DEFS) {
@@ -311,7 +311,7 @@ export function withOfficePremise(s: OfficeSettings, id: string, v: string | nul
 /** 並びの設定（無ければ標準） */
 export const layoutOf = (s: OfficeSettings): CardLayout => s.layout ?? DEFAULT_LAYOUT;
 
-/** 写した値の印の文（例: 「事務所の既定値（2026-10）」。前提条件では「事務所の既定値に従う」の印。0213） */
+/** 写した値の印の文（例: 「事務所の既定値（2026-10）」。前提条件では「事務所の既定値に従う」の印。0214） */
 export function officeBasis(s: OfficeSettings): string {
   return `事務所の既定値（${(s.changedOn ?? "").slice(0, 7) || "設定"}）`;
 }
@@ -375,7 +375,7 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
     }
   }
   const basis = officeBasis(s);
-  // 前提条件の既定値（0213）: 事務所で決めた欄を世帯に書き、「事務所の既定値（年月）」の印を付ける（例外の年は残す）
+  // 前提条件の既定値（0214）: 事務所で決めた欄を世帯に書き、「事務所の既定値（年月）」の印を付ける（例外の年は残す）
   const premises = officePremises(s);
   if (Object.keys(premises).length > 0) w = copyOfficePremises(w, premises, basis);
   if (s.realEstateRatio !== null) {

@@ -38,7 +38,7 @@ export interface FieldStatus {
    * 確かめの一覧では未入力の側に出す（推定と分ける。0041 の追記 2026-11-06）
    */
   provisional?: true;
-  /** 前提条件の事務所の既定値の見せ方（0213）。ある欄は確定と読む（推定の数・「この値にする」に入れない） */
+  /** 前提条件の事務所の既定値の見せ方（0214）。ある欄は確定と読む（推定の数・「この値にする」に入れない） */
   premise?: PremiseMark;
 }
 
@@ -137,7 +137,7 @@ const basisOf = (b: Obj | undefined): string | null => (isObj(b?.estimate) && ty
 export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
   const st = f.get(wh);
   const plainStatus = (s: ValueStatus, basis: string | null = null, explicit = false, approved = false): FieldStatus => ({ status: s, basis, explicit, approved });
-  // 前提条件の事務所の既定値の欄（0213）: 事務所の既定値・この世帯だけのどちらも決まった値（写したときの仮の印は「事務所の既定値に従う」の印で、推定ではない）
+  // 前提条件の事務所の既定値の欄（0214）: 事務所の既定値・この世帯だけのどちらも決まった値（写したときの仮の印は「事務所の既定値に従う」の印で、推定ではない）
   if (st.premise !== undefined) return { status: "confirmed", basis: null, explicit: false, approved: false, premise: st.premise };
   // 事務所の推定の値から作った推定の印（推定・書類待ちの代わりの値だけ）
   const marked = (st: FieldStatus, estimate: unknown): FieldStatus => {
@@ -206,7 +206,7 @@ const hasEstimate = (f: FieldDef, s: FieldStatus): boolean => f.blankIsEstimate 
  */
 export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus = fieldStatus(f, wh)): StateOp[] {
   if (f.readOnly !== undefined) return [];
-  // 前提条件の事務所の既定値の欄は、欄の横の「事務所の既定値に戻す」で戻す（推定に戻す・この値にするは無い。0213）
+  // 前提条件の事務所の既定値の欄は、欄の横の「事務所の既定値に戻す」で戻す（推定に戻す・この値にするは無い。0214）
   if (s.premise !== undefined) return [];
   const out: StateOp[] = [];
   const a = fieldAddress(f, wh);

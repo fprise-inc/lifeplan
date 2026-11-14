@@ -120,7 +120,7 @@ describe("資産配分を計算に渡す（0137）", () => {
 });
 
 describe("預金の利回り（0137）", () => {
-  it("新しい世帯の預金の利回りは既定の値 0.1%（事務所の既定値。0213）。運用利回りを3%にしても預金は0.1%で増える", () => {
+  it("新しい世帯の預金の利回りは既定の値 0.1%（事務所の既定値。0214）。運用利回りを3%にしても預金は0.1%で増える", () => {
     let wh = blankHousehold("2026-10", seq());
     expect(wh.request.input.assumptions?.depositReturn).toEqual({ default: "0.001" });
     const f = fieldIn(buildStage("assumptions", wh), "assume/depositReturn");
@@ -179,7 +179,7 @@ describe("前提条件の足すボタン（0137）", () => {
     expect(new Set(labels).size).toBe(labels.length);
   });
 
-  it("資産の種類ごとの利回りは12種類を全部、3列の小さな欄で並べる（0213 の4）。空欄は計算と同じ（預金は預金の利回り、ほかは運用利回り）", () => {
+  it("資産の種類ごとの利回りは12種類を全部、3列の小さな欄で並べる（0214 の4）。空欄は計算と同じ（預金は預金の利回り、ほかは運用利回り）", () => {
     let wh = blankHousehold("2026-10", seq());
     const st = buildStage("assumptions", wh);
     const sec = st.sections.find((s) => s.key === "assume/assetReturns")!;

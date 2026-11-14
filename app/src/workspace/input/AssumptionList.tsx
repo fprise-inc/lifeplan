@@ -19,7 +19,7 @@ export function AssumptionList({ wh, planId, onAgree, onLevel, onReveal }: { wh:
   const groups = Object.keys(LIST_GROUP_LABELS) as ListGroup[];
   const jump = (key: string, detail: boolean) => {
     if (detail) onLevel("detail");
-    // たたんだ前提条件の区画を開いてから移る（0213 の4）
+    // たたんだ前提条件の区画を開いてから移る（0214 の4）
     onReveal?.();
     setTimeout(() => {
       const el = document.getElementById(fieldDomId(key));
@@ -77,7 +77,7 @@ export function AssumptionList({ wh, planId, onAgree, onLevel, onReveal }: { wh:
                     <td>{r.state}</td>
                     <td>{r.source ?? "—"}</td>
                     <td>
-                      {/* 事務所の既定値どおりの前提条件は世帯ごとに確かめる値でないので出さない（0213 の7。前に付けた記録があれば見せて外せる） */}
+                      {/* 事務所の既定値どおりの前提条件は世帯ごとに確かめる値でないので出さない（0214 の7。前に付けた記録があれば見せて外せる） */}
                       {r.agreeable || agreed[r.id] !== undefined ? (
                         <label>
                           <input type="checkbox" checked={agreed[r.id] !== undefined} onChange={(e) => onAgree((w) => setAgreed(w, planId, r.id, (e.currentTarget as HTMLInputElement).checked ? today() : null))} />

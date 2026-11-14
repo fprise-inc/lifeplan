@@ -50,7 +50,7 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     expect(wh0.request.input.assumptions?.assetReturns?.realEstate).toBeUndefined();
   });
 
-  it("新しい世帯に「事務所の既定値（年月）」の印で写す（決まった値の「事務所の既定値」。0213）。預金は前提条件の預金の利回り、不動産は資産の種類ごとの利回りの不動産", () => {
+  it("新しい世帯に「事務所の既定値（年月）」の印で写す（決まった値の「事務所の既定値」。0214）。預金は前提条件の預金の利回り、不動産は資産の種類ごとの利回りの不動産", () => {
     publishOfficeSettings(SETTINGS);
     const wh = applyOfficeDefaults(blankHousehold("2026-11", ids()), SETTINGS);
     const a = wh.request.input.assumptions!;
@@ -103,7 +103,7 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     expect(back.assumed[ESTATE_KEY]).toBe("事務所の既定値（2026-11）");
   });
 
-  it("資産の種類ごとの利回りの不動産は、値が無ければ今の計算と同じ0%を見せる（12種類を全部並べる。0213 の4）", () => {
+  it("資産の種類ごとの利回りの不動産は、値が無ければ今の計算と同じ0%を見せる（12種類を全部並べる。0214 の4）", () => {
     const wh = blankHousehold("2026-11", ids());
     const f = fieldIn(wh, "assumptions", ESTATE_KEY)!;
     expect(f.get(wh)).toMatchObject({ value: "0", premise: { state: "office" } });
@@ -122,7 +122,7 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     expect(html).toContain("預金の利回り（年）");
     expect(html).toContain("不動産（貸していない不動産の値動き）");
     expect(html).toContain('data-office-setting="depositReturn"');
-    // 置き場所は版 1 からの assumptions.heldEstateGrowth（id は assetReturns.realEstate。0213 の2）
+    // 置き場所は版 1 からの assumptions.heldEstateGrowth（id は assetReturns.realEstate。0214 の2）
     expect(html).toContain('data-office-setting="assetReturns.realEstate"');
     expect(html).toContain('data-office-premises="assetReturns"');
   });

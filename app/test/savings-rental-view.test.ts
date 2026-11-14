@@ -390,7 +390,7 @@ describe("既定の値の推定の印は、明示の操作をした欄では確�
     for (const k of ["structure", "builtYear", "landShare", "vacancy"]) expect(st(all, `sav/${ID}/property/${k}`), k).toBe("confirmed");
   });
 
-  it("前提条件: 不動産の評価・土地の上昇率・経済の前提は推定でなく事務所の既定値（0213）。違う値は「この世帯だけ」、既定の値に戻すと「事務所の既定値」", () => {
+  it("前提条件: 不動産の評価・土地の上昇率・経済の前提は推定でなく事務所の既定値（0214）。違う値は「この世帯だけ」、既定の値に戻すと「事務所の既定値」", () => {
     let wh = open("salariedCoupleTwoKids");
     const p = (k: string) => fieldStatus(fieldOf(wh, k, "assumptions"), wh).premise?.state;
     expect(p("assume/realEstate/landShare")).toBe("office");

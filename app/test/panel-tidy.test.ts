@@ -57,7 +57,7 @@ describe("推定の根拠は印を押したとき", () => {
     expect(html).toBe('<span class="badge na" data-state="notApplicable">該当なし</span>');
   });
   it("パネルの欄の「推定」の印は、根拠を押して開く形", () => {
-    // 前提条件は推定でなく事務所の既定値（0213）なので、推定の欄のある基本生活費で見る
+    // 前提条件は推定でなく事務所の既定値（0214）なので、推定の欄のある基本生活費で見る
     const html = panel(blankHousehold("2026-10"), "living");
     expect(html).toContain('class="help-btn help-mark badge est"');
   });

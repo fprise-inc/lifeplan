@@ -34,7 +34,7 @@ const action = (wh: WorkingHousehold, key: string) => {
 };
 const total = (req: WorkingHousehold["request"], row: string) => preview(req).table.filter((c) => c.row === row).reduce((s, c) => s + c.amount, 0);
 
-describe("経済の前提: 事務所の既定値（0213。推定にしない）", () => {
+describe("経済の前提: 事務所の既定値（0214。推定にしない）", () => {
   it("既定の値と同じ値は決まった値で「事務所の既定値」。違う値を打つと「この世帯だけ」、空欄で事務所の既定値に戻る", () => {
     const wh = open();
     const f = fieldOf(wh, "assume/inflation");
@@ -234,7 +234,7 @@ describe("前提と推定の一覧", () => {
   it("経済の前提・計算の範囲・推定の目安（各カード）・万一の前提を並べる。確かめた記録はプランごと", () => {
     const wh = open();
     const rows = assumptionRows(wh);
-    // 前提条件の既定の値は「事務所の既定値」（推定と言わない）。お客さまと確かめる値ではないので確かめた印を出さない（0213 の7）
+    // 前提条件の既定の値は「事務所の既定値」（推定と言わない）。お客さまと確かめる値ではないので確かめた印を出さない（0214 の7）
     expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "事務所の既定値", value: "1%", source: "提供元の既定の値（事務所の既定値の画面で変えられます）", agreeable: false });
     const own = fieldOf(wh, "assume/inflation").set(wh, "0.02");
     expect(assumptionRows(own).find((r) => r.id === "field:assume/inflation")).toMatchObject({ state: "この世帯だけ", value: "2%", agreeable: true });

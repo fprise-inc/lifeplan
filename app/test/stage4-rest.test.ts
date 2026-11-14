@@ -74,7 +74,7 @@ describe("推定と同じ値を打っても確定にする（0150。打つのは
         expect(f.get(w).value, f.key).toEqual(v);
         count++;
       }
-    // 前提条件は推定でなく事務所の既定値（0213）なので、前提条件のほかに推定の無い見本では0か所
+    // 前提条件は推定でなく事務所の既定値（0214）なので、前提条件のほかに推定の無い見本では0か所
     expect(count).toBeGreaterThanOrEqual(id === "selfEmployed" ? 1 : 0);
   });
 

@@ -161,7 +161,7 @@ function OfficeToc({ panel }: { panel: { current: HTMLDivElement | null } }) {
 /** 前提条件の欄の文字の鍵（前提条件の id。欄の data-office-setting にも使う） */
 const premiseTextKey = (d: PremiseDef): string => d.id;
 
-/** 事務所の推定の値で決める前提条件（土地の割合など。0213 の1）の今の事務所の値（率の文字。決めていなければ null） */
+/** 事務所の推定の値で決める前提条件（土地の割合など。0214 の1）の今の事務所の値（率の文字。決めていなければ null） */
 const liveValue = (v: OfficeSettings, d: PremiseDef): string | null => {
   const x = d.live !== undefined ? v.estimates?.values[d.live]?.value : undefined;
   return typeof x === "string" || typeof x === "number" ? String(x) : null;
@@ -358,7 +358,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
   const bad = [...PREMISE_DEFS.filter((d) => premiseFromText(d, texts[premiseTextKey(d)] ?? "") === undefined).map(premiseTextKey), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : []), ...(protNext === undefined ? ["protection"] : [])];
   const per = s.fee.per === "month" ? "月" : "年";
   const save = async () => {
-    // 前提条件の既定値（0213）: 写す物は事務所の既定値に、土地の割合など3つは事務所の推定の値に（変えた物だけ。変えていない値の年月は変えない）
+    // 前提条件の既定値（0214）: 写す物は事務所の既定値に、土地の割合など3つは事務所の推定の値に（変えた物だけ。変えていない値の年月は変えない）
     let withPremises: OfficeSettings = s;
     let estNext = est;
     for (const d of PREMISE_DEFS) {
@@ -406,7 +406,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
       </label>
     );
   };
-  /** 前提条件の1つの欄（経済の前提は欄の下に範囲を添え、不動産の評価・資産の種類ごとの利回りは小さな欄の並び。0213 の4） */
+  /** 前提条件の1つの欄（経済の前提は欄の下に範囲を添え、不動産の評価・資産の種類ごとの利回りは小さな欄の並び。0214 の4） */
   const premiseInputField = (d: PremiseDef, wide: boolean) => {
     const key = premiseTextKey(d);
     if (d.kind === "pct") return pct(key, d.officeLabel ?? d.label, premisePlaceholder(d), wide ? `入れなければ${d.standard === null ? (d.follows?.text ?? "入れない") : `既定の値（${premiseText(d, d.standard)}。仮の値）`}。${rangeText(d)}` : "", d);

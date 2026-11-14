@@ -2,7 +2,7 @@
 // 例外の年（0008 の8・0040）、資産の種類ごとの利回り（と例外の年）、持ち家の評価の前提（土地の上昇率の例外の年を含む）、表の最後の年
 // （年か人の年齢で）・計算の基準の月と計算の決まり（読むだけ）、FP顧問料（単発・継続・料金の段階。stages/fees.ts）。
 // - 前提条件の既定の値のある欄（経済の前提・不動産の評価・資産の種類ごとの利回り）は、事務所の既定値と比較して「事務所の既定値」
-//   「この世帯だけ」と見せる（推定にしない。0213。input/premiseDefaults.ts）。空欄にすると事務所の既定値に戻る
+//   「この世帯だけ」と見せる（推定にしない。0214。input/premiseDefaults.ts）。空欄にすると事務所の既定値に戻る
 // - 高すぎる値の注意の線（運用利回りが年5%を超える・物価が0%未満か4%を超える・賃金が物価を2ポイント超えて上回る・資産の種類ごとの
 //   利回りが年8%を超える）は、欄の知らせと確かめの一覧の注意に出す（値は変えない）
 // - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳〔事務所の既定値で選んだ年齢〕になる年）と同じなら推定。確定にしたら家族の生年月を直しても追いかけない。
@@ -112,7 +112,7 @@ function writeSeries(wh: WorkingHousehold, sp: SeriesPlace, next: YearSeries | u
 }
 
 /**
- * 年ごとの列の既定の値（default）の欄（経済の前提）。値は事務所の既定値（0213）と比較して「事務所の既定値」「この世帯だけ」と見せ、推定にしない。
+ * 年ごとの列の既定の値（default）の欄（経済の前提）。値は事務所の既定値（0214）と比較して「事務所の既定値」「この世帯だけ」と見せ、推定にしない。
  * 空欄にすると事務所の既定値に戻る（教育費・厚生年金の調整率は、事務所で決めていなければ物価・基礎年金の調整率と同じ）
  */
 function seriesField(name: string, label: string, help: string, level: "simple" | "detail"): FieldDef {
@@ -160,7 +160,7 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
   });
 }
 
-/** 前提条件の事務所の既定値の欄にする（plain の欄の値の読み書きを、事務所の既定値と比較して見せる形に。0213） */
+/** 前提条件の事務所の既定値の欄にする（plain の欄の値の読み書きを、事務所の既定値と比較して見せる形に。0214） */
 function premised(f: FieldDef, def: PremiseDef): FieldDef {
   const put = (w: WorkingHousehold, v: Val) => (v === null || v === "" ? resetPremise(def, w) : typePremise(def, w, String(v)));
   return {
@@ -337,7 +337,7 @@ function shiftFields(wh: WorkingHousehold): FieldDef[] {
 }
 
 /**
- * 資産の種類ごとの利回り（0213 の4）: 12種類を全部、不動産の評価と同じ3列の小さな欄の並びで出す。空欄は計算と同じ値（預金・外貨預金は預金の利回り、
+ * 資産の種類ごとの利回り（0214 の4）: 12種類を全部、不動産の評価と同じ3列の小さな欄の並びで出す。空欄は計算と同じ値（預金・外貨預金は預金の利回り、
  * 不動産は0%、ほかは運用利回り）を見せ、空にすると事務所の既定値に戻る。この世帯だけ値を入れた種類には例外の年を足せる
  */
 function assetReturnSection(wh: WorkingHousehold): { groups: GroupDef[]; actions: ActionDef[] } {
@@ -380,7 +380,7 @@ function assetReturnSection(wh: WorkingHousehold): { groups: GroupDef[]; actions
 export { ownsRealEstate };
 
 /**
- * 不動産の評価の前提（assumptions.realEstateValuation。持ち家・収益不動産・貸していない不動産の計算に使う。0025）。値は事務所の既定値（0213）と
+ * 不動産の評価の前提（assumptions.realEstateValuation。持ち家・収益不動産・貸していない不動産の計算に使う。0025）。値は事務所の既定値（0214）と
  * 比較して見せ、空欄は事務所の既定値に戻る（土地の割合・建物の残りの価値の下限・売却の費用は事務所の推定の値〔0111〕で、空欄ならその場の値）
  */
 function valuationGroups(wh: WorkingHousehold): GroupDef[] {

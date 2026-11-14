@@ -1,4 +1,4 @@
-// 前提条件の事務所の既定値（0213）: 前提条件の欄のうち既定の値のある物の表（PREMISE_DEFS）と、世帯での見せ方の判定。
+// 前提条件の事務所の既定値（0214）: 前提条件の欄のうち既定の値のある物の表（PREMISE_DEFS）と、世帯での見せ方の判定。
 // - 事務所の既定値の画面・世帯の前提条件の欄・確かめの一覧・前提と推定の一覧・AI接続口の説明は、この表から作る（欄を足すときは表に1行足す）
 // - 世帯の値が事務所の既定値（事務所で決めていなければ提供元の既定の値）と同じなら「事務所の既定値」（決まった値。推定にしない）、
 //   この世帯だけ違う値なら「この世帯だけ」（事務所の既定値に戻すリンク）、事務所の既定値を使っていた値で、その後に事務所の既定値が
@@ -187,7 +187,7 @@ function untouched(d: PremiseDef, wh: WorkingHousehold): boolean {
 export type PremiseState = PremiseMark["state"];
 
 /**
- * 世帯での見せ方（0213 の4〜6）。仮の印が事務所の既定値でない物（資産配分の期待リターンの目安など、推定の目安から書いた値）は null
+ * 世帯での見せ方（0214 の4〜6）。仮の印が事務所の既定値でない物（資産配分の期待リターンの目安など、推定の目安から書いた値）は null
  * （今までどおり推定として見せる）
  */
 export function premiseState(d: PremiseDef, wh: WorkingHousehold): { state: PremiseState; was: string | null; now: string | null } | null {
@@ -299,7 +299,7 @@ export function premiseSummary(wh: WorkingHousehold): string {
   return `前提条件: 事務所の既定値と、この世帯だけ変えた所 ${own}件${moved !== null ? `（${moved}）` : ""}`;
 }
 
-/** 新しい世帯に、事務所で決めた前提条件を写す（写した欄に「事務所の既定値（年月）」の印。0073 の3・0213 の6） */
+/** 新しい世帯に、事務所で決めた前提条件を写す（写した欄に「事務所の既定値（年月）」の印。0073 の3・0214 の6） */
 export function copyOfficePremises(wh: WorkingHousehold, values: Readonly<Record<string, string>>, basis: string): WorkingHousehold {
   let w = wh;
   for (const d of PREMISE_DEFS) {

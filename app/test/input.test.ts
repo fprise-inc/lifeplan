@@ -69,7 +69,7 @@ function perturbWhen(t: Timepoint | null, wh: WorkingHousehold): Timepoint {
   return { event: t.event as string, offset: { months: off } };
 }
 
-// 前提条件の事務所の既定値の欄（0213）は、空欄にすると事務所の既定値に戻す（空欄のまま往復しない）
+// 前提条件の事務所の既定値の欄（0214）は、空欄にすると事務所の既定値に戻す（空欄のまま往復しない）
 const roundTripable = (f: FieldDef, s: ReturnType<FieldDef["get"]>) => !(s.value === null && (f.blankIsEstimate === true || s.premise !== undefined)) && f.readOnly === undefined && f.structural !== true && f.sideEffects === undefined && s.derived == null && s.implicit !== true && s.estimated == null && s.assumed == null;
 
 describe("単位と書式", () => {

@@ -987,7 +987,7 @@ export const fillInside = (inputClass: string, shown: string): boolean => inputC
  * 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。押しても欄のフォーカスを動かさない
  * （動かすと、欄の値が入れ直されて「保存していない変更」になるため）
  */
-/** 前提条件の事務所の既定値の印（0213 の4。欄の名前の横の小さな文字）: 「事務所の既定値」「この世帯だけ」「既定値が変わりました」。推定の印ではない */
+/** 前提条件の事務所の既定値の印（0214 の4。欄の名前の横の小さな文字）: 「事務所の既定値」「この世帯だけ」「既定値が変わりました」。推定の印ではない */
 export function PremiseTag({ mark }: { mark: PremiseMark }) {
   const text = mark.state === "office" ? "事務所の既定値" : mark.state === "household" ? "この世帯だけ" : "既定値が変わりました";
   const title = mark.state === "office" ? (mark.decided ? "事務所の既定値の画面で決めた値です" : "提供元の既定の値です（事務所の既定値の画面で変えられます）") : mark.state === "household" ? `この世帯だけの値です（事務所の既定値は ${mark.officeText}）` : `事務所の既定値が ${mark.wasText ?? "—"} から ${mark.officeText} に変わりました（この世帯は前の値のまま）`;
@@ -998,7 +998,7 @@ export function PremiseTag({ mark }: { mark: PremiseMark }) {
   );
 }
 
-/** 欄の下の、事務所の既定値に戻すリンク（この世帯だけ・事務所の既定値が変わった欄だけ。0213 の4・5） */
+/** 欄の下の、事務所の既定値に戻すリンク（この世帯だけ・事務所の既定値が変わった欄だけ。0214 の4・5） */
 export function PremiseReset({ mark, wh, onEdit }: { mark: PremiseMark; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   if (mark.state === "office") return null;
   const own = mark.state === "household";

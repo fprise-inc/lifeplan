@@ -2,7 +2,7 @@
 // 同じ行を前提の側から見る）、万一の前提を、区分・値・状態・値段の基準・出典・確かめた記録で並べる。行から欄へ移れる（前提条件の欄だけ）。
 // 「お客さまと確かめた」はプランごと（現状は "current"）に、確かめた日とメモを画面の側の値 agreed に持つ（計算には使わない）。
 // 一覧は世帯の欄の定義から毎回作る（保存しない）。
-// 前提条件の事務所の既定値の欄（0213）は、状態を「事務所の既定値」「この世帯だけ」「事務所の既定値が変わりました」、出典を事務所の既定値の年月か
+// 前提条件の事務所の既定値の欄（0214）は、状態を「事務所の既定値」「この世帯だけ」「事務所の既定値が変わりました」、出典を事務所の既定値の年月か
 // 提供元の既定の値で見せる（推定と言わない）。事務所の既定値どおりの行は世帯ごとに確かめる値でないので「お客さまと確かめた」を出さない（agreeable）
 import { ILLNESS_DEFAULT, marketDropDefault } from "../contingency/requests.ts";
 import { checkList } from "./checkRows.ts";
@@ -42,11 +42,11 @@ export interface AssumptionRow {
   card: string | null;
   /** 高すぎる値の注意など */
   warn: string | null;
-  /** 「お客さまと確かめた」の印を出すか（事務所の既定値どおりの前提条件は出さない。0213 の7） */
+  /** 「お客さまと確かめた」の印を出すか（事務所の既定値どおりの前提条件は出さない。0214 の7） */
   agreeable: boolean;
 }
 
-/** 前提条件の事務所の既定値の状態の言葉（0213） */
+/** 前提条件の事務所の既定値の状態の言葉（0214） */
 export const PREMISE_STATE_LABELS = { office: "事務所の既定値", household: "この世帯だけ", officeChanged: "事務所の既定値が変わりました" } as const;
 
 const ECONOMY = new Set(["assume/inflation", "assume/wageGrowth", "assume/investmentReturn", "assume/depositReturn", "assume/educationInflation", "assume/pensionMacroSlide", "assume/pensionMacroSlideEmployee"]);

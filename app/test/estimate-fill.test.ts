@@ -157,7 +157,7 @@ describe("パネルの「推定のままの値を「この値にする」」", (
     expect(html).not.toContain("data-confirm-all");
   });
 
-  it("前提条件のパネルの経済の前提は事務所の既定値（推定でない。0213）: 「この値にする」もまとめての操作も出さない", () => {
+  it("前提条件のパネルの経済の前提は事務所の既定値（推定でない。0214）: 「この値にする」もまとめての操作も出さない", () => {
     const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
     for (const level of ["simple", "detail"] as const) {
       const html = panel(wh, "assumptions", level);

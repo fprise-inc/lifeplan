@@ -92,7 +92,7 @@ describe("前提条件の標準の値は推定の数とまとめての操作か�
     expect(sum.total).toBe(rows.filter((r) => r.kind !== "premise" && r.kind !== "certainty").length);
     expect(estimatedFields(wh).some((f) => f.key.startsWith("assume/"))).toBe(false);
     const after = confirmAllEstimates(wh).wh;
-    // 前提条件は推定でなく事務所の既定値（0213）。まとめての操作でも変わらない
+    // 前提条件は推定でなく事務所の既定値（0214）。まとめての操作でも変わらない
     expect(fieldStatus(fieldOf(after, "assumptions", "assume/inflation"), after)).toMatchObject({ status: "confirmed", premise: { state: "office" } });
     expect(premise.every((r) => r.actions.length === 0 || !r.fieldKey?.startsWith("assume/inflation"))).toBe(true);
   });

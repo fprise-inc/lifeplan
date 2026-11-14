@@ -53,13 +53,13 @@ export interface FieldState {
   /** 時点の欄（kind "when"）の、入れた形のままの時点と読み方 */
   when?: WhenState;
   /**
-   * 前提条件の事務所の既定値の見せ方（0213。input/premiseDefaults.ts）。ある欄は値の状態を確定と読み、推定の印と「この値にする」を出さず、
+   * 前提条件の事務所の既定値の見せ方（0214。input/premiseDefaults.ts）。ある欄は値の状態を確定と読み、推定の印と「この値にする」を出さず、
    * 欄の名前の横に「事務所の既定値」「この世帯だけ」「事務所の既定値が変わりました」を出す
    */
   premise?: PremiseMark;
 }
 
-/** 前提条件の欄の、事務所の既定値との関係（0213） */
+/** 前提条件の欄の、事務所の既定値との関係（0214） */
 export interface PremiseMark {
   /** 前提条件の id（premiseDefaults.ts の PREMISE_DEFS） */
   id: string;
