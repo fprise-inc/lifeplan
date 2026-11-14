@@ -3213,6 +3213,7 @@ export function App() {
                   plans: bsPlans,
                   selected: letterOf(work.sel),
                   base: letterOf(work.base),
+                  health: bsSettings.health,
                   guide: bsSettings.guide,
                   guideBasis: defaultGuideBasis(opened.wh.request),
                   pointDefaults: bsSettings.points,
@@ -3228,6 +3229,7 @@ export function App() {
                 band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} onRemove={removePlan} />}
                 onPrev={onBsPrev}
                 onGuide={(g) => putBsSettings({ guide: g })}
+                onHealth={(on) => putBsSettings({ health: on })}
                 onColumns={(c) => putBsSettings({ columns: c })}
                 onPointDefaults={(k) => putBsSettings({ points: k })}
                 moneyThree={{ model: m3Model, onSettings: (x) => putBsSettings({ moneyThree: { ...bsSettingsRef.current.moneyThree, ...x } }), flash: m3Flash, nameChoices: MONEY_THREE_NAME_CHOICES }}

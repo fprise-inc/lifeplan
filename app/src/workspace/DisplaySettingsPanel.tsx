@@ -1,6 +1,6 @@
 // 結果のタブの表示の設定（作業の層の部品。結果のグラフの右上の「表示の設定」で、結論の下に開く。別の窓は出さない）。
 // FP が結果に出す数字と、グラフの比較の仕方（重ねる／左右に並べる／全部の案を色分けで重ねる）を選ぶ。既定では何も足さず、重ねる。
-// 資産と負債のタブの設定（時点を並べるの既定・家計の体力の目安の幅）は、そのタブの表示の設定にある（BalanceTab.tsx）
+// 資産と負債のタブの設定（時点を並べるの既定・家計の体力の目安を表示するかと目安の幅）は、そのタブの表示の設定にある（BalanceTab.tsx）
 import { ageOptionsFor, LAYOUT_CHOICES, METRIC_CHOICES, shows, toggleMetric, type DisplaySettings } from "./settings.ts";
 
 /** firstAge: 本人の表の最初の年の年齢（これより前の年齢は「○歳時点」に選べない。present.ts の firstAgeOf） */
