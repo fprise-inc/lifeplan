@@ -30,7 +30,7 @@ entries:
       - pension.payment.rounding
     rows: [cf.income.pension]
     components:
-      pension.oldAgeBase: 6
+      pension.oldAgeBase: 7
       pension.oldAge: 8
       pension.revision: 3
     related:
@@ -69,9 +69,9 @@ entries:
       - pension.employee.revisionFactor
     rows: [cf.income.pension]
     components:
-      pension.oldAgeBase: 6
+      pension.oldAgeBase: 7
       pension.oldAge: 8
-      pension.record: 6
+      pension.record: 7
     related:
       - pension.workingPension
       - pension.claimTiming
@@ -103,7 +103,7 @@ entries:
       - pension.normalStartAge
     rows: [cf.income.pension]
     components:
-      pension.oldAgeBase: 6
+      pension.oldAgeBase: 7
       pension.survivorRight: 3
     related:
       - pension.oldAgeBasic
@@ -118,7 +118,7 @@ entries:
       全部止まる月は加給年金も止めます。
     how: >-
       基本月額は老齢厚生年金の報酬比例の部分（繰上げの減額の後、繰下げの増額の前）、総報酬月額相当額はその月の標準報酬月額と、その月までの1年の
-      標準賞与額の合計÷12です。働き方の期間の給与・賞与から標準報酬月額・標準賞与額を出して使います。支給停止調整額は年度ごとの制度の値で、
+      標準賞与額の合計÷12です。働き方の期間の給与・賞与から標準報酬月額・標準賞与額を出して使います（賞与は計算の基準の年の前の年の分から数えます）。支給停止調整額は年度ごとの制度の値で、
       制度データの後の年度は、値のある最後の年度の額に賃金上昇率（前提）を掛けて1万円単位に四捨五入します。老齢基礎年金は止めません。
     keywords: [在職老齢年金, 在老, 支給停止, 働きながら年金, 支給停止調整額, 総報酬月額相当額, 基本月額, 在職停止]
     items: [employment.salary.annual, employment.salary.bonus, employment.standardMonthlyRemuneration, assumptions.wageGrowth]
@@ -131,7 +131,7 @@ entries:
       - pension.workingAdjustment.threshold.rounding
     rows: [cf.income.pension]
     components:
-      pension.oldAgeBase: 6
+      pension.oldAgeBase: 7
       pension.oldAge: 8
     related:
       - pension.oldAgeEmployee
@@ -148,6 +148,7 @@ entries:
       配偶者の加給年金は、配偶者が厚生年金240月以上の老齢厚生年金の受給権を持つ月（受け取っていなくても）と、配偶者が障害年金を受ける月は止めます。
       令和10年4月以後に要件を満たした人の配偶者の加給年金と特別加算は、改正後の額です（それより前に加算された人は従前の額）。加給年金の額には、
       受給者の年齢によらず新しく受け取り始める人の改定率を掛けます。振替加算は基準額×改定率×生年月日ごとの率です。どちらも繰上げ・繰下げで増減しません。
+      配偶者が年下のとき（本人が65歳になった後に配偶者が240月以上の老齢厚生年金を受けられるようになったとき）は、振替加算はその月から足します。
     keywords: [加給年金, 振替加算, 配偶者加給, 特別加算, 年下の配偶者, 子の加算, 240月, 家族手当]
     items: [pensionRecord.months, member.birth]
     rules:
@@ -167,7 +168,7 @@ entries:
       - pension.transferAddition.coefficient
     rows: [cf.income.pension]
     components:
-      pension.oldAgeBase: 6
+      pension.oldAgeBase: 7
       pension.employeeMonths: 3
       pension.oldAge: 8
     related:
@@ -333,10 +334,14 @@ entries:
     how: >-
       50歳未満の定期便は加入月数と老齢厚生年金の額（これまでの加入の実績）、50歳以上の定期便は60歳まで今の条件で続けたときの見込額、改定通知書は
       今受け取っている年金額を入れます。加入歴の入れ方では、期間ごとの種別と報酬から計算します。記録の時点の後は、働き方の期間から国民年金の種別と
-      厚生年金の標準報酬を足していきます。
+      厚生年金の標準報酬を足していきます。50歳以上の定期便で、作成の時点で厚生年金に入っていた人が60歳になる前に厚生年金を離れる月は、
+      その月の分（定期便の時点の報酬×乗率）を見込額から引きます。1986年3月以前に会社員の配偶者に扶養されていた月は、合算対象期間として
+      受給資格期間にだけ数え、老齢基礎年金の額には入れません。
     approximation: >-
       記録を入れないときは、働き方の期間から加入歴を推計し、計算の基準の年の前の年の11月より前の標準報酬は、その勤め先の期間の給与の入力（今の賃金の水準）
-      から近い値にします。推計で計算したことは計算の知らせに出ます。
+      から近い値にします（標準報酬月額の上限と、賞与1回150万円の上限は今の値で掛けます）。推計で計算したことは計算の知らせに出ます。
+      50歳以上の定期便から引く報酬（定期便の時点の報酬）も、その勤め先の期間の給与の入力から同じように近い値にします。1986年3月以前に任意加入していた月は、
+      加入歴の入れ方で入れます。
     reason: 記録が手元に無くても見通しを出せるようにするためです。定期便の値を入れると、記録どおりの額になります。
     instead: ねんきん定期便や年金額改定通知書の値を「年金」の入力項目に入れると、推計の代わりにその値で計算します。
     keywords: [ねんきん定期便, 加入記録, 加入歴, 年金額改定通知書, 見込額, 年金記録, 50歳以上, 50歳未満, 推計]
@@ -348,7 +353,7 @@ entries:
       - 「年金」の入力項目の「＋ 加入歴の行を足す」
     regulation: [pension.revaluationRate]
     components:
-      pension.record: 6
+      pension.record: 7
     related:
       - pension.oldAgeBasic
       - pension.oldAgeEmployee
