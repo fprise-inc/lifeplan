@@ -1,11 +1,11 @@
 // 表の最後の年はどのプランにも共通（世帯で1つ。0043・0070・0073 の追記 2026-11-05）:
-// - 何歳まで見るかの選び方（若い方が［90・95・100・105］歳になる年まで）は標準の欄。選んだ年齢は家族を直しても付いていく
+// - 何歳まで見るかは標準の1つの欄「表を何歳まで見るか」（人と年齢・年で決める。0070 の追記 2026-11-13）。選んだ人と年齢は家族を直しても付いていく
 // - プランを直している間に表の最後の年の欄を変えると、プランの差分にせず現状に書く。欄の下に「どのプランにも共通」の一言
 // - プランの計算はいつも現状の表の最後の年で終わる。前の版で作ったプランの差分は読むときに外して知らせる
 // - 事務所の既定値で「標準は何歳まで」を選べる（新しい世帯に写し、欄の「既定」もその年齢）
 import { afterEach, describe, expect, it } from "vitest";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { blankHousehold, endYearForAge, followedEndAge, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, endYearForAge, endYearRuleOf, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { END_YEAR_SHARED, endYearNotice, endYearToStandard } from "../src/workspace/input/stages/assumptions.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus, planStateOp } from "../src/workspace/input/valueState.ts";
@@ -53,68 +53,78 @@ const younger = (w: WorkingHousehold) =>
     for (const m of h.members) if (m.kind === "self" || m.kind === "spouse") m.birth = { ...m.birth, birthYearMonth: "1995-04" };
   });
 
-describe("何歳まで見るかの選び方（標準の欄）", () => {
-  it("若い方が90・95・100・105歳になる年まで。既定は100歳で、選ぶとその年齢の年になる", () => {
+describe("表を何歳まで見るか（標準の1つの欄）", () => {
+  it("人と年齢で選ぶ。既定は若い方が100歳になる年で、選ぶとその人がその年齢になる年になる", () => {
     const wh = open();
-    const f = fieldOf(wh, "assume/endYear/choice");
+    const spouse = wh.request.input.household.members.find((m) => m.kind === "spouse")!;
+    const f = fieldOf(wh, "assume/endYear");
     expect(f.level).toBe("simple");
-    expect(f.kind === "select" ? f.options.map((o) => o.value) : []).toEqual(["90", "95", "100", "105"]);
-    expect(f.kind === "select" ? f.options.find((o) => o.value === "100")?.label : "").toContain("既定");
-    expect(f.get(wh).value).toBe("100");
-    const w95 = f.set(wh, "95");
-    expect(w95.request.input.endYear).toBe(endYearForAge(wh.request.input.household, 95));
-    expect(fieldOf(w95, "assume/endYear/choice").get(w95).value).toBe("95");
-    // 年の欄は推定ではない（既定と違う年）。範囲の知らせ（85〜105歳の外）は出ない
+    expect(f.get(wh).value).toBe("default");
+    const w95 = f.set(wh, `m:${spouse.id}:95`);
+    expect(w95.request.input.endYear).toBe(1983 + 95);
+    expect(fieldOf(w95, "assume/endYear").get(w95).value).toBe(`m:${spouse.id}:95`);
+    expect(endYearRuleOf(w95)).toEqual({ kind: "member", member: spouse.id, age: 95 });
+    // 既定と違う年は推定ではない。範囲の知らせ（85〜105歳の外）は出ない
     expect(fieldStatus(fieldOf(w95, "assume/endYear"), w95).status).toBe("confirmed");
     expect(endYearNotice(w95)).toBeNull();
-    expect(endYearNotice(f.set(wh, "105"))).toBeNull();
-    expect(endYearNotice(f.set(wh, "90"))).toBeNull();
+    for (const o of f.kind === "select" ? f.options.filter((x) => x.value !== "year") : []) expect(endYearNotice(f.set(wh, o.value)), o.label).toBeNull();
   });
 
-  it("選んだ年齢は、家族の生年月を直しても同じ年齢のまま付いていく。選び方の外の年・確定した年は付いていかない", () => {
+  it("選んだ人と年齢は、家族の生年月を直しても同じ年齢のまま付いていく。「年で決める…」の年・確定した年は付いていかない", () => {
     const wh = open();
-    const f = fieldOf(wh, "assume/endYear/choice");
-    const w95 = f.set(wh, "95");
-    expect(followedEndAge(w95.request)).toBe(95);
+    const spouse = wh.request.input.household.members.find((m) => m.kind === "spouse")!;
+    const f = fieldOf(wh, "assume/endYear");
+    const w95 = f.set(wh, `m:${spouse.id}:95`);
+    expect(endYearRuleOf(w95)).toEqual({ kind: "member", member: spouse.id, age: 95 });
     expect(followStandards(w95, younger(w95)).request.input.endYear).toBe(2090);
-    // 年で入れた年（選び方の外）は「その他」で、付いていかない
-    const typed = fieldOf(wh, "assume/endYear").set(wh, 2093);
-    const st = fieldOf(typed, "assume/endYear/choice").get(typed);
-    expect(st.value).toBe("other");
-    expect(st.derived).toContain("選び方の年齢の外");
-    expect(followedEndAge(typed.request)).toBeNull();
+    // 「年で決める…」で入れた年は付いていかない（選択肢と同じ年でも、年で決めた年のまま）
+    const byYear = f.set(wh, "year");
+    expect(byYear.request.input.endYear).toBe(wh.request.input.endYear);
+    expect(fieldOf(byYear, "assume/endYear").get(byYear).value).toBe("year");
+    const typed = fieldOf(byYear, "assume/endYear/year").set(byYear, 2093);
+    expect(fieldOf(typed, "assume/endYear").get(typed).value).toBe("year");
     expect(followStandards(typed, younger(typed)).request.input.endYear).toBe(2093);
-    // 「その他」を選び直しても世帯は変わらない
-    expect(fieldOf(typed, "assume/endYear/choice").set(typed, "other")).toBe(typed);
+    const same = fieldOf(byYear, "assume/endYear/year").set(byYear, 1983 + 95);
+    expect(fieldOf(same, "assume/endYear").get(same).value).toBe("year");
+    expect(followStandards(same, younger(same)).request.input.endYear).toBe(1983 + 95);
+    // 「年で決める…」を選び直しても世帯は変わらない
+    expect(fieldOf(typed, "assume/endYear").set(typed, "year")).toBe(typed);
   });
 
-  it("前提と推定の一覧には年の欄の行だけを出す（選び方の行は出さない）", async () => {
+  it("前提と推定の一覧には「表を何歳まで見るか」の行だけを出す（年で決める欄の行は出さない）", async () => {
     const { assumptionRows } = await import("../src/workspace/input/assumptionList.ts");
     const rows = assumptionRows(open());
-    expect(rows.some((r) => r.id === "field:assume/endYear")).toBe(true);
-    expect(rows.some((r) => r.id === "field:assume/endYear/choice")).toBe(false);
+    expect(rows.find((r) => r.id === "field:assume/endYear")).toMatchObject({ label: "表を何歳まで見るか", value: `${standardEndYear(open().request.input.household)}年（配偶者が100歳まで）` });
+    const wh = fieldOf(open(), "assume/endYear").set(open(), "year");
+    const yearRows = assumptionRows(wh);
+    expect(yearRows.some((r) => r.id === "field:assume/endYear/year")).toBe(false);
+    expect(yearRows.find((r) => r.id === "field:assume/endYear")?.value).toBe(`${wh.request.input.endYear}年`);
   });
 });
 
 describe("プランを直している間の表の最後の年", () => {
-  it("3つの欄（選び方・年・年齢）に「どのプランにも共通」の一言があり、結果のタブの動かす項目には出ない", () => {
-    const wh = open();
+  it("表を何歳まで見るかの欄と「年で決める」の年の欄に「どのプランにも共通」の一言があり、結果のタブの動かす項目には出ない", () => {
+    const wh0 = open();
+    const wh = fieldOf(wh0, "assume/endYear").set(wh0, "year");
     const keys = allFields(buildStage("assumptions", wh))
       .filter((f) => f.key.startsWith("assume/endYear"))
       .map((f) => [f.key, f.planShared]);
-    expect(keys.length).toBeGreaterThanOrEqual(4);
+    expect(keys.map(([k]) => k)).toEqual(["assume/endYear", "assume/endYear/year"]);
     expect(keys.every(([, s]) => s === END_YEAR_SHARED)).toBe(true);
     expect(catOf(wh).items.some((i) => i.key.startsWith("field:assume/endYear"))).toBe(false);
   });
 
-  it("選び方・年の欄を直すと、プランの差分にせず現状の表の最後の年が変わる（全部のプランが同じ年で終わる）", () => {
+  it("表を何歳まで見るかの欄を直すと、プランの差分にせず現状の表の最後の年と決め方が変わる（全部のプランが同じ年で終わる）", () => {
     const wh = withPlan(open());
     const cat = catOf(wh);
     const view = planView(wh, cat, PLAN_ID);
-    const edited = fieldOf(view, "assume/endYear/choice").set(view, "90");
+    const self = view.request.input.household.members.find((m) => m.kind === "self")!;
+    const edited = fieldOf(view, "assume/endYear").set(view, `m:${self.id}:90`);
     const n = recordPlanEdit(wh, cat, PLAN_ID, view, edited);
     expect(n.proposals[0]!.diffs).toEqual([]);
-    expect(n.request.input.endYear).toBe(endYearForAge(wh.request.input.household, 90));
+    expect(n.request.input.endYear).toBe(1981 + 90);
+    expect(endYearRuleOf(n)).toEqual({ kind: "member", member: self.id, age: 90 });
+    expect(fieldOf(planView(n, cat, PLAN_ID), "assume/endYear").get(planView(n, cat, PLAN_ID)).value).toBe(`m:${self.id}:90`);
     expect(planView(n, cat, PLAN_ID).request.input.endYear).toBe(n.request.input.endYear);
     // 年の欄の「この値にする」も現状の値の状態にする
     const confirmed = planStateOp(wh, cat, PLAN_ID, fieldOf(view, "assume/endYear"), "confirm");
@@ -188,9 +198,9 @@ describe("事務所の既定値の「標準は何歳まで」（0073 の追記 2
     expect(fresh.request.input.endYear).toBe(endYearForAge(h, 95));
     expect(standardEndYear(h)).toBe(endYearForAge(h, 95));
     expect(fieldStatus(fieldOf(fresh, "assume/endYear"), fresh).status).toBe("estimated");
-    expect(fieldOf(fresh, "assume/endYear/choice").get(fresh).value).toBe("95");
-    const choice = fieldOf(fresh, "assume/endYear/choice");
-    expect(choice.kind === "select" ? choice.options.find((o) => o.value === "95")?.label : "").toContain("既定");
+    const choice = fieldOf(fresh, "assume/endYear");
+    expect(choice.get(fresh).value).toBe("default");
+    expect(choice.kind === "select" ? choice.options.find((o) => o.value === "default")?.label : "").toBe("ご本人が95歳まで（既定）");
     // 前に作った世帯（100歳の年のまま）は、事務所の年齢を変えても100歳のまま家族の生年月に付いていく
     const kept = mutate(open(), (hh, req) => void (req.input.endYear = endYearForAge(hh, 100)));
     expect(followStandards(kept, younger(kept)).request.input.endYear).toBe(2095);

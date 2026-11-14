@@ -45,6 +45,13 @@ const ECONOMY = new Set(["assume/inflation", "assume/wageGrowth", "assume/invest
 function valueText(f: FieldDef, wh: WorkingHousehold): string {
   const v = f.get(wh).value;
   if (v === null || v === "") return "—";
+  // 表を何歳まで見るか: 年と、選んだ決め方（「2085年（配偶者が100歳まで）」。年で決めた年は年だけ）
+  if (f.key === "assume/endYear") {
+    const label = f.kind === "select" ? f.options.find((o) => o.value === v)?.label : undefined;
+    const end = `${String(wh.request.input.endYear)}年`;
+    return label === undefined || v === "year" ? end : `${end}（${label.replace("（既定）", "")}）`;
+  }
+  if (f.kind === "select") return f.options.find((o) => o.value === v)?.label ?? String(v);
   if (f.kind === "pct") return pctText(String(v));
   if (f.kind === "int") return `${String(v)}${f.suffix ?? ""}`;
   if (f.kind === "yen") return `${(Number(v) / 10000).toLocaleString("en-US")}万円`;
@@ -60,8 +67,8 @@ export function assumptionRows(wh: WorkingHousehold): AssumptionRow[] {
     for (const g of sec.groups)
       for (const f of g.fields) {
         const group: ListGroup | null = ECONOMY.has(f.key) ? "economy" : sec.key === "assume/main" ? "range" : sec.key === "assume/realEstate" && g.key === "assume/realEstate/fields" ? "realEstate" : null;
-        // 表の最後の年は年の欄の行1つ（年齢で入れる欄・何歳まで見るかの選び方は同じ値の別の入れ方）
-        if (group === null || f.key.startsWith("assume/endYear/age/") || f.key === "assume/endYear/choice") continue;
+        // 表の最後の年は「表を何歳まで見るか」の行1つ（「年で決める」の年の欄は同じ値の入れ方）
+        if (group === null || f.key === "assume/endYear/year") continue;
         const st = f.get(wh);
         const s = fieldStatus(f, wh);
         const ex = st.derived ?? null;

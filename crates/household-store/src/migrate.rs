@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.76";
+pub const CURRENT: &str = "0.77";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -269,6 +269,10 @@ pub const CURRENT: &str = "0.76";
 ///   共有の仮の ID から元の ID に戻せるように）。変換の段は、ID の無い要素に、画面がその要素を指していた決まった ID（場所
 ///   `<ID を持ついちばん近い物>/<欄の名前>/<番号>` から作る。0035 の10 の1）と同じ ID を振る（保存したプランの差分・値の状態の欄は同じ要素を
 ///   指したまま）。前の版のアプリは計算の入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。0.75 の段の後に積む
+/// - 0.77: 画面の側の表を何歳まで見るかの決め方 `household.endYearChoice`（人と年齢 `{by: "member", member, age}`・年で決める `{by: "year"}`。
+///   0070 の追記 2026-11-13。任意。計算には使わない）を足した（足すだけの MINOR）。前の版のアプリは欄を知らずに書き戻すと決め方を落とす
+///   （年から読み直し、選んだ人が変わることがある）ので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝
+///   年から読む）。0.76 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -276,7 +280,7 @@ pub const KNOWN: &[&str] = &[
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74", "0.75", "0.76",
+    "0.74", "0.75", "0.76", "0.77",
 ];
 
 /// 1段分の変換
@@ -662,6 +666,11 @@ pub const STEPS: &[Step] = &[
         from: "0.75",
         to: "0.76",
         apply: v0_75_to_0_76,
+    },
+    Step {
+        from: "0.76",
+        to: "0.77",
+        apply: v0_76_to_0_77,
     },
 ];
 
@@ -2435,6 +2444,16 @@ fn v0_74_to_0_75(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.76 → 0.77: 画面の側の表を何歳まで見るかの決め方 `household.endYearChoice`（0070 の追記 2026-11-13）は任意の欄なので、形式の版だけを
+/// 書き換える（前の版の世帯は欄が無い＝表の最後の年から読む）
+fn v0_76_to_0_77(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.77".into());
+    }
+    Ok(body)
+}
+
 /// 0.76 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。`*` は並びの要素ごと。0206）。中の並びを外の並びより先に振る
 /// （外の要素に ID が無いときの場所を、画面の決まった ID の作り方とそろえるため。app/src/workspace/store/elementIds.ts と同じ）
 const ELEMENT_LISTS_0_76: &[(&str, &[&[&str]])] = &[
@@ -3513,7 +3532,8 @@ mod tests {
         assert_eq!(access("0.74").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.75").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.76").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.77").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.77").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.78").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3526,7 +3546,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.77", b.clone()).unwrap(),
+            upgrade("0.78", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3965,6 +3985,23 @@ mod tests {
         assert_eq!(u["household"], b["household"]);
         assert_eq!(u["hearing"], b["hearing"]);
         assert_eq!(u["proposals"], b["proposals"]);
+    }
+
+    #[test]
+    fn v0_76_to_0_77_only_bumps_version() {
+        // 表を何歳まで見るかの決め方は足さない（前の版の世帯は表の最後の年から読む）。ほかの区画に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.76"},
+            "household": {"request": {"input": {"endYear": 2090, "household": {"members": [{"id": "m1", "kind": "self"}]}}}, "memo": ["x"]},
+            "proposals": []
+        });
+        let u = upgrade("0.76", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert!(
+            u["household"].get("endYearChoice").is_none(),
+            "決め方は足さない"
+        );
     }
 
     #[test]
@@ -5108,7 +5145,7 @@ mod tests {
             "snapshots": snap
         });
         let u = upgrade("0.75", b).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.76");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         let h = &u["household"]["request"]["input"]["household"];
         let id = |p: &str| Value::String(readings::migration_id(p));
         let a = &h["accounts"][0];

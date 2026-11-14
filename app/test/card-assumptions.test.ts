@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { blankHousehold, firstTableYear, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, endYearRuleOf, firstTableYear, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { assumptionRows, setAgreed } from "../src/workspace/input/assumptionList.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { endYearNotice, rateWarning, STANDARD_BASIS, yearRanges } from "../src/workspace/input/stages/assumptions.ts";
@@ -128,40 +128,37 @@ describe("例外の年（範囲で入れる）", () => {
 });
 
 describe("表の最後の年", () => {
-  it("標準なら推定。人の年齢で入れると、その人がその年齢になる年。空欄で標準に戻る", () => {
+  it("標準なら推定。人と年齢で選ぶと、その人がその年齢になる年。（既定）を選ぶと標準に戻る", () => {
     const wh = open();
     const h = wh.request.input.household;
     const std = standardEndYear(h);
     const f = fieldOf(wh, "assume/endYear");
     expect(wh.request.input.endYear).toBe(std);
     expect(fieldStatus(f, wh).status).toBe("estimated");
-    // 標準（若い方が100歳）でほぼ足りるので詳細（0078）
-    expect(f.level).toBe("detail");
+    // 表を何歳まで見るかは標準の1つの欄（0070 の追記 2026-11-13）
+    expect(f.level).toBe("simple");
     const spouse = h.members.find((m) => m.kind === "spouse")!;
-    const w2 = fieldOf(wh, `assume/endYear/age/${spouse.id}`).set(wh, 95);
+    const w2 = f.set(wh, `m:${spouse.id}:95`);
     expect(w2.request.input.endYear).toBe(Number(spouse.birth.birthYearMonth.slice(0, 4)) + 95);
     expect(fieldStatus(f, w2).status).toBe("confirmed");
-    expect(f.set(w2, null).request.input.endYear).toBe(std);
+    expect(f.set(w2, "default").request.input.endYear).toBe(std);
+    expect(f.set(w2, "default").endYearChoice).toBeUndefined();
+    expect(fieldStatus(f, f.set(w2, "default")).status).toBe("estimated");
   });
 
   it("表の最初の年より前は入れられない（年の欄も年齢の欄も。計算基準月の年より前にすると計算が止まり、年の途中の計算基準月の年は表が0年。0169）", () => {
     const wh = open("elderCare");
     const base = firstTableYear(wh.request.input.baseMonth);
-    const year = fieldOf(wh, "assume/endYear");
+    const byYear = fieldOf(wh, "assume/endYear").set(wh, "year");
+    const year = fieldOf(byYear, "assume/endYear/year");
     expect(year.kind === "int" ? year.min : null).toBe(base);
     expect(rejectReason(year, String(base - 1))).not.toBeNull();
-    expect(() => preview(year.set(wh, base).request)).not.toThrow();
-    const h = wh.request.input.household;
-    for (const m of h.members.filter((x) => x.kind === "self" || x.kind === "spouse")) {
-      const f = fieldOf(wh, `assume/endYear/age/${m.id}`);
-      const now = base - Number(m.birth.birthYearMonth.slice(0, 4));
-      const min = f.kind === "int" ? (f.min ?? 0) : 0;
-      // 64歳の本人なら、60〜63歳は入れられない
-      expect(now).toBeGreaterThan(60);
-      expect(min).toBe(now);
-      expect(rejectReason(f, "60")).not.toBeNull();
-      const w = f.set(wh, min);
-      expect(w.request.input.endYear).toBe(base);
+    expect(() => preview(year.set(byYear, base).request)).not.toThrow();
+    // 人と年齢の選択肢は、どれも表の最初の年より後（すでにその年齢を過ぎていれば5年分の表）
+    const f = fieldOf(wh, "assume/endYear");
+    for (const o of f.kind === "select" ? f.options.filter((x) => x.value !== "year") : []) {
+      const w = f.set(wh, o.value);
+      expect(w.request.input.endYear, o.label).toBeGreaterThanOrEqual(base + 4);
       expect(() => preview(w.request)).not.toThrow();
     }
   });
@@ -203,10 +200,12 @@ describe("表の最後の年", () => {
     const wh = { ...wh0, proposals: [plan] };
     const cat = buildCatalog(wh, self.id, null);
     const before = planView(wh, cat, plan.id);
-    const after = fieldOf(before, "assume/endYear").set(before, 2070);
+    const byYear = fieldOf(before, "assume/endYear").set(before, "year");
+    const after = fieldOf(byYear, "assume/endYear/year").set(byYear, 2070);
     const n = recordPlanEdit(wh, cat, plan.id, before, after);
     expect(n.proposals[0]!.diffs).toEqual([]);
     expect(n.request.input.endYear).toBe(2070);
+    expect(endYearRuleOf(n)).toEqual({ kind: "year" });
     expect(planView(n, cat, plan.id).request.input.endYear).toBe(2070);
   });
 });

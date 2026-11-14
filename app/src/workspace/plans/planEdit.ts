@@ -13,7 +13,7 @@ import { fieldText, type Catalog, type ItemValue } from "./items.ts";
 import { COLLECTIONS, ITEM_PLACES } from "../../generated/readings.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
 import { findObject, readAt, resolveAssumedKey, unbox, type Address, type Target } from "../store/readings.ts";
-import { inferPostRetirement, newId, type WorkingHousehold } from "../input/household.ts";
+import { inferPostRetirement, newId, withEndYearChoice, type WorkingHousehold } from "../input/household.ts";
 import { allFields, type FieldDef, type GroupDef } from "../input/form.ts";
 import { inputItems, itemStage } from "../input/items.ts";
 import { fieldAddress, fieldStatus } from "../input/valueState.ts";
@@ -542,7 +542,7 @@ const adultsKey = (wh: WorkingHousehold): string =>
 
 /**
  * どのプランにも共通の項目（表の最後の年。diffs.ts の PLAN_SHARED_ITEMS。0043 の追記 2026-11-05）を、プランの差分にせず現状に書く。
- * - 表の最後の年の欄（年・年齢・何歳まで見るか）・その「この値にする」などで変えた値は、現状の表の最後の年（と値の状態の行）にする
+ * - 表を何歳まで見るかの欄（人と年齢・年で決める）・その「この値にする」などで変えた値は、現状の表の最後の年（と値の状態の行・決め方）にする
  * - プランで大人の生年月・続柄を直したことで付いていった表の最後の年（followStandards）は、現状に書かず、プランの中身も現状の値のままにする
  *   （プランの表はいつも現状と同じ年で終わる）
  * 返す after は、現状に書いた後のプランの中身と表の最後の年がそろった世帯（差分を作るときに表の最後の年の違いが出ない）
@@ -550,22 +550,24 @@ const adultsKey = (wh: WorkingHousehold): string =>
 function sharedToCurrent(wh: WorkingHousehold, before: WorkingHousehold, after: WorkingHousehold): { wh: WorkingHousehold; after: WorkingHousehold } {
   const bi = inputOf(before);
   const ai = inputOf(after);
-  if (bi.endYear === ai.endYear && sameJson(endYearRow(bi) ?? null, endYearRow(ai) ?? null)) return { wh, after };
-  const withEnd = (w: WorkingHousehold, from: Obj): WorkingHousehold => {
+  if (bi.endYear === ai.endYear && sameJson(endYearRow(bi) ?? null, endYearRow(ai) ?? null) && sameJson(before.endYearChoice ?? null, after.endYearChoice ?? null)) return { wh, after };
+  // 表の最後の年と値の状態の行と、表を何歳まで見るかの決め方（画面の側。0070 の追記 2026-11-13）を from から写す
+  const withEnd = (w: WorkingHousehold, from: WorkingHousehold): WorkingHousehold => {
     const request = structuredClone(w.request);
     const input = request.input as unknown as Obj;
-    input.endYear = from.endYear;
-    const row = endYearRow(from);
+    const fi = inputOf(from);
+    input.endYear = fi.endYear;
+    const row = endYearRow(fi);
     const rows = (isObj(input.valueStates) ? input.valueStates : {}) as Obj;
     if (row === undefined) delete rows["plan.endYear"];
     else rows["plan.endYear"] = structuredClone(row);
     if (Object.keys(rows).length > 0) input.valueStates = rows;
     else delete input.valueStates;
-    return { ...w, request };
+    return withEndYearChoice({ ...w, request }, from.endYearChoice);
   };
   // 家族を直したことで変わった表の最後の年: 現状の値に戻す
-  if (adultsKey(before) !== adultsKey(after)) return { wh, after: withEnd(after, bi) };
-  return { wh: withEnd(wh, ai), after };
+  if (adultsKey(before) !== adultsKey(after)) return { wh, after: withEnd(after, before) };
+  return { wh: withEnd(wh, after), after };
 }
 
 /**
@@ -869,6 +871,8 @@ function whenText(wh: WorkingHousehold, v: Obj): string {
 export function fieldValueText(f: FieldDef | undefined, v: unknown, wh: WorkingHousehold): string {
   if (v === null || v === undefined) return "なし";
   if (f !== undefined) {
+    // 表を何歳まで見るかの「年で決める…」は、その年（0070 の追記 2026-11-13）
+    if (f.key === "assume/endYear" && v === "year") return `${String(wh.request.input.endYear)}年`;
     if (f.kind === "select") return f.options.find((o) => o.value === v)?.label ?? String(v);
     if (f.kind === "bool") return v === true ? "はい" : "いいえ";
     if (f.kind === "ym" && typeof v === "string") return formatYearMonth(v);

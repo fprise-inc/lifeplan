@@ -109,6 +109,12 @@ export interface WorkingHousehold {
    */
   itemChoice?: ItemChoice;
   /**
+   * 表を何歳まで見るかの決め方（0070 の追記 2026-11-13。形式の版 0.77 から）: 人と年齢で選んだ（その人がその年齢になる年まで）か、年で決めたか。
+   * 既定（ご本人・配偶者のうち若い方が既定の年齢になる年）は持たない。画面の側の値で、計算の要求には入れない（計算は表の最後の年 endYear だけ）。
+   * 人と年齢の決め方の年が表の最後の年と合わなければ（AI接続口・前の版のアプリが年を変えたなど）、年から読む（endYearRuleOf）。決めていなければ欄を持たない
+   */
+  endYearChoice?: EndYearChoice;
+  /**
    * 拡張の束の入力欄の値（0114 の4。入力欄の key〔ext.<作成者>.<名前>〕→ 宣言の path のとおりの対）。世帯ファイルでは拡張領域 ext に置く
    * （store/body.ts が行き来する。household の区画には書かない）。合算BS の会社の入力は ext.official.combinedBs（形式 0.57 から。0.50〜0.56 は
    * household.companyBs）。画面の側の値で、計算の要求には入れない。何も無ければ欄を持たない
@@ -398,14 +404,87 @@ export function endAgeOf(h: Pick<Household, "members">, endYear: number, baseMon
 
 const endYearPinned = (req: EngineRequest): boolean => (req.input as { valueStates?: Record<string, { state?: string }> }).valueStates?.["plan.endYear"]?.state === "confirmed";
 
+/** 表を何歳まで見るかの決め方（画面の側に持つ形。WorkingHousehold.endYearChoice。0070 の追記 2026-11-13） */
+export type EndYearChoice = { by: "member"; member: string; age: number } | { by: "year" };
+
 /**
- * 家族を直したときに表の最後の年が付いていく年齢（0070 の追記 2026-11-05）: 確定していない表の最後の年が、選び方の年齢（90・95・100・105歳。
- * 既定の100歳を含む）のどれかになる年なら、その年齢（家族を直した後も、若い方がその年齢になる年にする）。選び方の外の年（人が年で入れた年）・
- * 確定した年は null（変えない）
+ * 今の表の最後の年の決め方（0070 の追記 2026-11-13）: default は既定（若い方が既定の年齢になる年。推定で、家族を直すと付いていく）、
+ * member はその人がその年齢になる年まで（その人の生年月を直すと、同じ年齢のまま付いていく）、year は年で決めた年（付いていかない）
  */
-export function followedEndAge(req: EngineRequest): number | null {
-  if (endYearPinned(req)) return null;
-  return endAgeOf(req.input.household, req.input.endYear, req.input.baseMonth);
+export type EndYearRule = { kind: "default" } | { kind: "member"; member: string; age: number } | { kind: "year" };
+
+const adultMembers = (h: Pick<Household, "members">): Member[] => h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
+
+/** その人がその年齢になる年（計算基準月を渡すと、表を少なくとも MIN_TABLE_YEARS 年分にする。endYearForAge） */
+export const memberEndYear = (m: Member, age: number, baseMonth?: string): number => endYearForAge({ members: [m] }, age, baseMonth);
+
+/**
+ * 表の最後の年の決め方を読む（0070 の追記 2026-11-13）。
+ * 1. 値の状態の行が確定（「この値にする」）か、年で決めた（endYearChoice の year）なら year
+ * 2. 人と年齢で選んだ決め方（endYearChoice の member）があり、その年が今の表の最後の年と同じなら member
+ * 3. 既定の年（standardEndYear）と同じなら default
+ * 4. 年から読む（前の版の世帯・決め方を持たない世帯）: 若い方の大人から順に、選び方の年齢（END_AGES）のどれかになる年なら、その人とその年齢
+ *    （前の版の「若い方がその年齢になる年」と同じ人になる。生まれ年が同じならご本人）
+ * 5. どれでもなければ year（年で入れた年・古い世帯の外れた年）
+ */
+export function endYearRuleOf(wh: Pick<WorkingHousehold, "request" | "endYearChoice">): EndYearRule {
+  const req = wh.request;
+  const h = req.input.household;
+  const bm = req.input.baseMonth;
+  const end = req.input.endYear;
+  const c = wh.endYearChoice;
+  if (endYearPinned(req) || c?.by === "year") return { kind: "year" };
+  const adults = adultMembers(h);
+  if (c?.by === "member") {
+    const m = adults.find((x) => x.id === c.member);
+    if (m !== undefined && END_AGES.includes(c.age) && memberEndYear(m, c.age, bm) === end) return { kind: "member", member: m.id, age: c.age };
+  }
+  if (adults.length === 0) return { kind: "year" };
+  if (end === standardEndYear(h, bm)) return { kind: "default" };
+  const younger = [...adults].sort((a, b) => parseYm(b.birth.birthYearMonth).y - parseYm(a.birth.birthYearMonth).y);
+  for (const m of younger) {
+    const age = endAgeOf({ members: [m] }, end, bm);
+    if (age !== null) return { kind: "member", member: m.id, age };
+  }
+  return { kind: "year" };
+}
+
+/** 世帯ファイルの決め方を読む（形式の版 0.77 から。形の合わない値は捨て、年から読む） */
+export function readEndYearChoice(v: unknown): EndYearChoice | undefined {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return undefined;
+  const o = v as Record<string, unknown>;
+  if (o.by === "year") return { by: "year" };
+  if (o.by === "member" && typeof o.member === "string" && o.member !== "" && typeof o.age === "number" && END_AGES.includes(o.age)) return { by: "member", member: o.member, age: o.age };
+  return undefined;
+}
+
+/**
+ * 決め方を書いた世帯（undefined は欄を外す）。年から読んでも同じ決め方になるなら持たない（同じ値を書き戻しても世帯を変えない・
+ * 前の版の世帯に要らない欄を書き足さない）
+ */
+export function withEndYearChoice(wh: WorkingHousehold, choice: EndYearChoice | undefined): WorkingHousehold {
+  const { endYearChoice: _old, ...rest } = wh;
+  void _old;
+  const keep = choice !== undefined && JSON.stringify(endYearRuleOf({ ...rest, endYearChoice: choice })) !== JSON.stringify(endYearRuleOf(rest));
+  const next = keep ? choice : undefined;
+  if (JSON.stringify(next ?? null) === JSON.stringify(wh.endYearChoice ?? null)) return wh;
+  return next === undefined ? rest : { ...rest, endYearChoice: next };
+}
+
+/**
+ * 家族を直した後の表の最後の年と決め方（0070 の追記 2026-11-05・2026-11-13）: before の決め方のまま、h（直した後の家族）に合わせる。
+ * - 既定: 直した後の既定の年（若い方が既定の年齢になる年）
+ * - 人と年齢: その人がその年齢になる年（決め方を世帯に持つ。年から読んだ決め方もここで持つ）。その人がいなくなったら、若い方のその年齢
+ * - 年で決めた年・確定した年: null（変えない）
+ */
+export function followedEndYear(before: Pick<WorkingHousehold, "request" | "endYearChoice">, h: Pick<Household, "members">, baseMonth?: string): { endYear: number; choice: EndYearChoice | undefined } | null {
+  const r = endYearRuleOf(before);
+  if (r.kind === "year") return null;
+  const age = r.kind === "default" ? defaultEndAge() : r.age;
+  const m = r.kind === "member" ? adultMembers(h).find((x) => x.id === r.member) : undefined;
+  const y = m !== undefined ? memberEndYear(m, age, baseMonth) : endYearForAge(h, age, baseMonth);
+  if (!Number.isFinite(y)) return null;
+  return { endYear: y, choice: m !== undefined ? { by: "member", member: m.id, age } : undefined };
 }
 
 /**
@@ -452,17 +531,21 @@ export function isSchoolLinkedLeaves(m: Member): boolean {
  * 標準の値を追いかける（0008 の追記 2026-10-25）: 家族の生年月・続柄を変えた・家族を足した・外した後に、
  * 変える前に標準の値のままだった値（表の最後の年・子の独立の年月）を、変えた後の標準の値に入れ直す。
  * 「人が入れた値か、まだ標準の値か」は世帯データに持たないので、今の値が変える前の標準の値と同じなら標準の値とみなす。
- * 標準と違う値（人が入れた値）と、この変更そのものが書き換えた値は変えない。表の最後の年は、選び方の年齢（90・95・100・105歳）の年のままなら
- * その年齢のまま付いていく（既定の100歳だけでなく、95歳を選んだ世帯も95歳のまま。0070 の追記 2026-11-05）
+ * 標準と違う値（人が入れた値）と、この変更そのものが書き換えた値は変えない。表の最後の年は決め方（endYearRuleOf）のまま付いていく:
+ * 既定は若い方の既定の年齢、「配偶者が95歳まで」のように選んだ年はその人のその年齢（0070 の追記 2026-11-05・2026-11-13）。年で決めた年は変えない
  */
 export function followStandards(before: WorkingHousehold, after: WorkingHousehold): WorkingHousehold {
   const hb = before.request.input.household;
   const ha = after.request.input.household;
   const endBefore = before.request.input.endYear;
-  // 表の最後の年は、選び方の年齢（既定の100歳を含む）の年のままなら、その年齢のまま付いていく（0070 の追記 2026-11-05）
-  const age = followedEndAge(before.request);
-  const stdAfter = age === null ? Number.NaN : endYearForAge(ha, age, after.request.input.baseMonth);
-  const fixEnd = age !== null && Number.isFinite(stdAfter) && after.request.input.endYear === endBefore && stdAfter !== endBefore;
+  // 表の最後の年は、決め方のまま付いていく: 既定は若い方の既定の年齢、人と年齢で選んだ年はその人のその年齢（0070 の追記 2026-11-05・2026-11-13）。
+  // この変更そのものが表の最後の年・決め方を変えたときは変えない
+  const untouched = after.request.input.endYear === endBefore && JSON.stringify(after.endYearChoice ?? null) === JSON.stringify(before.endYearChoice ?? null);
+  const fol = untouched ? followedEndYear(before, ha, after.request.input.baseMonth) : null;
+  const fixEnd = fol !== null && fol.endYear !== endBefore;
+  // 年で決めた年（年から読んだ年を含む）は、直した後の家族で選択肢の年に読めても年で決めた年のまま
+  const pinYear = untouched && fol === null && endYearRuleOf(before).kind === "year" && endYearRuleOf(after).kind !== "year";
+  const fixChoice = (fol !== null && JSON.stringify(fol.choice ?? null) !== JSON.stringify(after.endYearChoice ?? null)) || pinYear;
   // 独立の時点が子の独立の出来事を指している（出来事が正本。0038）なら、出来事の年月を見る
   const leavesAt = (h: Household, m: Member): Timepoint | null | undefined => {
     const t = m.leaves;
@@ -478,9 +561,11 @@ export function followStandards(before: WorkingHousehold, after: WorkingHousehol
     const next = standardLeaves(m);
     if (next !== was) kids.push({ id: m.id, at: next, ...(m.leaves?.event !== undefined ? { event: m.leaves.event } : {}) });
   }
-  if (!fixEnd && kids.length === 0) return after;
-  return mutate(after, (h, req) => {
-    if (fixEnd) req.input.endYear = stdAfter;
+  const choiceOf = (w: WorkingHousehold): WorkingHousehold => (!fixChoice ? w : fol !== null ? withEndYearChoice(w, fol.choice) : withEndYearChoice(w, { by: "year" }));
+  if (!fixEnd && kids.length === 0) return choiceOf(after);
+  const endYear = fixEnd && fol !== null ? fol.endYear : after.request.input.endYear;
+  const next = mutate(after, (h, req) => {
+    req.input.endYear = endYear;
     for (const k of kids) {
       const e = k.event === undefined ? undefined : (h.events ?? []).find((x) => x.id === k.event);
       if (e !== undefined) e.at = { at: k.at };
@@ -490,4 +575,5 @@ export function followStandards(before: WorkingHousehold, after: WorkingHousehol
       }
     }
   });
+  return choiceOf(next);
 }

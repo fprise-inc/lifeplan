@@ -3,7 +3,7 @@
 // 年のあるポイントは「その年を見る」、どれも「対策を考える」で対策へ
 import { useContext, useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
-import type { WorkingHousehold } from "../input/household.ts";
+import { defaultEndAge, type WorkingHousehold } from "../input/household.ts";
 import { inheritanceRequest } from "../input/inheritanceLine.ts";
 import { endYearOff, endYearToStandard } from "../input/stages/assumptions.ts";
 import { OfficeTextsContext } from "../office/customTextsContext.ts";
@@ -138,7 +138,7 @@ export function EndYearNote({ wh, onFix }: { wh: WorkingHousehold; onFix: (next:
     <div class="fee-note input-notice" role="note" data-input-notice data-end-year-note>
       <span class="fee-tag">入力の確認</span>
       <span>
-        表の最後の年が{o.end}年（{o.ages}）です。既定は、ご本人・配偶者のうち若い方が100歳になる{o.std}年です
+        表の最後の年が{o.end}年（{o.ages}）です。既定は、ご本人・配偶者のうち若い方が{defaultEndAge()}歳になる{o.std}年です
       </span>
       <button type="button" class="link-btn" onClick={() => onFix(endYearToStandard(wh))} data-end-year-fix>
         既定（{o.std}年）にする

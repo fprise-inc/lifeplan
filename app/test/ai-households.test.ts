@@ -163,8 +163,8 @@ describe("世帯として作るときの形", () => {
     expect(back.wh.memo[0]).toContain(fixture.title.normalize("NFKC"));
     expect(back.wh.memo[0]).toContain("推定したこと");
     expect((JSON.parse(body) as { meta?: { formatVersion?: string } }).meta?.formatVersion ?? BODY_FORMAT_VERSION).toBe(BODY_FORMAT_VERSION);
-    // 今の形式の版（0206 で 0.76）。本体は保存のときに同じ版を書く（app/src-tauri の ai.rs のテスト）
-    expect(BODY_FORMAT_VERSION).toBe("0.76");
+    // 今の形式の版（0070 の追記 2026-11-13 で 0.77）。本体は保存のときに同じ版を書く（app/src-tauri の ai.rs のテスト）
+    expect(BODY_FORMAT_VERSION).toBe("0.77");
     expect(() => preview(back.wh.request)).not.toThrow();
   });
 });

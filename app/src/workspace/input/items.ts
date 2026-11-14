@@ -889,12 +889,12 @@ export interface ItemOptions {
 }
 
 /**
- * 前提条件が既定の値のままか: 前提の欄（前提条件の標準の値の欄。表の最後の年の決め方・年齢の欄・読むだけの欄を除く）に、FP が打った値・「この値にする」で
+ * 前提条件が既定の値のままか: 前提の欄（前提条件の標準の値の欄。表を何歳まで見るかの「年で決める」の年の欄・読むだけの欄を除く）に、FP が打った値・「この値にする」で
  * 確定にした値が1つも無い（0041 の追記 2026-11-06）。既定のままなら札は「既定の値で計算中」、1つでも入れれば「入力済み」
  */
 export function premiseUntouched(stage: StageDef, wh: WorkingHousehold): boolean {
   return !allFields(stage).some((f) => {
-    if (!isPremiseField(f) || f.readOnly !== undefined || f.key === "assume/endYear/choice" || f.key.startsWith("assume/endYear/age/")) return false;
+    if (!isPremiseField(f) || f.readOnly !== undefined || f.key === "assume/endYear/year") return false;
     return fieldStatus(f, wh).status === "confirmed" && f.get(wh).implicit !== true;
   });
 }

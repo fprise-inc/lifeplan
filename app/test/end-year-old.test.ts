@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { ALL_ROWS, forEngine } from "../src/engine/moneyRows.ts";
 import { bigMoneyOf } from "../src/workspace/bigMoney.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { blankHousehold, endAgeOf, endYearForAge, followedEndAge, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, endAgeOf, endYearForAge, endYearRuleOf, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { bandModel, CURRENT, planLetters } from "../src/workspace/plans/band.ts";
 import { displayYears, toPresentation } from "../src/workspace/present.ts";
@@ -38,14 +38,17 @@ describe("「○歳になる年」は生まれ年＋年齢（H8-002）", () => {
       expect(ageInYear(self, y)).toBe(100);
       expect(endAgeOf(h, y)).toBe(100);
       expect(wh.request.input.endYear).toBe(2090);
-      // 選び方の欄は「100歳まで」、年齢の欄も100歳
-      expect(fieldOf(wh, "assume/endYear/choice").get(wh).value).toBe("100");
-      expect(fieldOf(wh, "assume/endYear/choice").get(wh).hint).toContain("100歳の年");
-      expect(fieldOf(wh, `assume/endYear/age/${self.id}`).get(wh).value).toBe(100);
-      // 年齢の欄に100と入れても同じ年（選び方は「その他」にならない）
-      const typed = fieldOf(wh, `assume/endYear/age/${self.id}`).set(wh, 100);
+      // 表を何歳まで見るかの欄は「ご本人が100歳まで（既定）」で、欄の下も100歳の年
+      const f = fieldOf(wh, "assume/endYear");
+      expect(f.get(wh).value).toBe("default");
+      expect(f.kind === "select" ? f.options.find((o) => o.value === "default")?.label : "").toBe("ご本人が100歳まで（既定）");
+      expect(f.get(wh).hint).toContain("100歳の年");
+      expect(endYearRuleOf(wh)).toEqual({ kind: "default" });
+      // 「年で決める…」で同じ年を入れても同じ年（決め方は年で決めた年）
+      const byYear = f.set(wh, "year");
+      const typed = fieldOf(byYear, "assume/endYear/year").set(byYear, 2090);
       expect(typed.request.input.endYear).toBe(2090);
-      expect(followedEndAge(typed.request)).toBe(100);
+      expect(endYearRuleOf(typed)).toEqual({ kind: "year" });
     }
   });
 });
@@ -58,8 +61,8 @@ describe("若い方がすでにその年齢を過ぎている世帯（H6-008）"
       expect(req.input.endYear, birth).toBe(2031);
       expect(displayYears(req), birth).toEqual([2027, 2028, 2029, 2030, 2031]);
       expect(() => preview(req), birth).not.toThrow();
-      // 選び方の欄は既定の100歳のまま（ほかの年齢も同じ年になるが、既定を見せる）
-      expect(fieldOf(wh, "assume/endYear/choice").get(wh).value, birth).toBe("100");
+      // 表を何歳まで見るかの欄は既定のまま（ほかの年齢も同じ年になるが、既定を見せる）
+      expect(fieldOf(wh, "assume/endYear").get(wh).value, birth).toBe("default");
     }
   });
 
@@ -68,12 +71,13 @@ describe("若い方がすでにその年齢を過ぎている世帯（H6-008）"
     expect(single("1936-06").request.input.endYear).toBe(2036);
   });
 
-  it("年で入れる欄・年齢で入れる欄の下限は表の最初の年（計算基準月が年の途中なら翌年。表が0年にならない）", () => {
+  it("「年で決める…」の年の欄の下限は表の最初の年（計算基準月が年の途中なら翌年。表が0年にならない）。人と年齢の選択肢はどれも5年分の表", () => {
     const wh = single("1921-01");
     const minOf = (f: FieldDef) => (f.kind === "int" ? f.min : null);
-    expect(minOf(fieldOf(wh, "assume/endYear"))).toBe(2027);
-    const self = wh.request.input.household.members[0]!;
-    expect(minOf(fieldOf(wh, `assume/endYear/age/${self.id}`))).toBe(106);
+    const f = fieldOf(wh, "assume/endYear");
+    const byYear = f.set(wh, "year");
+    expect(minOf(fieldOf(byYear, "assume/endYear/year"))).toBe(2027);
+    for (const o of f.kind === "select" ? f.options.filter((x) => x.value !== "year") : []) expect(f.set(wh, o.value).request.input.endYear, o.label).toBe(2031);
   });
 });
 
