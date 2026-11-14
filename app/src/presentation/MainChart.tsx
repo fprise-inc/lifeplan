@@ -709,7 +709,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           <path d={linePath(fin, s)} class="line-prop" />
         </g>,
       );
-    zeroLabels = ["↑ 入るお金", "↓ 出るお金"];
+    zeroLabels = ["入るお金", "出るお金"];
   } else if (mode === "flows") {
     const { inc, exp, net, bnet } = flowParts(model, t, n);
     s = scale([...scaleInputs(model, t, mode, n), ...scaleWith], n, f);
@@ -729,7 +729,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     });
     if (!same) body.push(<path key="bnet" d={linePath(upTo(bnet, cEnds), s)} class="net-base" />);
     body.push(<path key="net" d={linePath(upTo(net, pEnds), s)} class="net-sel" />);
-    zeroLabels = ["↑ 収入", "↓ 支出"];
+    zeroLabels = ["収入", "支出"];
     if (selIdx >= 0)
       mark = {
         sel: s.y(past(pEnds) ? 0 : (net[selIdx] ?? 0)),
@@ -897,15 +897,11 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         {skLine && skList.length > 0 ? <ShortLinesSvg list={skList} xs={skXs} at={skAt} top={s.y(0)} rowTop={skRowTop} fs={fs} /> : null}
         {mark !== null ? <line x1={mx} x2={mx} y1={f.top - 4} y2={f.height - f.bottom} class={`hv-guide${pinned !== null ? " pinned" : ""}`} /> : null}
         {evNow !== undefined ? <line x1={s.x(years.indexOf(evNow.year))} x2={s.x(years.indexOf(evNow.year))} y1={f.top - 4} y2={f.height - f.bottom} class="hv-guide ev-guide" /> : null}
+        {/* 0の線の上と下が何かは、グラフの面の上（「（万円）」の右）に小さく1行で書く。0の線の上に置くと最初の年の棒に重なるため */}
         {zeroLabels !== null ? (
-          <>
-            <text x={f.left + 6} y={s.y(0) - 6} class="unit">
-              {zeroLabels[0]}
-            </text>
-            <text x={f.left + 6} y={s.y(0) + 16} class="unit">
-              {zeroLabels[1]}
-            </text>
-          </>
+          <text x={f.left + 4} y={f.top - 10} class="zero-t" data-zero-labels>
+            {`0より上は${zeroLabels[0]}、下は${zeroLabels[1]}`}
+          </text>
         ) : null}
         <AgeAxisSvg years={years} axis={axis} x={s.x} show={(y) => y % labelStep === 0} yearY={f.height - (24 + ageExtra(axis.length)) * fs} left={f.left} fs={fs} />
         {mark !== null && multiRows !== null ? (
