@@ -890,6 +890,20 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
 /* 0071: 前提を直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
 .ip-assume-list td:nth-child(4), .ip-assume-list th:nth-child(4) { white-space: nowrap; }
+/* 前提と推定の一覧の区分の切り替え: どの幅でも、1行に入らなければ折り返す（最後のボタンがパネルの右にはみ出さない）。
+   境目の線は、狭い画面の .seg-g と同じく各ボタンの左と上の線で描く（外の枠に重なる分は枠の内側で隠れる） */
+.ip-assume-list .seg-g { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; margin: 4px 0 6px; }
+.ip-assume-list .seg-g button { flex: 1 1 auto; border-left: 2px solid var(--ink-2); border-top: 2px solid var(--ink-2); margin: -2px 0 0 -2px; }
+/* 表: 見出しは1文字ずつ縦に折れない（折り返さない）。区分・項目・値・出典・根拠の長い文はセルの中で折り返し、列は狭くなりすぎない。
+   「確かめた」の列は見出しの幅で止める（チェックと日付だけ） */
+.ip-assume-list th { white-space: nowrap; }
+.ip-assume-list td { overflow-wrap: anywhere; }
+.ip-assume-list td:nth-child(1) { min-width: 8.5em; }
+.ip-assume-list td:nth-child(2) { min-width: 8em; }
+.ip-assume-list td:nth-child(3) { min-width: 6em; }
+.ip-assume-list td:nth-child(5) { min-width: 10em; }
+.ip-assume-list td:nth-child(6), .ip-assume-list th:nth-child(6) { width: 1%; white-space: nowrap; }
+.ip-assume-list td:nth-child(2) .link-btn { text-align: left; padding-left: 0; }
 .ip-assume-list .sub.warn { display: block; color: var(--warn, #9a3412); }
 .cg-plan-to { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; font-size: 0.9rem; }
 .cg-premises .lv-grid > .lever.plan-diff { border-left: 4px solid var(--prop); padding-left: 9px; }

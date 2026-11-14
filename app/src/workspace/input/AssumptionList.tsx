@@ -51,7 +51,9 @@ export function AssumptionList({ wh, planId, onAgree, onLevel }: { wh: WorkingHo
                 <th scope="col">値</th>
                 <th scope="col">状態</th>
                 <th scope="col">出典・根拠</th>
-                <th scope="col">お客さまと確かめた</th>
+                <th scope="col" title="お客さまと確かめた" aria-label="お客さまと確かめた">
+                  確かめた
+                </th>
               </tr>
             </thead>
             <tbody>
