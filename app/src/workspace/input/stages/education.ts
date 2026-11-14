@@ -662,6 +662,8 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
         modes: ["ym"],
         dateStyle: "birth",
         nullText: `推定: ${nurseryStart}`,
+        // 入力例は推定の通い始めの年月（入れ方ごとの決まった例「2041-06」は、保育園の時期として不自然なため）
+        example: `例: ${nurseryStart.slice(0, 7)}`,
         help: "「2028-04」の形で入れます。推定は1歳の4月（その子の育児休業を入れていれば、休業の終わりの翌月）です",
       }),
       nurseryStartKindField(goalId, key, find),
@@ -1936,6 +1938,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   const higherPlaceholder = (): GroupDef => ({
     key: `edu/${goal.id}/higherNone`,
     title: `大学など（${STAGE_AGE.university}歳から）`,
+    wideHead: true,
     note: "大学・短大・専門学校に行かない進路で計算しています（行く見込みなら、ここで学校を選びます）",
     level: "simple",
     fields: [higherKindField(goal.id)],
@@ -1957,6 +1960,8 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       // 大学院は前の学校を出た翌月の4月から（STAGE_AGE に無いので年齢は添えない）
       ...(note !== undefined && note !== "" ? { note } : {}),
       ...(costLine !== null ? { summary: costLine } : {}),
+      // 学校の行は、欄の数によらず見出しを幅いっぱいの1行に（額の1行と「外す」を右の端に）
+      wideHead: true,
       level: "simple",
       moreLabel: stageMoreLabel(s),
       fields: stageFields(goal.id, i, s, `${start.ym}（${start.reason}）`, outChoice),

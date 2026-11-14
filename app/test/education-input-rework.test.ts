@@ -273,6 +273,11 @@ describe("保育園（2歳まで）の既定と詳細の欄", () => {
         ["延長保育（月額）", "detail"],
       ]),
     );
+    // 入力例は推定の通い始めの年月（決まった例「2041-06」にしない）。学校の行は欄が少なくても見出しを幅いっぱいに
+    const from = fieldOf(wh, `edu/${g.id}/stage/${n}/from`);
+    expect(from.example).toMatch(/^例: 20\d\d-04$/);
+    expect(from.example).not.toBe("例: 2041-06");
+    expect(groups(wh).filter((x) => /\/stage\/\d+$/.test(x.key)).every((x) => x.wideHead === true)).toBe(true);
     const age0 = fieldOf(wh, `edu/${g.id}/stage/${n}/startKind`).set(wh, "age0");
     const child = age0.request.input.household.members.find((m) => m.kind === "child")!;
     expect(goalOf(age0).education!.stages[n]!.from).toEqual({ memberAge: { member: child.id, years: 0, ageSwitch: "schoolYear" } });
