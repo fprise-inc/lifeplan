@@ -1,4 +1,4 @@
-// 結果の画面の区画「これからの大きなお金」（0044・0103 の追記 2026-11-12）: 結果のグラフのすぐ下に、これからの大きなお金を
+// 結果の画面の区画「夢と予定」（0044・0103 の追記 2026-11-12）: 対策のすぐ下に、ご家族の夢と支払い・受け取りの予定を
 // 3つのまとまりで並べ、1件ずつのチェックで計算に入れる物を入れ外しする（見方の切り替えで保存しない。engine/moneyRows.ts の RowsView）:
 // - ご家族の夢: 夢プランの夢
 // - 支払いの予定: 子への援助・1回と年ごとの出るお金（確実も不確実も）・繰上返済・住まいの購入の頭金・月々の出るお金のうち不確実な物
@@ -16,13 +16,13 @@ import { depletionYear, displayYears } from "./present.ts";
 import { ageInYear, roles } from "./roles.ts";
 import { OFFICIAL_WORDING, type Wording } from "./resultTexts.ts";
 
-/** 「これからの大きなお金」の行の入れ外しの相手（engine/moneyRows.ts の ViewCandidate の key・off） */
+/** 「夢と予定」の行の入れ外しの相手（engine/moneyRows.ts の ViewCandidate の key・off） */
 export interface BigMoneyPick {
   key: string;
   off?: boolean;
 }
 
-/** 「これからの大きなお金」の1行（1件1行。行の key は物の ID を含むので、作業の層だけで持つ〔提示層の PresentationModel には入れない。0016 の2〕） */
+/** 「夢と予定」の1行（1件1行。行の key は物の ID を含むので、作業の層だけで持つ〔提示層の PresentationModel には入れない。0016 の2〕） */
 export interface BigMoneyRow {
   key: string;
   name: string;
@@ -47,7 +47,7 @@ export interface BigMoneyGroup {
   included: number;
 }
 
-/** 結果の画面の区画「これからの大きなお金」（結果のグラフのすぐ下。0044・0103 の追記 2026-11-12） */
+/** 結果の画面の区画「夢と予定」（対策のすぐ下。0044・0103 の追記 2026-11-12） */
 export interface BigMoneyModel {
   /** 一行の結論（「チェックした8件（15件中）を入れても102歳まで足ります」など。入れ外しできる物が無い・計算できていないときは null） */
   line: string | null;
@@ -265,13 +265,13 @@ export interface BigMoneySummaryInput {
  */
 export function bigMoneySummary(x: BigMoneySummaryInput): string | null {
   if (x.total === 0) return null;
-  // 文は結果の画面の文の表（resultTexts.ts の result:bigMoney/line…）から。事務所の文を承認していれば、その文に同じ値を差し込む（0212 の追記）
+  // 文は結果の画面の文の表（resultTexts.ts の result:dreamsAndPlans/line…）から。事務所の文を承認していれば、その文に同じ値を差し込む（0212 の追記）
   const w = x.wording ?? OFFICIAL_WORDING;
   const lasts = x.withYear === null;
   const at = { until: x.until, age: x.withYear === null ? "" : x.ageText(x.withYear), total: `${String(x.total)}件`, count: `${String(x.included)}件` };
-  if (x.included === 0) return lasts ? w.text("result:bigMoney/lineNoneLasts", at) : w.text("result:bigMoney/lineNoneShort", at);
-  if (x.included === x.total) return lasts ? w.text("result:bigMoney/lineAllLasts", at) : w.text("result:bigMoney/lineAllShort", at);
-  return lasts ? w.text("result:bigMoney/lineSomeLasts", at) : w.text("result:bigMoney/lineSomeShort", at);
+  if (x.included === 0) return lasts ? w.text("result:dreamsAndPlans/lineNoneLasts", at) : w.text("result:dreamsAndPlans/lineNoneShort", at);
+  if (x.included === x.total) return lasts ? w.text("result:dreamsAndPlans/lineAllLasts", at) : w.text("result:dreamsAndPlans/lineAllShort", at);
+  return lasts ? w.text("result:dreamsAndPlans/lineSomeLasts", at) : w.text("result:dreamsAndPlans/lineSomeShort", at);
 }
 
 /**

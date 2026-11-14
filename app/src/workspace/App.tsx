@@ -910,7 +910,7 @@ export function App() {
   const reqCache = useRef(new Map<string, EngineRequest>());
   /**
    * 結果の見方（保存しない自動の差分。0044 の追記）: 物ごとの入れ外しを当てた要求で、全部の枠を計算する。確実な物は外して見られ、
-   * ふだんの計算に入れない物（見込みが「不確実」の物・入れない夢）は入れて見られる。入れ外しは、結果のグラフのすぐ下の区画「これからの大きなお金」（BigMoneyCard）
+   * ふだんの計算に入れない物（見込みが「不確実」の物・入れない夢）は入れて見られる。入れ外しは、対策のすぐ下の区画「夢と予定」（BigMoneyCard）
    */
   const viewRef = useRef<RowsView>(ALL_ROWS);
   const [rowsView, setRowsView] = useState<RowsView>(ALL_ROWS);
@@ -2234,7 +2234,7 @@ export function App() {
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
   }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames, wording]);
-  /** 区画「これからの大きなお金」（見方を当てる前の選んでいるプランから並べ、今の見方の答えで一行の結論を出す） */
+  /** 区画「夢と予定」（見方を当てる前の選んでいるプランから並べ、今の見方の答えで一行の結論を出す） */
   const bigMoney = useMemo(
     () => (opened === null || selReq === null || selRes === null ? null : bigMoneyOf(selReq, selRes.table, { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), current: opened.wh.request, view: rowsView }, failed, wording)),
     [opened, work, rawReqOf, selReq, selRes, rowsView, failed, wording],
@@ -3384,8 +3384,6 @@ export function App() {
                 </>
               }
             />
-            {/* これからの大きなお金（結果のグラフのすぐ下。夢・支払い・受け取りの予定と、1件ずつのチェックの入れ外し〔保存しない〕。0044・0103） */}
-            {bigMoney !== null ? <BigMoneyCard model={bigMoney} notes={model.childRepaid} onPick={(r, inc) => putRowsView(pickRow(viewRef.current, r, inc))} /> : null}
             {/* ③ 対策 */}
             <LeverCard
               selected={names.selected}
@@ -3458,6 +3456,8 @@ export function App() {
             >
               {addedRows}
             </LeverCard>
+            {/* 夢と予定（対策のすぐ下。夢・支払い・受け取りの予定と、1件ずつのチェックの入れ外し〔保存しない〕。0044・0103） */}
+            {bigMoney !== null ? <BigMoneyCard model={bigMoney} notes={model.childRepaid} onPick={(r, inc) => putRowsView(pickRow(viewRef.current, r, inc))} /> : null}
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
               <CashflowTable

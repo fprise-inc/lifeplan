@@ -408,7 +408,7 @@ export interface PresentInput {
   wording?: Wording;
   /**
    * 選んだプランか基準のプランが今の入力で計算できなかった（計算エンジンのエラー。結果は前の計算の残り）。結論の1文に「足りる」を出さない（0169。
-   * 区画「これからの大きなお金」の数字と一行の結論は workspace/bigMoney.ts の bigMoneyOf で出さない）
+   * 区画「夢と予定」の数字と一行の結論は workspace/bigMoney.ts の bigMoneyOf で出さない）
    */
   failed?: boolean;
 }
@@ -492,7 +492,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     childRepaid: childScholarshipNotes(
       proposed.summary,
       (id) => roles(proposal).find((r) => r.member.id === id)?.label ?? "子",
-      (v) => (input.wording ?? OFFICIAL_WORDING).text("result:bigMoney/childRepaid", { ...v }),
+      (v) => (input.wording ?? OFFICIAL_WORDING).text("result:dreamsAndPlans/childRepaid", { ...v }),
     ),
     fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC, ...(custom ? { baseLabel: `${names.base}（基準）` } : {}) }),
     provisional: input.provisional,

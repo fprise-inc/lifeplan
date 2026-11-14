@@ -163,7 +163,7 @@ export interface PresentationModel {
   yearDetail: YearDetail | null;
   events: EventChip[];
   table: CashflowTableModel;
-  /** 子が返す貸与の奨学金の書き添え（世帯の収支に入れていない返済。子ごとに1文。無ければ空。0104。結果の画面の区画「これからの大きなお金」の下に出す） */
+  /** 子が返す貸与の奨学金の書き添え（世帯の収支に入れていない返済。子ごとに1文。無ければ空。0104。結果の画面の区画「夢と予定」の下に出す） */
   childRepaid: string[];
   /** FP顧問料を対策で ON/OFF しているときの一文（顧問料の契約が無ければ null） */
   fee: FeeLine | null;

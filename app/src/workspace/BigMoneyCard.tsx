@@ -1,4 +1,4 @@
-// 結果の画面の区画「これからの大きなお金」（結果のグラフのすぐ下。0044・0103 の追記 2026-11-12）。前のグラフの上の切り替え（RowsViewBar）と
+// 結果の画面の区画「夢と予定」（対策のすぐ下。0044・0103 の追記 2026-11-12）。前のグラフの上の切り替え（RowsViewBar）と
 // 「ご家族の夢」の区画（GoalCards）を1つにまとめた。値は bigMoney.ts の bigMoneyOf。入れ外しは見方の切り替えで、保存しない（App.tsx の putRowsView）。
 // 行の key は物の ID を含むので、提示層（presentation/）でなく作業の層に置く（0016 の2）。
 // 並べ方（3列）: 物のあるまとまりだけを横に並べ、列の数はまとまりの数に合わせる。
@@ -12,13 +12,13 @@ import type { BigMoneyGroup, BigMoneyModel, BigMoneyPick, BigMoneyRow } from "./
 import { OfficeTextsContext } from "./office/customTextsContext.ts";
 import { OFFICIAL_WORDING, wordingOf, type Wording } from "./resultTexts.ts";
 
-/** 区画「これからの大きなお金」の「?」の説明の段落の id（結果の画面の文の表の result:bigMoney/help…。0044・0103 の追記 2026-11-12・0212 の追記） */
-const HELP_IDS = ["result:bigMoney/helpPick", "result:bigMoney/helpDefault", "result:bigMoney/helpNotSaved"] as const;
+/** 区画「夢と予定」の「?」の説明の段落の id（結果の画面の文の表の result:dreamsAndPlans/help…。0044・0103 の追記 2026-11-12・0212 の追記） */
+const HELP_IDS = ["result:dreamsAndPlans/helpPick", "result:dreamsAndPlans/helpDefault", "result:dreamsAndPlans/helpNotSaved"] as const;
 
 /** 「?」の説明の段落（事務所の文を承認していればその文） */
 export const bigMoneyHelp = (w: Wording): string[] => HELP_IDS.map((id) => w.text(id));
 
-/** 区画「これからの大きなお金」の「?」の説明（公式の文） */
+/** 区画「夢と予定」の「?」の説明（公式の文） */
 export const BIG_MONEY_HELP = bigMoneyHelp(OFFICIAL_WORDING);
 
 /** 2つ以上のまとまりを並べるとき、まとまりごとに最初に出す件数（残りが2件以上なら「ほか○件を見る」で開く） */
@@ -94,7 +94,7 @@ function Column({ g, rows, onPick, cont, more }: { g: BigMoneyGroup; rows: reado
 }
 
 /**
- * 区画「これからの大きなお金」（結果のグラフのすぐ下）: 頭は名前と「?」と一行の結論だけ。中身は「ご家族の夢」「支払いの予定」「受け取りの予定」を
+ * 区画「夢と予定」（対策のすぐ下）: 頭は名前と「?」と一行の結論だけ。中身は「ご家族の夢」「支払いの予定」「受け取りの予定」を
  * 横に並べ、1件1行（チェック・名前・時期・金額・見込み）。並べる物が無ければ区画を出さない（子が返す奨学金の書き添えだけがあれば、それだけを出す）
  */
 export function BigMoneyCard({ model, notes: noteTexts, onPick }: BigMoneyCardProps) {
@@ -129,10 +129,10 @@ export function BigMoneyCard({ model, notes: noteTexts, onPick }: BigMoneyCardPr
   }
   const n = one !== null ? (split ? "s" : "1") : String(model.groups.length);
   return (
-    <section class="card big-money" aria-label="これからの大きなお金" data-big-money>
+    <section class="card big-money" aria-label="夢と予定" data-big-money>
       <div class="card-h">
-        <h2>これからの大きなお金</h2>
-        <Help label="これからの大きなお金" id="big-money">
+        <h2>夢と予定</h2>
+        <Help label="夢と予定" id="big-money">
           {help.map((t, i) => (
             <p key={i}>{t}</p>
           ))}

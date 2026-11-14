@@ -95,7 +95,7 @@ export function objectYears(table: readonly Cell[], id: string, prefix: string):
 
 /**
  * 払う年（受け取る年）の金融資産（払った後・受け取った後）: paidYears のうち表に出す年で、資金が不足する最初の年、無ければ金融資産がいちばん少ない年
- * （同じなら早い年）。夢の dreamPaid と、結果の画面の「これからの大きなお金」の支払い・受け取りの行が同じ選び方を使う。表に出す年が無ければ null
+ * （同じなら早い年）。夢の dreamPaid と、結果の画面の「夢と予定」の支払い・受け取りの行が同じ選び方を使う。表に出す年が無ければ null
  */
 export function paidIn(paidYears: readonly number[], table: readonly Cell[], years: readonly number[]): DreamPaid | null {
   const shown = new Set(years);

@@ -609,7 +609,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
           </label>
           <label class="os-radio">
             <input type="radio" name="os-inherit" checked={s.inheritLikelihood === "uncertain"} onChange={() => setS({ ...s, inheritLikelihood: "uncertain" })} data-office-inherit="uncertain" />
-            不確実（足した行を計算に入れない。結果の画面の「これからの大きなお金」でチェックを入れると比較できます。相続で受け継ぐ借金も同じ）
+            不確実（足した行を計算に入れない。結果の画面の「夢と予定」でチェックを入れると比較できます。相続で受け継ぐ借金も同じ）
           </label>
         </section>
         <section class="os-sec" aria-labelledby="os-assume">

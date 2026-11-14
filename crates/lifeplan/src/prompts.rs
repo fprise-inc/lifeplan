@@ -492,7 +492,7 @@ impl LifeplanMcp {
         &self,
         Parameters(a): Parameters<OfficeWordingArgs>,
     ) -> GetPromptResult {
-        let target = given(&a.target).unwrap_or("結果の画面の文（結論の1文・取り崩しの条件・グラフの注・ポイント・これからの大きなお金・万一のときの結論の1文）");
+        let target = given(&a.target).unwrap_or("結果の画面の文（結論の1文・取り崩しの条件・グラフの注・ポイント・夢と予定・万一のときの結論の1文）");
         let style = given(&a.style).unwrap_or(
             "（指定なし。今の公式の文を読んで、お客さまに伝わりやすい言い方の案を出す）",
         );
