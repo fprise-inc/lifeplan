@@ -104,3 +104,8 @@
 - 変えたもの: `app/src/workspace/tools/fpTools.ts`（`insights`・`bigSpendByYear`・`bigSpendOverlaps`・`OVERLAP_RULES`・`withoutHousingCredit`）、`tools/Insights.tsx`（控除を受ける・受けない計算の組 `useCreditPairFor`）、`App.tsx`（ポイントに `computeOne` を渡す1か所）。世帯ファイル・計算エンジン・見本の世帯の結果は変わらない。
 - テスト: `app/test/fp-tools.test.ts`（7種類の決まりと文・決め方の3案・控除の組・外した2つが出ないこと）、`app/test/multi.test.ts`（収支の「0未満は赤字」が出ないこと）。
 - 未確定: 大きな支出が重なる年の決め方（案2で始め、利用者が比較の表を見て選ぶ）。主な働き手が途中で亡くなる・働けなくなる世帯（遺族の生活の赤字は、働いている間に入らないので出ない）。退職から年金までの空白の企業年金・個人年金の受け取りは「収入が少ない」の判断に入れていない。
+
+## 追記（2026-11-13）: ポイントの「対策を考える」を外す
+
+- 開いたポイントの各行の「対策を考える」のボタンをなくし、「その年を見る」（年のあるポイントだけ）だけを残す。どの行にも同じボタンが並んで行が長くなり、押しても同じ所（同じタブの対策）へ移るだけで、行ごとの意味が無かったため。
+- 変えたもの: `app/src/workspace/tools/Insights.tsx`（`onLevers` を外した）、`App.tsx`（渡していた1か所）。テストは `app/test/fp-tools.test.ts`（開いても「対策を考える」が出ないこと）。
