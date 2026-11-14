@@ -1,9 +1,10 @@
 // 資産と負債のタブ（提示層の部品。家計のバランスシートを図で見せる）。受け取るのは BalanceTabModel と手続きだけ（0016 の2）。
 // 配置（上から）: 見るもの（家計のバランスシート／カスタマイズで足した見るもの。足したものが無ければ行ごと出さない）→ プランの帯（作業の層が渡す）→
 // バランスシートの図（1年ずつ見る／時点を並べる／プランを並べる／前回と比較）→ 年のつまみ（図のすぐ下。図とつまみが同時に画面に収まるよう、
-// 窓の高さが低いときは図を縮める）→ 家計の体力の目安（横いっぱいに4つ並べる）→ 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）。
+// 窓の高さが低いときは図を縮める）→ 家計の体力の目安（横いっぱいに4つ並べる。表示の設定で出さないこともできる）→ 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）。
 // 図の読み方・その年の解説は FP が口頭でする前提で、図の下に要約・解説の文は置かない。
-// このタブの表示の設定（図の見出しの右の「表示の設定」。結果のタブの表示の設定とは別）: 時点を並べるときの既定の時点と、家計の体力の目安の幅
+// このタブの表示の設定（図の見出しの右の「表示の設定」。結果のタブの表示の設定とは別）: 時点を並べるときの既定の時点と、家計の体力の目安を表示するか・目安の幅。
+// 家計の体力の目安を表示しない（model.health が false）ときは、図の下の区画も「目安の幅を変える」の入口も出さない（0027 の 2026-11-13 の追記）
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BsFigure, useBoxSize } from "./BsFigure.tsx";
@@ -33,6 +34,8 @@ export interface BalanceTabProps {
   onPrev: (key: string) => void;
   /** 家計の体力の目安の幅を変えた（このタブの表示の設定） */
   onGuide: (g: BsGuide) => void;
+  /** 家計の体力の目安を表示するかを変えた（このタブの表示の設定。省略すると表示の設定に切り替えを出さない） */
+  onHealth?: (on: boolean) => void;
   /** 並べる時点をこの世帯で変えた（null は既定に戻す） */
   onColumns: (c: BsColumn[] | null) => void;
   /** 時点を並べるときの既定の時点を変えた（このタブの表示の設定） */
@@ -110,7 +113,7 @@ function useFitHeight(head: { current: HTMLElement | null }, bar: { current: HTM
   return h;
 }
 
-export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDefaults, moneyThree, onCustomField, initial }: BalanceTabProps) {
+export function BalanceTab({ model, band, onPrev, onGuide, onHealth, onColumns, onPointDefaults, moneyThree, onCustomField, initial }: BalanceTabProps) {
   // 見るもの: 家計のバランスシート（"home"）か、カスタマイズで足した見るもの（その key）
   const [subKey, setSub] = useState<string>(initial?.open === "combined" ? (model.customViews[0]?.key ?? "home") : "home");
   const custom = model.customViews.find((c) => c.key === subKey) ?? null;
@@ -251,6 +254,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
                   model={model}
                   available={plan.points.map((p) => p.key)}
                   onGuide={onGuide}
+                  {...(onHealth !== undefined ? { onHealth } : {})}
                   onPointDefaults={onPointDefaults}
                   {...(moneyThree?.model != null ? { moneyThree: { value: moneyThree.model.settings.wording, choices: moneyThree.nameChoices, onChange: (n: MoneyThreeWording) => moneyThree.onSettings({ wording: n }) } } : {})}
                   onClose={() => setSettingsOpen(false)}
@@ -366,12 +370,12 @@ function GuaranteeNote({ year, compact = false }: { year: BsYearModel; compact?:
   );
 }
 
-/** 1年ずつ見るときの、つまみの下（家計の体力の目安。横いっぱいに広げる） */
+/** 1年ずつ見るときの、つまみの下（家計の体力の目安。横いっぱいに広げる。表示の設定で表示しないときは出さない） */
 function OneYearBelow({ model, plan, year, adjusted, onEditGuide }: { model: BalanceTabModel; plan: BsPlanModel; year: BsYearModel; adjusted: boolean; onEditGuide: () => void }) {
   return (
     <>
       {adjusted ? <p class="bs-adjnote">※小さい項目は読める高さにしているため、その箱だけ高さが金額の比例より少し大きめです</p> : null}
-      <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={{ ...model.guide, basis: model.guide.basis ?? model.guideBasis }} onEditGuide={onEditGuide} wide />
+      {model.health ? <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={{ ...model.guide, basis: model.guide.basis ?? model.guideBasis }} onEditGuide={onEditGuide} wide /> : null}
     </>
   );
 }
@@ -872,13 +876,14 @@ function ColumnPicker({ plan, index, canRemove, onPick, onRemove, onClose }: { p
 }
 
 /**
- * 資産と負債のタブの表示の設定（図の見出しのすぐ下に開く。別の窓は出さない）: 時点を並べるときの既定の時点と、家計の体力の目安の幅。
- * 結果のタブの表示の設定とは別に持つ
+ * 資産と負債のタブの表示の設定（図の見出しのすぐ下に開く。別の窓は出さない）: 時点を並べるときの既定の時点と、家計の体力の目安を表示するか・目安の幅。
+ * 結果のタブの表示の設定とは別に持つ。家計の体力の目安を表示しないあいだは、目安の幅の欄を畳む（幅は覚えたまま。表示に戻すと前の幅で出す）
  */
 export function BalanceSettingsPanel({
   model,
   available,
   onGuide,
+  onHealth,
   onPointDefaults,
   moneyThree,
   onClose,
@@ -886,6 +891,8 @@ export function BalanceSettingsPanel({
   model: BalanceTabModel;
   available?: readonly BsPointKey[];
   onGuide: (g: BsGuide) => void;
+  /** 家計の体力の目安を表示するか（省略すると切り替えを出さない） */
+  onHealth?: (on: boolean) => void;
   onPointDefaults: (k: BsPointKey[]) => void;
   /** お金の3つの分け方の呼び方（0032） */
   moneyThree?: { value: MoneyThreeWording; choices: readonly MoneyThreeNameChoice[]; onChange: (n: MoneyThreeWording) => void };
@@ -905,8 +912,17 @@ export function BalanceSettingsPanel({
         <PointDefaultsEditor choices={model.pointChoices} value={model.pointDefaults} {...(available !== undefined ? { available } : {})} onChange={onPointDefaults} />
       </div>
       <div class="ds-layout ds-bspoints" data-bs-guide-setting>
-        <span class="ds-k">家計の体力の目安の幅</span>
-        <GuideEditor guide={model.guide} basisDefault={model.guideBasis} onGuide={onGuide} />
+        <span class="ds-k">家計の体力の目安</span>
+        {onHealth !== undefined ? (
+          <label class={`ds-item${model.health ? " on" : ""}`}>
+            <input type="checkbox" checked={model.health} onChange={(e) => onHealth((e.currentTarget as HTMLInputElement).checked)} data-bs-health-setting />
+            <span class="ds-l">
+              家計の体力の目安を表示する
+              <small>1年ずつ見るときの図の下に、すぐ使えるお金・値動きのある資産・負債の重さ・純資産を出します。外すと区画ごと出しません（目安の幅は覚えておきます）</small>
+            </span>
+          </label>
+        ) : null}
+        {model.health ? <GuideEditor guide={model.guide} basisDefault={model.guideBasis} onGuide={onGuide} /> : null}
       </div>
       {moneyThree !== undefined ? (
         <div class="ds-layout" role="radiogroup" aria-label="お金の3つの分け方の呼び方" data-m3-names-setting>

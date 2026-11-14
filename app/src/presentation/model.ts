@@ -692,6 +692,8 @@ export interface BalanceTabModel {
   plans: BsPlanModel[];
   selected: string;
   base: string;
+  /** 家計の体力の目安を表示するか（このタブの表示の設定 display.balance.health。既定は表示する。false なら区画も入口も出さない） */
+  health: boolean;
   guide: BsGuide;
   /** 分母を選んでいないときの分母（役員として働く人のいる世帯は生活費＋ローン返済、ほかは生活費。0105） */
   guideBasis: BsGuideBasis;
