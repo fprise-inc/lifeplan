@@ -40,6 +40,19 @@
 //   国立は省令の標準額（法科大学院は別の額）、公立は大学院の平均、私立は専門職学位課程の平均（法科大学院とその他）
 // - 改訂10（0165）: 払う人を書いていない子への援助は、払う月に世帯にいる最初の親（関係 parentOf の並び。無ければ本人・配偶者）が払う
 //   （前は子の最初の親のまま、亡くなった親の名で払った。額は変わらない）
+// - 改訂11（0010 の追記 2026-11-14）:
+//   1. 入学金等: 統計の平均で計算する幼〜高の段は、学校の費用から統計の入学金等（education.statistics.<段>.<公私>.entrance。全学年の平均）を除き、
+//      その在学年数の標準（幼3・小6・中3・高3）の年数分を入学の前の2月に1回払う（入学金を入学の前に払う大学と同じ形。入学した後の子の残りの年数には
+//      入れない）。入学金（entranceOverride）を入れた段はその額に置き換える（前は統計の学校の費用に足していた）。学校の年額を直接入れた段も、入学金を
+//      入れていなければ統計の入学金等を払う（年額は入学金を除く額。大学の年額と入学金と同じ）。学費データの行の段・インターナショナルスクールは今のまま。
+//      入学金等の値が無いパックでは前のまま
+//   2. 高校の授業料: 統計の平均で計算する高校の段は、在学の年度の授業料（就学支援金が引く対象。enrollments の fees.tuition）を、学校の費用の全額ではなく
+//      統計の授業料（education.statistics.highSchool.<公私>.tuition。就学支援金を差し引いた後に保護者が払った額）を教育費の上昇率で伸ばした額にする
+//      （統計の学校の費用はもう支援金を引いた後の額なので、上限まで二重に引かない）。学校の年額を直接入れた段・学費データの行の段は今のまま
+//      （入れた額は支援金を引く前の額とみなす）。授業料の値が無いパックでは前のまま
+//   3. 受験・併願の費用: 大学・短大・専門学校の段で受験の費用（exam）を入れていなければ、統計の平均（education.statistics.exam.*。受験費用＋入学しなかった
+//      学校への納付金）を入学の前の1月に払う（国公立大学・私立大学の文系・理系〔医歯系も〕・全体〔系統が全体・その他・法〕・短大・専門学校）。
+//      受験料か納付金のどちらかを入れた段は入れた額だけ（前と同じ）。大学院・高専・中学・高校は統計を足さない（幼〜高は入学金等に検定料と併願の納付金を含む）
 // 教育費の上昇率は学校の費用・学校外活動費・仕送り・留学に当て、公的支援には当てない（0010 の5）
 import {
   addMonths,
@@ -79,6 +92,16 @@ const FIELDS = ["all", "humanities", "science", "medical"] as const;
 const LUNCH_MONTHLY = "educationSupport.schoolLunch.elementary.public.monthly";
 const LUNCH_MONTHS = "educationSupport.schoolLunch.months";
 const LUNCH_STAGES: ReadonlySet<SchoolStage> = new Set(["elementary", "juniorHigh"]);
+/** 受験・併願の費用の統計の区分（改訂11） */
+const EXAM_KEYS = ["university.public", "university.private.humanities", "university.private.science", "university.all", "juniorCollege", "vocational"] as const;
+/** 受験・併願の費用の統計の区分（大学・短大・専門学校の段。ほかは null） */
+function examKey(stage: SchoolStage, sector: string, field: string | undefined): (typeof EXAM_KEYS)[number] | null {
+  if (stage === "juniorCollege") return "juniorCollege";
+  if (stage === "vocational") return "vocational";
+  if (stage !== "university") return null;
+  if (sector !== "private") return "university.public";
+  return field === "humanities" ? "university.private.humanities" : field === "science" || field === "medical" ? "university.private.science" : "university.all";
+}
 const PARAMS = [
   ...[...K12].flatMap((s) => K12_SECTORS.flatMap((x) => [`${S}.${s}.${x}.total`, `${S}.${s}.${x}.outOfSchool`])),
   ...[...LUNCH_STAGES].map((s) => `${S}.${s}.public.schoolLunch`),
@@ -94,6 +117,10 @@ const PARAMS = [
   ...["tuition", "admission"].map((i) => `${S}.kosen.national.${i}`),
   `${S}.boarding.annual`,
   `${S}.boarding.initial`,
+  // 改訂11: 入学金等（幼〜高）・高校の授業料・受験・併願の費用
+  ...[...K12].flatMap((s) => K12_SECTORS.map((x) => `${S}.${s}.${x}.entrance`)),
+  ...K12_SECTORS.map((x) => `${S}.highSchool.${x}.tuition`),
+  ...EXAM_KEYS.map((k) => `${S}.exam.${k}`),
 ];
 
 
@@ -101,7 +128,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.1",
-  revision: 10,
+  revision: 11,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -257,7 +284,13 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           const outStat = stat(`${S}.${st.stage}.${sec}.outOfSchool`);
           // 部活動などの費用（改訂5）: 統計の平均の段は統計の教科外活動費と入れ替え、年額を入れた段はその年額に足す
           const extra = st.clubAnnual === undefined || st.annualOverride !== undefined ? null : (stat(`${S}.${st.stage}.${sec}.extracurricular`) ?? yen(0));
-          const base0 = st.annualOverride ?? (intl ? yen(0) : outStat === null ? total : yen(total - outStat));
+          // 入学金等（改訂11）: 統計の平均の段は学校の費用から除く。入学の前に在学年数の標準の年数分を1回払う（年額を入れた段も。大学の入学金と同じ）。
+          // 値の無いパックでは前のまま
+          const statBased = st.annualOverride === undefined && !intl;
+          const entranceStat = intl ? null : stat(`${S}.${st.stage}.${sec}.entrance`);
+          const base0 = st.annualOverride ?? (intl ? yen(0) : yen((outStat === null ? total : total - outStat) - (entranceStat ?? 0)));
+          // 高校の授業料（就学支援金が引く対象。改訂11）: 統計の平均の段は統計の授業料（支援金を引いた後の額）。値の無いパック・入れた段は学校の費用の全額
+          const tuitionStat = statBased && st.stage === "highSchool" ? stat(`${S}.highSchool.${sec}.tuition`) : null;
           const schoolCost = st.clubAnnual === undefined ? base0 : yen(Math.max(0, base0 - (extra ?? 0)) + st.clubAnnual);
           // 学校給食費の負担軽減（公立の小学校・中学校。学校の年額を直接入れた段は引かない）
           const lunchStat = sector === "public" && LUNCH_STAGES.has(st.stage) && st.annualOverride === undefined ? stat(`${S}.${st.stage}.public.schoolLunch`) : null;
@@ -278,9 +311,15 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
             const cost = yen(grown(schoolCost, fy) - off);
             const parts = ctx.money.allocate(cost, Array.from({ length: 12 }, () => 1), "conv.expense.share", "first");
             for (let i = 0; i < 12; i++) push(addMonths(start, 12 * k + i), "cf.expense.education.school", parts[i] as Yen, off > 0 ? "education.cost.schoolLunchRelief" : "education.cost.school");
-            fees.push({ fiscalYear: fy, tuition: cost, admission: yen(0) });
+            fees.push({ fiscalYear: fy, tuition: tuitionStat === null ? cost : grown(tuitionStat, fy), admission: yen(0) });
           }
-          if (st.entranceOverride !== undefined) push(addMonths(start, -2), "cf.expense.education.entrance", grown(st.entranceOverride, fy0), "education.cost.entrance");
+          // 入学金: 入れた額か、統計の入学金等×在学年数の標準（入学の前の2月。計算基準月より前なら表に載らない）
+          const entrance = st.entranceOverride ?? (entranceStat === null ? null : ctx.money.mulRatio(entranceStat, YEARS[st.stage], 1, "conv.exact"));
+          if (entrance !== null) {
+            push(addMonths(start, -2), "cf.expense.education.entrance", grown(entrance, fy0), "education.cost.entrance");
+            const first = fees.find((x) => x.fiscalYear === fy0);
+            if (first !== undefined) first.admission = grown(entrance, fy0);
+          }
           // 学校外活動費（統計の値が無い区分は学習費総額に含めて数えたので足さない）
           // 行で入れるときは、段の学校外活動費を数えない（0062）
           const out = mode === "rows" ? "none" : (st.outOfSchool ?? "statistics");
@@ -353,10 +392,15 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
             fees.push({ fiscalYear: fy, tuition: annual, admission: k === 0 ? grown(admission, fy0) : yen(0) });
           }
         }
-        // 受験・併願
-        if (st.exam !== undefined) {
-          push(addMonths(start, -3), "cf.expense.education.exam", grown(yen(st.exam.amount ?? 0), fy0), "education.cost.exam");
-          push(addMonths(start, -2), "cf.expense.education.exam", grown(yen(st.exam.deposits ?? 0), fy0), "education.cost.examDeposit");
+        // 受験・併願（入れていなければ、大学・短大・専門学校は統計の平均。改訂11）
+        const ex = st.exam;
+        if (ex !== undefined && (ex.amount !== undefined || ex.deposits !== undefined)) {
+          push(addMonths(start, -3), "cf.expense.education.exam", grown(yen(ex.amount ?? 0), fy0), "education.cost.exam");
+          push(addMonths(start, -2), "cf.expense.education.exam", grown(yen(ex.deposits ?? 0), fy0), "education.cost.examDeposit");
+        } else {
+          const k = examKey(st.stage, sector, st.field);
+          const examStat = k === null ? null : stat(`${S}.exam.${k}`);
+          if (examStat !== null) push(addMonths(start, -3), "cf.expense.education.exam", grown(examStat, fy0), "education.cost.examEstimate");
         }
         // 自宅外の生活費
         if (living === "away") {

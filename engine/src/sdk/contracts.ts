@@ -749,7 +749,10 @@ export interface Enrollment {
   readonly from: string;
   readonly years: number;
   readonly scienceAgriculture: boolean;
-  /** 年度ごとの授業料（学納金。入学金を除く）と入学金（その年度の入学の分） */
+  /**
+   * 年度ごとの授業料（学納金。入学金を除く）と入学金（その年度の入学の分）。幼〜高の統計の平均の段は学校の費用の全額。ただし高校は統計の授業料
+   * （就学支援金を差し引いた後に保護者が払った額。0010 の追記 2026-11-14）
+   */
   readonly fees: readonly { readonly fiscalYear: number; readonly tuition: Yen; readonly admission: Yen }[];
 }
 

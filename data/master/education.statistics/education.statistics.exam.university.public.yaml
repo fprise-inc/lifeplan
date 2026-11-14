@@ -1,0 +1,20 @@
+id: education.statistics.exam.university.public
+title: 受験・併願の費用（国公立大学の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2021-04-01"
+    appliesTo: null
+    enforcedOn: "2021-12-20"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 385000
+    sources:
+      - {"type": "web", "url": "https://www.jfc.go.jp/n/findings/pdf/kyouikuhi_chousa_k_r03.pdf", "retrievedAt": "2026-11-14", "sha256": "9e049e7555546d1147f0d4351ab2b5aad4fe2efb2a10403afb084d1d07b4adfe", "locator": "教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）図－２ 国公立・私立別にみた大学の入学費用 p.5", "quote": "28.6 40.6 46.6 27.7 31.3 32.2 10.8 9.9 10.0 67.2 81.8 88.8"}
+      - {"type": "web", "url": "https://www.jfc.go.jp/n/findings/pdf/kyouikuhi_chousa_k_r03.pdf", "retrievedAt": "2026-11-14", "sha256": "9e049e7555546d1147f0d4351ab2b5aad4fe2efb2a10403afb084d1d07b4adfe", "locator": "同 p.4 用語の解説", "quote": "受験費用 受験料 受験のための交通費・宿泊費 （受験したすべての学校・学部） 入学しなかった学校への納付金"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-14", "tools": ["PDF の本文（公表資料）","図の内訳（学校納付金・受験費用・入学しなかった学校への納付金）の合計と入学費用の合計の突き合わせ","原本の指紋（sha256）"], "note": "令和3年4月に入学した子1人当たりの平均（万円の小数1桁）。図－２の国公立大学の受験費用27.7万円と入学しなかった学校への納付金10.8万円の和（学校納付金28.6万円と合わせて入学費用67.2万円。四捨五入で0.1万円ずれる）。受験・併願の費用の欄が空欄のときの推定"}

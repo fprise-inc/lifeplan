@@ -161,7 +161,10 @@ describe("学校外の費用の入れ方（統計の平均で／行で入れる�
   });
 
   it("入れ方の無い古い世帯で行がある物は、前の形（統計の平均に行を足す）のまま読み、切り替えを勧める（書き換えない）", () => {
-    const wh = fromRequest(modelHousehold("educationTwoKids"));
+    // 見本の世帯は入れ方を書いた（2026-11-14）ので、入れ方を外して古い世帯にする
+    const req = modelHousehold("educationTwoKids");
+    for (const x of req.input.household.goals ?? []) delete x.education?.outOfSchoolMode;
+    const wh = fromRequest(req);
     const g = (wh.request.input.household.goals ?? []).find((x) => (x.education?.lessons ?? []).length > 0)!;
     expect(outOfSchoolModeOf(g)).toBe("legacy");
     const f = fieldOf(wh, `edu/${g.id}/outUniform`);
@@ -187,7 +190,8 @@ describe("段ごとの費用", () => {
     expect(annual.label).toBe("学費（年額）");
     expect(annual.get(wh)).toMatchObject({ value: null, estimated: "統計の平均。授業料と施設設備費を足したもの（私立大学・文科系・令和7年度入学者）", hint: `年${(Math.round(stat.annual! / 1000) / 10).toLocaleString("ja-JP")}万円（推定）` });
     expect(fieldStatus(annual, wh).status).toBe("estimated");
-    expect(annual.blankEstimate?.(wh)).toBe(stat.annual);
+    // 欄に入れる推定は千円単位（0041 の追記 2026-11-14）
+    expect(annual.blankEstimate?.(wh)).toBe(Math.round(stat.annual! / 1000) * 1000);
     const w = annual.set(wh, 1300000);
     expect(goalOf(w).education!.stages[uni]!.annualOverride).toBe(1300000);
     expect(annual.address?.(w)?.at).toEqual(["stages", g.education!.stages[uni]!.id, "annualOverride"]);

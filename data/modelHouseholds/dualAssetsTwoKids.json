@@ -1058,7 +1058,8 @@
                 "monthly": 35000,
                 "label": "塾"
               }
-            ]
+            ],
+            "outOfSchoolMode": "rows"
           }
         },
         {
@@ -1098,8 +1099,33 @@
                 },
                 "monthly": 50000,
                 "label": "塾"
+              },
+              {
+                "id": "2f41968a-54de-43f1-9ebd-c33b1cf16404",
+                "from": {
+                  "at": "2027-04"
+                },
+                "to": {
+                  "at": "2030-03"
+                },
+                "monthly": 35000,
+                "label": "学校外活動費（中学校・平均）",
+                "kind": "other"
+              },
+              {
+                "id": "4b77a7bc-b31c-4b7e-bc49-76c73a1e7b71",
+                "from": {
+                  "at": "2030-04"
+                },
+                "to": {
+                  "at": "2033-03"
+                },
+                "monthly": 29000,
+                "label": "学校外活動費（高校・平均）",
+                "kind": "other"
               }
-            ]
+            ],
+            "outOfSchoolMode": "rows"
           }
         }
       ],

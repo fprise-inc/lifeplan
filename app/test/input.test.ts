@@ -351,7 +351,11 @@ describe("支出に入らない欄・既定で足している費用の説明", (
   });
 
   it("塾・習い事の月謝は、統計の平均の学校外活動費（塾・習い事を含む）の上に足すと説明する", () => {
-    const wh = open("educationTwoKids");
+    // 前の形（入れ方の無い古い世帯）。見本の世帯は入れ方を書いた（2026-11-14）ので外す
+    const base = open("educationTwoKids");
+    const req = structuredClone(base.request);
+    for (const g of req.input.household.goals ?? []) delete g.education?.outOfSchoolMode;
+    const wh = { ...base, request: req };
     const stage = buildStage("education", wh);
     const monthly = allFields(stage).find((f) => /\/lesson\/0\/monthly$/.test(f.key));
     expect(monthly?.help).toContain("学校外活動費");

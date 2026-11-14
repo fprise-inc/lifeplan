@@ -439,7 +439,8 @@ describe("教育費（education.cost）・公的支援（education.support）・
       ["university", "2031-04"],
     ]);
     const f = out.flows as unknown as Flow[];
-    expect(f.filter((x) => x.row === "cf.expense.education.entrance").map((x) => x.ym)).toEqual(["2031-02"]);
+    // 高校の入学金等（統計の全学年の平均×3年）は入学の前の2月にまとめて（0010 の追記 2026-11-14）
+    expect(f.filter((x) => x.row === "cf.expense.education.entrance").map((x) => x.ym)).toEqual(["2028-02", "2031-02"]);
     expect(f.filter((x) => x.formula === "education.cost.tuition" && x.ym.startsWith("2031")).map((x) => x.ym)).toEqual(["2031-04", "2031-10"]);
   });
 
@@ -474,7 +475,8 @@ describe("教育費（education.cost）・公的支援（education.support）・
   it("高校の就学支援金（私立の上限）と、大学の修学支援（住民税の課税標準額から区分。非課税なら第I区分で授業料・入学金を上限まで減免と給付型奨学金）", () => {
     const req = mk([{ stage: "highSchool", sector: "private" }, { stage: "university", sector: "private", living: "away" }], {}, "2012-06", 0);
     const f = call<{ flows: Flow[] }>(req, "education.support", { member: C }).flows;
-    expect(sumFlows(f, (x) => x.formula === "education.support.highSchool" && x.ym >= "2028-04" && x.ym <= "2029-03")).toBe(457200);
+    // 統計の平均の高校は、上限と統計の授業料（就学支援金を差し引いた後の額）の小さい方（0010 の追記 2026-11-14。学校の年額を入れた段は上限まで）
+    expect(sumFlows(f, (x) => x.formula === "education.support.highSchool" && x.ym >= "2028-04" && x.ym <= "2029-03")).toBe(279170);
     expect(sumFlows(f, (x) => x.formula === "education.support.tuitionWaiver" && x.ym.startsWith("2031"))).toBe(700000);
     // 入学金は統計の平均（240,365円）が上限（26万円）より小さいので全額
     expect(sumFlows(f, (x) => x.formula === "education.support.admissionWaiver")).toBe(240365);

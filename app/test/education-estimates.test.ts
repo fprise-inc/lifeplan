@@ -46,16 +46,17 @@ describe("学費・入学金・仕送りは、空欄なら推定で見せる", (
     expect(f.label).toBe("学校の費用（年額）");
     const st = f.get(wh);
     expect(st.value).toBeNull();
-    expect(st.estimated).toContain("統計の平均。学校教育費と給食費を足したもの");
+    expect(st.estimated).toContain("統計の平均。学校教育費（入学金等を除く）と給食費を足したもの");
     expect(st.estimated).toContain("給食費の国の負担軽減");
-    expect(f.blankEstimate?.(wh)).toBe(stat.annual! - stat.lunchRelief);
+    // 欄に入れる推定は千円単位（0041 の追記 2026-11-14）
+    expect(f.blankEstimate?.(wh)).toBe(Math.round((stat.annual! - stat.lunchRelief) / 1000) * 1000);
     expect(stat.lunchRelief).toBeGreaterThan(0);
     const before = sum(wh.request, "cf.expense.education.school");
     const after = applyStateOp(wh, f, "confirm");
-    expect(goalOf(after).education!.stages[i]!.annualOverride).toBe(stat.annual! - stat.lunchRelief);
+    expect(goalOf(after).education!.stages[i]!.annualOverride).toBe(Math.round((stat.annual! - stat.lunchRelief) / 1000) * 1000);
     expect(fieldStatus(f, after).status).toBe("confirmed");
-    // 年額の割り振り（12か月）と教育費の上昇率は同じなので、表の学校の費用は同じ（端数の差だけ）
-    expect(Math.abs(sum(after.request, "cf.expense.education.school") - before)).toBeLessThan(100);
+    // 年額の割り振り（12か月）と教育費の上昇率は同じなので、表の学校の費用は同じ（千円単位に丸めた差の年500円まで×在学年数と端数の差だけ）
+    expect(Math.abs(sum(after.request, "cf.expense.education.school") - before)).toBeLessThan(500 * 6 + 100);
   });
 
   it("大学の入学金・自宅外の仕送りと初期費用も推定で見せる（「（上書き）」の名前にしない）", () => {
