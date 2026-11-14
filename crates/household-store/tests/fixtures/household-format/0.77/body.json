@@ -98,6 +98,7 @@
           50
         ]
       },
+      "health": false,
       "moneyThree": {
         "months": 3,
         "wording": "time",
@@ -734,11 +735,6 @@
         }
       }
     },
-    "endYearChoice": {
-      "age": 95,
-      "by": "member",
-      "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a"
-    },
     "itemChoice": {
       "hidden": [
         "car",
@@ -941,7 +937,7 @@
           "compatibility": null,
           "investmentTiming": "midYear"
         },
-        "endYear": 2075,
+        "endYear": 2078,
         "household": {
           "accounts": [
             {
@@ -4344,6 +4340,18 @@
             },
             "state": "confirmed",
             "value": 10000000
+          }
+        },
+        "valueStates": {
+          "plan.endYear": {
+            "estimate": {
+              "basis": "標準の値",
+              "method": "standard"
+            },
+            "origin": {
+              "kind": "manual"
+            },
+            "state": "confirmed"
           }
         }
       },

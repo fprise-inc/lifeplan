@@ -188,14 +188,14 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(marital.is_none(), "{v}: 婚姻の状態は変換で書き足さない");
         }
-        // 0.77 から: 画面の側の表を何歳まで見るかの決め方 household.endYearChoice（0070 の追記 2026-11-13）。変換で書き足さない
-        // （前の版の世帯は欄が無い＝表の最後の年から読む）。0.77 の見本は「配偶者が95歳まで」を選んだ形
+        // 0.78 から: 画面の側の表を何歳まで見るかの決め方 household.endYearChoice（0070 の追記 2026-11-13）。変換で書き足さない
+        // （前の版の世帯は欄が無い＝表の最後の年から読む）。0.78 の見本は「配偶者が95歳まで」を選んだ形
         let choice = now["household"].get("endYearChoice");
-        if migrate::parse(v).unwrap() >= (0, 77) {
+        if migrate::parse(v).unwrap() >= (0, 78) {
             assert_eq!(
                 choice.and_then(|c| c.get("by")),
                 Some(&Value::from("member")),
-                "{v}: 0.77 からの見本は表を何歳まで見るかの決め方を持つ"
+                "{v}: 0.78 からの見本は表を何歳まで見るかの決め方を持つ"
             );
             assert_eq!(
                 now["household"]["request"]["input"]["endYear"],
@@ -1024,6 +1024,15 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(
                 now["display"]["balance"].get("moneyThree").is_none(),
                 "{v}: お金の3つの分け方の設定は 0.13 から（変換の段では足さない）"
+            );
+        }
+        if migrate::parse(v).unwrap() >= (0, 77) {
+            // 0.77 から: 家計の体力の目安を表示するか（0027 の 2026-11-13 の追記）。0.77 の見本は表示しない
+            assert_eq!(now["display"]["balance"]["health"], false);
+        } else {
+            assert!(
+                now["display"]["balance"].get("health").is_none(),
+                "{v}: 家計の体力の目安を表示するかは 0.77 から（変換の段では足さない＝表示する）"
             );
         }
         if *v == "0.3" {

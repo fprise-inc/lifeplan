@@ -109,7 +109,7 @@ export interface WorkingHousehold {
    */
   itemChoice?: ItemChoice;
   /**
-   * 表を何歳まで見るかの決め方（0070 の追記 2026-11-13。形式の版 0.77 から）: 人と年齢で選んだ（その人がその年齢になる年まで）か、年で決めたか。
+   * 表を何歳まで見るかの決め方（0070 の追記 2026-11-13。形式の版 0.78 から）: 人と年齢で選んだ（その人がその年齢になる年まで）か、年で決めたか。
    * 既定（ご本人・配偶者のうち若い方が既定の年齢になる年）は持たない。画面の側の値で、計算の要求には入れない（計算は表の最後の年 endYear だけ）。
    * 人と年齢の決め方の年が表の最後の年と合わなければ（AI接続口・前の版のアプリが年を変えたなど）、年から読む（endYearRuleOf）。決めていなければ欄を持たない
    */
@@ -449,7 +449,7 @@ export function endYearRuleOf(wh: Pick<WorkingHousehold, "request" | "endYearCho
   return { kind: "year" };
 }
 
-/** 世帯ファイルの決め方を読む（形式の版 0.77 から。形の合わない値は捨て、年から読む） */
+/** 世帯ファイルの決め方を読む（形式の版 0.78 から。形の合わない値は捨て、年から読む） */
 export function readEndYearChoice(v: unknown): EndYearChoice | undefined {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return undefined;
   const o = v as Record<string, unknown>;
