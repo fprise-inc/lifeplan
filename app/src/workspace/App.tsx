@@ -2236,8 +2236,8 @@ export function App() {
   }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames, wording]);
   /** 区画「夢と予定」（見方を当てる前の選んでいるプランから並べ、今の見方の答えで一行の結論を出す） */
   const bigMoney = useMemo(
-    () => (opened === null || selReq === null || selRes === null ? null : bigMoneyOf(selReq, selRes.table, { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), current: opened.wh.request, view: rowsView }, failed)),
-    [opened, work, rawReqOf, selReq, selRes, rowsView, failed],
+    () => (opened === null || selReq === null || selRes === null ? null : bigMoneyOf(selReq, selRes.table, { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), current: opened.wh.request, view: rowsView }, failed, wording)),
+    [opened, work, rawReqOf, selReq, selRes, rowsView, failed, wording],
   );
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
@@ -3379,7 +3379,7 @@ export function App() {
                   {/* 計算のお知らせとポイントは、閉じているとき控えめな1行に並べる（0064・0074 の追記） */}
                   <div class="result-quiet">
                     <CalcNotices rows={calcNotices} onOpenCard={openCard} {...(initial.notices === true ? { initialOpen: true } : {})} />
-                    {selReq !== null ? <Insights req={selReq} result={selRes} months={bsSettings.moneyThree.months} inheritance={insightInheritance} computeOne={computeOne} onYear={pinYear} onLevers={() => document.querySelector("[data-levers]")?.scrollIntoView({ block: "start", behavior: "smooth" })} /> : null}
+                    {selReq !== null ? <Insights req={selReq} result={selRes} months={bsSettings.moneyThree.months} inheritance={insightInheritance} computeOne={computeOne} onYear={pinYear} /> : null}
                   </div>
                 </>
               }
