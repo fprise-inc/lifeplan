@@ -891,9 +891,10 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 /* 0071: 前提を直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
 .ip-assume-list td:nth-child(4), .ip-assume-list th:nth-child(4) { white-space: nowrap; }
 /* 前提と推定の一覧の区分の切り替え: どの幅でも、1行に入らなければ折り返す（最後のボタンがパネルの右にはみ出さない）。
-   境目の線は、狭い画面の .seg-g と同じく各ボタンの左と上の線で描く（外の枠に重なる分は枠の内側で隠れる） */
-.ip-assume-list .seg-g { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; margin: 4px 0 6px; }
-.ip-assume-list .seg-g button { flex: 1 1 auto; border-left: 2px solid var(--ink-2); border-top: 2px solid var(--ink-2); margin: -2px 0 0 -2px; }
+   折り返しても各ボタンは文字の幅のまま左に寄せ、どの行のボタンも同じ枠と角の丸みにする（外の枠は付けず、ボタンごとに枠を付けて少し離す） */
+.ip-assume-list .seg-g { display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 4px 0 6px; border: 0; border-radius: 0; overflow: visible; background: none; }
+.ip-assume-list .seg-g button, .ip-assume-list .seg-g button + button { flex: 0 0 auto; margin: 0; border: 2px solid var(--ink-2); border-radius: 8px; }
+.ip-assume-list .seg-g button[aria-pressed="true"] { border-color: var(--ink); }
 /* 表: 見出しは1文字ずつ縦に折れない（折り返さない）。区分・項目・値・出典・根拠の長い文はセルの中で折り返し、列は狭くなりすぎない。
    「確かめた」の列は見出しの幅で止める（チェックと日付だけ） */
 .ip-assume-list th { white-space: nowrap; }
