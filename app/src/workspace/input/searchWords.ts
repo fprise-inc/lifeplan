@@ -139,5 +139,5 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   { words: ["昇給", "賃上げ", "ベースアップ"], card: "assumptions", to: ["賃金上昇率"] },
   { words: ["マクロ経済スライド"], card: "assumptions", to: ["年金の調整率"] },
   { words: ["顧問料", "相談料", "FPへの報酬"], card: "assumptions", to: ["FP顧問料"] },
-  { words: ["何歳まで", "表の最後", "寿命"], card: "assumptions", to: ["表の最後の年"] },
+  { words: ["何歳まで", "表の最後", "寿命"], card: "assumptions", to: ["表を何歳まで見るか"] },
 ];

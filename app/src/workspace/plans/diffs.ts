@@ -315,5 +315,74 @@ export function removedNow(input: Obj, d: PlanDiff): unknown {
   return readAt(input, { target: d.target, item: d.item, at: d.at });
 }
 
+/**
+ * 当て先の入れ物（欄の値を持つ物か並び）が、途中の欄を作らずにもうあるか。種類を変えて置き換えた物へ、前の種類の欄の入れ物
+ * （自営業の期間の給与の欄など）を作って書かないために使う（plans.ts の applyDiffs。0036 の追記 2026-11-14）
+ */
+export function holderExists(input: Obj, a: Address): boolean {
+  return locate(input, a, false) !== null;
+}
+
+/** 物の種類（`kind`・`type`。0036 の追記 2026-11-14 の「種類を変えた置き換え」で比べる） */
+export const kindOfObject = (obj: unknown): string => (isObj(obj) ? JSON.stringify([obj.kind ?? null, obj.type ?? null]) : "");
+
+/** 差分の向き先の物か構成員の ID（物の集まりの1件でなければ null） */
+export const objectIdOfTarget = (t: DiffTarget): string | null => ("object" in t && typeof t.object === "string" ? t.object : "member" in t && typeof t.member === "string" ? t.member : null);
+
+/** 物1件だけを持つ入力（物の中の場所を読むため） */
+const holding = (obj: unknown): Obj => ({ household: { objects: [obj] } });
+
+/**
+ * 置き換えた物（`after`）に、置き換える前の物（`before`）を指していた値を変える差分の場所が無いか（0036 の追記 2026-11-14）。無いのは、
+ * 当て先の入れ物（途中の欄）が無いとき（自営業の期間の給与の欄・現金で払う車のローンの欄など）と、前の物で値があった欄が今の物で空のとき
+ * （置き換えで省いた値）
+ */
+function placeGone(before: unknown, after: unknown, a: Address): boolean {
+  const now = holding(after);
+  if (!holderExists(now, a)) return true;
+  return readAt(holding(before), a) !== undefined && readAt(now, a) === undefined;
+}
+
+/**
+ * 後のプランの置き換えに負ける、値を変える差分（0036 の追記 2026-11-14）: 後のプランが物を置き換えたとき、その物の中を指す、それより前の
+ * プランの値を変える差分（土台のプランで直した欄）のうち、次のものは当てない。置き換えの足す物はその物の全体なので、同じ当て先は後のプランが
+ * 勝つ（0036 の6）の決まりのとおり、置き換えたプランが勝つ（1つのプランの中で置き換えたとき、その物を指す自分の差分を消すのと同じ。
+ * planEdit.ts の applyChanges）
+ * - 置き換えで物の種類（`kind`・`type`）が変わった: その物を指す前のプランの差分すべて
+ * - 種類は同じで、置き換えた物にその差分の場所が無い（入れ物が無い・前の物にあった値を置き換えで省いた。placeGone）: その差分
+ * 種類が同じで場所がある置き換えは、これまでどおり前のプランの差分を当てる（土台の直しが上のプランに届く）。`now` は現状の入力
+ * （最初の物を読む）。戻り値は当てない差分の ID
+ */
+export function supersededByReplacement(now: Obj, plans: readonly { diffs: readonly PlanDiff[] }[]): Set<string> {
+  const out = new Set<string>();
+  const live = (d: PlanDiff) => d.enabled && d.unresolved !== true;
+  /** 物の ID → 今までのプランを当てたときの物（足す差分で変わる） */
+  const objects = new Map<string, unknown>();
+  const objectNow = (id: string): unknown => (objects.has(id) ? objects.get(id) : findObject(now, id));
+  /** 物の ID → 置き換えたプランの番号・置き換える前と後の物・種類が変わったか */
+  const replaced = new Map<string, { at: number; before: unknown; after: unknown; kind: boolean }[]>();
+  plans.forEach((p, i) => {
+    const adds = p.diffs.filter((d) => live(d) && d.op === "add" && "collection" in d.target && isObj(d.value) && typeof d.value.id === "string");
+    for (const add of adds) {
+      const id = (add.value as Obj).id as string;
+      const paired = add.pair != null && p.diffs.some((d) => live(d) && d.pair === add.pair && d.op === "remove" && d.item === null && objectIdOfTarget(d.target) === id);
+      const before = objectNow(id);
+      if (paired) replaced.set(id, [...(replaced.get(id) ?? []), { at: i, before, after: add.value, kind: kindOfObject(before) !== kindOfObject(add.value) }]);
+      objects.set(id, add.value);
+    }
+  });
+  if (replaced.size === 0) return out;
+  plans.forEach((p, i) => {
+    for (const d of p.diffs) {
+      if (d.op !== "set" || isLever(d.target)) continue;
+      const id = objectIdOfTarget(d.target);
+      const a = addressOf(d);
+      const later = (id === null ? undefined : replaced.get(id))?.filter((r) => r.at > i) ?? [];
+      if (later.some((r) => r.kind || (a !== null && placeGone(r.before, r.after, a)))) out.add(d.id);
+    }
+  });
+  return out;
+}
+
 /** 値の箱の値（比較するため。箱でなければそのまま） */
 export const valueOfBox = (v: unknown): unknown => unbox(v);

@@ -515,7 +515,8 @@ export interface Debt {
   balanceAsOf?: string;
   rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[];
   repayment: { method: string; termMonths: number; bonusShare?: string; variableRules?: { fiveYear?: boolean; cap125?: boolean }; [key: string]: unknown };
-  prepayments?: { at: Timepoint; amount: number; mode: string; fee?: number }[];
+  /** 繰上返済（要素の id は 0206。画面の世帯は持つ。プランの打ち手で足した物には無いことがある） */
+  prepayments?: { id?: string; at: Timepoint; amount: number; mode: string; fee?: number }[];
   /** 借り換え（その月に残高を新しいローンで返す。要素の id は 0206。保存した世帯は持つ） */
   refinance?: { id?: string; at: Timepoint; rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[]; termMonths: number; method?: string; costs?: number; costsFinanced?: boolean }[];
   creditLife?: { covered: string[]; ratio?: string; events?: string[]; [key: string]: unknown };

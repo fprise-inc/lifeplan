@@ -174,6 +174,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_ASSUMED|pension.survivor.ownPensionBefore65": { kind: "assumed", text: "65歳までの遺族厚生年金と自分の老齢年金は、多い方を受け取るものとして計算しています" },
   "N_ASSUMED|pension.earlyClaim.simultaneous": { kind: "assumed", text: "老齢基礎年金と老齢厚生年金の繰上げは同時にする決まりなので、受け取り始めをそろえて計算しています", card: "pension" },
   "N_ASSUMED|pension.deferral.beforeSixtySix": { kind: "assumed", text: "繰下げは66歳からなので、66歳になる前の受け取り始めは増額なしで、65歳からの分をさかのぼって受け取るものとして計算しています", card: "pension" },
+  "N_ASSUMED|pension.record.statementOver50.beforeSixty": { kind: "assumed", text: "50歳以上のねんきん定期便の老齢厚生年金の見込額は60歳まで今の条件で厚生年金に入り続けたときの額なので、60歳になる前に厚生年金に入らない月の分（定期便の時点の報酬で）を引いて計算しています", card: "pension" },
   "N_ASSUMED|incomeTax.housingLoanCredit.specifiedAcquisition": { kind: "assumed", text: "平成26〜令和3年の入居は、新築は消費税のかかった取得、中古は個人からの取得として、住宅ローン控除の借入限度額を決めています", card: "housing" },
   "N_ASSUMED|educationSupport.highSchool.nationality": { kind: "assumed", text: "高校の就学支援金は、支給の要件（国籍・在留資格）を満たすものとして計算しています" },
   "N_APPROXIMATED|education.nurseryFee.assessedResidentTax": { kind: "assumed", text: "保育料は、住民税の決定額から所得割を推計して計算しています（均等割の分だけ多め）" },

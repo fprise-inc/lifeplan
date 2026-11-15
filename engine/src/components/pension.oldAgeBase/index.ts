@@ -22,6 +22,12 @@
 // 改訂6（0167）: 受給の始まりを65歳に達した月の翌月から12か月未満（66歳になる前）にしたときは繰下げにならないので、増額なしで65歳の翌月から
 // 受け取る（国民年金法28条1項・18条1項。知らせ N_ASSUMED pension.deferral.beforeSixtySix）。見込額だけの記録でも、対象の生年月の人には特別支給の
 // 老齢厚生年金を生年月日から計算する（額は記録の老齢厚生年金の見込額から。SDK の specialOldAgeStart）
+// 改訂7（0167 の追記 2026-11-14）:
+// - 在職老齢年金の総報酬月額相当額の「その月以前1年間の標準賞与額」は、計算基準年の前の年の賞与から数える（socialInsurance.coverage を
+//   前の年から呼ぶ。給与は2年前の1月から作ってある）。前は計算基準年の前の年の12月より前の賞与が無く、最初の1年の停止が少なかった
+// - 振替加算は、本人が65歳になった月の翌月（N）と、配偶者が厚生年金240月以上の老齢厚生年金の受給権を持ち65歳に達した月の翌月
+//   （加給年金を受けられるようになった月）の遅い方から（昭和60年改正法附則14条1項・2項。日本年金機構「加給年金額と振替加算」の加算開始事由）。
+//   配偶者はその月に配偶者である人。前は本人の65歳から付けていたので、本人が年上のとき配偶者が65歳になる前から付いていた
 import {
   addMonths,
   ageMonth,
@@ -98,6 +104,8 @@ const P = {
   supSpecial2028: "pension.spouseSupplement.reform2028.specialAddition",
 };
 const SPLIT_2003 = monthIndex(2003, 4);
+/** 厚生年金の標準報酬月額の等級表（前の年から標準報酬を求められるか） */
+const STD_TABLE = "socialInsurance.pension.standardMonthlyRemuneration";
 /** 令和7年法律第74号の令和10年4月1日施行の改正（配偶者の加給年金額・繰下げ） */
 const REFORM_2028 = monthIndex(2028, 4);
 const DEN = 1000000000000n;
@@ -151,7 +159,7 @@ export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAgeBase",
   title: "老齢年金の月ごとの額（障害年金と選ぶ前）",
   contract: "1.1",
-  revision: 6,
+  revision: 7,
   requires: {
     "pension.record": ">=1 <2",
     "pension.revision": ">=1 <2",
@@ -161,7 +169,7 @@ export default defineComponent<{ member: string }, Out>({
     "pension.survivorRight": ">=1 <2",
     "pension.category": ">=1 <2",
   },
-  params: [...Object.values(P), ...Object.values(EXEMPTION_WEIGHT_IDS), EXEMPTION_WEIGHT_DENOMINATOR],
+  params: [...Object.values(P), ...Object.values(EXEMPTION_WEIGHT_IDS), EXEMPTION_WEIGHT_DENOMINATOR, STD_TABLE],
   reads: [
     "member.kind",
     "member.birth",
@@ -312,8 +320,11 @@ export default defineComponent<{ member: string }, Out>({
     const stdOf = new Map(
       cov.months.filter((c) => c.pensionStd !== null || c.workingStd !== undefined).map((c) => [parseYm(c.month) as number, (c.pensionStd ?? c.workingStd) as Yen]),
     );
+    // 標準賞与額は、計算基準年の前の年から（その月以前1年間の合計のため。等級表の値が無い年はさかのぼらない。改訂7）
+    const prevYear = yearOf(base) - 1;
+    const covBonus = ctx.at(monthIndex(prevYear - 1, 12)).has(STD_TABLE) ? ctx.call<CoverageOutput>("socialInsurance.coverage", { member, fromYear: prevYear }) : cov;
     const bonusOf = new Map<number, Yen>();
-    for (const b of cov.bonuses) {
+    for (const b of covBonus.bonuses) {
       const sb = b.pensionStdBonus ?? b.workingStdBonus ?? null;
       if (sb === null) continue;
       const bm = parseYm(b.month) as number;
@@ -543,10 +554,30 @@ export default defineComponent<{ member: string }, Out>({
       for (let k = childrenAt(m, basicEntitled).length; k > 0; k--) total += each;
       return yen(total);
     };
-    // 振替加算: 本人の厚生年金が240月未満で、配偶者の厚生年金が240月以上（配偶者の加給年金の対象だった）
-    const transferOf = (at: MonthCtx, fy: number): Yen => {
-      if (employeeMonthsOf(rec, null, monthCache) >= supMonths) return yen(0);
-      if (!spouseAt(N).some((sp) => otherMonths(sp) >= supMonths)) return yen(0);
+    // 振替加算: 本人の厚生年金が240月未満で、配偶者の厚生年金が240月以上（配偶者の加給年金の対象だった）。始まりは、本人の65歳（N）と、
+    // 配偶者が240月以上の老齢厚生年金の受給権を持ち65歳に達した月の翌月の遅い方。その月に配偶者である人で決める（改訂7）
+    let transferFrom: MonthIndex | null | undefined;
+    const transferFromOf = (): MonthIndex | null => {
+      if (transferFrom !== undefined) return transferFrom;
+      transferFrom = null;
+      if (employeeMonthsOf(rec, null, monthCache) >= supMonths) return null;
+      const ids = new Set(relations.flatMap((r) => (r.type === "spouse" && (r.a === member || r.b === member) ? [r.a === member ? r.b : r.a] : [])));
+      for (const sp of ids) {
+        if (otherMonths(sp) < supMonths) continue;
+        const lf = spouseLongFrom(sp);
+        if (lf === null) continue;
+        const sp65 = ageMonth(ctx, base, P.start, sp);
+        let from = N;
+        if (lf > from) from = lf;
+        if (sp65 > from) from = sp65;
+        if (!spouseAt(from).includes(sp)) continue;
+        if (transferFrom === null || from < transferFrom) transferFrom = from;
+      }
+      return transferFrom;
+    };
+    const transferOf = (at: MonthCtx, fy: number, m: MonthIndex): Yen => {
+      const from = transferFromOf();
+      if (from === null || m < from) return yen(0);
       if (!at.has(P.transfer, { member })) {
         // 制度データに率の無い生年月日（原本で確かめる前の区分）は計算せずに知らせる
         ctx.notice("N_PARAM_MISSING", [P.transfer, member]);
@@ -588,6 +619,8 @@ export default defineComponent<{ member: string }, Out>({
       if (lf !== null) breaks.push(lf);
     }
     breaks.push(REFORM_2028);
+    const tf = transferFromOf();
+    if (tf !== null) breaks.push(tf);
     for (const c of children) breaks.push(parseYm(c.birth.birthYearMonth), addMonths(childUntil(c.id), 1));
     const segParams: SegmentOptions["params"] = [
       P.base, P.fullRound, P.round, P.maxMonths, P.flat, P.flatMax, P.supBase, [P.supSpecial, { member }], P.child12, P.child3, P.childMonths, P.basicChild, P.basicChildFull,
@@ -634,7 +667,7 @@ export default defineComponent<{ member: string }, Out>({
       }
       if (m >= CB) {
         basic = at.money.mulRate(basicAmount(at, fy), fb, P.round);
-        if (m >= N || receiving) basic = yen(basic + transferOf(at, fy) + basicChildOf(at, fy, m, childByEmployee));
+        if (m >= N || receiving) basic = yen(basic + transferOf(at, fy, m) + basicChildOf(at, fy, m, childByEmployee));
       }
       if (basic > 0 || employee > 0 || special > 0 || suspended > 0) {
         for (let k = seg.from; k <= seg.to && (lastMonth === null || k <= lastMonth); k = addMonths(k, 1)) months.push({ month: formatYm(k), basic, employee, special, suspended, ...(spouseSupplement > 0 ? { spouseSupplement } : {}) });

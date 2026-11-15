@@ -1,7 +1,7 @@
 // 入力のパネル（作業の層の部品）: カードを押すと画面の中央に開き、背景を暗くする（別の窓は出さない）。
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import type { ComponentChildren } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, raiseFields, type Level } from "./form.ts";
 import { DocReadContext, fieldDomId, FieldStateOps, FieldSuggestions, GroupOpen, PinControls, PlanMarksContext, Section, SectionLinks, visible, type GroupOpenState, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
@@ -43,6 +43,7 @@ import { nurseryMethodNote } from "./stages/education.ts";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
 import { deepEqual, UndoHistory } from "../undo/history.ts";
 import { guardPanel, settleInput } from "./pendingInput.ts";
+import { LevelScroll } from "./levelScroll.ts";
 
 export interface InputPanelProps {
   /** 保存されている世帯（下書きの始まり） */
@@ -126,6 +127,16 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
   /** まとめての「この値にする」を押す前の確かめの1行を出しているか */
   const [asking, setAsking] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
+  /** スクロールする本文（標準・詳細の位置を分けて覚える。levelScroll.ts・0078 の 2026-11-14 の追記） */
+  const body = useRef<HTMLDivElement>(null);
+  const levelScroll = useRef<LevelScroll | null>(null);
+  if (levelScroll.current === null) levelScroll.current = new LevelScroll();
+  /** 標準・詳細を切り替える。restore なら、前にその細かさで見ていた位置に戻す（欄へ移る切り替えは戻さない） */
+  const switchLevel = (l: Level, restore: boolean) => {
+    levelScroll.current?.leave(level, l, body.current, restore);
+    onLevel(l);
+  };
+  useLayoutEffect(() => levelScroll.current?.arrive(body.current), [level]);
   /** 欄に見せる世帯: 現状を直すときは下書き、プランを直すときは下書きにそのプランを当てた作業中の世帯 */
   const shown = useMemo(() => (plan === undefined ? draft : planView(draft, plan.cat, plan.id)), [draft, plan]);
   /** 相続・贈与のカードの相続税の目安（計算の結果から読むだけ） */
@@ -459,10 +470,10 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
           </h2>
           <div class="ip-tools">
             <div class="level-switch" role="group" aria-label="入力の細かさ">
-              <button type="button" class={level === "simple" ? "on" : ""} aria-pressed={level === "simple"} onClick={() => onLevel("simple")}>
+              <button type="button" class={level === "simple" ? "on" : ""} aria-pressed={level === "simple"} onClick={() => switchLevel("simple", true)}>
                 標準
               </button>
-              <button type="button" class={level === "detail" ? "on" : ""} aria-pressed={level === "detail"} onClick={() => onLevel("detail")}>
+              <button type="button" class={level === "detail" ? "on" : ""} aria-pressed={level === "detail"} onClick={() => switchLevel("detail", true)}>
                 詳細
               </button>
             </div>
@@ -560,7 +571,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
           ) : null}
         </div>
         {docs}
-        <div class="ip-body" data-reveal-root>
+        <div ref={body} class="ip-body" data-reveal-root>
           {/* 入っていない物（1件を1行。パネルの上の固定の場所でなく本文の頭に置き、欄と一緒に流れる）。入れ始めた項目は赤い帯で知らせ、まだ入れていない項目は
               帯を出さず、推定と「該当なし」の操作だけを控えめに（0045 の追記・0041 の追記 2026-11-06） */}
           <GapBand gaps={gaps} wh={shown} onEdit={edit} quiet={quiet} onFillAll={() => edit(fillAll(shown, itemId).wh)} />
@@ -649,7 +660,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                 {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
                 {/* 前提条件: 前提と推定の一覧（確かめた記録はプランごと。値は変えないので、プランを直していても差分にしない。0070） */}
-                {itemId === "assumptions" ? <AssumptionList wh={shown} planId={plan?.id ?? null} onAgree={(f) => commit({ ...latest.current, agreed: f(latest.current).agreed })} onLevel={onLevel} /> : null}
+                {itemId === "assumptions" ? <AssumptionList wh={shown} planId={plan?.id ?? null} onAgree={(f) => commit({ ...latest.current, agreed: f(latest.current).agreed })} onLevel={(l) => switchLevel(l, false)} /> : null}
                 {/* 年金: カードの下に年金の見込み（読むだけ。0067） */}
                 {itemId === "pension" ? <PensionEstimate wh={shown} est={pensionEst} /> : null}
               </SectionLinks.Provider>

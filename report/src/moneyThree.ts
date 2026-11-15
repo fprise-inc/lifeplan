@@ -120,6 +120,9 @@ export interface MoneyThreeModel {
   say: { head: TextPart[]; sub: TextPart[]; eq: string | null };
 }
 
+/** 何か月分・何年先までの欄の範囲と既定（計算エンジンの側の値。アプリの AI接続口の表示の設定の一覧にも載せる。0213） */
+export { MONEY_THREE_MONTHS, MONEY_THREE_YEARS };
+
 export const DEFAULT_MONEY_THREE: MoneyThreeSettings = { months: MONEY_THREE_MONTHS.default, years: MONEY_THREE_YEARS.default, wording: "use" };
 
 /** 呼び方の選択肢（表示の設定） */

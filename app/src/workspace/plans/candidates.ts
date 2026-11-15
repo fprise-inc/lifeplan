@@ -50,8 +50,14 @@ export interface CandidateRow {
   note: string | null;
   /** プランにするときの動かす項目のキー。プランにできないときは null */
   key: string | null;
-  /** プランにできない理由 */
+  /** プランにできない理由（use が apply 以外のときの、人が読める文） */
   reason: string | null;
+  /**
+   * この行の値をプランに入れるか（同じ項目は後の値が勝つ。laterWins）: apply＝入れる・same＝今と同じ値なので変わらない・
+   * restore＝今と同じ値で、前の行の同じ項目の変更を取り消す（その項目は今の値のまま）・replaced＝後の行が同じ項目を動かすので使わない・
+   * skip＝当てはまらない（key が null）
+   */
+  use: "apply" | "same" | "restore" | "replaced" | "skip";
   value: ItemValue;
 }
 
@@ -216,31 +222,63 @@ export function matchItems(d: Pick<ProposedChange, "target" | "item" | "at" | "l
 export const unmatchedReason = (count: number): string =>
   count === 0 ? "「結果」の画面のプランでは動かせない項目です（取り込みません。必要なら入力で直してください）" : "対応する欄が複数あるため、取り込みません";
 
-/** 候補の変更を、主画面の動かす項目に当てはめる（当てはまらないものは理由つきで返す） */
-export function candidateRows(c: { diffs: readonly ProposedChange[] }, wh: WorkingHousehold, cat: Catalog): CandidateRow[] {
-  return c.diffs.map((d) => {
-    const matches = matchItems(d, wh, cat);
-    const placed = d.at !== undefined || d.lever !== undefined;
-    const base = { diffId: d.id, note: d.note, place: placed && matches.length === 1 ? placeText(matches[0] as MovableItem) : null };
-    if (matches.length !== 1) {
-      return { ...base, label: itemName(d.item), from: "—", to: short(unbox(d.value)), key: null, value: null, reason: unmatchedReason(matches.length) };
-    }
-    const it = matches[0] as MovableItem;
-    const v = coerce(it, d.value);
-    const now = it.read(wh);
-    if (v === undefined) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: "値の形がこの項目に合わないため、取り込みません" };
-    const range = rangeOf(it);
-    if (range !== null && typeof v === "string" && !rateInRange(v, range)) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: `入れてよい範囲（${rangeText(range)}）の外の値のため、取り込みません` };
-    const out = it.phase === "field" ? null : leverOutOfRange(it, v, now);
-    if (out !== null) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: out };
-    return { ...base, label: it.label, from: it.text(now), to: it.text(v), key: it.key, value: v, reason: it.same(v, now) ? "今と同じ値です" : null };
+/**
+ * 候補の変更を、主画面の動かす項目に当てはめる（当てはまらないものは理由つきで返す）。同じ項目を2回以上動かす候補は、後の値が勝つ（laterWins）。
+ * reject は、ほかに当てない変更の理由（接続口の「場所は at か lever のどちらか1つ」など。null なら当てはめる）。後の値が勝つかを決める前に見る
+ */
+export function candidateRows(c: { diffs: readonly ProposedChange[] }, wh: WorkingHousehold, cat: Catalog, reject?: (d: ProposedChange) => string | null): CandidateRow[] {
+  return laterWins(
+    c.diffs.map((d): CandidateRow => {
+      const matches = matchItems(d, wh, cat);
+      const placed = d.at !== undefined || d.lever !== undefined;
+      const base = { diffId: d.id, note: d.note, place: placed && matches.length === 1 ? placeText(matches[0] as MovableItem) : null };
+      const skip = { key: null, value: null, use: "skip" as const };
+      const other = reject?.(d) ?? null;
+      if (matches.length !== 1) return { ...base, label: itemName(d.item), from: "—", to: short(unbox(d.value)), ...skip, reason: other ?? unmatchedReason(matches.length) };
+      const it = matches[0] as MovableItem;
+      const v = coerce(it, d.value);
+      const now = it.read(wh);
+      if (other !== null) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), ...skip, reason: other };
+      if (v === undefined) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), ...skip, reason: "値の形がこの項目に合わないため、取り込みません" };
+      const range = rangeOf(it);
+      if (range !== null && typeof v === "string" && !rateInRange(v, range)) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), ...skip, reason: `入れてよい範囲（${rangeText(range)}）の外の値のため、取り込みません` };
+      const out = it.phase === "field" ? null : leverOutOfRange(it, v, now);
+      if (out !== null) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), ...skip, reason: out };
+      const same = it.same(v, now);
+      return { ...base, label: it.label, from: it.text(now), to: it.text(v), key: it.key, value: v, use: same ? "same" : "apply", reason: same ? SAME_AS_NOW : null };
+    }),
+  );
+}
+
+const SAME_AS_NOW = "今と同じ値です";
+
+/**
+ * 同じ項目（同じ動かす項目のキー）を2回以上動かす行は、後の値が勝つ（画面で同じつまみを2回動かしたのと同じ）。前の行は使わない（replaced）。
+ * 後の値が今の値と同じなら、その項目は動かさない（今の値のまま）: 前の行の変更を取り消す（restore）。前に同じ項目を動かす行が無ければ、
+ * 今までどおり「今と同じ値です」（same）。当てはまらない行（key が null）は数えない（前の行を消さない）
+ *
+ * 独立した点検で、後の値が今の値と同じときだけ前の値のまま計算されていた（今と同じ値の行を飛ばすだけで、前の行を消していなかった）のを直した
+ */
+function laterWins(rows: readonly CandidateRow[]): CandidateRow[] {
+  const last = new Map<string, number>();
+  rows.forEach((r, i) => {
+    if (r.key !== null) last.set(r.key, i);
+  });
+  return rows.map((r, i): CandidateRow => {
+    if (r.key === null) return r;
+    const j = last.get(r.key) as number;
+    if (j !== i) return { ...r, use: "replaced", reason: `${j + 1}件目の変更が同じ項目を動かすため、この値は使いません（同じ項目は後の値が勝ちます）` };
+    if (r.use !== "same") return r;
+    const undone = rows.flatMap((x, k) => (k < i && x.key === r.key && x.use === "apply" ? [`${k + 1}件目の変更（${x.to}）`] : []));
+    if (undone.length === 0) return r;
+    return { ...r, use: "restore", reason: `${SAME_AS_NOW}。${undone.join("・")}を取り消し、今の値（${r.from}）のままにします` };
   });
 }
 
-/** プランにする値（当てはまり、今と違うものだけ） */
+/** プランにする値（当てはまり、今と違うものだけ。同じ項目は後の値。後の値が今の値と同じ項目は入れない＝今の値のまま） */
 export function candidateValues(rows: readonly CandidateRow[]): Values {
   const out: Values = {};
-  for (const r of rows) if (r.key !== null && r.reason === null) out[r.key] = r.value;
+  for (const r of rows) if (r.key !== null && r.use === "apply") out[r.key] = r.value;
   return out;
 }
 
