@@ -2,8 +2,10 @@
 //! 近い名前を添える（独立した点検の直し。0015 の追記）。
 //!
 //! - 確かめるのは、道具の入力の形（JSON Schema）の `properties` に無い一番上の名前と、入力の形が `additionalProperties: false` の
-//!   中の物（振る項目 `vary`・境目探しの条件 `condition`）の名前。どの道具も同じ確かめを通る（server.rs の `call_tool`）
-//! - 通り（`variants`）の中の名前は、今までどおり通りごとに理由を返す（ほかの通りは計算する）ので、ここでは見ない（文は `unknown_in` で同じにそろえる）
+//!   中の物（振る項目 `vary`・境目探しの条件 `condition`・プランの変更の1件 `plan_changes[i]`）の名前。どの道具も同じ確かめを通る
+//!   （server.rs の `call_tool`）。プランの変更の1件の `note`（propose_scenario の changes から写したときの理由）は受けて使わない
+//! - 通り（`variants`）の中の名前は、今までどおり通りごとに理由を返す（ほかの通りは計算する）ので、ここでは見ない（`unknown_in` で、
+//!   通りの入力の形と同じ確かめ・同じ書き方の文にする）
 //! - 引数の形そのもの（必須・型）は、今までどおり rmcp の読み取りに任せる
 
 use serde_json::{Map, Value};
@@ -56,11 +58,41 @@ fn walk(
         if top && PER_ROW.contains(&k.as_str()) {
             continue;
         }
-        // 中の物の形が決まっている（additionalProperties: false）ときだけ、中の名前も確かめる
-        if let (Some(inner), Value::Object(o)) = (strict_object(root, sub), v) {
-            walk(root, inner, o, &format!("{path}{k}."), false, found);
+        // 中の物の形が決まっている（additionalProperties: false）ときだけ、中の名前も確かめる（並びは1件ずつ）
+        match v {
+            Value::Object(o) => {
+                if let Some(inner) = strict_object(root, sub) {
+                    walk(root, inner, o, &format!("{path}{k}."), false, found);
+                }
+            }
+            Value::Array(list) => {
+                if let Some(inner) = items_of(root, sub).and_then(|i| strict_object(root, i)) {
+                    for (i, x) in list.iter().enumerate() {
+                        if let Value::Object(o) = x {
+                            walk(root, inner, o, &format!("{path}{k}[{i}]."), false, found);
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
     }
+}
+
+/// 並びの入力の形（$ref・anyOf を開いた物）の要素の形
+fn items_of<'a>(root: &'a Map<String, Value>, s: &'a Value) -> Option<&'a Value> {
+    let o = s.as_object()?;
+    if let Some(i) = o.get("items") {
+        return Some(i);
+    }
+    if let Some(r) = o.get("$ref").and_then(Value::as_str) {
+        return items_of(root, root.get("$defs")?.get(r.strip_prefix("#/$defs/")?)?);
+    }
+    ["anyOf", "oneOf"]
+        .iter()
+        .filter_map(|k| o.get(*k).and_then(Value::as_array))
+        .flatten()
+        .find_map(|x| items_of(root, x))
 }
 
 /// 入力の形（$ref・anyOf の null との組を開いた物）が、名前の決まった物（additionalProperties: false）なら、その形
@@ -134,21 +166,8 @@ pub fn closest<'a>(name: &str, allowed: &'a [String]) -> Option<&'a str> {
 
 /// 理由の文（知らない名前ごとに近い名前を添え、使える名前を並べる）
 fn message(found: &[(String, Vec<String>)]) -> String {
-    let parts: Vec<String> = found
-        .iter()
-        .map(|(path, allowed)| {
-            let leaf = path.rsplit('.').next().unwrap_or(path);
-            let prefix = &path[..path.len() - leaf.len()];
-            match closest(leaf, allowed) {
-                Some(c) => format!("{path}（{prefix}{c} のことですか）"),
-                None => path.clone(),
-            }
-        })
-        .collect();
-    let mut m = format!(
-        "知らない引数の名前があるため、この呼び出しは何もしていません: {}。",
-        parts.join("・")
-    );
+    let (parts, names) = described(found, "この道具の引数");
+    let mut m = format!("知らない引数の名前があるため、この呼び出しは何もしていません: {parts}。");
     // 一番上の名前の書き方: 答えの書き方（planChanges・keyFigures）につられて書いたときの案内
     if found
         .iter()
@@ -162,7 +181,24 @@ fn message(found: &[(String, Vec<String>)]) -> String {
     {
         m.push_str("基本の世帯と基本に当てる変更は、base の中ではなく引数の一番上（sample_household_id・plan_changes など）に書きます。");
     }
-    // 使える名前（同じ物の中の名前は1回だけ）
+    m.push_str(&names);
+    m
+}
+
+/// 知らない名前の並び（近い名前つき）と、使える名前の文（同じ物の中の名前は1回だけ。一番上の物は top と呼ぶ）
+fn described(found: &[(String, Vec<String>)], top: &str) -> (String, String) {
+    let parts: Vec<String> = found
+        .iter()
+        .map(|(path, allowed)| {
+            let leaf = path.rsplit('.').next().unwrap_or(path);
+            let prefix = &path[..path.len() - leaf.len()];
+            match closest(leaf, allowed) {
+                Some(c) => format!("{path}（{prefix}{c} のことですか）"),
+                None => path.clone(),
+            }
+        })
+        .collect();
+    let mut m = String::new();
     let mut shown: Vec<String> = Vec::new();
     for (path, allowed) in found {
         let leaf = path.rsplit('.').next().unwrap_or(path);
@@ -178,33 +214,27 @@ fn message(found: &[(String, Vec<String>)]) -> String {
             allowed.join("・")
         };
         if at.is_empty() {
-            m.push_str(&format!("この道具の引数: {names}。"));
+            m.push_str(&format!("{top}: {names}。"));
         } else {
             m.push_str(&format!("{at} に書ける名前: {names}。"));
         }
         shown.push(at);
     }
-    m
+    (parts.join("・"), m)
 }
 
-/// 通り1つ（compare・chart・table の variants の1件）の知らない名前の理由（一番上の確かめと同じ書き方。無ければ None）
-pub fn unknown_in(what: &str, obj: &Value, allowed: &[String]) -> Option<String> {
+/// 通り1つ（compare・chart・table の variants の1件）の知らない名前の理由。schema は通りの入力の形（一番上の確かめと同じ照らし方・
+/// 同じ書き方。通りの中の plan_changes の1件も見る）。無ければ None
+pub fn unknown_in(what: &str, obj: &Value, schema: &Map<String, Value>) -> Option<String> {
     let o = obj.as_object()?;
-    let bad: Vec<String> = o
-        .keys()
-        .filter(|k| !allowed.contains(k))
-        .map(|k| match closest(k, allowed) {
-            Some(c) => format!("{k}（{c} のことですか）"),
-            None => k.clone(),
-        })
-        .collect();
-    if bad.is_empty() {
+    let mut found: Vec<(String, Vec<String>)> = Vec::new();
+    walk(schema, schema, o, "", false, &mut found);
+    if found.is_empty() {
         return None;
     }
+    let (parts, names) = described(&found, &format!("{what}に書ける名前"));
     Some(format!(
-        "{what}に知らない名前があるため、この{what}は計算していません: {}。{what}に書けるのは {} です。",
-        bad.join("・"),
-        allowed.join("・")
+        "{what}に知らない名前があるため、この{what}は計算していません: {parts}。{names}"
     ))
 }
 
@@ -255,7 +285,7 @@ mod tests {
             }
         });
         let s = schema.as_object().unwrap();
-        let ok = json!({ "plan_changes": [], "vary": { "target": "a", "item": "b" }, "input": { "anything": 1 }, "variants": [{ "nope": 1 }] });
+        let ok = json!({ "plan_changes": [{ "anything": 1 }], "vary": { "target": "a", "item": "b" }, "input": { "anything": 1 }, "variants": [{ "nope": 1 }] });
         assert_eq!(unknown_message(s, ok.as_object()), None);
         let bad = json!({ "planChanges": [], "vary": { "target": "a", "itme": "b" } });
         let m = unknown_message(s, bad.as_object()).unwrap();
@@ -282,9 +312,31 @@ mod tests {
 
     #[test]
     fn unknown_in_a_variant() {
-        let a = names(&["label", "plan_changes"]);
-        assert_eq!(unknown_in("通り", &json!({ "label": "x" }), &a), None);
-        let m = unknown_in("通り", &json!({ "label": "x", "planChanges": [] }), &a).unwrap();
+        let schema = json!({
+            "type": "object", "additionalProperties": false,
+            "properties": { "label": {}, "plan_changes": { "type": ["array", "null"], "items": { "$ref": "#/$defs/PlanChange" } } },
+            "$defs": { "PlanChange": { "type": "object", "additionalProperties": false, "properties": { "target": {}, "item": {}, "value": {}, "note": {} } } }
+        });
+        let a = schema.as_object().unwrap();
+        assert_eq!(unknown_in("通り", &json!({ "label": "x" }), a), None);
+        let ok =
+            json!({ "plan_changes": [{ "target": "t", "item": "i", "value": 1, "note": "理由" }] });
+        assert_eq!(unknown_in("通り", &ok, a), None);
+        let m = unknown_in(
+            "通り",
+            &json!({ "plan_changes": [{ "target": "t", "item": "i", "vlaue": 1 }] }),
+            a,
+        )
+        .unwrap();
+        assert!(
+            m.contains("plan_changes[0].vlaue（plan_changes[0].value のことですか）"),
+            "{m}"
+        );
+        assert!(
+            m.contains("plan_changes[0] に書ける名前: item・note・target・value"),
+            "{m}"
+        );
+        let m = unknown_in("通り", &json!({ "label": "x", "planChanges": [] }), a).unwrap();
         assert!(
             m.contains("planChanges（plan_changes のことですか）"),
             "{m}"

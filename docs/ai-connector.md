@@ -79,7 +79,7 @@ args = ["mcp"]
 ### 引数の名前（知らない名前は断る。0015 の追記）
 
 - 引数の名前は下線で区切ります（`plan_changes`・`from_year`・`at_ages`）。答えの `planChanges`・`keyFigures` のような書き方とは違います。
-- どの道具も、入力の形（JSON Schema。どれも `additionalProperties: false`）に無い名前の引数を受けません。黙って捨てて基本の数字を返すことはせず、その呼び出しは何もしないで、知らない名前・近い名前・使える名前を返します（例「planChanges（plan_changes のことですか）」）。振る項目 `vary`・境目探しの条件 `condition` の中の名前も同じです（例「vary.itme（vary.item のことですか）」）。
+- どの道具も、入力の形（JSON Schema。どれも `additionalProperties: false`）に無い名前の引数を受けません。黙って捨てて基本の数字を返すことはせず、その呼び出しは何もしないで、知らない名前・近い名前・使える名前を返します（例「planChanges（plan_changes のことですか）」）。振る項目 `vary`・境目探しの条件 `condition`・プランの変更の1件（`plan_changes` の中）の名前も同じです（例「vary.itme（vary.item のことですか）」「plan_changes[0].vlaue（plan_changes[0].value のことですか）」）。プランの変更の1件の `note`（`propose_scenario` の `changes` から写したときの理由）は受けて、計算には使いません。
 - 比較の通り（`compare`・`chart`・`table` の `variants` の1件）の中の知らない名前は、今までどおりその通りだけ計算せずに同じ書き方の理由を返し、ほかの通りは計算します。
 - `compare` などで基本の世帯を `base: {...}` に包んで書くと断ります（基本の世帯と基本に当てる変更は、引数の一番上に書きます）。
 

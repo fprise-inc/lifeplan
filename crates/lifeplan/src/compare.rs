@@ -51,17 +51,12 @@ pub struct VariantArgs {
     pub market_stress: Option<String>,
 }
 
-/// 通りに書ける名前（入力の形の properties から。知らない名前の理由に並べる。args.rs）
-pub fn variant_keys() -> Vec<String> {
-    let s = schemars::schema_for!(VariantArgs);
-    let mut v: Vec<String> = s
-        .as_object()
-        .and_then(|o| o.get("properties"))
-        .and_then(Value::as_object)
-        .map(|p| p.keys().cloned().collect())
-        .unwrap_or_default();
-    v.sort();
-    v
+/// 通りの入力の形（知らない名前を、引数の一番上と同じく照らす。args.rs の unknown_in）
+pub fn variant_schema() -> Map<String, Value> {
+    match serde_json::to_value(schemars::schema_for!(VariantArgs)) {
+        Ok(Value::Object(o)) => o,
+        _ => Map::new(),
+    }
 }
 
 impl VariantArgs {

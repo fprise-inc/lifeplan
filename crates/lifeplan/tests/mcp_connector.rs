@@ -5737,8 +5737,17 @@ async fn review_reproductions_are_refused_or_explained() {
             assert!(text.contains(w), "{tool}: {w} が無い: {text}");
         }
     }
-    // 通りの中の知らない名前は、今までどおりその通りだけ理由を返す（文は同じ書き方）
-    let got = call_ok(&c, "compare", json!({ "sample_household_id": id, "variants": [{ "label": "x", "planChanges": pc }, { "label": "y", "plan_changes": pc }] })).await;
+    // プランの変更の1件の中の名前も同じ（propose_scenario の changes から写したときの note は受けて使わない）
+    let (err, text) = call(&c, "calculate", json!({ "sample_household_id": id, "plan_changes": [{ "target": liv["target"], "item": "livingExpense.monthly", "vlaue": 310000 }] })).await;
+    assert!(
+        err && text.contains("plan_changes[0].vlaue（plan_changes[0].value のことですか）"),
+        "{text}"
+    );
+    let noted = call_ok(&c, "calculate", json!({ "sample_household_id": id, "plan_changes": [{ "target": liv["target"], "item": "livingExpense.monthly", "value": 310000, "note": "生活費を見直す" }], "omit": ["years", "notices", "pension"] })).await;
+    let plain = call_ok(&c, "calculate", json!({ "sample_household_id": id, "plan_changes": pc, "omit": ["years", "notices", "pension"] })).await;
+    assert_eq!(noted["keyFigures"], plain["keyFigures"]);
+    // 通りの中の知らない名前は、今までどおりその通りだけ理由を返す（文は同じ書き方。通りの中の plan_changes の1件も）
+    let got = call_ok(&c, "compare", json!({ "sample_household_id": id, "variants": [{ "label": "x", "planChanges": pc }, { "label": "y", "plan_changes": pc }, { "label": "z", "plan_changes": [{ "target": liv["target"], "item": "livingExpense.monthly", "vlaue": 1 }] }] })).await;
     assert_eq!(got["results"][1]["status"], "error");
     assert!(
         got["results"][1]["reason"]
@@ -5748,6 +5757,14 @@ async fn review_reproductions_are_refused_or_explained() {
         "{got}"
     );
     assert_eq!(got["results"][2]["status"], "ok");
+    assert_eq!(got["results"][3]["status"], "error");
+    assert!(
+        got["results"][3]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("plan_changes[0].vlaue（plan_changes[0].value のことですか）"),
+        "{got}"
+    );
 
     // 3. 表に無い年齢（今より若い・表の最後の年より先）は、端の年の残高で代えず null と理由（前は 30歳＝46歳、110歳＝100歳の残高）
     let why = "表の範囲（ご本人46〜100歳・2027〜2081年）の外の年齢のため、数えていません";

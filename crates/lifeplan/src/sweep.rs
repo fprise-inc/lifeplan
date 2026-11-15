@@ -65,6 +65,7 @@ impl Vary {
             at: self.at.clone(),
             lever: self.lever.clone(),
             value,
+            note: None,
         }
     }
 

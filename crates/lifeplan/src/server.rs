@@ -32,8 +32,7 @@ use crate::plan::{self, Applied, PlanChange, PlanItemsArgs};
 use crate::sweep::{self, SweepArgs, ThresholdArgs};
 use crate::{
     answer, args, chart, check, coverage, custom_texts, display, engine, guide, recipes,
-    regulation,
-    samples, table,
+    regulation, samples, table,
 };
 use ai_ipc::client::{call_app, AppError, ClientHello};
 use ai_ipc::{McpClientInfo, Request};
@@ -971,7 +970,7 @@ impl LifeplanMcp {
             market_stress: a.market_stress.clone(),
         };
         // 通りの形を確かめる（形の違う通り・上限を超えた通りは、その通りだけ理由を返す）
-        let variant_keys = compare::variant_keys();
+        let variant_schema = compare::variant_schema();
         let specs: Vec<Result<VariantArgs, String>> = a
             .variants
             .iter()
@@ -984,7 +983,7 @@ impl LifeplanMcp {
                     ));
                 }
                 // 知らない名前は、引数の一番上と同じく近い名前を添えて断る（args.rs）
-                if let Some(m) = args::unknown_in("通り", v, &variant_keys) {
+                if let Some(m) = args::unknown_in("通り", v, &variant_schema) {
                     return Err(m);
                 }
                 let mut s: VariantArgs = serde_json::from_value(v.clone()).map_err(|e| {
