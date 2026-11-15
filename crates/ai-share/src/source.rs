@@ -24,6 +24,9 @@ pub struct SharedHouseholdSource {
     /// 定年後の働き方の条件（世帯ファイルの `household.postRetirement`。構成員の ID → 定年の年齢・定年後の働き方・年収・標準報酬月額）。
     /// 計算の入力の外にある画面の側の値で、縮約の部品が数と選択肢だけを確かめて渡す（0195）
     pub post_retirement: Option<Value>,
+    /// 見せ方の区画（世帯ファイルの本文の `display`・`household.itemChoice`・`workspace.shownItems` を `display::household_display_of` で
+    /// 切り出した物。物の ID は元のまま）。表示の設定を読む依頼（get_display_settings。0213）だけが、仮の ID に置き換えて渡す。無ければ None
+    pub display: Option<Value>,
     /// この世帯の外部AIへの提供の同意の、今の状態（0014 の2。共有の前の確認に使う）
     pub external_ai_consent: Option<ConsentRef>,
     /// 架空の世帯（AIの候補から「架空」として作った世帯。お客さまの情報を含まないので、同意の記録が無くても渡せる。
