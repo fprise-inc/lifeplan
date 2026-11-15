@@ -7,14 +7,15 @@
 //   利回りが年8%を超える）は、欄の知らせと確かめの一覧の注意に出す（値は変えない）
 // - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳〔事務所の既定値で選んだ年齢〕になる年）と同じなら推定。確定にしたら家族の生年月を直しても追いかけない。
 //   古い世帯で若い方が表の最後の年に105歳を超える（か85歳に届かない）ときは、確かめの注意に「標準にする」を出す（押したときだけ直す）
-// - 表の最後の年はどのプランにも共通（世帯で1つ。プランの差分にしない。0043 の追記 2026-11-05）。何歳まで見るかは、標準の欄の選び方
-//   「若い方が［90・95・100・105］歳になる年まで」で選ぶ。年・人の年齢で入れる欄は詳細
+// - 表の最後の年はどのプランにも共通（世帯で1つ。プランの差分にしない。0043 の追記 2026-11-05）。何歳まで見るかは、標準の1つの欄
+//   「表を何歳まで見るか」で「ご本人が95歳まで」「配偶者が100歳まで（既定）」「年で決める…」のように選ぶ（0070 の追記 2026-11-13）
 // 黒字のうち貯まる割合（0031）は、顧客と一緒に見る基本生活費のカードへ移した（stages/surplusSaving.ts。0031 の追記）
-import type { Household, ReturnShift, YearSeries } from "../../../engine/types.ts";
+import type { Household, Member, ReturnShift, YearSeries } from "../../../engine/types.ts";
 import { ageInYear } from "../../roles.ts";
+import { parseYm } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
-import { field, getPath, plain, type ActionDef, type FieldDef, type FieldState, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { DEFAULT_ASSUMPTIONS, defaultEndAge, END_AGES, endAgeOf, endYearForAge, firstTableYear, MIN_TABLE_YEARS, mutate, STANDARD_END_AGE, standardEndYear, type WorkingHousehold } from "../household.ts";
+import { field, getPath, plain, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
+import { DEFAULT_ASSUMPTIONS, defaultEndAge, END_AGES, endYearRuleOf, firstTableYear, memberEndYear, MIN_TABLE_YEARS, mutate, STANDARD_END_AGE, standardEndYear, withEndYearChoice, type EndYearRule, type WorkingHousehold } from "../household.ts";
 import { ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import { sameRate, ymWithEra } from "../units.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
@@ -532,7 +533,7 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
 
 // ---- 表の最後の年（0070） ----
 
-/** 本人・配偶者（表の最後の年を年齢で入れる人） */
+/** 本人・配偶者（表を何歳まで見るかを選べる人） */
 const adultsOf = (h: Household) => h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
 
 /** 表の最後の年が標準から大きく外れているときの中身（endYearOff） */
@@ -547,14 +548,15 @@ export interface EndYearOff {
 
 /**
  * 表の最後の年が、若い方の大人の年齢で 85〜105歳の外か（古い世帯・前の版の見本の写しの確かめの注意。黙って直さない）。
- * 外なら中身、内なら null
+ * 外なら中身、内なら null。表を何歳まで見るかの欄の人と年齢の選択肢の年（「ご本人が90歳まで」など。endYearRuleOf が member）には出さない
+ * （選択肢から選んだ年。年上の人の年齢で選ぶと若い方が85歳に届かないことがある）。年で決めた年・既定から外れた古い世帯の年には今までどおり出す
  */
 export function endYearOff(wh: WorkingHousehold): EndYearOff | null {
   const h = wh.request.input.household;
   const end = wh.request.input.endYear;
   const std = standardEndYear(h, wh.request.input.baseMonth);
   const ad = adultsOf(h);
-  if (!Number.isFinite(std) || ad.length === 0 || end === std) return null;
+  if (!Number.isFinite(std) || ad.length === 0 || end === std || endYearRuleOf(wh).kind === "member") return null;
   const young = ad.reduce((a, b) => (a.birth.birthYearMonth > b.birth.birthYearMonth ? a : b));
   const age = ageInYear(young, end);
   if (age <= 105 && age >= 85) return null;
@@ -567,12 +569,22 @@ export function endYearNotice(wh: WorkingHousehold): string | null {
   return o === null ? null : `表の最後の年が${o.end}年（${o.ages}）です。既定（${o.std}年）にしますか`;
 }
 
-/** 表の最後の年を既定（標準）にする（注意の「既定（○年）にする」） */
-export function endYearToStandard(wh: WorkingHousehold): WorkingHousehold {
-  return mutate(wh, (h, req) => {
+/** 表の最後の年の当て先（要求の入力の plan.endYear） */
+const END_ADDRESS: Address = { target: { plan: "input" }, item: "plan.endYear", at: [] };
+
+/** 決め方を既定にした世帯（表の最後の年を既定の年にし、確定の行と決め方を外す） */
+function toDefault(wh: WorkingHousehold): WorkingHousehold {
+  const next = mutate(wh, (h, req) => {
     const std = standardEndYear(h, req.input.baseMonth);
     if (Number.isFinite(std)) req.input.endYear = std;
+    putRow(req.input as unknown as Record<string, unknown>, END_ADDRESS, undefined);
   });
+  return withEndYearChoice(next, undefined);
+}
+
+/** 表の最後の年を既定（標準）にする（注意の「既定（○年）にする」） */
+export function endYearToStandard(wh: WorkingHousehold): WorkingHousehold {
+  return toDefault(wh);
 }
 
 /** プランを直している間に表の最後の年の欄の下に出す一言（どのプランにも共通。0043 の追記 2026-11-05） */
@@ -584,80 +596,92 @@ const defaultEndText = (): string => {
   return a === STANDARD_END_AGE ? `既定の値（ご本人・配偶者のうち若い方が${a}歳になる年）` : `事務所の既定値（ご本人・配偶者のうち若い方が${a}歳になる年）`;
 };
 
+/** 選び方の値: 既定・人と年齢（「m:<構成員の ID>:<年齢>」）・年で決める */
+const DEFAULT_VALUE = "default";
+const YEAR_VALUE = "year";
+const memberValue = (id: string, age: number): string => `m:${id}:${String(age)}`;
+
+/** 選択肢1つ（人と年齢の選択肢は、まとめた人〔生まれ年が同じ〕と年齢を持つ） */
+interface EndOption extends Option {
+  age?: number;
+  members?: string[];
+}
+
+/**
+ * 表を何歳まで見るかの選択肢（0070 の追記 2026-11-13）: ご本人の90・95・100・105歳、配偶者の同じ年齢（配偶者がいるときだけ）、「年で決める…」。
+ * 既定（若い方が既定の年齢になる年）は、その人のその年齢の選択肢に「（既定）」を付ける（値は既定）。ご本人と配偶者で同じ年になる年齢
+ * （生まれ年が同じ）は「ご本人・配偶者が○歳まで」の1つにまとめる（値は並びの先の人〔ご本人〕）
+ */
+function endOptions(wh: WorkingHousehold): EndOption[] {
+  const h = wh.request.input.household;
+  const bm = wh.request.input.baseMonth;
+  const adults = adultsOf(h);
+  const std = standardEndYear(h, bm);
+  const d = defaultEndAge();
+  // 既定に当たる人: 若い方（生まれ年が同じなら、並びの先の人）
+  const youngest = adults.reduce<Member | undefined>((a, b) => (a === undefined || parseYm(b.birth.birthYearMonth).y > parseYm(a.birth.birthYearMonth).y ? b : a), undefined);
+  const out: EndOption[] = [];
+  const seen = new Set<string>();
+  for (const m of adults) {
+    for (const a of END_AGES) {
+      const y = memberEndYear(m, a, bm);
+      const key = `${String(a)}:${String(y)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const same = adults.filter((x) => memberEndYear(x, a, bm) === y);
+      const isDefault = a === d && y === std && same.some((x) => x.id === youngest?.id);
+      out.push({
+        value: isDefault ? DEFAULT_VALUE : memberValue(m.id, a),
+        label: `${same.map((x) => memberLabel(wh, x.id)).join("・")}が${String(a)}歳まで${isDefault ? "（既定）" : ""}`,
+        age: a,
+        members: same.map((x) => x.id),
+      });
+    }
+  }
+  out.push({ value: YEAR_VALUE, label: "年で決める…" });
+  return out;
+}
+
+/** 表を何歳まで見るかの選択肢（欄の options） */
+export const endYearOptions = (wh: WorkingHousehold): Option[] => endOptions(wh).map(({ value, label }) => ({ value, label }));
+
+/** 決め方の選び方の値（endYearRuleOf の決め方から。人と年齢は、その人を含む選択肢〔まとめた選択肢・既定の選択肢〕の値） */
+function ruleValue(wh: WorkingHousehold, r: EndYearRule): string {
+  if (r.kind !== "member") return r.kind === "default" ? DEFAULT_VALUE : YEAR_VALUE;
+  return endOptions(wh).find((o) => o.age === r.age && o.members?.includes(r.member) === true)?.value ?? memberValue(r.member, r.age);
+}
+
 function endYearFields(wh: WorkingHousehold): FieldDef[] {
   // 表の最後の年は表の最初の年（計算基準月が年の途中なら翌年）より前にできない（計算基準月の年より前にすると計算エンジンが止まる〔E_ARGUMENT endYear〕。
-  // 年の途中の計算基準月の年にすると表が0年になる。0169）。欄の下限をその年にする
+  // 年の途中の計算基準月の年にすると表が0年になる。0169）。年で決める欄の下限をその年にする
   const firstYear = firstTableYear(wh.request.input.baseMonth);
-  const address = (): Address => ({
-    target: { plan: "input" },
-    item: "plan.endYear",
-    at: [],
-  });
   const agesText = (w: WorkingHousehold, v: number) =>
     adultsOf(w.request.input.household)
       .map((m) => `${memberLabel(w, m.id)} ${ageInYear(m, v)}歳`)
       .join("・");
-  // 何歳まで見るかの選び方（若い方の大人がその年齢になる年まで。標準の欄。0070 の追記 2026-11-05）。選んだ年齢は年にして持つ
-  // （家族を直すと、その年齢のまま付いていく。household.ts の followStandards）。選び方の外の年は「その他」と見せ、詳細の欄で入れる
-  const adults = adultsOf(wh.request.input.household);
-  const who = adults.length === 1 && adults[0] !== undefined ? memberLabel(wh, adults[0].id) : "若い方";
+  // 何歳まで見るか（0070 の追記 2026-11-05・2026-11-13）: 前は「若い方の年齢」の選び方・年の欄・人ごとの年齢の欄の4つで同じ値を入れていたのを、
+  // 人と年齢で選ぶ1つの欄にした。選んだ人と年齢は世帯に持ち（endYearChoice）、その人の生年月を直しても同じ年齢のまま付いていく（followStandards）。
+  // 既定は持たない（推定。家族を直すと若い方の既定の年齢の年に付いていく）。「年で決める…」で入れた年は付いていかない
   const choice = field({
-    key: "assume/endYear/choice",
-    item: null,
-    label: `表を何歳まで見るか（${who}の年齢）`,
-    level: "simple",
-    kind: "select",
-    options: [
-      ...END_AGES.map((a) => ({ value: String(a), label: `${a}歳まで${a === defaultEndAge() ? "（既定）" : ""}` })),
-      ...(endAgeOf(wh.request.input.household, wh.request.input.endYear, wh.request.input.baseMonth) === null ? [{ value: "other", label: `その他（${wh.request.input.endYear}年まで）` }] : []),
-    ],
-    planShared: END_YEAR_SHARED,
-    help: `ご本人・配偶者のうち若い方が、その年齢になる年までの表にします（既定は${defaultEndAge()}歳。すでにその年齢に近い・過ぎているときは、表を${MIN_TABLE_YEARS}年分にします）。家族の生年月を直すと、同じ年齢のまま年が変わります。ほかの年齢・年は「調整率・表の最後の年を決める」の欄で入れます`,
-    get: (w) => {
-      const v = w.request.input.endYear;
-      const age = endAgeOf(w.request.input.household, v, w.request.input.baseMonth);
-      const ages = agesText(w, v);
-      return {
-        value: age === null ? "other" : String(age),
-        hint: `${v}年まで${ages !== "" ? `（${ages}の年）` : ""}`,
-        // 選び方の外の年は「その他」と見せる（選び方から選ぶと、その年齢の年に変わる。戻すには年・年齢の欄で入れ直す）
-        ...(age === null ? { derived: "選び方の年齢の外の年です（年・年齢は「調整率・表の最後の年を決める」の欄で入れます）" } : {}),
-      };
-    },
-    set: (w, v) => {
-      if (v === null || v === "other") return w;
-      const y = endYearForAge(w.request.input.household, Number(v), w.request.input.baseMonth);
-      if (!Number.isFinite(y) || y === w.request.input.endYear) return w;
-      return mutate(w, (_h, req) => {
-        req.input.endYear = y;
-      });
-    },
-  });
-  const endYear = field({
     key: "assume/endYear",
     item: "plan.endYear",
-    label: "表の最後の年",
-    // 標準（若い方が100歳）でほぼ足りるので詳細（0078）。何歳まで見るかは標準の選び方で選ぶ
-    level: "detail",
-    kind: "int",
-    suffix: "年",
-    min: firstYear,
-    max: 2200,
-    optional: true,
-    blankIsEstimate: true,
-    address,
+    label: "表を何歳まで見るか",
+    level: "simple",
+    kind: "select",
+    options: endYearOptions(wh),
+    address: () => END_ADDRESS,
     planShared: END_YEAR_SHARED,
-    help: `既定は、ご本人・配偶者のうち若い方が${defaultEndAge()}歳になる年（推定のままなら、家族の生年月を直すと合わせて変わります。確定にすると変わりません）。空にすると既定に戻します`,
+    help: `ご本人か配偶者が、その年齢になる年までの表にします。既定は、ご本人・配偶者のうち若い方が${defaultEndAge()}歳になる年です（家族の生年月を直すと合わせて変わります）。人と年齢で選ぶと、その人の生年月を直しても同じ年齢のまま年が変わります。「年で決める…」で入れた年は変わりません。すでにその年齢に近い・過ぎているときは、表を${MIN_TABLE_YEARS}年分にします`,
     get: (w) => {
-      const h = w.request.input.household;
-      const std = standardEndYear(h, w.request.input.baseMonth);
       const v = w.request.input.endYear;
+      const rule = endYearRuleOf(w);
       const ages = agesText(w, v);
       const notice = endYearNotice(w);
+      const std = standardEndYear(w.request.input.household, w.request.input.baseMonth);
       return {
-        value: v,
-        hint: Number.isFinite(std) ? `${v === std ? "既定の年" : `既定は ${std}年`}${ages !== "" ? `（${ages}の年）` : ""}` : ages !== "" ? `${ages}の年` : null,
-        ...(Number.isFinite(std) && v === std ? { estimated: defaultEndText() } : {}),
+        value: ruleValue(w, rule),
+        hint: `${v}年まで${ages !== "" ? `（${ages}の年）` : ""}`,
+        ...(rule.kind === "default" ? { estimated: defaultEndText() } : {}),
         ...(notice !== null
           ? {
               warn: notice,
@@ -666,42 +690,48 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
           : {}),
       };
     },
-    set: (w, v) =>
-      mutate(w, (h, req) => {
-        const std = standardEndYear(h, req.input.baseMonth);
-        if (v !== null) req.input.endYear = Number(v);
-        else if (Number.isFinite(std)) req.input.endYear = std;
-      }),
+    set: (w, v) => {
+      // 今の決め方と同じ選択肢（年から読んだ決め方を含む）なら世帯を変えない（書き戻しても決め方を書き足さない）
+      if (v !== null && String(v) === ruleValue(w, endYearRuleOf(w))) return w;
+      if (v === null || v === DEFAULT_VALUE) return toDefault(w);
+      if (v === YEAR_VALUE) return withEndYearChoice(w, { by: "year" });
+      const m = /^m:(.+):(\d+)$/.exec(String(v));
+      const member = m === null ? undefined : adultsOf(w.request.input.household).find((x) => x.id === m[1]);
+      if (m === null || member === undefined) return w;
+      const age = Number(m[2]);
+      const y = memberEndYear(member, age, w.request.input.baseMonth);
+      if (!Number.isFinite(y)) return w;
+      const next = mutate(w, (_h, req) => {
+        req.input.endYear = y;
+        putRow(req.input as unknown as Record<string, unknown>, END_ADDRESS, undefined);
+      });
+      return withEndYearChoice(next, { by: "member", member: member.id, age });
+    },
   });
-  // 人の年齢で入れる（「配偶者が［100］歳になる年まで」）。書くと表の最後の年が変わる（値は年だけを持つ）
-  const byAge = adults.map((m) =>
-    field({
-      key: `assume/endYear/age/${m.id}`,
-      item: null,
-      label: `${memberLabel(wh, m.id)}が何歳になる年まで`,
-      // 年で入れる欄と同じく詳細（標準でほぼ足りる。0078）
-      level: "detail",
-      kind: "int",
-      suffix: "歳",
-      // 下限は60歳か、表の最初の年のその人の年齢の高い方（それより下は表の最後の年が表の最初の年より前になる）
-      min: Math.min(120, Math.max(60, ageInYear(m, firstYear))),
-      max: 120,
-      planShared: END_YEAR_SHARED,
-      help: "年齢で入れると、その人がその年齢になる年を表の最後の年にします",
-      get: (w) => {
-        const x = w.request.input.household.members.find((y) => y.id === m.id);
-        return {
-          value: x === undefined ? null : ageInYear(x, w.request.input.endYear),
-        };
-      },
-      set: (w, v) =>
-        mutate(w, (h, req) => {
-          const x = h.members.find((y) => y.id === m.id);
-          if (x !== undefined && v !== null) req.input.endYear = Number(x.birth.birthYearMonth.slice(0, 4)) + Number(v);
-        }),
-    }),
-  );
-  return [choice, endYear, ...byAge];
+  // 「年で決める…」を選んだときだけ、すぐ下に年を入れる欄を出す（選び方の外の年〔ご本人102歳の年など〕もこの形で見せる）
+  if (endYearRuleOf(wh).kind !== "year") return [choice];
+  const year = field({
+    key: "assume/endYear/year",
+    item: null,
+    label: "年で決める",
+    level: "simple",
+    kind: "int",
+    suffix: "年",
+    min: firstYear,
+    max: 2200,
+    planShared: END_YEAR_SHARED,
+    help: "表の最後の年を年で入れます（家族の生年月を直しても変わりません）。人と年齢で決めるときは、上の欄で選び直します",
+    get: (w) => ({ value: w.request.input.endYear }),
+    set: (w, v) => {
+      // 年から読んだ「年で決める」の年と同じ年を書き戻しても、世帯を変えない
+      if (v === null || (Number(v) === w.request.input.endYear && endYearRuleOf(w).kind === "year")) return w;
+      const next = mutate(w, (_h, req) => {
+        req.input.endYear = Number(v);
+      });
+      return withEndYearChoice(next, { by: "year" });
+    },
+  });
+  return [choice, year];
 }
 
 /** 計算の決まり（読むだけ。0003 の7） */
@@ -791,7 +821,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
         {
           key: "assume/main/fields",
           level: "simple",
-          moreLabel: "調整率・表の最後の年を決める",
+          moreLabel: "預金の利回り・調整率などを決める",
           // 運用利回りは率をそのまま入れる（名前の付いた選び方のボタンは置かない。0070 の 2026-10-31 の追記）
           fields: [...series.map(([n, l, h, lv]) => seriesField(n, l, h, lv)), ...endYearFields(wh), baseMonth, ...conventionFields()],
           actions: [],

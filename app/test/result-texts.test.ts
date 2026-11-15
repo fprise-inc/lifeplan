@@ -309,7 +309,7 @@ describe("夢と予定の区画の文（0212 の追記）", () => {
         OfficeTextsContext.Provider,
         { value: officeTextsFrom([office("result:dreamsAndPlans/helpNotSaved", "replace", "<i>保存しません</i>")]) },
         h(BigMoneyCard, {
-          model: { line: null, groups: [{ key: "pay", title: "支払いの予定", included: 0, rows: [{ key: "out:x", name: "車", when: "2030年", amount: "200万円", tag: "不確実", included: false, pick: { key: "out:x" } }] }] },
+          model: { line: null, groups: [{ key: "pay", title: "支払いの予定", included: 0, count: 1, rows: [{ key: "out:x", name: "車", when: "2030年", amount: "200万円", tag: "不確実", included: false, pick: { key: "out:x" } }] }] },
           notes: [],
         }),
       ),
