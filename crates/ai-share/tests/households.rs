@@ -162,6 +162,7 @@ fn source(fictional: bool, consent: Option<ConsentDecision>) -> SharedHouseholdS
         texts: vec![],
         labels_by_member: None,
         post_retirement: None,
+        display: None,
         external_ai_consent: consent.map(|decision| ConsentRef {
             decision,
             record_id: "c-1".into(),

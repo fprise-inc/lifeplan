@@ -34,6 +34,12 @@ fn today() -> String {
     feature_code::today_now()
 }
 
+/// 今使える機能（期限内で止められていないコードに入っている機能。AI接続口の表示の設定に、合算BS が効くかを添える。0213）
+pub(crate) fn active_features(s: &Store, rs: &RevocationState) -> Vec<String> {
+    let codes = s.feature_codes().unwrap_or_default();
+    feature_code::status(&codes, &rs.code_keys(), &today(), &rs.revoked()).active
+}
+
 fn store_code(e: StoreError) -> String {
     e.code().to_owned()
 }

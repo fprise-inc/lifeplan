@@ -44,6 +44,13 @@ pub enum Request {
     /// AIが組み立てた新しい世帯（計算の入力・架空かお客さまか・題・推定したこと）を、アプリの画面に承認待ちの候補として出す
     /// （世帯は作らない。FPが画面で中身を確かめて「世帯として作る」を押したときだけ作る。世帯を渡していなくてよい）
     ProposeHousehold { proposal: Value },
+    /// 事務所の既定値のうち、見せ方だけの設定（事務所データの `defaults` の入力項目の並び・新しい世帯で出す入力項目・基本生活費の内訳の並べ方・
+    /// 対策に最初から出す項目・万一のタブの場面と想定の前提と、合算BS を使うか）を返す（読むだけ。0213）。計算の設定・推定の値・
+    /// 名前やロゴ・ヒアリングのひな形は返さない。世帯を渡していなくてよい
+    GetOfficeDisplay,
+    /// 渡された世帯の見せ方の設定（世帯ファイルの本文の `display`・`household.itemChoice`・`workspace.shownItems`）を返す（読むだけ。0213）。
+    /// `tool` は読んだ道具の名前（AIに渡した記録の `reads` に残す）
+    GetShareDisplay { share_id: String, tool: String },
 }
 
 /// 失敗のコード（0015 の4）
@@ -163,6 +170,23 @@ mod tests {
         assert_eq!(
             c,
             r#"{"op":"getShare","shareId":"s-1","tool":"calculate","forCalc":true}"#
+        );
+    }
+
+    #[test]
+    fn display_requests_use_camel_case() {
+        // 表示の設定を読む依頼（0213）
+        assert_eq!(
+            serde_json::to_string(&Request::GetOfficeDisplay).unwrap(),
+            r#"{"op":"getOfficeDisplay"}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&Request::GetShareDisplay {
+                share_id: "s-1".into(),
+                tool: "get_display_settings".into(),
+            })
+            .unwrap(),
+            r#"{"op":"getShareDisplay","shareId":"s-1","tool":"get_display_settings"}"#
         );
     }
 
