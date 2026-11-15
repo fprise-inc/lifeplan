@@ -1,7 +1,7 @@
 // 健康保険の種類を導く決まり（0008 の4・追記 2026-10-25 の1）と、被扶養者・第3号の収入の見込み（0174）。
 // socialInsurance.healthStatus（健康保険の種類）と pension.category（第3号は健康保険の種類が扶養の月だけ）が同じ決まりで導くための共通の関数
 import type { Ctx } from "../registry/ctx.ts";
-import type { EmploymentPeriodInput, MemberInput } from "../engine/types.ts";
+import type { EmploymentPeriodInput, Flow, MemberInput } from "../engine/types.ts";
 import { addYen, yen, type Yen } from "../money/yen.ts";
 import { addMonths, formatYm, parseYm, type MonthIndex } from "../time/month.ts";
 import type {
@@ -9,7 +9,11 @@ import type {
   DisabilityPensionOutput,
   EmployeeStatusOutput,
   HealthStatusMonth,
+  IdecoAccountOutput,
+  InsurancePolicyOutput,
+  MutualAidOutput,
   PensionOutput,
+  RealEstateOutput,
   SalaryOutput,
   SurvivorPensionOutput,
   UnemploymentOutput,
@@ -41,7 +45,11 @@ export const HEALTH_STATUS_READS = [
   "employment.type",
   ...OUTSIDE_CHILD_SUPPORT_READS,
   "periodicExpense.everyYears",
+  "insurance.policyholder",
 ] as const;
+
+/** 収入の見込みに入れる、年金で受け取る企業年金・個人年金などの行（0174 の追記 2026-11-15） */
+const ANNUITY_ROW = "cf.income.corporatePension";
 
 /** 雇用保険の給付の日額を年額に直す日数（被扶養者の認定で日額×360 と基準を比べる） */
 const DAYS_PER_YEAR = 360;
@@ -174,6 +182,36 @@ export function deriveHealthStatus(ctx: Ctx, member: string, withPensions: boole
     for (const f of ctx.call<BusinessOutput>("income.business", { member: id }).flows) {
       entries.push({ ym: f.ym, source: `business:${f.object ?? ""}`, amount: f.amount, regular: f.amount });
     }
+    // 不動産収入（貸している不動産の家賃収入から、その不動産の経費〔管理費・固定資産税など〕を引いた額。減価償却費・借入の利息は引かない。
+    // 月ごとに0円より下げない）と、年金で受け取る企業年金（確定給付・退職年金など）・小規模企業共済の分割・個人年金保険（0174 の追記 2026-11-15。
+    // 前は給与・事業・公的年金・基本手当だけで、家賃収入・企業年金・個人年金のある人が扶養のままになった）。確定拠出年金の年金は withPensions の
+    // ときだけ（掛金の上限が国民年金の種別で決まるので、種別の部品からは呼べない）
+    const rentals = new Map<string, Map<string, number>>();
+    for (const f of ctx.call<RealEstateOutput>("asset.realEstate", {}).flows) {
+      if (f.member !== id || f.object === undefined) continue;
+      const income = f.row === "cf.income.other.rental";
+      if (!income && f.row !== "cf.expense.other.realEstate") continue;
+      const byMonth = rentals.get(f.object) ?? new Map<string, number>();
+      const prev = byMonth.get(f.ym) ?? 0;
+      byMonth.set(f.ym, income ? prev + f.amount : prev - f.amount);
+      rentals.set(f.object, byMonth);
+    }
+    for (const [object, byMonth] of rentals) {
+      for (const [ym, v] of byMonth) {
+        const a = yen(Math.max(0, v));
+        entries.push({ ym, source: `rental:${object}`, amount: a, regular: a });
+      }
+    }
+    const annuity = (flows: readonly Flow[]) => {
+      for (const f of flows) {
+        if (f.member !== id || !f.row.startsWith(ANNUITY_ROW) || f.amount <= 0) continue;
+        entries.push({ ym: f.ym, source: `annuity:${f.object ?? f.row}`, amount: f.amount, regular: f.amount });
+      }
+    };
+    annuity(ctx.call<{ flows: readonly Flow[] }>("retirement.benefit", { member: id }).flows);
+    annuity(ctx.call<MutualAidOutput>("account.mutualAid", { member: id }).flows);
+    for (const c of ctx.list<{ id: string }>("insurance")) annuity(ctx.call<InsurancePolicyOutput>("insurance.policy", { object: c.id }).flows);
+    if (withPensions) annuity(ctx.call<IdecoAccountOutput>("account.ideco", { member: id }).flows);
     const work = currentOutlook(entries);
     const pension = new Map<string, Yen>();
     const disability = new Set<string>();
