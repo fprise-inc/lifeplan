@@ -1,11 +1,12 @@
 //! 差し替えられる文の一覧（`list_custom_texts`。0212・0016 の追記）: アプリに同梱した説明の一覧（`texts-reference@1.0`）と
-//! 名前の一覧（`terms-reference@1.0`）を、分野・id の頭・言葉で絞って返す（読むだけ）。
+//! 名前の一覧（`terms-reference@1.0`）と入力の欄の一覧（`fields-reference@1.0`。0213 で足した）を、分野・id の頭・言葉で絞って返す（読むだけ）。
 //!
 //! - FP の AI が、カスタム層の `settings/texts.json`（文）・`settings/terms.json`（名前）の下書きを書くための材料。
+//!   入力の欄の一覧は、`settings/fields.json`（欄ごとの隠す・並べ替え）の下書きのため。
 //!   接続口はカスタム層のファイルを書かない。効くのは、FP がアプリの事務所の既定値の画面で承認した後だけ
 //! - 中身はアプリ本体が埋め込む一覧と同じ（app/scripts/textsCatalog.ts が作る。crates/lifeplan/dist に写す）。顧客の情報は含まない
 
-use crate::engine::assets::{TERMS_CATALOG_JSON, TEXTS_CATALOG_JSON};
+use crate::engine::assets::{FIELDS_CATALOG_JSON, TERMS_CATALOG_JSON, TEXTS_CATALOG_JSON};
 use serde_json::{json, Map, Value};
 use std::sync::OnceLock;
 
@@ -18,12 +19,29 @@ fn kind_label(file: &str, kind: &str) -> &'static str {
         ("texts", "result") => "結果の画面の文（結論の1文・取り崩しの条件・グラフの注・ポイント・夢と予定・万一のときの結論の1文）",
         ("terms", "field") => "入力の欄の名前",
         ("terms", "row") => "キャッシュフロー表の行の名前（提案書・持ち帰り用のレポートも同じ名前）",
+        ("fields", "field") => "入力の欄（隠す・まとまりの中で何番目に出すか）",
         _ => "",
     }
 }
 
+/// 一覧の種類（file）の名前
+pub const FILES: [&str; 3] = ["texts", "terms", "fields"];
+
 /// 書き方の手引き（答えにいつも添える）
 fn how_to(file: &str) -> Value {
+    if file == "fields" {
+        return json!({
+            "file": "settings/fields.json",
+            "shape": { "schema": "fields@1.0", "entries": [{ "id": "field:account.costBasis", "hide": true }, { "id": "field:account.enrolledSince", "order": 1 }] },
+            "rules": [
+                "行は id と、hide（true だけ）・order（1〜99。まとまりの中で何番目に出すか）のどちらか（両方でもよい）。同じ id の行は1つだけ",
+                "id は一覧に載った物だけ（field:<入力項目ID>[/<道>]。一覧の text は公式の欄の名前）。一覧に無い id の行は読み飛ばされる",
+                "隠す設定でも、世帯に値が入っている欄は出る。隠しても並べ替えても、世帯の値と計算の結果は変わらない",
+                "既定の値（default・value など）は書けない（書くと承認できない）。既定の値はアプリの事務所の既定値の画面で変える",
+                "書いていない欄は今の並びのまま。同じ番号なら書いた欄が先。専用の部品で描く欄（口座の表・基本生活費の内訳など）には当たらない",
+            ],
+        });
+    }
     if file == "terms" {
         json!({
             "file": "settings/terms.json",
@@ -52,6 +70,7 @@ fn how_to(file: &str) -> Value {
 struct Catalogs {
     texts: Vec<Value>,
     terms: Vec<Value>,
+    fields: Vec<Value>,
 }
 
 fn catalogs() -> &'static Catalogs {
@@ -66,17 +85,23 @@ fn catalogs() -> &'static Catalogs {
         Catalogs {
             texts: read(TEXTS_CATALOG_JSON),
             terms: read(TERMS_CATALOG_JSON),
+            fields: read(FIELDS_CATALOG_JSON),
         }
     })
 }
 
+/// file の一覧
+fn entries_of(file: &str) -> &'static [Value] {
+    match file {
+        "terms" => &catalogs().terms,
+        "fields" => &catalogs().fields,
+        _ => &catalogs().texts,
+    }
+}
+
 /// 一覧の分野の鍵（file ごと）
 pub fn kinds(file: &str) -> Vec<String> {
-    let list = if file == "terms" {
-        &catalogs().terms
-    } else {
-        &catalogs().texts
-    };
+    let list = entries_of(file);
     let mut k: Vec<String> = list
         .iter()
         .filter_map(|e| e["kind"].as_str().map(str::to_owned))
@@ -137,11 +162,7 @@ pub struct Filter<'a> {
 
 /// 一覧を絞って返す。絞らなければ分野ごとの数と、各分野の最初の数件の id（目次）も添える
 pub fn list(f: &Filter) -> Value {
-    let all = if f.file == "terms" {
-        &catalogs().terms
-    } else {
-        &catalogs().texts
-    };
+    let all = entries_of(f.file);
     let q = f.query.map(str::to_lowercase);
     let hits: Vec<&Value> = all
         .iter()
@@ -179,7 +200,7 @@ pub fn list(f: &Filter) -> Value {
         "offset": f.offset,
         "entries": page,
         "howTo": how_to(f.file),
-        "approval": "この接続口はカスタム層のファイルを書きません。FP の AI がカスタム層のフォルダ（アプリの事務所の既定値の画面に場所が出る。既定は書類のフォルダの lifeplan-custom）の settings/ に下書きを書き、FP がアプリの事務所の既定値の画面の「説明の文（カスタム層）」「名前（カスタム層）」で中身を確かめて承認したときだけ画面に出ます。計算の結果は変わりません。",
+        "approval": "この接続口はカスタム層のファイルを書きません。FP の AI がカスタム層のフォルダ（アプリの事務所の既定値の画面に場所が出る。既定は書類のフォルダの lifeplan-custom）の settings/ に下書きを書き、FP がアプリの事務所の既定値の画面の「説明の文（カスタム層）」「名前（カスタム層）」「入力の欄の見せ方（カスタム層）」で中身を確かめて承認したときだけ画面に出ます。計算の結果は変わりません。",
     });
     if f.offset + page_len(&out) < total {
         out["next"] = json!({ "offset": f.offset + f.limit });

@@ -7,6 +7,7 @@
 //! - 同意の記録（`consent`）と、世帯ごとの「同意とAIの記録」の帳面（`book`）: 世帯ファイルの `consents`・`aiShares`・`candidates` はアプリ本体だけが書く
 //! - 書類から読んだ値の候補（`documents`。0151）: AIの答えをメモリの中に承認待ちで置くだけ。確かめと番号を落とす決まりは画面の読み口
 //! - 新しい世帯の候補（`households`）: AIが組み立てた世帯をメモリの中に承認待ちで置くだけ。世帯を作るのは FP が画面で押したときのアプリ本体
+//! - 表示の設定の切り出し（`display`。0213）: 事務所の既定値と渡された世帯の、見せ方だけの設定を読む依頼に答える所（読むだけ）
 //! - 受け口（`AppEndpoint`）: 接続口（`lifeplan mcp`）からの依頼を受ける。復号はアプリ本体だけが行い、接続口は鍵も世帯ファイルも扱わない
 //!
 //! このクレートはアプリ本体に組み込む。接続口（crates/lifeplan）は依存しない（テストを除く）。
@@ -14,6 +15,7 @@
 pub mod book;
 pub mod clock;
 pub mod consent;
+pub mod display;
 pub mod documents;
 pub mod endpoint;
 pub mod households;
@@ -34,7 +36,7 @@ pub use proposal::PendingProposal;
 pub use record::{verify_append_only, AiShareRecord, EndReason};
 pub use reduce::Scope;
 pub use registry::{
-    FeatureCodeCandidate, GrantError, GrantOptions, Granted, HouseholdCheck, OfficeEstimatesSource,
-    ShareRegistry, ShareStatus,
+    FeatureCodeCandidate, GrantError, GrantOptions, Granted, HouseholdCheck, OfficeDisplaySource,
+    OfficeEstimatesSource, ShareRegistry, ShareStatus,
 };
 pub use source::{ConsentDecision, ConsentRef, SharedHouseholdSource, SourceText};

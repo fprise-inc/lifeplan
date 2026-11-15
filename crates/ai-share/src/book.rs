@@ -320,6 +320,8 @@ impl HouseholdBook {
                     .cloned()
                     .unwrap_or_else(|| Value::Object(serde_json::Map::new())),
             ),
+            // 表示の設定（get_display_settings。0213）: 見せ方の区画だけ（数・真偽・短い英数字の値だけ）
+            display: Some(crate::display::household_display_of(&self.body)),
             external_ai_consent: self.consent(),
             fictional: self.fictional,
         })

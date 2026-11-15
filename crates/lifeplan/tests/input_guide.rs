@@ -374,6 +374,7 @@ async fn recipe_for_a_shared_household() {
         texts: vec![],
         labels_by_member: None,
         post_retirement: None,
+        display: None,
         external_ai_consent: Some(ConsentRef {
             decision: ConsentDecision::Given,
             record_id: "c-1".into(),

@@ -103,6 +103,22 @@ export function withoutStoredSettings(req: EngineRequest): EngineRequest {
   return { ...req, input: { ...rest, ...(dropTax || inheritanceTax === undefined ? {} : { inheritanceTax }) } as EngineRequest["input"] };
 }
 
+/**
+ * 繰上返済の1件ずつの入れ外しのキーの「借入の ID・「:」の後ろ」（並びの順に1件ずつ）: 要素の ID（0206。画面の世帯は持つ）、無ければ
+ * 年月と額から作る（同じ年月・額が2件あれば「#2」を足す）。何番目かで作ると、プランで前の1件をやめたとき、残した1件が現状の世帯の別の1件と
+ * 同じキーになる（区画「夢と予定」に同じ物が2行並び、入れ外しが別の物に当たる。0044 の追記 2026-11-14）
+ */
+export function prepaymentKeys(d: Pick<Debt, "id" | "prepayments">): string[] {
+  const used = new Map<string, number>();
+  return (d.prepayments ?? []).map((p) => {
+    if (typeof p.id === "string" && p.id !== "") return `${d.id}:${p.id}`;
+    const base = `${d.id}:@${JSON.stringify(p.at)}:${String(p.amount)}`;
+    const n = (used.get(base) ?? 0) + 1;
+    used.set(base, n);
+    return n === 1 ? base : `${base}#${String(n)}`;
+  });
+}
+
 /** 結果の見方（保存しない）: 物ごとの入れ外し（候補のキー → 入れるなら true。最初のとおりの物は持たない） */
 export interface RowsView {
   pick: Readonly<Record<string, boolean>>;
@@ -113,7 +129,7 @@ export const ALL_ROWS: RowsView = { pick: {} };
 
 /** 見方で入れ外しできる物（区画「夢と予定」のチェックのある行） */
 export interface ViewCandidate {
-  /** 入れ外しのキー（「in:」「out:」「debt:」「gift:」＋ ID、繰上返済は「prepay:」＋借入の ID・「:」・何番目か） */
+  /** 入れ外しのキー（「in:」「out:」「debt:」「gift:」＋ ID、繰上返済は「prepay:」＋ prepaymentKeys の1件〔借入の ID・「:」・要素の ID〕） */
   key: string;
   /** gift は子への援助（教育の目標の gifts の1件。0103）、prepay は借入の繰上返済の1件 */
   side: "in" | "out" | "debt" | "gift" | "prepay";
@@ -142,7 +158,7 @@ export function viewCandidates(h: Household): ViewCandidate[] {
   }
   for (const g of h.goals ?? []) for (const x of g.education?.gifts ?? []) if (typeof x.id === "string") add("gift", x.id, notNeededGift(x) ? "uncertain" : "certain", notNeededGift(x));
   for (const d of h.debts ?? []) {
-    (d.prepayments ?? []).forEach((_p, i) => add("prepay", `${d.id}:${String(i)}`, "certain", false));
+    for (const k of prepaymentKeys(d)) add("prepay", k, "certain", false);
     if (d.inheritedFrom !== undefined) add("debt", d.id, excludedDebt(d) ? "uncertain" : "certain", excludedDebt(d));
   }
   return out;
@@ -195,12 +211,13 @@ export function applyRowsView(req: EngineRequest, v: RowsView): EngineRequest {
     ...(expenses.some((e) => has(`out:${e.id}`))
       ? { periodicExpenses: expenses.filter((e) => !drop.has(`out:${e.id}`)).map((e) => (!include.has(`out:${e.id}`) ? e : isDream(e) ? { ...e, dream: { ...e.dream, include: true } } : { ...e, priority: "need" as const })) }
       : {}),
-    ...(debts.some((d) => has(`debt:${d.id}`) || (d.prepayments ?? []).some((_p, i) => drop.has(`prepay:${d.id}:${String(i)}`)))
+    ...(debts.some((d) => has(`debt:${d.id}`) || prepaymentKeys(d).some((k) => drop.has(`prepay:${k}`)))
       ? {
           debts: debts
             .filter((d) => !drop.has(`debt:${d.id}`))
             .map((d) => {
-              const pre = d.prepayments?.filter((_p, i) => !drop.has(`prepay:${d.id}:${String(i)}`));
+              const keys = prepaymentKeys(d);
+              const pre = d.prepayments?.filter((_p, i) => !drop.has(`prepay:${keys[i] ?? ""}`));
               const d2 = pre !== undefined && pre.length !== d.prepayments?.length ? { ...d, prepayments: pre } : d;
               return include.has(`debt:${d.id}`) ? { ...d2, includeInBase: true } : d2;
             }),
