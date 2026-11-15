@@ -1,0 +1,22 @@
+# 地方税法72条の49の14
+id: businessTax.ownerDeduction
+title: 個人事業税の事業主控除（年額。事業を行った期間が1年に満たないときは月数で按分。1か月未満は1か月）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2023-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 2900000
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261101_508AC0000000002?response_format=xml", retrievedAt: "2026-11-15", sha256: "ef2116230a5fdb6f6dc6bb0367425a665adf674dd0eb59b62ad076274c35de13", locator: "地方税法 第72条の49の14第1項・第2項", quote: "当該個人の事業の所得の計算上二百九十万円を控除する"}
+      - {type: "web", url: "https://www.tax.metro.tokyo.lg.jp/kazei/work/kojin_ji", retrievedAt: "2026-11-15", sha256: "c5b51ac1ae25cf15a7d479d31b3e2b540eff59a1b8d8a90a9eb5ac5db0d7e1e6", locator: "事業主控除", quote: "控除額は、年間２９０万円（営業期間が１年未満の場合は月割額）です。"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261101_508AC0000000002"}
+    recordedIn: "2026.21.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "e-Gov法令API の条文（XML）と東京都主税局の説明（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-11-15）。月割りは同条2項・3項。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

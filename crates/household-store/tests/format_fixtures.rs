@@ -1035,6 +1035,24 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 家計の体力の目安を表示するかは 0.77 から（変換の段では足さない＝表示する）"
             );
         }
+        // 0.79 から: 自営の働き方の期間の個人事業税の業種の区分（0155 の 2026-11-15 の追記）。0.79 の見本は配偶者の60歳からの自営に第3種
+        let classes: Vec<&Value> = now["household"]["request"]["input"]["household"]
+            ["employmentPeriods"]
+            .as_array()
+            .map(|ps| {
+                ps.iter()
+                    .filter_map(|p| p["business"].get("businessTaxClass"))
+                    .collect()
+            })
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 79) {
+            assert_eq!(classes, vec![&Value::from("class3")]);
+        } else {
+            assert!(
+                classes.is_empty(),
+                "{v}: 個人事業税の業種の区分は 0.79 から（変換の段では足さない＝第1種）"
+            );
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }

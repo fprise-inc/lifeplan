@@ -38,6 +38,7 @@ const POLICY: Readonly<Record<string, Allow | Deny>> = {
   "tax.employmentIncome": "law",
   "tax.publicPensionIncome": "law",
   "tax.retirementIncome": "law",
+  "tax.businessTax": "law",
   "tax.realEstateSale": "law",
   "tax.lossCarryforward": "law",
   "tax.housingLoanCredit": "law",
