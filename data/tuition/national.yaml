@@ -1,0 +1,2062 @@
+# 国立大学の学校別の入学料・授業料（0010 の3・7・8、0219。マスタデータ master.education.tuition の正本）。FPライズが整理した部分で、CC0-1.0。
+# 各大学の公式ページ（入学料・授業料の案内・授業料の改定のお知らせ・募集要項）から数値だけを取り出した。進学情報サイト・まとめサイトからは取らない。
+# 原本の写しは公開しない（sources の url・取得日・指紋 sha256 だけを置く）。
+#
+# plans: 授業料・入学料の区分。day 学部・evening 学部の夜間主コース・medDent 東京科学大学の医学部・歯学部・master 修士・博士前期・
+#   doctor 博士・博士後期・professional 専門職大学院（法科大学院を除く）・law 法科大学院
+# revisions: 入学年度の区間ごとの額。from は改定の始まり（最初の行は null = それより前から）。appliesTo は改定を当てる人:
+#   newEntrants（その年度からの入学者。在学生は据え置き）・allStudents（その年度から在学生も）。admission が null の区間は入学料を持たない
+#   （公式に年度別の記載が無い過去の入学者。計算基準月より前に払い終わっている）
+# latestEntryYear: 額が公式に出ている最も先の入学年度。それより先の入学は、この年度の額を教育費の上昇率で伸ばす（0010 の7。知らせ N_ESTIMATED）
+# status: reviewed（2つの読み方で一致・省令の上限の中）・pendingReview（確かめ待ち。行を写さず、標準額で計算する）
+# general: 案内にある在学中の改定の注記（inSchoolRevisionApplies = 在学中に改定されたら改定の後の額・other・none）
+schools:
+  - school: F101110100010 # 北海道大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和8年度授業料等の額』学部生の行"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和8年度授業料等の額』大学院生（法科大学院を除く）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和8年度授業料等の額』大学院生（法科大学院を除く）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和8年度授業料等の額』大学院生（法科大学院を除く）（会計専門職・公共政策も含むと読める）"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表『令和8年度授業料等の額』大学院生（法科大学院）"}
+    sources:
+      s1: {url: "https://www.hokudai.ac.jp/gakusei/campus-life/certificates/tuition.html", title: "入学料及び授業料（免除）", retrievedAt: "2026-11-16", sha256: "d9fc61902d4f85ca7b4025bd2ad6b16cf911c41fc777c96a518119869075b301"}
+      s2: {url: "https://www.hokudai.ac.jp/introduction/dept/", title: "学部・大学院・センター等", retrievedAt: "2026-11-16", sha256: "3fec026aeef9aab449aa75fefaedb97bd1873bf0e45d46be05b764db51aa1b20"}
+      s5: {url: "https://isc.high.hokudai.ac.jp/wp-content/uploads/2025/03/b57959eacd648caaa0bcefd5276ef1ff.pdf", title: "2025年度 日本語コース案内（高等教育推進機構 国際教育研究部）", retrievedAt: "2026-11-16", sha256: "2b4c836cc41a0c7bc99615bb3c6eedb69ff2785a3e5a18fea0a30e2dbbf9cec3"}
+  - school: F101110100029 # 北海道教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『【学部】』入学料・授業料（年額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『【大学院】平成30年度入学者より』"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『【大学院】平成30年度入学者より』（教職大学院を含む大学院共通）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『【大学院】平成30年度入学者より』（共同学校教育学専攻 博士後期課程も大学院共通の額と読める）"}
+    sources:
+      s1: {url: "https://www.hokkyodai.ac.jp/student/support/cost-matriculate.html", title: "入学に要する経費｜国立大学法人 北海道教育大学", retrievedAt: "2026-11-16", sha256: "85f682e49364a4ca30ca8a192fe9d88d8791c41731e0e535a6fe9215e750b78b"}
+      s3: {url: "https://www.hokkyodai.ac.jp/academics/faculties/", title: "学部の紹介｜国立大学法人 北海道教育大学", retrievedAt: "2026-11-16", sha256: "79f42a3a1abae834a7f2bff46ae3b475101b88c8602b6c0688ecade1ebb054e1"}
+  - school: F101110100038 # 室蘭工業大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "FAQ『令和8年度入学生(学部)』の答え（s1の表『入学料』『授業料』学部（昼間コース）と同額）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s3, locator: "FAQ『令和8年度入学生(学部)』夜間主コース（s1の表 学部（夜間主コース）と同額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』『授業料』大学院"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』『授業料』大学院"}
+    sources:
+      s1: {url: "https://muroran-it.ac.jp/en/entrance/ef_tf/f_howtopay/", title: "入学料・授業料の金額と納入方法 | 国立大学法人 室蘭工業大学", retrievedAt: "2026-11-16", sha256: "e8f21871707a0b656b74ba4429c6edefedfa087efce3bed0f364b2d22846014a"}
+      s3: {url: "https://muroran-it.ac.jp/en/entrance/faq/mit/", title: "室蘭工業大学について（よくある質問）", retrievedAt: "2026-11-16", sha256: "b7c61033670163e5e7f5ca47ac851cccc8589f0be7d5fbb9b2274fe6067088bb"}
+  - school: F101110100047 # 小樽商科大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1. 入学料額』『1. 授業料額』学部 昼間コース（年度の記載なし、2026年11月時点の現行額）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "表『1. 入学料額』『1. 授業料額』学部 夜間主コース"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1. 入学料額』『1. 授業料額』大学院（課程の区別なし）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1. 入学料額』『1. 授業料額』大学院（課程の区別なし）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1. 入学料額』『1. 授業料額』大学院（課程の区別なし）"}
+    sources:
+      s1: {url: "https://www.otaru-uc.ac.jp/student/tuition/", title: "入学料・授業料 | 国立大学法人 北海道国立大学機構 小樽商科大学", retrievedAt: "2026-11-16", sha256: "ee5e7a06b4bdf492350106ce4eee73968c602280cf747ccc4419c83ccf35cf60"}
+      s3: {url: "https://nyushi.otaru-uc.ac.jp/wp-content/uploads/sites/2/2026/08/kikokushijo2027.pdf", title: "2027年度 小樽商科大学学生募集要項（昼間コース；帰国子女入試）", retrievedAt: "2026-11-16", sha256: "f55d2fc2498c606ba66a991045e8215df061005f0ad19000358e69414ee6ef04"}
+  - school: F101110100056 # 帯広畜産大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『納付金額』学部・大学院（年度の記載なし、2026年11月時点の現行額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『納付金額』学部・大学院"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『納付金額』学部・大学院"}
+    sources:
+      s1: {url: "https://www.obihiro.ac.jp/navi-fees", title: "授業料 – 国立大学法人北海道国立大学機構 帯広畜産大学", retrievedAt: "2026-11-16", sha256: "970b78f55e262effc76cef3bd0991f572a46b6d2b33cbdee951bc843bc1b6201"}
+      s2: {url: "https://www.obihiro.ac.jp/wp/wp-content/uploads/2026/07/R9youkou.pdf", title: "令和9年度 入学者選抜要項 帯広畜産大学", retrievedAt: "2026-11-16", sha256: "4b8818852a7885f65c0710157f5e422f7c2fdbacccbe3363b19839f2d28c0185"}
+  - school: F101110100065 # 北見工業大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『入学料について』と『各期ごとの納入金額』学部学生 267,900円×2期（年額は2期分の合計）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『各期ごとの納入金額』大学院生（博士前期課程）267,900円×2期"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 520800, source: s1, locator: "『各期ごとの納入金額』大学院生（博士後期課程）260,400円×2期"}
+    sources:
+      s1: {url: "https://www.kitami-it.ac.jp/info/shonendo/", title: "入学料・授業料 | 北見工業大学", retrievedAt: "2026-11-16", sha256: "6fe1c9e5e61472c639293909a23a47b37773964e59c668cd0a3ef12543298bea"}
+      s2: {url: "https://koho5.office.kitami-it.ac.jp/admission/wp-content/uploads/2026/08/R09sougoubosyuyoko.pdf", title: "令和9（2027）年度 工学部 総合型選抜 学生募集要項", retrievedAt: "2026-11-16", sha256: "c60dc7dd32f96c671df2a01cdc156a2a9eed39545d045ead8626ae1352747f80"}
+  - school: F101110100074 # 旭川医科大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料･入学料･検定料』学部学生（令和7年度の金額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料･入学料･検定料』大学院学生（令和7年度の金額）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料･入学料･検定料』大学院学生（令和7年度の金額）"}
+    sources:
+      s1: {url: "https://www.asahikawa-med.ac.jp/campus/tuition/exemption/", title: "授業料･入学料･検定料 | 国立大学法人 旭川医科大学", retrievedAt: "2026-11-16", sha256: "09b9d3c97de6f870e9ec0651d2efcad98fde6f6f964c3e013c860fad27863ed7"}
+      s3: {url: "https://www.asahikawa-med.ac.jp/uploads/files/admission/exam/grad_app_guidebook/appguide_2027_ippan.pdf", title: "令和9年度 学生募集要項（一般選抜）旭川医科大学医学部", retrievedAt: "2026-11-16", sha256: "a3cfdc0f45832317a014862d2fc3db9944c522c1d1ed9ec0d4afb95e03bdacf6"}
+  - school: F102110100572 # 弘前大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和8年度授業料等の金額（令和7年度と同額）』学部学生"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和8年度授業料等の金額』大学院生"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和8年度授業料等の金額』大学院生"}
+    sources:
+      s1: {url: "https://www.hirosaki-u.ac.jp/campuslife/campus/tuitionlist/", title: "入学料・授業料等 - 弘前大学", retrievedAt: "2026-11-16", sha256: "9d3fa7ec68a7f5d70f623e9e26fcd2699c71e19dc29efce45bd19b1e042166e3"}
+      s2: {url: "https://nyushi.hirosaki-u.ac.jp/wp-content/uploads/2026/07/01_R9_sbyk_comm.pdf", title: "令和9（2027）年度 入学者選抜要項", retrievedAt: "2026-11-16", sha256: "b4bcb8cf1aa8bc0a2893a55a1ac070e074a2c50cb192d9bfbf8cb9c2f1cb7f81"}
+      s3: {url: "https://www.kokusai.hirosaki-u.ac.jp/wp-content/uploads/2026/05/%E5%A4%96%E5%9B%BD%E4%BA%BA%E7%95%99%E5%AD%A6%E7%94%9F%E3%81%AE%E6%89%8B%E5%BC%95%E3%81%8D-1.pdf", title: "外国人留学生の手引き 弘前大学", retrievedAt: "2026-11-16", sha256: "a865b4fea735f86c2e5c4de6e7aa78c86c892323e12f11552ddf659acf205624"}
+  - school: F103110100731 # 岩手大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『入学料の額』学部学生・『授業料の額』学部学生（年度の記載なし、2026年11月時点の現行額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『入学料の額』『授業料の額』大学院学生"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『入学料の額』『授業料の額』大学院学生"}
+    sources:
+      s1: {url: "https://www.iwate-u.ac.jp/campus/fee/tuition.html", title: "入学料・授業料｜国立大学法人 岩手大学", retrievedAt: "2026-11-16", sha256: "90003639ca0050865cdc6410944f411d20953c20e16e01fda782f6af9adac2f3"}
+      s2: {url: "https://www.iwate-u.ac.jp/upload/reorganization2025.pdf", title: "IWATE UNIVERSITY Reorganization 2025（学部改組・新設のお知らせ）", retrievedAt: "2026-11-16", sha256: "80313a3b6a6f37c0035b80b3cbfd707b1c46b498dbe9288bb035fa1bfc4e71ba"}
+  - school: F104110100856 # 東北大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1．正規学生に係る授業料等』学部学生（2026年度の額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1．正規学生に係る授業料等』大学院学生（公共政策大学院を含む。）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1．正規学生に係る授業料等』大学院学生"}
+      - plan: professional
+        status: pendingReview
+        latestEntryYear: 2026
+        note: "確かめ待ち: 同じ課程に額が2つある（研究科で違う）"
+        revisions: []
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表『1．正規学生に係る授業料等』法科大学院学生"}
+    sources:
+      s1: {url: "https://www.tohoku.ac.jp/japanese/studentinfo/studentlife/04/studentlife0401/", title: "入学料及び授業料等納付額・納付方法", retrievedAt: "2026-11-16", sha256: "9a0ae94196fe248a56246f12e522364afdc12dc3d9cb0805e4ba933a31cf785e"}
+      s4: {url: "https://www.tohoku.ac.jp/japanese/academics/", title: "学部・大学院・附置研究所等 | 東北大学", retrievedAt: "2026-11-16", sha256: "9f9d31841522e8f8363f0c71983b69666ed3f7b188b6ddc747988f1b0a2e3fac"}
+      s5: {url: "http://www.bureau.tohoku.ac.jp/jinji/open/syogai/kitei_rubi.pdf", title: "国立大学法人東北大学における障害を理由とする差別の解消の推進に関する規程（ふりがな版）", retrievedAt: "2026-11-16", sha256: "cd4e9c997e2ddfef885145ace8c1ac2301472def5740727fc5467e6779d28dd3"}
+  - school: F104110100865 # 宮城教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『■大学納付金』入学料・授業料（年額）（年度の記載なし、2026年11月時点の現行額）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s3, locator: "表 学部学生、大学院生 前・後期各267,900円（年額は2期分の合計）"}
+    sources:
+      s1: {url: "https://www.miyakyo-u.ac.jp/campuslife/expenses/tuition/index.html", title: "学費 | 宮城教育大学", retrievedAt: "2026-11-16", sha256: "3395e5dac93c024642a9ace6aa0f85306625269e23d4e855241a00c6cf217663"}
+      s2: {url: "https://www.miyakyo-u.ac.jp/academic/education-faculty-r4/index.html", title: "教育学部（令和４年度以降） | 宮城教育大学", retrievedAt: "2026-11-16", sha256: "de8fc193688fbdc998ec5c624c19bab5b7f3d31dfa4a35e47334eeb1ebba24a2"}
+      s3: {url: "https://www.miyakyo-u.ac.jp/campuslife/expenses/tuition-payment/index.html", title: "授業料の納入について | 宮城教育大学", retrievedAt: "2026-11-16", sha256: "27b562d8ef2599cb6acb7f5cd9a8b57fb29aca6a75995d4afd66eacc47f8d0b2"}
+  - school: F105110101051 # 秋田大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "s1年額／入学料は s2 表『学費』"}
+    sources:
+      s1: {url: "https://www.akita-u.ac.jp/honbu/current/cu_tuition.html", title: "授業料等の納付と免除｜国立大学法人　秋田大学", retrievedAt: "2026-11-16", sha256: "aff99e70361610e2cd4b8ccdb71eab248adffdfe6377c44a7bf8ee176e2b52cf"}
+  - school: F106110101176 # 山形大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "「2026年度入学者入学料」表と「（１）授業料額」表の学部（昼間）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "入学料表・授業料額表の「工学部フレックスコース」"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "入学料表・授業料額表の「学部(昼間)・大学院」"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上（大学院の区分）"}
+    sources:
+      s1: {url: "https://www.yamagata-u.ac.jp/jp/life/fee/fee/", title: "授業料・入学料について｜国立大学法人 山形大学", retrievedAt: "2026-11-16", sha256: "0b89bd5cb4cbe18de76f71a755d05789e65b5c265c3a79144655ea33eaa8c27b"}
+      s2: {url: "https://www.yamagata-u.ac.jp/jp/faculty/", title: "学部・研究科／戦略本部・機構｜国立大学法人 山形大学", retrievedAt: "2026-11-16", sha256: "88b0e9bc88813684cbae2fde8e7afe27a770e75436abe1e3e83534c434f7fef9"}
+  - school: F107110101273 # 福島大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』『授業料』の学類生（年度表記なし）。s2 p.15「入学時の大学への納入金」でも令和9年度の予定額が同額"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "表『入学料』『授業料』の〃（夜間主）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』『授業料』の大学院生"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上（大学院生）"}
+    sources:
+      s1: {url: "http://gakusei.adb.fukushima-u.ac.jp/d_money-01.html", title: "福島大学－学生生活案内　｜　入学料・授業料・奨学金 - 検定料・入学料・授業料", retrievedAt: "2026-11-16", sha256: "d9b9ad14325dee7c42db3376cd0fbe3506e773f42a9ccc01f989cf5f0bcd8445"}
+      s3: {url: "https://www.fukushima-u.ac.jp/news/Files/2026/06/e3dd5c9fc8370145a5b58c1baa645695.pdf", title: "学士課程再編に伴う令和９年度福島大学入学者選抜方法等について（予告）", retrievedAt: "2026-11-16", sha256: "f8fbeef030a86a23998d7729d66681732e4ac7baa3db411d956ca95094f31b6c"}
+  - school: F108110101414 # 茨城大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "「入学料について」表の学部と「口座振替額及び振替日等」表の学部生（前期267,900円・後期267,900円）。年度表記なし"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "入学料表の大学院の研究科・口座振替表の大学院生"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上（博士後期への内部進学者は入学料不徴収）"}
+    sources:
+      s1: {url: "https://www.ibaraki.ac.jp/m/lifesupport/class/payment/index.html", title: "入学料・授業料｜茨城大学", retrievedAt: "2026-11-16", sha256: "381f12c7189d4647ad5b45f15230e7cab4f71d8f35302732498f5001f6245c67"}
+  - school: F108110101423 # 筑波大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "「入学料」"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同じ表（学部・大学院共通の額）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "授業料の※法科大学院(法曹専攻)"}
+    sources:
+      s1: {url: "https://www.tsukuba.ac.jp/admission/undergrad-tuition/", title: "入学料・授業料・奨学金 - 筑波大学", retrievedAt: "2026-11-16", sha256: "d643eab4d77c8d8725b87b025fc19d058bca121d6a2ad871376d404f9f4eb0ee"}
+      s2: {url: "https://www.tsukuba.ac.jp/education/organization-ug-list/", title: "学群・学類（学士課程）一覧 - 筑波大学", retrievedAt: "2026-11-16", sha256: "a64c950254e95ce689ba3148b7f9bce0710b89ed292f4f84965ed808bb0a55a8"}
+  - school: F108110101432 # 筑波技術大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料等』の入学料・授業料（年度表記なし）"}
+    sources:
+      s1: {url: "https://www.tsukuba-tech.ac.jp/education/expenses/fees.html", title: "入学料・授業料・寄宿料等｜国立大学法人 筑波技術大学", retrievedAt: "2026-11-16", sha256: "396571c7ab6c3460c7bdbd9b8a0a8a51a2d1b3aace027b8a1ae7b6d2f7873dbb"}
+  - school: F109110101556 # 宇都宮大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "入学料の表の学部と"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "入学料の表（大学院）と「学部学生・大学院生」年額"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上（博士後期への内部進学者は入学料不要）"}
+    sources:
+      s1: {url: "https://www.utsunomiya-u.ac.jp/convenient/campuslife/tuition.php", title: "入学料・授業料 | 宇都宮大学", retrievedAt: "2026-11-16", sha256: "2c32efca3da7b7501bf814779dd428049ad0da35bce38a4eb236cc09128f2dda"}
+  - school: F110110101713 # 群馬大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "s1学部生 年額／入学料は s2「2.入学料」（2022年4月1日現在）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "s1 大学院生 年額／s2「全学部・大学院共通」入学料"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上"}
+    sources:
+      s1: {url: "https://www.gunma-u.ac.jp/studentlife/stu002/g1974", title: "授業料納付等 | 国立大学法人群馬大学", retrievedAt: "2026-11-16", sha256: "c6a99a5f14a4cc7211ecf5dfede4871a46815f5eff717b376d35ce67de6db006"}
+      s2: {url: "https://www.gunma-u.ac.jp/admission/adm004/adm004_001", title: "入学時及び入学後の経費 | 国立大学法人群馬大学", retrievedAt: "2026-11-16", sha256: "126f213b555f020f3589b9f8cdd391e200ddf265e1752b1f5dab72e3b937bad9"}
+  - school: F111110101945 # 埼玉大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表の学部（昼間）／入学料は s4【参考】"}
+          - {from: 2026, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表の学部（昼間）／入学料は s4【参考】（s2で入学料は変更なしと明記）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 267900, source: s1, locator: "表の経済学部夜間主コース"}
+          - {from: 2026, appliesTo: newEntrants, admission: 141000, annual: 321480, source: s1, locator: "表の夜間主コース／入学料はs3 p.9 納付金（令和9年度予定額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表の大学院（修士・博士前期・専門職・博士後期）"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s2, locator: "改定表の大学院（令和9年4月入学者以降）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s2, locator: "同上"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s2, locator: "同上"}
+    sources:
+      s1: {url: "https://www.saitama-u.ac.jp/student/life/school_expenses/", title: "授業料 | 教育・学⽣⽀援 | 埼玉大学", retrievedAt: "2026-11-16", sha256: "0725dcf4c62be27c2945675377de883a7fd213fa1500dd0e3d236cfb2e713d3d"}
+      s2: {url: "https://www.saitama-u.ac.jp/news_archives/202510101000.html", title: "機能強化のための授業料改定について | 埼玉大学", retrievedAt: "2026-11-16", sha256: "1a485807cee261c39fece2bb8393a603468b00e9772258fb7d37790674b1ccab"}
+  - school: F112110102337 # 千葉大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 642960, source: s2, locator: "表の学部 入学料・授業料年額（令和8年度）と末尾※（令和2年3月以前の入学者は入学時の授業料）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 642960, source: s2, locator: "表の大学院 博士前期・修士・専門職（教職大学院）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 642960, source: s2, locator: "表の大学院 博士後期等"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s2, locator: "表の専門法務研究科"}
+    sources:
+      s2: {url: "https://www.chiba-u.ac.jp/students/files/pdf/payment_R8_1.pdf", title: "令和8年度授業料等についてのお知らせ（学部・大学院生）", retrievedAt: "2026-11-16", sha256: "2b925269220df19a9af9379aeccc8aebcf3b67e70a949844b7319f60a380a270"}
+      s3: {url: "https://www.chiba-u.ac.jp/organisation/index.html", title: "学部・大学院 | 国立大学法人 千葉大学｜Chiba University", retrievedAt: "2026-11-16", sha256: "f6473c6d2fef10f42ff0a802ef40cb2c8048c1e8036b9b11fdb05263f8766128"}
+  - school: F113110102700 # 東京大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表(1)学部学生 令和6年度以前入学者"}
+          - {from: 2025, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表(1)学部学生 令和7年度以降入学者"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2029
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表(1)大学院学生 修士課程・専門職学位課程"}
+          - {from: 2029, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s4, locator: "p.5改定表"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2029
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上"}
+          - {from: 2029, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s4, locator: "同上（法科大学院を除く）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 520800, source: s1, locator: "表(1)博士課程・獣医学、医学又は薬学を履修する博士課程（s4で改定しないと明記）"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表(1)法科大学院学生（s4で改定しないと明記）"}
+    sources:
+      s1: {url: "https://www.u-tokyo.ac.jp/ja/admissions/tuition-fees/e03.html", title: "入学料・授業料 | 東京大学", retrievedAt: "2026-11-16", sha256: "31849229bf8254b4dda49c4fd33d0e60ac030a753b920c5e936418f2f1205646"}
+      s3: {url: "https://www.u-tokyo.ac.jp/ja/schools-orgs/faculties/faculty.html", title: "学部・研究科 | 東京大学", retrievedAt: "2026-11-16", sha256: "de7400b5002060b742e2f89ec6698af5fa6bb27d9a631cfc0cd8ac6594024fb4"}
+      s4: {url: "https://www.u-tokyo.ac.jp/content/400247772.pdf", title: "授業料改定及び学生支援の拡充について", retrievedAt: "2026-11-16", sha256: "59008ad3f7b4596c8bebd3eee991d52c5b967babd58a65b39a8a5072a33494dc"}
+  - school: F113110102728 # 東京外国語大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料の金額』学部生・大学院生"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料の金額』学部生・大学院生"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料の金額』学部生・大学院生"}
+    sources:
+      s1: {url: "https://www.tufs.ac.jp/student/tuition_scholarship/fee.html", title: "学費・納付手続き | 学費・入学料 | 東京外国語大学", retrievedAt: "2026-11-16", sha256: "eb03e20575398eab464eb7979e37347e6ba430ba81cb4f0b6a3c523eee2ecdc8"}
+      s2: {url: "https://www.tufs.ac.jp/documents/admission/exam/2027_yoko.pdf", title: "2027年（令和9年）度 入学者選抜要項", retrievedAt: "2026-11-16", sha256: "507af85d61c676db482a11ee6043f38514054313fe715500ff8236dc5b8c09ac"}
+  - school: F113110102737 # 東京芸術大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "表『授業料金額』学部 大学別科 2018年度以前の入学生"}
+          - {from: 2019, appliesTo: newEntrants, admission: null, annual: 642960, source: s1, locator: "表『授業料金額』学部 大学別科 2019年度以降の入学生"}
+          - {from: 2026, admission: 338400, annual: 642960, source: s2, locator: "表『入学手続時支払金・授業料（2026年度入学生）』学部 入学料・B.授業料/年額（s3も同額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "表『授業料金額』大学院修士課程 2019年度以前の入学生"}
+          - {from: 2020, appliesTo: newEntrants, admission: null, annual: 642960, source: s1, locator: "表『授業料金額』大学院修士課程 2020年度以降の入学生"}
+          - {from: 2026, admission: 338400, annual: 642960, source: s2, locator: "表『入学手続時支払金・授業料（2026年度入学生）』大学院 修士課程（s3〜s5も同額）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "表『授業料金額』大学院博士後期課程 2019年度以前の入学生"}
+          - {from: 2020, appliesTo: newEntrants, admission: null, annual: 642960, source: s1, locator: "表『授業料金額』大学院博士後期課程 2020年度以降の入学生"}
+          - {from: 2026, admission: 338400, annual: 642960, source: s2, locator: "表『入学手続時支払金・授業料（2026年度入学生）』大学院 博士後期課程"}
+    sources:
+      s1: {url: "https://www.geidai.ac.jp/life/entrance_fee/tuition", title: "授業料 | 東京藝術大学", retrievedAt: "2026-11-16", sha256: "830927538cf6a40faba475dd2f213eaa7e16dab0112b26883b1414c0df3857cf"}
+      s2: {url: "https://www.geidai.ac.jp/life/entrance_fee/fine_arts", title: "入学料等（美術学部・大学院美術研究科）", retrievedAt: "2026-11-16", sha256: "c1e57d30007e46fa62d2d9f4d9eccf07862ac49fa4324c163fae5c8162cf2c1d"}
+      s6: {url: "https://www.geidai.ac.jp/department", title: "学部・研究科・附属機関・センター等", retrievedAt: "2026-11-16", sha256: "3afb9e8a59cfadbfc56d8fb919f66cc4ad99af1633ed6c1e336de54993ebef9f"}
+  - school: F113110102755 # お茶の水女子大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料、入学料の額 令和8（2026）年度』学部学生"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s2, locator: "『授業料改定のポイント』2027年4月以降の学部入学者（入学料は改定しない）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2028
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料、入学料の額』大学院生／s2 2027年度以前入学の博士前期は現行額"}
+          - {from: 2028, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s2, locator: "『授業料改定のポイント』2028年4月以降の博士前期課程入学者"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "『授業料改定のポイント』博士後期課程は改定しない（額はs1の表 大学院生）"}
+    sources:
+      s1: {url: "https://www.ocha.ac.jp/campuslife/info/about_tuition_fee.html", title: "授業料等について", retrievedAt: "2026-11-16", sha256: "0ba0e0b0f700fd36ee96a67c333a2d5839dd61dfaf5bf603c38ce46a3e87dcb1"}
+      s2: {url: "https://www.ocha.ac.jp/news/d018458.html", title: "2027年度以降入学者の授業料改定について", retrievedAt: "2026-11-16", sha256: "be4be0d27d94bfc243572b12c5c43e798de5e3b95a8375bc079ddf0c40318c77"}
+      s3: {url: "https://www.ocha.ac.jp/education/index.html", title: "学部・大学院", retrievedAt: "2026-11-16", sha256: "eebd506b497c1a496159c1a1d2adeefbbd5f6e99a70a84aa0822df52082e043c"}
+  - school: F113110102764 # 東京学芸大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『学費（令和8年度）』学部生"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『学費（令和8年度）』大学院生"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『学費（令和8年度）』大学院生（教職大学院も区別なし）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『学費（令和8年度）』大学院生（連合学校教育学研究科も区別なし）"}
+    sources:
+      s1: {url: "https://www.u-gakugei.ac.jp/02nyushi/fee.html", title: "学費｜国立大学法人 東京学芸大学", retrievedAt: "2026-11-16", sha256: "f09f231d0e8deb5a4dd46ba8d34396a18e799c7481ea5fbbab6742bef79c48b7"}
+      s2: {url: "https://www.u-gakugei.ac.jp/03gakubu/", title: "教育学部｜国立大学法人 東京学芸大学", retrievedAt: "2026-11-16", sha256: "e2063c380763901521171bbe9cb6fd71b3736fc29d1f70f18572e449f6b5fc80"}
+  - school: F113110102773 # 東京農工大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2023年度以前入学』学部生"}
+          - {from: 2024, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『2024年度入学』『2025年度入学』『2026年度以降入学』学部生"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2023年度以前』『2024年度入学』大学院生（産業技術専攻を除く）"}
+          - {from: 2025, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『2025年度入学』『2026年度以降入学』大学院生"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2023年度以前』『2024年度入学』大学院生（産業技術専攻を除く）"}
+          - {from: 2025, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『2025年度入学』『2026年度以降入学』大学院生"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 572400, source: s1, locator: "表『2023年度以前』『2024年度入学』大学院生（工学府産業技術専攻）"}
+          - {from: 2025, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『2025年度入学』『2026年度以降入学』大学院生（工学府産業技術専攻含む）"}
+    sources:
+      s1: {url: "https://www.tuat.ac.jp/admission/jugyouryou/", title: "授業料・入学料等 | 国立大学法人 東京農工大学", retrievedAt: "2026-11-16", sha256: "6f80d4be0d5e07497ffc096f9f740333ce6694184a69192d5dae1ec80c943695"}
+      s3: {url: "https://www.tuat.ac.jp/department/", title: "学部・大学院 | 国立大学法人 東京農工大学", retrievedAt: "2026-11-16", sha256: "3344cd119b294bc270745ed2c668933dbebc43094f667e0807904d3041ed3ea7"}
+  - school: F113110102782 # 電気通信大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2025年度（令和7年度）以前入学』学部 昼間"}
+          - {from: 2026, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『2026年度（令和8年度）入学』学部 昼間"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "表『2025年度以前入学』学部 夜間主"}
+          - {from: 2026, appliesTo: newEntrants, admission: 141000, annual: 321480, source: s1, locator: "表『2026年度入学』学部 夜間主"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2030
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2026年度入学』大学院 前期課程（535,800円）／改定は2030年4月入学者から"}
+          - {from: 2030, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s2, locator: "博士前期課程入学者 改定後642,960円（2030年4月以降）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2026年度入学』大学院 後期課程／s2 博士後期課程は据え置き"}
+    sources:
+      s1: {url: "https://www.uec.ac.jp/campus/fee/", title: "入学料（入学金）・授業料一覧", retrievedAt: "2026-11-16", sha256: "339a48b595f13770c84ab4d66f73a3db7e6ee2b0d77bdb2a220ee375879cd205"}
+      s2: {url: "https://www.uec.ac.jp/news/announcement/2025/20251031_7246.html", title: "2026年（令和８年）４月以降の授業料の改定について", retrievedAt: "2026-11-16", sha256: "7c2fde07fed3af09648b1eaa5f6ce07725d4e6eabf77f3118ca865702e4a57ba"}
+      s3: {url: "https://www.uec.ac.jp/education/undergraduate/", title: "情報理工学域", retrievedAt: "2026-11-16", sha256: "836feff6b025be000e8d9c08f768cebb9c21f65088aab08cdacd043c39f19bd3"}
+  - school: F113110102791 # 一橋大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2026年度 入学料・授業料の金額』学部生 入学年度が2019年度以前の方"}
+          - {from: 2020, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『2026年度 入学料・授業料の金額』学部生 入学年度が2020年度以降の方"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院生 経済学・法学（法科大学院を除く）・社会学・言語社会研究科、国際・公共政策教育部、ソーシャル・データサイエンス研究科（入学年度に関わらず）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上（経営管理研究科以外、入学年度に関わらず）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院生 経営管理研究科 入学年度が2020年度以前の方"}
+          - {from: 2021, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表 大学院生 経営管理研究科 入学年度が2021年度以降の方"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表 大学院生 法科大学院（入学年度に関わらず）"}
+    sources:
+      s1: {url: "https://www.hit-u.ac.jp/kyomu/fee/index.html", title: "授業料について | 一橋大学", retrievedAt: "2026-11-16", sha256: "30bc2c5a37ecd38d757f994ec4c8d14629e8c94f3f2568d59200f5eff9385dc7"}
+      s3: {url: "https://juken.hit-u.ac.jp/admission/info/guidelines/files/R9ippan_youkou.pdf", title: "令和9(2027)年度 一橋大学 一般選抜募集要項", retrievedAt: "2026-11-16", sha256: "eb52665e6dcad7c0b182ea206186ceeb287495a71cc2fdfdc968c2f597cfbb45"}
+  - school: F113110102808 # 政策研究大学院大学
+    general: other
+    plans:
+      - plan: master
+        status: pendingReview
+        latestEntryYear: 2026
+        note: "確かめ待ち: 642,960円の入学年度（2026年度）の記載が写しに無い"
+        revisions: []
+      - plan: doctor
+        status: pendingReview
+        latestEntryYear: 2026
+        note: "確かめ待ち: 642,960円の入学年度（2026年度）の記載が写しに無い"
+        revisions: []
+    sources:
+      s1: {url: "https://www.grips.ac.jp/jp/admissions/finances/", title: "入学料・授業料等 | 政策研究大学院大学", retrievedAt: "2026-11-16", sha256: "e129696b2443169601f9adf95ba1b63c8c38e03e8d2b2da26e9faf921480989a"}
+  - school: F113110102817 # 東京海洋大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料・入学料・検定料の額』学部"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料・入学料・検定料の額』大学院の研究科"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料・入学料・検定料の額』大学院の研究科"}
+    sources:
+      s1: {url: "https://www.kaiyodai.ac.jp/campuslife/fee/", title: "学費・奨学金等 | 国立大学法人 東京海洋大学", retrievedAt: "2026-11-16", sha256: "83ceffb290b13fd8be96973ed7eda814fa4808b9c243dcd79993118f51ee5cd1"}
+      s2: {url: "https://www.kaiyodai.ac.jp/faculty/", title: "学部・研究科 | 国立大学法人 東京海洋大学", retrievedAt: "2026-11-16", sha256: "72cf2f65cfdddf902fbd3cb159ce2f26b1e784febf27bfb8874d2d12c3d3bf79"}
+  - school: F113110112030 # 東京科学大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        note: "理工学系の学院（旧東京工業大学の額）。医学部・歯学部は medDent"
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表 学士課程 2019年3月以前の入学者（理工学系）"}
+          - {from: 2019, appliesTo: newEntrants, admission: 282000, annual: 635400, source: s1, locator: "理工学系『検定料・入学料・授業料一覧』学士課程（2019年4月1日以降）"}
+      - plan: medDent
+        status: reviewed
+        latestEntryYear: 2026
+        note: "医学部・歯学部（旧東京医科歯科大学の額）"
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "医歯学系『2019年度以前入学者』学部"}
+          - {from: 2020, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "医歯学系『2020年4月以降入学（予定）者』学部"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表 修士課程 2019年8月以前の入学者（理工学系）"}
+          - {from: 2019, appliesTo: newEntrants, admission: 282000, annual: 635400, source: s1, locator: "理工学系 大学院課程 修士課程（s2では2019年9月以降の入学者）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表 博士後期課程 2019年8月以前の入学者（理工学系）"}
+          - {from: 2019, appliesTo: newEntrants, admission: 282000, annual: 635400, source: s1, locator: "理工学系 大学院課程 博士後期課程（s2では2019年9月以降の入学者）"}
+    sources:
+      s1: {url: "https://admissions.isct.ac.jp/ja/013/student-life-and-careers/tuition", title: "検定料・学費・入学金 | Science Tokyo 受験生", retrievedAt: "2026-11-16", sha256: "036161a7da8f22543ce4f33974c1874255a6889a91b61de23f3f608ec0f25390"}
+      s2: {url: "https://www.titech.ac.jp/student/students/tuition/tuition", title: "授業料等の額及び納付方法 | Science Tokyo 旧・東京工業大学", retrievedAt: "2026-11-16", sha256: "9e92924d07c02a321ab9c8cc8475bec207248010b222f36a277e20b7da372ac3"}
+      s3: {url: "https://www.isct.ac.jp/ja/011/education/relationship", title: "学院、学部・研究科 | Science Tokyo - 東京科学大学", retrievedAt: "2026-11-16", sha256: "09d4d54ea4714ec11eef74d4572487cf2be7fad35b643b0d878c997802c3e754"}
+  - school: F114110104592 # 横浜国立大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『初年度納付金』学部（現行）・表『授業料』学部"}
+      - plan: evening
+        status: pendingReview
+        latestEntryYear: 2026
+        note: "確かめ待ち: 授業料 267,900円を写しの文字で読めない・入学料 141,000円を写しの文字で読めない"
+        revisions: []
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『初年度納付金』大学院 大学院研究科・学府"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『初年度納付金』大学院 大学院研究科・学府"}
+      - plan: law
+        status: pendingReview
+        latestEntryYear: 2026
+        note: "確かめ待ち: 授業料 804,000円を写しの文字で読めない"
+        revisions: []
+    sources:
+      s1: {url: "https://www.ynu.ac.jp/campus/expense/payments.html", title: "入学料・授業料 - 横浜国立大学", retrievedAt: "2026-11-16", sha256: "2040f221a9a39f76216838c4cb707b797e6481addba9428fb877cef2035f07ed"}
+      s2: {url: "https://www.ynu.ac.jp/academics/", title: "学部・大学院等 - 横浜国立大学", retrievedAt: "2026-11-16", sha256: "c278f76464521f00ca12716565aa66175708f72c3967acfbdde248ccd0441f7c"}
+  - school: F114110104609 # 総合研究大学院大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "1．入学料／2．授業料の額（区分：大学院の研究科）。2027年4月入学も同額（s2 PDF9ページ 5年一貫制・PDF17ページ 博士後期課程「入学に要する経費"}
+    sources:
+      s1: {url: "https://www.soken.ac.jp/campuslife/tuition/payment/", title: "入学料・授業料及び納付方法 | 学費・各種経済支援 | 国立大学法人 総合研究大学院大学", retrievedAt: "2026-11-16", sha256: "2ffa01378e1df0db46a981c8722b1bd8fa94d51d6dc4e7693d68b82b5a4f1a51"}
+  - school: F115110105046 # 新潟大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『正規生授業料』学部（夜間主コースを除く。）行（2025年4月1日現在、前期267,900・後期267,900）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 267900, source: s1, locator: "表『正規生授業料』学部（夜間主コース）行（前期133,950・後期133,950、入学料欄は「－」）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『正規生授業料』大学院の研究科行"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『正規生授業料』大学院の研究科行"}
+    sources:
+      s1: {url: "https://www.niigata-u.ac.jp/campus/economic/tuition/fee/", title: "入学料・授業料・各種納付金等 | 学費 | 新潟大学", retrievedAt: "2026-11-16", sha256: "c2b2e096a5e5d4e9f5f52aa2a34a4231f8e2f94fe8b0834a3d7f28119ffbb9e2"}
+      s2: {url: "https://www.niigata-u.ac.jp/wp-content/uploads/2026/07/senbatsuyoukou.pdf", title: "令和9年度 入学者選抜要項（新潟大学、令和8年7月）", retrievedAt: "2026-11-16", sha256: "a99dea023cd4fe7f1a619c6b24e5e2065ac438da45de94c388638e70525dff09"}
+  - school: F115110105055 # 長岡技術科学大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "PDF14ページ「（４）納入経費」【参考：令和８年度入学者に係る主な納入経費】（s1 表『入学料・授業料・検定料の額』学部（第1学年）・学部（第3学年）行も同額"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料・検定料の額』大学院行"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料・検定料の額』大学院行"}
+    sources:
+      s1: {url: "https://www.nagaokaut.ac.jp/admissions/tuition/index.html", title: "入学料・授業料等 | 長岡技術科学大学", retrievedAt: "2026-11-16", sha256: "84fde1c9533da1fccfd018b54d1554c3488589d9482c04469ca5cd3b77278aba"}
+      s2: {url: "https://www.nagaokaut.ac.jp/admissions/exam/assets/R9b1-application%20guidelines%20for%20general%20admission.pdf", title: "令和9年度 第1学年 学生募集要項（一般選抜）【前期日程】", retrievedAt: "2026-11-16", sha256: "72b70e9a36b6a84194fe8b1c591fadf618d93e0d97e57e1db85ea1518c250605"}
+  - school: F115110105064 # 上越教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "18ページ（PDF20ページ）前期日程『入学手続』3 納付金・提出書類等（注②：令和8年度入学者用の金額であり今後改定される場合あり）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『大学院』入学料・授業料（長期履修の場合は年額357,200・267,900・214,320円の区分あり）"}
+    sources:
+      s1: {url: "https://www.juen.ac.jp/090campus/050fee/010price.html", title: "納付金 | キャンパスライフ | 上越教育大学", retrievedAt: "2026-11-16", sha256: "9b8fdd07a6345c17717fba7ac80f6afc1b482f8b684f248d4f6f8395f5be2811"}
+      s2: {url: "https://www.juen.ac.jp/060admissions/020faculty/files/R09g_bosyuyoko.pdf", title: "上越教育大学 学校教育学部 学生募集要項2027 一般選抜 学校推薦型選抜", retrievedAt: "2026-11-16", sha256: "c5fff69d070e9db51b6d3443c972a79752c59ca920c837cbe03c9d184bfabe4c"}
+  - school: F116110105312 # 富山大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『全学部』（令和8年度の金額）。令和9年度入学の入学料も282,000円〔予定額〕（s3 PDF43ページ『入学手続』、授業料は令和8年度額を参考掲載）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 267900, source: s2, locator: "授業料の表『経済学部夜間主』行（前期133,950・後期133,950）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『大学院の研究科及び学環』"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『大学院の研究科及び学環』"}
+    sources:
+      s1: {url: "https://www.u-toyama.ac.jp/admission/money/fee/", title: "入学料・授業料・検定料 – 富山大学", retrievedAt: "2026-11-16", sha256: "2ed31a6e08684e54b2458c53cec90448dc2e08ee5cb2646780271cf2ff3b1156"}
+      s2: {url: "https://www.u-toyama.ac.jp/studentsupport/various-procedure/fee/", title: "授業料について（納入金額、振替日など） – 富山大学", retrievedAt: "2026-11-16", sha256: "25edd42ea53e357fa93409eb8bbfb6cbfae694047dc29fefc7942b2d8a9307da"}
+      s4: {url: "https://www.u-toyama.ac.jp/wp/wp-content/uploads/9c36aabf0599a8bd5843c583c97cf917.pdf", title: "入学者選抜要項 富山大学 令和9年度（令和9年4月入学者用、令和8年7月）", retrievedAt: "2026-11-16", sha256: "2b6372cf6d5d74c362baa1cf308089db9a9364d7bd541eae717a1d8072b076af"}
+  - school: F117110105393 # 金沢大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "PDF12ページ（Ⅰ-10）『５ 入学・在学時に必要な費用』一般選抜，特別選抜，編入学（授業料(予定) 前期・後期各267,900）。令和9年度も同額（s2 P"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "PDF10ページ『５ 入学・在学時に必要な費用』全研究科 入学料／法科大学院以外の研究科 前期・後期各267,900"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "PDF10ページ『５ 入学・在学時に必要な費用』全研究科 入学料／法科大学院以外の研究科 前期・後期各267,900"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "PDF10ページ『５ 入学・在学時に必要な費用』法科大学院以外の研究科（教職大学院を含む）"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s3, locator: "PDF10ページ『５ 入学・在学時に必要な費用』法科大学院 前期・後期各402,000"}
+    sources:
+      s1: {url: "https://www.kanazawa-u.ac.jp/wp/wp-content/uploads/2025/10/r8.4_gakusi_nyugakutetsuzukiyoko_Japanese.pdf", title: "令和8(2026)年度 金沢大学入学手続要項（一般選抜，特別選抜，学域編入学，養護教諭特別別科）", retrievedAt: "2026-11-16", sha256: "67cd630bf604d91609cfeacdb70d8cbd47ef8604f70423ac148a67e812f6900c"}
+      s3: {url: "https://www.kanazawa-u.ac.jp/wp/wp-content/uploads/2026/11/r9.4_nyugakutetsuzukiyoko_Japanese.pdf", title: "令和９（2027）年度４月期 金沢大学 入学手続要項（大学院）", retrievedAt: "2026-11-16", sha256: "0b7c484a5d9ed5d2bfed514a89a2f3b998299eacc4f21dadf38851f6c06e95c2"}
+      s4: {url: "https://www.kanazawa-u.ac.jp/wp/wp-content/uploads/2026/07/2027_r9_nyugakusyasenbatsuyoko.pdf", title: "令和9（2027）年度（学士課程）入学者選抜要項", retrievedAt: "2026-11-16", sha256: "0b2d9e534048f42b2b546144976b8c11be0da55b2a7a820e4d1a31b5b6f0ba10"}
+  - school: F117110105400 # 北陸先端科学技術大学院大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "PDF33ページ 納付金の表（入学料282,000・授業料 年額535,800）。s1 表『入学料』『授業料額と納入方法』博士前期課程も同額（年度表記なし）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』『授業料額と納入方法』博士後期課程（博士前期と同じ欄）"}
+    sources:
+      s1: {url: "https://www.jaist.ac.jp/studentlife/support/", title: "入学料及び授業料／納入・減免 | JAIST 北陸先端科学技術大学院大学", retrievedAt: "2026-11-16", sha256: "3e5cff62fb6ff59205f90e4313dd3fad5ffe0f86bea224b8f11fabe0f6069052"}
+      s2: {url: "https://www.jaist.ac.jp/admissions/data/0.ikkatuDLyugo_M.pdf", title: "北陸先端科学技術大学院大学 先端科学技術研究科（融合科学共同専攻）博士前期課程 学生募集要項 令和9年4月入学", retrievedAt: "2026-11-16", sha256: "781c91ee20281144b0fd9eb8c8824c77d5c79c6d5565d3f8ce400f5b0bea3ca0"}
+  - school: F118110105597 # 福井大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『入学料・授業料の納入』入学料・授業料の額（令和8年度の口座振替日を掲載）。令和9年度入学も同額〔予定額〕（s3 PDF17ページ 入学手続時の納付金）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s4, locator: "表『正規生』大学院列"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s4, locator: "表『正規生』大学院列"}
+    sources:
+      s1: {url: "https://www.u-fukui.ac.jp/cont_life/money/fee/", title: "授業料・入学料納入方法 ｜ 福井大学", retrievedAt: "2026-11-16", sha256: "3823689b6565bbec836f40699480aba5a325511cecbd504fcd18f74e16b0368c"}
+      s2: {url: "https://www.u-fukui.ac.jp/wp/wp-content/uploads/snb27_senbatu1.pdf", title: "令和9年度 入学者選抜要項（福井大学）", retrievedAt: "2026-11-16", sha256: "bd1486efbcb679f5df80756cfb638dabf4dc2dc032e53021d53f2a6d812586b4"}
+      s4: {url: "https://www.u-fukui.ac.jp/international/inbound/student_life/tuition/", title: "学費について ｜ 福井大学", retrievedAt: "2026-11-16", sha256: "a6eb6f368dbe40bf3700ab380db6e39644b7f4c46951d0ffef54327ed56789ad"}
+  - school: F119110105676 # 山梨大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『1．授業料等の額について』表 大学の学部行（令和8年度の引落し指定日を掲載）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『1．授業料等の額について』表 大学院の研究科行"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『1．授業料等の額について』表 大学院の研究科行"}
+    sources:
+      s1: {url: "https://www.yamanashi.ac.jp/campuslife/75", title: "授業料 | 山梨大学", retrievedAt: "2026-11-16", sha256: "235c416770370995e83b0f71395f289c7a6d77feaa7dfdebe226d0b3a9c1b1f1"}
+      s2: {url: "https://www.yamanashi.ac.jp/wp-content/uploads/2026/07/R09_senbatsu.pdf", title: "令和9年度 入学者選抜要項 教育学部・医学部・工学部・生命環境学部（山梨大学）", retrievedAt: "2026-11-16", sha256: "1b3b29d0583aa9696fb0bcc6e7d91f4d363da2bfe3d52dd40da8dc933217bbac"}
+  - school: F120110105771 # 信州大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "『入学料』金額・『授業料』表 学部学生行（2026年度の引落し日を掲載）。s1 表（入学料・授業料 年間）も同額"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "『授業料』表 大学院生行（入学料は『入学料』金額）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "『授業料』表 大学院生行（入学料は『入学料』金額）"}
+    sources:
+      s2: {url: "https://www.shinshu-u.ac.jp/campus_life/studentsupport/scholarship/tuition.html", title: "入学料・授業料｜授業料免除・奨学金｜信州大学 学生総合支援センター", retrievedAt: "2026-11-16", sha256: "5930055ec68283cbc205cba83e46d875982f63a345b4583a7df25c08e4e1ebcb"}
+      s3: {url: "https://www.shinshu-u.ac.jp/ad_portal/selection/uploads/R09senbatsuyoukou.pdf", title: "信州大学 令和9（2027）年度入学者選抜要項", retrievedAt: "2026-11-16", sha256: "9d7b05ee7b31ac8d60b8fc208d02ed01ee4c365d3b6714e69df7e4b3f62e811f"}
+  - school: F121110105976 # 岐阜大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表（2026年度の授業料等の額）学部行。令和9年度入学も同額〔予定額〕（s2 PDF53ページ 入学手続の納付金）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院研究科行"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院研究科行"}
+    sources:
+      s1: {url: "https://www.gifu-u.ac.jp/campus_life/scholarship/tuition.html", title: "入学料・授業料について | 教育・学生生活 | 岐阜大学", retrievedAt: "2026-11-16", sha256: "da268d5afb8275aa936c2ff080758d11a0ef6010eaadaeec3cccbb9044f29a82"}
+      s2: {url: "https://www.gifu-u.ac.jp/uploads/R9_ittupan.pdf", title: "令和9年度 一般選抜学生募集要項（岐阜大学）", retrievedAt: "2026-11-16", sha256: "2ffdd5f9831c731ff730acb12d4ce739e705396995a1d069f983338ce9a95cce"}
+  - school: F122110106224 # 静岡大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和８年度 授業料等一覧表』正規生・大学"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "表『令和８年度 授業料等一覧表』大学（夜間主コース）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和８年度 授業料等一覧表』大学院研究科"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和８年度 授業料等一覧表』大学院研究科"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和８年度 授業料等一覧表』大学院研究科"}
+    sources:
+      s1: {url: "https://www.shizuoka.ac.jp/education/tuition/list/", title: "授業料等一覧｜静岡大学", retrievedAt: "2026-11-16", sha256: "a6b89bbca891d167b54adc1c17ff994e56230f629aba4789d0daea2628ea9335"}
+      s3: {url: "https://www.shizuoka.ac.jp/education/publish/length/", title: "修業年限｜静岡大学", retrievedAt: "2026-11-16", sha256: "9203a29adee72f18d71b34063b967db0e4100e788462fd19d2543533efd98ce7"}
+  - school: F122110106233 # 浜松医科大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "11ページ 入学料・授業料の欄（令和７年度実績と表記）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "『入学料』学部・大学院、『授業料』年額"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "『入学料』学部・大学院、『授業料』年額"}
+    sources:
+      s1: {url: "https://www.hama-med.ac.jp/admission/%E4%BB%A4%E5%92%8C8%E5%B9%B4%E5%BA%A6%E4%B8%80%E8%88%AC%E9%81%B8%E6%8A%9C%E5%AD%A6%E7%94%9F%E5%8B%9F%E9%9B%86%E8%A6%81%E9%A0%85_v2.pdf", title: "令和８年度 一般選抜学生募集要項 医学部医学科・看護学科", retrievedAt: "2026-11-16", sha256: "f8b0654023116c122733102933a780bf2bd9a37df8d033d3c696f36bc88ac726"}
+      s2: {url: "https://www.hama-med.ac.jp/admission/gakuhi.html", title: "入学金・授業料・奨学金制度等｜国立大学法人 浜松医科大学", retrievedAt: "2026-11-16", sha256: "6db97f095a9fa2f3e1cfba405ca789573afc9ab645fce3dcc7fa8840def3e39d"}
+      s4: {url: "https://www.hama-med.ac.jp/about-us/3_gakusoku.pdf", title: "浜松医科大学学則", retrievedAt: "2026-11-16", sha256: "5c0e8ce45b28c595f8a43c2f51c8bb6fd5868344f1dc6edecd8b210dab635bad"}
+  - school: F123110106429 # 名古屋大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "表『授業料金額』学部学生 半期分267,900円（年額は2倍）"}
+          - {from: 2027, admission: 282000, annual: 535800, source: s3, locator: "8ページ『６．授業料等学生納付金』（予定額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "表『授業料金額』大学院生 半期分267,900円（年額は2倍）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "表『授業料金額』大学院生 半期分267,900円（年額は2倍）"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s2, locator: "入学料・授業料の欄（前期分402,000円・年額804,000円）"}
+    sources:
+      s1: {url: "https://www.nagoya-u.ac.jp/academics/campus-life/tuition/", title: "授業料 - 教育・学生支援 | 名古屋大学", retrievedAt: "2026-11-16", sha256: "a510c3fff58ada667e7349a31c3a1417533e9692f88ce228263b4efc7de53a4d"}
+      s2: {url: "https://www.law.nagoya-u.ac.jp/ls/tuition.html", title: "授業料・奨学金等・現況│名古屋大学", retrievedAt: "2026-11-16", sha256: "27e96c4fab301fc53998ffc062058be413d88c3687523d87ffc372798dbe73ca"}
+      s3: {url: "https://www.engg.nagoya-u.ac.jp/prospective/doc/hennyu.pdf", title: "令和９年度名古屋大学工学部編入学学生募集要項", retrievedAt: "2026-11-16", sha256: "cfde92746e21a501b19369fad5832f6eb5410359766a120e41b891239a85f746"}
+      s4: {url: "https://www.nagoya-u.ac.jp/sch-list/faculty/index.html", title: "学部・大学院・その他 | 名古屋大学", retrievedAt: "2026-11-16", sha256: "0ae061e6519149ca80ccd8624a549411da31b374e8bb9c4aed26cc6455c113c4"}
+  - school: F123110106438 # 名古屋工業大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『学部 〇工学部』2025年度以前入学者（2005年度からの据え置きは s2 1ページ）"}
+          - {from: 2026, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『学部 〇工学部』2026年度以降入学者"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "表『〇工学部（基幹工学教育課程）工学部第二部』2025年度以前入学者"}
+          - {from: 2026, appliesTo: newEntrants, admission: 141000, annual: 321480, source: s1, locator: "同表 2026年度以降入学者"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『大学院 〇博士前期課程』2026年度以前入学者"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "同表 2027年度以降入学者"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『〇博士後期課程』（据え置き。s2 1ページ）"}
+    sources:
+      s1: {url: "https://www.nitech.ac.jp/intro/release/edu/fee.html", title: "入学料・授業料｜国立大学法人名古屋工業大学", retrievedAt: "2026-11-16", sha256: "5de66c0e026e64d9d08d15df82aa144607dd84dde7218dfa3ee24c16d7ca50a9"}
+      s3: {url: "https://kisoku.web.nitech.ac.jp/kisoku/%E5%90%8D%E5%8F%A4%E5%B1%8B%E5%B7%A5%E6%A5%AD%E5%A4%A7%E5%AD%A6%E5%AD%A6%E5%89%87.html", title: "学則", retrievedAt: "2026-11-16", sha256: "46ae1399b7c8b3344cd5a286dd3af4bd430089ea555d8d439c44b094812ae649"}
+  - school: F123110106447 # 愛知教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料一覧（令和8年度）』学部"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院（修士課程・教職大学院）通常の課程"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院（修士課程・教職大学院）通常の課程"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院（博士課程）通常の課程"}
+    sources:
+      s1: {url: "https://www.aichi-edu.ac.jp/campus/student/guide.html", title: "入学料・授業料｜愛知教育大学", retrievedAt: "2026-11-16", sha256: "86c542528d50d235f0eaf58676a978f439f34a53a0dc0f6f48ff61abf6236322"}
+      s2: {url: "https://www.aichi-edu.ac.jp/edu/", title: "学部・大学院｜愛知教育大学", retrievedAt: "2026-11-16", sha256: "cbe691a74812922ae4933cd8e281c6f5dc108b59a3a0b659296de5d3dd2e5764"}
+  - school: F123110106456 # 豊橋技術科学大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『1．入学料の金額』『2．授業料の金額』（年度の表記なし・取得時点の現行額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『2．授業料の金額』の※（正規生＝学部生・大学院生）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『2．授業料の金額』の※（正規生＝学部生・大学院生）"}
+    sources:
+      s1: {url: "https://www.tut.ac.jp/student/support/cost.html", title: "入学料・授業料・経済的支援（免除・奨学金） | 豊橋技術科学大学", retrievedAt: "2026-11-16", sha256: "d54b26d64e5b77bc2c1e9568e442475007f6ada43c16cff3eaa13d1ef34e35d3"}
+      s2: {url: "https://www.tut.ac.jp/university/", title: "学部・大学院 | 豊橋技術科学大学", retrievedAt: "2026-11-16", sha256: "e5da12c1ef118f4d320c1b427f1a6610cd0a8b66cbb8db182279d1c8975708e3"}
+  - school: F124110107141 # 三重大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『正規課程の学生に係る授業料等』学部学生（令和９年度。令和8年度も s2 の表で半期267,900円）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院生（修士・博士前期課程）（令和９年度）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s2, locator: "表『学生種別と金額』大学院生（修士課程、博士前期課程及び専門職学位課程）前期267,900円（年額は2倍）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 520800, source: s1, locator: "表 大学院生（博士・博士後期課程）（令和９年度）"}
+    sources:
+      s1: {url: "https://www.mie-u.ac.jp/students/rules/jugyoryo-tou.html", title: "三重大学 | 授業料等", retrievedAt: "2026-11-16", sha256: "5d89ee4e84e7019a59fe84eb869a15353a917246cb3fd7c4b4b84bdb512c8e55"}
+      s2: {url: "https://www.mie-u.ac.jp/students/R8zenkijyugyouryou.pdf", title: "令和8年度授業料（前期分）の納入について", retrievedAt: "2026-11-16", sha256: "2d99e1292dc8ec3048947db030c77a8f1f9fa1b63d9cfbc77ab99cfbb2ab0d1d"}
+      s4: {url: "https://www.mie-u.ac.jp/koukai/kisoku/act/print/print110000001.html", title: "国立大学法人三重大学学則", retrievedAt: "2026-11-16", sha256: "c2f572f53e682cfb526c272aa521a342d0f8186b9f240b95c9523673f2ba6bac"}
+  - school: F125110107284 # 滋賀大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "20ページ『（３）入学料・授業料の納付』"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 267900, source: s3, locator: "表 学部生（経済学部夜間主コース）半期分133,950（年額267,900）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s3, locator: "表 大学院研究科生 半期分267,900（年額535,800）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s3, locator: "表 大学院研究科生 半期分267,900（年額535,800）"}
+    sources:
+      s1: {url: "https://www.shiga-u.ac.jp/wp/wp-content/uploads/R8ippan.pdf", title: "令和８年度（2026年度）一般選抜学生募集要項 滋賀大学", retrievedAt: "2026-11-16", sha256: "4d4d67f68a7c8b3ef8c14e55ae96df51e21d31e04ccc3ef9eb552911136c628f"}
+      s3: {url: "https://www.shiga-u.ac.jp/41879/", title: "令和8年度前期分授業料について（お知らせ）※4/15更新 – 滋賀大学", retrievedAt: "2026-11-16", sha256: "41f5777352a4db4885e330cfb6739931b132e60582d8812906035267de4f1d6c"}
+  - school: F125110107293 # 滋賀医科大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "21ページ『３．納付金』（予定額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料等納付額』大学院学生"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料等納付額』大学院学生"}
+    sources:
+      s1: {url: "https://www.shiga-med.ac.jp/education-and-support/student-life/tuition-and-fees", title: "授業料納付額・方法・注意 | 滋賀医科大学", retrievedAt: "2026-11-16", sha256: "82b77b4aaeef3788a40d1a92f0ea92c4aee7902e1dcd07a2a4190e0ad44979ef"}
+      s2: {url: "https://www.shiga-med.ac.jp/sites/default/files/2025-10/R08suisen_youkou_v2.pdf", title: "令和８年度 学校推薦型選抜 学生募集要項（Web出願）", retrievedAt: "2026-11-16", sha256: "23a6f177ece2a6588f3db76b3b314209bf15756748bd7a42bbdfecb82bee0140"}
+  - school: F126110107407 # 京都大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2026年度 授業料等の額について』学部"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2026年度 授業料等の額について』大学院研究科"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2026年度 授業料等の額について』大学院研究科"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『2026年度 授業料等の額について』大学院研究科"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表『2026年度 授業料等の額について』法科大学院"}
+    sources:
+      s1: {url: "https://www.kyoto-u.ac.jp/ja/education-campus/contact/fees/jugyo", title: "学納金の額一覧 | 京都大学", retrievedAt: "2026-11-16", sha256: "1e75a44a4639ba008991affb2abef6fabcbbb081ab68701e393d4f9201082903"}
+      s2: {url: "https://www.kyoto-u.ac.jp/ja/faculties-and-graduate", title: "学部・大学院等 | 京都大学", retrievedAt: "2026-11-16", sha256: "8dea21ff3265e8eedf8631a45f26c51125d528b3f95c03f1111ed82f1d5d435a"}
+  - school: F126110107416 # 京都教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "『入学料・授業料』（令和７年度入学者の金額。s4 26ページでは同額を令和８年度入学者の金額として掲載）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料の額』大学院連合教職実践研究科"}
+    sources:
+      s1: {url: "https://www.kyokyo-u.ac.jp/zyugyouryou/", title: "入学料・授業料のご案内｜京都教育大学", retrievedAt: "2026-11-16", sha256: "f65662863fe0c2e025c239832f1be1fd5af825aa39497e866023c1395064e4db"}
+      s2: {url: "https://www.kyokyo-u.ac.jp/weboc/tuition.html", title: "学費・奨学金｜京都教育大学", retrievedAt: "2026-11-16", sha256: "5b44db699879f99c0099339e0d8b9d9b38561036713db83fac8d022a97efb325"}
+      s4: {url: "https://www.kyokyo-u.ac.jp/admission/r9i-youkou.pdf", title: "令和９年度 教育学部一般選抜学生募集要項", retrievedAt: "2026-11-16", sha256: "456bb6cab4500bd76fe22270050d67f790cc4a2fbd62b4eb989c57c0bebd0f7f"}
+  - school: F126110107425 # 京都工芸繊維大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "『10. 入学に要する諸経費 ⑴入学料及び授業料』（令和9年度入学者向け。令和8年度向けs2の13ページも同額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『１.正規課程の学生』大学院研究科"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『１.正規課程の学生』大学院研究科"}
+    sources:
+      s1: {url: "https://www.kit.ac.jp/campus_index/fee/", title: "授業料等について - 国立大学法人 京都工芸繊維大学", retrievedAt: "2026-11-16", sha256: "68c76754b11be97a2ebcd552f65aed2b5b30639e3095bd3c13f200b81d1d6aa4"}
+      s3: {url: "https://ac.web.kit.ac.jp/02/nyushi/yoko/gakubu/R09_suisen_yoko.pdf", title: "令和9年度入学者向け 工芸科学部 学校推薦型選抜 学生募集要項", retrievedAt: "2026-11-16", sha256: "7df0267a368dc82288531818e5be65e1e924b8cb0886b03bb78a70c08cac25b8"}
+  - school: F127110107852 # 大阪大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "≪授業料等の額≫の表『学部』（2026年11月のお知らせが載る現行ページ）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『大学院研究科』"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『大学院研究科』"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表『法科大学院』"}
+    sources:
+      s1: {url: "https://www.osaka-u.ac.jp/ja/campus/tuition/tuition_info", title: "授業料・入学料 － 大阪大学", retrievedAt: "2026-11-16", sha256: "1870a6be79aa90acb892cca674c0feedfe45ba154e97193f727cd1e0aa6948b3"}
+      s2: {url: "https://www.osaka-u.ac.jp/kitei/reiki_honbun/u035RG00000001.html", title: "大阪大学学部学則", retrievedAt: "2026-11-16", sha256: "4a391d87da31a3978511105c899dcfe2ca4f7352d01fcc8aec430fa10aad8356"}
+  - school: F127110107861 # 大阪教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表『令和8年度入学』学部（注※1 令和9年度入学者は変更される場合がある）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s2, locator: "表『令和8年度入学』学部（夜間5年専攻）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表『令和8年度入学』大学院"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表『令和8年度入学』大学院（教職修士課程を含む区分）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表『令和8年度入学』大学院"}
+    sources:
+      s2: {url: "https://osaka-kyoiku.ac.jp/Portals/0/files/university/kouhou/relations/guide/guide2027_P89_P90.pdf", title: "大学案内2027 P89-P90（学費・奨学金）", retrievedAt: "2026-11-16", sha256: "694620aa44d855b8548569f271b6e85c6351241ef3074823f0e3729cc4ea16cd"}
+      s3: {url: "https://osaka-kyoiku.ac.jp/Portals/0/files/admission/department/ippan/r9/r9_senbatsuyoukou.pdf", title: "令和9年度 入学者選抜要項", retrievedAt: "2026-11-16", sha256: "79ce41594edee7a8afae2438f42fb20dd03c1aa9881219a180ae9929277707f9"}
+  - school: F128110108654 # 神戸大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『令和８年度の入学料・授業料等』学部"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『大学院の研究科（法学研究科実務法律専攻を除く）』"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上（専門職学位課程の経営学研究科等もこの区分）"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表『法学研究科実務法律専攻』"}
+    sources:
+      s1: {url: "https://www.kobe-u.ac.jp/ja/campus-life/general/tuition/", title: "入学料・授業料等について | 神戸大学", retrievedAt: "2026-11-16", sha256: "3e47932cbc5c621c4bed1c68eca39ccfcbae35df3487f627b0304bbca1cec9ce"}
+      s2: {url: "https://www.kobe-u.ac.jp/sites/default/files/doc-page/2026-07/economics_2026_3_gakusoku.pdf", title: "国立大学法人神戸大学学則（2026年7月掲載の写し）", retrievedAt: "2026-11-16", sha256: "da1376d5f80fe3aba5a00eb23971aaf344ec12e30aa9d7eb58e7802462f02d0b"}
+  - school: F128110108663 # 兵庫教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "7ページ『入学手続書類等』と注１（令和7年度納付額）。令和8年度の授業料はs2の表『授業料の金額（令和8年度）』で同額"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表『授業料の金額（令和8年度）』学部・修士・専門職・博士（入学料はs4の表『入学料』）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "同上"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "同上"}
+    sources:
+      s2: {url: "https://www.hyogo-u.ac.jp/campuslife/fee_pay.php", title: "授業料の納付について - キャンパスライフ | 兵庫教育大学", retrievedAt: "2026-11-16", sha256: "2dbbc3124fbed0ec42551fc489126402e4f33807eb288540761ae4404e82452c"}
+      s3: {url: "https://www.hyogo-u.ac.jp/admission/education/R8gakuseibosyuyoukou_ippan.pdf", title: "令和8年度 学校教育学部 学校教育教員養成課程 学生募集要項【一般選抜】", retrievedAt: "2026-11-16", sha256: "e895ec73094372362172499d84bd8fa3f87e583f12439d8f2a560aac0f15371e"}
+  - school: F129110109206 # 奈良教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "24ページ『入学手続等』①入学料と（参考）授業料（令和8年度入学者の金額。令和9年度入学者は変更する場合あり）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・検定料、授業料』大学院"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・検定料、授業料』大学院（専門職学位課程も同じ区分）"}
+    sources:
+      s1: {url: "https://www.nara-edu.ac.jp/admissions/fee.html", title: "入学料・検定料、授業料、奨学金等 - 奈良教育大学", retrievedAt: "2026-11-16", sha256: "1af8550444ac201cc589f6b39674d0994da4fe86d0e1c0d940ac854c9f7201d3"}
+      s3: {url: "https://www.nara-edu.ac.jp/assets/r9-ippansenbatu-1.pdf", title: "令和9年度 教育学部一般選抜 学生募集要項", retrievedAt: "2026-11-16", sha256: "b2c4f6adc0ab1503b1c9e33b325aea4c03bd2c1f51001018d48ac8faac5e3329"}
+  - school: F129110109215 # 奈良女子大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "PDF24ページ『入学料・授業料について』（令和8年度入学者の実績額）。s1の表（令和8年10月1日現在）も同額"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『検定料、入学料、授業料…の額』大学院（令和8年10月1日現在）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "同上"}
+    sources:
+      s1: {url: "https://www.nara-wu.ac.jp/nwu/campuslife/fees/tuitionfees/", title: "授業料等｜学生生活｜奈良女子大学 Nara Women's University", retrievedAt: "2026-11-16", sha256: "759b01c1035be805d2acdc89bb8324dd021a9e29b423a82f8b85bdf9fe435ed9"}
+      s3: {url: "https://www.nara-wu.ac.jp/nyusi/R9ippanbosyuuyoukou.pdf", title: "令和9年度 一般選抜 学生募集要項", retrievedAt: "2026-11-16", sha256: "db692d3d8f2e8cbf4c92bd3a13037f5a35a8a82b6ae8a0ea27e5bebc031942af"}
+  - school: F129110109224 # 奈良先端科学技術大学院大学
+    plans:
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "PDF13ページ『入学時納付金』（予定額）。s1の表『博士前期課程』も同額"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『授業料等の額について』博士後期課程（前期課程と同じ行）"}
+    sources:
+      s1: {url: "https://www.naist.jp/campuslife/gakumu/tuition.html", title: "授業料・入学料等について｜奈良先端科学技術大学院大学", retrievedAt: "2026-11-16", sha256: "09e1c5b4e29dd9736edc44f6e8cdb1448818f4e2ddf41c20a01bd8580ed89186"}
+      s2: {url: "https://www.naist.jp/admission/examinee/assets/doc/zenki_youkou_2027.pdf", title: "2027年入学 学生募集要項 博士前期課程", retrievedAt: "2026-11-16", sha256: "77165a12e899da0e187760635b107ffc175b0a07530d77af091ed6355b3283a2"}
+  - school: F130110109356 # 和歌山大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料（令和8年度実績）』。s3のPDF52〜53ページも令和8年4月現在の同額（令和9年度入学者は決定次第通知）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s2, locator: "表『2026年度授業料』大学院研究科（入学料はこのページに無い）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s2, locator: "同上"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s2, locator: "同上"}
+    sources:
+      s1: {url: "https://www.wakayama-u.ac.jp/admission/faculty/faq.html", title: "入学に関するＱ＆Ａ | 和歌山大学", retrievedAt: "2026-11-16", sha256: "66ee3b066ad55ce7279b23e5f807cc2f90425acd1ac61dd63cf2efe7641500cd"}
+      s2: {url: "https://www.wakayama-u.ac.jp/scenter/fee/payment.html", title: "授業料のお支払いについて | 和歌山大学", retrievedAt: "2026-11-16", sha256: "1b14f4a065aec5df5da227f75655a2a7653ba7601a98e9214fe354f0976a3040"}
+      s3: {url: "https://www.wakayama-u.ac.jp/_files/00770491/R9ippanyoukou.pdf", title: "令和9年度 一般選抜 学生募集要項", retrievedAt: "2026-11-16", sha256: "3100ff1513b0f21934f13ab882f1cdf319ee685627990007a0535479641a3aab"}
+  - school: F131110109417 # 鳥取大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "PDF71ページ『３ 入学料等』①入学料・②授業料（予定額）。s1（令和4年4月1日現在）・s2（令和6年4月1日現在）も同額"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表『大学院』（入学料はs1の表『大学院』）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "同上"}
+    sources:
+      s2: {url: "https://www.tottori-u.ac.jp/campuslife/fee/tuition/", title: "授業料/鳥取大学", retrievedAt: "2026-11-16", sha256: "5b30c1b470ba4683d87a639300fcc6e6589a068d96b962d424ec458e8d0414b5"}
+      s3: {url: "https://www.admissions.adm.tottori-u.ac.jp/wp-content/uploads/2026/11/r9_ippan_bosyuyoko_1110.pdf", title: "令和9年度 学生募集要項 一般選抜", retrievedAt: "2026-11-16", sha256: "82bdd8b19c41a7e896c9257c43d38ee9578c80db94e40515050ff0e8c90ac587"}
+  - school: F132110109461 # 島根大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s3, locator: "PDF89ページ『(2)入学手続時に必要な経費』入学料（予定額）とPDF90ページ『９ 授業料について (1)授業料の額』。s1『令和８年度授業料の納入について"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "表『大学院研究科』（令和8年度）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "同上"}
+    sources:
+      s1: {url: "https://www.shimane-u.ac.jp/procedure/procedure/tuition/", title: "授業料について | 国立大学法人 島根大学", retrievedAt: "2026-11-16", sha256: "1bdb474da7d1576f9f203df27ce18a7efe649d1cae5c6c89908e21e700d6c26e"}
+      s3: {url: "https://www.shimane-u.ac.jp/_files/00441513/20260928_00.pdf", title: "令和9年度 学生募集要項（大学入学共通テストを課さない総合型選抜）", retrievedAt: "2026-11-16", sha256: "847932411660dbd62c2e4a75a671db5d02339a9ad37fb93b7048ceadd498f9d8"}
+      s4: {url: "https://www.shimane-u.ac.jp/_files/00432498/2026071001.pdf", title: "令和9年度 入学者選抜要項", retrievedAt: "2026-11-16", sha256: "34ad3e6c1a06592d55bb9eb0302173f5927f6b6115be5971fc0bc204b8756aa1"}
+  - school: F133110109503 # 岡山大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        note: "2027年度の募集要項の表は標準額の予定額のままだが、改定のお知らせで2027年度入学者から改定の額を当てると発表している"
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "第2条の表『学部（主として夜間において授業を行うコースを除く。）』"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "『1. 日本人学生等の授業料』表 学部 改定額 2027年4月入学者から適用"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s2, locator: "第2条の表『学部（主として夜間において授業を行うコース）』"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2031
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "第2条の表『その他の研究科』"}
+          - {from: 2031, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『大学院（法務研究科を除く）博士前期課程、修士課程、専門職学位課程』2031年4月入学者から適用"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2031
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "第2条の表『その他の研究科』"}
+          - {from: 2031, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表『大学院（法務研究科を除く）…専門職学位課程』2031年4月入学者から適用"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『大学院 博士後期課程、博士課程』改定なし"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表『大学院 法務研究科 専門職学位課程』改定なし（入学料はs2第2条の表）"}
+    sources:
+      s1: {url: "https://www.okayama-u.ac.jp/user/st/nyushika/2027/pdf/tuituon-fees-ja.pdf", title: "2027年度入学生からの授業料改定について（2026年8月）", retrievedAt: "2026-11-16", sha256: "40e815ea150a5a64c4ebc4f648a0f7538d6c78ca843c143a8857352711cd87b2"}
+      s2: {url: "https://www.okayama-u.ac.jp/shokisoku/reiki_honbun/u352RG00000050.html", title: "岡山大学学生等の授業料，入学料及び検定料の額並びにその徴収方法を定める規則", retrievedAt: "2026-11-16", sha256: "1df0ddcc3d0aa4c0138bf40770c505cd1886500ae2fca47c289d10e017c1a2e0"}
+      s6: {url: "https://www.okayama-u.ac.jp/user/st/nyushika/2027/pdf/kansuruyoko/2027-04_ryokin.pdf", title: "2027年度 入学者選抜に関する要項 4 検定料、入学料、その他入学時納付金及び授業料について", retrievedAt: "2026-11-16", sha256: "5099a3ff7e4a67cae4d3d2464647a1b4daebca3f1b647c0cff81ea01311a814a"}
+      s7: {url: "https://www.okayama-u.ac.jp/user/hospital/", title: "岡山大学病院 おかやまだいがくびょういん", retrievedAt: "2026-11-16", sha256: "32af91958ae788a26a91e7d1129133bc27cab8be6c9f16f559a510a691d9c6e6"}
+  - school: F134110109780 # 広島大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『授業料の金額について』2026年度の表 大学学部(昼間)（入学料はs2の表 大学学部(昼間)、平成17年度からの額はs3の表）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "2026年度の表 大学学部(夜間主)（入学料はs2の表 大学学部(夜間主)）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "2026年度の表 大学院の研究科（入学料はs2）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "2026年度の表 大学院の研究科（入学料はs2）"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "2026年度の表 法科大学院（入学料はs2）"}
+    sources:
+      s1: {url: "https://www.hiroshima-u.ac.jp/nyugaku/gakuhi/jyugyoryo", title: "授業料 | 広島大学", retrievedAt: "2026-11-16", sha256: "edc463fbbfc8807350fda5ab6fedce64cf02d825e0ec8c61222ba28f4596d1e7"}
+      s5: {url: "https://www.hiroshima-u.ac.jp/schools/schools", title: "学部 | 広島大学", retrievedAt: "2026-11-16", sha256: "e41591adaf2371f14518f0f67746c8e6f11d4d1f77a067fb6b8cb01f8d6c12d1"}
+      s6: {url: "https://momiji.hiroshima-u.ac.jp/momiji-top/en/international/14f13d83694342e67b865e510ff99077e648e72c.pdf", title: "ひろしまだいがくとしょかん しょうかい 広島大学図書館の紹介", retrievedAt: "2026-11-16", sha256: "72999f2f6d391b886092f35bdc7845fc56360a3b8f36735ca75995afe161d57c"}
+  - school: F135110110054 # 山口大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『1．授業料改定の内容』表 学士課程 現行"}
+          - {from: 2026, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "『1．授業料改定の内容』表 学士課程 改定後 令和8年4月入学者より（入学料はs2の表、据え置きはs1本文）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院博士前期課程（修士課程、専門職学位課程含む）現行"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表 大学院博士前期課程 改定後 令和9年4月入学者より"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院博士前期課程（…専門職学位課程含む）現行"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s1, locator: "表 同 改定後 令和9年4月入学者より"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院博士後期課程（医学博士課程・共同獣医学研究科博士課程含む）535,800円のまま"}
+    sources:
+      s1: {url: "https://www.yamaguchi-u.ac.jp/news/45112/index.html", title: "令和8年4月以降の授業料改定決定のお知らせ ｜ 国立大学法人 山口大学", retrievedAt: "2026-11-16", sha256: "01725018d49b1e22ae494e35c8650a5a48c0535e2ee12603944e67fe1c4a8393"}
+      s4: {url: "https://www.yamaguchi-u.ac.jp/nyushi/wp-content/uploads/2025/11/r8ippan_boshu_yoko.pdf", title: "令和8年度 学生募集要項 一般選抜", retrievedAt: "2026-11-16", sha256: "5b5872895d22dedeb3b26aa6f6b158453c0c958cb99c5421ca910147009551e4"}
+      s5: {url: "https://www.yamaguchi-u.ac.jp/isc/wp-content/uploads/2024/07/6b92a5b8138550104f47f89b00d622a9.pdf", title: "【重要】学内における感染症予防対策について（ふりがな付き）", retrievedAt: "2026-11-16", sha256: "aaa11fe654778fd5dbdb112c412ec8becd1e89a67cf649447bd1cdc65a938c12"}
+  - school: F136110110231 # 徳島大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『2 入学料・授業料・その他の経費』令和8年4月入学者向け（規則はs2第2条の表）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "『2 入学料・授業料・その他の経費』括弧書き（理工学部夜間主コース）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "第2条の表『大学院研究科』（s3の表『大学院研究科又は大学院教育部』も同額）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "第2条の表『大学院研究科』"}
+    sources:
+      s1: {url: "https://www.tokushima-u.ac.jp/campus/admission/", title: "入学手続・学費 - 国立大学法人 徳島大学（令和8年4月入学者向け）", retrievedAt: "2026-11-16", sha256: "5acd73af59e2a851f1b49e44a64cf5fc37afd87fae5dccb3831b75ada71997c8"}
+      s2: {url: "https://www.tokushima-u.ac.jp/legal/reiki_honbun/x383RG00000245.html", title: "国立大学法人徳島大学授業料、入学料、検定料及び寄宿料収納規則", retrievedAt: "2026-11-16", sha256: "86ebb0203d8f0b2737f4d64439771037a95742910435074b173e14de27b5f483"}
+      s4: {url: "https://www.tokushima-u.ac.jp/dent/kana/", title: "徳島大学歯学部（ふりがな表示）", retrievedAt: "2026-11-16", sha256: "066ead7f3b6efd0b59c015185db8f2089f09de6f8013108c3fd36981eda05d75"}
+  - school: F136110110240 # 鳴門教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『検定料・入学料・授業料（学部）』（同ページに令和9年度入試の案内あり）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表 区分『標準』（長期履修は別額）"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "表 区分『標準』（大学院共通の表。教職大学院を含むと読んだ）"}
+    sources:
+      s1: {url: "https://www.naruto-u.ac.jp/admissions/undergraduate06/", title: "検定料・入学料・授業料（学部） – 鳴門教育大学", retrievedAt: "2026-11-16", sha256: "13e44fa3d823e70ffb033ba4bc9d2f822b3d41dc35da19b762765519fda33f6e"}
+      s2: {url: "https://www.naruto-u.ac.jp/admissions/graduate04/", title: "検定料・入学料・授業料（大学院） – 鳴門教育大学", retrievedAt: "2026-11-16", sha256: "6c0d8471007939ecceb28bca270c52e3af37577424900e8695296c353e49dd8e"}
+      s4: {url: "https://www.naruto-u.ac.jp/edb/kana/", title: "鳴門教育大学教員情報データベース（ふりがな表示）", retrievedAt: "2026-11-16", sha256: "8b1015ce22e22e47eb7eb32f9936b23470afec30e1625d543402434af9b230ce"}
+  - school: F137110110310 # 香川大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『入学料の額』『授業料の額』表（令和8年4月1日現在）学部生（s4本文に平成17年度以降据え置き）"}
+          - {from: 2027, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s4, locator: "3ページ目の表 学士課程(昼間コース) 令和9(2027)年度入学者から適用（入学料は4ページ目で据え置き）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "表 学部生（夜間主コース）"}
+          - {from: 2027, appliesTo: newEntrants, admission: 141000, annual: 321480, source: s4, locator: "3ページ目の表 学士課程(夜間主コース) 令和9(2027)年度入学者から適用"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2028
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院生"}
+          - {from: 2028, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s4, locator: "3ページ目の表 修士課程・博士前期課程・専門職学位課程 令和10(2028)年度入学者から適用"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2028
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院生"}
+          - {from: 2028, appliesTo: newEntrants, admission: 282000, annual: 642960, source: s4, locator: "3ページ目の表 専門職学位課程 令和10(2028)年度入学者から適用"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s4, locator: "3ページ目の表 博士後期課程（医学系研究科博士課程を含む）改定しない"}
+    sources:
+      s1: {url: "https://www.kagawa-u.ac.jp/campus-life/tuition-info/tuition/", title: "香川大学 :: 入学料・授業料", retrievedAt: "2026-11-16", sha256: "7b58975ead21f8be760fc94cb26f9d755ed1d7a4d8d6cea6e569c6a4335605da"}
+      s4: {url: "https://www.kagawa-u.ac.jp/files/8917/8771/0715/0826.pdf", title: "令和9（2027）年度からの授業料改定について（決定）", retrievedAt: "2026-11-16", sha256: "460f1060c98e514db8cf11fb68324df4727c64abb352406c5a1fe5c90bb7a1aa"}
+      s6: {url: "https://www.kagawa-u.ac.jp/files/7017/8243/1856/2027.pdf", title: "2027年度入学者選抜要項（全ページ掲載）", retrievedAt: "2026-11-16", sha256: "8fd0640a39b83b76b04808b71d227fbed070b097823cb30488fa99b0c5502900"}
+  - school: F138110110382 # 愛媛大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "『授業料の納付金額について』2026年度の表（入学料はs3『入学料』の項。s3は令和8年度納付額として同額）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "2026年度の表 法文学部（夜間主コース）（入学料はs3）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "2026年度の表『学部学生・大学院学生』（大学院の入学料は写しに記載なし）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: null, annual: 535800, source: s1, locator: "2026年度の表『学部学生・大学院学生』（大学院の入学料は写しに記載なし）"}
+    sources:
+      s1: {url: "https://www.ehime-u.ac.jp/entrance/tuition-payment/", title: "授業料納付 | 入試 | 愛媛大学", retrievedAt: "2026-11-16", sha256: "3d2b1db6c25a821d2344279e49d935a5aad02bcf2c44b0b88ad4d7786529643e"}
+      s3: {url: "https://www.ehime-u.ac.jp/wp-content/uploads/2026/10/R9_ippanbosyuyoko.pdf", title: "令和9年度 一般選抜学生募集要項", retrievedAt: "2026-11-16", sha256: "3eabb13b205b027992f2d3aada1cef5bec08d645e5b1cf82d63a56f74b3f3aba"}
+  - school: F139110110504 # 高知大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料/授業料等の金額について』区分 学部"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 区分 大学院研究科"}
+      - plan: doctor
+        status: pendingReview
+        latestEntryYear: 2026
+        note: "確かめ待ち: 入学料0円（学内からの進学）を写しの文字で読めない"
+        revisions: []
+    sources:
+      s1: {url: "https://www.kochi-u.ac.jp/campus/life/nyugakuryo.html", title: "入学料/授業料について - 高知大学", retrievedAt: "2026-11-16", sha256: "f4d0d6abb16ae908d731d84a88d2dfe4bd88a363d68fde41251315d153ec2ffd"}
+      s3: {url: "https://www.kochi-u.ac.jp/academics/", title: "学部・大学院等 - 高知大学", retrievedAt: "2026-11-16", sha256: "81cfd7aa9b97cfb122c233d61027506c6d81b2df85ac6cd261edef27e2a834ff"}
+      s5: {url: "https://www.kochi-u.ac.jp/education-support/tuition-aid/graduate-support/", title: "大学院生への経済的支援 - 高知大学", retrievedAt: "2026-11-16", sha256: "10e2c23cbcd93592ca0538305c3bda21ad806dff0fe53df7801068277e3a46cc"}
+  - school: F140110110574 # 九州工業大学
+    general: other
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『検定料・入学料・授業料(2026年度)』学部 昼間コース生（授業料は半年分267,900円の2倍。年額はs3冒頭に明記）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院 博士前期課程（半年分267,900円）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院 博士後期課程（学外からの入学者）。当学府・研究科から引き続きの入学者は入学料なし（表で『-』）"}
+    sources:
+      s1: {url: "https://www.kyutech.ac.jp/campuslife/tuition/", title: "検定料・入学料・授業料・諸納金 | 九州工業大学", retrievedAt: "2026-11-16", sha256: "45083715b8f1b8defeb9fe8e2141240439ba8bbc8e9e925478e7993a3711089a"}
+      s4: {url: "https://www.kyutech.ac.jp/department/", title: "学部・大学院等 | 九州工業大学", retrievedAt: "2026-11-16", sha256: "30e6eabfa8e7b6e6bb1dfc2a83bc1d1214ba4afdad10c17dbd4dd0e385b7ce5c"}
+  - school: F140110110583 # 福岡教育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『検定料、入学料及び授業料について』教育学部の行"}
+      - plan: professional
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院教育学研究科の行（教職大学院）"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 大学院教育学研究科の行（共同学校教育学専攻 博士後期課程にも当てはまると読んだ）"}
+    sources:
+      s1: {url: "https://www.fukuoka-edu.ac.jp/campuslife/expenses/fee.html", title: "検定料、入学料及び授業料について｜国立大学法人 福岡教育大学", retrievedAt: "2026-11-16", sha256: "4495b5dceff637b320270dc3d89dac3213b176e81a498f2906c0f1728da933b5"}
+      s2: {url: "https://www.fukuoka-edu.ac.jp/faculty/sidemenu.json", title: "学部・大学院（メニューの見出しの書き出し）", retrievedAt: "2026-11-16", sha256: "2a667334d605ef18e73b7174ea56aff74ea38550f655916773a5e908e5b370a4"}
+  - school: F140110110592 # 九州大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』『授業料』（令和8年4月1日現在）区分 学部"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 区分 大学院の学府／学部・大学院の学府"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表 区分 大学院の学府／学部・大学院の学府"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表 区分 法科大学院"}
+    sources:
+      s1: {url: "https://www.kyushu-u.ac.jp/ja/admission/fees/expenses", title: "学生納付金 | 九州大学", retrievedAt: "2026-11-16", sha256: "c81f8af25e8277ef5945fad6cd844123ea004b96b8ba6fb0974189f38c6da7d9"}
+      s4: {url: "https://www.kyushu-u.ac.jp/f/66626/R9_gaiyo_2-1.pdf", title: "令和9年度 九州大学入学者選抜概要 Ⅱ-1.募集人員", retrievedAt: "2026-11-16", sha256: "1761cab0617689275aaaf5175d3841fb3cf221eab852dd1367aa7fafede5adba"}
+  - school: F141110111135 # 佐賀大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "p.29「入学料」・p.31（2025年4月現在の額と注記）"}
+    sources:
+      s1: {url: "https://www.sao.saga-u.ac.jp/PDF/R8/R8_ippan.pdf", title: "2026年度 佐賀大学 一般選抜 学生募集要項", retrievedAt: "2026-11-16", sha256: "b3d20ff26bc1336c3376fced3dcf7cd2785f51920b55c4db2af86fc739d77d91"}
+  - school: F142110111189 # 長崎大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料・授業料』（入学料282,000円・授業料年額535,800円）。s2 p.14「(3)納付金の納入」でも2027年度入学者向けに入学料282,000"}
+    sources:
+      s1: {url: "https://www.nagasaki-u.ac.jp/nyugaku/support/", title: "大学生活及び奨学金等｜長崎大学 受験生の入試情報サイト", retrievedAt: "2026-11-16", sha256: "5da2524f688511d3206dd19b9a228cec54e68a30839d226f91acfe6b2b090107"}
+  - school: F143110111295 # 熊本大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        note: "2027年度から全学年で改定。2028年度以降は物価などに合わせて見直す方針と案内にあるが、額が決まっていないので2027年度の額のまま持つ"
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』学部又は学環・表『授業料』学部又は学環（年額）"}
+          - {from: 2027, appliesTo: allStudents, admission: 282000, annual: 594600, source: s2, locator: "【改定内容の概要】表『改定後の授業料』学部・学環 年額594,600円（入学金は変更なし）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』『授業料』大学院の研究科又は教育部"}
+          - {from: 2027, appliesTo: allStudents, admission: 282000, annual: 594600, source: s2, locator: "表『改定後の授業料』大学院の研究科・教育部"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『入学料』『授業料』大学院の研究科又は教育部"}
+          - {from: 2027, appliesTo: allStudents, admission: 282000, annual: 594600, source: s2, locator: "表『改定後の授業料』大学院の研究科・教育部"}
+    sources:
+      s1: {url: "https://www.kumamoto-u.ac.jp/daigakuseikatsu/nyugaku_zyugyou", title: "入学料・授業料 | 熊本大学", retrievedAt: "2026-11-16", sha256: "d7705475a6def31459e96fe628379971f8af1b9b8cb76ba7715496a8903a5e3d"}
+      s2: {url: "https://www.kumamoto-u.ac.jp/whatsnew/koho/4r8b66/260630zyugyouryou", title: "熊本大学における授業料の改定について | 熊本大学", retrievedAt: "2026-11-16", sha256: "ade1487e49c572354bdef7e4729d546bd9835e16515ad74b9e3438d294d7b725"}
+      s3: {url: "https://www.kumamoto-u.ac.jp/gakubutou", title: "学部・大学院等 | 熊本大学", retrievedAt: "2026-11-16", sha256: "53098446e94a777f2e482d8ac9fd78f9821aac77def8b4aa93863c71bec4731d"}
+  - school: F144110111418 # 大分大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2027
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "p.1 第2条の表『学部』（※印の平成5〜10年度入学者の旧額を除く）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "p.1 第2条の表『大学院の研究科』"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "p.1 第2条の表『大学院の研究科』"}
+    sources:
+      s1: {url: "https://www.oita-u.ac.jp/kitei/08-ae01/af22.pdf", title: "大分大学授業料その他の費用に関する規程", retrievedAt: "2026-11-16", sha256: "a03c50604598dfa3cbdb0d57f6ff6cfc0091f771741d46a8a60bd7e15286aed0"}
+      s2: {url: "https://www.oita-u.ac.jp/000071339.pdf", title: "令和9年度（2027年度）入学者選抜要項", retrievedAt: "2026-11-16", sha256: "686638a6446eda8a930d563afc579721e2cbb8f65a97ca19f21082383722616c"}
+  - school: F145110111523 # 宮崎大学
+    general: none
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "p.1「金額について」の表 学部生（入学料・授業料年額）。p.2 は令和8年度授業料の納付案内"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "p.1「金額について」の表 大学院生"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "p.1「金額について」の表 大学院生（修士から本学博士へ進学する場合は入学料不要）"}
+    sources:
+      s2: {url: "https://www.miyazaki-u.ac.jp/manabi-jim/5666c6b22a6b03a16a3a3485eda3ba8d328974eb.pdf", title: "Ⅰ-Ⅰ 授業料等について（学部生・大学院生・畜産別科生）", retrievedAt: "2026-11-16", sha256: "f7c18ab1aa3eebbebca049abb52f72e56e06a0cc90d4b164c596d8d33d5afe14"}
+      s4: {url: "https://www.miyazaki-u.ac.jp/faculty/department/index.html", title: "学部等のご紹介｜宮崎大学", retrievedAt: "2026-11-16", sha256: "8f33725b3abc4834dd0e26a82b21a62d9726646ee0fcdd7ff632752261c90408"}
+  - school: F146110111620 # 鹿児島大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "Ⅰ．納付額について 表『a．学部生等にかかる授業料』大学の学部（令和8（2026）年度の額）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『a．学部生等にかかる授業料』大学院の研究科"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『a．学部生等にかかる授業料』大学院の研究科"}
+    sources:
+      s1: {url: "https://www.kagoshima-u.ac.jp/education/kakusyuhiyou.html", title: "授業料、入学料、検定料 | 教育・学生生活 | 国立大学法人 鹿児島大学", retrievedAt: "2026-11-16", sha256: "b580b9a8bc9bf9ac0bbc0193561327e4c3e1dfdbe7ca6d22f67e6fa17c8cc832"}
+      s2: {url: "https://www.kagoshima-u.ac.jp/faculty/", title: "学部・大学院など | 国立大学法人 鹿児島大学", retrievedAt: "2026-11-16", sha256: "51688baa70c271c5ce70e87c68ffc5c09714c51bd4268d53234e5fd334c1236b"}
+  - school: F146110111639 # 鹿屋体育大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s2, locator: "PDF p.10（冊子17〜18ページ）『▼入学料について』［入学料］・『▼授業料について』［授業料（予定額）］年額"}
+    sources:
+      s1: {url: "https://www.nifs-k.ac.jp/wp-content/uploads/2026/07/R9_鹿屋体育大学入学者選抜要項.pdf", title: "令和9年度 鹿屋体育大学入学者選抜要項", retrievedAt: "2026-11-16", sha256: "a948aa760096f0743128eb30cc6e818b70b95a8fbba024f62092b6905808ae6b"}
+      s2: {url: "https://www.nifs-k.ac.jp/wp-content/uploads/2026/01/02_2026入学ガイドブック【Ⅱ.入学手続-】.pdf", title: "2026入学ガイドブック【Ⅱ.入学手続】", retrievedAt: "2026-11-16", sha256: "70a5df6a806628968cdc49ce1b9a02d9616f799f10bc4c249421efbd5dd16150"}
+  - school: F147110111736 # 琉球大学
+    general: inSchoolRevisionApplies
+    plans:
+      - plan: day
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1）正規課程の学生に係る授業料等』学部（昼）（令和8年4月1日現在）"}
+      - plan: evening
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 141000, annual: 267900, source: s1, locator: "表『1）』学部（夜間主コース）"}
+      - plan: master
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1）』大学院研究科"}
+      - plan: doctor
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 535800, source: s1, locator: "表『1）』大学院研究科（修士から本学博士へ進学する場合は入学料不要）"}
+      - plan: law
+        status: reviewed
+        latestEntryYear: 2026
+        revisions:
+          - {from: null, admission: 282000, annual: 804000, source: s1, locator: "表『1）』法務研究科"}
+    sources:
+      s1: {url: "https://www.u-ryukyu.ac.jp/wp-content/uploads/2024/03/27f048e4fd94eed6019e49b5ef18d878.pdf", title: "【令和8年度 入学料・授業料等の金額について】", retrievedAt: "2026-11-16", sha256: "d6cdeef378bc080488c8f644f98020a2bead5462a15691591fd8ae405cbc25ce"}
+      s3: {url: "https://www.u-ryukyu.ac.jp/faculty/", title: "学部・大学院等 | 琉球大学", retrievedAt: "2026-11-16", sha256: "c1522e94284656694483b0a88bf2a494e3ab7f6119a36f6e6494fa26ae52ed5e"}

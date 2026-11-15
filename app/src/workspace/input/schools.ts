@@ -4,6 +4,7 @@
 // - 探し方: 打つたびに候補が絞られる部分一致。学校名・読み・略称・旧校名のどれでも引ける。全角半角・カタカナひらがな・旧字体の揺れはそろえて比較する
 // - 学校の段（幼稚園〜大学院）ごとに選べる学校種を決め、段に合わない学校は候補に出さず、選べない
 import type { EducationStage } from "../../engine/types.ts";
+import { graduatePlanOf, PLAN_GRADES, planOf, TUITION_PACK_ID, tuitionRows, type SchoolTuitionData, type TuitionPlan, type TuitionPlanId } from "./tuition.ts";
 
 /** 画面に配る形（app/scripts/schoolList.ts の buildSchoolBundle と同じ） */
 export interface SchoolBundle {
@@ -15,8 +16,10 @@ export interface SchoolBundle {
   schools: (string | number)[][];
   /** [学校コード, 別名, 種類（abbr 略称・former 旧校名・variant 別の表記）] */
   aliases: [string, string, string][];
-  /** 学部・学科（学校コード → 部局の並び）。第2段で入れる（今は無い） */
+  /** 学部・学科（学校コード → 部局の並び。data/schools/departments.yaml。0219） */
   departments?: Record<string, SchoolDepartment[]>;
+  /** 学校別の学費（master.education.tuition。data/tuition。今は国立大学の全校。0219） */
+  tuition?: { pack: string; version: string; schools: Record<string, SchoolTuitionData> };
 }
 
 /** 学部・学科（0010 の2: 学校コード＋自前の固定ID。部局IDは使い回さない） */
@@ -26,6 +29,8 @@ export interface SchoolDepartment {
   name: string;
   /** 修業年数 */
   years?: number;
+  /** 学費の区分（tuition の plans。省略は学部 day） */
+  plan?: string;
 }
 
 export interface School {
@@ -66,6 +71,8 @@ export interface SchoolList {
   byCode: ReadonlyMap<string, School>;
   index: readonly IndexEntry[];
   departments: Readonly<Record<string, SchoolDepartment[]>>;
+  /** 学校別の学費（無ければ空） */
+  tuition: { pack: string; version: string; schools: Readonly<Record<string, SchoolTuitionData>> };
 }
 
 export const SCHOOL_PACK_ID = "master.education.schools";
@@ -162,7 +169,7 @@ export function makeSchoolList(b: SchoolBundle): SchoolList {
       successor: t[5] === undefined ? "" : String(t[5]),
     });
   }
-  const list: SchoolList = { pack: b.pack, version: b.version, edition: b.edition, byCode, index: [], departments: b.departments ?? {} };
+  const list: SchoolList = { pack: b.pack, version: b.version, edition: b.edition, byCode, index: [], departments: b.departments ?? {}, tuition: b.tuition ?? { pack: TUITION_PACK_ID, version: "", schools: {} } };
   const index: IndexEntry[] = [];
   for (const s of byCode.values()) {
     if (s.abolishedOn !== "") {
@@ -254,14 +261,39 @@ export function sectorForSchool(stage: string, s: Pick<School, "sector" | "kind"
   return "public";
 }
 
-/** 学部・学科の一覧（無ければ空。第2段で入れる） */
-export function departmentsOf(list: SchoolList, code: string): readonly SchoolDepartment[] {
+/** 学部・学科の一覧（無ければ空） */
+export function departmentsOf(list: Pick<SchoolList, "departments">, code: string): readonly SchoolDepartment[] {
   return list.departments[code] ?? [];
 }
 
-/** 段に持たせる学校（0010 の9: 学校コードと部局ID。学費の実データの行は第2段で写す。行が無ければエンジンは平均で計算する） */
-export function schoolOfStage(code: string, list: Pick<SchoolList, "version">, unit?: string): NonNullable<EducationStage["school"]> {
-  return { school: code, unit: unit ?? code, rows: [], source: { pack: SCHOOL_PACK_ID, version: list.version } } as unknown as NonNullable<EducationStage["school"]>;
+/** 部局（<学校コード>/d001）の学部・学科（無ければ undefined） */
+export function departmentOf(list: Pick<SchoolList, "departments">, unit: string): SchoolDepartment | undefined {
+  const [code, id] = unit.split("/");
+  return id === undefined || code === undefined ? undefined : departmentsOf(list, code).find((d) => d.id === id);
+}
+
+/** 段の学校の学費の区分（学部は部局の区分か学部、大学院は課程）と、その区分のデータ。学費のデータの無い学校・段は null */
+export function tuitionPlanFor(list: Pick<SchoolList, "departments" | "tuition">, code: string, unit: string, stage: Pick<EducationStage, "stage" | "field">): { id: TuitionPlanId; plan: TuitionPlan | null; data: SchoolTuitionData } | null {
+  const data = list.tuition.schools[code];
+  if (data === undefined) return null;
+  const grad = graduatePlanOf(stage.stage, stage.field);
+  if (grad === null && stage.stage !== "university") return null;
+  const id = grad ?? ((departmentOf(list, unit)?.plan as TuitionPlanId | undefined) ?? "day");
+  return { id, plan: planOf(data, id), data };
+}
+
+/**
+ * 段に持たせる学校（0010 の9: 学校コードと部局ID、学費データから写した行）。確かめ済みの学費の区分があれば、その「入学年度×在学年次×費目×支払月」の行を写す
+ * （学部の行は区分の年次まで。計算エンジンは段の在学年数より後の行を使わない）。行が無ければ、計算エンジンは平均（国立大学は標準額）で計算する
+ */
+export function schoolOfStage(code: string, list: Pick<SchoolList, "version" | "departments" | "tuition">, unit?: string, stage?: Pick<EducationStage, "stage" | "field">): NonNullable<EducationStage["school"]> {
+  const u = unit ?? code;
+  const t = stage === undefined ? null : tuitionPlanFor(list, code, u, stage);
+  if (t !== null && t.plan !== null && t.plan.status === "reviewed" && t.plan.revisions.length > 0) {
+    const grad = graduatePlanOf(stage?.stage ?? "", stage?.field);
+    return { school: code, unit: u, track: grad, termStartMonth: 4, rows: tuitionRows(t.plan, PLAN_GRADES[t.id]), source: { pack: list.tuition.pack, version: list.tuition.version } } as unknown as NonNullable<EducationStage["school"]>;
+  }
+  return { school: code, unit: u, rows: [], source: { pack: SCHOOL_PACK_ID, version: list.version } } as unknown as NonNullable<EducationStage["school"]>;
 }
 
 // ---- 遅れて読む ----
