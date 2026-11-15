@@ -157,7 +157,10 @@ async fn serve(
         connector_pid: peer.pid,
         connector_exe: peer.exe.map(|p| p.to_string_lossy().into_owned()),
         parent_exe: peer.parent_exe.map(|p| p.to_string_lossy().into_owned()),
-        mcp_client_declared: mcp_client.map(|c| format!("{} {}", c.name, c.version)),
+        // 名乗りは自己申告。長さを切り、制御文字・見えない書式の文字を除いてから、候補と記録に使う
+        mcp_client_declared: mcp_client.and_then(|c| {
+            crate::households::clean_connector(Some(&format!("{} {}", c.name, c.version)))
+        }),
     };
     loop {
         let env: Envelope = match tokio::time::timeout(IDLE_TIMEOUT, reader.read_json()).await {

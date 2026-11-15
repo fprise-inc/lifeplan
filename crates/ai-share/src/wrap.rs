@@ -25,13 +25,18 @@ fn sanitize(body: &str) -> String {
             '\n' => Some('\n'),
             c if c.is_control() => None,
             // 見えない書式の文字（双方向の上書き・ゼロ幅など）も取り除く
-            '\u{200B}'..='\u{200F}'
-            | '\u{202A}'..='\u{202E}'
-            | '\u{2066}'..='\u{2069}'
-            | '\u{FEFF}' => None,
+            c if is_invisible_format(c) => None,
             c => Some(c),
         })
         .collect()
+}
+
+/// 見えない書式の文字（双方向の上書き・ゼロ幅など）か。包む本文と、AIのアプリの名乗りから取り除く
+pub(crate) fn is_invisible_format(c: char) -> bool {
+    matches!(
+        c,
+        '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}'
+    )
 }
 
 #[cfg(test)]
