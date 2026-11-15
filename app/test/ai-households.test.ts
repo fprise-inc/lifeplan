@@ -37,7 +37,9 @@ describe("新しい世帯の候補の読み口", () => {
     // 文字は書類の候補と同じく NFKC で整える（全角のかっこは半角になる）
     expect(c?.title).toBe(fixture.title.normalize("NFKC"));
     expect(c?.note).toBe(fixture.note.normalize("NFKC"));
-    expect(c?.input).toEqual(fixture.input);
+    // 推定の根拠も同じく NFKC で整える（ほかの欄はそのまま）
+    const expected = JSON.parse(JSON.stringify(fixture.input).replaceAll(/"basis":"([^"]*)"/gu, (_m, b: string) => `"basis":${JSON.stringify(b.normalize("NFKC"))}`)) as unknown;
+    expect(c?.input).toEqual(expected);
     expect(c?.masked).toBe(0);
     expect(c?.dropped).toBe(0);
     expect(c?.connector).toBe("test-ai 1.0");
@@ -129,7 +131,7 @@ describe("確かめの画面", () => {
 });
 
 describe("世帯として作るときの形", () => {
-  it("値の出どころを AI にし、FP の承認の記録を付ける（アプリが自動で決める値は変えない）。元の入力は変えず、計算できるまま", () => {
+  it("値の出どころを AI にし、FP の承認の記録を付ける（AI が auto と書いた値も AI にする）。元の入力は変えず、計算できるまま", () => {
     const at = approvalAt(new Date("2026-11-11T03:04:05.678Z"));
     expect(at).toBe("2026-11-11T03:04:05Z");
     const before = structuredClone(fixture.input);
@@ -143,8 +145,8 @@ describe("世帯として作るときの形", () => {
     expect(living.approval).toEqual({ by: "fp", at, candidate: CID });
     expect(living.state).toBe("estimated");
     const auto = ((out.household.employmentPeriods ?? [])[0] as unknown as { standardMonthlyRemuneration: { health: Record<string, unknown> } }).standardMonthlyRemuneration.health;
-    expect(auto.origin).toEqual({ kind: "auto" });
-    expect(auto.approval).toBeUndefined();
+    expect(auto.origin).toEqual({ kind: "ai", ref: CID, connector: "test-ai 1.0" });
+    expect(auto.approval).toEqual({ by: "fp", at, candidate: CID });
     expect(fixture.input).toEqual(before);
     // 出どころを AI にしても、エンジンのスキーマに合い、同じ数字になる
     const a = preview({ trace: "none", input: fixture.input });
@@ -166,6 +168,93 @@ describe("世帯として作るときの形", () => {
     // 今の形式の版（0070 の 2026-11-13 の追記で 0.78）。本体は保存のときに同じ版を書く（app/src-tauri の ai.rs のテスト）
     expect(BODY_FORMAT_VERSION).toBe("0.78");
     expect(() => preview(back.wh.request)).not.toThrow();
+  });
+});
+
+/** 値の箱（state と origin のある物）を全部たどる */
+const boxesOf = (v: unknown, out: Record<string, unknown>[] = []): Record<string, unknown>[] => {
+  if (Array.isArray(v)) for (const x of v) boxesOf(x, out);
+  else if (typeof v === "object" && v !== null) {
+    const o = v as Record<string, unknown>;
+    if (typeof o.state === "string" && typeof o.origin === "object" && o.origin !== null) out.push(o);
+    for (const x of Object.values(o)) boxesOf(x, out);
+  }
+  return out;
+};
+
+describe("AI が書いた出どころ・確かさ・推定の根拠（独立した点検の指摘）", () => {
+  const at = "2026-11-15T00:00:00Z";
+  const make = (input: EngineRequest["input"]) => {
+    const { candidate: c } = readHouseholdCandidate(candidate({ input }));
+    if (c === null) throw new Error("読めない");
+    return { c, made: withAiOrigin(c.input, c.candidateId, c.connector, at) };
+  };
+
+  it("出どころを override（FP が上書き）と書いた値も、作った世帯では AI の値になり、FP の承認の記録が付く。確かさ・参照・名乗りは持ち込まない", () => {
+    const input = structuredClone(fixture.input);
+    const before = boxesOf(input);
+    expect(before.length).toBeGreaterThan(5);
+    for (const b of before) {
+      b.origin = { kind: "override", ref: "源泉徴収票で FP が確認した値", connector: "FP" };
+      b.certainty = "document";
+    }
+    // 計算エンジン（本体が受け取るときの確かめと同じスキーマ）は通る
+    expect(() => preview({ trace: "none", input })).not.toThrow();
+    const { made } = make(input);
+    const after = boxesOf(made);
+    expect(after.length).toBe(before.length);
+    for (const b of after) {
+      expect(b.origin).toEqual({ kind: "ai", ref: CID, connector: "test-ai 1.0" });
+      expect(b.approval).toEqual({ by: "fp", at, candidate: CID });
+      expect(b.certainty).toBeUndefined();
+    }
+    expect(JSON.stringify(made)).not.toContain("源泉徴収票");
+    // 作った世帯も計算できる（スキーマに合う）
+    expect(() => preview({ trace: "none", input: made })).not.toThrow();
+  });
+
+  it("出どころを auto（アプリの推定）と書いた推定も AI の推定になる（アプリが入れ直してよい値にしない）。推定の印・出し方・根拠は残し、推定の元の印は外す", () => {
+    const input = structuredClone(fixture.input);
+    for (const b of boxesOf(input)) {
+      b.state = "estimated";
+      b.origin = { kind: "auto" };
+      b.estimate = { method: "statistic", basis: "家計調査の平均", source: { kind: "office", values: { "office.living": "0123abcd" } } };
+    }
+    expect(() => preview({ trace: "none", input })).not.toThrow();
+    const after = boxesOf(make(input).made);
+    expect(after.length).toBeGreaterThan(5);
+    for (const b of after) {
+      expect((b.origin as { kind: string }).kind).toBe("ai");
+      expect(b.approval).toEqual({ by: "fp", at, candidate: CID });
+      expect(b.state).toBe("estimated");
+      expect(b.estimate).toEqual({ method: "statistic", basis: "家計調査の平均" });
+    }
+  });
+
+  it("推定の根拠は、名前・メモの欄と同じく番号らしい所を消し・制御文字を空白にし・120字で切る（消した数に入る）。空になれば決まった言葉にする", () => {
+    const text = "基礎年金番号 1234-567890／証券番号 7654321／口座 普通 0123456\u0007\u001b[31m";
+    const input = structuredClone(fixture.input);
+    const [first, second] = boxesOf(input);
+    first!.state = "estimated";
+    first!.estimate = { method: "derived", basis: text + "長".repeat(5000) };
+    second!.state = "estimated";
+    second!.estimate = { method: "derived", basis: "\u0007 \u001b" };
+    expect(() => preview({ trace: "none", input })).not.toThrow();
+    const { c } = make(input);
+    const [b1, b2] = boxesOf(c.input);
+    const basis = (b1!.estimate as { basis: string }).basis;
+    expect(basis).not.toContain("1234-567890");
+    expect(basis).not.toContain("7654321");
+    expect(basis).not.toContain("0123456");
+    expect(basis).toContain("●●●●");
+    // eslint-disable-next-line no-control-regex
+    expect(/[\u0000-\u001f]/u.test(basis)).toBe(false);
+    expect([...basis].length).toBeLessThanOrEqual(120);
+    expect((b2!.estimate as { basis: string }).basis).toBe("AIの推定");
+    expect(c.masked).toBe(1);
+    expect(c.dropped).toBe(0);
+    // 整えた後の入力も計算できる
+    expect(() => preview({ trace: "none", input: c.input })).not.toThrow();
   });
 });
 

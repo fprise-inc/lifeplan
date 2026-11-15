@@ -91,7 +91,13 @@ struct Share {
     ended: Option<EndReason>,
     pseudonyms: Pseudonyms,
     record_index: usize,
+    /// この共有で受け取ったプランの候補の数（上限 `MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD` の数え方）
+    scenario_proposals: usize,
 }
+
+/// 1つの世帯について、開いている共有の間に受け取れるプランの候補の数（開いている共有の合計。書類の候補の世帯ごとの上限と同じ数）。
+/// 1件の大きさの上限（変更50件・全体50KB。0015 の7）とあわせて、世帯ファイルの候補と AI に渡した記録が大きくなりすぎないようにする
+pub const MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD: usize = 20;
 
 /// 承認待ちにしておける、機能を有効にするコードの候補の数（0015 の追記の2段目）
 pub const MAX_FEATURE_CODE_CANDIDATES: usize = 4;
@@ -301,6 +307,7 @@ impl ShareRegistry {
                 ended: None,
                 pseudonyms,
                 record_index,
+                scenario_proposals: 0,
             },
         );
         Ok(Granted {
@@ -633,7 +640,7 @@ impl ShareRegistry {
                     candidate_id: id.clone(),
                     received_at: iso8601(now),
                     code,
-                    connector: caller.mcp_client_declared.clone(),
+                    connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
                 });
                 id
             }
@@ -777,7 +784,7 @@ impl ShareRegistry {
             share_id: share_id.to_owned(),
             household_id: household_id.clone(),
             received_at: iso8601(now),
-            connector: caller.mcp_client_declared.clone(),
+            connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
             answer: restored,
         });
         if let Some(r) = st
@@ -971,9 +978,27 @@ impl ShareRegistry {
         let share = st.shares.get(share_id).ok_or_else(not_shared)?;
         let (title, summary, diffs) =
             proposal::validate(proposal, &share.pseudonyms).map_err(|m| (ErrorCode::Invalid, m))?;
-        let candidate_id = reduce::random_uuid_v4();
         let household_id = share.source.household_id.clone();
         let index = share.record_index;
+        // 件数の上限: この世帯の開いている共有（期限内で止まっていない物）で受け取った候補の合計
+        let received: usize = st
+            .shares
+            .values()
+            .filter(|s| {
+                s.source.household_id == household_id && s.ended.is_none() && now < s.expires_ms
+            })
+            .map(|s| s.scenario_proposals)
+            .sum();
+        if received >= MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD {
+            return Err((
+                ErrorCode::Invalid,
+                format!("この世帯の共有で出せるプランの候補は{MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD}件までです（開いている共有の合計）。新しい候補は出さず、今までの候補をFPがアプリの「AIからの候補」で確かめるのを待ってください。さらに出すには、FPが世帯をもう一度渡す必要があります。"),
+            ));
+        }
+        if let Some(s) = st.shares.get_mut(share_id) {
+            s.scenario_proposals += 1;
+        }
+        let candidate_id = reduce::random_uuid_v4();
         let n = diffs.len();
         st.proposals.push(PendingProposal {
             candidate_id: candidate_id.clone(),
@@ -985,7 +1010,7 @@ impl ShareRegistry {
             diffs,
             origin: ProposalOrigin {
                 kind: "ai".to_owned(),
-                connector: caller.mcp_client_declared.clone(),
+                connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
             },
         });
         if let Some(r) = st
