@@ -79,12 +79,12 @@ describe("ふだんの計算と結果の見方（保存しない）", () => {
     expect(isAllRows(v)).toBe(false);
   });
 
-  it("繰上返済も外して見られる（何番目かで外す）", () => {
+  it("繰上返済も外して見られる（要素の ID で外す。何番目かでは当てない。0044 の追記 2026-11-14）", () => {
     const r0 = sample();
     const d = r0.input.household.debts!.find((x) => x.id === id(20))!;
     d.likelihood = "certain";
-    d.prepayments = [{ at: { at: "2033-01" }, amount: 300000, mode: "shortenTerm" }, { at: { at: "2034-01" }, amount: 200000, mode: "shortenTerm" }];
-    const c = viewCandidates(r0.input.household).find((x) => x.key === `prepay:${id(20)}:0`)!;
+    d.prepayments = [{ id: id(21), at: { at: "2033-01" }, amount: 300000, mode: "shortenTerm" }, { id: id(22), at: { at: "2034-01" }, amount: 200000, mode: "shortenTerm" }];
+    const c = viewCandidates(r0.input.household).find((x) => x.key === `prepay:${id(20)}:${id(21)}`)!;
     expect(c).toMatchObject({ side: "prepay", reason: "certain" });
     const r = forEngine(applyRowsView(r0, pickRow(ALL_ROWS, c, false)));
     expect(r.input.household.debts!.find((x) => x.id === id(20))!.prepayments).toEqual([d.prepayments[1]]);

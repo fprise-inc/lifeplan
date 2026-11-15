@@ -135,6 +135,7 @@ describe("値の状態の操作は直接押すリンク（開く形にしない�
   it.each(MODELS)("%s: どの欄も、出す操作のリンクがその欄で使える操作と同じ（過不足なし）", (m) => {
     const wh = open(m);
     let n = 0;
+    let wanted = 0;
     for (const stage of buildStages(wh))
       for (const f of allFields(stage)) {
         if (f.time !== undefined) continue;
@@ -146,8 +147,10 @@ describe("値の状態の操作は直接押すリンク（開く形にしない�
         expect(links.map((l) => l[1]), f.label).toEqual(want);
         for (const l of links) expect(l[2]).toBe(OP_LABELS[l[1] as keyof typeof OP_LABELS]);
         n += links.length;
+        wanted += want.length;
       }
-    expect(n).toBeGreaterThan(0);
+    // 操作の無い世帯もある（前は表の最後の年の欄の「推定に戻す」があった。表を何歳まで見るかの欄は（既定）を選んで戻す。0070 の追記 2026-11-13）
+    expect(n).toBe(wanted);
   });
   it("専用の部品の欄（表の中も）も同じリンク。「…」でたたまない。書類で確かめるの説明に確かめる書類", () => {
     const wh = open("salariedCoupleTwoKids");
