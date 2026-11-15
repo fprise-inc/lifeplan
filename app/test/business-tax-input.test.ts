@@ -13,7 +13,7 @@ import { modelHousehold, preview } from "./helpers.ts";
 
 const ITEM = "employment.business.businessTaxClass";
 const open = (id = "sampleSelfEmployedFamily"): WorkingHousehold => fromRequest(modelHousehold(id));
-const bizPeriod = (wh: WorkingHousehold): EmploymentPeriod => wh.request.input.household.employmentPeriods.find((p) => p.type === "selfEmployed")!;
+const bizPeriod = (wh: WorkingHousehold): EmploymentPeriod => (wh.request.input.household.employmentPeriods ?? []).find((p) => p.type === "selfEmployed")!;
 const fieldOf = (wh: WorkingHousehold): FieldDef | undefined => allFields(buildStage("work", wh)).find((f) => f.item === ITEM);
 const businessTax = (req: WorkingHousehold["request"], year: number) =>
   preview(req)
@@ -64,7 +64,7 @@ describe("働き方と収入の「個人事業税の業種」", () => {
     const wh = { ...wh0, proposals: [plan("B", null, [diff]), plan("C", "B", [])] };
     const cat = buildCatalog(wh, self, null);
     const c = applyPlan(wh, "C", cat).request;
-    const period = c.input.household.employmentPeriods.find((x) => x.id === p.id)!;
+    const period = (c.input.household.employmentPeriods ?? []).find((x) => x.id === p.id)!;
     expect(period.business?.businessTaxClass).toBe("none");
     expect(businessTax(c, 2028)).toBe(0);
     // 現状は変わらない
