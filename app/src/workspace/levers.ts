@@ -66,14 +66,24 @@ export function memberOf(req: EngineRequest, id: string): Member {
   return m;
 }
 
+/**
+ * 働く最後の年齢（対策の「働く最後の年齢」の今の値）: 働き方の期間のいちばん遅い終わりの月の翌月の満年齢。終わりのある期間が無ければ null。
+ * 結果のタブのポイント「退職から年金までの空白」の年齢も、これと同じ読み方で言う（fpTools.ts。0074 の追記 2026-11-14）
+ */
+export function retireOf(req: EngineRequest, memberId: string): { age: number; lastEnd: string } | null {
+  const h = req.input.household;
+  const ends = (h.employmentPeriods ?? []).filter((e) => e.member === memberId).map((e) => atOf(h, e.to)).filter((x): x is string => x !== null).sort();
+  const lastEnd = ends.at(-1);
+  return lastEnd === undefined ? null : { age: ageAt(memberOf(req, memberId), addMonths(lastEnd, 1)), lastEnd };
+}
+
 /** 世帯の今の打ち手の値（現状）。分からない打ち手は undefined */
 export function readLevers(req: EngineRequest, memberId: string): Partial<LeverValues> {
   const h = req.input.household;
   const member = memberOf(req, memberId);
   const out: Partial<LeverValues> = {};
-  const ends = (h.employmentPeriods ?? []).filter((e) => e.member === memberId).map((e) => atOf(h, e.to)).filter((x): x is string => x !== null).sort();
-  const lastEnd = ends.at(-1);
-  if (lastEnd !== undefined) out.retireAge = ageAt(member, addMonths(lastEnd, 1));
+  const retire = retireOf(req, memberId);
+  if (retire !== null) out.retireAge = retire.age;
   const rec = (h.pensionRecords ?? []).find((r) => r.member === memberId);
   // 記録が無い人（推計の区分）は構成員の受け取り開始（0078）
   const claim = atOf(h, rec !== undefined ? rec.claim?.basic : member.pensionClaim?.basic);
