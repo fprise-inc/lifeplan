@@ -52,6 +52,27 @@ export interface FieldState {
   warnFix?: { label: string; run: (wh: WorkingHousehold) => WorkingHousehold } | null;
   /** 時点の欄（kind "when"）の、入れた形のままの時点と読み方 */
   when?: WhenState;
+  /**
+   * 前提条件の事務所の既定値の見せ方（0214。input/premiseDefaults.ts）。ある欄は値の状態を確定と読み、推定の印と「この値にする」を出さず、
+   * 欄の名前の横に「事務所の既定値」「この世帯だけ」「事務所の既定値が変わりました」を出す
+   */
+  premise?: PremiseMark;
+}
+
+/** 前提条件の欄の、事務所の既定値との関係（0214） */
+export interface PremiseMark {
+  /** 前提条件の id（premiseDefaults.ts の PREMISE_DEFS） */
+  id: string;
+  /** office＝事務所の既定値と同じ・household＝この世帯だけ・officeChanged＝事務所の既定値を使っていて、その後に事務所の既定値が変わった */
+  state: "office" | "household" | "officeChanged";
+  /** 事務所の今の既定値の言葉（例: 「1.0%」「物価上昇率と同じ」） */
+  officeText: string;
+  /** この世帯の値の言葉（事務所の既定値と違うときだけ） */
+  wasText?: string;
+  /** 事務所の既定値の画面で決めた値か（決めていなければ提供元の既定の値） */
+  decided: boolean;
+  /** 事務所の今の既定値にする */
+  reset: (wh: WorkingHousehold) => WorkingHousehold;
 }
 
 /** 時点の欄の状態（時点の部品が描くのに使う） */
@@ -277,6 +298,11 @@ export interface GroupDef {
    * 「〇〇などを入れる」の形にする。種類で開く欄が違う物（学校の段・保険・口座など）は、種類ごとに文を選ぶ。無ければ「続きを見る」のまま
    */
   moreLabel?: string;
+  /**
+   * 見出しの行をいつも幅いっぱいに描く（欄が少なくても、見出しを左の列に寄せる詰めた形 compact にしない）。同じ並びの物（子の学校の行など）で、
+   * 欄の数によって見出しの形が変わらないようにする（2026-11-14）
+   */
+  wideHead?: boolean;
   /** ひな形の小さなボタンの並び（ボタンの chip の group ごとに1行。title は並びの上の1行の案内。0068 の追記 2026-10-31） */
   chips?: boolean;
   /** ひな形のボタンを、ほかの「＋ 〇〇を足す」のボタンと同じ大きさで描く（小さな丸いボタンにしない。夢プランのひな形。0103 の追記 2026-11-01 の3） */

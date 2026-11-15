@@ -5,12 +5,12 @@ import { describe, expect, it } from "vitest";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { blankHousehold, firstTableYear, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, endYearRuleOf, firstTableYear, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { assumptionRows, setAgreed } from "../src/workspace/input/assumptionList.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { endYearNotice, rateWarning, STANDARD_BASIS, yearRanges } from "../src/workspace/input/stages/assumptions.ts";
+import { endYearNotice, rateWarning, yearRanges } from "../src/workspace/input/stages/assumptions.ts";
 import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
-import { applyStateOp, fieldStatus } from "../src/workspace/input/valueState.ts";
+import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
@@ -34,39 +34,40 @@ const action = (wh: WorkingHousehold, key: string) => {
 };
 const total = (req: WorkingHousehold["request"], row: string) => preview(req).table.filter((c) => c.row === row).reduce((s, c) => s + c.amount, 0);
 
-describe("経済の前提: 既定の値（仮の値）の推定", () => {
-  it("標準と同じ値で行が無ければ推定。確定は「この値にする」だけで、値は変えない", () => {
+describe("経済の前提: 事務所の既定値（0214。推定にしない）", () => {
+  it("既定の値と同じ値は決まった値で「事務所の既定値」。違う値を打つと「この世帯だけ」、空欄で事務所の既定値に戻る", () => {
     const wh = open();
     const f = fieldOf(wh, "assume/inflation");
-    expect(fieldStatus(f, wh)).toMatchObject({ status: "estimated", basis: STANDARD_BASIS });
-    // 同じ値を書き戻しても確定にしない（0041）
+    expect(fieldStatus(f, wh)).toMatchObject({ status: "confirmed", premise: { state: "office", officeText: "1%" } });
+    expect(availableOps(f, wh)).toEqual([]);
+    // 同じ値を書き戻しても何も変えない（0041）
     expect(f.set(wh, "0.01")).toBe(wh);
-    const c = applyStateOp(wh, f, "confirm");
-    expect(fieldStatus(f, c).status).toBe("confirmed");
-    expect(c.request.input.assumptions?.inflation?.default).toBe("0.01");
-    // 違う値を打つと確定。空欄にすると標準（推定）に戻る
     const w2 = f.set(wh, "0.02");
-    expect(fieldStatus(f, w2).status).toBe("confirmed");
+    expect(fieldStatus(f, w2)).toMatchObject({ status: "confirmed", premise: { state: "household", wasText: "2%" } });
     const w3 = f.set(w2, null);
     expect(w3.request.input.assumptions?.inflation?.default).toBe("0.01");
-    expect(fieldStatus(f, w3).status).toBe("estimated");
+    expect(fieldStatus(f, w3).premise?.state).toBe("office");
+    // 「事務所の既定値に戻す」も同じ
+    expect(f.get(w2).premise!.reset(w2).request).toEqual(w3.request);
   });
 
-  it("教育費の上昇率・厚生年金の調整率は、空欄なら物価・基礎年金の調整率と同じ（推定）。確定すると値を書く。結果は変わらない", () => {
+  it("教育費の上昇率・厚生年金の調整率は、空欄なら物価・基礎年金の調整率と同じ（事務所の既定値）。値を入れると「この世帯だけ」", () => {
     const wh = open();
     const edu = fieldOf(wh, "assume/educationInflation");
     expect(wh.request.input.assumptions?.educationInflation).toBeUndefined();
-    expect(edu.get(wh)).toMatchObject({ value: "0.01", estimated: "物価上昇率と同じ" });
-    const c = applyStateOp(wh, edu, "confirm");
+    expect(edu.get(wh)).toMatchObject({ value: null, hint: "物価上昇率と同じ（1%）", premise: { state: "office", officeText: "物価上昇率と同じ" } });
+    const c = edu.set(wh, "0.01");
     expect(c.request.input.assumptions?.educationInflation).toEqual({ default: "0.01" });
-    expect(fieldStatus(edu, c).status).toBe("confirmed");
+    expect(fieldStatus(edu, c).premise?.state).toBe("household");
     expect(preview(c.request).table).toEqual(preview(wh.request).table);
     const emp = fieldOf(wh, "assume/pensionMacroSlideEmployee");
-    expect(emp.get(wh)).toMatchObject({ value: "0.004", estimated: "基礎年金の調整率と同じ" });
+    expect(emp.get(wh)).toMatchObject({ value: null, hint: "基礎年金の調整率と同じ（0.4%）" });
     // 厚生年金だけ調整率を変えると、年金の額が変わる
     const w2 = emp.set(wh, "0.01");
     expect(w2.request.input.assumptions?.pensionMacroSlideEmployee).toEqual({ default: "0.01" });
     expect(total(w2.request, "cf.income.pension")).toBeLessThan(total(wh.request, "cf.income.pension"));
+    // 空欄にすると物価と同じに戻る
+    expect(emp.set(w2, null).request.input.assumptions?.pensionMacroSlideEmployee).toBeUndefined();
   });
 
   it("高すぎる値の注意の線: 欄の知らせと確かめの一覧の注意（値は変えない）", () => {
@@ -119,7 +120,7 @@ describe("例外の年（範囲で入れる）", () => {
 
   it("資産の種類ごとの利回り・土地の上昇率にも例外の年", () => {
     let wh = open("investmentCouple");
-    if (wh.request.input.assumptions?.assetReturns?.["equity.global"] === undefined) wh = action(wh, "assume/addReturn/equity.global").run(wh);
+    if (wh.request.input.assumptions?.assetReturns?.["equity.global"] === undefined) wh = fieldOf(wh, "assume/assetReturns/equity.global/default").set(wh, "0.05");
     wh = action(wh, "assume/assetReturns/equity.global/ex/add").run(wh);
     expect(Object.keys(wh.request.input.assumptions?.assetReturns?.["equity.global"]?.byYear ?? {}).length).toBeGreaterThan(0);
     wh = action(wh, "assume/realEstate/landGrowth/ex/add").run(wh);
@@ -128,40 +129,37 @@ describe("例外の年（範囲で入れる）", () => {
 });
 
 describe("表の最後の年", () => {
-  it("標準なら推定。人の年齢で入れると、その人がその年齢になる年。空欄で標準に戻る", () => {
+  it("標準なら推定。人と年齢で選ぶと、その人がその年齢になる年。（既定）を選ぶと標準に戻る", () => {
     const wh = open();
     const h = wh.request.input.household;
     const std = standardEndYear(h);
     const f = fieldOf(wh, "assume/endYear");
     expect(wh.request.input.endYear).toBe(std);
     expect(fieldStatus(f, wh).status).toBe("estimated");
-    // 標準（若い方が100歳）でほぼ足りるので詳細（0078）
-    expect(f.level).toBe("detail");
+    // 表を何歳まで見るかは標準の1つの欄（0070 の追記 2026-11-13）
+    expect(f.level).toBe("simple");
     const spouse = h.members.find((m) => m.kind === "spouse")!;
-    const w2 = fieldOf(wh, `assume/endYear/age/${spouse.id}`).set(wh, 95);
+    const w2 = f.set(wh, `m:${spouse.id}:95`);
     expect(w2.request.input.endYear).toBe(Number(spouse.birth.birthYearMonth.slice(0, 4)) + 95);
     expect(fieldStatus(f, w2).status).toBe("confirmed");
-    expect(f.set(w2, null).request.input.endYear).toBe(std);
+    expect(f.set(w2, "default").request.input.endYear).toBe(std);
+    expect(f.set(w2, "default").endYearChoice).toBeUndefined();
+    expect(fieldStatus(f, f.set(w2, "default")).status).toBe("estimated");
   });
 
   it("表の最初の年より前は入れられない（年の欄も年齢の欄も。計算基準月の年より前にすると計算が止まり、年の途中の計算基準月の年は表が0年。0169）", () => {
     const wh = open("elderCare");
     const base = firstTableYear(wh.request.input.baseMonth);
-    const year = fieldOf(wh, "assume/endYear");
+    const byYear = fieldOf(wh, "assume/endYear").set(wh, "year");
+    const year = fieldOf(byYear, "assume/endYear/year");
     expect(year.kind === "int" ? year.min : null).toBe(base);
     expect(rejectReason(year, String(base - 1))).not.toBeNull();
-    expect(() => preview(year.set(wh, base).request)).not.toThrow();
-    const h = wh.request.input.household;
-    for (const m of h.members.filter((x) => x.kind === "self" || x.kind === "spouse")) {
-      const f = fieldOf(wh, `assume/endYear/age/${m.id}`);
-      const now = base - Number(m.birth.birthYearMonth.slice(0, 4));
-      const min = f.kind === "int" ? (f.min ?? 0) : 0;
-      // 64歳の本人なら、60〜63歳は入れられない
-      expect(now).toBeGreaterThan(60);
-      expect(min).toBe(now);
-      expect(rejectReason(f, "60")).not.toBeNull();
-      const w = f.set(wh, min);
-      expect(w.request.input.endYear).toBe(base);
+    expect(() => preview(year.set(byYear, base).request)).not.toThrow();
+    // 人と年齢の選択肢は、どれも表の最初の年より後（すでにその年齢を過ぎていれば5年分の表）
+    const f = fieldOf(wh, "assume/endYear");
+    for (const o of f.kind === "select" ? f.options.filter((x) => x.value !== "year") : []) {
+      const w = f.set(wh, o.value);
+      expect(w.request.input.endYear, o.label).toBeGreaterThanOrEqual(base + 4);
       expect(() => preview(w.request)).not.toThrow();
     }
   });
@@ -203,10 +201,12 @@ describe("表の最後の年", () => {
     const wh = { ...wh0, proposals: [plan] };
     const cat = buildCatalog(wh, self.id, null);
     const before = planView(wh, cat, plan.id);
-    const after = fieldOf(before, "assume/endYear").set(before, 2070);
+    const byYear = fieldOf(before, "assume/endYear").set(before, "year");
+    const after = fieldOf(byYear, "assume/endYear/year").set(byYear, 2070);
     const n = recordPlanEdit(wh, cat, plan.id, before, after);
     expect(n.proposals[0]!.diffs).toEqual([]);
     expect(n.request.input.endYear).toBe(2070);
+    expect(endYearRuleOf(n)).toEqual({ kind: "year" });
     expect(planView(n, cat, plan.id).request.input.endYear).toBe(2070);
   });
 });
@@ -233,7 +233,11 @@ describe("前提と推定の一覧", () => {
   it("経済の前提・計算の範囲・推定の目安（各カード）・万一の前提を並べる。確かめた記録はプランごと", () => {
     const wh = open();
     const rows = assumptionRows(wh);
-    expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "推定", value: "1%" });
+    // 前提条件の既定の値は「事務所の既定値」（推定と言わない）。お客さまと確かめる値ではないので確かめた印を出さない（0214 の7）
+    expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "事務所の既定値", value: "1%", source: "提供元の既定の値（事務所の既定値の画面で変えられます）", agreeable: false });
+    const own = fieldOf(wh, "assume/inflation").set(wh, "0.02");
+    expect(assumptionRows(own).find((r) => r.id === "field:assume/inflation")).toMatchObject({ state: "この世帯だけ", value: "2%", agreeable: true });
+    expect(assumptionRows(wh).filter((r) => r.group === "assetReturns")).toHaveLength(12);
     expect(rows.find((r) => r.id === "field:assume/endYear")).toMatchObject({ group: "range" });
     expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "基本生活費")).toBe(true);
     // 仮の値（新しい顧客の生年月）は推定の根拠に並べない（推定と分けて未入力の側。0041 の追記 2026-11-06）

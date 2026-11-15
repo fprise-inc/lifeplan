@@ -315,5 +315,173 @@ export function removedNow(input: Obj, d: PlanDiff): unknown {
   return readAt(input, { target: d.target, item: d.item, at: d.at });
 }
 
+/**
+ * 当て先の入れ物（欄の値を持つ物か並び）が、途中の欄を作らずにもうあるか。種類を変えて置き換えた物へ、前の種類の欄の入れ物
+ * （自営業の期間の給与の欄など）を作って書かないために使う（plans.ts の applyDiffs。0036 の追記 2026-11-14）
+ */
+export function holderExists(input: Obj, a: Address): boolean {
+  return locate(input, a, false) !== null;
+}
+
+/** 物の種類（`kind`・`type`。0036 の追記 2026-11-14 の「種類を変えた置き換え」で比べる） */
+export const kindOfObject = (obj: unknown): string => (isObj(obj) ? JSON.stringify([obj.kind ?? null, obj.type ?? null]) : "");
+
+/** 差分の向き先の物か構成員の ID（物の集まりの1件でなければ null） */
+export const objectIdOfTarget = (t: DiffTarget): string | null => ("object" in t && typeof t.object === "string" ? t.object : "member" in t && typeof t.member === "string" ? t.member : null);
+
+/** 物1件だけを持つ入力（物の中の場所を読むため） */
+const holding = (obj: unknown): Obj => ({ household: { objects: [obj] } });
+
+/**
+ * 置き換えた物（`after`）に、置き換える前の物（`before`）を指していた値を変える差分の場所が無いか（0036 の追記 2026-11-14）。無いのは、
+ * 当て先の入れ物（途中の欄）が無いとき（自営業の期間の給与の欄・現金で払う車のローンの欄など）と、前の物で値があった欄が今の物で空のとき
+ * （置き換えで省いた値）
+ */
+function placeGone(before: unknown, after: unknown, a: Address): boolean {
+  const now = holding(after);
+  if (!holderExists(now, a)) return true;
+  return readAt(holding(before), a) !== undefined && readAt(now, a) === undefined;
+}
+
+/**
+ * 後のプランの置き換えに負ける、値を変える差分（0036 の追記 2026-11-14）: 後のプランが物を置き換えたとき、その物の中を指す、それより前の
+ * プランの値を変える差分（土台のプランで直した欄）のうち、次のものは当てない。置き換えの足す物はその物の全体なので、同じ当て先は後のプランが
+ * 勝つ（0036 の6）の決まりのとおり、置き換えたプランが勝つ（1つのプランの中で置き換えたとき、その物を指す自分の差分を消すのと同じ。
+ * planEdit.ts の applyChanges）
+ * - 置き換えで物の種類（`kind`・`type`）が変わった: その物を指す前のプランの差分すべて
+ * - 種類は同じで、置き換えた物にその差分の場所が無い（入れ物が無い・前の物にあった値を置き換えで省いた。placeGone）: その差分
+ * 種類が同じで場所がある置き換えは、これまでどおり前のプランの差分を当てる（土台の直しが上のプランに届く）。`now` は現状の入力
+ * （最初の物を読む）。戻り値は当てない差分の ID
+ */
+export function supersededByReplacement(now: Obj, plans: readonly { diffs: readonly PlanDiff[] }[]): Set<string> {
+  const out = new Set<string>();
+  const live = (d: PlanDiff) => d.enabled && d.unresolved !== true;
+  /** 物の ID → 今までのプランを当てたときの物（足す差分で変わる） */
+  const objects = new Map<string, unknown>();
+  const objectNow = (id: string): unknown => (objects.has(id) ? objects.get(id) : findObject(now, id));
+  /** 物の ID → 置き換えたプランの番号・置き換える前と後の物・種類が変わったか */
+  const replaced = new Map<string, { at: number; before: unknown; after: unknown; kind: boolean }[]>();
+  plans.forEach((p, i) => {
+    const adds = p.diffs.filter((d) => live(d) && d.op === "add" && "collection" in d.target && isObj(d.value) && typeof d.value.id === "string");
+    for (const add of adds) {
+      const id = (add.value as Obj).id as string;
+      const paired = add.pair != null && p.diffs.some((d) => live(d) && d.pair === add.pair && d.op === "remove" && d.item === null && objectIdOfTarget(d.target) === id);
+      const before = objectNow(id);
+      if (paired) replaced.set(id, [...(replaced.get(id) ?? []), { at: i, before, after: add.value, kind: kindOfObject(before) !== kindOfObject(add.value) }]);
+      objects.set(id, add.value);
+    }
+  });
+  if (replaced.size === 0) return out;
+  plans.forEach((p, i) => {
+    for (const d of p.diffs) {
+      if (d.op !== "set" || isLever(d.target)) continue;
+      const id = objectIdOfTarget(d.target);
+      const a = addressOf(d);
+      const later = (id === null ? undefined : replaced.get(id))?.filter((r) => r.at > i) ?? [];
+      if (later.some((r) => r.kind || (a !== null && placeGone(r.before, r.after, a)))) out.add(d.id);
+    }
+  });
+  return out;
+}
+
+/**
+ * 1人（と年度・種類）に1件だけ置く物の集まりと、その1件を決める欄。エンジンは同じ組の物の最初の1件だけを読む（住民税の決定額は人と年度、
+ * 社会保険料の決定額は種類と人と年度、年金の記録は人で1件）。プランの足すがこの組で重なったら、後のプランの足すが勝つ（0036 の追記 2026-11-15）
+ */
+export const ONE_PER: Readonly<Record<string, readonly string[]>> = {
+  residentTaxAssessment: ["member", "fiscalYear"],
+  premiumAssessment: ["kind", "member", "fiscalYear"],
+  pensionRecord: ["member"],
+};
+
+/** 1件だけ置く物の集まりの物の、組の印（その集まりの物でなければ null） */
+function slotOf(collection: string, obj: unknown): string | null {
+  const keys = ONE_PER[collection];
+  if (keys === undefined || !isObj(obj)) return null;
+  return JSON.stringify([collection, ...keys.map((k) => obj[k] ?? null)]);
+}
+
+/** 物の集まりへ足す差分の、1件だけ置く物の組の印（その集まりへ足す差分でなければ null） */
+const slotOfAdd = (d: PlanDiff): string | null => (d.op === "add" && "collection" in d.target ? slotOf(d.target.collection, d.value) : null);
+
+/** 物の集まりへ足す差分が、1件だけ置く物の集まりへ足すか（plans.ts の supersededIn が、現状を読まずに済むか決める） */
+export const addsOnePer = (d: PlanDiff): boolean => d.op === "add" && "collection" in d.target && ONE_PER[d.target.collection] !== undefined;
+
+/** 入力の中の、足す物と同じ組の、ID の違う物の ID（無ければ null。0036 の追記 2026-11-15） */
+export function sameSlotIn(input: Obj, d: PlanDiff): string | null {
+  const s = slotOfAdd(d);
+  if (s === null || !("collection" in d.target)) return null;
+  const col = d.target.collection;
+  const c = COLLECTIONS[col];
+  const h = input.household;
+  const list = c !== undefined && isObj(h) && Array.isArray(h[c.field]) ? (h[c.field] as unknown[]) : [];
+  const id = (d.value as Obj).id;
+  const hit = list.find((x) => isObj(x) && x.id !== id && slotOf(col, x) === s);
+  return isObj(hit) && typeof hit.id === "string" ? hit.id : null;
+}
+
+/** 物の集まりの1件を ID で外す */
+export function removeObject(input: Obj, id: string): void {
+  const at = locateObject(input, id);
+  if (at !== null) at.list.splice(at.index, 1);
+}
+
+/**
+ * 後のプランの、1件だけ置く物の足すに負ける差分（0036 の追記 2026-11-15）: あるプランが1件だけ置く物（住民税の決定額など）を足したとき、
+ * 同じ組（同じ人・年度）の、ID の違う物を足していた前のプランの足すと、同じ組の物（前のプランで足した物・現状の物）の中を指す前のプランの
+ * 値を変える差分は当てない。後のプランの足す物が、その組の1件になる（同じ当て先は後のプランが勝つ。0036 の6）。現状の同じ組の物は、当てる
+ * ときに後のプランの足す物と入れ替える（plans.ts の applyDiffs）。戻り値は当てない差分の ID
+ */
+function supersededBySlot(now: Obj, plans: readonly { diffs: readonly PlanDiff[] }[]): Set<string> {
+  const out = new Set<string>();
+  const live = (d: PlanDiff) => d.enabled && d.unresolved !== true;
+  /** 組の印 → 今までのプランを当てたときにある物の ID と、それを足した差分（現状の物は null） */
+  const holders = new Map<string, { id: unknown; add: string | null }[]>();
+  const h = now.household;
+  for (const col of Object.keys(ONE_PER)) {
+    const c = COLLECTIONS[col];
+    const list = c !== undefined && isObj(h) && Array.isArray(h[c.field]) ? (h[c.field] as unknown[]) : [];
+    for (const x of list) {
+      const s = slotOf(col, x);
+      if (s !== null && isObj(x)) holders.set(s, [...(holders.get(s) ?? []), { id: x.id, add: null }]);
+    }
+  }
+  /** 後のプランの足すに負けた物の ID → 負かしたプランの番号 */
+  const lost = new Map<string, number>();
+  plans.forEach((p, i) => {
+    for (const d of p.diffs) {
+      const s = live(d) ? slotOfAdd(d) : null;
+      if (s === null) continue;
+      const id = (d.value as Obj).id;
+      for (const x of holders.get(s) ?? []) {
+        if (x.id === id) continue;
+        if (typeof x.id === "string") lost.set(x.id, i);
+        if (x.add !== null) out.add(x.add);
+      }
+      holders.set(s, [{ id, add: d.id }]);
+    }
+  });
+  if (lost.size === 0) return out;
+  plans.forEach((p, i) => {
+    for (const d of p.diffs) {
+      if (d.op !== "set") continue;
+      const id = objectIdOfTarget(d.target);
+      const at = id === null ? undefined : lost.get(id);
+      if (at !== undefined && i < at) out.add(d.id);
+    }
+  });
+  return out;
+}
+
+/**
+ * プランの重なりで当てない差分（0036 の追記 2026-11-14・2026-11-15）: 後のプランの置き換えに負ける値を変える差分（supersededByReplacement）と、
+ * 後のプランの1件だけ置く物の足すに負ける差分（supersededBySlot）。`now` は現状の入力
+ */
+export function supersededDiffs(now: Obj, plans: readonly { diffs: readonly PlanDiff[] }[]): Set<string> {
+  const out = supersededByReplacement(now, plans);
+  for (const id of supersededBySlot(now, plans)) out.add(id);
+  return out;
+}
+
 /** 値の箱の値（比較するため。箱でなければそのまま） */
 export const valueOfBox = (v: unknown): unknown => unbox(v);

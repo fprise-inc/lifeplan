@@ -51,13 +51,13 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   { words: ["家電", "冷蔵庫", "帰省", "サブスク", "年会費"], card: "living", to: ["年1回・数年に1回の支出"] },
   { words: ["ペット", "動物病院"], card: "living", to: ["ペットの病気・けが"] },
   // 子ども・教育
-  { words: ["学費", "教育費", "授業料", "進学", "大学", "高校", "私立", "受験", "きょういくひ", "がくひ"], card: "education", to: ["進路の型", "高校のあとの進路", "公立・私立"] },
-  { words: ["塾", "習い事", "家庭教師", "通信教育", "じゅく", "ならいごと"], card: "education", to: ["学校外の費用", "＋ 塾"] },
+  { words: ["学費", "教育費", "授業料", "進学", "大学", "高校", "私立", "受験", "きょういくひ", "がくひ"], card: "education", to: ["大学・短大・専門学校", "公立・私立"] },
+  { words: ["塾", "習い事", "家庭教師", "通信教育", "じゅく", "ならいごと"], card: "education", to: ["学校外の費用", "＋ 塾・習い事を足す"] },
   { words: ["下宿", "一人暮らし"], card: "education", to: ["自宅外の仕送り", "通い方"] },
   { words: ["留学", "海外留学", "交換留学", "りゅうがく"], card: "education", to: ["留学"] },
   { words: ["奨学金", "しょうがくきん"], card: "education", to: ["奨学金"] },
   { words: ["教育ローン", "国の教育ローン"], card: "education", to: ["教育ローン"] },
-  { words: ["保育料", "保育園", "幼稚園", "給食費"], card: "education", to: ["保育料", "給食費", "進路の型"] },
+  { words: ["保育料", "保育園", "幼稚園", "給食費"], card: "education", to: ["保育料", "給食費", "保育園（2歳まで）に通う"] },
   { words: ["児童手当"], card: "education", to: ["児童手当"] },
   { words: ["就学支援金", "高校無償化"], card: "education", to: ["就学支援金"] },
   // 住まい・ローン
@@ -139,5 +139,5 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   { words: ["昇給", "賃上げ", "ベースアップ"], card: "assumptions", to: ["賃金上昇率"] },
   { words: ["マクロ経済スライド"], card: "assumptions", to: ["年金の調整率"] },
   { words: ["顧問料", "相談料", "FPへの報酬"], card: "assumptions", to: ["FP顧問料"] },
-  { words: ["何歳まで", "表の最後", "寿命"], card: "assumptions", to: ["表の最後の年"] },
+  { words: ["何歳まで", "表の最後", "寿命"], card: "assumptions", to: ["表を何歳まで見るか"] },
 ];

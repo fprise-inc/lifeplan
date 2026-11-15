@@ -26,7 +26,7 @@ const CID = "0f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a";
 const fixture = JSON.parse(readFileSync(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-household", "proposal.json"), "utf8")) as { kind: "fictional"; title: string; note: string; input: EngineRequest["input"] };
 const candidate = (over: Partial<AiHouseholdCandidate> = {}): AiHouseholdCandidate => ({ candidateId: CID, receivedAt: "2026-11-11T03:00:00Z", connector: "test-ai 1.0", kind: fixture.kind, title: fixture.title, note: fixture.note, input: structuredClone(fixture.input), ...over });
 const no = async (): Promise<never> => Promise.reject("E");
-const host: AiHost = { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no, takeDocuments: no, householdCandidates: no, discardHouseholdCandidate: no, createFromCandidate: no };
+const host: AiHost = { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no, takeDocuments: no, householdCandidates: no, discardHouseholdCandidate: no, createFromCandidate: no, displayCandidates: no, takeDisplayChange: no };
 
 describe("新しい世帯の候補の読み口", () => {
   it("見本の候補は、そのまま読める（種類・題・推定したこと・入力）", () => {
@@ -163,8 +163,8 @@ describe("世帯として作るときの形", () => {
     expect(back.wh.memo[0]).toContain(fixture.title.normalize("NFKC"));
     expect(back.wh.memo[0]).toContain("推定したこと");
     expect((JSON.parse(body) as { meta?: { formatVersion?: string } }).meta?.formatVersion ?? BODY_FORMAT_VERSION).toBe(BODY_FORMAT_VERSION);
-    // 今の形式の版（0027 の 2026-11-13 の追記で 0.77）。本体は保存のときに同じ版を書く（app/src-tauri の ai.rs のテスト）
-    expect(BODY_FORMAT_VERSION).toBe("0.77");
+    // 今の形式の版（0070 の 2026-11-13 の追記で 0.78）。本体は保存のときに同じ版を書く（app/src-tauri の ai.rs のテスト）
+    expect(BODY_FORMAT_VERSION).toBe("0.78");
     expect(() => preview(back.wh.request)).not.toThrow();
   });
 });

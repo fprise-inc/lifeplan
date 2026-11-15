@@ -2119,6 +2119,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.elementary.private.entrance": {
+  "title": "入学金等の年額（私立小学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+  "value": 62402,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
  "education.statistics.elementary.private.extracurricular": {
   "title": "教科外活動費の年額（私立小学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
   "value": 13032,
@@ -2139,6 +2146,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.public.entrance": {
+  "title": "入学金等の年額（公立小学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+  "value": 526,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
  },
  "education.statistics.elementary.public.extracurricular": {
   "title": "教科外活動費の年額（公立小学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
@@ -2167,6 +2181,48 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.exam.juniorCollege": {
+  "title": "受験・併願の費用（短大の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）",
+  "value": 349000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
+ "education.statistics.exam.university.all": {
+  "title": "受験・併願の費用（大学の入学者（国公立・私立の全体）。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）",
+  "value": 408000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
+ "education.statistics.exam.university.private.humanities": {
+  "title": "受験・併願の費用（私立大学文系の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）",
+  "value": 412000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
+ "education.statistics.exam.university.private.science": {
+  "title": "受験・併願の費用（私立大学理系の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）",
+  "value": 422000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
+ "education.statistics.exam.university.public": {
+  "title": "受験・併願の費用（国公立大学の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）",
+  "value": 385000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
+ "education.statistics.exam.vocational": {
+  "title": "受験・併願の費用（高専・専修学校・各種学校の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）",
+  "value": 223000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
  },
  "education.statistics.graduate.national.admission": {
   "title": "国立大学の大学院の入学料の標準額",
@@ -2294,6 +2350,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-30"
  },
+ "education.statistics.highSchool.private.entrance": {
+  "title": "入学金等の年額（私立高等学校（全日制）。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+  "value": 80290,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
  "education.statistics.highSchool.private.extracurricular": {
   "title": "教科外活動費の年額（私立高校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
   "value": 63440,
@@ -2314,6 +2377,20 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.private.tuition": {
+  "title": "授業料の年額（私立高等学校（全日制）。子供の学習費調査。学校教育費のうち。就学支援金が差し引かれた後に保護者が払った額）",
+  "value": 279170,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
+ "education.statistics.highSchool.public.entrance": {
+  "title": "入学金等の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+  "value": 18027,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
  },
  "education.statistics.highSchool.public.extracurricular": {
   "title": "教科外活動費の年額（公立高校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
@@ -2336,6 +2413,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.highSchool.public.tuition": {
+  "title": "授業料の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。就学支援金が差し引かれた後に保護者が払った額）",
+  "value": 45272,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
  "education.statistics.juniorCollege.private.admission": {
   "title": "私立短期大学の入学料の平均（令和7年度入学者）",
   "value": 236054,
@@ -2357,6 +2441,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.juniorHigh.private.entrance": {
+  "title": "入学金等の年額（私立中学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+  "value": 119829,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
  "education.statistics.juniorHigh.private.extracurricular": {
   "title": "教科外活動費の年額（私立中学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
   "value": 65131,
@@ -2377,6 +2468,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.public.entrance": {
+  "title": "入学金等の年額（公立中学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+  "value": 1178,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
  },
  "education.statistics.juniorHigh.public.extracurricular": {
   "title": "教科外活動費の年額（公立中学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
@@ -2406,6 +2504,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.kindergarten.private.entrance": {
+  "title": "入学金等の年額（私立幼稚園。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+  "value": 15722,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
+ },
  "education.statistics.kindergarten.private.extracurricular": {
   "title": "教科外活動費の年額（私立幼稚園。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
   "value": 3727,
@@ -2426,6 +2531,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.public.entrance": {
+  "title": "入学金等の年額（公立幼稚園。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+  "value": 537,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-11-14"
  },
  "education.statistics.kindergarten.public.extracurricular": {
   "title": "教科外活動費の年額（公立幼稚園。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
@@ -4833,6 +4945,22 @@ export const REGULATION_VALUES: Readonly<Record<string, readonly DatedValue[]>> 
      "amount": 102400
     }
    ]
+  }
+ ],
+ "educationSupport.highSchool.publicAnnual": [
+  {
+   "from": "2026-04-01",
+   "to": null,
+   "rev": 2,
+   "value": 118800
+  }
+ ],
+ "educationSupport.highSchool.privateAnnual": [
+  {
+   "from": "2026-04-01",
+   "to": null,
+   "rev": 2,
+   "value": 457200
   }
  ],
  "giftTax.housingFunds.exemption.energySaving": [

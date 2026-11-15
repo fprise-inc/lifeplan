@@ -439,7 +439,10 @@ export interface IdecoAccountOutput {
 /** debt.schedule: 負債1本の返済のお金の動きと年末残高 */
 export interface DebtScheduleOutput {
   readonly flows: readonly Flow[];
-  /** 年末（12月の返済の後）の残高と未払利息。返し終えた年まで（年の昇順） */
+  /**
+   * 年末（12月の返済の後。12月に借りたローンの借りた年は借入の額）の残高と未払利息。返し終えた年まで（年の昇順）。
+   * 今の残高から入れたローンの、残高の時点より前の年は、残高と借入の条件から逆にたどった推定（約束の版 1.6）
+   */
   readonly yearEnd: readonly { readonly year: number; readonly balance: Yen; readonly unpaidInterest: Yen }[];
   readonly firstPayment: string;
   /** 返し終えた月（表の最後の月までに返し終えなければ null） */
@@ -458,6 +461,11 @@ export interface DebtScheduleOutput {
    * その年の最後の返済に当てた金利（rate。10進の文字。変動金利の上乗せを含む）。計算基準月から・返済のある年だけ・年の昇順（約束の版 1.5 の任意の欄。0205）
    */
   readonly byYear?: readonly { readonly year: number; readonly interestPaid: Yen; readonly rate: string }[];
+  /**
+   * 債務者（保証人を除く）が万一の想定で亡くなる月（ym）の、その月の返済の後・団信で減らす前の残高（balance。ボーナス返済の分を含む）。
+   * 亡くなる前に返し終えた・表の外の月は無い（約束の版 1.6 の任意の欄。亡くなった年の住宅ローン控除に使う。tax.housingLoanCredit）
+   */
+  readonly atDeath?: readonly { readonly member: string; readonly ym: string; readonly balance: Yen }[];
 }
 
 /** housing.residence: 住まいのお金の動きと、購入した持ち家（不動産の残高の計算に使う） */
@@ -749,7 +757,10 @@ export interface Enrollment {
   readonly from: string;
   readonly years: number;
   readonly scienceAgriculture: boolean;
-  /** 年度ごとの授業料（学納金。入学金を除く）と入学金（その年度の入学の分） */
+  /**
+   * 年度ごとの授業料（学納金。入学金を除く）と入学金（その年度の入学の分）。幼〜高の統計の平均の段は学校の費用の全額。ただし高校は統計の授業料
+   * （就学支援金を差し引いた後に保護者が払った額。0010 の追記 2026-11-14）
+   */
   readonly fees: readonly { readonly fiscalYear: number; readonly tuition: Yen; readonly admission: Yen }[];
 }
 

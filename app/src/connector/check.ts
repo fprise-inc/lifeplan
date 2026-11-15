@@ -14,7 +14,7 @@ import { workingOf, type WorkingArgs } from "./working.ts";
 
 /** 接続口から渡す引数 */
 export interface CheckArgs extends WorkingArgs {
-  /** 出す種類（既定は画面の確かめの一覧の既定と同じ。確かさ certainty・前提条件の標準の値 premise は選んだときだけ） */
+  /** 出す種類（既定は画面の確かめの一覧の既定と同じ。確かさ certainty・前提条件（事務所の既定値どおり）premise は選んだときだけ） */
   kinds?: CheckKind[];
   /** 返す行の上限（既定 30。並びは画面の確かめの一覧と同じ: 未入力 → まだ入れていない → 書類待ち → 確かめの注意 → 計算のお知らせ → 推定〔結果に効く順〕） */
   max?: number;
@@ -216,7 +216,7 @@ export const FALLBACK: Readonly<Record<CheckKind, (c: CheckCtx) => string>> = {
   calc: (c) => `${c.row.cardLabel}${subjectsOf(c).length > 0 ? `（${subjectsOf(c).join("・")}）` : ""}について、今の内容を確かめさせていただけますか。`,
   estimated: confirmOrAsk,
   certainty: (c) => `${quoted(c.row.label)}を、書類で確かめさせていただけますか。`,
-  premise: (c) => `${quoted(c.row.label)}は、標準の値のままでよろしいですか（FP が決める前提です）。`,
+  premise: (c) => `${quoted(c.row.label)}は、事務所の既定値のままでよろしいですか（FP が決める前提です）。`,
 };
 
 /** 入力の確かめの1行（AI に返す形） */

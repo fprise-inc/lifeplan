@@ -7,6 +7,7 @@
 //! 標準出力は MCP 専用。ログは標準エラー出力だけに出す。
 
 mod answer;
+mod args;
 mod calc;
 mod chart;
 mod check;
@@ -15,6 +16,7 @@ mod coverage;
 mod custom_texts;
 mod display;
 mod engine;
+mod fold;
 mod guide;
 mod plan;
 mod prompts;

@@ -54,6 +54,12 @@ function sample(): BodyState {
   const req = modelHousehold(id);
   // 0.9 から: 生まれる予定の子の保育所の段（保育の時間・自治体の水準の割合。月額は空＝収入から自動で計算）と、給食費の選び方（0029）
   const hh = req.input.household;
+  // 学校外の費用の入れ方と塾・習い事の行の種類は 0.23 から（0062。見本の世帯は 2026-11-14 に入れ方を書いた）ので、前の版の形では外す
+  for (const g of hh.goals ?? []) {
+    if (g.education === undefined) continue;
+    delete g.education.outOfSchoolMode;
+    for (const l of g.education.lessons ?? []) delete l.kind;
+  }
   const baby = "00000000-0000-4000-8000-0000000000b9";
   hh.members.push({ id: baby, kind: "child", birth: { birthYearMonth: "2027-06", bornOnFirst: false }, sex: "female", joins: null, leaves: null, expected: true } as (typeof hh.members)[number]);
   hh.goals = [
@@ -1392,7 +1398,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.77");
+    expect(BODY_FORMAT_VERSION).toBe("0.78");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };

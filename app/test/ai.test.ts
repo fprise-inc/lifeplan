@@ -22,7 +22,7 @@ import { modelHousehold } from "./helpers.ts";
 
 const NOW = "2026-10-19T01:00:00.000Z";
 const no = async (): Promise<never> => Promise.reject("E");
-const host: AiHost = { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no, takeDocuments: no, householdCandidates: no, discardHouseholdCandidate: no, createFromCandidate: no };
+const host: AiHost = { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no, takeDocuments: no, householdCandidates: no, discardHouseholdCandidate: no, createFromCandidate: no, displayCandidates: no, takeDisplayChange: no };
 
 const status = (over: Partial<AiStatus> = {}): AiStatus => ({
   enabled: false,
@@ -265,10 +265,10 @@ describe("AIからの候補（承認するまで世帯に入らない）", () =>
     expect(work.item).toBe("employment.type");
     const now = work.read(wh) as { type: string; annual: number };
     const diff = (id: string, value: unknown) => ({ id, target: { object: spouse }, item: "employment.type", op: "set" as const, value, note: null });
+    // 当てはまらない行は、前の行（同じ項目）を消さない
     const rows = candidateRows(
       candidate([
         diff("d1", { type: "partTime", annual: 1_200_000 }),
-        diff("d2", { type: now.type, annual: now.annual }),
         diff("d3", { type: "宇宙飛行士", annual: 1_000_000 }),
         diff("d4", { type: "partTime", annual: -1 }),
         diff("d5", { type: "partTime" }),
@@ -279,9 +279,46 @@ describe("AIからの候補（承認するまで世帯に入らない）", () =>
     expect(rows[0]!.reason).toBeNull();
     expect(rows[0]!.value).toEqual({ type: "partTime", annual: 1_200_000 });
     expect(rows[0]!.to).not.toContain("{");
-    expect(rows[1]!.reason).toBe("今と同じ値です");
-    for (const r of rows.slice(2)) expect(r.reason).toBe("値の形がこの項目に合わないため、取り込みません");
+    for (const r of rows.slice(1)) expect(r.reason).toBe("値の形がこの項目に合わないため、取り込みません");
     expect(Object.keys(candidateValues(rows))).toEqual([work.key]);
+    // 今と同じ働き方と年収は取り込まない（同じ候補で同じ項目を後で今の値に戻すと、前の変更も使わない。下の「後の値が勝つ」）
+    expect(candidateRows(candidate([diff("d2", { type: now.type, annual: now.annual })]), wh, cat)[0]!.reason).toBe("今と同じ値です");
+  });
+
+  it("同じ項目を2回動かす候補は後の値が勝つ: 後の値が今の値と同じなら、前の変更を取り消して今の値のまま（独立した点検で見つかった不具合）", () => {
+    const { wh, cat, self } = open();
+    const living = cat.byKey.get("lever:livingMonthly")!;
+    const lt = living.target as { object: string };
+    expect(living.read(wh)).toBe(300000);
+    const liv = (id: string, value: number) => ({ id, target: { object: lt.object }, item: living.item, op: "set" as const, value, note: null });
+    const retire = (id: string, value: number) => ({ id, target: { object: self }, item: "employment.to", op: "set" as const, value, note: null });
+    // 生活費 月31万円 → 月30万円（今の値）・働く最後の年齢 65歳 → 60歳（今の値）: どちらも今の値のまま。前は前の値（月31万円・65歳）で取り込んでいた
+    const back = candidate([liv("d1", 310000), retire("d2", 65), liv("d3", 300000), retire("d4", 60)]);
+    const rows = candidateRows(back, wh, cat);
+    expect(rows.map((r) => r.use)).toEqual(["replaced", "replaced", "restore", "restore"]);
+    expect(rows[0]!.reason).toBe("3件目の変更が同じ項目を動かすため、この値は使いません（同じ項目は後の値が勝ちます）");
+    expect(rows[2]!.reason).toBe("今と同じ値です。1件目の変更（月31万円）を取り消し、今の値（月30万円）のままにします");
+    expect(candidateValues(rows)).toEqual({});
+    // 画面: どの行も「プランに入れる」にならず、取り込めるものが無いので保存できない
+    const html = renderToString(h(AiCandidates, { candidates: [back], wh, catalog: cat, onAccept: async () => undefined, onReject: async () => undefined }));
+    expect(html).not.toContain("プランに入れる");
+    expect(html).toContain("1件目の変更（月31万円）を取り消し");
+    expect(html).toContain("保存できません");
+    // 後の値が今と違えば後の値（月31万円 → 月29万円）。今の値を挟んでも、最後の値が勝つ（月30万円 → 月28万円）
+    const later = candidateRows(candidate([liv("d1", 310000), liv("d2", 290000), retire("d3", 60), retire("d4", 63)]), wh, cat);
+    expect(later.map((r) => r.use)).toEqual(["replaced", "apply", "replaced", "apply"]);
+    const values = candidateValues(later);
+    expect(values).toEqual({ "lever:livingMonthly": 290000, "lever:retireAge": 63 });
+    // 取り込んだプランも後の値だけ（承認しても現状は変わらない）
+    const twice = candidate([liv("d1", 310000), liv("d2", 290000)]);
+    const r = acceptCandidate(wh, cat, twice, candidateValues(candidateRows(twice, wh, cat)), "プランB", NOW);
+    expect(r.wh.request).toEqual(wh.request);
+    expect(JSON.stringify(r.wh.proposals[0]!.diffs)).toContain("290000");
+    expect(JSON.stringify(r.wh.proposals[0]!.diffs)).not.toContain("310000");
+    // 前に同じ項目の変更が無い「今と同じ値」は、今までどおり
+    const same = candidateRows(candidate([liv("d1", 300000)]), wh, cat);
+    expect(same[0]!.use).toBe("same");
+    expect(same[0]!.reason).toBe("今と同じ値です");
   });
 
   it("AI が書いた題名・説明・理由は文字のまま出す（HTML にしない）", () => {
@@ -333,9 +370,10 @@ describe("画面にパスや鍵が渡らない（0016 の1）", () => {
   it("AI接続口の命令に渡すのは、内部ID・設定の入切・文面の種類・同意の入力・期限・申告・候補の判断（受け取った書類の候補の ID を含む）だけ", () => {
     const src = readFileSync(join(APP_DIR, "src", "engine", "host.ts"), "utf8");
     const calls = [...src.matchAll(/invoke<[^>]*>\("(ai_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
-    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_candidate_decide", "ai_consent_record", "ai_documents_taken", "ai_household", "ai_household_candidate_create", "ai_household_candidate_discard", "ai_household_candidates", "ai_set_enabled", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
-    // 新しい世帯の候補から作るときは、FP が選んだ種類・画面が組み立てた本文・一覧の要約・区分（新しく作るときと同じ）も渡す
-    const allowed = new Set(["id", "enabled", "client", "input", "minutes", "destination", "candidate", "accept", "plan", "kind", "body", "summary", "category"]);
+    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_candidate_decide", "ai_consent_record", "ai_display_candidates", "ai_display_change_take", "ai_documents_taken", "ai_household", "ai_household_candidate_create", "ai_household_candidate_discard", "ai_household_candidates", "ai_set_enabled", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
+    // 新しい世帯の候補から作るときは、FP が選んだ種類・画面が組み立てた本文・一覧の要約・区分（新しく作るときと同じ）も渡す。
+    // 表示の設定の案（0215）は、承認待ちから外す設定の id（setting）だけ
+    const allowed = new Set(["id", "enabled", "client", "input", "minutes", "destination", "candidate", "accept", "plan", "kind", "body", "summary", "category", "setting"]);
     for (const c of calls) {
       const args = (c[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "");
       for (const a of args) expect(allowed.has(a), `${c[1]} の引数 ${a}`).toBe(true);
@@ -345,7 +383,7 @@ describe("画面にパスや鍵が渡らない（0016 の1）", () => {
   it("本体の AI の命令は、パス・鍵を返す型を持たない（返すのは状態・記録・伏せた文面だけ）", () => {
     const rs = readFileSync(join(APP_DIR, "src-tauri", "src", "ai.rs"), "utf8");
     const sigs = [...rs.matchAll(/#\[tauri::command\]\s*pub async fn (ai_[a-z_]+)\(([^)]*)\)\s*->\s*([^{]+)\{/g)];
-    expect(sigs.length).toBe(12);
+    expect(sigs.length).toBe(14);
     for (const [, name, args, ret] of sigs) {
       expect(`${args}`.toLowerCase(), name).not.toMatch(/path|dir|file|key/);
       expect(`${ret}`, name).not.toMatch(/PathBuf|String,|Vec<u8>/);

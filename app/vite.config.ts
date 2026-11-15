@@ -714,6 +714,8 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  * `/__dev/ai/oldConsent?id=<世帯の内部ID>` で、前の版の説明（書類を含まない）で同意した行を足す（0157。取り直しの画面を見る）
  * `/__dev/ai/simulate?kind=household` で、AI から新しい世帯の候補（接続口の見本 crates/lifeplan/tests/fixtures/propose-household/proposal.json に、
  * 番号らしい文字を1つ混ぜた物）が届いたことにする。`/__dev/ai/proposeHousehold`（POST {proposal}）で、任意の候補が届いたことにする
+ * `/__dev/ai/simulate?kind=display` で、AI から表示の設定の案（見本: 対策に NISA を足す・万一のときのタブを収入が減るの場面で開く・基本生活費の
+ * 内訳をまとめる）が届いたことにする。`/__dev/ai/proposeDisplay`（POST {changes}）で、任意の案が届いたことにする（0215）
  */
 const devAi = {
   enabled: false,
@@ -723,7 +725,42 @@ const devAi = {
   documents: [] as { candidateId: string; shareId: string; householdId: string; receivedAt: string; connector: string | null; answer: unknown }[],
   /** 新しい世帯の候補（本体と同じく、メモリの中だけ。FP が作るか捨てるまで） */
   households: [] as { candidateId: string; receivedAt: string; connector: string | null; kind: string; title: string; note: string | null; input: unknown }[],
+  /** 表示の設定の案（本体と同じく、メモリの中だけ。FP が設定ごとに反映するか捨てるまで。0215） */
+  displays: [] as { candidateId: string; receivedAt: string; connector: string | null; changes: { id: string; value: unknown; note?: string }[] }[],
 };
+
+/** 案を出せる表示の設定（本体の ai_share::display::PROPOSABLE_IDS と同じ） */
+const DEV_DISPLAY_IDS = ["input.order", "input.items", "input.living", "result.levers", "contingency.premises", "contingency.scenes", "contingency.openScene"];
+
+/** 開発用のサーバーの、表示の設定の案（本体の registry の display_candidates と ai_display_* の代わり。形の外側だけを見るのも同じ） */
+function devDisplayOp(op: string, a: Record<string, unknown>, now: string): { ok: true; value?: unknown } | { ok: false; code: string } {
+  switch (op) {
+    case "proposeDisplay": {
+      if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
+      const ch = a.changes;
+      if (!Array.isArray(ch) || ch.length === 0 || ch.length > DEV_DISPLAY_IDS.length) return { ok: false, code: "INVALID" };
+      const changes: { id: string; value: unknown; note?: string }[] = [];
+      for (const c of ch as Record<string, unknown>[]) {
+        if (typeof c.id !== "string" || !DEV_DISPLAY_IDS.includes(c.id) || changes.some((x) => x.id === c.id) || !("value" in c)) return { ok: false, code: "INVALID" };
+        changes.push({ id: c.id, value: c.value, ...(typeof c.note === "string" && c.note.trim() !== "" ? { note: c.note.trim() } : {}) });
+      }
+      if (devAi.displays.length >= 4) return { ok: false, code: "INVALID" };
+      const candidateId = crypto.randomUUID();
+      devAi.displays.push({ candidateId, receivedAt: now, connector: "dev-client 1.0", changes });
+      return { ok: true, value: { candidateId, status: "pendingReview" } };
+    }
+    case "displayCandidates":
+      return { ok: true, value: devAi.displays };
+    case "takeDisplayChange": {
+      const c = devAi.displays.find((x) => x.candidateId === a.candidate);
+      if (c === undefined || !c.changes.some((x) => x.id === a.setting)) return { ok: false, code: "E_AI_CANDIDATE_UNKNOWN" };
+      c.changes = c.changes.filter((x) => x.id !== a.setting);
+      devAi.displays = devAi.displays.filter((x) => x.changes.length > 0);
+      return { ok: true, value: devAi.displays };
+    }
+  }
+  return { ok: false, code: "E_DEV_AI_OP" };
+}
 const DEV_AI_SHEET_TEXT = "（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します";
 const DEV_AI_EXPLANATION = "（開発用の見本）ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAIを使うことがあります。\n計算や見直しの検討でAIに渡すのは、計算に必要な項目だけです。お名前・ご住所・FPのメモは渡しません。\n担当のFPは、書類から数字を読み取るときに、AIを使うことがあります。お名前・ご住所・各種の番号は伏せてから渡します。\nこの同意はいつでも撤回でき、撤回した後はAIに渡しません。";
 
@@ -777,6 +814,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
           dev: true,
           featureCodeCandidates: devFeatures.candidates.length,
           householdCandidates: devAi.households.length,
+          displayCandidates: devAi.displays.length,
         },
       };
     }
@@ -786,6 +824,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         end("revoked");
         devFeatures.candidates = [];
         devAi.households = [];
+        devAi.displays = [];
       }
       return devAiOp("status", {});
     case "proposeFeatureCode": {
@@ -835,6 +874,10 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       Object.assign(c, { status: a.accept === true ? "accepted" : "rejected", decidedAt: now, decidedBy: "fp", planId: a.accept === true ? a.plan : null });
       return { ok: true, value: view() };
     }
+    case "proposeDisplay":
+    case "displayCandidates":
+    case "takeDisplayChange":
+      return devDisplayOp(op, a, now);
     case "proposeHousehold":
     case "householdCandidates":
     case "discardHouseholdCandidate":
@@ -860,6 +903,20 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         const p = JSON.parse(readFileSync(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-household", "proposal.json"), "utf8")) as { input: { household: { periodicExpenses?: unknown[]; members: { id: string }[] } } };
         p.input.household.periodicExpenses = [{ id: crypto.randomUUID(), row: "cf.expense.lumpSum.other", label: "家族旅行（予約番号 123456789012）", from: { at: "2027-08" }, to: { at: "2047-08" }, everyYears: 2, amount: { value: 300000, state: "estimated", origin: { kind: "manual" }, estimate: { method: "statistic", basis: "2人の国内旅行の平均的な費用" } } }];
         return devHouseholdOp("proposeHousehold", { proposal: p }, now);
+      }
+      if (a.kind === "display") {
+        // 表示の設定の案の見本（0215。共有していなくてよい）
+        return devDisplayOp(
+          "proposeDisplay",
+          {
+            changes: [
+              { id: "result.levers", value: ["lever:retireAge", "lever:pensionAge", "lever:nisaMonthly", "lever:livingMonthly", "spouse:work"], note: "NISAの相談が多いので、最初から積立額を動かせるようにします" },
+              { id: "contingency.openScene", value: "income", note: "収入が減る場面から話すことが多いため" },
+              { id: "input.living", value: { rows: [{ kind: "one", category: "food" }, { kind: "group", label: "住まいの光熱・通信", categories: ["utilities", "communication"] }, { kind: "one", category: "transit" }, { kind: "one", category: "furniture" }, { kind: "one", category: "clothing" }, { kind: "one", category: "health" }, { kind: "one", category: "recreation" }, { kind: "one", category: "pocketAndSocial" }, { kind: "one", category: "other" }] }, note: "光熱費と通信費をまとめて聞いています" },
+            ],
+          },
+          now,
+        );
       }
       if (s === null) return { ok: false, code: "E_AI_NOT_SHARED" };
       if (a.kind === "documents") {

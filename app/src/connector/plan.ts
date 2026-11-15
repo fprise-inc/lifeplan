@@ -13,7 +13,7 @@
 //   読んでから動かす項目を作るのと同じ。働き方を選び直したときの年収の目安などが読む）。呼び出しをまたいで残らない
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）。世帯の物の ID は、AI に渡した世帯の ID
 //   （渡された世帯では共有の仮の ID）のまま返す
-// - 同じ1つの JS に、表示の設定の今の値（display.ts の displayCurrent。0213）も入れる
+// - 同じ1つの JS に、表示の設定の今の値（display.ts の displayCurrent。0213）と案の確かめ（displayProposal.ts の displayCheck。0215）も入れる
 import type { EngineRequest } from "../engine/types.ts";
 import type { WorkingHousehold } from "../workspace/input/household.ts";
 import { STRESS_KEYS, stressLabel, stressRequests, type StressKey } from "../workspace/invest/present.ts";
@@ -26,6 +26,8 @@ import { workingOf, type WorkingArgs } from "./working.ts";
 export { checkInputs } from "./check.ts";
 // 表示の設定の今の値（get_display_settings。0213）: 事務所の既定値・世帯ファイルの本文を画面と同じ関数で読むので、画面の部品の JS に入れる
 export { displayCurrent } from "./display.ts";
+// 表示の設定の案（propose_display_settings。0215）: 選べる値・値の形を、アプリの承認の画面と同じ関数で確かめる
+export { displayCheck } from "./displayProposal.ts";
 
 /** 接続口から渡す引数（JSON の文字）。見本の世帯の ID と渡された世帯の定年後の働き方の条件は working.ts */
 export interface PlanArgs extends WorkingArgs {
@@ -95,7 +97,7 @@ function controlOf(it: MovableItem, now: ItemValue): Record<string, unknown> {
         addRange: c.range,
       };
     case "choice":
-      // 決まった選択肢から1つ（子の進路の型。入力の「進路の型」の欄と同じ型・同じ関数。0211）
+      // 決まった選択肢から1つ（子の進路の型。進路の型の欄の定義〔courseField〕と同じ型・同じ関数。0211）
       return { kind: "choice", unit: "options の value（文字）。言葉（label）でもよい", options: c.options };
     case "work":
       return { kind: "work", unit: "{type: 働き方, annual: 1年の収入（円の整数。給与は賞与込みの年収・自営業は事業所得）}", options: c.options.map((o) => ({ value: o.value, label: o.label })), max: c.max };
@@ -210,9 +212,12 @@ export function pickPlanItem(reqJson: string, pickJson: string, ctxJson: string)
   return JSON.stringify({ status: "ok", item: itemOut(it, ref, o.wh, JSON.stringify(o.wh.request.input)) });
 }
 
+/** 当てはめの結果の status（AI に返す言葉。restored＝今と同じ値で前の同じ項目の変更を取り消した・replaced＝後の変更が同じ項目を動かすので使わない） */
+const STATUS: Record<CandidateRow["use"], string> = { apply: "applied", same: "same", restore: "restored", replaced: "replaced", skip: "rejected" };
+
 /** 当てはめの結果の1件（AI に返す形） */
 function rowOut(c: PlanChange, r: CandidateRow): Record<string, unknown> {
-  return { target: c.target, item: c.item, ...(c.at !== undefined ? { at: c.at } : {}), ...(c.lever !== undefined ? { lever: c.lever } : {}), ...(r.place !== null ? { place: r.place } : {}), label: r.label, from: r.from, to: r.to, status: r.key === null ? "rejected" : r.reason === null ? "applied" : "same", ...(r.reason !== null ? { reason: r.reason } : {}) };
+  return { target: c.target, item: c.item, ...(c.at !== undefined ? { at: c.at } : {}), ...(c.lever !== undefined ? { lever: c.lever } : {}), ...(r.place !== null ? { place: r.place } : {}), label: r.label, from: r.from, to: r.to, status: STATUS[r.use], ...(r.reason !== null ? { reason: r.reason } : {}) };
 }
 
 /**
@@ -239,13 +244,11 @@ export function applyPlan(reqJson: string, changesJson: string, ctxJson: string)
     note: null,
   }));
   // 場所は at か lever のどちらか1つ（両方を書いた変更は当てない）
-  const rows = candidateRows({ diffs }, o.wh, o.cat).map((r, i): CandidateRow => {
-    const c = changes[i] as PlanChange;
-    return c.at !== undefined && c.lever !== undefined ? { ...r, key: null, value: null, reason: BOTH_PLACES } : r;
-  });
+  const rows = candidateRows({ diffs }, o.wh, o.cat, (d) => (d.at !== undefined && d.lever !== undefined ? BOTH_PLACES : null));
   const out = changes.map((c, i) => rowOut(c, rows[i] as CandidateRow));
   if (rows.some((r) => r.key === null)) return JSON.stringify({ status: "rejected", changes: out });
-  // 同じ項目を2回動かす変更は、後の値が勝つ（画面で同じつまみを2回動かしたのと同じ）
+  // 同じ項目を2回動かす変更は、後の値が勝つ（画面で同じつまみを2回動かしたのと同じ）。後の値が今の値と同じなら、その項目は今の値のまま
+  // （前の変更を取り消す。candidates.ts の laterWins）
   const values = candidateValues(rows);
   if (Object.keys(values).length === 0) return JSON.stringify({ status: "ok", request: req, changes: out });
   const applied = applyValues(o.wh, values, o.cat);

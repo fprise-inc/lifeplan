@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "apply": {
       "description": "true なら、changes を当てた後の input も返す（手本を重ねるときに、次の手本の input に渡す）。既定 false",

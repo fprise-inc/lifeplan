@@ -188,6 +188,9 @@ async fn serve(
                 registry.handle_propose_feature_code(code, &caller)
             }
             Request::GetOfficeDisplay => registry.handle_office_display(),
+            Request::ProposeDisplay { proposal } => {
+                registry.handle_propose_display(proposal, &caller)
+            }
             Request::GetShareDisplay { share_id, tool } => {
                 registry.handle_get_display(share_id, tool, &caller)
             }

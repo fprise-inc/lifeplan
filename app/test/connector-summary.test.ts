@@ -11,7 +11,8 @@ import type { EngineRequest } from "../src/engine/types.ts";
 import { man } from "../src/presentation/format.ts";
 import { pensionEstimateRequest, planPensionOf } from "../src/workspace/input/pensionLines.ts";
 import { compareTable, metricsOf } from "../src/workspace/plans/compare.ts";
-import { ageRows, rowDefs } from "../src/workspace/present.ts";
+import { ageRows, displayYears, rowDefs } from "../src/workspace/present.ts";
+import { ageInYear, roles } from "../src/workspace/roles.ts";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -26,7 +27,8 @@ const CASES: { name: string; sample: string; changes?: { op: "replace"; path: st
   { name: "単身", sample: "single25" },
   { name: "親の介護（世帯の外の家族）", sample: "sampleParentsCare" },
   { name: "必要保障額の見本", sample: "protectionNeed" },
-  { name: "今より前の年齢（表の最初の年にする）", sample: "sampleSeniorCouple", atAges: [30, 120] },
+  { name: "表の範囲の外の年齢（今より前・表の最後の年より先。端の年で代えず理由を返す）", sample: "sampleSeniorCouple", atAges: [30, 120] },
+  { name: "表の範囲の外と中の年齢を混ぜる（独立した点検の見本）", sample: "salariedCoupleTwoKids", atAges: [30, 46, 100, 110] },
 ];
 
 /** 接続口と同じ要求（見本の世帯の input に変更を当てた物。trace は none。計算の前の処理を当てる前） */
@@ -71,7 +73,16 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
       const ages = c.atAges ?? [DEFAULT_DISPLAY_SETTINGS.atAge];
       const ms = ages.map((a) => metricsOf(req, result.table, a));
       const m = ms[0]!;
-      expect(got.keyFigures.assetsAtAge, c.name).toEqual(ms.map((x) => ({ age: x.targetAge, year: x.targetYear, amount: x.target })));
+      // AI が選んだ年齢が表の範囲（本人が表の最初の年〜最後の年に迎える年齢）の外なら、端の年の残高で代えず、null と理由
+      const self = roles(req).find((r) => r.key === "self")!.member;
+      const ys = displayYears(req);
+      const [lo, hi] = [ageInYear(self, ys[0]!), ageInYear(self, ys.at(-1)!)];
+      const outside = (a: number) => c.atAges !== undefined && (a < lo || a > hi);
+      expect(got.keyFigures.assetsAtAge, c.name).toEqual(
+        ms.map((x, i) =>
+          outside(ages[i]!) ? { age: ages[i], year: null, amount: null, reason: `表の範囲（ご本人${lo}〜${hi}歳・${ys[0]}〜${ys.at(-1)}年）の外の年齢のため、数えていません` } : { age: x.targetAge, year: x.targetYear, amount: x.target },
+        ),
+      );
       expect(got.keyFigures.depletion?.year ?? null, c.name).toBe(m.depletion);
       expect(got.keyFigures.minimum, c.name).toMatchObject({ year: m.min.year, amount: m.min.amount });
       expect(got.keyFigures.lifetimeTakeHome, c.name).toBe(m.takeHome);

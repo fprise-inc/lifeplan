@@ -180,15 +180,15 @@ describe("必要保障額: 亡くなった人がまだ払っていない税（�
     const req = model("rentalSample");
     const self = memberOf(req, "self") as string;
     const unpaid = unpaidIn(req, self, "2042-01");
-    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 273,917円、住民税 559,200円（2026-11-15 から、2041年に家賃収入で
+    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 278,617円、住民税 561,500円（2026-11-15 から、2041年に家賃収入で
     // 配偶者の扶養を外れて国民健康保険料を払うので、前の 300,017円・572,000円より少ない。0174 の追記）
-    expect(unpaid).toBe(5_827_417);
+    expect(unpaid).toBe(5_834_417);
     const all = protection(req, self);
     const a = all.find((y) => y.year === 2042) as ProtYear;
     const e = protection(req, self, 2042)[0] as ProtYear;
-    // 前は遺族の税だけ（4,896,601円）。2026-11-15 から、遺族の税は 4,927,794円（本人が 2041年度に払う国民健康保険料の残りの納期の分を、
-    // 世帯主になった配偶者が 2042年に払う。0174 の追記）
-    expect(e.breakdown.expenses.taxSi).toBe(4_927_794 + unpaid);
+    // 前は遺族の税だけ（4,896,601円）。2026-11-14 から、遺族が 2042-01 に入る国民健康保険の 2041年度分を 2042年2・3月に払う分（8,900円）が増えた。
+    // 2026-11-15 から、本人が 2041年度に払う国民健康保険料の残りの納期の分を、世帯主になった配偶者が 2042年に払う（0174 の追記）
+    expect(e.breakdown.expenses.taxSi).toBe(4_949_972 + unpaid);
     // 後の年に最初の年の表を使う額と、その年に亡くなる想定の額が同じ
     expect(a.breakdown.expenses.taxSi).toBe(e.breakdown.expenses.taxSi);
     expect(a.need).toBe(e.need);
@@ -199,12 +199,14 @@ describe("必要保障額: 亡くなった人がまだ払っていない税（�
     const self = memberOf(req, "self") as string;
     // 計算基準月（2026-10）に亡くなる想定
     const unpaid = unpaidIn(req, self, req.input.baseMonth);
-    // 2025年の所得の住民税の残り（普通徴収に切り替わる）221,200円、2026年の所得の準確定申告の還付 −92,033円
-    expect(unpaid).toBe(129_167);
+    // 2025年の所得の住民税の残り（普通徴収に切り替わる）221,200円、2026年の所得の準確定申告の還付 −89,333円
+    // （2026-11-14 から、遺族が 2026-10 に入る国民健康保険を11月からの納期で払うので、亡くなった本人の10月の納期の分の社会保険料控除が無い。前は −92,033円）
+    expect(unpaid).toBe(131_867);
     const y = protection(req, self)[0] as ProtYear;
     expect(y.year).toBe(2026);
-    // 前は 6,044,706円
-    expect(y.breakdown.expenses.taxSi).toBe(6_044_706 + unpaid);
+    // 前は 6,044,706円。2026-11-14 から、遺族が 2026-10 に入る国民健康保険の 2026年度分を11月〜翌年3月の5回で払う（前は6月からの10回で、
+    // 計算基準月より前の6〜9月の納期の分は表に出なかった）ので、2026年の11・12月の分が 25,415円 増えた
+    expect(y.breakdown.expenses.taxSi).toBe(6_070_121 + unpaid);
   });
 
   it("後の年は、万一なしの計算の前の年の所得の税で数える（その年に亡くなる想定の表の額と数千円の違い。salariedCoupleTwoKids・sampleSelfEmployedFamily の本人）", () => {

@@ -69,7 +69,8 @@ function perturbWhen(t: Timepoint | null, wh: WorkingHousehold): Timepoint {
   return { event: t.event as string, offset: { months: off } };
 }
 
-const roundTripable = (f: FieldDef, s: ReturnType<FieldDef["get"]>) => !(s.value === null && f.blankIsEstimate === true) && f.readOnly === undefined && f.structural !== true && f.sideEffects === undefined && s.derived == null && s.implicit !== true && s.estimated == null && s.assumed == null;
+// 前提条件の事務所の既定値の欄（0214）は、空欄にすると事務所の既定値に戻す（空欄のまま往復しない）
+const roundTripable = (f: FieldDef, s: ReturnType<FieldDef["get"]>) => !(s.value === null && (f.blankIsEstimate === true || s.premise !== undefined)) && f.readOnly === undefined && f.structural !== true && f.sideEffects === undefined && s.derived == null && s.implicit !== true && s.estimated == null && s.assumed == null;
 
 describe("単位と書式", () => {
   it("万円・円の書き方と読み方は往復で1円もずれない", () => {
@@ -130,6 +131,8 @@ describe("モデル世帯の往復（世帯データ → 入力の表示 → 世
         if (f.kind === "ym" && typeof s.value === "string") expect(parseYearMonth(s.value)).toBe(s.value);
         // 値を変えて戻すと、元の世帯データに戻る（入力 → 世帯データ → 入力）
         if (!roundTripable(f, s)) continue;
+        // 表を何歳まで見るかの「年で決める…」は、選択肢から選び直すと年が変わり、選択肢では戻せない（年はすぐ下の年の欄で往復する。0070 の追記 2026-11-13）
+        if (f.key === "assume/endYear" && s.value === "year") continue;
         // 時点の欄（0038）は、入っている形のままの時点で往復する（年齢・出来事の形を年月に直さない）
         if (f.kind === "when") {
           const raw = s.when?.raw ?? null;
@@ -351,7 +354,11 @@ describe("支出に入らない欄・既定で足している費用の説明", (
   });
 
   it("塾・習い事の月謝は、統計の平均の学校外活動費（塾・習い事を含む）の上に足すと説明する", () => {
-    const wh = open("educationTwoKids");
+    // 前の形（入れ方の無い古い世帯）。見本の世帯は入れ方を書いた（2026-11-14）ので外す
+    const base = open("educationTwoKids");
+    const req = structuredClone(base.request);
+    for (const g of req.input.household.goals ?? []) delete g.education?.outOfSchoolMode;
+    const wh = { ...base, request: req };
     const stage = buildStage("education", wh);
     const monthly = allFields(stage).find((f) => /\/lesson\/0\/monthly$/.test(f.key));
     expect(monthly?.help).toContain("学校外活動費");
