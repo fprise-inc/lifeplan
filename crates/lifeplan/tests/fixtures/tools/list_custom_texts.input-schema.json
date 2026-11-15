@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "file": {
       "description": "どの一覧か: texts（文。settings/texts.json に書く。既定）・terms（名前。settings/terms.json に書く）・fields（入力の欄の隠す・並べ替え。\nsettings/fields.json に書く）",

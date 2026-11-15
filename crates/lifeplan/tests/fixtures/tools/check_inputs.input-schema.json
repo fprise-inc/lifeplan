@@ -22,7 +22,8 @@
       "type": "object"
     },
     "PlanChange": {
-      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）",
+      "additionalProperties": false,
+      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らないが、写したときのために受けて使わない）。\n知らない名前は受けない（args.rs が近い名前を添えて断る）",
       "properties": {
         "at": {
           "default": null,
@@ -47,6 +48,14 @@
             "null"
           ]
         },
+        "note": {
+          "default": null,
+          "description": "理由（propose_scenario の changes から写したときのため。計算には使わない）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "target": {
           "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",
           "type": "string"
@@ -64,6 +73,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "changes": {
       "description": "プランを確かめるとき: 入力に当てる変更（calculate の changes と同じ JSON Patch）",
