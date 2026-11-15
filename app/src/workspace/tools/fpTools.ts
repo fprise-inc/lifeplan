@@ -1,7 +1,7 @@
 // 面談の準備（0074）の中身: 世帯の中身の一覧・次の1年に起きること・過ぎた予定・前回（控え）との入力の違い・ポイント（結果のタブ）の知らせ。
 // どれも世帯の物と計算の結果から読むだけで、世帯も計算も変えない（入力は増えない）
 import type { EngineRequest, Member, PreviewResult, TableCell, Timepoint } from "../../engine/types.ts";
-import { addMonths, ageReachedMonth, parseYm } from "../levers.ts";
+import { addMonths, ageReachedMonth, parseYm, retireOf } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { displayYears, financialOf } from "../present.ts";
 import { fromRequest, type WorkingHousehold } from "../input/household.ts";
@@ -310,6 +310,8 @@ interface Adult {
   totalIncome: number;
   /** 老齢年金の受け取りが始まる年（表の中に無ければ null） */
   pension: number | null;
+  /** 働く最後の年齢と働き方の期間の終わりの月（対策の「働く最後の年齢」と同じ。levers.ts の retireOf。終わりのある期間が無ければ null） */
+  retire: { age: number; lastEnd: string } | null;
 }
 
 function adultsOf(req: EngineRequest, t: readonly TableCell[], years: readonly number[]): Adult[] {
@@ -332,6 +334,7 @@ function adultsOf(req: EngineRequest, t: readonly TableCell[], years: readonly n
       firstIncome: work.get(years[0] ?? NaN) ?? 0,
       totalIncome: [...work.values()].reduce((s, v) => s + v, 0),
       pension: years.find((y) => pension.has(y)) ?? null,
+      retire: retireOf(req, m.id),
     });
   }
   return out;
@@ -568,10 +571,13 @@ function retireGapInsights(adults: readonly Adult[], w: Wording): Insight[] {
         : pw.length === a.pension - last - 1
           ? w.text("result:main/pointRetireGapPartnerAll", { partner: partner.label })
           : w.text("result:main/pointRetireGapPartnerUntil", { partner: partner.label, year: `${String(pw.at(-1))}年` });
+    // 退職の年齢は対策の「働く最後の年齢」と同じ読み方（仕事を終えた月の翌月の満年齢。誕生月より前に仕事を終える人は「その年 − 生まれた年」より1歳少ない）。
+    // 働く収入の最後の年が働き方の期間の終わりの年と違う（期間の終わりの無い人など）ときだけ、その年に迎える年齢（0074 の追記 2026-11-14）
+    const age = a.retire !== null && parseYm(a.retire.lastEnd).y === last ? a.retire.age : last - a.birthYear;
     out.push({
       key: `retireGap:${a.id}`,
       title: "退職から年金までの空白",
-      text: w.text("result:main/pointRetireGap", { person: a.label, age: `${String(last - a.birthYear)}歳`, years: `${String(a.pension - last)}年`, note }),
+      text: w.text("result:main/pointRetireGap", { person: a.label, age: `${String(age)}歳`, years: `${String(a.pension - last)}年`, note }),
       year: last + 1,
     });
   }
@@ -597,7 +603,8 @@ function loanAfterRetireInsights(req: EngineRequest, t: readonly TableCell[], ye
       out.push({ key: `loanAfterRetire:${d.id}`, title: "退職後もローンが残る", text: w.text("result:main/pointLoanToEnd", { loan: name, end: `${String(end)}年`, years: `${String(end - retire)}年` }), year: retire + 1 });
       continue;
     }
-    // 年末の残高が0になる年が完済の年（繰上返済の予定も計算に入っている）
+    // 年末の残高が0になる年が完済の年（繰上返済の予定も計算に入っている）。年齢は月の分からない年の出来事なので、その年に迎える年齢
+    // （その年 − 生まれた年。結果の画面の年ごとの年齢と同じ読み方。退職の年齢と違い、対策に同じ年齢の値は無い。0074 の追記 2026-11-14）
     const payoff = lastOwed + 1;
     if (payoff <= retire) continue;
     out.push({

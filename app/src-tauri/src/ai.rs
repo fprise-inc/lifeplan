@@ -87,6 +87,13 @@ pub(crate) fn office_estimates_of(store: &Store) -> Option<serde_json::Value> {
         .cloned()
 }
 
+/// 事務所の既定値のうち見せ方だけの欄（AI接続口の表示の設定。0213）。切り出し方（どの欄を写すか）は ai-share の `display::office_display_of`
+/// の1か所で、計算の設定・推定の値・名前やロゴ・ヒアリングのひな形は写さない。事務所データを読めなければ None
+pub(crate) fn office_display_of(store: &Store, active: &[String]) -> Option<serde_json::Value> {
+    let defaults = store.office_defaults().ok()?;
+    Some(ai_share::display::office_display_of(&defaults, active))
+}
+
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::error::Error>> {
     let registry = Arc::new(ShareRegistry::new());
     registry.require_consent(true);
@@ -96,6 +103,16 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
     let handle = app.clone();
     registry.set_office_estimates(Some(Arc::new(move || {
         office_estimates_of(&handle.try_state::<StoreState>()?.store)
+    })));
+    // AI接続口の表示の設定（get_display_settings。0213）に、その時の事務所の既定値の見せ方だけの欄を返す（読むだけ）
+    let handle = app.clone();
+    registry.set_office_display(Some(Arc::new(move || {
+        let store = &handle.try_state::<StoreState>()?.store;
+        let active = handle
+            .try_state::<crate::revocations::RevocationState>()
+            .map(|rs| crate::features::active_features(store, &rs))
+            .unwrap_or_default();
+        office_display_of(store, &active)
     })));
     // 開発のときだけ（debug のビルド）: 製品と別の作業フォルダを使う（手元で動かしている製品・他の作業ツリーとぶつからないように）
     let runtime_dir = if cfg!(debug_assertions) {
@@ -1160,6 +1177,41 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    /// AI接続口の表示の設定に返す事務所の既定値は、見せ方だけの欄（0213）。計算の設定・推定の値・名前やロゴ・ヒアリングのひな形は返さない
+    #[test]
+    fn office_display_is_cut_from_the_office_defaults() {
+        let root = root("office-display");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        p.store
+            .set_office_defaults(serde_json::json!({
+                "levers": { "shown": ["lever:nisaMonthly"] },
+                "scenes": { "open": "income" },
+                "assumptions": { "inflation": "0.02" },
+                "estimates": { "values": {}, "noFill": ["engine.care"] },
+                "branding": { "name": "事務所" },
+                "hearingTemplates": [],
+                "features": { "combinedBs": true },
+                "endAge": 95,
+            }))
+            .unwrap();
+        let v = office_display_of(&p.store, &[]).unwrap();
+        assert_eq!(v["levers"]["shown"][0], "lever:nisaMonthly");
+        assert_eq!(v["scenes"]["open"], "income");
+        assert_eq!(v["features"]["combinedBs"], true);
+        assert_eq!(v["featureCodes"], serde_json::json!([]));
+        for k in [
+            "assumptions",
+            "estimates",
+            "branding",
+            "hearingTemplates",
+            "endAge",
+        ] {
+            assert!(v.get(k).is_none(), "{k} は返さない");
+        }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// 同じ起動の中で開き直したら、世帯ファイルの同意で帳面を作り直す。もう1台で記録した撤回が見え、渡せず、保存しても消えない
     #[test]
     fn reopening_reads_consents_written_on_another_pc() {
@@ -1405,12 +1457,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（0027 の 2026-11-13 の追記で 0.77 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（0070 の 2026-11-13 の追記で 0.78 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.77");
+        assert_eq!(file["meta"]["formatVersion"], "0.78");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());
