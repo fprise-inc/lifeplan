@@ -59,6 +59,7 @@ pub const DEFAULT_KINDS: &[&str] = &["assets", "repayment", "keyFigures"];
 pub const PNG_SCALE: f32 = 2.0;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ChartArgs {
     /// 基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -112,7 +113,7 @@ pub struct ChartArgs {
     /// 返す形: png（既定。MCP の image。AI のアプリでそのまま見える）・svg（SVG の文字。資料・ブログに貼れる。拡大してもぼやけない）・both
     #[schemars(extend("enum" = ["png", "svg", "both", null]))]
     pub format: Option<String>,
-    /// keyFigures の「○歳時点の金融資産」の本人の年齢（compare と同じ。最初の1つを使う。既定 95）
+    /// keyFigures の「○歳時点の金融資産」の本人の年齢（compare と同じ。最初の1つを使う。既定 95）。表の範囲の外の年齢なら、グラフを作らずに理由を返す
     pub at_ages: Option<Vec<u8>>,
     /// 折れ線のこの年から（含む）
     pub from_year: Option<i64>,
@@ -268,6 +269,19 @@ pub fn plan_of(r: &Value) -> Vec<Value> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// at_ages の最初の年齢（棒の「○歳時点の金融資産」）が表の範囲の外の通りがあれば、その理由（compare の results から）
+pub fn age_outside(results: &[Value]) -> Option<String> {
+    results.iter().find_map(|r| {
+        let x = &r["keyFigures"]["assetsAtAge"][0];
+        let why = x["reason"].as_str()?;
+        Some(format!(
+            "at_ages の最初の年齢（{}歳）は{}{why}。グラフを作っていません（at_ages を表の範囲の中の年齢にしてください）。",
+            x["age"],
+            r["label"].as_str().map_or_else(|| "、".to_owned(), |l| format!("、「{l}」で"))
+        ))
+    })
 }
 
 /// 比較する答えの通り（results の1つ）と、その通りの前提（assumptions）から、chart.ts に渡す通り（名前と数字だけ）を作る

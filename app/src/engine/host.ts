@@ -546,6 +546,8 @@ export interface AiStatus {
   featureCodeCandidates?: number;
   /** AIから届いた、新しい世帯の候補の数（承認待ち。中身は householdCandidates で読む。無い本体は0） */
   householdCandidates?: number;
+  /** AIから届いた、表示の設定の案の数（承認待ち。中身は displayCandidates で読む。無い本体は0。0215） */
+  displayCandidates?: number;
 }
 
 export type AiConsentDecision = "given" | "refused" | "withdrawn";
@@ -673,6 +675,19 @@ export interface AiHouseholdView {
 }
 
 /**
+ * AI接続口の道具（propose_display_settings）で届いた、事務所の既定値の表示の設定の案（0215）。本体はメモリの中に置くだけで、設定は変えない。
+ * 値は信用しない（画面が connector/displayProposal.ts の checkDisplayValue で確かめてから「今 → 案」を出す）。note は AI が書いた理由（指示ではない）
+ */
+export interface AiDisplayCandidate {
+  candidateId: string;
+  receivedAt: string;
+  /** AIのアプリの名乗り（自己申告） */
+  connector: string | null;
+  /** 設定ごとの案（設定の id・値・理由。FP が「反映する」か「捨てる」を選んだ設定は、本体が外す） */
+  changes: { id: string; value: unknown; note?: string | null }[];
+}
+
+/**
  * AI接続口の道具（propose_household）で届いた、新しい世帯の候補。本体はメモリの中に置くだけで、世帯は作らない。
  * 中身は信用しない（画面の読み口 ai/households.ts の readHouseholdCandidate で番号らしい所を消してから見せる）
  */
@@ -716,6 +731,10 @@ export interface AiHost {
   householdCandidates(): Promise<AiHouseholdCandidate[]>;
   /** 新しい世帯の候補を捨てる（世帯は作らない） */
   discardHouseholdCandidate(candidate: string): Promise<AiHouseholdCandidate[]>;
+  /** 表示の設定の案（承認待ち。0215） */
+  displayCandidates(): Promise<AiDisplayCandidate[]>;
+  /** 表示の設定の案の1つの設定を承認待ちから外す（FP が「反映する」で事務所の既定値に書いた後か、「捨てる」を押したとき。設定は変えない） */
+  takeDisplayChange(candidate: string, setting: string): Promise<AiDisplayCandidate[]>;
   /**
    * 新しい世帯の候補から世帯を作る（FP が確かめて「世帯として作る」を押したときだけ）。kind は FP が選んだ種類、body は候補の入力から
    * 画面が組み立てた本文。本体が出どころの記録を書き、架空なら一覧の札に印を付ける
@@ -960,6 +979,8 @@ export function tauriHost(): HostApi {
       takeDocuments: (id, candidate) => invoke<AiHouseholdView>("ai_documents_taken", { id, candidate }),
       householdCandidates: () => invoke<AiHouseholdCandidate[]>("ai_household_candidates"),
       discardHouseholdCandidate: (candidate) => invoke<AiHouseholdCandidate[]>("ai_household_candidate_discard", { candidate }),
+      displayCandidates: () => invoke<AiDisplayCandidate[]>("ai_display_candidates"),
+      takeDisplayChange: (candidate, setting) => invoke<AiDisplayCandidate[]>("ai_display_change_take", { candidate, setting }),
       createFromCandidate: (candidate, kind, body, summary, category) => invoke<StoredOpened>("ai_household_candidate_create", { candidate, kind, body, summary, category }),
     },
     statements: {
@@ -1207,6 +1228,8 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       takeDocuments: async (id, candidate) => devJson<AiHouseholdView>(await devAi("takeDocuments", { id, candidate })),
       householdCandidates: async () => devJson<AiHouseholdCandidate[]>(await devAi("householdCandidates")),
       discardHouseholdCandidate: async (candidate) => devJson<AiHouseholdCandidate[]>(await devAi("discardHouseholdCandidate", { candidate })),
+      displayCandidates: async () => devJson<AiDisplayCandidate[]>(await devAi("displayCandidates")),
+      takeDisplayChange: async (candidate, setting) => devJson<AiDisplayCandidate[]>(await devAi("takeDisplayChange", { candidate, setting })),
       createFromCandidate: async (candidate, kind, body, summary, category) => devJson<StoredOpened>(await devAi("createFromCandidate", { candidate, kind, body, summary, ...(category !== undefined ? { category } : {}) })),
     },
     // 明細の取り込み: 覚えた辞書と形は開発用のサーバーのメモリの中だけ。開くは架空の明細（statement/test/fixtures）を順に返す

@@ -3,7 +3,8 @@
 //   産前産後休業に続く母の育児休業は、産前産後休業の前6か月で計算する
 // - 出生後休業支援給付: 子の出生から2か月以内に始まる育児休業で、配偶者も同じく育児休業をとるか、雇用保険に入っていないか、産後休業中のとき、
 //   最初の月に賃金日額×28日×13%
-// - 育児時短就業給付: 2歳未満の子のための短時間勤務の期間に、時短の前より下がった給与の月、その月の給与×10%（支給限度額まで）
+// - 育児時短就業給付: 2歳未満の子のための短時間勤務の期間に、時短の前より下がった給与の月、その月の給与×10%（支給限度額まで。
+//   時短の前の90%を超える月は率を下げる。改訂7）
 // - 介護休業給付金（改訂3。6.10）: 介護休業（leaveKind: care）の期間に、休業開始時賃金日額（休業の前6か月の給与÷180。上限は介護休業の値）×
 //   休業の日数（月×30日。対象の家族1人につき通算93日・3回まで）×率（67%）を、休業の終わりの翌月に払う
 //   （30日あたりの支給の上限額（制度データ）を日数で按分した額まで）。対象の家族は、休業の始まりに続いている介護の費用（care）の
@@ -15,6 +16,8 @@
 // 改訂6（0171）: 出生後休業支援給付の対象期間は、子の出生から8週間（2か月の近似）。産後休業をした人（子の出生の月に自分が産前産後休業）は
 //   16週間（4か月の近似。雇用保険法61条の10。制度データ employmentInsurance.postBirthBenefit.withinMonthsAfterMaternity）。前は母も2か月で、
 //   産後休業に続く母の育児休業に出なかった
+// 改訂7: 育児時短就業給付は、時短中の賃金が時短の前の賃金の90%を超え100%未満の月に、率を10%から下げる（支給率＝9,000÷賃金率−90）。
+//   前は一律10%で、賃金があまり下がらない月に多かった。支給額が賃金日額の下限額の8割以下の月は出さない（業務取扱要領 60644）
 import {
   addMonths,
   addYen,
@@ -51,6 +54,8 @@ const P = {
   shortRate: "employmentInsurance.shortHoursBenefit.rate",
   shortLimit: "employmentInsurance.shortHoursBenefit.monthlyLimit",
   shortUntil: "employmentInsurance.shortHoursBenefit.childUntilAge",
+  /** 賃金日額の下限額（基本手当と同じ。業務取扱要領 50616 イ）。育児時短就業給付は、この8割以下の支給額を出さない */
+  shortFloor: "employmentInsurance.basicAllowance.dailyWageMin",
   careRate: "employmentInsurance.careLeaveBenefit.rate",
   careDays: "employmentInsurance.careLeaveBenefit.maxDays",
   careMax: "employmentInsurance.careLeaveBenefit.monthlyLimit",
@@ -58,11 +63,23 @@ const P = {
 };
 const DAYS_PER_MONTH = 30;
 
+/** 四捨五入の割り算（正の整数） */
+const divHalfUp = (num: number, den: number): number => Math.floor((2 * num + den) / (2 * den));
+
+/**
+ * 育児時短就業給付の、賃金が時短の前の90%を超え100%未満の月の支給率（百分率の小数点以下2桁を整数にした値。4.74% なら 474）。
+ * 賃金率 X と支給率 Y は小数点以下第3位を四捨五入する（業務取扱要領 60644 ロ・ホ）
+ */
+function taperedRate(wage: Yen, before: Yen): number {
+  const x = divHalfUp(Number(wage) * 10000, Number(before));
+  return Math.max(0, divHalfUp(90000000, x) - 9000);
+}
+
 export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "benefit.employment",
   title: "雇用保険の育児・介護の給付",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -228,8 +245,14 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
         const at = ctx.at(m);
         const rateShort = at.paramRate(P.shortRate) ?? RATE_ZERO;
         let amount = at.money.mulRate(w, rateShort, "conv.benefit.daily");
+        // 時短の前の賃金の90%を超え100%未満の月は、率を下げる（改訂7。雇用保険法61条の12第6項。業務取扱要領 60644 ロ）:
+        // 賃金率 X＝賃金÷時短の前の賃金×100、支給率 Y＝9,000÷X−90（どちらも小数点以下第3位を四捨五入）、支給額＝賃金×Y÷100（円未満切り捨て）
+        if (at.money.mulRatio(w, 10, 1, "conv.exact") > at.money.mulRatio(before, 9, 1, "conv.exact")) amount = at.money.mulRatio(w, taperedRate(w, before), 10000, "conv.benefit.daily");
         const limit = at.paramYen(P.shortLimit);
         if (limit !== null && w + amount > limit) amount = yen(Math.max(0, limit - w));
+        // 支給額が賃金日額の下限額の8割以下の月は出ない（改訂7。業務取扱要領 60644 ニ）
+        const floor = at.paramYen(P.shortFloor);
+        if (floor !== null && amount <= at.money.mulRatio(floor, 8, 10, "conv.benefit.daily")) continue;
         if (amount > 0) flows.push({ row: "cf.income.benefit", ym: formatYm(addMonths(m, 1)), amount, accrualYear: yearOf(m), member, object: p.id, formula: "benefit.employment.shortHours" });
       }
     }

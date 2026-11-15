@@ -16,6 +16,9 @@
 // - 資格を取る前の月に被用者保険（勤め先の健康保険・任意継続）の被扶養者だった人（被扶養者であった被保険者）は、所得割をかけず、均等割は
 //   資格を取った月から2年（24か月）は5割より少ない軽減を5割にする（施行令18条1項2号ただし書・8号ただし書・6項）。資格を取る前の月が表の前の人は
 //   分からないので当てない
+// 改訂10: 年度の途中で75歳になった年度（資格を得た月がその年度の中）は、年金から差し引かず（普通徴収）、資格を得た月より後の納期
+//   （6月〜翌年3月のうち）だけに分ける。前は年金が年18万円以上なら4月から年金で差し引き、75歳になる前の月から払っていた（年額は同じ）。
+//   3月に75歳になったときは翌月（翌年度の4月）にまとめる（sdk の installmentMonths。国民健康保険・介護保険の第1号と同じ。0003 の追記）
 import {
   addMonths,
   addYen,
@@ -70,7 +73,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.lateElderly",
   title: "後期高齢者医療の保険料",
   contract: "1.0",
-  revision: 9,
+  revision: 10,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -106,10 +109,13 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const months = lateMonths.length;
     if (months === 0) return { flows: [] };
     const special = pensionSpecial(ctx, member, fy, jy);
+    // 資格を得た月（75歳の誕生日の月）。年度の途中で75歳になった年度は、その月より後の納期に分ける（改訂10）
+    const joined = ageMonth(ctx, fiscalYearStart(fy) < ctx.time.base ? ctx.time.base : fiscalYearStart(fy), LATE_ELDERLY_AGE, member);
+    const joinedInYear = joined >= fiscalYearStart(fy) && joined <= addMonths(fiscalYearStart(fy), 11) ? joined : undefined;
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "lateElderly", member, fy);
     if (given !== undefined) {
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
-      return { flows: reassignAfterLeave(ctx, sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member), installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.lateElderly.assessed" }])) };
+      return { flows: reassignAfterLeave(ctx, sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member), installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.lateElderly.assessed" }], joinedInYear)) };
     }
     const at = ctx.at(fiscalYearStart(jy));
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "lateElderly", fy);
@@ -146,7 +152,6 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       if (isEarner(ctx, fiscalYearStart(jy), PREFIX, id, jy - 1, elderly)) earners++;
     }
     // 被扶養者であった被保険者（改訂9）: 資格を取った月（75歳の月）の前の月に被扶養者
-    const joined = ageMonth(ctx, fiscalYearStart(fy) < ctx.time.base ? ctx.time.base : fiscalYearStart(fy), LATE_ELDERLY_AGE, member);
     const before = ctx.callMonths<HealthStatusMonth>("socialInsurance.healthStatus", { member }, "months", addMonths(joined, -1), addMonths(joined, -1));
     const formerDependent = before.length > 0 && (before[0] as HealthStatusMonth).kind === "dependent";
     const halfMonths = formerDependent ? lateMonths.filter((m) => m < addMonths(joined, FORMER_DEPENDENT_MONTHS)).length : 0;
@@ -177,6 +182,6 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const amount = at.has(`${PREFIX}.rounding`) ? at.money.round(prorated, `${PREFIX}.rounding`) : prorated;
       parts.push({ row, amount, formula: `socialInsurance.lateElderly.${part}` });
     }
-    return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, special, member, parts)) };
+    return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, special, member, parts, joinedInYear)) };
   },
 });

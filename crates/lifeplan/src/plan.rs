@@ -13,8 +13,10 @@ use serde_json::{json, Value};
 /// 1回の計算で当てるプランの変更の上限（propose_scenario の変更の上限と同じ）
 pub const MAX_PLAN_CHANGES: usize = 50;
 
-/// プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）
+/// プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らないが、写したときのために受けて使わない）。
+/// 知らない名前は受けない（args.rs が近い名前を添えて断る）
 #[derive(Debug, Clone, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PlanChange {
     /// 対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら "assumptions"）
     pub target: String,
@@ -30,9 +32,14 @@ pub struct PlanChange {
     pub lever: Option<String>,
     /// 新しい値（list_plan_items の kind・unit の形。年齢は整数の歳、金額は円の整数、率は10進の文字列 "0.02"）
     pub value: Value,
+    /// 理由（propose_scenario の changes から写したときのため。計算には使わない）
+    #[serde(default)]
+    #[allow(dead_code)] // 受けるだけで読まない（知らない名前として断らないため）
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PlanItemsArgs {
     /// 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -212,6 +219,7 @@ mod tests {
             at: None,
             lever: None,
             value: json!("0.01"),
+            note: None,
         };
         // 場所は添えたときだけ運ぶ（前の書き方は前と同じ形）
         assert_eq!(

@@ -3,6 +3,7 @@
 
 use crate::clock::{iso8601, Clock, SystemClock};
 use crate::display;
+use crate::display_proposals::{self, DisplayCandidate};
 use crate::documents::{self, PendingDocumentProposal};
 use crate::households::{self, HouseholdCandidate};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
@@ -90,7 +91,13 @@ struct Share {
     ended: Option<EndReason>,
     pseudonyms: Pseudonyms,
     record_index: usize,
+    /// この共有で受け取ったプランの候補の数（上限 `MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD` の数え方）
+    scenario_proposals: usize,
 }
+
+/// 1つの世帯について、開いている共有の間に受け取れるプランの候補の数（開いている共有の合計。書類の候補の世帯ごとの上限と同じ数）。
+/// 1件の大きさの上限（変更50件・全体50KB。0015 の7）とあわせて、世帯ファイルの候補と AI に渡した記録が大きくなりすぎないようにする
+pub const MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD: usize = 20;
 
 /// 承認待ちにしておける、機能を有効にするコードの候補の数（0015 の追記の2段目）
 pub const MAX_FEATURE_CODE_CANDIDATES: usize = 4;
@@ -120,6 +127,8 @@ struct State {
     feature_codes: Vec<FeatureCodeCandidate>,
     /// AIが組み立てた新しい世帯の候補（承認待ち。アプリのメモリの中だけ。FPが画面で作るか捨てるまで）
     household_candidates: Vec<HouseholdCandidate>,
+    /// AIが出した表示の設定の案（承認待ち。アプリのメモリの中だけ。FPが画面で設定ごとに反映するか捨てるまで。0215）
+    display_candidates: Vec<DisplayCandidate>,
     /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
@@ -298,6 +307,7 @@ impl ShareRegistry {
                 ended: None,
                 pseudonyms,
                 record_index,
+                scenario_proposals: 0,
             },
         );
         Ok(Granted {
@@ -563,6 +573,36 @@ impl ShareRegistry {
         self.lock().household_candidates.clear();
     }
 
+    /// 承認待ちの、表示の設定の案（届いた順。0215）
+    pub fn display_candidates(&self) -> Vec<DisplayCandidate> {
+        self.lock().display_candidates.clone()
+    }
+
+    /// 表示の設定の案の1つの設定を承認待ちから外す（FPが画面で反映した・捨てた）。設定が全部外れた案は、案ごと外す。外した設定の案を返す
+    pub fn take_display_change(
+        &self,
+        candidate_id: &str,
+        setting: &str,
+    ) -> Option<display_proposals::DisplayChange> {
+        let mut st = self.lock();
+        let i = st
+            .display_candidates
+            .iter()
+            .position(|c| c.candidate_id == candidate_id)?;
+        let c = &mut st.display_candidates[i];
+        let j = c.changes.iter().position(|x| x.id == setting)?;
+        let taken = c.changes.remove(j);
+        if c.changes.is_empty() {
+            st.display_candidates.remove(i);
+        }
+        Some(taken)
+    }
+
+    /// 表示の設定の案をすべて外す（AI接続口をオフにしたとき）
+    pub fn clear_display_candidates(&self) {
+        self.lock().display_candidates.clear();
+    }
+
     // ------------------------------------------------------------ 接続口からの依頼（受け口（endpoint）から呼ぶ。成功は返す JSON の文字列）
 
     /// 機能を有効にするコードを、承認待ちの候補に入れる（コードは入れない）。同じコードの候補が既にあれば、それを返す
@@ -600,7 +640,7 @@ impl ShareRegistry {
                     candidate_id: id.clone(),
                     received_at: iso8601(now),
                     code,
-                    connector: caller.mcp_client_declared.clone(),
+                    connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
                 });
                 id
             }
@@ -609,6 +649,45 @@ impl ShareRegistry {
             "candidateId": id,
             "status": "pendingReview",
             "message": "機能を有効にするコードの候補を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん下）に承認待ちで出しました。FPが画面で中身（有効になる機能・名前・期限）と、入れる前と後を確かめて「このコードを入れる」を押したときだけ入ります。この道具ではコードは入りません。",
+        })
+        .to_string())
+    }
+
+    /// 事務所の既定値の表示の設定の案を、承認待ちに入れる（設定は変えない。0215）。世帯を渡していなくてよく、世帯の中身ではないので
+    /// AIに渡した記録には残さない。同じ中身の案が既にあれば、それを返す
+    pub fn handle_propose_display(
+        &self,
+        proposal: &Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let changes = display_proposals::validate(proposal).map_err(|m| (ErrorCode::Invalid, m))?;
+        let ids: Vec<String> = changes.iter().map(|c| c.id.clone()).collect();
+        let now = self.now();
+        let mut st = self.lock();
+        let id = match st.display_candidates.iter().find(|c| c.changes == changes) {
+            Some(c) => c.candidate_id.clone(),
+            None => {
+                if st.display_candidates.len() >= display_proposals::MAX_PENDING {
+                    return Err((
+                        ErrorCode::Invalid,
+                        format!("承認待ちの表示の設定の案が多すぎます（{}件まで）。FPがアプリの画面で今の案を反映するか捨てるまで、新しい案は出せません。", display_proposals::MAX_PENDING),
+                    ));
+                }
+                let id = reduce::random_uuid_v4();
+                st.display_candidates.push(DisplayCandidate {
+                    candidate_id: id.clone(),
+                    received_at: iso8601(now),
+                    connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
+                    changes,
+                });
+                id
+            }
+        };
+        Ok(json!({
+            "candidateId": id,
+            "status": "pendingReview",
+            "settings": ids,
+            "message": "表示の設定の案を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん上の「AIからの表示の設定の案」。上の帯にも出ます）に承認待ちで出しました。FPが画面で設定ごとに「今 → 案」を確かめて「反映する」を押した設定だけが、事務所の既定値に入ります（どの世帯にもすぐ効きます。input.items は新しく作る世帯にだけ効き、作った世帯は変わりません）。この道具では設定は変わりません。反映した後も、FPは事務所の既定値の画面の「前の値に戻す」で戻せます。",
         })
         .to_string())
     }
@@ -705,7 +784,7 @@ impl ShareRegistry {
             share_id: share_id.to_owned(),
             household_id: household_id.clone(),
             received_at: iso8601(now),
-            connector: caller.mcp_client_declared.clone(),
+            connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
             answer: restored,
         });
         if let Some(r) = st
@@ -899,9 +978,27 @@ impl ShareRegistry {
         let share = st.shares.get(share_id).ok_or_else(not_shared)?;
         let (title, summary, diffs) =
             proposal::validate(proposal, &share.pseudonyms).map_err(|m| (ErrorCode::Invalid, m))?;
-        let candidate_id = reduce::random_uuid_v4();
         let household_id = share.source.household_id.clone();
         let index = share.record_index;
+        // 件数の上限: この世帯の開いている共有（期限内で止まっていない物）で受け取った候補の合計
+        let received: usize = st
+            .shares
+            .values()
+            .filter(|s| {
+                s.source.household_id == household_id && s.ended.is_none() && now < s.expires_ms
+            })
+            .map(|s| s.scenario_proposals)
+            .sum();
+        if received >= MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD {
+            return Err((
+                ErrorCode::Invalid,
+                format!("この世帯の共有で出せるプランの候補は{MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD}件までです（開いている共有の合計）。新しい候補は出さず、今までの候補をFPがアプリの「AIからの候補」で確かめるのを待ってください。さらに出すには、FPが世帯をもう一度渡す必要があります。"),
+            ));
+        }
+        if let Some(s) = st.shares.get_mut(share_id) {
+            s.scenario_proposals += 1;
+        }
+        let candidate_id = reduce::random_uuid_v4();
         let n = diffs.len();
         st.proposals.push(PendingProposal {
             candidate_id: candidate_id.clone(),
@@ -913,7 +1010,7 @@ impl ShareRegistry {
             diffs,
             origin: ProposalOrigin {
                 kind: "ai".to_owned(),
-                connector: caller.mcp_client_declared.clone(),
+                connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
             },
         });
         if let Some(r) = st

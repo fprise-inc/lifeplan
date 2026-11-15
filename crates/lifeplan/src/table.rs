@@ -36,6 +36,7 @@ pub const DEFAULT_EVERY_YEARS: u8 = 5;
 pub const MAX_AGE: u8 = 120;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TableArgs {
     /// 基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,

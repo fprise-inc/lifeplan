@@ -15,7 +15,9 @@ import { normalProtection, OPEN_SCENES, PREMISE_KINDS, premiseStarts, SCENE_KIND
 import type { ScenarioKind } from "../contingency/requests.ts";
 import { outOfRangeText, rangeText, type PctRange } from "../input/rateRanges.ts";
 import { normalizeNumberText, rateFromPct, readYen } from "../input/units.ts";
-import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, ASSUMPTION_STANDARDS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
+import { DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, officePremise, withOfficePremise, type FeeTable, type OfficeSettings } from "./settings.ts";
+import { PREMISE_DEFS, PREMISE_SECTION_LABELS, premiseText, type PremiseDef, type PremiseSection } from "../input/premiseDefaults.ts";
+import { withOfficeValue as withEstimateValue, withoutOfficeValue as withoutEstimateValue } from "./estimates.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
@@ -25,7 +27,10 @@ import { EstimatesSection } from "./EstimatesSection.tsx";
 import { EMPTY_ESTIMATES, type OfficeEstimates } from "./estimates.ts";
 import type { PreviewRow } from "./estimatePreview.ts";
 import { withEstimates } from "./settings.ts";
-import type { CustomHost, CustomTextsStatus } from "../../engine/host.ts";
+import type { AiDisplayCandidate, CustomHost, CustomTextsStatus } from "../../engine/host.ts";
+import type { ProposableDisplayId } from "../../connector/displayCatalog.ts";
+import { DisplayProposalsSection } from "./DisplayProposalsSection.tsx";
+import { carryDisplayValue } from "./displayProposals.ts";
 import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, NOTICE_FADE_TEXT, noticeCodes, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
 export interface OfficeSettingsPanelProps {
@@ -58,6 +63,16 @@ export interface OfficeSettingsPanelProps {
   previewEstimates?: (before: OfficeEstimates, after: OfficeEstimates) => Promise<PreviewRow[]>;
   /** 事務所の見た目（0121。名前・ロゴ・基調の色）。区画の中で保存する（パネルの「保存」とは別）。無ければ区画を出さない */
   branding?: Omit<BrandingSectionProps, "shared">;
+  /**
+   * AIからの表示の設定の案（0215。接続口の propose_display_settings）と、その判断。反映・前の値に戻すは、すぐ事務所データに保存して保存した設定を返す
+   * （パネルの「保存」は要らない）。無ければ区画を出さない（前の値があれば、前の値に戻すだけを出す）
+   */
+  display?: {
+    candidates: readonly AiDisplayCandidate[];
+    onApply: (candidate: string, id: ProposableDisplayId, value: unknown) => Promise<OfficeSettings>;
+    onDiscard: (candidate: string, id: string) => Promise<void>;
+    onRestore: (id: ProposableDisplayId, index: number) => Promise<OfficeSettings>;
+  };
 }
 
 /**
@@ -122,9 +137,31 @@ export function feeFromTexts(base: FeeTable, t: FeeTexts): FeeTable | null {
   return { ...base, oneTime, amount, steps };
 }
 
+/** 目次の組: 区画の見出しの id を意味のまとまりで分ける（並びは本文の区画の順） */
+const TOC_GROUPS: readonly { title: string; ids: readonly string[]; prefix?: string; suffix?: string }[] = [
+  { title: "見た目と入力の並び", ids: ["os-ai-display", "os-brand", "os-cards", "os-items", "os-living"] },
+  { title: "結果と万一の画面", ids: ["os-levers", "os-cg"] },
+  { title: "計算の前提と金額", ids: ["os-care", "os-inherit", "os-assume", "os-fee", "os-corp", "os-estimates"] },
+  // 見出しの末尾の「（カスタム層）」は組の名前と重なるので、目次では省く
+  { title: "カスタム層", ids: [], prefix: "os-custom", suffix: "（カスタム層）" },
+];
+
+/** 見出しを目次の組に分ける。どの組にも無い見出しは、すぐ前の見出しと同じ組に入れる（無ければ最初の組） */
+export function tocGroups(heads: readonly { id: string; label: string }[]): { title: string; items: { id: string; label: string }[] }[] {
+  const out = TOC_GROUPS.map((g) => ({ title: g.title, items: [] as { id: string; label: string }[] }));
+  let last = 0;
+  for (const h of heads) {
+    const i = TOC_GROUPS.findIndex((g) => g.ids.includes(h.id) || (g.prefix !== undefined && h.id.startsWith(g.prefix)));
+    if (i >= 0) last = i;
+    const suffix = TOC_GROUPS[last]?.suffix;
+    out[last]?.items.push(suffix !== undefined && h.label.endsWith(suffix) && h.label.length > suffix.length ? { id: h.id, label: h.label.slice(0, -suffix.length) } : h);
+  }
+  return out.filter((g) => g.items.length > 0);
+}
+
 /**
- * 事務所の既定値のパネルの目次: パネルの中の区画の見出し（.os-sec の h3）を並べ、押すとその見出しへ移る。区画は事務所の見た目・カスタム層など
- * 世帯や機能で増減するので、描いた後に見出しを読んで作る
+ * 事務所の既定値のパネルの目次: パネルの中の区画の見出し（.os-sec の h3）を組ごとに縦に並べ、押すとその見出しへ移る。
+ * 区画は世帯や機能で増減するので、描いた後に見出しを読んで作る。広い幅では組を横に並べ、狭い幅では1列
  */
 function OfficeToc({ panel }: { panel: { current: HTMLDivElement | null } }) {
   const [heads, setHeads] = useState<{ id: string; label: string }[]>([]);
@@ -142,40 +179,68 @@ function OfficeToc({ panel }: { panel: { current: HTMLDivElement | null } }) {
   }, [panel]);
   if (heads.length < 2) return null;
   return (
-    <nav class="pl-sub os-toc" aria-label="事務所の既定値の目次" data-office-toc>
-      目次:{" "}
-      {heads.map((h, i) => (
-        <span key={h.id}>
-          {i > 0 ? "・" : ""}
-          <button type="button" class="link-btn" onClick={() => panel.current?.querySelector(`#${CSS.escape(h.id)}`)?.scrollIntoView({ block: "start" })} data-office-toc-item={h.id}>
-            {h.label}
-          </button>
-        </span>
-      ))}
+    <nav class="os-toc" aria-label="事務所の既定値の目次" data-office-toc>
+      <p class="os-toc-title">目次</p>
+      <div class="os-toc-groups">
+        {tocGroups(heads).map((g) => (
+          <div class="os-toc-group" key={g.title} data-office-toc-group={g.title}>
+            <p class="os-toc-h">{g.title}</p>
+            <ul>
+              {g.items.map((h) => (
+                <li key={h.id}>
+                  <button type="button" class="link-btn" onClick={() => panel.current?.querySelector(`#${CSS.escape(h.id)}`)?.scrollIntoView({ block: "start" })} data-office-toc-item={h.id}>
+                    {h.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
     </nav>
   );
 }
 
+/** 前提条件の欄の文字の鍵（前提条件の id。欄の data-office-setting にも使う） */
+const premiseTextKey = (d: PremiseDef): string => d.id;
+
+/** 事務所の推定の値で決める前提条件（土地の割合など。0214 の1）の今の事務所の値（率の文字。決めていなければ null） */
+const liveValue = (v: OfficeSettings, d: PremiseDef): string | null => {
+  const x = d.live !== undefined ? v.estimates?.values[d.live]?.value : undefined;
+  return typeof x === "string" || typeof x === "number" ? String(x) : null;
+};
+
+/** 前提条件の欄の文字（率は％、耐用年数は年。決めていなければ空） */
+const premiseInput = (d: PremiseDef, v: string | null): string => (v === null ? "" : d.kind === "int" ? v : rateToPct(v));
+
+/** 前提条件の欄の文字を読む（空は null、読めない・範囲の外は undefined） */
+export function premiseFromText(d: PremiseDef, text: string): string | null | undefined {
+  if (d.kind === "pct") return pctToRate(text, d.min, d.max);
+  const t = normalizeNumberText(text).trim().replace(/年$/, "");
+  if (t === "") return null;
+  if (!/^\d{1,3}$/.test(t) || Number(t) < d.min || Number(t) > d.max) return undefined;
+  return String(Number(t));
+}
+
 /** 事務所の既定値から、％・年齢の欄の文字 */
 const settingTexts = (v: OfficeSettings): Record<string, string> => ({
-  ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(v.assumptions[k])])),
+  ...Object.fromEntries(PREMISE_DEFS.map((d) => [premiseTextKey(d), premiseInput(d, d.live !== undefined ? liveValue(v, d) : officePremise(v, d.id))])),
   realEstateRatio: rateToPct(v.realEstateRatio),
   horizonAge: String(v.protection.horizon?.age ?? 90),
   reverseAge: v.protection.protection?.reverseUntilAge !== undefined ? String(v.protection.protection.reverseUntilAge) : "",
 });
 
-/** 前提条件の既定の値（パーセント。settings.ts の ASSUMPTION_STANDARDS から。系列を OFFICE_ASSUMPTIONS に足せば、ここも付いてくる） */
-const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(ASSUMPTION_STANDARDS[k])])) as Record<OfficeAssumption, string>;
+/** 前提条件の欄の空欄のときの言葉（提供元の既定の値。ほかの値と同じになる物は空。言葉は区画の説明・欄の下の1行に書く。小さな欄に収まらないため） */
+const premisePlaceholder = (d: PremiseDef): string => (d.standard === null ? "" : premiseInput(d, d.standard));
 
-/** 前提条件の既定値の欄の下の1行（入れなければ既定の値。貸していない不動産の値動きは、評価額の増減率を入れていない物に使う） */
-const assumptionNote = (k: OfficeAssumption): string =>
-  k === "heldEstateGrowth"
-    ? `入れなければ${STANDARD_PCT[k]}%（評価額のまま）。貯蓄・運用の貸していない不動産で、評価額の増減率を入れていない物に使います（新しい世帯の前提条件の「資産の種類ごとの利回り」の不動産に写します）。${rangeText(ASSUMPTION_RANGES[k])}`
-    : k === "depositReturn"
-      ? `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。預金・外貨預金の利回りです。${rangeText(ASSUMPTION_RANGES[k])}`
-      : `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`;
+/** 前提条件の区画ごとの説明（区画の見出しの下） */
+const PREMISE_SECTION_NOTES: Readonly<Record<PremiseSection, string>> = {
+  economy: "空欄は提供元の既定の値（仮の値）です。長い期間の平均の目安で入れます。",
+  realEstate: "持ち家・収益不動産の評価に使います（物件ごとに入れた値があればそちら）。空欄は提供元の既定の値（土地の上昇率は物価上昇率と同じ）。土地の割合・建物の残りの価値の下限・売却の費用は「事務所の推定の値」と同じ値で、世帯に写さず、空欄の物件はその場の値で計算します。",
+  assetReturns: "資産配分の種類ごとの利回り（信託報酬などを引く前の年率）。空欄は、預金・外貨預金は預金の利回り、不動産（貸していない不動産の値動き）は0%、ほかは運用利回りで計算します。",
+};
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding, display }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
   // 事務所の推定の値（0111）: 区画の中で押すとすぐ保存する。パネルの「保存」・「全部を既定に戻す」では変えない（保存のときは今の値を持ち越す）
   const [est, setEst] = useState<OfficeEstimates>(value.estimates ?? EMPTY_ESTIMATES);
@@ -278,12 +343,17 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // 閉じる処理は描き直しのたびに新しい関数で届く（呼ぶ側がその場で作る）。最新のものを持っておき、Esc で呼ぶ
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // パネルへ移すのは開いたときの1回だけ。描き直しのたびに移すと、事務所の名前など打っている欄から選択が外れる
+  // （名前は打つたびに左上の見本を描き直すので、呼ぶ側が描き直す）
   useEffect(() => {
     panel.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
   const layout = layoutOf(s);
   const order = [...layout.order, ...STAGE_ORDER.map((x) => x.id).filter((id) => !layout.order.includes(id))];
   const label = (id: StageId) => STAGE_ORDER.find((x) => x.id === id)?.label ?? id;
@@ -333,22 +403,31 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
   };
   const protNext = protectionFrom(prot);
   const feeTable = feeFromTexts(s.fee, fee);
-  const bad = [...OFFICE_ASSUMPTIONS.filter((k) => pctToRate(texts[k] ?? "", ASSUMPTION_RANGES[k].min, ASSUMPTION_RANGES[k].max) === undefined), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : []), ...(protNext === undefined ? ["protection"] : [])];
+  const bad = [...PREMISE_DEFS.filter((d) => premiseFromText(d, texts[premiseTextKey(d)] ?? "") === undefined).map(premiseTextKey), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : []), ...(protNext === undefined ? ["protection"] : [])];
   const per = s.fee.per === "month" ? "月" : "年";
   const save = async () => {
-    const assumptions: OfficeSettings["assumptions"] = {};
-    for (const k of OFFICE_ASSUMPTIONS) {
-      const r = pctToRate(texts[k] ?? "", ASSUMPTION_RANGES[k].min, ASSUMPTION_RANGES[k].max);
-      if (typeof r === "string") assumptions[k] = r;
+    // 前提条件の既定値（0214）: 写す物は事務所の既定値に、土地の割合など3つは事務所の推定の値に（変えた物だけ。変えていない値の年月は変えない）
+    let withPremises: OfficeSettings = s;
+    let estNext = est;
+    for (const d of PREMISE_DEFS) {
+      const r = premiseFromText(d, texts[premiseTextKey(d)] ?? "");
+      if (r === undefined) continue;
+      if (d.live === undefined) withPremises = withOfficePremise(withPremises, d.id, r);
+      else {
+        const cur = typeof est.values[d.live]?.value === "string" || typeof est.values[d.live]?.value === "number" ? String(est.values[d.live]?.value) : null;
+        if (r === cur || (r !== null && cur !== null && Number(r) === Number(cur))) continue;
+        estNext = r === null ? withoutEstimateValue(estNext, d.live) : withEstimateValue(estNext, d.live, r, null, today());
+      }
     }
     const ratio = pctToRate(texts.realEstateRatio ?? "", 0, 100);
     const sameLayout = JSON.stringify(layout) === JSON.stringify(DEFAULT_LAYOUT);
-    const next: OfficeSettings = withEstimates({ ...s, layout: sameLayout ? null : layout, assumptions, realEstateRatio: typeof ratio === "string" ? ratio : null, fee: feeTable ?? s.fee, protection: protNext ?? {}, changedOn: today() }, est);
+    const next: OfficeSettings = withEstimates({ ...withPremises, layout: sameLayout ? null : layout, realEstateRatio: typeof ratio === "string" ? ratio : null, fee: feeTable ?? s.fee, protection: protNext ?? {}, changedOn: today() }, estNext);
     setBusy(true);
     setMsg(null);
     try {
       await onSave(next);
       setS(next);
+      if (estNext !== est) setEst(estNext);
       setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません。対策に最初から出す項目、万一のときのタブの場面・想定の前提に最初から出す項目と、基本生活費の内訳の並べ方は、どの世帯にもすぐ効きます）" });
     } catch (e) {
       setMsg({ ok: false, text: `保存できませんでした（${typeof e === "string" ? e : e instanceof Error ? e.message : "E_OFFICE_SETTINGS"}）` });
@@ -371,7 +450,26 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
             {over}
           </span>
         ) : null}
-        <small>{note}</small>
+        {note !== "" ? <small>{note}</small> : null}
+      </label>
+    );
+  };
+  /** 前提条件の1つの欄（経済の前提は欄の下に範囲を添え、不動産の評価・資産の種類ごとの利回りは小さな欄の並び。0214 の4） */
+  const premiseInputField = (d: PremiseDef, wide: boolean) => {
+    const key = premiseTextKey(d);
+    if (d.kind === "pct") return pct(key, d.officeLabel ?? d.label, premisePlaceholder(d), wide ? `入れなければ${d.standard === null ? (d.follows?.text ?? "入れない") : `既定の値（${premiseText(d, d.standard)}。仮の値）`}。${rangeText(d)}` : "", d);
+    const bad1 = bad.includes(key);
+    return (
+      <label class="os-pct" key={key}>
+        <span>{d.label}</span>
+        <span class="os-in">
+          <input inputMode="numeric" value={texts[key] ?? ""} placeholder={premisePlaceholder(d)} aria-invalid={bad1} onInput={(e) => setTexts({ ...texts, [key]: (e.currentTarget as HTMLInputElement).value })} data-office-setting={key} />年
+        </span>
+        {bad1 ? (
+          <span class="fld-help bad" role="alert" data-office-setting-problem={key}>
+            {d.min}〜{d.max}年の整数で入れてください
+          </span>
+        ) : null}
       </label>
     );
   };
@@ -381,10 +479,28 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
       <div ref={panel} class="rk-panel os-panel" role="dialog" aria-modal="true" aria-labelledby="os-title" tabIndex={-1} data-office-settings>
         <h2 id="os-title">事務所の既定値</h2>
         <p class="pl-sub">
-          新しく作る世帯に写す値と、入力のホームの並びです。写した値は「推定」の印（根拠「事務所の既定値」）で入り、後で変えても作った世帯は黙って変わりません（違うときは確かめの一覧に「事務所の新しい値があります」と出ます）。
+          新しく作る世帯に写す値と、入力のホームの並びです。前提条件は世帯の欄に「事務所の既定値」の印で入ります。後で変えても作った世帯は黙って変わりません（違うときは確かめの一覧に「事務所の既定値が変わりました」と出て、1押しでその世帯に当てられます）。
           {shared ? "事務所で共有していても、今はこの PC の設定です。" : "この PC の設定です。"}
         </p>
         <OfficeToc panel={panel} />
+        {display !== undefined ? (
+          <DisplayProposalsSection
+            value={value}
+            candidates={display.candidates}
+            // 反映した設定と前の値だけを、編集中の欄にも写す（ほかの編集中の欄はそのまま。パネルの「保存」で消えないように）
+            onApply={async (c, id, v) => {
+              const saved = await display.onApply(c, id, v);
+              setS((x) => carryDisplayValue(x, saved, id));
+              return saved;
+            }}
+            onDiscard={display.onDiscard}
+            onRestore={async (id, i) => {
+              const saved = await display.onRestore(id, i);
+              setS((x) => carryDisplayValue(x, saved, id));
+              return saved;
+            }}
+          />
+        ) : null}
         {branding !== undefined ? <BrandingSection {...branding} shared={shared} /> : null}
         <section class="os-sec" aria-labelledby="os-cards">
           <h3 id="os-cards">入力のホームの入力項目の並び</h3>
@@ -614,32 +730,43 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
         </section>
         <section class="os-sec" aria-labelledby="os-assume">
           <h3 id="os-assume">前提条件の既定値</h3>
-          <div class="os-grid">
-            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], assumptionNote(k), ASSUMPTION_RANGES[k]))}
-            {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "入れなければ時価の80%")}
-            <label class="os-pct">
-              <span>表の最後の年（何歳まで見るか）</span>
-              <span class="os-in">
-                <select
-                  value={String(s.endAge ?? STANDARD_END_AGE)}
-                  onChange={(e) => {
-                    const v = Number((e.currentTarget as HTMLSelectElement).value);
-                    const { endAge: _old, ...rest } = s;
-                    void _old;
-                    setS(v === STANDARD_END_AGE ? rest : { ...rest, endAge: v });
-                  }}
-                  data-office-end-age
-                >
-                  {END_AGES.map((a) => (
-                    <option key={a} value={String(a)}>
-                      若い方が{a}歳になる年まで{a === STANDARD_END_AGE ? "（既定）" : ""}
-                    </option>
-                  ))}
-                </select>
-              </span>
-              <small>ご本人・配偶者のうち若い方の年齢。これから作る世帯の表の最後の年に写し、前提条件の欄の「既定」もこの年齢にします</small>
-            </label>
-          </div>
+          <p class="pl-sub">世帯の前提条件の既定の値です。これから作る世帯に写し、世帯では「事務所の既定値」と出ます（世帯ごとに直すと「この世帯だけ」）。</p>
+          {(["economy", "realEstate", "assetReturns"] as const).map((sec) => (
+            <div class="os-premise" key={sec} data-office-premises={sec}>
+              <h4>{PREMISE_SECTION_LABELS[sec]}</h4>
+              <p class="pl-sub">{PREMISE_SECTION_NOTES[sec]}</p>
+              <div class={`os-grid${sec === "economy" ? "" : " os-compact"}`}>
+                {PREMISE_DEFS.filter((d) => d.section === sec).map((d) => premiseInputField(d, sec === "economy"))}
+                {sec === "economy" ? (
+                  <>
+                    {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "入れなければ時価の80%")}
+                    <label class="os-pct">
+                      <span>表の最後の年（何歳まで見るか）</span>
+                      <span class="os-in">
+                        <select
+                          value={String(s.endAge ?? STANDARD_END_AGE)}
+                          onChange={(e) => {
+                            const v = Number((e.currentTarget as HTMLSelectElement).value);
+                            const { endAge: _old, ...rest } = s;
+                            void _old;
+                            setS(v === STANDARD_END_AGE ? rest : { ...rest, endAge: v });
+                          }}
+                          data-office-end-age
+                        >
+                          {END_AGES.map((a) => (
+                            <option key={a} value={String(a)}>
+                              若い方が{a}歳になる年まで{a === STANDARD_END_AGE ? "（既定）" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </span>
+                      <small>ご本人・配偶者のうち若い方の年齢。これから作る世帯の表の最後の年に写し、前提条件の欄の「既定」もこの年齢にします</small>
+                    </label>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ))}
           <p class="pl-sub">長い期間の平均の目安です。根拠（出典・期間）は事務所で確かめてください。商品のおすすめではありません。</p>
         </section>
         <section class="os-sec" aria-labelledby="os-fee" data-office-fee>
@@ -755,7 +882,8 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
             onClick={() => {
               setS(DEFAULT_OFFICE_SETTINGS);
               setFee(feeTexts(DEFAULT_OFFICE_SETTINGS.fee));
-              setTexts({ ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, ""])), realEstateRatio: "", horizonAge: "90", reverseAge: "" });
+              // 事務所の推定の値で決める前提条件（土地の割合など）は、ここでは戻さない（事務所の推定の値の区画で戻す。0111）
+              setTexts({ ...Object.fromEntries(PREMISE_DEFS.map((d) => [premiseTextKey(d), d.live !== undefined ? premiseInput(d, liveValue({ ...s, estimates: est }, d)) : ""])), realEstateRatio: "", horizonAge: "90", reverseAge: "" });
             }}
           >
             全部を既定に戻す

@@ -439,7 +439,8 @@ describe("教育費（education.cost）・公的支援（education.support）・
       ["university", "2031-04"],
     ]);
     const f = out.flows as unknown as Flow[];
-    expect(f.filter((x) => x.row === "cf.expense.education.entrance").map((x) => x.ym)).toEqual(["2031-02"]);
+    // 高校の入学金等（統計の全学年の平均×3年）は入学の前の2月にまとめて（0010 の追記 2026-11-14）
+    expect(f.filter((x) => x.row === "cf.expense.education.entrance").map((x) => x.ym)).toEqual(["2028-02", "2031-02"]);
     expect(f.filter((x) => x.formula === "education.cost.tuition" && x.ym.startsWith("2031")).map((x) => x.ym)).toEqual(["2031-04", "2031-10"]);
   });
 
@@ -474,7 +475,8 @@ describe("教育費（education.cost）・公的支援（education.support）・
   it("高校の就学支援金（私立の上限）と、大学の修学支援（住民税の課税標準額から区分。非課税なら第I区分で授業料・入学金を上限まで減免と給付型奨学金）", () => {
     const req = mk([{ stage: "highSchool", sector: "private" }, { stage: "university", sector: "private", living: "away" }], {}, "2012-06", 0);
     const f = call<{ flows: Flow[] }>(req, "education.support", { member: C }).flows;
-    expect(sumFlows(f, (x) => x.formula === "education.support.highSchool" && x.ym >= "2028-04" && x.ym <= "2029-03")).toBe(457200);
+    // 統計の平均の高校は、上限と統計の授業料（就学支援金を差し引いた後の額）の小さい方（0010 の追記 2026-11-14。学校の年額を入れた段は上限まで）
+    expect(sumFlows(f, (x) => x.formula === "education.support.highSchool" && x.ym >= "2028-04" && x.ym <= "2029-03")).toBe(279170);
     expect(sumFlows(f, (x) => x.formula === "education.support.tuitionWaiver" && x.ym.startsWith("2031"))).toBe(700000);
     // 入学金は統計の平均（240,365円）が上限（26万円）より小さいので全額
     expect(sumFlows(f, (x) => x.formula === "education.support.admissionWaiver")).toBe(240365);
@@ -577,6 +579,22 @@ describe("教育費（education.cost）・公的支援（education.support）・
     expect(f.every((x) => Number(x.ym.slice(5)) % 2 === 0)).toBe(true);
     // 第1子が18歳の年度末（2029年3月）を過ぎても22歳の年度末までは数えるので、第3子は30,000円のまま
     expect(paid("2029-06", "c3")).toBe(60000);
+  });
+
+  it("児童手当: 計算基準月が偶数月（支払月）なら、その月に前の2か月分を払う（改訂5。前は1か月分だけだった）", () => {
+    const mkAt = (baseMonth: string) =>
+      edit(household({ members: [member("a", "self", "1985-01"), member("c1", "child", "2016-05"), member("c2", "child", "2020-06"), member("c3", "child", "2025-08")], baseMonth, endYear: 2028 }), () => {});
+    const firstPay = (baseMonth: string) => {
+      const f = call<{ flows: Flow[] }>(mkAt(baseMonth), "benefit.childAllowance", {}).flows;
+      const first = f.reduce((a, x) => (x.ym < a ? x.ym : a), "9999-99");
+      return { ym: first, amount: sumFlows(f, (x) => x.ym === first), months: f.filter((x) => x.ym === first).length };
+    };
+    // 計算基準月 2026-10: 10月に8・9月分（10,000＋10,000＋30,000）×2。3人×2か月で6つ
+    expect(firstPay("2026-10")).toEqual({ ym: "2026-10", amount: 100000, months: 6 });
+    // 計算基準月 2026-11（奇数月）: 最初の支払いは12月の10・11月分（今までどおり）
+    expect(firstPay("2026-11")).toEqual({ ym: "2026-12", amount: 100000, months: 6 });
+    // 計算基準月 2026-12（偶数月）: 12月の10・11月分
+    expect(firstPay("2026-12")).toEqual({ ym: "2026-12", amount: 100000, months: 6 });
   });
 
   it("高校の就学支援金は、国籍・在留資格の要件で対象外にした子には出さない（知らせ。PR #14 の 8 の(5)）", () => {

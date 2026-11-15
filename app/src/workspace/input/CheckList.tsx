@@ -50,7 +50,7 @@ export function checkButtonText(counts: Readonly<Record<CheckKind, number>>): st
   return `確かめの一覧（${kindCount("missing", counts.missing, "未入力")}・${kindCount("estimated", counts.estimated)}${others > 0 ? " ほか" : ""}）`;
 }
 
-/** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・書類待ち・推定。前提条件の標準の値は数えない） */
+/** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・書類待ち・推定。事務所の既定値どおりの前提条件は数えない） */
 export function checkSummary(wh: WorkingHousehold, notices: readonly NoticeRow[] = []): { total: number; counts: Record<CheckKind, number> } {
   const counts = checkCounts(checkList(wh, notices));
   return { total: counts.missing + counts.notStarted + counts.unknown + counts.notice + counts.calc + counts.estimated, counts };
@@ -207,7 +207,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
           確かめの一覧
           <Help label="確かめの一覧" id="checklist">
             <p>未入力・まだ入れていない項目・書類待ち・確かめの注意・計算のお知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。数は欄の数（○か所）で、注意・お知らせは件数です。</p>
-            <p>仮の値（生年月など、推定できない欄に計算のために置いた値）は、未入力に出します。前提条件の既定の値のままの前提は、いちばん下の「前提条件の標準の値」にまとめます（推定の数には入れません）。</p>
+            <p>仮の値（生年月など、推定できない欄に計算のために置いた値）は、未入力に出します。事務所の既定値どおりの前提条件は、いちばん下の「前提条件（事務所の既定値どおり）」にまとめます（推定ではないので、推定の数には入れません）。事務所の既定値が後で変わった前提条件は、確かめの注意に「事務所の既定値が変わりました」と出ます。</p>
             <p>「入っていない所を推定で入れる」は、入っていない物（教育費・退職金・住居費など）を推定で入れます。「推定のままの値を「この値にする」」は、推定のままの値をその値のまま確定にします（確定にすると、家族や収入を直しても推定で入れ直されません）。</p>
             <p>書類待ちは、欄で「書類で確かめる」にした所です（住民税は住民税の決定通知書、退職金・企業年金は会社の退職金規程・制度の資料、年金の加入月数はねんきん定期便、住宅ローン・自動車ローンは返済予定表、手術の額は保険証券）。確かめるまでは代わりの値で計算し、書類の値を打つか「この値にする」で消えます。「書類のお願いにまとめる」で、送ってもらう書類の一覧とお願いの文を出せます。</p>
             <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・書類待ち・確かさの行は「根拠」で根拠が開きます。</p>

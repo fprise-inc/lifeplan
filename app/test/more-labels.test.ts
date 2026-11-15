@@ -116,8 +116,10 @@ describe("種類で文が変わる所", () => {
   });
 
   it("学校の段: 保育園・小〜高・高校のあとの学校（自宅外は仕送り）で文を変え、開くと文の欄が出る", () => {
-    expect(stageMoreLabel({ stage: "nursery" })).toBe("保育料の水準などを入れる");
-    for (const stage of ["kindergarten", "elementary", "juniorHigh", "highSchool", "kosen"]) expect(stageMoreLabel({ stage }), stage).toBe("入学金・在学年数などを入れる");
+    expect(stageMoreLabel({ stage: "nursery" })).toBe("施設の種類・自治体の無償化などを入れる");
+    // 保育園・幼稚園（3歳から）は「通う年数」（2026-11-14）
+    expect(stageMoreLabel({ stage: "kindergarten" })).toBe("入学金・通う年数などを入れる");
+    for (const stage of ["elementary", "juniorHigh", "highSchool", "kosen"]) expect(stageMoreLabel({ stage }), stage).toBe("入学金・在学年数などを入れる");
     expect(stageMoreLabel({ stage: "university", living: "away" })).toBe("初期費用・受験の費用などを入れる");
     expect(stageMoreLabel({ stage: "university", living: "home" })).toBe("系統・受験の費用などを入れる");
     expect(stageMoreLabel({ stage: "vocational", living: "home" })).toBe("入学金・受験の費用などを入れる");
@@ -129,11 +131,11 @@ describe("種類で文が変わる所", () => {
     const nursery = stages.find((g) => g.title?.startsWith("保育園（2歳まで）"))!;
     const university = stages.find((g) => g.title?.startsWith("大学"))!;
     const elementary = stages.find((g) => g.title?.startsWith("小学校"))!;
-    expect(shown.get(nursery.key)).toBe("保育料の水準などを入れる");
+    expect(shown.get(nursery.key)).toBe("施設の種類・自治体の無償化などを入れる");
     expect(shown.get(elementary.key)).toBe("入学金・在学年数などを入れる");
     expect(shown.get(university.key)).toBe("初期費用・受験の費用などを入れる");
     const detail = (g: GroupDef) => g.fields.filter((f) => f.level === "detail").map((f) => f.label);
-    expect(detail(nursery)).toContain("保育料の水準（国の基準に対する割合）");
+    expect(detail(nursery)).toEqual(expect.arrayContaining(["保育料の水準（国の基準に対する割合）", "施設の種類", "自治体の独自の無償化", "延長保育（月額）"]));
     expect(detail(elementary)).toEqual(expect.arrayContaining(["入学金", "在学年数"]));
     expect(detail(university)).toEqual(expect.arrayContaining(["自宅外の初期費用", "受験・併願の費用"]));
     // 自宅外の仕送り（月額）は、自宅外を選んだときだけ標準に出す

@@ -84,8 +84,8 @@ entries:
     rows: [cf.taxSi.childSupport]
     components:
       socialInsurance.health: 4
-      socialInsurance.nationalHealth: 12
-      socialInsurance.lateElderly: 9
+      socialInsurance.nationalHealth: 13
+      socialInsurance.lateElderly: 10
       socialInsurance.continuation: 3
     related:
       - socialInsurance.employeeHealth
@@ -99,7 +99,8 @@ entries:
     how: >-
       40〜64歳は、勤め先の健康保険なら標準報酬月額×介護保険料率（折半）、国民健康保険なら介護分（所得割・均等割・平等割）です。
       65歳からは、基準額（月額）×12×所得の段階の割合です。段階は、本人が住民税の均等割の課税なら合計所得金額の段階、本人が非課税なら世帯に課税の人がいるかと
-      「公的年金等の収入＋その他の合計所得金額」で決めます（国の標準段階）。年金が年18万円以上なら年金から差し引きます。
+      「公的年金等の収入＋その他の合計所得金額」で決めます（国の標準段階）。年金が年18万円以上なら年金から差し引きます。65歳になった年度は年金から差し引かず、
+      65歳になった月より後の納期（6月〜翌年3月のうち）に分けて払います。
     approximation: 65歳以上の保険料の基準額は、お住まいの市区町村の額ではなく全国平均の基準額を使います。段階も国の標準段階です。
     reason: 市区町村ごとの値を持たない作りにしているためです。全国平均を使ったときは知らせに出します。
     keywords: [介護保険料, 第1号被保険者, 第2号被保険者, 65歳以上, 40歳から, 所得段階, 基準額]
@@ -115,8 +116,8 @@ entries:
     rows: [cf.taxSi.care]
     components:
       socialInsurance.health: 4
-      socialInsurance.nationalHealth: 12
-      socialInsurance.careFirst: 7
+      socialInsurance.nationalHealth: 13
+      socialInsurance.careFirst: 8
     related:
       - socialInsurance.employeeHealth
       - socialInsurance.nationalHealth
@@ -157,7 +158,8 @@ entries:
     how: >-
       区分ごとに、所得割（前の年の総所得金額等−基礎控除）×率＋均等割×人数＋平等割（7割・5割・2割の軽減の後）を賦課限度額まで計算し、加入の月数で按分します。
       軽減の判定は、世帯主と被保険者の前の年の所得と、給与所得者等の数で行います。75歳で後期高齢者医療に移った人がいる世帯の軽減の判定や
-      平等割の特例も入れています。所得は青色申告の純損失の繰越控除の後の額を使います。
+      平等割の特例も入れています。所得は青色申告の純損失の繰越控除の後の額を使います。納期は6月〜翌年3月の10回で、年度の途中で入った年度は、
+      入った月より後の納期に分けて払います（3月に入ったときは翌月）。
     approximation: >-
       お住まいの市区町村の料率ではなく、全国の目安の料率（所得割の率・均等割・平等割・賦課限度額）で計算します。決定通知書の年額や市区町村の料率を
       使う形も計算にはありますが、画面の入力項目にはまだその欄がありません。
@@ -176,7 +178,7 @@ entries:
       - socialInsurance.nationalHealth.reduction.base
     rows: [cf.taxSi.health, cf.taxSi.care, cf.taxSi.childSupport]
     components:
-      socialInsurance.nationalHealth: 12
+      socialInsurance.nationalHealth: 13
       socialInsurance.healthStatus: 9
     related:
       - socialInsurance.nationalHealthReductions
@@ -227,7 +229,8 @@ entries:
     summary: 近似して入っています。75歳の誕生日の月から、後期高齢者医療の保険料（所得割と均等割。軽減の後）を計算します。料率は全国平均です。
     how: >-
       医療と子ども・子育て支援金の区分ごとに、所得割（前の年の総所得金額等−基礎控除）×所得割率＋均等割（7割・5割・2割の軽減の後）を賦課限度額まで計算します。
-      年度の途中で75歳になる年は月数で按分し、年金が年18万円以上なら年金から差し引きます。勤め先の健康保険の被扶養者だった人は、所得割をかけず、
+      年度の途中で75歳になる年は月数で按分し、75歳になった月より後の納期（6月〜翌年3月のうち）に分けて払います。その次の年度からは、年金が年18万円以上なら
+      年金から差し引きます。勤め先の健康保険の被扶養者だった人は、所得割をかけず、
       資格を取ってから2年は均等割の軽減を5割にします。
     approximation: お住まいの都道府県の後期高齢者医療広域連合の料率ではなく、全国平均の料率で計算します。
     reason: 都道府県ごとの値を持たない作りにしているためです。全国平均を使ったことは知らせに出します。
@@ -241,7 +244,7 @@ entries:
       - socialInsurance.health.lateElderlyAge
     rows: [cf.taxSi.health, cf.taxSi.childSupport]
     components:
-      socialInsurance.lateElderly: 9
+      socialInsurance.lateElderly: 10
     related:
       - socialInsurance.nationalHealth
 

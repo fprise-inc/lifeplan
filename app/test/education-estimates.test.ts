@@ -8,7 +8,7 @@ import { stageStatistic } from "../src/workspace/input/educationCost.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
-import { addChildIncome, DELAY_HELP, jassoRepayYears } from "../src/workspace/input/stages/education.ts";
+import { addChildIncome, courseField, DELAY_HELP, jassoRepayYears } from "../src/workspace/input/stages/education.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { applyStateOp, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { preview } from "./helpers.ts";
@@ -46,16 +46,17 @@ describe("学費・入学金・仕送りは、空欄なら推定で見せる", (
     expect(f.label).toBe("学校の費用（年額）");
     const st = f.get(wh);
     expect(st.value).toBeNull();
-    expect(st.estimated).toContain("統計の平均。学校教育費と給食費を足したもの");
+    expect(st.estimated).toContain("統計の平均。学校教育費（入学金等を除く）と給食費を足したもの");
     expect(st.estimated).toContain("給食費の国の負担軽減");
-    expect(f.blankEstimate?.(wh)).toBe(stat.annual! - stat.lunchRelief);
+    // 欄に入れる推定は千円単位（0041 の追記 2026-11-14）
+    expect(f.blankEstimate?.(wh)).toBe(Math.round((stat.annual! - stat.lunchRelief) / 1000) * 1000);
     expect(stat.lunchRelief).toBeGreaterThan(0);
     const before = sum(wh.request, "cf.expense.education.school");
     const after = applyStateOp(wh, f, "confirm");
-    expect(goalOf(after).education!.stages[i]!.annualOverride).toBe(stat.annual! - stat.lunchRelief);
+    expect(goalOf(after).education!.stages[i]!.annualOverride).toBe(Math.round((stat.annual! - stat.lunchRelief) / 1000) * 1000);
     expect(fieldStatus(f, after).status).toBe("confirmed");
-    // 年額の割り振り（12か月）と教育費の上昇率は同じなので、表の学校の費用は同じ（端数の差だけ）
-    expect(Math.abs(sum(after.request, "cf.expense.education.school") - before)).toBeLessThan(100);
+    // 年額の割り振り（12か月）と教育費の上昇率は同じなので、表の学校の費用は同じ（千円単位に丸めた差の年500円まで×在学年数と端数の差だけ）
+    expect(Math.abs(sum(after.request, "cf.expense.education.school") - before)).toBeLessThan(500 * 6 + 100);
   });
 
   it("大学の入学金・自宅外の仕送りと初期費用も推定で見せる（「（上書き）」の名前にしない）", () => {
@@ -159,7 +160,8 @@ describe("推定の値を入れた後に学校の種類を変える", () => {
     const w2 = fieldOf(w1, `edu/${g.id}/stage/${u}/sector`).set(w1, "national");
     expect(goalOf(w2).education!.stages[u]!.annualOverride).toBeUndefined();
     const w3 = fieldOf(wh, `edu/${g.id}/stage/${u}/annual`).set(wh, 1500000);
-    const w4 = fieldOf(w3, "/preset").set(w3, "allPublic");
+    // 進路の型（結果のタブの動かす項目と同じ欄の定義。入力の欄からは外した）で公立にしても、自分で入れた額は残す
+    const w4 = courseField(g.id).set(w3, "allPublic");
     expect(goalOf(w4).education!.stages[u]!.annualOverride).toBe(1500000);
   });
 });
@@ -197,8 +199,8 @@ describe("推定の数え方（0062 の追記 2026-10-31）", () => {
     // まとめて確定にしても、統計の平均の欄は空欄のまま（学校の種類を変えれば推定が変わる）
     const all = confirmAll(wh, fields(wh));
     expect(goalOf(all.wh).education!.stages[u]!.annualOverride).toBeUndefined();
-    // 進路を確かめる（型を選び直す）と、子ども・教育に推定のまま数える欄は無い
-    const w2 = fieldOf(wh, "/preset").set(wh, "allPublic");
+    // 進路を確かめる（大学などを選び直す）と、子ども・教育に推定のまま数える欄は無い
+    const w2 = fieldOf(wh, `edu/${g.id}/higher`).set(wh, "juniorCollege");
     expect(inputItems(w2).find((i) => i.id === "education")!.estimated).toBe(0);
   });
 });

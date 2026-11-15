@@ -27,8 +27,8 @@ use std::time::{Duration, Instant};
 use ai_share::clock::{iso8601, Clock, SystemClock};
 use ai_share::registry::ShareStatus;
 use ai_share::{
-    AppEndpoint, ExternalAiConsentInput, GrantError, GrantOptions, HouseholdAiView, HouseholdBook,
-    HouseholdCandidate, Scope, ShareRegistry,
+    AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError, GrantOptions,
+    HouseholdAiView, HouseholdBook, HouseholdCandidate, Scope, ShareRegistry,
 };
 use household_store::{CreateOptions, Opened, Store, StoreError};
 use serde::Serialize;
@@ -593,6 +593,8 @@ pub struct AiStatus {
     feature_code_candidates: usize,
     /// AIから届いた、新しい世帯の候補の数（承認待ち。中身は ai_household_candidates で読む）
     household_candidates: usize,
+    /// AIから届いた、表示の設定の案の数（承認待ち。中身は ai_display_candidates で読む。0215）
+    display_candidates: usize,
 }
 
 fn status(ai: &AiState, store: &Store) -> AiStatus {
@@ -629,6 +631,7 @@ fn status(ai: &AiState, store: &Store) -> AiStatus {
         dev,
         feature_code_candidates: ai.registry.feature_code_candidates().len(),
         household_candidates: ai.registry.household_candidates().len(),
+        display_candidates: ai.registry.display_candidates().len(),
     }
 }
 
@@ -674,6 +677,7 @@ pub async fn ai_set_enabled(app: AppHandle, enabled: bool) -> Result<AiStatus, S
             ai.registry.revoke_all();
             ai.registry.clear_feature_code_candidates();
             ai.registry.clear_household_candidates();
+            ai.registry.clear_display_candidates();
             ai.persist_all(store);
             ai.close_endpoint();
         }
@@ -856,6 +860,29 @@ pub async fn ai_household_candidate_discard(
             .take_household_candidate(&candidate)
             .ok_or("E_AI_CANDIDATE_UNKNOWN")?;
         Ok(ai.registry.household_candidates())
+    })
+    .await
+}
+
+/// AIから届いた、表示の設定の案（承認待ち。届いた順。0215）。中身は信用しない: 画面が表示の設定の一覧の選べる値で確かめてから「今 → 案」を出す
+#[tauri::command]
+pub async fn ai_display_candidates(app: AppHandle) -> Result<Vec<DisplayCandidate>, String> {
+    blocking(app, |ai, _| Ok(ai.registry.display_candidates())).await
+}
+
+/// 表示の設定の案の1つの設定を、承認待ちから外す（FPが画面で「反映する」を押して事務所の既定値に書いた後か、「捨てる」を押したとき）。
+/// 本体は設定を変えない（反映は画面が事務所の既定値の保存の命令で書く）
+#[tauri::command]
+pub async fn ai_display_change_take(
+    app: AppHandle,
+    candidate: String,
+    setting: String,
+) -> Result<Vec<DisplayCandidate>, String> {
+    blocking(app, move |ai, _| {
+        ai.registry
+            .take_display_change(&candidate, &setting)
+            .ok_or("E_AI_CANDIDATE_UNKNOWN")?;
+        Ok(ai.registry.display_candidates())
     })
     .await
 }
