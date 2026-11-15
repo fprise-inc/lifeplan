@@ -14,6 +14,7 @@ mod check;
 mod compare;
 mod coverage;
 mod custom_texts;
+mod display;
 mod engine;
 mod fold;
 mod guide;

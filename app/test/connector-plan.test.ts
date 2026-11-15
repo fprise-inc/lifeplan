@@ -41,7 +41,7 @@ interface Row {
   item: string;
   label: string;
   place?: string;
-  status: "applied" | "same" | "rejected";
+  status: "applied" | "same" | "restored" | "replaced" | "rejected";
   reason?: string;
 }
 
@@ -276,6 +276,40 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     );
     expect(rows.map((r) => r.key)).toEqual(["lever:retireAge", null, "lever:pensionAge"]);
     expect(rows[1]!.reason).toContain("範囲");
+  });
+
+  it("同じ項目を2回動かすと後の値が勝つ: 後の値が今の値と同じなら、前の変更を取り消して今の値のまま（場所を添えた項目・並びの要素の ID・一緒に動く欄も）", () => {
+    // 独立した点検で見つかった不具合: 後の値が今の値と同じ行を飛ばすだけで、前の変更のまま要求を作っていた
+    for (const [sample, moves] of [
+      ["salariedCoupleTwoKids", { "lever:livingMonthly": () => 310000 }],
+      // 働く最後の年齢は、生活費の退職後の段階・積立の終わりも一緒に動かす（戻せば、どれも動かない）
+      ["salariedCoupleTwoKids", { "lever:retireAge": () => 65 }],
+      // 場所を添えた項目（at・lever。0201）
+      ["salariedCoupleTwoKids", { "inv:monthly": () => 30000, "field:living/*/stage/1/ratio": () => "0.65" }],
+      // 並びの要素の ID を場所に持つ項目（0206）
+      ["dualAssetsTwoKids", { "field:sav/*/mix/0/share": () => "0.3" }],
+    ] as const) {
+      const { s, changes } = both(sample, moves);
+      const restore = both(sample, Object.fromEntries(Object.keys(moves).map((k) => [k, (now: ItemValue) => now]))).changes;
+      const got = apply(s.req, [...changes, ...restore], sample);
+      const what = `${sample} ${Object.keys(moves).join("・")}`;
+      expect(got.status, `${what} ${JSON.stringify(got.changes)}`).toBe("ok");
+      expect(got.request!.input, what).toEqual(s.req.input);
+      expect(got.changes.map((r) => r.status), what).toEqual([...changes.map(() => "replaced"), ...restore.map(() => "restored")]);
+      const n = changes.length;
+      restore.forEach((_, i) => expect(got.changes[n + i]!.reason, what).toContain(`${i + 1}件目の変更（`));
+      expect(got.changes[0]!.reason, what).toContain(`${n + 1}件目の変更が同じ項目を動かす`);
+    }
+    // 後の値が今と違えば後の値（前の値に戻す・今の値を挟むも同じ）。前に同じ項目の変更が無い今と同じ値は same のまま
+    const S = "salariedCoupleTwoKids";
+    const v = (x: number) => both(S, { "lever:livingMonthly": () => x }).changes[0]!;
+    const s = screen(S);
+    const once = apply(s.req, [v(290000)], S);
+    const twice = apply(s.req, [v(310000), v(300000), v(290000)], S);
+    expect(twice.request!.input).toEqual(once.request!.input);
+    expect(twice.changes.map((r) => r.status)).toEqual(["replaced", "replaced", "applied"]);
+    expect(apply(s.req, [v(300000)], S).changes[0]!.status).toBe("same");
+    expect(apply(s.req, [v(300000), v(300000)], S).changes.map((r) => r.status)).toEqual(["replaced", "same"]);
   });
 
   it("場所だけ違う項目（0201）: 場所を添えた候補は、画面の「AIからの候補」でもその項目に当たり、場所の無い前の版の候補は今までどおり", () => {

@@ -75,6 +75,7 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
         }],
         labels_by_member: Some(json!({ "x": "上のお子さん" })),
         post_retirement: None,
+        display: None,
         external_ai_consent: Some(ConsentRef {
             decision: ConsentDecision::Given,
             record_id: "c-9".into(),
@@ -166,6 +167,7 @@ async fn standalone_tools_work_without_the_app() {
         "search_coverage",
         "get_coverage",
         "list_custom_texts",
+        "get_display_settings",
         "list_plan_items",
         "compare",
         "chart",
@@ -385,11 +387,12 @@ async fn prompts_list_and_expand() {
         "make_household_in_app",
         "prepare_questions",
         "office_wording",
+        "office_display",
     ];
     for n in expected {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
     }
-    // 使い方の例は上の一覧のとおり（0210 で prepare_questions、0212 で office_wording を足した。足したら一覧にも書く）
+    // 使い方の例は上の一覧のとおり（0210 で prepare_questions、0212 で office_wording、0213 で office_display を足した。足したら一覧にも書く）
     assert_eq!(prompts.len(), expected.len(), "{names:?}");
     for p in &prompts {
         assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
@@ -578,6 +581,19 @@ async fn prompts_list_and_expand() {
                 "basedOn",
                 "{age}",
                 "承認",
+            ],
+        ),
+        (
+            "office_display",
+            json!({ "want": "対策に最初から NISA も出したい", "household": "" }),
+            vec![
+                "対策に最初から NISA も出したい",
+                "get_display_settings",
+                "change",
+                "まだ設定を変えられない",
+                "次の段",
+                "list_custom_texts",
+                "入力が足りない",
             ],
         ),
         (
@@ -2248,11 +2264,292 @@ async fn custom_texts_list_the_replaceable_texts() {
         .iter()
         .all(|e| e["id"].as_str().unwrap().starts_with("row:")));
 
+    // 入力の欄の一覧（settings/fields.json の id。0213）: 隠す・並べ替えのできる欄と、書き方
+    let f = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "file": "fields", "query": "取得価額" }),
+    )
+    .await;
+    assert_eq!(f["howTo"]["file"], "settings/fields.json");
+    assert_eq!(f["howTo"]["shape"]["schema"], "fields@1.0");
+    let fe = f["entries"].as_array().unwrap();
+    assert!(
+        fe.iter().any(|e| e["id"] == "field:account.costBasis"
+            && e["text"] == "取得価額（元本）"
+            && e["ops"] == json!(["hide", "order"])),
+        "{f}"
+    );
+    assert!(f["approval"]
+        .as_str()
+        .unwrap()
+        .contains("入力の欄の見せ方（カスタム層）"));
+    let all = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "file": "fields", "limit": 1 }),
+    )
+    .await;
+    assert!(all["total"].as_u64().unwrap() > 100, "{all}");
+    assert_eq!(all["areas"][0]["kind"], "field");
+
     // 間違った問い
-    let (err, msg) = call(&c, "list_custom_texts", json!({ "file": "fields" })).await;
-    assert!(err && msg.contains("texts"), "{msg}");
+    let (err, msg) = call(&c, "list_custom_texts", json!({ "file": "notes" })).await;
+    assert!(err && msg.contains("fields"), "{msg}");
     let (err, msg) = call(&c, "list_custom_texts", json!({ "kind": "row" })).await;
     assert!(err && msg.contains("result"), "{msg}");
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 表示の設定（get_display_settings。0213）: アプリが起動していなくても一覧と既定を返し、起動していれば事務所の既定値の今の値を、
+/// share_id を書けば渡された世帯の今の値も、画面と同じ読み方で添える。計算の設定は返さず、世帯の読み取りは記録に残る。読むだけ
+#[tokio::test(flavor = "multi_thread")]
+async fn display_settings_list_the_catalog_and_current_values() {
+    let dir = temp_dir("display");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "get_display_settings");
+    let t = tools
+        .iter()
+        .find(|t| t.name == "get_display_settings")
+        .unwrap();
+    assert_eq!(t.annotations.as_ref().unwrap().read_only_hint, Some(true));
+    let d = t.description.as_deref().unwrap_or("");
+    assert!(d.contains("変えられない") && d.contains("change"), "{d}");
+    let ins = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    assert!(
+        ins.contains("get_display_settings") && ins.contains("変える所"),
+        "{ins}"
+    );
+
+    // アプリが起動していない: 一覧と既定だけ（今の値は無い）
+    let v = call_ok(&c, "get_display_settings", json!({})).await;
+    assert_eq!(v["app"]["status"], "notRunning");
+    assert!(v["app"]["message"].as_str().unwrap().contains("一覧"));
+    let list = v["settings"].as_array().unwrap();
+    assert!(list.len() >= 20, "{}", list.len());
+    assert!(list.iter().all(|s| s.get("current").is_none()));
+    let levers = list.iter().find(|s| s["id"] == "result.levers").unwrap();
+    assert_eq!(levers["label"], "対策に最初から出す項目");
+    assert_eq!(levers["scope"], "office");
+    assert_eq!(
+        levers["default"],
+        json!([
+            "lever:retireAge",
+            "lever:pensionAge",
+            "lever:livingMonthly",
+            "spouse:work"
+        ])
+    );
+    assert!(levers["choices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|c| c["value"] == "lever:nisaMonthly" && c["label"] == "NISAの積立額（月）"));
+    assert!(levers["change"]["office"]
+        .as_str()
+        .unwrap()
+        .contains("対策に最初から出す項目"));
+    for id in [
+        "input.order",
+        "input.items",
+        "input.living",
+        "contingency.premises",
+        "contingency.scenes",
+        "contingency.openScene",
+        "result.metrics",
+        "result.atAge",
+        "result.layout",
+        "result.invBreakdown",
+        "result.invPeriods",
+        "balance.health",
+        "balance.guide",
+        "balance.points",
+        "balance.columns",
+        "balance.moneyThree.wording",
+        "features.combinedBs",
+    ] {
+        assert!(list.iter().any(|s| s["id"] == id), "{id}");
+    }
+    let cb = list
+        .iter()
+        .find(|s| s["id"] == "features.combinedBs")
+        .unwrap();
+    assert_eq!(cb["readOnly"], true);
+    let cols = list.iter().find(|s| s["id"] == "balance.columns").unwrap();
+    assert_eq!(cols["scope"], "household");
+    assert!(v["neverHidden"][0]
+        .as_str()
+        .unwrap()
+        .contains("入力が足りない"));
+    assert!(v["howToChange"].as_str().unwrap().contains("次の段"));
+    // 絞る・知らない id
+    let one = call_ok(
+        &c,
+        "get_display_settings",
+        json!({ "ids": ["balance.guide"] }),
+    )
+    .await;
+    assert_eq!(one["count"], 1);
+    let (err, msg) = call(
+        &c,
+        "get_display_settings",
+        json!({ "ids": ["assumptions.inflation"] }),
+    )
+    .await;
+    assert!(err && msg.contains("result.levers"), "{msg}");
+
+    // アプリが起動している: 事務所の既定値の今の値（画面と同じ読み方。知らない種類は捨てる。計算の設定は届いても返さない）
+    let reg = Arc::new(ShareRegistry::new());
+    let defaults = json!({
+        "levers": { "shown": ["lever:nisaMonthly", "unknown:kind"] },
+        "scenes": { "hidden": ["market"], "open": "income" },
+        "items": { "hidden": ["rental"], "levels": { "work": "detail" } },
+        "assumptions": { "inflation": "0.02" },
+        "estimates": { "noFill": ["livingExpense.monthly"] },
+        "features": { "combinedBs": true },
+    });
+    let office = ai_share::display::office_display_of(&defaults, &[]);
+    let mut leaked = office.clone();
+    leaked["assumptions"] = json!({ "inflation": "0.03" });
+    reg.set_office_display(Some(Arc::new(move || Some(leaked.clone()))));
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let v = call_ok(&c, "get_display_settings", json!({})).await;
+    assert_eq!(v["app"]["status"], "running", "{v}");
+    let cur = |id: &str| -> Value {
+        v["settings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["id"] == id)
+            .unwrap()["current"]
+            .clone()
+    };
+    let l = cur("result.levers");
+    assert_eq!(
+        l["office"]["value"],
+        json!([
+            "lever:retireAge",
+            "lever:pensionAge",
+            "lever:nisaMonthly",
+            "lever:livingMonthly",
+            "spouse:work"
+        ])
+    );
+    assert_eq!(l["office"]["isDefault"], false);
+    assert!(l["office"]["text"]
+        .as_str()
+        .unwrap()
+        .contains("NISAの積立額（月）"));
+    assert_eq!(
+        cur("contingency.scenes")["office"]["value"],
+        json!(["death", "disability", "illness", "income"])
+    );
+    assert_eq!(cur("contingency.openScene")["office"]["value"], "income");
+    assert_eq!(
+        cur("input.items")["office"]["value"],
+        json!({ "hidden": ["rental"], "levels": { "work": "detail" } })
+    );
+    assert_eq!(cur("input.order")["office"]["isDefault"], true);
+    let cb = cur("features.combinedBs");
+    assert_eq!(cb["office"]["value"], true);
+    assert!(cb["office"]["text"]
+        .as_str()
+        .unwrap()
+        .contains("効いていない"));
+    // 世帯ごとの設定には事務所の今の値を付けない
+    assert!(cur("result.metrics").is_null());
+    let text = v.to_string();
+    assert!(!text.contains("0.03") && !text.contains("noFill"), "{text}");
+
+    // 渡された世帯: 見せ方の区画だけを、画面と同じ読み方で（物の ID は仮の ID）
+    let mut src = source("salariedCoupleTwoKids", false);
+    let spouse = "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08";
+    let body = json!({
+        "household": { "itemChoice": { "hidden": ["car"] } },
+        "workspace": { "shownItems": [format!("spouse:{spouse}:work"), "inv:rate"] },
+        "display": {
+            "result": { "metrics": ["takeHome", "nope"], "atAge": 90, "layout": "side" },
+            "balance": { "health": false, "guide": { "months": [3, 9], "risk": [10, 40], "debt": 50 }, "points": ["now", "age65"], "moneyThree": { "months": 12, "years": 5, "wording": "time" } },
+        },
+    });
+    src.display = Some(ai_share::display::household_display_of(
+        body.as_object().unwrap(),
+    ));
+    let g = reg.grant(src, grant_opts()).unwrap();
+    let v = call_ok(
+        &c,
+        "get_display_settings",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
+    assert_eq!(v["household"]["shareId"], g.share_id.as_str());
+    let cur = |id: &str| -> Value {
+        v["settings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["id"] == id)
+            .unwrap()["current"]
+            .clone()
+    };
+    assert_eq!(
+        cur("result.metrics")["household"]["value"],
+        json!(["takeHome"])
+    );
+    assert_eq!(cur("result.atAge")["household"]["value"], 90);
+    assert_eq!(cur("result.layout")["household"]["text"], "左右に並べる");
+    assert_eq!(cur("result.invPeriods")["household"]["isDefault"], true);
+    assert_eq!(
+        cur("balance.guide")["household"]["value"]["months"],
+        json!([3, 9])
+    );
+    assert_eq!(
+        cur("balance.points")["household"]["value"],
+        json!(["now", "age65"])
+    );
+    // 家計の体力の目安を表示するか（display.balance.health。0027 の 2026-11-13 の追記）も渡された世帯の値で
+    assert_eq!(cur("balance.health")["household"]["value"], false);
+    assert_eq!(cur("balance.health")["household"]["text"], "表示しない");
+    assert_eq!(cur("balance.columns")["household"]["value"], Value::Null);
+    assert_eq!(
+        cur("balance.moneyThree.wording")["household"]["value"],
+        "time"
+    );
+    assert_eq!(cur("balance.moneyThree.months")["household"]["value"], 12);
+    // both の設定は、事務所の既定と世帯の両方の今の値
+    let items = cur("input.items");
+    assert_eq!(items["office"]["value"]["hidden"], json!(["rental"]));
+    assert_eq!(items["household"]["value"]["hidden"], json!(["car"]));
+    let added = &cur("result.addedItems")["household"]["value"];
+    assert_eq!(added[0]["kind"], "spouse:work");
+    assert_eq!(added[0]["label"], "配偶者の働き方と年収");
+    assert!(!v.to_string().contains(spouse), "元の ID は渡さない");
+    assert!(added[0]["key"].as_str().unwrap().starts_with("spouse:"));
+    // 読んだ記録が残る
+    let rec = reg.records(HOUSEHOLD_ID);
+    let read = rec[0]
+        .reads
+        .iter()
+        .find(|r| r.tool == "get_display_settings")
+        .unwrap();
+    assert!(read.fields.contains(&"display.result".to_owned()));
+    // 取り消した共有は読めない
+    reg.revoke(&g.share_id);
+    let (err, msg) = call(
+        &c,
+        "get_display_settings",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -2929,14 +3226,27 @@ async fn compare_matches_the_screen() {
                     "{what}"
                 );
             }
-            // 当てたプランの変更は、基本と通りの両方
+            // 当てたプランの変更は、基本と通りの両方。通りが基本と同じ項目を動かすなら、基本の変更は使わない（後の値が勝つ。replaced）
             let applied = r["planChanges"].as_array().unwrap();
+            let own = col["changes"].as_array().unwrap().len();
             assert_eq!(
                 applied.len(),
-                cols[0]["changes"].as_array().unwrap().len()
-                    + col["changes"].as_array().unwrap().len()
+                cols[0]["changes"].as_array().unwrap().len() + own
             );
-            assert!(applied.iter().all(|x| x["status"] == "applied"), "{what}");
+            let (from_base, from_variant) = applied.split_at(applied.len() - own);
+            assert!(
+                from_variant.iter().all(|x| x["status"] == "applied"),
+                "{what}"
+            );
+            for x in from_base {
+                // 答えの planChanges は項目の名前と前と後の文だけ（compare.rs）なので、名前で見る
+                let replaced = from_variant.iter().any(|y| y["label"] == x["label"]);
+                assert_eq!(
+                    x["status"],
+                    if replaced { "replaced" } else { "applied" },
+                    "{what} {x}"
+                );
+            }
         }
         // 基本に重ねる通りは、calculate に基本と通りの変更をつないで渡したときと同じ主な数字
         let last = cols.last().unwrap();
@@ -3608,6 +3918,146 @@ async fn find_threshold_matches_calculate() {
         let (err, msg) = call(&c, "find_threshold", ask(&emp, more.clone())).await;
         assert!(err && msg.contains(want), "{more}: {msg}");
     }
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 主な数字だけの calculate（年ごとの数字を外す）
+async fn key_figures(c: &Client, args: Value) -> Value {
+    let mut a = args;
+    a["omit"] = json!(["years"]);
+    call_ok(c, "calculate", a).await
+}
+
+/// 同じ項目を2回動かすと後の値が勝つ。後の値が今の値と同じでも勝つ（独立した点検で見つかった不具合。前は今と同じ値の変更を飛ばすだけで、
+/// 前の変更のまま計算していた）: 前の変更を取り消して今の値のまま計算し、planChanges にそう書く。当てはめは calculate・explain_value・
+/// compare・table・sweep・find_threshold で同じ関数（app/src/workspace/plans/candidates.ts）なので、それぞれで確かめる
+#[tokio::test(flavor = "multi_thread")]
+async fn later_plan_change_wins_even_at_the_current_value() {
+    let dir = temp_dir("later-wins");
+    let (c, _) = connect(&dir).await;
+    let id = "salariedCoupleTwoKids";
+    let sample = json!({ "sample_household_id": id });
+    let liv = plan_item(&c, sample.clone(), "livingExpense.monthly").await;
+    let emp = plan_item(&c, sample.clone(), "employment.to").await;
+    assert_eq!(liv["value"], 300000);
+    assert_eq!(emp["value"], 60);
+    let ch = |it: &Value, v: i64| json!({ "target": it["target"], "item": it["item"], "value": v });
+    let plan = |changes: Vec<Value>| json!({ "sample_household_id": id, "plan_changes": changes });
+    let none = key_figures(&c, sample.clone()).await;
+    // 何もしない世帯（毎月の生活費 月30万円）: 生涯の支出 295,476,499円・2058年に尽きる
+    assert_eq!(none["keyFigures"]["lifetimeExpense"], 295476499);
+    assert_eq!(none["keyFigures"]["depletion"]["year"], 2058);
+
+    // calculate: 月31万円 → 月30万円（今の値）は、何もしない世帯と同じ（前は月31万円の数字: 302,463,162円・2055年）
+    let back = key_figures(&c, plan(vec![ch(&liv, 310000), ch(&liv, 300000)])).await;
+    assert_eq!(back["keyFigures"], none["keyFigures"]);
+    let rows = back["planChanges"]["changes"].as_array().unwrap();
+    assert_eq!(rows[0]["status"], "replaced");
+    assert_eq!(rows[1]["status"], "restored");
+    assert_eq!(
+        rows[1]["reason"],
+        "今と同じ値です。1件目の変更（月31万円）を取り消し、今の値（月30万円）のままにします"
+    );
+    assert!(
+        rows[0]["reason"].as_str().unwrap().contains("2件目"),
+        "{}",
+        rows[0]
+    );
+    // 後の値が今と違えば後の値（月31万円 → 月29万円は月29万円だけと同じ）
+    let later = key_figures(&c, plan(vec![ch(&liv, 310000), ch(&liv, 290000)])).await;
+    let only = key_figures(&c, plan(vec![ch(&liv, 290000)])).await;
+    assert_eq!(later["keyFigures"], only["keyFigures"]);
+    // 一緒に動く欄のある項目（働く最後の年齢は、生活費の退職後の段階・積立の終わりも動かす）: 65歳 → 60歳（今の値）は何もしない世帯と同じ
+    let retire = key_figures(&c, plan(vec![ch(&emp, 65), ch(&emp, 60)])).await;
+    assert_eq!(retire["keyFigures"], none["keyFigures"]);
+
+    // explain_value: 2030年の基本生活費は、月31万円 → 月30万円で 3,746,173円（前は月31万円の 3,871,046円）
+    let ask = |pc: Option<Vec<Value>>| {
+        let mut a = json!({ "sample_household_id": id, "row": "living", "year": 2030, "omit": ["sources", "params", "message"] });
+        if let Some(pc) = pc {
+            a["plan_changes"] = json!(pc);
+        }
+        a
+    };
+    let e = call_ok(
+        &c,
+        "explain_value",
+        ask(Some(vec![ch(&liv, 310000), ch(&liv, 300000)])),
+    )
+    .await;
+    let e0 = call_ok(&c, "explain_value", ask(None)).await;
+    assert_eq!(e["evidence"]["breakdown"][0]["amount"], 3746173, "{e}");
+    assert_eq!(e["evidence"], e0["evidence"]);
+
+    // compare: 基本＝月31万円、通り＝月30万円に戻す。通りは何もしない世帯の数字で、差は 0 でない（前は基本と同じで差が ±0）
+    let r = call_ok(
+        &c,
+        "compare",
+        json!({ "sample_household_id": id, "label": "月31万円", "plan_changes": [ch(&liv, 310000)],
+            "variants": [{ "label": "月30万円に戻す", "plan_changes": [ch(&liv, 300000)] }], "series": [], "ages": false }),
+    )
+    .await;
+    let v = &r["results"][1];
+    assert_eq!(v["keyFigures"]["lifetimeExpense"], 295476499, "{v}");
+    assert_eq!(
+        v["keyFigures"]["depletion"],
+        none["keyFigures"]["depletion"]
+    );
+    assert_eq!(v["diff"]["lifetimeExpense"], 295476499 - 302463162);
+    // 表: 通りの違いの注は、取り消して戻した値（前は「月31万円」と書いていた）
+    let (err, texts) = call_table(
+        &c,
+        json!({ "sample_household_id": id, "plan_changes": [ch(&liv, 310000)],
+            "variants": [{ "label": "月30万円に戻す", "plan_changes": [ch(&liv, 300000)] }], "rows": ["expenseLiving"], "from_year": 2027, "to_year": 2029 }),
+    )
+    .await;
+    assert!(!err, "{texts:?}");
+    assert!(
+        texts[1].contains("月30万円に戻す: 毎月の生活費 月30万円"),
+        "{}",
+        texts[1]
+    );
+
+    // sweep: 基本で働く最後の年齢を65歳にして58〜62歳で振ると、どの行も振った値だけを当てた数字（前は60歳〔今の値〕の行だけ65歳の数字）
+    let vary = json!({ "target": emp["target"], "item": "employment.to" });
+    let got = call_ok(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "plan_changes": [ch(&emp, 65)], "vary": vary, "from": 58, "to": 62 }),
+    )
+    .await;
+    let cols = got["columns"].as_array().unwrap();
+    for (age, r) in (58..=62).zip(got["rows"].as_array().unwrap()) {
+        let one = key_figures(&c, plan(vec![ch(&emp, age)])).await;
+        assert_eq!(
+            r.as_array().unwrap(),
+            &figures_row(&json!(age), &one["keyFigures"], cols),
+            "{age}歳"
+        );
+    }
+    let at60 = &got["rows"][2];
+    assert_eq!(at60[0], 60);
+    assert_eq!(
+        at60.as_array().unwrap(),
+        &figures_row(&json!(60), &none["keyFigures"], cols)
+    );
+
+    // find_threshold: 基本で生活費を月20万円にしても、探す生活費の境目は基本の生活費に依らず月27万円（前は月30万円〔今の値〕の点だけ月20万円で
+    // 計算して月30万円と答えた）
+    let find = |pc: Option<Value>| {
+        let mut a = json!({ "sample_household_id": id, "vary": { "target": liv["target"], "item": liv["item"] }, "from": 250000, "to": 350000, "step": 10000,
+            "condition": { "type": "noDepletion" }, "want": "max" });
+        if let Some(pc) = pc {
+            a["plan_changes"] = pc;
+        }
+        a
+    };
+    let t = call_ok(&c, "find_threshold", find(Some(json!([ch(&liv, 200000)])))).await;
+    let t0 = call_ok(&c, "find_threshold", find(None)).await;
+    assert_eq!(t["threshold"], 270000, "{t}");
+    assert_eq!(t["threshold"], t0["threshold"]);
+    assert_eq!(t["rows"], t0["rows"]);
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }
