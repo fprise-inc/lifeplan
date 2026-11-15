@@ -6,7 +6,7 @@ import { numTable } from "../engine/numTable.ts";
 import { RATE_ONE, RATE_ZERO, type Rate } from "../money/rate.ts";
 import { addYen, yen, type Yen } from "../money/yen.ts";
 import type { AgeSwitch } from "../time/ageSwitch.ts";
-import { formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
+import { addMonths, formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 import { stageAt, stageSteps, type StageStep } from "./stages.ts";
 import type { HealthStatusMonth } from "./contracts.ts";
 
@@ -53,11 +53,19 @@ export const EMPLOYEE_PENSION_KINDS: ReadonlySet<string> = new Set(["employee1",
 
 /**
  * 市町村・広域連合が集める保険料（国民健康保険・後期高齢者医療・介護保険の第1号）の年度の納期（PR の提案の既定）。
- * 年金から差し引く（特別徴収）ときは 4・6・8・10・12・2月の6回、それ以外（普通徴収）は 6月〜翌年3月の10回。端数は最初の納期
+ * 年金から差し引く（特別徴収）ときは 4・6・8・10・12・2月の6回、それ以外（普通徴収）は 6月〜翌年3月の10回。端数は最初の納期。
+ * 年度の途中で資格を得た年度（joined: 資格を得た月。年度の4月より後。介護保険の第1号・後期高齢者医療は4月も含む）は、資格を得た月より後の
+ * 普通徴収の納期だけに分ける（加入の届出の翌月ごろに通知書が届き、加入した月の翌月以後の納期で納める。年金からの差し引きは、その年度は
+ * まだ始まらない）。後の納期が無い（3月に資格を得た）ときは、資格を得た月の翌月（翌年度の4月）にまとめる。納期は市町村ごとに違う（0003 の追記）
  */
-export function installmentMonths(fy: number, special: boolean): MonthIndex[] {
+export function installmentMonths(fy: number, special: boolean, joined?: MonthIndex): MonthIndex[] {
+  const regular = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((k) => (k <= 12 ? monthIndex(fy, k) : monthIndex(fy + 1, k - 12)));
+  if (joined !== undefined && joined >= fiscalYearStart(fy) && joined <= fiscalYearEnd(fy)) {
+    const after = regular.filter((m) => m > joined);
+    return after.length > 0 ? after : [addMonths(joined, 1)];
+  }
   if (special) return [monthIndex(fy, 4), monthIndex(fy, 6), monthIndex(fy, 8), monthIndex(fy, 10), monthIndex(fy, 12), monthIndex(fy + 1, 2)];
-  return [6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((k) => (k <= 12 ? monthIndex(fy, k) : monthIndex(fy + 1, k - 12)));
+  return regular;
 }
 
 /**
@@ -76,15 +84,16 @@ export function reductionRatio(ctx: Ctx, at: MonthIndex, prefix: string, judged:
   return RATE_ZERO;
 }
 
-/** 年度の保険料の行ごとの年額を納期に分けたお金の動き（端数は最初の納期） */
+/** 年度の保険料の行ごとの年額を納期に分けたお金の動き（端数は最初の納期。joined は年度の途中で資格を得た月。installmentMonths） */
 export function installmentFlows(
   ctx: Ctx,
   fy: number,
   special: boolean,
   member: string,
   parts: readonly { readonly row: string; readonly amount: Yen; readonly formula: string }[],
+  joined?: MonthIndex,
 ): Flow[] {
-  const months = installmentMonths(fy, special);
+  const months = installmentMonths(fy, special, joined);
   const out: Flow[] = [];
   for (const p of parts) {
     if (p.amount <= 0) continue;

@@ -10,7 +10,8 @@ entries:
       近似して入っています。2024年10月分からの制度で、子ごとに出生の翌月分から18歳到達後の最初の3月分まで、年齢と第何子かで決まる月額を、偶数月に前の2か月分ずつ受け取る形で載せます。
       所得の制限はありません。
     how: >-
-      3歳未満（3歳の誕生日の月まで）は3歳未満の月額、それ以後は一般の月額、第3子以降は第3子以降の月額です。支払いは偶数月に前の2か月分（2月に12月・1月分）です。
+      3歳未満（3歳の誕生日の月まで）は3歳未満の月額、それ以後は一般の月額、第3子以降は第3子以降の月額です。支払いは偶数月に前の2か月分（2月に12月・1月分）で、
+      計算基準月が偶数月なら、その月に前の2か月分を受け取ります。
       受け取るのは子の最初の親（親子の関係が無ければご本人）で、その親が亡くなった後は残った親です。「子ども・教育」の入力項目で「児童手当を計算する」を
       外した子は計算しません。離れて暮らす子（世帯の外の子）は数えません。
     approximation: >-
@@ -31,7 +32,7 @@ entries:
       - childAllowance.countUntilAge
     rows: [cf.income.benefit.childAllowance]
     components:
-      benefit.childAllowance: 4
+      benefit.childAllowance: 5
     related:
       - benefits.childSupportAllowance
 
@@ -39,13 +40,14 @@ entries:
     title: 育児休業給付（育休・出生後休業支援・時短）
     status: approximated
     summary: >-
-      近似して入っています。雇用保険に入る人の育児休業給付金（最初の6か月は67%、その後50%）、出生後休業支援給付（13%の上乗せ）、育児時短就業給付（時短中の給与の10%）を計算します。
+      近似して入っています。雇用保険に入る人の育児休業給付金（最初の6か月は67%、その後50%）、出生後休業支援給付（13%の上乗せ）、育児時短就業給付（時短中の給与の10%。給与が時短の前の90%を超える月は率を下げる）を計算します。
       非課税の収入として載せます。
     how: >-
       育児休業給付金は、休業開始時賃金日額（休業の前6か月の給与〔賞与を除く〕÷180。上限・下限あり）×30日×率です。産前産後休業に続く母の育児休業は、
       産前産後休業の前6か月で計算します。出生後休業支援給付は、子の出生から8週間以内（産後休業をした人は16週間以内）に始まる育児休業で、配偶者も育児休業をとる・
       雇用保険に入っていない・産後休業中のいずれかのとき、最初の月に賃金日額×28日×13%です。育児時短就業給付は、2歳未満の子のための時短の期間に、
-      時短の前より下がった給与の月に、その月の給与×10%（支給限度額まで）です。給付金は2か月分ずつ次の月に、時短の給付は翌月に受け取ります。
+      時短の前より下がった給与の月に、その月の給与×10%（支給限度額まで）です。給与が時短の前の90%を超え100%未満の月は、率を 9,000÷賃金率−90（%。
+      賃金率＝給与÷時短の前の給与×100。どちらも小数点以下2桁）に下げ、額が賃金日額の下限額の8割以下なら出ません。給付金は2か月分ずつ次の月に、時短の給付は翌月に受け取ります。
       会社役員・公務員の期間は出ません。
     approximation: 日数は暦の日数ではなく、1か月を30日とみなして計算します。
     reason: 計算を月単位にしているためです。
@@ -56,6 +58,7 @@ entries:
     rules:
       - 雇用保険法61条の7
       - 雇用保険法61条の10
+      - 雇用保険法61条の12
     regulation:
       - employmentInsurance.childcareBenefit.rateInitial
       - employmentInsurance.childcareBenefit.rateLater
@@ -64,9 +67,10 @@ entries:
       - employmentInsurance.postBirthBenefit.withinMonths
       - employmentInsurance.shortHoursBenefit.rate
       - employmentInsurance.shortHoursBenefit.monthlyLimit
+      - employmentInsurance.basicAllowance.dailyWageMin
     rows: [cf.income.benefit]
     components:
-      benefit.employment: 6
+      benefit.employment: 7
     related:
       - benefits.healthInsurance
       - socialInsurance.leaveExemption
@@ -94,7 +98,7 @@ entries:
       - employmentInsurance.careLeaveBenefit.monthlyLimit
     rows: [cf.income.benefit]
     components:
-      benefit.employment: 6
+      benefit.employment: 7
     related:
       - benefits.childcareLeave
 
