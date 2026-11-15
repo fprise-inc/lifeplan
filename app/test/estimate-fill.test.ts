@@ -136,11 +136,10 @@ describe("推定の欄の「この値にする」", () => {
 
 describe("パネルの「推定のままの値を「この値にする」」", () => {
   it.each([
-    ["blank", "assumptions"],
     ["blank", "living"],
-    ["salariedCoupleTwoKids", "assumptions"],
+    ["blankWithSpouse", "living"],
   ])("%s の %s: パネルの上に出し、数は欄の「この値にする」の数と同じ", (m, card) => {
-    const wh = m === "blank" ? blankHousehold(BASE, ids()) : fromRequest(modelHousehold(m), {});
+    const wh = m === "blank" ? blankHousehold(BASE, ids()) : m === "blankWithSpouse" ? withRefreshedEstimates(addMember(blankHousehold(BASE, ids()), "spouse")) : fromRequest(modelHousehold(m), {});
     for (const level of ["simple", "detail"] as const) {
       const html = panel(wh, card, level);
       const fills = count(html, "data-fill-estimate");
@@ -157,6 +156,16 @@ describe("パネルの「推定のままの値を「この値にする」」", (
     const html = panel(fromRequest(modelHousehold("salariedCoupleTwoKids"), {}), "family");
     expect(html).not.toContain("data-fill-estimate");
     expect(html).not.toContain("data-confirm-all");
+  });
+
+  it("前提条件のパネルの経済の前提は事務所の既定値（推定でない。0214）: 「この値にする」もまとめての操作も出さない", () => {
+    const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
+    for (const level of ["simple", "detail"] as const) {
+      const html = panel(wh, "assumptions", level);
+      expect(html, level).not.toContain("data-confirm-all");
+      // 見本は外国株式の利回りをこの世帯だけ入れている
+      expect(html, level).toContain("前提条件: 事務所の既定値と、この世帯だけ変えた所 1件");
+    }
   });
 
   it("新しい顧客の家族: 仮の生年月は「この値にする」もまとめての操作も出さない（仮の値は入れてもらう値）", () => {

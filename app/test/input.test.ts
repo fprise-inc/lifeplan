@@ -69,7 +69,8 @@ function perturbWhen(t: Timepoint | null, wh: WorkingHousehold): Timepoint {
   return { event: t.event as string, offset: { months: off } };
 }
 
-const roundTripable = (f: FieldDef, s: ReturnType<FieldDef["get"]>) => !(s.value === null && f.blankIsEstimate === true) && f.readOnly === undefined && f.structural !== true && f.sideEffects === undefined && s.derived == null && s.implicit !== true && s.estimated == null && s.assumed == null;
+// 前提条件の事務所の既定値の欄（0214）は、空欄にすると事務所の既定値に戻す（空欄のまま往復しない）
+const roundTripable = (f: FieldDef, s: ReturnType<FieldDef["get"]>) => !(s.value === null && (f.blankIsEstimate === true || s.premise !== undefined)) && f.readOnly === undefined && f.structural !== true && f.sideEffects === undefined && s.derived == null && s.implicit !== true && s.estimated == null && s.assumed == null;
 
 describe("単位と書式", () => {
   it("万円・円の書き方と読み方は往復で1円もずれない", () => {

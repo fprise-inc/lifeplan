@@ -212,9 +212,20 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 中身は、アプリの入力のタブの「確かめの一覧」（`app/src/workspace/input/checkRows.ts` の `checkList`）と同じ行・同じ並びです: 未入力（0円で計算中）→ まだ入れていない項目 → 書類待ち → 確かめの注意（範囲の外の値・ほかの入力と合わない値・購入の払い方が無いなど）→ 計算のお知らせ（入力で直せる所）→ 推定（結果に効く順）。接続口は行を足さず、画面の一覧の行をそのまま使います（これから買う家の頭金が0円の購入も、画面の一覧の確かめの注意に出ます）。
 - 1行は `item`（入力項目）・`field`（欄か物の見出し。計算のお知らせの行は画面のお知らせの文）・`value`（今の値）・`subjects`（計算のお知らせの対象）・`reason`（短い理由）・`question`（お客さまに聞く文の案。丁寧な言葉）・`rule`（当てた決まりの名前）です。種類ごとに `groups` にまとめ、`counts`（種類ごとの数）・`total`・`truncated`（`max_items` で切ったか）が付きます。
 - `question` は、決まりの表（`app/src/connector/check.ts` の `RULES`）で行ごとに決めます。今の決まり: 子の教育の進路が無い・退職金が無い・ねんきん定期便の額や加入月数が無い・失業給付・生活費が無い・住まいが無い・本人と配偶者の介護の費用が無い・保険が無い・まだ入れていない入力項目（入力項目ごとの文）・購入の残りの払い方が無い・頭金が0円か空欄・退職金の確かめ・保険の重なり・範囲の外の値・年金の加入記録が無い・退職金の受け取る時期・持ち家の時価の元・土地と建物の割合・介護の費用の目安・年収が推定か空欄。表に無い行は、種類ごとの決まりの文（「〜は、〇〇で合っていますか。」「〜を教えていただけますか。」など）です。決まりは表に1件足せば増やせます。
-- 種類は `kinds` で選べます（既定は画面の一覧の既定と同じ。`certainty`〔本人の申告・概算の値〕・`premise`〔前提条件の標準の値〕は選んだときだけ）。`max_items`（既定30・100まで）で行の数を絞ります。
+- 種類は `kinds` で選べます（既定は画面の一覧の既定と同じ。`certainty`〔本人の申告・概算の値〕・`premise`〔前提条件のうち事務所の既定値どおりの値。0214〕は選んだときだけ）。`max_items`（既定30・100まで）で行の数を絞ります。
 - 世帯の書き方は `calculate` と同じで、プランを確かめるときは `plan_changes`・`changes` を当てます（答えに `planChanges`）。計算のお知らせを作るため、`calculate` と同じ道で1回計算します。計算できない入力（必須の欄が無い・スキーマの範囲の外の値）なら、`calculate` と同じ直し方を返します。
 - 時間の目安: 見本の世帯で 4〜7 秒（画面の入力の欄の定義を読み込むため）。答えは 3〜8KB です。
+
+### 前提条件の事務所の既定値（0214）
+
+前提条件の値（物価・賃金・運用利回り・不動産の評価・資産の種類ごとの利回りなど）は、ほとんどの事務所で世帯ごとでなく事務所で決めます。アプリでは、世帯の前提条件の値が事務所の既定値（事務所で決めていなければ提供元の既定の値）と同じなら「事務所の既定値」、違えば「この世帯だけ」と出します。どちらも**推定ではありません**（お客さまに確かめる値ではなく、FP が決める前提です）。
+
+- `check_inputs` の推定（`estimated`）の行に前提条件は出ません。事務所の既定値どおりの前提条件は種類 `premise` の行（選んだときだけ）で、問いの文は「〜は、事務所の既定値のままでよろしいですか（FP が決める前提です）。」です。事務所の既定値をそのまま使っていた値で、その後に事務所が既定値を変えた物は、確かめの注意（`notice`）に「事務所の既定値が変わりました（1%→1.5%）。この世帯は前の値で計算しています」と出ます（世帯の値は黙って変わりません）。
+- 前提条件の欄の名前（id）は次のとおりです（AI の道具で事務所の既定値を読む・直すときの名前。使い回しません）。表の正は `app/src/workspace/input/premiseDefaults.ts` の `PREMISE_DEFS`、事務所データの置き場所は設計記録 0214 の3。
+  - 経済の前提: `inflation`・`wageGrowth`・`investmentReturn`・`depositReturn`・`educationInflation`・`pensionMacroSlide`・`pensionMacroSlideEmployee`（世帯では `assumptions.<id>.default`）
+  - 不動産の評価: `realEstateValuation.landGrowth`・`realEstateValuation.landShare`・`realEstateValuation.usefulLife.wood`（`lightSteel`・`steel`・`rc`）・`realEstateValuation.residualFloor`・`realEstateValuation.saleCostRate`（世帯では `assumptions.realEstateValuation.…`。`landShare`・`residualFloor`・`saleCostRate` は事務所の推定の値 `preset.realEstate.*` で、世帯に写さず、空欄の物件はその場の事務所の値で計算します）
+  - 資産の種類ごとの利回り: `assetReturns.<種類>`（`cash.deposit`・`cash.foreign`・`bond.domestic`・`bond.global`・`equity.domestic`・`equity.global`・`reit.domestic`・`reit.global`・`balanced`・`commodity`・`realEstate`・`other`。世帯では `assumptions.assetReturns.<種類>.default`）
+- 世帯ファイルの仮の印 `assumed["<欄のキー>"]` が「事務所の既定値（年月）」の欄は、事務所の既定値を写した欄です（推定の印ではありません。前の版のアプリでは推定と読まれます）。
 
 ### 計算の前の処理（画面と同じ。0184）
 
