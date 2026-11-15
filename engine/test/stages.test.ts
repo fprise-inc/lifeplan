@@ -234,7 +234,8 @@ describe("住まい（housing.residence）の段階と例外の年", () => {
       ]),
     );
     const year = (y: number) => sum(fs, (x) => x.row === "cf.expense.housing.propertyTax" && (x as Flow & { accrualYear: number }).accrualYear === y);
-    expect([2027, 2028, 2029, 2030, 2031].map(year)).toEqual([120000, 120000, 90000, 60000, 60000]);
+    // 2027年4月に買った年の年度は、引き渡しの月に4〜12月の月割り（120,000×9÷12）を売主との精算として払う（housing.residence 改訂8）
+    expect([2027, 2028, 2029, 2030, 2031].map(year)).toEqual([90000, 120000, 90000, 60000, 60000]);
     expect(year(2032)).toBe(0);
     expect(sum(fs, (x) => x.ym === "2030-02" && x.row === "cf.expense.housing.propertyTax")).toBe(22500);
     expect(sum(fs, (x) => x.ym === "2030-04" && x.row === "cf.expense.housing.propertyTax")).toBe(15000);

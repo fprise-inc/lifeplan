@@ -31,8 +31,8 @@ use crate::compare::{self, CompareArgs, VariantArgs};
 use crate::plan::{self, Applied, PlanChange, PlanItemsArgs};
 use crate::sweep::{self, SweepArgs, ThresholdArgs};
 use crate::{
-    answer, chart, check, coverage, custom_texts, display, engine, guide, recipes, regulation,
-    samples, table,
+    answer, args, chart, check, coverage, custom_texts, display, engine, guide, recipes,
+    regulation, samples, table,
 };
 use ai_ipc::client::{call_app, AppError, ClientHello};
 use ai_ipc::{McpClientInfo, Request};
@@ -52,6 +52,7 @@ use std::time::Instant;
 
 pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプランソフト）の AI接続口です。
 - 計算（calculate）・数字の根拠（explain_value）・動かせる項目（list_plan_items）・入力の確かめ（check_inputs）・制度の値（get_regulation_value）・見本の世帯（list_sample_households・get_sample_household）・対応範囲の一覧（search_coverage・get_coverage）は、アプリが起動していなくても使えます（表示の設定 get_display_settings も、一覧と既定だけなら使えます。今の値はアプリが起動していて AI接続口がオンのときだけ）。見本の世帯はすべて架空で、実在の顧客ではありません。
+- 道具の引数の名前は下線で区切ります（plan_changes・from_year・at_ages）。答えの planChanges・keyFigures の書き方とは違います。知らない名前の引数は受けず、近い名前を添えて断ります（その呼び出しは何もしません）。at_ages や境目探しの条件の年齢が表の範囲の外（今より若い・表の最後の年より先）なら、端の年の残高で代えず、null と理由を返すか断ります。
 - calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「不確実」の入るお金・出るお金・子への援助・受け取る相続・遺贈・贈与・相続で受け継ぐ借金と、「最初から計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリの結果の画面で物ごとの入れ外し（「夢と予定」のチェック）をしているとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
 - calculate の答えは大きくなりやすいので、要る物だけを取ってください。比較する・振るときは omit に years を入れて keyFigures（主な数字。アプリの「プランを比較」と同じ数え方）だけを取り、推移を見るときは every_years（例 5）と fields（例 [\"financialAssets\"]）で絞ります。計算のお知らせ（notices）・制度データの版（packs）は要らなければ omit で省きます。見本の世帯の一覧（list_sample_households）は tags（例 [\"子育て\"]・[\"シニア\"]）で絞り、explain_value は omit・depth で小さくできます。主な数字には65歳からの年金の月額（keyFigures.pension。今の水準の額）も入り、要らなければ omit に pension を入れると計算も省きます。年ごとの数字は画面の表と同じ年から始まります（計算基準月が年の途中なら翌年から）。
 - calculate の notices（計算のお知らせ）は、アプリの画面の結果のタブの「計算のお知らせ」と同じ関数で作った、同じ文の行です（同じ知らせは1行。kind は画面の種類〔入力が足りない・計算に入れていない・前提の外・仮の値・推定・データの確認待ち〕、text は画面の文、subjects は対象の人・物、years は年、parts は内訳、item は入力で直すときの入力項目）。FP にお知らせを伝えるときは、text を言い換えずにそのまま使ってください（画面と同じ言葉になります）。同じ世帯を何度も計算するときは、omit に noticeText（文と内訳を省き、種類と鍵 key だけ）か notices を入れて小さくします。
@@ -86,12 +87,14 @@ pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプ�
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SampleArgs {
     /// 見本の世帯の ID（list_sample_households で分かる）
     pub id: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CalculateArgs {
     /// 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -113,7 +116,7 @@ pub struct CalculateArgs {
     pub rows: Option<Vec<String>>,
     /// この年から（含む）
     pub from_year: Option<i64>,
-    /// この年まで（含む）
+    /// この年まで（含む。from_year 以上。範囲に表の年が1つも無ければ、表の年を添えて断る）
     pub to_year: Option<i64>,
     /// 何年おきの年だけを返すか（1〜10。既定1＝毎年）。from_year・to_year で絞った最初の年と最後の年はいつも入る。
     /// summary の years・table の行・年齢・必要保障額の年に効く（keyFigures は毎年で数える）
@@ -138,11 +141,13 @@ pub struct CalculateArgs {
     /// 年金の見込みの計算〔1〜2回〕もしないので速くなる）・loanInterest（keyFigures の住宅ローンの利息の合計と、table の summary のローンごとの年ごとの利息と金利 loans）
     #[schemars(extend("items" = { "type": "string", "enum": ["notices", "noticeText", "packs", "totals", "insurance", "ages", "years", "keyFigures", "protection", "protectionDetail", "inheritanceTax", "pension", "loanInterest"] }))]
     pub omit: Option<Vec<String>>,
-    /// keyFigures の「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]＝アプリの画面の既定）
+    /// keyFigures の「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]＝アプリの画面の既定）。表の範囲の外の年齢（今より若い・表の最後の年より先）は、
+    /// 端の年の残高で代えず amount を null にして reason を添える
     pub at_ages: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ExplainArgs {
     /// 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -177,6 +182,7 @@ pub struct ExplainArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct InputGuideArgs {
     /// 区分の鍵（members・relations・employmentPeriods・accounts・residences・debts・insuranceContracts・goals・livingExpenses・
     /// periodicExpenses・incomeFlows・pensionRecords・retirementBenefits・events・assumptions・contingencies・protection・plan〔入力の一番上〕）か、
@@ -185,6 +191,7 @@ pub struct InputGuideArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct InputRecipeArgs {
     /// 手本: buyHome（家を買う）・newChild（子が生まれる）・retire（退職の年齢）・prepayment（繰上返済）・startNisaIdeco（NISA と iDeCo を始める）・
     /// contingency（万一の想定）。省くと手本の一覧と params の説明を返す
@@ -202,6 +209,7 @@ pub struct InputRecipeArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SearchCoverageArgs {
     /// 探す言葉や問い（例: 「高額療養費」「iDeCo の受け取り方」「医療費控除は入っている？」）
     pub query: String,
@@ -216,6 +224,7 @@ pub struct SearchCoverageArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ListCustomTextsArgs {
     /// どの一覧か: texts（文。settings/texts.json に書く。既定）・terms（名前。settings/terms.json に書く）・fields（入力の欄の隠す・並べ替え。
     /// settings/fields.json に書く）
@@ -236,6 +245,7 @@ pub struct ListCustomTextsArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DisplaySettingsArgs {
     /// FPが渡した世帯の共有 ID（list_shared_households）。書くと、その世帯の今の値（結果のタブ・資産と負債のタブの表示の設定・
     /// 入力項目の選び方・対策に足した項目）も返す。省くと事務所の既定値だけ
@@ -245,12 +255,14 @@ pub struct DisplaySettingsArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct GetCoverageArgs {
     /// 項目の鍵（search_coverage の id。例 socialInsurance.highCostMedical）。省くと分野ごとの目次を返す
     pub id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct RegulationArgs {
     /// 制度の値の ID（例: incomeTax.basicDeduction）。分からなければ query で探す
     pub id: Option<String>,
@@ -261,6 +273,7 @@ pub struct RegulationArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ShareArgs {
     /// FPが渡した世帯の共有 ID（list_shared_households で分かる）
     pub share_id: String,
@@ -285,6 +298,7 @@ pub struct ProposedChange {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProposeArgs {
     /// 対象の世帯の共有 ID
     pub share_id: String,
@@ -446,6 +460,7 @@ pub struct DocumentAnswerArg {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProposeInputsArgs {
     /// 対象の世帯の共有 ID（list_shared_households で分かる）
     pub share_id: String,
@@ -454,6 +469,7 @@ pub struct ProposeInputsArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProposeHouseholdArgs {
     /// 世帯の種類: fictional（架空。セミナー・研修・ブログに使う、実在しない世帯）か client（お客さまの世帯）。FPがアプリで作る前に変えられる
     #[schemars(extend("enum" = ["fictional", "client"]))]
@@ -469,6 +485,7 @@ pub struct ProposeHouseholdArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct FeatureCodeArgs {
     /// 提供元が FP に渡した、機能を有効にするコード（「LPFC1-」で始まる文字列。途中の改行・空白はそのままでよい）
     pub code: String,
@@ -932,6 +949,7 @@ impl LifeplanMcp {
             Ok(o) => o,
             Err(msg) => return Err((msg.replace("fields", "series"), "INVALID")),
         };
+        calc::check_years(a.from_year, a.to_year).map_err(|m| (m, "INVALID"))?;
         if a.variants.is_empty() && !a.internal.base_only {
             return Err((
                 format!(
@@ -952,6 +970,7 @@ impl LifeplanMcp {
             market_stress: a.market_stress.clone(),
         };
         // 通りの形を確かめる（形の違う通り・上限を超えた通りは、その通りだけ理由を返す）
+        let variant_schema = compare::variant_schema();
         let specs: Vec<Result<VariantArgs, String>> = a
             .variants
             .iter()
@@ -962,6 +981,10 @@ impl LifeplanMcp {
                         "通りは基本のほかに{}通りまでです。この通りは計算していません（分けて呼んでください）。",
                         compare::MAX_VARIANTS
                     ));
+                }
+                // 知らない名前は、引数の一番上と同じく近い名前を添えて断る（args.rs）
+                if let Some(m) = args::unknown_in("通り", v, &variant_schema) {
+                    return Err(m);
                 }
                 let mut s: VariantArgs = serde_json::from_value(v.clone()).map_err(|e| {
                     format!("通りの形が違います（{e}）。通りに書けるのは label・sample_household_id・share_id・input・changes・plan_changes・stress_test・market_stress です。")
@@ -1395,6 +1418,10 @@ impl LifeplanMcp {
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
         let t = Instant::now();
+        if let Err(msg) = calc::check_years(a.from_year, a.to_year) {
+            log("calculate", t, "INVALID");
+            return Ok(fail(msg));
+        }
         let (base, office, post) = match base_input(
             &ctx,
             "calculate",
@@ -1484,6 +1511,11 @@ impl LifeplanMcp {
             from_year: a.from_year,
             to_year: a.to_year,
         };
+        // 選んだ年の範囲が表の年の外なら、空の年ごとの数字を返さず、表の年を添えて断る
+        if let Some(msg) = calc::years_outside(&out, &filter) {
+            log("calculate", t, "INVALID");
+            return Ok(fail(msg));
+        }
         let mut shaped = calc::shape(&out, mode, &filter);
         answer::finish(&mut shaped, &out, &summary, mode, &opts);
         if let Some(p) = preparation(&applied, true) {
@@ -1979,6 +2011,11 @@ impl LifeplanMcp {
                 v.to_string(),
             )]));
         }
+        // at_ages の最初の年齢が表の範囲の外の通りがあれば、端の年の残高を「その年齢の残高」として描かない
+        if let Some(m) = chart::age_outside(&results) {
+            log(tool, t, "INVALID");
+            return Ok(fail(m));
+        }
         let variants: Vec<Value> = results
             .iter()
             .zip(&got.assumptions)
@@ -2258,7 +2295,7 @@ impl LifeplanMcp {
     }
 
     #[tool(
-        description = "1つの動かす項目を範囲で振り、値ごとの主な数字を1つの表で返す（感度）。「働く最後の年齢を60〜70歳で1歳ずつ変えたら？」「毎月の生活費を25万〜35万円で1万円ずつ」「配偶者の年収を100万〜160万円で振ったら（106万円・130万円の壁）」のときに、calculate を値の数だけ呼ぶ代わりに使う。vary に list_plan_items の target・item（plan_changes の1件から value を外した物。一覧が at か lever を添えた項目〔資産運用の毎月の積立額・積立をやめる年齢・退職後の生活費の割合など、場所だけが違う項目〕は、それもそのまま書く。場所の要る項目に場所を書かなければ、計算せずに選べる場所を返す）を書き、from・to・step（年齢・整数・金額は整数、率は10進の文字列。省いた step は年齢1・金額や率は画面のスライダーの刻み。配偶者の働き方と年収〔kind が work〕は1年の収入を振る）か values で値を並べる（21個まで。超えれば計算せず、収まる刻みの目安を返す）。基本の世帯は calculate・compare と同じく見本の世帯（sample_household_id）・FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る。1回の呼び出しで1回だけ読む）・AIが組み立てた入力（input）のどれか1つで、changes・plan_changes・stress_test・market_stress も当てられ、振る値はその上に当てる。値ごとの計算は calculate に plan_changes でその値を渡したときと同じ（画面のプランと同じ関数で当て、関係する欄も一緒に動く）。返すのは columns（列の名前）と rows（値ごとの主な数字。calculate の keyFigures と同じ数え方）だけ。列は value（振った値。work の項目は1年の収入）・assetsAt○○（本人が○○歳の時点の金融資産。at_ages で選ぶ）・depletionYear と depletionAge（資産が尽きる年と本人の年齢。尽きなければ null）・minimumYear と minimumAmount（金融資産がいちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense（生涯の手取りと支出の合計）・loanRepayment（住宅ローンの返済の合計）・loanInterest（住宅ローンの利息の合計。figures で選んだときだけ）・pensionMonthly と pensionClaimedMonthly（65歳から・受け取り開始からの年金の世帯の月額。今の水準）で、figures で選べる（pension を省くと年金の見込みの計算をしないので速い）。金額は円。項目の範囲の外の値は計算せず、notComputed に理由を返す。世帯のデータそのものは変えない。",
+        description = "1つの動かす項目を範囲で振り、値ごとの主な数字を1つの表で返す（感度）。「働く最後の年齢を60〜70歳で1歳ずつ変えたら？」「毎月の生活費を25万〜35万円で1万円ずつ」「配偶者の年収を100万〜160万円で振ったら（106万円・130万円の壁）」のときに、calculate を値の数だけ呼ぶ代わりに使う。vary に list_plan_items の target・item（plan_changes の1件から value を外した物。一覧が at か lever を添えた項目〔資産運用の毎月の積立額・積立をやめる年齢・退職後の生活費の割合など、場所だけが違う項目〕は、それもそのまま書く。場所の要る項目に場所を書かなければ、計算せずに選べる場所を返す）を書き、from・to・step（年齢・整数・金額は整数、率は10進の文字列。省いた step は年齢1・金額や率は画面のスライダーの刻み。配偶者の働き方と年収〔kind が work〕は1年の収入を振る）か values で値を並べる（21個まで。超えれば計算せず、収まる刻みの目安を返す）。基本の世帯は calculate・compare と同じく見本の世帯（sample_household_id）・FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る。1回の呼び出しで1回だけ読む）・AIが組み立てた入力（input）のどれか1つで、changes・plan_changes・stress_test・market_stress も当てられ、振る値はその上に当てる。値ごとの計算は calculate に plan_changes でその値を渡したときと同じ（画面のプランと同じ関数で当て、関係する欄も一緒に動く）。返すのは columns（列の名前）と rows（値ごとの主な数字。calculate の keyFigures と同じ数え方）だけ。列は value（振った値。work の項目は1年の収入）・assetsAt○○（本人が○○歳の時点の金融資産。at_ages で選ぶ）・depletionYear と depletionAge（資産が尽きる年と本人の年齢。尽きなければ null）・minimumYear と minimumAmount（金融資産がいちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense（生涯の手取りと支出の合計）・loanRepayment（住宅ローンの返済の合計）・loanInterest（住宅ローンの利息の合計。figures で選んだときだけ）・pensionMonthly と pensionClaimedMonthly（65歳から・受け取り開始からの年金の世帯の月額。今の水準）で、figures で選べる（pension を省くと年金の見込みの計算をしないので速い）。金額は円。年齢・整数・金額の値は JSON の数で書く（310000 を文字で書いたものは受けない。率は10進の文字）。項目の範囲の外の値は計算せず、notComputed に理由を返す。at_ages の年齢が表の範囲の外なら、その列は null で、outOfRange に理由を返す。世帯のデータそのものは変えない。",
         annotations(
             title = "感度（項目を振る）",
             read_only_hint = true,
@@ -2347,11 +2384,15 @@ impl LifeplanMcp {
         let mut rows: Vec<Value> = Vec::new();
         let mut skipped: Vec<Value> = Vec::new();
         let mut prep = None;
+        let mut outside = None;
         for (p, got) in points.iter().zip(computed) {
             match got {
                 Some(Ok(c)) => {
                     if prep.is_none() {
                         prep = preparation(&c.applied, false);
+                    }
+                    if outside.is_none() && figures.iter().any(|f| f == "assetsAtAge") {
+                        outside = sweep::ages_outside(&c.summary["keyFigures"]);
                     }
                     rows.push(json!(sweep::row(
                         &p.shown,
@@ -2378,6 +2419,9 @@ impl LifeplanMcp {
         if !skipped.is_empty() {
             v["notComputed"] = json!(skipped);
         }
+        if let Some(o) = outside {
+            v["outOfRange"] = o;
+        }
         if let Some(p) = prep {
             v["preparation"] = p;
         }
@@ -2390,7 +2434,7 @@ impl LifeplanMcp {
     }
 
     #[tool(
-        description = "主な数字の条件を満たす境目を、接続口の中で探して返す（境目探し）。「生活費は月いくらまでなら最後まで足りる？」（毎月の生活費・want max）「何歳まで働けば足りる？」「いちばん早い退職の年齢は？」（働く最後の年齢・want min）「最後まで足りる最低の運用の利回りは？」（運用の利回り・want min）のときに、calculate を何度も呼んで探す代わりに使う。vary に list_plan_items の target・item（一覧が at か lever を添えた項目は、それもそのまま。sweep と同じ）、from・to・step に探す範囲と答えの細かさ（sweep と同じ形）、condition に条件（noDepletion＝資産が最後まで尽きない・assetsAtAge＝本人が age 歳の時点の金融資産が at_least 円以上・minimumAtLeast＝金融資産がいちばん少ない年でも at_least 円以上）、want に max（満たす、いちばん大きい値）か min（いちばん小さい値）を書く。探し方は、動かすと主な数字が一方向にだけ動くと分かっている項目（場所の要らない、毎月の生活費・働く最後の年齢・運用の利回り）は二分探索（2,001個の刻みまで。探す計算は最大13回）、ほかは刻みで振って欲しい端から順に確かめる（21個まで）。どちらにしたかと理由を method・methodNote に返す。答えは status（found＝範囲の中に境目がある・edge＝範囲の端の値でも満たす〔境目は範囲の外かもしれないので、範囲を広げて探し直す〕・notFound＝範囲の中に満たす値が無い）・threshold（境目の値。答えの細かさは step）・message（境目の文）・境目の値とその1つ外側の値〔notFound なら範囲の両端〕の主な数字（rows。sweep と同じ列に、条件を満たすかの meets を足す）・計算した回数（computed。年金の見込みは探す間は数えず、答えの行だけ数え直すので、その分も含む）。基本の世帯の書き方・changes・plan_changes・stress_test・market_stress は sweep・compare と同じ（渡された世帯は1回だけ読み、アプリの「AIに渡した記録」に残る）。値ごとの計算は calculate と同じ。範囲の端の値が項目の範囲の外なら計算せずに理由を返す。世帯のデータそのものは変えない。",
+        description = "主な数字の条件を満たす境目を、接続口の中で探して返す（境目探し）。「生活費は月いくらまでなら最後まで足りる？」（毎月の生活費・want max）「何歳まで働けば足りる？」「いちばん早い退職の年齢は？」（働く最後の年齢・want min）「最後まで足りる最低の運用の利回りは？」（運用の利回り・want min）のときに、calculate を何度も呼んで探す代わりに使う。vary に list_plan_items の target・item（一覧が at か lever を添えた項目は、それもそのまま。sweep と同じ）、from・to・step に探す範囲と答えの細かさ（sweep と同じ形）、condition に条件（noDepletion＝資産が最後まで尽きない・assetsAtAge＝本人が age 歳の時点の金融資産が at_least 円以上・minimumAtLeast＝金融資産がいちばん少ない年でも at_least 円以上）、want に max（満たす、いちばん大きい値）か min（いちばん小さい値）を書く。探し方は、動かすと主な数字が一方向にだけ動くと分かっている項目（場所の要らない、毎月の生活費・働く最後の年齢・運用の利回り）は二分探索（2,001個の刻みまで。探す計算は最大13回）、ほかは刻みで振って欲しい端から順に確かめる（21個まで）。どちらにしたかと理由を method・methodNote に返す。答えは status（found＝範囲の中に境目がある・edge＝範囲の端の値でも満たす〔境目は範囲の外かもしれないので、範囲を広げて探し直す〕・notFound＝範囲の中に満たす値が無い）・threshold（境目の値。答えの細かさは step）・message（境目の文）・境目の値とその1つ外側の値〔notFound なら範囲の両端〕の主な数字（rows。sweep と同じ列に、条件を満たすかの meets を足す）・計算した回数（computed。年金の見込みは探す間は数えず、答えの行だけ数え直すので、その分も含む）。基本の世帯の書き方・changes・plan_changes・stress_test・market_stress は sweep・compare と同じ（渡された世帯は1回だけ読み、アプリの「AIに渡した記録」に残る）。値ごとの計算は calculate と同じ。範囲の端の値が項目の範囲の外なら計算せずに理由を返す。assetsAtAge の age が表の範囲の外（今より若い・表の最後の年より先）なら、端の年の残高で判定せず、表の範囲を添えて断る。世帯のデータそのものは変えない。",
         annotations(
             title = "境目探し",
             read_only_hint = true,
@@ -2521,6 +2565,10 @@ impl LifeplanMcp {
                                 prep = preparation(&c.applied, false);
                             }
                             let kf = c.summary["keyFigures"].clone();
+                            // 条件の年齢が表の範囲の外なら、端の年の残高で判定せずにやめる
+                            if let Some(r) = cond.outside(&kf) {
+                                return Err(r);
+                            }
                             let met = cond.met(&kf);
                             figs.insert(*i, kf);
                             Ok(met)
@@ -2610,6 +2658,10 @@ impl LifeplanMcp {
                     a.condition.text()
                 ),
             ),
+            sweep::Found::Failed { reason, .. } if reason.starts_with(sweep::OUTSIDE_PREFIX) => {
+                log(tool, t, "INVALID");
+                return Ok(fail(reason.clone()));
+            }
             sweep::Found::Failed { at, reason } => {
                 log(tool, t, "INVALID");
                 return Ok(fail(format!(
@@ -3046,6 +3098,7 @@ impl LifeplanMcp {
     }
 
     #[tool(
+        input_schema = args::no_args_schema(),
         description = "FPがアプリで「この世帯をAIに渡す」と操作した世帯の一覧（共有 ID・仮名・期限）を返す。中身は含まない。アプリが起動していないときは使えない。",
         annotations(
             title = "渡された世帯の一覧",
@@ -3315,6 +3368,24 @@ const HOUSEHOLD_NOTE: &str = "keyFigures は、この入力を calculate で計�
 #[tool_handler(router = self.tool_router)]
 #[prompt_handler(router = self.prompt_router)]
 impl ServerHandler for LifeplanMcp {
+    /// 道具を呼ぶ前に、引数の名前を入力の形と照らす（知らない名前は黙って捨てず、名前と近い名前を挙げて断る。args.rs）
+    async fn call_tool(
+        &self,
+        request: rmcp::model::CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<rmcp::model::CallToolResponse, ErrorData> {
+        if let Some(tool) = self.tool_router.get(&request.name) {
+            if let Some(msg) =
+                args::unknown_message(tool.input_schema.as_ref(), request.arguments.as_ref())
+            {
+                log(&request.name, Instant::now(), "INVALID");
+                return Ok(fail(msg).into());
+            }
+        }
+        let tcc = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
+        self.tool_router.call(tcc).await
+    }
+
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(
             ServerCapabilities::builder()

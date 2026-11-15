@@ -5632,3 +5632,269 @@ async fn table_by_age_with_income_breakdown() {
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// 独立した点検で見つかった不具合の再現（引数の名前・表の範囲の外の年齢・逆の年の範囲・金額の上の端・感度の文字の値・全角の検索）。
+/// どれも、前は誤りにならず黙って基本の数字・端の年の残高・空の年ごとの数字を返していた
+#[tokio::test(flavor = "multi_thread")]
+async fn review_reproductions_are_refused_or_explained() {
+    let dir = temp_dir("review");
+    let (c, _) = connect(&dir).await;
+    let id = "salariedCoupleTwoKids";
+    let liv = plan_item(
+        &c,
+        json!({ "sample_household_id": id }),
+        "livingExpense.monthly",
+    )
+    .await;
+    let vary = json!({ "target": liv["target"], "item": "livingExpense.monthly" });
+    let pc = json!([{ "target": liv["target"], "item": "livingExpense.monthly", "value": 310000 }]);
+
+    // 1. どの道具も、入力の形は知らない名前を受けない（additionalProperties: false）
+    for t in c.list_all_tools().await.unwrap() {
+        assert_eq!(
+            t.input_schema.get("additionalProperties"),
+            Some(&json!(false)),
+            "{} の入力の形",
+            t.name
+        );
+    }
+
+    // 2. 知らない引数の名前は、名前と近い名前を挙げて断る（前は黙って捨て、基本の数字を返していた）
+    for (tool, args, want) in [
+        (
+            "calculate",
+            json!({ "sample_household_id": id, "planChanges": pc }),
+            vec![
+                "planChanges（plan_changes のことですか）",
+                "下線で区切ります",
+            ],
+        ),
+        (
+            "calculate",
+            json!({ "sample_household_id": id, "fromYear": 2040, "toYear": 2041 }),
+            vec![
+                "fromYear（from_year のことですか）",
+                "toYear（to_year のことですか）",
+            ],
+        ),
+        (
+            "sweep",
+            json!({ "sample_household_id": id, "vary": vary, "values": [300000], "planChanges": pc, "atAges": [60] }),
+            vec![
+                "atAges（at_ages のことですか）",
+                "planChanges（plan_changes のことですか）",
+            ],
+        ),
+        (
+            "sweep",
+            json!({ "sample_household_id": id, "vary": { "target": liv["target"], "itme": "livingExpense.monthly" }, "values": [300000] }),
+            vec![
+                "vary.itme（vary.item のことですか）",
+                "vary に書ける名前: at・item・lever・target",
+            ],
+        ),
+        (
+            "find_threshold",
+            json!({ "sample_household_id": id, "vary": vary, "from": 250000, "to": 350000, "condition": { "type": "noDepletion", "atLeast": 0 }, "want": "max" }),
+            vec!["condition.atLeast（condition.at_least のことですか）"],
+        ),
+        (
+            "explain_value",
+            json!({ "sample_household_id": id, "row": "living", "year": 2030, "planChanges": pc }),
+            vec!["planChanges（plan_changes のことですか）"],
+        ),
+        (
+            "table",
+            json!({ "sample_household_id": id, "rows": ["financialAssets"], "fromYear": 2040, "toYear": 2041, "everyYears": 1 }),
+            vec![
+                "everyYears（every_years のことですか）",
+                "fromYear（from_year のことですか）",
+            ],
+        ),
+        (
+            "compare",
+            json!({ "base": { "sample_household_id": id }, "variants": [{ "label": "x" }] }),
+            vec!["base。基本の世帯と基本に当てる変更は、base の中ではなく引数の一番上"],
+        ),
+        (
+            "list_sample_households",
+            json!({ "tag": ["子育て"] }),
+            vec!["tag（tags のことですか）"],
+        ),
+        (
+            "list_shared_households",
+            json!({ "x": 1 }),
+            vec!["（引数はありません）"],
+        ),
+    ] {
+        let (err, text) = call(&c, tool, args).await;
+        assert!(err, "{tool}: {text}");
+        assert!(
+            text.starts_with("知らない引数の名前があるため、この呼び出しは何もしていません"),
+            "{tool}: {text}"
+        );
+        for w in want {
+            assert!(text.contains(w), "{tool}: {w} が無い: {text}");
+        }
+    }
+    // プランの変更の1件の中の名前も同じ（propose_scenario の changes から写したときの note は受けて使わない）
+    let (err, text) = call(&c, "calculate", json!({ "sample_household_id": id, "plan_changes": [{ "target": liv["target"], "item": "livingExpense.monthly", "vlaue": 310000 }] })).await;
+    assert!(
+        err && text.contains("plan_changes[0].vlaue（plan_changes[0].value のことですか）"),
+        "{text}"
+    );
+    let noted = call_ok(&c, "calculate", json!({ "sample_household_id": id, "plan_changes": [{ "target": liv["target"], "item": "livingExpense.monthly", "value": 310000, "note": "生活費を見直す" }], "omit": ["years", "notices", "pension"] })).await;
+    let plain = call_ok(&c, "calculate", json!({ "sample_household_id": id, "plan_changes": pc, "omit": ["years", "notices", "pension"] })).await;
+    assert_eq!(noted["keyFigures"], plain["keyFigures"]);
+    // 通りの中の知らない名前は、今までどおりその通りだけ理由を返す（文は同じ書き方。通りの中の plan_changes の1件も）
+    let got = call_ok(&c, "compare", json!({ "sample_household_id": id, "variants": [{ "label": "x", "planChanges": pc }, { "label": "y", "plan_changes": pc }, { "label": "z", "plan_changes": [{ "target": liv["target"], "item": "livingExpense.monthly", "vlaue": 1 }] }] })).await;
+    assert_eq!(got["results"][1]["status"], "error");
+    assert!(
+        got["results"][1]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("planChanges（plan_changes のことですか）"),
+        "{got}"
+    );
+    assert_eq!(got["results"][2]["status"], "ok");
+    assert_eq!(got["results"][3]["status"], "error");
+    assert!(
+        got["results"][3]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("plan_changes[0].vlaue（plan_changes[0].value のことですか）"),
+        "{got}"
+    );
+
+    // 3. 表に無い年齢（今より若い・表の最後の年より先）は、端の年の残高で代えず null と理由（前は 30歳＝46歳、110歳＝100歳の残高）
+    let why = "表の範囲（ご本人46〜100歳・2027〜2081年）の外の年齢のため、数えていません";
+    let got = call_ok(&c, "calculate", json!({ "sample_household_id": id, "at_ages": [30, 46, 100, 110], "omit": ["years", "notices", "pension"] })).await;
+    let at = &got["keyFigures"]["assetsAtAge"];
+    assert_eq!(
+        at[0],
+        json!({ "age": 30, "year": null, "amount": null, "reason": why }),
+        "{at}"
+    );
+    assert_eq!(at[1]["amount"], 11_907_900, "{at}");
+    assert_eq!(at[2]["amount"], -26_156_180, "{at}");
+    assert_eq!(
+        at[3],
+        json!({ "age": 110, "year": null, "amount": null, "reason": why }),
+        "{at}"
+    );
+    let got = call_ok(&c, "sweep", json!({ "sample_household_id": id, "vary": vary, "values": [300000], "at_ages": [30, 46, 100, 110], "figures": ["assetsAtAge"] })).await;
+    assert_eq!(
+        got["columns"],
+        json!([
+            "value",
+            "assetsAt30",
+            "assetsAt46",
+            "assetsAt100",
+            "assetsAt110"
+        ])
+    );
+    assert_eq!(
+        got["rows"][0],
+        json!([300000, null, 11_907_900, -26_156_180, null]),
+        "{got}"
+    );
+    assert_eq!(
+        got["outOfRange"],
+        json!([
+            { "column": "assetsAt30", "age": 30, "reason": why },
+            { "column": "assetsAt110", "age": 110, "reason": why },
+        ])
+    );
+    for age in [30, 110] {
+        let (err, text) = call(&c, "find_threshold", json!({ "sample_household_id": id, "vary": vary, "from": 250000, "to": 350000, "step": 50000, "condition": { "type": "assetsAtAge", "age": age, "at_least": 0 }, "want": "max" })).await;
+        assert!(err, "{text}");
+        assert_eq!(text, format!("condition の assetsAtAge の age（{age}歳）は、{why}。age を表の範囲の中の年齢にしてください。"));
+    }
+    let got = call_ok(&c, "compare", json!({ "sample_household_id": id, "at_ages": [110, 60], "variants": [{ "label": "y", "plan_changes": pc }] })).await;
+    assert_eq!(
+        got["results"][1]["diff"]["assetsAtAge"][0],
+        json!({ "age": 110, "amount": null }),
+        "{got}"
+    );
+    assert!(
+        got["results"][1]["diff"]["assetsAtAge"][1]["amount"].is_i64(),
+        "{got}"
+    );
+    let (err, text) = call(&c, "chart", json!({ "sample_household_id": id, "at_ages": [110], "variants": [{ "label": "y", "plan_changes": pc }] })).await;
+    assert!(
+        err && text.contains("at_ages の最初の年齢（110歳）") && text.contains(why),
+        "{text}"
+    );
+    // 選ばないときの既定の年齢（95歳）は、画面と同じく今までどおり
+    let got = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "omit": ["years", "notices", "pension"] }),
+    )
+    .await;
+    assert_eq!(got["keyFigures"]["assetsAtAge"][0]["age"], 95);
+    assert!(got["keyFigures"]["assetsAtAge"][0]["amount"].is_i64());
+
+    // 4. 逆の年の範囲・表の外の年の範囲は、空の年ごとの数字を返さず断る
+    let (err, text) = call(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "from_year": 2040, "to_year": 2030 }),
+    )
+    .await;
+    assert!(err, "{text}");
+    assert_eq!(
+        text,
+        "from_year は to_year 以下にしてください（from_year 2040・to_year 2030）。"
+    );
+    let (err, text) = call(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "from_year": 2010, "to_year": 2020 }),
+    )
+    .await;
+    assert!(err && text.contains("表は2027〜2081年"), "{text}");
+    let (err, text) = call(&c, "compare", json!({ "sample_household_id": id, "from_year": 2040, "to_year": 2030, "variants": [{ "label": "x" }] })).await;
+    assert!(err && text.contains("from_year は to_year 以下"), "{text}");
+    // 表の年と重なる範囲は、今までどおり重なる年だけ
+    let got = call_ok(&c, "calculate", json!({ "sample_household_id": id, "from_year": 2025, "to_year": 2028, "omit": ["notices", "pension"] })).await;
+    let years: Vec<i64> = got["years"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|y| y["year"].as_i64().unwrap())
+        .collect();
+    assert_eq!(years, vec![2027, 2028]);
+
+    // 5. 金額の上の端（月1兆円の生活費は、範囲を添えて断る）
+    let (err, text) = call(&c, "calculate", json!({ "sample_household_id": id, "plan_changes": [{ "target": liv["target"], "item": "livingExpense.monthly", "value": 1_000_000_000_000_i64 }], "omit": ["years"] })).await;
+    assert!(err, "{text}");
+    assert!(
+        text.contains("入れてよい範囲（月1億円まで）の外の値のため、取り込みません"),
+        "{text}"
+    );
+
+    // 6. 感度の金額・年齢の値は数だけ（文字の "310000" は、表に文字のまま返さず断る）
+    let (err, text) = call(&c, "sweep", json!({ "sample_household_id": id, "vary": vary, "values": [300000, "310000"], "figures": ["depletion"] })).await;
+    assert!(
+        err && text.contains("values は数で書いてください（\"310000\" は文字です）"),
+        "{text}"
+    );
+    let (err, text) = call(&c, "sweep", json!({ "sample_household_id": id, "vary": vary, "from": "300000", "to": 310000, "figures": ["depletion"] })).await;
+    assert!(err && text.contains("from は整数の数"), "{text}");
+
+    // 7. 事務所の言い回しの一覧の検索は、全角の英字でも半角と同じ結果
+    let half = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "query": "NISA", "limit": 1 }),
+    )
+    .await;
+    assert!(half["total"].as_u64().unwrap() > 0);
+    for q in ["ＮＩＳＡ", "nisa", "ｎｉｓａ"] {
+        let got = call_ok(&c, "list_custom_texts", json!({ "query": q, "limit": 1 })).await;
+        assert_eq!(got["total"], half["total"], "{q}");
+    }
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
