@@ -16,6 +16,17 @@ const OTHER_WORDS = /提案|案内|答案|草案|原案|法案|議案|考案|立
 /** 以前の呼び方「案」が残っているか */
 export const hasOldPlanWord = (s: string): boolean => s.replace(OTHER_WORDS, "").includes("案");
 
+/**
+ * 表示の設定の案（0215）の画面の部品。利用者の判断で「案」を使う（2026-11-15。「今 → 案」「AIからの表示の設定の案」）。
+ * この部品だけは、「案」そのものでなく、以前のプランの呼び方の形（hasOldPlanName）を止める
+ */
+const DISPLAY_PROPOSAL_FILES = new Set(["app/src/connector/displayProposal.ts", "app/src/workspace/office/DisplayProposalsSection.tsx", "app/src/workspace/office/displayProposals.ts", "app/src/workspace/ai/AiDisplayCandidateBand.tsx"]);
+
+/** 以前のプランの呼び方の形（B案・案A・基準の案・選んだ案・比較する案・案として保存・案を保存・案の名前・案を比較）が残っているか */
+export const hasOldPlanName = (s: string): boolean => /[A-ZＡ-Ｚ]案|案[A-ZＡ-Ｚ]|基準の案|選んだ案|比較する案|案として保存|案を保存|案の名前|案を比較/.test(s.replace(OTHER_WORDS, ""));
+
+const isDisplayProposalFile = (at: string): boolean => DISPLAY_PROPOSAL_FILES.has(at.slice(0, at.lastIndexOf(":")));
+
 function files(dir: string, ext: RegExp): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -72,7 +83,9 @@ describe("利用者に見える文字列の呼び方", () => {
   it("画面（app/src）に「見通し」「B案」「〜の案」が残っていない", () => {
     const strs = files(join(REPO_DIR, "app", "src"), /\.tsx?$/).flatMap(tsStrings);
     expect(strs.length).toBeGreaterThan(1000);
-    expect(strs.filter((s) => hasOldPlanWord(s.text)).map((s) => `${s.at} ${s.text}`)).toEqual([]);
+    expect(strs.filter((s) => (isDisplayProposalFile(s.at) ? hasOldPlanName(s.text) : hasOldPlanWord(s.text))).map((s) => `${s.at} ${s.text}`)).toEqual([]);
+    // 表示の設定の案の画面の部品は、実際に「案」を使っている（外す部品の名前が古くなったら気づく）
+    expect(strs.filter((s) => isDisplayProposalFile(s.at) && s.text.includes("案")).length).toBeGreaterThan(5);
     expect(strs.filter((s) => s.text.includes("見通し")).map((s) => `${s.at} ${s.text}`)).toEqual([]);
   });
 
@@ -97,6 +110,13 @@ describe("利用者に見える文字列の呼び方", () => {
   it("見分け方: 「提案」「案内」は別の言葉。「B案」「案A」「基準の案」「案として保存」は以前の呼び方", () => {
     for (const s of ["提案書", "現状と提案", "アプリの更新を案内", "答案"]) expect(hasOldPlanWord(s), s).toBe(false);
     for (const s of ["B案", "案A", "基準の案", "案として保存", "提案と案"]) expect(hasOldPlanWord(s), s).toBe(true);
+  });
+
+  it("表示の設定の案の画面の部品の見分け方: 「今 → 案」「表示の設定の案」は通り、以前のプランの呼び方の形は止める", () => {
+    for (const s of ["今 → 案", "AIから、表示の設定の案が届いています", "AIからの表示の設定の案", "この案は反映できません", "AIの案を反映する前", "1つの設定には1つの案", "案を出せるのは input.order です", "提案書"]) expect(hasOldPlanName(s), s).toBe(false);
+    for (const s of ["B案", "Ｃ案", "案A", "基準の案", "選んだ案", "比較する案", "案として保存", "案を保存", "案の名前", "案を比較"]) expect(hasOldPlanName(s), s).toBe(true);
+    // ほかの画面は今までどおり「案」そのものを止める
+    expect(hasOldPlanWord("今 → 案")).toBe(true);
   });
 });
 

@@ -1693,6 +1693,18 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-code-diff th, .os-code-diff td { padding: 3px 12px 3px 0; text-align: left; border-bottom: 1px solid var(--line-2); }
 .os-code-diff thead th { font-weight: 400; color: var(--ink-2); }
 .os-code-diff-new { font-weight: 700; }
+/* AIからの表示の設定の案（0215）: 設定ごとの「今 → 案」と、前の値に戻す */
+.os-display-row { padding: 8px 0 6px; border-top: 1px solid var(--line-2); }
+.os-display-row:first-of-type { border-top: 0; }
+.os-display-name { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; margin: 0 0 4px; }
+.os-display-diff { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: stretch; font-size: 0.84rem; }
+.os-display-side { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; overflow-wrap: anywhere; }
+.os-display-head { display: block; font-size: 0.72rem; font-weight: 400; color: var(--ink-2); margin-bottom: 2px; }
+.os-display-arrow { align-self: center; color: var(--ink-2); }
+.os-display-change { margin: 4px 0 0; }
+.os-display-note { margin: 6px 0 0; font-size: 0.84rem; }
+.os-display-row .rp-actions { margin-top: 6px; }
+.os-display-hist > p { margin: 8px 0 2px; }
 /* カスタム層の説明の文（事務所の既定値の画面。0016 の追記）: 承認待ち・更新の確かめの表。文は折り返して読めるように */
 .os-custom-diff { width: 100%; table-layout: fixed; }
 .os-custom-diff td, .os-custom-diff th { vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }

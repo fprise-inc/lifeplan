@@ -27,7 +27,10 @@ import { EstimatesSection } from "./EstimatesSection.tsx";
 import { EMPTY_ESTIMATES, type OfficeEstimates } from "./estimates.ts";
 import type { PreviewRow } from "./estimatePreview.ts";
 import { withEstimates } from "./settings.ts";
-import type { CustomHost, CustomTextsStatus } from "../../engine/host.ts";
+import type { AiDisplayCandidate, CustomHost, CustomTextsStatus } from "../../engine/host.ts";
+import type { ProposableDisplayId } from "../../connector/displayCatalog.ts";
+import { DisplayProposalsSection } from "./DisplayProposalsSection.tsx";
+import { carryDisplayValue } from "./displayProposals.ts";
 import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, NOTICE_FADE_TEXT, noticeCodes, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
 export interface OfficeSettingsPanelProps {
@@ -60,6 +63,16 @@ export interface OfficeSettingsPanelProps {
   previewEstimates?: (before: OfficeEstimates, after: OfficeEstimates) => Promise<PreviewRow[]>;
   /** 事務所の見た目（0121。名前・ロゴ・基調の色）。区画の中で保存する（パネルの「保存」とは別）。無ければ区画を出さない */
   branding?: Omit<BrandingSectionProps, "shared">;
+  /**
+   * AIからの表示の設定の案（0215。接続口の propose_display_settings）と、その判断。反映・前の値に戻すは、すぐ事務所データに保存して保存した設定を返す
+   * （パネルの「保存」は要らない）。無ければ区画を出さない（前の値があれば、前の値に戻すだけを出す）
+   */
+  display?: {
+    candidates: readonly AiDisplayCandidate[];
+    onApply: (candidate: string, id: ProposableDisplayId, value: unknown) => Promise<OfficeSettings>;
+    onDiscard: (candidate: string, id: string) => Promise<void>;
+    onRestore: (id: ProposableDisplayId, index: number) => Promise<OfficeSettings>;
+  };
 }
 
 /**
@@ -197,7 +210,7 @@ const PREMISE_SECTION_NOTES: Readonly<Record<PremiseSection, string>> = {
   assetReturns: "資産配分の種類ごとの利回り（信託報酬などを引く前の年率）。空欄は、預金・外貨預金は預金の利回り、不動産（貸していない不動産の値動き）は0%、ほかは運用利回りで計算します。",
 };
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding, display }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
   // 事務所の推定の値（0111）: 区画の中で押すとすぐ保存する。パネルの「保存」・「全部を既定に戻す」では変えない（保存のときは今の値を持ち越す）
   const [est, setEst] = useState<OfficeEstimates>(value.estimates ?? EMPTY_ESTIMATES);
@@ -435,6 +448,24 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
           {shared ? "事務所で共有していても、今はこの PC の設定です。" : "この PC の設定です。"}
         </p>
         <OfficeToc panel={panel} />
+        {display !== undefined ? (
+          <DisplayProposalsSection
+            value={value}
+            candidates={display.candidates}
+            // 反映した設定と前の値だけを、編集中の欄にも写す（ほかの編集中の欄はそのまま。パネルの「保存」で消えないように）
+            onApply={async (c, id, v) => {
+              const saved = await display.onApply(c, id, v);
+              setS((x) => carryDisplayValue(x, saved, id));
+              return saved;
+            }}
+            onDiscard={display.onDiscard}
+            onRestore={async (id, i) => {
+              const saved = await display.onRestore(id, i);
+              setS((x) => carryDisplayValue(x, saved, id));
+              return saved;
+            }}
+          />
+        ) : null}
         {branding !== undefined ? <BrandingSection {...branding} shared={shared} /> : null}
         <section class="os-sec" aria-labelledby="os-cards">
           <h3 id="os-cards">入力のホームの入力項目の並び</h3>
