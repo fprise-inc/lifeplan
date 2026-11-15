@@ -123,6 +123,8 @@
 //   本体の変換の段は、ID の無い要素に、画面がその要素を指していた決まった ID と同じ ID を振る。画面も開くときに同じ決まりで振る（elementIds.ts）
 //   0.77 から: 資産と負債のタブの表示の設定に、家計の体力の目安を表示するか display.balance.health（0027 の 2026-11-13 の追記）。足すだけ。
 //   本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝表示する）
+//   0.78 から: 自営の働き方の期間の事業所得に、個人事業税の業種の区分 employmentPeriods[].business.businessTaxClass（0155 の 2026-11-15 の追記）。
+//   足すだけ。本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝第1種〔5%〕）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -196,7 +198,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.77";
+export const BODY_FORMAT_VERSION = "0.78";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

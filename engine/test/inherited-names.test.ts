@@ -180,8 +180,8 @@ describe("必要保障額: 亡くなった人がまだ払っていない税（�
     const req = model("rentalSample");
     const self = memberOf(req, "self") as string;
     const unpaid = unpaidIn(req, self, "2042-01");
-    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 300,017円、住民税 572,000円
-    expect(unpaid).toBe(5_866_317);
+    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 292,317円、住民税 568,200円（売った年の借入の利息を二重に月割りしなくなり、2041年の不動産所得が減った。前は 300,017円・572,000円）
+    expect(unpaid).toBe(5_854_817);
     const all = protection(req, self);
     const a = all.find((y) => y.year === 2042) as ProtYear;
     const e = protection(req, self, 2042)[0] as ProtYear;
@@ -221,7 +221,13 @@ describe("必要保障額: 亡くなった人がまだ払っていない税（�
         const fromPlan = noDeath
           .filter((f) => f.member === self && !skip.includes(f.row) && /^cf\.taxSi\.(incomeTax|residentTax|businessTax)(\.|$)/.test(f.row) && ym(f.ym) > ym(at) && f.accrualYear === year - 1)
           .reduce((s, f) => s + f.amount, 0);
-        expect(Math.abs(fromPlan - exact)).toBeLessThan(10_000);
+        // 亡くなった年の分の個人事業税（事業主控除の月割りで、1月の事業所得からも出る。やめた月の2か月後に払う）は、近道（前の年に帰属する税）に入らない
+        const q = clone(req);
+        kill(q, self, at);
+        const deathYearBusinessTax = flowsOf(run(q))
+          .filter((f) => f.member === self && f.row === "cf.taxSi.businessTax" && f.accrualYear === year)
+          .reduce((s, f) => s + f.amount, 0);
+        expect(Math.abs(fromPlan - (exact - deathYearBusinessTax))).toBeLessThan(10_000);
         // 後の年に最初の年の表を使う額と、その年に亡くなる想定の額は、前と同じく遺族の税の近似のずれだけ（まだ払っていない税はどちらも万一なしの
         // 計算から同じ額。前の年の所得で決まる遺族の住民税などで、sampleSelfEmployedFamily は約20万円）
         const a = all.find((y) => y.year === year) as ProtYear;

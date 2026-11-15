@@ -447,15 +447,15 @@ describe("相続税の目安: 亡くなった人がまだ払っていない所�
       else input.contingencies = [{ id: uid(`unpaid-${name}`), kind: "death", member: (h.members as { id: string; kind: string }[]).find((m) => m.kind === "self")?.id, occurs: { at: death } }];
     });
 
-  it("万一の想定（rentalSample の本人が 2042-01 に亡くなる）: 2041年の物件の売却の譲渡所得の税・所得税の確定申告・住民税（5,866,317円）を債務に入れる", () => {
+  it("万一の想定（rentalSample の本人が 2042-01 に亡くなる）: 2041年の物件の売却の譲渡所得の税・所得税の確定申告・住民税（5,854,817円）を債務に入れる", () => {
     const p = points(model("rentalSample", "2042-01"))[0] as Point;
     expect(p.point).toBe("contingency");
-    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 300,017円、住民税 572,000円（必要保障額で数える物と同じ）
-    expect(p.assets.unpaidTaxes).toBe(5_866_317);
+    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 292,317円、住民税 568,200円（売った年の借入の利息を二重に月割りしなくなり、2041年の不動産所得が減った。前は 300,017円・572,000円）（必要保障額で数える物と同じ）
+    expect(p.assets.unpaidTaxes).toBe(5_854_817);
     // 前は債務 0円・課税価格 149,463,000円・納める額 9,119,300円
-    expect(p.assets.debts).toBe(5_866_317);
-    expect(p.assets.taxablePrice).toBeGreaterThanOrEqual(149_463_000 - 5_867_000);
-    expect(p.assets.taxablePrice).toBeLessThanOrEqual(149_463_000 - 5_865_000);
+    expect(p.assets.debts).toBe(5_854_817);
+    expect(p.assets.taxablePrice).toBeGreaterThanOrEqual(149_463_000 - 5_856_000);
+    expect(p.assets.taxablePrice).toBeLessThanOrEqual(149_463_000 - 5_854_000);
     expect(p.payable).toBeLessThan(9_119_300);
   });
 

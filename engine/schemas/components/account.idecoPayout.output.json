@@ -19,7 +19,17 @@
           "method": { "enum": ["lumpSum", "annuity", "mixed"] },
           "annuityYears": { "type": "integer", "minimum": 0 },
           "lumpShare": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/rate" }] },
-          "enrolledMonths": { "type": "integer", "minimum": 0 }
+          "enrolledMonths": { "type": "integer", "minimum": 0 },
+          "serviceBeforeBase": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["from", "to"],
+              "properties": { "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }, "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" } }
+            }
+          },
+          "serviceKnown": { "type": "boolean" }
         }
       }
     }

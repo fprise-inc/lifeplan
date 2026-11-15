@@ -127,7 +127,7 @@ entries:
       受け取りを始められる月は、60歳の時点の通算加入者等期間で決まる年齢（10年以上なら60歳。短いほど遅く、最も遅くて65歳。60歳以後に加入したときは
       加入から5年後）からで、75歳までに始めます。始まりを空欄にすると退職の年（60〜65歳に収める）を、受け取り方も空欄なら一時金を入れます。
       一時金は始めの月にその時の残高を、年金は始めの月から毎年1回、その時の残高÷残りの回数を受け取り（受け取りの間も運用益が付く）、併用は一時金の割合
-      （省略は半分）を先に受け取ります。一時金の退職所得控除は、勤続年数の代わりに通算加入者等期間（掛金を払った最後の月まで）で数え、退職一時金・
+      （省略は半分）を先に受け取ります。一時金の退職所得控除は、勤続年数の代わりに掛金を払った月（60歳以後に掛けた月を含み、止めていた月は入れない）の年数で数え、退職一時金・
       小規模企業共済の共済金と同じ年なら合わせて、前の年に受けた一時金と期間が重なるときは重複する期間の分を引きます。受け取ったお金は預金に入れるか、
       その年の NISA の枠へ、残りを課税口座へ移して運用を続けるかを選べます。受け取る前に亡くなったときは、その時の残高を死亡一時金として遺族が受け取ります
       （相続税の対象ですが、相続税はお金の流れに入れていません）。
@@ -155,9 +155,9 @@ entries:
       - cf.taxSi.incomeTax.retirement
       - cf.taxSi.residentTax.retirement
     components:
-      account.idecoPayout: 2
+      account.idecoPayout: 3
       account.ideco: 7
-      retirement.receipts: 1
+      retirement.receipts: 2
     related:
       - tax.retirementIncome
       - tax.publicPensionDeduction
@@ -197,7 +197,7 @@ entries:
       - cf.income.corporatePension.smallBusiness
     components:
       account.mutualAid: 5
-      retirement.receipts: 1
+      retirement.receipts: 2
     related:
       - tax.retirementIncome
       - investment.idecoPayout

@@ -72,6 +72,7 @@ import expensePeriodic from "./expense.periodic/index.ts";
 import expenseReconcile from "./expense.reconcile/index.ts";
 import retirementBenefit from "./retirement.benefit/index.ts";
 import retirementReceipts from "./retirement.receipts/index.ts";
+import taxBusinessTax from "./tax.businessTax/index.ts";
 import taxRetirementIncome from "./tax.retirementIncome/index.ts";
 import careExpense from "./care.expense/index.ts";
 import outsideWallet from "./outside.wallet/index.ts";
@@ -169,6 +170,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   expenseReconcile,
   retirementBenefit,
   retirementReceipts,
+  taxBusinessTax,
   taxRetirementIncome,
   careExpense,
   outsideWallet,

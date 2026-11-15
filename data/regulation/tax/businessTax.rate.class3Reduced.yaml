@@ -1,0 +1,22 @@
+# 地方税法72条の49の17第1項第4号
+id: businessTax.rate.class3Reduced
+title: 個人事業税の税率（標準税率。第3種事業のうち、あん摩・マッサージ・指圧・はり・きゅう・柔道整復その他の医業に類する事業と装蹄師業）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2023-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.03"
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261101_508AC0000000002?response_format=xml", retrievedAt: "2026-11-15", sha256: "ef2116230a5fdb6f6dc6bb0367425a665adf674dd0eb59b62ad076274c35de13", locator: "地方税法 第72条の49の17第1項第4号", quote: "第三種事業のうち第七十二条の二第十項第五号及び第七号に掲げる事業を行う個人 所得に百分の三の標準税率"}
+      - {type: "web", url: "https://www.tax.metro.tokyo.lg.jp/kazei/work/kojin_ji", retrievedAt: "2026-11-15", sha256: "c5b51ac1ae25cf15a7d479d31b3e2b540eff59a1b8d8a90a9eb5ac5db0d7e1e6", locator: "税率"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261101_508AC0000000002"}
+    recordedIn: "2026.21.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "e-Gov法令API の条文（XML）と東京都主税局の説明（HTML の本文。業種と税率の表）を読み、値は2つで一致した（照合: claude、2026-11-15）。標準税率で、道府県は1.1倍まで超えて課せる（同条3項。超える道府県の率は入れていない）。業種の区分は同法72条の2第8項〜10項。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
