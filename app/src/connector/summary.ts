@@ -4,6 +4,8 @@
 //   住宅ローンの利息の合計（0205）は、画面に同じ数字が無いので、エンジンの要約の負債ごとの年ごとの利息（summary.loans）を、住宅ローンの返済の合計と
 //   同じ年（画面の表に出す年）で足す
 //   年齢の既定は、画面の表示の設定の既定（「○歳時点」の 95歳。workspace/settings.ts の DEFAULT_DISPLAY_SETTINGS。同じことをテストで確かめる）
+//   AI が年齢を選んだとき（atAges）は、表の範囲の外の年齢（今より若い・表の最後の年より先）を表の端の年の残高で代えず、金額を null にして
+//   理由を添える（独立した点検の直し。0194 の追記）。選ばないときの既定の年齢は、画面と同じく端の年で数える
 // - 年ごとの家族の年齢は、画面のキャッシュフロー表の年齢の行と同じ関数（workspace/present.ts の ageRows）で、同じ呼び方・同じ「世帯にいる年」で出す
 // - 65歳からの年金の月額（世帯の合計と人ごと。今の水準）は、画面の比較の表の年金の行（0075）と同じ写しの要求（input/pensionLines.ts の
 //   pensionEstimateRequest）を pensionRequests で作り、接続口が計算の前の処理を当てて計算した結果を summarize に渡して、同じ関数
@@ -299,7 +301,8 @@ export interface Summary {
   keyFigures: {
     /** 数えた年（画面の表に出す年。計算基準月が年の途中なら翌年から） */
     years: { from: number; to: number } | null;
-    assetsAtAge: { age: number; year: number; amount: number }[];
+    /** 年齢ごとの金融資産。AI が選んだ年齢が表の範囲の外なら year・amount は null で、reason に理由（表の範囲の本人の年齢と年） */
+    assetsAtAge: { age: number; year: number | null; amount: number | null; reason?: string }[];
     depletion: { year: number; selfAge: number | null } | null;
     minimum: { year: number; amount: number; selfAge: number | null };
     lifetimeTakeHome: number;
@@ -343,12 +346,19 @@ export function summaryOf(req: EngineRequest, result: PreviewResult, a: SummaryA
   for (const r of rs) memberKeys[r.member.id] = r.key;
   const self = rs.find((r) => r.key === "self");
   const selfAge = (y: number) => (self === undefined ? null : ageInYear(self.member, y));
-  const atAges = a.atAges !== undefined && a.atAges.length > 0 ? a.atAges : [DEFAULT_AT_AGE];
+  const asked = a.atAges !== undefined && a.atAges.length > 0;
+  const atAges = asked ? (a.atAges as number[]) : [DEFAULT_AT_AGE];
   const ms = atAges.map((age) => metricsOf(req, table, age));
   const m = ms[0]!;
   // 主な数字を数えた年（metricsOf と同じく、画面の表に出す年のうち、そのプランの表がある年）
   const counted = yearsWithin(table, displayYears(req));
   const shown = counted.length > 0 ? { from: counted[0]!, to: counted[counted.length - 1]! } : null;
+  // AI が選んだ年齢が、表の範囲（本人が表の最初の年〜最後の年に迎える年齢）の外か。外なら理由
+  const outside = (age: number): string | null => {
+    if (!asked || self === undefined || shown === null) return null;
+    const [lo, hi] = [ageInYear(self.member, shown.from), ageInYear(self.member, shown.to)];
+    return age >= lo && age <= hi ? null : `表の範囲（ご本人${lo}〜${hi}歳・${shown.from}〜${shown.to}年）の外の年齢のため、数えていません`;
+  };
   const loanYears = loanYearsOf(req, table, result.summary);
   // 住宅ローンの利息の合計: 主な数字の住宅ローンの返済の合計（metricsOf）と同じ年で足す
   const loanInterest = counted.reduce((a, y) => a + (loanYears[String(y)]?.loanInterest ?? 0), 0);
@@ -360,7 +370,10 @@ export function summaryOf(req: EngineRequest, result: PreviewResult, a: SummaryA
     flowYears: flowYearsOf(req, table),
     keyFigures: {
       years: shown,
-      assetsAtAge: ms.map((x) => ({ age: x.targetAge, year: x.targetYear, amount: x.target })),
+      assetsAtAge: ms.map((x, i) => {
+        const why = outside(atAges[i]!);
+        return why === null ? { age: x.targetAge, year: x.targetYear, amount: x.target } : { age: atAges[i]!, year: null, amount: null, reason: why };
+      }),
       depletion: m.depletion === null ? null : { year: m.depletion, selfAge: selfAge(m.depletion) },
       minimum: { year: m.min.year, amount: m.min.amount, selfAge: selfAge(m.min.year) },
       lifetimeTakeHome: m.takeHome,

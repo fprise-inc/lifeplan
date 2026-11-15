@@ -153,6 +153,36 @@ fn in_years(y: i64, f: &TableFilter) -> bool {
     f.from_year.is_none_or(|a| y >= a) && f.to_year.is_none_or(|b| y <= b)
 }
 
+/// 年の範囲の書き方を確かめる（from_year は to_year 以下。年ごとの表 table と同じ文。逆の範囲を黙って空の年ごとの数字にしない）
+pub fn check_years(from: Option<i64>, to: Option<i64>) -> Result<(), String> {
+    match (from, to) {
+        (Some(f), Some(t)) if f > t => Err(format!(
+            "from_year は to_year 以下にしてください（from_year {f}・to_year {t}）。"
+        )),
+        _ => Ok(()),
+    }
+}
+
+/// 選んだ年の範囲（from_year・to_year）に、画面の表に出す年が1つも無ければ、表の年を添えた理由（out は表示の形の計算の出力）
+pub fn years_outside(out: &Value, f: &TableFilter) -> Option<String> {
+    if f.from_year.is_none() && f.to_year.is_none() {
+        return None;
+    }
+    let first = out["header"]["baseMonth"]
+        .as_str()
+        .and_then(first_shown_year)?;
+    let last = out["header"]["endYear"].as_i64()?;
+    if (first..=last).any(|y| in_years(y, f)) {
+        return None;
+    }
+    let pick = |v: Option<i64>| v.map_or_else(|| "—".to_owned(), |y| y.to_string());
+    Some(format!(
+        "from_year・to_year の範囲（{}〜{}年）に、表の年がありません。表は{first}〜{last}年です（画面の表に出す年。計算基準月が年の途中なら翌年から）。",
+        pick(f.from_year),
+        pick(f.to_year)
+    ))
+}
+
 /// 画面の表に出す最初の年（画面の workspace/present.ts の displayYears と同じ決まり: 計算基準月が1月ならその年、年の途中なら翌年から）。
 /// 計算の最初の年は、基準月が年の途中なら数か月分しかなく、画面の表・主な数字・数字の根拠に出ない。年ごとの数字と合計もこの年から返す。
 /// 接続口のテスト（mcp_connector.rs）で、どの見本の世帯でも主な数字の数えた年（keyFigures.years.from）と同じことを確かめる

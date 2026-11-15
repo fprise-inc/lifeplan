@@ -196,7 +196,8 @@ describe("固定資産税の推定（0112）", () => {
     expect(isAutoTaxStage(wh.request.input.household, r.id, taxStageId(r.id, 2032))).toBe(true);
     // 計算エンジンの固定資産税の行に入る
     const p = preview(wh.request);
-    expect(sum(p, "cf.expense.housing.propertyTax", 2029)).toBe(140000);
+    // 最初の年（2029年度）は4月・7月・12月の3回（2030年2月が4回目）。買った年（2028年度）は引き渡しの月に月割りの精算だけ（計算エンジンの housing.residence 改訂8）
+    expect(sum(p, "cf.expense.housing.propertyTax", 2029)).toBe(105000);
     // 年額を4月・7月・12月・翌年2月に分けて払うので、2032年の支出は2032年分の3回と2031年分の1回
     expect(Math.abs(sum(p, "cf.expense.housing.propertyTax", 2032) - (140000 * 1.475 * 0.75 + 140000 * 0.95 * 0.25))).toBeLessThanOrEqual(4);
   });

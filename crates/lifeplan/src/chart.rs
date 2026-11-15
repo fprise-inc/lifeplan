@@ -59,6 +59,7 @@ pub const DEFAULT_KINDS: &[&str] = &["assets", "repayment", "keyFigures"];
 pub const PNG_SCALE: f32 = 2.0;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ChartArgs {
     /// 基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -112,7 +113,7 @@ pub struct ChartArgs {
     /// 返す形: png（既定。MCP の image。AI のアプリでそのまま見える）・svg（SVG の文字。資料・ブログに貼れる。拡大してもぼやけない）・both
     #[schemars(extend("enum" = ["png", "svg", "both", null]))]
     pub format: Option<String>,
-    /// keyFigures の「○歳時点の金融資産」の本人の年齢（compare と同じ。最初の1つを使う。既定 95）
+    /// keyFigures の「○歳時点の金融資産」の本人の年齢（compare と同じ。最初の1つを使う。既定 95）。表の範囲の外の年齢なら、グラフを作らずに理由を返す
     pub at_ages: Option<Vec<u8>>,
     /// 折れ線のこの年から（含む）
     pub from_year: Option<i64>,
@@ -256,17 +257,31 @@ pub fn stress_text(key: &str) -> &'static str {
     }
 }
 
-/// 通りの当てたプランの変更（注の「通りの違い」に使う。当てた変更の項目の名前と後の値の文だけ。今と同じ値の変更は入れない）。表（table.rs）も同じ
+/// 通りの当てたプランの変更（注の「通りの違い」に使う。当てた変更の項目の名前と後の値の文だけ）。今と同じ値の変更・後の変更に置き換わった変更は
+/// 入れない。前の同じ項目の変更を取り消して今の値に戻す変更（restored）は、その通りの違いなので入れる。表（table.rs）も同じ
 pub fn plan_of(r: &Value) -> Vec<Value> {
     r["planChanges"]
         .as_array()
         .map(|l| {
             l.iter()
-                .filter(|c| c["status"] == "applied")
+                .filter(|c| c["status"] == "applied" || c["status"] == "restored")
                 .map(|c| json!({ "label": c["label"], "to": c["to"] }))
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// at_ages の最初の年齢（棒の「○歳時点の金融資産」）が表の範囲の外の通りがあれば、その理由（compare の results から）
+pub fn age_outside(results: &[Value]) -> Option<String> {
+    results.iter().find_map(|r| {
+        let x = &r["keyFigures"]["assetsAtAge"][0];
+        let why = x["reason"].as_str()?;
+        Some(format!(
+            "at_ages の最初の年齢（{}歳）は{}{why}。グラフを作っていません（at_ages を表の範囲の中の年齢にしてください）。",
+            x["age"],
+            r["label"].as_str().map_or_else(|| "、".to_owned(), |l| format!("、「{l}」で"))
+        ))
+    })
 }
 
 /// 比較する答えの通り（results の1つ）と、その通りの前提（assumptions）から、chart.ts に渡す通り（名前と数字だけ）を作る
@@ -458,7 +473,7 @@ mod tests {
             "key": "v1", "label": "10年で+1%", "status": "ok", "from": { "onBase": true },
             "series": [{ "year": 2027, "financialAssets": 100, "loanRepayment": 5, "ages": { "self": 40 } }],
             "keyFigures": { "assetsAtAge": [{ "age": 95, "year": 2081, "amount": 7 }], "loanRepayment": 9, "depletion": null },
-            "planChanges": [{ "label": "金利", "from": "a", "to": "b", "status": "applied" }, { "label": "同じ", "to": "c", "status": "same" }],
+            "planChanges": [{ "label": "金利", "from": "a", "to": "b", "status": "applied" }, { "label": "同じ", "to": "c", "status": "same" }, { "label": "生活費", "from": "月30万円", "to": "月31万円", "status": "replaced" }, { "label": "生活費", "from": "月30万円", "to": "月30万円", "status": "restored" }],
             "members": [{ "key": "self", "label": "ご本人" }],
             "stressTest": "rateRise",
         });
@@ -469,7 +484,11 @@ mod tests {
             v["series"],
             json!([{ "year": 2027, "financialAssets": 100, "loanRepayment": 5 }])
         );
-        assert_eq!(v["planChanges"], json!([{ "label": "金利", "to": "b" }]));
+        // 後の変更に置き換わった変更は入れず、前の変更を取り消して今の値に戻す変更は入れる
+        assert_eq!(
+            v["planChanges"],
+            json!([{ "label": "金利", "to": "b" }, { "label": "生活費", "to": "月30万円" }])
+        );
         assert_eq!(v["stress"], "変動金利が上がる（エンジンの既定の型）");
         assert!(v.get("members").is_none());
         assert!(v["keyFigures"].get("depletion").is_none());
