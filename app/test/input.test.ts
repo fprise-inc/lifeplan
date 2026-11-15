@@ -130,6 +130,8 @@ describe("モデル世帯の往復（世帯データ → 入力の表示 → 世
         if (f.kind === "ym" && typeof s.value === "string") expect(parseYearMonth(s.value)).toBe(s.value);
         // 値を変えて戻すと、元の世帯データに戻る（入力 → 世帯データ → 入力）
         if (!roundTripable(f, s)) continue;
+        // 表を何歳まで見るかの「年で決める…」は、選択肢から選び直すと年が変わり、選択肢では戻せない（年はすぐ下の年の欄で往復する。0070 の追記 2026-11-13）
+        if (f.key === "assume/endYear" && s.value === "year") continue;
         // 時点の欄（0038）は、入っている形のままの時点で往復する（年齢・出来事の形を年月に直さない）
         if (f.kind === "when") {
           const raw = s.when?.raw ?? null;

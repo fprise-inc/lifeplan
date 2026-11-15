@@ -12,7 +12,7 @@ import { candidateRows, itemName } from "../src/workspace/ai/model.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { buildEvidence } from "../src/workspace/evidence.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { candidateRefOf, type CandidateRef } from "../src/workspace/plans/candidates.ts";
+import { AMOUNT_LIMITS, candidateRefOf, type CandidateRef } from "../src/workspace/plans/candidates.ts";
 import { buildCatalog, type Catalog, type ItemValue } from "../src/workspace/plans/items.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
@@ -41,7 +41,7 @@ interface Row {
   item: string;
   label: string;
   place?: string;
-  status: "applied" | "same" | "rejected";
+  status: "applied" | "same" | "restored" | "replaced" | "rejected";
   reason?: string;
 }
 
@@ -228,6 +228,38 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     }
   });
 
+  it("金額の上の端: 円と万円の取り違え・桁の誤り（月1兆円の生活費など）は、範囲を添えて取り込まない（独立した点検の見本）", () => {
+    const S = "salariedCoupleTwoKids";
+    const req = modelHousehold(S);
+    const items = list(req, { sampleId: S }).items;
+    const living = items.find((x) => x.item === "livingExpense.monthly")!;
+    const at = (value: number) => apply(req, [{ target: living.target, item: living.item, value }], S);
+    // 上の端（月1億円）ちょうどまでは当てる
+    expect(at(AMOUNT_LIMITS.monthly).status).toBe("ok");
+    for (const value of [1_000_000_000_000, AMOUNT_LIMITS.monthly + 10_000]) {
+      const r = at(value);
+      expect(r.status, String(value)).toBe("rejected");
+      expect(r.changes[0]!.reason).toContain("月1億円まで");
+    }
+    // 入力の欄から作った金額の項目（年額・一時の額）も同じ
+    const all = list(req, { sampleId: S, fields: true }).items;
+    let checked = 0;
+    for (const [unit, limit, text] of [
+      [/年額/, AMOUNT_LIMITS.annual, "年10億円まで"],
+      [/1回の額|（額・/, AMOUNT_LIMITS.once, "（100億円まで）"],
+    ] as const) {
+      const it = all.find((x) => x.kind === "amount" && unit.test((x as { unit?: string }).unit ?? "") && typeof x.value === "number" && x.value < limit);
+      expect(it, String(unit)).toBeDefined();
+      if (it === undefined) continue;
+      checked += 1;
+      const ref = { target: it.target, item: it.item, ...(it.at !== undefined ? { at: it.at } : {}), ...(it.lever !== undefined ? { lever: it.lever } : {}) };
+      const r = apply(req, [{ ...ref, value: limit * 10 }], S);
+      expect(r.status, it.label).toBe("rejected");
+      expect(r.changes[0]!.reason, it.label).toContain(text);
+    }
+    expect(checked).toBe(2);
+  });
+
   it("画面の「AIからの候補」も同じ当てはめ: 対策の固定の項目（働く最後の年齢など）に当たり、範囲の外の年齢は取り込まない", () => {
     const s = screen("salariedCoupleTwoKids");
     const self = roles(s.req).find((r) => r.key === "self")!.member.id;
@@ -244,6 +276,40 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     );
     expect(rows.map((r) => r.key)).toEqual(["lever:retireAge", null, "lever:pensionAge"]);
     expect(rows[1]!.reason).toContain("範囲");
+  });
+
+  it("同じ項目を2回動かすと後の値が勝つ: 後の値が今の値と同じなら、前の変更を取り消して今の値のまま（場所を添えた項目・並びの要素の ID・一緒に動く欄も）", () => {
+    // 独立した点検で見つかった不具合: 後の値が今の値と同じ行を飛ばすだけで、前の変更のまま要求を作っていた
+    for (const [sample, moves] of [
+      ["salariedCoupleTwoKids", { "lever:livingMonthly": () => 310000 }],
+      // 働く最後の年齢は、生活費の退職後の段階・積立の終わりも一緒に動かす（戻せば、どれも動かない）
+      ["salariedCoupleTwoKids", { "lever:retireAge": () => 65 }],
+      // 場所を添えた項目（at・lever。0201）
+      ["salariedCoupleTwoKids", { "inv:monthly": () => 30000, "field:living/*/stage/1/ratio": () => "0.65" }],
+      // 並びの要素の ID を場所に持つ項目（0206）
+      ["dualAssetsTwoKids", { "field:sav/*/mix/0/share": () => "0.3" }],
+    ] as const) {
+      const { s, changes } = both(sample, moves);
+      const restore = both(sample, Object.fromEntries(Object.keys(moves).map((k) => [k, (now: ItemValue) => now]))).changes;
+      const got = apply(s.req, [...changes, ...restore], sample);
+      const what = `${sample} ${Object.keys(moves).join("・")}`;
+      expect(got.status, `${what} ${JSON.stringify(got.changes)}`).toBe("ok");
+      expect(got.request!.input, what).toEqual(s.req.input);
+      expect(got.changes.map((r) => r.status), what).toEqual([...changes.map(() => "replaced"), ...restore.map(() => "restored")]);
+      const n = changes.length;
+      restore.forEach((_, i) => expect(got.changes[n + i]!.reason, what).toContain(`${i + 1}件目の変更（`));
+      expect(got.changes[0]!.reason, what).toContain(`${n + 1}件目の変更が同じ項目を動かす`);
+    }
+    // 後の値が今と違えば後の値（前の値に戻す・今の値を挟むも同じ）。前に同じ項目の変更が無い今と同じ値は same のまま
+    const S = "salariedCoupleTwoKids";
+    const v = (x: number) => both(S, { "lever:livingMonthly": () => x }).changes[0]!;
+    const s = screen(S);
+    const once = apply(s.req, [v(290000)], S);
+    const twice = apply(s.req, [v(310000), v(300000), v(290000)], S);
+    expect(twice.request!.input).toEqual(once.request!.input);
+    expect(twice.changes.map((r) => r.status)).toEqual(["replaced", "replaced", "applied"]);
+    expect(apply(s.req, [v(300000)], S).changes[0]!.status).toBe("same");
+    expect(apply(s.req, [v(300000), v(300000)], S).changes.map((r) => r.status)).toEqual(["replaced", "same"]);
   });
 
   it("場所だけ違う項目（0201）: 場所を添えた候補は、画面の「AIからの候補」でもその項目に当たり、場所の無い前の版の候補は今までどおり", () => {

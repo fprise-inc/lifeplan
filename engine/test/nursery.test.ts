@@ -415,3 +415,37 @@ describe("高専・専門職大学院（education.cost 改訂8・education.suppo
     expect(notices(r).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("educationSupport.higher.kosenUpper"))).toBe(true);
   });
 });
+
+describe("保育所の施設の種類・自治体の独自の無償化・延長保育（education.nurseryFee の改訂6。0029 の追記 2026-11-14）", () => {
+  const byFormula = (r: ReturnType<typeof nursery>, formula: string, ym: string) => flowsOf(r).filter((f) => f.formula === formula && f.ym === ym).reduce((s, f) => s + f.amount, 0);
+  const older = { name: "o", birth: "2024-06" };
+
+  it("認可外・企業主導型は、入れた月額だけ。月額が無ければ0円で、入れてくださいの知らせ", () => {
+    for (const facility of ["unlicensed", "employer"]) {
+      const none = nursery(mk([{ ...C, stages: auto({ facility }) }]), "c", flat(200000));
+      expect(flowsOf(none).filter((f) => f.formula !== "education.nurseryFee.extra")).toEqual([]);
+      expect(notices(none).some((n) => n.code === "N_INPUT_REQUIRED" && n.ids.includes("goal.education.stages.monthly"))).toBe(true);
+      const input = nursery(mk([{ ...C, stages: auto({ facility, monthly: 70000 }) }]), "c", flat(200000));
+      expect(byFormula(input, "education.nurseryFee.input", "2027-10")).toBe(70000);
+    }
+  });
+
+  it("自治体の独自の無償化: 第1子からは0円。第2子からは、世帯に年長のきょうだいがいれば0円（通っているかを問わない）", () => {
+    expect(byFormula(nursery(mk([{ ...C, stages: auto({ localFree: "first" }) }]), "c", flat(200000)), "education.nurseryFee.auto", "2027-10")).toBe(0);
+    expect(byFormula(nursery(mk([{ ...C, stages: auto({ localFree: "first", monthly: 50000 }) }]), "c", flat(200000)), "education.nurseryFee.input", "2027-10")).toBe(0);
+    // 第2子から: 1人目の子は払う。年長のきょうだいがいる子は0円
+    expect(byFormula(nursery(mk([{ ...C, stages: auto({ localFree: "second" }) }]), "c", flat(200000)), "education.nurseryFee.auto", "2027-10")).toBe(61000);
+    expect(byFormula(nursery(mk([older, { ...C, stages: auto({ localFree: "second" }) }]), "c", flat(200000)), "education.nurseryFee.auto", "2027-10")).toBe(0);
+    // 認可外には当てない
+    expect(byFormula(nursery(mk([{ ...C, stages: auto({ localFree: "first", facility: "unlicensed", monthly: 50000 }) }]), "c", flat(200000)), "education.nurseryFee.input", "2027-10")).toBe(50000);
+  });
+
+  it("延長保育の月額は、通い始めから3歳の4月の前の月まで（無償化でも払う）", () => {
+    const r = nursery(mk([{ ...C, stages: auto({ extendedMonthly: 5000, localFree: "first" }) }]), "c", flat(200000));
+    const ext = flowsOf(r).filter((f) => f.formula === "education.nurseryFee.extended");
+    expect(ext[0]).toMatchObject({ ym: "2027-10", row: "cf.expense.education.nursery" });
+    expect(ext.at(-1)?.ym).toBe("2030-03");
+    expect(ext[0]!.amount).toBeGreaterThanOrEqual(5000);
+    expect(byFormula(r, "education.nurseryFee.auto", "2027-10")).toBe(0);
+  });
+});

@@ -243,6 +243,7 @@ label.bm-row:hover { background: color-mix(in srgb, var(--prop) 5%, var(--card))
 .bm-row.off, .bm-row.off .bm-wh { color: var(--muted, #8a939d); }
 .bm-row.off .bm-nm, .bm-row.off .bm-am { font-weight: 400; }
 .bm-row.off .bm-t { opacity: 0.7; }
+.bm-rm { display: block; font-size: 0.72rem; font-weight: 400; color: var(--ink-2); }
 .bm-more { grid-column: 1 / -1; justify-self: start; margin-top: 4px; font-size: 0.82rem; }
 .bm-note { margin: 10px 0 0; font-size: 0.85rem; color: var(--ink-2); }
 .bm-notes { margin: 0 0 12px; }

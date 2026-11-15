@@ -50,7 +50,8 @@ describe("推定の欄の「この値にする」", () => {
 
   it("選択の欄（推定）は欄の横に置く", () => {
     const wh = addChildWithEducation(blankHousehold(BASE, ids()), ids());
-    const f = fieldOf(wh, "education", "/preset");
+    // 推定のままの進路の印は、大学などの行の「大学・短大・専門学校」の欄に出す（入力の「進路の型」の欄は外した。2026-11-14）
+    const f = fieldOf(wh, "education", "/higher");
     expect(fieldStatus(f, wh).status).toBe("estimated");
     const html = fieldHtml(wh, f);
     expect(html).toMatch(/<\/select><button type="button" class="fld-fill"[^>]*data-fill-estimate="true">この値にする<\/button>/);

@@ -8,7 +8,7 @@ import { stageStatistic } from "../src/workspace/input/educationCost.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
-import { addChildIncome, DELAY_HELP, jassoRepayYears } from "../src/workspace/input/stages/education.ts";
+import { addChildIncome, courseField, DELAY_HELP, jassoRepayYears } from "../src/workspace/input/stages/education.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { applyStateOp, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { preview } from "./helpers.ts";
@@ -160,7 +160,8 @@ describe("推定の値を入れた後に学校の種類を変える", () => {
     const w2 = fieldOf(w1, `edu/${g.id}/stage/${u}/sector`).set(w1, "national");
     expect(goalOf(w2).education!.stages[u]!.annualOverride).toBeUndefined();
     const w3 = fieldOf(wh, `edu/${g.id}/stage/${u}/annual`).set(wh, 1500000);
-    const w4 = fieldOf(w3, "/preset").set(w3, "allPublic");
+    // 進路の型（結果のタブの動かす項目と同じ欄の定義。入力の欄からは外した）で公立にしても、自分で入れた額は残す
+    const w4 = courseField(g.id).set(w3, "allPublic");
     expect(goalOf(w4).education!.stages[u]!.annualOverride).toBe(1500000);
   });
 });
@@ -198,8 +199,8 @@ describe("推定の数え方（0062 の追記 2026-10-31）", () => {
     // まとめて確定にしても、統計の平均の欄は空欄のまま（学校の種類を変えれば推定が変わる）
     const all = confirmAll(wh, fields(wh));
     expect(goalOf(all.wh).education!.stages[u]!.annualOverride).toBeUndefined();
-    // 進路を確かめる（型を選び直す）と、子ども・教育に推定のまま数える欄は無い
-    const w2 = fieldOf(wh, "/preset").set(wh, "allPublic");
+    // 進路を確かめる（大学などを選び直す）と、子ども・教育に推定のまま数える欄は無い
+    const w2 = fieldOf(wh, `edu/${g.id}/higher`).set(wh, "juniorCollege");
     expect(inputItems(w2).find((i) => i.id === "education")!.estimated).toBe(0);
   });
 });

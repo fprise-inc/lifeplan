@@ -20,6 +20,7 @@ const COMBINED_BS_NOTE: &str = "会社の数字（合算BS）は、アプリの�
 const NOTICE: &str = "すべて架空の世帯です（実在の顧客ではありません）。アプリの見本の棚と同じ名前・目印です。get_sample_household で計算の入力を取り出すか、calculate の sample_household_id に id を渡して計算できます。tags で目印を絞れます（目印の一部でもよい）。家を買う・子が生まれるなどの場面は、近い見本に get_input_recipe の手本を重ねて作れます。";
 
 #[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ListSamplesArgs {
     /// 目印で絞る（例 ["子育て"]・["シニア", "収益不動産"]）。どの目印にも当てはまる見本だけを返す。目印の一部でもよい（「介護」は「親の介護・相続」に当たる）。使える目印は答えの tags
     pub tags: Option<Vec<String>>,
@@ -119,12 +120,12 @@ fn short_title(desc: &str) -> String {
     }
 }
 
-/// 目印が当てはまるか（見本の目印か名前の一部。大文字・小文字・前後の空白は問わない）
+/// 目印が当てはまるか（見本の目印か名前の一部。大文字・小文字・全角・半角・前後の空白は問わない）
 fn matches(want: &str, tags: &[String], title: &str) -> bool {
-    let w = want.trim().to_lowercase();
+    let w = crate::fold::fold(want.trim());
     w.is_empty()
-        || title.to_lowercase().contains(&w)
-        || tags.iter().any(|t| t.to_lowercase().contains(&w))
+        || crate::fold::fold(title).contains(&w)
+        || tags.iter().any(|t| crate::fold::fold(t).contains(&w))
 }
 
 struct Entry {

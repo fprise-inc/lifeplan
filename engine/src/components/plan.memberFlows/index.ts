@@ -5,6 +5,9 @@
 // 改訂5（万一・医療・贈与）: 遺族年金（pension.survivor）・障害年金（pension.disability）・万一の医療費（medical.highCost）・
 // 受け取る贈与の税（gift.tax。贈与を受け取る年だけ）を集める
 // 改訂6（0037）: 雇用保険の失業の給付・高年齢雇用継続給付（benefit.unemployment）を集める
+// 改訂7（0003 の追記 2026-11-14）: 計算基準月が1〜3月なら、所得税は前年分から集める（前年分の確定申告の精算〔3月の還付・納付〕は
+//   これから動くお金。源泉徴収の行は計算基準月より前なので表に入らない。住民税・贈与税と同じ形）。前は計算基準年の分からで、前年に家を買った人の
+//   1年目の住宅ローン控除の還付などが出なかった
 import {
   ageMonth,
   defineComponent,
@@ -27,7 +30,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
   id: "plan.memberFlows",
   title: "お金の動き（構成員ごとに集める）",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: {
     "pension.survivor": ">=1 <2",
     "pension.disability": ">=1 <2",
@@ -89,7 +92,8 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
     for (const c of ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment", "socialInsurance.nationalPension"]) {
       parts.push(ctx.call<FlowsResult>(c, { member, fromYear: baseYear }).flows);
     }
-    for (let y = baseYear; y <= endYear; y++) parts.push(ctx.call<TaxOutput>("incomeTax.annual", { member, year: y }).flows);
+    // 前年分の確定申告の精算（翌年3月）がまだ先なら前年分から（改訂7）
+    for (let y = monthOf(base) <= 3 ? baseYear - 1 : baseYear; y <= endYear; y++) parts.push(ctx.call<TaxOutput>("incomeTax.annual", { member, year: y }).flows);
     // 退職所得の分離課税（退職一時金・DB・iDeCo・企業型DC・小規模企業共済の一時金を受け取る年だけ）
     const receiptYears = new Set(ctx.call<{ receipts: readonly { ym: string }[] }>("retirement.receipts", { member }).receipts.map((r) => Number(r.ym.slice(0, 4))));
     for (const y of [...receiptYears].sort((a, b) => a - b)) if (y >= baseYear && y <= endYear) parts.push(ctx.call<TaxOutput>("tax.retirementIncome", { member, year: y }).flows);

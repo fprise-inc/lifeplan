@@ -20,6 +20,13 @@
 //   目安の値が無いパックでは数えない（知らせない。保育料の計算とは別の目安のため）
 // 改訂5（0169）: 世帯にいる親が1人でも、その月に配偶者の関係（法律婚・事実婚。子の親でない再婚の相手も）がある親と、構成員の欄
 //   maritalStatus が「婚姻している（別居など）」の親（終わった法律婚の関係が無いとき）は、ひとり親世帯等にしない（ひとり親控除の判定と同じ見方）
+// 改訂6（0029 の追記 2026-11-14）: 段の施設の種類（facility）・自治体の独自の無償化（localFree）・延長保育（extendedMonthly）
+//   - 施設の種類: licensed（認可保育所・認定こども園・地域型保育。省略）は今までどおり。unlicensed（認可外。認証保育所などを含む）・employer（企業主導型）は
+//     収入で決まる国の基準の保育料ではないので、月額（monthly）を入れた額だけで計算する。月額が無ければ0円（知らせ N_INPUT_REQUIRED
+//     goal.education.stages.monthly）。認可外の0〜2歳の住民税非課税世帯の無償化（月4.2万円まで）は扱わない
+//   - 自治体の独自の無償化（認可の施設だけ）: first は0〜2歳の保育料を0円（例: 東京都の令和7年9月からの第1子からの無償化）、second は
+//     その月に世帯に年長のきょうだい（子の構成員。年齢・通っているかを問わない）がいれば0円。月額を入れた段にも当てる（月額は自治体の保育料表の額）
+//   - 延長保育: 月額を、通い始めから3歳の4月の前の月まで毎月（教育費の上昇率で伸ばす。無償化の対象外。式 education.nurseryFee.extended）
 import {
   addMonths,
   bracketFor,
@@ -89,7 +96,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.nurseryFee",
   title: "保育料（0〜2歳。収入から自動で計算）",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: { "residentTax.annual": ">=1 <2" },
   params: [...Object.values(P), LEVY_ROUNDING, EXTRA],
   reads: [
@@ -219,11 +226,28 @@ export default defineComponent<{ member: string }, FlowsResult>({
             if (amount > 0) flows.push({ row: "cf.expense.education.school", ym: formatYm(m), amount, accrualYear: yearOf(m), member: child, object: g.id, formula: "education.nurseryFee.extra" });
           }
         }
+        // 延長保育（改訂6。計算基準年の価格の月額を教育費の上昇率で伸ばす。無償化の対象外）
+        if (st.extendedMonthly !== undefined && st.extendedMonthly > 0) {
+          const s = grownByYear(ctx, yen(st.extendedMonthly), { kind: "inflation" }, baseYear, Math.max(endYear, baseYear), "educationInflation");
+          for (let m = from; m < free; m = addMonths(m, 1)) push(m, s.get(yearOf(m) < baseYear ? baseYear : yearOf(m) > endYear ? endYear : yearOf(m)) ?? yen(st.extendedMonthly), "education.nurseryFee.extended");
+        }
+        const licensed = (st.facility ?? "licensed") === "licensed";
+        // 自治体の独自の無償化（認可の施設だけ。改訂6）: その月の保育料を0円にするか
+        const localFreeAt = (m: MonthIndex): boolean => {
+          if (!licensed || st.localFree === undefined) return false;
+          if (st.localFree === "first") return true;
+          return childOrder.some((c) => c.id !== child && olderThan(c, me) && inHousehold(c, m));
+        };
+        // 認可外・企業主導型は、入れた月額だけ（無ければ0円。改訂6）
+        if (!licensed && st.monthly === undefined) {
+          ctx.notice("N_INPUT_REQUIRED", [g.id, "goal.education.stages.monthly"]);
+          continue;
+        }
         // 月額を入れた段（計算基準年の価格。教育費の上昇率で伸ばす）
         if (st.monthly !== undefined) {
           if (st.monthly === 0) continue;
           const s = grownByYear(ctx, yen(st.monthly), { kind: "inflation" }, baseYear, Math.max(endYear, baseYear), "educationInflation");
-          for (let m = from; m < free; m = addMonths(m, 1)) push(m, s.get(yearOf(m) < baseYear ? baseYear : yearOf(m) > endYear ? endYear : yearOf(m)) ?? yen(st.monthly), "education.nurseryFee.input");
+          for (let m = from; m < free; m = addMonths(m, 1)) if (!localFreeAt(m)) push(m, s.get(yearOf(m) < baseYear ? baseYear : yearOf(m) > endYear ? endYear : yearOf(m)) ?? yen(st.monthly), "education.nurseryFee.input");
           continue;
         }
         // 自動の計算（目安）
@@ -236,6 +260,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
             continue;
           }
           auto = true;
+          if (localFreeAt(m)) continue;
           const { levy, exempt } = householdLevy(taxYearOf(m));
           if (exempt) continue;
           // ひとり親世帯等（その月に世帯にいる親が1人で、その親が婚姻していない。改訂5）

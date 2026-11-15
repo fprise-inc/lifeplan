@@ -288,6 +288,12 @@ export interface EducationStage {
   monthly?: number;
   hours?: "standard" | "short";
   feeRatio?: string;
+  /** 保育所の施設の種類（licensed 認可〔省略〕・unlicensed 認可外・employer 企業主導型。0029 の追記 2026-11-14） */
+  facility?: "licensed" | "unlicensed" | "employer";
+  /** 保育所の自治体の独自の無償化（認可の施設だけ。first 第1子から・second 第2子から） */
+  localFree?: "first" | "second";
+  /** 保育所の延長保育の月額 */
+  extendedMonthly?: number;
   exam?: { amount?: number; deposits?: number };
   annualOverride?: number;
   entranceOverride?: number;
@@ -509,7 +515,8 @@ export interface Debt {
   balanceAsOf?: string;
   rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[];
   repayment: { method: string; termMonths: number; bonusShare?: string; variableRules?: { fiveYear?: boolean; cap125?: boolean }; [key: string]: unknown };
-  prepayments?: { at: Timepoint; amount: number; mode: string; fee?: number }[];
+  /** 繰上返済（要素の id は 0206。画面の世帯は持つ。プランの打ち手で足した物には無いことがある） */
+  prepayments?: { id?: string; at: Timepoint; amount: number; mode: string; fee?: number }[];
   /** 借り換え（その月に残高を新しいローンで返す。要素の id は 0206。保存した世帯は持つ） */
   refinance?: { id?: string; at: Timepoint; rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[]; termMonths: number; method?: string; costs?: number; costsFinanced?: boolean }[];
   creditLife?: { covered: string[]; ratio?: string; events?: string[]; [key: string]: unknown };

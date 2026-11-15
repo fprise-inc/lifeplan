@@ -84,7 +84,7 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
     const total = masterAmount(totalId);
     const out = masterAmount(outId);
     if (total === null) return null;
-    // 入学金等（全学年の平均）は学校の費用から除き、在学年数の標準の年数分を入学の前にまとめて（計算エンジンの education.cost の改訂11と同じ）
+    // 入学金等（全学年の平均）は学校の費用から除き、在学年数の標準の年数分を入学の前にまとめて（計算エンジンの education.cost の改訂12と同じ）
     const entranceId = `${S}.${s.stage}.${sec}.entrance`;
     const perYear = masterAmount(entranceId);
     const years = YEARS[s.stage] ?? 1;
@@ -210,7 +210,7 @@ export function boardingStatistic(): { annual: number | null; initial: number | 
 }
 
 /**
- * 受験・併願の費用の統計の平均（計算エンジンの education.cost の改訂11と同じ区分: 大学は国公立・私立の文系・理系〔医歯系も〕・全体〔系統が全体・その他・法〕、
+ * 受験・併願の費用の統計の平均（計算エンジンの education.cost の改訂12と同じ区分: 大学は国公立・私立の文系・理系〔医歯系も〕・全体〔系統が全体・その他・法〕、
  * 短大、専門学校）。大学院・高専・幼稚園〜高校は null（統計が無い。幼稚園〜高校は入学金等に検定料・併願の納付金が入っている）
  */
 export function examStatistic(s: Pick<EducationStage, "stage" | "sector" | "field">): { value: number; basis: string } | null {

@@ -8,6 +8,8 @@ import { blankHousehold, mutate, type WorkingHousehold } from "../src/workspace/
 import { rowAt } from "../src/workspace/input/rows.ts";
 import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
+// 進路の型は入力の欄から外した（2026-11-14）。結果のタブの動かす項目と同じ欄の定義（courseField）で選ぶ
+import { courseField } from "../src/workspace/input/stages/education.ts";
 
 const seq = () => {
   let n = 0;
@@ -41,7 +43,7 @@ describe("子の年齢を直すと、学校の段が年齢に合わせて変わ�
 
   it("進路の型を選んだ（推定でなくなった）進路でも、年下にすると前に足りない段を型の値で足し、年上にすると終わった段を外す", () => {
     let wh = setBirth(fresh(), "2016-05");
-    wh = withRefreshedEstimates(fieldOf(wh, "education", "/preset").set(wh, "allPrivate"));
+    wh = withRefreshedEstimates(courseField(goal(wh).id).set(wh, "allPrivate"));
     expect(rowAt(wh.request.input as never, educationStagesAddress(goal(wh).id))).toBeUndefined();
     expect(stages(wh)).toEqual(["elementary:private", "juniorHigh:private", "highSchool:private", "university:private"]);
     wh = setBirth(wh, "2024-05");
@@ -71,7 +73,7 @@ describe("段を足すボタンも年齢に合わせる", () => {
     expect(labels()).not.toContain("nursery");
     expect(labels()).not.toContain("kindergarten");
     expect(labels()).not.toContain("elementary");
-    wh = withRefreshedEstimates(fieldOf(wh, "education", "/preset").set(wh, "allPrivate"));
+    wh = withRefreshedEstimates(courseField(goal(wh).id).set(wh, "allPrivate"));
     wh = setBirth(wh, "2025-05");
     expect(labels()).toContain("nursery");
   });

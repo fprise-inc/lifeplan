@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "id": {
       "description": "項目の鍵（search_coverage の id。例 socialInsurance.highCostMedical）。省くと分野ごとの目次を返す",

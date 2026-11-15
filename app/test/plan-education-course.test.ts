@@ -4,10 +4,8 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, Goal } from "../src/engine/types.ts";
-import { allFields } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { buildStages } from "../src/workspace/input/stages/index.ts";
-import { COURSE_PRESETS } from "../src/workspace/input/stages/education.ts";
+import { COURSE_PRESETS, courseField } from "../src/workspace/input/stages/education.ts";
 import { candidateRefOf, candidateRows } from "../src/workspace/plans/candidates.ts";
 import { buildCatalog, type Catalog, type MovableItem } from "../src/workspace/plans/items.ts";
 import { leverKindOf } from "../src/workspace/plans/leverChoice.ts";
@@ -40,8 +38,8 @@ describe("進路の型の動かす項目", () => {
       const s = open(id);
       for (const g of educationGoals(s.req)) {
         const it = s.cat.byKey.get(`edu:${g.id}:course`) as (MovableItem & { control: { kind: "choice" } }) | undefined;
-        const fieldOf = (w: WorkingHousehold) => allFields(buildStages(w).find((x) => x.id === "education")!).find((f) => f.key === `edu/${g.id}/preset`);
-        const f = fieldOf(s.wh);
+        // 入力の「進路の型」の欄は外した（2026-11-14）。動かす項目は同じ欄の定義（courseField）の読み・書きを使う
+        const f = courseField(g.id);
         if (it === undefined) {
           // 欄が出ない子（教育の段が全部過ぎた子）か、型が決める段がもう全部終わっている子だけ
           continue;
@@ -60,7 +58,7 @@ describe("進路の型の動かす項目", () => {
           // 型が決める段は型のとおり。読み直すと欄と同じ型（もう過ぎた段がある子では、同じ段の並びになる前の型〔例: 高校から私立〕に読める）
           for (const st of stagesOf(byItem, g.id)) if (p.sectors[st.stage] !== undefined) expect(st.sector ?? "public", `${id} ${p.value} ${st.stage}`).toBe(p.sectors[st.stage]);
           const after = fromRequest(byItem);
-          const read = fieldOf(after)?.get(after).value;
+          const read = f.get(after).value;
           expect(read, `${id} ${p.value}`).not.toBe("");
           expect(it.read(after)).toBe(read);
           compared++;

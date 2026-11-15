@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "input": {
       "description": "計算の入力（calculate の input と同じ形。get_input_guide・get_input_recipe で組み立て、calculate で計算できることを確かめた物）"

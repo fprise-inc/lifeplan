@@ -1,4 +1,4 @@
-// 教育費の推定の直し（education.cost の改訂11。0010 の追記 2026-11-14）: 高校の就学支援金を二重に引かない・入学金等は入学の前にまとめて・
+// 教育費の推定の直し（education.cost の改訂12。0010 の追記 2026-11-14）: 高校の就学支援金を二重に引かない・入学金等は入学の前にまとめて・
 // 受験・併願の費用の統計の推定。【架空の見本】の制度データ（test/fixtures/regulation）: 公立高校の学習費総額 596,954円・学校外活動費 245,431円・
 // 入学金等 18,027円・授業料 45,272円、私立高校の学習費総額 1,179,261円・学校外活動費 346,611円・入学金等 80,290円・授業料 279,170円、
 // 受験・併願の費用 私立大学文系 412,000円・国公立大学 385,000円・専門学校 223,000円
@@ -35,7 +35,7 @@ const flows = (o: EducationCostOutput) => o.flows as unknown as Flow[];
 const sum = (fs: Flow[], pred: (f: Flow) => boolean) => fs.filter(pred).reduce((s, f) => s + f.amount, 0);
 const inFy = (fy: number) => (f: Flow) => f.ym >= `${fy}-04` && f.ym <= `${fy + 1}-03`;
 
-describe("高校の就学支援金を二重に引かない（改訂11の2）", () => {
+describe("高校の就学支援金を二重に引かない（改訂12の2）", () => {
   it("統計の平均の高校: 支援金は上限と統計の授業料（支援金を引いた後に保護者が払った額）の小さい方", () => {
     const pub = support(req([{ stage: "highSchool", sector: "public" }]));
     expect(sum(pub, inFy(2028))).toBe(45272);
@@ -57,7 +57,7 @@ describe("高校の就学支援金を二重に引かない（改訂11の2）", (
   });
 });
 
-describe("入学金等は入学の前にまとめて（改訂11の1）", () => {
+describe("入学金等は入学の前にまとめて（改訂12の1）", () => {
   it("まだ入学していない段: 学校の費用から入学金等を除き、在学年数の標準（高校は3年）の分を入学の前の2月に1回", () => {
     const o = cost(req([{ stage: "highSchool", sector: "private" }]));
     const entrance = flows(o).filter((f) => f.row === "cf.expense.education.entrance");
@@ -93,7 +93,7 @@ describe("入学金等は入学の前にまとめて（改訂11の1）", () => {
   });
 });
 
-describe("受験・併願の費用の推定（改訂11の3）", () => {
+describe("受験・併願の費用の推定（改訂12の3）", () => {
   const exam = (o: EducationCostOutput) => flows(o).filter((f) => f.row === "cf.expense.education.exam").map((f) => [f.ym, f.amount, f.formula]);
 
   it("入れていない大学・専門学校の段は、統計の平均を入学の前の1月に", () => {
