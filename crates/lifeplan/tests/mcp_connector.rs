@@ -3226,14 +3226,27 @@ async fn compare_matches_the_screen() {
                     "{what}"
                 );
             }
-            // 当てたプランの変更は、基本と通りの両方
+            // 当てたプランの変更は、基本と通りの両方。通りが基本と同じ項目を動かすなら、基本の変更は使わない（後の値が勝つ。replaced）
             let applied = r["planChanges"].as_array().unwrap();
+            let own = col["changes"].as_array().unwrap().len();
             assert_eq!(
                 applied.len(),
-                cols[0]["changes"].as_array().unwrap().len()
-                    + col["changes"].as_array().unwrap().len()
+                cols[0]["changes"].as_array().unwrap().len() + own
             );
-            assert!(applied.iter().all(|x| x["status"] == "applied"), "{what}");
+            let (from_base, from_variant) = applied.split_at(applied.len() - own);
+            assert!(
+                from_variant.iter().all(|x| x["status"] == "applied"),
+                "{what}"
+            );
+            for x in from_base {
+                // 答えの planChanges は項目の名前と前と後の文だけ（compare.rs）なので、名前で見る
+                let replaced = from_variant.iter().any(|y| y["label"] == x["label"]);
+                assert_eq!(
+                    x["status"],
+                    if replaced { "replaced" } else { "applied" },
+                    "{what} {x}"
+                );
+            }
         }
         // 基本に重ねる通りは、calculate に基本と通りの変更をつないで渡したときと同じ主な数字
         let last = cols.last().unwrap();
@@ -3905,6 +3918,146 @@ async fn find_threshold_matches_calculate() {
         let (err, msg) = call(&c, "find_threshold", ask(&emp, more.clone())).await;
         assert!(err && msg.contains(want), "{more}: {msg}");
     }
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 主な数字だけの calculate（年ごとの数字を外す）
+async fn key_figures(c: &Client, args: Value) -> Value {
+    let mut a = args;
+    a["omit"] = json!(["years"]);
+    call_ok(c, "calculate", a).await
+}
+
+/// 同じ項目を2回動かすと後の値が勝つ。後の値が今の値と同じでも勝つ（独立した点検で見つかった不具合。前は今と同じ値の変更を飛ばすだけで、
+/// 前の変更のまま計算していた）: 前の変更を取り消して今の値のまま計算し、planChanges にそう書く。当てはめは calculate・explain_value・
+/// compare・table・sweep・find_threshold で同じ関数（app/src/workspace/plans/candidates.ts）なので、それぞれで確かめる
+#[tokio::test(flavor = "multi_thread")]
+async fn later_plan_change_wins_even_at_the_current_value() {
+    let dir = temp_dir("later-wins");
+    let (c, _) = connect(&dir).await;
+    let id = "salariedCoupleTwoKids";
+    let sample = json!({ "sample_household_id": id });
+    let liv = plan_item(&c, sample.clone(), "livingExpense.monthly").await;
+    let emp = plan_item(&c, sample.clone(), "employment.to").await;
+    assert_eq!(liv["value"], 300000);
+    assert_eq!(emp["value"], 60);
+    let ch = |it: &Value, v: i64| json!({ "target": it["target"], "item": it["item"], "value": v });
+    let plan = |changes: Vec<Value>| json!({ "sample_household_id": id, "plan_changes": changes });
+    let none = key_figures(&c, sample.clone()).await;
+    // 何もしない世帯（毎月の生活費 月30万円）: 生涯の支出 295,476,499円・2058年に尽きる
+    assert_eq!(none["keyFigures"]["lifetimeExpense"], 295476499);
+    assert_eq!(none["keyFigures"]["depletion"]["year"], 2058);
+
+    // calculate: 月31万円 → 月30万円（今の値）は、何もしない世帯と同じ（前は月31万円の数字: 302,463,162円・2055年）
+    let back = key_figures(&c, plan(vec![ch(&liv, 310000), ch(&liv, 300000)])).await;
+    assert_eq!(back["keyFigures"], none["keyFigures"]);
+    let rows = back["planChanges"]["changes"].as_array().unwrap();
+    assert_eq!(rows[0]["status"], "replaced");
+    assert_eq!(rows[1]["status"], "restored");
+    assert_eq!(
+        rows[1]["reason"],
+        "今と同じ値です。1件目の変更（月31万円）を取り消し、今の値（月30万円）のままにします"
+    );
+    assert!(
+        rows[0]["reason"].as_str().unwrap().contains("2件目"),
+        "{}",
+        rows[0]
+    );
+    // 後の値が今と違えば後の値（月31万円 → 月29万円は月29万円だけと同じ）
+    let later = key_figures(&c, plan(vec![ch(&liv, 310000), ch(&liv, 290000)])).await;
+    let only = key_figures(&c, plan(vec![ch(&liv, 290000)])).await;
+    assert_eq!(later["keyFigures"], only["keyFigures"]);
+    // 一緒に動く欄のある項目（働く最後の年齢は、生活費の退職後の段階・積立の終わりも動かす）: 65歳 → 60歳（今の値）は何もしない世帯と同じ
+    let retire = key_figures(&c, plan(vec![ch(&emp, 65), ch(&emp, 60)])).await;
+    assert_eq!(retire["keyFigures"], none["keyFigures"]);
+
+    // explain_value: 2030年の基本生活費は、月31万円 → 月30万円で 3,746,173円（前は月31万円の 3,871,046円）
+    let ask = |pc: Option<Vec<Value>>| {
+        let mut a = json!({ "sample_household_id": id, "row": "living", "year": 2030, "omit": ["sources", "params", "message"] });
+        if let Some(pc) = pc {
+            a["plan_changes"] = json!(pc);
+        }
+        a
+    };
+    let e = call_ok(
+        &c,
+        "explain_value",
+        ask(Some(vec![ch(&liv, 310000), ch(&liv, 300000)])),
+    )
+    .await;
+    let e0 = call_ok(&c, "explain_value", ask(None)).await;
+    assert_eq!(e["evidence"]["breakdown"][0]["amount"], 3746173, "{e}");
+    assert_eq!(e["evidence"], e0["evidence"]);
+
+    // compare: 基本＝月31万円、通り＝月30万円に戻す。通りは何もしない世帯の数字で、差は 0 でない（前は基本と同じで差が ±0）
+    let r = call_ok(
+        &c,
+        "compare",
+        json!({ "sample_household_id": id, "label": "月31万円", "plan_changes": [ch(&liv, 310000)],
+            "variants": [{ "label": "月30万円に戻す", "plan_changes": [ch(&liv, 300000)] }], "series": [], "ages": false }),
+    )
+    .await;
+    let v = &r["results"][1];
+    assert_eq!(v["keyFigures"]["lifetimeExpense"], 295476499, "{v}");
+    assert_eq!(
+        v["keyFigures"]["depletion"],
+        none["keyFigures"]["depletion"]
+    );
+    assert_eq!(v["diff"]["lifetimeExpense"], 295476499 - 302463162);
+    // 表: 通りの違いの注は、取り消して戻した値（前は「月31万円」と書いていた）
+    let (err, texts) = call_table(
+        &c,
+        json!({ "sample_household_id": id, "plan_changes": [ch(&liv, 310000)],
+            "variants": [{ "label": "月30万円に戻す", "plan_changes": [ch(&liv, 300000)] }], "rows": ["expenseLiving"], "from_year": 2027, "to_year": 2029 }),
+    )
+    .await;
+    assert!(!err, "{texts:?}");
+    assert!(
+        texts[1].contains("月30万円に戻す: 毎月の生活費 月30万円"),
+        "{}",
+        texts[1]
+    );
+
+    // sweep: 基本で働く最後の年齢を65歳にして58〜62歳で振ると、どの行も振った値だけを当てた数字（前は60歳〔今の値〕の行だけ65歳の数字）
+    let vary = json!({ "target": emp["target"], "item": "employment.to" });
+    let got = call_ok(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "plan_changes": [ch(&emp, 65)], "vary": vary, "from": 58, "to": 62 }),
+    )
+    .await;
+    let cols = got["columns"].as_array().unwrap();
+    for (age, r) in (58..=62).zip(got["rows"].as_array().unwrap()) {
+        let one = key_figures(&c, plan(vec![ch(&emp, age)])).await;
+        assert_eq!(
+            r.as_array().unwrap(),
+            &figures_row(&json!(age), &one["keyFigures"], cols),
+            "{age}歳"
+        );
+    }
+    let at60 = &got["rows"][2];
+    assert_eq!(at60[0], 60);
+    assert_eq!(
+        at60.as_array().unwrap(),
+        &figures_row(&json!(60), &none["keyFigures"], cols)
+    );
+
+    // find_threshold: 基本で生活費を月20万円にしても、探す生活費の境目は基本の生活費に依らず月27万円（前は月30万円〔今の値〕の点だけ月20万円で
+    // 計算して月30万円と答えた）
+    let find = |pc: Option<Value>| {
+        let mut a = json!({ "sample_household_id": id, "vary": { "target": liv["target"], "item": liv["item"] }, "from": 250000, "to": 350000, "step": 10000,
+            "condition": { "type": "noDepletion" }, "want": "max" });
+        if let Some(pc) = pc {
+            a["plan_changes"] = pc;
+        }
+        a
+    };
+    let t = call_ok(&c, "find_threshold", find(Some(json!([ch(&liv, 200000)])))).await;
+    let t0 = call_ok(&c, "find_threshold", find(None)).await;
+    assert_eq!(t["threshold"], 270000, "{t}");
+    assert_eq!(t["threshold"], t0["threshold"]);
+    assert_eq!(t["rows"], t0["rows"]);
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }
