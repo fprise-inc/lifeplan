@@ -632,7 +632,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   // 名前の無いまとまりの説明は、欄の並びの前に「?」だけを置く
   const gn = splitNote(group.note);
   const noteHelp = gn.help !== null ? <Help label={group.title ?? "このまとまり"}>{helpBlocks(gn.help)}</Help> : null;
-  const compact = group.band !== true && more?.open !== true && inner.length === 0 && sub.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
+  const compact = group.band !== true && group.wideHead !== true && more?.open !== true && inner.length === 0 && sub.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
   return (
     <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}${compact ? " compact" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
       {group.title !== undefined ? (
