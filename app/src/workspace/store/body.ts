@@ -126,7 +126,7 @@
 //   0.78 から: 画面の側の表を何歳まで見るかの決め方 endYearChoice（人と年齢 {by: "member", member, age}・年で決める {by: "year"}。0070 の追記
 //   2026-11-13。既定は持たない。任意。計算には使わない〔計算は表の最後の年 endYear だけ〕）。足すだけ。本体の変換の段は版だけを書き換える
 //   （前の版の世帯は欄が無い＝年から読む。input/household.ts の endYearRuleOf）
-//   0.79 から: 表示の設定に、事務所の既定値に従う設定の印 display.followOffice（設定の id の並び。0213 の段C）。足すだけ。本体の変換の段は版だけを
+//   0.80 から: 表示の設定に、事務所の既定値に従う設定の印 display.followOffice（設定の id の並び。0213 の段C）。足すだけ。本体の変換の段は版だけを
 //   書き換える（前の版の世帯は欄が無い＝どの設定もこの世帯の値。事務所の既定値を変えても変わらない）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
@@ -146,7 +146,7 @@
 //   - display.balance: 資産と負債のタブ（家計の体力の目安の幅 guide・時点を並べるときの既定の時点 points・この世帯で選んだ時点 columns、
 //     0.13 から お金の3つの分け方 moneyThree（何か月分 months・何年先まで years・呼び方 wording。0032）、
 //     0.77 から 家計の体力の目安を表示するか health（true・false。無ければ true＝表示する。0027 の 2026-11-13 の追記））
-//   - display.followOffice（0.79 から）: 事務所の既定値に従う設定の id（result.metrics・balance.guide など11件。workspace/settings.ts の
+//   - display.followOffice（0.80 から）: 事務所の既定値に従う設定の id（result.metrics・balance.guide など11件。workspace/settings.ts の
 //     OFFICE_DISPLAY_IDS）。印のある設定は事務所の既定値を読み、display.result・display.balance の値は前の版のアプリのための写し（印を付けたときの値）
 //   0.7 までは display の直下に平らに置いていた（bsGuide・bsPoints・bsColumns と、なくした「操作中はグラフを上に表示」の dock）。
 //   本体の変換の段（0.7 → 0.8）が区画へ移す。画面の側も、区画の無い本文は直下の値から読む
@@ -201,11 +201,11 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.79";
+export const BODY_FORMAT_VERSION = "0.80";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
-/** 表示の設定（タブごとの区画。0.8 から。事務所の既定値に従う印 followOffice は 0.79 から。workspace/settings.ts） */
+/** 表示の設定（タブごとの区画。0.8 から。事務所の既定値に従う印 followOffice は 0.80 から。workspace/settings.ts） */
 export type { StoredDisplay } from "../settings.ts";
 
 export interface SavedWorkspace {
@@ -422,7 +422,7 @@ export function fromBody(json: string): BodyState {
 /**
  * 表示の設定を読む（タブごとの区画 display.result・display.balance。区画の無い 0.7 までの本文は直下の値から読む）。
  * 読めない値は既定。区画の中の知らない欄は持たない（なくした dock など）。
- * 事務所の既定値に従う印 display.followOffice（0.79 から）: 無い本文（前の版の世帯）は空＝どの設定もこの世帯の値（今の値のまま。0213 の段C）
+ * 事務所の既定値に従う印 display.followOffice（0.80 から）: 無い本文（前の版の世帯）は空＝どの設定もこの世帯の値（今の値のまま。0213 の段C）
  */
 export function readDisplay(v: unknown): StoredDisplay {
   const d = isObj(v) ? v : {};

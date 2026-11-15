@@ -81,7 +81,7 @@ describe("事務所データの display（形の版 4）", () => {
   });
 });
 
-describe("世帯ファイルの「事務所の既定値に従う」の印（形式の版 0.79）", () => {
+describe("世帯ファイルの「事務所の既定値に従う」の印（形式の版 0.80）", () => {
   it("印のある設定は事務所の既定値を読み、印の無い設定はこの世帯の値のまま", () => {
     const stored: StoredDisplay = { ...OWN, followOffice: ["result.atAge", "balance.guide", "balance.moneyThree.months"] };
     const shown = resolveDisplay(stored, OFFICE_PAIR);
@@ -116,7 +116,7 @@ describe("世帯ファイルの「事務所の既定値に従う」の印（形�
     const back = fromBody(JSON.stringify(bodyObject(st)));
     expect(back.display).toEqual(st.display);
     expect(readDisplay({ followOffice: "result.metrics" }).followOffice).toBeUndefined();
-    expect(BODY_FORMAT_VERSION).toBe("0.79");
+    expect(BODY_FORMAT_VERSION).toBe("0.80");
   });
 
   it("新しく作る世帯は11件とも事務所の既定値に従い、世帯の値にも作ったときの事務所の既定値を書く（前の版のアプリで開いても同じ見た目）", () => {
@@ -189,8 +189,8 @@ describe("世帯ファイルの「事務所の既定値に従う」の印（形�
     expect(shown.balance.columns).toEqual(OWN.balance.columns);
   });
 
-  it("0.79 の見本の世帯ファイル（暗号を外した本文）を読める。印は3件、ほかはこの世帯の値", () => {
-    const body = readFileSync(join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "household-format", "0.79", "body.json"), "utf8");
+  it("0.80 の見本の世帯ファイル（暗号を外した本文）を読める。印は3件、ほかはこの世帯の値", () => {
+    const body = readFileSync(join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "household-format", "0.80", "body.json"), "utf8");
     const st = fromBody(body);
     expect(st.display.followOffice).toEqual(["result.layout", "balance.health", "balance.moneyThree.years"]);
     const shown = resolveDisplay(st.display, OFFICE_PAIR);

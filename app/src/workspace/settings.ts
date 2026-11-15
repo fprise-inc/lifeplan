@@ -7,7 +7,7 @@
 // お金の3つの分け方（0032）。
 // どちらも世帯ファイルの本文の display に、タブごとの区画（display.result・display.balance）で書く（形式の版 0.8 から。store/body.ts）
 // 事務所の既定値（0213 の段C。OFFICE_DISPLAY_IDS の11件）: 事務所データの defaults.display に、世帯と同じ形で標準と違う欄だけを持つ。
-// 世帯ファイルでは、事務所の既定値に従う設定の id を display.followOffice に並べる（印。形式の版 0.79 から）。印のある設定は事務所の既定値を読み
+// 世帯ファイルでは、事務所の既定値に従う設定の id を display.followOffice に並べる（印。形式の版 0.80 から）。印のある設定は事務所の既定値を読み
 // （resolveDisplay）、その世帯で値を変えると印を外してその世帯の値を持つ（withOwnChange）。印の無い前の版の世帯は、どの設定も「この世帯だけ」と読む
 // （今の値のまま。事務所の既定値を変えても変わらない）。この世帯で並べる時点（balance.columns）と対策に足した項目は世帯だけ（事務所の既定にしない）
 import { man, manDiff } from "../presentation/format.ts";
@@ -147,7 +147,7 @@ export interface DisplayPair {
   balance: BalanceSettings;
 }
 
-/** 世帯ファイルの本文の表示の設定（区画 display）: 世帯の値と、事務所の既定値に従う設定の印（0.79 から） */
+/** 世帯ファイルの本文の表示の設定（区画 display）: 世帯の値と、事務所の既定値に従う設定の印（0.80 から） */
 export interface StoredDisplay extends DisplayPair {
   /** 事務所の既定値に従う設定の id（OFFICE_DISPLAY_IDS の並び。空・無い〔前の版の世帯〕は全部この世帯の値） */
   followOffice?: OfficeDisplayId[];

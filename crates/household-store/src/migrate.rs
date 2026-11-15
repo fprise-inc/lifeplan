@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.79";
+pub const CURRENT: &str = "0.80";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -277,10 +277,11 @@ pub const CURRENT: &str = "0.79";
 ///   0070 の追記 2026-11-13。任意。計算には使わない）を足した（足すだけの MINOR）。前の版のアプリは欄を知らずに書き戻すと決め方を落とす
 ///   （年から読み直し、選んだ人が変わることがある）ので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝
 ///   年から読む）。0.77 の段の後に積む
-/// - 0.79: 表示の設定に、事務所の既定値に従う設定の印 `display.followOffice`（結果のタブ・資産と負債のタブの表示の設定の id の並び。0213 の段C）を
+/// - 0.80: 表示の設定に、事務所の既定値に従う設定の印 `display.followOffice`（結果のタブ・資産と負債のタブの表示の設定の id の並び。0213 の段C）を
 ///   足した（足すだけの MINOR）。印のある設定は事務所の既定値を読み、`display.result`・`display.balance` の値は印を付けたときの写し。前の版の
 ///   アプリは区画の知らない欄を読み落として書き戻し、印が外れる（事務所の既定値に従わなくなる）ので、版を上げて閲覧だけにする。変換の段は
-///   形式の版だけを書き換える（前の版の世帯は欄が無い＝どの設定もその世帯の値のまま）。0.78 の段の後に積む
+///   形式の版だけを書き換える（前の版の世帯は欄が無い＝どの設定もその世帯の値のまま）。0.79 の段の後に積む（0.79 は個人事業税の業種の
+///   区分。その段がこの一覧に入るまでは、0.78 の段の後に積み、0.78 から直接 0.80 にする）
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -288,7 +289,7 @@ pub const KNOWN: &[&str] = &[
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79",
+    "0.74", "0.75", "0.76", "0.77", "0.78", "0.80",
 ];
 
 /// 1段分の変換
@@ -685,10 +686,11 @@ pub const STEPS: &[Step] = &[
         to: "0.78",
         apply: v0_77_to_0_78,
     },
+    // 0.79（個人事業税の業種の区分）の段がこの一覧に入ったら、from を "0.79" にする（変換の中身は同じ）
     Step {
         from: "0.78",
-        to: "0.79",
-        apply: v0_78_to_0_79,
+        to: "0.80",
+        apply: v0_79_to_0_80,
     },
 ];
 
@@ -2577,12 +2579,12 @@ fn v0_77_to_0_78(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.78 → 0.79: 事務所の既定値に従う設定の印 `display.followOffice`（0213 の段C）は任意の欄なので、形式の版だけを書き換える
+/// 0.79 → 0.80: 事務所の既定値に従う設定の印 `display.followOffice`（0213 の段C）は任意の欄なので、形式の版だけを書き換える
 /// （前の版の世帯は欄が無い＝どの設定もその世帯の値のまま。事務所の既定値を変えても変わらない）
-fn v0_78_to_0_79(mut body: Value) -> Result<Value, StoreError> {
+fn v0_79_to_0_80(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
-        meta.insert("formatVersion".into(), "0.79".into());
+        meta.insert("formatVersion".into(), "0.80".into());
     }
     Ok(body)
 }
@@ -3572,8 +3574,8 @@ mod tests {
         assert_eq!(access("0.76").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.77").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.78").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.79").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.80").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.80").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.81").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3586,7 +3588,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.80", b.clone()).unwrap(),
+            upgrade("0.81", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4028,7 +4030,7 @@ mod tests {
     }
 
     #[test]
-    fn v0_78_to_0_79_only_bumps_version() {
+    fn v0_79_to_0_80_only_bumps_version() {
         // 事務所の既定値に従う印は足さない（前の版の世帯は、どの表示の設定もその世帯の値のまま）。表示の設定のほかの欄に触れない
         let b = serde_json::json!({
             "meta": {"formatVersion": "0.78"},

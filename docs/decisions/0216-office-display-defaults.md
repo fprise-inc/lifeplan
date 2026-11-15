@@ -1,7 +1,7 @@
 # 0216. 結果のタブ・資産と負債のタブの表示の設定に事務所の既定値を足し、世帯では「事務所の既定値に従う」を印で持つ（0213 の段C）
 
 - 状態: 採用（一部未確定）（2026-11-15）
-- 固定の強さ: 世帯ファイルの欄 `display.followOffice`（形式の版 0.79）と事務所データの欄 `display`（`defaults.version: 4`）は、AI接続口の道具からも読む名前なので、足すことはあっても別の意味に使い回さない。次は固定: 前からある世帯は今の値のまま（事務所の既定値を変えても変わらない）、事務所の既定値を変えても作った世帯にそろえる操作は出さない、事務所の既定値はカスタム層に置かない（0016 の 2026-11-02 の追記の3）、AI は設定を直接変えない（変わるのは FP が「反映する」を押したときだけ）、どの設定でも隠せない知らせ（0213 の1）は今のまま。画面の言葉・区画の並び・印の見た目は後から変えてよい
+- 固定の強さ: 世帯ファイルの欄 `display.followOffice`（形式の版 0.80）と事務所データの欄 `display`（`defaults.version: 4`）は、AI接続口の道具からも読む名前なので、足すことはあっても別の意味に使い回さない。次は固定: 前からある世帯は今の値のまま（事務所の既定値を変えても変わらない）、事務所の既定値を変えても作った世帯にそろえる操作は出さない、事務所の既定値はカスタム層に置かない（0016 の 2026-11-02 の追記の3）、AI は設定を直接変えない（変わるのは FP が「反映する」を押したときだけ）、どの設定でも隠せない知らせ（0213 の1）は今のまま。画面の言葉・区画の並び・印の見た目は後から変えてよい
 - 前提にする記録: 0213（表示の設定の全体の形・段A）、0215（段B の前半。案を出す道具・承認の画面・前の値）、0214（前提条件の事務所の既定値と「事務所の既定値」「この世帯だけ」の見せ方）、0073（事務所の既定値）、0027（資産と負債のタブ）、0032（お金の3つの分け方）、0011 の5（世帯ファイルの形式の版）
 
 ## 背景
@@ -23,7 +23,7 @@
 - 事務所の既定値の画面に区画「結果のタブ・資産と負債のタブの表示の設定」を足した（対策に最初から出す項目の次。`office/DisplayDefaultsSection.tsx`）。欄の部品は世帯の表示の設定と同じ物（時点を並べるの既定・家計の体力の目安の幅）を使い、家計の体力の目安の分母には「世帯から決める（既定）」も選べる。パネルの「保存」で書く（手で変えた値は前の値に残さない。0215 の5 のまま）。「既定に戻す」で提供元の既定にする。
 - AI接続口に渡す見せ方の欄（`ai_share::display::office_display_of`）に `display` を足した（前の値 `displayHistory` は今までどおり渡さない）。
 
-### 3. 世帯ファイルの形（形式の版 0.79）と、前からある世帯の読み方
+### 3. 世帯ファイルの形（形式の版 0.80）と、前からある世帯の読み方
 
 - 「事務所の既定値に従う」は、欄が無いことでなく**印**で持つ: `display.followOffice`（11件の id の並び。知らない id・世帯だけの設定・重なりは読むときに捨てる）。印のある設定は事務所の既定値を読み（`resolveDisplay`）、その世帯で値を変えたら印を外してその世帯の値を持つ（`withOwnChange`。変えた設定だけ。事務所の既定値と同じ値に変えても印は付けない）。「事務所の既定値に戻す」で印を付け直す（`withFollowOffice`）。
 - 印のある設定の `display.result`・`display.balance` の値は、印を付けたとき（新しい世帯を作ったとき・「事務所の既定値に戻す」を押したとき）の事務所の既定値の写しで、事務所の既定値を変えても書き換えない（事務所の既定値を変えただけでは、作った世帯の世帯ファイルを書かない）。画面・提案書・持ち帰り用のレポート・AI接続口は、印を見て事務所の今の値を読む。
@@ -32,8 +32,8 @@
   - 2つの読み方のどちらでも、読んだその時の見た目は変わらない（事務所の既定値はまだ何も決めていない＝提供元の既定なので、既定と同じ値に印を付けても見た目は同じ）。違いが出るのは、その後に事務所の既定値を変えたとき。
   - 「今の値が既定と同じなら従う印を付けて読む」形にすると、事務所の既定値を変えたときに、FP が一度も触っていない前からある世帯の結果のタブ・提案書の「○歳時点」・バランスシートの図の時点・お金の3つの分け方が黙って変わる。お客さまに見せた提案書と、開き直した画面・作り直した提案書がずれる（0073 の「作った世帯は黙って変えない」と同じ理由）。読むたびに事務所の今の既定値と比較する形なので、事務所の既定値を変えた前と後で、同じ世帯ファイルの読み方が変わってしまう。
   - 「この世帯だけ」と読む形なら、前からある世帯は事務所の既定値を変えても変わらない（利用者の決定の「印の無い世帯は変わらない」と同じ）。従わせたい世帯は、表示の設定の「事務所の既定値に戻す」で設定ごとに従わせられる。
-- 形式の版を 0.79 に上げた（足すだけの MINOR。本体の変換の段は版だけを書き換える。前の版の世帯は欄が無い＝印なし）。見本 `0.79/` は 0.78 の見本に印3件（比較の仕方・家計の体力の目安を表示するか・何年先まで）を足した形。
-- **前の版のアプリが世帯ファイルを書き戻したとき**: 前の版のアプリは表示の設定の区画の知らない欄を読み落とすので、書き戻すと印が消え、印のあった設定は写しの値（印を付けたときの事務所の既定値）の「この世帯だけ」になる（事務所の既定値に従わなくなる）。これを避けるため形式の版を上げ、前の版のアプリは 0.79 の世帯ファイルを閲覧だけで開く（0.77 の `health`・0.78 の `endYearChoice` と同じ考え方。書き戻さない）。閲覧で見えるのは写しの値なので、印を付けた後に事務所の既定値を変えていれば、前の版のアプリの見た目は新しい版と違うことがある。
+- 形式の版を 0.80 に上げた（足すだけの MINOR。本体の変換の段 0.79 → 0.80 は版だけを書き換える。前の版の世帯は欄が無い＝印なし）。0.79 は同じ時期に別の変更（個人事業税の業種の区分）が使う版で、その段が入るまでは 0.78 から直接 0.80 にする（変換の中身は同じ。その段が入ったら 0.79 → 0.80 の段にする）。見本 `0.80/` は 0.79 の見本（0.78 の見本に個人事業税の業種の区分を足した形）に印3件（比較の仕方・家計の体力の目安を表示するか・何年先まで）を足した形。
+- **前の版のアプリが世帯ファイルを書き戻したとき**: 前の版のアプリは表示の設定の区画の知らない欄を読み落とすので、書き戻すと印が消え、印のあった設定は写しの値（印を付けたときの事務所の既定値）の「この世帯だけ」になる（事務所の既定値に従わなくなる）。これを避けるため形式の版を上げ、前の版のアプリは 0.80 の世帯ファイルを閲覧だけで開く（0.77 の `health`・0.78 の `endYearChoice` と同じ考え方。書き戻さない）。閲覧で見えるのは写しの値なので、印を付けた後に事務所の既定値を変えていれば、前の版のアプリの見た目は新しい版と違うことがある。
 
 ### 4. 世帯の表示の設定の見せ方（0214 にそろえる）
 
@@ -73,12 +73,12 @@
 
 ## 影響
 
-- 画面の側: `app/src/workspace/settings.ts`（`OFFICE_DISPLAY_IDS`・`StoredDisplay`・`readDisplayPair`・`officeDisplayOf`・`officeDisplayStored`・`resolveDisplay`・`withOwnChange`・`withFollowOffice`・`newHouseholdDisplay`）、`store/body.ts`（`display.followOffice` の読み書き・形式の版 0.79）、`office/settings.ts`（版4・`display`・`withOfficeDisplay`）、`office/DisplayDefaultsSection.tsx`（新）・`OfficeSettingsPanel.tsx`、`DisplaySettingsPanel.tsx`・`presentation/BalanceTab.tsx`（印。`GuideEditor` を事務所の既定値の画面でも使う）・`presentation/OfficeMark.tsx`（新）、`App.tsx`（世帯の表示の設定を本文の形と印で持ち、画面に出す値は事務所の既定値を当てて作る。新しい世帯・見本・空の世帯は従う形で開く）、`undo/appHistory.ts`（履歴の状態の印）、`office/displayProposals.ts`・`DisplayProposalsSection.tsx`（11件の反映と効き方の言葉）、`styles/app.css`、`vite.config.ts`（開発用のサーバーの案の受け口を18件に）。
+- 画面の側: `app/src/workspace/settings.ts`（`OFFICE_DISPLAY_IDS`・`StoredDisplay`・`readDisplayPair`・`officeDisplayOf`・`officeDisplayStored`・`resolveDisplay`・`withOwnChange`・`withFollowOffice`・`newHouseholdDisplay`）、`store/body.ts`（`display.followOffice` の読み書き・形式の版 0.80）、`office/settings.ts`（版4・`display`・`withOfficeDisplay`）、`office/DisplayDefaultsSection.tsx`（新）・`OfficeSettingsPanel.tsx`、`DisplaySettingsPanel.tsx`・`presentation/BalanceTab.tsx`（印。`GuideEditor` を事務所の既定値の画面でも使う）・`presentation/OfficeMark.tsx`（新）、`App.tsx`（世帯の表示の設定を本文の形と印で持ち、画面に出す値は事務所の既定値を当てて作る。新しい世帯・見本・空の世帯は従う形で開く）、`undo/appHistory.ts`（履歴の状態の印）、`office/displayProposals.ts`・`DisplayProposalsSection.tsx`（11件の反映と効き方の言葉）、`styles/app.css`、`vite.config.ts`（開発用のサーバーの案の受け口を18件に）。
 - AI接続口の部品: `app/src/connector/displayCatalog.ts`（11件を両方・`followers`・`proposable`）・`displayProposal.ts`（真偽・整数・目安の幅の確かめ）・`display.ts`（`current.office` の11件・`followsOffice`）。
 - 接続口: `crates/lifeplan/src/display.rs`（`howToChange`）・`server.rs`（説明・道具の説明・入力の説明）・`prompts.rs`（`office_display`）。道具の入力の形の見本 `propose_display_settings.input-schema.json`。
-- アプリ本体の側: `crates/ai-share` の `display.rs`（`office_display_of` に `display`）・`display_proposals.rs`（`PROPOSABLE_IDS` を18件）、`crates/household-store` の `migrate.rs`（0.78 → 0.79。見本 `0.79/`）。
+- アプリ本体の側: `crates/ai-share` の `display.rs`（`office_display_of` に `display`）・`display_proposals.rs`（`PROPOSABLE_IDS` を18件）、`crates/household-store` の `migrate.rs`（0.79 → 0.80。見本 `0.80/`）。
 - 計算エンジン・計算の結果・前提条件は変えない。
-- 試験: `app/test/display-office-defaults.test.ts`（新。印のある世帯と無い世帯・前の版の世帯ファイル・事務所の既定値を変えた後・「事務所の既定値に戻す」・並べる時点と対策に足した項目・0.79 と 0.78 の見本・提案書と持ち帰り用のレポートに出る設定・画面の印・事務所の既定値の画面の区画・AI の案の選べない値と範囲の外の値・承認の画面・前の値・接続口の今の値）、`display-proposals.test.ts`・`office-premises.test.ts`・`store.test.ts`（版）、`crates/lifeplan/tests/mcp_connector.rs`（11件の今の値・`followsOffice`・案の確かめ）、`crates/ai-share`（受け口の18件・`office_display_of`）、`crates/household-store`（変換の段・見本）、`app/src-tauri`（事務所の既定値の切り出し・形式の版）。
+- 試験: `app/test/display-office-defaults.test.ts`（新。印のある世帯と無い世帯・前の版の世帯ファイル・事務所の既定値を変えた後・「事務所の既定値に戻す」・並べる時点と対策に足した項目・0.80 と 0.78 の見本・提案書と持ち帰り用のレポートに出る設定・画面の印・事務所の既定値の画面の区画・AI の案の選べない値と範囲の外の値・承認の画面・前の値・接続口の今の値）、`display-proposals.test.ts`・`office-premises.test.ts`・`store.test.ts`（版）、`crates/lifeplan/tests/mcp_connector.rs`（11件の今の値・`followsOffice`・案の確かめ）、`crates/ai-share`（受け口の18件・`office_display_of`）、`crates/household-store`（変換の段・見本）、`app/src-tauri`（事務所の既定値の切り出し・形式の版）。
 
 ## 未確定
 

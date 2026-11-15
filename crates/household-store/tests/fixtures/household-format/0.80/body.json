@@ -2486,6 +2486,27 @@
                 "at": "2040-07"
               },
               "type": "regular"
+            },
+            {
+              "business": {
+                "businessTaxClass": "class3",
+                "income": {
+                  "origin": {
+                    "kind": "manual"
+                  },
+                  "state": "confirmed",
+                  "value": 3600000
+                }
+              },
+              "from": {
+                "at": "2040-08"
+              },
+              "id": "00000000-0000-4000-8000-0000000007b1",
+              "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+              "to": {
+                "at": "2045-07"
+              },
+              "type": "selfEmployed"
             }
           ],
           "events": [
@@ -4410,7 +4431,7 @@
       }
     },
     "format": "lifeplan.household",
-    "formatVersion": "0.79",
+    "formatVersion": "0.80",
     "revisions": [
       {
         "count": 3,
