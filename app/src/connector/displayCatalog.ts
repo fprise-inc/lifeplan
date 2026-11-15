@@ -18,6 +18,13 @@ import { AGE_OPTIONS, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT
 
 export const DISPLAY_CATALOG_SCHEMA = "display-settings-reference@1.0";
 
+/**
+ * AI が変える候補を出せる設定（propose_display_settings。0215）: 事務所の既定値のうち見せ方だけの7つ。世帯ごとの設定（result.*・balance.*）と
+ * 読むだけの設定（合算BS）は入れない。並びは一覧の並び
+ */
+export const PROPOSABLE_DISPLAY_IDS = ["input.order", "input.items", "input.living", "result.levers", "contingency.premises", "contingency.scenes", "contingency.openScene"] as const;
+export type ProposableDisplayId = (typeof PROPOSABLE_DISPLAY_IDS)[number];
+
 /** 選べる値の1つ（value は事務所データ・世帯ファイルに書く値。label は画面と同じ言葉） */
 export interface DisplayChoice {
   value: string | number | boolean | null;
@@ -67,6 +74,8 @@ export interface DisplaySetting {
   default: unknown;
   /** 読むだけ（この一覧で変える候補を出す対象にしない） */
   readOnly?: boolean;
+  /** AI が変える候補を出せる（propose_display_settings。事務所の既定値の見せ方だけの設定。0215） */
+  proposable?: boolean;
   note?: string;
 }
 
@@ -123,6 +132,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       change: { office: `${OFFICE}の区画「入力のホームの入力項目の並び」（↑↓で並べ替える。「既定の並びに戻す」）` },
       stored: { office: "defaults.layout.order" },
       officeEffect: "live",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "order",
       choices: STAGE_ORDER.map((s) => ({ value: s.id, label: s.label })),
@@ -140,6 +150,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       },
       stored: { office: "defaults.items", household: "household.itemChoice" },
       officeEffect: "newHouseholds",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "itemChoice",
       choices: stageChoices(),
@@ -155,6 +166,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       change: { office: `${OFFICE}の区画「基本生活費の内訳の並べ方」` },
       stored: { office: "defaults.living" },
       officeEffect: "live",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "livingLayout",
       choices: Object.entries(STANDARD_LIVING_NAMES).map(([value, label]) => ({ value, label })),
@@ -178,6 +190,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       change: { office: `${OFFICE}の区画「対策に最初から出す項目」（見出しごとのチェック。「既定に戻す」）` },
       stored: { office: "defaults.levers（既定の組み合わせとの違いだけ: shown＝足した種類・hidden＝外した種類）" },
       officeEffect: "live",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "kinds",
       choices: LEVER_KINDS.map((k) => ({ value: k.kind, label: k.label, group: k.group === "よく使う" ? "よく使う項目" : k.group, ...("note" in k ? { note: k.note } : {}) })),
@@ -273,6 +286,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       change: { office: `${OFFICE}の区画「万一のときのタブ」の「想定の前提に最初から出す項目」（場面ごとのチェック。「場面と項目を既定に戻す」）` },
       stored: { office: "defaults.premises（既定の組み合わせとの違いだけ: shown・hidden）" },
       officeEffect: "live",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "kinds",
       choices: PREMISE_KINDS.map((k) => ({ value: k.kind, label: k.label, group: SCENE_KINDS.find((s) => s.kind === k.scene)?.label ?? k.scene, ...("note" in k ? { note: k.note } : {}) })),
@@ -287,6 +301,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       change: { office: `${OFFICE}の区画「万一のときのタブ」の「場面の帯に並べる場面」` },
       stored: { office: "defaults.scenes.hidden（並べない種類）" },
       officeEffect: "live",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "kinds",
       min: 1,
@@ -302,6 +317,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       change: { office: `${OFFICE}の区画「万一のときのタブ」の「開いたときに選んでおく場面」` },
       stored: { office: "defaults.scenes.open" },
       officeEffect: "live",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "choice",
       choices: OPEN_SCENES.map((s) => ({ value: s.key, label: s.label })),

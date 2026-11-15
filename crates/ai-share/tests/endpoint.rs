@@ -342,3 +342,94 @@ async fn feature_code_candidates_wait_for_the_fp() {
     ep.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// 表示の設定の候補（0215）: 世帯を渡していなくても出せる。承認待ちに入るだけで、設定は変わらない。候補を出せない設定・形の違うものは INVALID。
+/// 同じ中身はまとめ、承認待ちは4件まで。FPが設定ごとに反映するか捨てると、その設定だけ外れ、全部外れたら候補ごと外れる
+#[tokio::test(flavor = "multi_thread")]
+async fn display_proposals_wait_for_the_fp() {
+    let dir = temp_dir("display-propose");
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let propose = |proposal: Value| {
+        let dir = dir.clone();
+        async move { call_app(&dir, &hello(), Request::ProposeDisplay { proposal }).await }
+    };
+    let two = serde_json::json!({ "changes": [
+        { "id": "result.levers", "value": ["lever:retireAge", "lever:nisaMonthly"], "note": "NISA を出す" },
+        { "id": "contingency.openScene", "value": "income" }
+    ] });
+    let v: Value = serde_json::from_str(&propose(two.clone()).await.unwrap()).unwrap();
+    assert_eq!(v["status"], "pendingReview");
+    assert_eq!(
+        v["settings"],
+        serde_json::json!(["result.levers", "contingency.openScene"])
+    );
+    assert!(v["message"]
+        .as_str()
+        .unwrap()
+        .contains("この道具では設定は変わりません"));
+    let list = reg.display_candidates();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].connector.as_deref(), Some("test-client 1"));
+    assert_eq!(list[0].changes[0].note.as_deref(), Some("NISA を出す"));
+    // 同じ中身はまとめる
+    let again: Value = serde_json::from_str(&propose(two).await.unwrap()).unwrap();
+    assert_eq!(again["candidateId"], v["candidateId"]);
+    assert_eq!(reg.display_candidates().len(), 1);
+    // 候補を出せない設定（世帯ごと・読むだけ）・形の違うもの
+    for bad in [
+        serde_json::json!({ "changes": [{ "id": "balance.guide", "value": {} }] }),
+        serde_json::json!({ "changes": [{ "id": "features.combinedBs", "value": true }] }),
+        serde_json::json!({ "changes": [] }),
+        serde_json::json!({ "changes": [{ "id": "input.living", "value": { "rows": [{ "kind": "group", "label": "あ".repeat(21), "categories": ["food", "utilities"] }] } }] }),
+    ] {
+        let e = propose(bad.clone()).await.unwrap_err();
+        assert!(
+            matches!(
+                &e,
+                AppError::Refused {
+                    code: ErrorCode::Invalid,
+                    ..
+                }
+            ),
+            "{bad}: {e:?}"
+        );
+    }
+    // 4件まで
+    for scene in ["death", "disability", "illness"] {
+        propose(
+            serde_json::json!({ "changes": [{ "id": "contingency.scenes", "value": [scene] }] }),
+        )
+        .await
+        .unwrap();
+    }
+    let e = propose(
+        serde_json::json!({ "changes": [{ "id": "contingency.scenes", "value": ["income"] }] }),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(
+        e,
+        AppError::Refused {
+            code: ErrorCode::Invalid,
+            ..
+        }
+    ));
+    // 設定ごとに外す（全部外したら候補ごと）
+    let id = v["candidateId"].as_str().unwrap().to_owned();
+    assert!(reg.take_display_change(&id, "result.levers").is_some());
+    assert!(reg.take_display_change(&id, "result.levers").is_none());
+    assert_eq!(reg.display_candidates()[0].changes.len(), 1);
+    assert!(reg
+        .take_display_change(&id, "contingency.openScene")
+        .is_some());
+    assert_eq!(reg.display_candidates().len(), 3);
+    assert!(reg
+        .display_candidates()
+        .iter()
+        .all(|c| c.candidate_id != id));
+    reg.clear_display_candidates();
+    assert!(reg.display_candidates().is_empty());
+    ep.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -51,6 +51,10 @@ pub enum Request {
     /// 渡された世帯の見せ方の設定（世帯ファイルの本文の `display`・`household.itemChoice`・`workspace.shownItems`）を返す（読むだけ。0213）。
     /// `tool` は読んだ道具の名前（AIに渡した記録の `reads` に残す）
     GetShareDisplay { share_id: String, tool: String },
+    /// 事務所の既定値の見せ方だけの設定（入力項目の並び・新しい世帯で出す入力項目・基本生活費の内訳の並べ方・対策に最初から出す項目・
+    /// 万一のタブの想定の前提と場面の帯と開いたときの場面）の候補を、アプリの画面に承認待ちの候補として出す（設定は変えない。FPが画面で
+    /// 設定ごとに「反映する」を押したときだけ変わる。0215）。`proposal` は `{ changes: [{ id, value, note? }] }`。世帯を渡していなくてよい
+    ProposeDisplay { proposal: Value },
 }
 
 /// 失敗のコード（0015 の4）
@@ -187,6 +191,14 @@ mod tests {
             })
             .unwrap(),
             r#"{"op":"getShareDisplay","shareId":"s-1","tool":"get_display_settings"}"#
+        );
+        // 表示の設定の候補（0215）
+        assert_eq!(
+            serde_json::to_string(&Request::ProposeDisplay {
+                proposal: serde_json::json!({ "changes": [] }),
+            })
+            .unwrap(),
+            r#"{"op":"proposeDisplay","proposal":{"changes":[]}}"#
         );
     }
 

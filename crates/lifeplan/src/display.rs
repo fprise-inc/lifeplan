@@ -5,14 +5,15 @@
 //!   書き、ビルドの時に埋め込む）。アプリが起動していなくても返せる
 //! - 今の値は、アプリ本体が切り出した見せ方だけの欄（事務所データの defaults の一部・世帯ファイルの本文の display など）を、画面と同じ読み方の
 //!   関数（app/src/connector/display.ts。plan.js に同梱）で読む。接続口の側に読み方を書かない
-//! - この接続口からは設定を変えない。変える案を承認待ちで出す道具は次の段（0213 の段B）
+//! - この接続口からは設定を変えない。事務所の既定値の見せ方の7つ（一覧の proposable）の候補は propose_display_settings でアプリに承認待ちで出し
+//!   （0215）、値は候補を出す前に画面と同じ関数（app/src/connector/displayProposal.ts。plan.js の displayCheck）で確かめる（`check`）
 
 use crate::engine::{self, assets::DISPLAY_CATALOG_JSON};
 use serde_json::{json, Map, Value};
 use std::sync::OnceLock;
 
 /// 変え方の案内（答えにいつも添える）
-pub const CHANGE_NOTE: &str = "この接続口からは表示の設定を変えられません（読むだけ）。変えるときは、各設定の change に書いたアプリの画面と区画で、FP が変えます。変える案をアプリに承認待ちで出す道具（アプリが「今 → 案」を出し、FP が「反映する」か「捨てる」を選ぶ）は、次の段で足す予定です。";
+pub const CHANGE_NOTE: &str = "この道具では表示の設定を変えません（読むだけ）。proposable が true の設定（事務所の既定値の見せ方の7つ）は、FP に頼まれたら propose_display_settings で変える候補をアプリに承認待ちで出せます（アプリが設定ごとに「今 → 候補」を出し、FP が「反映する」を押したときだけ変わります。前の値にも戻せます）。ほかの設定（世帯ごと・読むだけ）は、各設定の change に書いたアプリの画面と区画で FP が変えます（世帯ごとの設定の候補は次の段で足す予定です）。";
 
 /// アプリが起動していないときの説明
 pub const NOT_RUNNING_NOTE: &str = "アプリが起動していないか、アプリの「AI接続口」がオフなので、今の値は返せません。一覧（選べる値と既定）だけを返します。今の値は、アプリを起動して AI接続口をオンにしてから、もう一度呼んでください。";
@@ -46,6 +47,22 @@ pub enum Office {
 pub enum Household {
     Read(Value),
     NotRunning,
+}
+
+/// 候補を出せる設定（一覧の proposable が true の id。一覧の並び）
+pub fn proposable_ids() -> Vec<&'static str> {
+    settings()
+        .iter()
+        .filter(|s| s["proposable"] == true)
+        .filter_map(|s| s["id"].as_str())
+        .collect()
+}
+
+/// 表示の設定の候補（changes の並びの JSON）を、画面と同じ関数で確かめる（重いので、呼ぶ側は spawn_blocking の中で）。
+/// 答えは `{ changes: [そろえた候補], problems: [理由の文] }`。Err は実行環境の失敗のコード
+pub fn check(changes_json: &str) -> Result<Value, String> {
+    let out = engine::plan("displayCheck", changes_json, "", "")?;
+    serde_json::from_str(&out).map_err(|e| e.to_string())
 }
 
 /// 今の値を画面と同じ読み方の関数で読む（重いので、呼ぶ側は spawn_blocking の中で）。Err は実行環境の失敗のコード
@@ -112,6 +129,7 @@ pub fn answer(
         "outOfScope": c["outOfScope"],
         "pending": c["pending"],
         "howToChange": CHANGE_NOTE,
+        "proposable": proposable_ids(),
     });
     match household {
         Some(Household::Read(h)) => {

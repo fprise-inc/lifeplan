@@ -29,6 +29,8 @@ import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
 import { AiCodeCandidateBand } from "./ai/AiCodeCandidateBand.tsx";
+import { AiDisplayCandidateBand } from "./ai/AiDisplayCandidateBand.tsx";
+import { applyDisplayValue, restoreDisplayValue } from "./office/displayProposals.ts";
 import { AiHouseholdCandidateBand, AiHouseholdCandidates } from "./ai/AiHouseholdCandidates.tsx";
 import { approvalAt, noteMemo, withAiOrigin, type HouseholdKind, type ReadHousehold } from "./ai/households.ts";
 import { AiSharePanel } from "./ai/AiSharePanel.tsx";
@@ -61,7 +63,7 @@ import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "./o
 import { wordingOf } from "./resultTexts.ts";
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
 import { previewOfficeChange } from "./office/estimatePreview.ts";
-import type { AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";
+import type { AiDisplayCandidate, AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";
 import { OFFICIAL_EXTENSIONS } from "./extensions/official.ts";
 import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues, SAMPLE_SAVED_TEXT, sampleExtensions, savedSampleNotice } from "./extensions/run.ts";
 import type { ExtValue } from "../../../report/src/index.ts";
@@ -1996,6 +1998,13 @@ export function App() {
   // 開いている世帯が架空の世帯か（一覧の札が正。一覧にまだ無いときは開いたときの札）
   const listedNow = storedInfo !== null ? storedList.find((h) => h.id === storedInfo.id) : undefined;
   const currentFictional = storedInfo !== null && storedInfo.sample === undefined && (listedNow !== undefined ? listedNow.fictional === true : storedInfo.fictional === true);
+  // 表示の設定の候補（0215）: 届いた・減ったとき・事務所の既定値の画面を開いたときに読み直す（中身は事務所の既定値の画面に出す）
+  const displayCandCount = ai.status?.displayCandidates ?? 0;
+  const [displayCands, setDisplayCands] = useState<AiDisplayCandidate[]>([]);
+  useEffect(() => {
+    if (host === null || storeStatus?.state !== "ready") return;
+    void host.ai.displayCandidates().then(setDisplayCands, () => undefined);
+  }, [host, storeStatus?.state, displayCandCount, officeSettingsOpen]);
   // 新しい世帯の候補が届いた・減ったとき、確かめの画面を開いていれば読み直す
   const hhCandCount = ai.status?.householdCandidates ?? 0;
   useEffect(() => {
@@ -2802,6 +2811,7 @@ export function App() {
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} paused={presence !== null && storedInfo !== null} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
+      <AiDisplayCandidateBand count={officeSettingsOpen ? 0 : displayCandCount} onOpen={() => setOfficeSettingsOpen(true)} />
       <AiHouseholdCandidateBand count={hhCands !== null ? 0 : hhCandCount} onOpen={() => void openHouseholdCandidates()} />
       {opened !== null && !docsOpen ? (
         <AiDocumentBand
@@ -3649,6 +3659,34 @@ export function App() {
             )
           }
           {...(host.custom !== undefined ? { custom: { host: host.custom, status: customTexts, onStatus: setCustomTexts, terms: customTerms, fields: customFields, onKindStatus: putCustomStatus } } : {})}
+          display={{
+            candidates: displayCands,
+            // 反映する（0215）: 確かめ直した値をその設定だけに書き、前の値を残して、すぐ事務所データに保存する。保存してから承認待ちから外す
+            onApply: async (candidate, id, value) => {
+              const next = applyDisplayValue(officeSettingsRef.current, id, value, new Date().toISOString(), "ai");
+              if (next === null) throw "E_DISPLAY_PROPOSAL_INVALID";
+              if (next !== officeSettingsRef.current) {
+                await host.office.putDefaults(next as unknown as Record<string, unknown>);
+                putOfficeSettings(next);
+              }
+              setDisplayCands(await host.ai.takeDisplayChange(candidate, id));
+              void ai.refresh();
+              return next;
+            },
+            onDiscard: async (candidate, id) => {
+              setDisplayCands(await host.ai.takeDisplayChange(candidate, id));
+              void ai.refresh();
+            },
+            onRestore: async (id, index) => {
+              const next = restoreDisplayValue(officeSettingsRef.current, id, index, new Date().toISOString());
+              if (next === null) throw "E_DISPLAY_HISTORY_UNKNOWN";
+              if (next !== officeSettingsRef.current) {
+                await host.office.putDefaults(next as unknown as Record<string, unknown>);
+                putOfficeSettings(next);
+              }
+              return next;
+            },
+          }}
           features={featureStatus}
           onAddCode={async (code) => {
             const before = featureStatusRef.current;

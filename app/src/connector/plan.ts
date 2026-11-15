@@ -13,7 +13,7 @@
 //   読んでから動かす項目を作るのと同じ。働き方を選び直したときの年収の目安などが読む）。呼び出しをまたいで残らない
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）。世帯の物の ID は、AI に渡した世帯の ID
 //   （渡された世帯では共有の仮の ID）のまま返す
-// - 同じ1つの JS に、表示の設定の今の値（display.ts の displayCurrent。0213）も入れる
+// - 同じ1つの JS に、表示の設定の今の値（display.ts の displayCurrent。0213）と候補の確かめ（displayProposal.ts の displayCheck。0215）も入れる
 import type { EngineRequest } from "../engine/types.ts";
 import type { WorkingHousehold } from "../workspace/input/household.ts";
 import { STRESS_KEYS, stressLabel, stressRequests, type StressKey } from "../workspace/invest/present.ts";
@@ -26,6 +26,8 @@ import { workingOf, type WorkingArgs } from "./working.ts";
 export { checkInputs } from "./check.ts";
 // 表示の設定の今の値（get_display_settings。0213）: 事務所の既定値・世帯ファイルの本文を画面と同じ関数で読むので、画面の部品の JS に入れる
 export { displayCurrent } from "./display.ts";
+// 表示の設定の候補（propose_display_settings。0215）: 選べる値・値の形を、アプリの承認の画面と同じ関数で確かめる
+export { displayCheck } from "./displayProposal.ts";
 
 /** 接続口から渡す引数（JSON の文字）。見本の世帯の ID と渡された世帯の定年後の働き方の条件は working.ts */
 export interface PlanArgs extends WorkingArgs {

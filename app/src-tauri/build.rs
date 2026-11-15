@@ -65,6 +65,9 @@ const COMMANDS: &[&str] = &[
     "ai_household_candidates",
     "ai_household_candidate_discard",
     "ai_household_candidate_create",
+    // 0215: AIからの表示の設定の候補（承認待ち）を見る・設定ごとに外す（反映は画面が事務所の既定値に書く）
+    "ai_display_candidates",
+    "ai_display_change_take",
     // 0023: 事務所での共有（共有フォルダは本体のダイアログで選ばせる。パスも鍵も受け取らない・返さない）
     "office_status",
     "office_start",
