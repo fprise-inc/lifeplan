@@ -3,7 +3,8 @@
 // 結果のタブ: 主画面に出す数字を FP が選ぶ。既定では何も足さない（「○歳時点の資産」も出さない。2026-10-17）。
 // 選んだ数字は、案の帯のカード・結論の2行目・グラフ（○歳時点の印）に出す。
 // グラフの比較の仕方（基準の案と選んだ案を1つのグラフに重ねるか、左右に2つ並べるか、帯の全部の案を色分けで重ねるか）もここで選ぶ。既定は重ねる。
-// 資産と負債のタブ: 家計の体力の目安の幅と、時点を並べるときの既定の時点（と、この世帯で見出しから選んだ時点）、お金の3つの分け方（0032）。
+// 資産と負債のタブ: 家計の体力の目安を表示するか（health。既定は表示する）と目安の幅、時点を並べるときの既定の時点（と、この世帯で見出しから選んだ時点）、
+// お金の3つの分け方（0032）。
 // どちらも世帯ファイルの本文の display に、タブごとの区画（display.result・display.balance）で書く（形式の版 0.8 から。store/body.ts）
 import { man, manDiff } from "../presentation/format.ts";
 import type { ChartLayout } from "../presentation/MainChart.tsx";
@@ -35,6 +36,11 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 9
 
 /** 資産と負債のタブの表示の設定（0027） */
 export interface BalanceSettings {
+  /**
+   * 家計の体力の目安（1年ずつ見るときの図の下の区画）を表示するか（既定は true。false のときは区画も「目安の幅を変える」も出さない。
+   * 目安の幅 guide は覚えたまま。0027 の 2026-11-13 の追記。形式の版 0.77 から）
+   */
+  health: boolean;
   /** 家計の体力の目安の幅（最初の値は 6〜12か月分・10〜40%・50%未満） */
   guide: BsGuide;
   /** 時点を並べるときの既定の時点（2〜4つ。最初の値は 今・退職の年・75歳） */
@@ -45,7 +51,7 @@ export interface BalanceSettings {
   moneyThree: MoneyThreeSettings;
 }
 
-export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = { guide: DEFAULT_BS_GUIDE, points: DEFAULT_BS_POINTS, columns: null, moneyThree: DEFAULT_MONEY_THREE };
+export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = { health: true, guide: DEFAULT_BS_GUIDE, points: DEFAULT_BS_POINTS, columns: null, moneyThree: DEFAULT_MONEY_THREE };
 
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
   { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる（既定）" },
