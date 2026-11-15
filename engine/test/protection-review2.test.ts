@@ -6,7 +6,7 @@
 // - 遺族基礎年金: 子だけが受け取るときの子の加算は、2人目が c12、3人目からが c3（国民年金法39条の2。日本年金機構「遺族基礎年金」。0170 の追記）
 // - 被扶養者・第3号の収入の見込みに、不動産収入・企業年金を入れる（協会けんぽ・日本年金機構の被扶養者の収入要件。0174 の追記）
 import { describe, expect, it } from "vitest";
-import { runEngine } from "../src/engine/run.ts";
+import { runBatch, runEngine } from "../src/engine/run.ts";
 import { box, household, member, period, realPacks, uid } from "./helpers.ts";
 
 type Any = any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -81,6 +81,19 @@ describe("必要保障額: 亡くなる人の確定拠出年金・小規模企�
     expect(y.assets).toBe(10_000_000);
   });
 
+  it("表の最後の年に亡くなる年でも同じ", () => {
+    const last = (accounts: Any[]) => {
+      const q = mk(accounts);
+      q.input.endYear = 2030;
+      q.input.protection = { ...q.input.protection, fromYear: 2029, toYear: 2030 };
+      return years(q);
+    };
+    const b = last([dep(5_000_000), dc("ideco", 5_000_000)]);
+    const c = last([dep(10_000_000)]);
+    expect(b.map((y) => y.year)).toEqual([2029, 2030]);
+    expect(b.map((y) => y.needWithAssets)).toEqual(c.map((y) => y.needWithAssets));
+  });
+
   it("計算基準月が1月でも同じ", () => {
     const b = years(mk([dep(5_000_000, "2026-01"), dc("ideco", 5_000_000, "n.h", "2026-01")], "2026-01"));
     const c = years(mk([dep(10_000_000, "2026-01")], "2026-01"));
@@ -149,6 +162,10 @@ describe("相続税の目安の「いま」: どの財産も計算基準月の�
       expect(p.assets.taxablePrice).toBe(plain.assets.taxablePrice);
       expect(p.totalTax).toBe(0);
     }
+    // 表が計算基準年だけ（表の最後の年）でも同じ
+    const short = buy(mk(), "2026-10");
+    short.input.endYear = 2026;
+    expect(now(short)[0].assets.realEstateMarket).toBe(0);
     // 団信の無いローンでも、借りる前の負債は引かない
     expect(now(buy(mk(), "2026-10", false))[0].assets.debts).toBe(plain.assets.debts);
   });
@@ -160,6 +177,25 @@ describe("相続税の目安の「いま」: どの財産も計算基準月の�
     const before = now(buy(mk("2026-04"), "2026-03"))[0];
     expect(before.assets.realEstateMarket).toBe(50_000_000);
     expect(before.assets.debts).toBe(now(mk())[0].assets.debts); // 団信で消える
+  });
+
+  it("プランを並べてまとめて計算しても（家を買うプラン・買わないプラン・iDeCo のプラン）、1つずつの計算と同じ", () => {
+    const plain = mk();
+    plain.input.inheritanceTax = { points: ["now"], members: [uid("i.h")] };
+    const house = clone(buy(mk(), "2026-10"));
+    house.input.inheritanceTax = plain.input.inheritanceTax;
+    const dcPlan = clone(plain);
+    dcPlan.input.household.accounts.push({ id: uid("i.dc"), kind: "ideco", owner: uid("i.h"), marketValue: box(5_000_000), asOf: "2026-04", enrolledSince: "2012-01", contributions: [] });
+    dcPlan.input.protection = { members: [uid("i.h")], method: "accumulation", fromYear: 2026, toYear: 2027 };
+    const reqs = [plain, house, dcPlan, plain].map((r) => clone({ ...r, trace: "none" }));
+    const batch = runBatch(reqs, realPacks()) as Any[];
+    const one = reqs.map((r) => run(r));
+    for (let i = 0; i < reqs.length; i++) {
+      expect(batch[i].inheritanceTax).toEqual(one[i].inheritanceTax);
+      expect(batch[i].protection).toEqual(one[i].protection);
+    }
+    expect(one[1].inheritanceTax.points[0].assets.taxablePrice).toBe(one[0].inheritanceTax.points[0].assets.taxablePrice);
+    expect(one[2].protection.members[0].years[0].assets).toBe(40_000_000);
   });
 
   it("二人とも亡くなった後（表の最後の年の12月）は今までどおり年末の姿（家を入れる）", () => {

@@ -189,10 +189,11 @@ export function deriveHealthStatus(ctx: Ctx, member: string, withPensions: boole
     const rentals = new Map<string, Map<string, number>>();
     for (const f of ctx.call<RealEstateOutput>("asset.realEstate", {}).flows) {
       if (f.member !== id || f.object === undefined) continue;
-      const sign = f.row === "cf.income.other.rental" ? 1 : f.row === "cf.expense.other.realEstate" ? -1 : 0;
-      if (sign === 0) continue;
+      const income = f.row === "cf.income.other.rental";
+      if (!income && f.row !== "cf.expense.other.realEstate") continue;
       const byMonth = rentals.get(f.object) ?? new Map<string, number>();
-      byMonth.set(f.ym, (byMonth.get(f.ym) ?? 0) + sign * f.amount);
+      const prev = byMonth.get(f.ym) ?? 0;
+      byMonth.set(f.ym, income ? prev + f.amount : prev - f.amount);
       rentals.set(f.object, byMonth);
     }
     for (const [object, byMonth] of rentals) {
