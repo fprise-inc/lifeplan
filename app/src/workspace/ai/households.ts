@@ -3,8 +3,10 @@
 //   書類の候補と同じ決まり（documents/privacy.ts）で番号らしい所を消す。名前の欄でない所の番号らしい値（12桁の数・区切りの無い10桁以上の数字）は
 //   値ごと落とす。消した・落とした数を確かめの画面に出す
 // - 入力の形と範囲は、本体が受け取るときに計算エンジンで確かめている。消した後の入力も、作る前に画面がもう一度計算して確かめる
-// - 作るときは、入力の値の出どころを AI（候補の ID と AI のアプリの名乗り）にし、FP の承認の記録を付ける（値の箱の origin・approval。0008 の2）。
-//   世帯の一覧の「架空」の印・出どころの記録（meta.origin）は本体が付ける（画面からは付けられない）
+// - 推定の根拠（estimate.basis）も、名前・メモの欄と同じ cleanText で整える（番号らしい所を消し、120字で切る。欄は必須なので空にはしない）
+// - 作るときは、入力の値の出どころを、AI が書いた出どころにかかわらず全部 AI（候補の ID と AI のアプリの名乗り）にし、FP の承認の記録を付ける
+//   （値の箱の origin・approval。0008 の2）。AI が書いた確かさ（certainty）と推定の元（estimate.source）は持ち込まない。推定の印（state）と
+//   推定の出し方・根拠は残す。世帯の一覧の「架空」の印・出どころの記録（meta.origin）は本体が付ける（画面からは付けられない）
 import type { AiHouseholdCandidate } from "../../engine/host.ts";
 import type { EngineRequest, Member } from "../../engine/types.ts";
 import { group, monthlyMan } from "../../presentation/format.ts";
@@ -30,7 +32,10 @@ export const KIND_TEXT: Readonly<Record<HouseholdKind, { label: string; long: st
 };
 
 /** 文字の長さの上限（本体の ai-share/households.rs と同じ） */
-export const LIMITS = { title: 60, note: 1000, text: 400 } as const;
+export const LIMITS = { title: 60, note: 1000, text: 400, basis: 120 } as const;
+
+/** 推定の根拠を整えて何も残らなかったときの言葉（スキーマで欄は必須） */
+export const BASIS_FALLBACK = "AIの推定";
 
 /** 入力の中の、名前・メモ・見出しの文字の欄の鍵（計算には使わない。番号らしい所を消す） */
 const TEXT_KEYS = new Set(["label", "name", "memo", "note", "dreamNote", "title", "description", "text"]);
@@ -74,6 +79,14 @@ function scrub(v: unknown, count: { masked: number; dropped: number }): unknown 
   if (isObj(v)) {
     const out: Obj = {};
     for (const [k, x] of Object.entries(v)) {
+      // 推定の根拠（estimate.basis）は決まった形の欄ではないので、名前・メモの欄と同じく整える（値ごとは落とさない。欄は必須）。
+      // 住まいの評価の basis（market・purchase の選べる値）も同じ所を通るが、整えても変わらない
+      if (typeof x === "string" && k === "basis") {
+        const c = cleanText(x, LIMITS.basis);
+        if (c.masked) count.masked++;
+        out[k] = c.text !== "" ? c.text : BASIS_FALLBACK;
+        continue;
+      }
       if (typeof x === "string" && TEXT_KEYS.has(k)) {
         const c = cleanText(x, LIMITS.text);
         if (c.masked) count.masked++;
@@ -230,11 +243,12 @@ export function householdOverview(input: EngineRequest["input"]): HouseholdOverv
 /** 承認の日時（スキーマの形: 秒まで・Z） */
 export const approvalAt = (d: Date = new Date()): string => d.toISOString().replace(/\.\d{3}Z$/u, "Z");
 
-/** 出どころを変えない値（アプリが自動で決める値・FP が上書きした値の印） */
-const KEEP_ORIGINS = new Set(["auto", "override"]);
-
 /**
- * 入力の値の出どころを AI にし、FP の承認の記録を付ける（値の箱と値の状態の行。0008 の2）。元の入力は変えない
+ * 入力の値の出どころを AI にし、FP の承認の記録を付ける（値の箱と値の状態の行。0008 の2）。元の入力は変えない。
+ * 届いたばかりの候補の値は、AI が出どころを何と書いても（manual・override〔FP が上書き〕・auto〔アプリの推定〕など）全部 AI が書いた物なので、
+ * 全部 AI にする（アプリの推定・FP の上書きに見える値を作らない。0208 の追記）。AI が書いた確かさ（certainty。「書類で確認」など）・
+ * 推定の元（estimate.source。事務所の推定の値から作った印）・出どころの参照と名乗り・承認の記録は持ち込まない。推定の印（state: estimated）と
+ * 推定の出し方・根拠（読み口で整えた物）は残す
  */
 export function withAiOrigin<T>(v: T, candidateId: string, connector: string | null, at: string): T {
   const walk = (x: unknown): unknown => {
@@ -242,9 +256,14 @@ export function withAiOrigin<T>(v: T, candidateId: string, connector: string | n
     if (!isObj(x)) return x;
     const out: Obj = {};
     for (const [k, y] of Object.entries(x)) out[k] = walk(y);
-    if (typeof out.state === "string" && isObj(out.origin) && typeof out.origin.kind === "string" && !KEEP_ORIGINS.has(out.origin.kind)) {
+    if (typeof out.state === "string" && isObj(out.origin)) {
       out.origin = { kind: "ai", ref: candidateId, ...(connector !== null && connector !== "" ? { connector } : {}) };
       out.approval = { by: "fp", at, candidate: candidateId };
+      delete out.certainty;
+      if (isObj(out.estimate) && "source" in out.estimate) {
+        const { source: _source, ...estimate } = out.estimate;
+        out.estimate = estimate;
+      }
     }
     return out;
   };
