@@ -2077,12 +2077,12 @@
           {
             "age": 46,
             "year": 2027,
-            "amount": 11907900
+            "amount": 12358026
           },
           {
             "age": 100,
             "year": 2081,
-            "amount": -26156180
+            "amount": -25272191
           },
           {
             "age": 110,
@@ -2092,16 +2092,16 @@
           }
         ],
         "depletion": {
-          "year": 2058,
-          "selfAge": 77
+          "year": 2059,
+          "selfAge": 78
         },
         "minimum": {
           "year": 2081,
-          "amount": -26156180,
+          "amount": -25272191,
           "selfAge": 100
         },
-        "lifetimeTakeHome": 251212723,
-        "lifetimeExpense": 295476499,
+        "lifetimeTakeHome": 250513709,
+        "lifetimeExpense": 294264010,
         "loanRepayment": 25468349,
         "loanInterest": 3278604,
         "pension": {

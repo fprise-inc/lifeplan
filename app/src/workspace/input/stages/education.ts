@@ -453,7 +453,7 @@ function stageNote(s: EducationStage, lunch: LunchChoice, annualEstimated = fals
   const stat = stageStatistic(s);
   const parts: string[] = [];
   const school = isK12(s.stage) ? "学校の費用" : "学費";
-  const est = annualEstimate(s, lunch);
+  const est = annualEstimate(s, lunch, false);
   if (s.annualOverride !== undefined) parts.push(`${school} 年${manText(s.annualOverride)}（${annualEstimated ? "推定" : "入れた額"}）`);
   else if (est !== null) parts.push(`${school} 年約${manText(est.value)}（統計の平均・今の値段）`);
   else if (s.stage === "vocational") parts.push("⚠ 学費が未入力です（0円で計算中）。学校の案内の年額を入れるか、「学費を目安で入れる」を押してください");
@@ -483,7 +483,7 @@ const lunchOf = (g: Goal | undefined): LunchChoice => (g?.education?.schoolLunch
  * 学校の費用・学費の年額の推定（計算エンジンと同じ額。今の値段）。公立の小学校・中学校は給食費の扱い（制度どおりは公立小学校で国の基準額まで、
  * 自治体が無償化は全額）を引いた額にする（「この値にする」で年額を入れると計算エンジンは給食費を引かないので、引いた後の額を入れる）。統計が無ければ null
  */
-export function annualEstimate(s: EducationStage, lunch: LunchChoice): { value: number; basis: string } | null {
+export function annualEstimate(s: EducationStage, lunch: LunchChoice, beforeSupport = true): { value: number; basis: string } | null {
   const stat = stageStatistic(s);
   if (stat === null || stat.annual === null) return null;
   const pub = (s.sector ?? "public") === "public";
@@ -502,7 +502,8 @@ export function annualEstimate(s: EducationStage, lunch: LunchChoice): { value: 
   // 高校（0010 の追記 2026-11-14）: 統計の授業料は就学支援金を差し引いた後の額で、年額を入れた段は計算エンジンが入れた額を支援金を引く前の額とみなして
   // 支援金（上限まで）を引く。「この値にする」で年額を入れても結果が変わらないように、授業料を支援金の上限（就学支援金を引く前の授業料の目安）に置き換えた額にする
   const capId = sec === "private" ? "educationSupport.highSchool.privateAnnual" : "educationSupport.highSchool.publicAnnual";
-  const cap = s.stage === "highSchool" && s.sector !== "international" && stat.hsTuition !== null ? regulationValue(capId, null) : null;
+  // beforeSupport が false（見出しの1行・段の額）は、計算エンジンが統計の平均の段で払う学校の費用（支援金の後の額）のまま
+  const cap = beforeSupport && s.stage === "highSchool" && s.sector !== "international" && stat.hsTuition !== null ? regulationValue(capId, null) : null;
   if (typeof cap === "number" && stat.hsTuition !== null && cap > stat.hsTuition) {
     return { value: value - stat.hsTuition + cap, basis: `${basis}。授業料は就学支援金を引く前の額（統計の年${manText(stat.hsTuition)}を支援金の上限の年${manText(cap)}に置き換え）で、就学支援金は別に入るお金で計算します` };
   }
@@ -547,7 +548,7 @@ export function stageRemainingCost(child: Member, s: EducationStage, baseMonth: 
   // 年額を月で割って数える分（幼稚園〜高校の学校の費用・学校外の費用・部活動、仕送り、高専・大学などの学校外の費用）
   let monthlyYearly = 0;
   let once = 0;
-  const school = (s.annualOverride ?? annualEstimate(s, lunch)?.value ?? 0) + (s.clubAnnual ?? 0);
+  const school = (s.annualOverride ?? annualEstimate(s, lunch, false)?.value ?? 0) + (s.clubAnnual ?? 0);
   if (isK12(s.stage)) monthlyYearly += school;
   else {
     // 学費は4月と10月に半分ずつ（計算エンジンと同じ）
@@ -565,7 +566,8 @@ export function stageRemainingCost(child: Member, s: EducationStage, baseMonth: 
   if (s.exam?.amount !== undefined || s.exam?.deposits !== undefined) {
     if (after(addMonths(period.from, -3))) once += s.exam?.amount ?? 0;
     if (after(addMonths(period.from, -2))) once += s.exam?.deposits ?? 0;
-  } else if (after(addMonths(period.from, -3))) once += examStatistic(s)?.value ?? 0;
+    // 推定は学費が分かる段だけ（学費が未入力の専門学校などで、受験の推定だけの額を見出しに出さない）
+  } else if (school > 0 && after(addMonths(period.from, -3))) once += examStatistic(s)?.value ?? 0;
   if (isTertiary(s.stage) && s.living === "away") {
     const b = boardingStatistic();
     monthlyYearly += s.boarding?.monthly !== undefined ? s.boarding.monthly * 12 : (b.annual ?? 0);

@@ -123,7 +123,8 @@ describe("専門学校の学費の目安", () => {
     // 段階の見出し: 推定で入れた学費は「（推定）」、2年分と入学金の目安
     const vg = groupsOf(edu(w)).find((x) => x.key === `edu/${g.id}/stage/${i}`)!;
     expect(vg.note).toContain("学費 年113.6万円（推定）");
-    expect(vg.summary).toBe("2年で約245.5万円（今の値段）");
+    // 2年分の学費と入学金に、受験・併願の費用の推定（専修学校などの入学者の平均 22.3万円。0010 の追記 2026-11-14）
+    expect(vg.summary).toBe("2年で約267.8万円（今の値段）");
     // 入れる前（0円）は額を出さない
     expect(groupsOf(edu(wh)).find((x) => x.key === `edu/${g.id}/stage/${i}`)!.summary).toBeUndefined();
     // 入学金だけ入れていた段階は、年額だけ入れる
