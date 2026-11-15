@@ -62,7 +62,8 @@ describe("保育園（2歳まで）・保育園・幼稚園（3歳から）", ()
     const extra = fieldOf(wh, "/stage/0/extra");
     const v = masterAmount("education.statistics.nursery.extra")!;
     expect(extra.get(wh)).toMatchObject({ value: null, hint: `年${(Math.round(v / 1000) / 10).toLocaleString("ja-JP")}万円（推定）` });
-    expect(extra.blankEstimate?.(wh)).toBe(v);
+    // 欄に入れる推定は千円単位（0041 の追記 2026-11-14）
+    expect(extra.blankEstimate?.(wh)).toBe(Math.round(v / 1000) * 1000);
     const r = preview(wh.request);
     const extraFlows = r.table.filter((c) => c.object === g.id && c.row === "cf.expense.education.school" && c.year === 2028);
     expect(extraFlows.reduce((a, c) => a + c.amount, 0)).toBeGreaterThan(0);
@@ -93,7 +94,7 @@ describe("学校ごとの学校外の費用・部活動の費用", () => {
     wh = fieldOf(wh, `edu/${g.id}/outUniform`).set(wh, "statistics");
     const el = fieldOf(wh, `edu/${g.id}/stage/0/outOfSchool`);
     expect(el.level).toBe("detail");
-    expect(el.blankEstimate?.(wh)).toBe(Math.round(stageStatistic(goalOf(wh).education!.stages[0]!)!.outOfSchool! / 12));
+    expect(el.blankEstimate?.(wh)).toBe(Math.round(stageStatistic(goalOf(wh).education!.stages[0]!)!.outOfSchool! / 12 / 1000) * 1000);
     wh = el.set(wh, 30000);
     expect(goalOf(wh).education!.stages[0]!.outOfSchool).toEqual({ monthly: 30000 });
     expect(fieldOf(wh, `edu/${g.id}/outUniform`).get(wh).value).toBe("custom");
@@ -106,11 +107,11 @@ describe("学校ごとの学校外の費用・部活動の費用", () => {
     const jh = goalOf(wh).education!.stages.findIndex((s) => s.stage === "juniorHigh");
     const club = fieldOf(wh, `edu/${g.id}/stage/${jh}/club`);
     const stat = masterAmount("education.statistics.juniorHigh.public.extracurricular")!;
-    expect(club.blankEstimate?.(wh)).toBe(stat);
+    expect(club.blankEstimate?.(wh)).toBe(Math.round(stat / 1000) * 1000);
     const school = sum(wh, "cf.expense.education.school");
-    // 推定の値を「この値にする」で入れても計算は同じ
+    // 推定の値を「この値にする」で入れても計算は同じ（千円単位に丸めた差の年500円まで×在学年数と端数の差だけ）
     const same = applyStateOp(wh, club, "confirm");
-    expect(Math.abs(sum(same, "cf.expense.education.school") - school)).toBeLessThan(10);
+    expect(Math.abs(sum(same, "cf.expense.education.school") - school)).toBeLessThan(500 * 3 + 10);
     const w2 = club.set(wh, 84000);
     expect(sum(w2, "cf.expense.education.school")).toBeGreaterThan(school);
     // 部活動の費用を入れた段の学校の費用の推定は、統計の教科外活動費を除く

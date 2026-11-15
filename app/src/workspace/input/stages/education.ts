@@ -22,7 +22,7 @@ import { amountText, formatYearMonth, formatYen } from "../units.ts";
 import { EDUCATION_BASIS, educationStagesAddress, fillEducation, leavesToSchool, stageEnded } from "../fill.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { addIncome, expenseCard, incomeCard, incomeGroups, incomeMoreLabel, moneySections, periodicGroups, PRIORITIES, likelihoodHelp } from "../moneyRows.ts";
-import { boardingStatistic, INTERNATIONAL_MISSING, KOSEN_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, STAGE_START_AGE, stagePeriod, stageStatistic, stageYears, VOCATIONAL_GUIDE } from "../educationCost.ts";
+import { boardingStatistic, estimateYen, examStatistic, INTERNATIONAL_MISSING, KOSEN_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, STAGE_START_AGE, stagePeriod, stageStatistic, stageYears, VOCATIONAL_GUIDE } from "../educationCost.ts";
 import { masterAmount, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { childOfPeriodic } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS, WORDS } from "../labels.ts";
@@ -321,7 +321,8 @@ function uniformOutOfSchool(goal: Goal): FieldDef {
               if (stat?.outOfSchool == null) continue;
               const sid = typeof s.id === "string" ? s.id : newId();
               s.id = sid;
-              s.outOfSchool = { monthly: Math.round(stat.outOfSchool / 12) };
+              // 欄に入れる推定は千円単位（0041 の追記 2026-11-14）
+              s.outOfSchool = { monthly: estimateYen(stat.outOfSchool / 12) };
               putRow(req.input as unknown as Obj, { target: { object: g.id }, item: "goal.education", at: ["stages", sid, "outOfSchool", "monthly"] }, statRow(OUT_OF_SCHOOL_BASIS));
             }
           }
@@ -452,7 +453,7 @@ function stageNote(s: EducationStage, lunch: LunchChoice, annualEstimated = fals
   const stat = stageStatistic(s);
   const parts: string[] = [];
   const school = isK12(s.stage) ? "学校の費用" : "学費";
-  const est = annualEstimate(s, lunch);
+  const est = annualEstimate(s, lunch, false);
   if (s.annualOverride !== undefined) parts.push(`${school} 年${manText(s.annualOverride)}（${annualEstimated ? "推定" : "入れた額"}）`);
   else if (est !== null) parts.push(`${school} 年約${manText(est.value)}（統計の平均・今の値段）`);
   else if (s.stage === "vocational") parts.push("⚠ 学費が未入力です（0円で計算中）。学校の案内の年額を入れるか、「学費を目安で入れる」を押してください");
@@ -482,7 +483,7 @@ const lunchOf = (g: Goal | undefined): LunchChoice => (g?.education?.schoolLunch
  * 学校の費用・学費の年額の推定（計算エンジンと同じ額。今の値段）。公立の小学校・中学校は給食費の扱い（制度どおりは公立小学校で国の基準額まで、
  * 自治体が無償化は全額）を引いた額にする（「この値にする」で年額を入れると計算エンジンは給食費を引かないので、引いた後の額を入れる）。統計が無ければ null
  */
-export function annualEstimate(s: EducationStage, lunch: LunchChoice): { value: number; basis: string } | null {
+export function annualEstimate(s: EducationStage, lunch: LunchChoice, beforeSupport = true): { value: number; basis: string } | null {
   const stat = stageStatistic(s);
   if (stat === null || stat.annual === null) return null;
   const pub = (s.sector ?? "public") === "public";
@@ -496,8 +497,17 @@ export function annualEstimate(s: EducationStage, lunch: LunchChoice): { value: 
     ...(off > 0 ? [`${choice === "free" ? "自治体が給食費を無償にしている分" : "公立小学校の給食費の国の負担軽減の分"}（年${manText(off)}）`] : []),
     ...(club > 0 ? [`部活動などの費用（統計の教科外活動費 年${manText(club)}。入れた額を別に足します）`] : []),
   ];
-  if (notes.length === 0) return { value: stat.annual, basis: stat.annualBasis };
-  return { value: stat.annual - off - club, basis: `${stat.annualBasis}から、${notes.join("と")}を引いた額` };
+  const value = stat.annual - off - club;
+  const basis = notes.length === 0 ? stat.annualBasis : `${stat.annualBasis}から、${notes.join("と")}を引いた額`;
+  // 高校（0010 の追記 2026-11-14）: 統計の授業料は就学支援金を差し引いた後の額で、年額を入れた段は計算エンジンが入れた額を支援金を引く前の額とみなして
+  // 支援金（上限まで）を引く。「この値にする」で年額を入れても結果が変わらないように、授業料を支援金の上限（就学支援金を引く前の授業料の目安）に置き換えた額にする
+  const capId = sec === "private" ? "educationSupport.highSchool.privateAnnual" : "educationSupport.highSchool.publicAnnual";
+  // beforeSupport が false（見出しの1行・段の額）は、計算エンジンが統計の平均の段で払う学校の費用（支援金の後の額）のまま
+  const cap = beforeSupport && s.stage === "highSchool" && s.sector !== "international" && stat.hsTuition !== null ? regulationValue(capId, null) : null;
+  if (typeof cap === "number" && stat.hsTuition !== null && cap > stat.hsTuition) {
+    return { value: value - stat.hsTuition + cap, basis: `${basis}。授業料は就学支援金を引く前の額（統計の年${manText(stat.hsTuition)}を支援金の上限の年${manText(cap)}に置き換え）で、就学支援金は別に入るお金で計算します` };
+  }
+  return { value, basis };
 }
 
 /** 計算の基準の月の年度（4月から） */
@@ -519,7 +529,8 @@ export function periodText(months: number): string {
  * 段1つのこれからの教育費（今の値段。見出しの目安）: 計算エンジン（education.cost）が払う月のとおりに、計算の基準の月から卒業の月まで（2026-11-14 から月で数える）。
  * - 幼稚園〜高校の学校の費用・学校外の費用・部活動などと、自宅外の仕送り・高専や大学などの学校外の費用は、年額÷12を残りの月数だけ
  * - 大学などの学費は4月と10月に半分ずつ（残りの払う月の数だけ）
- * - 入学金（入学の前の2月、国公立は3月）・自宅外の初期費用（入学の前の月）・受験・併願の費用（入学の前の1月・2月）は、その月が基準の月より後なら
+ * - 入学金（入学の前の2月、国公立は3月。幼稚園〜高校は統計の入学金等）・自宅外の初期費用（入学の前の月）・受験・併願の費用（入学の前の1月・2月。
+ *   入れていなければ大学・短大・専門学校は統計の平均。0010 の追記 2026-11-14）は、その月が基準の月より後なら
  * 教育費の上昇率・修学支援・就学支援金・保育料・留学は入れない。保育園（0〜2歳）と終わった段は null。
  * started は基準の月にもう入学している（見出しは「残り○年（○年○月まで）」）、months は残りの月数
  */
@@ -537,7 +548,7 @@ export function stageRemainingCost(child: Member, s: EducationStage, baseMonth: 
   // 年額を月で割って数える分（幼稚園〜高校の学校の費用・学校外の費用・部活動、仕送り、高専・大学などの学校外の費用）
   let monthlyYearly = 0;
   let once = 0;
-  const school = (s.annualOverride ?? annualEstimate(s, lunch)?.value ?? 0) + (s.clubAnnual ?? 0);
+  const school = (s.annualOverride ?? annualEstimate(s, lunch, false)?.value ?? 0) + (s.clubAnnual ?? 0);
   if (isK12(s.stage)) monthlyYearly += school;
   else {
     // 学費は4月と10月に半分ずつ（計算エンジンと同じ）
@@ -548,13 +559,15 @@ export function stageRemainingCost(child: Member, s: EducationStage, baseMonth: 
   if (isK12(s.stage) && !rowsMode) monthlyYearly += s.outOfSchool === "none" ? 0 : typeof s.outOfSchool === "object" ? s.outOfSchool.monthly * 12 : (stat?.outOfSchool ?? 0);
   // 高専・大学などは、学校ごとに入れた月額だけ（統計の平均は無い。計算エンジンの education.cost の改訂11）
   else if (!isK12(s.stage) && !rowsMode && typeof s.outOfSchool === "object") monthlyYearly += s.outOfSchool.monthly * 12;
-  const entrance = s.entranceOverride ?? (isTertiary(s.stage) || s.stage === "kosen" ? (stat?.entrance ?? 0) : 0);
+  // 入学金（幼稚園〜高校は統計の入学金等×在学年数の標準。0010 の追記 2026-11-14）
+  const entrance = s.entranceOverride ?? stat?.entrance ?? 0;
   const entranceMonth = addMonths(period.from, isTertiary(s.stage) || s.stage === "kosen" ? ((s.sector ?? "public") === "private" ? -2 : -1) : -2);
   if (after(entranceMonth)) once += entrance;
-  if (s.exam !== undefined) {
-    if (after(addMonths(period.from, -3))) once += s.exam.amount ?? 0;
-    if (after(addMonths(period.from, -2))) once += s.exam.deposits ?? 0;
-  }
+  if (s.exam?.amount !== undefined || s.exam?.deposits !== undefined) {
+    if (after(addMonths(period.from, -3))) once += s.exam?.amount ?? 0;
+    if (after(addMonths(period.from, -2))) once += s.exam?.deposits ?? 0;
+    // 推定は学費が分かる段だけ（学費が未入力の専門学校などで、受験の推定だけの額を見出しに出さない）
+  } else if (school > 0 && after(addMonths(period.from, -3))) once += examStatistic(s)?.value ?? 0;
   if (isTertiary(s.stage) && s.living === "away") {
     const b = boardingStatistic();
     monthlyYearly += s.boarding?.monthly !== undefined ? s.boarding.monthly * 12 : (b.annual ?? 0);
@@ -584,15 +597,19 @@ export function childAgeGrade(child: Member, baseMonth: string): string {
  * （前の学校の額のまま残ると、私立にしても公立の額で計算する）。FP が自分で入れた額（推定と違う額）は残す。next をそのまま書き換える
  */
 export function dropStaleEstimates(prev: EducationStage, next: EducationStage, lunch: LunchChoice): void {
-  if (next.annualOverride !== undefined && next.annualOverride === annualEstimate(prev, lunch)?.value) delete next.annualOverride;
-  const entrance = stageStatistic(prev)?.entrance ?? null;
-  if (next.entranceOverride !== undefined && isTertiary(prev.stage) && next.entranceOverride === entrance) delete next.entranceOverride;
+  // 推定の値は千円単位で入る（0041 の追記 2026-11-14）。丸める前に入れた前の版の値も見分ける
+  const same = (v: number | undefined, est: number | null | undefined): boolean => v !== undefined && est != null && (v === est || v === estimateYen(est));
+  if (same(next.annualOverride, annualEstimate(prev, lunch)?.value)) delete next.annualOverride;
+  if (same(next.entranceOverride, stageStatistic(prev)?.entrance)) delete next.entranceOverride;
 }
 
 /** 数えない推定の理由（学校の種類で決まる統計の平均） */
 const QUIET_STAT = "学校の種類で決まる統計の平均（進路を確かめれば、ここは数えない）";
 
-/** 空欄のとき推定の値を見せる（印「推定」・根拠・「この値にする」で書ける。0041）。est が null なら元の欄のまま */
+/**
+ * 空欄のとき推定の値を見せる（印「推定」・根拠・「この値にする」で書ける。0041）。est が null なら元の欄のまま。
+ * 欄の中に見せる値と「この値にする」で入る値は千円単位に丸める（統計の円の額を万円にすると「103.1849」のように出るため。0041 の追記 2026-11-14）
+ */
 function withEstimate(f: FieldDef, est: (wh: WorkingHousehold) => { value: number; basis: string; hint: string; blankHint?: string } | null): FieldDef {
   return {
     ...f,
@@ -604,7 +621,11 @@ function withEstimate(f: FieldDef, est: (wh: WorkingHousehold) => { value: numbe
       const e = est(wh);
       return e === null ? st : { ...st, estimated: e.basis, hint: e.hint, ...(e.blankHint !== undefined ? { blankHint: e.blankHint } : {}) };
     },
-    blankEstimate: (wh) => (f.get(wh).value === null ? (est(wh)?.value ?? null) : null),
+    blankEstimate: (wh) => {
+      if (f.get(wh).value !== null) return null;
+      const v = est(wh)?.value;
+      return v === undefined ? null : estimateYen(v);
+    },
   };
 }
 
@@ -799,11 +820,11 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
         }
       : {}),
   });
-  // 入学金（大学・短大は統計の平均の推定。幼稚園〜高校は学校の費用に含めて数えているので、入れたときだけ別に足す）
-  if (higher || s.stage === "kosen")
+  // 入学金（大学・短大は統計の平均の推定。幼稚園〜高校は統計の入学金等〔全学年の平均〕×在学年数の標準の推定。0010 の追記 2026-11-14）
+  if (higher || s.stage === "kosen" || (isK12(s.stage) && s.sector !== "international" && stageStatistic(s)?.entrance != null))
     fields.push({
       ...withEstimate(
-        plain({ key: `${key}/entrance`, item: "goal.education", label: "入学金", level: "detail", kind: "yen", basis: "once", find, path: ["entranceOverride"], optional: true, help: "入学の前の2月（国公立は3月）に払います" }),
+        plain({ key: `${key}/entrance`, item: "goal.education", label: "入学金", level: "detail", kind: "yen", basis: "once", find, path: ["entranceOverride"], optional: true, help: isK12(s.stage) ? K12_ENTRANCE_HELP : "入学の前の2月（国公立は3月）に払います" }),
         (wh) => {
           const st = stageNow(wh);
           const stat = st === undefined ? null : stageStatistic(st);
@@ -841,7 +862,17 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   if (higher) {
     fields.push(
       plain({ key: `${key}/delay`, item: "goal.education", label: "浪人の年数", level: "detail", kind: "int", suffix: "年", min: 0, max: 5, find, path: ["delayYears"], optional: true, fallback: 0, help: DELAY_HELP }),
-      plain({ key: `${key}/exam`, item: "goal.education", label: "受験・併願の費用", level: "detail", kind: "yen", basis: "once", find, path: ["exam", "amount"], optional: true, help: "受験料など（入学の前の1月に払います）。入れなければ0円で計算します" }),
+      {
+        ...withEstimate(
+          plain({ key: `${key}/exam`, item: "goal.education", label: "受験・併願の費用", level: "detail", kind: "yen", basis: "once", find, path: ["exam", "amount"], optional: true, help: examHelp(s) }),
+          (wh) => {
+            const st = stageNow(wh);
+            const e = st === undefined ? null : examStatistic(st);
+            return e === null ? null : { ...e, hint: `${manText(e.value)}（推定）`, blankHint: "統計の平均（日本政策金融公庫の調査）" };
+          },
+        ),
+        ...stageAddress(goalId, sid, "exam", "amount"),
+      },
     );
     if (s.living === "away") {
       const b = boardingStatistic();
@@ -869,6 +900,19 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
       ...stageAddress(goalId, sid, "scienceAgriculture"),
     });
   return fields;
+}
+
+/** 幼稚園〜高校の入学金の「?」（統計の入学金等をまとめて入学の前に。0010 の追記 2026-11-14） */
+const K12_ENTRANCE_HELP =
+  "入学金・入学時の施設整備費・受験した全部の学校の検定料と、入学しなかった学校への納付金です。入学の前の2月に払います（入学した後の子にはかかりません）。" +
+  "推定は子供の学習費調査の入学金等（全学年の平均）に在学年数の標準を掛けた額で、学校の費用の年額には含めていません。志望校の額が分かれば入れてください";
+
+/** 受験・併願の費用の「?」 */
+function examHelp(s: EducationStage): string {
+  const e = examStatistic(s);
+  return e === null
+    ? "受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金です（入学の前の1月に払います）。この学校の統計は無いので、入れなければ0円で計算します"
+    : `受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金です（入学の前の1月に払います）。入れなければ推定（${e.basis.replace(/^統計の平均（/, "").replace(/）$/, "")}の平均 ${manText(e.value)}）で計算します`;
 }
 
 /** 保育料とは別にかかるお金の推定の根拠（短い文）と「?」 */

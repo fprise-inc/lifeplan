@@ -11,9 +11,11 @@ entries:
       統計の平均で計算します。学校が決まっていれば学費の表、年額を入れればその額で計算します。
     how: >-
       学年は4月2日区切りで、幼稚園3歳・小学校6歳・中学校12歳・高校15歳の学年の4月から在学年数（省略は幼3・小6・中3・高3）の間かかります。
-      統計の平均（文部科学省「子供の学習費調査」）では、学校の費用＝学習費総額−学校外活動費を年度の12か月に分けて毎月払います。
+      統計の平均（文部科学省「子供の学習費調査」）では、学校の費用＝学習費総額−学校外活動費−入学金等を年度の12か月に分けて毎月払い、
+      入学金等（全学年の平均）は在学年数の標準の年数分を入学の前の2月にまとめて払います（入学した後の残りの年数には入れません。入学金を入れればその額）。
       学校外活動費は統計の平均・学校ごとの月額・無しから選べ、塾・習い事は期間と月額の行で入れられます（行で入れるときは統計の学校外活動費を数えず、二重にしません）。
-      部活動などの費用を年額で入れた段は、統計の教科外活動費をその額に入れ替えます。受験・併願の費用は入学の前の1月・2月に払います。
+      部活動などの費用を年額で入れた段は、統計の教科外活動費をその額に入れ替えます。受験・併願の費用は入れた額を入学の前の1月・2月に払います
+      （幼稚園〜高校の受験の検定料と併願の納付金は統計の入学金等に入っているので、統計を足しません）。
       浪人の年数・在学年数も直せます。額は計算基準年の値を教育費の上昇率（省略は物価上昇率）で伸ばします。
     keywords: [教育費, 学費, 学習費, 子供の学習費調査, 私立と公立, 塾, 習い事, 部活動, 学校外活動費, 受験料]
     items: [goal.education, assumptions.educationInflation]
@@ -27,11 +29,12 @@ entries:
       - education.statistics.elementary.public.total
       - education.statistics.elementary.public.outOfSchool
       - education.statistics.elementary.public.extracurricular
+      - education.statistics.elementary.private.entrance
       - education.statistics.kindergarten.private.total
       - education.statistics.kindergarten.private.outOfSchool
     rows: [cf.expense.education.school, cf.expense.education.outOfSchool, cf.expense.education.exam]
     components:
-      education.cost: 11
+      education.cost: 12
     related: [education.university, education.schoolLunch]
 
   - id: education.university
@@ -43,17 +46,19 @@ entries:
     how: >-
       大学・短大・専門学校は18歳（＋浪人の年数）の学年の4月から在学年数（省略は大学4年・医歯系6年・短大2年・専門学校2年）。
       授業料＋施設設備費を4月と10月に半分ずつ、入学金を入学の前の2月（国公立は3月）に払います。国立は授業料・入学料の標準額、
-      公立・私立は平均の額です。大学院（修士2年・博士3年・専門職2年、法科大学院3年）は前の段を出た翌月の4月から、国立は標準額、
+      公立・私立は平均の額です。受験・併願の費用を入れていなければ、大学（国公立・私立の文系・理系・全体）・短大・専門学校は
+      日本政策金融公庫「教育費負担の実態調査」の平均（受験料・交通費・宿泊費と入学しなかった学校への納付金）を入学の前の1月に払います。大学院（修士2年・博士3年・専門職2年、法科大学院3年）は前の段を出た翌月の4月から、国立は標準額、
       公立は大学院の平均、私立は課程ごとの平均。高専は15歳の学年から5年（国立は国の額、公立・私立は年額を入れる）。学校が決まっていれば、学費の表の
       入学年度・年次・費目・支払月のとおりに払います（入学年度の行が無ければ近い年度の額に教育費の上昇率を当てて推計）。
       学校外の費用（資格の予備校など）は統計が無いので、学校ごとに月額を入れた段だけ在学中毎月払います。
-    keywords: [大学の学費, 授業料, 入学金, 国立大学, 私立大学, 医学部, 理系, 文系, 大学院, 専門学校]
+    keywords: [大学の学費, 授業料, 入学金, 国立大学, 私立大学, 医学部, 理系, 文系, 大学院, 専門学校, 受験料, 併願]
     items: [goal.education, assumptions.educationInflation]
     fields:
       - "「子ども・教育」の入力項目の「大学・短大・専門学校」"
       - "「子ども・教育」の入力項目の「系統」"
       - "「子ども・教育」の入力項目の「浪人の年数」"
       - "「子ども・教育」の入力項目の「入学金」"
+      - "「子ども・教育」の入力項目の「受験・併願の費用」"
     regulation:
       - education.statistics.university.national.tuition
       - education.statistics.university.national.admission
@@ -62,9 +67,10 @@ entries:
       - education.statistics.university.private.all.tuition
       - education.statistics.university.private.all.facility
       - education.statistics.university.private.all.admission
-    rows: [cf.expense.education.school, cf.expense.education.entrance]
+      - education.statistics.exam.university.private.humanities
+    rows: [cf.expense.education.school, cf.expense.education.entrance, cf.expense.education.exam]
     components:
-      education.cost: 11
+      education.cost: 12
     related: [education.boardingAbroad, education.higherSupport, education.scholarshipLoan]
 
   - id: education.boardingAbroad
@@ -87,7 +93,7 @@ entries:
     regulation: [education.statistics.boarding.annual, education.statistics.boarding.initial]
     rows: [cf.expense.education.boarding, cf.expense.education]
     components:
-      education.cost: 11
+      education.cost: 12
     related: [education.university]
 
   - id: education.nurseryFee
@@ -138,11 +144,12 @@ entries:
     status: included
     summary: >-
       入っています。高校の在学の年度ごとに、公立・私立の上限と授業料の小さい方を、学校が授業料から差し引く形の収入として載せます
-      （2026年度からは所得の制限なし）。
+      （2026年度からは所得の制限なし）。統計の平均で計算する高校は、統計の学校の費用がもう支援金を引いた後の額なので、上限と統計の授業料の小さい方です。
     how: >-
       支給額を年度の12か月に分けて、親（受け取る月に世帯にいる最初の親）の収入「就学支援金・修学支援」の行に載せます。高専の1〜3年も
       対象です（国公立は高専の額、私立は私立の額）。インターナショナルスクールの段と、対象外にした子（国籍・在留資格の要件）には出しません。
-      支援の額は名目額で、教育費の上昇率を当てません。
+      支援の額は名目額で、教育費の上昇率を当てません。授業料は、学校の年額を入れた段・学費の表の段はその額（支援金を引く前の額とみなす）、
+      統計の平均の段は「子供の学習費調査」の授業料（保護者が払った額。教育費の上昇率で伸ばす）です。
     keywords: [就学支援金, 高校無償化, 私立高校の支援, 授業料の支援, 高等学校等就学支援金]
     items: [goal.education]
     fields:
@@ -153,8 +160,10 @@ entries:
       - educationSupport.highSchool.publicAnnual
       - educationSupport.highSchool.privateAnnual
       - educationSupport.highSchool.kosenPublicAnnual
+      - education.statistics.highSchool.public.tuition
     rows: [cf.income.benefit.education]
     components:
+      education.cost: 12
       education.support: 8
     related: [education.higherSupport]
 
@@ -213,7 +222,7 @@ entries:
     regulation: [loanRates.scholarship]
     rows: [cf.income.other.scholarship, cf.expense.debt.scholarship, cf.balance.debt.other]
     components:
-      education.cost: 11
+      education.cost: 12
       debt.schedule: 11
     related: [education.university]
 
@@ -240,5 +249,5 @@ entries:
       - education.statistics.elementary.public.schoolLunch
     rows: [cf.expense.education.school]
     components:
-      education.cost: 11
+      education.cost: 12
     related: [education.schoolCost]

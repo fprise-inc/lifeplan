@@ -3945,9 +3945,9 @@ async fn later_plan_change_wins_even_at_the_current_value() {
     let ch = |it: &Value, v: i64| json!({ "target": it["target"], "item": it["item"], "value": v });
     let plan = |changes: Vec<Value>| json!({ "sample_household_id": id, "plan_changes": changes });
     let none = key_figures(&c, sample.clone()).await;
-    // 何もしない世帯（毎月の生活費 月30万円）: 生涯の支出 295,476,499円・2058年に尽きる
-    assert_eq!(none["keyFigures"]["lifetimeExpense"], 295476499);
-    assert_eq!(none["keyFigures"]["depletion"]["year"], 2058);
+    // 何もしない世帯（毎月の生活費 月30万円）: 生涯の支出 294,264,010円・2059年に尽きる（2026-11-14 の教育費の推定の直しと見本の学校外の費用の入れ方の後）
+    assert_eq!(none["keyFigures"]["lifetimeExpense"], 294264010);
+    assert_eq!(none["keyFigures"]["depletion"]["year"], 2059);
 
     // calculate: 月31万円 → 月30万円（今の値）は、何もしない世帯と同じ（前は月31万円の数字: 302,463,162円・2055年）
     let back = key_figures(&c, plan(vec![ch(&liv, 310000), ch(&liv, 300000)])).await;
@@ -3999,12 +3999,12 @@ async fn later_plan_change_wins_even_at_the_current_value() {
     )
     .await;
     let v = &r["results"][1];
-    assert_eq!(v["keyFigures"]["lifetimeExpense"], 295476499, "{v}");
+    assert_eq!(v["keyFigures"]["lifetimeExpense"], 294264010, "{v}");
     assert_eq!(
         v["keyFigures"]["depletion"],
         none["keyFigures"]["depletion"]
     );
-    assert_eq!(v["diff"]["lifetimeExpense"], 295476499 - 302463162);
+    assert_eq!(v["diff"]["lifetimeExpense"], 294264010 - 301250673);
     // 表: 通りの違いの注は、取り消して戻した値（前は「月31万円」と書いていた）
     let (err, texts) = call_table(
         &c,
@@ -5775,9 +5775,9 @@ async fn review_reproductions_are_refused_or_explained() {
         json!({ "age": 30, "year": null, "amount": null, "reason": why }),
         "{at}"
     );
-    // 46歳（2027年）・100歳の残高は、児童手当の最初の支払いと保険料の納期の直し（2026-11-14）の後の値
-    assert_eq!(at[1]["amount"], 11_927_922, "{at}");
-    assert_eq!(at[2]["amount"], -26_136_977, "{at}");
+    // 46歳（2027年）・100歳の残高は、児童手当の最初の支払いと保険料の納期の直し・教育費の推定の直しと見本の学校外の費用の入れ方（2026-11-14）の後の値
+    assert_eq!(at[1]["amount"], 12_378_048, "{at}");
+    assert_eq!(at[2]["amount"], -25_251_893, "{at}");
     assert_eq!(
         at[3],
         json!({ "age": 110, "year": null, "amount": null, "reason": why }),
@@ -5796,7 +5796,7 @@ async fn review_reproductions_are_refused_or_explained() {
     );
     assert_eq!(
         got["rows"][0],
-        json!([300000, null, 11_927_922, -26_136_977, null]),
+        json!([300000, null, 12_378_048, -25_251_893, null]),
         "{got}"
     );
     assert_eq!(

@@ -157,7 +157,10 @@ describe("学校外の費用の4つの選び方", () => {
   });
 
   it("前の世帯: 入れ方の無い行のある世帯は前の形、幼稚園〜高校に額を入れた世帯は学校ごとに入れる、で読む（書き換えない）", () => {
-    const legacy = fromRequest(modelHousehold("educationTwoKids"));
+    // 見本の世帯は入れ方を書いた（2026-11-14。0063 の追記）ので、入れ方を外して前の世帯にする
+    const req = modelHousehold("educationTwoKids");
+    for (const x of req.input.household.goals ?? []) delete x.education?.outOfSchoolMode;
+    const legacy = fromRequest(req);
     const g = (legacy.request.input.household.goals ?? []).find((x) => (x.education?.lessons ?? []).length > 0)!;
     expect(fieldOf(legacy, `edu/${g.id}/outUniform`).get(legacy).value).toBe("legacy");
     // 前の形でも、塾・習い事の行は標準で入れられる

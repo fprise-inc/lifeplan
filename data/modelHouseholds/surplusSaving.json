@@ -522,7 +522,8 @@
                 "monthly": 25000,
                 "label": "塾"
               }
-            ]
+            ],
+            "outOfSchoolMode": "rows"
           }
         },
         {
@@ -552,7 +553,8 @@
                   "amount": 300000
                 }
               }
-            ]
+            ],
+            "outOfSchoolMode": "statistics"
           }
         }
       ],

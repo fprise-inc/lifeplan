@@ -1,0 +1,22 @@
+id: education.statistics.juniorHigh.private.entrance
+title: 入学金等の年額（私立中学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2023-04-01"
+    appliesTo: null
+    enforcedOn: "2026-01-16"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 119829
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-11-14", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図3-2 p.8", "quote": "入学金等 119,829円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-11-14", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "同 図3-2 p.8（学校教育費の合計）", "quote": "合計 1,128,061円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-11-14", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "同 p.4 図1-2 の注1（図2-2・3-2・4-2 も同じ）", "quote": "「入学金等」とは、入学にあたって要した諸費用であり、併願等で実際には入学しなかった学校へ納付した金額を含む"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-11-14", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "同 p.15 項目別定義", "quote": "入学するに当たり要した入学検定料（受験した全ての学校の検定料）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-14", "tools": ["PDF の本文（公表資料）","図の内訳の合計と表1の学校教育費の突き合わせ","原本の指紋（sha256）"], "note": "令和5年度の私立中学校の入学金等（訂正版）。入学の年に払う額を全学年の在学者で割った平均で、学校教育費に含まれる。部品は学校の費用からこの額を除き、入学の前に3年分（在学年数の標準）をまとめて払う（入学した後の子の残りの年数には入れない）"}

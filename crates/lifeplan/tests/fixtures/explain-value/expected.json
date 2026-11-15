@@ -574,6 +574,13 @@
             "appliesFrom": "2023-04-01"
           },
           {
+            "label": "入学金等の年額（公立中学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+            "value": "1,178",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図3-2 p.8／同 図3-2 p.8（学校教育費の合計）",
+            "version": "2026.7.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
             "label": "学校給食費の年額（公立中学校。子供の学習費調査。学習費総額のうち）",
             "value": "35,671",
             "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
@@ -592,6 +599,20 @@
             "value": "245,431",
             "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
             "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "入学金等の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+            "value": "18,027",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図4-2 p.10／同 図4-2 p.10（学校教育費の合計）",
+            "version": "2026.7.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "授業料の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。就学支援金が差し引かれた後に保護者が払った額）",
+            "value": "45,272",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図4-2 p.10／同 図4-2 p.10（学校教育費の合計）",
+            "version": "2026.7.0",
             "appliesFrom": "2023-04-01"
           },
           {
@@ -644,6 +665,13 @@
             "appliesFrom": "2023-04-01"
           },
           {
+            "label": "入学金等の年額（公立小学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+            "value": "526",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図2-2 p.6／同 図2-2 p.6（学校教育費の合計）",
+            "version": "2026.7.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
             "label": "学校給食費の年額（公立小学校。子供の学習費調査。学習費総額のうち）",
             "value": "35,774",
             "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
@@ -677,6 +705,20 @@
             "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
             "version": "2026.2.0",
             "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "入学金等の年額（私立高等学校（全日制）。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+            "value": "80,290",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図4-2 p.10／同 図4-2 p.10（学校教育費の合計）",
+            "version": "2026.7.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "授業料の年額（私立高等学校（全日制）。子供の学習費調査。学校教育費のうち。就学支援金が差し引かれた後に保護者が払った額）",
+            "value": "279,170",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図4-2 p.10／同 図4-2 p.10（学校教育費の合計）",
+            "version": "2026.7.0",
+            "appliesFrom": "2023-04-01"
           }
         ],
         "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
@@ -689,9 +731,12 @@
         "regulation": [
           "education.statistics.juniorHigh.public.total",
           "education.statistics.juniorHigh.public.outOfSchool",
+          "education.statistics.juniorHigh.public.entrance",
           "education.statistics.juniorHigh.public.schoolLunch",
           "education.statistics.highSchool.public.total",
           "education.statistics.highSchool.public.outOfSchool",
+          "education.statistics.highSchool.public.entrance",
+          "education.statistics.highSchool.public.tuition",
           "education.statistics.university.private.humanities.tuition",
           "education.statistics.university.private.humanities.facility",
           "education.statistics.university.private.humanities.admission",
@@ -699,11 +744,14 @@
           "education.statistics.boarding.initial",
           "education.statistics.elementary.public.total",
           "education.statistics.elementary.public.outOfSchool",
+          "education.statistics.elementary.public.entrance",
           "education.statistics.elementary.public.schoolLunch",
           "educationSupport.schoolLunch.elementary.public.monthly",
           "educationSupport.schoolLunch.months",
           "education.statistics.highSchool.private.total",
-          "education.statistics.highSchool.private.outOfSchool"
+          "education.statistics.highSchool.private.outOfSchool",
+          "education.statistics.highSchool.private.entrance",
+          "education.statistics.highSchool.private.tuition"
         ]
       }
     }
@@ -721,12 +769,12 @@
       },
       "evidence": {
         "title": "2040年 金融資産残高",
-        "total": 23283785,
+        "total": 23895751,
         "context": "ご本人59歳・配偶者57歳",
         "breakdown": [
           {
             "label": "年末の金融資産",
-            "amount": 23283785
+            "amount": 23895751
           }
         ],
         "formulas": [
@@ -790,6 +838,13 @@
             "appliesFrom": "2023-04-01"
           },
           {
+            "label": "入学金等の年額（公立中学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+            "value": "1,178",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図3-2 p.8／同 図3-2 p.8（学校教育費の合計）",
+            "version": "2026.7.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
             "label": "学校給食費の年額（公立中学校。子供の学習費調査。学習費総額のうち）",
             "value": "35,671",
             "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
@@ -808,6 +863,20 @@
             "value": "245,431",
             "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
             "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "入学金等の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+            "value": "18,027",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図4-2 p.10／同 図4-2 p.10（学校教育費の合計）",
+            "version": "2026.7.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "授業料の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。就学支援金が差し引かれた後に保護者が払った額）",
+            "value": "45,272",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図4-2 p.10／同 図4-2 p.10（学校教育費の合計）",
+            "version": "2026.7.0",
             "appliesFrom": "2023-04-01"
           },
           {
@@ -860,6 +929,13 @@
             "appliesFrom": "2023-04-01"
           },
           {
+            "label": "入学金等の年額（公立小学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）",
+            "value": "526",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図2-2 p.6／同 図2-2 p.6（学校教育費の合計）",
+            "version": "2026.7.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
             "label": "学校給食費の年額（公立小学校。子供の学習費調査。学習費総額のうち）",
             "value": "35,774",
             "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
@@ -872,34 +948,6 @@
             "source": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？ 基準額／学校給食費の抜本的な負担軽減（文部科学省）どんな取組？",
             "version": "2026.5.0",
             "appliesFrom": "2026-04-01"
-          },
-          {
-            "label": "学校給食費の負担軽減の年間の月数（基準額×この月数が1年の支援の上限）",
-            "value": "11",
-            "source": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？／給食費負担軽減交付金実施要領 3（2）交付金の上限額",
-            "version": "2026.5.0",
-            "appliesFrom": "2026-04-01"
-          },
-          {
-            "label": "学習費総額の年額（私立高等学校（全日制）。子供の学習費調査）",
-            "value": "1,179,261",
-            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
-            "version": "2026.2.0",
-            "appliesFrom": "2023-04-01"
-          },
-          {
-            "label": "学校外活動費の年額（私立高校）",
-            "value": "346,611",
-            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
-            "version": "2026.2.0",
-            "appliesFrom": "2023-04-01"
-          },
-          {
-            "label": "後期高齢者医療に移る年齢（健康保険の資格を失う年齢）",
-            "value": "75",
-            "source": "高齢者の医療の確保に関する法律 第50条第1号／健康保険法 第3条第1項第7号（後期高齢者医療の被保険者は健康保険の被保険者としない）",
-            "version": "2026.3.0",
-            "appliesFrom": "2025-01-01"
           }
         ],
         "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
@@ -917,9 +965,12 @@
           "incomeTax.cryptoAsset.lossCarryforwardYears",
           "education.statistics.juniorHigh.public.total",
           "education.statistics.juniorHigh.public.outOfSchool",
+          "education.statistics.juniorHigh.public.entrance",
           "education.statistics.juniorHigh.public.schoolLunch",
           "education.statistics.highSchool.public.total",
           "education.statistics.highSchool.public.outOfSchool",
+          "education.statistics.highSchool.public.entrance",
+          "education.statistics.highSchool.public.tuition",
           "education.statistics.university.private.humanities.tuition",
           "education.statistics.university.private.humanities.facility",
           "education.statistics.university.private.humanities.admission",
@@ -927,12 +978,9 @@
           "education.statistics.boarding.initial",
           "education.statistics.elementary.public.total",
           "education.statistics.elementary.public.outOfSchool",
+          "education.statistics.elementary.public.entrance",
           "education.statistics.elementary.public.schoolLunch",
-          "educationSupport.schoolLunch.elementary.public.monthly",
-          "educationSupport.schoolLunch.months",
-          "education.statistics.highSchool.private.total",
-          "education.statistics.highSchool.private.outOfSchool",
-          "socialInsurance.health.lateElderlyAge"
+          "educationSupport.schoolLunch.elementary.public.monthly"
         ]
       }
     }

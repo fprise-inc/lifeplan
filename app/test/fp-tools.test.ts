@@ -134,16 +134,17 @@ describe("ポイント（0074 の追記 2026-11-12 の見直し）", () => {
     expect(keys.some((k) => k === "eduCare" || k.startsWith("nisa"))).toBe(false);
   });
 
-  it("大きな支出が重なる年の決め方は3つの案から選べ、見本 3-4-06 ではそれぞれ別の年が出る（採用は案2）", () => {
+  it("大きな支出が重なる年の決め方は3つの案から選べ、見本 3-4-06 では案ごとに出る年が違う（採用は案2）", () => {
     const q = modelHousehold("sampleFamilyDreams");
     const r = preview(q);
     const yearsOf = (rule: OverlapRule) => bigSpendOverlaps(q, r.table, rule).map((y) => y.year);
     expect(OVERLAP_RULE).toBe(OVERLAP_RULES.usual);
+    // 2026-11-14 に見本の学校外の費用を「行で」にした（統計の平均に塾の行を足して二重に数えていた）ので、2029年は重なる年でなくなった
     expect(yearsOf(OVERLAP_RULES.count)).toEqual([2033, 2034, 2035, 2036]);
-    expect(yearsOf(OVERLAP_RULES.usual)).toEqual([2029, 2036]);
-    expect(yearsOf(OVERLAP_RULES.living)).toEqual([2029, 2033, 2034, 2035, 2036]);
+    expect(yearsOf(OVERLAP_RULES.usual)).toEqual([2036]);
+    expect(yearsOf(OVERLAP_RULES.living)).toEqual([2033, 2034, 2035, 2036]);
     const big = insights(q, r).find((x) => x.key === "bigSpend")!;
-    expect(big.text).toBe("2036年に、夢「車の買い替え」442万円・第2子の教育費364万円・第1子の教育費110万円が重なり、支出が前後の年より約8割多くなります（ほかに2029年）");
+    expect(big.text).toBe("2036年に、夢「車の買い替え」442万円・第2子の教育費362万円・第1子の教育費110万円が重なり、支出が前後の年より約8割多くなります");
     // 決め方を差し替えると文の「ほかに」の年も変わる
     expect(insights(q, r, { overlapRule: OVERLAP_RULES.count }).find((x) => x.key === "bigSpend")!.text).toContain("（ほかに2033〜2035年）");
   });
