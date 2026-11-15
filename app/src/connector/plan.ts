@@ -210,9 +210,12 @@ export function pickPlanItem(reqJson: string, pickJson: string, ctxJson: string)
   return JSON.stringify({ status: "ok", item: itemOut(it, ref, o.wh, JSON.stringify(o.wh.request.input)) });
 }
 
+/** 当てはめの結果の status（AI に返す言葉。restored＝今と同じ値で前の同じ項目の変更を取り消した・replaced＝後の変更が同じ項目を動かすので使わない） */
+const STATUS: Record<CandidateRow["use"], string> = { apply: "applied", same: "same", restore: "restored", replaced: "replaced", skip: "rejected" };
+
 /** 当てはめの結果の1件（AI に返す形） */
 function rowOut(c: PlanChange, r: CandidateRow): Record<string, unknown> {
-  return { target: c.target, item: c.item, ...(c.at !== undefined ? { at: c.at } : {}), ...(c.lever !== undefined ? { lever: c.lever } : {}), ...(r.place !== null ? { place: r.place } : {}), label: r.label, from: r.from, to: r.to, status: r.key === null ? "rejected" : r.reason === null ? "applied" : "same", ...(r.reason !== null ? { reason: r.reason } : {}) };
+  return { target: c.target, item: c.item, ...(c.at !== undefined ? { at: c.at } : {}), ...(c.lever !== undefined ? { lever: c.lever } : {}), ...(r.place !== null ? { place: r.place } : {}), label: r.label, from: r.from, to: r.to, status: STATUS[r.use], ...(r.reason !== null ? { reason: r.reason } : {}) };
 }
 
 /**
@@ -239,13 +242,11 @@ export function applyPlan(reqJson: string, changesJson: string, ctxJson: string)
     note: null,
   }));
   // 場所は at か lever のどちらか1つ（両方を書いた変更は当てない）
-  const rows = candidateRows({ diffs }, o.wh, o.cat).map((r, i): CandidateRow => {
-    const c = changes[i] as PlanChange;
-    return c.at !== undefined && c.lever !== undefined ? { ...r, key: null, value: null, reason: BOTH_PLACES } : r;
-  });
+  const rows = candidateRows({ diffs }, o.wh, o.cat, (d) => (d.at !== undefined && d.lever !== undefined ? BOTH_PLACES : null));
   const out = changes.map((c, i) => rowOut(c, rows[i] as CandidateRow));
   if (rows.some((r) => r.key === null)) return JSON.stringify({ status: "rejected", changes: out });
-  // 同じ項目を2回動かす変更は、後の値が勝つ（画面で同じつまみを2回動かしたのと同じ）
+  // 同じ項目を2回動かす変更は、後の値が勝つ（画面で同じつまみを2回動かしたのと同じ）。後の値が今の値と同じなら、その項目は今の値のまま
+  // （前の変更を取り消す。candidates.ts の laterWins）
   const values = candidateValues(rows);
   if (Object.keys(values).length === 0) return JSON.stringify({ status: "ok", request: req, changes: out });
   const applied = applyValues(o.wh, values, o.cat);
