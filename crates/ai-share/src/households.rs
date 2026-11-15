@@ -68,9 +68,15 @@ pub(crate) fn clean_line(s: &str) -> String {
     replaced.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// AIのアプリの名乗りを、画面と記録に出す形にする（長すぎれば切る）
+/// AIのアプリの名乗り（MCP のあいさつの名前と版。自己申告）を、画面と記録に出す形にする: 見えない書式の文字を除き、制御文字を空白にし、
+/// 続く空白を1つにして、長すぎれば切る。4つの候補（プラン・書類・コード・新しい世帯）と AI に渡した記録の呼び出し元で同じ形にする
+/// （受け口で1回通し、台帳が候補に入れるときにも通す。何度通しても同じ）
 pub(crate) fn clean_connector(s: Option<&str>) -> Option<String> {
-    let c = clean_line(s?);
+    let visible: String = s?
+        .chars()
+        .filter(|c| !crate::wrap::is_invisible_format(*c))
+        .collect();
+    let c = clean_line(&visible);
     (!c.is_empty()).then(|| c.chars().take(MAX_CONNECTOR_CHARS).collect())
 }
 
@@ -206,6 +212,13 @@ mod tests {
             clean_connector(Some(" A\nB 1.0 ")).as_deref(),
             Some("A B 1.0")
         );
+        assert_eq!(
+            clean_connector(Some("x\u{1b}[31m\u{202E}y\u{200B} 1.0")).as_deref(),
+            Some("x [31my 1.0")
+        );
+        // 何度通しても同じ
+        let once = clean_connector(Some(&format!("a\n{}", "長".repeat(200)))).unwrap();
+        assert_eq!(clean_connector(Some(&once)).as_deref(), Some(once.as_str()));
         assert_eq!(clean_connector(Some(" ")), None);
         assert_eq!(clean_connector(None), None);
         assert_eq!(
