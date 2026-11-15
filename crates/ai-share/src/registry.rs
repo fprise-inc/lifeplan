@@ -2,6 +2,7 @@
 //! アプリを終了・再起動すると、すべての共有が無効になる（台帳ごと消える）。
 
 use crate::clock::{iso8601, Clock, SystemClock};
+use crate::display;
 use crate::documents::{self, PendingDocumentProposal};
 use crate::households::{self, HouseholdCandidate};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
@@ -129,6 +130,7 @@ pub struct ShareRegistry {
     state: Mutex<State>,
     clock: Arc<dyn Clock>,
     office: Mutex<Option<OfficeEstimatesSource>>,
+    office_display: Mutex<Option<OfficeDisplaySource>>,
     household_check: Mutex<Option<HouseholdCheck>>,
 }
 
@@ -137,6 +139,9 @@ pub type HouseholdCheck = Arc<dyn Fn(&Value) -> Result<(), String> + Send + Sync
 
 /// 事務所の推定の値（事務所データの `defaults.estimates`。無ければ None）を読む所。アプリ本体が入れる（0184）
 pub type OfficeEstimatesSource = Arc<dyn Fn() -> Option<Value> + Send + Sync>;
+
+/// 事務所の既定値のうち見せ方だけの欄（`display::office_display_of` で切り出した物。読めなければ None）を読む所。アプリ本体が入れる（0213）
+pub type OfficeDisplaySource = Arc<dyn Fn() -> Option<Value> + Send + Sync>;
 
 /// 接続口からの依頼の失敗（コードと、FPに見せてよい説明）
 pub type Refusal = (ErrorCode, String);
@@ -157,6 +162,7 @@ impl ShareRegistry {
             state: Mutex::new(State::default()),
             clock,
             office: Mutex::new(None),
+            office_display: Mutex::new(None),
             household_check: Mutex::new(None),
         }
     }
@@ -179,6 +185,15 @@ impl ShareRegistry {
     /// 返事に、そのときの値を添える（共有した後に事務所の値を変えても、次の計算から今の値になる。画面と同じ）
     pub fn set_office_estimates(&self, source: Option<OfficeEstimatesSource>) {
         *self.office.lock().unwrap_or_else(|p| p.into_inner()) = source;
+    }
+
+    /// 事務所の既定値のうち見せ方だけの欄を読む所を入れる（アプリ本体が起動したときに入れる。0213）。表示の設定を読む依頼
+    /// （`handle_office_display`）の返事に、そのときの値を入れる（事務所の既定値を変えると、次の読み取りから今の値になる）
+    pub fn set_office_display(&self, source: Option<OfficeDisplaySource>) {
+        *self
+            .office_display
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = source;
     }
 
     /// 新しい世帯の候補の計算の入力を確かめる所を入れる（アプリ本体が起動したときに入れる）。入れなければ形の外側だけを確かめる
@@ -713,6 +728,61 @@ impl ShareRegistry {
             "message": "書類から読んだ値の候補を、アプリの「書類の読み取り」に承認待ちで入れました。FPがアプリの確かめの画面で値ごとに承認するまで、世帯のデータは変わりません。登録簿に無い入力項目・形の違う候補・個人番号などの番号らしい候補は、アプリが読まずに落とします。",
         })
         .to_string())
+    }
+
+    /// 事務所の既定値のうち見せ方だけの設定（読むだけ。0213）。読む所が無い・読めないときは `office` が null。世帯を渡していなくてよく、
+    /// 世帯の中身ではないので AIに渡した記録には残さない
+    pub fn handle_office_display(&self) -> Result<String, Refusal> {
+        let source = self
+            .office_display
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        let office = source.and_then(|f| f()).unwrap_or(Value::Null);
+        Ok(json!({ "office": office }).to_string())
+    }
+
+    /// 渡された世帯の見せ方の設定（読むだけ。0213）。共有の決まりは世帯の読み取りと同じ（期限内・取り消されていない・同意がある）で、
+    /// 読むたびに道具の名前で「AIに渡した記録」に残す（項目は見せ方の区画の名前、指紋は元の ID のままの中身）
+    pub fn handle_get_display(
+        &self,
+        share_id: &str,
+        tool: &str,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let now = self.now();
+        let mut st = self.lock();
+        usable(&mut st, share_id, now)?;
+        let share = st.shares.get(share_id).ok_or_else(not_shared)?;
+        let raw = share
+            .source
+            .display
+            .clone()
+            .unwrap_or_else(|| json!({ "display": {}, "itemChoice": null, "shownItems": [] }));
+        let household = display::with_pseudonyms(&raw, &share.pseudonyms);
+        let payload = json!({
+            "shareId": share_id,
+            "alias": share.alias,
+            "expiresAt": iso8601(share.expires_ms),
+            "expiresInSec": (share.expires_ms - now) / 1000,
+            "household": household,
+        });
+        let digest = format!("sha256:{:x}", Sha256::digest(raw.to_string().as_bytes()));
+        let fields: Vec<String> = display::HOUSEHOLD_DISPLAY_ITEMS
+            .iter()
+            .map(|s| (*s).to_owned())
+            .collect();
+        let household_id = share.source.household_id.clone();
+        let index = share.record_index;
+        if let Some(r) = st
+            .logs
+            .get_mut(&household_id)
+            .and_then(|l| l.get_mut(index))
+        {
+            r.add_read(iso8601(now), tool, &fields, &digest, caller);
+        }
+        st.revision += 1;
+        Ok(payload.to_string())
     }
 
     pub fn handle_list(&self) -> Result<String, Refusal> {
