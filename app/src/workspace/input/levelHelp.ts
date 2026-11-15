@@ -97,8 +97,8 @@ export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
     fallback: "default",
   },
   assumptions: {
-    simple: [["物価上昇率"], ["賃金上昇率"], ["運用利回り"], ["FP顧問料"]],
-    detail: [["表の最後の年"], ["教育費の上昇率"], ["年金の調整率"], ["資産の種類ごとの利回り"]],
+    simple: [["物価上昇率"], ["賃金上昇率"], ["運用利回り"], ["表を何歳まで見るか"], ["FP顧問料"]],
+    detail: [["預金の利回り"], ["教育費の上昇率"], ["年金の調整率"], ["資産の種類ごとの利回り"]],
     fallback: "default",
   },
 };

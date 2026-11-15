@@ -889,13 +889,13 @@ export interface ItemOptions {
 }
 
 /**
- * 前提条件が事務所の既定値どおりか: 前提条件の事務所の既定値の欄（0214）が全部「事務所の既定値」で、ほかの前提の欄（表の最後の年・例外の年など。
- * 表の最後の年の決め方・年齢の欄・読むだけの欄を除く）に、FP が打った値・「この値にする」で確定にした値が1つも無い（0041 の追記 2026-11-06）。
+ * 前提条件が事務所の既定値どおりか: 前提条件の事務所の既定値の欄（0214）が全部「事務所の既定値」で、ほかの前提の欄（表を何歳まで見るか・例外の年など。
+ * 表を何歳まで見るかの「年で決める」の年の欄・読むだけの欄を除く）に、FP が打った値・「この値にする」で確定にした値が1つも無い（0041 の追記 2026-11-06）。
  * 既定値どおりなら札は「事務所の既定値どおり」、この世帯だけの値が1つでもあれば「入力済み」
  */
 export function premiseUntouched(stage: StageDef, wh: WorkingHousehold): boolean {
   return !allFields(stage).some((f) => {
-    if (!isPremiseField(f) || f.readOnly !== undefined || f.key === "assume/endYear/choice" || f.key.startsWith("assume/endYear/age/")) return false;
+    if (!isPremiseField(f) || f.readOnly !== undefined || f.key === "assume/endYear/year") return false;
     const s = fieldStatus(f, wh);
     if (s.premise !== undefined) return s.premise.state !== "office";
     return s.status === "confirmed" && f.get(wh).implicit !== true;

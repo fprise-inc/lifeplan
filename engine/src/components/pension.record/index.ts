@@ -2,6 +2,14 @@
 // 記録の時点（asOf）の後に働き方の期間から足す月（国民年金の種別・厚生年金の標準報酬）を返す。
 // 記録が無い構成員は、働き方の期間から加入歴を推計する（見出しの notices に N_ESTIMATED）。計算基準年の前の年の11月より前の月の標準報酬は、
 // その勤め先の期間の給与の入力（いまの賃金の水準）から近似する
+// 改訂7（0167 の追記 2026-11-14）:
+// - 給与の入力から近似する月の報酬に、標準報酬月額の上限（いまの等級表の最上位。その等級の下限以上なら最上位の額）と、標準賞与額の
+//   1回の上限（賞与を支給月で等分した1回ごと）を掛ける（厚生年金保険法20条・24条の4）。上限に当たらない人の額は変えない
+// - 50歳以上の定期便の見込額は、作成時点の加入条件で60歳まで加入を続けたと仮定した額。作成時点で厚生年金に入っていた人は、作成の後
+//   60歳までの厚生年金に入らない月ごとに、作成時点の報酬（その勤め先の期間の給与の入力から、上の上限を掛けた近似）×乗率を見込額から引く。
+//   作成時点で厚生年金に入っていなかった人は、作成の後60歳までの厚生年金の月も報酬比例に足す（見込額に入っていない）
+// - 1986年3月以前に第3号と判定した月（第2号の配偶者に扶養される月）は、第3号の制度が無く、任意加入しなければ合算対象期間なので、
+//   老齢基礎年金の額の月数に入れず、受給資格期間にだけ数える（昭和60年改正法附則8条5項1号）
 import {
   addMonths,
   addYen,
@@ -42,14 +50,20 @@ const MIDDLE_MALE = "pension.survivor.middleAgeSpecial.fromAgeMale";
 const MIDDLE_FEMALE = "pension.survivor.middleAgeSpecial.fromAgeFemale";
 const SPLIT_2003 = monthIndex(2003, 4);
 const SINCE_1961 = monthIndex(1961, 4);
+/** 第3号被保険者の制度の始まり（昭和60年改正法の施行） */
+const SINCE_1986 = monthIndex(1986, 4);
+const STD = "socialInsurance.pension.standardMonthlyRemuneration";
+const BONUS_LIMIT = "socialInsurance.pension.standardBonus.monthlyLimit";
+/** 賞与の支給月を入れていないときの月（income.salary と同じ） */
+const DEFAULT_BONUS_MONTHS = [6, 12];
 
 export default defineComponent<{ member: string }, RecordOutput>({
   id: "pension.record",
   title: "公的年金の加入の記録",
   contract: "1.1",
-  revision: 6,
+  revision: 7,
   requires: { "pension.category": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2", "pension.revision": ">=1 <2" },
-  params: [UNTIL60, FROM20, PRE, POST, ROUND, REVAL, MIDDLE_MALE, MIDDLE_FEMALE],
+  params: [UNTIL60, FROM20, PRE, POST, ROUND, REVAL, MIDDLE_MALE, MIDDLE_FEMALE, STD, BONUS_LIMIT],
   reads: [
     "pensionRecord.member",
     "pensionRecord.kind",
@@ -59,6 +73,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
     "pensionRecord.history",
     "employment.salary.annual",
     "employment.salary.bonus",
+    "employment.salary.bonusMonths",
     "member.sex",
   ],
   memberScope: ["pensionRecord", "employment"],
@@ -83,11 +98,46 @@ export default defineComponent<{ member: string }, RecordOutput>({
     for (const b of cov.bonuses) if (b.pensionStdBonus !== null) bonusOf.set(b.month, addYen(bonusOf.get(b.month) ?? yen(0), b.pensionStdBonus));
     const periods = new Map(ctx.list<EmploymentPeriodInput>("employment").map((p) => [p.id, p]));
     const kind = rec?.kind ?? "estimated";
+    // 給与の入力から近似する月の報酬（いまの水準）。標準報酬月額の上限（いまの等級表の最上位）と標準賞与額の1回の上限を掛ける（改訂7）。
+    // 2003年3月以前は標準報酬月額だけ、2003年4月以後は賞与を含めた月の平均
+    const grades = at.paramGrades(STD) ?? [];
+    const top = grades.length === 0 ? null : (grades[grades.length - 1] as (typeof grades)[number]);
+    const bonusLimit = at.paramYen(BONUS_LIMIT);
+    const estimated = new Map<string, Yen>();
+    const estimateOf = (employer: string, pre2003: boolean): Yen => {
+      const key = `${employer}|${pre2003 ? 1 : 0}`;
+      const hit = estimated.get(key);
+      if (hit !== undefined) return hit;
+      const p = periods.get(employer);
+      const annual = boxValue(p?.salary?.annual) ?? yen(0);
+      const bonus = boxValue(p?.salary?.bonus) ?? yen(0);
+      let salary12 = annual;
+      if (top !== null && ctx.money.divInt(annual, 12, "conv.socialInsurance.remuneration") >= top.from) salary12 = ctx.money.mulRatio(top.amount, 12, 1, "conv.exact");
+      let bonusPart = bonus;
+      const bonusMonths = p?.salary?.bonusMonths ?? DEFAULT_BONUS_MONTHS;
+      if (!pre2003 && bonusLimit !== null && bonus > 0 && bonusMonths.length > 0) {
+        bonusPart = yen(0);
+        for (const b of ctx.money.allocate(bonus, bonusMonths.map(() => 1), "conv.salary.monthly", "last")) bonusPart = addYen(bonusPart, b < bonusLimit ? b : bonusLimit);
+      }
+      const v = ctx.money.divInt(pre2003 ? salary12 : addYen(salary12, bonusPart), 12, "conv.socialInsurance.remuneration");
+      estimated.set(key, v);
+      return v;
+    };
+    // 50歳以上の定期便: 作成時点の加入条件（厚生年金に入っていたか）と、その報酬（改訂7）
+    const over50 = kind === "statementOver50" && asOf !== null;
+    const atAsOf = over50 ? status.find((x) => parseYm(x.month) === asOf) : undefined;
+    const employeeAtAsOf = atAsOf !== undefined && atAsOf.pension && atAsOf.employer !== null;
     const months: RecordMonth[] = [];
+    // 1986年3月以前の第3号の月（合算対象期間。受給資格期間にだけ数える。改訂7）
+    let qualifyingOnly = 0;
     for (const s of status) {
       const m = parseYm(s.month);
       if (asOf !== null && m <= asOf) continue;
       const c = cats.get(s.month);
+      if (c?.category === "3" && m < SINCE_1986) {
+        qualifyingOnly++;
+        continue;
+      }
       const basic = c?.basic === true;
       let employee = false;
       let remuneration = yen(0);
@@ -98,16 +148,13 @@ export default defineComponent<{ member: string }, RecordOutput>({
           remuneration = m < SPLIT_2003 ? cv.pensionStd : addYen(cv.pensionStd, bonusOf.get(s.month) ?? yen(0));
         }
       } else if (s.pension && s.employer !== null) {
-        // 保険料を計算する月より前: 勤め先の期間の給与の入力（いまの水準）から（2003年4月以後は賞与を含めた月の平均）
+        // 保険料を計算する月より前: 勤め先の期間の給与の入力（いまの水準）から（2003年4月以後は賞与を含めた月の平均。上限を掛ける）
         employee = true;
-        const p = periods.get(s.employer);
-        const annual = boxValue(p?.salary?.annual) ?? yen(0);
-        const bonus = boxValue(p?.salary?.bonus) ?? yen(0);
-        remuneration = ctx.money.divInt(m < SPLIT_2003 ? annual : addYen(annual, bonus), 12, "conv.socialInsurance.remuneration");
+        remuneration = estimateOf(s.employer, m < SPLIT_2003);
       }
       if (!basic && !employee) continue;
-      // 50歳以上の定期便の見込額には60歳までの加入が入っているので、報酬比例に足すのは60歳から
-      const accrues = employee && (kind !== "statementOver50" || m >= until60) && kind !== "projection";
+      // 50歳以上の定期便の見込額には60歳までの加入が入っているので、作成時点で厚生年金に入っていた人は、報酬比例に足すのは60歳から
+      const accrues = employee && (kind !== "statementOver50" || m >= until60 || !employeeAtAsOf) && kind !== "projection";
       months.push({ month: s.month, basic, employee, employee2059: employee && basic && m >= SINCE_1961, remuneration, accrues });
     }
 
@@ -250,11 +297,33 @@ export default defineComponent<{ member: string }, RecordOutput>({
       qualifyingMonths = rec.months?.qualifying ?? basicMonths + c1.exemptQuarter + c1.exemptHalf + c1.exemptThreeQuarters + c1.exemptFull + c1.deferred;
       amounts.basic = rec.kind === "statementUnder50" ? null : boxValue(rec.amounts?.basic);
       amounts.employee = boxValue(rec.amounts?.employee);
+      // 50歳以上の定期便で、作成時点で厚生年金に入っていた人: 作成の後60歳までの厚生年金に入らない月の分（作成時点の報酬×乗率）を
+      // 見込額から引く（記録の年度の水準。作成時点の報酬はその年度の額なので、改定率で直さない。改訂7）
+      if (over50 && employeeAtAsOf && amounts.employee !== null && asOf !== null) {
+        const insured = new Set(months.filter((x) => x.employee).map((x) => x.month));
+        const r0 = estimateOf(atAsOf.employer as string, asOf < SPLIT_2003);
+        const last = until60 <= ctx.time.end ? addMonths(until60, -1) : ctx.time.end;
+        const DEN = 1000000000000n;
+        let num = 0n;
+        let n = 0;
+        for (let m = addMonths(asOf, 1) as MonthIndex; m <= last; m = addMonths(m, 1) as MonthIndex) {
+          if (insured.has(formatYm(m))) continue;
+          const r = ctx.rate.fraction(at.paramRate(m < SPLIT_2003 ? PRE : POST) ?? rate("0"));
+          num += (BigInt(r0) * r.num * DEN) / r.den;
+          n++;
+        }
+        if (n > 0) {
+          const minus = ctx.at(base).money.mulRatio(yen(1), num, DEN, ROUND);
+          amounts.employee = yen(amounts.employee > minus ? amounts.employee - minus : 0);
+          ctx.notice("N_ASSUMED", ["pension.record.statementOver50.beforeSixty", member]);
+        }
+      }
       amounts.transitional = boxValue(rec.amounts?.transitional);
       amounts.special = boxValue(rec.amounts?.special);
     }
     // 受給資格期間: 記録の月数と、記録の後の月（20〜59歳の月と、それ以外の厚生年金の月）
     for (const x of months) if (x.basic || x.employee) qualifyingMonths++;
+    qualifyingMonths += qualifyingOnly;
     return {
       kind,
       fiscalYear: fiscalYearOf(asOf ?? base),

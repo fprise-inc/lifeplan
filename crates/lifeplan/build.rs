@@ -44,15 +44,20 @@ fn main() {
     // カスタム層の説明の一覧・名前の一覧（0016 の追記・0212。list_custom_texts が返す。アプリ本体が埋め込む物と同じ中身）
     let texts_catalog = manifest_dir.join("dist/texts-catalog.json");
     let terms_catalog = manifest_dir.join("dist/terms-catalog.json");
+    // カスタム層の入力の欄の一覧（settings/fields.json の id。list_custom_texts の file: fields）と、表示の設定の一覧（get_display_settings。0213）
+    let fields_catalog = manifest_dir.join("dist/fields-catalog.json");
+    let display_catalog = manifest_dir.join("dist/display-catalog.json");
     let coverage = repo.join("engine/dist/coverage.json");
     if !explain_js.exists()
         || !plan_js.exists()
         || !samples_json.exists()
         || !texts_catalog.exists()
         || !terms_catalog.exists()
+        || !fields_catalog.exists()
+        || !display_catalog.exists()
     {
         panic!(
-            "AI接続口の「数字の根拠」の読み方・プランの動かす項目・見本の世帯の名前と目印・説明の一覧（crates/lifeplan/dist/explain.js・plan.js・samples.json・texts-catalog.json・terms-catalog.json）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
+            "AI接続口の「数字の根拠」の読み方・プランの動かす項目・見本の世帯の名前と目印・説明の一覧・表示の設定の一覧（crates/lifeplan/dist/explain.js・plan.js・samples.json・texts-catalog.json・terms-catalog.json・fields-catalog.json・display-catalog.json）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
         );
     }
     if !coverage.exists() {
@@ -65,6 +70,8 @@ fn main() {
     println!("cargo:rerun-if-changed={}", samples_json.display());
     println!("cargo:rerun-if-changed={}", texts_catalog.display());
     println!("cargo:rerun-if-changed={}", terms_catalog.display());
+    println!("cargo:rerun-if-changed={}", fields_catalog.display());
+    println!("cargo:rerun-if-changed={}", display_catalog.display());
     println!("cargo:rerun-if-changed={}", coverage.display());
     println!("cargo:rerun-if-changed={}", engine_js.display());
     println!("cargo:rerun-if-changed={}", regulation.display());
@@ -104,6 +111,13 @@ fn main() {
         "/// カスタム層の説明の一覧（app/scripts/textsCatalog.ts。texts-reference@1.0。0016 の追記・0212）\npub const TEXTS_CATALOG_JSON: &str = include_str!({:?});\n/// カスタム層の名前の一覧（terms-reference@1.0）\npub const TERMS_CATALOG_JSON: &str = include_str!({:?});",
         texts_catalog.display().to_string(),
         terms_catalog.display().to_string()
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "/// カスタム層の入力の欄の一覧（fields-reference@1.0。settings/fields.json の id）\npub const FIELDS_CATALOG_JSON: &str = include_str!({:?});\n/// 表示の設定の一覧（app/src/connector/displayCatalog.ts。display-settings-reference@1.0。0213）\npub const DISPLAY_CATALOG_JSON: &str = include_str!({:?});",
+        fields_catalog.display().to_string(),
+        display_catalog.display().to_string()
     )
     .unwrap();
     out.push_str("/// 制度データ・マスタのパック（engine/dist/regulation/*.json。名前の順）\npub const PACKS: &[&str] = &[\n");

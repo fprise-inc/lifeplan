@@ -29,6 +29,7 @@ pub const KINDS: &[&str] = &[
 ];
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CheckInputsArgs {
     /// 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,

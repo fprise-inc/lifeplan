@@ -22,7 +22,8 @@
       "type": "object"
     },
     "PlanChange": {
-      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）",
+      "additionalProperties": false,
+      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らないが、写したときのために受けて使わない）。\n知らない名前は受けない（args.rs が近い名前を添えて断る）",
       "properties": {
         "at": {
           "default": null,
@@ -42,6 +43,14 @@
         "lever": {
           "default": null,
           "description": "合成の対策の名前（list_plan_items が lever を添えた項目だけ。そのまま渡す。例: investMonthly〔資産運用の毎月の積立額〕・\ninvestStopAge〔積立をやめる年齢〕・drawdownStart〔取り崩しを始める年齢〕・mainEndAge〔定年後の予定の定年〕）。at とどちらか1つ",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "note": {
+          "default": null,
+          "description": "理由（propose_scenario の changes から写したときのため。計算には使わない）",
           "type": [
             "string",
             "null"
@@ -135,9 +144,10 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "at_ages": {
-      "description": "keyFigures の「○歳時点の金融資産」の本人の年齢（compare と同じ。最初の1つを使う。既定 95）",
+      "description": "keyFigures の「○歳時点の金融資産」の本人の年齢（compare と同じ。最初の1つを使う。既定 95）。表の範囲の外の年齢なら、グラフを作らずに理由を返す",
       "items": {
         "format": "uint8",
         "maximum": 255,

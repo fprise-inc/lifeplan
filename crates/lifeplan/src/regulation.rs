@@ -124,12 +124,12 @@ pub fn lookup(id: &str, as_of: &str) -> Option<Value> {
 
 /// 名前か ID に語を含む値の一覧（名前の短いものから。最大 limit 件）
 pub fn search(query: &str, limit: usize) -> Vec<Value> {
-    let q = query.to_lowercase();
+    let q = crate::fold::fold(query);
     let mut found: Vec<&Entry> = values()
         .iter()
         .filter(|e| {
-            let id = e.def["id"].as_str().unwrap_or("").to_lowercase();
-            let title = e.def["title"].as_str().unwrap_or("").to_lowercase();
+            let id = crate::fold::fold(e.def["id"].as_str().unwrap_or(""));
+            let title = crate::fold::fold(e.def["title"].as_str().unwrap_or(""));
             q.split_whitespace()
                 .all(|w| id.contains(w) || title.contains(w))
         })
