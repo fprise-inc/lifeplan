@@ -4,10 +4,13 @@
 //!   スキーマに無い項目・形の決まっていない文字列（人が書いた文章になりうるもの）は、許可リストにかかわらず外す。
 //!   形の決まった文字列の欄でも、値がその形（列挙・定数・正規表現）に合わなければ外す。地図の鍵も鍵の形と照らす
 //!   （画面の不具合・壊れた世帯ファイル・移行で、形の欄に文章が入った世帯から文章を渡さないため）。
+//!   スキーマでは「文字」としか決まっていない、アプリが作る値の欄（`SYSTEM_STRINGS`）も、ここで形を決める: 推定の根拠の文は決まった言葉に
+//!   置き換え、数表の参照・料金表を写した日時は形に合うときだけ残す。値の状態の鍵の `/` の後ろ（場所）も、欄の名前か物の ID の形だけを通す。
 //! - **文章の項目**（既定で外す。FPが項目ごとに足せる）: 計算の入力の中の見出し（`periodicExpense.label`）と、
 //!   画面の側の文章（FPのメモ・顧客の相談内容・移行メモ・自由記述）。足したときは入力から抜き出して包み（`client_text`）、`texts` に並べる。
 //! - **どの版でも渡さない**: 世帯の内部ID・表示用の顧客番号・呼び名・同意の記録の中身・取り込みの記録の元データへの参照など（足せない）。
 //! - **物の ID の仮名**: 世帯の中の乱数ID（構成員・物）は、共有ごとに別の乱数IDに置き換える（同じ世帯の別の共有と結びつけられないように）。
+//!   地図の鍵の中の乱数ID（値の状態の鍵の場所に入った物の ID）も同じく置き換え、戻すときも同じく戻す。
 //!   並びの順番は保つ（計算の結果の並びが変わらないように）。プランの候補の ID は戻してから「AIからの候補」に入れる。
 
 use crate::schema::{self, location, string_fits, x_item, Node};
@@ -37,19 +40,103 @@ pub const TEXT_ITEMS: &[(&str, &str)] = &[
 pub const SOURCE_TEXT_ITEMS: &[&str] =
     &["note.fp", "note.consultation", "note.import", "note.free"];
 
-/// 入力項目IDの無い文字列のうち、アプリが作る決まった値（人が書かない）で、計算に要るもの。縮約版に残す
-const SYSTEM_STRINGS: &[&str] = &[
-    // 保険の年次の数表の出どころ（数表のパックへの参照と指紋）
-    "urn:financia:schema:engine.input#/$defs/insuranceContract/properties/schedule/properties/source/properties/productRef",
+/// 入力項目IDの無い文字列のうち、アプリが作る決まった値で、計算に要るものの扱い。スキーマでは「文字」としか決まっていないので、
+/// ここで形を決める（人や AI が文を書ける欄から文を渡さないため。独立した点検の指摘で 2026-11-15 に分けた）
+enum SystemString {
+    /// そのまま残す（公開のデータのパックの名前・版など）
+    Keep,
+    /// 形に合うときだけ残す。合わなければ、その欄を持つ物ごと外す（物は省ける欄で、外しても計算は変わらない）
+    Shape(fn(&str) -> bool),
+    /// 決まった言葉に置き換える（欄はスキーマで必須なので残す）
+    Fixed(&'static str),
+}
+
+/// 縮約版で、推定の根拠の文の代わりに入れる言葉（根拠の文は FP・AI・明細の取り込みが書けるので渡さない。推定の出し方 `method` は残る）
+pub const ESTIMATE_BASIS_PLACEHOLDER: &str = "推定の値（根拠の文は渡していません）";
+
+const SYSTEM_STRINGS: &[(&str, SystemString)] = &[
+    // 保険の年次の数表の出どころ（数表のパックへの参照）。参照の形でなければ出どころごと外す（数表の行は残る）
+    (
+        "urn:financia:schema:engine.input#/$defs/insuranceContract/properties/schedule/properties/source/properties/productRef",
+        SystemString::Shape(is_pack_ref),
+    ),
     // 学費データから写した学校の行の出どころ（パックと版）・課程
-    "urn:financia:schema:engine.input#/$defs/schoolTuition/properties/source/properties/pack",
-    "urn:financia:schema:engine.input#/$defs/schoolTuition/properties/source/properties/version",
-    "urn:financia:schema:engine.input#/$defs/schoolTuition/properties/track",
-    // 事務所の標準の料金表から写した日時
-    "urn:financia:schema:engine.input#/$defs/advisoryFee/properties/menu/properties/copiedFrom/properties/at",
-    // 推定の根拠（統計名と年度。アプリが書く）
-    "urn:financia:schema:common#/$defs/valueBoxMeta/properties/estimate/properties/basis",
+    (
+        "urn:financia:schema:engine.input#/$defs/schoolTuition/properties/source/properties/pack",
+        SystemString::Keep,
+    ),
+    (
+        "urn:financia:schema:engine.input#/$defs/schoolTuition/properties/source/properties/version",
+        SystemString::Keep,
+    ),
+    (
+        "urn:financia:schema:engine.input#/$defs/schoolTuition/properties/track",
+        SystemString::Keep,
+    ),
+    // 事務所の標準の料金表から写した日時。日時の形でなければ写した記録ごと外す（料金は残る）
+    (
+        "urn:financia:schema:engine.input#/$defs/advisoryFee/properties/menu/properties/copiedFrom/properties/at",
+        SystemString::Shape(is_date_time),
+    ),
+    // 推定の根拠（統計名と年度のほか、FP が書く事務所の推定の値の根拠・AI の候補から作った世帯の根拠も入る）
+    (
+        "urn:financia:schema:common#/$defs/valueBoxMeta/properties/estimate/properties/basis",
+        SystemString::Fixed(ESTIMATE_BASIS_PLACEHOLDER),
+    ),
 ];
+
+fn system_string<'a>(nodes: &[Node<'_>]) -> Option<&'a SystemString> {
+    nodes.iter().find_map(|n| {
+        let at = location(n);
+        SYSTEM_STRINGS
+            .iter()
+            .find(|(l, _)| *l == at.as_str())
+            .map(|(_, r)| r)
+    })
+}
+
+fn regex(cell: &'static OnceLock<regex::Regex>, pattern: &str) -> &'static regex::Regex {
+    cell.get_or_init(|| regex::Regex::new(pattern).expect("正規表現"))
+}
+
+/// データのパックへの参照の形（英数字で始まり、英数字と `._:/@#-` だけ。200文字まで）
+fn is_pack_ref(s: &str) -> bool {
+    static R: OnceLock<regex::Regex> = OnceLock::new();
+    regex(&R, r"^[A-Za-z0-9][A-Za-z0-9._:/@#-]{0,199}$").is_match(s)
+}
+
+/// 日時の形（年月日・時分〔秒・小数秒は任意〕・時差。承認の日時と同じ形に小数秒を足した物）
+fn is_date_time(s: &str) -> bool {
+    static R: OnceLock<regex::Regex> = OnceLock::new();
+    regex(
+        &R,
+        r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\.[0-9]{1,9})?)?(Z|[+-][0-9]{2}:[0-9]{2})$",
+    )
+    .is_match(s)
+}
+
+/// 地図の鍵の `/` の後ろの場所（値の状態の鍵の「入力項目ID/場所」。0036 の2 の at）が決まった形か:
+/// 欄の名前か物の ID（英数字で始まり、英数字と `_-` だけ。64文字まで）。スキーマの鍵の形は前の部分しか決めていない
+fn key_places_fit(k: &str) -> bool {
+    static R: OnceLock<regex::Regex> = OnceLock::new();
+    let r = regex(&R, r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$");
+    k.split('/').skip(1).all(|p| r.is_match(p))
+}
+
+/// 鍵の中の乱数ID（鍵そのもの、または `/` で区切った場所の1つ）を置き換える
+fn map_key<E>(k: &str, mut f: impl FnMut(&str) -> Result<String, E>) -> Result<String, E> {
+    if is_uuid(k) {
+        return f(k);
+    }
+    if !k.contains('/') {
+        return Ok(k.to_owned());
+    }
+    let parts: Result<Vec<String>, E> = k
+        .split('/')
+        .map(|p| if is_uuid(p) { f(p) } else { Ok(p.to_owned()) })
+        .collect();
+    Ok(parts?.join("/"))
+}
 
 /// 許可リストの版と項目
 pub struct Allowlist {
@@ -231,7 +318,7 @@ impl Pseudonyms {
             Value::Object(m) => {
                 let mut out = Map::new();
                 for (k, x) in m {
-                    let k2 = if is_uuid(k) { self.alias(k) } else { k.clone() };
+                    let k2 = map_key(k, |id| Ok::<_, ()>(self.alias(id))).unwrap_or_default();
                     out.insert(k2, self.apply(x));
                 }
                 Value::Object(out)
@@ -255,13 +342,11 @@ impl Pseudonyms {
             Value::Object(m) => {
                 let mut out = Map::new();
                 for (k, x) in m {
-                    let k2 = if is_uuid(k) {
-                        self.original(k)
+                    let k2 = map_key(k, |id| {
+                        self.original(id)
                             .map(str::to_owned)
-                            .ok_or_else(|| k.clone())?
-                    } else {
-                        k.clone()
-                    };
+                            .ok_or_else(|| id.to_owned())
+                    })?;
                     out.insert(k2, self.restore(x)?);
                 }
                 Ok(Value::Object(out))
@@ -289,9 +374,10 @@ fn collect_uuids(v: &Value, out: &mut BTreeSet<String>) {
         Value::Array(a) => a.iter().for_each(|x| collect_uuids(x, out)),
         Value::Object(m) => {
             for (k, x) in m {
-                if is_uuid(k) {
-                    out.insert(k.clone());
-                }
+                let _ = map_key(k, |id| {
+                    out.insert(id.to_owned());
+                    Ok::<_, ()>(id.to_owned())
+                });
                 collect_uuids(x, out);
             }
         }
@@ -348,8 +434,16 @@ impl<'s> Walk<'s> {
                     if child.is_empty() {
                         continue; // スキーマに無い項目は渡さない
                     }
-                    if self.check_values && !self.schemas.key_fits(nodes, k) {
+                    if self.check_values && (!self.schemas.key_fits(nodes, k) || !key_places_fit(k))
+                    {
                         continue; // 鍵の形に合わない地図の鍵は渡さない
+                    }
+                    if let (true, Some(SystemString::Shape(fits)), Some(s)) =
+                        (self.check_values, system_string(&child), cv.as_str())
+                    {
+                        if !fits(s) {
+                            return None; // 決まった形の欄に文が入った物は、物ごと渡さない
+                        }
                     }
                     if let Some(item) = x_item(&child) {
                         if let Some((_, author)) = TEXT_ITEMS.iter().find(|(i, _)| *i == item) {
@@ -388,17 +482,19 @@ impl<'s> Walk<'s> {
                         .collect(),
                 ))
             }
-            Value::String(s) => {
-                let system = nodes
-                    .iter()
-                    .any(|n| SYSTEM_STRINGS.contains(&location(n).as_str()));
-                let fits = if self.check_values {
-                    string_fits(nodes, s)
-                } else {
-                    schema_has_shape(nodes)
-                };
-                (system || fits).then(|| v.clone())
-            }
+            Value::String(s) => match system_string(nodes) {
+                Some(SystemString::Fixed(text)) => Some(Value::String((*text).to_owned())),
+                // 形は物の側で照らした（合わなければ物ごと外れている）
+                Some(SystemString::Keep | SystemString::Shape(_)) => Some(v.clone()),
+                None => {
+                    let fits = if self.check_values {
+                        string_fits(nodes, s)
+                    } else {
+                        schema_has_shape(nodes)
+                    };
+                    fits.then(|| v.clone())
+                }
+            },
             other => Some(other.clone()),
         }
     }
