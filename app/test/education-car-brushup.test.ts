@@ -8,7 +8,7 @@ import { allFields, resolveTimepoint, type FieldDef, type GroupDef, type Section
 import { blankHousehold, mutate, newId, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { rowAt } from "../src/workspace/input/rows.ts";
 import { addCar, addLeaseCar, loanLine, RELEASE_BASIS, setReplace } from "../src/workspace/input/stages/cars.ts";
-import { addChildIncome, addEducationLoan, addScholarship, childAgeGrade, fillVocationalGuide, giftDonorOptions, presetOf, replaceHigher, stageRemainingCost, VOCATIONAL_GUIDE_LABEL } from "../src/workspace/input/stages/education.ts";
+import { addChildIncome, addEducationLoan, addScholarship, childAgeGrade, courseField, fillVocationalGuide, giftDonorOptions, presetOf, replaceHigher, stageRemainingCost, VOCATIONAL_GUIDE_LABEL } from "../src/workspace/input/stages/education.ts";
 import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { confirmAll, fieldStatus } from "../src/workspace/input/valueState.ts";
@@ -61,7 +61,8 @@ describe("進路の型の比較の仕方（高校のあとが大学でないと�
     // 高専（国立）は高校の代わり: 高校まで公立の型と同じ側
     expect(presetOf([pub("elementary"), pub("juniorHigh"), pub("kosen", "national"), pub("university", "national")])).toBe("allPublic");
     const wh = vocational();
-    const course = fieldIn(edu(wh), `edu/${goalOf(wh).id}/preset`);
+    // 進路の型は入力の欄から外し、結果のタブの動かす項目だけで使う（同じ欄の定義 courseField。2026-11-14）
+    const course = courseField(goalOf(wh).id);
     expect(course.get(wh).value).toBe("univPrivate");
     expect(course.get(wh).hint).toBe("専門学校の公立・私立は型では変わりません（その段階で選びます）");
     // 型の名前は欄に収まる長さ
@@ -69,13 +70,14 @@ describe("進路の型の比較の仕方（高校のあとが大学でないと�
     // 型を「すべて公立」にしても専門学校は私立のまま（型で変わらない）→ 高校まで公立・専門学校が私立の「大学だけ私立」と読む
     const all = course.set(wh, "allPublic");
     expect(goalOf(all).education!.stages.find((s) => s.stage === "vocational")!.sector).toBe("private");
-    expect(fieldIn(edu(all), `edu/${goalOf(all).id}/preset`).get(all).value).toBe("univPrivate");
+    expect(course.get(all).value).toBe("univPrivate");
     // 「高校から私立」は高校を私立にし、専門学校（私立）とも合う
     const high = course.set(wh, "highPrivate");
-    expect(fieldIn(edu(high), `edu/${goalOf(high).id}/preset`).get(high).value).toBe("highPrivate");
+    expect(course.get(high).value).toBe("highPrivate");
     // 専門学校を公立にすると、大学が私立の型には合わない（「すべて公立」に合う）
     const pubVoc = mutate(high, (h) => void ((h.goals ?? []).find((x) => x.kind === "education")!.education!.stages.find((st) => st.stage === "vocational")!.sector = "public"));
-    expect(fieldIn(edu(pubVoc), `edu/${goalOf(pubVoc).id}/preset`).get(pubVoc).value).toBe("");
+    expect(course.get(pubVoc).value).toBe("");
+    expect(allFields(edu(wh)).some((x) => x.key.endsWith("/preset"))).toBe(false);
   });
 });
 
@@ -121,7 +123,7 @@ describe("専門学校の学費の目安", () => {
     // 段階の見出し: 推定で入れた学費は「（推定）」、2年分と入学金の目安
     const vg = groupsOf(edu(w)).find((x) => x.key === `edu/${g.id}/stage/${i}`)!;
     expect(vg.note).toContain("学費 年113.6万円（推定）");
-    expect(vg.summary).toBe("2年で約245.5万円");
+    expect(vg.summary).toBe("2年で約245.5万円（今の値段）");
     // 入れる前（0円）は額を出さない
     expect(groupsOf(edu(wh)).find((x) => x.key === `edu/${g.id}/stage/${i}`)!.summary).toBeUndefined();
     // 入学金だけ入れていた段階は、年額だけ入れる
@@ -145,10 +147,12 @@ describe("子の見出しの年齢・学年と、これからの教育費", () =
     const el = stageIndex(wh, "elementary");
     const uni = stageIndex(wh, "university");
     const elG = groupsOf(edu(wh)).find((x) => x.key === `edu/${g.id}/stage/${el}`)!;
-    // 小学4年の10月: 今年度を含めて3年
-    expect(elG.summary).toMatch(/^3年で約[\d,.]+万円$/);
+    // 小学4年の10月: 計算の基準の月から卒業の月まで月で数える（2026-11-14。計算エンジンが払う月と同じ）
+    expect(elG.summary).toMatch(/^残り2年半（2029年3月まで）で約[\d,.]+万円（今の値段）$/);
+    const elCost = stageRemainingCost(c, g.education!.stages[el]!, BASE, "")!;
+    expect([elCost.months, elCost.started]).toEqual([30, true]);
     const uniCost = stageRemainingCost(c, g.education!.stages[uni]!, BASE, "")!;
-    expect(uniCost.years).toBe(4);
+    expect([uniCost.years, uniCost.started]).toEqual([4, false]);
     // 自宅外にすると仕送り（4年）と初期費用が足される
     const away = stageRemainingCost(c, { ...g.education!.stages[uni]!, living: "away" }, BASE, "")!;
     expect(away.total - uniCost.total).toBeGreaterThan(3000000);
@@ -162,32 +166,46 @@ describe("子の見出しの年齢・学年と、これからの教育費", () =
 });
 
 describe("学校外の費用の1つの欄", () => {
-  it("統計の平均／入れない／段階ごとに額で／塾・習い事を行で。世帯ファイルは段階の値と入れ方の今の2つのまま", () => {
+  it("すべて統計の平均／すべて入れない／学校ごとに入れる／塾・習い事を別に入れる。世帯ファイルは学校ごとの値と入れ方の今の2つのまま", () => {
     const wh = fresh();
     const g = goalOf(wh);
     const f = fieldIn(edu(wh), `edu/${g.id}/outUniform`);
     expect(f.level).toBe("simple");
-    expect(f.kind === "select" && f.options.map((o) => o.label)).toEqual(["統計の平均", "入れない", "段階ごとに額で", "塾・習い事を行で"]);
+    expect(f.kind === "select" && f.options.map((o) => o.label)).toEqual(["すべて統計の平均", "すべて入れない", "学校ごとに入れる", "塾・習い事を別に入れる"]);
+    expect(f.kind === "select" && f.options.some((o) => o.label.includes("段階"))).toBe(false);
     expect(f.get(wh).value).toBe("statistics");
     // 入れ方の欄は別に出さない
     expect(allFields(edu(wh)).some((x) => x.key.endsWith("/outMode"))).toBe(false);
-    // 段階ごとに額で: 額の入っていない段階に統計の平均の月額（推定）
+    // 学校ごとに入れる: 額の入っていない幼稚園〜高校に統計の平均の月額（推定）。学校の行の月額の欄は標準に出る
     const custom = f.set(wh, "custom");
     const k12 = goalOf(custom).education!.stages.filter((s) => ["elementary", "juniorHigh", "highSchool"].includes(s.stage));
     expect(k12.every((s) => typeof s.outOfSchool === "object")).toBe(true);
     expect(fieldIn(edu(custom), `edu/${g.id}/outUniform`).get(custom).value).toBe("custom");
     const el = stageIndex(custom, "elementary");
     expect(fieldStatus(fieldIn(edu(custom), `edu/${g.id}/stage/${el}/outOfSchool`), custom).status).toBe("estimated");
-    // 塾・習い事を行で: 入れ方が行になり、行（推定）ができる
+    expect(fieldIn(edu(custom), `edu/${g.id}/stage/${el}/outOfSchool`).level).toBe("simple");
+    expect(fieldIn(edu(wh), `edu/${g.id}/stage/${el}/outOfSchool`).level).toBe("detail");
+    // 大学の行: 統計の平均は無いので空欄（0円）のまま、標準に出る
+    const uni = stageIndex(custom, "university");
+    const uniOut = fieldIn(edu(custom), `edu/${g.id}/stage/${uni}/outOfSchool`);
+    expect([uniOut.level, uniOut.get(custom).value, uniOut.get(custom).hint]).toEqual(["simple", null, "資格の予備校などがあれば入れます"]);
+    expect(goalOf(custom).education!.stages[uni]!.outOfSchool).toBeUndefined();
+    // 塾・習い事を別に入れる: 入れ方が行になる（統計の平均の行は作らない。2026-11-14）
     const rows = f.set(wh, "rows");
     expect(goalOf(rows).education!.outOfSchoolMode).toBe("rows");
     expect(fieldIn(edu(rows), `edu/${g.id}/outUniform`).get(rows).value).toBe("rows");
     // 統計の平均に戻すと入れ方も統計に（行は残る）
     const back = fieldIn(edu(rows), `edu/${g.id}/outUniform`).set(rows, "statistics");
     expect(goalOf(back).education!.outOfSchoolMode).toBe("statistics");
-    expect(goalOf(back).education!.lessons!.length).toBeGreaterThan(0);
+    expect(goalOf(back).education!.lessons).toBeUndefined();
     const none = f.set(wh, "none");
     expect(goalOf(none).education!.stages.filter((s) => ["elementary", "juniorHigh", "highSchool"].includes(s.stage)).every((s) => s.outOfSchool === "none")).toBe(true);
+    expect(fieldIn(edu(none), `edu/${g.id}/outUniform`).get(none).value).toBe("none");
+    // 「すべて入れない」から「学校ごとに入れる」: 幼稚園〜高校は統計の平均（推定）から始める
+    const fromNone = fieldIn(edu(none), `edu/${g.id}/outUniform`).set(none, "custom");
+    expect(goalOf(fromNone).education!.stages.filter((s) => ["elementary", "juniorHigh", "highSchool"].includes(s.stage)).every((s) => typeof s.outOfSchool === "object" && s.outOfSchool.monthly > 0)).toBe(true);
+    expect(goalOf(fromNone).education!.stages[uni]!.outOfSchool).toBeUndefined();
+    expect(fieldIn(edu(fromNone), `edu/${g.id}/outUniform`).get(fromNone).value).toBe("custom");
   });
 });
 

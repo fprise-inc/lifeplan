@@ -109,6 +109,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_INPUT_REQUIRED|retirementBenefit.amount": { kind: "input", text: "退職金の額が入っていない（目安も出せない）ので、退職金を0円で計算しています", card: "retirement" },
   "N_INPUT_REQUIRED|retirementBenefit.receipt.annualAmount": { kind: "input", text: "企業年金の年金の額（か受け取る年数）が入っていないので、年金を0円で計算しています", card: "retirement" },
   "N_INPUT_REQUIRED|goal.education.stages.annualOverride": { kind: "input", text: "専門学校・公立の短大の学費は統計の値が無いので、年額を入れてください（入れるまで0円で計算しています）", card: "education" },
+  "N_INPUT_REQUIRED|goal.education.stages.monthly": { kind: "input", text: "認可外・企業主導型の保育所の保育料は国の基準で計算できないので、月額を入れてください（入れるまで0円で計算しています）", card: "education" },
   "N_INPUT_REQUIRED|insurance.simple.returnRate": { kind: "input", text: "貯蓄型の保険の解約返戻金の目安（返戻率）が入っていないので、解約返戻金を0円で数えています（資産と負債）", card: "insurance" },
   "N_INPUT_REQUIRED|insurance.simple.account": { kind: "input", text: "アカウント型の保険の払込の終わりが入っていないので、積立金を0円で数えています（払込の終わりを入れてください）", card: "insurance" },
   "N_INPUT_REQUIRED|socialInsurance.continuation.rates": { kind: "input", text: "任意継続の健康保険の保険料率が無いので、任意継続の保険料を0円で計算しています", card: "work" },

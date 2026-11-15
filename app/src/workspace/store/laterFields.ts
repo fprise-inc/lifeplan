@@ -17,6 +17,7 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:edu/{object}/stage/{n}/boarding/monthly","until":"0.35","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"boarding","monthly"]}},
   {"from":"field:edu/{object}/stage/{n}/club","until":"0.39","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"clubAnnual"]}},
   {"from":"field:edu/{object}/stage/{n}/entrance","until":"0.35","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"entranceOverride"]}},
+  {"from":"field:edu/{object}/stage/{n}/extended","until":"0.76","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"extendedMonthly"]}},
   {"from":"field:edu/{object}/stage/{n}/extra","until":"0.39","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"extraAnnual"]}},
   {"from":"field:edu/{object}/stage/{n}/outOfSchool","until":"0.39","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"outOfSchool","monthly"]}},
   {"from":"field:ev/car/{object}/lease/monthly","until":"0.45","to":{"target":"object","item":"car.lease","at":["monthly"]}},

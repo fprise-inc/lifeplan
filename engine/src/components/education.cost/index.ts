@@ -40,6 +40,9 @@
 //   国立は省令の標準額（法科大学院は別の額）、公立は大学院の平均、私立は専門職学位課程の平均（法科大学院とその他）
 // - 改訂10（0165）: 払う人を書いていない子への援助は、払う月に世帯にいる最初の親（関係 parentOf の並び。無ければ本人・配偶者）が払う
 //   （前は子の最初の親のまま、亡くなった親の名で払った。額は変わらない）
+// - 改訂11（0063 の追記 2026-11-14）: 幼〜高のほかの段（高専・大学・短大・専門学校・大学院）の学校外の費用。統計の平均が無いので、段に月額
+//   （outOfSchool の monthly）を入れたときだけ、在学中（休学の年を除く）毎月数える（資格の予備校など。行 cf.expense.education.outOfSchool）。
+//   statistics・none・省略は0円（前と同じ）。入れ方が rows（行で入れる）なら数えない（幼〜高と同じ）
 // 教育費の上昇率は学校の費用・学校外活動費・仕送り・留学に当て、公的支援には当てない（0010 の5）
 import {
   addMonths,
@@ -101,7 +104,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.1",
-  revision: 10,
+  revision: 11,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -351,6 +354,15 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
             push(addMonths(start, 12 * k), "cf.expense.education.school", halves[0] as Yen, "education.cost.tuition");
             push(addMonths(start, 12 * k + 6), "cf.expense.education.school", halves[1] as Yen, "education.cost.tuition");
             fees.push({ fiscalYear: fy, tuition: annual, admission: k === 0 ? grown(admission, fy0) : yen(0) });
+          }
+        }
+        // 学校外の費用（幼〜高のほかの段。改訂11）: 月額を入れた段だけ
+        if (!K12.has(st.stage) && mode !== "rows" && typeof st.outOfSchool === "object") {
+          const annual = ctx.money.mulRatio(st.outOfSchool.monthly, 12, 1, "conv.exact");
+          for (let k = 0; k < years; k++) {
+            if (leave.has(k)) continue;
+            const parts = ctx.money.allocate(grown(annual, fy0 + k), Array.from({ length: 12 }, () => 1), "conv.expense.share", "first");
+            for (let i = 0; i < 12; i++) push(addMonths(start, 12 * k + i), "cf.expense.education.outOfSchool", parts[i] as Yen, "education.cost.outOfSchool");
           }
         }
         // 受験・併願
