@@ -1,4 +1,4 @@
-// 表示の設定の候補（propose_display_settings。0215）: 候補を出せるのは事務所の既定値の見せ方の7つだけで、値は表示の設定の一覧の選べる値・値の形で
+// 表示の設定の案（propose_display_settings。0215）: 案を出せるのは事務所の既定値の見せ方の7つだけで、値は表示の設定の一覧の選べる値・値の形で
 // 確かめ（知らない id・選べない値・空・重複・20文字を超える行の名前は、理由と近い候補を添えて断る）、反映すると前の値を事務所データに数件だけ残し、
 // 前の値に戻せる。前の版の事務所データ（前の値の欄が無い）もそのまま読める
 import { h } from "preact";
@@ -23,7 +23,7 @@ const living = (label: string) => ({
   ],
 });
 
-/** 設定ごとの、既定と違う正しい候補の値 */
+/** 設定ごとの、既定と違う正しい案の値 */
 const SAMPLES: Record<ProposableDisplayId, unknown> = {
   "input.order": [...STAGE_ORDER.map((s) => s.id)].reverse(),
   "input.items": { hidden: ["rental", "car"], levels: { work: "detail", car: "simple" } },
@@ -34,7 +34,7 @@ const SAMPLES: Record<ProposableDisplayId, unknown> = {
   "contingency.openScene": "income",
 };
 
-describe("候補を出せる設定", () => {
+describe("案を出せる設定", () => {
   it("一覧の proposable は事務所の既定値の見せ方の7つで、世帯ごと・読むだけの設定は入らない", () => {
     const list = buildDisplayCatalog().settings;
     expect(list.filter((s) => s.proposable === true).map((s) => s.id)).toEqual([...PROPOSABLE_DISPLAY_IDS]);
@@ -44,7 +44,7 @@ describe("候補を出せる設定", () => {
     }
   });
 
-  it("7つ以外の id は、近い id か候補を出せない理由を添えて断る", () => {
+  it("7つ以外の id は、近い id か案を出せない理由を添えて断る", () => {
     expect(problems([{ id: "result.lever", value: [] }])).toContain("result.levers のことですか");
     expect(problems([{ id: "result.metrics", value: [] }])).toContain("世帯ごとの設定");
     expect(problems([{ id: "balance.guide", value: {} }])).toContain("資産と負債のタブ");
@@ -57,7 +57,7 @@ describe("候補を出せる設定", () => {
     expect(problems([{ id: "contingency.openScene", value: "income" }, { id: "contingency.openScene", value: "market" }])).toContain("同じ設定が2回");
     expect(problems([{ id: "contingency.openScene" }])).toContain("value がありません");
     expect(problems([{ id: "contingency.openScene", value: "income", note: "あ".repeat(MAX_DISPLAY_NOTE + 1) }])).toContain(`${MAX_DISPLAY_NOTE}文字まで`);
-    // 断るときは、ほかの正しい候補も出さない
+    // 断るときは、ほかの正しい案も出さない
     const r = checkDisplayChanges([{ id: "contingency.openScene", value: "income" }, { id: "result.metrics", value: [] }]);
     expect(r.changes).toEqual([]);
   });
@@ -71,7 +71,7 @@ describe("候補を出せる設定", () => {
 });
 
 describe("値の確かめ（境目）", () => {
-  it("正しい候補は、今の値と同じ形にそろえる（並びは選べる値の順。標準は持たない）", () => {
+  it("正しい案は、今の値と同じ形にそろえる（並びは選べる値の順。標準は持たない）", () => {
     const r = checkDisplayChanges(PROPOSABLE_DISPLAY_IDS.map((id) => ({ id, value: SAMPLES[id], note: "  理由  " })));
     expect(r.problems).toEqual([]);
     expect(r.changes.map((c) => c.id)).toEqual([...PROPOSABLE_DISPLAY_IDS]);
@@ -228,7 +228,7 @@ describe("反映する・前の値に戻す", () => {
     expect(readDisplayHistory([])).toBeUndefined();
   });
 
-  it("承認の画面の行: 今 → 候補。今と同じ候補・確かめられない候補は分かるようにする", () => {
+  it("承認の画面の行: 今 → 案。今と同じ案・確かめられない案は分かるようにする", () => {
     const row = proposalRow(DEFAULT_OFFICE_SETTINGS, "result.levers", ["lever:nisaMonthly", "lever:retireAge"]);
     expect(row.problem).toBeNull();
     expect(row.now).toContain("働く最後の年齢（ご本人）");
@@ -251,9 +251,9 @@ describe("反映する・前の値に戻す", () => {
   });
 });
 
-describe("承認の画面（事務所の既定値の「AIからの表示の設定の候補」）", () => {
+describe("承認の画面（事務所の既定値の「AIからの表示の設定の案」）", () => {
   const no = () => Promise.reject(new Error("no"));
-  it("設定ごとに 今 → 候補 と AI の理由を出し、「反映する」「捨てる」を置く。確かめられない候補・今と同じ候補は「捨てる」だけ", () => {
+  it("設定ごとに 今 → 案 と AI の理由を出し、「反映する」「捨てる」を置く。確かめられない案・今と同じ案は「捨てる」だけ", () => {
     const html = renderToString(
       h(DisplayProposalsSection, {
         value: DEFAULT_OFFICE_SETTINGS,
@@ -275,9 +275,9 @@ describe("承認の画面（事務所の既定値の「AIからの表示の設�
         onRestore: no,
       }),
     );
-    expect(html).toContain("AIからの表示の設定の候補");
+    expect(html).toContain("AIからの表示の設定の案");
     expect(html).toContain('<span class="os-display-head">今</span>');
-    expect(html).toContain('<span class="os-display-head">候補</span>');
+    expect(html).toContain('<span class="os-display-head">案</span>');
     expect(html).toContain("変わる所: 足す: NISAの積立額（月）／外す: 年金を受け取り始める年齢（ご本人）・毎月の生活費・配偶者の働き方と年収");
     expect(html).toContain("NISA の相談が多い");
     expect(html).toContain("test-ai 1");
@@ -285,12 +285,12 @@ describe("承認の画面（事務所の既定値の「AIからの表示の設�
     expect(html.match(/data-display-discard=/g)?.length).toBe(4);
     expect(html).toContain("新しく作る世帯にだけ効きます（作った世帯は変わりません）");
     expect(html).toContain("今と同じです");
-    expect(html).toContain("この候補は反映できません");
+    expect(html).toContain("この案は反映できません");
     // 作った世帯にもそろえる操作は出さない
     expect(html).not.toContain("そろえる");
   });
 
-  it("前の値があれば「前の値に戻す」を新しい順に出す（候補が無くても）", () => {
+  it("前の値があれば「前の値に戻す」を新しい順に出す（案が無くても）", () => {
     let s = applyDisplayValue(DEFAULT_OFFICE_SETTINGS, "contingency.openScene", "income", "2026-11-15T01:00:00.000Z", "ai") as OfficeSettings;
     s = applyDisplayValue(s, "contingency.openScene", "market", "2026-11-15T02:00:00.000Z", "ai") as OfficeSettings;
     const html = renderToString(h(DisplayProposalsSection, { value: s, candidates: [], onApply: no, onDiscard: no, onRestore: no }));

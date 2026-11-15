@@ -1998,7 +1998,7 @@ export function App() {
   // 開いている世帯が架空の世帯か（一覧の札が正。一覧にまだ無いときは開いたときの札）
   const listedNow = storedInfo !== null ? storedList.find((h) => h.id === storedInfo.id) : undefined;
   const currentFictional = storedInfo !== null && storedInfo.sample === undefined && (listedNow !== undefined ? listedNow.fictional === true : storedInfo.fictional === true);
-  // 表示の設定の候補（0215）: 届いた・減ったとき・事務所の既定値の画面を開いたときに読み直す（中身は事務所の既定値の画面に出す）
+  // 表示の設定の案（0215）: 届いた・減ったとき・事務所の既定値の画面を開いたときに読み直す（中身は事務所の既定値の画面に出す）
   const displayCandCount = ai.status?.displayCandidates ?? 0;
   const [displayCands, setDisplayCands] = useState<AiDisplayCandidate[]>([]);
   useEffect(() => {

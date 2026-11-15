@@ -343,8 +343,8 @@ async fn feature_code_candidates_wait_for_the_fp() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// 表示の設定の候補（0215）: 世帯を渡していなくても出せる。承認待ちに入るだけで、設定は変わらない。候補を出せない設定・形の違うものは INVALID。
-/// 同じ中身はまとめ、承認待ちは4件まで。FPが設定ごとに反映するか捨てると、その設定だけ外れ、全部外れたら候補ごと外れる
+/// 表示の設定の案（0215）: 世帯を渡していなくても出せる。承認待ちに入るだけで、設定は変わらない。案を出せない設定・形の違うものは INVALID。
+/// 同じ中身はまとめ、承認待ちは4件まで。FPが設定ごとに反映するか捨てると、その設定だけ外れ、全部外れたら案ごと外れる
 #[tokio::test(flavor = "multi_thread")]
 async fn display_proposals_wait_for_the_fp() {
     let dir = temp_dir("display-propose");
@@ -376,7 +376,7 @@ async fn display_proposals_wait_for_the_fp() {
     let again: Value = serde_json::from_str(&propose(two).await.unwrap()).unwrap();
     assert_eq!(again["candidateId"], v["candidateId"]);
     assert_eq!(reg.display_candidates().len(), 1);
-    // 候補を出せない設定（世帯ごと・読むだけ）・形の違うもの
+    // 案を出せない設定（世帯ごと・読むだけ）・形の違うもの
     for bad in [
         serde_json::json!({ "changes": [{ "id": "balance.guide", "value": {} }] }),
         serde_json::json!({ "changes": [{ "id": "features.combinedBs", "value": true }] }),
@@ -415,7 +415,7 @@ async fn display_proposals_wait_for_the_fp() {
             ..
         }
     ));
-    // 設定ごとに外す（全部外したら候補ごと）
+    // 設定ごとに外す（全部外したら案ごと）
     let id = v["candidateId"].as_str().unwrap().to_owned();
     assert!(reg.take_display_change(&id, "result.levers").is_some());
     assert!(reg.take_display_change(&id, "result.levers").is_none());

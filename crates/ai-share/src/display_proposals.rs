@@ -1,17 +1,17 @@
-//! 表示の設定の候補（接続口の道具 `propose_display_settings`。0215）。AI が出した、事務所の既定値の見せ方だけの設定の候補を、アプリのメモリの中に
-//! 承認待ちで置くだけ。設定は変えない（FPが画面で設定ごとに「今 → 候補」を確かめて「反映する」を押したときだけ、画面が事務所の既定値に書く）。
-//! アプリを閉じると、判断していない候補は消える。
+//! 表示の設定の案（接続口の道具 `propose_display_settings`。0215）。AI が出した、事務所の既定値の見せ方だけの設定の案を、アプリのメモリの中に
+//! 承認待ちで置くだけ。設定は変えない（FPが画面で設定ごとに「今 → 案」を確かめて「反映する」を押したときだけ、画面が事務所の既定値に書く）。
+//! アプリを閉じると、判断していない案は消える。
 //!
-//! - ここでは形の外側を確かめる: 候補を出せる設定（`PROPOSABLE_IDS`。事務所の既定値の見せ方だけの7つ）・同じ設定が2回無いこと・値の大きさと深さ・
+//! - ここでは形の外側を確かめる: 案を出せる設定（`PROPOSABLE_IDS`。事務所の既定値の見せ方だけの7つ）・同じ設定が2回無いこと・値の大きさと深さ・
 //!   文字（列挙の鍵などの短い英数字だけ。基本生活費の内訳の並べ方の行の名前だけは、制御文字・書式の文字を含まない20文字までの文字を通す）・
-//!   理由の長さ。選べる値・値の形は、接続口が候補を出す前に、画面が反映する前に、同じ関数（app/src/connector/displayProposal.ts）で確かめる
+//!   理由の長さ。選べる値・値の形は、接続口が案を出す前に、画面が反映する前に、同じ関数（app/src/connector/displayProposal.ts）で確かめる
 //! - 世帯を渡していなくてよい（事務所の既定値は世帯の中身ではない。AIに渡した記録にも残さない）
 
 use crate::households::clean_line;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// 候補を出せる表示の設定（接続口の表示の設定の一覧の `proposable` と同じ。crates/lifeplan のテストで確かめる）
+/// 案を出せる表示の設定（接続口の表示の設定の一覧の `proposable` と同じ。crates/lifeplan のテストで確かめる）
 pub const PROPOSABLE_IDS: [&str; 7] = [
     "input.order",
     "input.items",
@@ -21,7 +21,7 @@ pub const PROPOSABLE_IDS: [&str; 7] = [
     "contingency.scenes",
     "contingency.openScene",
 ];
-/// 承認待ちにしておける候補の数
+/// 承認待ちにしておける案の数
 pub const MAX_PENDING: usize = 4;
 /// AI が書いた理由の長さの上限（文字。プランの候補の理由と同じ）
 pub const MAX_NOTE_CHARS: usize = 500;
@@ -34,7 +34,7 @@ const MAX_DEPTH: usize = 6;
 /// 列挙の鍵などの文字の長さの上限
 const MAX_KEY: usize = 40;
 
-/// 候補の1つの設定（値は get_display_settings の今の値と同じ形。理由は AI が書いた文章で、指示ではない）
+/// 案の1つの設定（値は get_display_settings の今の値と同じ形。理由は AI が書いた文章で、指示ではない）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DisplayChange {
@@ -44,7 +44,7 @@ pub struct DisplayChange {
     pub note: Option<String>,
 }
 
-/// 承認待ちの表示の設定の候補（届いたものを形だけ確かめて置く。信用しない。画面が確かめ直してから「今 → 候補」を出す）
+/// 承認待ちの表示の設定の案（届いたものを形だけ確かめて置く。信用しない。画面が確かめ直してから「今 → 案」を出す）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DisplayCandidate {
@@ -52,7 +52,7 @@ pub struct DisplayCandidate {
     pub received_at: String,
     /// MCP のあいさつでAIのアプリが名乗った名前（自己申告。認証ではない）
     pub connector: Option<String>,
-    /// 設定ごとの候補（FPが反映した・捨てた設定は外す。全部外したら候補ごと外す）
+    /// 設定ごとの案（FPが反映した・捨てた設定は外す。全部外したら案ごと外す）
     pub changes: Vec<DisplayChange>,
 }
 
@@ -99,14 +99,14 @@ fn strings_ok(v: &Value, labels: bool, key: Option<&str>) -> bool {
     }
 }
 
-/// 候補（`{ changes: [{ id, value, note? }] }`）の形の外側を確かめる。Err は AI に見せてよい理由
+/// 案（`{ changes: [{ id, value, note? }] }`）の形の外側を確かめる。Err は AI に見せてよい理由
 pub fn validate(proposal: &Value) -> Result<Vec<DisplayChange>, String> {
     let o = proposal
         .as_object()
-        .ok_or("候補の形が違います（{ changes: [...] }）。")?;
+        .ok_or("案の形が違います（{ changes: [...] }）。")?;
     if let Some(k) = o.keys().find(|k| k.as_str() != "changes") {
         return Err(format!(
-            "候補に知らない名前があります: {k}（書けるのは changes だけ）。"
+            "案に知らない名前があります: {k}（書けるのは changes だけ）。"
         ));
     }
     let list = o
@@ -135,12 +135,12 @@ pub fn validate(proposal: &Value) -> Result<Vec<DisplayChange>, String> {
         let id = c.get("id").and_then(Value::as_str).unwrap_or("").trim();
         if !PROPOSABLE_IDS.contains(&id) {
             return Err(format!(
-                "changes[{i}] の設定（{id}）は、候補を出せる設定ではありません。候補を出せるのは {} です。",
+                "changes[{i}] の設定（{id}）は、案を出せる設定ではありません。案を出せるのは {} です。",
                 PROPOSABLE_IDS.join("・")
             ));
         }
         if out.iter().any(|x| x.id == id) {
-            return Err(format!("{id} が2回あります（1つの設定には1つの候補）。"));
+            return Err(format!("{id} が2回あります（1つの設定には1つの案）。"));
         }
         let value = c
             .get("value")
@@ -205,7 +205,7 @@ mod tests {
             "assumptions.inflation",
         ] {
             let e = validate(&json!({ "changes": [{ "id": id, "value": true }] })).unwrap_err();
-            assert!(e.contains("候補を出せる設定ではありません"), "{id}: {e}");
+            assert!(e.contains("案を出せる設定ではありません"), "{id}: {e}");
         }
         // 空・多すぎる・重複・知らない名前
         assert!(validate(&json!({ "changes": [] })).is_err());

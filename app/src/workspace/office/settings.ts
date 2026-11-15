@@ -3,7 +3,7 @@
 //   相続税の目安の評価の割合）。写した前提条件は「事務所の既定値（年月）」の印で、世帯では決まった値として「事務所の既定値」と見せる。
 //   後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の既定値が変わりました」）
 // - 形の版は 3（0214 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足して 2。0215 で足すだけの欄 displayHistory
-//   〔AI の表示の設定の候補を反映する前の値。office/displayHistory.ts〕を足して 3。版 1・2 の事務所データもそのまま読む）
+//   〔AI の表示の設定の案を反映する前の値。office/displayHistory.ts〕を足して 3。版 1・2 の事務所データもそのまま読む）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
 // - 画面の側で読むだけの既定（入力項目の並び・対策に最初から出す項目・万一のタブの想定の前提に最初から出す項目と場面の帯の並べ方・
 //   受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む。
@@ -151,7 +151,7 @@ export interface OfficeSettings {
   /** Web のヒアリングの「ご相談したいこと」の話題の事務所の既定値（無ければ標準の9つ。依頼ごとにも直せる。0192。世帯には写さない） */
   hearingTopics?: string[];
   /**
-   * AI の表示の設定の候補を反映する前の値（0215。設定の id → 前の値。追記だけで設定ごとに直近3件。無ければ持たない）。事務所の既定値の画面の
+   * AI の表示の設定の案を反映する前の値（0215。設定の id → 前の値。追記だけで設定ごとに直近3件。無ければ持たない）。事務所の既定値の画面の
    * 「前の値に戻す」が読む。設定の値ではないので、標準かどうか（isDefaultSettings）には数えるが、世帯には写さず AI にも渡さない
    */
   displayHistory?: DisplayHistory;
@@ -417,7 +417,7 @@ export function readOfficeSettings(v: unknown): OfficeSettings {
   const hearingTemplates = readHearingTemplates(isObj(v) ? v.hearingTemplates : undefined);
   // ご相談したいことの話題（0192。欄の無い古い事務所データ・読めない値は標準の話題）
   const hearingTopics = readHearingTopics(isObj(v) ? v.hearingTopics : undefined);
-  // AI の表示の設定の候補を反映する前の値（0215。欄の無い版 1・2 の事務所データ・読めない行は持たない）
+  // AI の表示の設定の案を反映する前の値（0215。欄の無い版 1・2 の事務所データ・読めない行は持たない）
   const displayHistory = readDisplayHistory(isObj(v) ? v.displayHistory : undefined);
   return { ...s, ...(living !== null ? { living } : {}), ...(!isEmptyEstimates(estimates) ? { estimates } : {}), ...(hearingTemplates.length > 0 ? { hearingTemplates } : {}), ...(hearingTopics !== null ? { hearingTopics } : {}), ...(displayHistory !== undefined ? { displayHistory } : {}) };
 }

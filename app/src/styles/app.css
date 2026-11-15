@@ -1693,7 +1693,7 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-code-diff th, .os-code-diff td { padding: 3px 12px 3px 0; text-align: left; border-bottom: 1px solid var(--line-2); }
 .os-code-diff thead th { font-weight: 400; color: var(--ink-2); }
 .os-code-diff-new { font-weight: 700; }
-/* AIからの表示の設定の候補（0215）: 設定ごとの「今 → 候補」と、前の値に戻す */
+/* AIからの表示の設定の案（0215）: 設定ごとの「今 → 案」と、前の値に戻す */
 .os-display-row { padding: 8px 0 6px; border-top: 1px solid var(--line-2); }
 .os-display-row:first-of-type { border-top: 0; }
 .os-display-name { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; margin: 0 0 4px; }

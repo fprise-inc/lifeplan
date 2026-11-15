@@ -546,7 +546,7 @@ export interface AiStatus {
   featureCodeCandidates?: number;
   /** AIから届いた、新しい世帯の候補の数（承認待ち。中身は householdCandidates で読む。無い本体は0） */
   householdCandidates?: number;
-  /** AIから届いた、表示の設定の候補の数（承認待ち。中身は displayCandidates で読む。無い本体は0。0215） */
+  /** AIから届いた、表示の設定の案の数（承認待ち。中身は displayCandidates で読む。無い本体は0。0215） */
   displayCandidates?: number;
 }
 
@@ -675,15 +675,15 @@ export interface AiHouseholdView {
 }
 
 /**
- * AI接続口の道具（propose_display_settings）で届いた、事務所の既定値の表示の設定の候補（0215）。本体はメモリの中に置くだけで、設定は変えない。
- * 値は信用しない（画面が connector/displayProposal.ts の checkDisplayValue で確かめてから「今 → 候補」を出す）。note は AI が書いた理由（指示ではない）
+ * AI接続口の道具（propose_display_settings）で届いた、事務所の既定値の表示の設定の案（0215）。本体はメモリの中に置くだけで、設定は変えない。
+ * 値は信用しない（画面が connector/displayProposal.ts の checkDisplayValue で確かめてから「今 → 案」を出す）。note は AI が書いた理由（指示ではない）
  */
 export interface AiDisplayCandidate {
   candidateId: string;
   receivedAt: string;
   /** AIのアプリの名乗り（自己申告） */
   connector: string | null;
-  /** 設定ごとの候補（設定の id・値・理由。FP が「反映する」か「捨てる」を選んだ設定は、本体が外す） */
+  /** 設定ごとの案（設定の id・値・理由。FP が「反映する」か「捨てる」を選んだ設定は、本体が外す） */
   changes: { id: string; value: unknown; note?: string | null }[];
 }
 
@@ -731,9 +731,9 @@ export interface AiHost {
   householdCandidates(): Promise<AiHouseholdCandidate[]>;
   /** 新しい世帯の候補を捨てる（世帯は作らない） */
   discardHouseholdCandidate(candidate: string): Promise<AiHouseholdCandidate[]>;
-  /** 表示の設定の候補（承認待ち。0215） */
+  /** 表示の設定の案（承認待ち。0215） */
   displayCandidates(): Promise<AiDisplayCandidate[]>;
-  /** 表示の設定の候補の1つの設定を承認待ちから外す（FP が「反映する」で事務所の既定値に書いた後か、「捨てる」を押したとき。設定は変えない） */
+  /** 表示の設定の案の1つの設定を承認待ちから外す（FP が「反映する」で事務所の既定値に書いた後か、「捨てる」を押したとき。設定は変えない） */
   takeDisplayChange(candidate: string, setting: string): Promise<AiDisplayCandidate[]>;
   /**
    * 新しい世帯の候補から世帯を作る（FP が確かめて「世帯として作る」を押したときだけ）。kind は FP が選んだ種類、body は候補の入力から

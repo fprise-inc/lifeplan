@@ -1,7 +1,7 @@
-// 表示の設定の候補（AI接続口の propose_display_settings。0215）: AI が出した、事務所の既定値の見せ方だけの設定7つの候補の値を、表示の設定の一覧
+// 表示の設定の案（AI接続口の propose_display_settings。0215）: AI が出した、事務所の既定値の見せ方だけの設定7つの案の値を、表示の設定の一覧
 // （displayCatalog.ts）の選べる値・値の形で確かめ、get_display_settings の今の値（current.office.value）と同じ形にそろえる。
-// - 接続口（plan.js の displayCheck。候補をアプリに出す前）と、アプリの承認の画面（workspace/office/displayProposals.ts。反映する前）が同じ関数を使う
-// - 知らない id・候補を出せない設定（世帯ごと・読むだけ）・選べない値・形の違う値は、理由と近い候補を添えて断る（接続口の「知らない引数を断る」
+// - 接続口（plan.js の displayCheck。案をアプリに出す前）と、アプリの承認の画面（workspace/office/displayProposals.ts。反映する前）が同じ関数を使う
+// - 知らない id・案を出せない設定（世帯ごと・読むだけ）・選べない値・形の違う値は、理由と近い候補を添えて断る（接続口の「知らない引数を断る」
 //   〔crates/lifeplan/src/args.rs〕と同じ書き方: 書いた物を挙げ、近い物を「〜のことですか」で添える）。黙って直したり捨てたりしない
 // - 基本生活費の内訳の並べ方の行の名前は、人の文章が入る所なので、制御文字・書式の文字（見えない文字）を通さず、20文字（LIVING_LABEL_MAX）まで
 import { ALWAYS_SHOWN, readItemChoice } from "../workspace/input/itemChoice.ts";
@@ -9,7 +9,7 @@ import { STAGE_ORDER } from "../workspace/input/stageOrder.ts";
 import { LIVING_LABEL_MAX, LIVING_PARTS_MAX, LIVING_PARTS_MIN, readLivingLayout, STANDARD_LIVING_LAYOUT, STANDARD_LIVING_NAMES } from "../workspace/office/livingLayout.ts";
 import { buildDisplayCatalog, PROPOSABLE_DISPLAY_IDS, type DisplayCatalog, type DisplaySetting, type ProposableDisplayId } from "./displayCatalog.ts";
 
-/** 1回の候補で出せる設定の数（候補を出せる設定の数と同じ。同じ設定は1回だけ） */
+/** 1回の案で出せる設定の数（案を出せる設定の数と同じ。同じ設定は1回だけ） */
 export const MAX_DISPLAY_CHANGES = PROPOSABLE_DISPLAY_IDS.length;
 /** AI が書いた理由の長さの上限（文字。プランの候補の理由と同じ） */
 export const MAX_DISPLAY_NOTE = 500;
@@ -215,7 +215,7 @@ function checkLiving(s: DisplaySetting, v: unknown): DisplayValueCheck {
   return { ok: true, value: readLivingLayout(v) ?? STANDARD_LIVING_LAYOUT };
 }
 
-/** 候補を出せる設定の1つの値を確かめ、今の値と同じ形にそろえる（理由は設定の id と名前を付けずに返す） */
+/** 案を出せる設定の1つの値を確かめ、今の値と同じ形にそろえる（理由は設定の id と名前を付けずに返す） */
 export function checkDisplayValue(id: ProposableDisplayId, v: unknown): DisplayValueCheck {
   const s = settingOf(id);
   if (s === undefined) return { ok: false, message: "一覧にない設定です" };
@@ -235,21 +235,21 @@ export function checkDisplayValue(id: ProposableDisplayId, v: unknown): DisplayV
   }
 }
 
-/** 候補を出せない設定の理由 */
+/** 案を出せない設定の理由 */
 function notProposable(s: DisplaySetting): string {
   if (s.readOnly === true) return "読むだけの設定です（アプリの画面で FP が変えます）";
-  if (s.scope === "household") return `世帯ごとの設定です。今は候補を出せず、FP がアプリの「${s.change.household ?? "その画面"}」で変えます`;
-  return "この道具では候補を出せません";
+  if (s.scope === "household") return `世帯ごとの設定です。今は案を出せず、FP がアプリの「${s.change.household ?? "その画面"}」で変えます`;
+  return "この道具では案を出せません";
 }
 
 /**
- * 候補の全体（changes の並び）を確かめる。problems が空なら changes を候補として出せる（値はそろえた後、理由は前後の空白を外した物）。
+ * 案の全体（changes の並び）を確かめる。problems が空なら changes を案として出せる（値はそろえた後、理由は前後の空白を外した物）。
  * problems は「<id>（<名前>）: <理由>」の文の並び
  */
 export function checkDisplayChanges(changes: unknown): { changes: DisplayChange[]; problems: string[] } {
   const problems: string[] = [];
   const out: DisplayChange[] = [];
-  if (!Array.isArray(changes) || changes.length === 0) return { changes: [], problems: [`changes に、変える設定を1件以上書いてください（候補を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")}）`] };
+  if (!Array.isArray(changes) || changes.length === 0) return { changes: [], problems: [`changes に、変える設定を1件以上書いてください（案を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")}）`] };
   if (changes.length > MAX_DISPLAY_CHANGES) problems.push(`changes は${MAX_DISPLAY_CHANGES}件までです（同じ設定は1回だけ）`);
   const all = (catalog ??= buildDisplayCatalog()).settings.map((s) => s.id);
   const seen = new Set<string>();
@@ -262,15 +262,15 @@ export function checkDisplayChanges(changes: unknown): { changes: DisplayChange[
     const s = settingOf(id);
     if (s === undefined) {
       const near = closestOf(id, all);
-      problems.push(`知らない設定の id です: ${id}${near !== null ? `（${near} のことですか）` : ""}。候補を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")} です`);
+      problems.push(`知らない設定の id です: ${id}${near !== null ? `（${near} のことですか）` : ""}。案を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")} です`);
       continue;
     }
     if (!isProposableDisplayId(id)) {
-      problems.push(`${id}（${s.label}）: ${notProposable(s)}。候補を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")} です`);
+      problems.push(`${id}（${s.label}）: ${notProposable(s)}。案を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")} です`);
       continue;
     }
     if (seen.has(id)) {
-      problems.push(`${id}（${s.label}）: 同じ設定が2回あります（1つの設定には1つの候補）`);
+      problems.push(`${id}（${s.label}）: 同じ設定が2回あります（1つの設定には1つの案）`);
       continue;
     }
     seen.add(id);

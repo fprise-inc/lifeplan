@@ -2400,7 +2400,7 @@ async fn display_settings_list_the_catalog_and_current_values() {
         .as_str()
         .unwrap()
         .contains("propose_display_settings"));
-    // 候補を出せる設定（proposable）は、アプリ本体の受け口が受ける7つと同じ（0215）
+    // 案を出せる設定（proposable）は、アプリ本体の受け口が受ける7つと同じ（0215）
     assert_eq!(
         v["proposable"],
         json!(ai_share::display_proposals::PROPOSABLE_IDS)
@@ -5920,8 +5920,8 @@ async fn review_reproductions_are_refused_or_explained() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// 表示の設定の候補（propose_display_settings。0215）: 知らない id・候補を出せない設定・選べない値・形の違う値は、アプリに出す前に理由と近い候補を
-/// 添えて断る（アプリが起動していなくても）。正しい候補は、アプリが起動していなければ「起動していない」、起動していれば承認待ちに入るだけ
+/// 表示の設定の案（propose_display_settings。0215）: 知らない id・案を出せない設定・選べない値・形の違う値は、アプリに出す前に理由と近い候補を
+/// 添えて断る（アプリが起動していなくても）。正しい案は、アプリが起動していなければ「起動していない」、起動していれば承認待ちに入るだけ
 #[tokio::test(flavor = "multi_thread")]
 async fn display_proposals_are_checked_before_they_reach_the_app() {
     let dir = temp_dir("display-propose");
@@ -6018,7 +6018,7 @@ async fn display_proposals_are_checked_before_they_reach_the_app() {
     )
     .await;
     assert!(err && msg.contains("value のことですか"), "{msg}");
-    // 正しい候補でも、アプリが起動していなければ出せない
+    // 正しい案でも、アプリが起動していなければ出せない
     let (err, msg) = call(
         &c,
         "propose_display_settings",
@@ -6050,7 +6050,7 @@ async fn display_proposals_are_checked_before_they_reach_the_app() {
     assert_eq!(ch[1].value["rows"][0]["label"], "食".repeat(20));
     assert_eq!(ch[1].value["rows"][1]["parts"][1]["label"], "旅行");
     assert_eq!(list[0].connector.as_deref(), Some("test-ai 1.2"));
-    // 断った候補は承認待ちに入らない
+    // 断った案は承認待ちに入らない
     let _ = refused(json!([living(&"食".repeat(21))])).await;
     assert_eq!(reg.display_candidates().len(), 1);
     ep.shutdown();

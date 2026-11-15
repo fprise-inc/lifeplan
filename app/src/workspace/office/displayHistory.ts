@@ -1,8 +1,8 @@
-// 表示の設定の前の値（0215）: AI の候補を「反映する」ごとに、その設定の前の値を事務所データの defaults.displayHistory に残す（追記だけ。設定ごとに
+// 表示の設定の前の値（0215）: AI の案を「反映する」ごとに、その設定の前の値を事務所データの defaults.displayHistory に残す（追記だけ。設定ごとに
 // 直近 DISPLAY_HISTORY_MAX 件。古い物から外す）。事務所の既定値の画面の「前の値に戻す」が読む。
-// - 置くのは、AI が候補を出せる設定（事務所の既定値の見せ方だけの7つ。connector/displayCatalog.ts の PROPOSABLE_DISPLAY_IDS）だけ。値の形は
+// - 置くのは、AI が案を出せる設定（事務所の既定値の見せ方だけの7つ。connector/displayCatalog.ts の PROPOSABLE_DISPLAY_IDS）だけ。値の形は
 //   get_display_settings の今の値（current.office.value）と同じ（事務所データの欄の形が変わっても、戻すときに同じ関数で書き直せる）
-// - 読むときは、候補と同じ関数（connector/displayProposal.ts の checkDisplayValue）で確かめ、読めない行・知らない設定は捨てる（無ければ欄を持たない）
+// - 読むときは、案と同じ関数（connector/displayProposal.ts の checkDisplayValue）で確かめ、読めない行・知らない設定は捨てる（無ければ欄を持たない）
 // - 前の値に戻したときも、戻す前の値を同じく残す（もう一度戻せる。行の reason が restore）
 import { PROPOSABLE_DISPLAY_IDS, type ProposableDisplayId } from "../../connector/displayCatalog.ts";
 import { checkDisplayValue } from "../../connector/displayProposal.ts";
@@ -10,7 +10,7 @@ import { checkDisplayValue } from "../../connector/displayProposal.ts";
 /** 設定ごとに残す前の値の数 */
 export const DISPLAY_HISTORY_MAX = 3;
 
-/** 前の値の1行（at は残した日時〔UTC の ISO 8601〕。reason は ai＝AI の候補を反映する前・restore＝前の値に戻す前） */
+/** 前の値の1行（at は残した日時〔UTC の ISO 8601〕。reason は ai＝AI の案を反映する前・restore＝前の値に戻す前） */
 export interface DisplayHistoryEntry {
   value: unknown;
   at: string;

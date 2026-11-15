@@ -1,6 +1,6 @@
-// AI からの表示の設定の候補（接続口の propose_display_settings。0215）を、事務所の既定値に当てる所。
-// - 候補の値は get_display_settings の今の値（current.office.value）と同じ形。当てる前に、接続口と同じ関数（connector/displayProposal.ts）で
-//   もう一度確かめる（本体の受け口は形の外側しか見ないため。確かめられない候補は「反映する」を出さない）
+// AI からの表示の設定の案（接続口の propose_display_settings。0215）を、事務所の既定値に当てる所。
+// - 案の値は get_display_settings の今の値（current.office.value）と同じ形。当てる前に、接続口と同じ関数（connector/displayProposal.ts）で
+//   もう一度確かめる（本体の受け口は形の外側しか見ないため。確かめられない案は「反映する」を出さない）
 // - 「反映する」は、その設定だけを事務所の既定値に書き、前の値を事務所データの前の値（displayHistory.ts）に残す。「前の値に戻す」も同じ書き方
 // - 新しい世帯で出す入力項目と、開いたときの入れ方（input.items）は、事務所の既定を変えるだけ（新しく作る世帯に写す。作った世帯にそろえる操作は出さない）
 import { DEFAULT_PREMISE_KINDS, readPremiseChoice, readSceneChoice, SCENE_KINDS } from "../contingency/premiseChoice.ts";
@@ -48,15 +48,15 @@ export function withDisplayValue(s: OfficeSettings, id: ProposableDisplayId, v: 
   }
 }
 
-/** 候補の値の画面の言葉（その値だけを既定に書いたときの今の値の要約。承認の画面の「候補」の列） */
+/** 案の値の画面の言葉（その値だけを既定に書いたときの今の値の要約。承認の画面の「案」の列） */
 export const displayText = (id: ProposableDisplayId, v: unknown): string => displayNow(withDisplayValue(DEFAULT_OFFICE_SETTINGS, id, v), id).text;
 
-/** 承認の画面の1行: 今 → 候補（候補が確かめられないときは problem） */
+/** 承認の画面の1行: 今 → 案（案が確かめられないときは problem） */
 export interface DisplayProposalRow {
   id: ProposableDisplayId;
   now: string;
   next: string | null;
-  /** 今と同じ値の候補（反映しても変わらない） */
+  /** 今と同じ値の案（反映しても変わらない） */
   unchanged: boolean;
   /** 変わる所（選んだ物の並びの設定だけ。「足す: …／外す: …」。並べ替えだけ・ほかの形は null） */
   change: string | null;
@@ -85,7 +85,7 @@ function changeText(id: ProposableDisplayId, before: unknown, after: unknown): s
 }
 
 /**
- * 値をその設定に書き、前の値を残した設定（reason: ai＝AI の候補を反映する・restore＝前の値に戻す）。値は確かめた物だけ（確かめられなければ null）。
+ * 値をその設定に書き、前の値を残した設定（reason: ai＝AI の案を反映する・restore＝前の値に戻す）。値は確かめた物だけ（確かめられなければ null）。
  * 今と同じ値なら、設定も前の値も変えない
  */
 export function applyDisplayValue(s: OfficeSettings, id: ProposableDisplayId, v: unknown, at: string, reason: DisplayHistoryEntry["reason"]): OfficeSettings | null {

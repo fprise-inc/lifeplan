@@ -714,8 +714,8 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  * `/__dev/ai/oldConsent?id=<世帯の内部ID>` で、前の版の説明（書類を含まない）で同意した行を足す（0157。取り直しの画面を見る）
  * `/__dev/ai/simulate?kind=household` で、AI から新しい世帯の候補（接続口の見本 crates/lifeplan/tests/fixtures/propose-household/proposal.json に、
  * 番号らしい文字を1つ混ぜた物）が届いたことにする。`/__dev/ai/proposeHousehold`（POST {proposal}）で、任意の候補が届いたことにする
- * `/__dev/ai/simulate?kind=display` で、AI から表示の設定の候補（見本: 対策に NISA を足す・万一のときのタブを収入が減るの場面で開く・基本生活費の
- * 内訳をまとめる）が届いたことにする。`/__dev/ai/proposeDisplay`（POST {changes}）で、任意の候補が届いたことにする（0215）
+ * `/__dev/ai/simulate?kind=display` で、AI から表示の設定の案（見本: 対策に NISA を足す・万一のときのタブを収入が減るの場面で開く・基本生活費の
+ * 内訳をまとめる）が届いたことにする。`/__dev/ai/proposeDisplay`（POST {changes}）で、任意の案が届いたことにする（0215）
  */
 const devAi = {
   enabled: false,
@@ -725,14 +725,14 @@ const devAi = {
   documents: [] as { candidateId: string; shareId: string; householdId: string; receivedAt: string; connector: string | null; answer: unknown }[],
   /** 新しい世帯の候補（本体と同じく、メモリの中だけ。FP が作るか捨てるまで） */
   households: [] as { candidateId: string; receivedAt: string; connector: string | null; kind: string; title: string; note: string | null; input: unknown }[],
-  /** 表示の設定の候補（本体と同じく、メモリの中だけ。FP が設定ごとに反映するか捨てるまで。0215） */
+  /** 表示の設定の案（本体と同じく、メモリの中だけ。FP が設定ごとに反映するか捨てるまで。0215） */
   displays: [] as { candidateId: string; receivedAt: string; connector: string | null; changes: { id: string; value: unknown; note?: string }[] }[],
 };
 
-/** 候補を出せる表示の設定（本体の ai_share::display::PROPOSABLE_IDS と同じ） */
+/** 案を出せる表示の設定（本体の ai_share::display::PROPOSABLE_IDS と同じ） */
 const DEV_DISPLAY_IDS = ["input.order", "input.items", "input.living", "result.levers", "contingency.premises", "contingency.scenes", "contingency.openScene"];
 
-/** 開発用のサーバーの、表示の設定の候補（本体の registry の display_candidates と ai_display_* の代わり。形の外側だけを見るのも同じ） */
+/** 開発用のサーバーの、表示の設定の案（本体の registry の display_candidates と ai_display_* の代わり。形の外側だけを見るのも同じ） */
 function devDisplayOp(op: string, a: Record<string, unknown>, now: string): { ok: true; value?: unknown } | { ok: false; code: string } {
   switch (op) {
     case "proposeDisplay": {
@@ -905,7 +905,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         return devHouseholdOp("proposeHousehold", { proposal: p }, now);
       }
       if (a.kind === "display") {
-        // 表示の設定の候補の見本（0215。共有していなくてよい）
+        // 表示の設定の案の見本（0215。共有していなくてよい）
         return devDisplayOp(
           "proposeDisplay",
           {

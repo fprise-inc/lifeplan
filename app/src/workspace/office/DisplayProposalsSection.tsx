@@ -1,7 +1,7 @@
-// 事務所の既定値の画面の「AIからの表示の設定の候補」（0215。接続口の propose_display_settings）: AI が出した候補を設定ごとに「今 → 候補」で並べ、
+// 事務所の既定値の画面の「AIからの表示の設定の案」（0215。接続口の propose_display_settings）: AI が出した案を設定ごとに「今 → 案」で並べ、
 // FP が「反映する」か「捨てる」を選ぶ。反映した設定は、すぐ事務所の既定値に保存する（パネルの「保存」は要らない）。
 // 「前の値に戻す」: 反映する前の値（事務所データの前の値。office/displayHistory.ts）を、設定ごとに新しい順に出し、押すとその値に戻す。
-// - AI が書いた理由は、信用しない文章として文字のまま出す（AIからの候補の画面と同じ）。候補の値は画面が確かめ直し、確かめられない候補は「捨てる」だけ
+// - AI が書いた理由は、信用しない文章として文字のまま出す（AIからの候補の画面と同じ）。案の値は画面が確かめ直し、確かめられない案は「捨てる」だけ
 // - 「新しい世帯で出す入力項目と、開いたときの入れ方」は新しく作る世帯にだけ効く（作った世帯にそろえる操作は出さない）
 import { useState } from "preact/hooks";
 import type { AiDisplayCandidate } from "../../engine/host.ts";
@@ -16,9 +16,9 @@ export interface DisplayProposalsSectionProps {
   /** 保存してある事務所の既定値（「今」はこの値） */
   value: OfficeSettings;
   candidates: readonly AiDisplayCandidate[];
-  /** 候補の1つの設定を反映する（値は確かめてそろえた物。保存した事務所の既定値を返す） */
+  /** 案の1つの設定を反映する（値は確かめてそろえた物。保存した事務所の既定値を返す） */
   onApply: (candidate: string, id: ProposableDisplayId, value: unknown) => Promise<OfficeSettings>;
-  /** 候補の1つの設定を捨てる（設定は変えない） */
+  /** 案の1つの設定を捨てる（設定は変えない） */
   onDiscard: (candidate: string, id: string) => Promise<void>;
   /** 前の値に戻す（index は前の値の並びの位置。保存した事務所の既定値を返す） */
   onRestore: (id: ProposableDisplayId, index: number) => Promise<OfficeSettings>;
@@ -52,16 +52,16 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
   };
   return (
     <section class="os-sec" aria-labelledby="os-ai-display" data-office-ai-display>
-      <h3 id="os-ai-display">AIからの表示の設定の候補</h3>
+      <h3 id="os-ai-display">AIからの表示の設定の案</h3>
       {candidates.length > 0 ? (
         <p class="pl-sub">
-          AIが出したのは候補だけです。設定ごとに今と候補を確かめて、「反映する」を押した設定だけが事務所の既定値に入ります（すぐ保存します。パネルの「保存」は要りません）。見せ方だけの設定なので、世帯の値も計算の結果も変わりません。反映した後も「前の値に戻す」で戻せます。
+          AIが出したのは案だけです。設定ごとに今と案を確かめて、「反映する」を押した設定だけが事務所の既定値に入ります（すぐ保存します。パネルの「保存」は要りません）。見せ方だけの設定なので、世帯の値も計算の結果も変わりません。反映した後も「前の値に戻す」で戻せます。
         </p>
       ) : null}
       {candidates.map((c) => (
-        <div class="os-code-cand" key={c.candidateId} role="group" aria-label="AIからの、表示の設定の候補" data-display-candidate={c.candidateId}>
+        <div class="os-code-cand" key={c.candidateId} role="group" aria-label="AIからの、表示の設定の案" data-display-candidate={c.candidateId}>
           <p class="os-code-cand-title">
-            <b>AIからの候補: 表示の設定を変える（{c.changes.length}件）</b>
+            <b>表示の設定の案（{c.changes.length}件）</b>
             <span class="pl-sub">
               {dateTimeText(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
             </span>
@@ -86,10 +86,10 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
                     →
                   </span>
                   <div class={`os-display-side${problem === null && row?.unchanged !== true ? " os-code-diff-new" : ""}`} data-display-next>
-                    <span class="os-display-head">候補</span>
+                    <span class="os-display-head">案</span>
                     {problem !== null ? (
                       <span class="fatal" data-display-problem>
-                        この候補は反映できません（{problem}）
+                        この案は反映できません（{problem}）
                       </span>
                     ) : row?.unchanged === true ? (
                       <span>今と同じです（反映しても変わりません）</span>
@@ -131,7 +131,7 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
                     onClick={() =>
                       void run(async () => {
                         await onDiscard(c.candidateId, ch.id);
-                        return `「${label}」の候補を捨てました（設定は変えていません）。`;
+                        return `「${label}」の案を捨てました（設定は変えていません）。`;
                       })
                     }
                     data-display-discard={ch.id}
@@ -147,7 +147,7 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
       {restorable.length > 0 ? (
         <div class="os-lever-group" data-display-history>
           <h4>前の値に戻す</h4>
-          <p class="pl-sub">AIの候補を反映する前の値です（設定ごとに新しい方から{DISPLAY_HISTORY_MAX}件まで）。戻すと、戻す前の値もここに残ります。</p>
+          <p class="pl-sub">AIの案を反映する前の値です（設定ごとに新しい方から{DISPLAY_HISTORY_MAX}件まで）。戻すと、戻す前の値もここに残ります。</p>
           {restorable.map((id) => {
             const { label } = labelOf(id);
             const list = history[id] ?? [];
@@ -165,7 +165,7 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
                       <li key={`${e.at}-${i}`} data-display-history-entry={`${id}:${i}`}>
                         <span class="os-name">
                           <span class="pl-sub">
-                            {dateTimeText(e.at)} {e.reason === "ai" ? "AIの候補を反映する前" : "前の値に戻す前"}:
+                            {dateTimeText(e.at)} {e.reason === "ai" ? "AIの案を反映する前" : "前の値に戻す前"}:
                           </span>{" "}
                           {displayText(id, e.value)}
                         </span>

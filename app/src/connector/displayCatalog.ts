@@ -19,7 +19,7 @@ import { AGE_OPTIONS, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT
 export const DISPLAY_CATALOG_SCHEMA = "display-settings-reference@1.0";
 
 /**
- * AI が変える候補を出せる設定（propose_display_settings。0215）: 事務所の既定値のうち見せ方だけの7つ。世帯ごとの設定（result.*・balance.*）と
+ * AI が変える案を出せる設定（propose_display_settings。0215）: 事務所の既定値のうち見せ方だけの7つ。世帯ごとの設定（result.*・balance.*）と
  * 読むだけの設定（合算BS）は入れない。並びは一覧の並び
  */
 export const PROPOSABLE_DISPLAY_IDS = ["input.order", "input.items", "input.living", "result.levers", "contingency.premises", "contingency.scenes", "contingency.openScene"] as const;
@@ -74,7 +74,7 @@ export interface DisplaySetting {
   default: unknown;
   /** 読むだけ（この一覧で変える候補を出す対象にしない） */
   readOnly?: boolean;
-  /** AI が変える候補を出せる（propose_display_settings。事務所の既定値の見せ方だけの設定。0215） */
+  /** AI が変える案を出せる（propose_display_settings。事務所の既定値の見せ方だけの設定。0215） */
   proposable?: boolean;
   note?: string;
 }

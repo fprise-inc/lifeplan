@@ -64,7 +64,7 @@ export interface OfficeSettingsPanelProps {
   /** 事務所の見た目（0121。名前・ロゴ・基調の色）。区画の中で保存する（パネルの「保存」とは別）。無ければ区画を出さない */
   branding?: Omit<BrandingSectionProps, "shared">;
   /**
-   * AIからの表示の設定の候補（0215。接続口の propose_display_settings）と、その判断。反映・前の値に戻すは、すぐ事務所データに保存して保存した設定を返す
+   * AIからの表示の設定の案（0215。接続口の propose_display_settings）と、その判断。反映・前の値に戻すは、すぐ事務所データに保存して保存した設定を返す
    * （パネルの「保存」は要らない）。無ければ区画を出さない（前の値があれば、前の値に戻すだけを出す）
    */
   display?: {

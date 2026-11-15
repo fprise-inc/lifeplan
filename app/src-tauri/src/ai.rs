@@ -593,7 +593,7 @@ pub struct AiStatus {
     feature_code_candidates: usize,
     /// AIから届いた、新しい世帯の候補の数（承認待ち。中身は ai_household_candidates で読む）
     household_candidates: usize,
-    /// AIから届いた、表示の設定の候補の数（承認待ち。中身は ai_display_candidates で読む。0215）
+    /// AIから届いた、表示の設定の案の数（承認待ち。中身は ai_display_candidates で読む。0215）
     display_candidates: usize,
 }
 
@@ -864,13 +864,13 @@ pub async fn ai_household_candidate_discard(
     .await
 }
 
-/// AIから届いた、表示の設定の候補（承認待ち。届いた順。0215）。中身は信用しない: 画面が表示の設定の一覧の選べる値で確かめてから「今 → 候補」を出す
+/// AIから届いた、表示の設定の案（承認待ち。届いた順。0215）。中身は信用しない: 画面が表示の設定の一覧の選べる値で確かめてから「今 → 案」を出す
 #[tauri::command]
 pub async fn ai_display_candidates(app: AppHandle) -> Result<Vec<DisplayCandidate>, String> {
     blocking(app, |ai, _| Ok(ai.registry.display_candidates())).await
 }
 
-/// 表示の設定の候補の1つの設定を、承認待ちから外す（FPが画面で「反映する」を押して事務所の既定値に書いた後か、「捨てる」を押したとき）。
+/// 表示の設定の案の1つの設定を、承認待ちから外す（FPが画面で「反映する」を押して事務所の既定値に書いた後か、「捨てる」を押したとき）。
 /// 本体は設定を変えない（反映は画面が事務所の既定値の保存の命令で書く）
 #[tauri::command]
 pub async fn ai_display_change_take(
