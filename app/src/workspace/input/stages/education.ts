@@ -12,7 +12,7 @@
 //   子を決めていない教育のお金の行は、カードの後ろの区画
 // - 保育園（0〜2歳）は「通う・通わない」と通い始めを標準で聞き、保育料は月額を入れなければ収入から自動で計算する（目安。0029）。
 //   共働き・働くひとり親の世帯は、推定の進路で通う（2026-11-14）。詳細で施設の種類・自治体の独自の無償化・延長保育を入れる
-// - 学校名から学費を出す検索は、学校のデータを同梱してから（今は「学校未定（平均で計算）」だけ）
+// - 学校名は学校の一覧（文部科学省の学校コード一覧）から探して選ぶ（schoolField.ts。0217）。学費の実データはまだ無いので、選んでも平均で計算する
 import type { EducationAbroad, EducationLesson, EducationLoan, EducationScholarship, EducationStage, Goal, Household, IncomeFlow, IncomeFlowKind, Member, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
 import { schoolEntryYear } from "../../present.ts";
 import { addMonths, ageAt } from "../../levers.ts";
@@ -25,6 +25,7 @@ import { addIncome, expenseCard, incomeCard, incomeGroups, incomeMoreLabel, mone
 import { boardingStatistic, estimateYen, examStatistic, INTERNATIONAL_MISSING, KOSEN_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, STAGE_START_AGE, stagePeriod, stageStatistic, stageYears, VOCATIONAL_GUIDE } from "../educationCost.ts";
 import { masterAmount, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { childOfPeriodic } from "./events.ts";
+import { departmentField, schoolNameField, showsSchoolField } from "../schoolField.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS, WORDS } from "../labels.ts";
 import type { Address } from "../../store/readings.ts";
 import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
@@ -841,20 +842,14 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   if (isK12(s.stage)) fields.push(...k12Fields(goalId, i, s, key, find, sid, outChoice));
   // 高専・大学・短大・専門学校の学校外の費用（月額）。統計の平均が無いので空欄は0円。「学校ごとに入れる」のときは標準
   if (isOtherOutStage(s.stage) && !rowsMode) fields.push({ ...otherOutField(key, find, s, outChoice === "custom" ? "simple" : "detail"), ...stageAddress(goalId, sid, "outOfSchool", "monthly") });
-  fields.push(
-    field({
-      key: `${key}/school`,
-      item: "goal.education",
-      label: "学校名",
-      level: "detail",
-      kind: "select",
-      options: [{ value: "", label: "学校未定（平均で計算）" }],
-      help: "学費は、進路の型と統計の平均で計算します（学校名からの検索はまだありません）",
-      readOnly: "学校名からの検索はまだありません",
-      get: (w) => ({ value: "", hint: getPath(find(w.request.input.household, w), ["school"]) !== undefined ? "学費データの行が入っています" : null }),
-      set: (w) => w,
-    }),
-  );
+  // 学校名（学校の一覧から探して選ぶ。学部・学科の一覧がある学校は学部・学科も。0217）
+  if (showsSchoolField(s.stage)) {
+    const childOf = (wh: WorkingHousehold) => (wh.request.input.household.goals ?? []).find((g) => g.id === goalId)?.owner;
+    fields.push(schoolNameField({ key: `${key}/school`, find, childOf, after: (prev, next, wh) => dropStaleEstimates(prev, next, lunchNow(wh)) }));
+    const code = typeof (s.school as { school?: unknown } | undefined)?.school === "string" ? ((s.school as { school: string }).school) : null;
+    const dep = departmentField({ key: `${key}/unit`, find, code });
+    if (dep !== null) fields.push(dep);
+  }
   // 在学年数: 標準が1つに決まる段はその年数を最初から見せる（省略時の既定）。決まらない段（専門学校）は推定
   const years = plain({ key: `${key}/years`, item: "goal.education", label: s.stage === "kindergarten" ? "通う年数" : "在学年数", level: "detail", kind: "int", suffix: "年", min: 1, max: 6, find, path: ["years"], optional: true, ...(YEARS_VARY[s.stage] === undefined ? { fallback: stageYears({ ...s, years: undefined }) } : {}), help: yearsHelp(s.stage) });
   const vary = YEARS_VARY[s.stage];
