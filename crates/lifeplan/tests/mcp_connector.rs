@@ -5775,8 +5775,9 @@ async fn review_reproductions_are_refused_or_explained() {
         json!({ "age": 30, "year": null, "amount": null, "reason": why }),
         "{at}"
     );
-    assert_eq!(at[1]["amount"], 12_358_026, "{at}");
-    assert_eq!(at[2]["amount"], -25_272_191, "{at}");
+    // 46歳（2027年）・100歳の残高は、児童手当の最初の支払いと保険料の納期の直し・教育費の推定の直しと見本の学校外の費用の入れ方（2026-11-14）の後の値
+    assert_eq!(at[1]["amount"], 12_378_048, "{at}");
+    assert_eq!(at[2]["amount"], -25_251_893, "{at}");
     assert_eq!(
         at[3],
         json!({ "age": 110, "year": null, "amount": null, "reason": why }),
@@ -5795,7 +5796,7 @@ async fn review_reproductions_are_refused_or_explained() {
     );
     assert_eq!(
         got["rows"][0],
-        json!([300000, null, 12_358_026, -25_272_191, null]),
+        json!([300000, null, 12_378_048, -25_251_893, null]),
         "{got}"
     );
     assert_eq!(

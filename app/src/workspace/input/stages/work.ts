@@ -887,7 +887,7 @@ export function startWork(w: WorkingHousehold, m: Member, type: string): Working
     const after = startReemployed(w, m);
     if (after !== null) return adoptBenefits(after, m.id);
   }
-  const start = FROM_CAREER_START.has(type) ? careerStartMonth(m.birth.birthYearMonth) : base;
+  const start = FROM_CAREER_START.has(type) ? careerStartMonth(m.birth.birthYearMonth, m.birth.bornOnFirst) : base;
   const p = convertPeriod({ id: newId(), member: m.id, from: { at: start < base ? start : base }, to: null, type }, type, m, base);
   const working = type !== "unemployed" && type !== "leave";
   let next = mutate(w, (hh) => {
@@ -909,7 +909,7 @@ function startReemployed(w: WorkingHousehold, m: Member): WorkingHousehold | nul
   const base = w.request.input.baseMonth;
   const end = retirementAgeEstimate("regular", m);
   const mainLast = addMonths(ageReachedMonth(m, end.age), -1);
-  const from = careerStartMonth(m.birth.birthYearMonth);
+  const from = careerStartMonth(m.birth.birthYearMonth, m.birth.bornOnFirst);
   if (mainLast >= base || from > mainLast) return null;
   const main = convertPeriod({ id: newId(), member: m.id, from: { at: from }, to: { at: mainLast }, type: "regular" }, "regular", m, base);
   main.endsWith = "retirement";

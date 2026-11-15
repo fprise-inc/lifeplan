@@ -581,6 +581,22 @@ describe("教育費（education.cost）・公的支援（education.support）・
     expect(paid("2029-06", "c3")).toBe(60000);
   });
 
+  it("児童手当: 計算基準月が偶数月（支払月）なら、その月に前の2か月分を払う（改訂5。前は1か月分だけだった）", () => {
+    const mkAt = (baseMonth: string) =>
+      edit(household({ members: [member("a", "self", "1985-01"), member("c1", "child", "2016-05"), member("c2", "child", "2020-06"), member("c3", "child", "2025-08")], baseMonth, endYear: 2028 }), () => {});
+    const firstPay = (baseMonth: string) => {
+      const f = call<{ flows: Flow[] }>(mkAt(baseMonth), "benefit.childAllowance", {}).flows;
+      const first = f.reduce((a, x) => (x.ym < a ? x.ym : a), "9999-99");
+      return { ym: first, amount: sumFlows(f, (x) => x.ym === first), months: f.filter((x) => x.ym === first).length };
+    };
+    // 計算基準月 2026-10: 10月に8・9月分（10,000＋10,000＋30,000）×2。3人×2か月で6つ
+    expect(firstPay("2026-10")).toEqual({ ym: "2026-10", amount: 100000, months: 6 });
+    // 計算基準月 2026-11（奇数月）: 最初の支払いは12月の10・11月分（今までどおり）
+    expect(firstPay("2026-11")).toEqual({ ym: "2026-12", amount: 100000, months: 6 });
+    // 計算基準月 2026-12（偶数月）: 12月の10・11月分
+    expect(firstPay("2026-12")).toEqual({ ym: "2026-12", amount: 100000, months: 6 });
+  });
+
   it("高校の就学支援金は、国籍・在留資格の要件で対象外にした子には出さない（知らせ。PR #14 の 8 の(5)）", () => {
     const req = mk([{ stage: "highSchool", sector: "private" }], { highSchoolSupport: "ineligible" }, "2012-06", 0);
     const r = runEngine(req, fictionalPacks(), { checkInternal: true, entry: { component: "education.support", input: { member: C } } });
