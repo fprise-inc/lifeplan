@@ -383,7 +383,7 @@ export { ownsRealEstate };
 
 /**
  * 不動産の評価の前提（assumptions.realEstateValuation。持ち家・収益不動産・貸していない不動産の計算に使う。0025）。値は事務所の既定値（0214）と
- * 比較して見せ、空欄は事務所の既定値に戻る（土地の割合・建物の残りの価値の下限・売却の費用は事務所の推定の値〔0111〕で、空欄ならその場の値）
+ * 比較して見せ、空欄は事務所の既定値に戻る（土地の割合・建物の残りの価値の下限・売却の費用は、置き場所が事務所の推定の値〔0111〕で、空欄にすると事務所の今の値を書く。0217）
  */
 function valuationGroups(wh: WorkingHousehold): GroupDef[] {
   const find = (_h: Household, w: WorkingHousehold) => w.request.input.assumptions as Record<string, unknown> | undefined;

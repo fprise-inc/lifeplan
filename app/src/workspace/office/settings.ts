@@ -1,7 +1,8 @@
 // 事務所の既定値（0073）: 事務所全体で使う既定を、事務所データ（暗号化。0011 の6）に持つ。世帯ファイルには入れない。
 // - 新しい世帯を作るときに写す（前提条件の既定値〔経済の前提・不動産の評価・資産の種類ごとの利回り。0214〕・本人と配偶者の介護を最初から入れるか・
 //   相続税の目安の評価の割合）。写した前提条件は「事務所の既定値（年月）」の印で、世帯では決まった値として「事務所の既定値」と見せる。
-//   後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の既定値が変わりました」）
+//   後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の既定値が変わりました」）。
+//   前提条件のうち土地の割合・建物の残りの価値の下限・売却の費用は、事務所データの置き場所が事務所の推定の値（estimates）だが、写し方はほかと同じ（0217）
 // - 形の版は 3（0214 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足して 2。0215 で足すだけの欄 displayHistory
 //   〔AI の表示の設定の案を反映する前の値。office/displayHistory.ts〕を足して 3。版 1・2 の事務所データもそのまま読む）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
@@ -13,7 +14,8 @@
 // - 法人経営者向けの機能（features。0107）: 会社と合わせたバランスシート（合算BS）を使うか。既定は使わない（ふつうの FP・世帯には出さない）。
 //   見せ方だけで計算の結果は変えないので世帯には写さず、変えるとどの世帯にもすぐ効く
 // - 事務所の推定の値（estimates。0111）: 空欄・「わからない」を補う推定の元のマスタデータの値と、推定で埋めない入力欄。推定の元なので世帯には写さず、
-//   推定の目安と計算の要求にその場で入れる（office/estimates.ts）
+//   推定の目安と計算の要求にその場で入れる（office/estimates.ts）。ただし前提条件の土地の割合など3つ（preset.realEstate.*）は、ほかの前提条件と
+//   同じく世帯に写す（0217。世帯の値が先に効くので、写した世帯は事務所の値を変えても変わらない）
 // - 読むときは形を確かめ、読めない値は既定（既定の値）にする
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
@@ -24,7 +26,8 @@ import { isEmptyChoice, readItemChoice, type ItemChoice } from "../input/itemCho
 import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/leverChoice.ts";
 import { isEmptyPremiseChoice, isEmptySceneChoice, normalProtection, readPremiseChoice, readProtectionSetting, readSceneChoice, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "../contingency/premiseChoice.ts";
 import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
-import { copyOfficePremises, PREMISE_DEFS, premiseOfId, type PremiseDef } from "../input/premiseDefaults.ts";
+import { copyOfficePremises, fillLivePremises, PREMISE_DEFS, premiseOfId, type PremiseDef } from "../input/premiseDefaults.ts";
+import { officialPreset } from "../../../../hearing/src/presets.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../input/rateRanges.ts";
 import { readLivingLayout, setLivingLayoutNow, type LivingLayout } from "./livingLayout.ts";
 import type { OfficeHost } from "../../engine/host.ts";
@@ -252,7 +255,17 @@ function readPremises(v: Record<string, unknown>): Pick<OfficeSettings, "realEst
   return out;
 }
 
-/** 事務所で決めた前提条件（前提条件の id → 値の文字。事務所の推定の値で決める物〔土地の割合など〕は入れない。0214 の2） */
+/**
+ * 事務所の推定の値に置き場所のある前提条件（土地の割合・建物の残りの価値の下限・売却の費用）の事務所の値（率の文字。決めていなければ
+ * 提供元の既定の値。0217）
+ */
+export function officeLiveValue(s: OfficeSettings, d: PremiseDef): string | null {
+  if (d.live === undefined) return null;
+  const x = s.estimates?.values[d.live]?.value;
+  return typeof x === "string" || typeof x === "number" ? String(x) : String(officialPreset(d.live));
+}
+
+/** 事務所で決めた前提条件（前提条件の id → 値の文字。事務所の推定の値で決める物〔土地の割合など〕は入れない〔officeLiveValue〕。0214 の2） */
 export function officePremises(s: OfficeSettings): Record<string, string> {
   const out: Record<string, string> = {};
   for (const d of PREMISE_DEFS) {
@@ -385,6 +398,9 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   // 前提条件の既定値（0214）: 事務所で決めた欄を世帯に書き、「事務所の既定値（年月）」の印を付ける（例外の年は残す）
   const premises = officePremises(s);
   if (Object.keys(premises).length > 0) w = copyOfficePremises(w, premises, basis);
+  // 土地の割合・建物の残りの価値の下限・売却の費用（置き場所は事務所の推定の値）は、事務所で決めていなくても提供元の既定の値を書く
+  // （世帯に値が無いと、後で事務所の値を変えたときに黙って変わるため。0217）
+  w = fillLivePremises(w, basis, (d) => officeLiveValue(s, d));
   if (s.realEstateRatio !== null) {
     const request = structuredClone(w.request);
     request.input.inheritanceTax = { ...(request.input.inheritanceTax ?? {}), realEstateRatio: s.realEstateRatio };
