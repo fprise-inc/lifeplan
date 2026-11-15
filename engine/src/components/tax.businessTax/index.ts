@@ -118,7 +118,7 @@ export default defineComponent<{ member: string; year: number }, BusinessTaxOutp
       if (m < monthIndex(year, 4)) m = monthIndex(year, 4);
       push(m, total, "tax.businessTax.closure");
     } else {
-      const second = at.money.round(yen(Math.floor(total / 2)), P.installmentRound);
+      const second = at.money.mulRatio(total, 1, 2, P.installmentRound);
       push(monthIndex(year + 1, 8), total - second, "tax.businessTax.installment");
       push(monthIndex(year + 1, 11), second, "tax.businessTax.installment");
     }
