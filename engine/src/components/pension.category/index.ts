@@ -16,6 +16,8 @@
 // 改訂7（0174 の追記）: 本人が任意継続（期間に healthInsurance.kind: continuation）に入っている月も、扶養の決まり（収入の見込み・2分の1）で判定し、
 //   第2号の配偶者に扶養される形なら第3号にする（第3号の要件は第2号の被扶養配偶者で、自分の健康保険の種類は要件でない。国民年金法7条1項3号）。
 //   健康保険の種類は任意継続のまま。国民健康保険と書いた月は今までどおり第1号
+// 改訂8（0174 の追記 2026-11-15）: 収入の見込みに、不動産収入（家賃収入−その不動産の経費）と、年金で受け取る企業年金・小規模企業共済の分割・
+//   個人年金保険を足した（健康保険の種類と同じ。確定拠出年金の年金は、掛金の上限がこの部品の種別で決まるので入れない）
 import {
   addMonths,
   ageMonth,
@@ -46,8 +48,8 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
   id: "pension.category",
   title: "国民年金の被保険者の種別",
   contract: "1.0",
-  revision: 7,
-  requires: { "contingency.event": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2", "income.business": ">=1 <2", "benefit.unemployment": ">=1 <2" },
+  revision: 8,
+  requires: { "contingency.event": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2", "income.business": ">=1 <2", "benefit.unemployment": ">=1 <2", "asset.realEstate": ">=1 <2", "retirement.benefit": ">=1 <2", "account.mutualAid": ">=1 <2", "insurance.policy": ">=1 <2" },
   params: [...Object.values(P), ...Object.values(HEALTH_STATUS_PARAMS)],
   reads: [
     ...HEALTH_STATUS_READS,

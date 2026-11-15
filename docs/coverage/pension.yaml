@@ -181,7 +181,7 @@ entries:
       近似して入っています。万一の想定で配偶者・親が亡くなったとき、亡くなった人の加入の記録から遺族基礎年金・遺族厚生年金・中高齢寡婦加算・経過的寡婦加算・
       寡婦年金・死亡一時金を計算します。保険料の納付要件は満たすとみなし、2028年4月からの見直しは入れていません。
     how: >-
-      遺族基礎年金は、子のある配偶者か子に、基本額×改定率＋子の加算（2人目まで・3人目から）です。遺族厚生年金は、死亡の月の前の月までの記録の報酬比例の額×3/4で、
+      遺族基礎年金は、子のある配偶者か子に、基本額×改定率＋子の加算（1人目・2人目の子と、3人目からの子で額が違います。子だけが受け取るときは2人目の子から加算）です。遺族厚生年金は、死亡の月の前の月までの記録の報酬比例の額×3/4で、
       短期要件（亡くなったとき厚生年金に入っていた）は300月に満たなければ300月とみなし、長期要件は実際の月数です。妻は年齢を問わず（死亡の当時30歳未満で
       子が無ければ5年）、夫は死亡の当時55歳以上で60歳から（遺族基礎年金を受ける間は60歳前でも）受けます。死亡の当時55歳未満の夫には遺族厚生年金の受給権が無く、子が受けます。
       配偶者が65歳になった後は、自分の老齢厚生年金を先に受け、遺族厚生年金はそれを超える分だけです。中高齢寡婦加算（40〜65歳の妻）・経過的寡婦加算・
@@ -219,7 +219,7 @@ entries:
       - pension.deathLumpSum
     rows: [cf.income.pension.survivor, cf.income.lumpSum.other]
     components:
-      pension.survivor: 7
+      pension.survivor: 8
       pension.survivorRight: 3
     related:
       - pension.disability
@@ -382,7 +382,7 @@ entries:
       - socialInsurance.nationalPension.category2UntilAge
       - socialInsurance.nationalPension.maternityExemption.months
     components:
-      pension.category: 7
+      pension.category: 8
     related:
       - pension.record
 

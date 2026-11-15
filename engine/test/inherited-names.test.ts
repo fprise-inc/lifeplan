@@ -180,13 +180,15 @@ describe("必要保障額: 亡くなった人がまだ払っていない税（�
     const req = model("rentalSample");
     const self = memberOf(req, "self") as string;
     const unpaid = unpaidIn(req, self, "2042-01");
-    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 300,017円、住民税 572,000円
-    expect(unpaid).toBe(5_866_317);
+    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 273,917円、住民税 559,200円（2026-11-15 から、2041年に家賃収入で
+    // 配偶者の扶養を外れて国民健康保険料を払うので、前の 300,017円・572,000円より少ない。0174 の追記）
+    expect(unpaid).toBe(5_827_417);
     const all = protection(req, self);
     const a = all.find((y) => y.year === 2042) as ProtYear;
     const e = protection(req, self, 2042)[0] as ProtYear;
-    // 前は遺族の税だけ（4,896,601円）
-    expect(e.breakdown.expenses.taxSi).toBe(4_896_601 + unpaid);
+    // 前は遺族の税だけ（4,896,601円）。2026-11-15 から、遺族の税は 4,927,794円（本人が 2041年度に払う国民健康保険料の残りの納期の分を、
+    // 世帯主になった配偶者が 2042年に払う。0174 の追記）
+    expect(e.breakdown.expenses.taxSi).toBe(4_927_794 + unpaid);
     // 後の年に最初の年の表を使う額と、その年に亡くなる想定の額が同じ
     expect(a.breakdown.expenses.taxSi).toBe(e.breakdown.expenses.taxSi);
     expect(a.need).toBe(e.need);

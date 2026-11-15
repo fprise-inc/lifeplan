@@ -13,7 +13,8 @@ entries:
       財産は亡くなる人の名義の分で、金融資産＋不動産（年末の評価額×評価の割合。省略は時価の80%）＋車・その他の資産＋保険の契約の権利（亡くなる人が
       被保険者でない契約の解約返戻金）＋死亡保険金（亡くなる人が契約者で被保険者の契約）＋死亡退職金＋相続時精算課税で贈与した財産です。
       ここから債務（ローンの残高のうち亡くなる人の分。団信で消える分を除き、まだ払っていない死亡の年までの所得の税を含む）と葬式の費用を引きます。
-      名義の無い財産は省略で夫婦なら半分。課税価格の合計−基礎控除（3,000万円＋600万円×法定相続人の数）を法定相続分で分けて速算表を当て、
+      「いま亡くなったら」は、どの財産も計算基準月の初めの姿で数えます（これから買う家・借りるローン・始まる保険は入れず、今年のうちに売る家・終わる保険は入れます。
+      ローンは計算基準月の残高、死亡保険金は計算基準月の死亡保障額）。名義の無い財産は省略で夫婦なら半分。課税価格の合計−基礎控除（3,000万円＋600万円×法定相続人の数）を法定相続分で分けて速算表を当て、
       法定相続分どおりに分けたとして各人の税を出し、配偶者の軽減と精算課税で払った贈与税を引きます。FP が入れた額があれば、目安と並べてその額を使います。
     approximation: >-
       不動産は時価の割合で評価し、路線価・倍率などの土地の評価の細部は見ません。分け方は法定相続分どおりとみなします。小規模宅地等の特例・
@@ -38,7 +39,7 @@ entries:
       - inheritanceTax.total.rounding
       - inheritanceTax.tax.rounding
     components:
-      inheritance.estimate: 3
+      inheritance.estimate: 4
       gift.tax: 3
     related: [inheritance.heirs, inheritance.insuranceExemption, inheritance.spouseReduction, inheritance.smallLand, inheritance.otherRules]
 
@@ -55,7 +56,7 @@ entries:
     items: [plan.inheritanceTax, member.kind, member.outside, member.leaves, donor.relative, donor.leaves]
     regulation: [inheritanceTax.adoptedChildren.withNatural, inheritanceTax.adoptedChildren.withoutNatural]
     components:
-      inheritance.estimate: 3
+      inheritance.estimate: 4
     related: [inheritance.estimate]
 
   - id: inheritance.insuranceExemption
@@ -70,7 +71,7 @@ entries:
     items: [plan.inheritanceTax, insurance.policyholder, insurance.insured]
     regulation: [inheritanceTax.lifeInsurance.exemptionPerHeir, inheritanceTax.retirementAllowance.exemptionPerHeir]
     components:
-      inheritance.estimate: 3
+      inheritance.estimate: 4
     related: [insurance.benefitTax, inheritance.estimate]
 
   - id: inheritance.spouseReduction
@@ -85,7 +86,7 @@ entries:
       - 相続税法19条の2
     regulation: [inheritanceTax.spouseReduction.floor]
     components:
-      inheritance.estimate: 3
+      inheritance.estimate: 4
     related: [inheritance.estimate]
 
   - id: inheritance.smallLand
@@ -100,7 +101,7 @@ entries:
     rules:
       - 租税特別措置法69条の4
     components:
-      inheritance.estimate: 3
+      inheritance.estimate: 4
     related: [inheritance.estimate]
 
   - id: inheritance.otherRules
@@ -113,7 +114,7 @@ entries:
     keywords: [生前贈与加算, 2割加算, 相次相続控除, 未成年者控除, 障害者控除, 一次相続と二次相続]
     items: [plan.inheritanceTax]
     components:
-      inheritance.estimate: 3
+      inheritance.estimate: 4
     related: [inheritance.estimate, inheritance.giftTax]
 
   - id: inheritance.received
@@ -193,7 +194,7 @@ entries:
     rows: [cf.taxSi.giftTax]
     components:
       gift.tax: 3
-      inheritance.estimate: 3
+      inheritance.estimate: 4
     related: [inheritance.giftTax, inheritance.estimate]
 
   - id: inheritance.legacy
