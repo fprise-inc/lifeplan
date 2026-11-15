@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "area": {
       "description": "分野で絞る（get_coverage を id なしで呼ぶと分野の鍵が分かる。例 tax・pension）",

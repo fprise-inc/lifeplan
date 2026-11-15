@@ -12,7 +12,7 @@ import { candidateRows, itemName } from "../src/workspace/ai/model.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { buildEvidence } from "../src/workspace/evidence.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { candidateRefOf, type CandidateRef } from "../src/workspace/plans/candidates.ts";
+import { AMOUNT_LIMITS, candidateRefOf, type CandidateRef } from "../src/workspace/plans/candidates.ts";
 import { buildCatalog, type Catalog, type ItemValue } from "../src/workspace/plans/items.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
@@ -226,6 +226,38 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       expect(apply(bad, [ok]).status).toBe("badInput");
       expect(list(bad, {}).status).toBe("badInput");
     }
+  });
+
+  it("金額の上の端: 円と万円の取り違え・桁の誤り（月1兆円の生活費など）は、範囲を添えて取り込まない（独立した点検の見本）", () => {
+    const S = "salariedCoupleTwoKids";
+    const req = modelHousehold(S);
+    const items = list(req, { sampleId: S }).items;
+    const living = items.find((x) => x.item === "livingExpense.monthly")!;
+    const at = (value: number) => apply(req, [{ target: living.target, item: living.item, value }], S);
+    // 上の端（月1億円）ちょうどまでは当てる
+    expect(at(AMOUNT_LIMITS.monthly).status).toBe("ok");
+    for (const value of [1_000_000_000_000, AMOUNT_LIMITS.monthly + 10_000]) {
+      const r = at(value);
+      expect(r.status, String(value)).toBe("rejected");
+      expect(r.changes[0]!.reason).toContain("月1億円まで");
+    }
+    // 入力の欄から作った金額の項目（年額・一時の額）も同じ
+    const all = list(req, { sampleId: S, fields: true }).items;
+    let checked = 0;
+    for (const [unit, limit, text] of [
+      [/年額/, AMOUNT_LIMITS.annual, "年10億円まで"],
+      [/1回の額|（額・/, AMOUNT_LIMITS.once, "（100億円まで）"],
+    ] as const) {
+      const it = all.find((x) => x.kind === "amount" && unit.test((x as { unit?: string }).unit ?? "") && typeof x.value === "number" && x.value < limit);
+      expect(it, String(unit)).toBeDefined();
+      if (it === undefined) continue;
+      checked += 1;
+      const ref = { target: it.target, item: it.item, ...(it.at !== undefined ? { at: it.at } : {}), ...(it.lever !== undefined ? { lever: it.lever } : {}) };
+      const r = apply(req, [{ ...ref, value: limit * 10 }], S);
+      expect(r.status, it.label).toBe("rejected");
+      expect(r.changes[0]!.reason, it.label).toContain(text);
+    }
+    expect(checked).toBe(2);
   });
 
   it("画面の「AIからの候補」も同じ当てはめ: 対策の固定の項目（働く最後の年齢など）に当たり、範囲の外の年齢は取り込まない", () => {
