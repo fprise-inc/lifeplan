@@ -3,6 +3,7 @@
 // 「前の値に戻す」: 反映する前の値（事務所データの前の値。office/displayHistory.ts）を、設定ごとに新しい順に出し、押すとその値に戻す。
 // - AI が書いた理由は、信用しない文章として文字のまま出す（AIからの候補の画面と同じ）。案の値は画面が確かめ直し、確かめられない案は「捨てる」だけ
 // - 「新しい世帯で出す入力項目と、開いたときの入れ方」は新しく作る世帯にだけ効く（作った世帯にそろえる操作は出さない）
+// - 結果のタブ・資産と負債のタブの表示の設定（0213 の段C）は、事務所の既定値に従う世帯にだけ効く（従わない世帯にそろえる操作は出さない）
 import { useState } from "preact/hooks";
 import type { AiDisplayCandidate } from "../../engine/host.ts";
 import { buildDisplayCatalog, type ProposableDisplayId } from "../../connector/displayCatalog.ts";
@@ -24,10 +25,17 @@ export interface DisplayProposalsSectionProps {
   onRestore: (id: ProposableDisplayId, index: number) => Promise<OfficeSettings>;
 }
 
+/** 事務所の既定値の効き方の言葉（表示の設定の一覧の officeEffect） */
+const EFFECT_TEXT: Readonly<Record<"live" | "newHouseholds" | "followers", string>> = {
+  live: "どの世帯にもすぐ効きます",
+  newHouseholds: "新しく作る世帯にだけ効きます（作った世帯は変わりません）",
+  followers: "事務所の既定値に従う世帯にすぐ効きます（世帯で変えた設定と、前からある世帯は変わりません）",
+};
+
 let labels: Map<string, { label: string; effect: string }> | null = null;
 /** 設定の名前と効き方（表示の設定の一覧と同じ言葉） */
 function labelOf(id: string): { label: string; effect: string } {
-  labels ??= new Map(buildDisplayCatalog().settings.map((s) => [s.id, { label: s.label, effect: s.officeEffect === "newHouseholds" ? "新しく作る世帯にだけ効きます（作った世帯は変わりません）" : "どの世帯にもすぐ効きます" }]));
+  labels ??= new Map(buildDisplayCatalog().settings.map((s) => [s.id, { label: s.label, effect: EFFECT_TEXT[s.officeEffect ?? "live"] }]));
   return labels.get(id) ?? { label: id, effect: "" };
 }
 

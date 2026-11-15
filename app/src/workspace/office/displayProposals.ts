@@ -3,6 +3,8 @@
 //   もう一度確かめる（本体の受け口は形の外側しか見ないため。確かめられない案は「反映する」を出さない）
 // - 「反映する」は、その設定だけを事務所の既定値に書き、前の値を事務所データの前の値（displayHistory.ts）に残す。「前の値に戻す」も同じ書き方
 // - 新しい世帯で出す入力項目と、開いたときの入れ方（input.items）は、事務所の既定を変えるだけ（新しく作る世帯に写す。作った世帯にそろえる操作は出さない）
+// - 結果のタブ・資産と負債のタブの表示の設定の11件（0213 の段C）は、事務所データの display に書く。事務所の既定値に従う印のある世帯だけがすぐ従う
+//   （印の無い世帯にそろえる操作は出さない）
 import { DEFAULT_PREMISE_KINDS, readPremiseChoice, readSceneChoice, SCENE_KINDS } from "../contingency/premiseChoice.ts";
 import { DEFAULT_LEVER_KINDS, readLeverChoice } from "../plans/leverChoice.ts";
 import { STAGE_ORDER } from "../input/stageOrder.ts";
@@ -11,7 +13,8 @@ import { officeCurrent } from "../../connector/display.ts";
 import { buildDisplayCatalog, type ProposableDisplayId } from "../../connector/displayCatalog.ts";
 import { checkDisplayValue, type DisplayValueCheck } from "../../connector/displayProposal.ts";
 import { withHistoryEntry, type DisplayHistoryEntry } from "./displayHistory.ts";
-import { DEFAULT_OFFICE_SETTINGS, withLivingLayout, withOfficeItems, type OfficeSettings } from "./settings.ts";
+import { DEFAULT_OFFICE_SETTINGS, withLivingLayout, withOfficeDisplay, withOfficeItems, type OfficeSettings } from "./settings.ts";
+import { isOfficeDisplayId, officeDisplayOf, setDisplayValue } from "../settings.ts";
 import type { LivingLayout } from "./livingLayout.ts";
 
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -22,6 +25,7 @@ export const displayNow = (s: OfficeSettings, id: ProposableDisplayId) => office
 
 /** 確かめた値（checkDisplayValue でそろえた物）を、その設定だけ事務所の既定値に書いた設定（ほかの設定・前の値は変えない） */
 export function withDisplayValue(s: OfficeSettings, id: ProposableDisplayId, v: unknown): OfficeSettings {
+  if (isOfficeDisplayId(id)) return withOfficeDisplay(s, setDisplayValue(officeDisplayOf(s.display), id, v));
   switch (id) {
     case "input.order": {
       const order = strings(v) as StageId[];

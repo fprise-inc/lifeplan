@@ -205,6 +205,22 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(choice.is_none(), "{v}: 決め方は変換で書き足さない");
         }
+        // 0.79 から: 事務所の既定値に従う表示の設定の印 display.followOffice（0213 の段C）。変換で書き足さない（前の版の世帯は欄が無い＝
+        // どの設定もその世帯の値のまま）。0.79 の見本は比較の仕方・家計の体力の目安を表示するか・お金の3つの分け方の何年先までが従う形
+        let follow = now["display"].get("followOffice");
+        if migrate::parse(v).unwrap() >= (0, 79) {
+            assert_eq!(
+                follow,
+                Some(&serde_json::json!([
+                    "result.layout",
+                    "balance.health",
+                    "balance.moneyThree.years"
+                ])),
+                "{v}: 0.79 からの見本は事務所の既定値に従う印を持つ"
+            );
+        } else {
+            assert!(follow.is_none(), "{v}: 印は変換で書き足さない");
+        }
         // 0.76 から: 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利の段も要素の ID を持つ（0206）。前の版の見本は
         // 変換で、画面がその要素を指していた決まった ID（場所から作る）と同じ ID が付く。0.76 の見本は ID を書いた形で、借り換えも持つ
         let hh = &now["household"]["request"]["input"]["household"];

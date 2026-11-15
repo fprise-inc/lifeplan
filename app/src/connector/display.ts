@@ -13,16 +13,19 @@ import { STAGE_ORDER } from "../workspace/input/stageOrder.ts";
 import { cardOrder } from "../workspace/input/items.ts";
 import { readLivingLayout, STANDARD_LIVING_LAYOUT, STANDARD_LIVING_NAMES, rowLabel } from "../workspace/office/livingLayout.ts";
 import { LEVER_KINDS, leverKindOf, readLeverChoice, startKinds } from "../workspace/plans/leverChoice.ts";
-import { readBsColumns, readBsGuide, readBsPoints } from "../workspace/balanceTab.ts";
-import { readMoneyThree } from "../workspace/moneyThree.ts";
-import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../workspace/settings.ts";
+import { followsOffice, isOfficeDisplayId, OFFICE_DISPLAY_IDS, officeDisplayOf, readDisplayPair, readFollowOffice, resolveDisplay, type DisplayPair } from "../workspace/settings.ts";
 import { buildDisplayCatalog, GUIDE_BASIS_CHOICES, type DisplayCatalog, type DisplaySetting } from "./displayCatalog.ts";
 
-/** 1つの設定の今の値（value は事務所データ・世帯ファイルと同じ形。text は画面の言葉の短い要約） */
+/**
+ * 1つの設定の今の値（value は事務所データ・世帯ファイルと同じ形。text は画面の言葉の短い要約）。
+ * followsOffice は渡された世帯の、事務所の既定値を持てる設定（0213 の段C）だけ: true は事務所の既定値に従っている（value は事務所の今の値）、
+ * false はこの世帯だけの値
+ */
 export interface CurrentValue {
   value: unknown;
   isDefault: boolean;
   text: string;
+  followsOffice?: boolean;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -69,31 +72,32 @@ export function readOfficeDisplay(raw: unknown) {
     scenes: readSceneChoice(v.scenes),
     living: readLivingLayout(v.living) ?? undefined,
     features: { combinedBs: isObj(v.features) && v.features.combinedBs === true },
+    // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C。office/settings.ts の readOfficeSettings と同じ officeDisplayOf）
+    display: officeDisplayOf(v.display),
   };
 }
 
-/** 世帯ファイルの本文の表示の設定の読み方（store/body.ts の readDisplay と同じ。区画の無い 0.7 までの本文は直下の値から読む。テストで確かめる） */
-export function readDisplaySettings(v: unknown): { result: DisplaySettings; balance: BalanceSettings } {
-  const d = isObj(v) ? v : {};
-  const r = isObj(d.result) ? d.result : d;
-  const bal = isObj(d.balance) ? d.balance : null;
-  const strings = (x: unknown): string[] => (Array.isArray(x) ? x.filter((y): y is string => typeof y === "string") : []);
-  return {
-    result: {
-      metrics: strings(r.metrics).filter((k): k is MetricKey => METRIC_CHOICES.some((c) => c.key === k)),
-      atAge: typeof r.atAge === "number" ? r.atAge : DEFAULT_DISPLAY_SETTINGS.atAge,
-      layout: LAYOUT_CHOICES.some((c) => c.key === r.layout) ? (r.layout as DisplaySettings["layout"]) : DEFAULT_DISPLAY_SETTINGS.layout,
-      invBreakdown: typeof r.invBreakdown === "boolean" ? r.invBreakdown : DEFAULT_DISPLAY_SETTINGS.invBreakdown,
-      invPeriods: typeof r.invPeriods === "boolean" ? r.invPeriods : DEFAULT_DISPLAY_SETTINGS.invPeriods,
-    },
-    balance: {
-      health: typeof bal?.health === "boolean" ? bal.health : DEFAULT_BALANCE_SETTINGS.health,
-      guide: readBsGuide(bal !== null ? bal.guide : d.bsGuide),
-      points: readBsPoints(bal !== null ? bal.points : d.bsPoints),
-      columns: readBsColumns(bal !== null ? bal.columns : d.bsColumns),
-      moneyThree: readMoneyThree(bal !== null ? bal.moneyThree : undefined),
-    },
-  };
+/** 世帯ファイルの本文の表示の設定の読み方（store/body.ts の readDisplay と同じ readDisplayPair。区画の無い 0.7 までの本文は直下の値から読む。テストで確かめる） */
+export const readDisplaySettings = (v: unknown): DisplayPair => readDisplayPair(v);
+
+/** 結果のタブ・資産と負債のタブの表示の設定の、一覧の id ごとの今の値（事務所の既定値・世帯で同じ書き方） */
+function pairCurrent(d: DisplayPair): Record<string, CurrentValue> {
+  const out: Record<string, CurrentValue> = {};
+  out["result.metrics"] = current("result.metrics", d.result.metrics, listText("result.metrics", d.result.metrics));
+  out["result.atAge"] = current("result.atAge", d.result.atAge, `${d.result.atAge}歳`);
+  out["result.layout"] = current("result.layout", d.result.layout, labelOf("result.layout", d.result.layout));
+  out["result.invBreakdown"] = current("result.invBreakdown", d.result.invBreakdown, labelOf("result.invBreakdown", d.result.invBreakdown));
+  out["result.invPeriods"] = current("result.invPeriods", d.result.invPeriods, labelOf("result.invPeriods", d.result.invPeriods));
+  out["balance.health"] = current("balance.health", d.balance.health, labelOf("balance.health", d.balance.health));
+  const g = d.balance.guide;
+  const basisText = g.basis === undefined ? "分母は世帯から決める" : (GUIDE_BASIS_CHOICES.find((x) => x.value === g.basis)?.label ?? g.basis);
+  out["balance.guide"] = current("balance.guide", g, `すぐ使えるお金 ${g.months[0]}〜${g.months[1]}か月分（${basisText}）・値動きのある資産 ${g.risk[0]}〜${g.risk[1]}%・負債の重さ ${g.debt}%未満`);
+  out["balance.points"] = current("balance.points", d.balance.points, listText("balance.points", d.balance.points));
+  const m3 = d.balance.moneyThree;
+  out["balance.moneyThree.wording"] = current("balance.moneyThree.wording", m3.wording, labelOf("balance.moneyThree.wording", m3.wording));
+  out["balance.moneyThree.months"] = current("balance.moneyThree.months", m3.months, `${m3.months}か月分`);
+  out["balance.moneyThree.years"] = current("balance.moneyThree.years", m3.years, `${m3.years}年先まで`);
+  return out;
 }
 
 /** 事務所データの見せ方だけの欄（アプリ本体が切り出した物）から、一覧の id ごとの今の値 */
@@ -125,6 +129,9 @@ export function officeCurrent(raw: unknown): Record<string, CurrentValue> {
   const active = isObj(raw) && Array.isArray(raw.featureCodes) && raw.featureCodes.includes("combinedBs");
   const on = s.features.combinedBs;
   out["features.combinedBs"] = current("features.combinedBs", on, `${on ? "使う" : "使わない"}（機能を有効にするコード: ${active ? "入っている" : "入っていない"}${on && !active ? "。コードが入っていないので効いていない" : ""}）`);
+  // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C。11件。この世帯で並べる時点は事務所の既定にしない）
+  const pair = pairCurrent(s.display);
+  for (const id of OFFICE_DISPLAY_IDS) out[id] = pair[id] as CurrentValue;
   return out;
 }
 
@@ -136,33 +143,37 @@ function itemKeyLabel(key: string): { kind: string | null; label: string } {
   return { kind: null, label: key };
 }
 
-/** 世帯ファイルの本文の見せ方の区画（アプリ本体が切り出した display・itemChoice・shownItems）から、一覧の id ごとの今の値 */
-export function householdCurrent(raw: unknown): Record<string, CurrentValue> {
+/**
+ * 世帯ファイルの本文の見せ方の区画（アプリ本体が切り出した display・itemChoice・shownItems）から、一覧の id ごとの今の値。
+ * officeRaw は事務所データの見せ方だけの欄（無ければ null）: 事務所の既定値に従う印（display.followOffice）のある設定は、画面と同じく事務所の今の値
+ * （resolveDisplay）にし、followsOffice を添える（0213 の段C）
+ */
+export function householdCurrent(raw: unknown, officeRaw: unknown = null): Record<string, CurrentValue> {
   const r = isObj(raw) ? raw : {};
-  const d = readDisplaySettings(r.display);
+  const disp = isObj(r.display) ? r.display : {};
+  const stored = { ...readDisplaySettings(disp), followOffice: readFollowOffice(disp.followOffice) };
+  const office = officeDisplayOf(isObj(officeRaw) ? officeRaw.display : undefined);
+  const d = resolveDisplay(stored, office);
   const out: Record<string, CurrentValue> = {};
   const c = readItemChoice(r.itemChoice);
   out["input.items"] = current("input.items", itemChoiceValue(c), itemChoiceText(c));
   const keys = Array.isArray(r.shownItems) ? r.shownItems.filter((x): x is string => typeof x === "string") : [];
   const added = keys.map((key) => ({ key, ...itemKeyLabel(key) }));
   out["result.addedItems"] = current("result.addedItems", added, added.length === 0 ? "なし" : added.map((a) => a.label).join("・"));
-  out["result.metrics"] = current("result.metrics", d.result.metrics, listText("result.metrics", d.result.metrics));
-  out["result.atAge"] = current("result.atAge", d.result.atAge, `${d.result.atAge}歳`);
-  out["result.layout"] = current("result.layout", d.result.layout, labelOf("result.layout", d.result.layout));
-  out["result.invBreakdown"] = current("result.invBreakdown", d.result.invBreakdown, labelOf("result.invBreakdown", d.result.invBreakdown));
-  out["result.invPeriods"] = current("result.invPeriods", d.result.invPeriods, labelOf("result.invPeriods", d.result.invPeriods));
-  out["balance.health"] = current("balance.health", d.balance.health, labelOf("balance.health", d.balance.health));
-  const g = d.balance.guide;
-  const basisText = g.basis === undefined ? "分母は世帯から決める" : (GUIDE_BASIS_CHOICES.find((x) => x.value === g.basis)?.label ?? g.basis);
-  out["balance.guide"] = current("balance.guide", g, `すぐ使えるお金 ${g.months[0]}〜${g.months[1]}か月分（${basisText}）・値動きのある資産 ${g.risk[0]}〜${g.risk[1]}%・負債の重さ ${g.debt}%未満`);
-  out["balance.points"] = current("balance.points", d.balance.points, listText("balance.points", d.balance.points));
+  const pair = pairCurrent(d);
+  for (const id of Object.keys(pair)) {
+    const v = pair[id] as CurrentValue;
+    out[id] = isOfficeDisplayId(id) ? { ...v, followsOffice: followsOffice(stored, id) } : v;
+  }
   const cols = d.balance.columns;
   out["balance.columns"] = current("balance.columns", cols, cols === null ? "「時点を並べる」の既定のまま" : cols.map((x) => ("point" in x ? labelOf("balance.columns", x.point) : `${x.year}年`)).join("・"));
-  const m3 = d.balance.moneyThree;
-  out["balance.moneyThree.wording"] = current("balance.moneyThree.wording", m3.wording, labelOf("balance.moneyThree.wording", m3.wording));
-  out["balance.moneyThree.months"] = current("balance.moneyThree.months", m3.months, `${m3.months}か月分`);
-  out["balance.moneyThree.years"] = current("balance.moneyThree.years", m3.years, `${m3.years}年先まで`);
-  return out;
+  return orderedLike(out);
+}
+
+/** 一覧の並びにした今の値（並びを一覧と同じにする） */
+function orderedLike(out: Record<string, CurrentValue>): Record<string, CurrentValue> {
+  const ids = (catalog ??= buildDisplayCatalog()).settings.map((s) => s.id);
+  return Object.fromEntries(ids.filter((id) => id in out).map((id) => [id, out[id] as CurrentValue]));
 }
 
 /**
@@ -172,5 +183,5 @@ export function householdCurrent(raw: unknown): Record<string, CurrentValue> {
 export function displayCurrent(officeJson: string, householdJson: string, _unused: string): string {
   const office = JSON.parse(officeJson === "" ? "null" : officeJson) as unknown;
   const household = JSON.parse(householdJson === "" ? "null" : householdJson) as unknown;
-  return JSON.stringify({ office: office === null ? null : officeCurrent(office), household: household === null ? null : householdCurrent(household) });
+  return JSON.stringify({ office: office === null ? null : officeCurrent(office), household: household === null ? null : householdCurrent(household, office) });
 }
