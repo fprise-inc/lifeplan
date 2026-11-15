@@ -1,4 +1,4 @@
-// 不動産の評価の土地の割合・建物の残りの価値の下限・売却の費用を、ほかの前提条件と同じ決まりにそろえる（0217）:
+// 不動産の評価の土地の割合・建物の残りの価値の下限・売却の費用を、ほかの前提条件と同じ決まりにそろえる（0218）:
 // 新しい世帯に写す・値の無い世帯は開いたときに今の事務所の値を写す（計算の結果は変わらない）・後で事務所の値を変えても写した世帯は変わらず、
 // 確かめの一覧に「事務所の既定値が変わりました」と出て1押しで当てられる・物件ごとの値が先に効く順は変えない
 import { readdirSync, readFileSync } from "node:fs";
@@ -83,7 +83,7 @@ const FORMATS = (() => {
 })();
 const formatHousehold = (v: string) => fromBody(readFileSync(join(FORMAT_DIR, v, "body.json"), "utf8")).wh;
 
-describe("新しい世帯に写す（0217）", () => {
+describe("新しい世帯に写す（0218）", () => {
   it("事務所で決めていなければ提供元の既定の値を、ほかの前提条件と同じ「事務所の既定値（年月）」の印で写す", () => {
     const wh = applyOfficeDefaults(blankHousehold("2026-11", ids()), DEFAULT_OFFICE_SETTINGS);
     expect(valuation(wh)).toEqual({ landShare: "0.3", residualFloor: "0.2", saleCostRate: "0.04" });
@@ -148,7 +148,7 @@ function withHome(wh: WorkingHousehold): WorkingHousehold {
   });
 }
 
-describe("値の無い世帯は開いたときに今の事務所の値を写す。計算の結果は変わらない（0217）", () => {
+describe("値の無い世帯は開いたときに今の事務所の値を写す。計算の結果は変わらない（0218）", () => {
   const check = (wh: WorkingHousehold, office: OfficeSettings) => {
     publishOfficeSettings(office);
     const before = run(wh.request, result);
@@ -198,7 +198,7 @@ describe("値の無い世帯は開いたときに今の事務所の値を写す�
   });
 });
 
-describe("境目: 古い建物の残りの価値の下限・売却する年・物件ごとの値（0217）", () => {
+describe("境目: 古い建物の残りの価値の下限・売却する年・物件ごとの値（0218）", () => {
   /** 写す前は事務所の値を変えると結果が変わり、写した後は変わらない */
   const fixedAfterFill = (req: EngineRequest) => {
     publishOfficeSettings(CHANGED);

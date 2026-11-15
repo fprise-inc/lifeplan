@@ -152,7 +152,7 @@ describe("新しい世帯に写す・欄の印", () => {
     expect(f.get(wh)).toMatchObject({ value: "0.4", premise: { state: "office", officeText: "40%" } });
     const own = f.set(wh, "0.35");
     expect(premiseOf(own, "assume/realEstate/landShare")?.state).toBe("household");
-    // 戻すと事務所の今の値を書き、事務所の既定値の印（値を外さない。0217）
+    // 戻すと事務所の今の値を書き、事務所の既定値の印（値を外さない。0218）
     const back = premiseOf(own, "assume/realEstate/landShare")!.reset(own);
     expect(back.request.input.assumptions?.realEstateValuation).toEqual({ landShare: "0.4" });
     expect(back.assumed["assume/realEstate/landShare"]).toMatch(/^事務所の既定値/);

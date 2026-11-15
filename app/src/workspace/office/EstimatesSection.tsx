@@ -36,7 +36,7 @@ const USE_TEXT: Readonly<Record<string, string>> = {
 
 /**
  * 前提条件の不動産の評価の事務所の既定値でもある目安（土地の割合・建物の残りの価値の下限・売却の費用。0214 の1）の効く所の文。
- * ほかの前提条件と同じく世帯に写すので、作った世帯にはすぐ効かない（0217）
+ * ほかの前提条件と同じく世帯に写すので、作った世帯にはすぐ効かない（0218）
  */
 const PREMISE_USE_TEXT = "前提条件の不動産の評価の事務所の既定値（これから作る世帯に写します。作った世帯は変わらず、確かめの一覧に「事務所の既定値が変わりました」と出ます）";
 const useTextOf = (e: { id: string; use?: string }): string => (PREMISE_DEFS.some((d) => d.live === e.id) ? PREMISE_USE_TEXT : USE_TEXT[e.use ?? ""] ?? "");

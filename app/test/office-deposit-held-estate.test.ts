@@ -45,7 +45,7 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     expect(ASSUMPTION_STANDARDS.depositReturn).toBe("0.001");
     expect(ASSUMPTION_STANDARDS.heldEstateGrowth).toBe("0");
     const wh0 = blankHousehold("2026-11", ids());
-    // 既定のままなら、土地の割合・建物の残りの価値の下限・売却の費用（提供元の既定の値。0217）のほかは何も変えない
+    // 既定のままなら、土地の割合・建物の残りの価値の下限・売却の費用（提供元の既定の値。0218）のほかは何も変えない
     const plain = applyOfficeDefaults(wh0, DEFAULT_OFFICE_SETTINGS);
     expect(plain.request.input.assumptions?.realEstateValuation).toEqual({ landShare: "0.3", residualFloor: "0.2", saleCostRate: "0.04" });
     const { realEstateValuation: _rv, ...restA } = plain.request.input.assumptions!;

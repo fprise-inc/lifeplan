@@ -27,7 +27,7 @@ export interface OfficeNow {
   inheritLikelihood: "likely" | "uncertain";
   /**
    * 前提条件の事務所の既定値（前提条件の id → 値の文字。率は小数の文字、耐用年数は年の数の文字。0214 の2）。無い id は提供元の既定の値。
-   * id は input/premiseDefaults.ts の PREMISE_DEFS（置き場所が事務所の推定の値の土地の割合など3つは入れない。推定の目安の側で読む。写し方はほかと同じ。0217）
+   * id は input/premiseDefaults.ts の PREMISE_DEFS（置き場所が事務所の推定の値の土地の割合など3つは入れない。推定の目安の側で読む。写し方はほかと同じ。0218）
    */
   premises: Readonly<Record<string, string>>;
   /** 推定の根拠の文（例: 「事務所の標準（2026-10）」） */

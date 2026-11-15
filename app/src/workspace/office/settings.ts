@@ -2,7 +2,7 @@
 // - 新しい世帯を作るときに写す（前提条件の既定値〔経済の前提・不動産の評価・資産の種類ごとの利回り。0214〕・本人と配偶者の介護を最初から入れるか・
 //   相続税の目安の評価の割合）。写した前提条件は「事務所の既定値（年月）」の印で、世帯では決まった値として「事務所の既定値」と見せる。
 //   後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の既定値が変わりました」）。
-//   前提条件のうち土地の割合・建物の残りの価値の下限・売却の費用は、事務所データの置き場所が事務所の推定の値（estimates）だが、写し方はほかと同じ（0217）
+//   前提条件のうち土地の割合・建物の残りの価値の下限・売却の費用は、事務所データの置き場所が事務所の推定の値（estimates）だが、写し方はほかと同じ（0218）
 // - 形の版は 3（0214 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足して 2。0215 で足すだけの欄 displayHistory
 //   〔AI の表示の設定の案を反映する前の値。office/displayHistory.ts〕を足して 3。版 1・2 の事務所データもそのまま読む）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
@@ -15,7 +15,7 @@
 //   見せ方だけで計算の結果は変えないので世帯には写さず、変えるとどの世帯にもすぐ効く
 // - 事務所の推定の値（estimates。0111）: 空欄・「わからない」を補う推定の元のマスタデータの値と、推定で埋めない入力欄。推定の元なので世帯には写さず、
 //   推定の目安と計算の要求にその場で入れる（office/estimates.ts）。ただし前提条件の土地の割合など3つ（preset.realEstate.*）は、ほかの前提条件と
-//   同じく世帯に写す（0217。世帯の値が先に効くので、写した世帯は事務所の値を変えても変わらない）
+//   同じく世帯に写す（0218。世帯の値が先に効くので、写した世帯は事務所の値を変えても変わらない）
 // - 読むときは形を確かめ、読めない値は既定（既定の値）にする
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
@@ -257,7 +257,7 @@ function readPremises(v: Record<string, unknown>): Pick<OfficeSettings, "realEst
 
 /**
  * 事務所の推定の値に置き場所のある前提条件（土地の割合・建物の残りの価値の下限・売却の費用）の事務所の値（率の文字。決めていなければ
- * 提供元の既定の値。0217）
+ * 提供元の既定の値。0218）
  */
 export function officeLiveValue(s: OfficeSettings, d: PremiseDef): string | null {
   if (d.live === undefined) return null;
@@ -399,7 +399,7 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   const premises = officePremises(s);
   if (Object.keys(premises).length > 0) w = copyOfficePremises(w, premises, basis);
   // 土地の割合・建物の残りの価値の下限・売却の費用（置き場所は事務所の推定の値）は、事務所で決めていなくても提供元の既定の値を書く
-  // （世帯に値が無いと、後で事務所の値を変えたときに黙って変わるため。0217）
+  // （世帯に値が無いと、後で事務所の値を変えたときに黙って変わるため。0218）
   w = fillLivePremises(w, basis, (d) => officeLiveValue(s, d));
   if (s.realEstateRatio !== null) {
     const request = structuredClone(w.request);
