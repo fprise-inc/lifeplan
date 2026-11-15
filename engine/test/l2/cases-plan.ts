@@ -195,7 +195,8 @@ export const PLAN_CASES: readonly L2Case[] = [
     actual: () => {
       const C = uid("l2p.c");
       const req = household({ baseMonth: "2027-01", endYear: 2032, members: [member("l2p.a", "self", "1975-05"), member("l2p.c", "child", "2012-06")], relations: [{ type: "parentOf", parent: A, child: C }] });
-      (req.input.household as unknown as Obj).goals = [{ id: uid("l2p.g"), kind: "education", owner: C, education: { stages: [{ stage: "highSchool", sector: "private" }] } }];
+      (req.input.household as unknown as Obj).goals = [{ id: uid("l2p.g"), kind: "education", owner: C, education: { stages: [{ stage: "highSchool", sector: "private", annualOverride: 900000 }] } }];
+      // 授業料が上限を超える学校（学校の年額を入れた段。入れた額は支援金を引く前の額とみなす）。統計の平均の段は統計の授業料（支援金を引いた後の額）が上限になる（0010 の追記 2026-11-14）
       return entry<{ flows: Flow[] }>(req, "education.support", { member: C }).flows.filter((x) => x.ym >= "2028-04" && x.ym <= "2029-03").reduce((t, x) => t + x.amount, 0);
     },
     status: "pass",

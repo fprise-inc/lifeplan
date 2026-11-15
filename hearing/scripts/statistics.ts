@@ -42,6 +42,9 @@ const REGULATION_VALUES: readonly [string, string][] = [
   ["educationSupport", "educationSupport.schoolLunch.months"],
   ["educationSupport", "educationSupport.nursery.fee.standard"],
   ["educationSupport", "educationSupport.nursery.fee.short"],
+  // 高校の学校の費用の推定（就学支援金を引く前の額にする。入れた年額は支援金を引く前とみなすので。0010 の追記 2026-11-14）
+  ["educationSupport", "educationSupport.highSchool.publicAnnual"],
+  ["educationSupport", "educationSupport.highSchool.privateAnnual"],
   // 住宅取得等資金の贈与税の非課税の期限（画面の知らせ。期限の後の贈与は非課税なし。0052 の追記 2026-11-05）
   ["housing", "giftTax.housingFunds.exemption.energySaving"],
   ["housing", "giftTax.housingFunds.exemption.other"],

@@ -110,6 +110,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.elementary.private.entrance
+    status: active
+    label: "入学金等の年額（私立小学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.elementary.private.extracurricular
     status: active
     label: "教科外活動費の年額（私立小学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）"
@@ -125,6 +131,12 @@ entries:
   - id: education.statistics.elementary.private.total
     status: active
     label: "学習費総額の年額（私立小学校。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.elementary.public.entrance
+    status: active
+    label: "入学金等の年額（公立小学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）"
     since: draft
     aliases: []
     replacedBy: null
@@ -149,6 +161,42 @@ entries:
   - id: education.statistics.elementary.public.total
     status: active
     label: "学習費総額の年額（公立小学校。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.exam.juniorCollege
+    status: active
+    label: "受験・併願の費用（短大の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.exam.university.all
+    status: active
+    label: "受験・併願の費用（大学の入学者（国公立・私立の全体）。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.exam.university.private.humanities
+    status: active
+    label: "受験・併願の費用（私立大学文系の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.exam.university.private.science
+    status: active
+    label: "受験・併願の費用（私立大学理系の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.exam.university.public
+    status: active
+    label: "受験・併願の費用（国公立大学の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.exam.vocational
+    status: active
+    label: "受験・併願の費用（高専・専修学校・各種学校の入学者。教育費負担の実態調査 令和3年度。受験料・受験の交通費・宿泊費と、入学しなかった学校への納付金）"
     since: draft
     aliases: []
     replacedBy: null
@@ -260,6 +308,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.highSchool.private.entrance
+    status: active
+    label: "入学金等の年額（私立高等学校（全日制）。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.highSchool.private.extracurricular
     status: active
     label: "教科外活動費の年額（私立高校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）"
@@ -275,6 +329,18 @@ entries:
   - id: education.statistics.highSchool.private.total
     status: active
     label: "学習費総額の年額（私立高等学校（全日制）。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.highSchool.private.tuition
+    status: active
+    label: "授業料の年額（私立高等学校（全日制）。子供の学習費調査。学校教育費のうち。就学支援金が差し引かれた後に保護者が払った額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.highSchool.public.entrance
+    status: active
+    label: "入学金等の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）"
     since: draft
     aliases: []
     replacedBy: null
@@ -296,6 +362,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.highSchool.public.tuition
+    status: active
+    label: "授業料の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。就学支援金が差し引かれた後に保護者が払った額）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.juniorCollege.private.admission
     status: active
     label: "私立短期大学の入学料の平均（令和7年度入学者）"
@@ -314,6 +386,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.juniorHigh.private.entrance
+    status: active
+    label: "入学金等の年額（私立中学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.juniorHigh.private.extracurricular
     status: active
     label: "教科外活動費の年額（私立中学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）"
@@ -329,6 +407,12 @@ entries:
   - id: education.statistics.juniorHigh.private.total
     status: active
     label: "学習費総額の年額（私立中学校。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.juniorHigh.public.entrance
+    status: active
+    label: "入学金等の年額（公立中学校。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）"
     since: draft
     aliases: []
     replacedBy: null
@@ -356,6 +440,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.kindergarten.private.entrance
+    status: active
+    label: "入学金等の年額（私立幼稚園。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.kindergarten.private.extracurricular
     status: active
     label: "教科外活動費の年額（私立幼稚園。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）"
@@ -371,6 +461,12 @@ entries:
   - id: education.statistics.kindergarten.private.total
     status: active
     label: "学習費総額の年額（私立幼稚園。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.kindergarten.public.entrance
+    status: active
+    label: "入学金等の年額（公立幼稚園。子供の学習費調査。学校教育費のうち。全学年の平均。入学金・入学時の施設整備費等・受験した全部の学校の入学検定料）"
     since: draft
     aliases: []
     replacedBy: null
