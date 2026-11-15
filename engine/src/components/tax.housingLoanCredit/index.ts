@@ -24,13 +24,18 @@
 //   から短くなった後の最後の返済の月まで。debt.schedule の約束の版 1.4 の prepayments）が10年未満になったら、その繰上返済をした年分から受けない
 //   （前は返し終えた年からだけ外していた）。借り換えた後の繰上返済は、新しいローンの最初の返済（借り換えの月）から数える。当初の返済の期間
 //   （repayment.termMonths）が10年未満のローンは、はじめから受けない
+// 改訂7（0136 の追記 2026-11-14。租税特別措置法41条1項・2項）: 万一の想定で亡くなった年は、12月31日の代わりに死亡の日で判定する。
+//   死亡の月まで住んでいれば受け、額は死亡の月の返済の後・団信で減らす前の残高（debt.schedule の約束の版 1.6 の atDeath）から計算する
+//   （前は年末残高を見ていたので、団信で残高が消えると0円だった）。亡くなった年の翌年からは受けない
 import {
   ageMonth,
   defineComponent,
+  parseYm,
   isOutside,
   monthIndex,
   yearOf,
   yen,
+  type ContingencyEventOutput,
   type DebtInput,
   type DebtScheduleOutput,
   type HousingLoanCreditOutput,
@@ -75,8 +80,8 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
   id: "tax.housingLoanCredit",
   title: "住宅借入金等特別控除",
   contract: "1.1",
-  revision: 6,
-  requires: { "debt.schedule": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
+  revision: 7,
+  requires: { "debt.schedule": ">=1 <2", "tax.incomeWithin": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [...Object.values(P), ...LIMITS, `${C}.limit.used.other`, ...PERIODS],
   reads: ["member.outside", "debt.kind", "debt.debtors", "debt.housing", "debt.repayment", "residence.to", "member.kind", "member.birth", "relation.type", "relation.a", "relation.b"],
   input: "tax.memberYear.input",
@@ -88,6 +93,11 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
     );
     if (loans.length === 0) return NONE;
     const dec = monthIndex(year, 12);
+    // 万一の想定で亡くなる月（亡くなった年は死亡の日で判定する。翌年からは受けない。改訂7）
+    const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member }).event;
+    const death = ev !== null && ev.kind === "death" ? parseYm(ev.month) : null;
+    if (death !== null && yearOf(death) < year) return NONE;
+    const deathYear = death !== null && yearOf(death) === year;
     let eligible = yen(0);
     let limit: Yen | null = null;
     let rateOf: string | null = null;
@@ -118,10 +128,10 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
       const special = year > moveYear + period - 1 && oldRegime && h.newBuild && at.has(P.special, opts) ? (at.paramCount(P.special, opts) ?? 0) : 0;
       const inSpecial = year <= moveYear + special - 1;
       if (year > moveYear + period - 1 && !inSpecial) continue;
-      // 12月31日に住んでいるか
+      // 12月31日（亡くなった年は死亡の月）に住んでいるか
       if (h.residence !== undefined) {
         const r = ctx.list<ResidenceInput>("residence").find((x) => x.id === h.residence);
-        if (r !== undefined && r.to !== null && ctx.time.resolve(r.to) < dec) continue;
+        if (r !== undefined && r.to !== null && ctx.time.resolve(r.to) < (deathYear ? (death as number) : dec)) continue;
       }
       const incomeLimit = at.paramYen(P.income, opts);
       if (incomeLimit !== null && !ctx.call<{ within: boolean }>("tax.incomeWithin", { member, year, limit: incomeLimit }).within) continue;
@@ -139,7 +149,9 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
       // 借り換え（その年までの最後の借り換え）: 償還期間10年未満は受けない。新しい借入額が直前の残高より多ければ比で減らす
       const rf = (rep.refinances ?? []).filter((x) => yearOf(ym(x.ym)) <= year).at(-1);
       if (rf !== undefined && rf.termMonths < MIN_TERM_MONTHS) continue;
-      let balance = rep.yearEnd.find((e) => e.year === year)?.balance ?? yen(0);
+      // 年末残高（亡くなった年は死亡の月の返済の後・団信で減らす前の残高）
+      const atDeath = deathYear ? rep.atDeath?.find((e) => e.member === member)?.balance : undefined;
+      let balance = atDeath ?? rep.yearEnd.find((e) => e.year === year)?.balance ?? yen(0);
       if (rf !== undefined && rf.principal > rf.before) balance = ctx.money.mulRatio(balance, rf.before, rf.principal, "conv.exact");
       if (balance <= 0) continue;
       if (inSpecial) {

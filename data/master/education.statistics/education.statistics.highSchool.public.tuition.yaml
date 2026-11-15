@@ -1,0 +1,21 @@
+id: education.statistics.highSchool.public.tuition
+title: 授業料の年額（公立高等学校（全日制）。子供の学習費調査。学校教育費のうち。就学支援金が差し引かれた後に保護者が払った額）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2023-04-01"
+    appliesTo: null
+    enforcedOn: "2026-01-16"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 45272
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-11-14", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図4-2 p.10", "quote": "授業料 45,272円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-11-14", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "同 図4-2 p.10（学校教育費の合計）", "quote": "合計 351,523円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-11-14", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "同 p.15 項目別定義", "quote": "幼稚園保育料、私立小中学校・公私立高等学校の授業料として支払った経費"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-14", "tools": ["PDF の本文（公表資料）","図の内訳の合計と表1の学校教育費の突き合わせ","原本の指紋（sha256）"], "note": "令和5年度の公立高等学校（全日制）の授業料（訂正版）。保護者が実際に払った額で、就学支援金（学校が授業料から差し引く）の後の額。統計の平均で計算する高校の段の就学支援金を、上限とこの額（教育費の上昇率で伸ばす）の小さい方にする（統計の学校の費用はもう支援金を引いた後の額なので、二重に引かない）"}

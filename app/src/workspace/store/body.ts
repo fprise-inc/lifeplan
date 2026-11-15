@@ -123,6 +123,9 @@
 //   本体の変換の段は、ID の無い要素に、画面がその要素を指していた決まった ID と同じ ID を振る。画面も開くときに同じ決まりで振る（elementIds.ts）
 //   0.77 から: 資産と負債のタブの表示の設定に、家計の体力の目安を表示するか display.balance.health（0027 の 2026-11-13 の追記）。足すだけ。
 //   本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝表示する）
+//   0.78 から: 画面の側の表を何歳まで見るかの決め方 endYearChoice（人と年齢 {by: "member", member, age}・年で決める {by: "year"}。0070 の追記
+//   2026-11-13。既定は持たない。任意。計算には使わない〔計算は表の最後の年 endYear だけ〕）。足すだけ。本体の変換の段は版だけを書き換える
+//   （前の版の世帯は欄が無い＝年から読む。input/household.ts の endYearRuleOf）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -170,7 +173,7 @@
 import type { EngineRequest } from "../../engine/types.ts";
 import { emptyPlan } from "../contingency/planData.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
-import { withElementIds, withoutPlainMarks, type WorkingHousehold } from "../input/household.ts";
+import { readEndYearChoice, withElementIds, withoutPlainMarks, type WorkingHousehold } from "../input/household.ts";
 import { withoutFutureCarLoanDocs } from "../input/carLoanDocs.ts";
 import { withoutSharedPlanDiffs } from "../plans/sharedItems.ts";
 import { withLegacyAllowanceNotice } from "../input/livingAllowance.ts";
@@ -196,7 +199,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.77";
+export const BODY_FORMAT_VERSION = "0.78";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -348,6 +351,10 @@ export function fromBody(json: string): BodyState {
   const choice = readItemChoice(wh.itemChoice);
   if (!isEmptyChoice(choice)) wh.itemChoice = choice;
   else delete wh.itemChoice;
+  // 表を何歳まで見るかの決め方（0.78 から。0070 の追記 2026-11-13）: 形の合わない値は捨てる（年から読む）
+  const endChoice = readEndYearChoice(wh.endYearChoice);
+  if (endChoice !== undefined) wh.endYearChoice = endChoice;
+  else delete wh.endYearChoice;
   const snapshots = readSnapshots(b.snapshots);
   if (snapshots.length > 0) wh.snapshots = snapshots;
   if (isObj(b.statements)) {

@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "fields": {
       "description": "true なら、入力の数の欄から作った項目（画面の「＋ 動かす項目を追加」で足せる欄）もすべて返す（大きくなる）。既定は対策・資産運用・\n貯まり方・よく使う項目だけ",

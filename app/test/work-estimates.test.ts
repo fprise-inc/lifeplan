@@ -183,7 +183,8 @@ describe("目安の定年をもう過ぎている人（60歳以上）", () => {
     const { wh, self } = newCustomer("1963-04");
     const w = press(wh, `work/${self}/start/contract`);
     expect(periods(w, self)).toMatchObject([
-      { type: "regular", from: { at: "1985-04" }, to: { at: "2023-03" }, endsWith: "retirement" },
+      // 1963年4月生まれ（1日生まれでない）は22歳になった後の最初の4月 1986-04 から（前は生まれた年＋22年の 1985-04 で21歳の4月だった）
+      { type: "regular", from: { at: "1986-04" }, to: { at: "2023-03" }, endsWith: "retirement" },
       { type: "contract", from: { at: "2023-04" }, to: { at: "2028-03" } },
     ]);
     expect(w.assumed[`work/${self}/retireAge`]).toContain("65歳");

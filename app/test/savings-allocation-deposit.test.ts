@@ -120,13 +120,13 @@ describe("資産配分を計算に渡す（0137）", () => {
 });
 
 describe("預金の利回り（0137）", () => {
-  it("新しい世帯の預金の利回りは既定の値 0.1%（推定）。運用利回りを3%にしても預金は0.1%で増える", () => {
+  it("新しい世帯の預金の利回りは既定の値 0.1%（事務所の既定値。0214）。運用利回りを3%にしても預金は0.1%で増える", () => {
     let wh = blankHousehold("2026-10", seq());
     expect(wh.request.input.assumptions?.depositReturn).toEqual({ default: "0.001" });
     const f = fieldIn(buildStage("assumptions", wh), "assume/depositReturn");
     expect(f.level).toBe("detail");
     expect(f.label).toBe("預金の利回り（年）");
-    expect(fieldStatus(f, wh).status).toBe("estimated");
+    expect(fieldStatus(f, wh)).toMatchObject({ status: "confirmed", premise: { state: "office" } });
     wh = mutate(wh, (h) => {
       (h.accounts ??= []).push({ id: "00000000-0000-4000-8000-0000000000d1", kind: "deposit", owner: h.members[0]!.id, marketValue: { value: 10_000_000, state: "confirmed", origin: { kind: "manual" } }, asOf: "2026-10", contributions: [] });
       (h.accounts ??= []).push({ id: "00000000-0000-4000-8000-0000000000d2", kind: "fxDeposit", owner: h.members[0]!.id, marketValue: { value: 1_000_000, state: "confirmed", origin: { kind: "manual" } }, asOf: "2026-10", contributions: [] });
@@ -179,16 +179,23 @@ describe("前提条件の足すボタン（0137）", () => {
     expect(new Set(labels).size).toBe(labels.length);
   });
 
-  it("資産の種類ごとの利回りの足すボタンは、まだ足していない種類を全部出す（国内REIT・不動産なども最初から押せる）", () => {
-    const st = buildStage("assumptions", blankHousehold("2026-10", seq()));
-    const acts = st.sections.find((s) => s.key === "assume/assetReturns")!.actions;
-    expect(acts).toHaveLength(ASSET_CLASSES.length);
-    expect(acts.map((a) => a.label)).toEqual(expect.arrayContaining(["＋ 国内REIT", "＋ 不動産", "＋ その他"]));
-    // 預金を足すと今の預金の利回りから始める
+  it("資産の種類ごとの利回りは12種類を全部、3列の小さな欄で並べる（0214 の4）。空欄は計算と同じ（預金は預金の利回り、ほかは運用利回り）", () => {
     let wh = blankHousehold("2026-10", seq());
+    const st = buildStage("assumptions", wh);
+    const sec = st.sections.find((s) => s.key === "assume/assetReturns")!;
+    const grid = sec.groups.find((g) => g.key === "assume/assetReturns/grid")!;
+    expect(grid.fields.map((f) => f.label)).toEqual(ASSET_CLASSES.map((o) => o.label));
+    // まだ値を入れていない種類は例外の年を出さない
+    expect(sec.actions).toEqual([]);
     wh = put(wh, "assumptions", "assume/depositReturn", "0.003");
-    wh = acts.find((a) => a.key === "assume/addReturn/cash.deposit")!.run(wh);
-    expect(wh.request.input.assumptions?.assetReturns?.["cash.deposit"]?.default).toBe("0.003");
+    const dep = fieldIn(buildStage("assumptions", wh), "assume/assetReturns/cash.deposit/default");
+    expect(dep.get(wh)).toMatchObject({ value: null, hint: "預金の利回りと同じ（0.3%）", premise: { state: "office" } });
+    wh = dep.set(wh, "0.005");
+    expect(wh.request.input.assumptions?.assetReturns?.["cash.deposit"]?.default).toBe("0.005");
+    expect(buildStage("assumptions", wh).sections.find((s) => s.key === "assume/assetReturns")!.actions.map((a) => a.label)).toEqual(["＋ 例外の年（預金）"]);
+    // 空にすると事務所の既定値（預金の利回りと同じ）に戻る
+    wh = dep.set(wh, null);
+    expect(wh.request.input.assumptions?.assetReturns).toBeUndefined();
   });
 
   it("運用利回りの説明は費用を引いた後（税は計算で引く）", () => {

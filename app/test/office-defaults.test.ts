@@ -47,7 +47,8 @@ describe("読むときの形の確かめ", () => {
 });
 
 describe("新しい世帯に写す", () => {
-  it("前提条件の標準値・不動産の評価の割合は推定の印（事務所の標準）で入り、本人の介護は目安で入る。計算できる", () => {
+  it("前提条件の標準値は「事務所の既定値（年月）」の印で入って決まった値の「事務所の既定値」と見え、不動産の評価の割合は推定の印、本人の介護は目安で入る。計算できる", () => {
+    publishOfficeSettings(SETTINGS);
     const wh0 = blankHousehold("2026-10", ids());
     const wh = applyOfficeDefaults(wh0, SETTINGS);
     expect(wh.request.input.assumptions?.inflation?.default).toBe("0.015");
@@ -55,32 +56,38 @@ describe("新しい世帯に写す", () => {
     expect(wh.request.input.assumptions?.wageGrowth?.default).toBe("0.01");
     expect(wh.request.input.inheritanceTax?.realEstateRatio).toBe("0.7");
     const f = allFields(buildStage("assumptions", wh)).find((x) => x.key === "assume/inflation")!;
-    expect(fieldStatus(f, wh)).toMatchObject({ status: "estimated", basis: "事務所の既定値（2026-10）" });
+    expect(wh.assumed["assume/inflation"]).toBe("事務所の既定値（2026-10）");
+    expect(fieldStatus(f, wh)).toMatchObject({ status: "confirmed", premise: { state: "office", decided: true } });
+    expect(wh.assumed["inherit/tax/realEstateRatio"]).toBe("事務所の既定値（2026-10）");
     expect((wh.request.input.household.careExpenses ?? []).length).toBe(1);
     expect(() => preview(wh.request)).not.toThrow();
-    // 保存して読み直しても推定の印が残る
+    // 保存して読み直しても印が残る
     const back = fromBody(JSON.stringify(bodyObject(state(wh)))).wh;
-    expect(fieldStatus(f, back)).toMatchObject({ status: "estimated", basis: "事務所の既定値（2026-10）" });
+    expect(back.assumed["assume/inflation"]).toBe("事務所の既定値（2026-10）");
+    expect(fieldStatus(f, back).premise?.state).toBe("office");
     // 既定のままなら何も変えない
     expect(applyOfficeDefaults(wh0, DEFAULT_OFFICE_SETTINGS)).toBe(wh0);
   });
 
-  it("事務所の値を後で変えても世帯は黙って変わらず、確かめの一覧に「事務所の新しい値があります」。押すと推定の印のまま事務所の値になる", () => {
+  it("事務所の値を後で変えても世帯は黙って変わらず、確かめの一覧に「事務所の既定値が変わりました（前→今）」。押すと事務所の今の値になる", () => {
     const wh = blankHousehold("2026-10", ids());
     expect(checkList(wh).some((r) => r.actions.some((a) => a.key === "office"))).toBe(false);
     publishOfficeSettings({ ...DEFAULT_OFFICE_SETTINGS, assumptions: { inflation: "0.02" }, changedOn: "2026-11-01" });
     const row = checkList(wh).find((r) => r.fieldKey === "assume/inflation")!;
     expect(row).toMatchObject({ kind: "notice" });
-    expect(row.detail).toContain("事務所の新しい値があります（2%）");
+    expect(row.detail).toContain("事務所の既定値が変わりました（1%→2%）");
     const next = row.actions.find((a) => a.key === "office")!.run(wh);
     expect(next.request.input.assumptions?.inflation?.default).toBe("0.02");
     const f = allFields(buildStage("assumptions", next)).find((x) => x.key === "assume/inflation")!;
-    expect(fieldStatus(f, next)).toMatchObject({ status: "estimated", basis: "事務所の既定値（2026-11）" });
+    expect(fieldStatus(f, next)).toMatchObject({ status: "confirmed", premise: { state: "office" } });
+    expect(next.assumed["assume/inflation"]).toBe("事務所の既定値（2026-11）");
     expect(checkList(next).some((r) => r.fieldKey === "assume/inflation" && r.kind === "notice")).toBe(false);
-    // 確定にした値には知らせを出さない
+    // 事務所の既定値どおりの前提は「前提条件（事務所の既定値どおり）」の行（操作なし。0214 の7）
     const conf = checkList(wh).find((r) => r.fieldKey === "assume/wageGrowth");
-    // 前提条件の標準の値は、推定でなく「前提条件の標準の値」の行（0041 の追記 2026-11-06）
-    expect(conf?.kind).toBe("premise");
+    expect(conf).toMatchObject({ kind: "premise", actions: [] });
+    // この世帯だけの値には知らせを出さない
+    const own = f.set(wh, "0.03");
+    expect(checkList(own).some((r) => r.fieldKey === "assume/inflation" && r.kind === "notice")).toBe(false);
   });
 });
 

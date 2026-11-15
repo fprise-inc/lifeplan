@@ -1,6 +1,6 @@
 // 推定の目安（src/estimates.ts）: 数は正本の YAML（data/master・data/regulation）の写しから読む。入力の画面とヒアリングが同じ関数を使う
 import { describe, expect, it } from "vitest";
-import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingCategoryAverages, livingEstimate, livingStatistic, splitLiving, splitTransport, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, neutralWageCurveId, parseWageCurveId, reemploymentRatio, wageCurve, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass } from "../src/estimates.ts";
+import { businessEstimate, careerStartMonth, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingCategoryAverages, livingEstimate, livingStatistic, splitLiving, splitTransport, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, neutralWageCurveId, parseWageCurveId, reemploymentRatio, wageCurve, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass } from "../src/estimates.ts";
 import { masterValue } from "../src/statistics.ts";
 import { MASTER_VALUES } from "../src/statistics.generated.ts";
 
@@ -210,5 +210,20 @@ describe("基本生活費の10費目（0100）", () => {
     const tiny = splitTransport(400, 2)!;
     expect(tiny.transit + tiny.communication).toBe(400);
     expect(tiny.transit).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("働き始めの目安（22歳になった後の最初の4月）", () => {
+  it("1〜3月生まれは生まれた年＋22年、4〜12月生まれは＋23年の4月（4月2日〜翌年4月1日生まれが同じ学年）", () => {
+    // 直す前はどれも生まれた年＋22年で、4〜12月生まれは21歳の4月（大学を出る1年前）になっていた
+    expect(careerStartMonth("1990-01")).toBe("2012-04");
+    expect(careerStartMonth("1990-03")).toBe("2012-04");
+    expect(careerStartMonth("1990-04")).toBe("2013-04");
+    expect(careerStartMonth("1990-06")).toBe("2013-04");
+    expect(careerStartMonth("1990-12")).toBe("2013-04");
+    // 4月1日生まれは前の学年（3月生まれと同じ）
+    expect(careerStartMonth("1990-04", true)).toBe("2012-04");
+    // 1日生まれでも4月以外は変わらない
+    expect(careerStartMonth("1990-05", true)).toBe("2013-04");
   });
 });

@@ -404,9 +404,16 @@ export function smrEstimate(annual: number, month: string): { health: ValueBox<n
 
 // ---- 働き始め ----
 
-/** 今の年齢から見た、ふつうの働き始め（22歳の4月）。過去の期間の始まりの目安（標準の値） */
-export function careerStartMonth(birthYearMonth: string): string {
-  return `${Number(birthYearMonth.slice(0, 4)) + 22}-04`;
+/**
+ * 今の年齢から見た、ふつうの働き始め（22歳になった後の最初の4月。4年制の大学を出た翌月）。過去の期間の始まりの目安（標準の値）。
+ * 学年の切り方（4月2日〜翌年4月1日生まれが同じ学年。エンジンの年齢の切り替え schoolYear と同じ）で、1〜3月生まれ（と4月1日生まれ）は
+ * 生まれた年＋22年、4〜12月生まれは＋23年の4月（前は生まれた月によらず＋22年で、4〜12月生まれは21歳の4月になっていた）
+ */
+export function careerStartMonth(birthYearMonth: string, bornOnFirst = false): string {
+  const y = Number(birthYearMonth.slice(0, 4));
+  const m = Number(birthYearMonth.slice(5, 7));
+  const sameYear = m < 4 || (m === 4 && bornOnFirst);
+  return `${y + (sameYear ? 22 : 23)}-04`;
 }
 
 // ---- 住民税（今年度の決定額の概算）----

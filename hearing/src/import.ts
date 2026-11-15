@@ -900,7 +900,7 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
       if (ymIndex(from) > ymIndex(baseMonth)) c.contradiction("hs.work.since", n, "仕事を始めた年月が計算基準月より後です");
       if (ageAt(m, from) < 15) c.contradiction("hs.work.since", n, "仕事を始めた年月が15歳より前です");
     } else {
-      from = MAIN_JOB.has(type) ? careerStartMonth(m.birth.birthYearMonth) : baseMonth;
+      from = MAIN_JOB.has(type) ? careerStartMonth(m.birth.birthYearMonth, m.birth.bornOnFirst) : baseMonth;
       if (ymIndex(from) > ymIndex(baseMonth)) from = baseMonth;
       c.assume(`work/period/${id}/from`, MAIN_JOB.has(type) ? "仮の値（22歳の4月から）" : "仮の値（計算基準月から）", at("hs.work.since", "employment.from", "/from/at"));
     }

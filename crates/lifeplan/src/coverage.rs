@@ -40,9 +40,10 @@ struct List {
     entries: Vec<Entry>,
 }
 
-/// 文の正規化: 全角の英数字を半角に、英字を小文字に、空白と記号を外す
+/// 文の正規化: 全角・半角を NFKC でそろえ（全角の英数字は半角に、半角のカナは全角に。fold.rs）、英字を小文字に、空白と記号を外す
 fn normalize(s: &str) -> String {
-    s.chars()
+    crate::fold::fold(s)
+        .chars()
         .filter_map(|c| {
             let c = match c {
                 '\u{FF01}'..='\u{FF5E}' => char::from_u32(c as u32 - 0xFEE0).unwrap_or(c),
