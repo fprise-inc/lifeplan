@@ -2,6 +2,7 @@
 // 目安の数と純粋な計算は、ヒアリングシートの取り込みと同じ hearing/src/estimates.ts（正本は data/ の YAML の写し。0008 の追記 2026-10-26）。
 // ここには世帯（Household）を見て当てる部分と、元の入力が変わったときの入れ直しだけを置く
 import { refreshOwnedHomeAsOf } from "./ownedHomeValue.ts";
+import { resolveTimepoint } from "../timepoint.ts";
 import type { Box, EmploymentPeriod, Household, LivingExpense, Member, YearSeries } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
 import { isAutoSmr } from "./smr.ts";
@@ -20,6 +21,8 @@ import {
   livingEstimate as livingBySize,
   isLegacyLivingEstimate,
   NOT_FILLED_BASIS,
+  residentIncome,
+  residentIncomeYear,
   residentTaxEstimate,
   splitLiving,
   residentTaxYear,
@@ -114,11 +117,13 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
     if (annual !== p.salary.annual || bonus !== p.salary.bonus) p.salary = { ...p.salary, annual, ...(bonus !== undefined ? { bonus } : {}) };
   }
   const fy = residentTaxYear(baseMonth);
+  // 住民税の決定額の推定は、その年度の元の年（年度の前の年）に重なる働き方の月の分から入れ直す（0133 の追記 2026-11-15）
   for (const a of (h.residentTaxAssessments ?? []) as { member: string; fiscalYear?: number; amount: Box<number> }[]) {
     if (!isAuto(a.amount)) continue;
-    const inc = incomeBefore(h, a.member, baseMonth);
-    const e = residentTaxEstimate(inc.salary, inc.business, (a.fiscalYear ?? fy) - 1);
-    if (a.amount.value !== e.value) a.amount = { ...a.amount, value: e.value };
+    const e = residentTaxEstimateFor(h, a.member, a.fiscalYear ?? fy, baseMonth);
+    const cur = (a.amount as { estimate?: { method?: string; basis?: string } }).estimate;
+    const basis = keepHearingHead(cur?.basis, e.basis);
+    if (a.amount.value !== e.value || (cur !== undefined && cur.basis !== basis)) a.amount = { ...a.amount, value: e.value, ...(cur !== undefined ? { estimate: { ...cur, basis } } : {}) } as Box<number>;
   }
   // 推定のままの子の進路（標準の進路の型。fill.ts）は、子の生年月・計算基準月に合わせて入れ直す
   refreshEducation(h, baseMonth);
@@ -216,35 +221,44 @@ export function withRefreshedEstimates<T extends { request: { input: { household
 
 // ---- 住民税（今年度の決定額。置き換え口 residentTaxAssessments）----
 
-/** その人の今の収入（給与は賞与込み・事業所得）。計算基準月の前の年にかかる期間から */
-function incomeBefore(h: Household, memberId: string, baseMonth: string): { salary: number; business: number; any: boolean } {
-  const y = Number(baseMonth.slice(0, 4)) - 1;
-  let salary = 0;
-  let business = 0;
-  let any = false;
-  for (const p of h.employmentPeriods ?? []) {
-    if (p.member !== memberId) continue;
-    const from = p.from.at ?? "0000-01";
-    const to = p.to?.at ?? "9999-12";
-    if (from > `${y}-12` || to < `${y}-01`) continue;
-    any = true;
-    salary = Math.max(salary, (p.salary?.annual.value ?? 0) + (p.salary?.bonus?.value ?? 0));
-    business = Math.max(business, p.business?.income.value ?? 0);
-  }
-  return { salary, business, any };
+/**
+ * その人の所得の年 incomeYear の収入（給与は賞与込み・事業所得）。入っている働き方の期間のその年に重なる月の分（hearing/src/estimates.ts の residentIncome。
+ * 計算エンジンと同じ月割り。前の年の途中から勤めた人は働いた月の分だけ。0133 の追記 2026-11-15）
+ */
+export function incomeIn(h: Household, memberId: string, incomeYear: number): ReturnType<typeof residentIncome> {
+  const ps = (h.employmentPeriods ?? [])
+    .filter((p) => p.member === memberId)
+    .map((p) => ({
+      type: p.type,
+      from: resolveTimepoint(h, p.from),
+      to: p.to === null ? null : resolveTimepoint(h, p.to),
+      salary: p.salary?.annual.value ?? 0,
+      bonus: p.salary?.bonus?.value ?? 0,
+      ...(Array.isArray(p.salary?.bonusMonths) ? { bonusMonths: p.salary.bonusMonths as number[] } : {}),
+      business: p.business?.income.value ?? 0,
+    }));
+  return residentIncome(ps, incomeYear);
+}
+
+/** 住民税の年度 fiscalYear の決定額の推定（所得の年は年度の前の年。計算基準月が1〜5月なら計算基準月の年の2年前。0133 の追記 2026-11-15） */
+export function residentTaxEstimateFor(h: Household, memberId: string, fiscalYear: number, baseMonth: string): Estimate & { any: boolean } {
+  const y = residentIncomeYear(fiscalYear);
+  const inc = incomeIn(h, memberId, y);
+  return { ...residentTaxEstimate(inc.salary, inc.business, y, { baseMonth, months: inc.months }), any: inc.any };
 }
 
 /**
- * 計算基準月の前の年に働いていた人に、今年度の住民税（決定額）が無ければ、概算の推定を入れる。
+ * 今年度の住民税の元の年（年度の前の年。計算基準月が1〜5月なら計算基準月の年の2年前）に働いていた人に、今年度の住民税（決定額）が無ければ、概算の推定を入れる。
  * 計算エンジンは決定額が無いと前の年の所得から計算し直すが、その年の社会保険の制度データ（2025年より前）が無いと止まるため（PR に書いた残り）
  */
 export function ensureResidentTax(h: Household, memberId: string, baseMonth: string, id: () => string): void {
   const fy = residentTaxYear(baseMonth);
   const list = (h.residentTaxAssessments ?? []) as { member: string; fiscalYear: number }[];
   if (list.some((a) => a.member === memberId && a.fiscalYear === fy)) return;
-  const inc = incomeBefore(h, memberId, baseMonth);
-  if (!inc.any) return;
-  const e = residentTaxEstimate(inc.salary, inc.business, fy - 1);
+  const e = residentTaxEstimateFor(h, memberId, fy, baseMonth);
+  // 入れるのは、所得の年か計算基準月の前の年（1〜5月は所得の年の次の年。前の決まりで入れていた年）に働いていた人。所得の年に働いていなければ0円の推定
+  // （入れないと、計算基準月が2026年1〜5月の世帯は計算エンジンが2024年の所得から計算し直し、その年の制度データが無く止まる。0003 の追記 2026-10-25 の残る制限）
+  if (!e.any && !incomeIn(h, memberId, Number(baseMonth.slice(0, 4)) - 1).any) return;
   h.residentTaxAssessments ??= [];
   (h.residentTaxAssessments as unknown[]).push({ id: id(), member: memberId, fiscalYear: fy, amount: { value: e.value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: e.basis } } });
 }

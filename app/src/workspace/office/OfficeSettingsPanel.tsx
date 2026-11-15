@@ -141,9 +141,31 @@ export function feeFromTexts(base: FeeTable, t: FeeTexts): FeeTable | null {
   return { ...base, oneTime, amount, steps };
 }
 
+/** 目次の組: 区画の見出しの id を意味のまとまりで分ける（並びは本文の区画の順） */
+const TOC_GROUPS: readonly { title: string; ids: readonly string[]; prefix?: string; suffix?: string }[] = [
+  { title: "見た目と入力の並び", ids: ["os-ai-display", "os-brand", "os-cards", "os-items", "os-living"] },
+  { title: "結果と万一の画面", ids: ["os-levers", "os-cg"] },
+  { title: "計算の前提と金額", ids: ["os-care", "os-inherit", "os-assume", "os-fee", "os-corp", "os-estimates"] },
+  // 見出しの末尾の「（カスタム層）」は組の名前と重なるので、目次では省く
+  { title: "カスタム層", ids: [], prefix: "os-custom", suffix: "（カスタム層）" },
+];
+
+/** 見出しを目次の組に分ける。どの組にも無い見出しは、すぐ前の見出しと同じ組に入れる（無ければ最初の組） */
+export function tocGroups(heads: readonly { id: string; label: string }[]): { title: string; items: { id: string; label: string }[] }[] {
+  const out = TOC_GROUPS.map((g) => ({ title: g.title, items: [] as { id: string; label: string }[] }));
+  let last = 0;
+  for (const h of heads) {
+    const i = TOC_GROUPS.findIndex((g) => g.ids.includes(h.id) || (g.prefix !== undefined && h.id.startsWith(g.prefix)));
+    if (i >= 0) last = i;
+    const suffix = TOC_GROUPS[last]?.suffix;
+    out[last]?.items.push(suffix !== undefined && h.label.endsWith(suffix) && h.label.length > suffix.length ? { id: h.id, label: h.label.slice(0, -suffix.length) } : h);
+  }
+  return out.filter((g) => g.items.length > 0);
+}
+
 /**
- * 事務所の既定値のパネルの目次: パネルの中の区画の見出し（.os-sec の h3）を並べ、押すとその見出しへ移る。区画は事務所の見た目・カスタム層など
- * 世帯や機能で増減するので、描いた後に見出しを読んで作る
+ * 事務所の既定値のパネルの目次: パネルの中の区画の見出し（.os-sec の h3）を組ごとに縦に並べ、押すとその見出しへ移る。
+ * 区画は世帯や機能で増減するので、描いた後に見出しを読んで作る。広い幅では組を横に並べ、狭い幅では1列
  */
 function OfficeToc({ panel }: { panel: { current: HTMLDivElement | null } }) {
   const [heads, setHeads] = useState<{ id: string; label: string }[]>([]);
@@ -161,16 +183,24 @@ function OfficeToc({ panel }: { panel: { current: HTMLDivElement | null } }) {
   }, [panel]);
   if (heads.length < 2) return null;
   return (
-    <nav class="pl-sub os-toc" aria-label="事務所の既定値の目次" data-office-toc>
-      目次:{" "}
-      {heads.map((h, i) => (
-        <span key={h.id}>
-          {i > 0 ? "・" : ""}
-          <button type="button" class="link-btn" onClick={() => panel.current?.querySelector(`#${CSS.escape(h.id)}`)?.scrollIntoView({ block: "start" })} data-office-toc-item={h.id}>
-            {h.label}
-          </button>
-        </span>
-      ))}
+    <nav class="os-toc" aria-label="事務所の既定値の目次" data-office-toc>
+      <p class="os-toc-title">目次</p>
+      <div class="os-toc-groups">
+        {tocGroups(heads).map((g) => (
+          <div class="os-toc-group" key={g.title} data-office-toc-group={g.title}>
+            <p class="os-toc-h">{g.title}</p>
+            <ul>
+              {g.items.map((h) => (
+                <li key={h.id}>
+                  <button type="button" class="link-btn" onClick={() => panel.current?.querySelector(`#${CSS.escape(h.id)}`)?.scrollIntoView({ block: "start" })} data-office-toc-item={h.id}>
+                    {h.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
     </nav>
   );
 }
@@ -317,12 +347,17 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // 閉じる処理は描き直しのたびに新しい関数で届く（呼ぶ側がその場で作る）。最新のものを持っておき、Esc で呼ぶ
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // パネルへ移すのは開いたときの1回だけ。描き直しのたびに移すと、事務所の名前など打っている欄から選択が外れる
+  // （名前は打つたびに左上の見本を描き直すので、呼ぶ側が描き直す）
   useEffect(() => {
     panel.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
   const layout = layoutOf(s);
   const order = [...layout.order, ...STAGE_ORDER.map((x) => x.id).filter((id) => !layout.order.includes(id))];
   const label = (id: StageId) => STAGE_ORDER.find((x) => x.id === id)?.label ?? id;

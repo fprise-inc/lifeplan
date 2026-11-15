@@ -179,7 +179,7 @@ entries:
     rows: [cf.taxSi.health, cf.taxSi.care, cf.taxSi.childSupport]
     components:
       socialInsurance.nationalHealth: 13
-      socialInsurance.healthStatus: 9
+      socialInsurance.healthStatus: 10
     related:
       - socialInsurance.nationalHealthReductions
       - socialInsurance.lateElderly
@@ -218,7 +218,7 @@ entries:
     rows: [cf.taxSi.pension]
     components:
       socialInsurance.nationalPension: 4
-      pension.category: 7
+      pension.category: 8
     related:
       - socialInsurance.dependent
       - tax.socialInsuranceDeduction
@@ -272,7 +272,7 @@ entries:
     rows: [cf.taxSi.health, cf.taxSi.care, cf.taxSi.childSupport]
     components:
       socialInsurance.continuation: 3
-      socialInsurance.healthStatus: 9
+      socialInsurance.healthStatus: 10
     related:
       - socialInsurance.nationalHealth
       - socialInsurance.dependent
@@ -284,11 +284,12 @@ entries:
       入っています。勤め先の健康保険に入らない月は、家族の扶養に入れるかを収入の見込みから月ごとに判定し、外れれば国民健康保険にします。
       第2号の配偶者に扶養される20〜59歳は国民年金の第3号にします。
     how: >-
-      その月の収入の状況が続くとしたらの年額（給与・事業・公的年金）が、被扶養者の基準（130万円。60歳以上と障害年金を受ける人は180万円、19〜22歳は150万円。
+      その月の収入の状況が続くとしたらの年額（給与・事業・公的年金・不動産収入〔家賃収入からその不動産の経費を引いた額〕・年金で受け取る企業年金・
+      確定拠出年金・小規模企業共済・個人年金保険）が、被扶養者の基準（130万円。60歳以上と障害年金を受ける人は180万円、19〜22歳は150万円。
       配偶者には19〜22歳の基準を使わない）の未満で、同居なら扶養する人の収入の見込みの2分の1の未満なら扶養です。別居の親・祖父母は仕送りの年額の未満で判定し、
       扶養していると入れたときだけ候補にします。雇用保険の基本手当を受ける月は、基本手当日額×360が基準以上なら扶養にしません。
       第3号は、20〜59歳で配偶者が第2号、その月の健康保険がその配偶者の扶養の月です（本人が任意継続の月も、扶養の決まりに当たれば第3号）。
-      働き方の期間の健康保険の欄で扶養・国民健康保険を直接選ぶこともできます。
+      働き方の期間の健康保険の欄で扶養・国民健康保険を直接選ぶこともできます。配当（配当の入力がありません）と傷病手当金・出産手当金は見込みに入れていません。
     keywords: [扶養, 被扶養者, 第3号被保険者, 130万円の壁, 社会保険の扶養, 扶養から外れる, 150万円]
     items: [employment.healthInsurance.kind, member.support, member.birth]
     fields:
@@ -303,8 +304,8 @@ entries:
       - socialInsurance.dependent.incomeLimitElderly
       - socialInsurance.dependent.incomeLimitYoung
     components:
-      socialInsurance.healthStatus: 9
-      pension.category: 7
+      socialInsurance.healthStatus: 10
+      pension.category: 8
     related:
       - socialInsurance.shortTimeCoverage
       - tax.spouseDeduction

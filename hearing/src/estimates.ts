@@ -424,7 +424,59 @@ export function residentTaxYear(baseMonth: string): number {
   return m >= 6 ? y : y - 1;
 }
 
-const RESIDENT_BASIS = "前の年の給与・事業の所得からの概算（住民税の決定通知書の年税額を入れると置き換わります）";
+/** 住民税の年度 fiscalYear の所得割の元になる所得の年（年度の前の年。地方税法32条・313条）。計算基準月が1〜5月なら、計算基準月の年の2年前 */
+export function residentIncomeYear(fiscalYear: number): number {
+  return fiscalYear - 1;
+}
+
+const RESIDENT_TAIL = "からの概算（住民税の決定通知書の年税額を入れると置き換わります）";
+const RESIDENT_BASIS = `前の年の給与・事業の所得${RESIDENT_TAIL}`;
+
+/** 給与を受ける働き方（計算エンジンの income.salary の PAID と同じ） */
+const SALARY_PAID: ReadonlySet<string> = new Set(["regular", "contract", "partTime", "civilServant", "executive"]);
+
+/** 住民税の推定の元にする働き方の期間（from・to は解決した年月。to はその月を含む。null は始まり・終わりの区切りなし） */
+export interface ResidentIncomePeriod {
+  /** 働き方の種類（給与は給与の働き方、事業所得は自営業だけを数える。計算エンジンの income.salary・income.business と同じ） */
+  type: string;
+  from: string | null;
+  to: string | null;
+  /** 給与の年額（賞与を除く） */
+  salary: number;
+  bonus: number;
+  /** 賞与の支給月（省略は6月・12月。計算エンジンの income.salary と同じ） */
+  bonusMonths?: readonly number[];
+  /** 事業所得の年額 */
+  business: number;
+}
+
+/**
+ * 所得の年 incomeYear の給与（賞与込み）と事業所得の見込み。入っている働き方の期間のうち、その年に重なる月の分だけを数える
+ * （計算エンジンの income.salary・income.business と同じ月割り: 年収と事業所得は12か月に等分、賞与は支給月に等分。重なる期間は足す）。
+ * 期間の入っていない月（最初の働き方の始まりより前・期間の間）は収入なしとみる。any はその年に重なる期間があるか、months は重なる月の数
+ */
+export function residentIncome(periods: readonly ResidentIncomePeriod[], incomeYear: number): { salary: number; business: number; any: boolean; months: number } {
+  const first = `${String(incomeYear)}-01`;
+  const last = `${String(incomeYear)}-12`;
+  let salary = 0;
+  let business = 0;
+  let any = false;
+  const covered = new Set<number>();
+  for (const p of periods) {
+    const from = p.from === null || p.from < first ? first : p.from;
+    const to = p.to === null || p.to > last ? last : p.to;
+    if (from > to) continue;
+    any = true;
+    const m0 = Number(from.slice(5, 7));
+    const m1 = Number(to.slice(5, 7));
+    for (let m = m0; m <= m1; m++) covered.add(m);
+    const bonusMonths = p.bonusMonths ?? [6, 12];
+    const paid = bonusMonths.filter((m) => m >= m0 && m <= m1).length;
+    if (SALARY_PAID.has(p.type)) salary += (p.salary * (m1 - m0 + 1)) / 12 + (bonusMonths.length === 0 ? 0 : (p.bonus * paid) / bonusMonths.length);
+    if (p.type === "selfEmployed") business += (p.business * (m1 - m0 + 1)) / 12;
+  }
+  return { salary: Math.round(salary), business: Math.round(business), any, months: covered.size };
+}
 
 /** 給与所得控除（その年分の制度データの段階表。額は 収入×rate＋amount、rate の無い段は amount） */
 function employmentDeduction(salary: number, incomeYear: number): number {
@@ -437,9 +489,11 @@ function employmentDeduction(salary: number, incomeYear: number): number {
 
 /**
  * 給与（賞与込み）または事業所得からの住民税の概算。incomeYear は所得の年（住民税の年度の前の年）。
- * 給与所得控除・住民税の基礎控除・均等割（市町村・道府県・森林環境税）は制度データの値。所得割10%。社会保険料は収入の15%とみなす（調整控除などは見ない）
+ * 給与所得控除・住民税の基礎控除・均等割（市町村・道府県・森林環境税）は制度データの値。所得割10%。社会保険料は収入の15%とみなす（調整控除などは見ない）。
+ * 根拠の文: 所得の年が計算基準月の前の年でないとき（計算基準月が1〜5月）は所得の年を、その年に働いた月が12か月より少ないときは月数を書く
+ * （baseMonth・months を渡したときだけ。渡さなければ前の文のまま）
  */
-export function residentTaxEstimate(salary: number, business: number, incomeYear: number): Estimate {
+export function residentTaxEstimate(salary: number, business: number, incomeYear: number, opts: { baseMonth?: string; months?: number } = {}): Estimate {
   const s = salary;
   const ded = Math.min(s, employmentDeduction(s, incomeYear));
   const fiscal = `${incomeYear + 1}-06-01`;
@@ -450,7 +504,12 @@ export function residentTaxEstimate(salary: number, business: number, incomeYear
   const taxable = income - basicAmount - (s + business) * presetNum("preset.residentTax.socialInsuranceRatio");
   // 推定の額は千円単位（年収の推定と同じ）
   const value = taxable <= 0 ? 0 : roundThousand(taxable * 0.1 + perCapita);
-  return { value, basis: RESIDENT_BASIS };
+  const otherYear = opts.baseMonth !== undefined && Number(opts.baseMonth.slice(0, 4)) - 1 !== incomeYear;
+  const partial = opts.months !== undefined && opts.months > 0 && opts.months < 12;
+  if (!otherYear && !partial) return { value, basis: RESIDENT_BASIS };
+  const year = `${String(incomeYear)}年（${String(incomeYear + 1)}年度の住民税の元の年）`;
+  const months = partial ? `の働いた${String(opts.months)}か月分` : "";
+  return { value, basis: `${year}${months}の給与・事業の所得${RESIDENT_TAIL}` };
 }
 
 // ---- 健康保険組合・共済組合の料率 ----
