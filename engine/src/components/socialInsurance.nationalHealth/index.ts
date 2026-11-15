@@ -26,6 +26,9 @@
 //   被保険者の数）に入れる（同6項）。平等割は、世帯の国民健康保険の人が1人で特定同一世帯所属者がいる月（特定世帯）は、移った月から5年は2分の1、
 //   その後3年（特定継続世帯）は4分の3（同2項8号・3項7号。子ども・子育て支援金の区分も後期高齢者支援金等の区分と同じに当てる。介護の区分には無い）。
 //   計算基準月より前に移った人は、移る前の月が表の前で分からないので、国民健康保険から移ったとみなす（勤め先の健康保険の期間がその月にあれば除く）
+// 改訂13: 年度の途中で国民健康保険に入った年度（世帯で最初に入る月が4月より後）は、入った月より後の納期（6月〜翌年3月のうち）だけに分ける。
+//   前は入る前の月の納期から払っていた（年額は同じ）。3月に入ったときは翌月（翌年度の4月）にまとめる（sdk の installmentMonths。0003 の追記）。
+//   世帯のほかの人が年度の途中から加わる分も、世帯で最初に入った月からの納期に分ける（近似）
 import {
   addYen,
   ageMonth,
@@ -93,7 +96,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 12,
+  revision: 13,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -151,10 +154,12 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     // 世帯主（改訂11）: 年度の始まり（計算基準月より前の年度は計算基準月）に世帯にいる人から。だれもいなければ最初に加入する月
     const firstInsured = Math.min(...insured.map((x) => Math.min(...x.months))) as typeof ageAt;
     const head = (householdHeadAt(ctx, members, ageAt) ?? householdHeadAt(ctx, members, firstInsured) ?? (members[0] as MemberInput)).id;
+    // 年度の途中で入った年度は、入った月より後の納期に分ける（改訂13）
+    const joined = firstInsured > start ? firstInsured : undefined;
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "nationalHealth", head, fy);
     if (given !== undefined) {
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
-      return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, false, head, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.nationalHealth.assessed" }])) };
+      return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, false, head, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.nationalHealth.assessed" }], joined)) };
     }
     const at = ctx.at(valuesAt);
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "nationalHealth", fy);
@@ -295,6 +300,6 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     if (insured.some((x) => x.months.some((m) => m < ctx.time.ageSwitch(x.id, { years: 6 }, "schoolYear")))) {
       ctx.notice("N_NOT_SUPPORTED", [`${PREFIX}.preschoolReduction`, `${PREFIX}.maternityExemption`]);
     }
-    return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, false, head, parts)) };
+    return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, false, head, parts, joined)) };
   },
 });

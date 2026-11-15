@@ -13,7 +13,7 @@ import { addIncome } from "../src/workspace/input/moneyRows.ts";
 import { rowAt } from "../src/workspace/input/rows.ts";
 import { resolveTimepoint } from "../src/workspace/input/form.ts";
 import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
-import { addChildExpense, addChildIncome, addEducationLoan, addScholarship, educationRowChild, HIGHER_SUPPORT_NOTE, outOfSchoolModeOf, replaceHigher, VOCATIONAL_MISSING } from "../src/workspace/input/stages/education.ts";
+import { addChildExpense, addChildIncome, addEducationLoan, addScholarship, courseField, educationRowChild, HIGHER_SUPPORT_NOTE, outOfSchoolModeOf, replaceHigher, VOCATIONAL_MISSING } from "../src/workspace/input/stages/education.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -52,24 +52,25 @@ function fresh(): WorkingHousehold {
   return withRefreshedEstimates(mutate(wh, (h) => void (h.members.find((m) => m.kind === "child")!.birth.birthYearMonth = "2016-05")));
 }
 
-describe("公立・私立はどの段でも標準。進路の型で一度に変わる（0078 の 2026-10-29 の追記）", () => {
+describe("公立・私立はどの段でも標準。進路の型（結果のタブの動かす項目。入力の欄からは 2026-11-14 に外した）で一度に変わる", () => {
   it("小学校〜大学の公立・私立が標準に出て、型を選ぶと全部の段が変わる。段を型と違う値にすると型は「自分で選ぶ」になる", () => {
     let wh = fresh();
     const g = goalOf(wh);
     const sectors = fields(wh).filter((f) => /\/stage\/\d+\/sector$/.test(f.key));
     expect(sectors.map((f) => f.level)).toEqual(["simple", "simple", "simple", "simple"]);
-    wh = fieldOf(wh, "/preset").set(wh, "allPrivate");
+    expect(fields(wh).some((f) => f.key === `edu/${g.id}/preset` || f.label === "進路の型")).toBe(false);
+    wh = courseField(g.id).set(wh, "allPrivate");
     expect(goalOf(wh).education!.stages.map((s) => s.sector)).toEqual(["private", "private", "private", "private"]);
-    expect(fieldOf(wh, "/preset").get(wh).value).toBe("allPrivate");
+    expect(courseField(g.id).get(wh).value).toBe("allPrivate");
     // 中学だけ公立に直すと、どの型にも当たらないので「自分で選ぶ」（値は ""）
     wh = fieldOf(wh, `edu/${g.id}/stage/1/sector`).set(wh, "public");
     expect(goalOf(wh).education!.stages.map((s) => s.sector ?? "public")).toEqual(["private", "public", "private", "private"]);
-    expect(fieldOf(wh, "/preset").get(wh).value).toBe("");
+    expect(courseField(g.id).get(wh).value).toBe("");
     // 残りの段も型の値にそろえると、型の表示に戻る（欄で「公立」を選んで値が空になっても公立として当たる）
     for (const [i, v] of [[0, "public"], [2, "public"], [3, "national"]] as const) wh = fieldOf(wh, `edu/${g.id}/stage/${i}/sector`).set(wh, v);
-    expect(fieldOf(wh, "/preset").get(wh).value).toBe("allPublic");
+    expect(courseField(g.id).get(wh).value).toBe("allPublic");
     // 型を選び直すと、直した段も型の値に戻る
-    wh = fieldOf(wh, "/preset").set(wh, "highPrivate");
+    wh = courseField(g.id).set(wh, "highPrivate");
     expect(goalOf(wh).education!.stages.map((s) => s.sector)).toEqual(["public", "public", "private", "private"]);
   });
 });
@@ -118,34 +119,39 @@ describe("推定の進路（新しい世帯は自動・古い世帯はボタン�
 });
 
 describe("学校外の費用の入れ方（統計の平均で／行で入れる）", () => {
-  it("統計の平均で: 行を足しても計算に入らない（行は残る）。行で入れる: 統計の平均を足さない", () => {
+  it("統計の平均で: 行を足しても計算に入らない（行は残る）。塾・習い事を別に入れる: 統計の平均を足さず、入れた行だけ", () => {
     const wh = fresh();
     const g = goalOf(wh);
     const statOnly = eduSum(wh.request, "cf.expense.education.outOfSchool");
     expect(statOnly).toBeGreaterThan(0);
-    // 行で入れる に切り替えると、段ごとに統計の平均の行（推定）を作る。結果はほぼ同じ（月額に丸めた分だけ違う）
+    // 塾・習い事を別に入れる に切り替えると、行は作らない（統計の平均の行を作るのはやめた。2026-11-14）。入れるまで0円
     const rows = fieldOf(wh, `edu/${g.id}/outUniform`).set(wh, "rows");
     const g2 = goalOf(rows);
     expect(g2.education!.outOfSchoolMode).toBe("rows");
-    const lessons = g2.education!.lessons!;
-    expect(lessons.map((l) => l.label)).toEqual(["学校外活動費（小学校・平均）", "学校外活動費（中学校・平均）", "学校外活動費（高校・平均）"]);
-    const monthly = allFields(stage(rows)).find((f) => f.key === `edu/${g.id}/lesson/0/monthly`)!;
-    expect(fieldStatus(monthly, rows).status).toBe("estimated");
-    expect(fieldStatus(monthly, rows).basis).toContain("子供の学習費調査");
-    const rowsSum = eduSum(rows.request, "cf.expense.education.outOfSchool");
-    expect(Math.abs(rowsSum - statOnly) / statOnly).toBeLessThan(0.01);
-    // 中学の行を塾の月額に直すと、その行だけ確定。統計の平均は足さない（二重にならない）
-    const cram = allFields(stage(rows)).find((f) => f.key === `edu/${g.id}/lesson/1/monthly`)!.set(rows, 42000);
-    expect(fieldStatus(allFields(stage(cram)).find((f) => f.key === `edu/${g.id}/lesson/1/monthly`)!, cram).status).toBe("confirmed");
-    expect(eduSum(cram.request, "cf.expense.education.outOfSchool")).toBeGreaterThan(rowsSum);
-    // 統計に戻すと行は消さずに残し、計算に使わない。もう一度「行で入れる」にしても行を作り直さない
+    expect(g2.education!.lessons).toBeUndefined();
+    expect(eduSum(rows.request, "cf.expense.education.outOfSchool")).toBe(0);
+    const block = groups(rows).find((x) => x.key === `edu/${g.id}/out`)!;
+    expect([block.title, block.level]).toEqual(["塾・習い事", "simple"]);
+    expect(block.note).toContain("0円で計算中");
+    // 「＋ 塾・習い事を足す」（1つのボタンで種類を選ぶ）は標準。行の欄も標準で入れられる
+    const add = actionOf(rows, `edu/${g.id}/addLesson/cram`);
+    expect([add.level, add.choice?.label]).toEqual(["simple", "＋ 塾・習い事を足す"]);
+    const cramRow = add.run(rows);
+    const lessonFields = allFields(stage(cramRow)).filter((f) => f.key.startsWith(`edu/${g.id}/lesson/0/`));
+    expect(lessonFields.map((f) => [f.label, f.level])).toEqual([["名前", "simple"], ["種類", "simple"], ["月額", "simple"], ["始まり", "simple"], ["終わり", "simple"]]);
+    expect(groups(cramRow).find((x) => x.key === `edu/${g.id}/lesson/0`)).toMatchObject({ level: "simple", partOf: `edu/${g.id}/out` });
+    const cram = allFields(stage(cramRow)).find((f) => f.key === `edu/${g.id}/lesson/0/monthly`)!.set(cramRow, 42000);
+    const cramSum = eduSum(cram.request, "cf.expense.education.outOfSchool");
+    expect(cramSum).toBeGreaterThan(0);
+    expect(cramSum).toBeLessThan(statOnly);
+    // 統計に戻すと行は消さずに残し、計算に使わない。もう一度「塾・習い事を別に入れる」にすると、その行で計算する
     const back = fieldOf(cram, `edu/${g.id}/outUniform`).set(cram, "statistics");
-    expect(goalOf(back).education!.lessons).toHaveLength(3);
+    expect(goalOf(back).education!.lessons).toHaveLength(1);
     expect(eduSum(back.request, "cf.expense.education.outOfSchool")).toBe(statOnly);
     expect(groups(back).some((x) => x.key.startsWith(`edu/${g.id}/lesson/`))).toBe(false);
     const again = fieldOf(back, `edu/${g.id}/outUniform`).set(back, "rows");
-    expect(goalOf(again).education!.lessons).toHaveLength(3);
-    expect(goalOf(again).education!.lessons![1]!.monthly).toBe(42000);
+    expect(goalOf(again).education!.lessons![0]!.monthly).toBe(42000);
+    expect(eduSum(again.request, "cf.expense.education.outOfSchool")).toBe(cramSum);
   });
 
   it("行に種類（塾・習い事・その他）。行で入れるときの足すボタン", () => {

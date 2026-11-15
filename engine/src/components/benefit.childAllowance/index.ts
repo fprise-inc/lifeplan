@@ -6,6 +6,8 @@
 // 改訂3: 世帯の外の家族（0035 の4）の子は数えない
 // 改訂4（0165）: 受け取る親は、払う月に世帯にいる最初の親（関係 parentOf の並び。無ければ本人・配偶者の順）。受け取る親が亡くなった後は、
 //   残った親が受け取る（前は亡くなった親の名で出続けた。額は変わらない）
+// 改訂5: 計算基準月が偶数月（支払月）のとき、その月に払う前の2か月分（例: 10月に払う8・9月分）を両方入れる。前は計算基準月の前の月からしか
+//   数えず、最初の支払いが1か月分だけだった（こども家庭庁「児童手当制度のご案内」: 偶数月に、それぞれの前月分までの2か月分）
 import {
   addMonths,
   ageMonth,
@@ -37,7 +39,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "benefit.childAllowance",
   title: "児童手当",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {},
   params: Object.values(P),
   reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
@@ -57,8 +59,9 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       const ps = relations.filter((r): r is Extract<RelationInput, { type: "parentOf" }> => r.type === "parentOf" && r.child === c).map((r) => r.parent);
       return ps.length > 0 ? ps : couple.length > 0 ? couple : [c];
     };
-    // 計算の始まり: 計算基準月の分から（偶数月に払う前の月の分を含めるため、計算基準月の前の月から）
-    const first = addMonths(base, -1);
+    // 計算の始まり: 計算基準月に払う分から。偶数月に前の2か月分を払うので、計算基準月が偶数月ならその2か月前の月から（改訂5）。
+    // 計算基準月より前に払った分（支払月が計算基準月より前）は下で落とす
+    const first = addMonths(base, -2);
     const info = children.map((c) => ({
       c,
       born: parseYm(c.birth.birthYearMonth),

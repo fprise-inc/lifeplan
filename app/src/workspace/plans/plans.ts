@@ -18,9 +18,9 @@ import { applyAdvisoryFee, applyLevers, LEVER_KEYS, type LeverValues } from "../
 import { keyOf, readAt, resolveKey, unbox, type Address, type Reading } from "../store/readings.ts";
 import type { MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
-import { addAt, addressOf, boxAt, collectionOf, indexOfObject, isLever, isSharedDiff, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
-import { catalogKeysOf, reemploymentFor, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
-import { COLLECTION_LABELS, diffRows, type DiffRow } from "./planEdit.ts";
+import { addAt, addressOf, addsOnePer, boxAt, collectionOf, indexOfObject, isLever, isSharedDiff, holderExists, objectIdOfTarget, placeExists, removeAt, removedNow, removeObject, sameJson, sameSlotIn, supersededDiffs, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
+import { catalogKeysIn, catalogKeysOf, reemploymentFor, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
+import { COLLECTION_LABELS, diffRows, planView, type DiffRow } from "./planEdit.ts";
 import { stackDiffs } from "./stack.ts";
 
 export type { DiffOrigin, PlanDiff } from "./diffs.ts";
@@ -130,12 +130,25 @@ function diffFromValue(it: MovableItem | undefined, key: string, v: ItemValue, w
   };
 }
 
+/**
+ * このプランで当てない土台の差分の ID: 後のプランが置き換えた物を指す、前のプランの値を変える差分のうち、置き換えに負けるものと、後のプランが
+ * 同じ組で足した1件だけ置く物（住民税の決定額など）に負ける前のプランの差分（diffs.ts の supersededDiffs。0036 の追記 2026-11-14・2026-11-15）。
+ * 違いの一覧・動かした値・計算のどれにも入れない（同じ当て先を後のプランが変えたときと同じ）
+ */
+export function supersededIn(wh: WorkingHousehold, id: string | null): Set<string> {
+  const chain = chainOf(wh.proposals, id);
+  // 置き換えの組も、1件だけ置く物（住民税の決定額など）の足すも無いプランは、現状を読まない（多くのプランはこちら）
+  if (!chain.some((p) => p.diffs.some((d) => d.pair != null || addsOnePer(d)))) return new Set();
+  return supersededDiffs(inputOf(wh), chain);
+}
+
 /** プランの差分の一覧（土台から順に重ねた結果）。一覧の1行の印 → 差分（置き換えの組は組のすべて）と、その差分を持つプラン */
 export function effectiveDiffs(wh: WorkingHousehold, id: string | null): Map<string, { diff: PlanDiff; group: PlanDiff[]; owner: string }> {
   const out = new Map<string, { diff: PlanDiff; group: PlanDiff[]; owner: string }>();
+  const superseded = supersededIn(wh, id);
   for (const p of chainOf(wh.proposals, id))
     for (const d of p.diffs) {
-      if (!d.enabled) continue;
+      if (!d.enabled || superseded.has(d.id)) continue;
       const k = rowKeyOf(d, wh);
       const cur = out.get(k);
       if (cur !== undefined && cur.owner === p.id && d.pair != null) cur.group.push(d);
@@ -174,6 +187,8 @@ const REVIEW_NOTES: Record<Exclude<ReviewState, "ok" | "changed">, string> = {
   retired: "アプリの更新で、この欄の意味が変わりました",
   unresolved: "アプリの更新で、この違いを今の形に読み替えられませんでした",
 };
+/** 値を変える差分の欄が、プランで置き換えた物に無いとき（自営業に変えた働き方の期間の年収・現金払いにした車のローンの金利など。0036 の追記 2026-11-14） */
+const REPLACED_NOTE = "プランでこの物の種類や形が変わり、この欄が無くなりました";
 /** 現状の値が、差分を作った時点から変わったときの文 */
 const changedNote = (was: string, now: string): string => `現状のプランが ${was}→${now} に変わりました`;
 const review = (state: ReviewState, note: string | null = null): Review => ({ state, note: state === "ok" || state === "changed" ? note : (note ?? REVIEW_NOTES[state]) });
@@ -202,6 +217,21 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
   const now = inputOf(wh);
   const input = structuredClone(now);
   const reviews = new Map<string, Review>();
+  // 後のプランが置き換えた物を指す、前のプランの値を変える差分と、後のプランが同じ組で足した1件だけ置く物（住民税の決定額など）の
+  // 前のプランの足すは当てない（後のプランが勝つ。0036 の追記 2026-11-14・2026-11-15）
+  const superseded = supersededDiffs(now, plans);
+  /** 置き換えた物（同じ ID の物を外して足した物）の ID。今の物に無い欄の入れ物を作って書かないため */
+  const replacedObjects = new Set<string>();
+  /** 置き換えの組 → 外した物の ID */
+  const pairRemoved = new Map<string, string>();
+  /**
+   * 値を変える差分の当て先の入れ物（途中の欄）が、置き換えた物に無い。当てると、今の物に無い欄だけが書かれて形が崩れる（自営業の期間に
+   * 給与の欄・現金で払う車にローンの欄など）。入れ物がある欄は、今の物で空でも当てる（今の種類の欄かどうかは、画面の側では決めない）
+   */
+  const notInObject = (target: Input, a: Address): boolean => {
+    const id = objectIdOfTarget(a.target);
+    return id !== null && replacedObjects.has(id) && !holderExists(target, a);
+  };
   /** 動かす項目のキー → 値と、その値の差分（結果のタブの値は差分を持たない） */
   const keyed = new Map<string, { value: ItemValue; diff: PlanDiff | null }>();
   /** 当て先へ書いた値（差分と、結果のタブで動かした一覧に無い欄の値）。入力の欄の項目を欄の書き方で当てたあと、書き直す（差分に書いた値が勝つ） */
@@ -222,6 +252,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     if (ITEM_PLACES[a.item]?.status !== "active") return void reviews.set(d.id, review("retired"));
     // どのプランにも共通の項目（表の最後の年）は当てない（前の版の差分は読むときに外す。ここは残った物の守り。0043 の追記 2026-11-05）
     if (isSharedDiff(d)) return void reviews.set(d.id, review("retired"));
+    if (notInObject(target, a)) return void reviews.set(d.id, review("missing", REPLACED_NOTE));
     if (!writeAt(target, a, d.value as DiffBox)) return void reviews.set(d.id, review("missing"));
     written.push({ address: a, value: d.value as DiffBox });
     const base = readAt(now, a);
@@ -231,7 +262,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
   for (const p of plans) {
     const live = p.diffs.filter((d) => d.enabled);
     for (const d of live) if (d.unresolved === true) reviews.set(d.id, review("unresolved"));
-    const ok = live.filter((d) => d.unresolved !== true);
+    const ok = live.filter((d) => d.unresolved !== true && !superseded.has(d.id));
     /** 置き換えの組の、外した物のあった所（足す物を同じ所に入れる。並びの順を変えない） */
     const slots = new Map<string, number>();
     /** 外す物がまだ無い外す（組でないもの）: 同じプランで足す物の中にあれば、足したあとで外す（土台の差分を写して重ねたプラン。stack.ts） */
@@ -249,9 +280,16 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
       const own = d.item === null ? (typeof t.object === "string" ? t.object : typeof t.member === "string" ? t.member : null) : null;
       if (d.pair != null && own !== null) slots.set(d.pair, indexOfObject(input, own));
       removeAt(input, d);
+      if (d.pair != null && own !== null) pairRemoved.set(d.pair, own);
     }
     for (const d of ok.filter((x) => x.op === "add")) {
-      const r = addAt(input, d, d.pair != null ? slots.get(d.pair) : undefined);
+      // 1件だけ置く物（住民税の決定額など）は、同じ組の物（現状の物）と入れ替える。エンジンは同じ組の最初の1件だけを読むので、
+      // 2件にするとこのプランの値が効かない（0036 の追記 2026-11-15）
+      const rival = d.pair == null ? sameSlotIn(input, d) : null;
+      const r = addAt(input, d, d.pair != null ? slots.get(d.pair) : rival !== null ? indexOfObject(input, rival) : undefined);
+      if (r === "ok" && rival !== null) removeObject(input, rival);
+      const was = d.pair != null ? pairRemoved.get(d.pair) : undefined;
+      if (r === "ok" && was !== undefined && typeof d.value === "object" && d.value !== null && (d.value as Input).id === was) replacedObjects.add(was);
       reviews.set(d.id, r === "ok" ? review("ok") : r === "exists" ? review("exists") : r === "noOwner" ? review("noOwner") : review("missing", "このプランで足していた物の入れ先が、現状のプランにありません"));
     }
     for (const d of later) {
@@ -602,7 +640,9 @@ export function changesOf(list: readonly Proposal[], id: string, wh: WorkingHous
     const rv = group.map((d) => applied.reviews.get(d.id)).find((r) => r !== undefined && r.state !== "ok") ?? applied.reviews.get(diff.id) ?? review("ok");
     const it = k.startsWith("diff:") ? undefined : cat.byKey.get(k);
     if (it === undefined) {
-      const missing = !k.startsWith("diff:");
+      // 動かす項目の一覧（現状の世帯から作る）に無い鍵でも、このプランの世帯（土台のプランを当てた後）にある欄なら、入力で直した差分と同じに出す
+      // （土台で働き方を自営業にした上のプランの事業所得など。現状の一覧に無いだけで、当てた結果は正しい。0036 の追記 2026-11-15）
+      const missing = !k.startsWith("diff:") && !catalogKeysIn(planView(w, cat, id), cat.selfId).has(k);
       const row = missing ? undefined : listedRow(diff);
       if (row !== undefined) {
         out.push({ key: k, label: row.label, from: row.from, to: row.to, inherited, state: rv.state, reviewNote: rv.note });
@@ -648,7 +688,12 @@ export function changesOfValues(values: Values, wh: WorkingHousehold, cat: Catal
   const planId = values[PLAN_SLOT];
   if (typeof planId === "string" && findPlan(wh.proposals, planId) !== undefined)
     for (const r of diffRows(wh, cat, planId)) {
-      if (!r.enabled || r.diffs.some((d) => diffKey(d, wh) !== null)) continue;
+      if (!r.enabled) continue;
+      // 一覧にある鍵の差分は上で足した。一覧に無い鍵の差分は、このプランの世帯にある欄（土台のプランで種類を変えた物の、今の種類の欄など）
+      // だけここで足す（changesOf と同じ。0036 の追記 2026-11-15）
+      const keys = r.diffs.map((d) => diffKey(d, wh)).filter((k): k is string => k !== null);
+      if (keys.some((k) => cat.byKey.has(k))) continue;
+      if (keys.length > 0 && !keys.every((k) => catalogKeysIn(planView(wh, cat, planId), cat.selfId).has(k))) continue;
       out.push({ key: `diff:${r.key}`, label: r.label, from: r.from, to: r.to, inherited: r.inherited, state: "ok", reviewNote: null });
     }
   return out;

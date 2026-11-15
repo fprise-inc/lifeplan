@@ -721,12 +721,12 @@
       },
       "evidence": {
         "title": "2040年 金融資産残高",
-        "total": 23263501,
+        "total": 23283785,
         "context": "ご本人59歳・配偶者57歳",
         "breakdown": [
           {
             "label": "年末の金融資産",
-            "amount": 23263501
+            "amount": 23283785
           }
         ],
         "formulas": [

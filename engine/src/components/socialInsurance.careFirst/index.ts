@@ -7,6 +7,9 @@
 //   社会保険料控除も遺族に付く）
 // 改訂7（0171）: 万一の想定で亡くなる月の分はかけない（死亡の翌日に資格を失い、保険料はその前の月まで。介護保険法11条。sdk の insuranceEndMonth）。
 //   第1〜5段階（本人が非課税）の「その他の合計所得金額」は、給与所得から10万円を引く（令和6年1月の厚生労働省の事務連絡。sdk の careIncome）
+// 改訂8: 年度の途中で65歳になった年度（第1号の資格を得た月がその年度の中）は、年金から差し引かず（普通徴収）、資格を得た月より後の納期
+//   （6月〜翌年3月のうち）だけに分ける。前は年金が年18万円以上なら4月から年金で差し引き、65歳になる前の月から払っていた（年額は同じ）。
+//   3月に65歳になったときは翌月（翌年度の4月）にまとめる（sdk の installmentMonths。0003 の追記）
 import {
   ageMonth,
   assessedPremium,
@@ -52,7 +55,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.careFirst",
   title: "介護保険料（第1号被保険者）",
   contract: "1.0",
-  revision: 7,
+  revision: 8,
   requires: { "contingency.event": ">=1 <2", "residentTax.exemption": ">=1 <2", "tax.totalIncome": ">=1 <2", "tax.publicPensionIncome": ">=1 <2", "pension.oldAge": ">=1 <2" },
   params: [...Object.values(P), PENSION_SPECIAL_MINIMUM],
   reads: [
@@ -87,12 +90,14 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     for (let m = start; m <= fiscalYearEnd(fy); m = (m + 1) as typeof m) if (m >= from && (leaves === null || m < leaves)) months++;
     if (months === 0) return { flows: [] };
     const special = pensionSpecial(ctx, member, fy, jy);
+    // 年度の途中で65歳になった年度（改訂8）
+    const joined = from >= start && from <= fiscalYearEnd(fy) ? from : undefined;
     // 判定の世帯: 世帯の外の家族はその人と世帯の外の配偶者（0035 の4。片方が亡くなった後は単身）
     const household = sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member);
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "careFirst", member, fy);
     if (given !== undefined) {
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
-      return { flows: reassignAfterLeave(ctx, household, installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.care", amount, formula: "socialInsurance.careFirst.assessed" }])) };
+      return { flows: reassignAfterLeave(ctx, household, installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.care", amount, formula: "socialInsurance.careFirst.assessed" }], joined)) };
     }
     const at = ctx.at(fiscalYearStart(jy));
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "careFirst", fy);
@@ -115,6 +120,6 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       ratio = bracketFor(at.paramBrackets(householdTaxed ? P.selfExempt : P.householdExempt) ?? [], measure).rate ?? RATE_ONE;
     }
     const amount = at.money.mulRate(at.money.mulRatio(base, months, 1, "conv.exact"), ratio, "conv.premium.local");
-    return { flows: reassignAfterLeave(ctx, household, installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.care", amount, formula: "socialInsurance.careFirst.annual" }])) };
+    return { flows: reassignAfterLeave(ctx, household, installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.care", amount, formula: "socialInsurance.careFirst.annual" }], joined)) };
   },
 });

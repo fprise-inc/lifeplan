@@ -438,7 +438,8 @@ describe("新しく作る世帯は最初から推定", () => {
     const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
     const goal = wh.request.input.household.goals!.find((g) => g.owner === child.id)!;
     expect(rowAt(input(wh), educationStagesAddress(goal.id))).toMatchObject({ state: "estimated" });
-    const preset = fieldOf(wh, "education", `edu/${goal.id}/preset`);
+    // 推定のままの進路の印は「大学・短大・専門学校」の欄に出す（2026-11-14）
+    const preset = fieldOf(wh, "education", `edu/${goal.id}/higher`);
     expect(fieldStatus(preset, wh).status).toBe("estimated");
     expect(gapsOf(wh).filter((g) => g.card === "education")).toEqual([]);
     // 推定のままの進路は、子の生年月に合わせて入れ直す（App・入力のパネルの推定の入れ直し）
@@ -446,8 +447,8 @@ describe("新しく作る世帯は最初から推定", () => {
     const stages = older.request.input.household.goals!.find((g) => g.id === goal.id)!.education!.stages.map((s) => s.stage);
     expect(stages).not.toContain("elementary");
     expect(rowAt(input(older), educationStagesAddress(goal.id))).toMatchObject({ state: "estimated" });
-    // FP が進路の型を選ぶ → 推定の印が外れる（FP が決めた進路は入れ直さない）
-    const chosen = preset.set(wh, "allPublic");
+    // FP が進路を選ぶ → 推定の印が外れる（FP が決めた進路は入れ直さない）
+    const chosen = preset.set(wh, "vocational");
     expect(rowAt(input(chosen), educationStagesAddress(goal.id))).toBeUndefined();
     // 「この値にする」
     const c = applyStateOp(wh, preset, "confirm");

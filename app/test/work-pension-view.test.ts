@@ -82,7 +82,7 @@ describe("退職金・企業年金", () => {
   it("目安の退職一時金の欄の横に、勤続年数と期間・辞め方・制度のある会社の平均の1行", () => {
     const { wh } = started("start");
     const b = (wh.request.input.household.retirementBenefits ?? [])[0]!;
-    expect(amountHint(wh, b.id)).toMatch(/^勤続\d+年（2006年4月〜2044年3月）・定年・制度のある会社の平均$/);
+    expect(amountHint(wh, b.id)).toMatch(/^勤続\d+年（2007年4月〜2044年3月）・定年・制度のある会社の平均$/);
     // 額を入れたら出さない
     const w = edit(wh, "retirement", `retirement/${b.id}/amount`, 15000000);
     expect(amountHint(w, b.id)).toBeNull();
@@ -136,7 +136,7 @@ describe("退職金・企業年金", () => {
     const { wh } = started("start");
     const b = (wh.request.input.household.retirementBenefits ?? [])[0]!;
     const f = fieldOf(wh, "retirement", `retirement/${b.id}/service/from`);
-    expect(f.time!.state(wh).read).toContain("2006年4月（勤め先の期間の始まり）");
+    expect(f.time!.state(wh).read).toContain("2007年4月（勤め先の期間の始まり）");
   });
 });
 
@@ -167,7 +167,7 @@ describe("年金", () => {
     const sal = started("start");
     expect(fieldsOf(sal.wh, "pension").some((f) => f.key.endsWith("/claim/employee"))).toBe(true);
     // 推計の1行は、何から推計しているか
-    expect(fieldOf(sal.wh, "pension", `pension/${sal.self}/mode`).get(sal.wh).hint).toBe("推計: 2006年4月からの働き方（正社員→契約社員・嘱託（再雇用など））で計算しています");
+    expect(fieldOf(sal.wh, "pension", `pension/${sal.self}/mode`).get(sal.wh).hint).toBe("推計: 2007年4月からの働き方（正社員→契約社員・嘱託（再雇用など））で計算しています");
   });
 
   it("書類の額（見込額・今の年額）は、50歳以上の定期便・見込額・改定通知書だけ。50歳未満の定期便は加入月数から計算するので出さない", () => {

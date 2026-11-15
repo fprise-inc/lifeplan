@@ -82,7 +82,8 @@ export function fillEducation(wh: WorkingHousehold, childId: string): WorkingHou
   const h = wh.request.input.household;
   const child = h.members.find((m) => m.id === childId && m.kind === "child");
   if (child === undefined || educationGoalOf(h, childId) !== undefined) return wh;
-  const stages = defaultStages(child, wh.request.input.baseMonth);
+  // 共働き・働くひとり親の世帯でこれから保育の年齢がある子は、保育園（2歳まで）の段も入れる（2026-11-14）
+  const stages = defaultStages(child, wh.request.input.baseMonth, h);
   if (stages.length === 0) return wh;
   const id = newId();
   // 新しく入れる進路は、学校外の費用を「統計の平均で」で始める（行を足すときは「行で入れる」に切り替える。0062）
@@ -112,7 +113,8 @@ export function refreshEducation(h: Household, baseMonth: string): void {
     if (row?.state !== "estimated" || row.origin.kind !== "auto") continue;
     const child = h.members.find((m) => m.id === g.owner);
     if (child === undefined) continue;
-    const next = defaultStages(child, baseMonth);
+    // 推定のままの進路は、保育園の既定（共働き・働くひとり親）も世帯に合わせて入れ直す（FP が直した進路は推定の行が外れているので変えない）
+    const next = defaultStages(child, baseMonth, h);
     const strip = (s: readonly EducationStage[]) => JSON.stringify(s.map(({ id: _id, ...rest }) => rest));
     if (strip(next) !== strip(g.education.stages)) g.education.stages = next.map((s) => ({ id: newId(), ...s }));
   }

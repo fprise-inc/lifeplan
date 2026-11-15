@@ -13,8 +13,10 @@ use serde_json::{json, Value};
 /// 1回の計算で当てるプランの変更の上限（propose_scenario の変更の上限と同じ）
 pub const MAX_PLAN_CHANGES: usize = 50;
 
-/// プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）
+/// プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らないが、写したときのために受けて使わない）。
+/// 知らない名前は受けない（args.rs が近い名前を添えて断る）
 #[derive(Debug, Clone, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PlanChange {
     /// 対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら "assumptions"）
     pub target: String,
@@ -30,9 +32,14 @@ pub struct PlanChange {
     pub lever: Option<String>,
     /// 新しい値（list_plan_items の kind・unit の形。年齢は整数の歳、金額は円の整数、率は10進の文字列 "0.02"）
     pub value: Value,
+    /// 理由（propose_scenario の changes から写したときのため。計算には使わない）
+    #[serde(default)]
+    #[allow(dead_code)] // 受けるだけで読まない（知らない名前として断らないため）
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PlanItemsArgs {
     /// 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する
     pub sample_household_id: Option<String>,
@@ -198,7 +205,7 @@ pub fn error_message(code: &str) -> Option<&'static str> {
 pub const LIST_NOTE: &str = "items の target・item（at か lever が添えてあれば、それも）と、kind・unit の形の value を、calculate・explain_value の plan_changes（[{target, item, value}]、場所つきは [{target, item, at, value}] か [{target, item, lever, value}]）にそのまま渡すと、アプリの画面のプランと同じ関数で当てて計算します（関係する欄も一緒に動きます）。at・lever は、同じ対象・同じ入力項目ID で場所だけが違う項目を選ぶ印で、place が人の読める区別です（FP に伝えるときは place と label を使ってください）。propose_scenario の changes にも同じ書き方で渡せます（at の中の行の ID も一覧のまま。proposable が false の項目は、プランの候補には出せません）。value は今の値、min・max は入れてよい範囲、slider は画面のスライダーの幅です。入力の数の欄から作った項目は fields: true か group で出します。";
 
 /// プランの変更の当てはめを答えに添えるときの説明
-pub const PLAN_NOTE: &str = "plan_changes は、アプリの画面の結果のタブのプランと同じ関数で当てました（関係する欄も画面と同じく一緒に動きます）。status は applied（当てた）・same（今と同じ値なので変わらない）。この変更をそのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
+pub const PLAN_NOTE: &str = "plan_changes は、アプリの画面の結果のタブのプランと同じ関数で当てました（関係する欄も画面と同じく一緒に動きます）。status は applied（当てた）・same（今と同じ値なので変わらない）・restored（今と同じ値で、前の同じ項目の変更を取り消した。その項目は今の値のまま計算した）・replaced（後の変更が同じ項目を動かすので、この値は使わなかった。同じ項目は後の値が勝つ）。この変更をそのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
 
 #[cfg(test)]
 mod tests {
@@ -212,6 +219,7 @@ mod tests {
             at: None,
             lever: None,
             value: json!("0.01"),
+            note: None,
         };
         // 場所は添えたときだけ運ぶ（前の書き方は前と同じ形）
         assert_eq!(

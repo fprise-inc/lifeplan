@@ -279,7 +279,7 @@
           {
             "age": 95,
             "year": 2076,
-            "amount": -19972940
+            "amount": -19953833
           }
         ],
         "depletion": {
@@ -288,10 +288,10 @@
         },
         "minimum": {
           "year": 2081,
-          "amount": -26156180,
+          "amount": -26136977,
           "selfAge": 100
         },
-        "lifetimeTakeHome": 251212723,
+        "lifetimeTakeHome": 251205223,
         "lifetimeExpense": 295476499,
         "loanRepayment": 25468349,
         "loanInterest": 3278604,
@@ -613,21 +613,21 @@
           {
             "age": 65,
             "year": 2046,
-            "amount": 21803977
+            "amount": 21819829
           },
           {
             "age": 90,
             "year": 2071,
-            "amount": 7485828
+            "amount": 7511988
           }
         ],
         "depletion": null,
         "minimum": {
           "year": 2081,
-          "amount": 3252196,
+          "amount": 3290919,
           "selfAge": 100
         },
-        "lifetimeTakeHome": 242817699,
+        "lifetimeTakeHome": 242810499,
         "lifetimeExpense": 267093732,
         "loanRepayment": 25468349,
         "loanInterest": 3278604,
@@ -888,17 +888,17 @@
           {
             "age": 60,
             "year": 2054,
-            "amount": 261388485
+            "amount": 261442377
           }
         ],
         "depletion": null,
         "minimum": {
           "year": 2027,
-          "amount": 19698033,
+          "amount": 19713050,
           "selfAge": 33
         },
-        "lifetimeTakeHome": 397099656,
-        "lifetimeExpense": 78278061,
+        "lifetimeTakeHome": 397098256,
+        "lifetimeExpense": 78240561,
         "loanRepayment": 54116496,
         "loanInterest": 14116496,
         "pension": {
@@ -1256,7 +1256,7 @@
           {
             "age": 95,
             "year": 2067,
-            "amount": 125693332
+            "amount": 125695868
           }
         ],
         "depletion": null,
@@ -1265,7 +1265,7 @@
           "amount": 29108283,
           "selfAge": 55
         },
-        "lifetimeTakeHome": 218192775,
+        "lifetimeTakeHome": 218195175,
         "lifetimeExpense": 126184105,
         "loanRepayment": 0,
         "loanInterest": 0,
@@ -1537,16 +1537,16 @@
           {
             "age": 95,
             "year": 2060,
-            "amount": 11360858
+            "amount": 11422800
           }
         ],
         "depletion": null,
         "minimum": {
           "year": 2027,
-          "amount": 6504076,
+          "amount": 6524098,
           "selfAge": 41
         },
-        "lifetimeTakeHome": 182624475,
+        "lifetimeTakeHome": 182665726,
         "lifetimeExpense": 177450476,
         "loanRepayment": 33761656,
         "loanInterest": 2803539,
@@ -1576,7 +1576,7 @@
     }
   },
   {
-    "name": "今より前の年齢（表の最初の年にする）",
+    "name": "表の範囲の外の年齢（今より前・表の最後の年より先。端の年で代えず理由を返す）",
     "sample": "sampleSeniorCouple",
     "atAges": [
       30,
@@ -1722,23 +1722,25 @@
         },
         "assetsAtAge": [
           {
-            "age": 67,
-            "year": 2027,
-            "amount": 22913468
+            "age": 30,
+            "year": null,
+            "amount": null,
+            "reason": "表の範囲（ご本人67〜95歳・2027〜2055年）の外の年齢のため、数えていません"
           },
           {
             "age": 120,
-            "year": 2055,
-            "amount": 23527080
+            "year": null,
+            "amount": null,
+            "reason": "表の範囲（ご本人67〜95歳・2027〜2055年）の外の年齢のため、数えていません"
           }
         ],
         "depletion": null,
         "minimum": {
           "year": 2039,
-          "amount": 19927099,
+          "amount": 19922484,
           "selfAge": 79
         },
-        "lifetimeTakeHome": 101942287,
+        "lifetimeTakeHome": 101937639,
         "lifetimeExpense": 116361980,
         "loanRepayment": 0,
         "loanInterest": 0,
@@ -1776,6 +1778,350 @@
               "from": "65歳から",
               "annual": 966496,
               "monthly": 80541,
+              "estimated": false
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "表の範囲の外と中の年齢を混ぜる（独立した点検の見本）",
+    "sample": "salariedCoupleTwoKids",
+    "atAges": [
+      30,
+      46,
+      100,
+      110
+    ],
+    "expected": {
+      "members": [
+        {
+          "key": "self",
+          "label": "ご本人"
+        },
+        {
+          "key": "spouse",
+          "label": "配偶者"
+        },
+        {
+          "key": "child1",
+          "label": "第1子"
+        },
+        {
+          "key": "child2",
+          "label": "第2子"
+        }
+      ],
+      "ages": {
+        "2026": {
+          "self": 45,
+          "spouse": 43,
+          "child1": 14,
+          "child2": 11
+        },
+        "2027": {
+          "self": 46,
+          "spouse": 44,
+          "child1": 15,
+          "child2": 12
+        },
+        "2028": {
+          "self": 47,
+          "spouse": 45,
+          "child1": 16,
+          "child2": 13
+        },
+        "2029": {
+          "self": 48,
+          "spouse": 46,
+          "child1": 17,
+          "child2": 14
+        },
+        "2030": {
+          "self": 49,
+          "spouse": 47,
+          "child1": 18,
+          "child2": 15
+        },
+        "2031": {
+          "self": 50,
+          "spouse": 48,
+          "child1": 19,
+          "child2": 16
+        },
+        "2032": {
+          "self": 51,
+          "spouse": 49,
+          "child1": 20,
+          "child2": 17
+        },
+        "2033": {
+          "self": 52,
+          "spouse": 50,
+          "child1": 21,
+          "child2": 18
+        },
+        "2034": {
+          "self": 53,
+          "spouse": 51,
+          "child1": 22,
+          "child2": 19
+        },
+        "2035": {
+          "self": 54,
+          "spouse": 52,
+          "child1": 23,
+          "child2": 20
+        },
+        "2036": {
+          "self": 55,
+          "spouse": 53,
+          "child2": 21
+        },
+        "2037": {
+          "self": 56,
+          "spouse": 54,
+          "child2": 22
+        },
+        "2038": {
+          "self": 57,
+          "spouse": 55,
+          "child2": 23
+        },
+        "2039": {
+          "self": 58,
+          "spouse": 56
+        },
+        "2040": {
+          "self": 59,
+          "spouse": 57
+        },
+        "2041": {
+          "self": 60,
+          "spouse": 58
+        },
+        "2042": {
+          "self": 61,
+          "spouse": 59
+        },
+        "2043": {
+          "self": 62,
+          "spouse": 60
+        },
+        "2044": {
+          "self": 63,
+          "spouse": 61
+        },
+        "2045": {
+          "self": 64,
+          "spouse": 62
+        },
+        "2046": {
+          "self": 65,
+          "spouse": 63
+        },
+        "2047": {
+          "self": 66,
+          "spouse": 64
+        },
+        "2048": {
+          "self": 67,
+          "spouse": 65
+        },
+        "2049": {
+          "self": 68,
+          "spouse": 66
+        },
+        "2050": {
+          "self": 69,
+          "spouse": 67
+        },
+        "2051": {
+          "self": 70,
+          "spouse": 68
+        },
+        "2052": {
+          "self": 71,
+          "spouse": 69
+        },
+        "2053": {
+          "self": 72,
+          "spouse": 70
+        },
+        "2054": {
+          "self": 73,
+          "spouse": 71
+        },
+        "2055": {
+          "self": 74,
+          "spouse": 72
+        },
+        "2056": {
+          "self": 75,
+          "spouse": 73
+        },
+        "2057": {
+          "self": 76,
+          "spouse": 74
+        },
+        "2058": {
+          "self": 77,
+          "spouse": 75
+        },
+        "2059": {
+          "self": 78,
+          "spouse": 76
+        },
+        "2060": {
+          "self": 79,
+          "spouse": 77
+        },
+        "2061": {
+          "self": 80,
+          "spouse": 78
+        },
+        "2062": {
+          "self": 81,
+          "spouse": 79
+        },
+        "2063": {
+          "self": 82,
+          "spouse": 80
+        },
+        "2064": {
+          "self": 83,
+          "spouse": 81
+        },
+        "2065": {
+          "self": 84,
+          "spouse": 82
+        },
+        "2066": {
+          "self": 85,
+          "spouse": 83
+        },
+        "2067": {
+          "self": 86,
+          "spouse": 84
+        },
+        "2068": {
+          "self": 87,
+          "spouse": 85
+        },
+        "2069": {
+          "self": 88,
+          "spouse": 86
+        },
+        "2070": {
+          "self": 89,
+          "spouse": 87
+        },
+        "2071": {
+          "self": 90,
+          "spouse": 88
+        },
+        "2072": {
+          "self": 91,
+          "spouse": 89
+        },
+        "2073": {
+          "self": 92,
+          "spouse": 90
+        },
+        "2074": {
+          "self": 93,
+          "spouse": 91
+        },
+        "2075": {
+          "self": 94,
+          "spouse": 92
+        },
+        "2076": {
+          "self": 95,
+          "spouse": 93
+        },
+        "2077": {
+          "self": 96,
+          "spouse": 94
+        },
+        "2078": {
+          "self": 97,
+          "spouse": 95
+        },
+        "2079": {
+          "self": 98,
+          "spouse": 96
+        },
+        "2080": {
+          "self": 99,
+          "spouse": 97
+        },
+        "2081": {
+          "self": 100,
+          "spouse": 98
+        }
+      },
+      "keyFigures": {
+        "years": {
+          "from": 2027,
+          "to": 2081
+        },
+        "assetsAtAge": [
+          {
+            "age": 30,
+            "year": null,
+            "amount": null,
+            "reason": "表の範囲（ご本人46〜100歳・2027〜2081年）の外の年齢のため、数えていません"
+          },
+          {
+            "age": 46,
+            "year": 2027,
+            "amount": 11927922
+          },
+          {
+            "age": 100,
+            "year": 2081,
+            "amount": -26136977
+          },
+          {
+            "age": 110,
+            "year": null,
+            "amount": null,
+            "reason": "表の範囲（ご本人46〜100歳・2027〜2081年）の外の年齢のため、数えていません"
+          }
+        ],
+        "depletion": {
+          "year": 2058,
+          "selfAge": 77
+        },
+        "minimum": {
+          "year": 2081,
+          "amount": -26136977,
+          "selfAge": 100
+        },
+        "lifetimeTakeHome": 251205223,
+        "lifetimeExpense": 295476499,
+        "loanRepayment": 25468349,
+        "loanInterest": 3278604,
+        "pension": {
+          "monthly": 286678,
+          "claimedMonthly": 286678,
+          "receiving": false,
+          "anyClaim": false,
+          "people": [
+            {
+              "who": "self",
+              "from": "65歳から",
+              "annual": 2422767,
+              "monthly": 201897,
+              "estimated": false
+            },
+            {
+              "who": "spouse",
+              "from": "65歳から",
+              "annual": 1017373,
+              "monthly": 84781,
               "estimated": false
             }
           ]

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "ids": {
+      "description": "返す設定の id（例 [\"result.levers\", \"balance.guide\"]）。省くと全部（21件・約30KB）",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "share_id": {
+      "description": "FPが渡した世帯の共有 ID（list_shared_households）。書くと、その世帯の今の値（結果のタブ・資産と負債のタブの表示の設定・\n入力項目の選び方・対策に足した項目）も返す。省くと事務所の既定値だけ",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

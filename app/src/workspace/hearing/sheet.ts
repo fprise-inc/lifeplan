@@ -11,7 +11,7 @@ import { fillsByEstimate } from "../../../../hearing/src/estimates.ts";
 import { addMonths } from "../../../../hearing/src/months.ts";
 import type { EngineRequest, Household, Member } from "../../engine/types.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
-import { endYearForAge, followedEndAge, type WorkingHousehold } from "../input/household.ts";
+import { followedEndYear, withEndYearChoice, type WorkingHousehold } from "../input/household.ts";
 import { fillEducation } from "../input/fill.ts";
 import { EMPLOYMENT_TYPES, memberLabels, PENSION_CATEGORY } from "../input/labels.ts";
 import { withDeathEstimate } from "../input/stages/care.ts";
@@ -1176,13 +1176,11 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
     const rest = JSON.stringify({ ...h, events: [] });
     h.events = (h.events ?? []).filter((e) => !dropped.has(e.id) || rest.includes(e.id));
   }
-  // 表の最後の年: 大人が入れ替わったら、一番若い大人が100歳（か選んだ年齢）になる年まで（0008 の3）。取り込む前に標準・選び方の年齢の年の
-  // ままだった年だけ合わせる（人が年で入れた年・確定した年は変えない。家族の欄の追いかけ〔followStandards〕と同じ決まり。0070 の追記 2026-11-05）
-  const endAge = followedEndAge(wh.request);
-  if (chosen.some((c) => c.collection === "members") && endAge !== null) {
-    const y = endYearForAge(h, endAge);
-    if (Number.isFinite(y)) request.input.endYear = y;
-  }
+  // 表の最後の年: 大人が入れ替わったら、取り込む前の決め方のまま合わせる（既定は一番若い大人が既定の年齢になる年、「配偶者が95歳まで」のように
+  // 選んだ年はその人のその年齢。0008 の3）。年で決めた年・確定した年は変えない（家族の欄の追いかけ〔followStandards〕と同じ決まり。
+  // 0070 の追記 2026-11-05・2026-11-13）
+  const endFollow = chosen.some((c) => c.collection === "members") ? followedEndYear(wh, h) : null;
+  if (endFollow !== null) request.input.endYear = endFollow.endYear;
   // 推定・仮の印: 入れた物の assumed を、今の世帯の ID に読み替えて入れる。置き換えた物の古い印は外す
   const touched = new Set(chosen.map((c) => ids.get(c.target.object) ?? c.target.object));
   const assumed: Record<string, string> = {};
@@ -1211,7 +1209,7 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   const memo = r.memo.length > 0 ? [...wh.memo, ...r.memo.map((m) => `ヒアリング（${r.record.requestId}）: ${m}`)] : wh.memo;
   const postRetirement = postDropped.size === 0 ? wh.postRetirement : Object.fromEntries(Object.entries(wh.postRetirement).filter(([k]) => !postDropped.has(k)));
   const next: WorkingHousehold = {
-    ...wh,
+    ...(endFollow !== null ? withEndYearChoice(wh, endFollow.choice) : wh),
     request,
     postRetirement,
     assumed,
