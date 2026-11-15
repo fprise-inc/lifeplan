@@ -2673,7 +2673,7 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "retrievedAt": "2026-10-31"
  },
  "lifeTable.lifeExpectancy.female": {
-  "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）",
+  "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は105歳以上の値）",
   "value": [
    {
     "upTo": 0,
@@ -2724,16 +2724,28 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
     "rate": "5.66"
    },
    {
+    "upTo": 95,
+    "rate": "3.58"
+   },
+   {
+    "upTo": 100,
+    "rate": "2.05"
+   },
+   {
+    "upTo": 105,
+    "rate": "1.06"
+   },
+   {
     "upTo": null,
-    "rate": "5.66"
+    "rate": "1.06"
    }
   ],
-  "rev": 4,
+  "rev": 6,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
  "lifeTable.lifeExpectancy.male": {
-  "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）",
+  "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は105歳以上の値）",
   "value": [
    {
     "upTo": 0,
@@ -2784,11 +2796,23 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
     "rate": "4.38"
    },
    {
+    "upTo": 95,
+    "rate": "2.90"
+   },
+   {
+    "upTo": 100,
+    "rate": "1.81"
+   },
+   {
+    "upTo": 105,
+    "rate": "1.08"
+   },
+   {
     "upTo": null,
-    "rate": "4.38"
+    "rate": "1.08"
    }
   ],
-  "rev": 3,
+  "rev": 5,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  }

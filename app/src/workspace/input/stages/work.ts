@@ -4,7 +4,7 @@ import type { Box, EmploymentPeriod, Household, Member } from "../../../engine/t
 import type { Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, applyLevers, applyRetireMonth, readLevers } from "../../levers.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
-import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimate, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
+import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimateFor, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
 import { isAutoSmr } from "../smr.ts";
 import { healthRateEstimate, parseWageCurveId, reemploymentRatio, WAGE_CURVE_SIZES, wageCurveEmployment, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass, type WageCurveChoice, type WageSize } from "../../../../../hearing/src/estimates.ts";
 import { afterWrite, byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
@@ -1039,9 +1039,10 @@ function residentTaxField(wh: WorkingHousehold, m: Member): FieldDef {
       ((hh.residentTaxAssessments ??= []) as unknown[]).push(a);
       return a as unknown as Record<string, unknown>;
     },
+    // 年度の元の年（年度の前の年）に重なる働き方の月の分から（0133 の追記 2026-11-15）
     estimate: (hh) => {
-      const p = currentPeriod(hh, m.id, base);
-      return residentTaxEstimate((p?.salary?.annual.value ?? 0) + (p?.salary?.bonus?.value ?? 0), p?.business?.income.value ?? 0, fy - 1);
+      const e = residentTaxEstimateFor(hh, m.id, fy, base);
+      return { value: e.value, basis: e.basis };
     },
     help: "住民税の決定通知書（給与明細の住民税×12）の額。入れなければ前の年の所得から概算します",
   });

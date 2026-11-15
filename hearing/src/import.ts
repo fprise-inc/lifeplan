@@ -7,7 +7,7 @@
 import full5 from "../sheets/full/5.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
-import { bonusShareEstimate, businessEstimate, careerStartMonth, fillsByEstimate, HEARING_UNKNOWN_BASIS, NOT_FILLED_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
+import { bonusShareEstimate, businessEstimate, careerStartMonth, fillsByEstimate, HEARING_UNKNOWN_BASIS, NOT_FILLED_BASIS, healthRateEstimate, livingEstimate, residentIncome, residentIncomeYear, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
 import { currentMortgageRateEstimate, pctText, provisionalNewType } from "./housingEstimates.ts";
 import { issue, type Issue } from "./issues.ts";
 import { presetNum } from "./presets.ts";
@@ -1026,20 +1026,22 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
 }
 
 /**
- * 前の年に働いていた人に今年度の住民税（決定額）が無ければ、概算の推定を入れる（入力の画面の ensureResidentTax と同じ考え方）。
+ * 今年度の住民税の元の年に働いていた人に今年度の住民税（決定額）が無ければ、概算の推定を入れる（入力の画面の ensureResidentTax と同じ考え方）。
  * 計算エンジンは決定額が無いと前の年の所得から計算し直すが、古い年の社会保険の制度データが無いと止まるため
  */
 function ensureResidentTax(c: Ctx, h: Household, p: EmploymentPeriod, m: Member, n: number, baseMonth: string): void {
   const fy = residentTaxYear(baseMonth);
   if ((h.residentTaxAssessments ?? []).some((a) => a.member === m.id && a.fiscalYear === fy)) return;
-  const prev = Number(baseMonth.slice(0, 4)) - 1;
+  // 所得の年は年度の前の年（計算基準月が1〜5月なら計算基準月の年の2年前）。その年に重なる月の分（入力の画面の ensureResidentTax と同じ。0133 の追記 2026-11-15）
+  const y = residentIncomeYear(fy);
   const from = "at" in p.from ? p.from.at : baseMonth;
   const to = p.to !== null && "at" in p.to ? p.to.at : null;
-  if (ymIndex(from) > ymIndex(`${prev}-12`) || (to !== null && ymIndex(to) < ymIndex(`${prev}-01`))) return;
   const val = (b: ValueBox<number> | undefined) => b?.value ?? b?.substitute?.value ?? 0;
-  const salary = val(p.salary?.annual) + val(p.salary?.bonus);
-  const business = val(p.business?.income);
-  const e = residentTaxEstimate(salary, business, fy - 1);
+  const period = { type: p.type, from, to, salary: val(p.salary?.annual), bonus: val(p.salary?.bonus), business: val(p.business?.income) };
+  const inc = residentIncome([period], y);
+  // 所得の年か計算基準月の前の年に働いていた人だけ（所得の年に働いていなければ0円の推定。入力の画面の ensureResidentTax と同じ）
+  if (!inc.any && !residentIncome([period], Number(baseMonth.slice(0, 4)) - 1).any) return;
+  const e = residentTaxEstimate(inc.salary, inc.business, y, { baseMonth, months: inc.months });
   const st = c.get("hs.income.residentTax", n).status;
   const rid = c.newId();
   const amount = st === "unknown" ? c.unknown(e, "derived") : c.estimated(e, "derived");
