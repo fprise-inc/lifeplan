@@ -4,7 +4,8 @@
 // - 定数は1つの欄、表（世帯人員別・年齢別など）は段ごとの欄（空欄の段は公式の値。表の一部だけ変えられる）
 // - 根拠の文（書いた文はそのまま出す。書かなければ自動の文「事務所の目安（変えた年月）」。空にはならない）
 // - 変える前に、代表の世帯（見本の世帯）で主な結果の差を見る
-// - 公式の値が新しくなった値の知らせ（このまま／公式に戻す）
+// - 公式の値が新しくなった値の知らせ（前の公式・新しい公式・今の事務所の値・出典と、押したらどうなるかを並べる。このまま／公式に戻す。
+//   値が同じで出典だけが新しくなったときは軽い知らせ〔確かめた／公式に戻す〕）
 // - 推定で埋めない入力欄
 // 押した結果はすぐ事務所データに保存し、どの世帯にもすぐ効く（パネルの「保存」は要らない）
 import { useMemo, useState } from "preact/hooks";
@@ -12,7 +13,7 @@ import { FILL_TARGETS } from "../../../../hearing/src/estimates.ts";
 import type { BracketStep } from "../../../../hearing/src/statistics.ts";
 import { man, manDiff } from "../../presentation/format.ts";
 import { ESTIMATE_GROUPS, editText, estimateEntries, estimateEntry, formatNumber, parseNumber, searchEstimates, sourceText, stepLabel, stepValue, summaryText, type EstimateEntry } from "./estimateCatalog.ts";
-import { AUTO_BASIS, BASIS_TEXT_MAX, basisOf, cleanBasisText, keepOfficeValue, officialUpdates, withNoFill, withOfficeValue, withoutOfficeValue, type OfficeEstimates, type OfficeValue } from "./estimates.ts";
+import { AUTO_BASIS, BASIS_TEXT_MAX, basisOf, cleanBasisText, keepOfficeValue, officialUpdates, sourceLine, withNoFill, withOfficeValue, withoutOfficeValue, type OfficeEstimates, type OfficeValue, type OfficialUpdate } from "./estimates.ts";
 import { PREVIEW_AGE, type PreviewRow } from "./estimatePreview.ts";
 import { Help } from "../../presentation/Help.tsx";
 
@@ -85,6 +86,120 @@ const metricLine = (r: PreviewRow) => {
   parts.push(`生涯の支出の合計 ${manDiff(r.after.expense - r.before.expense)}万円`);
   return parts.join("・");
 };
+
+/** 公式の値が新しくなった値の知らせの1件（何がどう変わったかを開いて見られる。数が少なければ初めから開く） */
+function UpdateNotice({ u, open, busy, onKeep, onReedit, onRevert }: { u: OfficialUpdate; open: boolean; busy: boolean; onKeep: () => void; onReedit: () => void; onRevert: () => void }) {
+  const head = u.kind === "broken" ? "公式の表の段の分け方が変わり、事務所の値を使えなくなりました" : u.kind === "source" ? "公式の値の出典が新しくなりました。値は変わっていません" : "公式の値が新しくなりました";
+  return (
+    <div class={`os-est-update ${u.kind}`} data-office-estimate-update={u.id} data-office-estimate-update-kind={u.kind}>
+      <details open={open}>
+        <summary>
+          <strong>{u.name}</strong>: {head}
+        </summary>
+        <div class="os-est-update-body">
+          {u.kind === "value" && u.single !== null ? (
+            <dl class="os-est-update-vals" data-office-estimate-update-single>
+              <dt>公式の値</dt>
+              <dd>
+                前 {u.single.before} → 新しい <strong>{u.single.after}</strong>
+              </dd>
+              <dt>今の事務所の値</dt>
+              <dd>{u.single.office}（今はこの値で計算しています）</dd>
+            </dl>
+          ) : null}
+          {u.kind === "value" && u.steps.length > 0 ? (
+            <>
+              <p>公式の値が変わった段（{u.steps.length}段）:</p>
+              <table class="os-code-diff os-est-update-table" data-office-estimate-update-steps>
+                <thead>
+                  <tr>
+                    <th scope="col">段</th>
+                    <th scope="col">前の公式</th>
+                    <th scope="col">新しい公式</th>
+                    <th scope="col">今の事務所の値</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {u.steps.map((s) => (
+                    <tr key={s.label} data-office-estimate-update-step={s.label}>
+                      <th scope="row">{s.label}</th>
+                      <td>{s.before}</td>
+                      <td class="os-code-diff-new">{s.after}</td>
+                      <td>{s.officeChanged ? s.office : <span class="os-est-muted">変えていない段（今は前の公式 {s.office}）</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : null}
+          {u.kind === "value" && u.single === null && u.steps.length === 0 && u.change !== null ? <p>公式の値: {u.change}</p> : null}
+          {u.kind === "broken" ? (
+            <dl class="os-est-update-vals" data-office-estimate-update-layout>
+              {u.layout !== null ? (
+                <>
+                  <dt>前の段の分け方</dt>
+                  <dd>{u.layout.before}</dd>
+                  <dt>新しい段の分け方</dt>
+                  <dd>
+                    <strong>{u.layout.after}</strong>
+                  </dd>
+                </>
+              ) : null}
+              <dt>事務所で変えていた段</dt>
+              <dd>{u.officeSteps.length > 0 ? u.officeSteps.join("、") : u.office}</dd>
+              <dt>今の計算</dt>
+              <dd>新しい公式の値で計算しています（事務所の値は使っていません）</dd>
+            </dl>
+          ) : null}
+          {u.kind !== "broken" && u.officeSteps.length > 0 ? <p data-office-estimate-update-other>ほかに事務所で変えている段（公式は変わっていません）: {u.officeSteps.join("、")}</p> : null}
+          {u.kind === "source" ? (
+            <p>
+              <strong>値は変わっていません。</strong>今の事務所の値 {u.office} をそのまま使っていて、計算も変わっていません。
+            </p>
+          ) : null}
+          {u.kind !== "source" && u.beforeSource !== null && u.sourceChanges.length === 0 ? (
+            <dl class="os-est-update-vals os-est-update-src" data-office-estimate-update-source>
+              <dt>出典</dt>
+              <dd>
+                {sourceLine(u.afterSource)}
+                <span class="os-est-muted">（変わっていません）</span>
+              </dd>
+            </dl>
+          ) : (
+            <dl class="os-est-update-vals os-est-update-src" data-office-estimate-update-source>
+              <dt>前の出典</dt>
+              <dd>{u.beforeSource !== null ? sourceLine(u.beforeSource) : "記録がありません（出典を覚える前に変えた値です）"}</dd>
+              <dt>新しい出典</dt>
+              <dd>
+                {sourceLine(u.afterSource)}
+                {u.sourceChanges.length > 0 ? <span class="os-est-muted">（新しくなった所: {u.sourceChanges.join("・")}）</span> : u.beforeSource !== null ? <span class="os-est-muted">（題名・取得日は前と同じです。出典の記録の版だけが新しくなりました）</span> : null}
+              </dd>
+            </dl>
+          )}
+          <ul class="os-est-update-effects" data-office-estimate-update-effects>
+            <li>{u.keepText}</li>
+            <li>{u.revertText}</li>
+            <li class="os-est-muted">{u.effect}</li>
+          </ul>
+        </div>
+      </details>
+      <p class="os-est-actions">
+        {u.kind === "broken" ? (
+          <button type="button" class="link-btn" disabled={busy} onClick={onReedit} data-office-estimate-reedit={u.id}>
+            値を入れ直す
+          </button>
+        ) : (
+          <button type="button" class="link-btn" disabled={busy} onClick={onKeep} data-office-estimate-keep={u.id}>
+            {u.kind === "source" ? "確かめた（事務所の値のまま）" : "このまま（事務所の値を使う）"}
+          </button>
+        )}
+        <button type="button" class="link-btn" disabled={busy} onClick={onRevert} data-office-estimate-revert-update={u.id}>
+          公式に戻す
+        </button>
+      </p>
+    </div>
+  );
+}
 
 export function EstimatesSection({ value, onChange, preview, today }: EstimatesSectionProps) {
   const [query, setQuery] = useState("");
@@ -170,26 +285,15 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
       {updates.length > 0 ? (
         <div class="os-custom-box pending" role="status" data-office-estimate-updates>
           {updates.map((u) => (
-            <div class="os-est-update" key={u.id} data-office-estimate-update={u.id}>
-              <p>
-                <strong>公式の値が新しくなりました</strong>（{u.name}。前 {u.change}）。
-                {u.broken ? "公式の表の段の分け方が変わったので、事務所の値を使えません（今は公式の値で計算しています）。公式に戻すか、値を入れ直してください。" : "今は事務所の値を使い続けています。"}
-              </p>
-              <p class="os-est-actions">
-                {!u.broken ? (
-                  <button type="button" class="link-btn" disabled={busy} onClick={() => void save(keepOfficeValue(value, u.id), `${u.name}は事務所の値のまま使います。`, u.id)} data-office-estimate-keep={u.id}>
-                    このまま（事務所の値を使う）
-                  </button>
-                ) : (
-                  <button type="button" class="link-btn" disabled={busy} onClick={() => open(estimateEntry(u.id) as EstimateEntry)} data-office-estimate-reedit={u.id}>
-                    値を入れ直す
-                  </button>
-                )}
-                <button type="button" class="link-btn" disabled={busy} onClick={() => void revert(u.id)} data-office-estimate-revert-update={u.id}>
-                  公式に戻す
-                </button>
-              </p>
-            </div>
+            <UpdateNotice
+              key={u.id}
+              u={u}
+              open={updates.length <= 3}
+              busy={busy}
+              onKeep={() => void save(keepOfficeValue(value, u.id), u.kind === "source" ? `${u.name}の出典の更新を確かめました（事務所の値のまま使います）。` : `${u.name}は事務所の値のまま使います。`, u.id)}
+              onReedit={() => open(estimateEntry(u.id) as EstimateEntry)}
+              onRevert={() => void revert(u.id)}
+            />
           ))}
         </div>
       ) : null}

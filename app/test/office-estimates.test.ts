@@ -215,11 +215,12 @@ describe("公式の値が新しくなったとき", () => {
     publishOfficeEstimates(e);
     expect(officeEstimateValues()).toEqual({ [CARE_MONTHS]: 60 });
     const u = officialUpdates(e);
-    expect(u).toEqual([{ id: CARE_MONTHS, name: "介護の期間", change: "50か月 → 55か月", broken: false, rev: officialMasterValue(CARE_MONTHS)?.rev }]);
+    expect(u).toHaveLength(1);
+    expect(u[0]).toMatchObject({ id: CARE_MONTHS, name: "介護の期間", kind: "value", change: "50か月 → 55か月", single: { before: "50か月", after: "55か月", office: "60か月" }, broken: false, rev: officialMasterValue(CARE_MONTHS)?.rev });
     const n = estimateCenterNotice(e);
     expect(n).toHaveLength(1);
-    expect(n[0]).toMatchObject({ category: "office", title: "公式の統計の値が新しくなりました（介護の期間）" });
-    expect(n[0]?.body).toContain("前 50か月 → 55か月");
+    expect(n[0]).toMatchObject({ category: "office", urgency: "normal", title: "介護の期間: 公式の値が新しくなりました" });
+    expect(n[0]?.body).toContain("公式の値: 前 50か月 → 新しい 55か月。今の事務所の値: 60か月。");
   });
 
   it("「このまま」は事務所の値・根拠の文・変えた年月を変えずに知らせを消す。「公式に戻す」は事務所の値を外す", () => {
