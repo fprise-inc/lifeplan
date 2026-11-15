@@ -2260,7 +2260,7 @@ entries:
     replacedBy: null
   - id: lifeTable.lifeExpectancy
     status: active
-    label: "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）"
+    label: "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は105歳以上の値）"
     since: draft
     aliases: []
     replacedBy: null
