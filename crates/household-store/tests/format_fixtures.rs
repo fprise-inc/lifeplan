@@ -1019,9 +1019,14 @@ fn every_format_version_has_a_fixture_and_opens() {
             );
         }
         // 0.78 から: 自営の働き方の期間の個人事業税の業種の区分（0155 の 2026-11-15 の追記）。0.78 の見本は配偶者の60歳からの自営に第3種
-        let classes: Vec<&Value> = now["household"]["request"]["input"]["household"]["employmentPeriods"]
+        let classes: Vec<&Value> = now["household"]["request"]["input"]["household"]
+            ["employmentPeriods"]
             .as_array()
-            .map(|ps| ps.iter().filter_map(|p| p["business"].get("businessTaxClass")).collect())
+            .map(|ps| {
+                ps.iter()
+                    .filter_map(|p| p["business"].get("businessTaxClass"))
+                    .collect()
+            })
             .unwrap_or_default();
         if migrate::parse(v).unwrap() >= (0, 78) {
             assert_eq!(classes, vec![&Value::from("class3")]);

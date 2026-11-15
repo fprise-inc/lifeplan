@@ -4019,7 +4019,10 @@ mod tests {
         assert_eq!(u["household"], b["household"]);
         // 0.78 の世帯の業種の区分は、変換しても残る
         let set = serde_json::json!({"meta": {"formatVersion": "0.78"}, "household": {"memo": ["x"], "request": {"input": {"household": {"employmentPeriods": [{"business": {"businessTaxClass": "none"}}]}}}}});
-        assert_eq!(upgrade("0.78", set.clone()).unwrap()["household"], set["household"]);
+        assert_eq!(
+            upgrade("0.78", set.clone()).unwrap()["household"],
+            set["household"]
+        );
     }
 
     #[test]
