@@ -190,6 +190,10 @@ async fn serve(
             Request::ProposeFeatureCode { code } => {
                 registry.handle_propose_feature_code(code, &caller)
             }
+            Request::GetOfficeDisplay => registry.handle_office_display(),
+            Request::GetShareDisplay { share_id, tool } => {
+                registry.handle_get_display(share_id, tool, &caller)
+            }
             Request::ProposeHousehold { proposal } => {
                 // 計算の入力の確かめは計算エンジンを動かすので、受け口の糸を止めない所で
                 let reg = registry.clone();

@@ -11,7 +11,7 @@ AIのアプリ（Claude Code・Claude Desktop・Codex）が `lifeplan mcp` を�
 
 ```sh
 cd engine && npm ci && npm run build && cd ..   # 計算エンジンと制度データ・対応範囲の一覧（engine/dist）
-cd app && npm ci && npm run build:explain && cd ..   # 数字の根拠の読み方・プランの動かす項目・見本の名前と目印（crates/lifeplan/dist/explain.js・plan.js・samples.json。0183・0195・0199）
+cd app && npm ci && npm run build:explain && cd ..   # 数字の根拠の読み方・プランの動かす項目・見本の名前と目印・差し替えられる文と欄の一覧・表示の設定の一覧（crates/lifeplan/dist/explain.js・plan.js・samples.json・texts-catalog.json・terms-catalog.json・fields-catalog.json・display-catalog.json。0183・0195・0199・0212・0213）
 cargo build --release -p lifeplan               # → target/release/lifeplan（Windows は lifeplan.exe）
 target/release/lifeplan --version
 ```
@@ -71,6 +71,7 @@ args = ["mcp"]
 | 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value`・`list_plan_items`・`compare`・`sweep`・`find_threshold`・`chart`・`check_inputs` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
 | 単体で使える（表にする。0209） | `table`（`compare` と同じ道で計算した年ごとの表を、CSV か Markdown の文で返す。`share_id` の世帯は世帯を扱う群と同じくアプリ本体に頼む） | 見本の世帯・AIが組み立てた入力はアプリが起動していなくてよい。`share_id` は世帯を扱う群と同じ条件 |
 | 設定の候補を出す | `propose_feature_code`（FPが渡した「機能を有効にするコード」を、アプリの画面に承認待ちの候補として出す。コードは入らない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
+| 表示の設定を読む（0213） | `get_display_settings`（画面の見せ方だけの設定〔対策に最初から出す項目・万一のときのタブの場面と想定の前提・入力項目の出し方と並び・基本生活費の内訳の並べ方・結果のタブと資産と負債のタブの表示の設定など〕の一覧と今の値。読むだけ） | 一覧と既定はいつでも。事務所の既定値の今の値は、アプリが起動していて AI接続口がオンのときだけ。`share_id` の世帯の今の値は世帯を扱う群と同じ条件 |
 | 新しい世帯の候補を出す | `propose_household`（AIが組み立てた世帯〔`calculate` の `input` と同じ形〕を、架空かお客さまか・題・推定したことと一緒に、アプリの画面に「新しい世帯の候補」として承認待ちで出す。世帯は作られない。0208） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい。計算できない入力の直し方は、アプリが起動していなくても返る） |
 
 道具の名前と入出力は試験版です（予告して変えることがあります。0001・0015）。
@@ -101,6 +102,8 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 「salariedCoupleTwoKids の2030年の税・社会保険料は、どんな計算で出ている？お客さまに分かる言葉で」（`explain_value`）
 - 「ファイナンシアに高額療養費は入っている？ iDeCo の受け取り方はどう計算している？」（`search_coverage`・`get_coverage`）
 - 「資産運用の結論の1文と取り崩しの条件を、うちの事務所の言い方に直す下書きを作って」（`list_custom_texts` → AI が `settings/texts.json` の下書きを書き、FP がアプリで承認。0212）
+- 「対策に最初から NISA も出したい。どこで変える？」「家計の体力の目安の幅は、今いくつになっている？」「万一のときのタブを、収入が減るの場面で開くようにしたい」（`get_display_settings`。今は FP がアプリの画面で変える。0213）
+- 「保険の入力項目の欄のうち、使わない欄を隠す下書きを作って」（`list_custom_texts` の `file: fields` → AI が `settings/fields.json` の下書きを書き、FP がアプリで承認。0213）
 - 「セミナー用に、35歳の会社員と扶養のパートの妻・3歳の子・賃貸の架空の世帯を作って、2028年に4,000万円の家を買ったら老後の資産はどうなるか計算して」（`get_input_guide`・`get_input_recipe`・`calculate`）
 - 「38歳の会社員と扶養のパートの妻・賃貸・預金500万円の架空の世帯を作って、アプリに入れて」（`get_input_guide`・`calculate` → `propose_household`。アプリの画面で FP が確かめて「世帯として作る」を押す。0208）
 
@@ -130,6 +133,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 | `explain_to_client` | 数字の根拠をお客さまに分かる言葉で説明する | `household`*・`number`*（例「2030年の税・社会保険料」） |
 | `check_coverage` | 制度や計算に入っているかを調べる | `topic`*（例「ふるさと納税」） |
 | `office_wording` | 事務所の言い方に文言を直す（0212） | `target`（直したい文や名前。例「資産運用の結論の1文と取り崩しの条件」。省くと結果の画面の文）・`style`（事務所の言い方。例「です・ます でやわらかく」） |
+| `office_display` | 画面の見せ方の設定を確かめる（0213。変える案を出すのは次の段で、今は変える所を伝える） | `want`（変えたい見せ方。例「対策に最初から NISA も出したい」。省くと、今の設定と変えられることをひととおり）・`household`（世帯ごとの設定も見たい世帯の share_id） |
 | `chart_three_patterns` | 3パターンを比較してグラフに（0207） | `household`*・`lever`（比較したいこと。例「退職の年齢 60・65・70歳」「子の進路 今のまま・すべて公立・中学から私立」〔子ごとの「進路の型」で動かす。0211〕。省くと AI が選ぶ）・`show`（グラフにする数字。例「金融資産と年間収支」「教育費」）・`purpose`（使う先） |
 | `chart_rate_paths` | 金利の上がり方を3通り比較してグラフにする（0203） | `household`*（変動金利の住宅ローンのある世帯）・`paths`（比較する上がり方。省くと今のまま・10年で+1%・10年で+2%）・`purpose`（使う先） |
 | `find_boundary` | 境目を探す（何歳まで働けば足りる？など。0204） | `household`*・`question`（探したい境目。例「90歳の時点で資産が残る、毎月の生活費の上限」。省くと、最後まで資産が尽きない、いちばん早い退職の年齢） |
@@ -370,12 +374,31 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 絞り方: `file`（`texts`＝文〔既定〕・`terms`＝名前）・`kind`（文は `field`・`notice`・`estimate`・`result`、名前は `field`・`row`）・`prefix`（id の頭。例 `result:invest/`）・`query`（言葉）・`limit`（既定50、200まで）・`offset`。答えには分野ごとの数（`areas`）と書き方（`howTo`）が付きます。
 - 結果の画面の文（`result:<タブ>/<名前>`）は、数字と名前がいつも差し込みの印です（例 `result:invest/verdict` の公式の文は `{plan}では、金融資産は {age} まで持ちます`）。差し込む値は単位まで入ります（`{age}` は「84歳」）。書き換えるだけで、消せるのはグラフの注だけです。知らない印は承認できず、数字の入る印を落とすと注意が出ます。
 - この接続口はカスタム層のファイルを書きません。FP のフォルダに書ける AI が下書きを書くか、FP に渡して置いてもらいます。効くのは、FP がアプリの事務所の既定値の画面（「説明の文（カスタム層）」「名前（カスタム層）」）で承認した後だけで、計算の結果はどの文でも変わりません。プロンプト `office_wording` が、この進め方の頼み方の型です。
+- 入力の欄の隠す・並べ替え（`settings/fields.json`）の id は、`file: fields` で引けます（0213）。中身はアプリ本体が埋め込む欄の一覧（`fields-reference@1.0`）と同じで、1件の `text` は公式の欄の名前、`ops` は `hide`・`order` です。答えの `howTo` に書き方（行は `id` と `hide`〔true〕・`order`〔1〜99。まとまりの中で何番目に出すか〕。値の入った欄は隠しても出る・既定の値は書けない・計算は変わらない）が付きます。承認は事務所の既定値の画面の「入力の欄の見せ方（カスタム層）」です。
 
 ```json
 { "schema": "texts@1.0",
   "entries": [
     { "id": "result:invest/verdict", "do": "replace", "text": "{plan}の場合、金融資産が続くのは {age} までです", "basedOn": "sha256:…（list_custom_texts の hash）" } ] }
 ```
+
+### 画面の見せ方の設定（表示の設定。0213）
+
+「対策に最初から NISA も出して」「家計の体力の目安は出さないで」のように、FP の AI に画面の見せ方を変えてもらう形を、3つの段で作ります（設計記録 0213）。今あるのは段A（読むだけ）です。
+
+| 段 | 中身 |
+|---|---|
+| 段A（今） | `get_display_settings`: 見せ方だけの設定の一覧（id・画面と同じ名前・どこで決めるか・効く画面・アプリのどこで変えるか・提案書と持ち帰り用のレポートに出るか・値の形・選べる値・既定）と、事務所の既定値・渡された世帯の今の値を返す。変えるのは FP がアプリの画面で |
+| 段B（次） | AI が変える案を承認待ちの候補としてアプリに出す（`propose_scenario`・`propose_feature_code` と同じ形）。アプリが設定ごとに「今 → 案」を出し、FP が「反映する」か「捨てる」を選ぶ。反映した後も前の値に戻せる。既定は事務所全体で、渡された世帯には世帯ごとの案も |
+| 段C（その次） | 結果のタブ・資産と負債のタブの表示の設定に事務所の既定値を足し、値を変えていない世帯は事務所の既定値に従う |
+
+- 載せるのは、値も計算の結果も変えない見せ方の設定だけです。計算の結果を変える設定（前提条件の標準値・必要保障額の数え方・介護・受け取る予定の相続の見込み・不動産の評価の割合・表の最後の年齢・FP顧問料の料金表・事務所の推定の値）、名前・ロゴ・色・見た目、Web のヒアリングのひな形は載せません（答えの `outOfScope`）。計算のお知らせの「入力が足りない」「計算に入れていない」と確かめの注意は、どの設定でも隠せません（`neverHidden`）。
+- 今の21件: 事務所の既定値（`scope: office`）の `input.order`（入力のホームの入力項目の並び）・`input.living`（基本生活費の内訳の並べ方）・`result.levers`（対策に最初から出す項目）・`contingency.premises`（想定の前提に最初から出す項目）・`contingency.scenes`（場面の帯に並べる場面）・`contingency.openScene`（開いたときに選んでおく場面）・`features.combinedBs`（合算BS を使う。読むだけ。機能を有効にするコードが要る）、事務所の既定と世帯ごとの両方（`both`）の `input.items`（新しい世帯で出す入力項目と、開いたときの入れ方。事務所の既定は新しい世帯に写すだけ）、世帯ごと（`household`）の `result.addedItems`（対策に足した項目）・`result.metrics`（出す数字）・`result.atAge`・`result.layout`（比較の仕方）・`result.invBreakdown`・`result.invPeriods`・`balance.health`（家計の体力の目安を表示する）・`balance.guide`（家計の体力の目安の幅）・`balance.points`（「時点を並べる」の既定）・`balance.columns`（この世帯で並べる時点）・`balance.moneyThree.wording`・`.months`・`.years`（お金の3つの分け方）。作っている途中の設定があれば `pending` に出ます。
+- 一覧はアプリの画面の定数から作ります（`app/src/connector/displayCatalog.ts`。`npm run build:explain` が `crates/lifeplan/dist/display-catalog.json` に書き、接続口が埋め込む）。選べる種類や既定を変えると、接続口の一覧も一緒に変わります。
+- 今の値は、設定の `current.office`・`current.household` に `{ value, isDefault, text }`（`text` は画面の言葉の要約）で入ります。事務所の既定値はアプリ本体が事務所データから見せ方だけの欄を名前で選んで写し（計算の設定・推定の値・名前やロゴ・ヒアリングのひな形は写さない）、渡された世帯は世帯ファイルの本文の見せ方の区画（`display`・`household.itemChoice`・`workspace.shownItems`。数・真偽・短い英数字の値だけ）を、物の ID を共有ごとの仮の ID にして渡します。読み方は画面と同じ関数です（`app/src/connector/display.ts`）。
+- アプリが起動していない（か AI接続口がオフの）ときは、一覧と既定だけを返し、`app.status` が `notRunning` になります。
+- `ids` で設定を選べます（省くと全部で約 30KB）。例 `{ "ids": ["result.levers"] }`。
+- この道具では設定を変えられません。答えの `change` に、アプリのどの画面のどの区画で変えるかが書いてあり、AI はそれを FP に伝えます。プロンプト `office_display` が、この進め方の頼み方の型です。
 
 ### プランの動かす項目（画面と同じ。0195・0201・0206）
 
@@ -420,7 +443,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 世帯の復号・許可の判定・縮約・文章の包み方・記録は、**アプリ本体だけ**が行います（`crates/ai-share`）。接続口は鍵も世帯ファイルも扱いません。
 - 渡るのは既定で**縮約版**（計算に要る入力項目と、定年後の働き方の条件の数と選択肢だけ〔0195〕。許可リストは `crates/ai-share/data/reduced-allowlist.json`）。自由記述・FPのメモ・見出しは既定で外れ、FPが項目ごとに足したときだけ `client_text` に包んで渡ります。推定の根拠の文（`estimate.basis`）は渡さず、決まった言葉「推定の値（根拠の文は渡していません）」に置き換わります（推定の出し方 `method` は渡ります）。保険の数表の参照・料金表を写した日時は、決まった形のときだけ渡ります。世帯の内部ID・顧客番号・呼び名は、どの版でも渡りません。物の ID は共有ごとの仮の ID に置き換わります（値の状態の鍵 `入力項目ID/場所` の中の物の ID も同じ）。
 - 共有は期限つき（既定60分・最長8時間）で、取り消し・同意の撤回・アプリの終了で止まります。止まるのは今後の読み取りだけで、すでに送った内容はAIの会社の側に残ります。
-- 読まれるたびに、世帯の「AIに渡した記録」（0014）に、日時・道具・渡した項目・中身の指紋・観測できた呼び出し元（接続口と親のプロセスの実行ファイル、AIのアプリの名乗り〔80文字まで。制御文字・見えない書式の文字は除く。4つの候補の出どころも同じ形〕。どれも認証ではない）が残ります。`calculate`・`explain_value`・`list_plan_items`・`compare`・`check_inputs` の読み取りも同じで、計算に使う事務所の推定の値は記録の中身（項目・指紋）に入りません（世帯の中身ではないため。0184）。
+- 読まれるたびに、世帯の「AIに渡した記録」（0014）に、日時・道具・渡した項目・中身の指紋・観測できた呼び出し元（接続口と親のプロセスの実行ファイル、AIのアプリの名乗り〔80文字まで。制御文字・見えない書式の文字は除く。4つの候補の出どころも同じ形〕。どれも認証ではない）が残ります。`calculate`・`explain_value`・`list_plan_items`・`compare`・`check_inputs` の読み取りも同じで（`get_display_settings` の `share_id` の読み取りは、見せ方の区画〔`display.result`・`display.balance`・`household.itemChoice`・`workspace.shownItems`〕の名前で残る。0213）、計算に使う事務所の推定の値は記録の中身（項目・指紋）に入りません（世帯の中身ではないため。0184）。
 - `propose_scenario` のプランの候補は、アプリの「AIからの候補」に承認待ちで入るだけで、世帯のデータは変わりません。FPが中身を確かめて「プランとして保存」したときだけ、プラン（プランA・プランB …）として入ります。1つの世帯について、開いている共有の間に出せる候補は20件までです（開いている共有の合計。超えると `INVALID`。FPが世帯をもう一度渡すと、また出せます）。
 - `propose_inputs` の書類の候補は、入力のホームの「取り込む」の「書類の読み取り」に承認待ちで入るだけです（画面の上に「AI から書類の候補が届きました」の帯が出ます）。FPが確かめの画面で値ごとに承認したものだけが現状に入ります。答えの形は `document-candidates@1`（ウェブのチャット AI の答えを貼り付ける入口と同じ形）で、書類1通につき1回呼びます。読むのは保険証券・ご契約内容のお知らせ・設計書（`docType` が `insurancePolicy`）の、保険の契約の欄の候補だけです（ほかの書類の答えはアプリが読みません。設計記録 0159）。登録簿に無い入力項目・形の違う候補・個人番号などの番号らしい所は、アプリが読まずに落とします。届いた答えはアプリのメモリの中だけに置き、世帯ファイルには、アプリが確かめた候補だけが入ります（設計記録 0151）。書類の候補を受けるのは、お客さまの同意が書類を AI に渡すことを含む世帯（同意の説明の版2〜）だけです。前の版の説明で同意した世帯では `NOT_SHARED` を返します（共有は閉じず、計算の項目は読めます。設計記録 0157）。
 - `propose_feature_code` のコードの候補は、世帯の一覧の「事務所の既定値」のいちばん下に承認待ちで出るだけです（画面の上にも帯が出ます）。FPが、有効になる機能・名前・期限と、入れる前と後を確かめて「このコードを入れる」を押したときだけ入ります（設計記録 0110 の5・0015 の追記）。
@@ -447,6 +470,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 2秒ごとの見回りで、期限切れを閉じ、`take_proposals` の候補を帳面に入れ、記録を世帯ファイルへ書き戻します（画面への通知は使わず、画面は3秒ごとに読み直す）。
 - 画面から呼べる命令は `ai_status`・`ai_set_enabled`・`ai_setup_copy`・`ai_household`・`ai_consent_record`・`ai_share_start`・`ai_share_stop`・`ai_candidate_decide`・`ai_documents_taken`・`ai_household_candidates`・`ai_household_candidate_discard`・`ai_household_candidate_create` と、架空の世帯をお客さまの世帯にする `store_make_client` だけで、パスも鍵も受け取らない・返しません。`ai_household_candidate_create` は、候補がまだ承認待ちか・本文の家族が候補と同じかを確かめ、出どころの記録（`meta.origin`）を本体が書いて作ります（0208）。
 - 開発用のビルドは、作業フォルダを `<アプリのデータの場所>/run-dev/`（`FINANCIA_DEV_RUNTIME_DIR` で差し替え）にし、製品の口とぶつからないようにします。接続の設定の文面には、作業フォルダの指定（`LIFEPLAN_RUNTIME_DIR`）が加わります。
+- 表示の設定（0213）: 起動時に、事務所の既定値の見せ方だけの欄を読む所を `set_office_display` で入れる（切り出し方は `ai_share::display::office_display_of` の1か所。合算BS には今使える機能を添える）。接続口からの `getOfficeDisplay` に答え、`getShareDisplay` は共有の元の見せ方の区画（帳面の `source` が本文から `display::household_display_of` で切り出す）を、仮の ID に置き換えて返し、記録に残す。
 - 接続口の版（`lifeplan --version`）とアプリの版をそろえる（違うと `VERSION_MISMATCH`。事務所の設定の画面にも出す）。接続口の同梱（アプリと同じフォルダに置く）は配布の回で行います。
 
 テスト: `cargo test --release -p lifeplan -p ai-share -p ai-ipc -p household-store`（本物の接続口を起動してアプリの方針の流れを確かめる `app_policy_consent_is_required_end_to_end` を含む）、`app/src-tauri` の `cargo test`、`app` の `npm test`（`test/ai.test.ts`）。

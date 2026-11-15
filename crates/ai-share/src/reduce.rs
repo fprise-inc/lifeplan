@@ -306,6 +306,11 @@ impl Pseudonyms {
         a
     }
 
+    /// 元の ID から、すでに振った仮名へ（振っていない ID は None。新しく振らない。表示の設定の鍵の物の ID に使う。0213）
+    pub fn alias_of(&self, orig: &str) -> Option<&str> {
+        self.fwd.get(orig).map(String::as_str)
+    }
+
     /// 仮名から元の ID へ（知らない仮名は None）
     pub fn original(&self, alias: &str) -> Option<&str> {
         self.back.get(alias).map(String::as_str)
