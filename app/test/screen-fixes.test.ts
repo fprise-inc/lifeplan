@@ -53,17 +53,21 @@ describe("表の最後の年: 標準のままなら家族の生年月に合わ�
     expect(w3.request.input.endYear).toBe(2076);
     // 配偶者を外すと本人の100歳の年に戻る
     expect(removeMember(w3, spouse.id).request.input.endYear).toBe(2071);
-    // 欄の説明と値が食い違わない
-    expect(fieldOf(w3, "assumptions", "endYear").get(w3).hint).toMatch(/^既定の年/);
+    // 欄の説明と値が食い違わない（既定の選択肢のまま、欄の下は配偶者の100歳の年）
+    const f = fieldOf(w3, "assumptions", "assume/endYear");
+    expect(f.get(w3).value).toBe("default");
+    expect(f.get(w3).hint).toBe("2076年まで（ご本人 105歳・配偶者 100歳の年）");
   });
 
-  it("人が入れた年は残し、空にすると標準に戻る", () => {
+  it("「年で決める…」で入れた年は残し、（既定）を選ぶと標準に戻る", () => {
     const wh0 = blankHousehold(BASE, ids());
-    const w1 = set(wh0, "assumptions", "endYear", 2090);
+    const w0 = set(wh0, "assumptions", "assume/endYear", "year");
+    const w1 = set(w0, "assumptions", "assume/endYear/year", 2090);
     const w2 = set(w1, "family", "/birth", "1971-06");
     expect(w2.request.input.endYear).toBe(2090);
-    expect(fieldOf(w2, "assumptions", "endYear").get(w2).hint).toMatch(/^既定は 2071年/);
-    expect(set(w2, "assumptions", "endYear", null).request.input.endYear).toBe(2071);
+    expect(fieldOf(w2, "assumptions", "assume/endYear").get(w2).value).toBe("year");
+    expect(fieldOf(w2, "assumptions", "assume/endYear").get(w2).hint).toBe("2090年まで（ご本人 119歳の年）");
+    expect(set(w2, "assumptions", "assume/endYear", "default").request.input.endYear).toBe(2071);
   });
 });
 

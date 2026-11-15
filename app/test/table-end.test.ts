@@ -126,7 +126,9 @@ describe("空の世帯から 本人30歳・配偶者29歳・第1子15歳・第2�
   it("人が入れた年・確定した年は、家族を直しても変えない（今の決まりのまま）", () => {
     let wh = blankHousehold("2026-10", ids("u"));
     wh = typeBirth(wh, idsOf(wh)[0]!, "1996-05");
-    const typed = fieldOf(wh, "assumptions", "assume/endYear").set(wh, 2090);
+    // 「年で決める…」で入れた年（0070 の追記 2026-11-13）
+    const byYear = fieldOf(wh, "assumptions", "assume/endYear").set(wh, "year");
+    const typed = fieldOf(byYear, "assumptions", "assume/endYear/year").set(byYear, 2090);
     expect(typeBirth(typed, idsOf(typed)[0]!, "1990-05").request.input.endYear).toBe(2090);
     const pinned = applyStateOp(wh, fieldOf(wh, "assumptions", "assume/endYear"), "confirm");
     expect(typeBirth(pinned, idsOf(pinned)[0]!, "1990-05").request.input.endYear).toBe(2096);

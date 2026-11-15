@@ -888,7 +888,7 @@
           {
             "age": 60,
             "year": 2054,
-            "amount": 261388485
+            "amount": 261426946
           }
         ],
         "depletion": null,
@@ -898,7 +898,7 @@
           "selfAge": 33
         },
         "lifetimeTakeHome": 397099656,
-        "lifetimeExpense": 78278061,
+        "lifetimeExpense": 78240561,
         "loanRepayment": 54116496,
         "loanInterest": 14116496,
         "pension": {

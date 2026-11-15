@@ -73,6 +73,20 @@
           "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" }
         }
       }
+    },
+    "atDeath": {
+      "description": "債務者（保証人を除く）が万一の想定で亡くなる月の、その月の返済の後・団信で減らす前の残高（約束の版 1.6 の任意の欄。亡くなった年の住宅ローン控除に使う）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["member", "ym", "balance"],
+        "properties": {
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "balance": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
     }
   }
 }

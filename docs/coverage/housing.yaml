@@ -12,8 +12,9 @@ entries:
     how: >-
       元利均等は 返済額＝残高×月利×(1＋月利)^n÷((1＋月利)^n−1)（月利＝年利÷12）、元金均等は 元金＝残高÷回数 に毎月の残高の利息を足します。
       最初の返済は借入の月の翌月です。ボーナス返済は借入額のその割合を、ボーナスの月（既定は6月・12月）の年2回の元利均等で返します。
-      既に借りているローンは、残高の時点の返済の後の残高から計算します。ペアローンは2本のローンとして持ちます。返済は月ごとに計算して年に集計し、
-      年末の残高を負債に載せます。借りる人が全員、借入の月より前に万一の想定で亡くなる予定のローンは組めないので、借入の額を借入の月に現金で払います。
+      既に借りているローンは、残高の時点の返済の後の残高から計算します（残高の時点より前の年末残高は、住宅ローン控除のために、残高と借入の条件から
+      逆にたどって推定します）。ペアローンは2本のローンとして持ちます。返済は月ごとに計算して年に集計し、年末の残高を負債に載せます（12月に借りた
+      ローンは、借りた年の年末残高を借入の額にします）。借りる人が全員、借入の月より前に万一の想定で亡くなる予定のローンは組めないので、借入の額を借入の月に現金で払います。
       ローンごとに、年ごとの利息（返済のうち利息に充てた額）とその年の最後の返済の金利、表の期間の利息の合計も数えます（AI接続口の利息の合計・その年の金利）。
     keywords: [住宅ローン, 元利均等, 元金均等, ボーナス返済, ペアローン, 連帯債務, 毎月の返済額, ローン残高, 利息, 利息の合計, 適用金利]
     items: [debt.principal, debt.start, debt.repayment, debt.balance, debt.balanceAsOf, debt.debtors, debt.pairWith, debt.kind]
@@ -24,7 +25,7 @@ entries:
       - "「住まい・ローン」の入力項目の「今の残高」"
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage]
     components:
-      debt.schedule: 10
+      debt.schedule: 11
     related: [housing.variableRate, housing.prepayment, housing.creditLife, tax.housingLoanCredit]
 
   - id: housing.variableRate
@@ -53,7 +54,7 @@ entries:
       - housing.statistics.mortgageRate.fixedPeriod10
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage, cf.balance.debt.unpaidInterest]
     components:
-      debt.schedule: 10
+      debt.schedule: 11
     related: [housing.mortgageRepayment]
 
   - id: housing.prepayment
@@ -74,7 +75,7 @@ entries:
       - "「住まい・ローン」の入力項目の「借り換えの費用」"
     rows: [cf.expense.housing.loan.prepayment, cf.expense.housing.loan.fees]
     components:
-      debt.schedule: 10
+      debt.schedule: 11
     related: [housing.mortgageRepayment, housing.saleAndMove]
 
   - id: housing.creditLife
@@ -96,21 +97,27 @@ entries:
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage]
     components:
       debt.creditLifeEvents: 1
-      debt.schedule: 10
+      debt.schedule: 11
     related: [contingency.livingAfterDeath]
 
   - id: housing.propertyTax
     title: 固定資産税・都市計画税と修繕費・管理費
     status: approximated
     summary: >-
-      近似して入っています。持ち家の期間に、入れた固定資産税・都市計画税の年額を4・7・12・2月の4回に分けて払い、修繕費・管理費を毎月払います。
+      近似して入っています。その年の1月1日に持っている家の固定資産税・都市計画税の年額を4・7・12・2月の4回に分けて払い（買った年は月割りの精算）、
+      修繕費・管理費を毎月払います。
       固定資産税の欄が空なら、物件の価格・土地の割合・構造・新築か中古かから、住宅用地の特例と新築の減額を当てた目安を入れます。
     how: >-
-      固定資産税の年額は上昇率で伸ばし、その年の4月・7月・12月と翌年2月に分けて払います。目安は、土地と建物の評価額（価格に目安の割合を
+      固定資産税の年額は上昇率で伸ばし、その年度の4月・7月・12月と翌年2月に分けて払います。税は1月1日（賦課期日）の持ち主にかかるので、
+      買う家は、買った年の年度は引き渡しの月に、その月から12月までの月割りを売主との精算として払い、翌年の年度から4回に分けて払います。
+      手放す年の年度は全部払います（売った後の月割りの精算は受け取りません）。
+      購入の無い今の持ち家は前から持っているとみなし、計算基準月が1〜2月なら前の年度の2月の分も払います。相続などで持ち始める家は、
+      住み始めの年の年度の、住み始め以後の納期から払います。目安は、土地と建物の評価額（価格に目安の割合を
       掛けた額）に、小規模住宅用地の特例（固定資産税6分の1・都市計画税3分の1）、新築住宅の減額（建物の半分。戸建て3年・マンション5年、
       認定長期優良住宅は5年・7年）、標準税率1.4%と都市計画税の税率（目安0.3%）を当てます。3年ごとの評価替えで、建物の分は固定資産評価基準の
       経年減点補正率で下げ、新築の減額が終わる年に上がる段を置きます。修繕費・管理費は月額に上昇率を当てます（目安の額もあります）。
     approximation: >-
+      納期は地方税法の4・7・12・2月とみなします（東京23区の6・9・12・2月など、条例で違う市町村は見分けません）。
       床面積は住宅用地の特例の200㎡・新築の減額の120㎡の内とみなし、負担調整は無し（本則の額）、税率は標準税率とみなします。
       評価額は価格に目安の割合を掛けた額です。地域ごとの値は持ちません。
     reason: 実際の評価額・床面積・地域の税率は家ごとに違い、納税通知書が無いときにも目安を出すためです。
@@ -122,13 +129,15 @@ entries:
       - "「住まい・ローン」の入力項目の「長期優良住宅（認定）」"
       - "「住まい・ローン」の入力項目の「購入の種類」"
     rules:
+      - 地方税法343条・359条（納税義務者・賦課期日）
+      - 地方税法362条（納期）
       - 地方税法350条（固定資産税の標準税率）
       - 地方税法349条の3の2（住宅用地の特例）
       - 地方税法附則15条の6・15条の7（新築住宅の減額）
       - 固定資産評価基準（経年減点補正率）
     rows: [cf.expense.housing.propertyTax, cf.expense.housing.maintenance]
     components:
-      housing.residence: 7
+      housing.residence: 8
     related: [housing.purchase]
 
   - id: housing.rent
@@ -150,7 +159,7 @@ entries:
     regulation: [housing.statistics.rentGrowth]
     rows: [cf.expense.housing.rent, cf.expense.housing.rent.renewal]
     components:
-      housing.residence: 7
+      housing.residence: 8
     related: [housing.saleAndMove]
 
   - id: housing.purchase
@@ -172,7 +181,7 @@ entries:
       - "「住まい・ローン」の入力項目の「名義と持分」"
     rows: [cf.expense.housing.purchase, cf.expense.housing.purchase.downPayment, cf.expense.housing.purchase.costs, cf.income.lumpSum.gift]
     components:
-      housing.residence: 7
+      housing.residence: 8
       gift.received: 5
       gift.tax: 3
     related: [housing.mortgageRepayment, inheritance.giftTax, tax.housingLoanCredit]
@@ -202,7 +211,7 @@ entries:
     rows: [cf.balance.account.realEstate, cf.income.lumpSum.realEstateSale, cf.expense.housing.loan.prepayment]
     components:
       housing.valuation: 4
-      debt.schedule: 10
+      debt.schedule: 11
     related: [housing.saleTax, housing.prepayment]
 
   - id: housing.saleTax
