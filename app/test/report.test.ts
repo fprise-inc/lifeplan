@@ -232,7 +232,7 @@ describe("提案書の材料: 表に載る年が無い世帯", () => {
       code = e instanceof Error ? e.message : String(e);
     }
     expect(code).toBe("E_REPORT_NO_YEARS");
-    expect(reportErrorText(code)).toContain("「表の最後の年」を計算基準の年より後に");
+    expect(reportErrorText(code)).toContain("「表を何歳まで見るか」で、表の最後の年を計算基準の年より後に");
     expect(reportErrorText("E_REPORT_COMPUTE")).toBe("作れませんでした（E_REPORT_COMPUTE）");
   });
 });

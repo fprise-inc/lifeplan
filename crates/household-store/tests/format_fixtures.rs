@@ -188,6 +188,23 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(marital.is_none(), "{v}: 婚姻の状態は変換で書き足さない");
         }
+        // 0.78 から: 画面の側の表を何歳まで見るかの決め方 household.endYearChoice（0070 の追記 2026-11-13）。変換で書き足さない
+        // （前の版の世帯は欄が無い＝表の最後の年から読む）。0.78 の見本は「配偶者が95歳まで」を選んだ形
+        let choice = now["household"].get("endYearChoice");
+        if migrate::parse(v).unwrap() >= (0, 78) {
+            assert_eq!(
+                choice.and_then(|c| c.get("by")),
+                Some(&Value::from("member")),
+                "{v}: 0.78 からの見本は表を何歳まで見るかの決め方を持つ"
+            );
+            assert_eq!(
+                now["household"]["request"]["input"]["endYear"],
+                Value::from(1980 + 95),
+                "{v}: 決め方の年（配偶者の95歳の年）"
+            );
+        } else {
+            assert!(choice.is_none(), "{v}: 決め方は変換で書き足さない");
+        }
         // 0.76 から: 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利の段も要素の ID を持つ（0206）。前の版の見本は
         // 変換で、画面がその要素を指していた決まった ID（場所から作る）と同じ ID が付く。0.76 の見本は ID を書いた形で、借り換えも持つ
         let hh = &now["household"]["request"]["input"]["household"];
@@ -1018,7 +1035,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 家計の体力の目安を表示するかは 0.77 から（変換の段では足さない＝表示する）"
             );
         }
-        // 0.78 から: 自営の働き方の期間の個人事業税の業種の区分（0155 の 2026-11-15 の追記）。0.78 の見本は配偶者の60歳からの自営に第3種
+        // 0.79 から: 自営の働き方の期間の個人事業税の業種の区分（0155 の 2026-11-15 の追記）。0.79 の見本は配偶者の60歳からの自営に第3種
         let classes: Vec<&Value> = now["household"]["request"]["input"]["household"]
             ["employmentPeriods"]
             .as_array()
@@ -1028,12 +1045,12 @@ fn every_format_version_has_a_fixture_and_opens() {
                     .collect()
             })
             .unwrap_or_default();
-        if migrate::parse(v).unwrap() >= (0, 78) {
+        if migrate::parse(v).unwrap() >= (0, 79) {
             assert_eq!(classes, vec![&Value::from("class3")]);
         } else {
             assert!(
                 classes.is_empty(),
-                "{v}: 個人事業税の業種の区分は 0.78 から（変換の段では足さない＝第1種）"
+                "{v}: 個人事業税の業種の区分は 0.79 から（変換の段では足さない＝第1種）"
             );
         }
         if *v == "0.3" {

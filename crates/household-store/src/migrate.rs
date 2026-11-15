@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.78";
+pub const CURRENT: &str = "0.79";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -273,9 +273,13 @@ pub const CURRENT: &str = "0.78";
 ///   （0027 の 2026-11-13 の追記。足すだけの MINOR）。前の版のアプリは区画の知らない欄を読み落として書き戻し、表示しないと選んだ世帯が
 ///   表示に戻るので、版を上げて閲覧だけにする（0.13 の `moneyThree` と同じ考え方）。変換の段は形式の版だけを書き換える（前の版の世帯は
 ///   欄が無い＝表示する）。0.76 の段の後に積む
-/// - 0.78: 自営の働き方の期間の事業所得に、個人事業税の業種の区分 `employmentPeriods[].business.businessTaxClass`（class1・class2・class3・
+/// - 0.78: 画面の側の表を何歳まで見るかの決め方 `household.endYearChoice`（人と年齢 `{by: "member", member, age}`・年で決める `{by: "year"}`。
+///   0070 の追記 2026-11-13。任意。計算には使わない）を足した（足すだけの MINOR）。前の版のアプリは欄を知らずに書き戻すと決め方を落とす
+///   （年から読み直し、選んだ人が変わることがある）ので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝
+///   年から読む）。0.77 の段の後に積む
+/// - 0.79: 自営の働き方の期間の事業所得に、個人事業税の業種の区分 `employmentPeriods[].business.businessTaxClass`（class1・class2・class3・
 ///   class3Reduced・none。無ければ第1種〔5%〕）を足した（0155 の 2026-11-15 の追記。足すだけの MINOR）。前の版のアプリは計算の入力の検査で
-///   知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝第1種）。0.77 の段の後に積む
+///   知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝第1種）。0.78 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -283,7 +287,7 @@ pub const KNOWN: &[&str] = &[
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74", "0.75", "0.76", "0.77", "0.78",
+    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79",
 ];
 
 /// 1段分の変換
@@ -679,6 +683,11 @@ pub const STEPS: &[Step] = &[
         from: "0.77",
         to: "0.78",
         apply: v0_77_to_0_78,
+    },
+    Step {
+        from: "0.78",
+        to: "0.79",
+        apply: v0_78_to_0_79,
     },
 ];
 
@@ -2557,12 +2566,22 @@ fn v0_76_to_0_77(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.77 → 0.78: 個人事業税の業種の区分 `business.businessTaxClass`（0155 の 2026-11-15 の追記）は任意の欄なので、形式の版だけを書き換える
-/// （前の版の世帯は欄が無い＝第1種。欄を書き足さない）
+/// 0.77 → 0.78: 画面の側の表を何歳まで見るかの決め方 `household.endYearChoice`（0070 の追記 2026-11-13）は任意の欄なので、形式の版だけを
+/// 書き換える（前の版の世帯は欄が無い＝表の最後の年から読む）
 fn v0_77_to_0_78(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.78".into());
+    }
+    Ok(body)
+}
+
+/// 0.78 → 0.79: 個人事業税の業種の区分 `business.businessTaxClass`（0155 の 2026-11-15 の追記）は任意の欄なので、形式の版だけを書き換える
+/// （前の版の世帯は欄が無い＝第1種。欄を書き足さない）
+fn v0_78_to_0_79(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.79".into());
     }
     Ok(body)
 }
@@ -3552,7 +3571,8 @@ mod tests {
         assert_eq!(access("0.76").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.77").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.78").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.79").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.79").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.80").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3565,7 +3585,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.79", b.clone()).unwrap(),
+            upgrade("0.80", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4007,21 +4027,40 @@ mod tests {
     }
 
     #[test]
-    fn v0_77_to_0_78_only_bumps_version() {
+    fn v0_78_to_0_79_only_bumps_version() {
         // 個人事業税の業種の区分（business.businessTaxClass）は書き足さない（無ければ第1種）。働き方の期間のほかの欄に触れない
         let b = serde_json::json!({
-            "meta": {"formatVersion": "0.77"},
+            "meta": {"formatVersion": "0.78"},
             "household": {"memo": ["x"], "request": {"input": {"household": {"employmentPeriods": [{"id": "p", "type": "selfEmployed", "business": {"income": {"value": 5000000}}}]}}}},
+            "proposals": []
+        });
+        let u = upgrade("0.78", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        // 0.79 の世帯の業種の区分は、変換しても残る
+        let set = serde_json::json!({"meta": {"formatVersion": "0.79"}, "household": {"memo": ["x"], "request": {"input": {"household": {"employmentPeriods": [{"business": {"businessTaxClass": "none"}}]}}}}});
+        assert_eq!(
+            upgrade("0.79", set.clone()).unwrap()["household"],
+            set["household"]
+        );
+    }
+
+    #[test]
+    fn v0_77_to_0_78_only_bumps_version() {
+        // 表を何歳まで見るかの決め方は足さない（前の版の世帯は表の最後の年から読む）。ほかの区画（0.77 の health を含む）に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.77"},
+            "household": {"request": {"input": {"endYear": 2090, "household": {"members": [{"id": "m1", "kind": "self"}]}}}, "memo": ["x"]},
+            "display": {"balance": {"health": false}},
             "proposals": []
         });
         let u = upgrade("0.77", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
-        // 0.78 の世帯の業種の区分は、変換しても残る
-        let set = serde_json::json!({"meta": {"formatVersion": "0.78"}, "household": {"memo": ["x"], "request": {"input": {"household": {"employmentPeriods": [{"business": {"businessTaxClass": "none"}}]}}}}});
-        assert_eq!(
-            upgrade("0.78", set.clone()).unwrap()["household"],
-            set["household"]
+        assert_eq!(u["display"], b["display"]);
+        assert!(
+            u["household"].get("endYearChoice").is_none(),
+            "決め方は足さない"
         );
     }
 
