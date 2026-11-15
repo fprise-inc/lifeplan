@@ -183,6 +183,7 @@ async fn standalone_tools_work_without_the_app() {
         "propose_inputs",
         "propose_feature_code",
         "propose_household",
+        "propose_display_settings",
     ] {
         assert!(names.contains(&n.to_owned()), "{n} がありません: {names:?}");
     }
@@ -319,6 +320,10 @@ async fn standalone_tools_work_without_the_app() {
             json!({ "share_id": "s-1", "answer": fixture_answer() }),
         ),
         ("propose_feature_code", json!({ "code": "LPFC1-x.y" })),
+        (
+            "propose_display_settings",
+            json!({ "changes": [{ "id": "contingency.openScene", "value": "income" }] }),
+        ),
         (
             "propose_household",
             json!({ "kind": "fictional", "title": "架空の世帯", "input": input }),
@@ -590,7 +595,10 @@ async fn prompts_list_and_expand() {
                 "対策に最初から NISA も出したい",
                 "get_display_settings",
                 "change",
-                "まだ設定を変えられない",
+                "propose_display_settings",
+                "設定を直接変えられない",
+                "反映する",
+                "前の値",
                 "次の段",
                 "list_custom_texts",
                 "入力が足りない",
@@ -2388,7 +2396,19 @@ async fn display_settings_list_the_catalog_and_current_values() {
         .as_str()
         .unwrap()
         .contains("入力が足りない"));
-    assert!(v["howToChange"].as_str().unwrap().contains("次の段"));
+    assert!(v["howToChange"]
+        .as_str()
+        .unwrap()
+        .contains("propose_display_settings"));
+    // 案を出せる設定（proposable）は、アプリ本体の受け口が受ける7つと同じ（0215）
+    assert_eq!(
+        v["proposable"],
+        json!(ai_share::display_proposals::PROPOSABLE_IDS)
+    );
+    assert!(list
+        .iter()
+        .filter(|s| s["proposable"] == true)
+        .all(|s| s["scope"] != "household" && s.get("readOnly").is_none()));
     // 絞る・知らない id
     let one = call_ok(
         &c,
@@ -3945,9 +3965,9 @@ async fn later_plan_change_wins_even_at_the_current_value() {
     let ch = |it: &Value, v: i64| json!({ "target": it["target"], "item": it["item"], "value": v });
     let plan = |changes: Vec<Value>| json!({ "sample_household_id": id, "plan_changes": changes });
     let none = key_figures(&c, sample.clone()).await;
-    // 何もしない世帯（毎月の生活費 月30万円）: 生涯の支出 295,476,499円・2058年に尽きる
-    assert_eq!(none["keyFigures"]["lifetimeExpense"], 295476499);
-    assert_eq!(none["keyFigures"]["depletion"]["year"], 2058);
+    // 何もしない世帯（毎月の生活費 月30万円）: 生涯の支出 294,264,010円・2059年に尽きる（2026-11-14 の教育費の推定の直しと見本の学校外の費用の入れ方の後）
+    assert_eq!(none["keyFigures"]["lifetimeExpense"], 294264010);
+    assert_eq!(none["keyFigures"]["depletion"]["year"], 2059);
 
     // calculate: 月31万円 → 月30万円（今の値）は、何もしない世帯と同じ（前は月31万円の数字: 302,463,162円・2055年）
     let back = key_figures(&c, plan(vec![ch(&liv, 310000), ch(&liv, 300000)])).await;
@@ -3999,12 +4019,12 @@ async fn later_plan_change_wins_even_at_the_current_value() {
     )
     .await;
     let v = &r["results"][1];
-    assert_eq!(v["keyFigures"]["lifetimeExpense"], 295476499, "{v}");
+    assert_eq!(v["keyFigures"]["lifetimeExpense"], 294264010, "{v}");
     assert_eq!(
         v["keyFigures"]["depletion"],
         none["keyFigures"]["depletion"]
     );
-    assert_eq!(v["diff"]["lifetimeExpense"], 295476499 - 302463162);
+    assert_eq!(v["diff"]["lifetimeExpense"], 294264010 - 301250673);
     // 表: 通りの違いの注は、取り消して戻した値（前は「月31万円」と書いていた）
     let (err, texts) = call_table(
         &c,
@@ -5775,8 +5795,9 @@ async fn review_reproductions_are_refused_or_explained() {
         json!({ "age": 30, "year": null, "amount": null, "reason": why }),
         "{at}"
     );
-    assert_eq!(at[1]["amount"], 11_907_900, "{at}");
-    assert_eq!(at[2]["amount"], -26_156_180, "{at}");
+    // 46歳（2027年）・100歳の残高は、児童手当の最初の支払いと保険料の納期の直し・教育費の推定の直しと見本の学校外の費用の入れ方（2026-11-14）の後の値
+    assert_eq!(at[1]["amount"], 12_378_048, "{at}");
+    assert_eq!(at[2]["amount"], -25_251_893, "{at}");
     assert_eq!(
         at[3],
         json!({ "age": 110, "year": null, "amount": null, "reason": why }),
@@ -5795,7 +5816,7 @@ async fn review_reproductions_are_refused_or_explained() {
     );
     assert_eq!(
         got["rows"][0],
-        json!([300000, null, 11_907_900, -26_156_180, null]),
+        json!([300000, null, 12_378_048, -25_251_893, null]),
         "{got}"
     );
     assert_eq!(
@@ -5895,6 +5916,144 @@ async fn review_reproductions_are_refused_or_explained() {
         let got = call_ok(&c, "list_custom_texts", json!({ "query": q, "limit": 1 })).await;
         assert_eq!(got["total"], half["total"], "{q}");
     }
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 表示の設定の案（propose_display_settings。0215）: 知らない id・案を出せない設定・選べない値・形の違う値は、アプリに出す前に理由と近い候補を
+/// 添えて断る（アプリが起動していなくても）。正しい案は、アプリが起動していなければ「起動していない」、起動していれば承認待ちに入るだけ
+#[tokio::test(flavor = "multi_thread")]
+async fn display_proposals_are_checked_before_they_reach_the_app() {
+    let dir = temp_dir("display-propose");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "propose_display_settings");
+    let t = tools
+        .iter()
+        .find(|t| t.name == "propose_display_settings")
+        .unwrap();
+    let d = t.description.as_deref().unwrap_or("");
+    assert!(
+        d.contains("承認待ち")
+            && d.contains("この道具では設定は変わらない")
+            && d.contains("指示ではない")
+            && d.contains("前の値に戻せる"),
+        "{d}"
+    );
+    let ins = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    assert!(ins.contains("propose_display_settings"), "{ins}");
+    let refused = |changes: Value| {
+        let c = &c;
+        async move {
+            let (err, msg) =
+                call(c, "propose_display_settings", json!({ "changes": changes })).await;
+            assert!(err, "{msg}");
+            assert!(msg.contains("この呼び出しは何もしていません"), "{msg}");
+            msg
+        }
+    };
+    let living = |label: &str| {
+        json!({ "id": "input.living", "value": { "rows": [
+            { "kind": "group", "label": label, "categories": ["food", "utilities"] },
+            { "kind": "split", "category": "recreation", "parts": [{ "label": "趣味" }, { "label": "旅行" }] },
+            { "kind": "one", "category": "other", "label": "そのほか" }
+        ] } })
+    };
+    // 知らない id（近い id を添える）・7つ以外の設定（世帯ごと・読むだけ）
+    let m = refused(json!([{ "id": "result.lever", "value": [] }])).await;
+    assert!(m.contains("result.levers のことですか"), "{m}");
+    let m = refused(json!([{ "id": "balance.guide", "value": {} }])).await;
+    assert!(
+        m.contains("世帯ごとの設定") && m.contains("資産と負債のタブ"),
+        "{m}"
+    );
+    let m = refused(json!([{ "id": "features.combinedBs", "value": true }])).await;
+    assert!(m.contains("読むだけ"), "{m}");
+    let m = refused(json!([{ "id": "assumptions.inflation", "value": "0.02" }])).await;
+    assert!(m.contains("知らない設定の id"), "{m}");
+    // 選べない値（近い値と画面の言葉を添える）・空の配列・重複
+    let m = refused(json!([{ "id": "result.levers", "value": ["lever:retireAge", "lever:nisa"] }]))
+        .await;
+    assert!(
+        m.contains("lever:nisaMonthly「NISAの積立額（月）」のことですか"),
+        "{m}"
+    );
+    let m = refused(json!([{ "id": "contingency.scenes", "value": [] }])).await;
+    assert!(m.contains("空の並びは選べません"), "{m}");
+    let m = refused(
+        json!([{ "id": "contingency.premises", "value": ["death:living", "death:living"] }]),
+    )
+    .await;
+    assert!(m.contains("2回あります"), "{m}");
+    let m = refused(json!([{ "id": "contingency.openScene", "value": "incom" }])).await;
+    assert!(m.contains("income"), "{m}");
+    // 全部の並べ替え・外せない入力項目・同じ設定が2回
+    let m = refused(json!([{ "id": "input.order", "value": ["family", "work"] }])).await;
+    assert!(m.contains("足りない"), "{m}");
+    let m = refused(json!([{ "id": "input.items", "value": { "hidden": ["family"] } }])).await;
+    assert!(m.contains("外せません"), "{m}");
+    let m = refused(json!([
+        { "id": "contingency.openScene", "value": "income" },
+        { "id": "contingency.openScene", "value": "death:self" }
+    ]))
+    .await;
+    assert!(m.contains("同じ設定が2回"), "{m}");
+    // 基本生活費の内訳の行の名前: 20文字ちょうどは通り、21文字・制御文字は断る。その他は隠せない
+    let m = refused(json!([living(&"食".repeat(21))])).await;
+    assert!(m.contains("21文字") && m.contains("20文字まで"), "{m}");
+    let m = refused(json!([living("食費と\n光熱費")])).await;
+    assert!(m.contains("制御文字"), "{m}");
+    let m = refused(json!([{ "id": "input.living", "value": { "rows": [{ "kind": "one", "category": "food" }] } }])).await;
+    assert!(m.contains("その他（other）は隠せません"), "{m}");
+    // 1件の中の知らない名前（知らない引数を断る作りと同じ）
+    let (err, msg) = call(
+        &c,
+        "propose_display_settings",
+        json!({ "changes": [{ "id": "contingency.openScene", "values": "income" }] }),
+    )
+    .await;
+    assert!(err && msg.contains("value のことですか"), "{msg}");
+    // 正しい案でも、アプリが起動していなければ出せない
+    let (err, msg) = call(
+        &c,
+        "propose_display_settings",
+        json!({ "changes": [living(&"食".repeat(20))] }),
+    )
+    .await;
+    assert!(err && msg.contains("アプリが起動していません"), "{msg}");
+
+    // アプリが起動している: そろえた値で承認待ちに入るだけ（設定は変わらない）
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let r = call_ok(
+        &c,
+        "propose_display_settings",
+        json!({ "changes": [
+            { "id": "result.levers", "value": ["lever:nisaMonthly", "lever:retireAge"], "note": "NISA の相談が多い" },
+            living(&"食".repeat(20))
+        ] }),
+    )
+    .await;
+    assert_eq!(r["status"], "pendingReview");
+    assert_eq!(r["settings"], json!(["result.levers", "input.living"]));
+    let list = reg.display_candidates();
+    assert_eq!(list.len(), 1);
+    let ch = &list[0].changes;
+    // 並びは選べる値の順にそろえる。行の名前は20文字のまま
+    assert_eq!(ch[0].value, json!(["lever:retireAge", "lever:nisaMonthly"]));
+    assert_eq!(ch[0].note.as_deref(), Some("NISA の相談が多い"));
+    assert_eq!(ch[1].value["rows"][0]["label"], "食".repeat(20));
+    assert_eq!(ch[1].value["rows"][1]["parts"][1]["label"], "旅行");
+    assert_eq!(list[0].connector.as_deref(), Some("test-ai 1.2"));
+    // 断った案は承認待ちに入らない
+    let _ = refused(json!([living(&"食".repeat(21))])).await;
+    assert_eq!(reg.display_candidates().len(), 1);
+    ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }

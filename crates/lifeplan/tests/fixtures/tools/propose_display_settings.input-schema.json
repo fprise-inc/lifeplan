@@ -1,0 +1,45 @@
+{
+  "$defs": {
+    "DisplayChangeArg": {
+      "additionalProperties": false,
+      "description": "表示の設定の案の1件（0215）",
+      "properties": {
+        "id": {
+          "description": "設定の id（get_display_settings の id。案を出せるのは proposable が true の7つ: input.order・input.items・input.living・\nresult.levers・contingency.premises・contingency.scenes・contingency.openScene）",
+          "type": "string"
+        },
+        "note": {
+          "description": "理由（500文字まで。FP がアプリで確かめるときの手がかり）",
+          "maxLength": 500,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "新しい値（get_display_settings の current.office.value と同じ形。選べる値は choices の value。例: result.levers は最初から出す種類の並び、\ncontingency.openScene は場面の値 1つ、input.living は { rows: [行] }）"
+        }
+      },
+      "required": [
+        "id",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changes": {
+      "description": "変える設定の案（1〜7件。同じ設定は1回だけ。変えたい設定だけを書く）",
+      "items": {
+        "$ref": "#/$defs/DisplayChangeArg"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "changes"
+  ],
+  "type": "object"
+}

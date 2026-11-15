@@ -379,7 +379,7 @@ function OutlookRow({ item, value, base, onSlide, onRelease, baseLabel = "現状
 }
 
 /**
- * 決まった選択肢から1つ選ぶ（子の進路の型。入力の「進路の型」の欄と同じ型。0211）。今の値が選択肢に当たらないとき（入力で段階ごとに選んだ進路）は、
+ * 決まった選択肢から1つ選ぶ（子の進路の型。入力の欄から外した進路の型の定義と同じ型。0211）。今の値が選択肢に当たらないとき（入力で段階ごとに選んだ進路）は、
  * その値を選べる行として残す（選び直すと型の値になる）
  */
 function ChoiceRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "choice" } } }) {

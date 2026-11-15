@@ -218,8 +218,8 @@ describe("提案書の推定の値", () => {
     const blank = blankHousehold("2026-10", () => crypto.randomUUID());
     // 年金は記録が無いので、働き方の期間から推計している（物の単位の推定）
     expect(estimatedCards(blank).map((c) => c.label)).toEqual(["家族", "年金", "基本生活費", "前提条件"]);
-    // 前提条件は、既定の値（仮の値）と持ち家の評価の目安のままなので推定（0070）
+    // 新しい世帯の前提条件は、表の最後の年が既定の年（推定）なので数える。経済の前提・不動産の評価は事務所の既定値で推定ではない（0214）
     // 子ども・教育の学費の統計の平均（学校の種類で決まる推定）は数えない（0062 の追記 2026-10-31）
-    expect(estimatedCards(fromRequest(modelHousehold("salariedCoupleTwoKids"))).map((c) => c.label)).toEqual(["前提条件"]);
+    expect(estimatedCards(fromRequest(modelHousehold("salariedCoupleTwoKids"))).map((c) => c.label)).toEqual([]);
   });
 });

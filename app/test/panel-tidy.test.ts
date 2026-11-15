@@ -8,7 +8,7 @@ import { renderToString } from "preact-render-to-string";
 import { CheckList } from "../src/workspace/input/CheckList.tsx";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { splitNote, StateMark } from "../src/workspace/input/FieldViews.tsx";
-import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
@@ -57,7 +57,8 @@ describe("推定の根拠は印を押したとき", () => {
     expect(html).toBe('<span class="badge na" data-state="notApplicable">該当なし</span>');
   });
   it("パネルの欄の「推定」の印は、根拠を押して開く形", () => {
-    const html = panel(open("salariedCoupleTwoKids"), "assumptions");
+    // 前提条件は推定でなく事務所の既定値（0214）なので、推定の欄のある基本生活費で見る
+    const html = panel(blankHousehold("2026-10"), "living");
     expect(html).toContain('class="help-btn help-mark badge est"');
   });
 });

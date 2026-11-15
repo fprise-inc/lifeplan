@@ -69,7 +69,8 @@ function perturbWhen(t: Timepoint | null, wh: WorkingHousehold): Timepoint {
   return { event: t.event as string, offset: { months: off } };
 }
 
-const roundTripable = (f: FieldDef, s: ReturnType<FieldDef["get"]>) => !(s.value === null && f.blankIsEstimate === true) && f.readOnly === undefined && f.structural !== true && f.sideEffects === undefined && s.derived == null && s.implicit !== true && s.estimated == null && s.assumed == null;
+// 前提条件の事務所の既定値の欄（0214）は、空欄にすると事務所の既定値に戻す（空欄のまま往復しない）
+const roundTripable = (f: FieldDef, s: ReturnType<FieldDef["get"]>) => !(s.value === null && (f.blankIsEstimate === true || s.premise !== undefined)) && f.readOnly === undefined && f.structural !== true && f.sideEffects === undefined && s.derived == null && s.implicit !== true && s.estimated == null && s.assumed == null;
 
 describe("単位と書式", () => {
   it("万円・円の書き方と読み方は往復で1円もずれない", () => {
@@ -353,7 +354,11 @@ describe("支出に入らない欄・既定で足している費用の説明", (
   });
 
   it("塾・習い事の月謝は、統計の平均の学校外活動費（塾・習い事を含む）の上に足すと説明する", () => {
-    const wh = open("educationTwoKids");
+    // 前の形（入れ方の無い古い世帯）。見本の世帯は入れ方を書いた（2026-11-14）ので外す
+    const base = open("educationTwoKids");
+    const req = structuredClone(base.request);
+    for (const g of req.input.household.goals ?? []) delete g.education?.outOfSchoolMode;
+    const wh = { ...base, request: req };
     const stage = buildStage("education", wh);
     const monthly = allFields(stage).find((f) => /\/lesson\/0\/monthly$/.test(f.key));
     expect(monthly?.help).toContain("学校外活動費");

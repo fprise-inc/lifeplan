@@ -62,6 +62,8 @@
     "allow-ai-household-candidates",
     "allow-ai-household-candidate-discard",
     "allow-ai-household-candidate-create",
+    "allow-ai-display-candidates",
+    "allow-ai-display-change-take",
     "allow-office-status",
     "allow-office-start",
     "allow-office-join",

@@ -452,21 +452,22 @@ describe("相続税の目安: 亡くなった人がまだ払っていない所�
     expect(p.point).toBe("contingency");
     // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 300,017円、住民税 572,000円（必要保障額で数える物と同じ）
     expect(p.assets.unpaidTaxes).toBe(5_866_317);
-    // 前は債務 0円・課税価格 149,463,000円・納める額 9,119,300円
+    // 前は債務 0円・課税価格 149,463,000円・納める額 9,119,300円。2026-11-14 に教育費の推定の直し（0010 の追記。高校の就学支援金・受験・併願の費用の推定・
+    // 見本の学校外の費用の入れ方）で、債務を引く前の課税価格は 150,367,000円ほどになった
     expect(p.assets.debts).toBe(5_866_317);
-    expect(p.assets.taxablePrice).toBeGreaterThanOrEqual(149_463_000 - 5_867_000);
-    expect(p.assets.taxablePrice).toBeLessThanOrEqual(149_463_000 - 5_865_000);
+    expect(p.assets.taxablePrice).toBeGreaterThanOrEqual(150_367_000 - 5_867_000);
+    expect(p.assets.taxablePrice).toBeLessThanOrEqual(150_367_000 - 5_865_000);
     expect(p.payable).toBeLessThan(9_119_300);
   });
 
   it("いま亡くなったら（salariedCoupleTwoKids の本人。計算基準月 2026-10）: 前の年の所得の住民税の残りを債務に、準確定申告の還付をその他の財産に入れる", () => {
     const r = model("salariedCoupleTwoKids");
     const p = nowOf(r, selfOf(r));
-    // 必要保障額の計算基準年と同じ: 住民税の残り（普通徴収に切り替わる）221,200円、準確定申告の還付 92,033円
+    // 必要保障額の計算基準年と同じ: 住民税の残り（普通徴収に切り替わる）221,200円、準確定申告の還付 89,333円（2026-11-14 の国民健康保険の納期の直しの前は 92,033円）
     expect(p.assets.unpaidTaxes).toBe(221_200);
     // 前は債務 22,189,745円・その他 0円
     expect(p.assets.debts).toBe(22_189_745 + 221_200);
-    expect(p.assets.other).toBe(92_033);
+    expect(p.assets.other).toBe(89_333);
   });
 
   it("二人とも亡くなった後は入れない（表の終わりより後に払う税は表に無い）", () => {

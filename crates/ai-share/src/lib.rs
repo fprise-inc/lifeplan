@@ -8,6 +8,7 @@
 //! - 書類から読んだ値の候補（`documents`。0151）: AIの答えをメモリの中に承認待ちで置くだけ。確かめと番号を落とす決まりは画面の読み口
 //! - 新しい世帯の候補（`households`）: AIが組み立てた世帯をメモリの中に承認待ちで置くだけ。世帯を作るのは FP が画面で押したときのアプリ本体
 //! - 表示の設定の切り出し（`display`。0213）: 事務所の既定値と渡された世帯の、見せ方だけの設定を読む依頼に答える所（読むだけ）
+//! - 表示の設定の案（`display_proposals`。0215）: AIが出した事務所の既定値の見せ方の案をメモリの中に承認待ちで置くだけ。反映するのは FP が画面で押したとき
 //! - 受け口（`AppEndpoint`）: 接続口（`lifeplan mcp`）からの依頼を受ける。復号はアプリ本体だけが行い、接続口は鍵も世帯ファイルも扱わない
 //!
 //! このクレートはアプリ本体に組み込む。接続口（crates/lifeplan）は依存しない（テストを除く）。
@@ -16,6 +17,7 @@ pub mod book;
 pub mod clock;
 pub mod consent;
 pub mod display;
+pub mod display_proposals;
 pub mod documents;
 pub mod endpoint;
 pub mod households;
@@ -29,6 +31,7 @@ pub mod wrap;
 
 pub use book::{AiCandidate, CandidateStatus, HouseholdAiView, HouseholdBook};
 pub use consent::{Author, ConsentRecord, ExternalAiConsentInput};
+pub use display_proposals::{DisplayCandidate, DisplayChange};
 pub use documents::PendingDocumentProposal;
 pub use endpoint::AppEndpoint;
 pub use households::HouseholdCandidate;

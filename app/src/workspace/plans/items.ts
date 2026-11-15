@@ -965,7 +965,7 @@ function outlookItem(wh: WorkingHousehold, d: Debt, name: string): MovableItem |
 const rateTextOf = (x: number): string => loanRateText(x);
 
 /**
- * 子の進路の型（子ごと。0211）: 入力の子ども・教育の「進路の型」の欄の定義（courseField）の読み・書きをそのまま使い、型が決める段（幼稚園〜大学）の
+ * 子の進路の型（子ごと。0211）: 進路の型の欄の定義（courseField。入力の欄としては 2026-11-14 に外した）の読み・書きをそのまま使い、型が決める段（幼稚園〜大学）の
  * 公立・私立を一度に変える。欄が出る子（教育の目標があり、教育の段が全部は過ぎていない子）のうち、型が決める段でまだ終わって
  * いない段がある子にだけ出す。
  * 値は型の名前（COURSE_PRESETS の value）。今の段が型に当たらなければ null（段階ごとに選んだ進路。そのまま）。名前には呼び名を入れない
@@ -1167,6 +1167,19 @@ function withoutSamePlace(items: MovableItem[], readings: ReadonlyMap<string, Re
 const CATALOG_KEYS = new WeakMap<object, ReadonlySet<string>>();
 export function catalogKeysOf(input: object): ReadonlySet<string> | undefined {
   return CATALOG_KEYS.get(input);
+}
+
+/**
+ * プランの世帯（土台のプランとそのプランを当てた後）→ そこで作る動かす項目のキー。現状の一覧に無い鍵が、そのプランでは今の物の欄か
+ * （土台のプランで種類を変えて置き換えた物の、今の種類の欄か）を確かめるため（plans.ts の changesOf。0036 の追記 2026-11-15）
+ */
+const PLAN_KEYS = new WeakMap<object, ReadonlySet<string>>();
+export function catalogKeysIn(wh: WorkingHousehold, selfId: string): ReadonlySet<string> {
+  const hit = PLAN_KEYS.get(wh.request.input);
+  if (hit !== undefined) return hit;
+  const keys: ReadonlySet<string> = new Set(buildCatalogOf(wh, selfId, null).items.map((i) => i.key));
+  PLAN_KEYS.set(wh.request.input, keys);
+  return keys;
 }
 
 /** 動かす項目の一覧を作る（現状の世帯から。現状が変わったら作り直す） */
