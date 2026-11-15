@@ -30,8 +30,10 @@ export const LEVER_KINDS = [
   { kind: "loan:principal", group: "よく使う", label: "住宅ローンの借入額", note: "まだ借りていないローンごと" },
   { kind: "loan:prepay", group: "よく使う", label: "住宅ローンの繰上返済", note: "もう借りているローンごと" },
   { kind: "loan:rate", group: "よく使う", label: "住宅ローンの金利", note: "ローンごと" },
-  { kind: "loan:outlook", group: "よく使う", label: "住宅ローンの金利の見込み（変動金利）", note: "変動金利の住宅ローンごと（入力の「金利の見込み」の欄と同じ型。0203）" },
-  { kind: "edu:course", group: "よく使う", label: "子の進路の型", note: "進路を入れた子ごと（学校ごとの公立・私立を型でまとめて変える。0211）" },
+  // 入力の「金利の見込み」の欄と同じ型で動かす（0203）
+  { kind: "loan:outlook", group: "よく使う", label: "住宅ローンの金利の見込み（変動金利）", note: "変動金利の住宅ローンごと" },
+  // 学校ごとの公立・私立を型でまとめて変える（0211）
+  { kind: "edu:course", group: "よく使う", label: "子の進路の型", note: "進路を入れた子ごと" },
   { kind: "rates:shift", group: "よく使う", label: "変動金利の上昇", note: "変動金利のローンがある世帯だけ" },
   { kind: "mix", group: "よく使う", label: "資産運用の配分", note: "口座ごと" },
 ] as const satisfies readonly { kind: string; group: string; label: string; note?: string }[];
