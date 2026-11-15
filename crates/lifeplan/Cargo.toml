@@ -26,6 +26,8 @@ base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt", "macros", "io-std", "sync", "time"] }
+# 検索の言葉と文の全角・半角をそろえる（NFKC。ＮＩＳＡ と NISA を同じにする）。ほかの crate が使っている版と同じ
+unicode-normalization = "0.1"
 
 [dev-dependencies]
 ai-share = { path = "../ai-share" }

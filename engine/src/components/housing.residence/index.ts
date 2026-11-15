@@ -7,8 +7,14 @@
 // - 購入: 購入の月（省略は住み始め）に頭金と諸費用を払う。注文住宅（改訂5。0115）は、頭金・諸費用の内数の土地の決済の分（purchase.land）と
 //   引き渡しの前の建物の代金の支払い（purchase.payments。頭金の内数）をそれぞれの月に払い、残りを購入の月（引き渡し）に払う。親・祖父母からの資金援助は受け取る構成員の一時金の収入にする
 //   （贈与税・住宅取得等資金の非課税は gift.received・gift.tax が計算する。ここは額の入力まで。改訂6: 前は「贈与税は計算していない」と誤って知らせていた）
-// - 固定資産税・都市計画税: 年額（上昇率は計算基準年からの年ごと）を、その年の4月・7月・12月と翌年2月の4回に分ける（端数は最初の回）。
-//   持ち家の期間の年だけ。地域ごとの値は持たない（入力の額）
+// - 固定資産税・都市計画税: 年額（上昇率は計算基準年からの年ごと）を、その年度の4月・7月・12月と翌年2月の4回に分ける（端数は最初の回。
+//   地方税法362条の納期。条例で違う市町村〔東京23区は6月・9月・12月・2月など〕は見分けない）。地域ごとの値は持たない（入力の額）。
+//   改訂8（0112 の追記 2026-11-14）: 年度の税は、その年の1月1日（賦課期日。地方税法359条）に持っている人が払う（343条）。買う家（purchase の
+//   ある家）は、手に入れた月（purchase.at、無ければ住み始め）の年の年度を、その月に、その月から12月までの月割り（年額×(13−月)÷12）で売主との
+//   精算として払い、翌年の年度から4回に分けて払う（前は買った年の4月・7月など、買う前の月にも4回分を付けていた）。購入の無い今の持ち家
+//   （住み始めが計算基準月以前）は、前から持っているとみなす。購入の無いこれからの家（相続など）は、住み始めの年の年度の住み始め以後の納期から
+//   （相続した人は納税の義務を引き継ぐ。地方税法9条）。手放す年（住み終わりの年）の年度は全部払う。計算基準月が1〜2月なら、前の年度の
+//   4回目（2月）も払う（前は落ちていた）
 // - 修繕費・管理費: 月額（上昇率は計算基準年からの年ごと）
 // 持ち家の価額（不動産の残高）は plan.cashflow が購入の額から出す（properties）
 // 段階と例外の年（改訂2。0040）: 家賃・修繕費は月ごと、固定資産税は年ごとに、元の額の代わりに段の額（割合の段は元の額×割合）を使い、
@@ -23,6 +29,7 @@ import {
   stagedYen,
   formatYm,
   monthIndex,
+  monthOf,
   yearOf,
   yen,
   type Ctx,
@@ -60,7 +67,7 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
   id: "housing.residence",
   title: "住まい（家賃・購入・固定資産税・修繕費）",
   contract: "1.0",
-  revision: 7,
+  revision: 8,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -165,15 +172,27 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
         const g = growth(h.propertyTax.growth);
         const staged = stagedYen(ctx, annual0, h.propertyTax, "conv.housing.growth");
         const up = grower(ctx, g);
-        let amount = annual0;
-        for (let y = baseYear; y <= yearOf(to); y++) {
-          if (y > baseYear) amount = grown(ctx, amount, g, 1);
-          if (y < yearOf(from)) continue;
+        // 最初の年度（改訂8）: 買う家は、手に入れた年の年度は1月1日の持ち主（売主）の税で、引き渡しの月に、その月から12月までの月割りを売主との
+        // 精算として払い（0112 の2。設計の記録の「購入の年の額は引き渡しの精算の目安」）、翌年の年度から4回に分けて払う。購入の無い今の持ち家は前から
+        // 持っているとみなす。購入の無いこれからの家（相続など）は、住み始めの年の年度の、住み始め以後の納期から（相続した人は納税の義務を引き継ぐ。地方税法9条）
+        const acquired = h.purchase === undefined ? null : h.purchase.at === undefined ? from : ctx.time.resolve(h.purchase.at);
+        const firstYear = acquired !== null ? yearOf(acquired) : from <= base ? baseYear - 1 : yearOf(from);
+        const firstMonth = acquired === null && from > base ? from : base;
+        // 計算基準年より前の年度（1〜2月の分だけ表に入る）は計算基準年の額
+        for (let y = Math.max(baseYear - 1, firstYear); y <= yearOf(to); y++) {
+          const k = Math.max(0, y - baseYear);
           // 段階: その年の段の額（例外の年はその額）に、計算基準年からの年数だけ上昇率を当てる
-          if (!staged.plain) amount = up(staged.inYear(y), y - baseYear);
+          const amount = staged.plain ? up(annual0, k) : up(staged.inYear(baseYear + k), k);
+          if (acquired !== null && y === yearOf(acquired)) {
+            const settle = ctx.money.mulRatio(amount, 13 - monthOf(acquired), 12, "conv.expense.share");
+            push(acquired, "cf.expense.housing.propertyTax", settle, "housing.residence.propertyTaxSettlement", owner, y);
+            continue;
+          }
           const months = [monthIndex(y, 4), monthIndex(y, 7), monthIndex(y, 12), monthIndex(y + 1, 2)];
           const parts = ctx.money.allocate(amount, [1, 1, 1, 1], "conv.premium.installment", "first");
-          months.forEach((m, i) => push(m, "cf.expense.housing.propertyTax", parts[i] as Yen, "housing.residence.propertyTax", owner, y));
+          months.forEach((m, i) => {
+            if (m >= firstMonth) push(m, "cf.expense.housing.propertyTax", parts[i] as Yen, "housing.residence.propertyTax", owner, y);
+          });
         }
       }
       // 修繕費・管理費

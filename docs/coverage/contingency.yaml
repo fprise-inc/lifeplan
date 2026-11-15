@@ -57,7 +57,7 @@ entries:
     rows: [cf.expense.living, cf.expense.housing]
     components:
       expense.living: 4
-      housing.residence: 7
+      housing.residence: 8
       debt.creditLifeEvents: 1
     related: [housing.creditLife, contingency.protectionNeed]
 
