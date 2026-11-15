@@ -457,7 +457,7 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     expect(html).toContain('data-progress-missing="0"');
     expect(html).not.toContain("ih-prog-miss on");
     // 状態ごとの数は押すとそのカードだけに絞るボタン（0072）
-    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('15項目中 入力済み <span class="n">0</span>・推定で計算中 <span class="n">3</span>・該当なし <span class="n">1</span>・まだ入れていない <span class="n">10</span>・既定の値で計算中 <span class="n">1</span>');
+    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('15項目中 入力済み <span class="n">0</span>・推定で計算中 <span class="n">3</span>・該当なし <span class="n">1</span>・まだ入れていない <span class="n">10</span>・事務所の既定値どおり <span class="n">1</span>');
     expect(html).toContain('data-progress-filter="est"');
     expect(html.indexOf("data-progress-missing")).toBeLessThan(html.indexOf("15項目中"));
     expect(html).not.toContain("data-first-guide");

@@ -119,7 +119,7 @@ describe("相続・贈与のパネルの相続税の目安は、入れる区画�
   it("目安の箱は見出しの帯（ip-head）ではなく本体（ip-body）の中で、入れる区画の後", () => {
     const head = src.indexOf('<div class="ip-head">');
     const body = src.indexOf('<div class="ip-body"');
-    const sectionsAt = src.indexOf("{sections.map((s) => (", body);
+    const sectionsAt = src.indexOf("<Section key={s.key} section={s}", body);
     const box = src.indexOf("data-inheritance-line");
     const foot = src.indexOf('<div class="ip-foot"');
     expect(head).toBeGreaterThan(0);

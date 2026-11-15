@@ -12,7 +12,7 @@ import { FoldClose, FoldedGroup, useFold } from "./FoldedGroup.tsx";
 import { blankLineFor, fitsIn, fittingPlaceholder, shortBasis, textEm } from "./placeholder.ts";
 import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
-import { groupShown, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
+import { groupShown, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type PremiseMark, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, confirmTyped, typeFromAge, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseDatedYearMonth, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
@@ -987,6 +987,31 @@ export const fillInside = (inputClass: string, shown: string): boolean => inputC
  * 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。押しても欄のフォーカスを動かさない
  * （動かすと、欄の値が入れ直されて「保存していない変更」になるため）
  */
+/** 前提条件の事務所の既定値の印（0214 の4。欄の名前の横の小さな文字）: 「事務所の既定値」「この世帯だけ」「既定値が変わりました」。推定の印ではない */
+export function PremiseTag({ mark }: { mark: PremiseMark }) {
+  const text = mark.state === "office" ? "事務所の既定値" : mark.state === "household" ? "この世帯だけ" : "既定値が変わりました";
+  const title = mark.state === "office" ? (mark.decided ? "事務所の既定値の画面で決めた値です" : "提供元の既定の値です（事務所の既定値の画面で変えられます）") : mark.state === "household" ? `この世帯だけの値です（事務所の既定値は ${mark.officeText}）` : `事務所の既定値が ${mark.wasText ?? "—"} から ${mark.officeText} に変わりました（この世帯は前の値のまま）`;
+  return (
+    <span class={`fld-premise ${mark.state}`} title={title} data-premise={mark.state}>
+      {text}
+    </span>
+  );
+}
+
+/** 欄の下の、事務所の既定値に戻すリンク（この世帯だけ・事務所の既定値が変わった欄だけ。0214 の4・5） */
+export function PremiseReset({ mark, wh, onEdit }: { mark: PremiseMark; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+  if (mark.state === "office") return null;
+  const own = mark.state === "household";
+  return (
+    <div class="fld-help fld-premise-act" data-premise-act={mark.state}>
+      {own ? null : <span>事務所の既定値が変わりました（{mark.wasText ?? "—"}→{mark.officeText}）</span>}
+      <button type="button" class="link-btn" title={`事務所の今の既定値（${mark.officeText}）にします`} onMouseDown={(e) => e.preventDefault()} onClick={() => onEdit(mark.reset(wh))} data-premise-reset>
+        {own ? "事務所の既定値に戻す" : "今の既定値にする"}
+      </button>
+    </div>
+  );
+}
+
 export function FillButton({ label, status, inside, onFill }: { label: string; status: ValueStatus; inside?: boolean; onFill: () => void }) {
   return (
     <button type="button" class={`fld-fill${inside === true ? " inside" : ""}`} title={fillTitle(status)} aria-label={`${label}: ${fillTitle(status)}`} onMouseDown={(e) => e.preventDefault()} onClick={onFill} data-op="confirm" data-fill-estimate>
@@ -1384,6 +1409,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         {/* 欄の説明の「?」は欄の名前のすぐ右（状態の印はその後ろ。0077 の 2026-10-29 の追記） */}
         <FieldHelp f={f} wh={wh} />
         {badge}
+        {state.premise !== undefined ? <PremiseTag mark={state.premise} /> : null}
       </div>
       <div class="fld-c">
         {control}
@@ -1437,6 +1463,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
           {told.warn}
         </div>
       ) : null}
+      {state.premise !== undefined ? <PremiseReset mark={state.premise} wh={wh} onEdit={onEdit} /> : null}
       {state.derived != null ? <div class="fld-help warn">{state.derived}</div> : null}
       {state.warn != null ? <WarnLine f={f} text={state.warn} fix={state.warnFix ?? null} wh={wh} onEdit={onEdit} /> : null}
       {stateLines}

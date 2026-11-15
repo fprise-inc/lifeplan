@@ -1,6 +1,8 @@
 // 事務所の既定値（0073）: 事務所全体で使う既定を、事務所データ（暗号化。0011 の6）に持つ。世帯ファイルには入れない。
-// - 新しい世帯を作るときに写す（前提条件の標準値〔預金の利回り・貸していない不動産の値動きを含む〕・本人と配偶者の介護を最初から入れるか・不動産の評価の割合）。写した値は推定の印で、
-//   根拠「事務所の標準（年月）」。後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の新しい値があります」）
+// - 新しい世帯を作るときに写す（前提条件の既定値〔経済の前提・不動産の評価・資産の種類ごとの利回り。0214〕・本人と配偶者の介護を最初から入れるか・
+//   相続税の目安の評価の割合）。写した前提条件は「事務所の既定値（年月）」の印で、世帯では決まった値として「事務所の既定値」と見せる。
+//   後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の既定値が変わりました」）
+// - 形の版は 2（0214 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足した。版 1 の事務所データもそのまま読む）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
 // - 画面の側で読むだけの既定（入力項目の並び・対策に最初から出す項目・万一のタブの想定の前提に最初から出す項目と場面の帯の並べ方・
 //   受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む。
@@ -20,7 +22,8 @@ import { STAGE_ORDER } from "../input/stages/index.ts";
 import { isEmptyChoice, readItemChoice, type ItemChoice } from "../input/itemChoice.ts";
 import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/leverChoice.ts";
 import { isEmptyPremiseChoice, isEmptySceneChoice, normalProtection, readPremiseChoice, readProtectionSetting, readSceneChoice, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "../contingency/premiseChoice.ts";
-import { NESTED_OFFICE_ASSUMPTIONS, setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
+import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
+import { copyOfficePremises, PREMISE_DEFS, premiseOfId, type PremiseDef } from "../input/premiseDefaults.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../input/rateRanges.ts";
 import { readLivingLayout, setLivingLayoutNow, type LivingLayout } from "./livingLayout.ts";
 import type { OfficeHost } from "../../engine/host.ts";
@@ -31,11 +34,11 @@ import { cleanTopics, readHearingTemplates, readHearingTopics, type HearingTempl
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
 /**
- * 前提条件の標準値にできる系列（新しい世帯に写す。値は小数の文字。例: "0.01"）。系列の名前はふつう前提条件の年ごとの列の名前（assumptions.<名前>）で、
- * 前提条件の欄のキー assume/<名前> と仮の印のキーが同じ。前提条件の年ごとの列でない物（貸していない不動産の値動き）は、置き場所と欄のキーを
- * office/current.ts の NESTED_OFFICE_ASSUMPTIONS に持つ。足すときは、ここに名前を1つ足し、範囲・名前・既定の値の表に1行ずつ添える（0073 の追記 2026-11-07）
+ * 事務所データの assumptions の系列（値は小数の文字。例: "0.01"）。系列の名前は前提条件の年ごとの列の名前（assumptions.<名前>）で、前提条件の id と同じ。
+ * heldEstateGrowth（貸していない不動産の値動き）は、資産の種類ごとの利回りの不動産（id assetReturns.realEstate）の置き場所（版 1 からの名前。0073 の追記 2026-11-07）。
+ * 前提条件の欄の全部は input/premiseDefaults.ts の PREMISE_DEFS（0214）
  */
-export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "depositReturn", "pensionMacroSlide", "heldEstateGrowth"] as const;
+export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "depositReturn", "educationInflation", "pensionMacroSlide", "pensionMacroSlideEmployee", "heldEstateGrowth"] as const;
 export type OfficeAssumption = (typeof OFFICE_ASSUMPTIONS)[number];
 
 /** 前提条件の標準値の欄の範囲（パーセント。入力の画面の前提条件の欄と同じ。0098）。事務所データを読むときも、この範囲の外の値は読まない */
@@ -44,7 +47,9 @@ export const ASSUMPTION_RANGES: Readonly<Record<OfficeAssumption, PctRange>> = {
   wageGrowth: GROWTH_RANGE,
   investmentReturn: RETURN_RANGE,
   depositReturn: RETURN_RANGE,
+  educationInflation: GROWTH_RANGE,
   pensionMacroSlide: SLIDE_RANGE,
+  pensionMacroSlideEmployee: SLIDE_RANGE,
   // 入力の画面の「資産の種類ごとの利回り」の不動産と同じ範囲
   heldEstateGrowth: RETURN_RANGE,
 };
@@ -54,25 +59,37 @@ export const ASSUMPTION_LABELS: Readonly<Record<OfficeAssumption, string>> = {
   wageGrowth: "賃金上昇率（年）",
   investmentReturn: "運用利回り（年）",
   depositReturn: "預金の利回り（年）",
+  educationInflation: "教育費の上昇率（年）",
   pensionMacroSlide: "年金の調整率（マクロ経済スライド）",
+  pensionMacroSlideEmployee: "年金の調整率（厚生年金）",
   heldEstateGrowth: "貸していない不動産（空き家・土地・別荘）の値動き（年）",
 };
 
 /**
  * 前提条件の標準値の既定の値（入れなければこの値。前提条件の年ごとの列は新しい世帯の DEFAULT_ASSUMPTIONS から。貸していない不動産の値動きは、
- * 計算が資産の種類ごとの利回りの不動産の無いときに使う0%）
+ * 計算が資産の種類ごとの利回りの不動産の無いときに使う0%。教育費・厚生年金の調整率は null＝物価・基礎年金の調整率と同じ）
  */
-export const ASSUMPTION_STANDARDS: Readonly<Record<OfficeAssumption, string>> = {
+export const ASSUMPTION_STANDARDS: Readonly<Record<OfficeAssumption, string | null>> = {
   inflation: DEFAULT_ASSUMPTIONS.inflation.default,
   wageGrowth: DEFAULT_ASSUMPTIONS.wageGrowth.default,
   investmentReturn: DEFAULT_ASSUMPTIONS.investmentReturn.default,
   depositReturn: DEFAULT_ASSUMPTIONS.depositReturn.default,
+  educationInflation: null,
   pensionMacroSlide: DEFAULT_ASSUMPTIONS.pensionMacroSlide.default,
+  pensionMacroSlideEmployee: null,
   heldEstateGrowth: "0",
 };
 
-/** 前提条件の標準値の系列の、前提条件の中の置き場所（道）と、欄のキー・仮の印のキー */
-export const assumptionPlace = (k: OfficeAssumption): { path: readonly string[]; key: string } => NESTED_OFFICE_ASSUMPTIONS[k] ?? { path: [k], key: `assume/${k}` };
+/** 前提条件の id → 事務所データの assumptions の系列の名前（その置き場所でなければ null） */
+const assumptionNameOf = (id: string): OfficeAssumption | null => (id === "assetReturns.realEstate" ? "heldEstateGrowth" : (OFFICE_ASSUMPTIONS as readonly string[]).includes(id) && id !== "heldEstateGrowth" ? (id as OfficeAssumption) : null);
+
+/** 事務所データの不動産の評価（0214。土地の割合・建物の残りの価値の下限・売却の費用は事務所の推定の値〔estimates〕で持つ） */
+export interface OfficeValuation {
+  /** 土地の上昇率（小数の文字。無ければ物価上昇率と同じ） */
+  landGrowth?: string;
+  /** 構造 → 耐用年数（年） */
+  usefulLife?: Readonly<Partial<Record<string, number>>>;
+}
 
 /** 法人経営者向けの機能（既定はどれも使わない。0107） */
 export interface OfficeFeatures {
@@ -86,8 +103,8 @@ export const DEFAULT_FEATURES: OfficeFeatures = { combinedBs: false };
 export type InheritLikelihood = "likely" | "uncertain";
 
 export interface OfficeSettings {
-  /** 形の版（この画面の側の形。1 から） */
-  version: 1;
+  /** 形の版（この画面の側の形。1 から。0214 で 2。版 1 の事務所データもそのまま読み、読んだら 2） */
+  version: 2;
   /** 入力項目の並び（null は標準） */
   layout: CardLayout | null;
   /** 新しい世帯で出す入力項目と、開いたときの入れ方（空は全部出す・全部標準。新しい世帯に写す） */
@@ -106,6 +123,10 @@ export interface OfficeSettings {
   inheritLikelihood: InheritLikelihood;
   /** 前提条件の標準値（無い系列は 既定の値） */
   assumptions: Partial<Record<OfficeAssumption, string>>;
+  /** 前提条件の不動産の評価の既定値（0214。無ければ提供元の既定の値） */
+  realEstateValuation?: OfficeValuation;
+  /** 前提条件の資産の種類ごとの利回りの既定値（0214。種類 → 小数の文字。不動産は assumptions.heldEstateGrowth。無い種類は入れない） */
+  assetReturns?: Readonly<Partial<Record<string, string>>>;
   /** 相続税の目安の不動産の評価の割合（時価に掛ける。null は標準の80%） */
   realEstateRatio: string | null;
   /**
@@ -129,7 +150,7 @@ export interface OfficeSettings {
   hearingTopics?: string[];
 }
 
-export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, features: DEFAULT_FEATURES, changedOn: null };
+export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 2, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, features: DEFAULT_FEATURES, changedOn: null };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -174,7 +195,7 @@ function readCoreSettings(v: unknown): OfficeSettings {
   // 対策に最初から出す項目（欄の無い古い事務所データは既定のまま。知らない種類は捨てる）
   const levers = readLeverChoice(v.levers);
   // 万一のタブの既定（0085。欄の無い古い事務所データは既定のまま）
-  const premises = readPremiseChoice(v.premises);
+  const premiseChoice = readPremiseChoice(v.premises);
   const scenes = readSceneChoice(v.scenes);
   const protection = readProtectionSetting(v.protection);
   const care: CareDefaults = isObj(v.care) && (v.care.selfAndSpouse === "fill" || v.care.selfAndSpouse === "warn") ? { selfAndSpouse: v.care.selfAndSpouse } : DEFAULT_CARE_DEFAULTS;
@@ -182,19 +203,115 @@ function readCoreSettings(v: unknown): OfficeSettings {
   const assumptions: Partial<Record<OfficeAssumption, string>> = {};
   if (isObj(v.assumptions)) for (const k of OFFICE_ASSUMPTIONS) if (assumptionOk(k, v.assumptions[k])) assumptions[k] = v.assumptions[k] as string;
   const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
+  // 不動産の評価と資産の種類ごとの利回り（0214。欄の無い版 1 の事務所データは決めていない）
+  const premises = readPremises(v);
   // 表の最後の年の既定の年齢（選び方の年齢だけ。100歳は既定と同じなので持たない）
   const endAge = typeof v.endAge === "number" && END_AGES.includes(v.endAge) && v.endAge !== STANDARD_END_AGE ? v.endAge : undefined;
   const changedOn = typeof v.changedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.changedOn) ? v.changedOn : null;
   const fee = readFeeTable(v.fee);
   // 法人経営者向けの機能（欄の無い古い事務所データ・読めない値は使わない）
   const features: OfficeFeatures = { combinedBs: isObj(v.features) && v.features.combinedBs === true };
-  return { version: 1, layout, items, levers, premises, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn, ...(endAge !== undefined ? { endAge } : {}) };
+  return { version: 2, layout, items, levers, premises: premiseChoice, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn, ...(endAge !== undefined ? { endAge } : {}), ...premises };
+}
+
+/** 前提条件の値か（id の欄の範囲の中。耐用年数は 1〜100 の整数） */
+function premiseOk(d: PremiseDef, v: unknown): boolean {
+  if (d.kind === "int") return typeof v === "number" && Number.isInteger(v) && v >= d.min && v <= d.max;
+  return rateOk(v, d.min / 100, d.max / 100);
+}
+
+/** 事務所データの不動産の評価と資産の種類ごとの利回り（読めない値・範囲の外は読まない。空なら欄を持たない） */
+function readPremises(v: Record<string, unknown>): Pick<OfficeSettings, "realEstateValuation" | "assetReturns"> {
+  const out: Pick<OfficeSettings, "realEstateValuation" | "assetReturns"> = {};
+  const rv = isObj(v.realEstateValuation) ? v.realEstateValuation : {};
+  const valuation: { landGrowth?: string; usefulLife?: Record<string, number> } = {};
+  const lg = premiseOfId("realEstateValuation.landGrowth");
+  if (lg !== undefined && premiseOk(lg, rv.landGrowth)) valuation.landGrowth = rv.landGrowth as string;
+  const life: Record<string, number> = {};
+  if (isObj(rv.usefulLife))
+    for (const d of PREMISE_DEFS) {
+      const st = d.id.startsWith("realEstateValuation.usefulLife.") ? d.id.slice("realEstateValuation.usefulLife.".length) : null;
+      if (st !== null && premiseOk(d, rv.usefulLife[st])) life[st] = rv.usefulLife[st] as number;
+    }
+  if (Object.keys(life).length > 0) valuation.usefulLife = life;
+  if (Object.keys(valuation).length > 0) out.realEstateValuation = valuation;
+  const ar: Record<string, string> = {};
+  if (isObj(v.assetReturns))
+    for (const d of PREMISE_DEFS) {
+      const cls = d.id.startsWith("assetReturns.") && d.id !== "assetReturns.realEstate" ? d.id.slice("assetReturns.".length) : null;
+      if (cls !== null && premiseOk(d, v.assetReturns[cls])) ar[cls] = v.assetReturns[cls] as string;
+    }
+  if (Object.keys(ar).length > 0) out.assetReturns = ar;
+  return out;
+}
+
+/** 事務所で決めた前提条件（前提条件の id → 値の文字。事務所の推定の値で決める物〔土地の割合など〕は入れない。0214 の2） */
+export function officePremises(s: OfficeSettings): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const d of PREMISE_DEFS) {
+    const v = officePremise(s, d.id);
+    if (v !== null) out[d.id] = v;
+  }
+  return out;
+}
+
+/** 事務所で決めた前提条件の1つ（決めていない・事務所の推定の値で決める物は null） */
+export function officePremise(s: OfficeSettings, id: string): string | null {
+  const name = assumptionNameOf(id);
+  if (name !== null) return s.assumptions[name] ?? null;
+  if (id === "realEstateValuation.landGrowth") return s.realEstateValuation?.landGrowth ?? null;
+  if (id.startsWith("realEstateValuation.usefulLife.")) {
+    const n = s.realEstateValuation?.usefulLife?.[id.slice("realEstateValuation.usefulLife.".length)];
+    return n === undefined ? null : String(n);
+  }
+  if (id.startsWith("assetReturns.")) return s.assetReturns?.[id.slice("assetReturns.".length)] ?? null;
+  return null;
+}
+
+/** 事務所の前提条件の1つを置き換えた設定（null は決めていない＝提供元の既定の値。事務所の推定の値で決める物は変えない） */
+export function withOfficePremise(s: OfficeSettings, id: string, v: string | null): OfficeSettings {
+  const name = assumptionNameOf(id);
+  if (name !== null) {
+    const { [name]: _old, ...rest } = s.assumptions;
+    void _old;
+    return { ...s, assumptions: v === null ? rest : { ...rest, [name]: v } };
+  }
+  if (id === "realEstateValuation.landGrowth" || id.startsWith("realEstateValuation.usefulLife.")) {
+    const cur = s.realEstateValuation ?? {};
+    let next: OfficeValuation;
+    if (id === "realEstateValuation.landGrowth") {
+      const { landGrowth: _l, ...rest } = cur;
+      void _l;
+      next = v === null ? rest : { ...rest, landGrowth: v };
+    } else {
+      const st = id.slice("realEstateValuation.usefulLife.".length);
+      const { [st]: _u, ...life } = cur.usefulLife ?? {};
+      void _u;
+      const lives = v === null ? life : { ...life, [st]: Number(v) };
+      const { usefulLife: _o, ...rest } = cur;
+      void _o;
+      next = Object.keys(lives).length === 0 ? rest : { ...rest, usefulLife: lives };
+    }
+    const { realEstateValuation: _r, ...others } = s;
+    void _r;
+    return Object.keys(next).length === 0 ? others : { ...others, realEstateValuation: next };
+  }
+  if (id.startsWith("assetReturns.")) {
+    const cls = id.slice("assetReturns.".length);
+    const { [cls]: _c, ...rest } = s.assetReturns ?? {};
+    void _c;
+    const next = v === null ? rest : { ...rest, [cls]: v };
+    const { assetReturns: _a, ...others } = s;
+    void _a;
+    return Object.keys(next).length === 0 ? others : { ...others, assetReturns: next };
+  }
+  return s;
 }
 
 /** 並びの設定（無ければ標準） */
 export const layoutOf = (s: OfficeSettings): CardLayout => s.layout ?? DEFAULT_LAYOUT;
 
-/** 推定の根拠の文（例: 「事務所の標準（2026-10）」） */
+/** 写した値の印の文（例: 「事務所の既定値（2026-10）」。前提条件では「事務所の既定値に従う」の印。0214） */
 export function officeBasis(s: OfficeSettings): string {
   return `事務所の既定値（${(s.changedOn ?? "").slice(0, 7) || "設定"}）`;
 }
@@ -217,7 +334,7 @@ export async function loadOfficeStart(office: Pick<OfficeHost, "defaults" | "fea
 
 /** 標準（既定の値）と同じか（基本生活費の内訳の並べ方の分は下の isDefaultSettings で見る） */
 function isDefaultCore(s: OfficeSettings): boolean {
-  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && s.endAge === undefined && sameFee(s.fee, STANDARD_FEE_TABLE) && !s.features.combinedBs;
+  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateValuation === undefined && s.assetReturns === undefined && s.realEstateRatio === null && s.endAge === undefined && sameFee(s.fee, STANDARD_FEE_TABLE) && !s.features.combinedBs;
 }
 
 /**
@@ -230,13 +347,14 @@ export const withOfficeItems = (s: OfficeSettings, items: ItemChoice): OfficeSet
 
 /** 今の事務所の既定値を、操作のときに読む所（office/current.ts）へ入れる（基本生活費の内訳の並べ方は下の publishOfficeSettings で入れる） */
 function publishCore(s: OfficeSettings): void {
-  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, assumptions: { ...s.assumptions }, basis: officeBasis(s), fee: s.fee, endAge: s.endAge ?? null });
+  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, premises: officePremises(s), basis: officeBasis(s), fee: s.fee, endAge: s.endAge ?? null });
 }
 
 // ---- 新しい世帯に写す ----
 
 /**
- * 新しい世帯に事務所の既定値を写す（空の世帯を作るときだけ。古い世帯・見本には当てない）。写した値は推定の印（根拠「事務所の標準（年月）」）。
+ * 新しい世帯に事務所の既定値を写す（空の世帯を作るときだけ。古い世帯・見本には当てない）。写した値は「事務所の既定値（年月）」の印
+ * （前提条件は決まった値として「事務所の既定値」と見せる。相続税の目安の評価の割合は推定の印）。
  * 本人・配偶者の介護は「最初から入れる」なら目安で入れる
  */
 export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): WorkingHousehold {
@@ -257,25 +375,14 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
     }
   }
   const basis = officeBasis(s);
-  const entries = OFFICE_ASSUMPTIONS.filter((k) => s.assumptions[k] !== undefined);
-  if (entries.length === 0 && s.realEstateRatio === null) return w;
-  const request = structuredClone(w.request);
-  const assumed = { ...w.assumed };
-  const a = (request.input.assumptions ??= structuredClone(DEFAULT_ASSUMPTIONS)) as unknown as Record<string, unknown>;
-  for (const k of entries) {
-    // 置き場所（前提条件の年ごとの列か、資産の種類ごとの利回りの不動産）に既定の値を書く。例外の年は残す
-    const { path, key } = assumptionPlace(k);
-    let holder = a;
-    for (const p of path.slice(0, -1)) holder = (holder[p] ??= {}) as Record<string, unknown>;
-    const last = path[path.length - 1] as string;
-    holder[last] = { ...((holder[last] as object | undefined) ?? {}), default: s.assumptions[k] as string };
-    assumed[key] = basis;
-  }
+  // 前提条件の既定値（0214）: 事務所で決めた欄を世帯に書き、「事務所の既定値（年月）」の印を付ける（例外の年は残す）
+  const premises = officePremises(s);
+  if (Object.keys(premises).length > 0) w = copyOfficePremises(w, premises, basis);
   if (s.realEstateRatio !== null) {
+    const request = structuredClone(w.request);
     request.input.inheritanceTax = { ...(request.input.inheritanceTax ?? {}), realEstateRatio: s.realEstateRatio };
-    assumed["inherit/tax/realEstateRatio"] = basis;
+    w = { ...w, request, assumed: { ...w.assumed, "inherit/tax/realEstateRatio": basis } };
   }
-  w = { ...w, request, assumed };
   return w;
 }
 
