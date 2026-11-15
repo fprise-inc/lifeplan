@@ -3,6 +3,9 @@
 // 産前産後休業・育児休業の月は保険料が免除（exempt）。年金の記録には標準報酬月額のまま数える
 // 約束の版 1.2: 70歳以上で厚生年金の適用事業所に使用される月（役員・会社員が70歳以降も働き続ける場合）は、保険料はかからないが、
 // 在職老齢年金の基にする標準報酬月額に相当する額（workingStd）と標準賞与額に相当する額（workingStdBonus）を出す（任意の欄）
+// 改訂5（0171 の追記 2026-11-14）: 定時決定の4〜6月が給与の表（income.salary。計算基準年の2年前の1月から）より前で、その勤め先の給与がまだ1回も
+//   無いときは、その勤め先の最初の給与（資格取得時決定と同じ考え方）で決める。前はいちばん低い等級になり、計算基準月が1〜5月のとき、2年前の
+//   社会保険料控除が小さく、1〜5月の住民税が高く出ていた。休業などで4〜6月に報酬が無いときは、これまでどおり前の月の額
 import {
   addMonths,
   addYen,
@@ -33,7 +36,7 @@ export default defineComponent<
   id: "socialInsurance.coverage",
   title: "被用者保険の資格と標準報酬",
   contract: "1.2",
-  revision: 4,
+  revision: 5,
   requires: { "income.salary": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2" },
   params: [
     "socialInsurance.care.secondaryInsuredFromAge",
@@ -91,13 +94,18 @@ export default defineComponent<
       const y = monthOf(m) >= 9 ? yearOf(m) : yearOf(m) - 1;
       const acquisition = y < yearOf(from) || (y === yearOf(from) && monthOf(from) >= 6);
       const all = own(period);
-      const pays = acquisition
+      const pays: SalaryPayment[] = acquisition
         ? all.filter((x) => parseYm(x.ym) >= from && x.salary > 0).slice(0, 1)
         : all.filter((x) => {
             const xm = parseYm(x.ym);
             return xm >= monthIndex(y, 4) && xm <= monthIndex(y, 6) && xm >= from && x.salary > 0;
           });
-      if (pays.length === 0) return null;
+      if (pays.length === 0) {
+        // 4〜6月がその勤め先の最初の給与より前（給与の表の始まりより前）なら、最初の給与で決める（改訂5）
+        const first = acquisition ? undefined : all.filter((x) => parseYm(x.ym) >= from && x.salary > 0).reduce<SalaryPayment | undefined>((a, x) => (a === undefined || parseYm(x.ym) < parseYm(a.ym) ? x : a), undefined);
+        if (first === undefined || parseYm(first.ym) <= monthIndex(y, 6)) return null;
+        pays.push(first);
+      }
       let sum = yen(0);
       for (const x of pays) sum = addYen(sum, addYen(x.salary, x.commuting));
       return ctx.money.divInt(sum, pays.length, "conv.socialInsurance.remuneration");
