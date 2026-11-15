@@ -84,7 +84,7 @@ entries:
     components:
       ideco.contribution: 2
       account.dcList: 1
-      pension.category: 7
+      pension.category: 8
     related:
       - investment.idecoPayout
       - investment.corporateDc
