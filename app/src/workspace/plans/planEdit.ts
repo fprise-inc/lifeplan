@@ -7,7 +7,7 @@
 // 欄のキーは差分に書かない（当て先だけ。0036 の2）。世帯ファイルの形は変えない
 // - どのプランにも共通の項目（表の最後の年。0043 の追記 2026-11-05）は差分にせず、現状に書く（sharedToCurrent）
 import type { Proposal } from "./plans.ts";
-import { acknowledge, applyDiffs, applyPlan, chainOf, diffKey, dropChange, effectiveDiffs, findPlan, rowKeyOf, setPlanValue, type Review } from "./plans.ts";
+import { acknowledge, applyDiffs, applyPlan, chainOf, diffKey, dropChange, effectiveDiffs, findPlan, rowKeyOf, setPlanValue, supersededIn, type Review } from "./plans.ts";
 import { addressOf, boxAt, isLever, sameJson, type DiffBox, type PlanDiff } from "./diffs.ts";
 import { fieldText, type Catalog, type ItemValue } from "./items.ts";
 import { COLLECTIONS, ITEM_PLACES } from "../../generated/readings.ts";
@@ -57,8 +57,9 @@ export function planView(wh: WorkingHousehold, cat: Catalog, id: string): Workin
   const hit = viewCache.get(wh)?.get(id);
   if (hit !== undefined && hit.cat === cat) return hit.view;
   const { request } = applyPlan(wh, id, cat);
+  const superseded = supersededIn(wh, id);
   const sets = chainOf(wh.proposals, id)
-    .flatMap((p) => p.diffs.filter((d) => d.enabled))
+    .flatMap((p) => p.diffs.filter((d) => d.enabled && !superseded.has(d.id)))
     .map(addressOf)
     .filter((a): a is Address => a !== null);
   const assumed = Object.fromEntries(
@@ -1101,12 +1102,15 @@ export function diffRows(wh: WorkingHousehold, cat: Catalog, pid: string, index:
   const view = planView(wh, cat, pid);
   const now = inputOf(wh);
   const applied = applyPlan(wh, pid, cat);
-  // 同じ当て先（同じ動かす項目のキー）は後のプランが勝つ。オフの差分はそのプランの行として残す
+  // 同じ当て先（同じ動かす項目のキー）は後のプランが勝つ。オフの差分はそのプランの行として残す。後のプランが置き換えた物を
+  // 指す土台の差分は、その置き換えに負けるので出さない（0036 の追記 2026-11-14）
+  const superseded = supersededIn(wh, pid);
   const effective = new Map<string, { diffs: PlanDiff[]; plan: Proposal }>();
   const off: { diffs: PlanDiff[]; plan: Proposal }[] = [];
   for (const p of chain) {
     const groups = new Map<string, PlanDiff[]>();
     for (const d of p.diffs) {
+      if (superseded.has(d.id)) continue;
       const g = d.pair ?? d.id;
       groups.set(g, [...(groups.get(g) ?? []), d]);
     }
@@ -1309,9 +1313,10 @@ export function fieldMark(wh: WorkingHousehold, cat: Catalog, pid: string, f: Fi
   const now = inputOf(wh);
   const id = objectIdOf(a.target);
   if (id !== null && findObject(now, id) === undefined) return null;
+  const superseded = supersededIn(wh, pid);
   const covers = (d: PlanDiff) => {
     const x = addressOf(d);
-    return d.enabled && x !== null && overlaps(x, a);
+    return d.enabled && !superseded.has(d.id) && x !== null && overlaps(x, a);
   };
   const chain = chainOf(wh.proposals, pid);
   const own = chain.at(-1);
