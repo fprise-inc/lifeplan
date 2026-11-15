@@ -180,13 +180,15 @@ describe("必要保障額: 亡くなった人がまだ払っていない税（�
     const req = model("rentalSample");
     const self = memberOf(req, "self") as string;
     const unpaid = unpaidIn(req, self, "2042-01");
-    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 292,317円、住民税 568,200円（売った年の借入の利息を二重に月割りしなくなり、2041年の不動産所得が減った。前は 300,017円・572,000円）
-    expect(unpaid).toBe(5_854_817);
+    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 270,817円、住民税 557,700円（2026-11-15 から、2041年に家賃収入で
+    // 配偶者の扶養を外れて国民健康保険料を払い、売った年の借入の利息を二重に月割りしなくなったので、前の 300,017円・572,000円より少ない。0174 の追記）
+    expect(unpaid).toBe(5_822_817);
     const all = protection(req, self);
     const a = all.find((y) => y.year === 2042) as ProtYear;
     const e = protection(req, self, 2042)[0] as ProtYear;
-    // 前は遺族の税だけ（4,896,601円）。2026-11-14 から、遺族が 2042-01 に入る国民健康保険の 2041年度分を 2042年2・3月に払う分（8,900円）が増えた
-    expect(e.breakdown.expenses.taxSi).toBe(4_905_501 + unpaid);
+    // 前は遺族の税だけ（4,896,601円）。2026-11-14 から、遺族が 2042-01 に入る国民健康保険の 2041年度分を 2042年2・3月に払う分（8,900円）が増えた。
+    // 2026-11-15 から、本人が 2041年度に払う国民健康保険料の残りの納期の分を、世帯主になった配偶者が 2042年に払う（0174 の追記）
+    expect(e.breakdown.expenses.taxSi).toBe(4_949_972 + unpaid);
     // 後の年に最初の年の表を使う額と、その年に亡くなる想定の額が同じ
     expect(a.breakdown.expenses.taxSi).toBe(e.breakdown.expenses.taxSi);
     expect(a.need).toBe(e.need);

@@ -14,6 +14,8 @@
 // 改訂4（0156）: 離婚・未婚のひとり親（今までは死別の後〔万一の想定〕だけ）と、構成員の欄 maritalStatus・世帯の関係の終わり方からの婚姻の状態、
 //   離婚した女性の寡婦（扶養親族がいるとき）を足した。子の所得の上限は所得税の値を住民税の判定にも使う（地方税法施行令46条の2の2 の上限は、
 //   同じ所得の年で所得税と同じ 48万円・58万円・62万円）
+// 改訂5: 配偶者が万一の想定で12月に亡くなる年も、12月31日の現況で配偶者がいないので、その年から死別として判定する（前は重ねで12月まで残る
+//   配偶者の関係を見て「どちらでもない」にし、11月までに亡くなる想定と食い違っていた。国税庁タックスアンサー No.1170・No.1171）
 import {
   childrenOf,
   defineComponent,
@@ -45,7 +47,7 @@ export default defineComponent<{ member: string; year: number }, { widow: boolea
   id: "tax.survivorStatus",
   title: "ひとり親・寡婦の判定",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "contingency.event": ">=1 <2", "tax.totalIncome": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -123,7 +125,12 @@ export default defineComponent<{ member: string; year: number }, { widow: boolea
  * （省略は未婚とみなす。ひとり親の判定では未婚・離婚・死別は同じで、寡婦は判定しない）
  */
 function maritalAt(ctx: Ctx, relations: readonly RelationInput[], me: MemberInput, dec: MonthIndex): Marital {
-  if (spousesAt(ctx, relations, me.id, dec).length > 0) return "spouse";
+  // 万一の想定で12月に亡くなる配偶者は、重ねで12月まで関係が残るが、12月31日にはいないので配偶者に数えない（改訂5。前は「どちらでもない」にしていた）
+  const diedIn = (id: string) => {
+    const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: id }).event;
+    return ev !== null && ev.kind === "death" && parseYm(ev.month) <= dec;
+  };
+  if (spousesAt(ctx, relations, me.id, dec).some((id) => !diedIn(id))) return "spouse";
   let last: { end: MonthIndex; how: "divorced" | "bereaved" } | null = null;
   for (const r of relations) {
     if (r.type !== "spouse" || r.marriage !== "legal" || (r.a !== me.id && r.b !== me.id) || r.to === null) continue;
