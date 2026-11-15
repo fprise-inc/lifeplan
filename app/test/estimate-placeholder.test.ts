@@ -58,7 +58,7 @@ describe("根拠の短い文（shortBasis）", () => {
 });
 
 describe("介護の費用の欄: 空欄の推定の値を灰色で", () => {
-  it("月々の費用・一時費用・期間は、欄の中に推定の値（「空欄＝推定」ではない）、「この値にする」は欄の中、欄の横は根拠の短い文", () => {
+  it("月々の費用・一時費用・期間は、欄の中に推定の値（「空欄＝推定」ではない）、「この値にする」は欄の中、推定の出どころは印の吹き出しの頭", () => {
     const { wh, id } = withCare();
     const est = careEstimate("home")!;
     const cases: [string, string][] = [
@@ -80,8 +80,9 @@ describe("介護の費用の欄: 空欄の推定の値を灰色で", () => {
       expect(html).toMatch(/<span class="fld-box"><input [^>]*\/><button type="button" class="fld-fill inside"[^>]*data-fill-estimate="true">この値にする<\/button><\/span>/);
       expect(html).toContain('<div class="fld is-est"');
       expect(html).toMatch(/>推定</);
-      // 欄の横は値の繰り返し（「月5.2万円（推定）」）でなく根拠の短い文
-      expect(html).toContain('<span class="fld-hint">統計の平均（生命保険文化センターの調査）</span>');
+      // 欄の横に値の繰り返し（「月5.2万円（推定）」）も推定の出どころも出さない。出どころは「推定」の印の吹き出しの頭
+      expect(html).not.toContain('class="fld-hint"');
+      expect(html).toContain('<span class="est-src" data-est-head="true">推定のもと: 統計の平均（生命保険文化センターの調査）</span>');
       expect(html).not.toContain(`${text}万円（推定）`);
       expect(html).not.toContain("か月（推定）");
     }
@@ -138,7 +139,7 @@ describe("介護の期間の推定", () => {
     expect(fieldStatus(f, back).status).toBe("estimated");
   });
 
-  it("期間が亡くなる見込みで止まるときは、根拠の短い文の後ろにその1行", () => {
+  it("期間が亡くなる見込みで止まるときは、欄の横にその1行（推定の出どころは印の吹き出しへ）", () => {
     const { wh, id } = withCare();
     const near = mutate(wh, (h) => {
       const p = h.members.find((m) => m.kind === "parent")!;
@@ -146,7 +147,8 @@ describe("介護の期間の推定", () => {
       h.careExpenses![0]!.from = { at: "2027-01" };
     });
     const html = fieldHtml(near, careField(near, id, "months"));
-    expect(html).toContain("統計の平均（生命保険文化センターの調査）。亡くなる見込みで止まり、2029年12月まで（費用は36か月分）");
+    expect(html).toContain('<span class="fld-hint">亡くなる見込みで止まり、2029年12月まで（費用は36か月分）</span>');
+    expect(html).toContain("推定のもと: 統計の平均（生命保険文化センターの調査）");
   });
 });
 
@@ -244,7 +246,7 @@ const actionOf = (wh: WorkingHousehold, stageId: "care" | "work", key: string) =
 };
 
 describe("介護の始まりの推定の印", () => {
-  it("介護の目安の物の始まりは推定（欄の中は灰色の推定の時点・名前の横に「推定」・「この値にする」・欄の横に根拠の短い文）。置き方は前のまま", () => {
+  it("介護の目安の物の始まりは推定（欄の中は灰色の推定の時点・名前の横に「推定」・「この値にする」・印の吹き出しの頭に根拠の短い文）。置き方は前のまま", () => {
     const { wh, id } = withCare();
     const f = careField(wh, id, "from");
     const s = fieldStatus(f, wh);
@@ -256,7 +258,9 @@ describe("介護の始まりの推定の印", () => {
     expect(careTemplate(wh.request.input.household, p, BASE).from).toEqual(c.from);
     const html = fieldHtml(wh, f);
     expect(html).toContain('<div class="fld when is-est"');
-    expect(html).toContain(`<span class="fld-hint" data-when-note="ev/care/${id}/from">亡くなる見込みから統計の平均の期間を逆算</span>`);
+    // 根拠の短い文（推定の出どころ）は欄の横に出さず、「推定」の印の吹き出しの頭に置く
+    expect(html).not.toContain("data-when-note");
+    expect(html).toContain('<span class="est-src" data-est-head="true">推定のもと: 亡くなる見込みから統計の平均の期間を逆算。');
     expect(html).toContain("この値にする");
     expect(availableOps(f, wh)).toContain("confirm");
   });
@@ -284,7 +288,7 @@ describe("介護の始まりの推定の印", () => {
     const f = careField(w1, next.id, "from");
     expect(fieldStatus(f, w1)).toMatchObject({ status: "estimated" });
     expect(fieldStatus(f, w1).basis).toBe(`推定（前の段階の終わりの翌月。前の段階の始まりに、その期間（${String(careEstimate("home")!.months)}か月。期間が空なので統計の平均の推定）を足しています）`);
-    expect(fieldHtml(w1, f)).toContain(">前の段階の終わりの翌月</span>");
+    expect(fieldHtml(w1, f)).toContain(">推定のもと: 前の段階の終わりの翌月。");
     // 前の段階の期間を入れていれば、その期間（統計の推定とは書かない）
     const w2 = careField(wh, id, "months").set(wh, 24);
     const w3 = actionOf(w2, "care", `ev/care/${id}/nextStage`).run(w2);
@@ -325,7 +329,7 @@ describe("推定のままの介護の始まりは元の値についてくる", (
     const f = careField(w1, id, "from");
     expect(fieldStatus(f, w1).status).toBe("estimated");
     expect(w1.assumed[`ev/care/${id}/from`]).toBe(wh.assumed[`ev/care/${id}/from`]);
-    expect(fieldHtml(w1, f)).toContain(">亡くなる見込みから統計の平均の期間を逆算</span>");
+    expect(fieldHtml(w1, f)).toContain(">推定のもと: 亡くなる見込みから統計の平均の期間を逆算。");
   });
 
   it("亡くなる見込みが近くなって統計の平均の期間より短くなれば「来月から」に作り直す（根拠も直す）", () => {
