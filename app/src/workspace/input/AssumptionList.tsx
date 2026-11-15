@@ -11,7 +11,7 @@ const today = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-export function AssumptionList({ wh, planId, onAgree, onLevel, onReveal }: { wh: WorkingHousehold; planId: string | null; onAgree: (f: (w: WorkingHousehold) => WorkingHousehold) => void; onLevel: (l: "simple" | "detail") => void; onReveal?: () => void }) {
+export function AssumptionList({ wh, planId, onAgree, onLevel, onReveal }: { wh: WorkingHousehold; planId: string | null; onAgree: (f: (w: WorkingHousehold) => WorkingHousehold) => void; onLevel: (l: "simple" | "detail") => void; onReveal?: (key: string) => void }) {
   const [open, setOpen] = useState(false);
   const [only, setOnly] = useState<ListGroup | "all">("all");
   const rows = assumptionRows(wh);
@@ -19,8 +19,8 @@ export function AssumptionList({ wh, planId, onAgree, onLevel, onReveal }: { wh:
   const groups = Object.keys(LIST_GROUP_LABELS) as ListGroup[];
   const jump = (key: string, detail: boolean) => {
     if (detail) onLevel("detail");
-    // たたんだ前提条件の区画を開いてから移る（0214 の4）
-    onReveal?.();
+    // たたんだ細かい前提の区画の欄なら、開いてから移る（0214 の4）
+    onReveal?.(key);
     setTimeout(() => {
       const el = document.getElementById(fieldDomId(key));
       el?.focus({ preventScroll: true });

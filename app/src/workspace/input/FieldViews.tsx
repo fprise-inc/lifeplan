@@ -1423,6 +1423,12 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         ) : null}
         {partLine !== null ? <StateMark status="estimated" basis={partLine} text="推定" label={`${f.label}の内訳`} /> : null}
       </div>
+      {/* お客さまに話すときの一言（前提条件のお客さまと確かめる前提。0214 の追記 2026-11-16） */}
+      {state.talk != null ? (
+        <div class="fld-talk" data-field-talk={f.key}>
+          {state.talk}
+        </div>
+      ) : null}
       {sug !== undefined ? (
         <div class="fld-suggest" data-suggest={f.key}>
           <span>{sug.text}</span>

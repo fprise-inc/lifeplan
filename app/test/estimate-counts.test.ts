@@ -102,16 +102,20 @@ describe("前提条件の標準の値は推定の数とまとめての操作か�
     expect(structuresInUse(blankHousehold("2026-11", seq()).request.input.household).size).toBe(0);
   });
 
-  it("前提条件の札: 事務所の既定値どおりなら「事務所の既定値どおり」、この世帯だけの値を入れると「入力済み」、戻すとまた既定値どおり。要約は物価と運用利回り", () => {
+  it("前提条件の札: 事務所の既定値どおりなら「事務所の既定値どおり」、この世帯だけの値を入れると「入力済み」、戻すとまた既定値どおり。要約はお客さまと確かめる前提の4つ", () => {
     const wh = blankHousehold("2026-11", seq());
     const a = itemOf(wh, "assumptions");
     expect(a?.status).toBe("std");
     expect(statusText(a ?? { status: "std", estimated: 0 })).toBe("事務所の既定値どおり");
-    expect(a?.summary).toEqual({ pre: "物価 ", main: "1.0", unit: "%・運用 1.0%" });
+    expect(a?.summary).toEqual({ pre: "物価 ", main: "1.0", unit: "%・給与 1.0%・運用 1.0%・100歳まで" });
     expect(progressOf(inputItems(wh)).std).toBe(1);
     const inf = fieldOf(wh, "assumptions", "assume/inflation");
     const own = inf.set(wh, "0.02");
     expect(itemOf(own, "assumptions")?.status).toBe("done");
+    // この世帯だけ変えた値には「（この世帯だけ）」。細かい前提を変えたときは下の小さな1行に数
+    expect(itemOf(own, "assumptions")?.summary).toEqual({ pre: "物価 ", main: "2.0", unit: "%（この世帯だけ）・給与 1.0%・運用 1.0%・100歳まで" });
+    const dep = fieldOf(wh, "assumptions", "assume/depositReturn");
+    expect(itemOf(dep.set(wh, "0.005"), "assumptions")?.summary).toEqual({ pre: "物価 ", main: "1.0", unit: "%・給与 1.0%・運用 1.0%・100歳まで", note: "細かい前提: この世帯だけ変えた所 1件" });
     expect(itemOf(inf.get(own).premise!.reset(own), "assumptions")?.status).toBe("std");
     // 「この値にする」は無い（押しても変わらない）
     expect(applyStateOp(wh, inf, "confirm")).toBe(wh);
@@ -120,7 +124,7 @@ describe("前提条件の標準の値は推定の数とまとめての操作か�
   it("FP顧問料の契約があれば、前提条件の要約の下に1行（提案の側）", () => {
     const wh = open("advisoryFeeProposal");
     const note = itemOf(wh, "assumptions")?.summary?.note;
-    expect(note).toMatch(/^FP顧問料: /);
+    expect(note).toMatch(/FP顧問料: /);
     expect(note).toContain("（提案の側）");
   });
 });
