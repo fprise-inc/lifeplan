@@ -398,8 +398,9 @@ describe("既定の値の推定の印は、明示の操作をした欄では確�
     expect(p("assume/realEstate/landShare")).toBe("household");
     wh = fieldOf(wh, "assume/realEstate/landShare", "assumptions").set(wh, "0.3");
     expect(p("assume/realEstate/landShare")).toBe("office");
-    // 既定の値と同じ値は世帯に持たない（事務所の推定の値でその場の値になる）
-    expect(wh.request.input.assumptions?.realEstateValuation?.landShare).toBeUndefined();
+    // 事務所の既定値と同じ値は、事務所の既定値の印を付けて世帯に持つ（値を外すと、後で事務所の値を変えたときに黙って変わる。0218）
+    expect(wh.request.input.assumptions?.realEstateValuation?.landShare).toBe("0.3");
+    expect(wh.assumed["assume/realEstate/landShare"]).toMatch(/^事務所の既定値/);
     const inf = wh.request.input.assumptions!.inflation!.default;
     wh = fieldOf(wh, "assume/realEstate/landGrowth", "assumptions").set(wh, "0.02");
     expect(p("assume/realEstate/landGrowth")).toBe("household");

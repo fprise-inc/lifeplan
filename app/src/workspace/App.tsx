@@ -49,6 +49,7 @@ import { buildEvidence } from "./evidence.ts";
 import { explainModel } from "./explain.ts";
 import type { Level } from "./input/form.ts";
 import { blankHousehold, fromRequest, sampleRequest, withElementIds, type WorkingHousehold } from "./input/household.ts";
+import { fillLivePremises } from "./input/premiseDefaults.ts";
 import { InputView } from "./input/InputView.tsx";
 import { settleBeforeLeave, settleInput } from "./input/pendingInput.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
@@ -375,8 +376,10 @@ interface Opened {
  * （「仮」の印つき。開いた世帯でも置く。0008 の 2026-10-25 の追記）
  */
 function openedFrom(demo: DemoHousehold | null, wh0: WorkingHousehold): Opened | null {
+  // 土地の割合・建物の残りの価値の下限・売却の費用の値が無い世帯（前の版で作った世帯・見本・AI の候補から作った世帯）には、今の事務所の値を写す
+  // （計算に使う値は同じ。後で事務所の値を変えても黙って変わらないように。0218。値があれば同じもの）
   // 画面で新しく足した並びの要素に ID を振る（乱数。番号で当てないため。0035 の5）
-  const wh1 = withProvisionalHousing(wh0);
+  const wh1 = withProvisionalHousing(fillLivePremises(wh0));
   const request = withElementIds(wh1.request, true);
   const wh = request === wh1.request ? wh1 : { ...wh1, request };
   const self = roles(wh.request).find((r) => r.key === "self");
@@ -1160,7 +1163,9 @@ export function App() {
     async (r: StoredOpened, stored?: string) => {
       const st = fromBody(r.body);
       const demo = st.workspace.template !== null ? (demoHousehold(st.workspace.template) ?? null) : null;
-      const o = openedFrom(demo, st.wh);
+      // 土地の割合など3つの前提条件の値が無い世帯は、開いたときに今の事務所の値を写し、自動保存で世帯に書く（0218。計算の結果は変わらない）
+      const filled = fillLivePremises(st.wh);
+      const o = openedFrom(demo, filled);
       if (o === null) throw new Error("E_BODY_SHAPE");
       reqCache.current.clear();
       rawCache.current.clear();
@@ -1190,10 +1195,12 @@ export function App() {
       setSampleMode(viewSample ? "view" : null);
       setPresence(others && !viewSample ? r.othersOpen : null);
       pausedBody.current = others || viewSample ? (stored ?? loaded) : null;
-      autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? loaded));
+      // 写した値（0218）は、読んだ本文を保存済みとして、違いを自動保存で書く（書かないと、次に開いたときの事務所の値をまた写すことになる）
+      const wrote = stored === undefined && filled !== st.wh ? r.body : undefined;
+      autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? wrote ?? loaded));
       if (r.readOnly) setSaveState({ kind: "error", code: r.viewOnly === true ? "E_OFFICE_VIEW_ONLY" : "E_STORE_READ_ONLY" });
       await install(o, w, shownKeys, `stored:${r.id}`, keep, "前にこの世帯を開いていたときと中身が違うため、元に戻す（↶）の履歴はここから始めます");
-      if (stored !== undefined && stored !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
+      if ((stored ?? wrote) !== undefined && (stored ?? wrote) !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
     },
     [host, install],
   );
