@@ -437,6 +437,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: tax.businessTax
+    status: active
+    label: "個人事業税"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: tax.deductions
     status: active
     label: "所得控除"

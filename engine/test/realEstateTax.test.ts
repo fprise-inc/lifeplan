@@ -204,28 +204,29 @@ describe("売るときにローンを返す", () => {
 });
 
 describe("青色申告特別控除", () => {
+  // 55万円（複式簿記・紙で申告）の区分は令和8年分まで（2027年分から10万円。措置法25条の2の改正）なので、2026年分で見る
   it("事業的規模でないのに55万円・65万円を選んだら、10万円で計算して知らせる。事業的規模（10室）なら選んだ額", () => {
     const condo = account(property({ kind: "condo", rental: { monthly: box(150000) } }));
     const white = base({ accounts: [condo] });
     const blue = base({ accounts: [condo], taxReturn: { method: "blue", blueDeduction: "doubleEntry" } });
-    const reW = total(white, 2027).realEstate ?? 0;
+    const reW = total(white, 2026).realEstate ?? 0;
     expect(reW).toBeGreaterThan(100000);
-    expect(total(blue, 2027).blueDeduction).toBe(100000);
-    expect(total(blue, 2027).realEstate).toBe(reW - 100000);
-    expect(total(white, 2027).total - total(blue, 2027).total).toBe(100000);
+    expect(total(blue, 2026).blueDeduction).toBe(100000);
+    expect(total(blue, 2026).realEstate).toBe(reW - 100000);
+    expect(total(white, 2026).total - total(blue, 2026).total).toBe(100000);
     expect(has(full(blue), "N_LIMIT_APPLIED", "taxReturn.blueDeduction")).toBe(true);
     // 一棟アパート10戸（事業的規模の目安に当たる）: 55万円。個人事業税は計算しないと知らせる
     const apt = account(property({ kind: "apartment", units: 10, rental: { monthly: box(600000) } }));
     const big = base({ accounts: [apt], taxReturn: { method: "blue", blueDeduction: "doubleEntry" } });
     expect(prop(big)?.units).toEqual({ rooms: 10, houses: 0 });
-    expect(total(big, 2027).blueDeduction).toBe(550000);
+    expect(total(big, 2026).blueDeduction).toBe(550000);
     expect(has(full(big), "N_LIMIT_APPLIED", "taxReturn.blueDeduction")).toBe(false);
     expect(has(full(big), "N_NOT_SUPPORTED", "realEstate.businessTax")).toBe(true);
     // 戸建て5棟（1棟を2室として10）でも当たる
     const houses = [0, 1, 2, 3, 4].map((i) => account(property({ kind: "house", rental: { monthly: box(100000) } }), uid(`h${i}`)));
-    expect(total(base({ accounts: houses, taxReturn: { method: "blue", blueDeduction: "electronic" } }), 2027).blueDeduction).toBe(650000);
+    expect(total(base({ accounts: houses, taxReturn: { method: "blue", blueDeduction: "electronic" } }), 2026).blueDeduction).toBe(650000);
     // 省略は10万円
-    expect(total(base({ accounts: [apt], taxReturn: { method: "blue" } }), 2027).blueDeduction).toBe(100000);
+    expect(total(base({ accounts: [apt], taxReturn: { method: "blue" } }), 2026).blueDeduction).toBe(100000);
   });
 
   it("上限は不動産所得と事業所得の黒字の合計で、不動産所得から先に引く。事業所得があれば不動産所得が事業的規模でなくても55万円", () => {
@@ -233,17 +234,17 @@ describe("青色申告特別控除", () => {
     const small = account(property({ kind: "condo", rental: { monthly: box(70000) } }));
     const w = base({ accounts: [small], selfEmployed: 3000000 });
     const b = base({ accounts: [small], selfEmployed: 3000000, taxReturn: { method: "blue", blueDeduction: "doubleEntry" } });
-    const re = total(w, 2027).realEstate ?? 0;
+    const re = total(w, 2026).realEstate ?? 0;
     expect(re).toBeGreaterThan(0);
     expect(re).toBeLessThan(550000);
-    const tb = total(b, 2027);
+    const tb = total(b, 2026);
     expect(tb.blueDeduction).toBe(550000);
     expect(tb.realEstate).toBe(0);
-    expect(tb.other).toBe((total(w, 2027).other ?? 0) - (550000 - re));
+    expect(tb.other).toBe((total(w, 2026).other ?? 0) - (550000 - re));
     expect(has(full(b), "N_LIMIT_APPLIED", "taxReturn.blueDeduction")).toBe(false);
     // 不動産所得が損失なら、事業所得からだけ引く（上限は黒字の所得の合計）
     const lossy = account(property({ kind: "condo", rental: { monthly: box(20000) } }));
-    const tl = total(base({ accounts: [lossy], selfEmployed: 300000, taxReturn: { method: "blue", blueDeduction: "doubleEntry" } }), 2027);
+    const tl = total(base({ accounts: [lossy], selfEmployed: 300000, taxReturn: { method: "blue", blueDeduction: "doubleEntry" } }), 2026);
     expect(tl.blueDeduction).toBe(300000);
     expect(tl.other).toBe(0);
   });
@@ -329,16 +330,17 @@ describe("民泊・宿の所得の区分", () => {
   });
 
   it("雑所得の黒字は雑所得に入り、事業所得の黒字には青色申告特別控除（事業所得なので55万円）が引ける", () => {
+    // 55万円の区分は令和8年分まで（2027年分から10万円）なので、2026年分で見る
     const good = (business: string, taxReturn?: Obj) => base({ accounts: [account(property({ kind: "lodging", lodging: { business }, rental: { monthly: box(400000) }, expenses: { annual: box(600000) } }))], ...(taxReturn !== undefined ? { taxReturn } : {}) });
     const m = good("privateLodging");
-    const inc = prop(m)?.income.find((x) => x.year === 2027)?.income ?? 0;
+    const inc = prop(m)?.income.find((x) => x.year === 2026)?.income ?? 0;
     expect(inc).toBeGreaterThan(550000);
-    expect(total(m, 2027).miscellaneous).toBe(inc);
-    const b = total(good("inn", { method: "blue", blueDeduction: "doubleEntry" }), 2027);
+    expect(total(m, 2026).miscellaneous).toBe(inc);
+    const b = total(good("inn", { method: "blue", blueDeduction: "doubleEntry" }), 2026);
     expect(b.blueDeduction).toBe(550000);
     expect(b.other).toBe(inc - 550000);
     // 雑所得には青色申告特別控除は無い
-    expect(total(good("privateLodging", { method: "blue", blueDeduction: "doubleEntry" }), 2027).blueDeduction).toBeUndefined();
+    expect(total(good("privateLodging", { method: "blue", blueDeduction: "doubleEntry" }), 2026).blueDeduction).toBeUndefined();
   });
 });
 

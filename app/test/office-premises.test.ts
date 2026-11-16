@@ -56,11 +56,11 @@ function withHome(wh: WorkingHousehold): WorkingHousehold {
 
 afterEach(() => setOfficeNow(STANDARD_OFFICE_NOW));
 
-describe("事務所データの形（版 2。0214 の2。0215 で版 3）", () => {
+describe("事務所データの形（版 2。0214 の2。0215 で版 3、0213 の段C で版 4）", () => {
   it("版 1 の事務所データはそのまま読め、読んだら今の版（足した欄は「決めていない」）", () => {
     const v1 = { version: 1, assumptions: { inflation: "0.015", heldEstateGrowth: "0.01" }, realEstateRatio: "0.7", changedOn: "2026-10-27" };
     const r = readOfficeSettings(v1);
-    expect(r.version).toBe(3);
+    expect(r.version).toBe(4);
     expect(r.assumptions).toEqual({ inflation: "0.015", heldEstateGrowth: "0.01" });
     expect(r.realEstateValuation).toBeUndefined();
     expect(r.assetReturns).toBeUndefined();
@@ -78,7 +78,7 @@ describe("事務所データの形（版 2。0214 の2。0215 で版 3）", () =
     expect(r.assumptions).toEqual({ educationInflation: "0.02" });
     expect(r.realEstateValuation).toEqual({ usefulLife: { wood: 30 } });
     expect(r.assetReturns).toEqual({ "equity.global": "0.05" });
-    expect(readOfficeSettings(JSON.parse(JSON.stringify(OFFICE)))).toEqual({ ...OFFICE, version: 3 });
+    expect(readOfficeSettings(JSON.parse(JSON.stringify(OFFICE)))).toEqual({ ...OFFICE, version: 4 });
   });
 
   it("前提条件の id ごとに読み書きでき、決めていない（null）に戻すと欄を外す", () => {

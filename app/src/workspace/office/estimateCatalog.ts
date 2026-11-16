@@ -22,6 +22,11 @@ export interface EstimateEntry {
   unit: EstimateUnit;
   /** 段階表の段の読み方（例「世帯人員」）。定数は null */
   axis: string | null;
+  /**
+   * 段の値が「その段の年齢ちょうど」の値で、間の年齢は前後の段から直線で補う表（平均余命）。段の名前は幅でなく1つの年齢で出し、
+   * 最後の区切りなしの段（計算で読まない。最後の年齢から上は最後の年齢の値）は出さない（0111 の追記 2026-11-15）
+   */
+  points?: boolean;
   /** 公式の値（写しのいちばん新しい行。コードの中の目安は一覧の値と版） */
   official: MasterValue;
   /** 統計（マスタデータ）か、コードの中の目安（presets.ts。0111 の2回目） */
@@ -91,7 +96,7 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
     return { group: "生活費", name: `基本生活費の内訳: ${label}（月額・世帯人員別${legacy ? "。前の分け方" : ""}）`, unit: "yen", axis: "世帯人員", ...(legacy ? { legacy: true } : {}) };
   }
   if (p[0] === "care") return { group: "介護", name: CARE[p[2] ?? ""] ?? title, unit: p[2] === "months" ? "months" : "yen", axis: null };
-  if (p[0] === "lifeTable") return { group: "平均余命", name: `平均余命（${SEX[p[2] ?? ""] ?? ""}・年齢別）`, unit: "years", axis: "年齢" };
+  if (p[0] === "lifeTable") return { group: "平均余命", name: `平均余命（${SEX[p[2] ?? ""] ?? ""}・年齢別）`, unit: "years", axis: "年齢", points: true };
   if (p[0] === "housing" || p[0] === "loanRates") {
     const names: Record<string, string> = {
       "housing.statistics.mortgageRate.fixed": "住宅ローンの金利（全期間固定。新しく借りるとき・今返している分）",
@@ -227,10 +232,17 @@ export function parseNumber(unit: EstimateUnit, text: string): number | string |
   return t.replace(/^(-?)0+(\d)/, "$1$2");
 }
 
-/** 段の名前（例「2人」「6人以上」「〜24歳」「90歳〜」） */
-export function stepLabel(axis: string | null, table: readonly BracketStep[], i: number): string {
+/**
+ * 段の名前（例「2人」「6人以上」「〜24歳」「90歳〜」）。points の表（平均余命）は1つの年齢（「40歳」。最後の年齢は「105歳〜」）
+ */
+export function stepLabel(axis: string | null, table: readonly BracketStep[], i: number, points = false): string {
   const s = table[i];
   if (s === undefined) return "";
+  if (points && s.upTo !== null) {
+    const unitP = (axis ?? "").includes("年齢") ? "歳" : "";
+    const last = table.slice(i + 1).every((x) => x.upTo === null);
+    return `${String(s.upTo)}${unitP}${last ? "〜" : ""}`;
+  }
   const prev = i > 0 ? table[i - 1]?.upTo : undefined;
   const a = axis ?? "";
   const unit = a.includes("世帯人員") ? "人" : a.includes("年齢") ? "歳" : a.includes("勤続") ? "年" : a.includes("労働者") ? "人" : "";
@@ -244,17 +256,17 @@ export function stepLabel(axis: string | null, table: readonly BracketStep[], i:
 export const stepValue = (s: BracketStep | undefined): number | string | undefined => (s === undefined ? undefined : s.amount ?? s.rate);
 
 /** 値のあらまし（定数はその数、段階表は代表の段か段の数） */
-export function summaryText(e: Pick<EstimateEntry, "unit" | "axis">, v: MasterValue["value"]): string {
+export function summaryText(e: Pick<EstimateEntry, "unit" | "axis" | "points">, v: MasterValue["value"]): string {
   if (!Array.isArray(v)) return formatNumber(e.unit, v as number | string);
   const t = v as readonly BracketStep[];
   const shown = t.map((s, i) => ({ s, i })).filter(({ s }) => stepValue(s) !== undefined);
   const first = shown[0];
   if (first === undefined) return `${t.length}段の表`;
-  return `${stepLabel(e.axis, t, first.i)} ${formatNumber(e.unit, stepValue(first.s))} ほか（${t.length}段の表）`;
+  return `${stepLabel(e.axis, t, first.i, e.points)} ${formatNumber(e.unit, stepValue(first.s))} ほか（${t.length}段の表）`;
 }
 
 /** 2つの値の違いの文（「52,000円 → 60,000円」・表は変わった段「2人 208,847円 → 250,000円 ほか1段」）。同じなら null */
-export function changeText(e: Pick<EstimateEntry, "unit" | "axis">, before: MasterValue["value"], after: MasterValue["value"]): string | null {
+export function changeText(e: Pick<EstimateEntry, "unit" | "axis" | "points">, before: MasterValue["value"], after: MasterValue["value"]): string | null {
   if (JSON.stringify(before) === JSON.stringify(after)) return null;
   if (!Array.isArray(before) || !Array.isArray(after)) return `${Array.isArray(before) ? summaryText(e, before) : formatNumber(e.unit, before as number | string)} → ${Array.isArray(after) ? summaryText(e, after) : formatNumber(e.unit, after as number | string)}`;
   const b = before as readonly BracketStep[];
@@ -263,6 +275,6 @@ export function changeText(e: Pick<EstimateEntry, "unit" | "axis">, before: Mast
   const diff = a.map((s, i) => i).filter((i) => stepValue(a[i]) !== stepValue(b[i]));
   const one = diff[0];
   if (one === undefined) return null;
-  const head = `${stepLabel(e.axis, a, one)} ${formatNumber(e.unit, stepValue(b[one]))} → ${formatNumber(e.unit, stepValue(a[one]))}`;
+  const head = `${stepLabel(e.axis, a, one, e.points)} ${formatNumber(e.unit, stepValue(b[one]))} → ${formatNumber(e.unit, stepValue(a[one]))}`;
   return diff.length > 1 ? `${head} ほか${diff.length - 1}段` : head;
 }

@@ -50,6 +50,8 @@
 //     住民税の残りは亡くなった月に一括で徴収される・最後の納期が亡くなった月なので数えず、亡くなった年（1か月分）の所得の準確定申告は数えない近似
 // - 改訂9（0170 の追記）: 亡くなる人の器の物（収益不動産・貸していない不動産など）を売った後に亡くなる年は、その年の表を求め直す（前は最初の年の
 //   表のまま。売った年の翌年に亡くなる年で、相続する人が売った想定の譲渡所得の税を遺族の税に数え、その年に亡くなる想定の額より多く出た）
+// - 改訂11（0170 の追記 2026-11-15）: 金融資産（assets）から、亡くなる人の確定拠出年金・小規模企業共済の残高を除く（死亡一時金・共済金として
+//   準備できる資金に数えるので。前は両方に入り、金融資産を含む額で2回引いていた）
 import {
   addMonths,
   childrenOf,
@@ -84,6 +86,8 @@ import {
 const LIFE = "lifeTable.lifeExpectancy";
 const START = "pension.normalStartAge";
 const NOT_FINANCIAL: ReadonlySet<string> = new Set(["realEstate", "insurance"]);
+/** 亡くなる人の名義なら死亡一時金・共済金として準備できる資金に数える器（金融資産からは除く。改訂11） */
+const DEATH_LUMP_KINDS: ReadonlySet<string> = new Set(["ideco", "corporateDc", "smallBusinessMutualAid"]);
 
 type Breakdown = {
   expenses: { living: Yen; housing: Yen; education: Yen; premiums: Yen; care: Yen; taxSi: Yen; other: Yen };
@@ -171,7 +175,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
   id: "protection.need",
   title: "必要保障額の推移（積み上げ方式・逆算方式）",
   contract: "1.2",
-  revision: 10,
+  revision: 11,
   requires: {
     "plan.cashflow": ">=1 <2",
     "expense.car": ">=1 <2",
@@ -296,9 +300,18 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
       plainTaxes.set(f.member, list);
     }
     const financial = new Map(annual.filter((a) => a.row === "cf.balance.financial").map((a) => [a.year, a.amount]));
+    const accountInputs = ctx.list<Pick<AccountInput, "kind" | "owner" | "marketValue">>("account");
     let initial = 0;
-    for (const a of ctx.list<Pick<AccountInput, "kind" | "marketValue">>("account")) if (!NOT_FINANCIAL.has(a.kind)) initial += a.marketValue.value ?? 0;
-    const assetsAt = (y: number): number => (y > baseYear ? (financial.get(y - 1) ?? 0) : initial);
+    for (const a of accountInputs) if (!NOT_FINANCIAL.has(a.kind)) initial += a.marketValue.value ?? 0;
+    // 金融資産（改訂11）: 亡くなる人の確定拠出年金（iDeCo・企業型DC）・小規模企業共済の残高は、死亡一時金・共済金として準備できる資金（一時の分）に
+    // 数えるので、金融資産から除く（前は両方に入り、金融資産を含む額で2回引いていた）。計算基準年は入力の時価から亡くなる人のその器を除き、
+    // 後の年は前の年末の金融資産（器の年末の残高を含む）から、死亡一時金・共済金として数えた前の年末の残高を引く
+    const assetsAt = (y: number, X: string, lumps: number): number => {
+      if (y > baseYear) return Math.max(0, (financial.get(y - 1) ?? 0) - lumps);
+      let own = 0;
+      for (const a of accountInputs) if (DEATH_LUMP_KINDS.has(a.kind) && a.owner === X) own += a.marketValue.value ?? 0;
+      return Math.max(0, initial - own);
+    };
 
     // 平均余命（簡易生命表の主な年齢の値を補間。性別ごと）
     // 事務所の既定値で「推定で埋めない」にしたとき（0111 の2回目）は、平均余命の目安を引かない（期間は90歳まで。知らせ N_INPUT_REQUIRED）
@@ -503,7 +516,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
         const funeral = req.survivor?.funeral ?? 0;
         const reserve = ctx.money.mulRatio(reserveMonthly, req.survivor?.reserveMonths ?? 0, 1, "conv.exact");
         const lumpCost = funeral + reserve;
-        const assets = assetsAt(y);
+        const assets = assetsAt(y, X, dcLump + mutualAidLump);
         let need: number;
         let needWithAssets: number;
         if (method === "accumulation") {

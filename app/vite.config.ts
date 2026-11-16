@@ -9,6 +9,7 @@ import { defineConfig, type Plugin } from "vite";
 import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
 import { devCustom } from "./scripts/devCustom.ts";
+import { PROPOSABLE_DISPLAY_IDS } from "./src/connector/displayCatalog.ts";
 import { handleApi } from "../hearing/relay/handler.ts";
 import { memoryStore } from "../hearing/relay/store.ts";
 import { API_PREFIX as HEARING_API } from "../hearing/src/web/protocol.ts";
@@ -715,7 +716,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  * `/__dev/ai/simulate?kind=household` で、AI から新しい世帯の候補（接続口の見本 crates/lifeplan/tests/fixtures/propose-household/proposal.json に、
  * 番号らしい文字を1つ混ぜた物）が届いたことにする。`/__dev/ai/proposeHousehold`（POST {proposal}）で、任意の候補が届いたことにする
  * `/__dev/ai/simulate?kind=display` で、AI から表示の設定の案（見本: 対策に NISA を足す・万一のときのタブを収入が減るの場面で開く・基本生活費の
- * 内訳をまとめる）が届いたことにする。`/__dev/ai/proposeDisplay`（POST {changes}）で、任意の案が届いたことにする（0215）
+ * 内訳をまとめる・「○歳時点」の年齢を85歳に・お金の3つの分け方の何か月分を3か月に）が届いたことにする。`/__dev/ai/proposeDisplay`（POST {changes}）で、任意の案が届いたことにする（0215）
  */
 const devAi = {
   enabled: false,
@@ -729,8 +730,8 @@ const devAi = {
   displays: [] as { candidateId: string; receivedAt: string; connector: string | null; changes: { id: string; value: unknown; note?: string }[] }[],
 };
 
-/** 案を出せる表示の設定（本体の ai_share::display::PROPOSABLE_IDS と同じ） */
-const DEV_DISPLAY_IDS = ["input.order", "input.items", "input.living", "result.levers", "contingency.premises", "contingency.scenes", "contingency.openScene"];
+/** 案を出せる表示の設定（本体の ai_share::display_proposals::PROPOSABLE_IDS と同じ。0213 の段C で結果のタブ・資産と負債のタブの11件を足した） */
+const DEV_DISPLAY_IDS: readonly string[] = PROPOSABLE_DISPLAY_IDS;
 
 /** 開発用のサーバーの、表示の設定の案（本体の registry の display_candidates と ai_display_* の代わり。形の外側だけを見るのも同じ） */
 function devDisplayOp(op: string, a: Record<string, unknown>, now: string): { ok: true; value?: unknown } | { ok: false; code: string } {
@@ -912,6 +913,8 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
             changes: [
               { id: "result.levers", value: ["lever:retireAge", "lever:pensionAge", "lever:nisaMonthly", "lever:livingMonthly", "spouse:work"], note: "NISAの相談が多いので、最初から積立額を動かせるようにします" },
               { id: "contingency.openScene", value: "income", note: "収入が減る場面から話すことが多いため" },
+              { id: "result.atAge", value: 85, note: "85歳時点で話すことが多いため" },
+              { id: "balance.moneyThree.months", value: 3, note: "使うお金は3か月分で説明しています" },
               { id: "input.living", value: { rows: [{ kind: "one", category: "food" }, { kind: "group", label: "住まいの光熱・通信", categories: ["utilities", "communication"] }, { kind: "one", category: "transit" }, { kind: "one", category: "furniture" }, { kind: "one", category: "clothing" }, { kind: "one", category: "health" }, { kind: "one", category: "recreation" }, { kind: "one", category: "pocketAndSocial" }, { kind: "one", category: "other" }] }, note: "光熱費と通信費をまとめて聞いています" },
             ],
           },

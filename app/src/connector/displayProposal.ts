@@ -1,4 +1,4 @@
-// 表示の設定の案（AI接続口の propose_display_settings。0215）: AI が出した、事務所の既定値の見せ方だけの設定7つの案の値を、表示の設定の一覧
+// 表示の設定の案（AI接続口の propose_display_settings。0215・0213 の段C）: AI が出した、事務所の既定値の見せ方だけの設定18件の案の値を、表示の設定の一覧
 // （displayCatalog.ts）の選べる値・値の形で確かめ、get_display_settings の今の値（current.office.value）と同じ形にそろえる。
 // - 接続口（plan.js の displayCheck。案をアプリに出す前）と、アプリの承認の画面（workspace/office/displayProposals.ts。反映する前）が同じ関数を使う
 // - 知らない id・案を出せない設定（世帯ごと・読むだけ）・選べない値・形の違う値は、理由と近い候補を添えて断る（接続口の「知らない引数を断る」
@@ -7,7 +7,8 @@
 import { ALWAYS_SHOWN, readItemChoice } from "../workspace/input/itemChoice.ts";
 import { STAGE_ORDER } from "../workspace/input/stageOrder.ts";
 import { LIVING_LABEL_MAX, LIVING_PARTS_MAX, LIVING_PARTS_MIN, readLivingLayout, STANDARD_LIVING_LAYOUT, STANDARD_LIVING_NAMES } from "../workspace/office/livingLayout.ts";
-import { buildDisplayCatalog, PROPOSABLE_DISPLAY_IDS, type DisplayCatalog, type DisplaySetting, type ProposableDisplayId } from "./displayCatalog.ts";
+import { readBsGuide } from "../workspace/balanceTab.ts";
+import { buildDisplayCatalog, GUIDE_BASIS_CHOICES, PROPOSABLE_DISPLAY_IDS, type DisplayCatalog, type DisplaySetting, type ProposableDisplayId } from "./displayCatalog.ts";
 
 /** 1回の案で出せる設定の数（案を出せる設定の数と同じ。同じ設定は1回だけ） */
 export const MAX_DISPLAY_CHANGES = PROPOSABLE_DISPLAY_IDS.length;
@@ -215,6 +216,54 @@ function checkLiving(s: DisplaySetting, v: unknown): DisplayValueCheck {
   return { ok: true, value: readLivingLayout(v) ?? STANDARD_LIVING_LAYOUT };
 }
 
+/** 出す・出さない（boolean）: true か false だけ（文字の "true" などは受けない） */
+function checkBoolean(s: DisplaySetting, v: unknown): DisplayValueCheck {
+  if (typeof v !== "boolean") return { ok: false, message: `${show(v)}は選べません。true（${choiceLabel(s, true)}）か false（${choiceLabel(s, false)}）で書いてください` };
+  return { ok: true, value: v };
+}
+
+/** 整数（integer）: 選べる値があればその中から（「○歳時点」の年齢）、無ければ min〜max の整数 */
+function checkInteger(s: DisplaySetting, v: unknown): DisplayValueCheck {
+  if (typeof v !== "number" || !Number.isInteger(v)) return { ok: false, message: `${show(v)}は整数ではありません（数で書いてください。文字の "${String(v)}" は受けません）` };
+  if (s.choices !== undefined) {
+    if (!s.choices.some((c) => c.value === v)) return { ok: false, message: `${v}は選べる値にありません。選べる値: ${s.choices.map((c) => String(c.value)).join("・")}` };
+    return { ok: true, value: v };
+  }
+  if ((s.min !== undefined && v < s.min) || (s.max !== undefined && v > s.max)) return { ok: false, message: `${v}は範囲の外です（${s.min ?? ""}〜${s.max ?? ""}の整数）` };
+  return { ok: true, value: v };
+}
+
+/** 家計の体力の目安の幅（guide）: { basis?, months: [下限, 上限], risk: [下限, 上限], debt }（get_display_settings の shape） */
+function checkGuide(s: DisplaySetting, v: unknown): DisplayValueCheck {
+  if (!isObj(v)) return { ok: false, message: "値は { months: [下限, 上限], risk: [下限, 上限], debt: 上限, basis?: \"living\" | \"livingLoan\" } の形で書いてください" };
+  const keys = unknownKeys(v, ["basis", "months", "risk", "debt"], "値");
+  if (keys !== null) return { ok: false, message: keys };
+  const shape = (s.shape ?? {}) as Record<string, { label?: string; min?: number; max?: number }>;
+  const pair = (k: "months" | "risk"): string | null => {
+    const x = v[k];
+    const lo = shape[k]?.min ?? 0;
+    const hi = shape[k]?.max ?? 100;
+    const label = shape[k]?.label ?? k;
+    if (!Array.isArray(x) || x.length !== 2 || !x.every((n) => typeof n === "number" && Number.isFinite(n))) return `${k}（${label}）は [下限, 上限] の2つの数で書いてください`;
+    const [a, b] = x as [number, number];
+    if (a < lo || b > hi) return `${k}（${label}）の${show(x)}は範囲の外です（${lo}〜${hi}）`;
+    if (!(b > a)) return `${k}（${label}）の上限は下限より大きくしてください（${show(x)}）`;
+    return null;
+  };
+  const p = pair("months") ?? pair("risk");
+  if (p !== null) return { ok: false, message: p };
+  const dmin = shape.debt?.min ?? 1;
+  const dmax = shape.debt?.max ?? 100;
+  if (typeof v.debt !== "number" || !Number.isFinite(v.debt) || v.debt < dmin || v.debt > dmax) return { ok: false, message: `debt（${shape.debt?.label ?? "負債の重さ"}）は${dmin}〜${dmax}の数で書いてください（${show(v.debt)}）` };
+  const bases = GUIDE_BASIS_CHOICES.map((c) => c.value as string);
+  if (v.basis !== undefined && v.basis !== null && (typeof v.basis !== "string" || !bases.includes(v.basis))) {
+    const near = typeof v.basis === "string" ? closestOf(v.basis, bases) : null;
+    return { ok: false, message: `basis ${show(v.basis)}は選べません${near !== null ? `（${near} のことですか）` : ""}。選べる値: ${GUIDE_BASIS_CHOICES.map((c) => `${c.value}「${c.label}」`).join("・")}（書かなければ世帯から決める）` };
+  }
+  const g = readBsGuide({ months: v.months, risk: v.risk, debt: v.debt, ...(typeof v.basis === "string" ? { basis: v.basis } : {}) });
+  return { ok: true, value: g };
+}
+
 /** 案を出せる設定の1つの値を確かめ、今の値と同じ形にそろえる（理由は設定の id と名前を付けずに返す） */
 export function checkDisplayValue(id: ProposableDisplayId, v: unknown): DisplayValueCheck {
   const s = settingOf(id);
@@ -230,6 +279,12 @@ export function checkDisplayValue(id: ProposableDisplayId, v: unknown): DisplayV
       return checkItemChoice(s, v);
     case "livingLayout":
       return checkLiving(s, v);
+    case "boolean":
+      return checkBoolean(s, v);
+    case "integer":
+      return checkInteger(s, v);
+    case "guide":
+      return checkGuide(s, v);
     default:
       return { ok: false, message: "この形の値は、この道具では受けません" };
   }
@@ -238,7 +293,7 @@ export function checkDisplayValue(id: ProposableDisplayId, v: unknown): DisplayV
 /** 案を出せない設定の理由 */
 function notProposable(s: DisplaySetting): string {
   if (s.readOnly === true) return "読むだけの設定です（アプリの画面で FP が変えます）";
-  if (s.scope === "household") return `世帯ごとの設定です。今は案を出せず、FP がアプリの「${s.change.household ?? "その画面"}」で変えます`;
+  if (s.scope === "household") return `世帯だけの設定です（事務所の既定にはしません）。今は案を出せず、FP がアプリの「${s.change.household ?? "その画面"}」で変えます`;
   return "この道具では案を出せません";
 }
 
