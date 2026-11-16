@@ -276,6 +276,105 @@ describe("お客さまと確かめる前提とたたんだ1行（0214 の4・そ
   });
 });
 
+describe("表を何歳まで見るかの見せ方をほかの3つにそろえる（0214 の追記 2026-11-16 の2）", () => {
+  const END = "assume/endYear";
+  const summaryOf = (wh: WorkingHousehold) => {
+    const s = inputItems(wh).find((i) => i.id === "assumptions")?.summary;
+    return s === null || s === undefined ? "" : `${s.pre ?? ""}${s.main}${s.unit ?? ""}`;
+  };
+
+  it("既定の年齢のまま: 「事務所の既定値」。推定の印・「この値にする」を出さず、推定の数・まとめての「この値にする」・提案書の推定のカードに入れない", () => {
+    const wh = blankHousehold("2026-11", ids());
+    expect(fieldStatus(fieldOf(wh, END), wh)).toMatchObject({ status: "confirmed", basis: null, premise: { state: "office", decided: false } });
+    for (const level of ["simple", "detail"] as const) {
+      const html = panel(wh, { level });
+      const at = html.indexOf(`data-field="${END}"`);
+      const field = html.slice(at, html.indexOf("data-field=", at + 20));
+      expect(field, level).toContain('data-premise="office"');
+      expect(field, level).not.toContain("data-fill-estimate");
+      expect(field, level).not.toContain("data-premise-reset");
+      expect(html, level).not.toContain("推定のままの値を「この値にする」");
+    }
+    // 確かめの一覧: 推定の行にせず、いちばん下の折りたたみ（事務所の既定値どおり）に操作なしで
+    const row = checkList(wh).find((r) => r.fieldKey === END);
+    expect(row).toMatchObject({ kind: "premise", detail: "事務所の既定値（提供元の既定の値のまま）", actions: [] });
+    expect(checkList(wh).some((r) => r.kind === "estimated" && r.card === "assumptions")).toBe(false);
+    // 前提と推定の一覧: ほかの3つと同じ状態と出典。事務所の既定値どおりなので「お客さまと確かめた」の印は出さない
+    expect(assumptionRows(wh).find((r) => r.id === `field:${END}`)).toMatchObject({ state: "事務所の既定値", agreeable: false });
+    expect(inputItems(wh).find((i) => i.id === "assumptions")?.status).toBe("std");
+    expect(summaryOf(wh)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・100歳まで");
+  });
+
+  it("既存の世帯（既定の年齢のまま保存したもの）を開いても同じ見た目。計算の要求は変えない", () => {
+    for (const id of MODELS) {
+      const raw = fromRequest(modelHousehold(id), {});
+      // 見本は開くときに表の最後の年を既定にそろえる（sampleRequest。保存した世帯と同じ形）
+      const choice = fieldOf(raw, END);
+      const wh = choice.get(raw).value === "default" ? raw : choice.set(raw, "default");
+      const before = JSON.stringify(wh.request);
+      expect(fieldStatus(fieldOf(wh, END), wh).premise?.state, id).toBe("office");
+      expect(checkList(wh).some((r) => r.fieldKey === END && r.kind === "estimated"), id).toBe(false);
+      expect(JSON.stringify(wh.request), id).toBe(before);
+    }
+  });
+
+  it("人と年齢で選んだ・年で決めた: 「この世帯だけ」と「事務所の既定値に戻す」。戻すと既定の年（決め方を外す）", () => {
+    const wh = blankHousehold("2026-11", ids());
+    const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
+    const std = wh.request.input.endYear;
+    const byMember = fieldOf(wh, END).set(wh, `m:${self.id}:95`);
+    const byYear = fieldOf(fieldOf(wh, END).set(wh, "year"), "assume/endYear/year").set(fieldOf(wh, END).set(wh, "year"), 2080);
+    for (const [name, w, was] of [
+      ["人と年齢", byMember, `ご本人が95歳まで（${String(byMember.request.input.endYear)}年）`],
+      ["年", byYear, "2080年まで"],
+    ] as const) {
+      const mark = fieldOf(w, END).get(w).premise!;
+      expect(mark, name).toMatchObject({ state: "household", wasText: was, officeText: `ご本人・配偶者のうち若い方が100歳になる年（${String(std)}年）` });
+      expect(fieldStatus(fieldOf(w, END), w).status, name).toBe("confirmed");
+      const html = panel(w, { level: "simple" });
+      expect(html, name).toContain('data-premise="household"');
+      expect(html, name).toContain("事務所の既定値に戻す");
+      expect(inputItems(w).find((i) => i.id === "assumptions")?.status, name).not.toBe("std");
+      const back = mark.reset(w);
+      expect(back.request.input.endYear, name).toBe(std);
+      expect(back.endYearChoice, name).toBeUndefined();
+      expect(fieldStatus(fieldOf(back, END), back).premise?.state, name).toBe("office");
+      expect(assumptionRows(w).find((r) => r.id === `field:${END}`), name).toMatchObject({ state: "この世帯だけ", agreeable: true });
+    }
+    // 入力のホームの要約は今までどおり
+    expect(summaryOf(byMember)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・95歳まで（この世帯だけ）");
+    expect(summaryOf(byYear)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・2080年まで（この世帯だけ）");
+  });
+
+  it("事務所の既定値の年齢を決めた・後で変えた: 新しい世帯は「事務所の既定値」（決めた値）。前の年齢の年の世帯は「この世帯だけ」で、戻すと今の年齢の年", () => {
+    const s95: OfficeSettings = { ...DEFAULT_OFFICE_SETTINGS, endAge: 95, changedOn: "2026-11-14" };
+    publishOfficeSettings(s95);
+    const fresh = applyOfficeDefaults(blankHousehold("2026-11", ids()), s95);
+    expect(premiseOf(fresh, END)).toMatchObject({ state: "office", decided: true });
+    expect(summaryOf(fresh)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・95歳まで");
+    expect(checkList(fresh).find((r) => r.fieldKey === END)).toMatchObject({ kind: "premise", detail: "事務所の既定値" });
+    // 100歳の年のまま作った世帯（事務所の年齢を後で95歳にした）: 値は変えず、人と年齢（若い方の100歳）で選んだ年と同じに見せる
+    setOfficeNow(STANDARD_OFFICE_NOW);
+    const old = blankHousehold("2026-11", ids());
+    const end100 = old.request.input.endYear;
+    publishOfficeSettings(s95);
+    expect(old.request.input.endYear).toBe(end100);
+    const mark = premiseOf(old, END)!;
+    expect(mark.state).toBe("household");
+    expect(summaryOf(old)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・100歳まで（この世帯だけ）");
+    expect(mark.reset(old).request.input.endYear).toBe(fresh.request.input.endYear);
+    expect(checkList(old).some((r) => r.fieldKey === END && (r.kind === "estimated" || r.kind === "notice"))).toBe(false);
+  });
+
+  it("確かめの一覧・検索から表を何歳まで見るかの欄へ来たとき: たたんだまま（お客さまと確かめる前提の区画）", () => {
+    const wh = blankHousehold("2026-11", ids());
+    expect(inPremiseFold(END)).toBe(false);
+    const html = panel(wh, { focusKey: END });
+    expect(html).toContain('data-premise-fold="closed"');
+    expect(html).toContain(`data-field="${END}"`);
+  });
+});
+
 describe("事務所の既定値を後で変えたとき（0214 の5）", () => {
   it("写した値は変えず、確かめの一覧に「事務所の既定値が変わりました（前→今）」。1押しで当てる（今回足した欄も）", () => {
     publishOfficeSettings(OFFICE);

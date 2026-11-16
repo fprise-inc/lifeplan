@@ -66,7 +66,7 @@ export interface FieldState {
 
 /** 前提条件の欄の、事務所の既定値との関係（0214） */
 export interface PremiseMark {
-  /** 前提条件の id（premiseDefaults.ts の PREMISE_DEFS） */
+  /** 前提条件の id（premiseDefaults.ts の PREMISE_DEFS。表を何歳まで見るかは stages/assumptions.ts の END_YEAR_PREMISE） */
   id: string;
   /** office＝事務所の既定値と同じ・household＝この世帯だけ・officeChanged＝事務所の既定値を使っていて、その後に事務所の既定値が変わった */
   state: "office" | "household" | "officeChanged";

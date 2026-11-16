@@ -42,8 +42,8 @@ describe("新しい世帯の表の最後の年", () => {
     wh = fieldOf(wh, "family", `family/${newest(wh).id}/birth`).set(wh, "2026-08");
     expect(wh.request.input.endYear).toBe(2097);
     expect(standardEndYear(wh.request.input.household)).toBe(2097);
-    // 推定（標準の値）の印のまま
-    expect(fieldStatus(fieldOf(wh, "assumptions", "assume/endYear"), wh).status).toBe("estimated");
+    // 既定のまま（「事務所の既定値」。推定にしない。0214 の追記 2026-11-16 の2）
+    expect(fieldStatus(fieldOf(wh, "assumptions", "assume/endYear"), wh).premise?.state).toBe("office");
   });
 
   it("単身なら本人が100歳になる年", () => {
@@ -95,7 +95,7 @@ describe("空の世帯から 本人30歳・配偶者29歳・第1子15歳・第2�
         }
         expect(wh.request.input.household.members.map((m) => m.birth.birthYearMonth)).toEqual(["1996-05", "1997-01", "2011-04", "2013-06"]);
         expect(wh.request.input.endYear).toBe(2097);
-        expect(fieldStatus(fieldOf(wh, "assumptions", "assume/endYear"), wh).status).toBe("estimated");
+        expect(fieldStatus(fieldOf(wh, "assumptions", "assume/endYear"), wh).premise?.state).toBe("office");
         expect(endYearOff(wh)).toBeNull();
       });
 
@@ -130,7 +130,9 @@ describe("空の世帯から 本人30歳・配偶者29歳・第1子15歳・第2�
     const byYear = fieldOf(wh, "assumptions", "assume/endYear").set(wh, "year");
     const typed = fieldOf(byYear, "assumptions", "assume/endYear/year").set(byYear, 2090);
     expect(typeBirth(typed, idsOf(typed)[0]!, "1990-05").request.input.endYear).toBe(2090);
-    const pinned = applyStateOp(wh, fieldOf(wh, "assumptions", "assume/endYear"), "confirm");
+    // 確定の行のある年（前の版の「この値にする」で確定にした世帯。今の欄には「この値にする」が無い。0214 の追記 2026-11-16 の2）
+    const pinned = mutate(wh, (_h, req) => void ((req.input as { valueStates?: Record<string, unknown> }).valueStates = { ...(req.input as { valueStates?: Record<string, unknown> }).valueStates, "plan.endYear": { state: "confirmed", origin: { kind: "manual" } } }));
+    expect(fieldStatus(fieldOf(pinned, "assumptions", "assume/endYear"), pinned).premise?.state).toBe("household");
     expect(typeBirth(pinned, idsOf(pinned)[0]!, "1990-05").request.input.endYear).toBe(2096);
   });
 });
@@ -178,7 +180,7 @@ describe("アプリの見本の世帯を開いたとき", () => {
       expect(opened.input.endYear, d.id).toBe(standardEndYear(raw.input.household));
       expect(raw.input.endYear, d.id).toBe(before);
       const wh = fromRequest(opened);
-      expect(fieldStatus(fieldOf(wh, "assumptions", "assume/endYear"), wh).status, d.id).toBe("estimated");
+      expect(fieldStatus(fieldOf(wh, "assumptions", "assume/endYear"), wh).premise?.state, d.id).toBe("office");
       expect(endYearNotice(wh), d.id).toBeNull();
     }
   });

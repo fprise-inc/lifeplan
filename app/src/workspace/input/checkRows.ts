@@ -393,7 +393,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
         // 値を出さない推定（決まりで決まる推定で、「この値にする」もできない欄）は出さない
         if (value === null && !confirm) continue;
         const actions: CheckAction[] = confirm ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [];
-        // 前提条件の推定のまま（表の最後の年・資産配分の期待リターンの目安など）: 推定の数・まとめての操作に入れず、いちばん下の折りたたみに（耐用年数は、その構造の建物がある世帯だけ）
+        // 前提条件の推定のまま（資産配分の期待リターンの目安など。表を何歳まで見るかは事務所の既定値の見せ方。0214 の追記 2026-11-16 の2）: 推定の数・まとめての操作に入れず、いちばん下の折りたたみに（耐用年数は、その構造の建物がある世帯だけ）
         if (item.id === "assumptions" && isPremiseField(f)) {
           const life = lifeStructure(f);
           if (life === null || structures().has(life)) rows.push({ ...base, id: `field:${f.key}`, kind: "premise", detail: s.basis, impact: 0, actions });

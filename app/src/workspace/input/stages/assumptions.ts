@@ -5,7 +5,8 @@
 //   「この世帯だけ」と見せる（推定にしない。0214。input/premiseDefaults.ts）。空欄にすると事務所の既定値に戻る
 // - 高すぎる値の注意の線（運用利回りが年5%を超える・物価が0%未満か4%を超える・賃金が物価を2ポイント超えて上回る・資産の種類ごとの
 //   利回りが年8%を超える）は、欄の知らせと確かめの一覧の注意に出す（値は変えない）
-// - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳〔事務所の既定値で選んだ年齢〕になる年）と同じなら推定。確定にしたら家族の生年月を直しても追いかけない。
+// - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳〔事務所の既定値で選んだ年齢〕になる年）と同じなら「事務所の既定値」（推定にしない。
+//   0214 の追記 2026-11-16 の2）、人と年齢で選んだ・年で決めたなら「この世帯だけ」。年で決めたら家族の生年月を直しても追いかけない。
 //   古い世帯で若い方が表の最後の年に105歳を超える（か85歳に届かない）ときは、確かめの注意に「標準にする」を出す（押したときだけ直す）
 // - 表の最後の年はどのプランにも共通（世帯で1つ。プランの差分にしない。0043 の追記 2026-11-05）。何歳まで見るかは、標準の1つの欄
 //   「表を何歳まで見るか」で「ご本人が95歳まで」「配偶者が100歳まで（既定）」「年で決める…」のように選ぶ（0070 の追記 2026-11-13）
@@ -17,7 +18,7 @@ import type { Household, Member, ReturnShift, YearSeries } from "../../../engine
 import { ageInYear } from "../../roles.ts";
 import { parseYm } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
-import { field, getPath, plain, sameVal, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Option, type SectionDef, type StageDef, type Val } from "../form.ts";
+import { field, getPath, plain, sameVal, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Option, type PremiseMark, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { DEFAULT_ASSUMPTIONS, defaultEndAge, END_AGES, endYearRuleOf, firstTableYear, memberEndYear, MIN_TABLE_YEARS, mutate, STANDARD_END_AGE, standardEndYear, withEndYearChoice, type EndYearRule, type WorkingHousehold } from "../household.ts";
 import { ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import { putRow } from "../rows.ts";
@@ -602,11 +603,25 @@ export function endYearToStandard(wh: WorkingHousehold): WorkingHousehold {
 /** プランを直している間に表の最後の年の欄の下に出す一言（どのプランにも共通。0043 の追記 2026-11-05） */
 export const END_YEAR_SHARED = "どのプランにも共通です（変えると現状と全部のプランが変わります）";
 
-/** 既定の年の根拠の文（提供元の100歳か、事務所の既定値の年齢） */
-const defaultEndText = (): string => {
+/**
+ * 表を何歳まで見るかの見せ方（ほかのお客さまと確かめる前提と同じ「事務所の既定値」「この世帯だけ」と「事務所の既定値に戻す」。0214 の追記 2026-11-16 の2）。
+ * 既定（若い方が既定の年齢〔100歳か事務所の既定値の年齢〕になる年）なら事務所の既定値、人と年齢で選んだ・年で決めたならこの世帯だけ。
+ * 推定にしない（推定の数・「この値にする」に入れない）。事務所の年齢を後で変えた世帯は、前の年齢の年が人と年齢で選んだ年と見分けられないので、
+ * 「既定値が変わりました」でなく「この世帯だけ」と読む（0073 の追記 2026-11-05 の、表の最後の年には事務所の新しい値の知らせを出さない、のまま）
+ */
+function endYearMark(wh: WorkingHousehold, rule: EndYearRule): PremiseMark {
   const a = defaultEndAge();
-  return a === STANDARD_END_AGE ? `既定の値（ご本人・配偶者のうち若い方が${a}歳になる年）` : `事務所の既定値（ご本人・配偶者のうち若い方が${a}歳になる年）`;
-};
+  const std = standardEndYear(wh.request.input.household, wh.request.input.baseMonth);
+  const officeText = `ご本人・配偶者のうち若い方が${String(a)}歳になる年${Number.isFinite(std) ? `（${String(std)}年）` : ""}`;
+  const decided = a !== STANDARD_END_AGE;
+  if (rule.kind === "default") return { id: END_YEAR_PREMISE, state: "office", officeText, decided, reset: endYearToStandard };
+  const v = wh.request.input.endYear;
+  const wasText = rule.kind === "member" ? `${memberLabel(wh, rule.member)}が${String(rule.age)}歳まで（${String(v)}年）` : `${String(v)}年まで`;
+  return { id: END_YEAR_PREMISE, state: "household", officeText, wasText, decided, reset: endYearToStandard };
+}
+
+/** 表を何歳まで見るかの見せ方の id（事務所の既定値の欄の表 PREMISE_DEFS には無い。事務所データの置き場所は defaults.endAge） */
+export const END_YEAR_PREMISE = "endAge";
 
 /** 選び方の値: 既定・人と年齢（「m:<構成員の ID>:<年齢>」）・年で決める */
 const DEFAULT_VALUE = "default";
@@ -673,7 +688,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
       .join("・");
   // 何歳まで見るか（0070 の追記 2026-11-05・2026-11-13）: 前は「若い方の年齢」の選び方・年の欄・人ごとの年齢の欄の4つで同じ値を入れていたのを、
   // 人と年齢で選ぶ1つの欄にした。選んだ人と年齢は世帯に持ち（endYearChoice）、その人の生年月を直しても同じ年齢のまま付いていく（followStandards）。
-  // 既定は持たない（推定。家族を直すと若い方の既定の年齢の年に付いていく）。「年で決める…」で入れた年は付いていかない
+  // 既定は持たない（「事務所の既定値」。家族を直すと若い方の既定の年齢の年に付いていく）。「年で決める…」で入れた年は付いていかない
   const choice = field({
     key: "assume/endYear",
     item: "plan.endYear",
@@ -694,7 +709,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
         value: ruleValue(w, rule),
         hint: `${v}年まで${ages !== "" ? `（${ages}の年）` : ""}`,
         talk: endYearTalk(w),
-        ...(rule.kind === "default" ? { estimated: defaultEndText() } : {}),
+        premise: endYearMark(w, rule),
         ...(notice !== null
           ? {
               warn: notice,
