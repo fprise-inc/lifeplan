@@ -3,7 +3,9 @@
 // ポートは空いている物を OS に選ばせる（開発中のアプリのポート 1420 は使わない）
 // 待ち方（0132 の追記 2026-11-07）: 決まった時間を延ばすのでなく、物が出たことを待つ。ブラウザは DevTools の口が開いて答えるまで待ち、
 // 起動に失敗したら1回だけ起こし直す（scripts/headless.ts）。開発用のサーバーは入口の読み込みが落ち着くまで待ってから画面を開き、
-// 画面が出ない・読み込みが壊れた（依存のまとめ直しで古い部品を読んだ）ときは1回だけ読み直す。押す物・欄は、出るまで少し待って探し直す
+// 画面が出ない・読み込みが壊れた（依存のまとめ直しで古い部品を読んだ）ときは1回だけ読み直す。押す物・欄は、出るまで少し待って探し直す。
+// 押す・打つの後は、描画を待ってスクロールが止まるまで待つ（「＋」で足した物へのなめらかなスクロールの途中で押すと、押す所がずれる）。
+// 打つときは、欄に選択が来たこと・打った文字が欄に入ったことを確かめてから Tab で離れる
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
@@ -179,7 +181,9 @@ export class Page {
     await this.until("!document.body.innerText.includes('計算しています…')", "計算が終わる", 5_000).catch(async () => {
       this.stuck.push(`${what}: ${await this.eval<string>(`const el = [...document.querySelectorAll("body *")].filter((e) => w.vis(e) && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.includes("計算しています…"))).at(-1); return el ? (el.className + " " + w.txt(el.parentElement ?? el).slice(0, 80)) : ""`).catch(() => "")}`);
     });
-    await sleep(150);
+    // 「＋」で足した物へのスクロール（なめらか）と選択の移しは、押した後の次の描画で走る（presentation/revealAdded.ts）。重い実行機では
+    // 決まった時間の後にずれ込み、次に押す・打つ所がずれたり、打つ欄から選択が移ったりする。描画を待ってスクロールが止まるのを確かめる
+    await Promise.all([sleep(150), this.eval<boolean>("return w.quiet(3000)").catch(() => false)]);
     this.waits.push({ what, ms: Date.now() - t0 });
   }
 
@@ -214,15 +218,33 @@ export class Page {
 
   /** 欄（名前で探す）を押して中を全部選び、文字を打って Tab で次へ（空の文字なら Backspace で消す） */
   async type(label: string, text: string, o: { nth?: number; within?: string } = {}): Promise<void> {
-    const pt = await this.locate(`return w.field(${JSON.stringify(label)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)})`);
-    if (typeof pt === "string") throw new Error(pt);
-    await this.enter(pt, label);
-    // 人と同じく、中を全部選んでそのまま打つ（選んだ文字が打った文字に置き換わる。途中で空にしない）
-    await this.key("a", "KeyA", 65, ["selectAll"]);
-    if (text !== "") await this.cdp.send("Input.insertText", { text }, this.session);
-    else await this.key("Backspace", "Backspace", 8);
-    await this.key("Tab", "Tab", 9);
-    await this.settle(`打つ ${label}`);
+    // 押した欄に選択が来たこと・打った文字がその欄に入ったことを確かめてから Tab で離れる。来ていなければ（描き直しで欄が変わった・
+    // 選択がほかの欄へ移った）探し直して打ち直す。確かめずに Tab を押すと、打った文字が別の所に入り、欄は前の値のまま決まってしまう
+    let last = "";
+    for (let i = 0; i < 3; i++) {
+      const pt = await this.locate(`return w.field(${JSON.stringify(label)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)})`);
+      if (typeof pt === "string") throw new Error(pt);
+      await this.enter(pt, label);
+      if (!(await this.until("w.fieldFocused()", `${label}に選択が来る`, 2_000).then(() => true, () => false))) {
+        last = `選択が欄に来ません（今の選択: ${await this.eval<string>(`const a = document.activeElement; return a ? a.tagName + " " + (a.closest(".fld") ? w.txt(a.closest(".fld")).slice(0, 30) : "") : "なし"`)}）`;
+        await this.settle(`打ち直す ${label}`);
+        continue;
+      }
+      // 人と同じく、中を全部選んでそのまま打つ（選んだ文字が打った文字に置き換わる。途中で空にしない）
+      await this.key("a", "KeyA", 65, ["selectAll"]);
+      if (text !== "") await this.cdp.send("Input.insertText", { text }, this.session);
+      else await this.key("Backspace", "Backspace", 8);
+      const now = await this.eval<string | null>("return w.fieldFocused() ? w.fieldValue() : null");
+      if (now !== text) {
+        last = `打った文字が欄に入っていません（欄の文字: ${now === null ? "選択が欄から外れた" : JSON.stringify(now)}）`;
+        await this.settle(`打ち直す ${label}`);
+        continue;
+      }
+      await this.key("Tab", "Tab", 9);
+      await this.settle(`打つ ${label}`);
+      return;
+    }
+    throw new Error(`${label}に「${text}」を打てませんでした: ${last}`);
   }
 
   /** 欄の中の文字を Backspace で消す（打つ途中の空で物が消えないかを見る） */
@@ -230,6 +252,7 @@ export class Page {
     const pt = await this.locate(`return w.field(${JSON.stringify(label)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)})`);
     if (typeof pt === "string") throw new Error(pt);
     await this.enter(pt, label);
+    await this.until("w.fieldFocused()", `${label}に選択が来る`, 2_000);
     await this.key("a", "KeyA", 65, ["selectAll"]);
     await this.key("Backspace", "Backspace", 8);
     await this.key("Tab", "Tab", 9);
@@ -281,6 +304,9 @@ async function openPage(cdp: Cdp, url: string): Promise<Page> {
   await cdp.send("Page.enable", {}, sessionId);
   await cdp.send("Runtime.enable", {}, sessionId);
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false }, sessionId);
+  // 手元で重い実行機の待ちのずれを再現するとき: WALKTHROUGH_CPU_SLOWDOWN=4 などで画面の処理を遅くする
+  const slow = Number(process.env.WALKTHROUGH_CPU_SLOWDOWN ?? "1");
+  if (slow > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: slow }, sessionId);
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: PAGE_HELPERS }, sessionId);
   await cdp.send("Page.navigate", { url }, sessionId);
   // 画面が出て（上の帯の世帯の名前のボタンか、初めての起動の問い）、読み込みが壊れていないことを待つ。出ない・壊れたら1回だけ読み直す
