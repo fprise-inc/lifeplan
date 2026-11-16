@@ -1018,11 +1018,24 @@ function k12Fields(goalId: string, i: number, s: EducationStage, key: string, fi
     const club = masterAmount(`education.statistics.${s.stage}.${sec}.extracurricular`);
     out.push({
       ...withEstimate(
-        plain({ key: `${key}/club`, item: "goal.education", label: "うち部活動など（年額）", level: "detail", kind: "yen", basis: "annual", find, path: ["clubAnnual"], optional: true, help: CLUB_HELP }),
+        plain({
+          key: `${key}/club`,
+          item: "goal.education",
+          label: "部活動などの費用（年額）",
+          level: "detail",
+          kind: "yen",
+          basis: "annual",
+          find,
+          path: ["clubAnnual"],
+          optional: true,
+          help: CLUB_HELP,
+          // 欄の横の1行: 学校の費用の内訳の一部か（統計の平均の段階）、学校の費用の年額に足す額か（年額を入れた段階）
+          hint: (v, wh) => (v === null ? null : stageNow(wh)?.annualOverride !== undefined ? CLUB_ADDED : CLUB_INCLUDED),
+        }),
         (wh) => {
           const st = stageNow(wh);
           if (club === null || st?.annualOverride !== undefined) return null;
-          return { value: club, basis: CLUB_BASIS, hint: `年${manText(club)}（推定・学校の費用に含む）`, blankHint: "統計の平均（文部科学省の調査）・学校の費用に含む" };
+          return { value: club, basis: CLUB_BASIS, hint: `年${manText(club)}（推定・${CLUB_INCLUDED}）`, blankHint: CLUB_INCLUDED };
         },
       ),
       ...stageAddress(goalId, sid, "clubAnnual"),
@@ -1033,10 +1046,15 @@ function k12Fields(goalId: string, i: number, s: EducationStage, key: string, fi
 
 const OUT_OF_SCHOOL_BASIS = "統計の平均。塾・家庭教師などの補助学習費と、習い事・体験などのその他の学校外活動費を足したもの（文部科学省「子供の学習費調査」令和5年度）を12で割った額";
 const CLUB_BASIS = "統計の平均の教科外活動費（部活動・クラブ活動・行事など。文部科学省「子供の学習費調査」令和5年度）。学校の費用に含めて数えています";
+const CLUB_INCLUDED = "学校の費用に含まれます";
+const CLUB_ADDED = "学校の費用の年額に足します";
+// 計算エンジン（education.cost の改訂5）と同じ動き: 統計の平均の段階は学校の費用の中の教科外活動費と入れ替え、学校の費用の年額を入れた段階はその年額に足す
 const CLUB_HELP =
-  "部活動・クラブ活動の部費・遠征・用具などの年額です。推定は子供の学習費調査の教科外活動費（部活動をしていない生徒も含めた平均。学校の費用に含めて数えています）。" +
-  "額を入れると、学校の費用の中の教科外活動費をその額に入れ替えます（学校の費用の年額を入れた段階は、その年額に足します）。" +
-  "目安: 中学生の運動部の家庭の支出は平均で年約5.1万円（公益財団法人笹川スポーツ財団「中学生のスポーツ活動と保護者の関与に関する調査」2025年）";
+  "部活動・クラブ活動の部費・遠征・用具などにかかる年額です。\n" +
+  "空欄のときは、学校の費用の推定に、全国の平均の分がすでに入っています。欄に灰色で出ている額がその分です。部活動をしていない生徒も含めた平均です（文部科学省「子供の学習費調査」の教科外活動費）。\n" +
+  "額を入れると、学校の費用の推定の中の平均の分を、入れた額に置き換えます。学校の費用の合計は、入れた額と平均の差だけ増えるか減ります。\n" +
+  "学校の費用（年額）を自分で入れた段階では、この額をその年額に足します。学校の費用に部活動の分も含めて入れたときは、ここは空けてください。\n" +
+  "目安: 中学生の運動部の家庭の支出は平均で年約5.1万円です（公益財団法人笹川スポーツ財団「中学生のスポーツ活動と保護者の関与に関する調査」2025年）。";
 
 /**
  * 保育料の自動の計算のしかた（段の見出しの下の注記。計算エンジンの education.nurseryFee と同じ決まり。0029）。国の基準の額は推定の目安の写しの

@@ -33,5 +33,39 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2072.htm", "retrievedAt": "2026-10-29", "sha256": "de4d48788c2cdaf2c4225d16799780e9f75a17d6162ac09f61cc87eb07fb17ea", "locator": "No.2072 概要", "quote": "所得金額から55万円（一定の要件を満たす場合は65万円）または10万円を控除する"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
     recordedIn: "2026.15.1"
-    supersededIn: null
+    supersededIn: "2026.21.0"
     approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-29", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "措置法25条の2第3項の五十五万円と国税庁 No.2072 の55万円で一致。不動産所得・事業所得の金額の合計が上限で、その順に控除する（同条5項）。施行日は、現行の文言が e-Gov の改正履歴で最初に現れた版（令和2年1月1日。直前の令和元年12月16日の版には無い）の施行日"}
+  - rev: 3
+    appliesFrom: "2020-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: "2020-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 550000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261016_508AC0000000035?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "544b1cbe918d8597afbba11a6477b8b5bc7d19ef82f03750dd0d0cc857360712", "locator": "租税特別措置法 第25条の2第3項（令和8年10月16日の版）", "quote": "次に掲げる金額のうちいずれか低い金額を控除した金額とする。一五十五万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20200101_501AC0000000016?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "0b8bb7f8fd4db6d62dca17ee6bae60a7f2ef1b52bb9a300b84a14b473c3bd4bb", "locator": "租税特別措置法 第25条の2第3項（令和2年1月1日の版）", "quote": "次に掲げる金額のうちいずれか低い金額を控除した金額とする。一五十五万円"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2072.htm", "retrievedAt": "2026-10-29", "sha256": "de4d48788c2cdaf2c4225d16799780e9f75a17d6162ac09f61cc87eb07fb17ea", "locator": "No.2072 概要", "quote": "所得金額から55万円（一定の要件を満たす場合は65万円）または10万円を控除する"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20270101_508AC0000000012?response_format=xml", "retrievedAt": "2026-11-15", "sha256": "527851a74febbec5deb83c80287e9cb6f9eed67d8263b3e0901645d1b0823f5b", "locator": "租税特別措置法 附則（令和8年3月31日法律第12号）第33条", "quote": "新租税特別措置法第二十五条の二の規定は、令和九年分以後の所得税について適用し"}
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/summary/tins/r8kaiseinoukan.pdf", "retrievedAt": "2026-11-15", "sha256": "fc180b2aaf1eb505d3f73c37dcf0e1babf78dde49acee60483d719a16f2ef085", "locator": "令和8年度改正関係資料（納税環境整備関係）2ページ", "quote": "令和９年分以後の所得税について適用"}
+    recordedIn: "2026.21.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-15", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）"], "note": "rev 2 と同じ値で、期間を令和8年分までにした。令和8年法律第12号（所得税法等の一部を改正する法律。2026-03-31 公布）が措置法25条の2を改め、同法附則33条で令和9年分以後に適用する（e-Gov の令和9年1月1日の版の附則と財務省の令和8年度改正関係資料で一致）"}
+  - rev: 4
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: "2027-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 100000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20270101_508AC0000000012?response_format=xml", "retrievedAt": "2026-11-15", "sha256": "527851a74febbec5deb83c80287e9cb6f9eed67d8263b3e0901645d1b0823f5b", "locator": "租税特別措置法 第25条の2第1項・第4項・第7項（令和9年1月1日の版）", "quote": "次に掲げる金額のうちいずれか低い金額を控除した金額とする。 一 十万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20270101_508AC0000000012?response_format=xml", "retrievedAt": "2026-11-15", "sha256": "527851a74febbec5deb83c80287e9cb6f9eed67d8263b3e0901645d1b0823f5b", "locator": "租税特別措置法 附則（令和8年3月31日法律第12号）第33条", "quote": "新租税特別措置法第二十五条の二の規定は、令和九年分以後の所得税について適用し"}
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/summary/tins/r8kaiseinoukan.pdf", "retrievedAt": "2026-11-15", "sha256": "fc180b2aaf1eb505d3f73c37dcf0e1babf78dde49acee60483d719a16f2ef085", "locator": "令和8年度改正関係資料（納税環境整備関係）2ページ", "quote": "複式簿記による控除（75万円⼜は65万円）の適⽤は、電⼦申告を条件とする。"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20270101_508AC0000000012"}
+    recordedIn: "2026.21.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-15", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）"], "note": "令和9年分から、正規の簿記（複式簿記）で記帳していても電子申告（同条7項）をしない人の控除は65万円（4項）でなく1項の10万円になる（55万円の区分は無くなる）。この値ID は『複式簿記・紙で申告』の区分の額（画面の『55万円』の選択肢）。施行日は改正後の文言が e-Gov の改正履歴で最初に現れた版（令和9年1月1日）。財務省の資料の改正後の表『10万円 複式簿記（書面申告）』と一致"}

@@ -36,6 +36,8 @@
 //   比べていて、その翌月に40歳になる妻にも付いていた（改訂6。0167）
 // - 2028年4月からの遺族年金の見直し（有期化・子の加算の見直しなど）は作らない。2028年4月以後の死亡の想定には知らせ（N_REFORM_NOT_REFLECTED）を必ず出す
 //   （制度データの行の扱いは 0007 の追記 2026-10-10: 見直し後の値は別の値IDで持ち、この部品が読む値IDの行は見直し前の値のまま続ける）
+// - 改訂8（0170 の追記 2026-11-15）: 子の加算は何人目の子かで決める（子だけが受け取るときは2人目の子が c12、3人目からが c3）。前は加算の件数で
+//   数え、子だけが受け取るときに3人目の子にも c12 を付けていた（国民年金法39条の2）
 import {
   addMonths,
   ageMonth,
@@ -128,7 +130,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
   id: "pension.survivor",
   title: "遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金・死亡一時金）",
   contract: "1.0",
-  revision: 7,
+  revision: 8,
   requires: {
     "contingency.event": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -302,10 +304,11 @@ export default defineComponent<Input, SurvivorPensionOutput>({
       const kids = kidsAt(m);
       let basic = yen(0);
       if (basicOk && kids.length > 0) {
-        // 配偶者が受け取るときは1人目から、子だけが受け取るときは2人目から加算
+        // 配偶者が受け取るときは1人目から、子だけが受け取るときは2人目から加算。額は何人目の子かで決める（1人目・2人目は c12、3人目からは c3）。
+        // 子だけが受け取るときの加算の1件目は2人目の子、2件目からは3人目以降の子（改訂8。前は加算の件数で数え、3人目にも c12 を付けていた。国民年金法39条の2）
         let total = v.basic;
-        const counted = isSpouse ? kids.length : kids.length - 1;
-        for (let k = 0; k < counted; k++) total = yen(total + (k < 2 ? v.c12 : v.c3));
+        const first = isSpouse ? 1 : 2;
+        for (let nth = first; nth <= kids.length; nth++) total = yen(total + (nth <= 2 ? v.c12 : v.c3));
         basic = total;
       }
       let employee = yen(0);

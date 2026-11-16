@@ -130,7 +130,7 @@
           "kind": "deposit",
           "owner": "fb9400f2-9e26-42de-8f73-7c3a88d18eeb",
           "marketValue": {
-            "value": 9000000,
+            "value": 15000000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"

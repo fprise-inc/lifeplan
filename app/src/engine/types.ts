@@ -79,7 +79,7 @@ export interface EmploymentPeriod {
   employer?: { size?: number; weeklyHours?: string; [key: string]: unknown };
   salary?: { annual: Box<number>; bonus?: Box<number>; growth?: SalaryGrowth; [key: string]: unknown };
   /** 事業所得。growth.rate はこの期間の増減率（年。省略は前提の賃金上昇率。0040） */
-  business?: { income: Box<number>; growth?: { rate: string } };
+  business?: { income: Box<number>; growth?: { rate: string }; businessTaxClass?: "class1" | "class2" | "class3" | "class3Reduced" | "none" };
   standardMonthlyRemuneration?: { health: Box<number>; pension: Box<number> };
   /** 期間の終わり方（0037）: retirement・voluntary・involuntary・contractEnd・sickLeave。省略はエンジンが決める */
   endsWith?: string;

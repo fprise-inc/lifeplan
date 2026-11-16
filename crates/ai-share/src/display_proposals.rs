@@ -2,7 +2,8 @@
 //! 承認待ちで置くだけ。設定は変えない（FPが画面で設定ごとに「今 → 案」を確かめて「反映する」を押したときだけ、画面が事務所の既定値に書く）。
 //! アプリを閉じると、判断していない案は消える。
 //!
-//! - ここでは形の外側を確かめる: 案を出せる設定（`PROPOSABLE_IDS`。事務所の既定値の見せ方だけの7つ）・同じ設定が2回無いこと・値の大きさと深さ・
+//! - ここでは形の外側を確かめる: 案を出せる設定（`PROPOSABLE_IDS`。事務所の既定値の見せ方だけの18件。0213 の段C で結果のタブ・資産と負債のタブの
+//!   表示の設定の事務所の既定値11件を足した）・同じ設定が2回無いこと・値の大きさと深さ・
 //!   文字（列挙の鍵などの短い英数字だけ。基本生活費の内訳の並べ方の行の名前だけは、制御文字・書式の文字を含まない20文字までの文字を通す）・
 //!   理由の長さ。選べる値・値の形は、接続口が案を出す前に、画面が反映する前に、同じ関数（app/src/connector/displayProposal.ts）で確かめる
 //! - 世帯を渡していなくてよい（事務所の既定値は世帯の中身ではない。AIに渡した記録にも残さない）
@@ -12,14 +13,25 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// 案を出せる表示の設定（接続口の表示の設定の一覧の `proposable` と同じ。crates/lifeplan のテストで確かめる）
-pub const PROPOSABLE_IDS: [&str; 7] = [
+pub const PROPOSABLE_IDS: [&str; 18] = [
     "input.order",
     "input.items",
     "input.living",
     "result.levers",
+    "result.metrics",
+    "result.atAge",
+    "result.layout",
+    "result.invBreakdown",
+    "result.invPeriods",
     "contingency.premises",
     "contingency.scenes",
     "contingency.openScene",
+    "balance.health",
+    "balance.guide",
+    "balance.points",
+    "balance.moneyThree.wording",
+    "balance.moneyThree.months",
+    "balance.moneyThree.years",
 ];
 /// 承認待ちにしておける案の数
 pub const MAX_PENDING: usize = 4;
@@ -188,19 +200,24 @@ mod tests {
     }
 
     #[test]
-    fn only_the_seven_office_settings_are_accepted() {
+    fn only_the_office_display_settings_are_accepted() {
         let ok = validate(&json!({ "changes": [
             { "id": "result.levers", "value": ["lever:retireAge", "lever:nisaMonthly"], "note": " NISA を\n出す " },
-            { "id": "contingency.openScene", "value": "income" }
+            { "id": "contingency.openScene", "value": "income" },
+            // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C）
+            { "id": "result.atAge", "value": 90 },
+            { "id": "result.invPeriods", "value": null },
+            { "id": "balance.guide", "value": { "basis": "living", "months": [3, 9], "risk": [5, 30], "debt": 40 } },
+            { "id": "balance.points", "value": ["now", "age80"] }
         ] }))
         .unwrap();
-        assert_eq!(ok.len(), 2);
+        assert_eq!(ok.len(), 6);
         assert_eq!(ok[0].note.as_deref(), Some("NISA を 出す"));
         assert_eq!(ok[1].note, None);
-        // 世帯ごとの設定・読むだけの設定・知らない id
+        // 世帯だけの設定（この世帯で並べる時点・対策に足した項目）・読むだけの設定・知らない id
         for id in [
-            "result.metrics",
-            "balance.guide",
+            "balance.columns",
+            "result.addedItems",
             "features.combinedBs",
             "assumptions.inflation",
         ] {
@@ -209,12 +226,12 @@ mod tests {
         }
         // 空・多すぎる・重複・知らない名前
         assert!(validate(&json!({ "changes": [] })).is_err());
-        let eight: Vec<Value> = (0..8)
+        let many: Vec<Value> = (0..19)
             .map(|_| json!({ "id": "input.order", "value": [] }))
             .collect();
-        assert!(validate(&json!({ "changes": eight }))
+        assert!(validate(&json!({ "changes": many }))
             .unwrap_err()
-            .contains("1〜7件"));
+            .contains("1〜18件"));
         let e = validate(&json!({ "changes": [
             { "id": "contingency.scenes", "value": ["death"] },
             { "id": "contingency.scenes", "value": ["income"] }
