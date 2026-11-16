@@ -1885,3 +1885,17 @@ html.big .help-pop { font-size: 0.92rem; }
 .os-sec h4.os-sub { margin: 12px 0 4px; font-size: 0.92rem; }
 [data-office-display] .os-pct select { justify-self: start; width: auto; }
 [data-office-display] .os-pct { flex: 1 1 260px; }
+
+/* 打って一覧から選ぶ欄（学校名など。FieldViews.tsx の SearchPicker。0217） */
+.pick { position: relative; display: inline-block; width: min(26em, 100%); }
+.pick-q { width: 100%; box-sizing: border-box; }
+.pick-list { position: absolute; top: calc(100% + 4px); left: 0; width: min(420px, calc(100vw - 48px)); margin: 0; padding: 4px; list-style: none; background: var(--card); border: 1px solid var(--line-3, #c4cad2); border-radius: 10px; box-shadow: 0 8px 24px rgba(20, 30, 50, 0.16); z-index: 20; max-height: min(420px, 60vh); overflow-y: auto; }
+.pick-list li { padding: 6px 10px; border-radius: 7px; cursor: pointer; display: grid; gap: 1px; line-height: 1.4; }
+.pick-list li.act { background: var(--prop-bg); outline: 1.5px solid var(--prop); outline-offset: -1.5px; }
+.pick-list li.cur .pick-name { font-weight: 700; }
+.pick-list li.fixed { border-bottom: 1px solid var(--card-line); border-radius: 7px 7px 0 0; }
+.pick-list li.none, .pick-list li.pick-head { cursor: default; color: var(--ink-2); font-size: 0.85rem; }
+.pick-list li.pick-head { font-weight: 700; padding-top: 8px; }
+.pick-name { font-size: 0.95rem; }
+.pick-sub { font-size: 0.8rem; color: var(--ink-2); }
+.pick-list small.tag { font-size: 0.75rem; color: var(--ink-2); border: 1px solid var(--card-line); border-radius: 4px; padding: 0 4px; margin-left: 6px; font-weight: 400; }
