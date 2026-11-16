@@ -5,13 +5,15 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkInputs, DEFAULT_MAX, firstSentence, NOT_STARTED_QUESTIONS, RULES, type CheckItem } from "../src/connector/check.ts";
+import { checkInputs, DEFAULT_MAX, firstSentence, NOT_STARTED_QUESTIONS, premiseWithClient, RULES, type CheckItem } from "../src/connector/check.ts";
 import { screenNoticeRows } from "../src/connector/notices.ts";
 import { workingOf } from "../src/connector/working.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
 import { CHECK_KIND_LABELS, checkList, DEFAULT_KINDS, ZERO_DOWN_PAYMENT_TEXT } from "../src/workspace/input/checkRows.ts";
 import { STAGE_ORDER } from "../src/workspace/input/stageOrder.ts";
+import { TALK_PREMISE_SECTION } from "../src/workspace/input/premiseDefaults.ts";
+import { assumptionsStage } from "../src/workspace/input/stages/assumptions.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 import { applyPatch, type PatchOp } from "./patch.ts";
 
@@ -40,6 +42,7 @@ const CASES: { name: string; sample: string; changes?: PatchOp[]; kinds?: string
   },
   { name: "親の介護（推定・介護の目安・計算のお知らせ）", sample: "sampleParentsCare", rules: ["pensionRecord", "careDefault"] },
   { name: "推定だけ・3行まで", sample: "sampleParentsCare", kinds: ["estimated"], max: 3, rules: [] },
+  { name: "前提条件（お客さまと確かめる前提と、FP が決める前提）", sample: "salariedCoupleTwoKids", kinds: ["premise"], max: 60, rules: [] },
 ];
 
 interface Answer {
@@ -112,7 +115,7 @@ describe("AI接続口の入力の確かめ（0210）", () => {
   });
 
   it("種類と行の数で絞れる（超えた分は truncated と counts で分かる）", () => {
-    const c = CASES[CASES.length - 1]!;
+    const c = CASES.find((x) => x.kinds?.includes("estimated") === true)!;
     const { got } = ask(c);
     expect(got.groups.map((g) => g.kind)).toEqual([CHECK_KIND_LABELS.estimated]);
     expect(items(got).length).toBe(3);
@@ -133,6 +136,46 @@ describe("AI接続口の入力の確かめ（0210）", () => {
     // 接続口の入力の確かめは同じ行に聞く文を添える
     const got = items(ask(CASES[3]!).got).filter((i) => i.field === "住宅の購入: 頭金");
     expect(got.map((i) => i.rule)).toEqual(["downPayment"]);
+  });
+
+  it("前提条件の行は、画面の「お客さまと確かめる前提」の区画の欄がお客さまと確かめる側、ほかの欄が FP が決める側", () => {
+    const c = CASES.find((x) => x.kinds?.includes("premise") === true)!;
+    const { req, got } = ask(c);
+    const rows = items(got);
+    expect(got.truncated).toBe(false);
+    // どの前提条件の行にも印がある（事務所の既定値に従っている欄。この世帯だけの値は行に出ない）
+    expect(rows.length).toBeGreaterThan(4);
+    expect(rows.every((i) => i.premise === "client" || i.premise === "fp")).toBe(true);
+    // お客さまと確かめる側は、画面の区画の定義の欄と同じ（物価の上昇率・給与の上昇率・運用の利回り・表を何歳まで見るか）
+    const w = workingOf(req, { sampleId: c.sample })!.wh;
+    const talk = assumptionsStage(w).sections.find((x) => x.key === TALK_PREMISE_SECTION)!;
+    const talkLabels = talk.groups.flatMap((g) => g.fields).map((f) => `${talk.title}: ${f.label}`);
+    expect(talkLabels.map((f) => f.replace(`${talk.title}: `, ""))).toEqual(expect.arrayContaining(["物価の上昇率", "給与の上昇率", "運用の利回り", "表を何歳まで見るか"]));
+    const client = rows.filter((i) => i.premise === "client").map((i) => i.field);
+    // 事務所の既定値どおりの前提条件の行に出るのは3つの率（表を何歳まで見るかは、画面の確かめの一覧でも前提条件の行にしない）
+    expect(client.map((f) => f.replace(`${talk.title}: `, ""))).toEqual(["物価の上昇率", "給与の上昇率", "運用の利回り"]);
+    expect(client.every((f) => talkLabels.includes(f))).toBe(true);
+    // 見分けは区画で決める（表を何歳まで見るかの欄も、行になれば確かめる側）
+    const endYear = talk.groups.flatMap((g) => g.fields).find((f) => f.label === "表を何歳まで見るか")!;
+    const asRow = (section: string) => ({ id: `field:${endYear.key}`, kind: "premise" as const, card: "assumptions", cardLabel: "前提条件", label: "", detail: null, fieldKey: endYear.key, level: "simple" as const, impact: 0, actions: [], section });
+    expect(premiseWithClient(asRow(TALK_PREMISE_SECTION))).toBe(true);
+    expect(premiseWithClient(asRow("assume/fine"))).toBe(false);
+    for (const i of rows.filter((x) => x.premise === "client")) expect(i.question, i.field).toMatch(/この見込みでよろしいですか（お客さまと確かめる前提です。事務所の既定値）。$/);
+    // ほかの前提条件（預金の利回り・年金の調整率・不動産の評価・資産の種類ごとの利回りなど）は、今までどおり FP が決める側
+    const fp = rows.filter((i) => i.premise === "fp");
+    expect(fp.length).toBeGreaterThan(0);
+    expect(fp.every((i) => !i.field.startsWith(`${talk.title}: `))).toBe(true);
+    for (const i of fp) expect(i.question, i.field).toMatch(/は、事務所の既定値のままでよろしいですか（FP が決める前提です）。$/);
+    // 前提条件の行でない行には印を付けない
+    expect(items(ask(CASES[0]!).got).every((i) => i.premise === undefined)).toBe(true);
+  });
+
+  it("お客さまと確かめる前提でも、この世帯だけの値にした欄は前提条件の行に出ない。ほかの2つの率は事務所の既定値に従ったまま確かめる側", () => {
+    const own = { name: "", sample: "salariedCoupleTwoKids", changes: [{ op: "replace" as const, path: "/assumptions/inflation", value: { default: "0.017" } }], kinds: ["premise"], max: 60, rules: [] };
+    const rows = items(ask(own).got);
+    const client = rows.filter((i) => i.premise === "client").map((i) => i.field);
+    expect(client.some((f) => f.endsWith(": 物価の上昇率"))).toBe(false);
+    expect(client.length).toBe(2);
   });
 
   it("短い理由は、かっこの中の「。」では切らない", () => {

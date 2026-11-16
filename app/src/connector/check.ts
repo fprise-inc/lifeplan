@@ -7,7 +7,7 @@
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）。世帯の物の ID は返さない
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import type { NoticeRow } from "../workspace/engineNotices.ts";
-import { CHECK_KIND_LABELS, checkList, DEFAULT_KINDS, KIND_ORDER, type CheckKind, type CheckRow } from "../workspace/input/checkRows.ts";
+import { CHECK_KIND_LABELS, checkList, DEFAULT_KINDS, KIND_ORDER, premiseWithClient, type CheckKind, type CheckRow } from "../workspace/input/checkRows.ts";
 import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
 import { KIND_SHORT, screenNoticeRows } from "./notices.ts";
 import { workingOf, type WorkingArgs } from "./working.ts";
@@ -22,6 +22,8 @@ export interface CheckArgs extends WorkingArgs {
 
 /** 返す行の上限の既定 */
 export const DEFAULT_MAX = 30;
+
+export { premiseWithClient };
 
 /** 聞くことを決める材料（画面の行と、計算のお知らせの行なら元の知らせ） */
 export interface CheckCtx {
@@ -216,7 +218,10 @@ export const FALLBACK: Readonly<Record<CheckKind, (c: CheckCtx) => string>> = {
   calc: (c) => `${c.row.cardLabel}${subjectsOf(c).length > 0 ? `（${subjectsOf(c).join("・")}）` : ""}について、今の内容を確かめさせていただけますか。`,
   estimated: confirmOrAsk,
   certainty: (c) => `${quoted(c.row.label)}を、書類で確かめさせていただけますか。`,
-  premise: (c) => `${quoted(c.row.label)}は、事務所の既定値のままでよろしいですか（FP が決める前提です）。`,
+  premise: (c) =>
+    premiseWithClient(c.row)
+      ? `${quoted(c.row.label)}は、${c.row.value !== null && c.row.value !== undefined ? `${c.row.value}で` : "事務所の既定値で"}見ています。この見込みでよろしいですか（お客さまと確かめる前提です。事務所の既定値）。`
+      : `${quoted(c.row.label)}は、事務所の既定値のままでよろしいですか（FP が決める前提です）。`,
 };
 
 /** 入力の確かめの1行（AI に返す形） */
@@ -234,6 +239,11 @@ export interface CheckItem {
   question: string;
   /** 当てた決まりの名前（決まりの表に無ければ省く） */
   rule?: string;
+  /**
+   * 前提条件の行（種類 premise）だけ: client＝お客さまと一緒に確かめる前提（「お客さまと確かめる前提」の区画の欄）・
+   * fp＝FP が決める細かい前提
+   */
+  premise?: "client" | "fp";
 }
 
 /** 画面の行を、AI に返す1行にする */
@@ -252,6 +262,7 @@ export function itemOf(c: CheckCtx): CheckItem {
     reason,
     question: rule !== undefined ? rule.question(c) : FALLBACK[c.row.kind](c),
     ...(rule !== undefined ? { rule: rule.id } : {}),
+    ...(c.row.kind === "premise" ? { premise: premiseWithClient(c.row) ? ("client" as const) : ("fp" as const) } : {}),
   };
 }
 
