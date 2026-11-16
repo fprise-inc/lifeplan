@@ -2,11 +2,14 @@
 // - 保存するまで、世帯にもプランにも入らない（0015 の7・0022 の承認の考え方）
 // - AI が書いた題名・説明・理由は、信用しない文章として文字のまま出す。プランの名前はアプリが作る（FP が直せる）
 // - 主画面のプランで動かせない項目は取り込まない（理由を出す）
+// - プランの名前の欄は、候補の並びで決める（2つ目の候補は、保存する前から1つ目と違う文字。保存・捨てたら残った候補で作り直す）。FP が直した名前はそのまま
+// - 同じ項目を後の行が動かすので使わない行（replaced）は、値を控えめにして（太字にしない・薄く・取り消し線）、読み上げにも「使わない値」と渡す
 import { useState } from "preact/hooks";
 import type { AiCandidate } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Catalog } from "../plans/items.ts";
-import { candidatePlanName, candidateRows, candidateValues, dateTimeText } from "./model.ts";
+import type { Values } from "../plans/plans.ts";
+import { candidatePlanNames, candidateRows, candidateValues, dateTimeText, type CandidateRow } from "./model.ts";
 
 export interface AiCandidatesProps {
   candidates: readonly AiCandidate[];
@@ -17,26 +20,47 @@ export interface AiCandidatesProps {
 }
 
 export function AiCandidates(p: AiCandidatesProps) {
+  // FP が欄で直した名前（候補の ID ごと）。直していない候補の名前は、毎回並びから作る
+  const [edited, setEdited] = useState<Readonly<Record<string, string>>>({});
   const pending = p.candidates.filter((c) => c.status === "pending");
   if (pending.length === 0) return null;
+  const shown = pending.map((c) => {
+    const rows = candidateRows(c, p.wh, p.catalog);
+    return { c, rows, values: candidateValues(rows) };
+  });
+  const names = candidatePlanNames(
+    p.wh,
+    p.catalog,
+    shown.map((x) => ({ values: x.values, name: Object.hasOwn(edited, x.c.id) ? (edited[x.c.id] as string) : null })),
+  );
   return (
     <section class="card ai-cands" aria-label="AIからの候補" data-ai-candidates>
       <div class="card-h">
         <h2>AIからの候補（{pending.length}件）</h2>
         <span class="aside">AI が作ったプランの候補です。中身を確かめて、プランとして保存するか捨ててください。保存するまで、世帯にもプランにも入りません。</span>
       </div>
-      {pending.map((c) => (
-        <CandidateCard key={c.id} c={c} {...p} />
+      {shown.map((x, i) => (
+        <CandidateCard key={x.c.id} {...p} {...x} name={names[i] as string} onName={(name) => setEdited((m) => ({ ...m, [x.c.id]: name }))} />
       ))}
     </section>
   );
 }
 
-function CandidateCard({ c, wh, catalog, onAccept, onReject }: AiCandidatesProps & { c: AiCandidate }) {
-  const rows = candidateRows(c, wh, catalog);
-  const values = candidateValues(rows);
+/** 候補の値の見せ方: プランの値を決める行（入れる・今の値に戻す）は太字、後の行に置き換わる行は控えめに（読み上げにも渡す）、ほかは普通の字 */
+function CandidateValue({ r }: { r: CandidateRow }) {
+  if (r.use === "apply" || r.use === "restore") return <b>{r.to}</b>;
+  if (r.use === "replaced")
+    return (
+      <>
+        <span class="vh">使わない値（後の行の値に置き換わります）: </span>
+        <span class="ai-off">{r.to}</span>
+      </>
+    );
+  return <>{r.to}</>;
+}
+
+function CandidateCard({ c, rows, values, name, onName, onAccept, onReject }: AiCandidatesProps & { c: AiCandidate; rows: CandidateRow[]; values: Values; name: string; onName: (name: string) => void }) {
   const usable = Object.keys(values).length;
-  const [name, setName] = useState(() => candidatePlanName(wh, catalog, values));
   const [busy, setBusy] = useState(false);
   const act = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -73,7 +97,7 @@ function CandidateCard({ c, wh, catalog, onAccept, onReject }: AiCandidatesProps
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.diffId} class={r.use === "apply" ? "" : "ai-skip"} data-ai-row={r.use === "apply" ? "use" : "skip"}>
+            <tr key={r.diffId} class={r.use === "apply" ? "" : r.use === "replaced" ? "ai-skip ai-replaced" : "ai-skip"} data-ai-row={r.use === "apply" ? "use" : "skip"} data-ai-use={r.use}>
               <td>
                 {r.place !== null ? (
                   <>
@@ -81,11 +105,11 @@ function CandidateCard({ c, wh, catalog, onAccept, onReject }: AiCandidatesProps
                     <br />
                   </>
                 ) : null}
-                {r.label}
+                <span class={r.use === "replaced" ? "ai-off" : undefined}>{r.label}</span>
               </td>
               <td class="num">{r.from}</td>
               <td class="num">
-                <b>{r.to}</b>
+                <CandidateValue r={r} />
               </td>
               <td class="ai-untrusted">{r.note ?? "—"}</td>
               <td>{r.use === "apply" ? "プランに入れる" : r.reason}</td>
@@ -96,7 +120,7 @@ function CandidateCard({ c, wh, catalog, onAccept, onReject }: AiCandidatesProps
       <div class="ai-cand-foot">
         <label>
           プランの名前
-          <input value={name} maxLength={80} onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)} data-ai-plan-name />
+          <input value={name} maxLength={80} onInput={(e) => onName((e.currentTarget as HTMLInputElement).value)} data-ai-plan-name />
         </label>
         <button type="button" class="btn primary" disabled={busy || usable === 0} onClick={() => void act(() => onAccept(c, name))} data-ai-accept>
           プランとして保存
