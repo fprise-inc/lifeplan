@@ -25,7 +25,8 @@ import { addIncome, expenseCard, incomeCard, incomeGroups, incomeMoreLabel, mone
 import { boardingStatistic, estimateYen, examStatistic, INTERNATIONAL_MISSING, KOSEN_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, STAGE_START_AGE, stagePeriod, stageStatistic, stageYears, VOCATIONAL_GUIDE } from "../educationCost.ts";
 import { masterAmount, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { childOfPeriodic } from "./events.ts";
-import { departmentField, schoolNameField, showsSchoolField } from "../schoolField.ts";
+import { departmentField, schoolNameField, schoolRowsInfo, showsSchoolField } from "../schoolField.ts";
+import { refEntryYear, type TuitionRow } from "../tuition.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS, WORDS } from "../labels.ts";
 import type { Address } from "../../store/readings.ts";
 import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
@@ -448,20 +449,23 @@ export const HIGHER_SUPPORT_NOTE = "国の修学支援（授業料等の減免�
 /** 専門学校の学費の未入力 */
 export const VOCATIONAL_MISSING = "未入力（専門学校の学費の統計はまだありません。年額を入れるまで0円で計算中）";
 
-/** 段の見出しの下の1行（統計の平均か、入れた額） */
-function stageNote(s: EducationStage, lunch: LunchChoice, annualEstimated = false, rowsMode = false): string | undefined {
+/** 段の見出しの下の1行（学校の学費データか、統計の平均か、入れた額） */
+function stageNote(s: EducationStage, lunch: LunchChoice, annualEstimated = false, rowsMode = false, child?: Member): string | undefined {
   if (s.stage === "nursery") return undefined;
   const stat = stageStatistic(s);
   const parts: string[] = [];
   const school = isK12(s.stage) ? "学校の費用" : "学費";
   const est = annualEstimate(s, lunch, false);
-  if (s.annualOverride !== undefined) parts.push(`${school} 年${manText(s.annualOverride)}（${annualEstimated ? "推定" : "入れた額"}）`);
+  // 学校の学費データの行（国立大学。0219）: 計算エンジンは行の額で計算し、年額・入学金の欄は使わない
+  const rowsInfo = schoolRowsInfo(s, child);
+  if (rowsInfo !== null) parts.push(`${school} 年${manText(rowsInfo.annual)}${rowsInfo.admission !== null ? `・入学金 ${manText(rowsInfo.admission)}` : ""}（学校の学費データ・${rowsInfo.ref}年度入学の額）`);
+  else if (s.annualOverride !== undefined) parts.push(`${school} 年${manText(s.annualOverride)}（${annualEstimated ? "推定" : "入れた額"}）`);
   else if (est !== null) parts.push(`${school} 年約${manText(est.value)}（統計の平均・今の値段）`);
   else if (s.stage === "vocational") parts.push("⚠ 学費が未入力です（0円で計算中）。学校の案内の年額を入れるか、「学費を目安で入れる」を押してください");
   else if (s.stage === "kosen" || s.sector === "international") parts.push("⚠ 学費が未入力です（0円で計算中）。学校の案内の年額を入れてください");
   // 学校外の費用の統計の平均（学校ごとに額を入れた学校は欄に出るので書かない。塾・習い事を別に入れるときは数えないので書かない）
   if (isK12(s.stage) && !rowsMode && stat?.outOfSchool != null && (s.outOfSchool === undefined || s.outOfSchool === "statistics")) parts.push(`${s.stage === "kindergarten" ? "園の外" : "学校外"} 年約${manText(stat.outOfSchool)}（入れ方は「学校外の費用」で）`);
-  if (isTertiary(s.stage) && (s.stage !== "vocational" || s.entranceOverride !== undefined)) {
+  if (rowsInfo === null && isTertiary(s.stage) && (s.stage !== "vocational" || s.entranceOverride !== undefined)) {
     const entrance = s.entranceOverride ?? stat?.entrance ?? null;
     if (entrance !== null) parts.push(`入学金 約${manText(entrance)}`);
   }
@@ -549,8 +553,17 @@ export function stageRemainingCost(child: Member, s: EducationStage, baseMonth: 
   // 年額を月で割って数える分（幼稚園〜高校の学校の費用・学校外の費用・部活動、仕送り、高専・大学などの学校外の費用）
   let monthlyYearly = 0;
   let once = 0;
-  const school = (s.annualOverride ?? annualEstimate(s, lunch, false)?.value ?? 0) + (s.clubAnnual ?? 0);
-  if (isK12(s.stage)) monthlyYearly += school;
+  // 学校の学費データの行（0219）: 子の入学年度の行（無ければ最も近い入学年度の行。今の値段なので上昇率は入れない）を、払う月のとおりに
+  const rows = (s.school as { rows?: TuitionRow[] } | undefined)?.rows ?? [];
+  const ref = rows.length === 0 ? null : refEntryYear(rows, Number(period.from.slice(0, 4)));
+  const school = ref !== null ? rows.filter((r) => r.entryYear === ref && r.grade === 1 && r.item === "tuition.annual").reduce((t, r) => t + r.amount, 0) : (s.annualOverride ?? annualEstimate(s, lunch, false)?.value ?? 0) + (s.clubAnnual ?? 0);
+  if (ref !== null) {
+    for (const r of rows) {
+      if (r.entryYear !== ref || r.grade > all) continue;
+      const m = addMonths(period.from, 12 * (r.grade - 1) + r.monthOffset);
+      if (after(m) && m <= period.to) once += r.amount;
+    }
+  } else if (isK12(s.stage)) monthlyYearly += school;
   else {
     // 学費は4月と10月に半分ずつ（計算エンジンと同じ）
     let halves = 0;
@@ -561,7 +574,7 @@ export function stageRemainingCost(child: Member, s: EducationStage, baseMonth: 
   // 高専・大学などは、学校ごとに入れた月額だけ（統計の平均は無い。計算エンジンの education.cost の改訂11）
   else if (!isK12(s.stage) && !rowsMode && typeof s.outOfSchool === "object") monthlyYearly += s.outOfSchool.monthly * 12;
   // 入学金（幼稚園〜高校は統計の入学金等×在学年数の標準。0010 の追記 2026-11-14）
-  const entrance = s.entranceOverride ?? stat?.entrance ?? 0;
+  const entrance = ref !== null ? 0 : (s.entranceOverride ?? stat?.entrance ?? 0);
   const entranceMonth = addMonths(period.from, isTertiary(s.stage) || s.stage === "kosen" ? ((s.sector ?? "public") === "private" ? -2 : -1) : -2);
   if (after(entranceMonth)) once += entrance;
   if (s.exam?.amount !== undefined || s.exam?.deposits !== undefined) {
@@ -630,6 +643,25 @@ function withEstimate(f: FieldDef, est: (wh: WorkingHousehold) => { value: numbe
   };
 }
 
+/**
+ * 学校の学費データの行のある段（国立大学。0219）の年額・入学金の欄: 計算エンジンは行の額で計算し、この欄は使わない。空欄なら学校の額を欄の横に、
+ * 入れてあれば使っていないことを知らせる（黙って消さない。学校名を「学校未定」にすると入れた額で計算する）
+ */
+function withSchoolRows(f: FieldDef, info: (wh: WorkingHousehold) => ReturnType<typeof schoolRowsInfo>, what: "年額" | "入学金"): FieldDef {
+  return {
+    ...f,
+    get: (wh) => {
+      const st = f.get(wh);
+      const i = info(wh);
+      if (i === null) return st;
+      const amount = what === "年額" ? i.annual : i.admission;
+      const shown = amount === null ? "学校の学費データの額" : `${manText(amount)}（学校の学費データ・${i.ref}年度入学の額）`;
+      if (st.value !== null) return { ...st, warn: `この学校は学費データ（${shown}）で計算しているので、入れた${what}は使っていません。入れた額で計算するときは、学校名を「学校未定」にしてください` };
+      return { ...st, hint: shown };
+    },
+  };
+}
+
 /** 浪人の年数の「?」（計算のとおりに: 入学から後がその年数だけうしろにずれる） */
 export const DELAY_HELP =
   "浪人の年数だけ、この学校の入学・在学・卒業がうしろにずれます（入学金・受験の費用・学費・仕送りも、その年数だけ後の年に、教育費の上昇率で伸ばした額でかかります）。" +
@@ -658,6 +690,11 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   const lunchNow = (wh: WorkingHousehold) => lunchOf((wh.request.input.household.goals ?? []).find((g) => g.id === goalId));
   const key = `edu/${goalId}/stage/${i}`;
   const higher = isTertiary(s.stage);
+  const rowsInfoNow = (wh: WorkingHousehold) => {
+    const st = stageNow(wh);
+    const owner = (wh.request.input.household.goals ?? []).find((g) => g.id === goalId)?.owner;
+    return st === undefined ? null : schoolRowsInfo(st, wh.request.input.household.members.find((m) => m.id === owner));
+  };
   const sid = typeof s.id === "string" ? s.id : undefined;
   const sectorOptions =
     s.stage === "nursery"
@@ -805,12 +842,14 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
     }),
     (wh) => {
       const st = stageNow(wh);
-      const e = st === undefined ? null : annualEstimate(st, lunchNow(wh));
+      // 学校の学費データの行のある段は、推定を出さない（計算エンジンは行の額で計算し、この欄は使わない。0219）
+      if (st === undefined || rowsInfoNow(wh) !== null) return null;
+      const e = annualEstimate(st, lunchNow(wh));
       return e === null ? null : { ...e, hint: `年${manText(e.value)}（推定）` };
     },
   );
   fields.push({
-    ...annual,
+    ...withSchoolRows(annual, rowsInfoNow, "年額"),
     ...stageAddress(goalId, sid, "annualOverride"),
     ...(s.stage === "vocational" || s.sector === "international" || (s.stage === "kosen" && s.sector !== "national")
       ? {
@@ -828,7 +867,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
         plain({ key: `${key}/entrance`, item: "goal.education", label: "入学金", level: "detail", kind: "yen", basis: "once", find, path: ["entranceOverride"], optional: true, help: isK12(s.stage) ? K12_ENTRANCE_HELP : "入学の前の2月（国公立は3月）に払います" }),
         (wh) => {
           const st = stageNow(wh);
-          const stat = st === undefined ? null : stageStatistic(st);
+          const stat = st === undefined || rowsInfoNow(wh) !== null ? null : stageStatistic(st);
           return stat?.entrance == null ? null : { value: stat.entrance, basis: stat.entranceBasis, hint: `${manText(stat.entrance)}（推定）` };
         },
       ),
@@ -839,6 +878,12 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
       ...plain({ key: `${key}/entrance`, item: "goal.education", label: "入学金", level: "detail", kind: "yen", basis: "once", find, path: ["entranceOverride"], optional: true, hint: (v) => (v === null ? "なし（学校の費用に含めて数えています）" : null), help: "子供の学習費調査の学校の費用には、入学金などの学校納付金が含まれています。私立の受験校の入学金を別に足すときだけ入れてください" }),
       ...stageAddress(goalId, sid, "entranceOverride"),
     });
+  // 学校の学費データの行のある段の入学金の欄（年額と同じく、使わないことを出す。0219）
+  if (higher) {
+    const at = fields.findIndex((f) => f.key === `${key}/entrance`);
+    const f = fields[at];
+    if (at >= 0 && f !== undefined) fields[at] = withSchoolRows(f, rowsInfoNow, "入学金");
+  }
   if (isK12(s.stage)) fields.push(...k12Fields(goalId, i, s, key, find, sid, outChoice));
   // 高専・大学・短大・専門学校の学校外の費用（月額）。統計の平均が無いので空欄は0円。「学校ごとに入れる」のときは標準
   if (isOtherOutStage(s.stage) && !rowsMode) fields.push({ ...otherOutField(key, find, s, outChoice === "custom" ? "simple" : "detail"), ...stageAddress(goalId, sid, "outOfSchool", "monthly") });
@@ -1349,6 +1394,13 @@ const loanCap = (s: EducationStage | undefined): number => (s !== undefined && (
 /** 入学の年にかかる学費（入学金と1年目の学費の統計の平均か入れた額）。分からなければ 200万円 */
 function firstYearCost(s: EducationStage | undefined): number {
   if (s === undefined) return 2000000;
+  // 学校の学費データの行（0219）: 最も新しい入学年度の1年次の授業料と入学料
+  const rows = (s.school as { rows?: TuitionRow[] } | undefined)?.rows ?? [];
+  if (rows.length > 0) {
+    const ref = Math.max(...rows.map((r) => r.entryYear));
+    const sum = rows.filter((r) => r.entryYear === ref && r.grade === 1).reduce((t, r) => t + r.amount, 0);
+    return Math.round(sum / 10000) * 10000;
+  }
   const stat = stageStatistic(s);
   const annual = s.annualOverride ?? stat?.annual ?? null;
   const entrance = s.entranceOverride ?? stat?.entrance ?? 0;
@@ -2005,7 +2057,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     const entryAge = STAGE_AGE[s.stage];
     const note =
       s.stage !== "nursery"
-        ? stageNote(s, lunchOf(goal), typeof s.id === "string" && rowAt(wh.request.input as unknown as Obj, { target: { object: goal.id }, item: "goal.education", at: ["stages", s.id, "annualOverride"] })?.state === "estimated", rowsMode)
+        ? stageNote(s, lunchOf(goal), typeof s.id === "string" && rowAt(wh.request.input as unknown as Obj, { target: { object: goal.id }, item: "goal.education", at: ["stages", s.id, "annualOverride"] })?.state === "estimated", rowsMode, child)
         : nurseryNote(s, free);
     const cost = stageRemainingCost(child, s, base, lunchOf(goal), rowsMode);
     if (cost !== null) childTotal += cost.total;

@@ -10,6 +10,6 @@
    ライセンスの表示 4.0 国際（CC BY 4.0。https://creativecommons.org/licenses/by/4.0/legalcode）と互換がある。
    この加工したデータを国（文部科学省）が作ったものとして公表・利用しない。
 
-2. aliases.yaml（別名・読み・移行先の補いの辞書）
+2. aliases.yaml（別名・読み・移行先の補いの辞書）と departments.yaml（学部・学科の一覧と修業年数）
 
    FPRISE, INC. が整理した部分。CC0 1.0 Universal（https://creativecommons.org/publicdomain/zero/1.0/legalcode）。

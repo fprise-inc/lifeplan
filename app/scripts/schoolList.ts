@@ -3,7 +3,8 @@
 //    （data/schools/schools.csv）にする。取った CSV の指紋（sha256）が pack.yaml の出典と合うことを確かめる
 // 2. 検査（checkSchoolPack）: 学校コードの形・検査数字・学校種と都道府県と設置区分が CSV の列と合うこと、移行先のコードが一覧にあって
 //    循環しないこと、別名の辞書（aliases.yaml）が一覧の学校コードを指していること
-// 3. 画面に配る形（buildSchoolBundle）: 正本の CSV と別名の辞書から、画面が遅れて読む JS（src/generated/schools.data.js）を作る
+// 3. 画面に配る形（buildSchoolBundle）: 正本の CSV と別名の辞書から、画面が遅れて読む JS（src/generated/schools.data.js）を作る。
+//    学部・学科の一覧と学校別の学費（app/scripts/tuitionData.ts。0219）も同じ JS に入れる
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -330,9 +331,13 @@ export interface SchoolBundle {
   cities: string[];
   schools: (string | number)[][];
   aliases: [string, string, string][];
+  /** 学部・学科（学校コード → 部局の並び。departments.yaml。0219） */
+  departments?: Record<string, { id: string; name: string; years: number; plan?: string }[]>;
+  /** 学校別の学費（master.education.tuition。data/tuition。0219） */
+  tuition?: { pack: string; version: string; schools: Record<string, unknown> };
 }
 
-export function buildSchoolBundle(rows: readonly SchoolRow[], aliases: AliasDoc, meta: { version: string; edition: string }): SchoolBundle {
+export function buildSchoolBundle(rows: readonly SchoolRow[], aliases: AliasDoc, meta: { version: string; edition: string }, more: Pick<SchoolBundle, "departments" | "tuition"> = {}): SchoolBundle {
   const cityIndex = new Map<string, number>();
   const cities: string[] = [];
   const extra = new Map(aliases.successors.map((s) => [s.from, s.to]));
@@ -349,7 +354,7 @@ export function buildSchoolBundle(rows: readonly SchoolRow[], aliases: AliasDoc,
   });
   const al: [string, string, string][] = [];
   for (const a of aliases.aliases) for (const n of a.names) al.push([a.code, n.name, n.kind]);
-  return { pack: SCHOOL_PACK_ID, version: meta.version, edition: meta.edition, cities, schools, aliases: al };
+  return { pack: SCHOOL_PACK_ID, version: meta.version, edition: meta.edition, cities, schools, aliases: al, ...more };
 }
 
 /** パックの見出し（pack.yaml）を読む */
