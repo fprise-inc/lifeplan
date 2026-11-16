@@ -402,6 +402,20 @@ async fn prompts_list_and_expand() {
     for p in &prompts {
         assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
     }
+    // 画面の見せ方の設定: 読む → 案を出す → FP がアプリで反映するか選ぶ、の流れ（変える所を伝えるだけの古い言い方を残さない）
+    let d = prompts
+        .iter()
+        .find(|p| p.name == "office_display")
+        .and_then(|p| p.description.clone())
+        .unwrap_or_default();
+    assert!(
+        d.contains("get_display_settings")
+            && d.contains("propose_display_settings")
+            && d.contains("share_id")
+            && d.contains("今 → 案")
+            && !d.contains("次の段"),
+        "{d}"
+    );
     let args_of = |name: &str| -> Vec<(String, bool)> {
         let p = prompts.iter().find(|p| p.name == name).unwrap();
         p.arguments
@@ -602,6 +616,7 @@ async fn prompts_list_and_expand() {
                 "反映する",
                 "前の値",
                 "share_id",
+                "変えたいときは propose_display_settings で案を出す",
                 "householdProposable",
                 "この世帯だけの値",
                 "AIに渡した記録",
@@ -2329,7 +2344,13 @@ async fn display_settings_list_the_catalog_and_current_values() {
         .unwrap();
     assert_eq!(t.annotations.as_ref().unwrap().read_only_hint, Some(true));
     let d = t.description.as_deref().unwrap_or("");
-    assert!(d.contains("変えられない") && d.contains("change"), "{d}");
+    assert!(
+        d.contains("変えられない")
+            && d.contains("change")
+            && d.contains("変えたいときは propose_display_settings で案を出す")
+            && d.contains("今 → 案"),
+        "{d}"
+    );
     let ins = c
         .peer_info()
         .unwrap()
