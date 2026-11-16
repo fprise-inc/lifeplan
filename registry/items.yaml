@@ -982,6 +982,14 @@ entries:
     replacedBy: null
     collection: donor
     path: [relative]
+  - id: employment.business.businessTaxClass
+    status: active
+    label: "個人事業税の業種の区分（省略は第1種〔5%〕。class1 第1種 5%・class2 第2種 4%・class3 第3種 5%・class3Reduced 第3種のうちあん摩・はり・きゅう・柔道整復など・装蹄師業 3%・none 法定業種でない〔課税なし〕。地方税法72条の2・72条の49の17）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: employment
+    path: [business, businessTaxClass]
   - id: employment.business.growth
     status: active
     label: "事業所得の増減率（省略は賃金上昇率。rate はこの期間の増減率（年。賃金上昇率の代わり。マイナスも書ける）。0040）"

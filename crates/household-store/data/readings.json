@@ -2485,6 +2485,13 @@
     "relative"
    ]
   },
+  "employment.business.businessTaxClass": {
+   "collection": "employment",
+   "path": [
+    "business",
+    "businessTaxClass"
+   ]
+  },
   "employment.business.growth": {
    "collection": "employment",
    "path": [

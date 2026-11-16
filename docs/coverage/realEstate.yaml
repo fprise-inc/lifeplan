@@ -22,7 +22,7 @@ entries:
       - "「収益不動産」の入力項目の「貸し終わり」"
     rows: [cf.income.other.rental]
     components:
-      asset.realEstate: 10
+      asset.realEstate: 11
     related: [realEstate.expenses, realEstate.income]
 
   - id: realEstate.expenses
@@ -46,7 +46,7 @@ entries:
       - "「収益不動産」の入力項目の「＋ 大きな修繕」"
     rows: [cf.expense.other.realEstate]
     components:
-      asset.realEstate: 10
+      asset.realEstate: 11
     related: [realEstate.income]
 
   - id: realEstate.depreciation
@@ -70,7 +70,7 @@ entries:
     rules:
       - 減価償却資産の耐用年数等に関する省令 別表第一
     components:
-      asset.realEstate: 10
+      asset.realEstate: 11
     related: [realEstate.income, realEstate.analysis]
 
   - id: realEstate.income
@@ -80,7 +80,7 @@ entries:
       入っています。不動産所得＝家賃収入−経費−減価償却費−借入の利息を名義の人ごとに出し、赤字はほかの所得から引きます（損益通算）。
       土地の取得のための借入の利息の分は損失から除きます。青色申告なら引ききれない損失を3年繰り越します。
     how: >-
-      物件を指すローンの年ごとの利息（貸している月数の分）を経費にし、借入額のうち建物の取得価額を超える分の割合を土地の分の利息とみなします。
+      物件を指すローンの年ごとの利息を、その年にローンのある月のうち貸している月の分（買った年・売った年は、ローンのある月に対する割合）で経費にし、借入額のうち建物の取得価額を超える分の割合を土地の分の利息とみなします。
       損失はほかの所得と通算し（所得税法施行令198条の順）、土地の分の利息は損失から引けません。青色申告特別控除の55万円・65万円は、
       事業的規模の目安（室数＋棟数×2が10以上）か事業所得があるときだけで、当たらなければ10万円です。白色申告の引ききれない損失は捨てます。
       物件のローンの返済は住宅ローンと同じ計算で、売るときに「売ったときにローンを返す」なら残りを一括で返します。
@@ -97,7 +97,7 @@ entries:
       - 所得税基本通達26-9（事業的規模）
     rows: [cf.income.other.rental, cf.expense.other.realEstate]
     components:
-      asset.realEstate: 10
+      asset.realEstate: 11
       tax.totalIncomeBase: 3
       tax.lossCarryforward: 1
       debt.schedule: 11
@@ -130,7 +130,7 @@ entries:
       - 租税特別措置法31条・32条（土地建物等の譲渡所得）
     rows: [cf.income.lumpSum.realEstateSale, cf.taxSi.incomeTax.realEstateSale, cf.taxSi.residentTax.realEstateSale]
     components:
-      asset.realEstate: 10
+      asset.realEstate: 11
       tax.realEstateSale: 3
       debt.schedule: 11
     related: [realEstate.income, realEstate.analysis]
@@ -154,7 +154,7 @@ entries:
     items: [account.property]
     components:
       asset.realEstateAnalysis: 4
-      asset.realEstate: 10
+      asset.realEstate: 11
     related: [realEstate.depreciation, realEstate.sale]
 
   - id: realEstate.lodging
@@ -177,7 +177,7 @@ entries:
       - 住宅宿泊事業法2条3項（年180日）
     rows: [cf.income.other.rental, cf.expense.other.realEstate]
     components:
-      asset.realEstate: 10
+      asset.realEstate: 11
     related: [realEstate.businessTax]
 
   - id: realEstate.businessTax
@@ -185,7 +185,8 @@ entries:
     status: notYet
     summary: >-
       まだ入っていません。事業的規模の目安に当たる貸付け・事業所得の民泊や宿の個人事業税、売上が年1,000万円を超える民泊・宿の消費税、
-      物件を買ったときの不動産取得税は計算しません（個人事業税・消費税は、当たりそうなとき知らせが出ます）。
+      物件を買ったときの不動産取得税は計算しません（個人事業税・消費税は、当たりそうなとき知らせが出ます）。自営業の働き方の期間の事業所得の
+      個人事業税は計算します（「事業所得（自営業）」の項目）。
     reason: 事業税の業種の判定と、消費税の課税事業者の判定・簡易課税の選択などを、まだ計算に入れていないためです。
     instead: >-
       不動産取得税は「取得時の諸費用」に含めて入れられます（建物の分は償却の基に足します）。個人事業税・消費税は、経費の費目や出るお金の行に
@@ -193,5 +194,5 @@ entries:
     keywords: [個人事業税, 消費税, 不動産取得税, 課税事業者, インボイス]
     items: [account.property]
     components:
-      asset.realEstate: 10
+      asset.realEstate: 11
     related: [realEstate.income, realEstate.lodging]

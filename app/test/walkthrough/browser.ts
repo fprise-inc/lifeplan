@@ -244,6 +244,16 @@ export class Page {
     await this.settle();
   }
 
+  /** いま選択（フォーカス）のある欄へ、1回の入力の出来事で文字を入れる（1文字ずつ打つときに使う。Tab は押さない） */
+  async insert(text: string): Promise<void> {
+    await this.cdp.send("Input.insertText", { text }, this.session);
+  }
+
+  /** 日本語の入力の変換中の文字を入れる（compositionstart〜update。確定は insert で送る） */
+  async compose(text: string): Promise<void> {
+    await this.cdp.send("Input.imeSetComposition", { text, selectionStart: text.length, selectionEnd: text.length }, this.session);
+  }
+
   /** 開いているパネルの文字 */
   panelText(): Promise<string> {
     return this.eval<string>("return w.panelText()");

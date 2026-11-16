@@ -783,6 +783,11 @@
               "additionalProperties": false,
               "required": ["rate"],
               "properties": { "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+            },
+            "businessTaxClass": {
+              "title": "個人事業税の業種の区分（省略は第1種〔5%〕。class1 第1種 5%・class2 第2種 4%・class3 第3種 5%・class3Reduced 第3種のうちあん摩・はり・きゅう・柔道整復など・装蹄師業 3%・none 法定業種でない〔課税なし〕。地方税法72条の2・72条の49の17）",
+              "x-item": "employment.business.businessTaxClass",
+              "enum": ["class1", "class2", "class3", "class3Reduced", "none"]
             }
           }
         },

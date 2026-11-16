@@ -115,7 +115,7 @@ entries:
       - cf.taxSi.pension.fund
     components:
       retirement.benefit: 4
-      retirement.receipts: 1
+      retirement.receipts: 2
     related:
       - tax.retirementIncome
       - tax.publicPensionDeduction
@@ -126,18 +126,39 @@ entries:
     status: included
     summary: >-
       入っています。自営業の働き方の期間に事業所得の年額を入れ、12か月に分けて載せます。翌年からは賃金上昇率（増減率を入れたときはその率）で伸ばします。
+      個人事業税も計算します（業種の区分を入れなければ税率5%）。
     how: >-
       入れる額は期間の最初の年（計算の基準の年より前の期間なら、計算の基準の年）の事業所得の年額です。毎年、賃金上昇率で伸ばし、期間に増減率を
       入れたときはその率で伸ばします（マイナスも入れられます）。所得税・住民税・国民健康保険料は、この所得から計算します。
+      個人事業税は、その年の事業所得（青色申告特別控除の前の額）から事業主控除（年290万円。その年に事業を行った月数が12か月に満たなければ月割り）を
+      引いた額（1,000円未満切り捨て）に業種の区分の税率（第1種5%・第2種4%・第3種5%・あん摩・はり・きゅう・柔道整復などと装蹄師業3%。
+      入れなければ5%。法定業種でない仕事は課税なし）を掛け（100円未満切り捨て）、翌年の8月と11月に半分ずつ払います。年の途中で事業をやめた
+      （亡くなったときを含む）年の分は、やめた月の2か月後（1〜3月にやめたら4月）に1回で払います。
+      個人事業税の税率は標準税率です（標準税率を超えて課す道府県の率は入れていません）。事業専従者控除・損失の繰越控除・社会保険診療報酬の除外は扱わず、
+      払った事業税を翌年の事業所得の経費にし直すこともしません（事業所得は経費を引いた後の額を入れるため）。少額の税を1回で納める扱いと、
+      年の途中でやめたときの納期は近似です。入るお金の行の事業所得・事業所得の民泊や宿・事業的規模の貸付けの個人事業税は計算しません。
       自営業の働く最後の年齢の推定は70歳です（入れないと表の最後まで事業所得が入るため）。
-    keywords: [事業所得, 自営業, 個人事業主, フリーランス, 売上, 所得, 開業]
-    items: [employment.business.income, employment.business.growth, employment.type]
+    keywords: [事業所得, 自営業, 個人事業主, フリーランス, 売上, 所得, 開業, 個人事業税, 事業税, 事業主控除]
+    items: [employment.business.income, employment.business.growth, employment.business.businessTaxClass, employment.type]
     fields:
       - 「働き方と収入」の入力項目の「事業所得（年額）」
       - 「働き方と収入」の入力項目の「増減率（年）」
-    rows: [cf.income.business]
+      - 「働き方と収入」の入力項目の「個人事業税の業種」
+    rules:
+      - 地方税法72条の49の12（個人の事業税の課税標準の算定の方法）
+      - 地方税法72条の49の14（事業主控除）
+      - 地方税法72条の49の17（税率）
+      - 地方税法72条の51（納期）
+    regulation:
+      - businessTax.ownerDeduction
+      - businessTax.rate.class1
+      - businessTax.rate.class2
+      - businessTax.rate.class3
+      - businessTax.rate.class3Reduced
+    rows: [cf.income.business, cf.taxSi.businessTax]
     components:
       income.business: 4
+      tax.businessTax: 1
     related:
       - income.sideIncome
       - basics.growthRates
