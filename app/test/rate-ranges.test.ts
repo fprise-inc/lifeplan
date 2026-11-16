@@ -30,10 +30,10 @@ const IDS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
 
 /** 欄の名前（例外の年の率は前提の名前の鍵）→ 範囲 */
 const BY_LABEL: Readonly<Record<string, PctRange>> = {
-  "物価上昇率（年）": GROWTH_RANGE,
-  "賃金上昇率（年）": GROWTH_RANGE,
+  "物価の上昇率": GROWTH_RANGE,
+  "給与の上昇率": GROWTH_RANGE,
   "教育費の上昇率（年）": GROWTH_RANGE,
-  "運用利回り（年）": RETURN_RANGE,
+  "運用の利回り": RETURN_RANGE,
   "年金の調整率（基礎年金・年）": SLIDE_RANGE,
   "年金の調整率（厚生年金・年）": SLIDE_RANGE,
   // 資産の種類ごとの利回り（0214 で種類の名前の欄の並びにした）

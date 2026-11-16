@@ -8,7 +8,7 @@ import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, endYearForAge, endYearRuleOf, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { END_YEAR_SHARED, endYearNotice, endYearToStandard } from "../src/workspace/input/stages/assumptions.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { fieldStatus, planStateOp } from "../src/workspace/input/valueState.ts";
+import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import { applyPlan, type Proposal } from "../src/workspace/plans/plans.ts";
@@ -64,8 +64,8 @@ describe("表を何歳まで見るか（標準の1つの欄）", () => {
     expect(w95.request.input.endYear).toBe(1983 + 95);
     expect(fieldOf(w95, "assume/endYear").get(w95).value).toBe(`m:${spouse.id}:95`);
     expect(endYearRuleOf(w95)).toEqual({ kind: "member", member: spouse.id, age: 95 });
-    // 既定と違う年は推定ではない。範囲の知らせ（85〜105歳の外）は出ない
-    expect(fieldStatus(fieldOf(w95, "assume/endYear"), w95).status).toBe("confirmed");
+    // 既定と違う年は「この世帯だけ」。範囲の知らせ（85〜105歳の外）は出ない
+    expect(fieldStatus(fieldOf(w95, "assume/endYear"), w95).premise?.state).toBe("household");
     expect(endYearNotice(w95)).toBeNull();
     for (const o of f.kind === "select" ? f.options.filter((x) => x.value !== "year") : []) expect(endYearNotice(f.set(wh, o.value)), o.label).toBeNull();
   });
@@ -126,10 +126,15 @@ describe("プランを直している間の表の最後の年", () => {
     expect(endYearRuleOf(n)).toEqual({ kind: "member", member: self.id, age: 90 });
     expect(fieldOf(planView(n, cat, PLAN_ID), "assume/endYear").get(planView(n, cat, PLAN_ID)).value).toBe(`m:${self.id}:90`);
     expect(planView(n, cat, PLAN_ID).request.input.endYear).toBe(n.request.input.endYear);
-    // 年の欄の「この値にする」も現状の値の状態にする
-    const confirmed = planStateOp(wh, cat, PLAN_ID, fieldOf(view, "assume/endYear"), "confirm");
-    expect(confirmed.proposals[0]!.diffs).toEqual([]);
-    expect((confirmed.request.input as { valueStates?: Record<string, { state: string }> }).valueStates?.["plan.endYear"]?.state).toBe("confirmed");
+    // 「事務所の既定値に戻す」も現状に当たる（「この値にする」は無い。0214 の追記 2026-11-16 の2）
+    expect(fieldOf(view, "assume/endYear").get(view).premise?.state).toBe("office");
+    const nView = planView(n, cat, PLAN_ID);
+    const mark = fieldOf(nView, "assume/endYear").get(nView).premise!;
+    expect(mark.state).toBe("household");
+    const back = recordPlanEdit(n, cat, PLAN_ID, nView, mark.reset(nView));
+    expect(back.proposals[0]!.diffs).toEqual([]);
+    expect(endYearRuleOf(back)).toEqual({ kind: "default" });
+    expect(back.request.input.endYear).toBe(wh.request.input.endYear);
     // 範囲の知らせの「既定にする」も現状に当たる
     const off = withPlan(mutate(open(), (_h, req) => void (req.input.endYear = 2125)));
     const offView = planView(off, cat, PLAN_ID);
@@ -197,7 +202,7 @@ describe("事務所の既定値の「標準は何歳まで」（0073 の追記 2
     const h = fresh.request.input.household;
     expect(fresh.request.input.endYear).toBe(endYearForAge(h, 95));
     expect(standardEndYear(h)).toBe(endYearForAge(h, 95));
-    expect(fieldStatus(fieldOf(fresh, "assume/endYear"), fresh).status).toBe("estimated");
+    expect(fieldStatus(fieldOf(fresh, "assume/endYear"), fresh).premise).toMatchObject({ state: "office", decided: true });
     const choice = fieldOf(fresh, "assume/endYear");
     expect(choice.get(fresh).value).toBe("default");
     expect(choice.kind === "select" ? choice.options.find((o) => o.value === "default")?.label : "").toBe("ご本人が95歳まで（既定）");

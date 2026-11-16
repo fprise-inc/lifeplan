@@ -135,8 +135,9 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   { words: ["住宅資金の援助", "住宅取得資金", "教育資金の一括贈与"], card: "inheritance", to: ["贈与を受ける", "贈与する人"] },
   { words: ["遺したい", "残したい", "遺す"], card: "inheritance", to: ["遺したい額"] },
   // 前提条件
-  { words: ["インフレ", "物価", "物価上昇"], card: "assumptions", to: ["物価上昇率"] },
-  { words: ["昇給", "賃上げ", "ベースアップ"], card: "assumptions", to: ["賃金上昇率"] },
+  { words: ["インフレ", "物価", "物価上昇", "物価上昇率"], card: "assumptions", to: ["物価の上昇率"] },
+  { words: ["昇給", "賃上げ", "ベースアップ", "賃金", "賃金上昇率", "給与の伸び"], card: "assumptions", to: ["給与の上昇率"] },
+  { words: ["運用利回り", "期待利回り"], card: "assumptions", to: ["運用の利回り"] },
   { words: ["マクロ経済スライド"], card: "assumptions", to: ["年金の調整率"] },
   { words: ["顧問料", "相談料", "FPへの報酬"], card: "assumptions", to: ["FP顧問料"] },
   { words: ["何歳まで", "表の最後", "寿命"], card: "assumptions", to: ["表を何歳まで見るか"] },

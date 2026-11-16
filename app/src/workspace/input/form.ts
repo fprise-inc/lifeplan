@@ -66,6 +66,11 @@ export interface FieldState {
   /** 欄の横に添える補助（年齢・和暦など） */
   hint?: string | null;
   /**
+   * 欄の下に添える、FP がお客さまに話すときの一言（前提条件のお客さまと確かめる前提だけ。例: 「物価が年1%上がると、30年後の100万円は、今の約74万円の
+   * 値打ちになります」。欄の値で言い換わる。0214 の追記 2026-11-16）
+   */
+  talk?: string | null;
+  /**
    * 空欄の推定の値（blankEstimate）を欄の中に灰色で見せているときの、根拠の短い文（hint の「月5.2万円（推定）」は欄の中の値の繰り返しになるので出さない）。
    * 推定の出どころ（「統計の平均（○○の調査）」など。placeholder.ts の splitEstimateHint）は欄の横に出さず「推定」の印の吹き出しの頭に置き、
    * 続く「・」「。」の後ろの一言（入れ方・計算の中身）だけを欄の横に出す。省略は推定の根拠から作る短い文（shortBasis）を吹き出しの頭に置く。
@@ -93,7 +98,7 @@ export interface FieldState {
 
 /** 前提条件の欄の、事務所の既定値との関係（0214） */
 export interface PremiseMark {
-  /** 前提条件の id（premiseDefaults.ts の PREMISE_DEFS） */
+  /** 前提条件の id（premiseDefaults.ts の PREMISE_DEFS。表を何歳まで見るかは stages/assumptions.ts の END_YEAR_PREMISE） */
   id: string;
   /** office＝事務所の既定値と同じ・household＝この世帯だけ・officeChanged＝事務所の既定値を使っていて、その後に事務所の既定値が変わった */
   state: "office" | "household" | "officeChanged";

@@ -506,6 +506,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-premise { font-size: 0.7rem; font-weight: 700; border-radius: 3px; padding: 0 5px; white-space: nowrap; color: var(--ink-2); background: var(--line-2); }
 .fld-premise.household { color: var(--prop-ink); background: var(--prop-bg); }
 .fld-premise.officeChanged { color: var(--est-ink); background: var(--est-bg); }
+/* お客さまに話すときの一言（前提条件のお客さまと確かめる前提。0214 の追記 2026-11-16）: 欄の下に、左の細い線つきで */
+.fld-talk { font-size: 0.82rem; line-height: 1.5; color: var(--ink); margin-top: 4px; padding-left: 8px; border-left: 3px solid var(--line-2); overflow-wrap: anywhere; }
 .ip-premise-fold { margin: 4px 0 12px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 6px; background: var(--card); }
 .ip-premise-fold > .link-btn { font-weight: 700; color: var(--ink); text-align: left; }
 .ip-premise-fold-act { font-weight: 400; color: var(--ink-2); margin-left: 4px; }

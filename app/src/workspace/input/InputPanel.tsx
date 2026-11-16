@@ -44,6 +44,7 @@ import { historyScope, undoController, useUndoScope } from "../undo/controller.t
 import { deepEqual, UndoHistory } from "../undo/history.ts";
 import { guardPanel, settleInput } from "./pendingInput.ts";
 import { premiseSummary } from "./premiseDefaults.ts";
+import { inPremiseFold, PREMISE_FOLD_SECTIONS } from "./stages/assumptions.ts";
 import { LevelScroll } from "./levelScroll.ts";
 
 export interface InputPanelProps {
@@ -117,13 +118,11 @@ function jumpTo(el: HTMLElement): void {
   box.classList.add("jumped");
 }
 
-/** 前提条件のカードで1行にたたむ区画（経済の前提・例外の年・不動産の評価・資産の種類ごとの利回り。結果のタブで動かした前提と FP顧問料はたたまない。0214 の4） */
-const PREMISE_FOLD = new Set(["assume/main", "assume/exceptions", "assume/realEstate", "assume/assetReturns"]);
-
-/** たたむ区画の欄・まとまりのキーか */
-const inPremiseFold = (key: string | undefined): boolean => key !== undefined && key.startsWith("assume/") && !/^assume\/(shifts|returnShifts|loanRateShifts)/.test(key);
-
-/** 前提条件のたたんだ1行（「前提条件: 事務所の既定値どおり（この世帯だけ変えた所 0件）」）と開け閉め */
+/**
+ * 前提条件のたたんだ1行（「細かい前提: 事務所の既定値どおり（この世帯だけ変えた所 0件）」）と開け閉め。詳細のときだけ、FP が決める細かい前提と
+ * 計算の決まりの区画（stages/assumptions.ts の PREMISE_FOLD_SECTIONS）の前に出す。お客さまと確かめる前提・結果のタブで動かした前提・FP顧問料はたたまない
+ * （0214 の4・その追記 2026-11-16）
+ */
 function PremiseFoldLine({ wh, open, onToggle }: { wh: WorkingHousehold; open: boolean; onToggle: () => void }) {
   return (
     <div class="ip-premise-fold" data-premise-fold={open ? "open" : "closed"}>
@@ -137,7 +136,7 @@ function PremiseFoldLine({ wh, open, onToggle }: { wh: WorkingHousehold; open: b
 
 export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, onReadDoc, focusKey, focusAt, plan, groupOpen, docs }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(wh);
-  // 前提条件の事務所の既定値の区画は、ふだん1行にたたむ（0214 の4）。確かめの一覧・検索からその欄へ来たときは開いて出す
+  // 前提条件の細かい前提の区画は、ふだん1行にたたむ（0214 の4・その追記 2026-11-16）。確かめの一覧・検索からその欄へ来たときは開いて出す
   const [premiseOpen, setPremiseOpen] = useState(() => itemId === "assumptions" && (inPremiseFold(focusKey) || inPremiseFold(focusAt?.key) || inPremiseFold(focusAt?.section)));
   const [dirty, setDirty] = useState(false);
   /** 保存していない変更があるか（描く前にも読めるように。閉じる前に打ちかけの値を決めた直後など） */
@@ -612,12 +611,12 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
               <SectionLinks.Provider value={links}>
                 {/* 収益不動産: 上に物件の一覧（読むだけ。入力から出せる数字だけ。0079） */}
                 {itemId === "rental" ? <RentalOverview wh={shown} figures={rentalFig} /> : null}
-                {itemId === "assumptions" ? <PremiseFoldLine wh={shown} open={premiseOpen} onToggle={() => setPremiseOpen(!premiseOpen)} /> : null}
-                {sections
-                  .filter((s) => itemId !== "assumptions" || premiseOpen || !PREMISE_FOLD.has(s.key))
-                  .map((s) => (
-                    <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
-                  ))}
+                {sections.map((s, i) => {
+                  const folded = itemId === "assumptions" && PREMISE_FOLD_SECTIONS.has(s.key);
+                  // たたんだ1行は、たたむ区画の最初の物の前に1つ（標準ではたたむ区画を出さないので、1行も出ない）
+                  const head = folded && sections.findIndex((x) => PREMISE_FOLD_SECTIONS.has(x.key)) === i ? <PremiseFoldLine key="premise-fold" wh={shown} open={premiseOpen} onToggle={() => setPremiseOpen(!premiseOpen)} /> : null;
+                  return [head, folded && !premiseOpen ? null : <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />];
+                })}
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます</p> : null}
                 {/* 子ども・教育: 保育料を自動で計算している段の、年ごとの月の平均（読むだけ。0029 の追記 2026-10-30） */}
                 {itemId === "education" && nurseryFee.length > 0 ? (
@@ -684,7 +683,9 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                 {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
                 {/* 前提条件: 前提と推定の一覧（確かめた記録はプランごと。値は変えないので、プランを直していても差分にしない。0070） */}
-                {itemId === "assumptions" ? <AssumptionList wh={shown} planId={plan?.id ?? null} onAgree={(f) => commit({ ...latest.current, agreed: f(latest.current).agreed })} onLevel={(l) => switchLevel(l, false)} onReveal={() => setPremiseOpen(true)} /> : null}
+                {itemId === "assumptions" ? <AssumptionList wh={shown} planId={plan?.id ?? null} onAgree={(f) => commit({ ...latest.current, agreed: f(latest.current).agreed })} onLevel={(l) => switchLevel(l, false)} onReveal={(key) => {
+                  if (inPremiseFold(key)) setPremiseOpen(true);
+                }} /> : null}
                 {/* 年金: カードの下に年金の見込み（読むだけ。0067） */}
                 {itemId === "pension" ? <PensionEstimate wh={shown} est={pensionEst} /> : null}
               </SectionLinks.Provider>

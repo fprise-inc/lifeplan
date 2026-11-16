@@ -75,7 +75,7 @@ export function assumptionRows(wh: WorkingHousehold): AssumptionRow[] {
     if (sec.key.startsWith("ev/")) continue;
     for (const g of sec.groups)
       for (const f of g.fields) {
-        const group: ListGroup | null = ECONOMY.has(f.key) ? "economy" : sec.key === "assume/main" ? "range" : sec.key === "assume/realEstate" && g.key === "assume/realEstate/fields" ? "realEstate" : sec.key === "assume/assetReturns" && g.key === "assume/assetReturns/grid" ? "assetReturns" : null;
+        const group: ListGroup | null = ECONOMY.has(f.key) ? "economy" : sec.key === "assume/main" || sec.key === "assume/conv" ? "range" : sec.key === "assume/realEstate" && g.key === "assume/realEstate/fields" ? "realEstate" : sec.key === "assume/assetReturns" && g.key === "assume/assetReturns/grid" ? "assetReturns" : null;
         // 表の最後の年は「表を何歳まで見るか」の行1つ（「年で決める」の年の欄は同じ値の入れ方）
         if (group === null || f.key === "assume/endYear/year") continue;
         const st = f.get(wh);
@@ -113,6 +113,9 @@ export function assumptionRows(wh: WorkingHousehold): AssumptionRow[] {
         });
       }
   }
+  // 区分の順に並べ直す（前提条件の入力項目の区画の並びと区分の並びは同じでない: お客さまと確かめる前提の区画に、経済の前提と表の期間が入る。0214 の追記 2026-11-16）
+  const order = Object.keys(LIST_GROUP_LABELS);
+  rows.sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
   // ほかのカードの推定（確かめの一覧の推定の行と同じ）
   for (const r of checkList(wh)) {
     if (r.card === "assumptions" || r.kind !== "estimated") continue;

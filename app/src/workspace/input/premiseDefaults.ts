@@ -67,9 +67,9 @@ const followsOf = (name: string, text: string) => ({ text, value: (a: Assumption
 
 /** 経済の前提（年ごとの列 assumptions.<名前>） */
 const ECONOMY: PremiseDef[] = [
-  { id: "inflation", key: "assume/inflation", label: "物価上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["inflation"], series: true, standard: DEFAULT_ASSUMPTIONS.inflation.default, absent: () => null },
-  { id: "wageGrowth", key: "assume/wageGrowth", label: "賃金上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["wageGrowth"], series: true, standard: DEFAULT_ASSUMPTIONS.wageGrowth.default, absent: () => null },
-  { id: "investmentReturn", key: "assume/investmentReturn", label: "運用利回り（年）", section: "economy", kind: "pct", ...RETURN_RANGE, path: ["investmentReturn"], series: true, standard: DEFAULT_ASSUMPTIONS.investmentReturn.default, absent: () => null },
+  { id: "inflation", key: "assume/inflation", label: "物価の上昇率", officeLabel: "物価上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["inflation"], series: true, standard: DEFAULT_ASSUMPTIONS.inflation.default, absent: () => null },
+  { id: "wageGrowth", key: "assume/wageGrowth", label: "給与の上昇率", officeLabel: "賃金上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["wageGrowth"], series: true, standard: DEFAULT_ASSUMPTIONS.wageGrowth.default, absent: () => null },
+  { id: "investmentReturn", key: "assume/investmentReturn", label: "運用の利回り", officeLabel: "運用利回り（年）", section: "economy", kind: "pct", ...RETURN_RANGE, path: ["investmentReturn"], series: true, standard: DEFAULT_ASSUMPTIONS.investmentReturn.default, absent: () => null },
   { id: "depositReturn", key: "assume/depositReturn", label: "預金の利回り（年）", section: "economy", kind: "pct", ...RETURN_RANGE, path: ["depositReturn"], series: true, standard: DEFAULT_ASSUMPTIONS.depositReturn.default, absent: () => null },
   { id: "educationInflation", key: "assume/educationInflation", label: "教育費の上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["educationInflation"], series: true, standard: null, absent: () => null, follows: followsOf("inflation", "物価上昇率と同じ") },
   { id: "pensionMacroSlide", key: "assume/pensionMacroSlide", label: "年金の調整率（基礎年金・年）", section: "economy", kind: "pct", ...SLIDE_RANGE, path: ["pensionMacroSlide"], series: true, standard: DEFAULT_ASSUMPTIONS.pensionMacroSlide.default, absent: () => null },
@@ -282,12 +282,26 @@ function resetterOf(d: PremiseDef): (wh: WorkingHousehold) => WorkingHousehold {
 /** 世帯に出している前提条件の欄か（不動産の評価は不動産を持つ世帯だけ） */
 export const shownPremise = (d: PremiseDef, wh: WorkingHousehold): boolean => d.section !== "realEstate" || ownsRealEstate(wh);
 
+/**
+ * お客さまと確かめる前提（前提条件の入力項目の最初の区画に、たたまずにいつも出す。0214 の追記 2026-11-16）。
+ * 表を何歳まで見るかも同じ区画に出すが、事務所の既定値の欄の表（PREMISE_DEFS）には無い（既定の年齢だけが事務所の既定値）
+ */
+export const TALK_PREMISES: readonly string[] = ["inflation", "wageGrowth", "investmentReturn"];
+
+/** お客さまと確かめる前提の欄か（無ければ FP が決める細かい前提） */
+export const talkPremise = (d: PremiseDef): boolean => TALK_PREMISES.includes(d.id);
+
+/** 数える前提の範囲（all＝全部・talk＝お客さまと確かめる前提・fine＝FP が決める細かい前提） */
+export type PremiseScope = "all" | "talk" | "fine";
+
+const inScope = (d: PremiseDef, scope: PremiseScope): boolean => scope === "all" || (scope === "talk") === talkPremise(d);
+
 /** たたんだ1行の数（この世帯だけ・事務所の既定値が変わった所） */
-export function premiseCounts(wh: WorkingHousehold): { own: number; changed: number } {
+export function premiseCounts(wh: WorkingHousehold, scope: PremiseScope = "all"): { own: number; changed: number } {
   let own = 0;
   let changed = 0;
   for (const d of PREMISE_DEFS) {
-    if (!shownPremise(d, wh)) continue;
+    if (!shownPremise(d, wh) || !inScope(d, scope)) continue;
     const s = premiseState(d, wh);
     if (s?.state === "household") own++;
     else if (s?.state === "officeChanged") changed++;
@@ -295,12 +309,32 @@ export function premiseCounts(wh: WorkingHousehold): { own: number; changed: num
   return { own, changed };
 }
 
-/** たたんだ1行の文（「前提条件: 事務所の既定値どおり（この世帯だけ変えた所 0件）」） */
+/** 例外の年の数（年ごとの列の byYear を、続いた年で同じ率のまとまりで数える。前提条件の入力項目の「例外の年」のまとまりの数と同じ） */
+export function exceptionCount(wh: WorkingHousehold): number {
+  let n = 0;
+  for (const d of PREMISE_DEFS) {
+    if (!d.series || !shownPremise(d, wh)) continue;
+    const by = (getPath(assumptionsOf(wh), d.path) as { byYear?: Record<string, string> } | undefined)?.byYear ?? {};
+    let last: { y: number; r: string } | null = null;
+    for (const y of Object.keys(by).map(Number).sort((a, b) => a - b)) {
+      const r = by[String(y)] as string;
+      if (last === null || last.y !== y - 1 || !sameRate(last.r, r)) n++;
+      last = { y, r };
+    }
+  }
+  return n;
+}
+
+/**
+ * たたんだ1行の文（FP が決める細かい前提。「細かい前提: 事務所の既定値どおり（この世帯だけ変えた所 0件）」）。
+ * 事務所の既定値が変わった所・例外の年があれば、その数も添える（どれもたたんだ中にあり、開くまで見えないため）
+ */
 export function premiseSummary(wh: WorkingHousehold): string {
-  const { own, changed } = premiseCounts(wh);
-  const moved = changed > 0 ? `事務所の既定値が変わった所 ${changed}件` : null;
-  if (own === 0) return `前提条件: 事務所の既定値どおり（この世帯だけ変えた所 0件${moved !== null ? `・${moved}` : ""}）`;
-  return `前提条件: 事務所の既定値と、この世帯だけ変えた所 ${own}件${moved !== null ? `（${moved}）` : ""}`;
+  const { own, changed } = premiseCounts(wh, "fine");
+  const ex = exceptionCount(wh);
+  const extra = [...(changed > 0 ? [`事務所の既定値が変わった所 ${changed}件`] : []), ...(ex > 0 ? [`例外の年 ${ex}件`] : [])];
+  if (own === 0) return `細かい前提: 事務所の既定値どおり（${["この世帯だけ変えた所 0件", ...extra].join("・")}）`;
+  return `細かい前提: 事務所の既定値と、この世帯だけ変えた所 ${own}件${extra.length > 0 ? `（${extra.join("・")}）` : ""}`;
 }
 
 /** 新しい世帯に、事務所で決めた前提条件を写す（写した欄に「事務所の既定値（年月）」の印。0073 の3・0214 の6） */
