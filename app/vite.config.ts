@@ -954,7 +954,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
           alias: s.alias,
           changes: [
             { id: "result.atAge", value: 85, note: "このご夫婦とは85歳時点で話すことが多いため" },
-            { id: "result.layout", value: "side", note: "今のプランと比べるときは左右に並べたほうが伝わりやすいため" },
+            { id: "result.layout", value: "side", note: "今のプランと比較するときは左右に並べたほうが伝わりやすいため" },
             { id: "balance.columns", value: [{ point: "now" }, { point: "childIndep" }, { point: "retire" }], note: "お子さまの独立と退職の年を並べて話す予定です" },
             { id: "balance.health", value: false, note: "この世帯では家計の体力の目安は使わないため" },
           ],

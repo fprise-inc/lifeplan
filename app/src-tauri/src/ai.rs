@@ -1269,6 +1269,69 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    /// 渡された世帯ごとの表示の設定の案（0213 の段B の後半）: その世帯の「同意とAIの記録」に出て、状態にはどの世帯に届いたかが出る。
+    /// 案を出したことは世帯ファイルの AIに渡した記録に残り、案そのものは世帯ファイルに書かない。設定ごとに外せ、世帯を消す前には消える
+    #[test]
+    fn household_display_proposals_reach_the_household_view() {
+        let root = root("display-household");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        let o = pc1
+            .store
+            .create(CreateRequest {
+                body: body(),
+                summary: "本人".into(),
+            })
+            .unwrap();
+        let id = o.id.clone();
+        pc1.ai.on_opened(o, "本人".into()).unwrap();
+        pc1.record(&id, "given");
+        let share = pc1.share(&id).unwrap();
+        let r: serde_json::Value = serde_json::from_str(
+            &pc1.ai
+                .registry
+                .handle_propose_share_display(
+                    &share,
+                    &serde_json::json!({ "changes": [
+                        { "id": "result.atAge", "value": 85 },
+                        { "id": "balance.health", "value": false }
+                    ] }),
+                    &ai_share::record::Caller::default(),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        let candidate = r["candidateId"].as_str().unwrap().to_owned();
+        let v = view(&pc1.ai, &lock(&pc1.ai.books), &id).unwrap();
+        assert_eq!(v.display_proposals.len(), 1);
+        assert_eq!(v.display_proposals[0].changes.len(), 2);
+        let st = pc1.ai.registry.household_display_pending();
+        assert_eq!(st.len(), 1);
+        assert_eq!(st[0].household_id, id);
+        assert_eq!(st[0].count, 2);
+        // 記録は世帯ファイルに書く（案を出したこと）。案そのもの（値・理由）は書かない
+        pc1.ai.persist_all(&pc1.store);
+        let file = file_sections(&root, &secrets, &id);
+        let text = file.to_string();
+        assert!(text.contains(&candidate), "記録の proposals に残る");
+        assert!(
+            !text.contains("balance.health"),
+            "案の中身は世帯ファイルに書かない"
+        );
+        // 設定ごとに外す（全部外れたら案ごと）
+        assert!(pc1
+            .ai
+            .registry
+            .take_household_display_change(&id, &candidate, "result.atAge")
+            .is_some());
+        let v = view(&pc1.ai, &lock(&pc1.ai.books), &id).unwrap();
+        assert_eq!(v.display_proposals[0].changes.len(), 1);
+        // 世帯を消す前には消える
+        pc1.ai.on_deleting(&id);
+        assert!(pc1.ai.registry.household_display_pending().is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// 同じ起動の中で開き直したら、世帯ファイルの同意で帳面を作り直す。もう1台で記録した撤回が見え、渡せず、保存しても消えない
     #[test]
     fn reopening_reads_consents_written_on_another_pc() {
