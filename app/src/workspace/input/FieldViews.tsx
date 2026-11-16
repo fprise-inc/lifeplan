@@ -2,8 +2,8 @@
 // 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）。
 // 0077: 欄の説明（help・読むだけの理由・ほかへの影響）と区画・まとまりの説明は、名前の横の「?」の中へ。推定の根拠は状態の印を押したときに開く。
 // 灰色の入力例は欄の幅に収まる物だけ（placeholder.ts）。欄は、離れたとき（か Enter）に値を決める（打っている途中の空や読めない文字で物を消さない）
-import { createContext, type ComponentChildren } from "preact";
-import { useContext, useEffect, useRef, useState } from "preact/hooks";
+import { createContext, Fragment, type ComponentChildren } from "preact";
+import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
@@ -12,7 +12,7 @@ import { FoldClose, FoldedGroup, useFold } from "./FoldedGroup.tsx";
 import { blankLineFor, fitsIn, fittingPlaceholder, shortBasis, textEm } from "./placeholder.ts";
 import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
-import { groupShown, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type PremiseMark, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
+import { groupShown, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type PremiseMark, type SearchDef, type SearchItem, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, confirmTyped, typeFromAge, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseDatedYearMonth, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
@@ -26,6 +26,7 @@ import { ageExample, birthFromAge, convertWhen, endBeforeStart, eventOptionText,
 import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
 import type { OfficeSourceView } from "./officeSource.ts";
 import { readableDoc } from "../documents/start.ts";
+import "./schoolLoader.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
 
@@ -1162,6 +1163,120 @@ export function optionNodes(options: readonly Option[]): ComponentChildren[] {
  * 欄1つ。打っている間は下書きの文字を持ち、欄を離れたとき（Enter）に読んで世帯に入れる（打っている途中の空や読めない文字・途中の数で
  * 物を消したり、関連する値を動かしたりしない。時点の欄と同じ）。読めない文字は、打っている間から欄の下に理由を出す
  */
+/**
+ * 打って一覧から選ぶ欄（学校名など。FieldDef.search。0217）。欄には今の値の名前を見せ、入ると打つ欄になる。候補の一番上はいつも固定の選択肢
+ * （「学校未定（平均で計算）」）。キーボード: 上下で選ぶ・Enter で選んだ候補にする・Esc で閉じる（値は変えない）
+ */
+function SearchPicker({ id, def, wh, value, onPick }: { id: string; def: SearchDef; wh: WorkingHousehold; value: string; onPick: (v: string) => void }) {
+  const [query, setQuery] = useState<string | null>(null);
+  const [act, setAct] = useState(-1);
+  const list = useRef<HTMLUListElement>(null);
+  const uid = useId();
+  const listId = `pick-${uid}`;
+  const open = query !== null;
+  const ready = def.ready?.() !== false;
+  const initial = open && query.trim() === "" ? (def.initial?.(wh) ?? null) : null;
+  const q = query === null ? "" : query.trim() !== "" ? query : (initial?.query ?? "");
+  const found = open && ready && q.trim() !== "" ? def.find(wh, q) : { items: [] as SearchItem[], total: 0 };
+  const items: SearchItem[] = [...def.fixed, ...found.items];
+  useEffect(() => setAct(-1), [query]);
+  useEffect(() => {
+    if (open) list.current?.querySelector<HTMLElement>("li.act")?.scrollIntoView({ block: "nearest" });
+  }, [act, open]);
+  const choose = (it: SearchItem | undefined) => {
+    if (it === undefined) return;
+    setQuery(null);
+    if (it.value !== value) onPick(it.value);
+  };
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (!open) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const n = items.length;
+      setAct(act < 0 ? (e.key === "ArrowDown" ? 0 : n - 1) : e.key === "ArrowDown" ? (act + 1) % n : (act - 1 + n) % n);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (act >= 0) choose(items[act]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setQuery(null);
+      (e.currentTarget as HTMLInputElement).blur();
+    }
+  };
+  const more = found.total - found.items.length;
+  return (
+    <span class="pick" data-pick>
+      <input
+        id={id}
+        type="text"
+        class="txt pick-q"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls={listId}
+        {...(open && items[act] !== undefined ? { "aria-activedescendant": `${listId}-${act}` } : {})}
+        autocomplete="off"
+        spellcheck={false}
+        placeholder={open ? def.placeholder : ""}
+        value={open ? query : def.shown(wh)}
+        onFocus={() => setQuery("")}
+        onBlur={() => setQuery(null)}
+        onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
+        onKeyDown={onKeyDown}
+        data-pick-input
+      />
+      {open ? (
+        <ul id={listId} ref={list} class="pick-list" role="listbox" aria-label="候補" data-pick-list>
+          {items.map((it, i) => (
+            <Fragment key={`${it.value}|${i}`}>
+              {i === def.fixed.length && initial !== null ? (
+                <li class="pick-head" role="presentation">
+                  {initial.title}
+                </li>
+              ) : null}
+              <li
+                id={`${listId}-${i}`}
+                role="option"
+                aria-selected={i === act}
+                class={`${i === act ? "act" : ""}${it.value === value ? " cur" : ""}${i < def.fixed.length ? " fixed" : ""}`}
+                // 押したときに欄からフォーカスを外さない（外すと候補が閉じて、押した物が選べない）
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setAct(i)}
+                onClick={() => choose(it)}
+                data-pick-item={it.value}
+              >
+                <span class="pick-name">
+                  {it.label}
+                  {it.note !== undefined ? <small class="tag">{it.note}</small> : null}
+                </span>
+                {it.sub !== undefined ? <span class="pick-sub">{it.sub}</span> : null}
+              </li>
+            </Fragment>
+          ))}
+          {!ready ? (
+            <li class="none" role="presentation">
+              一覧を読み込んでいます…
+            </li>
+          ) : q.trim() === "" ? (
+            <li class="none" role="presentation">
+              {def.placeholder}（打つたびに候補が絞られます）
+            </li>
+          ) : found.total === 0 ? (
+            <li class="none" role="presentation">
+              「{q}」に合う候補が見つかりません。ほかの書き方（読み・略称など）で探してください
+            </li>
+          ) : more > 0 ? (
+            <li class="none" role="presentation">
+              ほか {more} 件（続けて打つと絞り込めます）
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+    </span>
+  );
+}
+
 export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   // 事務所の名前（カスタム層の名前の差し替え。承認した物だけ）: 欄の名前・読み上げの名前・「?」の見出しのどこでも同じ名前にする
   const names = useContext(OfficeNamesContext);
@@ -1198,6 +1313,19 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const [unit, setUnit] = useState<YenUnit>(f.kind === "yen" ? (f.unit ?? "man") : "man");
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
   const id = fieldDomId(f.key);
+  // 打って選ぶ欄（学校名など）の一覧を遅れて読む。読めたら描き直す（欄の横の名前・知らせも一覧から作るので、欄ごと描き直す）
+  const [, searchLoaded] = useState(0);
+  useEffect(() => {
+    const sd = f.search;
+    if (sd?.load === undefined || sd.ready?.() === true) return;
+    let live = true;
+    void sd.load().then(() => {
+      if (live) searchLoaded((x) => x + 1);
+    });
+    return () => {
+      live = false;
+    };
+  }, [f.key]);
   const commit = (v: Val) => onEdit(f.set(wh, v));
   /**
    * 打って入れる（未入力の欄に打った値は0円でも、推定と同じ値でも確定。valueState.ts の typeValue。0041 の追記）。
@@ -1248,6 +1376,26 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     // 円の欄は万円（か円）の書き方で、月額・年額を添える
     const roYen = (v: number, k: Extract<FieldDef, { kind: "yen" }>) => `${formatYen(v, k.unit ?? "man")}${(k.unit ?? "man") === "man" ? "万円" : "円"}${k.basis === "annual" ? "（年額）" : k.basis === "monthly" ? "（月額）" : ""}`;
     control = <span class="ro">{f.kind === "select" ? (f.options.find((o) => o.value === state.value)?.label ?? "") : state.value === null ? "—" : f.kind === "yen" && typeof state.value === "number" ? roYen(state.value, f) : String(state.value)}</span>;
+  } else if (f.search !== undefined) {
+    const sd = f.search;
+    control = (
+      <SearchPicker
+        id={id}
+        def={sd}
+        wh={wh}
+        value={state.value === null ? "" : String(state.value)}
+        onPick={(v) => {
+          const why = f.refuse?.(wh, v) ?? null;
+          if (why !== null) {
+            setRejected(why);
+            return;
+          }
+          setRejected(null);
+          commit(v);
+        }}
+      />
+    );
+    problem = rejected;
   } else if (f.kind === "select") {
     // 空欄のまま推定で計算する選ぶ欄で推定の値を書ける欄（blankEstimate）は、空の選択肢の名前を推定の選択肢にする（「（推定: 一時金）」。
     // 「（選ぶ）」では空欄でどう計算するか分からない。0041 の追記 2026-11-11）

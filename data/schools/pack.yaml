@@ -1,0 +1,22 @@
+# 学校の一覧（0010 の1・2: マスタデータ master.education.schools。0217）
+# 学校の主キーは文部科学省の学校コード（13桁）。名前はキーにしない。移行先（successor）で、統合・改称で廃止した学校のコードから新しいコードをたどる。
+# 正本は schools.csv（文部科学省の学校コード一覧から app/scripts/school-list-import.ts で作る）と aliases.yaml（別名・読み・移行先の補いの辞書）。
+# 画面に配る形は app/scripts/prepare-assets.ts が作る（app/src/generated/schools.data.js。学校名の欄を開いたときに遅れて読む）。
+# 2026.1.0: 最初の版。文部科学省「学校コード一覧」令和8年5月1日時点（暫定版。一覧の更新日 2026年5月20日）の全学校種（幼稚園・幼保連携型認定こども園・
+#   小学校・中学校・義務教育学校・高等学校・中等教育学校・特別支援学校・大学・短期大学・高等専門学校・専修学校・各種学校）。廃止した学校も、
+#   古い世帯の学校コードを読むために残す（検索の候補には出さず、移行先があれば旧校名として移行先の学校の候補に出す）。
+#   所在地と郵便番号は持たない（候補の見分けに市区町村だけを所在地から切り出して持つ）。読みは公式の一覧に無いので、まだ入れていない
+packId: master.education.schools
+formatVersion: "0.1"
+version: "2026.1.0"
+edition: "令和8年5月1日時点（暫定版）"
+title: 学校の一覧（学校コード・学校名・市区町村・移行先）
+license:
+  values: 学校コード・学校名・市区町村・廃止の日・移行先は、文部科学省「学校コード一覧」を加工して作成（文部科学省ウェブサイト利用規約。CC BY 4.0 と互換）。aliases.yaml の別名・読み・移行先の補いは CC0-1.0
+  attribution: 「学校コード一覧」（文部科学省）（https://www.mext.go.jp/b_menu/toukei/mext_01087.html）を加工して作成
+sources:
+  - {url: "https://www.mext.go.jp/content/20260825-mxt_chousa01-000011635_2-1.csv", file: "20260825-mxt_chousa01-000011635_2-1.csv", retrievedAt: "2026-11-15", sha256: "7818b84619ecbd9697f7fd2cefb1e8083867205249b0e6bd128518f70be86a5a", locator: "学校コード一覧 令和8年5月1日時点（暫定版） 幼稚園〜各種学校 北海道〜三重県 csv形式（1）"}
+  - {url: "https://www.mext.go.jp/content/20260825-mxt_chousa01-000011635_2-2.csv", file: "20260825-mxt_chousa01-000011635_2-2.csv", retrievedAt: "2026-11-15", sha256: "bbdbc34e63c72336d82e85558262d86ced80788759a3c43132257b70c6fba2c6", locator: "学校コード一覧 令和8年5月1日時点（暫定版） 幼稚園〜各種学校 北海道〜三重県 csv形式（2）"}
+  - {url: "https://www.mext.go.jp/content/20260825-mxt_chousa01-000011635_4.csv", file: "20260825-mxt_chousa01-000011635_4.csv", retrievedAt: "2026-11-15", sha256: "8edbca9ef1b0958932ea1c6a292f93778a791a4f0f6fbae7a197945158aba7e6", locator: "学校コード一覧 令和8年5月1日時点（暫定版） 幼稚園〜各種学校 滋賀県〜沖縄県 csv形式"}
+  - {url: "https://www.mext.go.jp/content/20260825-mxt_chousa01-000011635_6.csv", file: "20260825-mxt_chousa01-000011635_6.csv", retrievedAt: "2026-11-15", sha256: "cfe73c8cfc96e442ff4f6728343975cc46676f6a2fc07137cde101ac3096e000", locator: "学校コード一覧 令和8年5月1日時点（暫定版） 大学・短期大学・高等専門学校 csv形式"}
+  - {url: "https://www.mext.go.jp/content/20210128-mxt_chousa01-000011635_01.pdf", file: "20210128-mxt_chousa01-000011635_01.pdf", retrievedAt: "2026-11-15", sha256: "55174e55af94ba52bea5e1b1cc218fb3e84b74fb72feef1cdf3b585730c45eeb", locator: "学校コードの取り扱いについて（令和2年12月22日 総合教育政策局長決定、令和3年1月27日一部改正）別添1 学校コードの構成・検査数字の計算方法"}
