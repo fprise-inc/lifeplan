@@ -16,6 +16,7 @@ import { ESTIMATE_GROUPS, editText, estimateEntries, estimateEntry, formatNumber
 import { AUTO_BASIS, BASIS_TEXT_MAX, basisOf, cleanBasisText, keepOfficeValue, officialUpdates, sourceLine, withNoFill, withOfficeValue, withoutOfficeValue, type OfficeEstimates, type OfficeValue, type OfficialUpdate } from "./estimates.ts";
 import { PREVIEW_AGE, type PreviewRow } from "./estimatePreview.ts";
 import { Help } from "../../presentation/Help.tsx";
+import { PREMISE_DEFS } from "../input/premiseDefaults.ts";
 
 export interface EstimatesSectionProps {
   value: OfficeEstimates;
@@ -33,6 +34,13 @@ const USE_TEXT: Readonly<Record<string, string>> = {
   template: "ボタンで足すときの初めの値（新しく足す行だけ。足してある行は変わりません）",
   engine: "計算のときの目安（世帯に値が無いとき。どの世帯の計算にもすぐ効きます）",
 };
+
+/**
+ * 前提条件の不動産の評価の事務所の既定値でもある目安（土地の割合・建物の残りの価値の下限・売却の費用。0214 の1）の効く所の文。
+ * ほかの前提条件と同じく世帯に写すので、作った世帯にはすぐ効かない（0218）
+ */
+const PREMISE_USE_TEXT = "前提条件の不動産の評価の事務所の既定値（これから作る世帯に写します。作った世帯は変わらず、確かめの一覧に「事務所の既定値が変わりました」と出ます）";
+const useTextOf = (e: { id: string; use?: string }): string => (PREMISE_DEFS.some((d) => d.live === e.id) ? PREMISE_USE_TEXT : USE_TEXT[e.use ?? ""] ?? "");
 
 /** 欄の後ろの単位 */
 const UNIT_SUFFIX: Readonly<Record<string, string>> = { yen: "円", months: "か月", pct: "%", years: "年", yearCount: "年", age: "歳", days: "日", hours: "時間", count: "", coef: "" };
@@ -279,7 +287,7 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
       <h3 id="os-estimates">推定の値（統計・目安）</h3>
       <p class="pl-sub">
         空欄・「わからない」を補う推定の元になる統計の値（基本生活費・給与・退職金・学校の費用・介護の費用と期間・ローンの金利・平均余命など）と、出典の無いよくある額・割合の目安（家賃・物件の価格・車の費用・遺族の生活費の割合・ボタンで足すときの初めの値など）を、事務所の値に変えられます。
-        変えた値は、これから入れる推定と、計算のときに使う目安に、どの世帯にもすぐ効きます。世帯に入れてある推定のままの値は、その世帯の入力を直したときに新しい値で入れ直します（FP が入れた値・確定にした値は変わりません。世帯ごとに直せます）。
+        変えた値は、これから入れる推定と、計算のときに使う目安に、どの世帯にもすぐ効きます。世帯に入れてある推定のままの値は、その世帯の入力を直したときに新しい値で入れ直します（FP が入れた値・確定にした値は変わりません。世帯ごとに直せます）。持ち家・不動産の評価の土地の割合・建物の残りの価値の下限・売却の費用は前提条件の事務所の既定値でもあり、ほかの前提条件と同じく作った世帯は変わりません。
         税・社会保険・年金など法令で決まる値は変えられません。押した結果はすぐ保存します。
       </p>
       {updates.length > 0 ? (
@@ -349,7 +357,7 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
                 <div class="os-est-editor" data-office-estimate-editor={e.id}>
                   <p class="pl-sub">
                     出典: {sourceText(e.official.title)}
-                    {e.use !== undefined ? <span data-office-estimate-use={e.use}>（効く所: {USE_TEXT[e.use]}）</span> : null}
+                    {e.use !== undefined ? <span data-office-estimate-use={e.use}>（効く所: {useTextOf(e)}）</span> : null}
                   </p>
                   {!Array.isArray(e.official.value) ? (
                     <label class="os-pct">

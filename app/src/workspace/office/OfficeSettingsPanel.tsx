@@ -1,7 +1,8 @@
 // 事務所の既定値の画面（0073。世帯の一覧の「事務所の既定値」から開く中央のパネル）:
 // 入力項目の並び・新しい世帯で出す入力項目と開いたときの入れ方・対策に最初から出す項目（0084）・万一のときのタブの既定（0085。場面の帯・
 // 開いたときの場面・想定の前提に最初から出す項目・必要保障額の数え方）・ご本人と配偶者の介護を最初から入れるか・受け取る予定の相続・贈与の見込みの既定・前提条件の標準値・
-// 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人経営者向けの機能（合算BS。0107）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
+// 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人経営者向けの機能（合算BS。0107）・結果のタブ・資産と負債のタブの表示の設定（0213 の段C。
+// 事務所の既定値に従う世帯にすぐ効く）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
 import { END_AGES, STANDARD_END_AGE } from "../input/household.ts";
@@ -30,6 +31,9 @@ import { withEstimates } from "./settings.ts";
 import type { AiDisplayCandidate, CustomHost, CustomTextsStatus } from "../../engine/host.ts";
 import type { ProposableDisplayId } from "../../connector/displayCatalog.ts";
 import { DisplayProposalsSection } from "./DisplayProposalsSection.tsx";
+import { DisplayDefaultsSection } from "./DisplayDefaultsSection.tsx";
+import { withOfficeDisplay } from "./settings.ts";
+import { officeDisplayOf } from "../settings.ts";
 import { carryDisplayValue } from "./displayProposals.ts";
 import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, NOTICE_FADE_TEXT, noticeCodes, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
@@ -236,7 +240,7 @@ const premisePlaceholder = (d: PremiseDef): string => (d.standard === null ? "" 
 /** 前提条件の区画ごとの説明（区画の見出しの下） */
 const PREMISE_SECTION_NOTES: Readonly<Record<PremiseSection, string>> = {
   economy: "空欄は提供元の既定の値（仮の値）です。長い期間の平均の目安で入れます。",
-  realEstate: "持ち家・収益不動産の評価に使います（物件ごとに入れた値があればそちら）。空欄は提供元の既定の値（土地の上昇率は物価上昇率と同じ）。土地の割合・建物の残りの価値の下限・売却の費用は「事務所の推定の値」と同じ値で、世帯に写さず、空欄の物件はその場の値で計算します。",
+  realEstate: "持ち家・収益不動産の評価に使います（物件ごとに入れた値があればそちら）。空欄は提供元の既定の値（土地の上昇率は物価上昇率と同じ）。土地の割合・建物の残りの価値の下限・売却の費用は「推定の値（統計・目安）」の区画と同じ値です（ほかの前提条件と同じく、これから作る世帯に写します）。",
   assetReturns: "資産配分の種類ごとの利回り（信託報酬などを引く前の年率）。空欄は、預金・外貨預金は預金の利回り、不動産（貸していない不動産の値動き）は0%、ほかは運用利回りで計算します。",
 };
 
@@ -428,7 +432,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
       await onSave(next);
       setS(next);
       if (estNext !== est) setEst(estNext);
-      setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません。対策に最初から出す項目、万一のときのタブの場面・想定の前提に最初から出す項目と、基本生活費の内訳の並べ方は、どの世帯にもすぐ効きます）" });
+      setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません。対策に最初から出す項目、万一のときのタブの場面・想定の前提に最初から出す項目と、基本生活費の内訳の並べ方は、どの世帯にもすぐ効きます。結果のタブ・資産と負債のタブの表示の設定は、事務所の既定値に従う世帯にすぐ効きます）" });
     } catch (e) {
       setMsg({ ok: false, text: `保存できませんでした（${typeof e === "string" ? e : e instanceof Error ? e.message : "E_OFFICE_SETTINGS"}）` });
     } finally {
@@ -585,6 +589,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
             </button>
           </p>
         </section>
+        <DisplayDefaultsSection value={officeDisplayOf(s.display)} onChange={(d) => setS((x) => withOfficeDisplay(x, d))} />
         <section class="os-sec" aria-labelledby="os-cg" data-office-contingency>
           <h3 id="os-cg">万一のときのタブ</h3>
           <p class="pl-sub">場面の帯・開いたときの場面・想定の前提に最初から出す項目は、どの世帯にもすぐ効きます（世帯ごとには選びません）。必要保障額の数え方は、これから作る世帯に写します。</p>

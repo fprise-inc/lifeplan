@@ -79,10 +79,10 @@ describe("働き方と収入", () => {
 });
 
 describe("退職金・企業年金", () => {
-  it("目安の退職一時金の欄の横に、勤続年数と期間・辞め方・制度のある会社の平均の1行", () => {
+  it("目安の退職一時金の欄の横に、勤続年数と期間・辞め方の1行（出どころの「制度のある会社の平均」は「推定」の印の吹き出しの頭）", () => {
     const { wh } = started("start");
     const b = (wh.request.input.household.retirementBenefits ?? [])[0]!;
-    expect(amountHint(wh, b.id)).toMatch(/^勤続\d+年（2007年4月〜2044年3月）・定年・制度のある会社の平均$/);
+    expect(amountHint(wh, b.id)).toMatch(/^勤続\d+年（2007年4月〜2044年3月）・定年$/);
     // 額を入れたら出さない
     const w = edit(wh, "retirement", `retirement/${b.id}/amount`, 15000000);
     expect(amountHint(w, b.id)).toBeNull();

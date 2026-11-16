@@ -1,9 +1,13 @@
 // 事務所の既定値（0073）: 事務所全体で使う既定を、事務所データ（暗号化。0011 の6）に持つ。世帯ファイルには入れない。
 // - 新しい世帯を作るときに写す（前提条件の既定値〔経済の前提・不動産の評価・資産の種類ごとの利回り。0214〕・本人と配偶者の介護を最初から入れるか・
 //   相続税の目安の評価の割合）。写した前提条件は「事務所の既定値（年月）」の印で、世帯では決まった値として「事務所の既定値」と見せる。
-//   後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の既定値が変わりました」）
-// - 形の版は 3（0214 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足して 2。0215 で足すだけの欄 displayHistory
-//   〔AI の表示の設定の案を反映する前の値。office/displayHistory.ts〕を足して 3。版 1・2 の事務所データもそのまま読む）
+//   後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の既定値が変わりました」）。
+//   前提条件のうち土地の割合・建物の残りの価値の下限・売却の費用は、事務所データの置き場所が事務所の推定の値（estimates）だが、写し方はほかと同じ（0218）
+// - 形の版は 4（0214 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足して 2。0215 で足すだけの欄 displayHistory
+//   〔AI の表示の設定の案を反映する前の値。office/displayHistory.ts〕を足して 3。0213 の段C で足すだけの欄 display〔結果のタブ・資産と負債のタブの
+//   表示の設定の事務所の既定値。workspace/settings.ts の OfficeDisplayStored〕を足して 4。版 1〜3 の事務所データもそのまま読む）
+// - 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（display。0213 の段C）: 見せ方だけなので世帯には写さず、世帯ファイルで
+//   「事務所の既定値に従う」の印のある設定だけがすぐ従う（印の無い設定・前の版の世帯は変わらない）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
 // - 画面の側で読むだけの既定（入力項目の並び・対策に最初から出す項目・万一のタブの想定の前提に最初から出す項目と場面の帯の並べ方・
 //   受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む。
@@ -13,7 +17,8 @@
 // - 法人経営者向けの機能（features。0107）: 会社と合わせたバランスシート（合算BS）を使うか。既定は使わない（ふつうの FP・世帯には出さない）。
 //   見せ方だけで計算の結果は変えないので世帯には写さず、変えるとどの世帯にもすぐ効く
 // - 事務所の推定の値（estimates。0111）: 空欄・「わからない」を補う推定の元のマスタデータの値と、推定で埋めない入力欄。推定の元なので世帯には写さず、
-//   推定の目安と計算の要求にその場で入れる（office/estimates.ts）
+//   推定の目安と計算の要求にその場で入れる（office/estimates.ts）。ただし前提条件の土地の割合など3つ（preset.realEstate.*）は、ほかの前提条件と
+//   同じく世帯に写す（0218。世帯の値が先に効くので、写した世帯は事務所の値を変えても変わらない）
 // - 読むときは形を確かめ、読めない値は既定（既定の値）にする
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
@@ -24,7 +29,8 @@ import { isEmptyChoice, readItemChoice, type ItemChoice } from "../input/itemCho
 import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/leverChoice.ts";
 import { isEmptyPremiseChoice, isEmptySceneChoice, normalProtection, readPremiseChoice, readProtectionSetting, readSceneChoice, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "../contingency/premiseChoice.ts";
 import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
-import { copyOfficePremises, PREMISE_DEFS, premiseOfId, type PremiseDef } from "../input/premiseDefaults.ts";
+import { copyOfficePremises, fillLivePremises, PREMISE_DEFS, premiseOfId, type PremiseDef } from "../input/premiseDefaults.ts";
+import { officialPreset } from "../../../../hearing/src/presets.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../input/rateRanges.ts";
 import { readLivingLayout, setLivingLayoutNow, type LivingLayout } from "./livingLayout.ts";
 import type { OfficeHost } from "../../engine/host.ts";
@@ -32,6 +38,7 @@ import type { FeatureStatus } from "./featureCodes.ts";
 import { isEmptyEstimates, publishOfficeEstimates, readOfficeEstimates, type OfficeEstimates } from "./estimates.ts";
 import { cleanTopics, readHearingTemplates, readHearingTopics, type HearingTemplate } from "../hearing/web.ts";
 import { readDisplayHistory, type DisplayHistory } from "./displayHistory.ts";
+import { officeDisplayOf, officeDisplayStored, type OfficeDisplayStored } from "../settings.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
@@ -105,8 +112,8 @@ export const DEFAULT_FEATURES: OfficeFeatures = { combinedBs: false };
 export type InheritLikelihood = "likely" | "uncertain";
 
 export interface OfficeSettings {
-  /** 形の版（この画面の側の形。1 から。0214 で 2、0215 で 3。前の版の事務所データもそのまま読み、読んだら 3） */
-  version: 3;
+  /** 形の版（この画面の側の形。1 から。0214 で 2、0215 で 3、0213 の段C で 4。前の版の事務所データもそのまま読み、読んだら 4） */
+  version: 4;
   /** 入力項目の並び（null は標準） */
   layout: CardLayout | null;
   /** 新しい世帯で出す入力項目と、開いたときの入れ方（空は全部出す・全部標準。新しい世帯に写す） */
@@ -155,9 +162,14 @@ export interface OfficeSettings {
    * 「前の値に戻す」が読む。設定の値ではないので、標準かどうか（isDefaultSettings）には数えるが、世帯には写さず AI にも渡さない
    */
   displayHistory?: DisplayHistory;
+  /**
+   * 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C。世帯と同じ形で、提供元の既定と違う欄だけ。無ければ持たない）。
+   * 世帯には写さない。世帯ファイルで「事務所の既定値に従う」の印のある設定だけが、この値を読む
+   */
+  display?: OfficeDisplayStored;
 }
 
-export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 3, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, features: DEFAULT_FEATURES, changedOn: null };
+export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 4, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, features: DEFAULT_FEATURES, changedOn: null };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -218,7 +230,7 @@ function readCoreSettings(v: unknown): OfficeSettings {
   const fee = readFeeTable(v.fee);
   // 法人経営者向けの機能（欄の無い古い事務所データ・読めない値は使わない）
   const features: OfficeFeatures = { combinedBs: isObj(v.features) && v.features.combinedBs === true };
-  return { version: 3, layout, items, levers, premises: premiseChoice, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn, ...(endAge !== undefined ? { endAge } : {}), ...premises };
+  return { version: 4, layout, items, levers, premises: premiseChoice, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn, ...(endAge !== undefined ? { endAge } : {}), ...premises };
 }
 
 /** 前提条件の値か（id の欄の範囲の中。耐用年数は 1〜100 の整数） */
@@ -252,7 +264,17 @@ function readPremises(v: Record<string, unknown>): Pick<OfficeSettings, "realEst
   return out;
 }
 
-/** 事務所で決めた前提条件（前提条件の id → 値の文字。事務所の推定の値で決める物〔土地の割合など〕は入れない。0214 の2） */
+/**
+ * 事務所の推定の値に置き場所のある前提条件（土地の割合・建物の残りの価値の下限・売却の費用）の事務所の値（率の文字。決めていなければ
+ * 提供元の既定の値。0218）
+ */
+export function officeLiveValue(s: OfficeSettings, d: PremiseDef): string | null {
+  if (d.live === undefined) return null;
+  const x = s.estimates?.values[d.live]?.value;
+  return typeof x === "string" || typeof x === "number" ? String(x) : String(officialPreset(d.live));
+}
+
+/** 事務所で決めた前提条件（前提条件の id → 値の文字。事務所の推定の値で決める物〔土地の割合など〕は入れない〔officeLiveValue〕。0214 の2） */
 export function officePremises(s: OfficeSettings): Record<string, string> {
   const out: Record<string, string> = {};
   for (const d of PREMISE_DEFS) {
@@ -385,6 +407,9 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   // 前提条件の既定値（0214）: 事務所で決めた欄を世帯に書き、「事務所の既定値（年月）」の印を付ける（例外の年は残す）
   const premises = officePremises(s);
   if (Object.keys(premises).length > 0) w = copyOfficePremises(w, premises, basis);
+  // 土地の割合・建物の残りの価値の下限・売却の費用（置き場所は事務所の推定の値）は、事務所で決めていなくても提供元の既定の値を書く
+  // （世帯に値が無いと、後で事務所の値を変えたときに黙って変わるため。0218）
+  w = fillLivePremises(w, basis, (d) => officeLiveValue(s, d));
   if (s.realEstateRatio !== null) {
     const request = structuredClone(w.request);
     request.input.inheritanceTax = { ...(request.input.inheritanceTax ?? {}), realEstateRatio: s.realEstateRatio };
@@ -419,7 +444,9 @@ export function readOfficeSettings(v: unknown): OfficeSettings {
   const hearingTopics = readHearingTopics(isObj(v) ? v.hearingTopics : undefined);
   // AI の表示の設定の案を反映する前の値（0215。欄の無い版 1・2 の事務所データ・読めない行は持たない）
   const displayHistory = readDisplayHistory(isObj(v) ? v.displayHistory : undefined);
-  return { ...s, ...(living !== null ? { living } : {}), ...(!isEmptyEstimates(estimates) ? { estimates } : {}), ...(hearingTemplates.length > 0 ? { hearingTemplates } : {}), ...(hearingTopics !== null ? { hearingTopics } : {}), ...(displayHistory !== undefined ? { displayHistory } : {}) };
+  // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C。欄の無い版 1〜3 の事務所データ・提供元の既定と同じ値は持たない）
+  const display = officeDisplayStored(officeDisplayOf(isObj(v) ? v.display : undefined));
+  return { ...s, ...(display !== undefined ? { display } : {}), ...(living !== null ? { living } : {}), ...(!isEmptyEstimates(estimates) ? { estimates } : {}), ...(hearingTemplates.length > 0 ? { hearingTemplates } : {}), ...(hearingTopics !== null ? { hearingTopics } : {}), ...(displayHistory !== undefined ? { displayHistory } : {}) };
 }
 
 /** Web のヒアリングの「ご相談したいこと」の話題の事務所の既定値を置き換えた設定（null なら欄を外して標準に戻す。空の一覧は「話題を出さない」。0192） */
@@ -437,7 +464,7 @@ export function withHearingTemplates(s: OfficeSettings, list: readonly HearingTe
 }
 
 /** 標準（既定の値）と同じか（設定を保存するときに、標準と同じ値は持たない） */
-export const isDefaultSettings = (s: OfficeSettings): boolean => isDefaultCore(s) && readLivingLayout(s.living) === null && isEmptyEstimates(s.estimates) && (s.hearingTemplates ?? []).length === 0 && s.hearingTopics === undefined && s.displayHistory === undefined;
+export const isDefaultSettings = (s: OfficeSettings): boolean => isDefaultCore(s) && readLivingLayout(s.living) === null && isEmptyEstimates(s.estimates) && (s.hearingTemplates ?? []).length === 0 && s.hearingTopics === undefined && s.displayHistory === undefined && s.display === undefined;
 
 /** 今の事務所の既定値を、操作のときに読む所へ入れる（内訳の並べ方は office/livingLayout.ts へ、推定の値は推定の目安と計算の要求へ） */
 export function publishOfficeSettings(s: OfficeSettings): void {
@@ -466,4 +493,12 @@ export function withLivingDraft(s: OfficeSettings, l: LivingLayout | undefined):
   const { living: _old, ...rest } = s;
   void _old;
   return l === undefined ? rest : { ...rest, living: l };
+}
+
+/** 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値を置き換えた設定（提供元の既定と同じなら欄を外す。0213 の段C） */
+export function withOfficeDisplay(s: OfficeSettings, d: Parameters<typeof officeDisplayStored>[0]): OfficeSettings {
+  const { display: _old, ...rest } = s;
+  void _old;
+  const next = officeDisplayStored(d);
+  return next === undefined ? rest : { ...rest, display: next };
 }

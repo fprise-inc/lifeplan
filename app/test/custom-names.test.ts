@@ -236,9 +236,10 @@ describe("推定の根拠の文（estimate:…）", () => {
   const render = (list: OfficeTextEntry[]) => renderToString(h(OfficeTextsContext.Provider, { value: officeTextsFrom(list) }, h(Field, { f: est.f, wh, onEdit: noop })));
 
   it("書き換え: {basis}（公式の根拠の文）と {value}（推定の値）を差し込み、公式の文を開ける", () => {
-    expect(render([])).toContain(`推定: ${est.basis}`);
+    expect(render([])).toContain("推定のもと: ");
+    expect(render([])).toContain(est.basis);
     const html = render([entry(est.id, "事務所の見方です。{basis}（{value}）", "{basis}")]);
-    expect(html).toContain(`推定: 事務所の見方です。${est.basis}（`);
+    expect(html).toContain(`事務所の見方です。${est.basis}（`);
     expect(html).not.toContain("{value}");
     expect(html).toContain(`data-help-office="${est.id}"`);
   });
@@ -248,11 +249,11 @@ describe("推定の根拠の文（estimate:…）", () => {
     try {
       // 公式の根拠の一部（短い語）を事務所の文にしても、公式の根拠には書き換えが当たる
       setOfficeEstimates({ "care.statistics.months": { value: 55, basis: est.basis.slice(0, 2) } });
-      expect(render(rule)).toContain(`推定: 事務所の見方です。${est.basis}`);
+      expect(render(rule)).toContain(`事務所の見方です。${est.basis}`);
       // 根拠の文が事務所の文とまったく同じ（事務所の値から作った推定）なら、書き換えを当てずにそのまま出す
       setOfficeEstimates({ "care.statistics.months": { value: 55, basis: est.basis } });
       const html = render(rule);
-      expect(html).toContain(`推定: ${est.basis}`);
+      expect(html).toContain(est.basis);
       expect(html).not.toContain("事務所の見方です。");
     } finally {
       setOfficeEstimates({});
@@ -260,7 +261,7 @@ describe("推定の根拠の文（estimate:…）", () => {
   });
 
   it("消す行は効かない（本体も承認しない）。足すは公式の文の後ろ", () => {
-    expect(render([entry(est.id, null, "{basis}", "hide")])).toContain(`推定: ${est.basis}`);
+    expect(render([entry(est.id, null, "{basis}", "hide")])).toContain(est.basis);
     expect(render([entry(est.id, "事務所の補足", "{basis}", "append")])).toContain("事務所の補足");
   });
 });

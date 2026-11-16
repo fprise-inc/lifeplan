@@ -2400,7 +2400,7 @@ async fn display_settings_list_the_catalog_and_current_values() {
         .as_str()
         .unwrap()
         .contains("propose_display_settings"));
-    // 案を出せる設定（proposable）は、アプリ本体の受け口が受ける7つと同じ（0215）
+    // 案を出せる設定（proposable）は、アプリ本体の受け口が受ける18件と同じ（0215・0213 の段C）
     assert_eq!(
         v["proposable"],
         json!(ai_share::display_proposals::PROPOSABLE_IDS)
@@ -2434,6 +2434,9 @@ async fn display_settings_list_the_catalog_and_current_values() {
         "assumptions": { "inflation": "0.02" },
         "estimates": { "noFill": ["livingExpense.monthly"] },
         "features": { "combinedBs": true },
+        // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C）。選べない年齢は既定に、並べる時点は持たない
+        "display": { "result": { "atAge": 80, "layout": "side" }, "balance": { "moneyThree": { "years": 7 }, "columns": [{ "point": "now" }, { "point": "retire" }] } },
+        "displayHistory": { "result.atAge": [{ "value": 95, "at": "2026-11-15T00:00:00Z", "reason": "ai" }] },
     });
     let office = ai_share::display::office_display_of(&defaults, &[]);
     let mut leaked = office.clone();
@@ -2483,10 +2486,23 @@ async fn display_settings_list_the_catalog_and_current_values() {
         .as_str()
         .unwrap()
         .contains("効いていない"));
-    // 世帯ごとの設定には事務所の今の値を付けない
-    assert!(cur("result.metrics").is_null());
+    // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C）。世帯だけの設定には事務所の今の値を付けない
+    assert_eq!(cur("result.atAge")["office"]["value"], 80);
+    assert_eq!(cur("result.atAge")["office"]["isDefault"], false);
+    assert_eq!(cur("result.layout")["office"]["text"], "左右に並べる");
+    assert_eq!(cur("result.metrics")["office"]["isDefault"], true);
+    assert_eq!(cur("balance.moneyThree.years")["office"]["value"], 7);
+    assert_eq!(
+        cur("balance.moneyThree.months")["office"]["isDefault"],
+        true
+    );
+    assert!(cur("balance.columns").is_null());
+    assert!(cur("result.addedItems").is_null());
     let text = v.to_string();
-    assert!(!text.contains("0.03") && !text.contains("noFill"), "{text}");
+    assert!(
+        !text.contains("0.03") && !text.contains("noFill") && !text.contains("displayHistory"),
+        "{text}"
+    );
 
     // 渡された世帯: 見せ方の区画だけを、画面と同じ読み方で（物の ID は仮の ID）
     let mut src = source("salariedCoupleTwoKids", false);
@@ -2497,6 +2513,8 @@ async fn display_settings_list_the_catalog_and_current_values() {
         "display": {
             "result": { "metrics": ["takeHome", "nope"], "atAge": 90, "layout": "side" },
             "balance": { "health": false, "guide": { "months": [3, 9], "risk": [10, 40], "debt": 50 }, "points": ["now", "age65"], "moneyThree": { "months": 12, "years": 5, "wording": "time" } },
+            // 事務所の既定値に従う印（0213 の段C）: 比較の仕方と何年先までは事務所の今の値
+            "followOffice": ["result.layout", "balance.moneyThree.years", "balance.columns"],
         },
     });
     src.display = Some(ai_share::display::household_display_of(
@@ -2524,7 +2542,17 @@ async fn display_settings_list_the_catalog_and_current_values() {
         json!(["takeHome"])
     );
     assert_eq!(cur("result.atAge")["household"]["value"], 90);
+    assert_eq!(cur("result.atAge")["household"]["followsOffice"], false);
     assert_eq!(cur("result.layout")["household"]["text"], "左右に並べる");
+    assert_eq!(cur("result.layout")["household"]["followsOffice"], true);
+    assert_eq!(cur("balance.moneyThree.years")["household"]["value"], 7);
+    assert_eq!(
+        cur("balance.moneyThree.years")["household"]["followsOffice"],
+        true
+    );
+    assert!(cur("balance.columns")["household"]
+        .get("followsOffice")
+        .is_none());
     assert_eq!(cur("result.invPeriods")["household"]["isDefault"], true);
     assert_eq!(
         cur("balance.guide")["household"]["value"]["months"],
@@ -2543,6 +2571,10 @@ async fn display_settings_list_the_catalog_and_current_values() {
         "time"
     );
     assert_eq!(cur("balance.moneyThree.months")["household"]["value"], 12);
+    assert_eq!(
+        cur("balance.moneyThree.months")["household"]["followsOffice"],
+        false
+    );
     // both の設定は、事務所の既定と世帯の両方の今の値
     let items = cur("input.items");
     assert_eq!(items["office"]["value"]["hidden"], json!(["rental"]));
@@ -5964,14 +5996,27 @@ async fn display_proposals_are_checked_before_they_reach_the_app() {
             { "kind": "one", "category": "other", "label": "そのほか" }
         ] } })
     };
-    // 知らない id（近い id を添える）・7つ以外の設定（世帯ごと・読むだけ）
+    // 知らない id（近い id を添える）・18件以外の設定（世帯だけ・読むだけ）
     let m = refused(json!([{ "id": "result.lever", "value": [] }])).await;
     assert!(m.contains("result.levers のことですか"), "{m}");
-    let m = refused(json!([{ "id": "balance.guide", "value": {} }])).await;
+    let m = refused(json!([{ "id": "balance.columns", "value": [] }])).await;
     assert!(
-        m.contains("世帯ごとの設定") && m.contains("資産と負債のタブ"),
+        m.contains("世帯だけの設定") && m.contains("資産と負債のタブ"),
         "{m}"
     );
+    // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C）: 選べない値・範囲の外・形の違う値
+    let m = refused(json!([{ "id": "result.atAge", "value": 77 }])).await;
+    assert!(m.contains("選べる値にありません"), "{m}");
+    let m = refused(json!([{ "id": "result.atAge", "value": "90" }])).await;
+    assert!(m.contains("整数ではありません"), "{m}");
+    let m = refused(json!([{ "id": "balance.moneyThree.years", "value": 31 }])).await;
+    assert!(m.contains("範囲の外"), "{m}");
+    let m = refused(json!([{ "id": "balance.guide", "value": { "months": [12, 6], "risk": [10, 40], "debt": 50 } }])).await;
+    assert!(m.contains("上限は下限より大きく"), "{m}");
+    let m = refused(json!([{ "id": "balance.points", "value": ["now"] }])).await;
+    assert!(m.contains("2つ以上"), "{m}");
+    let m = refused(json!([{ "id": "result.invBreakdown", "value": "yes" }])).await;
+    assert!(m.contains("true"), "{m}");
     let m = refused(json!([{ "id": "features.combinedBs", "value": true }])).await;
     assert!(m.contains("読むだけ"), "{m}");
     let m = refused(json!([{ "id": "assumptions.inflation", "value": "0.02" }])).await;
@@ -6035,12 +6080,16 @@ async fn display_proposals_are_checked_before_they_reach_the_app() {
         "propose_display_settings",
         json!({ "changes": [
             { "id": "result.levers", "value": ["lever:nisaMonthly", "lever:retireAge"], "note": "NISA の相談が多い" },
-            living(&"食".repeat(20))
+            living(&"食".repeat(20)),
+            { "id": "balance.points", "value": ["age80", "now"] }
         ] }),
     )
     .await;
     assert_eq!(r["status"], "pendingReview");
-    assert_eq!(r["settings"], json!(["result.levers", "input.living"]));
+    assert_eq!(
+        r["settings"],
+        json!(["result.levers", "input.living", "balance.points"])
+    );
     let list = reg.display_candidates();
     assert_eq!(list.len(), 1);
     let ch = &list[0].changes;
@@ -6049,6 +6098,7 @@ async fn display_proposals_are_checked_before_they_reach_the_app() {
     assert_eq!(ch[0].note.as_deref(), Some("NISA の相談が多い"));
     assert_eq!(ch[1].value["rows"][0]["label"], "食".repeat(20));
     assert_eq!(ch[1].value["rows"][1]["parts"][1]["label"], "旅行");
+    assert_eq!(ch[2].value, json!(["now", "age80"]));
     assert_eq!(list[0].connector.as_deref(), Some("test-ai 1.2"));
     // 断った案は承認待ちに入らない
     let _ = refused(json!([living(&"食".repeat(21))])).await;

@@ -55,11 +55,11 @@ function withHome(wh: WorkingHousehold): WorkingHousehold {
 
 afterEach(() => setOfficeNow(STANDARD_OFFICE_NOW));
 
-describe("事務所データの形（版 2。0214 の2。0215 で版 3）", () => {
+describe("事務所データの形（版 2。0214 の2。0215 で版 3、0213 の段C で版 4）", () => {
   it("版 1 の事務所データはそのまま読め、読んだら今の版（足した欄は「決めていない」）", () => {
     const v1 = { version: 1, assumptions: { inflation: "0.015", heldEstateGrowth: "0.01" }, realEstateRatio: "0.7", changedOn: "2026-10-27" };
     const r = readOfficeSettings(v1);
-    expect(r.version).toBe(3);
+    expect(r.version).toBe(4);
     expect(r.assumptions).toEqual({ inflation: "0.015", heldEstateGrowth: "0.01" });
     expect(r.realEstateValuation).toBeUndefined();
     expect(r.assetReturns).toBeUndefined();
@@ -77,7 +77,7 @@ describe("事務所データの形（版 2。0214 の2。0215 で版 3）", () =
     expect(r.assumptions).toEqual({ educationInflation: "0.02" });
     expect(r.realEstateValuation).toEqual({ usefulLife: { wood: 30 } });
     expect(r.assetReturns).toEqual({ "equity.global": "0.05" });
-    expect(readOfficeSettings(JSON.parse(JSON.stringify(OFFICE)))).toEqual({ ...OFFICE, version: 3 });
+    expect(readOfficeSettings(JSON.parse(JSON.stringify(OFFICE)))).toEqual({ ...OFFICE, version: 4 });
   });
 
   it("前提条件の id ごとに読み書きでき、決めていない（null）に戻すと欄を外す", () => {
@@ -145,15 +145,18 @@ describe("新しい世帯に写す・欄の印", () => {
     expect(back.assumed).toEqual(wh.assumed);
   });
 
-  it("土地の割合など3つは事務所の推定の値（その場の値）: 空欄の物件は事務所の値を見せて「事務所の既定値」。違う値は「この世帯だけ」", () => {
+  it("土地の割合など3つ（置き場所は事務所の推定の値）: 値の無い世帯は事務所の値を見せて「事務所の既定値」。違う値は「この世帯だけ」", () => {
     publishOfficeSettings({ ...DEFAULT_OFFICE_SETTINGS, estimates: { values: { "preset.realEstate.landShare": { value: "0.4", changedOn: "2026-11-14", officialRev: 1, officialValue: "0.3" } }, noFill: [] } });
     const wh = withHome(blankHousehold("2026-11", ids()));
     const f = fieldOf(wh, "assume/realEstate/landShare");
     expect(f.get(wh)).toMatchObject({ value: "0.4", premise: { state: "office", officeText: "40%" } });
     const own = f.set(wh, "0.35");
     expect(premiseOf(own, "assume/realEstate/landShare")?.state).toBe("household");
-    // 戻すと値を外す（その場の事務所の値）
-    expect(premiseOf(own, "assume/realEstate/landShare")!.reset(own).request.input.assumptions?.realEstateValuation).toBeUndefined();
+    // 戻すと事務所の今の値を書き、事務所の既定値の印（値を外さない。0218）
+    const back = premiseOf(own, "assume/realEstate/landShare")!.reset(own);
+    expect(back.request.input.assumptions?.realEstateValuation).toEqual({ landShare: "0.4" });
+    expect(back.assumed["assume/realEstate/landShare"]).toMatch(/^事務所の既定値/);
+    expect(premiseOf(back, "assume/realEstate/landShare")?.state).toBe("office");
   });
 });
 

@@ -49,6 +49,7 @@ import { buildEvidence } from "./evidence.ts";
 import { explainModel } from "./explain.ts";
 import type { Level } from "./input/form.ts";
 import { blankHousehold, fromRequest, sampleRequest, withElementIds, type WorkingHousehold } from "./input/household.ts";
+import { fillLivePremises } from "./input/premiseDefaults.ts";
 import { InputView } from "./input/InputView.tsx";
 import { settleBeforeLeave, settleInput } from "./input/pendingInput.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
@@ -99,7 +100,9 @@ import { cashflowTable, displayYears, eventsOf, firstAgeOf, toPresentation, with
 import { withoutRemovedAssumptions } from "./surplus.ts";
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
-import { ageMarkOf, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type BalanceSettings, type DisplaySettings, type MetricKey } from "./settings.ts";
+import { ageMarkOf, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, followsOffice, isOfficeDisplayId, METRIC_CHOICES, newHouseholdDisplay, officeDisplayOf, resolveDisplay, shows, STANDARD_DISPLAY, verdictMetrics, withFollowOffice, withOwnChange, type BalanceSettings, type DisplayPair, type DisplaySettings, type MetricKey, type OfficeDisplayId, type StoredDisplay } from "./settings.ts";
+import { officeCurrent } from "../connector/display.ts";
+import type { OfficeMarks } from "../presentation/OfficeMark.tsx";
 import { Autosaver, saveBeforeLeave, type SaveState } from "./store/autosave.ts";
 import { LeaveDialog, type LeaveDialogChoice } from "./store/LeaveDialog.tsx";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
@@ -373,8 +376,10 @@ interface Opened {
  * （「仮」の印つき。開いた世帯でも置く。0008 の 2026-10-25 の追記）
  */
 function openedFrom(demo: DemoHousehold | null, wh0: WorkingHousehold): Opened | null {
+  // 土地の割合・建物の残りの価値の下限・売却の費用の値が無い世帯（前の版で作った世帯・見本・AI の候補から作った世帯）には、今の事務所の値を写す
+  // （計算に使う値は同じ。後で事務所の値を変えても黙って変わらないように。0218。値があれば同じもの）
   // 画面で新しく足した並びの要素に ID を振る（乱数。番号で当てないため。0035 の5）
-  const wh1 = withProvisionalHousing(wh0);
+  const wh1 = withProvisionalHousing(fillLivePremises(wh0));
   const request = withElementIds(wh1.request, true);
   const wh = request === wh1.request ? wh1 : { ...wh1, request };
   const self = roles(wh.request).find((r) => r.key === "self");
@@ -448,8 +453,8 @@ interface StoredRef {
 }
 
 /** 世帯ファイルの本文（0011 の2）: 現状・案・案の帯の並び・対策に足した項目・表示の設定（保存していない案の変更は入れない）。控え（0009）は区画 snapshots に置く */
-function bodyFor(o: Opened, w: Work, shownKeys: string[], s: DisplaySettings, bs: BalanceSettings, carry: BodyState["carry"]): string {
-  return bodyOf({ wh: o.wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: { result: s, balance: bs }, carry });
+function bodyFor(o: Opened, w: Work, shownKeys: string[], d: StoredDisplay, carry: BodyState["carry"]): string {
+  return bodyOf({ wh: o.wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: d, carry });
 }
 
 export function App() {
@@ -480,9 +485,21 @@ export function App() {
   const [explainStep, setExplainStep] = useState<number | null>(initial.explain ?? null);
   const [tableKey, setTableKey] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(initial.diff === true);
-  const [settings, setSettings] = useState<DisplaySettings>({ ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}), ...(initial.layout !== undefined ? { layout: initial.layout } : {}), ...(initial.inv !== undefined ? { invBreakdown: initial.inv.includes("breakdown"), invPeriods: initial.inv.includes("periods") ? true : initial.inv.includes("noperiods") ? false : null } : {}) });
-  /** 資産と負債のタブの表示の設定（結果のタブの表示の設定とは別） */
-  const [bsSettings, setBsSettings] = useState<BalanceSettings>(DEFAULT_BALANCE_SETTINGS);
+  /**
+   * 画面の確かめの URL で選んだ結果のタブの表示の設定（#metrics・#age・#layout・#inv）。新しく開く世帯で、この設定だけは事務所の既定値に従わず
+   * この値にする（0213 の段C。ふだんは空）
+   */
+  const hashDisplay = useMemo((): { set: DisplayPair; ids: OfficeDisplayId[] } => {
+    const result: DisplaySettings = { ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}), ...(initial.layout !== undefined ? { layout: initial.layout } : {}), ...(initial.inv !== undefined ? { invBreakdown: initial.inv.includes("breakdown"), invPeriods: initial.inv.includes("periods") ? true : initial.inv.includes("noperiods") ? false : null } : {}) };
+    const ids: OfficeDisplayId[] = [...(initial.metrics !== undefined ? (["result.metrics"] as const) : []), ...(initial.age !== undefined ? (["result.atAge"] as const) : []), ...(initial.layout !== undefined ? (["result.layout"] as const) : []), ...(initial.inv !== undefined ? (["result.invBreakdown", "result.invPeriods"] as const) : [])];
+    return { set: { result, balance: DEFAULT_BALANCE_SETTINGS }, ids };
+  }, [initial]);
+  /**
+   * 世帯の表示の設定（世帯ファイルの本文の display と同じ形。世帯の値と「事務所の既定値に従う」の印。0213 の段C）。画面に出す値（settings・bsSettings）は、
+   * 印のある設定を事務所の既定値にした値（下の resolveDisplay）
+   */
+  const [disp, setDisp] = useState<StoredDisplay>(() => newHouseholdDisplay(STANDARD_DISPLAY, hashDisplay));
+  const dispRef = useRef<StoredDisplay>(disp);
   const [settingsOpen, setSettingsOpen] = useState(initial.settings === true);
   const [panel, setPanel] = useState<null | "list" | "compare">(initial.compare === true ? "compare" : initial.list === true ? "list" : null);
   /** 知らせから開く入力のカード（n を変えると入力の画面を開き直す） */
@@ -535,6 +552,16 @@ export function App() {
   const [officeSettings, setOfficeSettings] = useState<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const officeSettingsRef = useRef<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const [officeSettingsOpen, setOfficeSettingsOpen] = useState(initial.officeDefaults === true);
+  /** 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C。全部の欄を埋めた値） */
+  const officeDisplayKey = JSON.stringify(officeSettings.display ?? null);
+  const officeDisp = useMemo(() => officeDisplayOf(officeSettings.display), [officeDisplayKey]);
+  const officeDispRef = useRef<DisplayPair>(officeDisp);
+  officeDispRef.current = officeDisp;
+  /** 画面に出す表示の設定（結果のタブ・資産と負債のタブ。事務所の既定値に従う印のある設定は事務所の今の既定値） */
+  const shownDisplay = useMemo(() => resolveDisplay(disp, officeDisp), [disp, officeDisp]);
+  const settings = shownDisplay.result;
+  /** 資産と負債のタブの表示の設定（結果のタブの表示の設定とは別） */
+  const bsSettings = shownDisplay.balance;
   /** 起動したときの事務所の既定値と機能のコードの状態を読み終わった（読めなかったときも。読み終わるまで既定値のパネルを出さない） */
   const [officeLoaded, setOfficeLoaded] = useState(false);
   /** 機能を有効にするコード（0110。本体が確かめた状態）。コードの入っていない機能は、設定の区画も画面も出さない */
@@ -666,6 +693,16 @@ export function App() {
   settingsRef.current = settings;
   const bsSettingsRef = useRef<BalanceSettings>(bsSettings);
   bsSettingsRef.current = bsSettings;
+  const feeMetricRef = useRef(settings.metrics.includes("feeLine"));
+  /** 世帯の表示の設定を入れる（画面に出す値の ref もすぐ入れ直す。続けて計算の要求を作る操作のため） */
+  const putDisp = (d: StoredDisplay) => {
+    dispRef.current = d;
+    const r = resolveDisplay(d, officeDispRef.current);
+    settingsRef.current = r.result;
+    bsSettingsRef.current = r.balance;
+    feeMetricRef.current = r.result.metrics.includes("feeLine");
+    setDisp(d);
+  };
   shownRef.current = shown;
   const [evidence, setEvidence] = useState<EvidenceState | null>(null);
   const [, setTick] = useState(0);
@@ -681,7 +718,7 @@ export function App() {
 
   // ---- 元に戻す・やり直す: 世帯データ・案・表示の設定を変える setter を history.track で包む（世帯ごとの履歴）----
   const history = useHistoryBook<AppSnap<Work>>({
-    read: () => (openedRef.current === null ? null : { wh: openedRef.current.wh, work: workRef.current, settings: settingsRef.current, bs: bsSettingsRef.current }),
+    read: () => (openedRef.current === null ? null : { wh: openedRef.current.wh, work: workRef.current, settings: dispRef.current.result, bs: dispRef.current.balance, follow: dispRef.current.followOffice ?? [] }),
     same: sameSnap,
     describe: describeSnap,
     apply: (s) => restore(s),
@@ -799,7 +836,7 @@ export function App() {
     const o = openedRef.current;
     const sr = storedRef.current;
     if (o === null || sr === null || sr.readOnly) return;
-    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry));
+    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, dispRef.current, sr.carry));
   }, []);
   /**
    * 世帯を離れる前（切り替える・アプリを閉じる）: 自動保存の残りを待たずに書く。保存できなかったら黙って捨てずに、
@@ -841,7 +878,7 @@ export function App() {
     const current = () => {
       const o = openedRef.current;
       const sr = storedRef.current;
-      return o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry) : null;
+      return o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, dispRef.current, sr.carry) : null;
     };
     try {
       return await saveBeforeLeave(
@@ -1033,7 +1070,7 @@ export function App() {
     const o = openedRef.current;
     if (sr === null || o === null) return;
     const last = savedBodies.current.get(sr.id);
-    const now = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry);
+    const now = bodyFor(o, workRef.current, shownRef.current, dispRef.current, sr.carry);
     if (last === undefined || !sameBodyContent(last, now)) savedBodies.current.delete(sr.id);
   }, []);
 
@@ -1069,6 +1106,8 @@ export function App() {
         o = openedFrom(demo, wh);
       }
       if (o === null) return false;
+      // 見本・空の世帯（保存すると新しい世帯になる）の表示の設定は、事務所の既定値に従う（0213 の段C。前に開いていた世帯の値を持ち越さない）
+      putDisp(newHouseholdDisplay(officeDispRef.current, hashDisplay));
       reqCache.current.clear();
       rawCache.current.clear();
       // 別の世帯を開いたら、結果の見方はすべて入れるに戻す
@@ -1124,7 +1163,9 @@ export function App() {
     async (r: StoredOpened, stored?: string) => {
       const st = fromBody(r.body);
       const demo = st.workspace.template !== null ? (demoHousehold(st.workspace.template) ?? null) : null;
-      const o = openedFrom(demo, st.wh);
+      // 土地の割合など3つの前提条件の値が無い世帯は、開いたときに今の事務所の値を写し、自動保存で世帯に書く（0218。計算の結果は変わらない）
+      const filled = fillLivePremises(st.wh);
+      const o = openedFrom(demo, filled);
       if (o === null) throw new Error("E_BODY_SHAPE");
       reqCache.current.clear();
       rawCache.current.clear();
@@ -1141,11 +1182,8 @@ export function App() {
       storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, carry: st.carry, ...(sample !== undefined ? { sample } : {}), ...fictional };
       setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, ...(sample !== undefined ? { sample } : {}), ...fictional });
       setFileEditors(editorsOf(r.body));
-      settingsRef.current = st.display.result;
-      setSettings(st.display.result);
-      bsSettingsRef.current = st.display.balance;
-      setBsSettings(st.display.balance);
-      const loaded = bodyFor(o, w, shownKeys, st.display.result, st.display.balance, st.carry);
+      putDisp(st.display);
+      const loaded = bodyFor(o, w, shownKeys, st.display, st.carry);
       // この画面で前に開いて保存したときと同じ中身なら、元に戻すの履歴を続きから使う（違えば空から）。
       // 本体は本文を読み直して書くので欄の並びが変わる。文字列ではなく中身で比較する（0097）
       const keep = reopenHistory(savedBodies.current.get(r.id), loaded) === "continue";
@@ -1157,10 +1195,12 @@ export function App() {
       setSampleMode(viewSample ? "view" : null);
       setPresence(others && !viewSample ? r.othersOpen : null);
       pausedBody.current = others || viewSample ? (stored ?? loaded) : null;
-      autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? loaded));
+      // 写した値（0218）は、読んだ本文を保存済みとして、違いを自動保存で書く（書かないと、次に開いたときの事務所の値をまた写すことになる）
+      const wrote = stored === undefined && filled !== st.wh ? r.body : undefined;
+      autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? wrote ?? loaded));
       if (r.readOnly) setSaveState({ kind: "error", code: r.viewOnly === true ? "E_OFFICE_VIEW_ONLY" : "E_STORE_READ_ONLY" });
       await install(o, w, shownKeys, `stored:${r.id}`, keep, "前にこの世帯を開いていたときと中身が違うため、元に戻す（↶）の履歴はここから始めます");
-      if (stored !== undefined && stored !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
+      if ((stored ?? wrote) !== undefined && (stored ?? wrote) !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
     },
     [host, install],
   );
@@ -1224,7 +1264,7 @@ export function App() {
     pausedBody.current = null;
     if (o === null || sr === null || base === null) return;
     autosaver.current?.reset(base);
-    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry));
+    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, dispRef.current, sr.carry));
   }, []);
 
   /** 分岐を選ぶ画面を開く（保存のときに分岐を見つけた・同期の衝突の写しがある） */
@@ -1249,7 +1289,7 @@ export function App() {
       try {
         const o = openedRef.current;
         const sr = storedRef.current;
-        const ours = o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry) : null;
+        const ours = o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, dispRef.current, sr.carry) : null;
         const r = await host.store.resolveFork(fork.id, c === "ours");
         if (c === "both" && ours !== null) {
           const m = mergeForkBodies(r.body, ours, () => crypto.randomUUID());
@@ -1305,7 +1345,7 @@ export function App() {
       // 知らせは、コードを持ち印を外している FP にだけ出す（コードの無い FP には黙って写す。0197）
       const keptHidden = storedRef.current === null && savedSampleNotice(OFFICIAL_EXTENSIONS, { previews: previewRef.current, features: featuresRef.current, values: o0.wh.extValues });
       const o: Opened = stripped ? { ...o0, wh: withoutNotes(o0.wh) } : o0;
-      const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, EMPTY_CARRY);
+      const body = bodyFor(o, workRef.current, shownRef.current, dispRef.current, EMPTY_CARRY);
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
       const r = await host.store.create(body, summaryOf(o.wh.request), { ...(category !== undefined ? { category } : {}), ...(sample !== undefined ? { sample } : {}) });
       const info = { id: r.id, customerNo: r.customerNo, readOnly: false, ...(r.sample !== undefined ? { sample: r.sample } : {}) };
@@ -1349,8 +1389,8 @@ export function App() {
   useEffect(() => {
     const sr = storedRef.current;
     if (opened === null || sr === null || sr.readOnly) return;
-    autosaver.current?.change(bodyFor(opened, workRef.current, shown, settings, bsSettings, sr.carry));
-  }, [opened, work.band, work.base, work.sel, shown, settings, bsSettings]);
+    autosaver.current?.change(bodyFor(opened, workRef.current, shown, disp, sr.carry));
+  }, [opened, work.band, work.base, work.sel, shown, disp]);
 
   // ---- 世帯の一覧の操作 ----
   const refreshStore = useCallback(async () => {
@@ -1449,7 +1489,7 @@ export function App() {
         say("削除しました。アプリのバックアップからも完全に読めなくなるのは30日後です");
         return null;
       } catch (e) {
-        if (isOpen && storedRef.current !== null && opened !== null) autosaver.current?.reset(bodyFor(opened, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, storedRef.current.carry));
+        if (isOpen && storedRef.current !== null && opened !== null) autosaver.current?.reset(bodyFor(opened, workRef.current, shownRef.current, dispRef.current, storedRef.current.carry));
         return storeMessage(codeOf(e));
       }
     },
@@ -1504,11 +1544,8 @@ export function App() {
     reqCache.current.clear();
     rawCache.current.clear();
     openedRef.current = n;
-    settingsRef.current = s.settings;
-    bsSettingsRef.current = s.bs;
+    putDisp({ result: s.settings, balance: s.bs, followOffice: (s.follow ?? []).filter(isOfficeDisplayId) });
     setOpened(n);
-    setSettings(s.settings);
-    setBsSettings(s.bs);
     putWorkRaw(fitWork(n, s.work), n, "set");
   };
   /** 入力の画面で世帯（現状）を変えた */
@@ -1519,7 +1556,7 @@ export function App() {
     const sr = storedRef.current;
     if (n === null || sr === null || sr.readOnly || autosaver.current === null) return false;
     try {
-      autosaver.current.change(bodyFor(n, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry));
+      autosaver.current.change(bodyFor(n, workRef.current, shownRef.current, dispRef.current, sr.carry));
       await autosaver.current.flush();
       return true;
     } catch {
@@ -1651,7 +1688,7 @@ export function App() {
     setPlans(r.wh, { ...w, drafts: r.drafts });
     const n = openedRef.current;
     const sr = storedRef.current;
-    if (n !== null && sr !== null) autosaver.current?.change(bodyFor(n, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry));
+    if (n !== null && sr !== null) autosaver.current?.change(bodyFor(n, workRef.current, shownRef.current, dispRef.current, sr.carry));
   };
 
   /** 対策に最初から出す項目（事務所の既定値。0084）。描くたびに入れ直す */
@@ -1721,25 +1758,46 @@ export function App() {
   );
   /** 取り崩しの計算・前回の控えの1回（本体の正の計算。同時に頼まれても1つずつ・同じ要求は1回） */
   const computeOne = useMemo(() => (host === null ? async (): Promise<PreviewResult | null> => null : singleCompute(host)), [host]);
-  const putSettings = useCallback(
-    (patch: Partial<DisplaySettings>) =>
+  /**
+   * 表示の設定をその世帯で変える（元に戻すの履歴に入る）。値の変わった設定は「事務所の既定値に従う」の印を外し、この世帯だけの値にする（0213 の段C）
+   */
+  const putShown = useCallback(
+    (next: (cur: DisplayPair) => DisplayPair) =>
       history.track(() => {
-        const s = { ...settingsRef.current, ...patch };
-        settingsRef.current = s;
-        setSettings(s);
+        const before = resolveDisplay(dispRef.current, officeDispRef.current);
+        putDisp(withOwnChange(dispRef.current, before, next(before)));
       }),
     [history],
   );
+  const putSettings = useCallback((patch: Partial<DisplaySettings>) => putShown((c) => ({ ...c, result: { ...c.result, ...patch } })), [putShown]);
   /** 資産と負債のタブの表示の設定を変える（元に戻すの履歴に入る） */
-  const putBsSettings = useCallback(
-    (patch: Partial<BalanceSettings>) =>
+  const putBsSettings = useCallback((patch: Partial<BalanceSettings>) => putShown((c) => ({ ...c, balance: { ...c.balance, ...patch } })), [putShown]);
+  /** 「事務所の既定値に戻す」（印を付け直し、事務所の今の既定値にする。元に戻すの履歴に入る） */
+  const resetToOffice = useCallback(
+    (ids: readonly string[]) =>
       history.track(() => {
-        const s = { ...bsSettingsRef.current, ...patch };
-        bsSettingsRef.current = s;
-        setBsSettings(s);
+        let d = dispRef.current;
+        for (const id of ids) if (isOfficeDisplayId(id)) d = withFollowOffice(d, id, officeDispRef.current);
+        putDisp(d);
+        // FP顧問料の一文の枠（alt）を足す・外す
+        if (ids.includes("result.metrics")) putWork(workRef.current, openedRef.current, "set");
       }),
-    [history],
+    [history, putWork],
   );
+  /** 表示の設定の画面の「事務所の既定値」「この世帯だけ」の印（事務所の今の既定値の言葉は、事務所の既定値が変わったときだけ作り直す） */
+  const officeDisplayTexts = useMemo(() => officeCurrent({ display: officeSettings.display }), [officeDisplayKey]);
+  const officeMarks: OfficeMarks = {
+    follows: (id) => isOfficeDisplayId(id) && followsOffice(disp, id),
+    officeText: (id) => officeDisplayTexts[id]?.text ?? "",
+    onReset: resetToOffice,
+  };
+  // 事務所の既定値を変えて「FP顧問料の一文」を出す・出さないが変わったら（従う世帯だけ）、顧問料の枠を足す・外す
+  const feeMetric = settings.metrics.includes("feeLine");
+  useEffect(() => {
+    if (feeMetricRef.current === feeMetric) return;
+    feeMetricRef.current = feeMetric;
+    if (openedRef.current !== null) putWorkRaw(workRef.current, openedRef.current, "set");
+  }, [feeMetric]);
   const setFee = useCallback(
     (v: boolean | null) => {
       if (openedRef.current === null) return;
@@ -1836,7 +1894,8 @@ export function App() {
       const input = withAiOrigin(c.input, c.candidateId, c.connector, approvalAt());
       const o = openedFrom(null, fromRequest({ trace: "none", input }, { memo: noteMemo(c) }));
       if (o === null) return "ご本人のいない世帯は作れません";
-      const body = bodyFor(o, EMPTY_WORK, [], DEFAULT_DISPLAY_SETTINGS, DEFAULT_BALANCE_SETTINGS, EMPTY_CARRY);
+      // 新しく作る世帯の表示の設定は事務所の既定値に従う（0213 の段C）
+      const body = bodyFor(o, EMPTY_WORK, [], newHouseholdDisplay(officeDispRef.current), EMPTY_CARRY);
       try {
         if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
         const r = await host.ai.createFromCandidate(c.candidateId, kind, body, summaryOf(o.wh.request));
@@ -3243,6 +3302,7 @@ export function App() {
                 onColumns={(c) => putBsSettings({ columns: c })}
                 onPointDefaults={(k) => putBsSettings({ points: k })}
                 moneyThree={{ model: m3Model, onSettings: (x) => putBsSettings({ moneyThree: { ...bsSettingsRef.current.moneyThree, ...x } }), flash: m3Flash, nameChoices: MONEY_THREE_NAME_CHOICES }}
+                officeMarks={officeMarks}
                 initial={{ ...(initial.bsView !== undefined ? { view: initial.bsView } : {}), ...(initial.bsYear !== undefined ? { year: initial.bsYear } : {}), ...(initial.bsOpen !== undefined ? { open: initial.bsOpen } : {}), ...(initial.bsTable === true ? { table: true } : {}), ...(initial.bsSettings === true ? { settings: true } : {}) }}
               />
             </>
@@ -3369,10 +3429,10 @@ export function App() {
                       value={settings}
                       feeAvailable={hasAdvisoryFee(opened.wh.request)}
                       firstAge={firstAgeOf(opened.wh.request)}
+                      office={officeMarks}
                       onChange={(s) =>
                         history.track(() => {
-                          settingsRef.current = s;
-                          setSettings(s);
+                          putShown((c) => ({ ...c, result: s }));
                           // FP顧問料の一文の枠（alt）を足す・外す
                           putWork(workRef.current, openedRef.current, "set");
                         })

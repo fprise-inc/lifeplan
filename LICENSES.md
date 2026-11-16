@@ -6,6 +6,8 @@
 |---|---|---|
 | （下に無いもの） | 提供元（FPRISE, INC.）が書いたコード | MIT（[LICENSE](LICENSE)） |
 | `data/regulation/tax/`・`data/regulation/socialInsurance/` | 制度データ（提供元が整理した部分）。出典は値ごとの `sources`（国・地方公共団体・保険者の公表資料。各提供元の利用条件に従う） | CC0 1.0（[tax](data/regulation/tax/LICENSE)・[socialInsurance](data/regulation/socialInsurance/LICENSE)） |
+| `data/schools/` | 学校の一覧（学校コード・学校名・市区町村・移行先。文部科学省「学校コード一覧」を加工して作成）と、別名・読みの辞書・学部・学科の一覧（提供元が整理した部分） | 学校の一覧は文部科学省ウェブサイト利用規約（CC BY 4.0 と互換）、辞書は CC0 1.0（[LICENSE](data/schools/LICENSE)） |
+| `data/tuition/` | 学校別の学費（国立大学の入学料・授業料。各大学の公式の案内から取り出した数値。提供元が整理した部分）。出典は学校ごとの `sources` | CC0 1.0（[LICENSE](data/tuition/LICENSE)） |
 | `data/modelHouseholds/` | 架空のモデル世帯 | CC0 1.0（[LICENSE](data/modelHouseholds/LICENSE)） |
 | `engine/test/fixtures/regulation/` | 【架空の見本】テスト用の制度データ。実在の制度の値ではない | CC0 1.0（各フォルダの LICENSE） |
 | `app/src-tauri/icons/` | アプリのアイコン（提供元が作ったもの） | MIT（[LICENSE](LICENSE)） |

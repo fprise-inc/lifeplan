@@ -1,0 +1,23 @@
+# 学校別の学費（0010 の1・3: マスタデータ master.education.tuition。0219）
+# 正本は national.yaml（国立大学の入学料・授業料。入学年度の区間ごとの額と、改定を在学生に当てるか）。
+# 画面に配る形は app/scripts/prepare-assets.ts が学校の一覧と一緒に作る（app/src/workspace/input/tuition.ts が、選んだ学校・学部の
+# 「入学年度×在学年次×費目×支払月」の行にして、段の school.rows に写す。0010 の9）。
+# 2026.1.0: 最初の版。国立大学の全校（85校。学部のある81校の学部の額と、入れられた範囲の大学院の額）。2026-11-16 に各大学の公式ページから取った
+packId: master.education.tuition
+formatVersion: "0.1"
+version: "2026.1.0"
+title: 学校別の学費（国立大学の入学料・授業料）
+license:
+  values: 各大学の公式の案内から取り出した数値を FPRISE, INC. が整理したもの（CC0-1.0）
+# 国立大学等の授業料その他の費用に関する省令の標準額と上限（第2条・第10条。上限は標準額の1.2倍）。national.yaml の額がこの範囲の外なら読み違いとして止める
+standards:
+  source: {url: "https://laws.e-gov.go.jp/api/2/law_data/416M60000080016?response_format=xml", title: "国立大学等の授業料その他の費用に関する省令", retrievedAt: "2026-11-16", sha256: "d0cf7e674f89b1ce36ded53825cd4526d4d059f7416032f96c794ac26236fc0e", locator: "第2条の表（学部・夜間の学部・大学院・法科大学院）・第10条（100分の120を超えない範囲）"}
+  ratioCap: "1.2"
+  plans:
+    day: {admission: 282000, annual: 535800}
+    evening: {admission: 141000, annual: 267900}
+    medDent: {admission: 282000, annual: 535800}
+    master: {admission: 282000, annual: 535800}
+    doctor: {admission: 282000, annual: 535800}
+    professional: {admission: 282000, annual: 535800}
+    law: {admission: 282000, annual: 804000}

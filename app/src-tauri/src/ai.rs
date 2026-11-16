@@ -1220,10 +1220,15 @@ mod tests {
                 "hearingTemplates": [],
                 "features": { "combinedBs": true },
                 "endAge": 95,
+                // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C）は渡し、AI の案を反映する前の値は渡さない
+                "display": { "result": { "atAge": 90, "metrics": ["takeHome"] }, "balance": { "points": ["now", "age80"] } },
+                "displayHistory": { "result.atAge": [{ "value": 95, "at": "2026-11-15T00:00:00Z", "reason": "ai" }] },
             }))
             .unwrap();
         let v = office_display_of(&p.store, &[]).unwrap();
         assert_eq!(v["levers"]["shown"][0], "lever:nisaMonthly");
+        assert_eq!(v["display"]["result"]["atAge"], 90);
+        assert_eq!(v["display"]["balance"]["points"][1], "age80");
         assert_eq!(v["scenes"]["open"], "income");
         assert_eq!(v["features"]["combinedBs"], true);
         assert_eq!(v["featureCodes"], serde_json::json!([]));
@@ -1233,6 +1238,7 @@ mod tests {
             "branding",
             "hearingTemplates",
             "endAge",
+            "displayHistory",
         ] {
             assert!(v.get(k).is_none(), "{k} は返さない");
         }
@@ -1484,12 +1490,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（0155 の 2026-11-15 の追記で 0.79 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（0213 の段C の事務所の既定値に従う印で 0.80 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.79");
+        assert_eq!(file["meta"]["formatVersion"], "0.80");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());

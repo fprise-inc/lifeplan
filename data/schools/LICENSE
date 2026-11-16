@@ -1,0 +1,15 @@
+学校の一覧（master.education.schools）のライセンス
+
+1. schools.csv（学校コード・学校種・都道府県番号・設置区分・学校名・市区町村・廃止の日・移行後の学校コード）
+
+   「学校コード一覧」（文部科学省）（https://www.mext.go.jp/b_menu/toukei/mext_01087.html）を加工して作成。
+   加工の内容: 文部科学省の CSV の4つを1つにまとめ、学校所在地と郵便番号を外し、所在地から市区町村を切り出した。
+   移行後の学校コードが自分自身の行は、移行先なしにした。取得日と元のファイルの指紋は pack.yaml の sources にある。
+
+   文部科学省ウェブサイト利用規約（https://www.mext.go.jp/b_menu/1351168.htm）に従って利用する。この規約はクリエイティブ・コモンズ・
+   ライセンスの表示 4.0 国際（CC BY 4.0。https://creativecommons.org/licenses/by/4.0/legalcode）と互換がある。
+   この加工したデータを国（文部科学省）が作ったものとして公表・利用しない。
+
+2. aliases.yaml（別名・読み・移行先の補いの辞書）と departments.yaml（学部・学科の一覧と修業年数）
+
+   FPRISE, INC. が整理した部分。CC0 1.0 Universal（https://creativecommons.org/publicdomain/zero/1.0/legalcode）。
