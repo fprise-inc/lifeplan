@@ -188,13 +188,14 @@ describe("学校名の欄", () => {
     expect(g.warn ?? null).toBeNull();
     expect(fieldAt(next, "university").search?.shown(next)).toBe("早稲田大学");
   });
-  it("国立の学校を選ぶと、公立・私立の欄を国立に合わせ、国立の平均（標準額）で計算する", () => {
+  it("国立の学校を選ぶと、公立・私立の欄を国立に合わせ、大学の学費データで計算する（標準額のままの大学は標準額の計算と端数の数十円のほかは同じ。0219）", () => {
     const wh = fresh();
-    const next = fieldAt(wh, "university").set(wh, codeOf("東京大学", "F1"));
+    const next = fieldAt(wh, "university").set(wh, codeOf("京都大学", "F1"));
     const st = stagesOf(next)[stageIndex(next, "university")]!;
     expect(st.sector).toBe("national");
-    expect(fieldAt(next, "university").get(next).hint).toContain("国立大学");
-    expect(eduTotal(next.request)).toBe(eduTotal(mutate(wh, (h) => void ((h.goals ?? []).find((g) => g.kind === "education")!.education!.stages.find((s) => s.stage === "university")!.sector = "national")).request));
+    expect(fieldAt(next, "university").get(next).hint).toContain("京都大学の公式の学費の案内");
+    const std = eduTotal(mutate(wh, (h) => void ((h.goals ?? []).find((g) => g.kind === "education")!.education!.stages.find((s) => s.stage === "university")!.sector = "national")).request);
+    expect(Math.abs(eduTotal(next.request) - std)).toBeLessThanOrEqual(50);
   });
   it("「学校未定」に戻すと学校を外す（段の学校の値が無くなる）", () => {
     const wh = fresh();

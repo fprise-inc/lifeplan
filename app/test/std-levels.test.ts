@@ -138,7 +138,7 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     expect(total.get(w).partEstimated).toMatch(/^賞与は年収（賞与込み）800万円を、賃金の統計/);
     const html = renderToString(h(Field, { f: total, wh: w, onEdit: () => {} }));
     expect(html).toMatch(/class="help-btn help-mark badge est"[^>]*data-state="estimated">推定</);
-    expect(html).toContain("推定: 賞与は年収（賞与込み）800万円を");
+    expect(html).toContain("推定のもと: 賞与は年収（賞与込み）800万円を");
     const label = /<div class="fld-l">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? "";
     expect(label).not.toContain('data-state="estimated"');
     // 賞与も確定なら印は出さない

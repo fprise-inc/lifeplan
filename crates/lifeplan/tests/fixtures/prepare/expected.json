@@ -418,13 +418,23 @@
         "text": "当事務所のお客さまの平均",
         "changedOn": "2026-11-02",
         "officialRev": 2,
-        "officialValue": 55
+        "officialValue": 55,
+        "officialSource": {
+          "title": "介護の期間の平均（月数）",
+          "retrievedAt": "2026-10-09",
+          "reviewed": true
+        }
       },
       "care.statistics.monthlyHome": {
         "value": 80000,
         "changedOn": "2026-11-02",
         "officialRev": 2,
-        "officialValue": 52000
+        "officialValue": 52000,
+        "officialSource": {
+          "title": "介護の月々の費用の平均（在宅）",
+          "retrievedAt": "2026-10-09",
+          "reviewed": true
+        }
       }
     },
     "noFill": [

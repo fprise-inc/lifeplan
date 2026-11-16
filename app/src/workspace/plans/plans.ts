@@ -815,10 +815,11 @@ function phrase(it: MovableItem, v: ItemValue, now: ItemValue): string {
 
 /**
  * プランの名前の例（例: 「プランB 借入を500万円減らす」）。土台のプランがあれば、土台から変えたことで名前を作る。
- * 足した項目（借入・金利・配分など）を、対策の固定の項目より先に使う
+ * 足した項目（借入・金利・配分など）を、対策の固定の項目より先に使う。
+ * reserved は、まだプランになっていないがもう名前に使っている文字（保存する前の、ほかのプランの候補の名前の文字）。使わない
  */
-export function suggestName(list: readonly Proposal[], values: Values, wh: WorkingHousehold, cat: Catalog, base: string | null = null): string {
-  const used = new Set(list.map((p) => headLetter(p.name)).filter((x): x is string => x !== undefined));
+export function suggestName(list: readonly Proposal[], values: Values, wh: WorkingHousehold, cat: Catalog, base: string | null = null, reserved: Iterable<string> = []): string {
+  const used = new Set([...list.map((p) => headLetter(p.name)).filter((x): x is string => x !== undefined), ...reserved]);
   const letter = [...LETTERS].find((l) => !used.has(l)) ?? String(list.length + 2);
   const baseValues = effectiveValues(list === wh.proposals ? wh : { ...wh, proposals: [...list] }, base);
   const ref = (it: MovableItem) => (Object.hasOwn(baseValues, it.key) ? (baseValues[it.key] ?? null) : it.read(wh));

@@ -1,0 +1,740 @@
+# 学部・学科の一覧（0010 の2・0217・0219。マスタデータ master.education.schools の一部）。FPライズが整理した部分で、CC0-1.0。
+# 学部・学科は「学校コード＋部局ID」（<学校コード>/d001）で表す。部局ID は学校の中の通し番号で、使い回さない（廃止しても欠番として残し、retired: true にする）。
+# 学部ごとに1行。同じ学部の中で修業年数か授業料の区分が違う学科・コース（医学科と看護学科、夜間主コースなど）だけ分けて行にした。
+# years は修業年数（学校教育法第87条: 4年。医学・歯学・薬学〔臨床〕・獣医学は6年。夜間の5年の課程は大学の学則・募集要項）。
+# plan は学費の区分（data/tuition/national.yaml の plans。省略は day）。source は一覧を取った大学の公式ページ。
+departments:
+  - school: F101110100010 # 北海道大学
+    source: {url: "https://www.hokudai.ac.jp/introduction/dept/", title: "学部・大学院・センター等", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "法学部", years: 4}
+      - {id: d004, name: "経済学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "医学部医学科", years: 6}
+      - {id: d007, name: "医学部保健学科", years: 4}
+      - {id: d008, name: "歯学部", years: 6}
+      - {id: d009, name: "薬学部薬学科", years: 6}
+      - {id: d010, name: "薬学部薬科学科", years: 4}
+      - {id: d011, name: "工学部", years: 4}
+      - {id: d012, name: "農学部", years: 4}
+      - {id: d013, name: "獣医学部", years: 6}
+      - {id: d014, name: "水産学部", years: 4}
+  - school: F101110100029 # 北海道教育大学
+    source: {url: "https://www.hokkyodai.ac.jp/academics/faculties/", title: "学部の紹介｜国立大学法人 北海道教育大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+  - school: F101110100038 # 室蘭工業大学
+    source: {url: "https://muroran-it.ac.jp/en/entrance/faq/mit/", title: "室蘭工業大学について（よくある質問）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "理工学部", years: 4}
+      - {id: d002, name: "理工学部創造工学科（夜間主コース）", years: 4, plan: evening}
+  - school: F101110100047 # 小樽商科大学
+    source: {url: "https://nyushi.otaru-uc.ac.jp/wp-content/uploads/sites/2/2026/08/kikokushijo2027.pdf", title: "2027年度 小樽商科大学学生募集要項（昼間コース；帰国子女入試）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "商学部", years: 4}
+      - {id: d002, name: "商学部（夜間主コース）", years: 4, plan: evening}
+  - school: F101110100056 # 帯広畜産大学
+    source: {url: "https://www.obihiro.ac.jp/wp/wp-content/uploads/2026/07/R9youkou.pdf", title: "令和9年度 入学者選抜要項 帯広畜産大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "畜産学部共同獣医学課程", years: 6}
+      - {id: d002, name: "畜産学部畜産科学課程", years: 4}
+  - school: F101110100065 # 北見工業大学
+    source: {url: "https://koho5.office.kitami-it.ac.jp/admission/wp-content/uploads/2026/08/R09sougoubosyuyoko.pdf", title: "令和9（2027）年度 工学部 総合型選抜 学生募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "工学部", years: 4}
+  - school: F101110100074 # 旭川医科大学
+    source: {url: "https://www.asahikawa-med.ac.jp/uploads/files/admission/exam/grad_app_guidebook/appguide_2027_ippan.pdf", title: "令和9年度 学生募集要項（一般選抜）旭川医科大学医学部", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "医学部医学科", years: 6}
+      - {id: d002, name: "医学部看護学科", years: 4}
+  - school: F102110100572 # 弘前大学
+    source: {url: "https://nyushi.hirosaki-u.ac.jp/wp-content/uploads/2026/07/01_R9_sbyk_comm.pdf", title: "令和9（2027）年度 入学者選抜要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文社会科学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "医学部医学科", years: 6}
+      - {id: d004, name: "医学部保健学科", years: 4}
+      - {id: d005, name: "医学部心理支援科学科", years: 4}
+      - {id: d006, name: "理工学部", years: 4}
+      - {id: d007, name: "農学生命科学部", years: 4}
+  - school: F103110100731 # 岩手大学
+    source: {url: "https://www.iwate-u.ac.jp/upload/reorganization2025.pdf", title: "IWATE UNIVERSITY Reorganization 2025（学部改組・新設のお知らせ）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文社会科学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "理工学部", years: 4}
+      - {id: d004, name: "農学部", years: 4}
+      - {id: d005, name: "獣医学部", years: 6}
+  - school: F104110100856 # 東北大学
+    source: {url: "https://www.tohoku.ac.jp/japanese/academics/", title: "学部・大学院・附置研究所等 | 東北大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "法学部", years: 4}
+      - {id: d004, name: "経済学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "医学部医学科", years: 6}
+      - {id: d007, name: "医学部保健学科", years: 4}
+      - {id: d008, name: "歯学部", years: 6}
+      - {id: d009, name: "薬学部薬学科", years: 6}
+      - {id: d010, name: "薬学部創薬科学科", years: 4}
+      - {id: d011, name: "工学部", years: 4}
+      - {id: d012, name: "農学部", years: 4}
+  - school: F104110100865 # 宮城教育大学
+    source: {url: "https://www.miyakyo-u.ac.jp/academic/education-faculty-r4/index.html", title: "教育学部（令和４年度以降） | 宮城教育大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+  - school: F105110101051 # 秋田大学
+    source: {url: "https://www.akita-u.ac.jp/honbu/current/cu_tuition.html", title: "授業料等の納付と免除｜国立大学法人　秋田大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "国際資源学部", years: 4}
+      - {id: d002, name: "教育文化学部", years: 4}
+      - {id: d003, name: "医学部医学科", years: 6}
+      - {id: d004, name: "医学部保健学科", years: 4}
+      - {id: d005, name: "総合環境理工学部", years: 4}
+      - {id: d006, name: "情報データ科学部", years: 4}
+  - school: F106110101176 # 山形大学
+    source: {url: "https://www.yamagata-u.ac.jp/jp/faculty/", title: "学部・研究科／戦略本部・機構｜国立大学法人 山形大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文社会科学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "理学部", years: 4}
+      - {id: d004, name: "医学部医学科", years: 6}
+      - {id: d005, name: "医学部看護学科", years: 4}
+      - {id: d006, name: "工学部", years: 4}
+      - {id: d007, name: "工学部フレックスコース", years: 4, plan: evening}
+      - {id: d008, name: "農学部", years: 4}
+      - {id: d009, name: "社会共創デジタル学環", years: 4}
+  - school: F107110101273 # 福島大学
+    source: {url: "https://www.fukushima-u.ac.jp/news/Files/2026/06/e3dd5c9fc8370145a5b58c1baa645695.pdf", title: "学士課程再編に伴う令和９年度福島大学入学者選抜方法等について（予告）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "政経学部", years: 4}
+      - {id: d003, name: "理工学部", years: 4}
+      - {id: d004, name: "食農学部", years: 4}
+  - school: F108110101414 # 茨城大学
+    source: {url: "https://www.ibaraki.ac.jp/m/lifesupport/class/payment/index.html", title: "入学料・授業料｜茨城大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文社会科学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "理学部", years: 4}
+      - {id: d004, name: "工学部", years: 4}
+      - {id: d005, name: "農学部", years: 4}
+      - {id: d006, name: "地域未来共創学環", years: 4}
+  - school: F108110101423 # 筑波大学
+    source: {url: "https://www.tsukuba.ac.jp/education/organization-ug-list/", title: "学群・学類（学士課程）一覧 - 筑波大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文・文化学群", years: 4}
+      - {id: d002, name: "社会・国際学群", years: 4}
+      - {id: d003, name: "人間学群", years: 4}
+      - {id: d004, name: "生命環境学群", years: 4}
+      - {id: d005, name: "理工学群", years: 4}
+      - {id: d006, name: "情報学群", years: 4}
+      - {id: d007, name: "医学群医学類", years: 6}
+      - {id: d008, name: "医学群看護学類", years: 4}
+      - {id: d009, name: "医学群医療科学類", years: 4}
+      - {id: d010, name: "体育専門学群", years: 4}
+      - {id: d011, name: "芸術専門学群", years: 4}
+  - school: F108110101432 # 筑波技術大学
+    source: {url: "https://www.tsukuba-tech.ac.jp/education/expenses/fees.html", title: "入学料・授業料・寄宿料等｜国立大学法人 筑波技術大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "産業技術学部", years: 4}
+      - {id: d002, name: "保健科学部", years: 4}
+      - {id: d003, name: "共生社会創成学部", years: 4}
+  - school: F109110101556 # 宇都宮大学
+    source: {url: "https://www.utsunomiya-u.ac.jp/convenient/campuslife/tuition.php", title: "入学料・授業料 | 宇都宮大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "データサイエンス経営学部", years: 4}
+      - {id: d002, name: "地域デザイン科学部", years: 4}
+      - {id: d003, name: "国際学部", years: 4}
+      - {id: d004, name: "共同教育学部", years: 4}
+      - {id: d005, name: "工学部", years: 4}
+      - {id: d006, name: "農学部", years: 4}
+  - school: F110110101713 # 群馬大学
+    source: {url: "https://www.gunma-u.ac.jp/admission/adm004/adm004_001", title: "入学時及び入学後の経費 | 国立大学法人群馬大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "共同教育学部", years: 4}
+      - {id: d002, name: "情報学部", years: 4}
+      - {id: d003, name: "医学部医学科", years: 6}
+      - {id: d004, name: "医学部保健学科", years: 4}
+      - {id: d005, name: "理工学部", years: 4}
+  - school: F111110101945 # 埼玉大学
+    source: {url: "https://www.saitama-u.ac.jp/student/life/school_expenses/", title: "授業料 | 教育・学⽣⽀援 | 埼玉大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教養学部", years: 4}
+      - {id: d002, name: "経済学部昼間コース", years: 4}
+      - {id: d003, name: "経済学部夜間主コース", years: 4, plan: evening}
+      - {id: d004, name: "教育学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "工学部", years: 4}
+  - school: F112110102337 # 千葉大学
+    source: {url: "https://www.chiba-u.ac.jp/organisation/index.html", title: "学部・大学院 | 国立大学法人 千葉大学｜Chiba University", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "国際教養学部", years: 4}
+      - {id: d002, name: "文学部", years: 4}
+      - {id: d003, name: "法政経学部", years: 4}
+      - {id: d004, name: "教育学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "工学部", years: 4}
+      - {id: d007, name: "情報・データサイエンス学部", years: 4}
+      - {id: d008, name: "園芸学部", years: 4}
+      - {id: d009, name: "医学部", years: 6}
+      - {id: d010, name: "薬学部薬学科", years: 6}
+      - {id: d011, name: "薬学部薬科学科", years: 4}
+      - {id: d012, name: "看護学部", years: 4}
+  - school: F113110102700 # 東京大学
+    source: {url: "https://www.u-tokyo.ac.jp/ja/schools-orgs/faculties/faculty.html", title: "学部・研究科 | 東京大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "法学部", years: 4}
+      - {id: d002, name: "医学部医学科", years: 6}
+      - {id: d003, name: "医学部健康総合科学科", years: 4}
+      - {id: d004, name: "工学部", years: 4}
+      - {id: d005, name: "文学部", years: 4}
+      - {id: d006, name: "理学部", years: 4}
+      - {id: d007, name: "農学部", years: 4}
+      - {id: d008, name: "農学部獣医学課程", years: 6}
+      - {id: d009, name: "経済学部", years: 4}
+      - {id: d010, name: "教養学部", years: 4}
+      - {id: d011, name: "教育学部", years: 4}
+      - {id: d012, name: "薬学部薬学科", years: 6}
+      - {id: d013, name: "薬学部薬科学科", years: 4}
+  - school: F113110102728 # 東京外国語大学
+    source: {url: "https://www.tufs.ac.jp/documents/admission/exam/2027_yoko.pdf", title: "2027年（令和9年）度 入学者選抜要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "言語文化学部", years: 4}
+      - {id: d002, name: "国際社会学部", years: 4}
+      - {id: d003, name: "国際日本学部", years: 4}
+  - school: F113110102737 # 東京芸術大学
+    source: {url: "https://www.geidai.ac.jp/department", title: "学部・研究科・附属機関・センター等", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "美術学部", years: 4}
+      - {id: d002, name: "音楽学部", years: 4}
+  - school: F113110102755 # お茶の水女子大学
+    source: {url: "https://www.ocha.ac.jp/education/index.html", title: "学部・大学院", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文教育学部", years: 4}
+      - {id: d002, name: "理学部", years: 4}
+      - {id: d003, name: "生活科学部", years: 4}
+      - {id: d004, name: "共創工学部", years: 4}
+  - school: F113110102764 # 東京学芸大学
+    source: {url: "https://www.u-gakugei.ac.jp/03gakubu/", title: "教育学部｜国立大学法人 東京学芸大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+  - school: F113110102773 # 東京農工大学
+    source: {url: "https://www.tuat.ac.jp/department/", title: "学部・大学院 | 国立大学法人 東京農工大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "農学部", years: 4}
+      - {id: d002, name: "農学部共同獣医学科", years: 6}
+      - {id: d003, name: "工学部", years: 4}
+  - school: F113110102782 # 電気通信大学
+    source: {url: "https://www.uec.ac.jp/education/undergraduate/", title: "情報理工学域", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "情報理工学域（昼間）", years: 4}
+      - {id: d002, name: "情報理工学域先端工学基礎課程（夜間主コース）", years: 4, plan: evening}
+  - school: F113110102791 # 一橋大学
+    source: {url: "https://juken.hit-u.ac.jp/admission/info/guidelines/files/R9ippan_youkou.pdf", title: "令和9(2027)年度 一橋大学 一般選抜募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "商学部", years: 4}
+      - {id: d002, name: "経済学部", years: 4}
+      - {id: d003, name: "法学部", years: 4}
+      - {id: d004, name: "社会学部", years: 4}
+      - {id: d005, name: "ソーシャル・データサイエンス学部", years: 4}
+  - school: F113110102817 # 東京海洋大学
+    source: {url: "https://www.kaiyodai.ac.jp/faculty/", title: "学部・研究科 | 国立大学法人 東京海洋大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "海洋生命科学部", years: 4}
+      - {id: d002, name: "海洋工学部", years: 4}
+      - {id: d003, name: "海洋資源環境学部", years: 4}
+  - school: F113110112030 # 東京科学大学
+    source: {url: "https://www.isct.ac.jp/ja/011/education/relationship", title: "学院、学部・研究科 | Science Tokyo - 東京科学大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "理学院", years: 4}
+      - {id: d002, name: "工学院", years: 4}
+      - {id: d003, name: "物質理工学院", years: 4}
+      - {id: d004, name: "情報理工学院", years: 4}
+      - {id: d005, name: "生命理工学院", years: 4}
+      - {id: d006, name: "環境・社会理工学院", years: 4}
+      - {id: d007, name: "医学部医学科", years: 6, plan: medDent}
+      - {id: d008, name: "医学部保健衛生学科", years: 4, plan: medDent}
+      - {id: d009, name: "歯学部歯学科", years: 6, plan: medDent}
+      - {id: d010, name: "歯学部口腔保健学科", years: 4, plan: medDent}
+  - school: F114110104592 # 横浜国立大学
+    source: {url: "https://www.ynu.ac.jp/academics/", title: "学部・大学院等 - 横浜国立大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "経済学部", years: 4}
+      - {id: d003, name: "経営学部", years: 4}
+      - {id: d004, name: "理工学部", years: 4}
+      - {id: d005, name: "都市科学部", years: 4}
+  - school: F115110105046 # 新潟大学
+    source: {url: "https://www.niigata-u.ac.jp/wp-content/uploads/2026/07/senbatsuyoukou.pdf", title: "令和9年度 入学者選抜要項（新潟大学、令和8年7月）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "法学部", years: 4}
+      - {id: d004, name: "経済科学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "医学部医学科", years: 6}
+      - {id: d007, name: "医学部保健学科", years: 4}
+      - {id: d008, name: "歯学部歯学科", years: 6}
+      - {id: d009, name: "歯学部口腔生命福祉学科", years: 4}
+      - {id: d010, name: "工学部", years: 4}
+      - {id: d011, name: "農学部", years: 4}
+      - {id: d012, name: "創生学部", years: 4}
+  - school: F115110105055 # 長岡技術科学大学
+    source: {url: "https://www.nagaokaut.ac.jp/admissions/exam/assets/R9b1-application%20guidelines%20for%20general%20admission.pdf", title: "令和9年度 第1学年 学生募集要項（一般選抜）【前期日程】", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "工学部", years: 4}
+  - school: F115110105064 # 上越教育大学
+    source: {url: "https://www.juen.ac.jp/090campus/050fee/010price.html", title: "納付金 | キャンパスライフ | 上越教育大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "学校教育学部", years: 4}
+  - school: F116110105312 # 富山大学
+    source: {url: "https://www.u-toyama.ac.jp/wp/wp-content/uploads/9c36aabf0599a8bd5843c583c97cf917.pdf", title: "入学者選抜要項 富山大学 令和9年度（令和9年4月入学者用、令和8年7月）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "経済学部", years: 4}
+      - {id: d004, name: "理学部", years: 4}
+      - {id: d005, name: "医学部医学科", years: 6}
+      - {id: d006, name: "医学部看護学科", years: 4}
+      - {id: d007, name: "薬学部薬学科", years: 6}
+      - {id: d008, name: "薬学部創薬科学科", years: 4}
+      - {id: d009, name: "工学部", years: 4}
+      - {id: d010, name: "芸術文化学部", years: 4}
+      - {id: d011, name: "都市デザイン学部", years: 4}
+  - school: F117110105393 # 金沢大学
+    source: {url: "https://www.kanazawa-u.ac.jp/wp/wp-content/uploads/2026/07/2027_r9_nyugakusyasenbatsuyoko.pdf", title: "令和9（2027）年度（学士課程）入学者選抜要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "融合学域", years: 4}
+      - {id: d002, name: "人間社会学域", years: 4}
+      - {id: d003, name: "理工学域", years: 4}
+      - {id: d004, name: "医薬保健学域医学類", years: 6}
+      - {id: d005, name: "医薬保健学域薬学類", years: 6}
+      - {id: d006, name: "医薬保健学域医薬科学類", years: 4}
+      - {id: d007, name: "医薬保健学域保健学類", years: 4}
+  - school: F118110105597 # 福井大学
+    source: {url: "https://www.u-fukui.ac.jp/wp/wp-content/uploads/snb27_senbatu1.pdf", title: "令和9年度 入学者選抜要項（福井大学）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "医学部医学科", years: 6}
+      - {id: d003, name: "医学部看護学科", years: 4}
+      - {id: d004, name: "工学部", years: 4}
+      - {id: d005, name: "国際地域学部", years: 4}
+  - school: F119110105676 # 山梨大学
+    source: {url: "https://www.yamanashi.ac.jp/wp-content/uploads/2026/07/R09_senbatsu.pdf", title: "令和9年度 入学者選抜要項 教育学部・医学部・工学部・生命環境学部（山梨大学）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "医学部医学科", years: 6}
+      - {id: d003, name: "医学部看護学科", years: 4}
+      - {id: d004, name: "工学部", years: 4}
+      - {id: d005, name: "生命環境学部", years: 4}
+  - school: F120110105771 # 信州大学
+    source: {url: "https://www.shinshu-u.ac.jp/ad_portal/selection/uploads/R09senbatsuyoukou.pdf", title: "信州大学 令和9（2027）年度入学者選抜要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "経法学部", years: 4}
+      - {id: d004, name: "理学部", years: 4}
+      - {id: d005, name: "医学部医学科", years: 6}
+      - {id: d006, name: "医学部保健学科", years: 4}
+      - {id: d007, name: "工学部", years: 4}
+      - {id: d008, name: "農学部", years: 4}
+      - {id: d009, name: "繊維学部", years: 4}
+  - school: F121110105976 # 岐阜大学
+    source: {url: "https://www.gifu-u.ac.jp/uploads/R9_ittupan.pdf", title: "令和9年度 一般選抜学生募集要項（岐阜大学）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "地域科学部", years: 4}
+      - {id: d003, name: "医学部医学科", years: 6}
+      - {id: d004, name: "医学部看護学科", years: 4}
+      - {id: d005, name: "工学部", years: 4}
+      - {id: d006, name: "応用生物科学部", years: 4}
+      - {id: d007, name: "応用生物科学部共同獣医学科", years: 6}
+      - {id: d008, name: "社会システム経営学環", years: 4}
+  - school: F122110106224 # 静岡大学
+    source: {url: "https://www.shizuoka.ac.jp/education/publish/length/", title: "修業年限｜静岡大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文社会科学部", years: 4}
+      - {id: d002, name: "人文社会科学部（夜間主コース）", years: 4, plan: evening}
+      - {id: d003, name: "教育学部", years: 4}
+      - {id: d004, name: "情報学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "工学部", years: 4}
+      - {id: d007, name: "農学部", years: 4}
+      - {id: d008, name: "グローバル共創科学部", years: 4}
+  - school: F122110106233 # 浜松医科大学
+    source: {url: "https://www.hama-med.ac.jp/about-us/3_gakusoku.pdf", title: "浜松医科大学学則", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "医学部医学科", years: 6}
+      - {id: d002, name: "医学部看護学科", years: 4}
+  - school: F123110106429 # 名古屋大学
+    source: {url: "https://www.nagoya-u.ac.jp/sch-list/faculty/index.html", title: "学部・大学院・その他 | 名古屋大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "法学部", years: 4}
+      - {id: d004, name: "経済学部", years: 4}
+      - {id: d005, name: "情報学部", years: 4}
+      - {id: d006, name: "理学部", years: 4}
+      - {id: d007, name: "医学部医学科", years: 6}
+      - {id: d008, name: "医学部保健学科", years: 4}
+      - {id: d009, name: "工学部", years: 4}
+      - {id: d010, name: "農学部", years: 4}
+  - school: F123110106438 # 名古屋工業大学
+    source: {url: "https://kisoku.web.nitech.ac.jp/kisoku/%E5%90%8D%E5%8F%A4%E5%B1%8B%E5%B7%A5%E6%A5%AD%E5%A4%A7%E5%AD%A6%E5%AD%A6%E5%89%87.html", title: "学則", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "工学部（高度工学教育課程・創造工学教育課程）", years: 4}
+      - {id: d002, name: "工学部 基幹工学教育課程（夜間主）", years: 5, plan: evening}
+  - school: F123110106447 # 愛知教育大学
+    source: {url: "https://www.aichi-edu.ac.jp/edu/", title: "学部・大学院｜愛知教育大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+  - school: F123110106456 # 豊橋技術科学大学
+    source: {url: "https://www.tut.ac.jp/university/", title: "学部・大学院 | 豊橋技術科学大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "工学部", years: 4}
+  - school: F124110107141 # 三重大学
+    source: {url: "https://www.mie-u.ac.jp/koukai/kisoku/act/print/print110000001.html", title: "国立大学法人三重大学学則", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "医学部医学科", years: 6}
+      - {id: d004, name: "医学部看護学科", years: 4}
+      - {id: d005, name: "工学部", years: 4}
+      - {id: d006, name: "生物資源学部", years: 4}
+  - school: F125110107284 # 滋賀大学
+    source: {url: "https://www.shiga-u.ac.jp/wp/wp-content/uploads/R8ippan.pdf", title: "令和８年度（2026年度）一般選抜学生募集要項 滋賀大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "経済学部", years: 4}
+      - {id: d003, name: "データサイエンス学部", years: 4}
+  - school: F125110107293 # 滋賀医科大学
+    source: {url: "https://www.shiga-med.ac.jp/sites/default/files/2025-10/R08suisen_youkou_v2.pdf", title: "令和８年度 学校推薦型選抜 学生募集要項（Web出願）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "医学部医学科", years: 6}
+      - {id: d002, name: "医学部看護学科", years: 4}
+  - school: F126110107407 # 京都大学
+    source: {url: "https://www.kyoto-u.ac.jp/ja/faculties-and-graduate", title: "学部・大学院等 | 京都大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "総合人間学部", years: 4}
+      - {id: d002, name: "文学部", years: 4}
+      - {id: d003, name: "教育学部", years: 4}
+      - {id: d004, name: "法学部", years: 4}
+      - {id: d005, name: "経済学部", years: 4}
+      - {id: d006, name: "理学部", years: 4}
+      - {id: d007, name: "医学部医学科", years: 6}
+      - {id: d008, name: "医学部人間健康科学科", years: 4}
+      - {id: d009, name: "薬学部薬科学科", years: 4}
+      - {id: d010, name: "薬学部薬学科", years: 6}
+      - {id: d011, name: "工学部", years: 4}
+      - {id: d012, name: "農学部", years: 4}
+  - school: F126110107416 # 京都教育大学
+    source: {url: "https://www.kyokyo-u.ac.jp/admission/r9i-youkou.pdf", title: "令和９年度 教育学部一般選抜学生募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+  - school: F126110107425 # 京都工芸繊維大学
+    source: {url: "https://ac.web.kit.ac.jp/02/nyushi/yoko/gakubu/R09_suisen_yoko.pdf", title: "令和9年度入学者向け 工芸科学部 学校推薦型選抜 学生募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "工芸科学部", years: 4}
+  - school: F127110107852 # 大阪大学
+    source: {url: "https://www.osaka-u.ac.jp/kitei/reiki_honbun/u035RG00000001.html", title: "大阪大学学部学則", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文学部", years: 4}
+      - {id: d002, name: "人間科学部", years: 4}
+      - {id: d003, name: "外国語学部", years: 4}
+      - {id: d004, name: "法学部", years: 4}
+      - {id: d005, name: "経済学部", years: 4}
+      - {id: d006, name: "理学部", years: 4}
+      - {id: d007, name: "医学部医学科", years: 6}
+      - {id: d008, name: "医学部保健学科", years: 4}
+      - {id: d009, name: "歯学部", years: 6}
+      - {id: d010, name: "薬学部", years: 6}
+      - {id: d011, name: "工学部", years: 4}
+      - {id: d012, name: "基礎工学部", years: 4}
+  - school: F127110107861 # 大阪教育大学
+    source: {url: "https://osaka-kyoiku.ac.jp/Portals/0/files/admission/department/ippan/r9/r9_senbatsuyoukou.pdf", title: "令和9年度 入学者選抜要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "教育学部学校教育教員養成課程小学校教育（夜間）5年専攻", years: 5, plan: evening}
+  - school: F128110108654 # 神戸大学
+    source: {url: "https://www.kobe-u.ac.jp/sites/default/files/doc-page/2026-07/economics_2026_3_gakusoku.pdf", title: "国立大学法人神戸大学学則（2026年7月掲載の写し）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文学部", years: 4}
+      - {id: d002, name: "国際人間科学部", years: 4}
+      - {id: d003, name: "法学部", years: 4}
+      - {id: d004, name: "経済学部", years: 4}
+      - {id: d005, name: "経営学部", years: 4}
+      - {id: d006, name: "理学部", years: 4}
+      - {id: d007, name: "医学部医学科", years: 6}
+      - {id: d008, name: "医学部医療創成工学科", years: 4}
+      - {id: d009, name: "医学部保健学科", years: 4}
+      - {id: d010, name: "工学部", years: 4}
+      - {id: d011, name: "システム情報学部", years: 4}
+      - {id: d012, name: "農学部", years: 4}
+      - {id: d013, name: "海洋政策科学部", years: 4}
+  - school: F128110108663 # 兵庫教育大学
+    source: {url: "https://www.hyogo-u.ac.jp/admission/education/R8gakuseibosyuyoukou_ippan.pdf", title: "令和8年度 学校教育学部 学校教育教員養成課程 学生募集要項【一般選抜】", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "学校教育学部", years: 4}
+  - school: F129110109206 # 奈良教育大学
+    source: {url: "https://www.nara-edu.ac.jp/assets/r9-ippansenbatu-1.pdf", title: "令和9年度 教育学部一般選抜 学生募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+  - school: F129110109215 # 奈良女子大学
+    source: {url: "https://www.nara-wu.ac.jp/nyusi/R9ippanbosyuuyoukou.pdf", title: "令和9年度 一般選抜 学生募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文学部", years: 4}
+      - {id: d002, name: "理学部", years: 4}
+      - {id: d003, name: "生活環境学部", years: 4}
+      - {id: d004, name: "工学部", years: 4}
+  - school: F130110109356 # 和歌山大学
+    source: {url: "https://www.wakayama-u.ac.jp/_files/00770491/R9ippanyoukou.pdf", title: "令和9年度 一般選抜 学生募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "経済学部", years: 4}
+      - {id: d003, name: "システム工学部", years: 4}
+      - {id: d004, name: "観光学部", years: 4}
+      - {id: d005, name: "社会インフォマティクス学環", years: 4}
+  - school: F131110109417 # 鳥取大学
+    source: {url: "https://www.admissions.adm.tottori-u.ac.jp/wp-content/uploads/2026/11/r9_ippan_bosyuyoko_1110.pdf", title: "令和9年度 学生募集要項 一般選抜", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "地域学部", years: 4}
+      - {id: d002, name: "医学部医学科", years: 6}
+      - {id: d003, name: "医学部生命科学科", years: 4}
+      - {id: d004, name: "医学部保健学科", years: 4}
+      - {id: d005, name: "工学部", years: 4}
+      - {id: d006, name: "農学部生命環境農学科", years: 4}
+      - {id: d007, name: "農学部共同獣医学科", years: 6}
+  - school: F132110109461 # 島根大学
+    source: {url: "https://www.shimane-u.ac.jp/_files/00432498/2026071001.pdf", title: "令和9年度 入学者選抜要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "法文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "人間科学部", years: 4}
+      - {id: d004, name: "医学部医学科", years: 6}
+      - {id: d005, name: "医学部看護学科", years: 4}
+      - {id: d006, name: "総合理工学部", years: 4}
+      - {id: d007, name: "材料エネルギー学部", years: 4}
+      - {id: d008, name: "生物資源科学部", years: 4}
+  - school: F133110109503 # 岡山大学
+    source: {url: "https://www.okayama-u.ac.jp/user/st/nyushika/2027/pdf/kansuruyoko/2027-04_ryokin.pdf", title: "2027年度 入学者選抜に関する要項 4 検定料、入学料、その他入学時納付金及び授業料について", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "法学部", years: 4}
+      - {id: d004, name: "経済学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "医学部医学科", years: 6}
+      - {id: d007, name: "医学部保健学科", years: 4}
+      - {id: d008, name: "歯学部", years: 6}
+      - {id: d009, name: "薬学部薬学科", years: 6}
+      - {id: d010, name: "薬学部創薬科学科", years: 4}
+      - {id: d011, name: "工学部", years: 4}
+      - {id: d012, name: "農学部", years: 4}
+      - {id: d013, name: "グローバル・ディスカバリー・プログラム", years: 4}
+  - school: F134110109780 # 広島大学
+    source: {url: "https://www.hiroshima-u.ac.jp/schools/schools", title: "学部 | 広島大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "総合科学部", years: 4}
+      - {id: d002, name: "文学部", years: 4}
+      - {id: d003, name: "教育学部", years: 4}
+      - {id: d004, name: "法学部（昼間コース）", years: 4}
+      - {id: d005, name: "法学部（夜間主コース）", years: 4, plan: evening}
+      - {id: d006, name: "経済学部（昼間コース）", years: 4}
+      - {id: d007, name: "経済学部（夜間主コース）", years: 4, plan: evening}
+      - {id: d008, name: "理学部", years: 4}
+      - {id: d009, name: "医学部医学科", years: 6}
+      - {id: d010, name: "医学部保健学科", years: 4}
+      - {id: d011, name: "歯学部歯学科", years: 6}
+      - {id: d012, name: "歯学部口腔健康科学科", years: 4}
+      - {id: d013, name: "薬学部薬学科", years: 6}
+      - {id: d014, name: "薬学部薬科学科", years: 4}
+      - {id: d015, name: "工学部", years: 4}
+      - {id: d016, name: "生物生産学部", years: 4}
+      - {id: d017, name: "情報科学部", years: 4}
+  - school: F135110110054 # 山口大学
+    source: {url: "https://www.yamaguchi-u.ac.jp/nyushi/wp-content/uploads/2025/11/r8ippan_boshu_yoko.pdf", title: "令和8年度 学生募集要項 一般選抜", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "経済学部", years: 4}
+      - {id: d004, name: "理学部", years: 4}
+      - {id: d005, name: "医学部医学科", years: 6}
+      - {id: d006, name: "医学部保健学科", years: 4}
+      - {id: d007, name: "工学部", years: 4}
+      - {id: d008, name: "情報学部", years: 4}
+      - {id: d009, name: "農学部", years: 4}
+      - {id: d010, name: "共同獣医学部", years: 6}
+      - {id: d011, name: "国際総合科学部", years: 4}
+      - {id: d012, name: "ひと・まち未来共創学環", years: 4}
+  - school: F136110110231 # 徳島大学
+    source: {url: "https://www.tokushima-u.ac.jp/campus/admission/", title: "入学手続・学費 - 国立大学法人 徳島大学（令和8年4月入学者向け）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "総合科学部", years: 4}
+      - {id: d002, name: "医学部医学科", years: 6}
+      - {id: d003, name: "医学部医科栄養学科", years: 4}
+      - {id: d004, name: "医学部保健学科", years: 4}
+      - {id: d005, name: "歯学部歯学科", years: 6}
+      - {id: d006, name: "歯学部口腔保健学科", years: 4}
+      - {id: d007, name: "薬学部薬学科", years: 6}
+      - {id: d008, name: "理工学部（昼間）", years: 4}
+      - {id: d009, name: "理工学部（夜間主）", years: 4, plan: evening}
+      - {id: d010, name: "生物資源産業学部", years: 4}
+  - school: F136110110240 # 鳴門教育大学
+    source: {url: "https://www.naruto-u.ac.jp/admissions/undergraduate06/", title: "検定料・入学料・授業料（学部） – 鳴門教育大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "学校教育学部", years: 4}
+  - school: F137110110310 # 香川大学
+    source: {url: "https://www.kagawa-u.ac.jp/files/7017/8243/1856/2027.pdf", title: "2027年度入学者選抜要項（全ページ掲載）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "法学部（昼間コース）", years: 4}
+      - {id: d003, name: "法学部（夜間主コース）", years: 4, plan: evening}
+      - {id: d004, name: "経済学部（昼間コース）", years: 4}
+      - {id: d005, name: "経済学部（夜間主コース）", years: 4, plan: evening}
+      - {id: d006, name: "医学部医学科", years: 6}
+      - {id: d007, name: "医学部看護学科", years: 4}
+      - {id: d008, name: "医学部臨床心理学科", years: 4}
+      - {id: d009, name: "創造工学部", years: 4}
+      - {id: d010, name: "農学部", years: 4}
+  - school: F138110110382 # 愛媛大学
+    source: {url: "https://www.ehime-u.ac.jp/wp-content/uploads/2026/10/R9_ippanbosyuyoko.pdf", title: "令和9年度 一般選抜学生募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "法文学部（昼間主コース）", years: 4}
+      - {id: d002, name: "法文学部（夜間主コース）", years: 4, plan: evening}
+      - {id: d003, name: "教育学部", years: 4}
+      - {id: d004, name: "社会共創学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "医学部医学科", years: 6}
+      - {id: d007, name: "医学部看護学科", years: 4}
+      - {id: d008, name: "工学部", years: 4}
+      - {id: d009, name: "農学部", years: 4}
+  - school: F139110110504 # 高知大学
+    source: {url: "https://www.kochi-u.ac.jp/academics/", title: "学部・大学院等 - 高知大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文社会科学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "理工学部", years: 4}
+      - {id: d004, name: "医学部医学科", years: 6}
+      - {id: d005, name: "医学部看護学科", years: 4}
+      - {id: d006, name: "農林海洋科学部", years: 4}
+      - {id: d007, name: "地域協働学部", years: 4}
+  - school: F140110110574 # 九州工業大学
+    source: {url: "https://www.kyutech.ac.jp/department/", title: "学部・大学院等 | 九州工業大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "工学部", years: 4}
+      - {id: d002, name: "情報工学部", years: 4}
+  - school: F140110110583 # 福岡教育大学
+    source: {url: "https://www.fukuoka-edu.ac.jp/faculty/sidemenu.json", title: "学部・大学院（メニューの見出しの書き出し）", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+  - school: F140110110592 # 九州大学
+    source: {url: "https://www.kyushu-u.ac.jp/f/66626/R9_gaiyo_2-1.pdf", title: "令和9年度 九州大学入学者選抜概要 Ⅱ-1.募集人員", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "共創学部", years: 4}
+      - {id: d002, name: "文学部", years: 4}
+      - {id: d003, name: "教育学部", years: 4}
+      - {id: d004, name: "法学部", years: 4}
+      - {id: d005, name: "経済学部", years: 4}
+      - {id: d006, name: "理学部", years: 4}
+      - {id: d007, name: "医学部医学科", years: 6}
+      - {id: d008, name: "医学部生命科学科", years: 4}
+      - {id: d009, name: "医学部保健学科", years: 4}
+      - {id: d010, name: "歯学部", years: 6}
+      - {id: d011, name: "薬学部臨床薬学科", years: 6}
+      - {id: d012, name: "薬学部創薬科学科", years: 4}
+      - {id: d013, name: "工学部", years: 4}
+      - {id: d014, name: "芸術工学部", years: 4}
+      - {id: d015, name: "農学部", years: 4}
+  - school: F141110111135 # 佐賀大学
+    source: {url: "https://www.sao.saga-u.ac.jp/PDF/R8/R8_ippan.pdf", title: "2026年度 佐賀大学 一般選抜 学生募集要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "芸術地域デザイン学部", years: 4}
+      - {id: d003, name: "経済学部", years: 4}
+      - {id: d004, name: "医学部医学科", years: 6}
+      - {id: d005, name: "医学部看護学科", years: 4}
+      - {id: d006, name: "理工学部", years: 4}
+      - {id: d007, name: "農学部", years: 4}
+      - {id: d008, name: "コスメティックサイエンス学環", years: 4}
+  - school: F142110111189 # 長崎大学
+    source: {url: "https://www.nagasaki-u.ac.jp/nyugaku/support/", title: "大学生活及び奨学金等｜長崎大学 受験生の入試情報サイト", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "多文化社会学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "経済学部", years: 4}
+      - {id: d004, name: "医学部医学科", years: 6}
+      - {id: d005, name: "医学部保健学科", years: 4}
+      - {id: d006, name: "歯学部", years: 6}
+      - {id: d007, name: "薬学部薬学科", years: 6}
+      - {id: d008, name: "薬学部薬科学科", years: 4}
+      - {id: d009, name: "情報データ科学部", years: 4}
+      - {id: d010, name: "工学部", years: 4}
+      - {id: d011, name: "環境科学部", years: 4}
+      - {id: d012, name: "水産学部", years: 4}
+  - school: F143110111295 # 熊本大学
+    source: {url: "https://www.kumamoto-u.ac.jp/gakubutou", title: "学部・大学院等 | 熊本大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "法学部", years: 4}
+      - {id: d004, name: "理学部", years: 4}
+      - {id: d005, name: "医学部医学科", years: 6}
+      - {id: d006, name: "医学部保健学科", years: 4}
+      - {id: d007, name: "薬学部薬学科", years: 6}
+      - {id: d008, name: "薬学部創薬・生命薬科学科", years: 4}
+      - {id: d009, name: "工学部", years: 4}
+      - {id: d010, name: "情報融合学環", years: 4}
+      - {id: d011, name: "共創学環", years: 4}
+  - school: F144110111418 # 大分大学
+    source: {url: "https://www.oita-u.ac.jp/000071339.pdf", title: "令和9年度（2027年度）入学者選抜要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "経済学部", years: 4}
+      - {id: d003, name: "医学部医学科", years: 6}
+      - {id: d004, name: "医学部看護学科", years: 4}
+      - {id: d005, name: "医学部先進医療科学科", years: 4}
+      - {id: d006, name: "理工学部", years: 4}
+      - {id: d007, name: "福祉健康科学部", years: 4}
+  - school: F145110111523 # 宮崎大学
+    source: {url: "https://www.miyazaki-u.ac.jp/faculty/department/index.html", title: "学部等のご紹介｜宮崎大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "教育学部", years: 4}
+      - {id: d002, name: "医学部医学科", years: 6}
+      - {id: d003, name: "医学部看護学科", years: 4}
+      - {id: d004, name: "工学部", years: 4}
+      - {id: d005, name: "農学部農学科", years: 4}
+      - {id: d006, name: "農学部獣医学科", years: 6}
+      - {id: d007, name: "地域資源創成学部", years: 4}
+  - school: F146110111620 # 鹿児島大学
+    source: {url: "https://www.kagoshima-u.ac.jp/faculty/", title: "学部・大学院など | 国立大学法人 鹿児島大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "法文学部", years: 4}
+      - {id: d002, name: "教育学部", years: 4}
+      - {id: d003, name: "理学部", years: 4}
+      - {id: d004, name: "医学部医学科", years: 6}
+      - {id: d005, name: "医学部保健学科", years: 4}
+      - {id: d006, name: "歯学部", years: 6}
+      - {id: d007, name: "工学部", years: 4}
+      - {id: d008, name: "農学部", years: 4}
+      - {id: d009, name: "共同獣医学部", years: 6}
+      - {id: d010, name: "水産学部", years: 4}
+  - school: F146110111639 # 鹿屋体育大学
+    source: {url: "https://www.nifs-k.ac.jp/wp-content/uploads/2026/07/R9_鹿屋体育大学入学者選抜要項.pdf", title: "令和9年度 鹿屋体育大学入学者選抜要項", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "体育学部", years: 4}
+  - school: F147110111736 # 琉球大学
+    source: {url: "https://www.u-ryukyu.ac.jp/faculty/", title: "学部・大学院等 | 琉球大学", retrievedAt: "2026-11-16"}
+    units:
+      - {id: d001, name: "人文社会学部", years: 4}
+      - {id: d002, name: "国際地域創造学部", years: 4}
+      - {id: d003, name: "国際地域創造学部夜間主コース", years: 4, plan: evening}
+      - {id: d004, name: "教育学部", years: 4}
+      - {id: d005, name: "理学部", years: 4}
+      - {id: d006, name: "医学部医学科", years: 6}
+      - {id: d007, name: "医学部保健学科", years: 4}
+      - {id: d008, name: "工学部", years: 4}
+      - {id: d009, name: "農学部", years: 4}

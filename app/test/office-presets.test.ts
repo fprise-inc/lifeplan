@@ -145,7 +145,9 @@ describe("公式の値が新しくなったとき（目安の版・値）", () =
     return { ...e, values: { [RENT]: { ...v, officialRev: bumpRev ? v.officialRev - 1 : v.officialRev, officialValue: 70000 } } };
   };
   it("版が進んだか、値そのものが変わっていれば知らせる（「このまま」で消える）", () => {
-    expect(officialUpdates(older(true))).toEqual([{ id: RENT, name: estimateEntry(RENT)?.name, change: "70,000円 → 80,000円", broken: false, rev: 1 }]);
+    const u = officialUpdates(older(true));
+    expect(u).toHaveLength(1);
+    expect(u[0]).toMatchObject({ id: RENT, name: estimateEntry(RENT)?.name, kind: "value", change: "70,000円 → 80,000円", single: { before: "70,000円", after: "80,000円", office: "95,000円" }, broken: false, rev: 1 });
     // 版を上げ忘れても、値が変わっていれば知らせる
     expect(officialUpdates(older(false))).toHaveLength(1);
     expect(officialUpdates(keepOfficeValue(older(true), RENT))).toEqual([]);

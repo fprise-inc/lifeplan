@@ -11,7 +11,7 @@ import { AiCandidates } from "../src/workspace/ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "../src/workspace/ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "../src/workspace/ai/AiShareBand.tsx";
 import { AiRecords, AiSharePanel } from "../src/workspace/ai/AiSharePanel.tsx";
-import { acceptCandidate, candidateRows, candidateValues, consentCoversDocuments, consentMethods, remainingText, savedInputOf, shareState, unsavedForAi } from "../src/workspace/ai/model.ts";
+import { acceptCandidate, candidatePlanNames, candidateRows, candidateValues, consentCoversDocuments, consentMethods, remainingText, savedInputOf, shareState, unsavedForAi } from "../src/workspace/ai/model.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -319,6 +319,57 @@ describe("AIからの候補（承認するまで世帯に入らない）", () =>
     const same = candidateRows(candidate([liv("d1", 300000)]), wh, cat);
     expect(same[0]!.use).toBe("same");
     expect(same[0]!.reason).toBe("今と同じ値です");
+  });
+
+  it("後の行に置き換わる行は、値を太字にせず控えめに出し、読み上げにも使わない値と渡す", () => {
+    const { wh, cat } = open();
+    const living = cat.byKey.get("lever:livingMonthly")!;
+    const lt = living.target as { object: string };
+    const liv = (id: string, value: number) => ({ id, target: { object: lt.object }, item: living.item, op: "set" as const, value, note: null });
+    // 1件目は2件目に置き換わる（使わない）・2件目はプランに入れる・3件目は1件目と同じ項目を今の値に戻す候補の、1件目と2件目
+    const html = renderToString(h(AiCandidates, { candidates: [candidate([liv("d1", 250000), liv("d2", 280000)])], wh, catalog: cat, onAccept: async () => undefined, onReject: async () => undefined }));
+    const rowOf = (use: string) => new RegExp(`<tr[^>]*data-ai-use="${use}"[^>]*>(.*?)</tr>`).exec(html)?.[1] ?? "";
+    const replaced = rowOf("replaced");
+    expect(html).toMatch(/<tr class="ai-skip ai-replaced"[^>]*data-ai-use="replaced"/);
+    expect(replaced).toContain("月25万円");
+    expect(replaced).not.toContain("<b>");
+    expect(replaced).toContain('<span class="vh">使わない値（後の行の値に置き換わります）: </span><span class="ai-off">月25万円</span>');
+    expect(replaced).toContain("この値は使いません");
+    // 効いている行の値は太字のまま
+    expect(rowOf("apply")).toContain("<b>月28万円</b>");
+    // 今の値に戻す行（その項目の値を決める行）も太字
+    const back = renderToString(h(AiCandidates, { candidates: [candidate([liv("d1", 250000), liv("d2", 300000)])], wh, catalog: cat, onAccept: async () => undefined, onReject: async () => undefined }));
+    expect(back).toMatch(/data-ai-use="restore"[^>]*>.*?<b>月30万円<\/b>/);
+    expect(back).toContain('<span class="ai-off">月25万円</span>');
+  });
+
+  it("候補が2つ届いたら、保存する前から2つ目のプランの名前は次の文字（1つ目を保存・捨てたあとも、名前がぶつからない）", () => {
+    const opened = open();
+    const { cat } = opened;
+    const living = cat.byKey.get("lever:livingMonthly")!;
+    const nisa = cat.byKey.get("lever:nisaMonthly")!;
+    const set = (it: typeof living, id: string, value: number) => ({ id, target: { object: (it.target as { object: string }).object }, item: it.item, op: "set" as const, value, note: null });
+    // 先にプランB を1つ保存しておく（画面で確かめたときと同じ並び）
+    const first = { ...candidate([set(living, "d0", 290000)]), id: "c-0" };
+    const wh = acceptCandidate(opened.wh, cat, first, candidateValues(candidateRows(first, opened.wh, cat)), "プランB 生活費を1万円減らす", NOW).wh;
+    const c1 = { ...candidate([set(living, "d1", 280000)]), id: "c-1" };
+    const c2 = { ...candidate([set(nisa, "d2", 30000)]), id: "c-2" };
+    const names = (list: AiCandidate[], w = wh) => [...renderToString(h(AiCandidates, { candidates: list, wh: w, catalog: cat, onAccept: async () => undefined, onReject: async () => undefined })).matchAll(/<input value="([^"]*)"[^>]*data-ai-plan-name/g)].map((m) => m[1]);
+    // 2つとも保存する前: 1つ目はプランC・2つ目はプランD（前は2つともプランC）
+    const both = names([c1, c2]);
+    expect(both).toHaveLength(2);
+    expect(both[0]).toMatch(/^プランC 生活費/);
+    expect(both[1]).toMatch(/^プランD NISA/);
+    // 1つ目をプランC で保存したあと: 2つ目はプランD（前はプランC のまま残っていた）
+    const saved = acceptCandidate(wh, cat, c1, candidateValues(candidateRows(c1, wh, cat)), both[0]!, NOW).wh;
+    expect(names([{ ...c1, status: "accepted" }, c2], saved)).toEqual([both[1]]);
+    // 1つ目を捨てたあと: 空いたプランC を2つ目が使う
+    expect(names([{ ...c1, status: "rejected" }, c2])).toEqual([both[1]!.replace(/^プランD/, "プランC")]);
+    // FP が欄で直した名前はそのまま。直した名前の文字は、ほかの候補で使わない（1つ目をプランD にしたら、2つ目はプランC）
+    const toV = (c: AiCandidate) => candidateValues(candidateRows(c, wh, cat));
+    expect(candidatePlanNames(wh, cat, [{ values: toV(c1), name: "プランD 生活費を見直す" }, { values: toV(c2), name: null }])).toEqual(["プランD 生活費を見直す", both[1]!.replace(/^プランD/, "プランC")]);
+    // 2つ目を直していれば、1つ目はその文字を避ける
+    expect(candidatePlanNames(wh, cat, [{ values: toV(c1), name: null }, { values: toV(c2), name: "プランC NISAを増やす" }])[0]).toMatch(/^プランD 生活費/);
   });
 
   it("AI が書いた題名・説明・理由は文字のまま出す（HTML にしない）", () => {
