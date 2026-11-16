@@ -72,6 +72,9 @@
 .ai-untrusted { white-space: pre-wrap; overflow-wrap: anywhere; }
 .ai-summary { margin: 6px 0; font-size: 0.92rem; color: var(--ink-2); }
 .ai-cand-rows tr.ai-skip td { color: var(--ink-2); background: var(--base-bg); }
+/* 後の行が同じ項目を動かすので使わない行: 項目と値を薄く、値に取り消し線（違いの一覧のオフの行と同じ見た目）。値は太字にしない */
+.ai-cand-rows tr.ai-replaced .ai-off { opacity: 0.55; }
+.ai-cand-rows tr.ai-replaced td.num .ai-off { text-decoration: line-through; }
 .ai-cand-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
 .ai-cand-foot label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; font-weight: 700; }
 .ai-cand-foot input { min-width: 22em; }
