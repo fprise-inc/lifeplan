@@ -444,7 +444,9 @@ describe("入力の画面: 持ち家の評価・売却・その他の資産", ()
     wh = byKey(fs, "realEstate/floor")!.set(wh, "0.1");
     expect(wh.request.input.assumptions?.realEstateValuation).toEqual({ residualFloor: "0.1" });
     wh = byKey(fieldsOf(wh, "assumptions"), "realEstate/floor")!.set(wh, null);
-    expect(wh.request.input.assumptions?.realEstateValuation).toBeUndefined();
+    // 空欄にすると事務所の今の値を書く（値を外すと、後で事務所の値を変えたときに黙って変わる。0218）
+    expect(wh.request.input.assumptions?.realEstateValuation).toEqual({ residualFloor: "0.2" });
+    expect(wh.assumed["assume/realEstate/floor"]).toMatch(/^事務所の既定値/);
   });
 });
 
