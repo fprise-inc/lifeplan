@@ -1,4 +1,4 @@
-// 表示の設定の案（propose_display_settings。0215）: 案を出せるのは事務所の既定値の見せ方の7つだけで、値は表示の設定の一覧の選べる値・値の形で
+// 表示の設定の案（propose_display_settings。0215・0213 の段C）: 案を出せるのは事務所の既定値の見せ方の18件だけで、値は表示の設定の一覧の選べる値・値の形で
 // 確かめ（知らない id・選べない値・空・重複・20文字を超える行の名前は、理由と近い候補を添えて断る）、反映すると前の値を事務所データに数件だけ残し、
 // 前の値に戻せる。前の版の事務所データ（前の値の欄が無い）もそのまま読める
 import { h } from "preact";
@@ -32,10 +32,22 @@ const SAMPLES: Record<ProposableDisplayId, unknown> = {
   "contingency.premises": ["death:living", "death:funeral"],
   "contingency.scenes": ["death", "income"],
   "contingency.openScene": "income",
+  // 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C）
+  "result.metrics": ["assetsAtAge", "takeHome"],
+  "result.atAge": 85,
+  "result.layout": "side",
+  "result.invBreakdown": true,
+  "result.invPeriods": false,
+  "balance.health": false,
+  "balance.guide": { months: [3, 9], risk: [5, 30], debt: 40 },
+  "balance.points": ["now", "age80"],
+  "balance.moneyThree.wording": "time",
+  "balance.moneyThree.months": 3,
+  "balance.moneyThree.years": 15,
 };
 
 describe("案を出せる設定", () => {
-  it("一覧の proposable は事務所の既定値の見せ方の7つで、世帯ごと・読むだけの設定は入らない", () => {
+  it("一覧の proposable は事務所の既定値の見せ方の18件で、世帯だけ・読むだけの設定は入らない", () => {
     const list = buildDisplayCatalog().settings;
     expect(list.filter((s) => s.proposable === true).map((s) => s.id)).toEqual([...PROPOSABLE_DISPLAY_IDS]);
     for (const s of list.filter((x) => x.proposable === true)) {
@@ -44,21 +56,22 @@ describe("案を出せる設定", () => {
     }
   });
 
-  it("7つ以外の id は、近い id か案を出せない理由を添えて断る", () => {
+  it("18件以外の id は、近い id か案を出せない理由を添えて断る", () => {
     expect(problems([{ id: "result.lever", value: [] }])).toContain("result.levers のことですか");
-    expect(problems([{ id: "result.metrics", value: [] }])).toContain("世帯ごとの設定");
-    expect(problems([{ id: "balance.guide", value: {} }])).toContain("資産と負債のタブ");
+    expect(problems([{ id: "balance.columns", value: [] }])).toContain("世帯だけの設定");
+    expect(problems([{ id: "balance.columns", value: [] }])).toContain("資産と負債のタブ");
+    expect(problems([{ id: "result.addedItems", value: [] }])).toContain("世帯だけの設定");
     expect(problems([{ id: "features.combinedBs", value: true }])).toContain("読むだけ");
     expect(problems([{ id: "assumptions.inflation", value: "0.02" }])).toContain("知らない設定の id");
     expect(problems([])).toContain("1件以上");
     expect(problems("x")).toContain("1件以上");
-    const eight = [...PROPOSABLE_DISPLAY_IDS, "input.order"].map((id) => ({ id, value: SAMPLES[id as ProposableDisplayId] }));
-    expect(problems(eight)).toContain("7件まで");
+    const tooMany = [...PROPOSABLE_DISPLAY_IDS, "input.order"].map((id) => ({ id, value: SAMPLES[id as ProposableDisplayId] }));
+    expect(problems(tooMany)).toContain("18件まで");
     expect(problems([{ id: "contingency.openScene", value: "income" }, { id: "contingency.openScene", value: "market" }])).toContain("同じ設定が2回");
     expect(problems([{ id: "contingency.openScene" }])).toContain("value がありません");
     expect(problems([{ id: "contingency.openScene", value: "income", note: "あ".repeat(MAX_DISPLAY_NOTE + 1) }])).toContain(`${MAX_DISPLAY_NOTE}文字まで`);
     // 断るときは、ほかの正しい案も出さない
-    const r = checkDisplayChanges([{ id: "contingency.openScene", value: "income" }, { id: "result.metrics", value: [] }]);
+    const r = checkDisplayChanges([{ id: "contingency.openScene", value: "income" }, { id: "balance.columns", value: [] }]);
     expect(r.changes).toEqual([]);
   });
 
@@ -205,12 +218,12 @@ describe("反映する・前の値に戻す", () => {
   it("前の値は事務所データに保存して読み直せ、読めない行・知らない設定は捨てる。前の版の事務所データは前の値なしで読む", () => {
     const s = applyDisplayValue(DEFAULT_OFFICE_SETTINGS, "result.levers", SAMPLES["result.levers"], AT, "ai") as OfficeSettings;
     const back = readOfficeSettings(JSON.parse(JSON.stringify(s)));
-    expect(back.version).toBe(3);
+    expect(back.version).toBe(4);
     expect(back.displayHistory).toEqual({ "result.levers": [{ value: ["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", "spouse:work"], at: AT, reason: "ai" }] });
     // 版 1・2 の事務所データ（前の値の欄が無い）
     for (const version of [1, 2]) {
       const old = readOfficeSettings({ version, levers: { shown: ["lever:nisaMonthly"] } });
-      expect(old.version).toBe(3);
+      expect(old.version).toBe(4);
       expect(old.displayHistory).toBeUndefined();
       expect(old.levers).toEqual({ shown: ["lever:nisaMonthly"] });
     }

@@ -19,10 +19,30 @@ import { AGE_OPTIONS, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT
 export const DISPLAY_CATALOG_SCHEMA = "display-settings-reference@1.0";
 
 /**
- * AI が変える案を出せる設定（propose_display_settings。0215）: 事務所の既定値のうち見せ方だけの7つ。世帯ごとの設定（result.*・balance.*）と
- * 読むだけの設定（合算BS）は入れない。並びは一覧の並び
+ * AI が変える案を出せる設定（propose_display_settings。0215・0213 の段C）: 事務所の既定値のうち見せ方だけの18件（入力・対策・万一のタブの7つと、
+ * 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値11件〔workspace/settings.ts の OFFICE_DISPLAY_IDS〕）。世帯だけの設定（この世帯で並べる時点・
+ * 対策に足した項目）と読むだけの設定（合算BS）は入れない。並びは一覧の並び。案はどれも事務所の既定値の案（世帯ごとの案は次の段）
  */
-export const PROPOSABLE_DISPLAY_IDS = ["input.order", "input.items", "input.living", "result.levers", "contingency.premises", "contingency.scenes", "contingency.openScene"] as const;
+export const PROPOSABLE_DISPLAY_IDS = [
+  "input.order",
+  "input.items",
+  "input.living",
+  "result.levers",
+  "result.metrics",
+  "result.atAge",
+  "result.layout",
+  "result.invBreakdown",
+  "result.invPeriods",
+  "contingency.premises",
+  "contingency.scenes",
+  "contingency.openScene",
+  "balance.health",
+  "balance.guide",
+  "balance.points",
+  "balance.moneyThree.wording",
+  "balance.moneyThree.months",
+  "balance.moneyThree.years",
+] as const;
 export type ProposableDisplayId = (typeof PROPOSABLE_DISPLAY_IDS)[number];
 
 /** 選べる値の1つ（value は事務所データ・世帯ファイルに書く値。label は画面と同じ言葉） */
@@ -60,8 +80,11 @@ export interface DisplaySetting {
   change: { office?: string; household?: string };
   /** どこに書くか（事務所データ・世帯ファイルの本文の欄） */
   stored: { office?: string; household?: string };
-  /** 事務所の既定値の効き方: live（どの世帯にもすぐ効く。作った世帯も）・newHouseholds（新しく作る世帯に写すだけ。作った世帯は世帯の値のまま） */
-  officeEffect?: "live" | "newHouseholds";
+  /**
+   * 事務所の既定値の効き方: live（どの世帯にもすぐ効く。作った世帯も）・newHouseholds（新しく作る世帯に写すだけ。作った世帯は世帯の値のまま）・
+   * followers（事務所の既定値に従う世帯にすぐ効く。その世帯で値を変えた設定と、前からある世帯〔印の無い世帯〕は世帯の値のまま。0213 の段C）
+   */
+  officeEffect?: "live" | "newHouseholds" | "followers";
   /** お客さまに渡す物に出るか（提案書の PDF・持ち帰り用のレポート） */
   reaches: { proposal: boolean; takeaway: boolean; note?: string };
   type: DisplayValueType;
@@ -92,6 +115,10 @@ export interface DisplayCatalog {
 }
 
 const OFFICE = "世帯の一覧の「事務所の既定値」";
+/** 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値の区画（0213 の段C） */
+const OFFICE_DISPLAY = `${OFFICE}の区画「結果のタブ・資産と負債のタブの表示の設定」`;
+/** 事務所の既定値を持てる表示の設定の、世帯の値の補い */
+const FOLLOW_NOTE = "事務所の既定値に従う世帯（新しく作る世帯）は事務所の既定値を読みます。その世帯で値を変えると、その世帯だけの値になります（表示の設定に「この世帯だけ」と「事務所の既定値に戻す」）。前からある世帯は、その世帯の値のままです";
 const RESULT_SETTINGS = "結果のタブのグラフの右上の「表示の設定」";
 const BALANCE_SETTINGS = "資産と負債のタブの図の見出しの右の「表示の設定」";
 const NO_OUTPUT = { proposal: false, takeaway: false } as const;
@@ -212,48 +239,57 @@ export function buildDisplayCatalog(): DisplayCatalog {
     {
       id: "result.metrics",
       label: "出す数字",
-      scope: "household",
+      scope: "both",
       screen: "結果のタブのプランの帯・結論の2行目・グラフの印",
-      change: { household: `${RESULT_SETTINGS}のチェック` },
-      stored: { household: "display.result.metrics" },
+      change: { office: OFFICE_DISPLAY, household: `${RESULT_SETTINGS}のチェック` },
+      stored: { office: "defaults.display.result.metrics", household: "display.result.metrics（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: { proposal: false, takeaway: false, note: "お客さまと一緒に見る結果のタブに出ます" },
       type: "kinds",
       choices: METRIC_CHOICES.map((c) => ({ value: c.key, label: c.label, note: c.note })),
       default: [...DEFAULT_DISPLAY_SETTINGS.metrics],
-      note: "既定では何も足しません。「FP顧問料の一文」は顧問料の契約がある世帯で選べます",
+      note: `既定では何も足しません。「FP顧問料の一文」は顧問料の契約がある世帯で選べます。${FOLLOW_NOTE}`,
     },
     {
       id: "result.atAge",
       label: "「○歳時点の金融資産」の年齢",
-      scope: "household",
+      scope: "both",
       screen: "結果のタブの「○歳時点の金融資産」と、提案書・持ち帰り用のレポートの目標の年齢",
-      change: { household: `${RESULT_SETTINGS}の「○歳時点の金融資産」の年齢` },
-      stored: { household: "display.result.atAge" },
+      change: { office: OFFICE_DISPLAY, household: `${RESULT_SETTINGS}の「○歳時点の金融資産」の年齢` },
+      stored: { office: "defaults.display.result.atAge", household: "display.result.atAge（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: { proposal: true, takeaway: true, note: "提案書の目標の年齢・持ち帰り用のレポートの「○歳時点」" },
       type: "integer",
       choices: AGE_OPTIONS.map((a) => ({ value: a, label: `${a}歳` })),
       default: DEFAULT_DISPLAY_SETTINGS.atAge,
-      note: "画面では、本人の表の最初の年の年齢より前の年齢は選べません",
+      note: `画面では、本人の表の最初の年の年齢より前の年齢は選べません。${FOLLOW_NOTE}`,
     },
     {
       id: "result.layout",
       label: "比較の仕方",
-      scope: "household",
+      scope: "both",
       screen: "結果のタブのグラフ",
-      change: { household: `${RESULT_SETTINGS}の「比較の仕方」` },
-      stored: { household: "display.result.layout" },
+      change: { office: OFFICE_DISPLAY, household: `${RESULT_SETTINGS}の「比較の仕方」` },
+      stored: { office: "defaults.display.result.layout", household: "display.result.layout（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "choice",
       choices: LAYOUT_CHOICES.map((c) => ({ value: c.key, label: c.label, note: c.note })),
       default: DEFAULT_DISPLAY_SETTINGS.layout,
+      note: FOLLOW_NOTE,
     },
     {
       id: "result.invBreakdown",
       label: "口座の内訳を表示",
-      scope: "household",
+      scope: "both",
       screen: "結果のタブの資産の推移のグラフ（口座ごとの積み上げと、グラフの下の資産の内訳）",
-      change: { household: "結果のタブの資産の推移のグラフの上の「□ 口座の内訳を表示」" },
-      stored: { household: "display.result.invBreakdown" },
+      change: { office: OFFICE_DISPLAY, household: "結果のタブの資産の推移のグラフの上の「□ 口座の内訳を表示」" },
+      stored: { office: "defaults.display.result.invBreakdown", household: "display.result.invBreakdown（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "boolean",
       choices: [
@@ -261,14 +297,17 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_DISPLAY_SETTINGS.invBreakdown,
+      note: FOLLOW_NOTE,
     },
     {
       id: "result.invPeriods",
       label: "運用の期間を表示",
-      scope: "household",
+      scope: "both",
       screen: "結果のタブの資産の推移のグラフの上の運用の期間の帯",
-      change: { household: "結果のタブの資産の推移のグラフの上の「□ 運用の期間を表示」" },
-      stored: { household: "display.result.invPeriods" },
+      change: { office: OFFICE_DISPLAY, household: "結果のタブの資産の推移のグラフの上の「□ 運用の期間を表示」" },
+      stored: { office: "defaults.display.result.invPeriods", household: "display.result.invPeriods（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "choice",
       choices: [
@@ -277,6 +316,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_DISPLAY_SETTINGS.invPeriods,
+      note: FOLLOW_NOTE,
     },
     {
       id: "contingency.premises",
@@ -327,10 +367,12 @@ export function buildDisplayCatalog(): DisplayCatalog {
     {
       id: "balance.health",
       label: "家計の体力の目安を表示する",
-      scope: "household",
+      scope: "both",
       screen: "資産と負債のタブの家計の体力の目安（1年ずつ見るときの図の下の区画）",
-      change: { household: `${BALANCE_SETTINGS}の「家計の体力の目安」の「家計の体力の目安を表示する」` },
-      stored: { household: "display.balance.health" },
+      change: { office: OFFICE_DISPLAY, household: `${BALANCE_SETTINGS}の「家計の体力の目安」の「家計の体力の目安を表示する」` },
+      stored: { office: "defaults.display.balance.health", household: "display.balance.health（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: { proposal: false, takeaway: false, note: "提案書・持ち帰り用のレポートには、もともと家計の体力の目安を載せていない" },
       type: "boolean",
       choices: [
@@ -338,15 +380,17 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_BALANCE_SETTINGS.health,
-      note: "表示しないと、区画ごと出しません（目安の幅の欄も出しません）。値も計算の結果も変わりません",
+      note: `表示しないと、区画ごと出しません（目安の幅の欄も出しません）。値も計算の結果も変わりません。${FOLLOW_NOTE}`,
     },
     {
       id: "balance.guide",
       label: "家計の体力の目安の幅",
-      scope: "household",
+      scope: "both",
       screen: "資産と負債のタブの家計の体力の目安",
-      change: { household: `${BALANCE_SETTINGS}の「家計の体力の目安の幅」（目安の「目安の幅を変える（表示の設定）」からも開く）` },
-      stored: { household: "display.balance.guide" },
+      change: { office: OFFICE_DISPLAY, household: `${BALANCE_SETTINGS}の「家計の体力の目安の幅」（目安の「目安の幅を変える（表示の設定）」からも開く）` },
+      stored: { office: "defaults.display.balance.guide", household: "display.balance.guide（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: NO_OUTPUT,
       type: "guide",
       shape: {
@@ -356,21 +400,24 @@ export function buildDisplayCatalog(): DisplayCatalog {
         debt: { label: "負債の重さ（%未満。上限）", min: 1, max: 100 },
       },
       default: DEFAULT_BS_GUIDE,
-      note: "根拠のある公的な基準ではなく、説明の目安です",
+      note: `根拠のある公的な基準ではなく、説明の目安です。${FOLLOW_NOTE}`,
     },
     {
       id: "balance.points",
       label: "「時点を並べる」の既定",
-      scope: "household",
+      scope: "both",
       screen: "資産と負債のタブの「時点を並べる」（見出しを変えていない世帯）",
-      change: { household: `${BALANCE_SETTINGS}の「「時点を並べる」の既定」` },
-      stored: { household: "display.balance.points" },
+      change: { office: OFFICE_DISPLAY, household: `${BALANCE_SETTINGS}の「「時点を並べる」の既定」` },
+      stored: { office: "defaults.display.balance.points", household: "display.balance.points（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: { proposal: true, takeaway: false, note: "提案書のバランスシートの図も同じ時点" },
       type: "kinds",
       min: BS_COLUMNS_MIN,
       max: BS_COLUMNS_MAX,
       choices: BS_POINT_CHOICES.map((c) => ({ value: c.key, label: c.label, ...(c.note !== "" ? { note: c.note } : {}) })),
       default: [...DEFAULT_BS_POINTS],
+      note: FOLLOW_NOTE,
     },
     {
       id: "balance.columns",
@@ -391,42 +438,49 @@ export function buildDisplayCatalog(): DisplayCatalog {
     {
       id: "balance.moneyThree.wording",
       label: "お金の3つの分け方の呼び方",
-      scope: "household",
+      scope: "both",
       screen: "資産と負債のタブの「お金の3つの分け方」",
-      change: { household: `${BALANCE_SETTINGS}の「お金の3つの分け方の呼び方」` },
-      stored: { household: "display.balance.moneyThree.wording" },
+      change: { office: OFFICE_DISPLAY, household: `${BALANCE_SETTINGS}の「お金の3つの分け方の呼び方」` },
+      stored: { office: "defaults.display.balance.moneyThree.wording", household: "display.balance.moneyThree.wording（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: { proposal: true, takeaway: true },
       type: "choice",
       choices: MONEY_THREE_NAME_CHOICES.map((c) => ({ value: c.key, label: c.names.join("・"), note: c.note })),
       default: DEFAULT_MONEY_THREE.wording,
+      note: FOLLOW_NOTE,
     },
     {
       id: "balance.moneyThree.months",
       label: "お金の3つの分け方の「何か月分」（使うお金）",
-      scope: "household",
+      scope: "both",
       screen: "資産と負債のタブの「お金の3つの分け方」",
-      change: { household: "資産と負債のタブの「お金の3つの分け方」の「何か月分」の欄" },
-      stored: { household: "display.balance.moneyThree.months" },
+      change: { office: OFFICE_DISPLAY, household: "資産と負債のタブの「お金の3つの分け方」の「何か月分」の欄" },
+      stored: { office: "defaults.display.balance.moneyThree.months", household: "display.balance.moneyThree.months（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: { proposal: true, takeaway: true },
       type: "integer",
       min: MONEY_THREE_MONTHS.min,
       max: MONEY_THREE_MONTHS.max,
       default: DEFAULT_MONEY_THREE.months,
-      note: "分け方の説明の図の境目で、計算の結果は変わりません",
+      note: `分け方の説明の図の境目で、計算の結果は変わりません。${FOLLOW_NOTE}`,
     },
     {
       id: "balance.moneyThree.years",
       label: "お金の3つの分け方の「何年先まで」（貯めるお金）",
-      scope: "household",
+      scope: "both",
       screen: "資産と負債のタブの「お金の3つの分け方」",
-      change: { household: "資産と負債のタブの「お金の3つの分け方」の「何年先まで」の欄" },
-      stored: { household: "display.balance.moneyThree.years" },
+      change: { office: OFFICE_DISPLAY, household: "資産と負債のタブの「お金の3つの分け方」の「何年先まで」の欄" },
+      stored: { office: "defaults.display.balance.moneyThree.years", household: "display.balance.moneyThree.years（display.followOffice に id があれば事務所の既定値に従う）" },
+      officeEffect: "followers",
+      proposable: true,
       reaches: { proposal: true, takeaway: true },
       type: "integer",
       min: MONEY_THREE_YEARS.min,
       max: MONEY_THREE_YEARS.max,
       default: DEFAULT_MONEY_THREE.years,
-      note: "分け方の説明の図の境目で、計算の結果は変わりません",
+      note: `分け方の説明の図の境目で、計算の結果は変わりません。${FOLLOW_NOTE}`,
     },
     {
       id: "features.combinedBs",

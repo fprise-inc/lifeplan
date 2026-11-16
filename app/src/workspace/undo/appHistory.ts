@@ -24,16 +24,18 @@ export interface AppSnap<W extends WorkLike = WorkLike> {
   settings: DisplaySettings;
   /** 資産と負債のタブの表示の設定 */
   bs: BalanceSettings;
+  /** 事務所の既定値に従う表示の設定の id（0213 の段C。settings・bs は世帯の値。無いのは空と同じ） */
+  follow?: readonly string[];
 }
 
 /** 中身（世帯・帯・保存していない変更・表示の設定）が同じか。選んだ案・基準の案は見ない */
 export function sameSnap(a: AppSnap, b: AppSnap): boolean {
-  return deepEqual(a.wh, b.wh) && deepEqual(a.work.drafts, b.work.drafts) && deepEqual(a.work.band, b.work.band) && deepEqual(a.settings, b.settings) && deepEqual(a.bs, b.bs);
+  return deepEqual(a.wh, b.wh) && deepEqual(a.work.drafts, b.work.drafts) && deepEqual(a.work.band, b.work.band) && deepEqual(a.settings, b.settings) && deepEqual(a.bs, b.bs) && deepEqual(a.follow ?? [], b.follow ?? []);
 }
 
 /** 知らせに出す名前: 何が変わったか（入力・案・対策・表示の設定など）＋操作した部品の名前 */
 export function describeSnap(a: AppSnap, b: AppSnap, hint: Hint): string {
-  const what = !deepEqual(a.settings, b.settings) || !deepEqual(a.bs, b.bs)
+  const what = !deepEqual(a.settings, b.settings) || !deepEqual(a.bs, b.bs) || !deepEqual(a.follow ?? [], b.follow ?? [])
     ? "表示の設定"
     : !deepEqual(a.wh.request, b.wh.request)
       ? "入力"

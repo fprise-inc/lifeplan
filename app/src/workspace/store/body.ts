@@ -128,6 +128,8 @@
 //   （前の版の世帯は欄が無い＝年から読む。input/household.ts の endYearRuleOf）
 //   0.79 から: 自営の働き方の期間の事業所得に、個人事業税の業種の区分 employmentPeriods[].business.businessTaxClass（0155 の 2026-11-15 の追記）。
 //   足すだけ。本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝第1種〔5%〕）
+//   0.80 から: 表示の設定に、事務所の既定値に従う設定の印 display.followOffice（設定の id の並び。0213 の段C）。足すだけ。本体の変換の段は版だけを
+//   書き換える（前の版の世帯は欄が無い＝どの設定もこの世帯の値。事務所の既定値を変えても変わらない）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -146,6 +148,8 @@
 //   - display.balance: 資産と負債のタブ（家計の体力の目安の幅 guide・時点を並べるときの既定の時点 points・この世帯で選んだ時点 columns、
 //     0.13 から お金の3つの分け方 moneyThree（何か月分 months・何年先まで years・呼び方 wording。0032）、
 //     0.77 から 家計の体力の目安を表示するか health（true・false。無ければ true＝表示する。0027 の 2026-11-13 の追記））
+//   - display.followOffice（0.80 から）: 事務所の既定値に従う設定の id（result.metrics・balance.guide など11件。workspace/settings.ts の
+//     OFFICE_DISPLAY_IDS）。印のある設定は事務所の既定値を読み、display.result・display.balance の値は前の版のアプリのための写し（印を付けたときの値）
 //   0.7 までは display の直下に平らに置いていた（bsGuide・bsPoints・bsColumns と、なくした「操作中はグラフを上に表示」の dock）。
 //   本体の変換の段（0.7 → 0.8）が区画へ移す。画面の側も、区画の無い本文は直下の値から読む
 // - snapshots: 控え（0009 の2。PDF を書き出した時点・FP が残した時点の写し。0.3 から。控えが無ければ区画を作らない）。
@@ -187,8 +191,6 @@ import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { readRecheck } from "../input/recheck.ts";
 import { readNoticeAcks } from "../input/noticeAck.ts";
 import { isEmptyChoice, readItemChoice } from "../input/itemChoice.ts";
-import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
-import { readMoneyThree } from "../moneyThree.ts";
 import { OFFICIAL_EXTENSIONS } from "../extensions/official.ts";
 import { definitionOf, readExtValue } from "../extensions/fields.ts";
 import type { ExtValue } from "../../../../report/src/index.ts";
@@ -198,18 +200,15 @@ import { hasDocuments, readDocumentLog } from "../documents/log.ts";
 import { meetingSection, readMeetings, type MeetingLog } from "../meetings/meetings.ts";
 import type { DocumentLog } from "../documents/types.ts";
 import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
-import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
+import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.79";
+export const BODY_FORMAT_VERSION = "0.80";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
-/** 表示の設定（タブごとの区画。0.8 から） */
-export interface StoredDisplay {
-  result: DisplaySettings;
-  balance: BalanceSettings;
-}
+/** 表示の設定（タブごとの区画。0.8 から。事務所の既定値に従う印 followOffice は 0.80 から。workspace/settings.ts） */
+export type { StoredDisplay } from "../settings.ts";
 
 export interface SavedWorkspace {
   /** 出発点にした見本の世帯（目盛り・既定の値に使う）。空から作った世帯は null */
@@ -268,7 +267,7 @@ export function bodyObject(s: BodyState): HouseholdBody {
     ...(documents !== undefined && hasDocuments(documents) ? { documents } : {}),
     ...(meetingLog !== null ? { meetings: meetingLog } : {}),
     workspace: s.workspace,
-    display: s.display,
+    display: displayToSave(s.display),
     extDefinitions: extra.extDefinitions,
     ext: extra.ext,
     ...(s.carry.outside !== undefined && Object.keys(s.carry.outside).length > 0 ? { [OUTSIDE_KEPT]: s.carry.outside } : {}),
@@ -424,28 +423,19 @@ export function fromBody(json: string): BodyState {
 
 /**
  * 表示の設定を読む（タブごとの区画 display.result・display.balance。区画の無い 0.7 までの本文は直下の値から読む）。
- * 読めない値は既定。区画の中の知らない欄は持たない（なくした dock など）
+ * 読めない値は既定。区画の中の知らない欄は持たない（なくした dock など）。
+ * 事務所の既定値に従う印 display.followOffice（0.80 から）: 無い本文（前の版の世帯）は空＝どの設定もこの世帯の値（今の値のまま。0213 の段C）
  */
 export function readDisplay(v: unknown): StoredDisplay {
   const d = isObj(v) ? v : {};
-  const r = isObj(d.result) ? d.result : d;
-  const bal = isObj(d.balance) ? d.balance : null;
-  return {
-    result: {
-      metrics: strings(r.metrics).filter((k): k is MetricKey => METRIC_CHOICES.some((c) => c.key === k)),
-      atAge: typeof r.atAge === "number" ? r.atAge : DEFAULT_DISPLAY_SETTINGS.atAge,
-      layout: LAYOUT_CHOICES.some((c) => c.key === r.layout) ? (r.layout as DisplaySettings["layout"]) : DEFAULT_DISPLAY_SETTINGS.layout,
-      invBreakdown: typeof r.invBreakdown === "boolean" ? r.invBreakdown : DEFAULT_DISPLAY_SETTINGS.invBreakdown,
-      invPeriods: typeof r.invPeriods === "boolean" ? r.invPeriods : DEFAULT_DISPLAY_SETTINGS.invPeriods,
-    },
-    balance: {
-      health: typeof bal?.health === "boolean" ? bal.health : DEFAULT_BALANCE_SETTINGS.health,
-      guide: readBsGuide(bal !== null ? bal.guide : d.bsGuide),
-      points: readBsPoints(bal !== null ? bal.points : d.bsPoints),
-      columns: readBsColumns(bal !== null ? bal.columns : d.bsColumns),
-      moneyThree: readMoneyThree(bal !== null ? bal.moneyThree : undefined),
-    },
-  };
+  const follow = readFollowOffice(d.followOffice);
+  return { ...readDisplayPair(d), ...(follow.length > 0 ? { followOffice: follow } : {}) };
+}
+
+/** 本文に書く表示の設定（事務所の既定値に従う印が無ければ欄を持たない） */
+function displayToSave(d: StoredDisplay): Record<string, unknown> {
+  const { followOffice = [], ...pair } = d;
+  return followOffice.length > 0 ? { ...pair, followOffice: [...followOffice] } : pair;
 }
 
 /** 一覧に出す構成の要約（続柄と人数だけ。氏名・年齢は入れない）。例: 本人・配偶者・子2人 */

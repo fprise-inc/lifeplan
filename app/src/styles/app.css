@@ -1875,3 +1875,11 @@ html.big .help-pop { font-size: 0.92rem; }
 .os-lv-preview tr.sub th, .os-lv-preview tr.sub td { color: var(--ink-2); font-size: 0.82rem; }
 .os-lv-preview tr.total th, .os-lv-preview tr.total td { font-weight: 700; border-bottom: none; }
 .os-lv-hidden { display: inline-flex; gap: 4px; margin-left: 8px; }
+/* 表示の設定の「事務所の既定値」「この世帯だけ」の印（0213 の段C。前提条件の欄の印と同じ見た目） */
+.ds-office { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-weight: 400; }
+.ds-office .link-btn { font-size: 0.78rem; }
+.ds-marks { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 8px; font-size: 0.85rem; color: var(--ink-2); }
+.ds-marks > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.os-sec h4.os-sub { margin: 12px 0 4px; font-size: 0.92rem; }
+[data-office-display] .os-pct select { justify-self: start; width: auto; }
+[data-office-display] .os-pct { flex: 1 1 260px; }
