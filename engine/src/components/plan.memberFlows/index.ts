@@ -8,6 +8,7 @@
 // 改訂7（0003 の追記 2026-11-14）: 計算基準月が1〜3月なら、所得税は前年分から集める（前年分の確定申告の精算〔3月の還付・納付〕は
 //   これから動くお金。源泉徴収の行は計算基準月より前なので表に入らない。住民税・贈与税と同じ形）。前は計算基準年の分からで、前年に家を買った人の
 //   1年目の住宅ローン控除の還付などが出なかった
+// 改訂8（0155 の追記 2026-11-15）: 個人事業税（tax.businessTax）を、事業所得のある年（前年分の8月・11月の納付があるので計算基準年の前年から）だけ集める
 import {
   ageMonth,
   defineComponent,
@@ -30,8 +31,9 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
   id: "plan.memberFlows",
   title: "お金の動き（構成員ごとに集める）",
   contract: "1.0",
-  revision: 7,
+  revision: 8,
   requires: {
+    "tax.businessTax": ">=1 <2",
     "pension.survivor": ">=1 <2",
     "pension.disability": ">=1 <2",
     "medical.highCost": ">=1 <2",
@@ -94,6 +96,10 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
     }
     // 前年分の確定申告の精算（翌年3月）がまだ先なら前年分から（改訂7）
     for (let y = monthOf(base) <= 3 ? baseYear - 1 : baseYear; y <= endYear; y++) parts.push(ctx.call<TaxOutput>("incomeTax.annual", { member, year: y }).flows);
+    // 個人事業税（事業所得のある年だけ。前年分は計算基準年の8月・11月に払う。改訂8）
+    for (const y of ctx.call<{ byYear: readonly { year: number }[] }>("income.business", { member }).byYear.map((x) => x.year)) {
+      if (y >= baseYear - 1 && y <= endYear) parts.push(ctx.call<TaxOutput>("tax.businessTax", { member, year: y }).flows);
+    }
     // 退職所得の分離課税（退職一時金・DB・iDeCo・企業型DC・小規模企業共済の一時金を受け取る年だけ）
     const receiptYears = new Set(ctx.call<{ receipts: readonly { ym: string }[] }>("retirement.receipts", { member }).receipts.map((r) => Number(r.ym.slice(0, 4))));
     for (const y of [...receiptYears].sort((a, b) => a - b)) if (y >= baseYear && y <= endYear) parts.push(ctx.call<TaxOutput>("tax.retirementIncome", { member, year: y }).flows);

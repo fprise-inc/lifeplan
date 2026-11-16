@@ -58,9 +58,14 @@
 #   特定期間年数の割合（incomeTax.inheritedAnnuity.*。施行令185条3項4号・5号）、定期金に関する権利の評価の複利年金現価率の端数
 #   （inheritanceTax.annuityRight.presentValueFactor.rounding。相続税法施行規則12条の5）。e-Gov法令API の条文の XML を取得して読み、指紋（sha256）と短い引用を書いた。
 #   原本の写しを非公開のリポジトリにまだ置いていないので、すべて確認待ち（pendingReview）。既存のファイルは変えていない
+# 2026.21.0: 個人事業税（事業主控除・業種の区分ごとの標準税率・課税標準と税額と分割金額の端数）の値を新しいファイルで足した（businessTax.*）。
+#   e-Gov法令API の地方税法の条文（XML。72条の49の14・72条の49の17・20条の4の2）と東京都主税局の説明を読み、指紋（sha256）と短い引用を書いた。
+#   原本の写しを非公開のリポジトリにまだ置いていないので、すべて確認待ち（pendingReview）。
+#   青色申告特別控除の「複式簿記（紙で申告）」の額（incomeTax.blueReturnDeduction.doubleEntry）に令和9年分からの10万円の行を足し、55万円の行を令和8年分までにした
+#   （令和8年法律第12号による措置法25条の2の改正。同法附則33条で令和9年分以後に適用。rev 2 に supersededIn）
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.20.0"
+version: "2026.21.0"
 features: []
 title: 所得税・住民税
 requires:

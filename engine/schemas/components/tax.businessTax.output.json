@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.businessTax.output",
+  "title": "個人事業税",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flows",
+    "total",
+    "income",
+    "months",
+    "deduction",
+    "taxable"
+  ],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "total": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "income": {
+      "$ref": "urn:financia:schema:common#/$defs/yen"
+    },
+    "months": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 12
+    },
+    "deduction": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "taxable": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

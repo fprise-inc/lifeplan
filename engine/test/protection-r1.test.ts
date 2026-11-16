@@ -44,8 +44,9 @@ describe("R1 必要保障額の組み立て（近道と全体の計算の食い�
     const r = death(req, y.death);
     const w = window(req, y);
     const X = self(req).id;
-    // 全体の計算で遺族が払う税と社会保険料（遺族の名の行＋世帯主の名で出る国保の行）
-    const full = sumFlows(r, w, (f) => f.row.startsWith("cf.taxSi") && (f.member !== X || String(f.formula).startsWith("socialInsurance.nationalHealth")) && req.input.household.members.find((m: Any) => m.id === f.member)?.kind !== "child");
+    // 全体の計算で遺族が払う税と社会保険料（遺族の名の行＋世帯主の名で出る国保の行＋亡くなった人がまだ払っていない所得の税。近道も数える。0170 の追記）
+    const unpaidRow = (row: string) => /^cf\.taxSi\.(incomeTax|residentTax|businessTax)(\.|$)/.test(row);
+    const full = sumFlows(r, w, (f) => f.row.startsWith("cf.taxSi") && (f.member !== X || String(f.formula).startsWith("socialInsurance.nationalHealth") || unpaidRow(f.row)) && req.input.household.members.find((m: Any) => m.id === f.member)?.kind !== "child");
     // 近道は 23,296,532 円、全体は 約606万円（約1,720万円多い）
     expect(y.breakdown.expenses.taxSi).toBeLessThan(full * 1.1);
   });

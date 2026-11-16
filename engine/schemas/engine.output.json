@@ -78,7 +78,7 @@
               "point": { "enum": ["now", "bothAfter", "contingency"] },
               "decedent": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "month": { "description": "亡くなる月（いま＝計算基準月、二人とも亡くなった後＝表の最後の年の12月）", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
-              "valuationYear": { "description": "財産を見る年（その年の年末の残高。いまの金融資産は入力の時価）", "$ref": "urn:financia:schema:common#/$defs/year" },
+              "valuationYear": { "description": "財産を見る年（その年の年末の残高。いまの時点〔と計算基準年の万一の想定の時点〕は計算基準月の初めの姿で、金融資産などは入力の時価、不動産はこの年の評価額、いまの時点の負債は計算基準月の残高）", "$ref": "urn:financia:schema:common#/$defs/year" },
               "status": { "description": "ok は計算した、noHeirs は相続人がいない（税を出さない）、noData は制度の値が無い", "enum": ["ok", "noHeirs", "noData"] },
               "assets": {
                 "type": "object",
@@ -244,7 +244,7 @@
                     "expenses": { "$ref": "urn:financia:schema:common#/$defs/yen" },
                     "resources": { "$ref": "urn:financia:schema:common#/$defs/yen" },
                     "lumpSum": { "$ref": "urn:financia:schema:common#/$defs/yen" },
-                    "assets": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "assets": { "description": "金融資産（亡くなる年の前の年末。計算基準年は入力の時価）。亡くなる人の確定拠出年金・小規模企業共済の残高は、死亡一時金・共済金として準備できる資金に数えるので除く", "$ref": "urn:financia:schema:common#/$defs/yen" },
                     "breakdown": { "$ref": "#/$defs/protectionBreakdown" },
                     "coverageBy": {
                       "description": "加入中の死亡保険金の契約ごとの内訳（0の契約は入れない。0054）",

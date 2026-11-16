@@ -117,5 +117,13 @@ describe("学校ごとの学校外の費用・部活動の費用", () => {
     // 部活動の費用を入れた段の学校の費用の推定は、統計の教科外活動費を除く
     const st = goalOf(w2).education!.stages[jh]!;
     expect(annualEstimate(st, "")!.value).toBe(stageStatistic(st)!.annual! - stat);
+    // 欄の横の1行: 学校の費用の一部か、学校の費用の年額に足す額か
+    expect(club.get(wh).blankHint).toBe("学校の費用に含まれます");
+    expect(fieldOf(w2, `edu/${g.id}/stage/${jh}/club`).get(w2).hint).toBe("学校の費用に含まれます");
+    const w3 = fieldOf(w2, `edu/${g.id}/stage/${jh}/annual`).set(w2, 500000);
+    expect(fieldOf(w3, `edu/${g.id}/stage/${jh}/club`).get(w3).hint).toBe("学校の費用の年額に足します");
+    // 学校の費用の年額を入れた段階は、その年額に部活動などの費用を足す（入れ替えない）
+    const w4 = fieldOf(w3, `edu/${g.id}/stage/${jh}/club`).set(w3, 184000);
+    expect(sum(w4, "cf.expense.education.school") - sum(w3, "cf.expense.education.school")).toBeGreaterThan(100000 * 3 - 1000);
   });
 });

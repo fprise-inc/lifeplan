@@ -687,6 +687,10 @@ export interface IdecoPayoutPlanOutput {
     readonly annuityYears: number;
     readonly lumpShare: string | null;
     readonly enrolledMonths: number;
+    /** 計算基準月より前に掛金を払っていたとみなす期間（約束 1.1 で足した。無ければ空とみなす） */
+    readonly serviceBeforeBase?: readonly { readonly from: string; readonly to: string }[];
+    /** 加入の始まりか、計算基準月より前の積立が入っているか（約束 1.1 で足した） */
+    readonly serviceKnown?: boolean;
   }[];
 }
 
@@ -699,6 +703,11 @@ export interface RetirementReceipt {
   readonly source: "retirement" | "dc" | "mutualAid";
   readonly serviceFrom: string;
   readonly serviceTo: string;
+  /**
+   * 勤続期間が途中で切れるとき（確定拠出年金の掛金を止めていた月がある）の期間の並び（年月の範囲。両端を含む。月の昇順）。
+   * あるときは serviceFrom〜serviceTo の代わりにこの月だけを数える（serviceFrom・serviceTo は最初と最後の月）。retirement.receipts の約束 1.1 で足した
+   */
+  readonly servicePeriods?: readonly { readonly from: string; readonly to: string }[];
   /** 役員等の勤続期間（特定役員退職手当等の判定） */
   readonly officerFrom?: string;
   readonly officerTo?: string;
