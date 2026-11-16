@@ -154,7 +154,7 @@ pub struct OfficeDisplayArgs {
     /// 変えたい見せ方（例「対策に最初から NISA も出したい」「家計の体力の目安の幅を変えたい」「万一のときのタブを収入が減るの場面で開きたい」）。
     /// 省くと、今の設定と変えられることをひととおり
     pub want: Option<String>,
-    /// 世帯ごとの設定も見たい世帯（FP が渡した世帯の share_id）。省くと事務所の既定値だけ
+    /// 世帯ごとの設定も見たい・その世帯だけの案を出したい世帯（FP が渡した世帯の share_id）。省くと事務所の既定値だけ
     pub household: Option<String>,
 }
 
@@ -523,7 +523,7 @@ impl LifeplanMcp {
     #[prompt(
         name = "office_display",
         title = "画面の見せ方の設定を確かめる",
-        description = "対策に最初から出す項目・万一のときのタブの場面・入力項目の出し方・結果のタブと資産と負債のタブの表示の設定など、画面の見せ方だけの設定の今の値と変えられることを説明する。事務所の既定値の見せ方の18件と、渡された世帯の世帯ごとの13件は、FP が頼めば変える案をアプリに承認待ちで出す（FP が画面で反映する）。ほかはアプリのどこで変えるかを伝える"
+        description = "対策に最初から出す項目・万一のときのタブの場面・入力項目の出し方・結果のタブと資産と負債のタブの表示の設定など、画面の見せ方だけの設定を get_display_settings で読み、今の値と変えたときの見え方を説明する。変えたいときは propose_display_settings で案を出す（事務所の既定値の見せ方の18件。share_id を書けば、渡された世帯の世帯ごとの13件）。FP がアプリの「今 → 案」で設定ごとに反映するか選ぶ。案を出せない設定（対策に足した項目・読むだけの設定）だけ、アプリのどこで変えるかを伝える"
     )]
     async fn office_display(
         &self,
@@ -531,13 +531,13 @@ impl LifeplanMcp {
     ) -> GetPromptResult {
         let want = given(&a.want).unwrap_or("（指定なし。今の設定と、変えられることをひととおり）");
         let household = given(&a.household).map_or_else(
-            || "（指定なし。事務所の既定値だけを見る。世帯ごとの設定も見るなら、FP が渡した世帯の share_id を get_display_settings の share_id に渡す）".to_owned(),
-            |h| format!("{h}（FP が渡した世帯の share_id として get_display_settings の share_id に渡す。分からなければ list_shared_households で確かめる）"),
+            || "（指定なし。事務所の既定値だけを見て、案も事務所の既定値の案にする。世帯ごとの設定も見る・その世帯だけの案を出すなら、FP が渡した世帯の share_id を get_display_settings と propose_display_settings の share_id に渡す）".to_owned(),
+            |h| format!("{h}（FP が渡した世帯の share_id として get_display_settings の share_id に渡す。この世帯だけの案を出すときは propose_display_settings の share_id にも渡す。分からなければ list_shared_households で確かめる）"),
         );
         result(
             "画面の見せ方の設定を確かめる",
             format!(
-                "ファイナンシアの画面の見せ方の設定を確かめて、変えたいことの進め方を教えてください。\n\
+                "ファイナンシアの画面の見せ方の設定を確かめて、変えたいことがあれば案を出してください（get_display_settings で読む → 変えたいときは propose_display_settings で案を出す → FP がアプリの「今 → 案」で反映するか選ぶ）。\n\
                  - 変えたい見せ方: {want}\n- 世帯: {household}\n\n\
                  進め方:\n\
                  1. get_display_settings で表示の設定の一覧を引く（変えたいことが決まっていれば ids で絞る）。1件ごとに id・画面と同じ名前（label）・どこで決めるか（scope: office は事務所の既定値でどの世帯にも効く・household はその世帯だけ・both は両方）・効く画面・アプリのどこで変えるか（change）・提案書と持ち帰り用のレポートに出るか（reaches）・選べる値（choices）・既定（default）と、アプリが起動していれば今の値（current）が返る。アプリが起動していなければ一覧と既定だけなので、今の値は FP に確かめる。\n\
