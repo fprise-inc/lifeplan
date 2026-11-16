@@ -65,8 +65,13 @@ describe("新しい世帯に写す", () => {
     const back = fromBody(JSON.stringify(bodyObject(state(wh)))).wh;
     expect(back.assumed["assume/inflation"]).toBe("事務所の既定値（2026-10）");
     expect(fieldStatus(f, back).premise?.state).toBe("office");
-    // 既定のままなら何も変えない
-    expect(applyOfficeDefaults(wh0, DEFAULT_OFFICE_SETTINGS)).toBe(wh0);
+    // 既定のままなら、土地の割合・建物の残りの価値の下限・売却の費用（提供元の既定の値。0218）のほかは何も変えない
+    const plain = applyOfficeDefaults(wh0, DEFAULT_OFFICE_SETTINGS);
+    expect(plain.request.input.assumptions?.realEstateValuation).toEqual({ landShare: "0.3", residualFloor: "0.2", saleCostRate: "0.04" });
+    const { realEstateValuation: _rv, ...restA } = plain.request.input.assumptions!;
+    void _rv;
+    expect(restA).toEqual(wh0.request.input.assumptions);
+    expect(Object.keys(plain.assumed).filter((k) => wh0.assumed[k] === undefined).sort()).toEqual(["assume/realEstate/floor", "assume/realEstate/landShare", "assume/realEstate/saleCost"]);
   });
 
   it("事務所の値を後で変えても世帯は黙って変わらず、確かめの一覧に「事務所の既定値が変わりました（前→今）」。押すと事務所の今の値になる", () => {

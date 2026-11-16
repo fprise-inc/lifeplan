@@ -10,6 +10,7 @@
 // - 世帯に保存した表示だけの設定（相続税の目安の設定・遺したい額。0060）も、エンジンへ渡すときに外す（withoutStoredSettings）
 import type { Debt, EngineRequest, Household, IncomeFlow, IncomeFlowKind, PeriodicExpense } from "./types.ts";
 import { officeEstimateNoFill, officeEstimateValues } from "./officeValues.ts";
+import { enginePresetValue } from "../../../engine/src/sdk/estimates.ts";
 
 /** 受け取る相続・遺贈・贈与の入るお金の種類（区画「夢と予定」では、確実な物も「受け取りの予定」に並べる） */
 export const BASE_EXCLUDED_KINDS: ReadonlySet<IncomeFlowKind> = new Set(["inheritance", "giftReceived"]);
@@ -55,7 +56,7 @@ const withHousehold = (req: EngineRequest, h: Household): EngineRequest => ({ ..
  * 外した入るお金の行・負債を指す物は無い（贈与・移し替えの結び付けは外した行を指しても計算に使わない）
  */
 export function forEngine(req0: EngineRequest): EngineRequest {
-  const req = withOfficeEstimateValues(withoutStoredSettings(req0));
+  const req = withoutDefaultLandShare(withOfficeEstimateValues(withoutStoredSettings(req0)));
   const h = req.input.household;
   const incomes = h.incomeFlows ?? [];
   const debts = h.debts ?? [];
@@ -87,6 +88,29 @@ export function withOfficeEstimateValues(req: EngineRequest): EngineRequest {
   const addN = n !== null && req.input.estimateNoFill === undefined;
   if (!addV && !addN) return req;
   return { ...req, input: { ...req.input, ...(addV ? { estimateValues: { ...v } } : {}), ...(addN ? { estimateNoFill: [...n] } : {}) } };
+}
+
+const LAND_SHARE = "preset.realEstate.landShare";
+
+/**
+ * 前提条件の土地の割合（assumptions.realEstateValuation.landShare）が、エンジンが目安として引く値（事務所の推定の値、無ければ公式の目安）と
+ * 同じなら、エンジンへ渡す要求から外す（0218）。世帯には前提条件の土地の割合を必ず書く（事務所の既定値の写し）ので、外さないとエンジンは
+ * 「物件の土地の割合が入っていないので既定の割合で計算しています」の知らせ（N_DEFAULT_USED）を出さなくなる。同じ値なので計算の結果は
+ * 変わらない（エンジンは物件の値 → 前提条件の値 → 目安の順に読む）。違う値（この世帯だけ・事務所の既定値が変わった後の前の値）は外さない。
+ * 外す物が無ければ同じ物を返す
+ */
+export function withoutDefaultLandShare(req: EngineRequest): EngineRequest {
+  const rv = req.input.assumptions?.realEstateValuation;
+  if (rv?.landShare === undefined) return req;
+  const est = req.input.estimateValues?.[LAND_SHARE];
+  const engineValue = typeof est === "string" || typeof est === "number" ? est : enginePresetValue(LAND_SHARE);
+  if (Number(rv.landShare) !== Number(engineValue)) return req;
+  const { landShare: _drop, ...rest } = rv;
+  void _drop;
+  const { realEstateValuation: _rv, ...others } = req.input.assumptions!;
+  void _rv;
+  const assumptions = Object.keys(rest).length === 0 ? others : { ...others, realEstateValuation: rest };
+  return { ...req, input: { ...req.input, assumptions } };
 }
 
 /**
