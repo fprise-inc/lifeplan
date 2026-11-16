@@ -288,6 +288,12 @@ export const shownPremise = (d: PremiseDef, wh: WorkingHousehold): boolean => d.
  */
 export const TALK_PREMISES: readonly string[] = ["inflation", "wageGrowth", "investmentReturn"];
 
+/**
+ * お客さまと確かめる前提の区画のキー（前提条件の入力項目の最初の区画。物価・給与・運用の利回りと表を何歳まで見るか）。区画の中身の正は
+ * stages/assumptions.ts の区画の定義で、確かめの一覧の行（checkRows.ts の section）と AI接続口の入力の確かめ（connector/check.ts）もこのキーで見分ける
+ */
+export const TALK_PREMISE_SECTION = "assume/main";
+
 /** お客さまと確かめる前提の欄か（無ければ FP が決める細かい前提） */
 export const talkPremise = (d: PremiseDef): boolean => TALK_PREMISES.includes(d.id);
 

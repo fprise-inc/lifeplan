@@ -25,7 +25,7 @@ import { putRow } from "../rows.ts";
 import { sameRate, ymWithEra } from "../units.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
-import { followsHint, ownsRealEstate, PREMISE_DEFS, premiseAddress, TALK_PREMISES, premiseMark, premiseOfKey, premiseShown, premiseValue, resetPremise, typePremise, type PremiseDef } from "../premiseDefaults.ts";
+import { followsHint, ownsRealEstate, PREMISE_DEFS, premiseAddress, TALK_PREMISE_SECTION, TALK_PREMISES, premiseMark, premiseOfKey, premiseShown, premiseValue, resetPremise, typePremise, type PremiseDef } from "../premiseDefaults.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../rateRanges.ts";
 import { presetNum } from "../../../../../hearing/src/presets.ts";
 
@@ -847,7 +847,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
   const sections: SectionDef[] = [
     // お客さまと確かめる前提（物価・給与・運用の利回り・表を何歳まで見るか）: 標準・詳細のどちらでも、たたまずにいつも出す（0214 の追記 2026-11-16）
     {
-      key: "assume/main",
+      key: TALK_PREMISE_SECTION,
       title: "お客さまと確かめる前提",
       note: "面談でお客さまと一緒に見て、この世帯で変えるべき所があれば、話しながら変えます。値は事務所の既定値の画面で決めた値です（欄の横に「事務所の既定値」）。この世帯だけ変えた欄は「この世帯だけ」と出て、「事務所の既定値に戻す」で戻せます。欄の下の一言は、お客さまに話すときの言い方の例です（値を変えると、その値で言い換わります）。入れる額は計算の基準の年の値段で、物価で伸びます",
       level: "simple",

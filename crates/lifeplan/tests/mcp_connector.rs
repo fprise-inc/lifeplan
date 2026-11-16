@@ -490,6 +490,8 @@ async fn prompts_list_and_expand() {
                 "question",
                 "plan_changes",
                 "FP が確かめること",
+                "お客さまと一緒に確かめること",
+                "お客さまと確かめる前提",
             ],
         ),
         (
