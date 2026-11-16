@@ -3,7 +3,9 @@
 
 use crate::clock::{iso8601, Clock, SystemClock};
 use crate::display;
-use crate::display_proposals::{self, DisplayCandidate};
+use crate::display_proposals::{
+    self, DisplayCandidate, HouseholdDisplayCandidate, HouseholdDisplayPending,
+};
 use crate::documents::{self, PendingDocumentProposal};
 use crate::households::{self, HouseholdCandidate};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
@@ -129,6 +131,8 @@ struct State {
     household_candidates: Vec<HouseholdCandidate>,
     /// AIが出した表示の設定の案（承認待ち。アプリのメモリの中だけ。FPが画面で設定ごとに反映するか捨てるまで。0215）
     display_candidates: Vec<DisplayCandidate>,
+    /// AIが出した、渡された世帯ごとの表示の設定の案（承認待ち。アプリのメモリの中だけ。FPがその世帯を開いて設定ごとに反映するか捨てるまで）
+    household_display_candidates: Vec<HouseholdDisplayCandidate>,
     /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
@@ -598,9 +602,70 @@ impl ShareRegistry {
         Some(taken)
     }
 
-    /// 表示の設定の案をすべて外す（AI接続口をオフにしたとき）
+    /// 表示の設定の案をすべて外す（AI接続口をオフにしたとき。渡された世帯ごとの案も外す）
     pub fn clear_display_candidates(&self) {
-        self.lock().display_candidates.clear();
+        let mut st = self.lock();
+        st.display_candidates.clear();
+        st.household_display_candidates.clear();
+    }
+
+    /// 世帯に届いた、表示の設定の案（届いた順。画面がその世帯を開いたときに出す）
+    pub fn household_display_candidates(
+        &self,
+        household_id: &str,
+    ) -> Vec<HouseholdDisplayCandidate> {
+        self.lock()
+            .household_display_candidates
+            .iter()
+            .filter(|c| c.household_id == household_id)
+            .cloned()
+            .collect()
+    }
+
+    /// 表示の設定の案が届いている世帯（上の帯に出す。最初に案が届いた順）
+    pub fn household_display_pending(&self) -> Vec<HouseholdDisplayPending> {
+        let st = self.lock();
+        let mut out: Vec<HouseholdDisplayPending> = Vec::new();
+        for c in &st.household_display_candidates {
+            match out.iter_mut().find(|p| p.household_id == c.household_id) {
+                Some(p) => p.count += c.changes.len(),
+                None => out.push(HouseholdDisplayPending {
+                    household_id: c.household_id.clone(),
+                    customer_number: c.customer_number.clone(),
+                    alias: c.alias.clone(),
+                    count: c.changes.len(),
+                }),
+            }
+        }
+        out
+    }
+
+    /// 世帯の表示の設定の案の1つの設定を承認待ちから外す（FPが画面で反映した・捨てた）。その世帯の案だけ。設定が全部外れた案は、案ごと外す
+    pub fn take_household_display_change(
+        &self,
+        household_id: &str,
+        candidate_id: &str,
+        setting: &str,
+    ) -> Option<display_proposals::DisplayChange> {
+        let mut st = self.lock();
+        let i = st
+            .household_display_candidates
+            .iter()
+            .position(|c| c.candidate_id == candidate_id && c.household_id == household_id)?;
+        let c = &mut st.household_display_candidates[i];
+        let j = c.changes.iter().position(|x| x.id == setting)?;
+        let taken = c.changes.remove(j);
+        if c.changes.is_empty() {
+            st.household_display_candidates.remove(i);
+        }
+        Some(taken)
+    }
+
+    /// 世帯の表示の設定の案をすべて外す（世帯を完全削除する前）
+    pub fn forget_household_display(&self, household_id: &str) {
+        self.lock()
+            .household_display_candidates
+            .retain(|c| c.household_id != household_id);
     }
 
     // ------------------------------------------------------------ 接続口からの依頼（受け口（endpoint）から呼ぶ。成功は返す JSON の文字列）
@@ -688,6 +753,83 @@ impl ShareRegistry {
             "status": "pendingReview",
             "settings": ids,
             "message": "表示の設定の案を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん上の「AIからの表示の設定の案」。上の帯にも出ます）に承認待ちで出しました。FPが画面で設定ごとに「今 → 案」を確かめて「反映する」を押した設定だけが、事務所の既定値に入ります（どの世帯にもすぐ効きます。input.items は新しく作る世帯にだけ効き、作った世帯は変わりません）。この道具では設定は変わりません。反映した後も、FPは事務所の既定値の画面の「前の値に戻す」で戻せます。",
+        })
+        .to_string())
+    }
+
+    /// 渡された世帯の世帯ごとの表示の設定の案を、承認待ちに入れる（世帯ファイルは変えない。0213 の段B の後半）。共有の決まりは世帯の読み取りと
+    /// 同じ（期限内・取り消されていない・同意がある。架空の世帯は同意が無くても渡せる）で、案を出したことを「AIに渡した記録」の `proposals` に残す。
+    /// 同じ世帯に同じ中身の案が既にあれば、それを返す（記録にも足さない）
+    pub fn handle_propose_share_display(
+        &self,
+        share_id: &str,
+        proposal: &Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let now = self.now();
+        let mut st = self.lock();
+        usable(&mut st, share_id, now)?;
+        let share = st.shares.get(share_id).ok_or_else(not_shared)?;
+        let changes =
+            display_proposals::validate_household(proposal).map_err(|m| (ErrorCode::Invalid, m))?;
+        let ids: Vec<String> = changes.iter().map(|c| c.id.clone()).collect();
+        let household_id = share.source.household_id.clone();
+        let customer_number = share.source.customer_number.clone();
+        let alias = share.alias.clone();
+        let index = share.record_index;
+        let same = st
+            .household_display_candidates
+            .iter()
+            .find(|c| c.household_id == household_id && c.changes == changes)
+            .map(|c| c.candidate_id.clone());
+        let id = match same {
+            Some(id) => id,
+            None => {
+                let waiting = st
+                    .household_display_candidates
+                    .iter()
+                    .filter(|c| c.household_id == household_id)
+                    .count();
+                if waiting >= display_proposals::MAX_PENDING {
+                    return Err((
+                        ErrorCode::Invalid,
+                        format!("この世帯の承認待ちの表示の設定の案が多すぎます（{}件まで）。FPがアプリでこの世帯を開いて、今の案を反映するか捨てるまで、新しい案は出せません。", display_proposals::MAX_PENDING),
+                    ));
+                }
+                let id = reduce::random_uuid_v4();
+                st.household_display_candidates
+                    .push(HouseholdDisplayCandidate {
+                        candidate_id: id.clone(),
+                        received_at: iso8601(now),
+                        connector: households::clean_connector(
+                            caller.mcp_client_declared.as_deref(),
+                        ),
+                        share_id: share_id.to_owned(),
+                        household_id: household_id.clone(),
+                        customer_number,
+                        alias,
+                        changes,
+                    });
+                if let Some(r) = st
+                    .logs
+                    .get_mut(&household_id)
+                    .and_then(|l| l.get_mut(index))
+                {
+                    r.proposals.push(ProposalEntry {
+                        candidate_id: id.clone(),
+                        at: iso8601(now),
+                    });
+                }
+                st.revision += 1;
+                id
+            }
+        };
+        Ok(json!({
+            "candidateId": id,
+            "status": "pendingReview",
+            "shareId": share_id,
+            "settings": ids,
+            "message": "この世帯の表示の設定の案を、アプリの画面に承認待ちで出しました（FPがこの世帯を開くと、結果のタブのプランの帯の下の「AIからの表示の設定の案」に出ます。上の帯にも、どの世帯に案が届いているかが出ます）。FPが設定ごとに「今 → 案」を確かめて「反映する」を押した設定だけが、この世帯だけの値になります（事務所の既定値に従っていた設定も、この世帯だけの値になります）。この道具では設定は変わりません。反映した後も、FPは「元に戻す」や表示の設定の「事務所の既定値に戻す」で戻せます。",
         })
         .to_string())
     }

@@ -55,6 +55,11 @@ pub enum Request {
     /// 万一のタブの想定の前提と場面の帯と開いたときの場面）の案を、アプリの画面に承認待ちの候補として出す（設定は変えない。FPが画面で
     /// 設定ごとに「反映する」を押したときだけ変わる。0215）。`proposal` は `{ changes: [{ id, value, note? }] }`。世帯を渡していなくてよい
     ProposeDisplay { proposal: Value },
+    /// 渡された世帯の世帯ごとの表示の設定（結果のタブ・資産と負債のタブの表示の設定・この世帯で並べる時点・入力項目の選び方）の案を、
+    /// アプリの画面に承認待ちの候補として出す（世帯ファイルは変えない。FPがその世帯を開いて設定ごとに「反映する」を押したときだけ変わる）。
+    /// 共有の決まりは世帯を扱うほかの依頼と同じ（期限内・取り消されていない・同意がある。架空の世帯は同意が無くても渡せる）で、
+    /// 案を出したことを「AIに渡した記録」に残す。`proposal` は `{ changes: [{ id, value, note? }] }`
+    ProposeShareDisplay { share_id: String, proposal: Value },
 }
 
 /// 失敗のコード（0015 の4）
@@ -199,6 +204,15 @@ mod tests {
             })
             .unwrap(),
             r#"{"op":"proposeDisplay","proposal":{"changes":[]}}"#
+        );
+        // 渡された世帯の表示の設定の案
+        assert_eq!(
+            serde_json::to_string(&Request::ProposeShareDisplay {
+                share_id: "s-1".into(),
+                proposal: serde_json::json!({ "changes": [] }),
+            })
+            .unwrap(),
+            r#"{"op":"proposeShareDisplay","shareId":"s-1","proposal":{"changes":[]}}"#
         );
     }
 

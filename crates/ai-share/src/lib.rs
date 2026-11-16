@@ -31,7 +31,9 @@ pub mod wrap;
 
 pub use book::{AiCandidate, CandidateStatus, HouseholdAiView, HouseholdBook};
 pub use consent::{Author, ConsentRecord, ExternalAiConsentInput};
-pub use display_proposals::{DisplayCandidate, DisplayChange};
+pub use display_proposals::{
+    DisplayCandidate, DisplayChange, HouseholdDisplayCandidate, HouseholdDisplayPending,
+};
 pub use documents::PendingDocumentProposal;
 pub use endpoint::AppEndpoint;
 pub use households::HouseholdCandidate;

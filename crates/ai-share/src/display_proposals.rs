@@ -7,6 +7,9 @@
 //!   文字（列挙の鍵などの短い英数字だけ。基本生活費の内訳の並べ方の行の名前だけは、制御文字・書式の文字を含まない20文字までの文字を通す）・
 //!   理由の長さ。選べる値・値の形は、接続口が案を出す前に、画面が反映する前に、同じ関数（app/src/connector/displayProposal.ts）で確かめる
 //! - 世帯を渡していなくてよい（事務所の既定値は世帯の中身ではない。AIに渡した記録にも残さない）
+//! - 渡された世帯ごとの案（`HOUSEHOLD_PROPOSABLE_IDS`。0213 の段B の後半）は、共有の決まり（期限内・取り消されていない・同意がある）の下で
+//!   受け、世帯ごとに承認待ちで置く（`HouseholdDisplayCandidate`）。FPがその世帯を開いて設定ごとに「反映する」を押したときだけ、画面が世帯に書く。
+//!   対策に足した項目（物の ID を含む鍵の並び）は受けない。この世帯で並べる時点は、候補の鍵と決まった年だけの値なので受ける
 
 use crate::households::clean_line;
 use serde::{Deserialize, Serialize};
@@ -33,7 +36,24 @@ pub const PROPOSABLE_IDS: [&str; 18] = [
     "balance.moneyThree.months",
     "balance.moneyThree.years",
 ];
-/// 承認待ちにしておける案の数
+/// 渡された世帯ごとに案を出せる表示の設定（接続口の表示の設定の一覧の `householdProposable` と同じ。crates/lifeplan のテストで確かめる）。
+/// 一覧で世帯ごとの値を持つ設定（scope が household・both）のうち、対策に足した項目（物の ID を含む）を除いた13件
+pub const HOUSEHOLD_PROPOSABLE_IDS: [&str; 13] = [
+    "input.items",
+    "result.metrics",
+    "result.atAge",
+    "result.layout",
+    "result.invBreakdown",
+    "result.invPeriods",
+    "balance.health",
+    "balance.guide",
+    "balance.points",
+    "balance.columns",
+    "balance.moneyThree.wording",
+    "balance.moneyThree.months",
+    "balance.moneyThree.years",
+];
+/// 承認待ちにしておける案の数（事務所の既定値の案。世帯ごとの案は1つの世帯ごとにこの数まで）
 pub const MAX_PENDING: usize = 4;
 /// AI が書いた理由の長さの上限（文字。プランの候補の理由と同じ）
 pub const MAX_NOTE_CHARS: usize = 500;
@@ -66,6 +86,35 @@ pub struct DisplayCandidate {
     pub connector: Option<String>,
     /// 設定ごとの案（FPが反映した・捨てた設定は外す。全部外したら案ごと外す）
     pub changes: Vec<DisplayChange>,
+}
+
+/// 承認待ちの、渡された世帯の表示の設定の案（形だけ確かめて置く。信用しない。画面がその世帯を開いたときに確かめ直してから「今 → 案」を出す）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HouseholdDisplayCandidate {
+    pub candidate_id: String,
+    pub received_at: String,
+    /// MCP のあいさつでAIのアプリが名乗った名前（自己申告。認証ではない）
+    pub connector: Option<String>,
+    /// 案が届いた共有（AIに渡した記録の行）
+    pub share_id: String,
+    pub household_id: String,
+    /// 帯に出す顧客番号（案が届いたときの共有の物）と、AIから見えていた呼び名
+    pub customer_number: Option<String>,
+    pub alias: String,
+    /// 設定ごとの案（FPが反映した・捨てた設定は外す。全部外したら案ごと外す）
+    pub changes: Vec<DisplayChange>,
+}
+
+/// 案の届いている世帯（上の帯に出す。顧客番号・呼び名・設定の数）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HouseholdDisplayPending {
+    pub household_id: String,
+    pub customer_number: Option<String>,
+    pub alias: String,
+    /// 承認待ちの設定の数（案をまたいだ合計）
+    pub count: usize,
 }
 
 /// 印字できる英数字・記号だけの短い文字か
@@ -111,8 +160,21 @@ fn strings_ok(v: &Value, labels: bool, key: Option<&str>) -> bool {
     }
 }
 
-/// 案（`{ changes: [{ id, value, note? }] }`）の形の外側を確かめる。Err は AI に見せてよい理由
+/// 事務所の既定値の案（`{ changes: [{ id, value, note? }] }`）の形の外側を確かめる。Err は AI に見せてよい理由
 pub fn validate(proposal: &Value) -> Result<Vec<DisplayChange>, String> {
+    validate_for(proposal, &PROPOSABLE_IDS, "")
+}
+
+/// 渡された世帯の世帯ごとの案の形の外側を確かめる（設定は `HOUSEHOLD_PROPOSABLE_IDS`）。Err は AI に見せてよい理由
+pub fn validate_household(proposal: &Value) -> Result<Vec<DisplayChange>, String> {
+    validate_for(
+        proposal,
+        &HOUSEHOLD_PROPOSABLE_IDS,
+        "（渡された世帯ごとの案。対策に足した項目は物の ID を含むので案を出せません）",
+    )
+}
+
+fn validate_for(proposal: &Value, ids: &[&str], what: &str) -> Result<Vec<DisplayChange>, String> {
     let o = proposal
         .as_object()
         .ok_or("案の形が違います（{ changes: [...] }）。")?;
@@ -125,10 +187,10 @@ pub fn validate(proposal: &Value) -> Result<Vec<DisplayChange>, String> {
         .get("changes")
         .and_then(Value::as_array)
         .ok_or("changes に、変える設定を1件以上書いてください。")?;
-    if list.is_empty() || list.len() > PROPOSABLE_IDS.len() {
+    if list.is_empty() || list.len() > ids.len() {
         return Err(format!(
             "changes は1〜{}件です（同じ設定は1回だけ）。",
-            PROPOSABLE_IDS.len()
+            ids.len()
         ));
     }
     let mut out: Vec<DisplayChange> = Vec::with_capacity(list.len());
@@ -145,10 +207,10 @@ pub fn validate(proposal: &Value) -> Result<Vec<DisplayChange>, String> {
             ));
         }
         let id = c.get("id").and_then(Value::as_str).unwrap_or("").trim();
-        if !PROPOSABLE_IDS.contains(&id) {
+        if !ids.contains(&id) {
             return Err(format!(
-                "changes[{i}] の設定（{id}）は、案を出せる設定ではありません。案を出せるのは {} です。",
-                PROPOSABLE_IDS.join("・")
+                "changes[{i}] の設定（{id}）は、案を出せる設定ではありません{what}。案を出せるのは {} です。",
+                ids.join("・")
             ));
         }
         if out.iter().any(|x| x.id == id) {
@@ -255,6 +317,45 @@ mod tests {
             &json!({ "changes": [{ "id": "input.order", "value": [], "note": long }] })
         )
         .is_err());
+    }
+
+    #[test]
+    fn household_proposals_take_only_the_household_settings() {
+        let ok = validate_household(&json!({ "changes": [
+            { "id": "result.atAge", "value": 85, "note": "85歳で話す" },
+            { "id": "balance.columns", "value": [{ "point": "now" }, { "year": 2040 }] },
+            { "id": "input.items", "value": { "hidden": ["rental"], "levels": {} } },
+            { "id": "balance.moneyThree.years", "value": 5 }
+        ] }))
+        .unwrap();
+        assert_eq!(ok.len(), 4);
+        // 事務所の既定値だけの設定・対策に足した項目・読むだけの設定は、世帯ごとの案にならない
+        for id in [
+            "input.order",
+            "input.living",
+            "result.levers",
+            "contingency.scenes",
+            "result.addedItems",
+            "features.combinedBs",
+        ] {
+            let e =
+                validate_household(&json!({ "changes": [{ "id": id, "value": [] }] })).unwrap_err();
+            assert!(e.contains("案を出せる設定ではありません"), "{id}: {e}");
+            assert!(e.contains("渡された世帯ごとの案"), "{id}: {e}");
+        }
+        // 世帯の案では、行の名前の文字も通さない（基本生活費の内訳の並べ方は事務所の既定値だけ）
+        let v = json!({ "changes": [{ "id": "balance.columns", "value": [{ "label": "今" }] }] });
+        assert!(validate_household(&v).is_err());
+        let many: Vec<Value> = (0..14)
+            .map(|_| json!({ "id": "result.atAge", "value": 85 }))
+            .collect();
+        assert!(validate_household(&json!({ "changes": many }))
+            .unwrap_err()
+            .contains("1〜13件"));
+        // 事務所の既定値の案では、世帯だけの設定を受けない（今までどおり）
+        assert!(
+            validate(&json!({ "changes": [{ "id": "balance.columns", "value": null }] })).is_err()
+        );
     }
 
     #[test]

@@ -5,7 +5,7 @@
       "description": "表示の設定の案の1件（0215）",
       "properties": {
         "id": {
-          "description": "設定の id（get_display_settings の id。案を出せるのは proposable が true の18件: input.order・input.items・input.living・\nresult.levers・contingency.premises・contingency.scenes・contingency.openScene と、結果のタブ・資産と負債のタブの表示の設定の事務所の既定値\nresult.metrics・result.atAge・result.layout・result.invBreakdown・result.invPeriods・balance.health・balance.guide・balance.points・\nbalance.moneyThree.wording・balance.moneyThree.months・balance.moneyThree.years）",
+          "description": "設定の id（get_display_settings の id。事務所の既定値の案〔share_id なし〕で出せるのは proposable が true の18件: input.order・input.items・\ninput.living・result.levers・contingency.premises・contingency.scenes・contingency.openScene と、結果のタブ・資産と負債のタブの表示の設定の\n事務所の既定値 result.metrics・result.atAge・result.layout・result.invBreakdown・result.invPeriods・balance.health・balance.guide・balance.points・\nbalance.moneyThree.wording・balance.moneyThree.months・balance.moneyThree.years。渡された世帯ごとの案〔share_id あり〕で出せるのは\nhouseholdProposable が true の13件: input.items・result.metrics・result.atAge・result.layout・result.invBreakdown・result.invPeriods・\nbalance.health・balance.guide・balance.points・balance.columns・balance.moneyThree.wording・balance.moneyThree.months・balance.moneyThree.years）",
           "type": "string"
         },
         "note": {
@@ -17,7 +17,7 @@
           ]
         },
         "value": {
-          "description": "新しい値（get_display_settings の current.office.value と同じ形。選べる値は choices の value。例: result.levers は最初から出す種類の並び、\ncontingency.openScene は場面の値 1つ、input.living は { rows: [行] }）"
+          "description": "新しい値（事務所の既定値の案は get_display_settings の current.office.value、世帯ごとの案は current.household.value と同じ形。選べる値は\nchoices の value。例: result.levers は最初から出す種類の並び、contingency.openScene は場面の値 1つ、input.living は { rows: [行] }、\nbalance.columns は null か [{ point: 候補の鍵 } か { year: 西暦の年 }] を2〜4つ）"
         }
       },
       "required": [
@@ -31,11 +31,18 @@
   "additionalProperties": false,
   "properties": {
     "changes": {
-      "description": "変える設定の案（1〜18件。同じ設定は1回だけ。変えたい設定だけを書く）",
+      "description": "変える設定の案（事務所の既定値は1〜18件、世帯ごとは1〜13件。同じ設定は1回だけ。変えたい設定だけを書く）",
       "items": {
         "$ref": "#/$defs/DisplayChangeArg"
       },
       "type": "array"
+    },
+    "share_id": {
+      "description": "FPが渡した世帯の共有 ID（list_shared_households）。書くと、その世帯の世帯ごとの表示の設定の案になる（その世帯の結果のタブに出て、\n反映した設定はこの世帯だけの値になる。案を出したことはその世帯の「AIに渡した記録」に残る）。省くと事務所の既定値の案",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "required": [

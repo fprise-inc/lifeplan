@@ -2409,6 +2409,24 @@ async fn display_settings_list_the_catalog_and_current_values() {
         .iter()
         .filter(|s| s["proposable"] == true)
         .all(|s| s["scope"] != "household" && s.get("readOnly").is_none()));
+    // 渡された世帯ごとの案を出せる設定（householdProposable）は、アプリ本体の受け口が受ける13件と同じ（0213 の段B の後半）。
+    // どれも世帯ごとの値を持つ設定で、対策に足した項目（物の ID を含む）は入らない
+    assert_eq!(
+        v["householdProposable"],
+        json!(ai_share::display_proposals::HOUSEHOLD_PROPOSABLE_IDS)
+    );
+    let hp: Vec<&Value> = list
+        .iter()
+        .filter(|s| s["householdProposable"] == true)
+        .collect();
+    assert_eq!(hp.len(), 13);
+    assert!(hp
+        .iter()
+        .all(|s| s["scope"] != "office" && s.get("readOnly").is_none()));
+    assert!(list
+        .iter()
+        .filter(|s| s["scope"] != "office" && s.get("readOnly").is_none())
+        .all(|s| s["householdProposable"] == true || s["id"] == "result.addedItems"));
     // 絞る・知らない id
     let one = call_ok(
         &c,
@@ -6103,6 +6121,188 @@ async fn display_proposals_are_checked_before_they_reach_the_app() {
     // 断った案は承認待ちに入らない
     let _ = refused(json!([living(&"食".repeat(21))])).await;
     assert_eq!(reg.display_candidates().len(), 1);
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 渡された世帯ごとの表示の設定の案（propose_display_settings の share_id。0213 の段B の後半）: 値は事務所の既定値の案と同じ関数で確かめ、
+/// 事務所の既定値だけの設定・対策に足した項目・選べない値・範囲の外は近い候補を添えて断る。共有の決まりは世帯を扱うほかの道具と同じで、
+/// 案を出したことはその世帯の「AIに渡した記録」に残る。アプリが起動していなければ出せない
+#[tokio::test(flavor = "multi_thread")]
+async fn household_display_proposals_follow_the_share_rules() {
+    let dir = temp_dir("display-household");
+    let (c, _) = connect(&dir).await;
+    let t = c
+        .list_all_tools()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|t| t.name == "propose_display_settings")
+        .unwrap();
+    let d = t.description.as_deref().unwrap_or("");
+    assert!(
+        d.contains("share_id") && d.contains("householdProposable") && d.contains("AIに渡した記録"),
+        "{d}"
+    );
+    let ask = |share: &str, changes: Value| {
+        let c = &c;
+        let share = share.to_owned();
+        async move {
+            call(
+                c,
+                "propose_display_settings",
+                json!({ "share_id": share, "changes": changes }),
+            )
+            .await
+        }
+    };
+    let refused = |changes: Value| {
+        let ask = &ask;
+        async move {
+            let (err, msg) = ask("s-any", changes).await;
+            assert!(err, "{msg}");
+            assert!(msg.contains("この呼び出しは何もしていません"), "{msg}");
+            assert!(msg.contains("current.household.value"), "{msg}");
+            msg
+        }
+    };
+    // 事務所の既定値だけの設定・対策に足した項目・読むだけの設定（アプリに頼む前に断る）
+    let m = refused(json!([{ "id": "result.levers", "value": ["lever:retireAge"] }])).await;
+    assert!(m.contains("事務所の既定値だけの設定"), "{m}");
+    let m = refused(json!([{ "id": "input.living", "value": { "rows": [] } }])).await;
+    assert!(m.contains("事務所の既定値だけの設定"), "{m}");
+    let m = refused(json!([{ "id": "result.addedItems", "value": ["lever:retireAge"] }])).await;
+    assert!(m.contains("物の ID"), "{m}");
+    let m = refused(json!([{ "id": "features.combinedBs", "value": true }])).await;
+    assert!(m.contains("読むだけ"), "{m}");
+    // 選べない値・範囲の外・この世帯で並べる時点の形
+    let m = refused(json!([{ "id": "result.atAge", "value": 77 }])).await;
+    assert!(m.contains("選べる値にありません"), "{m}");
+    let m = refused(json!([{ "id": "balance.moneyThree.months", "value": 25 }])).await;
+    assert!(m.contains("範囲の外"), "{m}");
+    let m = refused(json!([{ "id": "result.layout", "value": "sidebyside" }])).await;
+    assert!(m.contains("のことですか"), "{m}");
+    let m = refused(json!([{ "id": "balance.columns", "value": [{ "point": "now" }] }])).await;
+    assert!(m.contains("2〜4つ"), "{m}");
+    let m = refused(
+        json!([{ "id": "balance.columns", "value": [{ "point": "now" }, { "point": "retir" }] }]),
+    )
+    .await;
+    assert!(m.contains("retire「退職の年」のことですか"), "{m}");
+    let m = refused(
+        json!([{ "id": "balance.columns", "value": [{ "point": "now" }, { "year": 2500 }] }]),
+    )
+    .await;
+    assert!(m.contains("1900〜2300"), "{m}");
+    let m = refused(
+        json!([{ "id": "balance.columns", "value": [{ "point": "now" }, { "point": "now" }] }]),
+    )
+    .await;
+    assert!(m.contains("2回あります"), "{m}");
+    let m = refused(
+        json!([{ "id": "balance.columns", "value": [{ "point": "now" }, { "loan": "x" }] }]),
+    )
+    .await;
+    assert!(m.contains("知らない名前"), "{m}");
+    // 正しい案でも、アプリが起動していなければ出せない
+    let ok = json!([
+        { "id": "result.atAge", "value": 85, "note": "85歳で話す" },
+        { "id": "balance.columns", "value": [{ "point": "age80" }, { "point": "now" }] },
+        { "id": "input.items", "value": { "hidden": ["rental"] } }
+    ]);
+    let (err, msg) = ask("s-any", ok.clone()).await;
+    assert!(err && msg.contains("アプリが起動していません"), "{msg}");
+
+    // アプリが起動している
+    let clock = ManualClock::new(1_792_198_923_000);
+    let reg = Arc::new(ShareRegistry::with_clock(Arc::new(clock.clone())));
+    reg.require_consent(true);
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    // 渡していない共有
+    let (err, msg) = ask("s-unknown", ok.clone()).await;
+    assert!(err && msg.contains("NOT_SHARED"), "{msg}");
+    let g = reg.grant(source("single25", false), grant_opts()).unwrap();
+    let r = call_ok(
+        &c,
+        "propose_display_settings",
+        json!({ "share_id": g.share_id, "changes": ok }),
+    )
+    .await;
+    assert_eq!(r["status"], "pendingReview");
+    assert_eq!(r["shareId"], json!(g.share_id));
+    assert_eq!(
+        r["settings"],
+        json!(["result.atAge", "balance.columns", "input.items"])
+    );
+    // 世帯ごとに承認待ち（事務所の既定値の案とは別）。値は今の値と同じ形にそろえる（並べる時点は書いた順のまま）
+    assert!(reg.display_candidates().is_empty());
+    let list = reg.household_display_candidates(HOUSEHOLD_ID);
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].customer_number.as_deref(), Some(CUSTOMER_NUMBER));
+    assert_eq!(list[0].connector.as_deref(), Some("test-ai 1.2"));
+    let ch = &list[0].changes;
+    assert_eq!(ch[0].value, json!(85));
+    assert_eq!(ch[0].note.as_deref(), Some("85歳で話す"));
+    assert_eq!(
+        ch[1].value,
+        json!([{ "point": "age80" }, { "point": "now" }])
+    );
+    assert_eq!(ch[2].value, json!({ "hidden": ["rental"], "levels": {} }));
+    // 案を出したことは、その世帯の「AIに渡した記録」に残る
+    let rec = reg.records(HOUSEHOLD_ID);
+    assert_eq!(rec[0].proposals.len(), 1);
+    assert_eq!(rec[0].proposals[0].candidate_id, r["candidateId"]);
+    // 同じ中身がもう一度届いたら同じ案（記録にも足さない）
+    let again = call_ok(
+        &c,
+        "propose_display_settings",
+        json!({ "share_id": g.share_id, "changes": [
+            { "id": "result.atAge", "value": 85, "note": "85歳で話す" },
+            { "id": "balance.columns", "value": [{ "point": "age80" }, { "point": "now" }] },
+            { "id": "input.items", "value": { "hidden": ["rental"] } }
+        ] }),
+    )
+    .await;
+    assert_eq!(again["candidateId"], r["candidateId"]);
+    assert_eq!(reg.records(HOUSEHOLD_ID)[0].proposals.len(), 1);
+    // share_id を書かなければ事務所の既定値の案（世帯だけの設定は断る）
+    let (err, msg) = call(
+        &c,
+        "propose_display_settings",
+        json!({ "changes": [{ "id": "balance.columns", "value": null }] }),
+    )
+    .await;
+    assert!(
+        err && msg.contains("share_id に渡された世帯を書くと"),
+        "{msg}"
+    );
+    // 取り消し・期限切れ・同意の撤回
+    let one = json!([{ "id": "balance.health", "value": false }]);
+    assert!(reg.revoke(&g.share_id));
+    let (err, msg) = ask(&g.share_id, one.clone()).await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    let g2 = reg.grant(source("single25", false), grant_opts()).unwrap();
+    clock.advance_ms(61 * 60 * 1000);
+    let (err, msg) = ask(&g2.share_id, one.clone()).await;
+    assert!(err && msg.contains("EXPIRED"), "{msg}");
+    let g3 = reg.grant(source("single25", false), grant_opts()).unwrap();
+    assert_eq!(reg.withdraw_consent(HOUSEHOLD_ID), 1);
+    let (err, msg) = ask(&g3.share_id, one.clone()).await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    // 架空の世帯は同意が無くても渡せて、案も出せる
+    let mut fictional = source("single25", false);
+    fictional.external_ai_consent = None;
+    fictional.fictional = true;
+    let g4 = reg.grant(fictional, grant_opts()).unwrap();
+    let r4 = call_ok(
+        &c,
+        "propose_display_settings",
+        json!({ "share_id": g4.share_id, "changes": one }),
+    )
+    .await;
+    assert_eq!(r4["status"], "pendingReview");
+    assert_eq!(reg.household_display_candidates(HOUSEHOLD_ID).len(), 2);
     ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);

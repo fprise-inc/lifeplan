@@ -1,6 +1,10 @@
-// 表示の設定の案（AI接続口の propose_display_settings。0215・0213 の段C）: AI が出した、事務所の既定値の見せ方だけの設定18件の案の値を、表示の設定の一覧
-// （displayCatalog.ts）の選べる値・値の形で確かめ、get_display_settings の今の値（current.office.value）と同じ形にそろえる。
-// - 接続口（plan.js の displayCheck。案をアプリに出す前）と、アプリの承認の画面（workspace/office/displayProposals.ts。反映する前）が同じ関数を使う
+// 表示の設定の案（AI接続口の propose_display_settings。0215・0213 の段C・段B の後半）: AI が出した、事務所の既定値の見せ方だけの設定18件の案と、
+// 渡された世帯ごとの設定13件の案の値を、表示の設定の一覧（displayCatalog.ts）の選べる値・値の形で確かめ、get_display_settings の今の値
+// （current.office.value・current.household.value）と同じ形にそろえる。
+// - 接続口（plan.js の displayCheck。案をアプリに出す前）と、アプリの承認の画面（workspace/office/displayProposals.ts・workspace/ai/displayProposals.ts。
+//   反映する前）が同じ関数を使う
+// - 世帯ごとの案（target: household）は、対策に足した項目（物の ID を含む）と事務所の既定値だけの設定を断る。この世帯で並べる時点は、候補の鍵と
+//   決まった年だけを受ける（物の ID の入る所が無い）
 // - 知らない id・案を出せない設定（世帯ごと・読むだけ）・選べない値・形の違う値は、理由と近い候補を添えて断る（接続口の「知らない引数を断る」
 //   〔crates/lifeplan/src/args.rs〕と同じ書き方: 書いた物を挙げ、近い物を「〜のことですか」で添える）。黙って直したり捨てたりしない
 // - 基本生活費の内訳の並べ方の行の名前は、人の文章が入る所なので、制御文字・書式の文字（見えない文字）を通さず、20文字（LIVING_LABEL_MAX）まで
@@ -8,16 +12,25 @@ import { ALWAYS_SHOWN, readItemChoice } from "../workspace/input/itemChoice.ts";
 import { STAGE_ORDER } from "../workspace/input/stageOrder.ts";
 import { LIVING_LABEL_MAX, LIVING_PARTS_MAX, LIVING_PARTS_MIN, readLivingLayout, STANDARD_LIVING_LAYOUT, STANDARD_LIVING_NAMES } from "../workspace/office/livingLayout.ts";
 import { readBsGuide } from "../workspace/balanceTab.ts";
-import { buildDisplayCatalog, GUIDE_BASIS_CHOICES, PROPOSABLE_DISPLAY_IDS, type DisplayCatalog, type DisplaySetting, type ProposableDisplayId } from "./displayCatalog.ts";
+import { buildDisplayCatalog, GUIDE_BASIS_CHOICES, HOUSEHOLD_PROPOSABLE_DISPLAY_IDS, PROPOSABLE_DISPLAY_IDS, type DisplayCatalog, type DisplaySetting, type HouseholdProposableDisplayId, type ProposableDisplayId } from "./displayCatalog.ts";
 
 /** 1回の案で出せる設定の数（案を出せる設定の数と同じ。同じ設定は1回だけ） */
 export const MAX_DISPLAY_CHANGES = PROPOSABLE_DISPLAY_IDS.length;
+/** 渡された世帯ごとの案で、1回に出せる設定の数 */
+export const MAX_HOUSEHOLD_DISPLAY_CHANGES = HOUSEHOLD_PROPOSABLE_DISPLAY_IDS.length;
+
+/** 案の宛先: office＝事務所の既定値・household＝渡された世帯ごと */
+export type DisplayTarget = "office" | "household";
+/** 値を確かめられる設定（事務所の既定値の案か、世帯ごとの案を出せる設定） */
+export type CheckableDisplayId = ProposableDisplayId | HouseholdProposableDisplayId;
+/** 並べる時点の決まった年の範囲（画面の readBsColumns と同じ） */
+const COLUMN_YEAR = { min: 1900, max: 2300 } as const;
 /** AI が書いた理由の長さの上限（文字。プランの候補の理由と同じ） */
 export const MAX_DISPLAY_NOTE = 500;
 
 /** 確かめた1件（value は get_display_settings の current.office.value と同じ形） */
 export interface DisplayChange {
-  id: ProposableDisplayId;
+  id: CheckableDisplayId;
   value: unknown;
   note?: string;
 }
@@ -30,6 +43,7 @@ let catalog: DisplayCatalog | null = null;
 const settingOf = (id: string): DisplaySetting | undefined => (catalog ??= buildDisplayCatalog()).settings.find((s) => s.id === id);
 
 export const isProposableDisplayId = (id: string): id is ProposableDisplayId => (PROPOSABLE_DISPLAY_IDS as readonly string[]).includes(id);
+export const isHouseholdProposableDisplayId = (id: string): id is HouseholdProposableDisplayId => (HOUSEHOLD_PROPOSABLE_DISPLAY_IDS as readonly string[]).includes(id);
 
 // ---- 近い候補（接続口の args.rs の closest と同じ決まり: 書き方の違いだけ → 1〜2文字の違い → 名前の一部） ----
 
@@ -264,8 +278,40 @@ function checkGuide(s: DisplaySetting, v: unknown): DisplayValueCheck {
   return { ok: true, value: g };
 }
 
+/**
+ * この世帯で並べる時点（columns）: null（「時点を並べる」の既定のまま）か、{point: 候補の鍵} か {year: 決まった年} を2〜4つ、重ならずに。
+ * 物の ID・文章の入る所は無い（知らない名前は断る）
+ */
+function checkColumns(s: DisplaySetting, v: unknown): DisplayValueCheck {
+  if (v === null) return { ok: true, value: null };
+  if (!Array.isArray(v)) return { ok: false, message: "値は null（「時点を並べる」の既定のまま）か、[{ point: 候補の鍵 } か { year: 決まった年 }] の並びで書いてください" };
+  const min = s.min ?? 2;
+  const max = s.max ?? 4;
+  if (v.length < min || v.length > max) return { ok: false, message: `時点は${min}〜${max}つ並べてください（${v.length}つ）` };
+  const points = (s.choices ?? []).map((c) => String(c.value));
+  const out: ({ point: string } | { year: number })[] = [];
+  for (const [i, x] of v.entries()) {
+    const at = `[${i}]`;
+    if (!isObj(x)) return { ok: false, message: `${at} は { point: 候補の鍵 } か { year: 決まった年 } の形で書いてください` };
+    const keys = unknownKeys(x, ["point", "year"], at);
+    if (keys !== null) return { ok: false, message: keys };
+    if ("point" in x === "year" in x) return { ok: false, message: `${at} は point か year のどちらか1つだけを書いてください` };
+    if ("point" in x) {
+      if (typeof x.point !== "string" || !points.includes(x.point)) return { ok: false, message: `${at}.point の${unknownChoice(s, x.point, "候補の時点")}` };
+      out.push({ point: x.point });
+    } else {
+      if (typeof x.year !== "number" || !Number.isInteger(x.year) || x.year < COLUMN_YEAR.min || x.year > COLUMN_YEAR.max) return { ok: false, message: `${at}.year は${COLUMN_YEAR.min}〜${COLUMN_YEAR.max}の整数（西暦の年）で書いてください（${show(x.year)}）` };
+      out.push({ year: x.year });
+    }
+  }
+  const keyOf = (c: { point: string } | { year: number }) => ("point" in c ? `p:${c.point}` : `y:${c.year}`);
+  const dup = out.find((c, i) => out.findIndex((d) => keyOf(d) === keyOf(c)) !== i);
+  if (dup !== undefined) return { ok: false, message: `${show(dup)}が2回あります（同じ時点は1回だけ並べてください）` };
+  return { ok: true, value: out };
+}
+
 /** 案を出せる設定の1つの値を確かめ、今の値と同じ形にそろえる（理由は設定の id と名前を付けずに返す） */
-export function checkDisplayValue(id: ProposableDisplayId, v: unknown): DisplayValueCheck {
+export function checkDisplayValue(id: CheckableDisplayId, v: unknown): DisplayValueCheck {
   const s = settingOf(id);
   if (s === undefined) return { ok: false, message: "一覧にない設定です" };
   switch (s.type) {
@@ -285,27 +331,34 @@ export function checkDisplayValue(id: ProposableDisplayId, v: unknown): DisplayV
       return checkInteger(s, v);
     case "guide":
       return checkGuide(s, v);
+    case "columns":
+      return checkColumns(s, v);
     default:
       return { ok: false, message: "この形の値は、この道具では受けません" };
   }
 }
 
-/** 案を出せない設定の理由 */
-function notProposable(s: DisplaySetting): string {
+/** 案を出せない設定の理由（target は案の宛先） */
+function notProposable(s: DisplaySetting, target: DisplayTarget): string {
   if (s.readOnly === true) return "読むだけの設定です（アプリの画面で FP が変えます）";
-  if (s.scope === "household") return `世帯だけの設定です（事務所の既定にはしません）。今は案を出せず、FP がアプリの「${s.change.household ?? "その画面"}」で変えます`;
+  if (s.id === "result.addedItems") return `${target === "office" ? "世帯だけの設定です（事務所の既定にはしません）。" : ""}鍵に物の ID（渡された世帯では共有ごとの仮の ID）が入るので、案を出せません。FP がアプリの「${s.change.household ?? "その画面"}」で変えます`;
+  if (target === "office" && s.scope === "household") return `世帯だけの設定です（事務所の既定にはしません）。share_id に渡された世帯を書くと、その世帯ごとの案を出せます（FP はアプリの「${s.change.household ?? "その画面"}」で変えます）`;
+  if (target === "household" && s.scope === "office") return "事務所の既定値だけの設定です（世帯ごとの値はありません）。share_id を書かずに出すと、事務所の既定値の案になります";
   return "この道具では案を出せません";
 }
 
 /**
  * 案の全体（changes の並び）を確かめる。problems が空なら changes を案として出せる（値はそろえた後、理由は前後の空白を外した物）。
- * problems は「<id>（<名前>）: <理由>」の文の並び
+ * problems は「<id>（<名前>）: <理由>」の文の並び。target は案の宛先（既定は事務所の既定値。household は渡された世帯ごとの案）
  */
-export function checkDisplayChanges(changes: unknown): { changes: DisplayChange[]; problems: string[] } {
+export function checkDisplayChanges(changes: unknown, target: DisplayTarget = "office"): { changes: DisplayChange[]; problems: string[] } {
   const problems: string[] = [];
   const out: DisplayChange[] = [];
-  if (!Array.isArray(changes) || changes.length === 0) return { changes: [], problems: [`changes に、変える設定を1件以上書いてください（案を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")}）`] };
-  if (changes.length > MAX_DISPLAY_CHANGES) problems.push(`changes は${MAX_DISPLAY_CHANGES}件までです（同じ設定は1回だけ）`);
+  const allowed: readonly string[] = target === "household" ? HOUSEHOLD_PROPOSABLE_DISPLAY_IDS : PROPOSABLE_DISPLAY_IDS;
+  const max = allowed.length;
+  const which = target === "household" ? "渡された世帯ごとの案を出せるのは" : "案を出せるのは";
+  if (!Array.isArray(changes) || changes.length === 0) return { changes: [], problems: [`changes に、変える設定を1件以上書いてください（${which} ${allowed.join("・")}）`] };
+  if (changes.length > max) problems.push(`changes は${max}件までです（同じ設定は1回だけ）`);
   const all = (catalog ??= buildDisplayCatalog()).settings.map((s) => s.id);
   const seen = new Set<string>();
   for (const [i, c] of changes.entries()) {
@@ -317,11 +370,11 @@ export function checkDisplayChanges(changes: unknown): { changes: DisplayChange[
     const s = settingOf(id);
     if (s === undefined) {
       const near = closestOf(id, all);
-      problems.push(`知らない設定の id です: ${id}${near !== null ? `（${near} のことですか）` : ""}。案を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")} です`);
+      problems.push(`知らない設定の id です: ${id}${near !== null ? `（${near} のことですか）` : ""}。${which} ${allowed.join("・")} です`);
       continue;
     }
-    if (!isProposableDisplayId(id)) {
-      problems.push(`${id}（${s.label}）: ${notProposable(s)}。案を出せるのは ${PROPOSABLE_DISPLAY_IDS.join("・")} です`);
+    if (!allowed.includes(id)) {
+      problems.push(`${id}（${s.label}）: ${notProposable(s, target)}。${which} ${allowed.join("・")} です`);
       continue;
     }
     if (seen.has(id)) {
@@ -333,7 +386,7 @@ export function checkDisplayChanges(changes: unknown): { changes: DisplayChange[
       problems.push(`${id}（${s.label}）: value がありません`);
       continue;
     }
-    const r = checkDisplayValue(id, c.value);
+    const r = checkDisplayValue(id as CheckableDisplayId, c.value);
     if (!r.ok) {
       problems.push(`${id}（${s.label}）: ${r.message}`);
       continue;
@@ -341,19 +394,19 @@ export function checkDisplayChanges(changes: unknown): { changes: DisplayChange[
     const note = typeof c.note === "string" ? c.note.trim() : "";
     if (c.note !== undefined && c.note !== null && typeof c.note !== "string") problems.push(`${id}（${s.label}）: note は文字で書いてください`);
     else if (note.length > MAX_DISPLAY_NOTE) problems.push(`${id}（${s.label}）: note は${MAX_DISPLAY_NOTE}文字までです`);
-    out.push({ id, value: r.value, ...(note !== "" ? { note } : {}) });
+    out.push({ id: id as CheckableDisplayId, value: r.value, ...(note !== "" ? { note } : {}) });
   }
   return { changes: problems.length === 0 ? out : [], problems };
 }
 
-/** 接続口の入口（plan.js の displayCheck）: changes の JSON → `{ changes, problems }` の JSON の文字 */
-export function displayCheck(changesJson: string, _b: string, _c: string): string {
+/** 接続口の入口（plan.js の displayCheck）: changes の JSON と宛先（"household" は渡された世帯ごとの案。ほかは事務所の既定値）→ `{ changes, problems }` の JSON の文字 */
+export function displayCheck(changesJson: string, target: string, _c: string): string {
   let parsed: unknown;
   try {
     parsed = JSON.parse(changesJson);
   } catch {
     return JSON.stringify({ changes: [], problems: ["changes を読めませんでした"] });
   }
-  return JSON.stringify(checkDisplayChanges(parsed));
+  return JSON.stringify(checkDisplayChanges(parsed, target === "household" ? "household" : "office"));
 }
 

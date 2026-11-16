@@ -1716,6 +1716,7 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-display-diff { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: stretch; font-size: 0.84rem; }
 .os-display-side { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; overflow-wrap: anywhere; }
 .os-display-head { display: block; font-size: 0.72rem; font-weight: 400; color: var(--ink-2); margin-bottom: 2px; }
+.os-display-head .fld-premise { margin-left: 6px; }
 .os-display-arrow { align-self: center; color: var(--ink-2); }
 .os-display-change { margin: 4px 0 0; }
 .os-display-note { margin: 6px 0 0; font-size: 0.84rem; }

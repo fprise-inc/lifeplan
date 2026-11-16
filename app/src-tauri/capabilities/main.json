@@ -64,6 +64,7 @@
     "allow-ai-household-candidate-create",
     "allow-ai-display-candidates",
     "allow-ai-display-change-take",
+    "allow-ai-household-display-take",
     "allow-office-status",
     "allow-office-start",
     "allow-office-join",

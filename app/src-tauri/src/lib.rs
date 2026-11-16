@@ -380,6 +380,7 @@ pub fn run() {
             ai::ai_household_candidate_create,
             ai::ai_display_candidates,
             ai::ai_display_change_take,
+            ai::ai_household_display_take,
             office::office_status,
             office::office_start,
             office::office_join,

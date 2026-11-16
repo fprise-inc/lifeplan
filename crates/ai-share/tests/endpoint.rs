@@ -430,6 +430,54 @@ async fn display_proposals_wait_for_the_fp() {
         .all(|c| c.candidate_id != id));
     reg.clear_display_candidates();
     assert!(reg.display_candidates().is_empty());
+    // 渡された世帯ごとの案（受け口は共有の決まりの所へ回す）: 渡していない共有は NOT_SHARED、渡した世帯は承認待ち
+    let household = serde_json::json!({ "changes": [{ "id": "result.atAge", "value": 85 }] });
+    let e = call_app(
+        &dir,
+        &hello(),
+        Request::ProposeShareDisplay {
+            share_id: "s-x".into(),
+            proposal: household.clone(),
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        matches!(
+            e,
+            AppError::Refused {
+                code: ErrorCode::NotShared,
+                ..
+            }
+        ),
+        "{e:?}"
+    );
+    let g = reg
+        .grant(
+            source(),
+            GrantOptions {
+                destination_declared: "test".into(),
+                ..GrantOptions::default()
+            },
+        )
+        .unwrap();
+    let v: Value = serde_json::from_str(
+        &call_app(
+            &dir,
+            &hello(),
+            Request::ProposeShareDisplay {
+                share_id: g.share_id.clone(),
+                proposal: household,
+            },
+        )
+        .await
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(v["status"], "pendingReview");
+    let list = reg.household_display_candidates(&source().household_id);
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].connector.as_deref(), Some("test-client 1"));
     ep.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }

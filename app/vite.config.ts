@@ -717,6 +717,8 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  * 番号らしい文字を1つ混ぜた物）が届いたことにする。`/__dev/ai/proposeHousehold`（POST {proposal}）で、任意の候補が届いたことにする
  * `/__dev/ai/simulate?kind=display` で、AI から表示の設定の案（見本: 対策に NISA を足す・万一のときのタブを収入が減るの場面で開く・基本生活費の
  * 内訳をまとめる・「○歳時点」の年齢を85歳に・お金の3つの分け方の何か月分を3か月に）が届いたことにする。`/__dev/ai/proposeDisplay`（POST {changes}）で、任意の案が届いたことにする（0215）
+ * `/__dev/ai/simulate?kind=householdDisplay` で、渡している世帯に、世帯ごとの表示の設定の案（見本: 「○歳時点」の年齢を85歳に・比較の仕方を左右に並べる・
+ * この世帯で並べる時点・家計の体力の目安を出さない）が届いたことにする（0213 の段B の後半。共有中の世帯だけ）
  */
 const devAi = {
   enabled: false,
@@ -728,6 +730,8 @@ const devAi = {
   households: [] as { candidateId: string; receivedAt: string; connector: string | null; kind: string; title: string; note: string | null; input: unknown }[],
   /** 表示の設定の案（本体と同じく、メモリの中だけ。FP が設定ごとに反映するか捨てるまで。0215） */
   displays: [] as { candidateId: string; receivedAt: string; connector: string | null; changes: { id: string; value: unknown; note?: string }[] }[],
+  /** 渡された世帯ごとの表示の設定の案（本体と同じく、メモリの中だけ。FP がその世帯を開いて設定ごとに反映するか捨てるまで） */
+  householdDisplays: [] as { candidateId: string; receivedAt: string; connector: string | null; shareId: string; householdId: string; customerNumber: string | null; alias: string; changes: { id: string; value: unknown; note?: string }[] }[],
 };
 
 /** 案を出せる表示の設定（本体の ai_share::display_proposals::PROPOSABLE_IDS と同じ。0213 の段C で結果のタブ・資産と負債のタブの11件を足した） */
@@ -791,7 +795,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
   const view = () => {
     const b = book();
     const sh = shareStatus();
-    return { consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, hearingSheetExplanation: DEV_AI_SHEET_TEXT, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id), fictional: fictional(id) };
+    return { consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, hearingSheetExplanation: DEV_AI_SHEET_TEXT, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), displayProposals: devAi.householdDisplays.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id), fictional: fictional(id) };
   };
   const setup = (title: string, client: string, text: string) => ({ client, title, text });
   switch (op) {
@@ -816,6 +820,12 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
           featureCodeCandidates: devFeatures.candidates.length,
           householdCandidates: devAi.households.length,
           displayCandidates: devAi.displays.length,
+          householdDisplayCandidates: devAi.householdDisplays.reduce<{ householdId: string; customerNumber: string | null; alias: string; count: number }[]>((out, c) => {
+            const p = out.find((x) => x.householdId === c.householdId);
+            if (p !== undefined) p.count += c.changes.length;
+            else out.push({ householdId: c.householdId, customerNumber: c.customerNumber, alias: c.alias, count: c.changes.length });
+            return out;
+          }, []),
         },
       };
     }
@@ -826,6 +836,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         devFeatures.candidates = [];
         devAi.households = [];
         devAi.displays = [];
+        devAi.householdDisplays = [];
       }
       return devAiOp("status", {});
     case "proposeFeatureCode": {
@@ -891,6 +902,14 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       book().consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: "given", obtainedOn: "2026-10-19", method: "paper", explanationRef: "sha256:dev-v1", externalAi: { company: "架空AI株式会社", country: "日本", noTrainingConfirmed: true }, scope: "reduced", fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
       return { ok: true, value: view() };
     }
+    case "takeHouseholdDisplayChange": {
+      // 世帯ごとの表示の設定の案の1つの設定を外す（その世帯の案だけ。全部外れたら案ごと。本体の take_household_display_change と同じ）
+      const c = devAi.householdDisplays.find((x) => x.candidateId === a.candidate && x.householdId === id);
+      if (c === undefined || !c.changes.some((x) => x.id === a.setting)) return { ok: false, code: "E_AI_CANDIDATE_UNKNOWN" };
+      c.changes = c.changes.filter((x) => x.id !== a.setting);
+      devAi.householdDisplays = devAi.householdDisplays.filter((x) => x.changes.length > 0);
+      return devStore.households.has(id) ? { ok: true, value: view() } : { ok: false, code: "E_STORE_NOT_OPEN" };
+    }
     case "takeDocuments": {
       devAi.documents = devAi.documents.filter((d) => !(d.householdId === id && d.candidateId === a.candidate));
       return devStore.households.has(id) ? { ok: true, value: view() } : { ok: false, code: "E_STORE_NOT_OPEN" };
@@ -922,6 +941,27 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         );
       }
       if (s === null) return { ok: false, code: "E_AI_NOT_SHARED" };
+      if (a.kind === "householdDisplay") {
+        // 渡している世帯ごとの表示の設定の案の見本（0213 の段B の後半）。案を出したことを記録の proposals に残す（本体と同じ）
+        const cid = crypto.randomUUID();
+        devAi.householdDisplays.push({
+          candidateId: cid,
+          receivedAt: now,
+          connector: "dev-client 1.0",
+          shareId: s.shareId,
+          householdId: s.householdId,
+          customerNumber: devStore.households.get(s.householdId)?.customerNo ?? null,
+          alias: s.alias,
+          changes: [
+            { id: "result.atAge", value: 85, note: "このご夫婦とは85歳時点で話すことが多いため" },
+            { id: "result.layout", value: "side", note: "今のプランと比べるときは左右に並べたほうが伝わりやすいため" },
+            { id: "balance.columns", value: [{ point: "now" }, { point: "childIndep" }, { point: "retire" }], note: "お子さまの独立と退職の年を並べて話す予定です" },
+            { id: "balance.health", value: false, note: "この世帯では家計の体力の目安は使わないため" },
+          ],
+        });
+        r.proposals.push({ candidateId: cid, at: now });
+        return { ok: true };
+      }
       if (a.kind === "documents") {
         // 前の版の説明の同意では、書類の候補を受けない（本体の handle_propose_documents と同じ。0157）
         if (!consentDocuments(b)) return { ok: false, code: "NOT_SHARED" };
