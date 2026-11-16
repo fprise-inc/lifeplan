@@ -21,7 +21,8 @@ export const DISPLAY_CATALOG_SCHEMA = "display-settings-reference@1.0";
 /**
  * AI が変える案を出せる設定（propose_display_settings。0215・0213 の段C）: 事務所の既定値のうち見せ方だけの18件（入力・対策・万一のタブの7つと、
  * 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値11件〔workspace/settings.ts の OFFICE_DISPLAY_IDS〕）。世帯だけの設定（この世帯で並べる時点・
- * 対策に足した項目）と読むだけの設定（合算BS）は入れない。並びは一覧の並び。案はどれも事務所の既定値の案（世帯ごとの案は次の段）
+ * 対策に足した項目）と読むだけの設定（合算BS）は入れない。並びは一覧の並び。これは事務所の既定値の案（渡された世帯ごとの案は下の
+ * HOUSEHOLD_PROPOSABLE_DISPLAY_IDS）
  */
 export const PROPOSABLE_DISPLAY_IDS = [
   "input.order",
@@ -44,6 +45,28 @@ export const PROPOSABLE_DISPLAY_IDS = [
   "balance.moneyThree.years",
 ] as const;
 export type ProposableDisplayId = (typeof PROPOSABLE_DISPLAY_IDS)[number];
+
+/**
+ * AI が渡された世帯ごとに案を出せる設定（propose_display_settings の share_id。0213 の段B の後半）: 一覧で世帯ごとの値を持つ設定（scope が household・
+ * both）のうち、対策に足した項目（result.addedItems。鍵に物の ID が入る）を除いた13件。この世帯で並べる時点（balance.columns）は候補の鍵と決まった年
+ * だけの値（物の ID を含まない）なので入れる。本体の受け口の並び（ai_share::display_proposals::HOUSEHOLD_PROPOSABLE_IDS）と同じ（接続口のテストで確かめる）
+ */
+export const HOUSEHOLD_PROPOSABLE_DISPLAY_IDS = [
+  "input.items",
+  "result.metrics",
+  "result.atAge",
+  "result.layout",
+  "result.invBreakdown",
+  "result.invPeriods",
+  "balance.health",
+  "balance.guide",
+  "balance.points",
+  "balance.columns",
+  "balance.moneyThree.wording",
+  "balance.moneyThree.months",
+  "balance.moneyThree.years",
+] as const;
+export type HouseholdProposableDisplayId = (typeof HOUSEHOLD_PROPOSABLE_DISPLAY_IDS)[number];
 
 /** 選べる値の1つ（value は事務所データ・世帯ファイルに書く値。label は画面と同じ言葉） */
 export interface DisplayChoice {
@@ -99,6 +122,8 @@ export interface DisplaySetting {
   readOnly?: boolean;
   /** AI が変える案を出せる（propose_display_settings。事務所の既定値の見せ方だけの設定。0215） */
   proposable?: boolean;
+  /** AI が渡された世帯ごとの案を出せる（propose_display_settings の share_id。世帯ごとの値。0213 の段B の後半） */
+  householdProposable?: boolean;
   note?: string;
 }
 
@@ -234,7 +259,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       reaches: NO_OUTPUT,
       type: "itemKeys",
       default: [],
-      note: "動かす項目の鍵の並び（足した順）。ローン・口座などの鍵には物の ID が入ります（渡された世帯では共有ごとの仮の ID）",
+      note: "動かす項目の鍵の並び（足した順）。ローン・口座などの鍵には物の ID が入ります（渡された世帯では共有ごとの仮の ID）。読むだけです（物の ID を含むので、AI からは変えられません）",
     },
     {
       id: "result.metrics",
@@ -501,6 +526,8 @@ export function buildDisplayCatalog(): DisplayCatalog {
       note: "読むだけです。使うには、提供元から受け取った「機能を有効にするコード」を入れておく必要があります（コードが入っていなければ、この設定は画面に出ず効きません）",
     },
   ];
+  // 渡された世帯ごとの案を出せる設定の印（並びは HOUSEHOLD_PROPOSABLE_DISPLAY_IDS の1か所）
+  for (const s of settings) if ((HOUSEHOLD_PROPOSABLE_DISPLAY_IDS as readonly string[]).includes(s.id)) s.householdProposable = true;
   const count = (s: DisplaySetting["scope"]) => settings.filter((x) => x.scope === s).length;
   const short = (id: string) => NOTICE_KINDS.find((k) => k.id === id)?.short ?? id;
   return {

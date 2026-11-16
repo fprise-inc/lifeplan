@@ -20,7 +20,7 @@ export const hasOldPlanWord = (s: string): boolean => s.replace(OTHER_WORDS, "")
  * 表示の設定の案（0215）の画面の部品。利用者の判断で「案」を使う（2026-11-15。「今 → 案」「AIからの表示の設定の案」）。
  * この部品だけは、「案」そのものでなく、以前のプランの呼び方の形（hasOldPlanName）を止める
  */
-const DISPLAY_PROPOSAL_FILES = new Set(["app/src/connector/displayProposal.ts", "app/src/workspace/office/DisplayProposalsSection.tsx", "app/src/workspace/office/displayProposals.ts", "app/src/workspace/ai/AiDisplayCandidateBand.tsx"]);
+const DISPLAY_PROPOSAL_FILES = new Set(["app/src/connector/displayProposal.ts", "app/src/workspace/office/DisplayProposalsSection.tsx", "app/src/workspace/office/displayProposals.ts", "app/src/workspace/ai/AiDisplayCandidateBand.tsx", "app/src/workspace/ai/AiDisplayProposals.tsx", "app/src/workspace/ai/displayProposals.ts"]);
 
 /** 以前のプランの呼び方の形（B案・案A・基準の案・選んだ案・比較する案・案として保存・案を保存・案の名前・案を比較）が残っているか */
 export const hasOldPlanName = (s: string): boolean => /[A-ZＡ-Ｚ]案|案[A-ZＡ-Ｚ]|基準の案|選んだ案|比較する案|案として保存|案を保存|案の名前|案を比較/.test(s.replace(OTHER_WORDS, ""));

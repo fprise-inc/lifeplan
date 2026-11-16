@@ -68,6 +68,8 @@ const COMMANDS: &[&str] = &[
     // 0215: AIからの表示の設定の案（承認待ち）を見る・設定ごとに外す（反映は画面が事務所の既定値に書く）
     "ai_display_candidates",
     "ai_display_change_take",
+    // 渡された世帯ごとの表示の設定の案（承認待ち）を設定ごとに外す（反映は画面がその世帯に書く。0213 の段B の後半）
+    "ai_household_display_take",
     // 0023: 事務所での共有（共有フォルダは本体のダイアログで選ばせる。パスも鍵も受け取らない・返さない）
     "office_status",
     "office_start",

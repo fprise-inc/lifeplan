@@ -30,6 +30,8 @@ import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
 import { AiCodeCandidateBand } from "./ai/AiCodeCandidateBand.tsx";
 import { AiDisplayCandidateBand } from "./ai/AiDisplayCandidateBand.tsx";
+import { AiDisplayProposals } from "./ai/AiDisplayProposals.tsx";
+import { withHouseholdValue } from "./ai/displayProposals.ts";
 import { applyDisplayValue, restoreDisplayValue } from "./office/displayProposals.ts";
 import { AiHouseholdCandidateBand, AiHouseholdCandidates } from "./ai/AiHouseholdCandidates.tsx";
 import { approvalAt, noteMemo, withAiOrigin, type HouseholdKind, type ReadHousehold } from "./ai/households.ts";
@@ -102,6 +104,9 @@ import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
 import { ageMarkOf, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, followsOffice, isOfficeDisplayId, METRIC_CHOICES, newHouseholdDisplay, officeDisplayOf, resolveDisplay, shows, STANDARD_DISPLAY, verdictMetrics, withFollowOffice, withOwnChange, type BalanceSettings, type DisplayPair, type DisplaySettings, type MetricKey, type OfficeDisplayId, type StoredDisplay } from "./settings.ts";
 import { officeCurrent } from "../connector/display.ts";
+import type { HouseholdProposableDisplayId } from "../connector/displayCatalog.ts";
+import { checkDisplayValue } from "../connector/displayProposal.ts";
+import { readItemChoice, setItemChoice } from "./input/itemChoice.ts";
 import type { OfficeMarks } from "../presentation/OfficeMark.tsx";
 import { Autosaver, saveBeforeLeave, type SaveState } from "./store/autosave.ts";
 import { LeaveDialog, type LeaveDialogChoice } from "./store/LeaveDialog.tsx";
@@ -2040,6 +2045,40 @@ export function App() {
     },
     [host, ai, say],
   );
+  /**
+   * AIからの、この世帯の表示の設定の案を反映する（0213 の段B の後半）: 確かめ直した値をその設定だけこの世帯に書き（この世帯だけの値。事務所の既定値に
+   * 従う印を外す。元に戻すの履歴に入る）、承認待ちから外す。入力項目の選び方は、入力項目を選ぶと同じく世帯の入力項目の選び方を置き換える
+   */
+  const applyDisplayProposal = useCallback(
+    async (candidate: string, id: HouseholdProposableDisplayId, value: unknown) => {
+      const o = openedRef.current;
+      const sr = storedRef.current;
+      if (host === null || o === null || sr === null) throw "E_STORE_NOT_OPEN";
+      if (sr.readOnly) throw "E_STORE_READ_ONLY";
+      const r = checkDisplayValue(id, value);
+      if (!r.ok) throw "E_DISPLAY_PROPOSAL_INVALID";
+      if (id === "input.items") edit(setItemChoice(o.wh, readItemChoice(r.value)));
+      else
+        history.track(() => {
+          putDisp(withHouseholdValue({ display: dispRef.current, itemChoice: undefined, office: officeDispRef.current }, id, r.value).display);
+          // FP顧問料の一文の枠（alt）を足す・外す
+          if (id === "result.metrics") putWork(workRef.current, openedRef.current, "set");
+        });
+      ai.setView(await host.ai.takeHouseholdDisplayChange(sr.id, candidate, id));
+      void ai.refresh();
+    },
+    [host, ai, edit, history, putWork],
+  );
+  /** AIからの、この世帯の表示の設定の案を捨てる（設定は変えない） */
+  const discardDisplayProposal = useCallback(
+    async (candidate: string, id: string) => {
+      const sr = storedRef.current;
+      if (host === null || sr === null) throw "E_STORE_NOT_OPEN";
+      ai.setView(await host.ai.takeHouseholdDisplayChange(sr.id, candidate, id));
+      void ai.refresh();
+    },
+    [host, ai],
+  );
   const stopShare = useCallback(
     async (householdId: string) => {
       if (host === null) return;
@@ -2870,7 +2909,19 @@ export function App() {
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} paused={presence !== null && storedInfo !== null} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
-      <AiDisplayCandidateBand count={officeSettingsOpen ? 0 : displayCandCount} onOpen={() => setOfficeSettingsOpen(true)} />
+      <AiDisplayCandidateBand
+        office={officeSettingsOpen ? 0 : displayCandCount}
+        households={ai.status?.householdDisplayCandidates ?? []}
+        openedId={storedInfo?.id ?? null}
+        detailed={tab === "input" || opened === null}
+        openedShown={tab === "main" && (ai.view?.displayProposals ?? []).length > 0}
+        onOpenOffice={() => setOfficeSettingsOpen(true)}
+        onShowOpened={() => {
+          setTab("main");
+          requestAnimationFrame(() => document.querySelector("[data-ai-display-proposals]")?.scrollIntoView({ block: "start", behavior: "smooth" }));
+        }}
+        onOpenHousehold={(id) => void guard(() => openStored(id), openMessage)}
+      />
       <AiHouseholdCandidateBand count={hhCands !== null ? 0 : hhCandCount} onOpen={() => void openHouseholdCandidates()} />
       {opened !== null && !docsOpen ? (
         <AiDocumentBand
@@ -3363,6 +3414,15 @@ export function App() {
               }
             />
             {storedInfo !== null && ai.view !== null ? <AiCandidates candidates={ai.view.candidates} wh={opened.wh} catalog={opened.catalog} onAccept={acceptCandidate} onReject={rejectCandidate} /> : null}
+            {storedInfo !== null && ai.view !== null && (ai.view.displayProposals ?? []).length > 0 ? (
+              <AiDisplayProposals
+                candidates={ai.view.displayProposals ?? []}
+                state={{ display: disp, itemChoice: opened.wh.itemChoice, office: officeDisp }}
+                blocked={storedInfo.readOnly ? "この世帯は閲覧だけで開いているので、反映できません（捨てることはできます）。" : null}
+                onApply={applyDisplayProposal}
+                onDiscard={discardDisplayProposal}
+              />
+            ) : null}
             {panel === "list" ? <PlanList wh={opened.wh} catalog={opened.catalog} letters={letters} band={work.band} onBand={toggleBand} onEdit={(w) => setPlans(w)} onReflect={reflect}
                   onOpenInput={(id) => {
                     selectInputPlan(id);

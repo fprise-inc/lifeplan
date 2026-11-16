@@ -28,7 +28,8 @@ use ai_share::clock::{iso8601, Clock, SystemClock};
 use ai_share::registry::ShareStatus;
 use ai_share::{
     AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError, GrantOptions,
-    HouseholdAiView, HouseholdBook, HouseholdCandidate, Scope, ShareRegistry,
+    HouseholdAiView, HouseholdBook, HouseholdCandidate, HouseholdDisplayPending, Scope,
+    ShareRegistry,
 };
 use household_store::{CreateOptions, Opened, Store, StoreError};
 use serde::Serialize;
@@ -289,6 +290,7 @@ impl AiState {
         for sid in self.registry.active_share_ids(id) {
             self.registry.revoke(&sid);
         }
+        self.registry.forget_household_display(id);
         lock(&self.books).remove(id);
         lock(&self.parked).remove(id);
     }
@@ -595,6 +597,8 @@ pub struct AiStatus {
     household_candidates: usize,
     /// AIから届いた、表示の設定の案の数（承認待ち。中身は ai_display_candidates で読む。0215）
     display_candidates: usize,
+    /// AIから世帯ごとの表示の設定の案が届いている世帯（顧客番号・呼び名・数。中身はその世帯の ai_household の displayProposals）
+    household_display_candidates: Vec<HouseholdDisplayPending>,
 }
 
 fn status(ai: &AiState, store: &Store) -> AiStatus {
@@ -632,6 +636,7 @@ fn status(ai: &AiState, store: &Store) -> AiStatus {
         feature_code_candidates: ai.registry.feature_code_candidates().len(),
         household_candidates: ai.registry.household_candidates().len(),
         display_candidates: ai.registry.display_candidates().len(),
+        household_display_candidates: ai.registry.household_display_pending(),
     }
 }
 
@@ -644,6 +649,7 @@ fn view(ai: &AiState, books: &HashMap<String, Entry>, id: &str) -> Result<Househ
         .find(|s| s.household_id == id);
     let mut v = e.book.view(&ai.registry.records(id), share);
     v.document_proposals = ai.registry.document_proposals(id);
+    v.display_proposals = ai.registry.household_display_candidates(id);
     Ok(v)
 }
 
@@ -883,6 +889,24 @@ pub async fn ai_display_change_take(
             .take_display_change(&candidate, &setting)
             .ok_or("E_AI_CANDIDATE_UNKNOWN")?;
         Ok(ai.registry.display_candidates())
+    })
+    .await
+}
+
+/// 世帯ごとの表示の設定の案の1つの設定を、承認待ちから外す（FPがその世帯を開いて「反映する」を押し、画面がその世帯に書いた後か、「捨てる」を押したとき）。
+/// 本体は設定を変えない（反映は画面がその世帯の表示の設定に書き、自動保存で世帯ファイルに書く）
+#[tauri::command]
+pub async fn ai_household_display_take(
+    app: AppHandle,
+    id: String,
+    candidate: String,
+    setting: String,
+) -> Result<HouseholdAiView, String> {
+    blocking(app, move |ai, _| {
+        ai.registry
+            .take_household_display_change(&id, &candidate, &setting)
+            .ok_or("E_AI_CANDIDATE_UNKNOWN")?;
+        view(ai, &lock(&ai.books), &id)
     })
     .await
 }
@@ -1242,6 +1266,69 @@ mod tests {
         ] {
             assert!(v.get(k).is_none(), "{k} は返さない");
         }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 渡された世帯ごとの表示の設定の案（0213 の段B の後半）: その世帯の「同意とAIの記録」に出て、状態にはどの世帯に届いたかが出る。
+    /// 案を出したことは世帯ファイルの AIに渡した記録に残り、案そのものは世帯ファイルに書かない。設定ごとに外せ、世帯を消す前には消える
+    #[test]
+    fn household_display_proposals_reach_the_household_view() {
+        let root = root("display-household");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        let o = pc1
+            .store
+            .create(CreateRequest {
+                body: body(),
+                summary: "本人".into(),
+            })
+            .unwrap();
+        let id = o.id.clone();
+        pc1.ai.on_opened(o, "本人".into()).unwrap();
+        pc1.record(&id, "given");
+        let share = pc1.share(&id).unwrap();
+        let r: serde_json::Value = serde_json::from_str(
+            &pc1.ai
+                .registry
+                .handle_propose_share_display(
+                    &share,
+                    &serde_json::json!({ "changes": [
+                        { "id": "result.atAge", "value": 85 },
+                        { "id": "balance.health", "value": false }
+                    ] }),
+                    &ai_share::record::Caller::default(),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        let candidate = r["candidateId"].as_str().unwrap().to_owned();
+        let v = view(&pc1.ai, &lock(&pc1.ai.books), &id).unwrap();
+        assert_eq!(v.display_proposals.len(), 1);
+        assert_eq!(v.display_proposals[0].changes.len(), 2);
+        let st = pc1.ai.registry.household_display_pending();
+        assert_eq!(st.len(), 1);
+        assert_eq!(st[0].household_id, id);
+        assert_eq!(st[0].count, 2);
+        // 記録は世帯ファイルに書く（案を出したこと）。案そのもの（値・理由）は書かない
+        pc1.ai.persist_all(&pc1.store);
+        let file = file_sections(&root, &secrets, &id);
+        let text = file.to_string();
+        assert!(text.contains(&candidate), "記録の proposals に残る");
+        assert!(
+            !text.contains("balance.health"),
+            "案の中身は世帯ファイルに書かない"
+        );
+        // 設定ごとに外す（全部外れたら案ごと）
+        assert!(pc1
+            .ai
+            .registry
+            .take_household_display_change(&id, &candidate, "result.atAge")
+            .is_some());
+        let v = view(&pc1.ai, &lock(&pc1.ai.books), &id).unwrap();
+        assert_eq!(v.display_proposals[0].changes.len(), 1);
+        // 世帯を消す前には消える
+        pc1.ai.on_deleting(&id);
+        assert!(pc1.ai.registry.household_display_pending().is_empty());
         let _ = std::fs::remove_dir_all(&root);
     }
 

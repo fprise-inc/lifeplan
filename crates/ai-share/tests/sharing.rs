@@ -676,3 +676,172 @@ fn calc_reads_carry_the_office_estimates_and_record_the_same() {
         "取り消した共有では事務所の値を読まない"
     );
 }
+
+fn propose_display(
+    reg: &ShareRegistry,
+    share_id: &str,
+    p: &Value,
+    caller: &Caller,
+) -> Result<Value, (String, String)> {
+    reg.handle_propose_share_display(share_id, p, caller)
+        .map(|s| serde_json::from_str(&s).unwrap())
+        .map_err(|(c, m)| (c.as_str().to_owned(), m))
+}
+
+/// 渡された世帯の表示の設定の案（0213 の段B の後半）: 共有の決まりは世帯を扱うほかの依頼と同じで、案を出したことは記録の proposals に残る。
+/// 世帯は変えず、承認待ちは世帯ごとにメモリの中だけ（開いていない世帯にも届く。帯に出す世帯の一覧）
+#[test]
+fn household_display_proposals_follow_the_share_rules() {
+    let (reg, clock) = registry();
+    let caller = Caller {
+        mcp_client_declared: Some("Claude 1.0".into()),
+        ..Caller::default()
+    };
+    let one = json!({ "changes": [{ "id": "result.atAge", "value": 85, "note": "85歳で話す" }] });
+    // 渡していない共有
+    assert_eq!(
+        propose_display(&reg, "s-unknown", &one, &caller)
+            .unwrap_err()
+            .0,
+        "NOT_SHARED"
+    );
+    let g = reg.grant(source("salariedCoupleTwoKids"), opts()).unwrap();
+    let v = propose_display(&reg, &g.share_id, &one, &caller).unwrap();
+    assert_eq!(v["status"], "pendingReview");
+    assert_eq!(v["settings"], json!(["result.atAge"]));
+    assert!(v["message"]
+        .as_str()
+        .unwrap()
+        .contains("この道具では設定は変わりません"));
+    let id = v["candidateId"].as_str().unwrap().to_owned();
+    // 記録の proposals に残る（世帯ファイルの記録の追記だけ）
+    let rec = reg.records(HOUSEHOLD_ID);
+    assert_eq!(rec[0].proposals.len(), 1);
+    assert_eq!(rec[0].proposals[0].candidate_id, id);
+    // 世帯ごとの承認待ち・帯に出す世帯（顧客番号と呼び名）
+    let list = reg.household_display_candidates(HOUSEHOLD_ID);
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].share_id, g.share_id);
+    assert_eq!(list[0].connector.as_deref(), Some("Claude 1.0"));
+    assert_eq!(list[0].changes[0].note.as_deref(), Some("85歳で話す"));
+    assert!(reg.household_display_candidates("other").is_empty());
+    assert!(
+        reg.display_candidates().is_empty(),
+        "事務所の既定値の案とは別"
+    );
+    let pending = reg.household_display_pending();
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].customer_number.as_deref(), Some(CUSTOMER_NUMBER));
+    assert_eq!(pending[0].alias, g.alias);
+    assert_eq!(pending[0].count, 1);
+    // 同じ世帯に同じ中身がもう一度届いたら、同じ案を返す（記録にも足さない）。違う中身は別の案として並ぶ
+    let again = propose_display(&reg, &g.share_id, &one, &caller).unwrap();
+    assert_eq!(again["candidateId"], v["candidateId"]);
+    assert_eq!(reg.records(HOUSEHOLD_ID)[0].proposals.len(), 1);
+    let two = json!({ "changes": [
+        { "id": "result.atAge", "value": 90 },
+        { "id": "balance.columns", "value": [{ "point": "now" }, { "point": "age80" }] }
+    ] });
+    let v2 = propose_display(&reg, &g.share_id, &two, &caller).unwrap();
+    assert_ne!(v2["candidateId"], v["candidateId"]);
+    assert_eq!(reg.household_display_candidates(HOUSEHOLD_ID).len(), 2);
+    assert_eq!(reg.household_display_pending()[0].count, 3);
+    assert_eq!(reg.records(HOUSEHOLD_ID)[0].proposals.len(), 2);
+    // 事務所の既定値だけの設定・対策に足した項目は、世帯ごとの案にならない（何も置かない）
+    for bad in [
+        json!({ "changes": [{ "id": "result.levers", "value": ["lever:retireAge"] }] }),
+        json!({ "changes": [{ "id": "result.addedItems", "value": ["lever:retireAge"] }] }),
+        json!({ "changes": [{ "id": "input.living", "value": { "rows": [] } }] }),
+    ] {
+        let (code, msg) = propose_display(&reg, &g.share_id, &bad, &caller).unwrap_err();
+        assert_eq!(code, "INVALID", "{bad}");
+        assert!(msg.contains("渡された世帯ごとの案"), "{msg}");
+    }
+    assert_eq!(reg.household_display_candidates(HOUSEHOLD_ID).len(), 2);
+    // 世帯ごとに4件まで
+    for age in [60, 65] {
+        propose_display(
+            &reg,
+            &g.share_id,
+            &json!({ "changes": [{ "id": "result.atAge", "value": age }] }),
+            &caller,
+        )
+        .unwrap();
+    }
+    let (code, msg) = propose_display(
+        &reg,
+        &g.share_id,
+        &json!({ "changes": [{ "id": "result.atAge", "value": 70 }] }),
+        &caller,
+    )
+    .unwrap_err();
+    assert_eq!(code, "INVALID");
+    assert!(msg.contains("4件まで"), "{msg}");
+    // 設定ごとに外す（その世帯の案だけ。全部外れたら案ごと）
+    assert!(reg
+        .take_household_display_change("other", &id, "result.atAge")
+        .is_none());
+    assert!(reg
+        .take_household_display_change(HOUSEHOLD_ID, &id, "result.atAge")
+        .is_some());
+    assert!(reg
+        .take_household_display_change(HOUSEHOLD_ID, &id, "result.atAge")
+        .is_none());
+    assert_eq!(reg.household_display_candidates(HOUSEHOLD_ID).len(), 3);
+
+    // 取り消し・期限切れ・同意の撤回の共有には出せない（承認待ちの案はそのまま。FPが画面で判断する）
+    assert!(reg.revoke(&g.share_id));
+    assert_eq!(
+        propose_display(&reg, &g.share_id, &one, &caller)
+            .unwrap_err()
+            .0,
+        "REVOKED"
+    );
+    let g2 = reg.grant(source("salariedCoupleTwoKids"), opts()).unwrap();
+    clock.advance_ms(60 * 60 * 1000);
+    assert_eq!(
+        propose_display(&reg, &g2.share_id, &one, &caller)
+            .unwrap_err()
+            .0,
+        "EXPIRED"
+    );
+    let g3 = reg.grant(source("salariedCoupleTwoKids"), opts()).unwrap();
+    assert_eq!(reg.withdraw_consent(HOUSEHOLD_ID), 1);
+    assert_eq!(
+        propose_display(&reg, &g3.share_id, &one, &caller)
+            .unwrap_err()
+            .0,
+        "REVOKED"
+    );
+    assert_eq!(reg.household_display_candidates(HOUSEHOLD_ID).len(), 3);
+    // 世帯を消す前・AI接続口をオフにしたときは外す
+    reg.forget_household_display(HOUSEHOLD_ID);
+    assert!(reg.household_display_candidates(HOUSEHOLD_ID).is_empty());
+    assert!(reg.household_display_pending().is_empty());
+}
+
+/// 架空の世帯は、同意の記録が無くても渡せて、表示の設定の案も出せる（期限・取り消し・記録は同じ）
+#[test]
+fn fictional_households_take_display_proposals_without_consent() {
+    let (reg, _) = registry();
+    reg.require_consent(true);
+    let mut src = source("single25");
+    src.external_ai_consent = None;
+    src.fictional = true;
+    let g = reg.grant(src, opts()).unwrap();
+    let v = propose_display(
+        &reg,
+        &g.share_id,
+        &json!({ "changes": [{ "id": "balance.health", "value": false }] }),
+        &Caller::default(),
+    )
+    .unwrap();
+    assert_eq!(v["status"], "pendingReview");
+    assert_eq!(
+        reg.records(HOUSEHOLD_ID)[0].consent_at_grant.state,
+        "fictional"
+    );
+    assert_eq!(reg.records(HOUSEHOLD_ID)[0].proposals.len(), 1);
+    reg.clear_display_candidates();
+    assert!(reg.household_display_candidates(HOUSEHOLD_ID).is_empty());
+}

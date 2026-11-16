@@ -194,6 +194,9 @@ async fn serve(
             Request::ProposeDisplay { proposal } => {
                 registry.handle_propose_display(proposal, &caller)
             }
+            Request::ProposeShareDisplay { share_id, proposal } => {
+                registry.handle_propose_share_display(share_id, proposal, &caller)
+            }
             Request::GetShareDisplay { share_id, tool } => {
                 registry.handle_get_display(share_id, tool, &caller)
             }
