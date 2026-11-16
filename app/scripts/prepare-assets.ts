@@ -7,7 +7,8 @@
 // 5. 画面の定義から、説明の一覧（書き換えられる公式の文。0016 の 2026-11-01・2026-11-02 の追記）を src/generated/texts-catalog.json に作る（本体が埋め込む）
 // 6. 受け取った書類の PDF を描く pdf.js の文字の形（CMap・標準のフォント）を public/pdfjs/ に写す（画面と同梱。外へ通信しない。0191）
 // 7. AI接続口に同梱する「数字の根拠」の読み方（src/connector/explain.ts）を crates/lifeplan/dist/explain.js にまとめる（scripts/build-explain.ts。0183）
-// 8. 学校の一覧（data/schools の schools.csv と aliases.yaml。0217）を、子ども・教育の学校名の欄が遅れて読む src/generated/schools.data.js にする
+// 8. 学校の一覧（data/schools の schools.csv と aliases.yaml。0217）と、学部・学科の一覧・学校別の学費（data/schools/departments.yaml・data/tuition。0219）を、
+//    子ども・教育の学校名の欄が遅れて読む src/generated/schools.data.js にする
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
@@ -141,11 +142,16 @@ if (!existsSync(distTarget) || readFileSync(distTarget, "utf8") !== distText) wr
   const sl = await import("./schoolList.ts");
   const { rows, aliases, pack } = sl.readSchoolPack(join(REPO_DIR, "data", "schools"));
   const { errors } = sl.checkSchoolRows(rows, aliases);
+  // 学部・学科の一覧と学校別の学費（0219）。省令の上限の外の額などは読み違いとして止める
+  const td = await import("./tuitionData.ts");
+  const tuition = td.readTuitionPack(join(REPO_DIR, "data", "tuition"));
+  const departments = td.readDepartments(join(REPO_DIR, "data", "schools"));
+  errors.push(...td.checkTuition(tuition.schools, departments, rows, tuition.pack).errors);
   if (errors.length > 0) {
-    console.error(`data/schools の誤り:\n${errors.slice(0, 20).join("\n")}`);
+    console.error(`data/schools・data/tuition の誤り:\n${errors.slice(0, 20).join("\n")}`);
     process.exit(1);
   }
-  const mod = sl.schoolBundleModule(sl.buildSchoolBundle(rows, aliases, { version: pack.version, edition: pack.edition }));
+  const mod = sl.schoolBundleModule(sl.buildSchoolBundle(rows, aliases, { version: pack.version, edition: pack.edition }, td.tuitionBundle(tuition.schools, departments, tuition.pack)));
   const schoolsTarget = join(APP_DIR, "src", "generated", "schools.data.js");
   if (!existsSync(schoolsTarget) || readFileSync(schoolsTarget, "utf8") !== mod) writeFileSync(schoolsTarget, mod);
   const dts = "// 自動生成（scripts/prepare-assets.ts）。学校の一覧の型（src/workspace/input/schools.ts の SchoolBundle）\nimport type { SchoolBundle } from \"../workspace/input/schools.ts\";\ndeclare const bundle: SchoolBundle;\nexport default bundle;\n";

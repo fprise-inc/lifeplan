@@ -112,16 +112,21 @@ function amountField(wh: WorkingHousehold, b: RetirementBenefit, prefix: string,
             : "定年の時点の額か、今辞めた場合の額かを確かめて写してください。0円は「該当なし」か0円と入れたときだけです",
     hint: (w) => amountHint(w, b.id),
   });
+  // 目安の退職一時金の出どころ（制度のある会社の平均）は欄の横に出さず、「推定」の印の吹き出しの頭に置く
+  const withSource: FieldDef = lumpEst ? { ...f, get: (w) => ({ ...f.get(w), estimateSource: LUMP_SOURCE }) } : f;
   // 勤め先がパートなどに変わったのに、FP が入れた退職一時金が残っている（前の勤め先の退職金として残す。文書の3-5）
   const kept = b.kind === "lumpSum" && p !== undefined && !ESTIMATE_FOR_WARN.has(p.type) && b.amount !== undefined && !isEstimateBox(b.amount) && !isUnenteredBox(b.amount);
   const warn = kept ? `勤め先の働き方が「${EMPLOYMENT_TYPES.find((o) => o.value === p.type)?.label ?? p.type}」になっています。前の勤め先の退職金として残しています` : null;
   // 見込み額は会社の規程・制度の資料で確かめる値（「書類で確かめる」を出す。0041 の追記 2026-10-31）
-  const g: FieldDef = { ...f, docCheck: CHECK_DOCUMENTS.retirement };
+  const g: FieldDef = { ...withSource, docCheck: CHECK_DOCUMENTS.retirement };
   return withAddress(warn === null ? g : { ...g, get: (w) => ({ ...g.get(w), warn }) }, benefitAt(b.id, "retirementBenefit.amount"));
 }
 
+/** 目安の退職一時金の推定の出どころ（「推定」の印の吹き出しの頭。全部の根拠は就労条件総合調査の文） */
+export const LUMP_SOURCE = "制度のある会社の平均（厚生労働省の調査）";
+
 /**
- * 見込み額の欄の横の1行: 目安の退職一時金は前提（勤続年数と期間・辞め方・制度のある会社の平均）、役員退職慰労金の見込みの計算は式と額
+ * 見込み額の欄の横の1行: 目安の退職一時金は前提（勤続年数と期間・辞め方。出どころの「制度のある会社の平均」は印の吹き出しの頭）、役員退職慰労金の見込みの計算は式と額
  * （最終報酬月額×在任年数×功績倍率。エンジンの retirement.benefit と同じく在任の月数を年に切り上げる）、公務員の退職手当は計算中の旨
  */
 export function amountHint(wh: WorkingHousehold, id: string): string | null {
@@ -134,7 +139,7 @@ export function amountHint(wh: WorkingHousehold, id: string): string | null {
     const span = spanOf(h, m, x, p);
     if (span === null || lumpEstimate(h, x) === null) return null;
     const reason = REASON_TEXT[endingOf(h, m, p)] ?? "自己都合";
-    return `勤続${span.years}年（${formatYearMonth(span.from)}〜${formatYearMonth(span.to)}）・${reason}・制度のある会社の平均`;
+    return `勤続${span.years}年（${formatYearMonth(span.from)}〜${formatYearMonth(span.to)}）・${reason}`;
   }
   if (x.amount !== undefined || !COMPUTED.has(x.kind)) return null;
   if (x.kind === "officerAllowance") {

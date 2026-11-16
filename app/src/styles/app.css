@@ -497,6 +497,8 @@ html.big .lever input[type="range"] { height: 36px; }
 /* 事務所の推定の値から作った推定（0111 の追記 2026-11-03）: 文字は変えず、点線の下線だけ（根拠の「?」の中に1行） */
 .badge.office { text-decoration: underline dotted; text-underline-offset: 2px; }
 .est-office { font-size: 0.78rem; color: var(--ink-2); margin-top: 4px; }
+/* 「推定」の印の吹き出しの頭（推定のもと: 出どころ）。出どころが一目でわかるように太く */
+.est-basis .est-src { font-weight: 700; }
 .badge.unk { color: var(--est-ink); }
 .badge.na { color: var(--ink-2); }
 .badge.missing { color: var(--short-ink); }

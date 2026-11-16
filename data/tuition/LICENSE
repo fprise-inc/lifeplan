@@ -1,0 +1,5 @@
+学校別の学費（master.education.tuition）のライセンス
+
+national.yaml（国立大学の入学料・授業料）は、各大学の公式の案内（入学料・授業料の案内・授業料の改定のお知らせ・募集要項）から
+数値だけを取り出し、FPRISE, INC. が入学年度の区間ごとに整理したもの。CC0 1.0 Universal（https://creativecommons.org/publicdomain/zero/1.0/legalcode）。
+各大学のページの文章・表の写しは含まない。出典（URL・題名・取得日・原本の指紋）は学校ごとの sources にある。
