@@ -58,9 +58,36 @@ export const PAGE_HELPERS = String.raw`
     if (named[n]) return named[n];
     return "欄が見つかりません: " + label + "（" + all(".fld", root).map((l) => txt(l).slice(0, 16)).join(" | ") + "）";
   }
+  /** 打つ欄として探した欄（browser.ts が、選択がこの欄にあるか・打った文字がこの欄に入ったかを確かめる） */
   function field(label, nth, group) {
     const el = inputOf(label, nth, group);
-    return typeof el === "string" ? el : center(el);
+    if (typeof el === "string") return el;
+    window.__wtField = el;
+    return center(el);
+  }
+  const fieldFocused = () => { const el = window.__wtField; return !!el && el.isConnected && document.activeElement === el; };
+  const fieldValue = () => { const el = window.__wtField; return el && el.isConnected ? el.value : null; };
+  // スクロールの出来事を数える（どの要素のスクロールも。なめらかなスクロールは描画のたびに出る）
+  let scrolls = 0;
+  document.addEventListener("scroll", () => { scrolls++; }, { capture: true, passive: true });
+  /** 次の描画を待つ（描画が止まっている画面でも止まらないように、100ミリ秒で先へ進む） */
+  const frame = () => new Promise((r) => { requestAnimationFrame(() => r()); setTimeout(r, 100); });
+  /**
+   * 画面が落ち着くまで待つ: 次の描画の後に頼まれた処理（「＋」で足した物を見える所へなめらかにスクロールし、最初の欄に選択を移す。
+   * presentation/revealAdded.ts）が済み、スクロールが3回の描画のあいだ止まるまで（上限 ms）。止まったら true
+   */
+  async function quiet(ms) {
+    const t0 = performance.now();
+    await frame();
+    await frame();
+    let seen = scrolls;
+    let still = 0;
+    while (still < 3 && performance.now() - t0 < ms) {
+      await frame();
+      if (scrolls === seen) still++;
+      else { still = 0; seen = scrolls; }
+    }
+    return still >= 3;
   }
   function choose(label, option, nth, group) {
     const el = inputOf(label, nth, group);
@@ -80,6 +107,6 @@ export const PAGE_HELPERS = String.raw`
     return "ok";
   }
   const focusCovered = () => { const el = window.__wtCovered; window.__wtCovered = null; if (!el) return false; el.focus(); return document.activeElement === el; };
-  window.__wt = { focusCovered, vis, txt, all, panel, dialog, target, field, choose, panelText: () => { const p = panel(); return p ? txt(p) : ""; } };
+  window.__wt = { focusCovered, fieldFocused, fieldValue, quiet, vis, txt, all, panel, dialog, target, field, choose, panelText: () => { const p = panel(); return p ? txt(p) : ""; } };
 })();
 `;
