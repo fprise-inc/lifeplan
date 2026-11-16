@@ -153,7 +153,12 @@ export interface EmploymentPeriodInput {
     readonly growth?: { readonly curve: string; readonly rate?: undefined } | { readonly rate: string; readonly curve?: undefined };
   };
   /** 事業所得。growth.rate はこの期間の増減率（年。省略は賃金上昇率。0040） */
-  readonly business?: { readonly income: ValueBox<Yen>; readonly growth?: { readonly rate: string } };
+  readonly business?: {
+    readonly income: ValueBox<Yen>;
+    readonly growth?: { readonly rate: string };
+    /** 個人事業税の業種の区分（省略は第1種。none は法定業種でない＝課税なし） */
+    readonly businessTaxClass?: "class1" | "class2" | "class3" | "class3Reduced" | "none";
+  };
   readonly childcareShortHours?: { readonly child: string; readonly wageBefore?: ValueBox<Yen> };
   readonly standardMonthlyRemuneration?: { readonly health: ValueBox<Yen>; readonly pension: ValueBox<Yen> };
   readonly endsOnMonthEnd?: boolean;

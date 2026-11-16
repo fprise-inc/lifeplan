@@ -5,7 +5,7 @@
       "description": "表示の設定の案の1件（0215）",
       "properties": {
         "id": {
-          "description": "設定の id（get_display_settings の id。案を出せるのは proposable が true の7つ: input.order・input.items・input.living・\nresult.levers・contingency.premises・contingency.scenes・contingency.openScene）",
+          "description": "設定の id（get_display_settings の id。案を出せるのは proposable が true の18件: input.order・input.items・input.living・\nresult.levers・contingency.premises・contingency.scenes・contingency.openScene と、結果のタブ・資産と負債のタブの表示の設定の事務所の既定値\nresult.metrics・result.atAge・result.layout・result.invBreakdown・result.invPeriods・balance.health・balance.guide・balance.points・\nbalance.moneyThree.wording・balance.moneyThree.months・balance.moneyThree.years）",
           "type": "string"
         },
         "note": {
@@ -31,7 +31,7 @@
   "additionalProperties": false,
   "properties": {
     "changes": {
-      "description": "変える設定の案（1〜7件。同じ設定は1回だけ。変えたい設定だけを書く）",
+      "description": "変える設定の案（1〜18件。同じ設定は1回だけ。変えたい設定だけを書く）",
       "items": {
         "$ref": "#/$defs/DisplayChangeArg"
       },

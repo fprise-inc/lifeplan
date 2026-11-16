@@ -45,7 +45,7 @@
 
 | 部品 | 分け方 | 理由 |
 |---|---|---|
-| `incomeTax.annual`・`residentTax.annual`・`residentTax.exemption`・`tax.deductions`・`tax.dependentDeduction`・`tax.spouseDeduction`・`tax.employmentIncome`・`tax.publicPensionIncome`・`tax.retirementIncome`・`tax.realEstateSale`・`tax.lossCarryforward`・`tax.housingLoanCredit`・`tax.housingLoanCreditYears`・`tax.socialInsurancePaid`・`tax.totalIncome`・`tax.totalIncomeBase`・`tax.incomeOrder`・`tax.incomeWithin`・`tax.survivorStatus`・`insurance.income`・`gift.tax`・`inheritance.estimate` | 法律・制度 | 所得税法・地方税法・租税特別措置法・相続税法で決まる税の計算と、その判定（所得の大小・上限・寡婦とひとり親） |
+| `incomeTax.annual`・`residentTax.annual`・`residentTax.exemption`・`tax.deductions`・`tax.dependentDeduction`・`tax.spouseDeduction`・`tax.employmentIncome`・`tax.publicPensionIncome`・`tax.retirementIncome`・`tax.businessTax`・`tax.realEstateSale`・`tax.lossCarryforward`・`tax.housingLoanCredit`・`tax.housingLoanCreditYears`・`tax.socialInsurancePaid`・`tax.totalIncome`・`tax.totalIncomeBase`・`tax.incomeOrder`・`tax.incomeWithin`・`tax.survivorStatus`・`insurance.income`・`gift.tax`・`inheritance.estimate` | 法律・制度 | 所得税法・地方税法・租税特別措置法・相続税法で決まる税の計算と、その判定（所得の大小・上限・寡婦とひとり親） |
 | `asset.realEstate` | 法律・制度 | 家賃・空室は入力と目安だが、主な中身は減価償却と不動産所得（所得税法）の計算。目安の値は事務所の推定の値で変える |
 | `asset.heldSale` | 法律・制度 | 貸していない不動産・その他の資産の売る予定。中身は取得費・所有期間・税の扱い（所得税法・租税特別措置法）の判定（0123） |
 | `socialInsurance.coverage`・`socialInsurance.employeeStatus`・`socialInsurance.healthStatus`・`socialInsurance.health`・`socialInsurance.pension`・`socialInsurance.employment`・`socialInsurance.nationalHealth`・`socialInsurance.nationalPension`・`socialInsurance.continuation`・`socialInsurance.lateElderly`・`socialInsurance.careFirst` | 法律・制度 | 健康保険法・厚生年金保険法・雇用保険法・国民健康保険法・国民年金法・高齢者医療確保法・介護保険法で決まる資格・標準報酬・保険料。これまでテストのために付けていた3つの `replaceable` も外した |
@@ -134,3 +134,4 @@
   - **決めたこと**: 4 の5 を「顧客が見る面（提案書の印刷される面・提示層）には、標準の計算と違うことを出さない」に決めた（0016 の8 の決定のまま）。前に案として書いた「提案書の前提の注記に、差し替えた部品ごとに『担当の FP の計算方法で計算しています』の1行をアプリが付ける」は作らない。FP 向けの画面（案の一覧の小さな印・結果のタブの計算のお知らせの1行・「公式の計算と比べる」）、根拠の表示（「事務所の計算」）、結果の見出し（`origin: "replacement"` と指紋）、控えと PDF の印刷されない内部情報には、これまでどおり必ず残す（4 の1〜4。FP は消せない）。
   - **理由**: 差し替えを許すのは、推定・目安・FP の考え方・事務所や勤め先の決まりの部品だけ（1）で、どれも FP が自分の考え方として顧客に説明する数字になる。顧客の見る面に「標準と違う」と出すと、FP の考え方が誤りのように見え、説明の妨げになる（0016 の8 の「カスタム計算あり」の印を出さない理由と同じ）。法律・制度の計算は差し替えられない（1・2）ので、制度の数字が黙って変わることは無い。FP が違いを知らずに渡すことは、1〜4 の印と「公式の計算と比べる」で防ぐ。
   - **影響**: 帳票・提示層・必須の記載は変えない（作るものは無い）。SDK の文書（`sdk/docs/extension-points.md` の「公式の計算と違うことの見せ方」）の「検討中」を、この決定の文に直した。設計記録の索引（README）の未確定の要点から外した。計算の結果は変わらない。
+- 2026-11-15: 個人事業税の部品 `tax.businessTax`（0155 の追記）を、差し替えを許さない部品（法律・制度）に足した（地方税法で決まる税の計算）。

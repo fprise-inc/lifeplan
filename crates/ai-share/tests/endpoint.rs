@@ -376,9 +376,9 @@ async fn display_proposals_wait_for_the_fp() {
     let again: Value = serde_json::from_str(&propose(two).await.unwrap()).unwrap();
     assert_eq!(again["candidateId"], v["candidateId"]);
     assert_eq!(reg.display_candidates().len(), 1);
-    // 案を出せない設定（世帯ごと・読むだけ）・形の違うもの
+    // 案を出せない設定（世帯だけ・読むだけ）・形の違うもの
     for bad in [
-        serde_json::json!({ "changes": [{ "id": "balance.guide", "value": {} }] }),
+        serde_json::json!({ "changes": [{ "id": "balance.columns", "value": [] }] }),
         serde_json::json!({ "changes": [{ "id": "features.combinedBs", "value": true }] }),
         serde_json::json!({ "changes": [] }),
         serde_json::json!({ "changes": [{ "id": "input.living", "value": { "rows": [{ "kind": "group", "label": "あ".repeat(21), "categories": ["food", "utilities"] }] } }] }),

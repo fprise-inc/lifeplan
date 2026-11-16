@@ -44,6 +44,19 @@
           "serviceTo": {
             "$ref": "urn:financia:schema:common#/$defs/yearMonth"
           },
+          "servicePeriods": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["from", "to"],
+              "properties": {
+                "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+                "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+              }
+            }
+          },
           "officerFrom": {
             "$ref": "urn:financia:schema:common#/$defs/yearMonth"
           },

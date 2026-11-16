@@ -1655,10 +1655,26 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 /* 事務所の既定値（0073） */
 .os-panel { max-width: 720px; }
 .os-sec { margin: 14px 0 0; }
+/* 目次: 意味のまとまりの組ごとに見出しを付けてリンクを縦に並べる。広い幅では組を横に並べ、狭い幅では1列 */
+.os-toc { margin: 8px 0 4px; padding: 8px 12px; border: 1px solid var(--line-2); border-radius: var(--radius); font-size: 0.86rem; }
+.os-toc-title { margin: 0 0 4px; font-weight: 700; font-size: 0.88rem; }
+.os-toc-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 8px 20px; }
+.os-toc-h { margin: 0 0 2px; font-size: 0.8rem; font-weight: 700; color: var(--ink-2); }
+.os-toc-group ul { list-style: none; margin: 0; padding: 0; }
+.os-toc-group li { margin: 1px 0; line-height: 1.35; }
+.os-toc-group .link-btn { text-align: left; }
 .os-sec h3 { font-size: 0.96rem; margin: 0 0 6px; }
 .os-cards { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 20px; }
 .os-cards li { display: flex; gap: 8px; align-items: center; padding: 3px 0; break-inside: avoid; font-size: 0.88rem; }
 .os-name { flex: 1; }
+/* 事務所の既定値のチェックボックスの一覧（対策・想定の前提・入力項目）: 名前は縮めず、チェックボックスと同じ行に置く。
+   右の説明・切り替えが同じ行に入らないときは、名前の下の行へ回して説明の側を折り返す（文字の大きさ「大」・狭い幅でも崩さない） */
+.os-items li { flex-wrap: wrap; row-gap: 2px; }
+.os-items .os-show { flex: 1 0 auto; max-width: 100%; flex-wrap: nowrap; }
+.os-items .os-show > input { flex: none; }
+.os-items .os-show > .os-name { flex: 0 1 auto; min-width: 0; }
+.os-items li > .os-note { flex: 0 1 auto; min-width: 0; margin-left: auto; text-align: right; }
+.os-items li > .level-switch { flex: none; margin-left: auto; }
 .os-radio { display: flex; gap: 6px; align-items: baseline; font-size: 0.88rem; margin: 3px 0; }
 .os-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 16px; }
 .os-pct { display: grid; gap: 2px; font-size: 0.88rem; }
@@ -1859,3 +1875,11 @@ html.big .help-pop { font-size: 0.92rem; }
 .os-lv-preview tr.sub th, .os-lv-preview tr.sub td { color: var(--ink-2); font-size: 0.82rem; }
 .os-lv-preview tr.total th, .os-lv-preview tr.total td { font-weight: 700; border-bottom: none; }
 .os-lv-hidden { display: inline-flex; gap: 4px; margin-left: 8px; }
+/* 表示の設定の「事務所の既定値」「この世帯だけ」の印（0213 の段C。前提条件の欄の印と同じ見た目） */
+.ds-office { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-weight: 400; }
+.ds-office .link-btn { font-size: 0.78rem; }
+.ds-marks { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 8px; font-size: 0.85rem; color: var(--ink-2); }
+.ds-marks > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.os-sec h4.os-sub { margin: 12px 0 4px; font-size: 0.92rem; }
+[data-office-display] .os-pct select { justify-self: start; width: auto; }
+[data-office-display] .os-pct { flex: 1 1 260px; }
