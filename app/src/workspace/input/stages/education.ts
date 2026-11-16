@@ -12,7 +12,7 @@
 //   子を決めていない教育のお金の行は、カードの後ろの区画
 // - 保育園（0〜2歳）は「通う・通わない」と通い始めを標準で聞き、保育料は月額を入れなければ収入から自動で計算する（目安。0029）。
 //   共働き・働くひとり親の世帯は、推定の進路で通う（2026-11-14）。詳細で施設の種類・自治体の独自の無償化・延長保育を入れる
-// - 学校名から学費を出す検索は、学校のデータを同梱してから（今は「学校未定（平均で計算）」だけ）
+// - 学校名は学校の一覧（文部科学省の学校コード一覧）から探して選ぶ（schoolField.ts。0217）。学費の実データはまだ無いので、選んでも平均で計算する
 import type { EducationAbroad, EducationLesson, EducationLoan, EducationScholarship, EducationStage, Goal, Household, IncomeFlow, IncomeFlowKind, Member, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
 import { schoolEntryYear } from "../../present.ts";
 import { addMonths, ageAt } from "../../levers.ts";
@@ -25,6 +25,7 @@ import { addIncome, expenseCard, incomeCard, incomeGroups, incomeMoreLabel, mone
 import { boardingStatistic, estimateYen, examStatistic, INTERNATIONAL_MISSING, KOSEN_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, STAGE_START_AGE, stagePeriod, stageStatistic, stageYears, VOCATIONAL_GUIDE } from "../educationCost.ts";
 import { masterAmount, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { childOfPeriodic } from "./events.ts";
+import { departmentField, schoolNameField, showsSchoolField } from "../schoolField.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS, WORDS } from "../labels.ts";
 import type { Address } from "../../store/readings.ts";
 import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
@@ -841,20 +842,14 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   if (isK12(s.stage)) fields.push(...k12Fields(goalId, i, s, key, find, sid, outChoice));
   // 高専・大学・短大・専門学校の学校外の費用（月額）。統計の平均が無いので空欄は0円。「学校ごとに入れる」のときは標準
   if (isOtherOutStage(s.stage) && !rowsMode) fields.push({ ...otherOutField(key, find, s, outChoice === "custom" ? "simple" : "detail"), ...stageAddress(goalId, sid, "outOfSchool", "monthly") });
-  fields.push(
-    field({
-      key: `${key}/school`,
-      item: "goal.education",
-      label: "学校名",
-      level: "detail",
-      kind: "select",
-      options: [{ value: "", label: "学校未定（平均で計算）" }],
-      help: "学費は、進路の型と統計の平均で計算します（学校名からの検索はまだありません）",
-      readOnly: "学校名からの検索はまだありません",
-      get: (w) => ({ value: "", hint: getPath(find(w.request.input.household, w), ["school"]) !== undefined ? "学費データの行が入っています" : null }),
-      set: (w) => w,
-    }),
-  );
+  // 学校名（学校の一覧から探して選ぶ。学部・学科の一覧がある学校は学部・学科も。0217）
+  if (showsSchoolField(s.stage)) {
+    const childOf = (wh: WorkingHousehold) => (wh.request.input.household.goals ?? []).find((g) => g.id === goalId)?.owner;
+    fields.push(schoolNameField({ key: `${key}/school`, find, childOf, after: (prev, next, wh) => dropStaleEstimates(prev, next, lunchNow(wh)) }));
+    const code = typeof (s.school as { school?: unknown } | undefined)?.school === "string" ? ((s.school as { school: string }).school) : null;
+    const dep = departmentField({ key: `${key}/unit`, find, code });
+    if (dep !== null) fields.push(dep);
+  }
   // 在学年数: 標準が1つに決まる段はその年数を最初から見せる（省略時の既定）。決まらない段（専門学校）は推定
   const years = plain({ key: `${key}/years`, item: "goal.education", label: s.stage === "kindergarten" ? "通う年数" : "在学年数", level: "detail", kind: "int", suffix: "年", min: 1, max: 6, find, path: ["years"], optional: true, ...(YEARS_VARY[s.stage] === undefined ? { fallback: stageYears({ ...s, years: undefined }) } : {}), help: yearsHelp(s.stage) });
   const vary = YEARS_VARY[s.stage];
@@ -1023,11 +1018,24 @@ function k12Fields(goalId: string, i: number, s: EducationStage, key: string, fi
     const club = masterAmount(`education.statistics.${s.stage}.${sec}.extracurricular`);
     out.push({
       ...withEstimate(
-        plain({ key: `${key}/club`, item: "goal.education", label: "うち部活動など（年額）", level: "detail", kind: "yen", basis: "annual", find, path: ["clubAnnual"], optional: true, help: CLUB_HELP }),
+        plain({
+          key: `${key}/club`,
+          item: "goal.education",
+          label: "部活動などの費用（年額）",
+          level: "detail",
+          kind: "yen",
+          basis: "annual",
+          find,
+          path: ["clubAnnual"],
+          optional: true,
+          help: CLUB_HELP,
+          // 欄の横の1行: 学校の費用の内訳の一部か（統計の平均の段階）、学校の費用の年額に足す額か（年額を入れた段階）
+          hint: (v, wh) => (v === null ? null : stageNow(wh)?.annualOverride !== undefined ? CLUB_ADDED : CLUB_INCLUDED),
+        }),
         (wh) => {
           const st = stageNow(wh);
           if (club === null || st?.annualOverride !== undefined) return null;
-          return { value: club, basis: CLUB_BASIS, hint: `年${manText(club)}（推定・学校の費用に含む）`, blankHint: "統計の平均（文部科学省の調査）・学校の費用に含む" };
+          return { value: club, basis: CLUB_BASIS, hint: `年${manText(club)}（推定・${CLUB_INCLUDED}）`, blankHint: CLUB_INCLUDED };
         },
       ),
       ...stageAddress(goalId, sid, "clubAnnual"),
@@ -1038,10 +1046,15 @@ function k12Fields(goalId: string, i: number, s: EducationStage, key: string, fi
 
 const OUT_OF_SCHOOL_BASIS = "統計の平均。塾・家庭教師などの補助学習費と、習い事・体験などのその他の学校外活動費を足したもの（文部科学省「子供の学習費調査」令和5年度）を12で割った額";
 const CLUB_BASIS = "統計の平均の教科外活動費（部活動・クラブ活動・行事など。文部科学省「子供の学習費調査」令和5年度）。学校の費用に含めて数えています";
+const CLUB_INCLUDED = "学校の費用に含まれます";
+const CLUB_ADDED = "学校の費用の年額に足します";
+// 計算エンジン（education.cost の改訂5）と同じ動き: 統計の平均の段階は学校の費用の中の教科外活動費と入れ替え、学校の費用の年額を入れた段階はその年額に足す
 const CLUB_HELP =
-  "部活動・クラブ活動の部費・遠征・用具などの年額です。推定は子供の学習費調査の教科外活動費（部活動をしていない生徒も含めた平均。学校の費用に含めて数えています）。" +
-  "額を入れると、学校の費用の中の教科外活動費をその額に入れ替えます（学校の費用の年額を入れた段階は、その年額に足します）。" +
-  "目安: 中学生の運動部の家庭の支出は平均で年約5.1万円（公益財団法人笹川スポーツ財団「中学生のスポーツ活動と保護者の関与に関する調査」2025年）";
+  "部活動・クラブ活動の部費・遠征・用具などにかかる年額です。\n" +
+  "空欄のときは、学校の費用の推定に、全国の平均の分がすでに入っています。欄に灰色で出ている額がその分です。部活動をしていない生徒も含めた平均です（文部科学省「子供の学習費調査」の教科外活動費）。\n" +
+  "額を入れると、学校の費用の推定の中の平均の分を、入れた額に置き換えます。学校の費用の合計は、入れた額と平均の差だけ増えるか減ります。\n" +
+  "学校の費用（年額）を自分で入れた段階では、この額をその年額に足します。学校の費用に部活動の分も含めて入れたときは、ここは空けてください。\n" +
+  "目安: 中学生の運動部の家庭の支出は平均で年約5.1万円です（公益財団法人笹川スポーツ財団「中学生のスポーツ活動と保護者の関与に関する調査」2025年）。";
 
 /**
  * 保育料の自動の計算のしかた（段の見出しの下の注記。計算エンジンの education.nurseryFee と同じ決まり。0029）。国の基準の額は推定の目安の写しの

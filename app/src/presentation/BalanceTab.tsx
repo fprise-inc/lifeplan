@@ -5,6 +5,7 @@
 // 図の読み方・その年の解説は FP が口頭でする前提で、図の下に要約・解説の文は置かない。
 // このタブの表示の設定（図の見出しの右の「表示の設定」。結果のタブの表示の設定とは別）: 時点を並べるときの既定の時点と、家計の体力の目安を表示するか・目安の幅。
 // 家計の体力の目安を表示しない（model.health が false）ときは、図の下の区画も「目安の幅を変える」の入口も出さない（0027 の 2026-11-13 の追記）
+import { OfficeMark, type OfficeMarks } from "./OfficeMark.tsx";
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BsFigure, useBoxSize } from "./BsFigure.tsx";
@@ -44,6 +45,8 @@ export interface BalanceTabProps {
   moneyThree?: { model: MoneyThreeModel | null; onSettings: (s: Partial<MoneyThreeSettings>) => void; flash: number; nameChoices: readonly MoneyThreeNameChoice[] };
   /** カスタマイズで足した見るものの欄を変えた（view は見るものの鍵、id は欄の ID、value は欄の文字。読めない値なら false を返す。0107） */
   onCustomField?: (view: string, id: string, value: string) => boolean;
+  /** このタブの表示の設定の「事務所の既定値」「この世帯だけ」の印（0213 の段C。省略すると出さない） */
+  officeMarks?: OfficeMarks;
   /** 画面の確かめ用の最初の状態（open: "combined" はカスタマイズで足した最初の見るものを開く。足したものが無ければ家計のバランスシート） */
   initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean; settings?: boolean };
 }
@@ -113,7 +116,7 @@ function useFitHeight(head: { current: HTMLElement | null }, bar: { current: HTM
   return h;
 }
 
-export function BalanceTab({ model, band, onPrev, onGuide, onHealth, onColumns, onPointDefaults, moneyThree, onCustomField, initial }: BalanceTabProps) {
+export function BalanceTab({ model, band, onPrev, onGuide, onHealth, onColumns, onPointDefaults, moneyThree, onCustomField, officeMarks, initial }: BalanceTabProps) {
   // 見るもの: 家計のバランスシート（"home"）か、カスタマイズで足した見るもの（その key）
   const [subKey, setSub] = useState<string>(initial?.open === "combined" ? (model.customViews[0]?.key ?? "home") : "home");
   const custom = model.customViews.find((c) => c.key === subKey) ?? null;
@@ -257,6 +260,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onHealth, onColumns, 
                   {...(onHealth !== undefined ? { onHealth } : {})}
                   onPointDefaults={onPointDefaults}
                   {...(moneyThree?.model != null ? { moneyThree: { value: moneyThree.model.settings.wording, choices: moneyThree.nameChoices, onChange: (n: MoneyThreeWording) => moneyThree.onSettings({ wording: n }) } } : {})}
+                  {...(officeMarks !== undefined ? { office: officeMarks } : {})}
                   onClose={() => setSettingsOpen(false)}
                 />
               </div>
@@ -521,8 +525,12 @@ const GUIDE_BASES: readonly { key: BsGuideBasis; label: string }[] = [
   { key: "livingLoan", label: "生活費＋ローン返済の何か月分" },
 ];
 
-function GuideEditor({ guide, basisDefault, onGuide }: { guide: BsGuide; basisDefault: BsGuideBasis; onGuide: (g: BsGuide) => void }) {
-  const basis = guide.basis ?? basisDefault;
+/**
+ * 家計の体力の目安の幅の欄。auto を渡すと分母に「世帯から決める」も出す（事務所の既定値の画面。0213 の段C。選ぶと分母を持たない）。
+ * name は分母のラジオの名前（同じ画面に2つ出すときに分ける）
+ */
+export function GuideEditor({ guide, basisDefault, onGuide, auto, name = "bs-guide-basis" }: { guide: BsGuide; basisDefault: BsGuideBasis; onGuide: (g: BsGuide) => void; auto?: string; name?: string }) {
+  const basis = guide.basis ?? (auto !== undefined ? "auto" : basisDefault);
   const num = (v: string, def: number) => {
     const x = Number(v);
     return Number.isFinite(x) && x >= 0 ? x : def;
@@ -543,9 +551,26 @@ function GuideEditor({ guide, basisDefault, onGuide }: { guide: BsGuide; basisDe
       <p>家計の体力の目安で、ゲージに帯で見せる幅です（最初の値: 6〜12か月分・10〜40%・50%未満）。</p>
       <div class="hg-row" role="radiogroup" aria-label="すぐ使えるお金の分母">
         すぐ使えるお金を
+        {auto !== undefined ? (
+          <label class="hg-f">
+            <input
+              type="radio"
+              name={name}
+              value="auto"
+              checked={basis === "auto"}
+              onChange={() => {
+                const { basis: _b, ...rest } = guide;
+                void _b;
+                onGuide(rest);
+              }}
+              data-guide-basis="auto"
+            />
+            <span>{auto}</span>
+          </label>
+        ) : null}
         {GUIDE_BASES.map((b) => (
           <label key={b.key} class="hg-f">
-            <input type="radio" name="bs-guide-basis" value={b.key} checked={basis === b.key} onChange={() => onGuide({ ...guide, basis: b.key })} data-guide-basis={b.key} />
+            <input type="radio" name={name} value={b.key} checked={basis === b.key} onChange={() => onGuide({ ...guide, basis: b.key })} data-guide-basis={b.key} />
             <span>{b.label}</span>
           </label>
         ))}
@@ -886,6 +911,7 @@ export function BalanceSettingsPanel({
   onHealth,
   onPointDefaults,
   moneyThree,
+  office,
   onClose,
 }: {
   model: BalanceTabModel;
@@ -896,8 +922,17 @@ export function BalanceSettingsPanel({
   onPointDefaults: (k: BsPointKey[]) => void;
   /** お金の3つの分け方の呼び方（0032） */
   moneyThree?: { value: MoneyThreeWording; choices: readonly MoneyThreeNameChoice[]; onChange: (n: MoneyThreeWording) => void };
+  /** 設定ごとの「事務所の既定値」「この世帯だけ」の印（0213 の段C。省略すると出さない） */
+  office?: OfficeMarks;
   onClose: () => void;
 }) {
+  const mark = (ids: readonly string[]) =>
+    office !== undefined ? (
+      <>
+        {" "}
+        <OfficeMark marks={office} ids={ids} />
+      </>
+    ) : null;
   return (
     <div class="disp-settings bs-settings" role="group" aria-label="資産と負債の表示の設定" data-bs-settings>
       <div class="ds-head">
@@ -908,11 +943,13 @@ export function BalanceSettingsPanel({
         </button>
       </div>
       <div class="ds-layout ds-bspoints" data-bs-points-setting>
-        <span class="ds-k">「時点を並べる」の既定</span>
+        <span class="ds-k">「時点を並べる」の既定{mark(["balance.points"])}</span>
         <PointDefaultsEditor choices={model.pointChoices} value={model.pointDefaults} {...(available !== undefined ? { available } : {})} onChange={onPointDefaults} />
       </div>
       <div class="ds-layout ds-bspoints" data-bs-guide-setting>
-        <span class="ds-k">家計の体力の目安</span>
+        <span class="ds-k">
+          家計の体力の目安{mark(["balance.health"])}
+        </span>
         {onHealth !== undefined ? (
           <label class={`ds-item${model.health ? " on" : ""}`}>
             <input type="checkbox" checked={model.health} onChange={(e) => onHealth((e.currentTarget as HTMLInputElement).checked)} data-bs-health-setting />
@@ -922,11 +959,16 @@ export function BalanceSettingsPanel({
             </span>
           </label>
         ) : null}
-        {model.health ? <GuideEditor guide={model.guide} basisDefault={model.guideBasis} onGuide={onGuide} /> : null}
+        {model.health ? (
+          <>
+            {office !== undefined ? <span class="ds-marks">目安の幅{mark(["balance.guide"])}</span> : null}
+            <GuideEditor guide={model.guide} basisDefault={model.guideBasis} onGuide={onGuide} />
+          </>
+        ) : null}
       </div>
       {moneyThree !== undefined ? (
         <div class="ds-layout" role="radiogroup" aria-label="お金の3つの分け方の呼び方" data-m3-names-setting>
-          <span class="ds-k">お金の3つの分け方の呼び方</span>
+          <span class="ds-k">お金の3つの分け方の呼び方{mark(["balance.moneyThree.wording"])}</span>
           {moneyThree.choices.map((c) => (
             <label key={c.key} class={`ds-item${moneyThree.value === c.key ? " on" : ""}`}>
               <input type="radio" name="m3-names" value={c.key} checked={moneyThree.value === c.key} onChange={() => moneyThree.onChange(c.key)} data-m3-names={c.key} />
@@ -936,6 +978,13 @@ export function BalanceSettingsPanel({
               </span>
             </label>
           ))}
+        </div>
+      ) : null}
+      {office !== undefined ? (
+        <div class="ds-marks" data-display-marks="balance.moneyThree">
+          <span>お金の3つの分け方の区画の欄:</span>
+          <span>「何か月分」{mark(["balance.moneyThree.months"])}</span>
+          <span>「何年先まで」{mark(["balance.moneyThree.years"])}</span>
         </div>
       ) : null}
     </div>

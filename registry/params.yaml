@@ -2,6 +2,60 @@
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: param
 entries:
+  - id: businessTax.installment.rounding
+    status: active
+    label: "個人事業税の分割金額（8月・11月）の1,000円未満の端数（最初の納期の分に合わせる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: businessTax.ownerDeduction
+    status: active
+    label: "個人事業税の事業主控除（年額。事業を行った期間が1年に満たないときは月数で按分。1か月未満は1か月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: businessTax.ownerDeduction.rounding
+    status: active
+    label: "個人事業税の事業主控除の月割りの額（事業を行った期間が1年に満たないとき）の1,000円未満の端数（切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: businessTax.rate.class1
+    status: active
+    label: "個人事業税の税率（標準税率。第1種事業（物品販売業・不動産貸付業・製造業・請負業・飲食店業・代理業など））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: businessTax.rate.class2
+    status: active
+    label: "個人事業税の税率（標準税率。第2種事業（畜産業・水産業・薪炭製造業））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: businessTax.rate.class3
+    status: active
+    label: "個人事業税の税率（標準税率。第3種事業（医業・弁護士業・税理士業・コンサルタント業・デザイン業・理容業など。次の3%の事業を除く））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: businessTax.rate.class3Reduced
+    status: active
+    label: "個人事業税の税率（標準税率。第3種事業のうち、あん摩・マッサージ・指圧・はり・きゅう・柔道整復その他の医業に類する事業と装蹄師業）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: businessTax.tax.rounding
+    status: active
+    label: "個人事業税の税額（確定金額）の100円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: businessTax.taxable.rounding
+    status: active
+    label: "個人事業税の課税標準（事業主控除の後の所得）の1,000円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: care.statistics.initial
     status: active
     label: "介護の一時的な費用の平均"
@@ -2260,7 +2314,7 @@ entries:
     replacedBy: null
   - id: lifeTable.lifeExpectancy
     status: active
-    label: "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）"
+    label: "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は105歳以上の値）"
     since: draft
     aliases: []
     replacedBy: null

@@ -1,0 +1,21 @@
+# 地方税法20条の4の2第3項
+id: businessTax.tax.rounding
+title: 個人事業税の税額（確定金額）の100円未満の端数（切り捨て）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2023-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 100}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261101_508AC0000000002?response_format=xml", retrievedAt: "2026-11-15", sha256: "ef2116230a5fdb6f6dc6bb0367425a665adf674dd0eb59b62ad076274c35de13", locator: "地方税法 第20条の4の2第3項", quote: "地方税の確定金額に百円未満の端数があるとき"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261101_508AC0000000002"}
+    recordedIn: "2026.21.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "確定金額の100円未満を切り捨て。e-Gov法令API の条文（XML）の1つの経路で読んだ。原本の写しと照らし合わせる前"}

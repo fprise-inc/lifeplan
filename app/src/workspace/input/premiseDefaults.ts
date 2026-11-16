@@ -4,9 +4,12 @@
 //   この世帯だけ違う値なら「この世帯だけ」（事務所の既定値に戻すリンク）、事務所の既定値を使っていた値で、その後に事務所の既定値が
 //   変わった物は「事務所の既定値が変わりました（前→今）」（確かめの一覧の知らせ。値は黙って変えない。0073 の3）
 // - 「事務所の既定値を使っていた」は、写したときの仮の印（assumed[欄のキー] が「事務所の既定値（年月）」）か、提供元の既定の値のまま触っていない欄
-// - 世帯ファイルは書き換えない（読むときに判定するだけ。計算の要求は変わらない）
-// - 土地の割合・建物の残りの価値の下限・売却の費用は事務所の推定の値（0111）で、世帯に写さない（空欄の物件はその場の値。live）
+// - 世帯ファイルは書き換えない（読むときに判定するだけ。計算の要求は変わらない）。例外は下の3つの欄の写し（fillLivePremises）
+// - 土地の割合・建物の残りの価値の下限・売却の費用（live）は、事務所データの置き場所が事務所の推定の値（0111）で、世帯に値が無いと計算は
+//   その場の事務所の値を使う。ほかの欄と同じく作った世帯を黙って変えないため、世帯には必ず値を書く: 新しい世帯は作るとき、値の無い世帯は
+//   開いたときに、その時点の事務所の値を写す（計算に使う値は写す前と同じ。0218）。空欄にしても値を外さず、事務所の今の値を書く
 import { officeNow } from "../office/current.ts";
+import { presetIsOffice } from "../../../../hearing/src/presets.ts";
 import { pctText } from "../plans/decimal.ts";
 import type { Address } from "../store/readings.ts";
 import { getPath, setPath, type PremiseMark } from "./form.ts";
@@ -52,7 +55,10 @@ export interface PremiseDef {
   absent: () => string | null;
   /** 値が無いときにほかの値と同じになる物の言葉と、その値（「物価上昇率と同じ」） */
   follows?: { text: string; value: (a: Assumptions | undefined) => string | null };
-  /** 事務所の推定の値（0111）の値ID。ある物は世帯に写さず、その場の事務所の値で計算する */
+  /**
+   * 事務所の推定の値（0111）の値ID。ある物は、事務所の既定値の置き場所が事務所の推定の値で、世帯に値が無いと計算がその場の事務所の値を使う。
+   * そのため世帯には必ず値を書く（新しい世帯・値の無い世帯を開いたとき。fillLivePremises。0218）
+   */
   live?: string;
 }
 
@@ -130,9 +136,6 @@ export const premiseOfKey = (key: string): PremiseDef | undefined => BY_KEY.get(
 /** id → 前提条件の欄の定義 */
 export const premiseOfId = (id: string): PremiseDef | undefined => BY_ID.get(id);
 
-/** 世帯に写す（事務所で決めて世帯に書く）欄か。事務所の推定の値の物（live）は写さない */
-export const copiedPremise = (d: PremiseDef): boolean => d.live === undefined;
-
 /** 持ち家・購入の予定・収益不動産・貸していない不動産のどれかを持つ世帯か（無ければ不動産の評価の区画を出さない） */
 export const ownsRealEstate = (w: WorkingHousehold): boolean => (w.request.input.household.residences ?? []).some((r) => r.kind === "own") || (w.request.input.household.accounts ?? []).some((x) => x.kind === "realEstate");
 
@@ -155,12 +158,13 @@ const effective = (d: PremiseDef, wh: WorkingHousehold): string | null => premis
 
 /** 事務所の今の既定値（事務所で決めていなければ提供元の既定の値。null はほかの値と同じ・入れない） */
 export function officeDefault(d: PremiseDef): string | null {
+  // 事務所の推定の値の物: 事務所の値（決めていなければ提供元の既定の値）
   if (d.live !== undefined) return d.absent();
   return officeNow().premises[d.id] ?? d.standard;
 }
 
 /** 事務所で決めた値か（決めていなければ提供元の既定の値） */
-export const officeDecided = (d: PremiseDef): boolean => (d.live !== undefined ? false : officeNow().premises[d.id] !== undefined);
+export const officeDecided = (d: PremiseDef): boolean => (d.live !== undefined ? presetIsOffice(d.live) : officeNow().premises[d.id] !== undefined);
 
 const officeEffective = (d: PremiseDef): string | null => officeDefault(d) ?? d.absent();
 
@@ -196,8 +200,7 @@ export function premiseState(d: PremiseDef, wh: WorkingHousehold): { state: Prem
   const eff = effective(d, wh);
   const off = officeEffective(d);
   if (equalValues(d, eff, off)) return { state: "office", was: null, now: off };
-  // 事務所の推定の値（live）は写さないので、事務所の値が変わった知らせは無い
-  const followed = d.live === undefined && (mark !== undefined || untouched(d, wh));
+  const followed = mark !== undefined || untouched(d, wh);
   return { state: followed ? "officeChanged" : "household", was: eff, now: off };
 }
 
@@ -250,8 +253,9 @@ export function typePremise(d: PremiseDef, wh: WorkingHousehold, v: string): Wor
 export function resetPremise(d: PremiseDef, wh: WorkingHousehold): WorkingHousehold {
   const off = officeDefault(d);
   let w = withRow(d, withoutMark(wh, d.key), undefined);
-  // 事務所の推定の値の物・ほかの値と同じになる物・無いときの値と同じ物は、値を外す（無いときの決まりで同じ値になる）
-  if (d.live !== undefined || off === null || equalValues(d, off, d.absent())) return writeValue(d, w, null);
+  // ほかの値と同じになる物・無いときの値と同じ物は、値を外す（無いときの決まりで同じ値になる）。
+  // 事務所の推定の値の物は外さない（無いと計算がその場の事務所の値を使い、後で事務所の値を変えると黙って変わる。0218）
+  if (d.live === undefined && (off === null || equalValues(d, off, d.absent()))) return writeValue(d, w, null);
   w = writeValue(d, w, off);
   // 提供元の既定の値のまま触っていない形になったら印は要らない（後で事務所の既定値が変わると、どちらでも知らせが出る）
   return untouched(d, w) ? w : withMark(w, d.key);
@@ -304,7 +308,7 @@ export function copyOfficePremises(wh: WorkingHousehold, values: Readonly<Record
   let w = wh;
   for (const d of PREMISE_DEFS) {
     const v = values[d.id];
-    if (v === undefined || !copiedPremise(d)) continue;
+    if (v === undefined) continue;
     w = writeValue(d, w, v);
     w = { ...w, assumed: { ...w.assumed, [d.key]: basis } };
   }
@@ -323,3 +327,22 @@ export function followsHint(d: PremiseDef, wh: WorkingHousehold): string | null 
   return v === null ? d.follows.text : `${d.follows.text}（${pctText(v)}）`;
 }
 
+
+/**
+ * 土地の割合・建物の残りの価値の下限・売却の費用（事務所の推定の値の物）で世帯に値の無い欄に、今の事務所の値を写し、「事務所の既定値（年月）」の印を
+ * 付ける（0218）。新しい世帯を作るとき（事務所の既定値の写し）と、世帯を開いたとき（値の無い前の世帯）に当てる。値の無い欄は計算がその場の
+ * 事務所の値を使っているので、写しても計算の結果は変わらない。写した後に事務所の値を変えても世帯は変わらず、確かめの一覧に
+ * 「事務所の既定値が変わりました」と出る（ほかの前提条件と同じ）。値のある欄・変えなかった世帯は同じものを返す。
+ * value は事務所の値（新しい世帯に写すときの事務所データの値。省けば今の事務所の値）
+ */
+export function fillLivePremises(wh: WorkingHousehold, basis: string = officeNow().basis, value: (d: PremiseDef) => string | null = (d) => d.absent()): WorkingHousehold {
+  let w = wh;
+  for (const d of PREMISE_DEFS) {
+    if (d.live === undefined || premiseValue(d, w) !== null) continue;
+    const v = value(d) ?? d.absent();
+    if (v === null) continue;
+    w = writeValue(d, w, v);
+    w = { ...w, assumed: { ...w.assumed, [d.key]: basis } };
+  }
+  return w;
+}

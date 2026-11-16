@@ -168,6 +168,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_DEFAULT_USED|socialInsurance.lateElderly.nationalAverage": { kind: "assumed", text: "後期高齢者医療の保険料は、全国平均の料率で計算しています" },
   "N_DEFAULT_USED|socialInsurance.nationalHealth.nationalStandard": { kind: "assumed", text: "国民健康保険料は、全国の標準の料率で計算しています（お住まいの市区町村の料率は入れていません）" },
   "N_DEFAULT_USED|inheritanceTax.realEstateRatio": { kind: "assumed", text: "相続税の目安の不動産の評価は、時価の80%としています" },
+  "N_ASSUMED|ideco.lumpSumServiceEstimated": { kind: "assumed", text: "iDeCo・企業型DCの加入の始まりが入っていないので、一時金の退職所得控除の年数を、計算基準月（または積立の始まり）から数えています", card: "savings" },
   "N_ASSUMED|account.contributions.afterRetirement": { kind: "assumed", text: "もう退職した人の積立（終わりが空欄）は、取り崩しの始まりの前の月まで続くものとしています", card: "savings" },
   "N_ASSUMED|giftTax.settlement.irrevocable": { kind: "assumed", text: "相続時精算課税は一度選ぶと戻せないので、後の年の同じ人からの贈与も精算課税で計算しています", card: "inheritance" },
   "N_ASSUMED|employmentInsurance.basicAllowance.rateBreak": { kind: "assumed", text: "雇用保険の給付率の変わり目の賃金日額は、それより前の月にも、制度データにある最初の期間の値を使っています" },

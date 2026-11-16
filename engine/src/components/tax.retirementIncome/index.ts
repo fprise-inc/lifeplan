@@ -1,6 +1,7 @@
 // 退職所得の分離課税（所得税・復興特別所得税・防衛特別所得税と住民税。0003・0008 の追記）。構成員×年ごとに、その年に受け取る一時金
 // （退職手当等・確定拠出年金の老齢給付金の一時金・小規模企業共済の共済金。retirement.receipts）を合わせて計算する。
-// - 勤続年数: その年の一時金の勤続期間を合わせた期間（重なりは1回だけ数える）の月数を12で割り、1年未満を切り上げ
+// - 勤続年数: その年の一時金の勤続期間を合わせた期間（重なりは1回だけ数える）の月数を12で割り、1年未満を切り上げ。確定拠出年金の一時金の
+//   勤続期間は掛金を納付した月で、途中で切れるときは servicePeriods の月だけを数える（改訂3。前の一時金との重なりも同じ月で見る）
 // - 退職所得控除額: 勤続年数が20年以下は40万円×年数、20年超は800万円＋70万円×(年数−20)。前の年に受けた一時金と勤続期間が重なるとき
 //   （重複排除期間）は、重なる期間の年数（1年未満切り捨て）の控除額を引く。前の一時金の範囲: 退職手当等を受ける年は前年以前4年内
 //   （前に受けたのが確定拠出年金の一時金なら9年内。令和8年以後に受けるもの。その9年内に確定拠出年金の一時金があるときは、前の退職手当等のうち
@@ -59,7 +60,7 @@ const WINDOW = 20;
 const ZERO: RetirementIncomeOutput = { flows: [], total: yen(0), revenue: yen(0), deduction: yen(0), income: yen(0), taxable: yen(0), years: 0, overlapYears: 0, incomeTax: yen(0), residentTax: yen(0) };
 
 /** 期間（年月の範囲）の月の集まり */
-function monthsOf(from: string, to: string): MonthIndex[] {
+function rangeMonths(from: string, to: string): MonthIndex[] {
   const a = parseYm(from);
   const b = parseYm(to);
   const out: MonthIndex[] = [];
@@ -67,11 +68,17 @@ function monthsOf(from: string, to: string): MonthIndex[] {
   return out;
 }
 
+/** 一時金の勤続期間の月（途中で切れる期間 servicePeriods があればその月だけ。月の昇順） */
+function serviceMonths(r: RetirementReceipt): MonthIndex[] {
+  if (r.servicePeriods === undefined || r.servicePeriods.length === 0) return rangeMonths(r.serviceFrom, r.serviceTo);
+  return r.servicePeriods.flatMap((p) => rangeMonths(p.from, p.to));
+}
+
 export default defineComponent<{ member: string; year: number }, RetirementIncomeOutput>({
   id: "tax.retirementIncome",
   title: "退職所得の税（分離課税）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "retirement.receipts": ">=1 <2" },
   params: Object.values(P),
   reads: [],
@@ -110,7 +117,7 @@ export default defineComponent<{ member: string; year: number }, RetirementIncom
     const taxOf = (set: readonly RetirementReceipt[]) => {
       const revenue = set.reduce((s, r) => s + r.amount, 0);
       const union = new Set<number>();
-      for (const r of set) for (const m of monthsOf(r.serviceFrom, r.serviceTo)) union.add(m);
+      for (const r of set) for (const m of serviceMonths(r)) union.add(m);
       const years = Math.max(1, Math.ceil(union.size / 12));
       // 重複排除期間
       // 確定拠出年金の一時金を受ける年の年数（19年内）は、その一時金の支払の日で分かれる（令和4年4月1日以後に支払を受けるべきもの）ので、支払の月で引く
@@ -131,7 +138,7 @@ export default defineComponent<{ member: string; year: number }, RetirementIncom
         else if (p.source === "dc" || dcBefore) L = afterDc(py);
         else L = lb;
         if (py < year - L) continue;
-        let ms = monthsOf(p.serviceFrom, p.serviceTo);
+        let ms = serviceMonths(p);
         const pYears = Math.max(1, Math.ceil(ms.length / 12));
         if (p.amount < D(pYears)) ms = ms.slice(0, yearsFromAmount(p.amount) * 12);
         for (const m of ms) priorMonths.add(m);
@@ -143,7 +150,7 @@ export default defineComponent<{ member: string; year: number }, RetirementIncom
       if (deduction < minimum) deduction = minimum;
       if (set.some((r) => r.disability === true)) deduction += at.paramYen(P.disability) ?? 0;
       // 特定役員退職手当等・短期退職手当等
-      const officerYears = (r: RetirementReceipt) => (r.officerFrom === undefined || r.officerTo === undefined ? null : Math.ceil(monthsOf(r.officerFrom, r.officerTo).length / 12));
+      const officerYears = (r: RetirementReceipt) => (r.officerFrom === undefined || r.officerTo === undefined ? null : Math.ceil(rangeMonths(r.officerFrom, r.officerTo).length / 12));
       const specified = set.filter((r) => {
         const oy = officerYears(r);
         return oy !== null && officerMax !== null && oy <= officerMax;

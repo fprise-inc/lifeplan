@@ -72,7 +72,7 @@ args = ["mcp"]
 | 単体で使える（表にする。0209） | `table`（`compare` と同じ道で計算した年ごとの表を、CSV か Markdown の文で返す。`share_id` の世帯は世帯を扱う群と同じくアプリ本体に頼む） | 見本の世帯・AIが組み立てた入力はアプリが起動していなくてよい。`share_id` は世帯を扱う群と同じ条件 |
 | 設定の候補を出す | `propose_feature_code`（FPが渡した「機能を有効にするコード」を、アプリの画面に承認待ちの候補として出す。コードは入らない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
 | 表示の設定を読む（0213） | `get_display_settings`（画面の見せ方だけの設定〔対策に最初から出す項目・万一のときのタブの場面と想定の前提・入力項目の出し方と並び・基本生活費の内訳の並べ方・結果のタブと資産と負債のタブの表示の設定など〕の一覧と今の値。読むだけ） | 一覧と既定はいつでも。事務所の既定値の今の値は、アプリが起動していて AI接続口がオンのときだけ。`share_id` の世帯の今の値は世帯を扱う群と同じ条件 |
-| 表示の設定の案を出す（0215） | `propose_display_settings`（事務所の既定値の見せ方だけの7つ〔入力項目の並び・新しい世帯で出す入力項目・基本生活費の内訳の並べ方・対策に最初から出す項目・万一のときのタブの想定の前提と場面の帯と開いたときの場面〕の案を、選べる値で確かめてから、アプリの画面に承認待ちの候補として出す。設定は変わらない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
+| 表示の設定の案を出す（0215・0216） | `propose_display_settings`（事務所の既定値の見せ方だけの18件〔入力項目の並び・新しい世帯で出す入力項目・基本生活費の内訳の並べ方・対策に最初から出す項目・万一のときのタブの想定の前提と場面の帯と開いたときの場面と、結果のタブ・資産と負債のタブの表示の設定の事務所の既定値11件〕の案を、選べる値で確かめてから、アプリの画面に承認待ちの候補として出す。設定は変わらない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
 | 新しい世帯の候補を出す | `propose_household`（AIが組み立てた世帯〔`calculate` の `input` と同じ形〕を、架空かお客さまか・題・推定したことと一緒に、アプリの画面に「新しい世帯の候補」として承認待ちで出す。世帯は作られない。0208） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい。計算できない入力の直し方は、アプリが起動していなくても返る） |
 
 道具の名前と入出力は試験版です（予告して変えることがあります。0001・0015）。
@@ -112,6 +112,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 「資産運用の結論の1文と取り崩しの条件を、うちの事務所の言い方に直す下書きを作って」（`list_custom_texts` → AI が `settings/texts.json` の下書きを書き、FP がアプリで承認。0212）
 - 「対策に最初から NISA も出したい。どこで変える？」「家計の体力の目安の幅は、今いくつになっている？」「万一のときのタブを、収入が減るの場面で開くようにしたい」（`get_display_settings`。0213）
 - 「対策に最初から NISA も出して」「万一のときのタブは、収入が減るの場面で開くようにして」（`get_display_settings` → `propose_display_settings`。アプリの事務所の既定値の画面に「今 → 案」が出て、FP が「反映する」を押したときだけ変わる。前の値にも戻せる。0215）
+- 「新しく作る世帯は、結果のタブで85歳時点の金融資産を出して、比較の仕方は左右に並べるにして」（`propose_display_settings` で `result.metrics`・`result.atAge`・`result.layout` の事務所の既定値の案。事務所の既定値に従う世帯にだけ効く。0216）
 - 「保険の入力項目の欄のうち、使わない欄を隠す下書きを作って」（`list_custom_texts` の `file: fields` → AI が `settings/fields.json` の下書きを書き、FP がアプリで承認。0213）
 - 「セミナー用に、35歳の会社員と扶養のパートの妻・3歳の子・賃貸の架空の世帯を作って、2028年に4,000万円の家を買ったら老後の資産はどうなるか計算して」（`get_input_guide`・`get_input_recipe`・`calculate`）
 - 「38歳の会社員と扶養のパートの妻・賃貸・預金500万円の架空の世帯を作って、アプリに入れて」（`get_input_guide`・`calculate` → `propose_household`。アプリの画面で FP が確かめて「世帯として作る」を押す。0208）
@@ -225,7 +226,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - `check_inputs` の推定（`estimated`）の行に前提条件は出ません。事務所の既定値どおりの前提条件は種類 `premise` の行（選んだときだけ）で、問いの文は「〜は、事務所の既定値のままでよろしいですか（FP が決める前提です）。」です。事務所の既定値をそのまま使っていた値で、その後に事務所が既定値を変えた物は、確かめの注意（`notice`）に「事務所の既定値が変わりました（1%→1.5%）。この世帯は前の値で計算しています」と出ます（世帯の値は黙って変わりません）。
 - 前提条件の欄の名前（id）は次のとおりです（AI の道具で事務所の既定値を読む・直すときの名前。使い回しません）。表の正は `app/src/workspace/input/premiseDefaults.ts` の `PREMISE_DEFS`、事務所データの置き場所は設計記録 0214 の3。
   - 経済の前提: `inflation`・`wageGrowth`・`investmentReturn`・`depositReturn`・`educationInflation`・`pensionMacroSlide`・`pensionMacroSlideEmployee`（世帯では `assumptions.<id>.default`）
-  - 不動産の評価: `realEstateValuation.landGrowth`・`realEstateValuation.landShare`・`realEstateValuation.usefulLife.wood`（`lightSteel`・`steel`・`rc`）・`realEstateValuation.residualFloor`・`realEstateValuation.saleCostRate`（世帯では `assumptions.realEstateValuation.…`。`landShare`・`residualFloor`・`saleCostRate` は事務所の推定の値 `preset.realEstate.*` で、世帯に写さず、空欄の物件はその場の事務所の値で計算します）
+  - 不動産の評価: `realEstateValuation.landGrowth`・`realEstateValuation.landShare`・`realEstateValuation.usefulLife.wood`（`lightSteel`・`steel`・`rc`）・`realEstateValuation.residualFloor`・`realEstateValuation.saleCostRate`（世帯では `assumptions.realEstateValuation.…`。`landShare`・`residualFloor`・`saleCostRate` の事務所データの置き場所は事務所の推定の値 `preset.realEstate.*` ですが、ほかの前提条件と同じく世帯に写します。アプリは新しい世帯を作るときと、値の無い世帯を開いたときに事務所の値を写すので、事務所が後で値を変えても作った世帯の結果は変わらず、確かめの注意に「事務所の既定値が変わりました」と出ます。0218。物件ごとの値があれば、その物件はそちらを使います）
   - 資産の種類ごとの利回り: `assetReturns.<種類>`（`cash.deposit`・`cash.foreign`・`bond.domestic`・`bond.global`・`equity.domestic`・`equity.global`・`reit.domestic`・`reit.global`・`balanced`・`commodity`・`realEstate`・`other`。世帯では `assumptions.assetReturns.<種類>.default`）
 - 世帯ファイルの仮の印 `assumed["<欄のキー>"]` が「事務所の既定値（年月）」の欄は、事務所の既定値を写した欄です（推定の印ではありません。前の版のアプリでは推定と読まれます）。
 
@@ -407,36 +408,38 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 
 ### 画面の見せ方の設定（表示の設定。0213）
 
-「対策に最初から NISA も出して」「家計の体力の目安は出さないで」のように、FP の AI に画面の見せ方を変えてもらう形を、3つの段で作ります（設計記録 0213）。今あるのは段A（読むだけ）と段B の前半（事務所の既定値の案。0215）です。
+「対策に最初から NISA も出して」「家計の体力の目安は出さないで」のように、FP の AI に画面の見せ方を変えてもらう形を、3つの段で作ります（設計記録 0213）。今あるのは段A（読むだけ）と段B の前半（事務所の既定値の案。0215）と段C（結果のタブ・資産と負債のタブの事務所の既定値。0216）です。
 
 | 段 | 中身 |
 |---|---|
 | 段A（できた） | `get_display_settings`: 見せ方だけの設定の一覧（id・画面と同じ名前・どこで決めるか・効く画面・アプリのどこで変えるか・提案書と持ち帰り用のレポートに出るか・値の形・選べる値・既定）と、事務所の既定値・渡された世帯の今の値を返す。変えるのは FP がアプリの画面で |
-| 段B の前半（できた。0215） | `propose_display_settings`: 事務所の既定値の見せ方だけの7つの案を、承認待ちの候補としてアプリに出す（`propose_scenario`・`propose_feature_code` と同じ形）。アプリの事務所の既定値の画面が設定ごとに「今 → 案」を出し、FP が「反映する」か「捨てる」を選ぶ。反映するごとに前の値を事務所データに残し（設定ごとに直近3件）、「前の値に戻す」で戻せる |
+| 段B の前半（できた。0215） | `propose_display_settings`: 事務所の既定値の見せ方だけの設定の案を、承認待ちの候補としてアプリに出す（`propose_scenario`・`propose_feature_code` と同じ形）。アプリの事務所の既定値の画面が設定ごとに「今 → 案」を出し、FP が「反映する」か「捨てる」を選ぶ。反映するごとに前の値を事務所データに残し（設定ごとに直近3件）、「前の値に戻す」で戻せる |
 | 段B の後半（次） | 渡された世帯の世帯ごとの設定（結果のタブ・資産と負債のタブ）の案 |
-| 段C（その次） | 結果のタブ・資産と負債のタブの表示の設定に事務所の既定値を足し、値を変えていない世帯は事務所の既定値に従う |
+| 段C（できた。0216） | 結果のタブ・資産と負債のタブの表示の設定（11件）に事務所の既定値を足した。世帯ファイルでは設定ごとに「事務所の既定値に従う」を印（`display.followOffice`）で持ち、印のある設定は事務所の既定値を読む。その世帯で値を変えると印を外す。前からある世帯（印の無い世帯）は、どの設定もその世帯の値のまま。11件の事務所の既定値の案も `propose_display_settings` で出せる |
 
 - 載せるのは、値も計算の結果も変えない見せ方の設定だけです。計算の結果を変える設定（前提条件の標準値・必要保障額の数え方・介護・受け取る予定の相続の見込み・不動産の評価の割合・表の最後の年齢・FP顧問料の料金表・事務所の推定の値）、名前・ロゴ・色・見た目、Web のヒアリングのひな形は載せません（答えの `outOfScope`）。計算のお知らせの「入力が足りない」「計算に入れていない」と確かめの注意は、どの設定でも隠せません（`neverHidden`）。
-- 今の21件: 事務所の既定値（`scope: office`）の `input.order`（入力のホームの入力項目の並び）・`input.living`（基本生活費の内訳の並べ方）・`result.levers`（対策に最初から出す項目）・`contingency.premises`（想定の前提に最初から出す項目）・`contingency.scenes`（場面の帯に並べる場面）・`contingency.openScene`（開いたときに選んでおく場面）・`features.combinedBs`（合算BS を使う。読むだけ。機能を有効にするコードが要る）、事務所の既定と世帯ごとの両方（`both`）の `input.items`（新しい世帯で出す入力項目と、開いたときの入れ方。事務所の既定は新しい世帯に写すだけ）、世帯ごと（`household`）の `result.addedItems`（対策に足した項目）・`result.metrics`（出す数字）・`result.atAge`・`result.layout`（比較の仕方）・`result.invBreakdown`・`result.invPeriods`・`balance.health`（家計の体力の目安を表示する）・`balance.guide`（家計の体力の目安の幅）・`balance.points`（「時点を並べる」の既定）・`balance.columns`（この世帯で並べる時点）・`balance.moneyThree.wording`・`.months`・`.years`（お金の3つの分け方）。作っている途中の設定があれば `pending` に出ます。
+- 今の21件: 事務所の既定値（`scope: office`）の `input.order`（入力のホームの入力項目の並び）・`input.living`（基本生活費の内訳の並べ方）・`result.levers`（対策に最初から出す項目）・`contingency.premises`（想定の前提に最初から出す項目）・`contingency.scenes`（場面の帯に並べる場面）・`contingency.openScene`（開いたときに選んでおく場面）・`features.combinedBs`（合算BS を使う。読むだけ。機能を有効にするコードが要る）、事務所の既定と世帯ごとの両方（`both`）の `input.items`（新しい世帯で出す入力項目と、開いたときの入れ方。事務所の既定は新しい世帯に写すだけ）と、`result.metrics`（出す数字）・`result.atAge`・`result.layout`（比較の仕方）・`result.invBreakdown`・`result.invPeriods`・`balance.health`（家計の体力の目安を表示する）・`balance.guide`（家計の体力の目安の幅）・`balance.points`（「時点を並べる」の既定）・`balance.moneyThree.wording`・`.months`・`.years`（お金の3つの分け方）の11件（事務所の既定値は `officeEffect: followers`＝事務所の既定値に従う世帯にすぐ効く。0216）、世帯だけ（`household`）の `result.addedItems`（対策に足した項目）・`balance.columns`（この世帯で並べる時点）。作っている途中の設定があれば `pending` に出ます。
 - 一覧はアプリの画面の定数から作ります（`app/src/connector/displayCatalog.ts`。`npm run build:explain` が `crates/lifeplan/dist/display-catalog.json` に書き、接続口が埋め込む）。選べる種類や既定を変えると、接続口の一覧も一緒に変わります。
-- 今の値は、設定の `current.office`・`current.household` に `{ value, isDefault, text }`（`text` は画面の言葉の要約）で入ります。事務所の既定値はアプリ本体が事務所データから見せ方だけの欄を名前で選んで写し（計算の設定・推定の値・名前やロゴ・ヒアリングのひな形は写さない）、渡された世帯は世帯ファイルの本文の見せ方の区画（`display`・`household.itemChoice`・`workspace.shownItems`。数・真偽・短い英数字の値だけ）を、物の ID を共有ごとの仮の ID にして渡します。読み方は画面と同じ関数です（`app/src/connector/display.ts`）。
+- 今の値は、設定の `current.office`・`current.household` に `{ value, isDefault, text }`（`text` は画面の言葉の要約）で入ります。渡された世帯の11件には `followsOffice` も添えます（`true` は事務所の既定値に従っていて `value` は事務所の今の値、`false` はこの世帯だけの値。0216）。事務所の既定値はアプリ本体が事務所データから見せ方だけの欄を名前で選んで写し（計算の設定・推定の値・名前やロゴ・ヒアリングのひな形は写さない）、渡された世帯は世帯ファイルの本文の見せ方の区画（`display`・`household.itemChoice`・`workspace.shownItems`。数・真偽・短い英数字の値だけ）を、物の ID を共有ごとの仮の ID にして渡します。読み方は画面と同じ関数です（`app/src/connector/display.ts`）。
 - アプリが起動していない（か AI接続口がオフの）ときは、一覧と既定だけを返し、`app.status` が `notRunning` になります。
 - `ids` で設定を選べます（省くと全部で約 30KB）。例 `{ "ids": ["result.levers"] }`。
-- この道具では設定を変えられません。答えの `change` に、アプリのどの画面のどの区画で変えるかが書いてあり、AI はそれを FP に伝えます。答えの `proposable`（と各設定の `proposable: true`）の7つは、下の `propose_display_settings` で変える案を出せます。プロンプト `office_display` が、この進め方の頼み方の型です。
+- この道具では設定を変えられません。答えの `change` に、アプリのどの画面のどの区画で変えるかが書いてあり、AI はそれを FP に伝えます。答えの `proposable`（と各設定の `proposable: true`）の18件は、下の `propose_display_settings` で事務所の既定値を変える案を出せます（渡された世帯ごとの案はまだ出せません）。プロンプト `office_display` が、この進め方の頼み方の型です。
 
 #### 表示の設定の案（`propose_display_settings`。0215）
 
-- 入力は `changes`（1〜7件。1件は `id`・`value`・任意の `note`〔理由。500文字まで〕。同じ設定は1回だけ）。`value` は `get_display_settings` の `current.office.value` と同じ形です。例:
+- 入力は `changes`（1〜18件。1件は `id`・`value`・任意の `note`〔理由。500文字まで〕。同じ設定は1回だけ）。`value` は `get_display_settings` の `current.office.value` と同じ形です（整数・真偽は数・`true`/`false` で書き、文字にしません）。例:
 
 ```json
 { "changes": [
   { "id": "result.levers", "value": ["lever:retireAge", "lever:pensionAge", "lever:nisaMonthly", "lever:livingMonthly", "spouse:work"], "note": "NISA の相談が多いので最初から出す" },
-  { "id": "contingency.openScene", "value": "income" } ] }
+  { "id": "contingency.openScene", "value": "income" },
+  { "id": "result.atAge", "value": 85 },
+  { "id": "balance.guide", "value": { "months": [3, 9], "risk": [10, 40], "debt": 50 } } ] }
 ```
 
-- 案をアプリに出す前に、表示の設定の一覧の選べる値・値の形で確かめます（画面と同じ関数。`app/src/connector/displayProposal.ts`）。知らない id・7つ以外の設定（世帯ごと・読むだけ）・選べない値・重複・形の違う値は、近い候補を添えて断り、その呼び出しでは何もしません（ほかの正しい案もアプリに出しません）。入力項目の並びは全部の入力項目を並べます。基本生活費の内訳の並べ方の行の名前は20文字までで、改行などの制御文字・見えない書式の文字は使えません。
-- 案はアプリのメモリの中に承認待ちで入るだけです（4件まで。アプリを閉じる・AI接続口をオフにすると消える）。アプリの上の帯と、事務所の既定値の画面のいちばん上の「AIからの表示の設定の案」に、設定ごとの「今 → 案」と AI の理由が出ます。FP が「反映する」を押した設定だけが事務所の既定値に入り（すぐ保存。どの世帯にもすぐ効く。`input.items` は新しく作る世帯にだけ効き、作った世帯にはそろえない）、「捨てる」を押した設定は何も変えずに外れます。
-- 反映するごとに前の値を事務所データ（`defaults.displayHistory`。事務所データの形の版 3）に残し（設定ごとに直近3件）、事務所の既定値の画面の「前の値に戻す」で戻せます。事務所の既定値は世帯の中身ではないので、AIに渡した記録には残りません。
+- 案をアプリに出す前に、表示の設定の一覧の選べる値・値の形で確かめます（画面と同じ関数。`app/src/connector/displayProposal.ts`）。知らない id・18件以外の設定（世帯だけ・読むだけ）・選べない値・範囲の外の値（「○歳時点」の年齢は選択肢の年齢、お金の3つの分け方の何か月分・何年先までは範囲の中の整数、家計の体力の目安の幅は下限より大きい上限）・重複・形の違う値は、近い候補を添えて断り、その呼び出しでは何もしません（ほかの正しい案もアプリに出しません）。入力項目の並びは全部の入力項目を並べます。基本生活費の内訳の並べ方の行の名前は20文字までで、改行などの制御文字・見えない書式の文字は使えません。
+- 案はアプリのメモリの中に承認待ちで入るだけです（4件まで。アプリを閉じる・AI接続口をオフにすると消える）。アプリの上の帯と、事務所の既定値の画面のいちばん上の「AIからの表示の設定の案」に、設定ごとの「今 → 案」と AI の理由が出ます。FP が「反映する」を押した設定だけが事務所の既定値に入り（すぐ保存。どの世帯にもすぐ効く。`input.items` は新しく作る世帯にだけ効き、作った世帯にはそろえない。結果のタブ・資産と負債のタブの11件は、事務所の既定値に従う世帯にだけ効き、従わない世帯にはそろえない）、「捨てる」を押した設定は何も変えずに外れます。
+- 反映するごとに前の値を事務所データ（`defaults.displayHistory`。事務所データの形の版 3 から）に残し（設定ごとに直近3件）、事務所の既定値の画面の「前の値に戻す」で戻せます。事務所の既定値は世帯の中身ではないので、AIに渡した記録には残りません。
 
 ### プランの動かす項目（画面と同じ。0195・0201・0206）
 
