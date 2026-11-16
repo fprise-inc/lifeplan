@@ -131,51 +131,62 @@ const CASES: { name: string; sample: string; moves: Record<string, (now: ItemVal
   { name: "借り換えの新しい金利を1.2%・費用を40万円に（借り換えとその新しい金利の段）", sample: "pairLoan", moves: { "field:housing/debt/*/refinance/0/rate": () => "0.012", "field:housing/debt/*/refinance/0/costs": () => 400000 } },
 ];
 
+/** 見本の棚の世帯（data/modelHouseholds の全部） */
+const MODEL_IDS = readdirSync(join(REPO, "data", "modelHouseholds"))
+  .filter((f) => f.endsWith(".json"))
+  .map((f) => f.slice(0, -5));
+/** 既定の一覧の「働く最後の年齢」の項目の数 */
+const levers = (items: Listed[]) => items.filter((x) => x.label.includes("働く最後の年齢")).length;
+/** 見本の世帯ごとの、既定の一覧の「働く最後の年齢」の項目の数（世帯ごとの1件が入れ、まとめの1件が合計を見る） */
+const leverCounts = new Map<string, number>();
+
 describe("AI接続口のプランの動かす項目（0195）", () => {
-  it("どの見本の世帯でも、一覧の項目をそのまま当てはめると同じ項目に当たり、入力項目は縮約版で AI に渡る項目", () => {
-    const dir = join(REPO, "data", "modelHouseholds");
-    const ids = readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5));
-    expect(ids.length).toBeGreaterThan(40);
-    let levers = 0;
-    for (const id of ids) {
-      const req = modelHousehold(id);
-      const got = list(req, { sampleId: id, fields: true });
-      expect(got.status, id).toBe("ok");
-      expect(got.count, id).toBe(got.total);
-      // 場所だけ違う項目も、場所を添えてすべて出す（0201）
-      expect(got.unlisted, id).toBe(0);
-      for (const it of got.items) {
-        expect(ALLOWLIST, `${id} ${it.label}`).toContain(it.item);
-        // 場所を添えた項目は、人が読める区別も添える。場所は at か lever のどちらか1つ。プランの候補に出せないのは、場所に世帯のデータに
-        // 書かれていない要素の ID（ID を持たない並びの要素に場所から振る ID）がある項目だけ（渡された世帯では元の ID に戻せない）
-        expect(it.at !== undefined && it.lever !== undefined, `${id} ${it.label}`).toBe(false);
-        expect(it.place !== undefined, `${id} ${it.label}`).toBe(it.at !== undefined || it.lever !== undefined);
-        // 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその金利の段も要素の ID を持つので（0206）、見本の世帯ではどの項目もプランの候補に出せる
-        const saved = JSON.stringify(fromRequest(req).request.input);
-        const derived = (it.at ?? []).some((a) => /^[0-9a-f-]{36}$/.test(a) && !saved.includes(`"${a}"`));
-        expect(derived, `${id} ${it.label}`).toBe(false);
-        expect(it.proposable, `${id} ${it.label}`).toBe(true);
-        // 今の値のまま当てると「今と同じ値」で、要求は変わらない
-        if (it.value === null) continue;
-        const r = apply(req, [{ ...refOf(it), value: it.value }], id);
-        expect(r.status, `${id} ${it.label} ${JSON.stringify(r.changes)}`).toBe("ok");
-        expect(r.changes[0]!.label, `${id}`).toBe(it.label);
-        expect(r.changes[0]!.status, `${id} ${it.label}`).toBe("same");
-        expect(r.request, `${id} ${it.label}`).toEqual(req);
-      }
-      // 場所を添えた項目を、場所を外した今までの書き方で渡すと、今までどおり（1つに決まらず当てないか、同じ入力項目ID の対策の固定の項目に
-      // 当たる）。同じ項目に当たるのは、前提を対象にする前提条件でない入力項目（プランの候補に出せるよう場所を添えた物）だけ
-      for (const it of got.items.filter((x) => x.at !== undefined || x.lever !== undefined)) {
-        if (it.value === null) continue;
-        const r = apply(req, [{ target: it.target, item: it.item, value: it.value }], id);
-        if (r.status === "ok" && r.changes[0]!.label === it.label) expect(it.target === "assumptions" && !it.item.startsWith("assumptions."), `${id} ${it.label}`).toBe(true);
-      }
-      // 既定の一覧は対策・資産運用・貯まり方・よく使う項目だけ
-      const short = list(req, { sampleId: id });
-      expect(short.items.every((x) => ["対策", "資産運用", "貯まり方", "よく使う"].includes(x.group)), id).toBe(true);
-      levers += short.items.filter((x) => x.label.includes("働く最後の年齢")).length;
+  // 見本の世帯ごとに1件ずつ（1件にまとめると見本が増えるたびに長くなり、重い実行機で時間の上限に当たっていた）。確かめる中身は前と同じ
+  it.each(MODEL_IDS)("どの見本の世帯でも、一覧の項目をそのまま当てはめると同じ項目に当たり、入力項目は縮約版で AI に渡る項目（%s）", (id) => {
+    const req = modelHousehold(id);
+    const got = list(req, { sampleId: id, fields: true });
+    expect(got.status, id).toBe("ok");
+    expect(got.count, id).toBe(got.total);
+    // 場所だけ違う項目も、場所を添えてすべて出す（0201）
+    expect(got.unlisted, id).toBe(0);
+    // 世帯のデータに書かれている要素の ID（項目ごとに作り直さない。世帯ごとに1回）
+    const saved = JSON.stringify(fromRequest(req).request.input);
+    for (const it of got.items) {
+      expect(ALLOWLIST, `${id} ${it.label}`).toContain(it.item);
+      // 場所を添えた項目は、人が読める区別も添える。場所は at か lever のどちらか1つ。プランの候補に出せないのは、場所に世帯のデータに
+      // 書かれていない要素の ID（ID を持たない並びの要素に場所から振る ID）がある項目だけ（渡された世帯では元の ID に戻せない）
+      expect(it.at !== undefined && it.lever !== undefined, `${id} ${it.label}`).toBe(false);
+      expect(it.place !== undefined, `${id} ${it.label}`).toBe(it.at !== undefined || it.lever !== undefined);
+      // 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその金利の段も要素の ID を持つので（0206）、見本の世帯ではどの項目もプランの候補に出せる
+      const derived = (it.at ?? []).some((a) => /^[0-9a-f-]{36}$/.test(a) && !saved.includes(`"${a}"`));
+      expect(derived, `${id} ${it.label}`).toBe(false);
+      expect(it.proposable, `${id} ${it.label}`).toBe(true);
+      // 今の値のまま当てると「今と同じ値」で、要求は変わらない
+      if (it.value === null) continue;
+      const r = apply(req, [{ ...refOf(it), value: it.value }], id);
+      expect(r.status, `${id} ${it.label} ${JSON.stringify(r.changes)}`).toBe("ok");
+      expect(r.changes[0]!.label, `${id}`).toBe(it.label);
+      expect(r.changes[0]!.status, `${id} ${it.label}`).toBe("same");
+      expect(r.request, `${id} ${it.label}`).toEqual(req);
     }
-    expect(levers).toBeGreaterThan(30);
+    // 場所を添えた項目を、場所を外した今までの書き方で渡すと、今までどおり（1つに決まらず当てないか、同じ入力項目ID の対策の固定の項目に
+    // 当たる）。同じ項目に当たるのは、前提を対象にする前提条件でない入力項目（プランの候補に出せるよう場所を添えた物）だけ
+    for (const it of got.items.filter((x) => x.at !== undefined || x.lever !== undefined)) {
+      if (it.value === null) continue;
+      const r = apply(req, [{ target: it.target, item: it.item, value: it.value }], id);
+      if (r.status === "ok" && r.changes[0]!.label === it.label) expect(it.target === "assumptions" && !it.item.startsWith("assumptions."), `${id} ${it.label}`).toBe(true);
+    }
+    // 既定の一覧は対策・資産運用・貯まり方・よく使う項目だけ
+    const short = list(req, { sampleId: id });
+    expect(short.items.every((x) => ["対策", "資産運用", "貯まり方", "よく使う"].includes(x.group)), id).toBe(true);
+    leverCounts.set(id, levers(short.items));
+  });
+
+  it("どの見本の世帯でも（まとめ）: 見本の世帯は40件より多く、既定の一覧の「働く最後の年齢」は合わせて30件より多い", () => {
+    expect(MODEL_IDS.length).toBeGreaterThan(40);
+    // 上の世帯ごとの1件が数えた数を使う（その1件を流していない〔名前で絞って流した〕世帯は、ここで数える）
+    const total = MODEL_IDS.reduce((a, id) => a + (leverCounts.get(id) ?? levers(list(modelHousehold(id), { sampleId: id }).items)), 0);
+    expect(total).toBeGreaterThan(30);
   });
 
   it("画面でつまみを動かしたときと同じ計算の要求を作り、関係する欄も一緒に動く", () => {
