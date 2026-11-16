@@ -293,7 +293,7 @@ describe("奨学金・教育ローン・留学・子への援助", () => {
     const g = goalOf(wh);
     const uni = stageIndex(wh, "university");
     expect(fieldIn(edu(wh), `edu/${g.id}/stage/${uni}/sciAgri`).label).toBe("修学支援の対象の学部（理工農系）");
-    expect(fieldIn(edu(wh), `/stage/${stageIndex(wh, "juniorHigh")}/club`).label).toBe("うち部活動など（年額）");
+    expect(fieldIn(edu(wh), `/stage/${stageIndex(wh, "juniorHigh")}/club`).label).toBe("部活動などの費用（年額）");
     expect(allFields(edu(wh)).some((f) => f.key === `edu/${g.id}/stage/${uni}/boarding/monthly`)).toBe(false);
     const away = fieldIn(edu(wh), `edu/${g.id}/stage/${uni}/living`).set(wh, "away");
     expect(fieldIn(edu(away), `edu/${g.id}/stage/${uni}/boarding/monthly`).level).toBe("simple");
