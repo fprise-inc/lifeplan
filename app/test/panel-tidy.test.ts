@@ -50,7 +50,8 @@ describe("推定の根拠は印を押したとき", () => {
     const html = renderToString(h(StateMark, { status: "estimated", basis: "統計の平均", text: "推定", label: "年収" }));
     expect(html).toContain('class="help-btn help-mark badge est"');
     expect(html).toContain('data-state="estimated"');
-    expect(html).toMatch(/role="tooltip"[^>]*hidden[^>]*><p class="est-basis" data-basis="true">推定: 統計の平均<\/p>/);
+    // 吹き出しの頭に「推定のもと: 出どころ」（根拠が出どころそのものなら1行）
+    expect(html).toMatch(/role="tooltip"[^>]*hidden[^>]*><p class="est-basis" data-basis="true"><span class="est-src" data-est-head="true">推定のもと: 統計の平均<\/span><\/p>/);
   });
   it("根拠の無い印（該当なしなど）はただの札", () => {
     const html = renderToString(h(StateMark, { status: "notApplicable", basis: null, text: "該当なし", label: "年収" }));

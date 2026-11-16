@@ -6,7 +6,7 @@ import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { Help, HelpOf } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { addMonths, ageAt } from "../../levers.ts";
-import { actionHelp, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, useGroupOpen, visible } from "../FieldViews.tsx";
+import { actionHelp, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, StateMark, useGroupOpen, visible } from "../FieldViews.tsx";
 import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
 import { fieldStatus, typeValue } from "../valueState.ts";
@@ -213,7 +213,11 @@ function NumBox(p: {
   );
 }
 
-const EstTag = ({ text }: { text: string }) => <span class="sv-est">{text}</span>;
+/**
+ * 推定の印（欄の部品と同じ「推定」の印。推定の出どころは印の吹き出しの頭「推定のもと: …」に出し、欄の横に文で出さない）。
+ * 出どころの無い印（basis が null）は、吹き出しを持たない印だけ
+ */
+const EstTag = ({ basis, label }: { basis: string | null; label: string }) => <StateMark status="estimated" basis={basis} text="推定" label={label} />;
 
 /**
  * 期間を分けた積立: 「45 〜49歳 月[3]万円」を並べ、「＋期間を追加」で足す。最後の期間の終わりは「〜64歳（65歳になる前の月まで）」。
@@ -1095,7 +1099,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
                   </td>
                   <td>
                     <NumBox value={c.muOwn ? c.mu : null} unit="pct" size="s" optional est={wh.assumed[classReturnKey(c.key)] !== undefined} placeholder={pctFromRate(c.mu)} label={`${c.name}の利回り`} onCommit={(v) => onEdit(setClassReturn(wh, c.key, typeof v === "string" ? v : null))} /> %
-                    {wh.assumed[classReturnKey(c.key)] !== undefined ? <EstTag text="推定" /> : null}
+                    {wh.assumed[classReturnKey(c.key)] !== undefined ? <EstTag basis={wh.assumed[classReturnKey(c.key)] ?? null} label={`${c.name}の利回り`} /> : null}
                   </td>
                   <td>
                     <NumBox value={c.sdOwn ? c.sd : null} unit="pct" size="s" optional placeholder={pctFromRate(CLASSES.find((x) => x.key === c.key)?.sd ?? "0")} label={`${c.name}の値動きの大きさ`} onCommit={(v) => setVolatility(c.key, typeof v === "string" ? v : null)} /> %
@@ -1233,7 +1237,7 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
                   ))}
                 </span>
                 {est ? (
-                  <EstTag text={`推定あり: ${payoutAgeBasis(req, a)}に一時金`} />
+                  <EstTag basis={`${payoutAgeBasis(req, a)}に一時金`} label={`${name}の受け取り方`} />
                 ) : (
                   <button type="button" class="link-btn" onClick={() => edit(a.id, { method: null })}>
                     空欄に戻す
@@ -1246,7 +1250,7 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
               <div class="ctl">
                 <NumBox value={payoutAgeOf(h, a)} unit="age" size="s" optional est={ageEst} placeholder={String(defaultPayoutAge(req, a))} label={`${name}の受け取りを始める年齢`} id={fieldDomId(`sav/${a.id}/payoutAge`)} onCommit={(v) => edit(a.id, { age: typeof v === "number" ? Math.min(75, Math.max(60, v)) : null })} />
                 <span class="u">歳</span>
-                {ageEst ? <EstTag text={`推定あり: ${payoutAgeBasis(req, a)}`} /> : null}
+                {ageEst ? <EstTag basis={payoutAgeBasis(req, a)} label={`${name}の受け取りを始める年齢`} /> : null}
               </div>
             </div>
             <div class="sv-fld">
@@ -1332,12 +1336,8 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
               <b data-stop-age-read>{stopAge ?? estimate.age}</b>
             )}{" "}
             歳になる前の月まで
+            {est ? <EstTag basis={estimate.retired ? `退職はもう過ぎているので、${estimate.until}まで` : `${estimate.until}まで`} label="積立をやめる年齢" /> : null}
           </div>
-          {est ? (
-            <div class="pv">
-              <EstTag text={estimate.retired ? `推定あり: 退職はもう過ぎているので、${estimate.until}まで` : `推定あり: ${estimate.until}まで`} />
-            </div>
-          ) : null}
           {level === "detail" ? <FieldStateLine f={fields.get("sav/stopAge")} wh={wh} onEdit={onEdit} noBasis /> : null}
         </div>
         ) : null}

@@ -74,3 +74,45 @@ export function shortBasis(basis: string | null | undefined): string | null {
   if (basis.startsWith("統計の平均")) return "統計の平均";
   return textEm(basis) <= SHORT_BASIS_ROOM ? basis : null;
 }
+
+/** 欄の横の1行のうち、推定の出どころの頭（「統計の平均（○○の調査）」「事務所の推定の値」）。後ろの「・」「。」の後は欄の横に残す一言 */
+const SOURCE_HEAD = /^(?:統計の平均(?:（[^）]*）)?|事務所の推定の値)(?:[・。]|$)/;
+
+/**
+ * 推定の欄の横の1行（FieldState.blankHint）を、推定の出どころと、欄の横に残す一言に分ける。出どころは欄の横に出さず、
+ * 「推定」の印の吹き出しの頭（「推定のもと: …」）に置く。残す一言（入れ方・計算の中身。例:「学校の費用に含まれます」「亡くなる見込みで止まり、…」）は欄の横のまま。
+ * - 「統計の平均（○○の調査）」「事務所の推定の値」で始まる1行は、そこまでが出どころ、続く「・」「。」の後ろが残す一言
+ * - ほかの1行は、全部が出どころ（blankHint は推定の根拠の短い文。例:「今の年収から等級表で（毎年9月に決め直す）」）
+ */
+export function splitEstimateHint(text: string | null | undefined): { source: string | null; rest: string | null } {
+  if (text === null || text === undefined || text === "") return { source: null, rest: null };
+  const m = SOURCE_HEAD.exec(text);
+  if (m === null) return { source: text, rest: null };
+  const source = m[0].replace(/[・。]$/, "");
+  const rest = text.slice(m[0].length).trim();
+  return { source, rest: rest === "" ? null : rest };
+}
+
+/** 「推定（…）」と全体を括弧で包んだ根拠の、中身（包んでいなければそのまま。括弧の対応を見て、「推定（A）。B（C）」は包んでいないと読む） */
+function unwrapEstimate(basis: string): string {
+  if (!basis.startsWith("推定（") || !basis.endsWith("）")) return basis;
+  const inner = basis.slice(3, -1);
+  let depth = 0;
+  for (const ch of inner) {
+    if (ch === "（") depth++;
+    else if (ch === "）" && --depth < 0) return basis;
+  }
+  return depth === 0 ? inner : basis;
+}
+
+/**
+ * 「推定」の印の吹き出しの文（行の並び）。頭の行は「推定のもと: 出どころ」で、出どころが一目でわかるように先に置く。
+ * 出どころは、欄の横から移した短い文（source）か、根拠から作る短い文（shortBasis）。根拠がその短い文で始まる（同じ中身）なら重ねずに1行、
+ * 違えば2行目に根拠の全部
+ */
+export function estimateBasisLines(basis: string, source?: string | null): [string] | [string, string] {
+  const full = unwrapEstimate(basis);
+  const head = source !== undefined && source !== null && source !== "" ? source : shortBasis(full);
+  if (head === null || full.startsWith(head)) return [`推定のもと: ${full}`];
+  return [`推定のもと: ${head}`, full];
+}
