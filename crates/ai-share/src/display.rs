@@ -2,7 +2,8 @@
 //!
 //! - 事務所の既定値（`office_display_of`）: 事務所データの `defaults` のうち、値も計算も変えない見せ方の欄だけを、名前で選んで写す
 //!   （入力項目の並び `layout`・新しい世帯で出す入力項目 `items`・基本生活費の内訳の並べ方 `living`・対策に最初から出す項目 `levers`・
-//!   万一のタブの想定の前提 `premises` と場面の帯 `scenes`・合算BS を使うか `features.combinedBs`）。計算の結果を変える欄
+//!   万一のタブの想定の前提 `premises` と場面の帯 `scenes`・結果のタブと資産と負債のタブの表示の設定の事務所の既定値 `display`〔0213 の段C〕・
+//!   合算BS を使うか `features.combinedBs`）。AI の案を反映する前の値（`displayHistory`）は写さない。計算の結果を変える欄
 //!   （前提条件の標準値・必要保障額の数え方・介護・相続の見込み・不動産の評価の割合・表の最後の年齢・FP顧問料の料金表・推定の値）、
 //!   名前・ロゴ・色（branding）、ヒアリングのひな形と話題は、ここを通らない（知らない欄も通さない）
 //! - 渡された世帯（`household_display_of`）: 世帯ファイルの本文のうち、結果のタブ・資産と負債のタブの表示の設定（`display`）、
@@ -13,8 +14,9 @@ use crate::reduce::{is_uuid, Pseudonyms};
 use serde_json::{json, Map, Value};
 
 /// 事務所データの `defaults` から写す、見せ方だけの欄
-pub const OFFICE_DISPLAY_KEYS: [&str; 6] =
-    ["layout", "items", "living", "levers", "premises", "scenes"];
+pub const OFFICE_DISPLAY_KEYS: [&str; 7] = [
+    "layout", "items", "living", "levers", "premises", "scenes", "display",
+];
 
 /// 事務所の既定値の見せ方だけの欄の、機能を有効にするコードで使えるようになる機能（`features` の中で写す物）
 pub const DISPLAY_FEATURES: [&str; 1] = ["combinedBs"];
@@ -28,7 +30,7 @@ pub const HOUSEHOLD_DISPLAY_ITEMS: [&str; 4] = [
 ];
 
 /// 事務所データの `defaults`（アプリ本体が復号した物）から、見せ方だけの欄を切り出す。`active` は今使える機能（機能を有効にするコード）。
-/// 答えは `{ layout?, items?, living?, levers?, premises?, scenes?, features: { combinedBs }, featureCodes: [使える機能] }`
+/// 答えは `{ layout?, items?, living?, levers?, premises?, scenes?, display?, features: { combinedBs }, featureCodes: [使える機能] }`
 pub fn office_display_of(defaults: &Value, active: &[String]) -> Value {
     let mut out = Map::new();
     for k in OFFICE_DISPLAY_KEYS {
@@ -163,6 +165,8 @@ mod tests {
             "levers": { "shown": ["lever:nisaMonthly"] },
             "premises": {}, "scenes": { "open": "income" },
             "living": { "rows": [{ "kind": "one", "category": "food", "label": "食費（自炊と外食）" }] },
+            "display": { "result": { "atAge": 90 }, "balance": { "moneyThree": { "months": 3 } } },
+            "displayHistory": { "result.atAge": [{ "value": 95, "at": "2026-11-15T00:00:00Z", "reason": "ai" }] },
             "assumptions": { "inflation": "0.02" },
             "estimates": { "noFill": ["livingExpense.monthly"] },
             "protection": { "horizon": { "kind": "age", "age": 90 } },
@@ -176,6 +180,7 @@ mod tests {
         assert_eq!(
             keys,
             [
+                "display",
                 "featureCodes",
                 "features",
                 "items",

@@ -1,0 +1,21 @@
+# 地方税法20条の4の2第6項
+id: businessTax.installment.rounding
+title: 個人事業税の分割金額（8月・11月）の1,000円未満の端数（最初の納期の分に合わせる）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2023-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 1000}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261101_508AC0000000002?response_format=xml", retrievedAt: "2026-11-15", sha256: "ef2116230a5fdb6f6dc6bb0367425a665adf674dd0eb59b62ad076274c35de13", locator: "地方税法 第20条の4の2第6項", quote: "その納期限ごとの分割金額に千円未満の端数があるとき"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261101_508AC0000000002"}
+    recordedIn: "2026.21.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "分割して納める金額の1,000円未満の端数は最初の納期（8月）の分に合わせる。条例で異なる定めをする道府県の扱い・少額を1回で納める扱い（72条の51第2項）は入れていない。e-Gov法令API の条文（XML）の1つの経路で読んだ。原本の写しと照らし合わせる前"}

@@ -19,6 +19,33 @@ export type Level = "simple" | "detail";
 /** 欄の値。時点の欄（kind "when"）は時点の型（0003 の6）そのものも受ける（年月の文字は {at} として読む） */
 export type Val = number | string | boolean | null | Timepoint;
 
+/** 打って選ぶ欄の候補1つ */
+export interface SearchItem {
+  value: string;
+  label: string;
+  /** 2行目（同じ名前を見分ける所在地など） */
+  sub?: string;
+  /** 名前の後ろに小さく添える（「旧校名: ○○」など） */
+  note?: string;
+}
+
+/** 打って一覧から選ぶ欄（FieldBase.search） */
+export interface SearchDef {
+  /** いつも一覧の一番上に出す選択肢（「学校未定（平均で計算）」など） */
+  fixed: SearchItem[];
+  /** 打った文字の候補と、合う物の数（候補に出しきれない数を添える） */
+  find: (wh: WorkingHousehold, query: string) => { items: SearchItem[]; total: number };
+  /** 何も打っていないときの候補（ヒアリングシートの学校名の候補など）。無ければ null */
+  initial?: (wh: WorkingHousehold) => { title: string; query: string } | null;
+  /** 欄に見せる今の値の名前 */
+  shown: (wh: WorkingHousehold) => string;
+  /** 候補を出す前に読むもの（遅れて読む一覧）。読めたら描き直す */
+  load?: () => Promise<unknown>;
+  ready?: () => boolean;
+  /** 灰色の入力例 */
+  placeholder: string;
+}
+
 export interface Option {
   value: string;
   label: string;
@@ -192,6 +219,11 @@ interface FieldBase {
   docFor?: string;
   /** 見せるだけの欄（書き換えられない）。その理由 */
   readOnly?: string;
+  /**
+   * 打って一覧から選ぶ欄（学校名など。0217）。kind は select のまま（options は固定の選択肢と今の値だけ。確かめの一覧・往復のテストは
+   * select と同じに扱う）。入力の画面は、選ぶ欄の代わりに打つ欄と候補の一覧で描く（FieldViews.tsx の SearchPicker）
+   */
+  search?: SearchDef;
   /**
    * どのプランにも共通の欄（世帯で1つの値。プランを直している間に変えても、プランの差分にせず現状に書く。例: 表の最後の年）。
    * プランを直している間に欄の下に出す一言（0043 の追記 2026-11-05）

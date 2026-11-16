@@ -4,7 +4,7 @@ import type { Box, EmploymentPeriod, Household, Member } from "../../../engine/t
 import type { Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, applyLevers, applyRetireMonth, readLevers } from "../../levers.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
-import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimate, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
+import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimateFor, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
 import { isAutoSmr } from "../smr.ts";
 import { healthRateEstimate, parseWageCurveId, reemploymentRatio, WAGE_CURVE_SIZES, wageCurveEmployment, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass, type WageCurveChoice, type WageSize } from "../../../../../hearing/src/estimates.ts";
 import { afterWrite, byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
@@ -1039,9 +1039,10 @@ function residentTaxField(wh: WorkingHousehold, m: Member): FieldDef {
       ((hh.residentTaxAssessments ??= []) as unknown[]).push(a);
       return a as unknown as Record<string, unknown>;
     },
+    // 年度の元の年（年度の前の年）に重なる働き方の月の分から（0133 の追記 2026-11-15）
     estimate: (hh) => {
-      const p = currentPeriod(hh, m.id, base);
-      return residentTaxEstimate((p?.salary?.annual.value ?? 0) + (p?.salary?.bonus?.value ?? 0), p?.business?.income.value ?? 0, fy - 1);
+      const e = residentTaxEstimateFor(hh, m.id, fy, base);
+      return { value: e.value, basis: e.basis };
     },
     help: "住民税の決定通知書（給与明細の住民税×12）の額。入れなければ前の年の所得から概算します",
   });
@@ -1164,9 +1165,41 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       fields.push({ ...plain({ key: `${prefix}/corpDbMonthly`, item: "employment.corporatePension", label: "他制度掛金相当額（月額）", level: d, kind: "yen", basis: "monthly", find, path: ["corporatePension", "dbEquivalentMonthly"], optional: true, help: "勤め先から知らされる額。入れなければ、iDeCo の上限を他制度ありの決まりで見ます" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["dbEquivalentMonthly"] }) });
   }
   if (p.type === "selfEmployed")
-    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "青色申告特別控除を引く前の事業所得の額。青色申告決算書の「青色申告特別控除前の所得金額」を写します（決算書が無ければ、申告書第一表の「事業（営業等）」の所得金額に「青色申告特別控除額」を足した額。申告書の所得金額は控除の後の額なので、そのまま写すと控除を2回引きます）。青色申告なら、控除は下の「確定申告」で選ぶと計算で引きます" }), growthField(wh, p, find, prefix, "business", d));
+    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "青色申告特別控除を引く前の事業所得の額。青色申告決算書の「青色申告特別控除前の所得金額」を写します（決算書が無ければ、申告書第一表の「事業（営業等）」の所得金額に「青色申告特別控除額」を足した額。申告書の所得金額は控除の後の額なので、そのまま写すと控除を2回引きます）。青色申告なら、控除は下の「確定申告」で選ぶと計算で引きます" }), growthField(wh, p, find, prefix, "business", d), businessTaxField(p, find, prefix));
   if (level === "detail") fields.push(...claimFields(wh, m, p, find, prefix));
   return fields;
+}
+
+/** 個人事業税の業種の区分（地方税法72条の2・72条の49の17の標準税率。エンジンの employment.business.businessTaxClass） */
+export const BUSINESS_TAX_CLASSES = [
+  { value: "class1", label: "第1種（5%）物品販売・製造・飲食・請負・代理・仲介など" },
+  { value: "class3", label: "第3種（5%）医業・士業・コンサルタント・デザイン・理美容など" },
+  { value: "class3Reduced", label: "第3種（3%）あん摩・マッサージ・はり・きゅう・柔道整復・装蹄師" },
+  { value: "class2", label: "第2種（4%）畜産・水産・薪炭製造" },
+  { value: "none", label: "法定業種でない（個人事業税はかからない）" },
+] as const;
+
+/**
+ * 個人事業税の業種（詳細。0155 の追記 2026-11-15）: 空欄は第1種（5%）。第1種を選んでも空欄と同じ（世帯には書かない）。
+ * 法定業種でない仕事（文筆・作曲・漫画など）は「かからない」を選ぶ
+ */
+function businessTaxField(p: EmploymentPeriod, find: Finder, prefix: string): FieldDef {
+  return {
+    ...plain({
+      key: `${prefix}/businessTax`,
+      item: "employment.business.businessTaxClass",
+      label: "個人事業税の業種",
+      level: "detail",
+      kind: "select",
+      options: [...BUSINESS_TAX_CLASSES],
+      find,
+      path: ["business", "businessTaxClass"],
+      optional: true,
+      fallback: "class1",
+      help: "事業所得（青色申告特別控除を引く前）から事業主控除（年290万円。年の途中で始めた・やめた年は月割り）を引いた額に、業種の税率を掛けます。翌年の8月と11月に払います。入れなければ5%。都道府県税事務所の納税通知書でも分かります",
+    }),
+    address: () => ({ target: { object: p.id }, item: "employment.business.businessTaxClass", at: [] }),
+  };
 }
 
 /**

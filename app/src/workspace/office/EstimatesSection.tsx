@@ -265,7 +265,7 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
                     </label>
                   ) : (
                     <>
-                      <p class="pl-sub">表の一部の段だけ変えられます（空欄の段は公式の値のまま）。</p>
+                      <p class="pl-sub">表の一部の段だけ変えられます（空欄の段は公式の値のまま）。{e.points === true ? "値はその年齢ちょうどの値で、間の年齢は前後の段の値から直線で補います（最後の年齢から上は最後の段の値）。" : ""}</p>
                       <table class="os-code-diff os-est-table">
                         <thead>
                           <tr>
@@ -275,15 +275,15 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
                           </tr>
                         </thead>
                         <tbody>
-                          {(e.official.value as readonly BracketStep[]).map((s, i) => (
+                          {(e.official.value as readonly BracketStep[]).map((s, i) => (e.points === true && s.upTo === null ? null : (
                             <tr key={i}>
-                              <th scope="row">{stepLabel(e.axis, e.official.value as readonly BracketStep[], i)}</th>
+                              <th scope="row">{stepLabel(e.axis, e.official.value as readonly BracketStep[], i, e.points)}</th>
                               <td>{formatNumber(e.unit, stepValue(s))}</td>
                               <td>
-                                <input inputMode="decimal" value={draft[String(i)] ?? ""} placeholder={editText(e.unit, stepValue(s))} aria-label={`${stepLabel(e.axis, e.official.value as readonly BracketStep[], i)}の事務所の値`} onInput={(x) => setDraft({ ...draft, [String(i)]: (x.currentTarget as HTMLInputElement).value })} data-office-estimate-input={String(i)} />
+                                <input inputMode="decimal" value={draft[String(i)] ?? ""} placeholder={editText(e.unit, stepValue(s))} aria-label={`${stepLabel(e.axis, e.official.value as readonly BracketStep[], i, e.points)}の事務所の値`} onInput={(x) => setDraft({ ...draft, [String(i)]: (x.currentTarget as HTMLInputElement).value })} data-office-estimate-input={String(i)} />
                               </td>
                             </tr>
-                          ))}
+                          )))}
                         </tbody>
                       </table>
                     </>

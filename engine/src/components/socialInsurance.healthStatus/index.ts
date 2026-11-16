@@ -28,13 +28,15 @@
 //   まだ始まっていない仕事・年金は見込みに入れず（働き始めた月・受け始めた月から外れる）、終わった仕事は入れない（辞めた翌月から扶養に入る）。
 //   障害年金を受ける人の基準は、その月に障害年金を受ける人に使う。改訂6（表の外の月）と改訂8 の見込みの決まり（亡くなった後の月を入れない）は、
 //   先の月を数えないので要らなくなった。決まりは pension.category と共通（sdk の deriveHealthStatus）
+// 改訂10（0174 の追記 2026-11-15）: 収入の見込みに、不動産収入（家賃収入−その不動産の経費）と、年金で受け取る企業年金・確定拠出年金・
+//   小規模企業共済の分割・個人年金保険を足した（前は給与・事業・公的年金・基本手当だけ）
 import { defineComponent, deriveHealthStatus, HEALTH_STATUS_PARAMS, HEALTH_STATUS_READS, type HealthStatusMonth } from "../../sdk/index.ts";
 
 export default defineComponent<{ member: string }, { months: HealthStatusMonth[] }>({
   id: "socialInsurance.healthStatus",
   title: "健康保険の種類（導く）",
   contract: "1.0",
-  revision: 9,
+  revision: 10,
   requires: {
     "contingency.event": ">=1 <2",
     "socialInsurance.employeeStatus": ">=1 <2",
@@ -44,6 +46,11 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
     "pension.survivor": ">=1 <2",
     "pension.disability": ">=1 <2",
     "benefit.unemployment": ">=1 <2",
+    "asset.realEstate": ">=1 <2",
+    "retirement.benefit": ">=1 <2",
+    "account.mutualAid": ">=1 <2",
+    "insurance.policy": ">=1 <2",
+    "account.ideco": ">=1 <2",
   },
   params: Object.values(HEALTH_STATUS_PARAMS),
   reads: [...HEALTH_STATUS_READS],

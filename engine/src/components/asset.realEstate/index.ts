@@ -78,6 +78,9 @@
 //   亡くなった年からの年ごとに、名義の人と相続する人の分（holders）に分ける: 家賃と経費は月ごとに、減価償却費・借入の利息（土地の分を含む）は
 //   貸している月数で分け、相続する人の分を人数で等分する。売却の譲渡所得は売る月に持つ人に付く（tax.realEstateSale。取得費と所有期間は
 //   亡くなった人から引き継ぐ。所得税法60条）。名義の人（owner）・評価額・帳簿価額は変えない
+// - 改訂11（0028 の追記 2026-11-15）: 不動産所得の経費にする借入の利息は、その年の利息（debt.schedule の interest）を、その年にローンのある月
+//   （最初の返済の月〔計算基準月より前なら計算基準月〕から返し終わる月まで）のうち貸している月の割合で按分する。前は貸している月数÷12 を
+//   掛けていたので、年の途中で借りた・返した年（買った年・売った年）は、利息そのものが数か月分なのにさらに月割りされ、半分ほどになっていた
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   inheritanceOf,
@@ -91,6 +94,7 @@ import {
   landBuildingValuer,
   LAND_SHARE,
   monthIndex,
+  parseYm,
   RATE_ONE,
   RATE_ZERO,
   SALE_COST_RATE,
@@ -169,7 +173,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
   contract: "1.6",
-  revision: 10,
+  revision: 11,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [HOLDING, ESTIMATED],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
@@ -531,7 +535,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         return (buildingCost ?? 0) - left;
       };
 
-      // 借入の利息（この不動産を指す負債。貸している月数の分）と、そのうち土地の取得のための分
+      // 借入の利息（この不動産を指す負債。ローンのある月のうち貸している月の分）と、そのうち土地の取得のための分
       const intByYear = new Map<number, Yen>();
       const landIntByYear = new Map<number, Yen>();
       if (r !== undefined) {
@@ -539,10 +543,16 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           if (d.property !== a.id) continue;
           const out = ctx.call<DebtScheduleOutput>("debt.schedule", { object: d.id });
           const landPart = buildingCost === null || d.principal <= 0 ? 0 : Math.max(0, d.principal - buildingCost);
+          // ローンのある月（利息の付く月。計算基準月から。debt.schedule の interest と同じ範囲）
+          const loanFrom = maxM(parseYm(out.firstPayment), base);
+          const loanTo = out.payoff === null ? end : parseYm(out.payoff);
           for (const x of out.interest ?? []) {
-            const months = rented(x.year);
-            if (months === 0 || x.amount <= 0) continue;
-            const i = months === 12 ? x.amount : ctx.money.mulRatio(x.amount, months, 12, RENT);
+            if (rented(x.year) === 0 || x.amount <= 0 || rFrom === null || rTo === null) continue;
+            // その年のローンのある月のうち、貸している月の割合（改訂11。前は貸している月数÷12）
+            const loanMonths = monthsIn(x.year, loanFrom, loanTo);
+            const both = monthsIn(x.year, maxM(maxM(loanFrom, rFrom), calcStart), minM(loanTo, rTo));
+            if (both === 0) continue;
+            const i = both >= loanMonths ? x.amount : ctx.money.mulRatio(x.amount, both, loanMonths, RENT);
             intByYear.set(x.year, addYen(intByYear.get(x.year) ?? yen(0), i));
             if (landPart > 0) landIntByYear.set(x.year, addYen(landIntByYear.get(x.year) ?? yen(0), ctx.money.mulRatio(i, Math.min(landPart, d.principal), d.principal, RENT)));
           }

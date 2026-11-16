@@ -27,6 +27,16 @@
 //   準確定申告の還付は、亡くなった人の財産としてその他に入れる。万一の想定の時点はその表（亡くなった月より後に、亡くなった人の名で払う税）、
 //   いまの時点は計算基準月に亡くなる想定の表（ctx.deathScenario。必要保障額の計算基準年と同じ表）。二人とも亡くなった後は入れない（払う月が表の
 //   終わりより後になる）
+// - 改訂4（0039 の追記 2026-11-15）: いまの時点（と、計算基準年の万一の想定の時点）の財産は、どれも計算基準月の初め（入力の時価の時点。
+//   その月のお金の動きの前）の姿で数える。前は金融資産だけ入力の時価で、不動産・車・負債・解約返戻金は計算基準年の年末の残高の行、死亡保険金は
+//   その年の12月の死亡保障額だったので、計算基準年のうちに買う家（頭金を払う前の預金と、買った後の家の両方）・これから始まる保険が入り、
+//   今年のうちに終わる保険・売る物件が抜けた
+//   - 計算基準月か、それより後に買う・借りる・持ち始める・結ぶ物（住まいの購入・注文住宅の土地・持ち始める時点・負債・自動車ローン・車の最初の購入・
+//     保険の契約）は入れない。計算基準月から12月までに売る住まい・物件は、その年の評価額で入れる
+//   - 額: 金融資産・確定拠出年金・小規模企業共済・貸していない不動産・その他の資産は入力の時価。住まい・物件は計算基準年の評価額（評価額は
+//     年ごとに変わるので、計算基準月の額と同じ）。いまの時点の世帯の負債は計算基準月の残高（年末の残高＋計算基準月から12月までに返す元金。
+//     未払利息は年末の額）。死亡保険金は計算基準月の死亡保障額（insurance.policy の start。必要保障額と同じ）。車と解約返戻金は年末の額の近似
+//     （月ごとの額を持たない）。万一の想定の時点の負債は、団信で消える分が想定の表で減っているので、年末の残高のまま
 // - 入れていない決まり（notIncluded）: 2割加算・小規模宅地等の特例・土地の評価の細部・一次と二次の分け方の比べ・暦年課税の贈与の加算・
 //   相次相続控除・未成年者控除・障害者控除・受け取る側の目安（親の遺産の総額から）。当たりそうなとき（兄弟姉妹が相続人・持ち家がある・数えない
 //   養子がいる・相続人でない人への精算課税の贈与）は cautions に出す
@@ -42,7 +52,11 @@ import {
   type AccountInput,
   type AnnualRow,
   type ContingencyEventOutput,
+  type CarOutput,
   type DebtInput,
+  type DebtScheduleOutput,
+  type HousingValuationOutput,
+  type RealEstateOutput,
   type Flow,
   type GiftReceivedOutput,
   type GiftTaxOutput,
@@ -183,7 +197,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
   id: "inheritance.estimate",
   title: "相続税の目安（基礎控除・法定相続人・非課税・速算表・配偶者の軽減・精算課税の足し戻し）",
   contract: "1.1",
-  revision: 3,
+  revision: 4,
   requires: {
     "plan.cashflow": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -193,6 +207,10 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     "contingency.lumpSum": ">=1 <2",
     "gift.received": ">=1 <2",
     "gift.tax": ">=1 <2",
+    "housing.valuation": ">=1 <2",
+    "asset.realEstate": ">=1 <2",
+    "debt.schedule": ">=1 <2",
+    "expense.car": ">=1 <2",
   },
   params: Object.values(P),
   reads: [
@@ -217,11 +235,19 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     "account.kind",
     "account.owner",
     "account.marketValue",
+    "account.property",
+    "account.holdFrom",
+    "account.sale",
     "insurance.policyholder",
     "insurance.insured",
+    "insurance.contractDate",
     "debt.debtors",
     "debt.creditLife",
+    "debt.start",
+    "car.purchase",
     "residence.ownership",
+    "residence.from",
+    "residence.purchase",
     "goal.kind",
     "goal.owner",
   ],
@@ -371,7 +397,65 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     const accounts = ctx.list<AccountInput>("account");
     const contracts = ctx.list<InsuranceContractInput>("insurance");
     const debts = ctx.list<DebtInput>("debt");
-    const residences = ctx.list<{ id: string; ownership?: readonly { member: string; share: string }[] }>("residence");
+    const residences = ctx.list<{ id: string; from: unknown; purchase?: { at?: unknown; land?: { at: unknown } }; ownership?: readonly { member: string; share: string }[] }>("residence");
+    // いまの時点（計算基準月。opening）の財産（改訂4）: 計算基準月の初め（入力の時価の時点。その月のお金の動きの前）に持っている物・借りている
+    // 負債だけを数える。計算基準月より後に、または計算基準月に買う・借りる・持ち始める物は入れず、計算基準月より後に売る物は入れる
+    const S = base;
+    // 持っているか（住まいは購入〔注文住宅は土地の決済が早ければその月〕が計算基準月より前。購入の無い持ち家は住み始めが計算基準月まで。
+    // 住まい以外の不動産は持ち始める時点が計算基準月より前。housing.valuation・asset.realEstate の持ち始めと同じ月）
+    const heldAtS = new Map<string, boolean>();
+    for (const r of residences) {
+      if (r.purchase === undefined) {
+        const from = resolveTp(r.from);
+        heldAtS.set(r.id, from === null || from <= S);
+        continue;
+      }
+      const bought = resolveTp(r.purchase.at ?? r.from);
+      const land = r.purchase.land === undefined ? null : resolveTp(r.purchase.land.at);
+      const from = land !== null && (bought === null || land < bought) ? land : bought;
+      heldAtS.set(r.id, from === null || from < S);
+    }
+    for (const a of ctx.list<AccountInput>("account")) {
+      if (a.kind === "realEstate" && a.property?.holdFrom !== undefined) heldAtS.set(a.id, ctx.time.resolve(a.property.holdFrom) < S);
+    }
+    // 計算基準月から計算基準年の12月までに売る不動産（年末の評価額の行が無い）の、その年の評価額
+    const soldLater: { object: string; owner: string | null; value: Yen }[] = [];
+    for (const p of [...ctx.call<HousingValuationOutput>("housing.valuation", {}).properties, ...ctx.call<RealEstateOutput>("asset.realEstate", {}).properties]) {
+      if (p.sale === null) continue;
+      const m = parseYm(p.sale.ym);
+      if (m >= S && yearOf(m) === baseYear && heldAtS.get(p.object) !== false) soldLater.push({ object: p.object, owner: p.owner, value: p.sale.value });
+    }
+    // 計算基準月に持っている車（今の車か、最初の購入の月が計算基準月より前の車。額は計算基準年の年末の評価額で近似）
+    const carHeld = new Map<string, boolean>();
+    for (const c of ctx.list<{ id: string; purchase?: { first: unknown; owned?: boolean } }>("car")) {
+      const first = c.purchase === undefined ? null : resolveTp(c.purchase.first);
+      carHeld.set(c.id, c.purchase !== undefined && (c.purchase.owned === true || (first !== null && first < S)));
+    }
+    // ほかの部品が作った自動車ローンの借りた月
+    const carLoanStart = new Map<string, MonthIndex>();
+    for (const m of members) for (const l of ctx.call<CarOutput>("expense.car", { member: m.id }).loans) if (l.start !== undefined) carLoanStart.set(l.object, parseYm(l.start));
+    // 世帯の負債の計算基準月の残高（計算基準年の年末の残高＋計算基準月から12月までに返した元金。元金＝返済・繰上返済・売ったときの返済−利息に充てた額
+    // −借り換えで新しいローンに含めた費用）。借りる月が計算基準月か、それより後の負債は数えない
+    const debtAtS = new Map<string, { balance: Yen; unpaid: Yen }>();
+    const PAID = (formula: string) => formula === "debt.schedule.equalPayment" || formula === "debt.schedule.equalPrincipal" || formula === "debt.schedule.salePayoff" || formula.startsWith("debt.schedule.prepayment.");
+    for (const d of debts) {
+      if (ctx.time.resolve(d.start) >= S) continue;
+      const o = ctx.call<DebtScheduleOutput>("debt.schedule", { object: d.id });
+      const e = o.yearEnd.find((x) => x.year === baseYear);
+      if (e === undefined) continue;
+      let paid = 0;
+      for (const f of o.flows) {
+        const m = parseYm(f.ym);
+        if (m >= S && yearOf(m) === baseYear && PAID(f.formula)) paid += f.amount;
+      }
+      const interest = o.byYear?.find((x) => x.year === baseYear)?.interestPaid ?? 0;
+      let financed = 0;
+      for (const r of o.refinances ?? []) {
+        const m = parseYm(r.ym);
+        if (m >= S && yearOf(m) === baseYear && r.principal > r.before) financed += r.principal - r.before;
+      }
+      debtAtS.set(d.id, { balance: yen(Math.max(0, e.balance + (o.byYear === undefined ? 0 : paid - interest - financed))), unpaid: e.unpaidInterest });
+    }
     const goals = ctx.list<{ id: string; kind: string; owner: string }>("goal");
     const realRatio = ctx.rate.of(req.realEstateRatio ?? REAL_ESTATE_RATIO);
     const policyOut = new Map<string, InsurancePolicyOutput>();
@@ -480,16 +564,11 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       let insurance = 0;
       let debtTotal = 0;
       const insuredByX = new Set(contracts.filter((c) => c.insured === X).map((c) => c.id));
+      const startOf = (id: string): MonthIndex => {
+        const c = contracts.find((x) => x.id === id);
+        return c === undefined ? S : parseYm(c.contractDate);
+      };
       const rows = rowsOf(V);
-      if (opening) {
-        for (const a of accounts) {
-          if (FINANCIAL_EXCLUDED.has(a.kind) && !RETIREMENT_KINDS.has(a.kind)) continue;
-          const v = boxValue(a.marketValue) ?? yen(0);
-          const s = shareOf(a.owner, owners, unassigned);
-          if (RETIREMENT_KINDS.has(a.kind)) retirement += part(v, s);
-          else financial += part(v, s);
-        }
-      }
       const residenceShare = (object: string | undefined): string | null | undefined => {
         const r = residences.find((x) => x.id === object);
         if (r === undefined || r.ownership === undefined || r.ownership.length === 0) return undefined;
@@ -498,11 +577,66 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         return ctx.rate.compare(sum, ctx.rate.of("0")) === 0 ? null : ctx.rate.toString(sum);
       };
       let hasHome = false;
+      /** 世帯の負債の、亡くなる人の分（負担の割合。団信で消える分を除く） */
+      const debtShare = (d: DebtInput, total: Yen, unpaidInterest: boolean): number => {
+        const mine = d.debtors.filter((x) => owners.has(x.member) && x.role !== "guarantor");
+        if (mine.length === 0 || total <= 0) return 0;
+        const payers = d.debtors.filter((x) => x.role !== "guarantor");
+        // 負担の割合（share。書いていなければ債務者の数で等分）
+        let amount: Yen;
+        if (mine.every((m) => m.share !== undefined)) {
+          let share = ctx.rate.of("0");
+          for (const m of mine) share = ctx.rate.add(share, ctx.rate.of(m.share as string));
+          amount = ctx.money.mulRate(total, share, "conv.exact");
+        } else amount = ctx.money.mulRatio(total, mine.length, payers.length, "conv.exact");
+        // 団信で消える分（亡くなる人が対象で、事由に死亡がある。二人とも亡くなった後は、夫婦のどちらかが対象なら先に亡くなった人の分も消えている。0170）
+        const cl = d.creditLife;
+        const deadCovered = cl === undefined ? [] : cl.covered.filter((m) => (point === "bothAfter" ? owners.has(m) : m === X));
+        if (cl !== undefined && deadCovered.length > 0 && (cl.events ?? ["death"]).includes("death") && !unpaidInterest) {
+          let ratio = ctx.rate.of("0");
+          for (const m of deadCovered) {
+            const xs = d.debtors.find((x) => x.member === m)?.share;
+            ratio = ctx.rate.add(ratio, ctx.rate.of(cl.spouseJoint === true ? "1" : (cl.ratio ?? (d.debtors.length > 1 && xs !== undefined ? xs : "1"))));
+          }
+          if (ctx.rate.compare(ratio, ctx.rate.of("1")) > 0) ratio = ctx.rate.of("1");
+          amount = yen(Math.max(0, amount - ctx.money.mulRate(total, ratio, "conv.exact")));
+        }
+        return amount;
+      };
+      if (opening) {
+        for (const a of accounts) {
+          const v = boxValue(a.marketValue) ?? yen(0);
+          const s = shareOf(a.owner, owners, unassigned);
+          // 貸していない不動産・その他の資産も入力の時価（計算基準月に持っている物。持ち始める時点が計算基準月か、それより後の物・計算基準月より前に売った物は入れない。改訂4）
+          if ((a.kind === "realEstate" && a.property === undefined) || a.kind === "otherAsset") {
+            if (a.holdFrom !== undefined && ctx.time.resolve(a.holdFrom) >= S) continue;
+            if (a.sale !== undefined && ctx.time.resolve(a.sale.at) < S) continue;
+            if (a.kind === "realEstate") realMarket += part(v, s);
+            else other += part(v, s);
+            continue;
+          }
+          if (FINANCIAL_EXCLUDED.has(a.kind) && !RETIREMENT_KINDS.has(a.kind)) continue;
+          if (RETIREMENT_KINDS.has(a.kind)) retirement += part(v, s);
+          else financial += part(v, s);
+        }
+        for (const x of soldLater) {
+          const rs = residenceShare(x.object);
+          const v = part(x.value, rs !== undefined ? rs : shareOf(x.owner, owners, unassigned));
+          if (v > 0 && residences.some((r) => r.id === x.object)) hasHome = true;
+          realMarket += v;
+        }
+        for (const d of point === "now" ? debts : []) {
+          const b = debtAtS.get(d.id);
+          if (b !== undefined) debtTotal += debtShare(d, b.balance, false) + debtShare(d, b.unpaid, true);
+        }
+      }
       for (const a of rows) {
         const kind = a.row.slice("cf.balance.".length);
         if (kind.startsWith("account.")) {
           const k = kind.slice("account.".length);
           if (k.startsWith("realEstate")) {
+            // いまの時点（改訂4）: 貸していない不動産の器は入力の時価で数えた（上）。住まい・貸している不動産は、持ち始める月が計算基準月より後の物を入れない
+            if (opening && (k === "realEstate" || (a.object !== undefined && heldAtS.get(a.object) === false))) continue;
             const rs = residenceShare(a.object);
             const s = rs !== undefined ? rs : shareOf(a.member, owners, unassigned);
             const v = part(a.amount, s);
@@ -513,10 +647,14 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           if (k === "insurance") {
             // 亡くなる人が被保険者の契約は死亡保険金で数える
             if (a.object !== undefined && insuredByX.has(a.object)) continue;
+            // いまの時点は、計算基準月か、それより後に結ぶ契約を入れない（改訂4。額は年末の解約返戻金で近似）
+            if (opening && a.object !== undefined && startOf(a.object) >= S) continue;
             other += part(a.amount, shareOf(a.member, owners, unassigned));
             continue;
           }
           if (k === "car" || k === "otherAsset") {
+            // いまの時点（改訂4）: その他の資産は入力の時価で数えた（上）。車は計算基準月に持っている物だけ（額は年末の評価額で近似）
+            if (opening && (k === "otherAsset" || (a.object !== undefined && carHeld.get(a.object) === false))) continue;
             other += part(a.amount, shareOf(a.member, owners, unassigned));
             continue;
           }
@@ -529,32 +667,16 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         if (kind.startsWith("debt.")) {
           const d = debts.find((x) => x.id === a.object);
           if (d === undefined) {
+            // ほかの部品が作った負債（自動車ローンなど）。いまの時点は、借りる月が計算基準月か、それより後の物を入れない（改訂4）
+            const st = a.object === undefined ? undefined : carLoanStart.get(a.object);
+            if (opening && st !== undefined && st >= S) continue;
             debtTotal += part(a.amount, shareOf(a.member, owners, unassigned));
             continue;
           }
-          const mine = d.debtors.filter((x) => owners.has(x.member) && x.role !== "guarantor");
-          if (mine.length === 0) continue;
-          const payers = d.debtors.filter((x) => x.role !== "guarantor");
-          // 負担の割合（share。書いていなければ債務者の数で等分）
-          let amount: Yen;
-          if (mine.every((m) => m.share !== undefined)) {
-            let share = ctx.rate.of("0");
-            for (const m of mine) share = ctx.rate.add(share, ctx.rate.of(m.share as string));
-            amount = ctx.money.mulRate(a.amount, share, "conv.exact");
-          } else amount = ctx.money.mulRatio(a.amount, mine.length, payers.length, "conv.exact");
-          // 団信で消える分（亡くなる人が対象で、事由に死亡がある。二人とも亡くなった後は、夫婦のどちらかが対象なら先に亡くなった人の分も消えている。0170）
-          const cl = d.creditLife;
-          const deadCovered = cl === undefined ? [] : cl.covered.filter((m) => (point === "bothAfter" ? owners.has(m) : m === X));
-          if (cl !== undefined && deadCovered.length > 0 && (cl.events ?? ["death"]).includes("death") && a.row !== "cf.balance.debt.unpaidInterest") {
-            let ratio = ctx.rate.of("0");
-            for (const m of deadCovered) {
-              const xs = d.debtors.find((x) => x.member === m)?.share;
-              ratio = ctx.rate.add(ratio, ctx.rate.of(cl.spouseJoint === true ? "1" : (cl.ratio ?? (d.debtors.length > 1 && xs !== undefined ? xs : "1"))));
-            }
-            if (ctx.rate.compare(ratio, ctx.rate.of("1")) > 0) ratio = ctx.rate.of("1");
-            amount = yen(Math.max(0, amount - ctx.money.mulRate(a.amount, ratio, "conv.exact")));
-          }
-          debtTotal += amount;
+          // 世帯の負債のいまの時点は、計算基準月の残高（上）。計算基準年の万一の想定の時点は、借りる月が計算基準月か、それより後の負債を入れない
+          // （残高は年末の額。団信で消える分は想定の表で減っているため）
+          if (opening && (point === "now" || ctx.time.resolve(d.start) >= S)) continue;
+          debtTotal += debtShare(d, a.amount, a.row === "cf.balance.debt.unpaidInterest");
         }
       }
       // 死亡保険金（亡くなる人が契約者で被保険者の契約。二人とも亡くなった後は夫婦のどちらかが契約者）
@@ -564,6 +686,10 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         if (point === "contingency") {
           // 年金で受け取る死亡保険金（収入保障）も相続税の対象（相続税法3条1項1号）。いまの時点と同じく受け取る総額で数える（0170）
           for (const r of o.receipts) if ((r.kind === "death" || r.kind === "incomeProtection") && r.taxClass === "inheritance") insurance += r.amount;
+        } else if (point === "now") {
+          // いまの時点は、計算基準月の死亡保障額（その年の最初の月の値。計算基準年は計算基準月。必要保障額と同じ取り方。改訂4。前はその年の12月の額）
+          const e = o.years.find((x) => x.year === yearOf(D));
+          insurance += e?.start?.deathBenefit ?? e?.deathBenefit ?? 0;
         } else insurance += o.years.find((e) => e.year === yearOf(D))?.deathBenefit ?? 0;
       }
       // 死亡退職金
