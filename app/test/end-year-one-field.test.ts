@@ -53,7 +53,7 @@ describe("選択肢", () => {
     expect(labels(wh).some((l) => l.includes("若い方"))).toBe(false);
     expect(endField(wh).get(wh).value).toBe("default");
     expect(endField(wh).get(wh).hint).toBe("2083年まで（ご本人 102歳・配偶者 100歳の年）");
-    expect(fieldStatus(endField(wh), wh).status).toBe("estimated");
+    expect(fieldStatus(endField(wh), wh).premise?.state).toBe("office");
   });
 
   it("ご本人が若い夫婦: 既定はご本人の100歳", () => {
@@ -88,12 +88,12 @@ describe("選択肢", () => {
     const w = choose(wh, "ご本人が105歳まで");
     expect(w.request.input.endYear).toBe(wh.request.input.endYear);
     expect(endField(w).get(w).value).toBe(valueOf(wh, "ご本人が105歳まで"));
-    expect(fieldStatus(endField(w), w).status).toBe("confirmed");
-    // （既定）を選ぶと既定に戻る（推定。決め方は持たない）
+    expect(fieldStatus(endField(w), w).premise?.state).toBe("household");
+    // （既定）を選ぶと既定に戻る（事務所の既定値。決め方は持たない）
     const back = choose(w, "配偶者が100歳まで（既定）");
     expect(back.endYearChoice).toBeUndefined();
     expect(endField(back).get(back).value).toBe("default");
-    expect(fieldStatus(endField(back), back).status).toBe("estimated");
+    expect(fieldStatus(endField(back), back).premise?.state).toBe("office");
   });
 
   it("「年で決める…」: すぐ下に年の欄。選択肢の外の年（ご本人102歳の年など）もこの形で見せる", () => {

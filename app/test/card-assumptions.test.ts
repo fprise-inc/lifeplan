@@ -10,7 +10,7 @@ import { assumptionRows, setAgreed } from "../src/workspace/input/assumptionList
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { endYearNotice, rateWarning, yearRanges } from "../src/workspace/input/stages/assumptions.ts";
 import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
-import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
+import { availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
@@ -129,22 +129,22 @@ describe("例外の年（範囲で入れる）", () => {
 });
 
 describe("表の最後の年", () => {
-  it("標準なら推定。人と年齢で選ぶと、その人がその年齢になる年。（既定）を選ぶと標準に戻る", () => {
+  it("標準なら「事務所の既定値」（推定にしない）。人と年齢で選ぶと、その人がその年齢になる年で「この世帯だけ」。（既定）を選ぶと標準に戻る", () => {
     const wh = open();
     const h = wh.request.input.household;
     const std = standardEndYear(h);
     const f = fieldOf(wh, "assume/endYear");
     expect(wh.request.input.endYear).toBe(std);
-    expect(fieldStatus(f, wh).status).toBe("estimated");
+    expect(fieldStatus(f, wh).premise?.state).toBe("office");
     // 表を何歳まで見るかは標準の1つの欄（0070 の追記 2026-11-13）
     expect(f.level).toBe("simple");
     const spouse = h.members.find((m) => m.kind === "spouse")!;
     const w2 = f.set(wh, `m:${spouse.id}:95`);
     expect(w2.request.input.endYear).toBe(Number(spouse.birth.birthYearMonth.slice(0, 4)) + 95);
-    expect(fieldStatus(f, w2).status).toBe("confirmed");
+    expect(fieldStatus(f, w2).premise?.state).toBe("household");
     expect(f.set(w2, "default").request.input.endYear).toBe(std);
     expect(f.set(w2, "default").endYearChoice).toBeUndefined();
-    expect(fieldStatus(f, f.set(w2, "default")).status).toBe("estimated");
+    expect(fieldStatus(f, f.set(w2, "default")).premise?.state).toBe("office");
   });
 
   it("表の最初の年より前は入れられない（年の欄も年齢の欄も。計算基準月の年より前にすると計算が止まり、年の途中の計算基準月の年は表が0年。0169）", () => {
@@ -164,7 +164,7 @@ describe("表の最後の年", () => {
     }
   });
 
-  it("確定にしたら、家族の生年月を直しても追いかけない（推定のままなら追いかける）", () => {
+  it("年で決めたら、家族の生年月を直しても追いかけない（既定のままなら追いかける）", () => {
     const wh = open();
     const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
     const younger = (w: WorkingHousehold) =>
@@ -174,7 +174,7 @@ describe("表の最後の年", () => {
     void self;
     const after = followStandards(wh, younger(wh));
     expect(after.request.input.endYear).toBe(2095);
-    const pinned = applyStateOp(wh, fieldOf(wh, "assume/endYear"), "confirm");
+    const pinned = fieldOf(wh, "assume/endYear").set(wh, "year");
     expect(followStandards(pinned, younger(pinned)).request.input.endYear).toBe(wh.request.input.endYear);
   });
 

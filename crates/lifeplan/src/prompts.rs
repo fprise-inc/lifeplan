@@ -432,7 +432,7 @@ impl LifeplanMcp {
                  - 退職の年齢（例 60・65・70歳）: 「ご本人が働く最後の年齢」（item が employment.to）。series は financialAssets・net・takeHome\n\
                  - 子の進路（例 今のまま・すべて公立・中学から私立）: 子ごとの「第1子の進路の型」（lever が educationCourse・kind が choice）。value は options の型の名前（allPublic＝すべて公立・juniorPrivate＝中学から私立など）。子が2人以上なら、通りごとに子の数だけ plan_changes に入れる。「今のまま」は基本にして plan_changes を書かない。changes で教育の段を書き換えない（グラフの注に進路の違いが出なくなる）。series は expenseEducation・financialAssets、charts に expenseBreakdown\n\
                  - 家の値段（例 3,500万・4,500万・5,500万円）: get_input_recipe の buyHome を値段ごとに作り、返った changes を通りの changes に入れる。series は financialAssets・loanBalance・expenseHousing\n\
-                 - 物価上昇率（例 0%・1%・2%）: 「経済の前提: 物価上昇率（年）」（item が assumptions.inflation。group に 前提条件）。series は financialAssets・expense\n\
+                 - 物価上昇率（例 0%・1%・2%）: 「お客さまと確かめる前提: 物価の上昇率」（item が assumptions.inflation。group に 前提条件）。series は financialAssets・expense\n\
                  - 運用の利回り（例 2%・4%・6%）: 「運用の利回り（預金を除く）」（item が assumptions.returnShifts）。series は financialAssets\n\
                  - 年金の受け取り開始（例 65・70・75歳）: 「ご本人の年金の受け取り開始」（item が pensionRecord.claim）。series は pension・financialAssets\n\
                  - NISA の毎月の積立（例 1万・3万・5万円）: 「NISAの積立額（月）」（item が account.contributions）。series は financialAssets・net",

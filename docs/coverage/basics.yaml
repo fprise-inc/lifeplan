@@ -62,8 +62,8 @@ entries:
     keywords: [物価上昇率, インフレ率, 賃金上昇率, 昇給率, 教育費の上昇率, 今の値段, 例外の年, 名目, 経済の前提]
     items: [assumptions.inflation, assumptions.wageGrowth, assumptions.educationInflation, livingExpense.growth, periodicExpense.growth]
     fields:
-      - 「前提条件」の入力項目の「物価上昇率（年）」
-      - 「前提条件」の入力項目の「賃金上昇率（年）」
+      - 「前提条件」の入力項目の「物価の上昇率」
+      - 「前提条件」の入力項目の「給与の上昇率」
       - 「前提条件」の入力項目の「教育費の上昇率（年）」
       - 「前提条件」の入力項目の「例外の年（経済の前提）」
     components:

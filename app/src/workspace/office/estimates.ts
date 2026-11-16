@@ -4,13 +4,13 @@
 // - 計算エンジンが計算のときに引く値（介護・学校の費用の目安・平均余命など）には、計算の要求の estimateValues で同じ値を渡す
 //   （app/src/engine/officeValues.ts。画面の速い計算と本体の計算は同じ要求の文字列を使うので、両方で同じ値になる）
 // - 世帯には写さない（統計の値と同じく、推定の元の値。推定で世帯に入った値は世帯ごとに直せる。変えると、推定のままの値は入れ直しで新しい値になる）
-// - 公式の値が新しくなったとき（写しの rev が進んだとき）は、事務所の値を使い続け、知らせを出す（このまま／公式に戻す）
+// - 公式の値が新しくなったとき（写しの rev が進んだとき）は、事務所の値を使い続け、知らせを出す（前の公式・新しい公式・事務所の値・出典を並べる。このまま／公式に戻す）
 import { officialMasterValue, setOfficeEstimates, type BracketStep, type MasterValue, type OfficeOverride } from "../../../../hearing/src/statistics.ts";
 import { FILL_TARGETS } from "../../../../hearing/src/estimates.ts";
 import { enginePreset, ENGINE_NO_FILL } from "../../../../engine/src/sdk/estimates.ts";
 import { setOfficeEstimateValues } from "../../engine/officeValues.ts";
 import type { EngineNoFill, EstimateValue } from "../../engine/types.ts";
-import { changeText, estimateEntry, isLegalValue, officialEstimate } from "./estimateCatalog.ts";
+import { changeText, estimateEntry, formatNumber, isLegalValue, officialEstimate, sourceText, stepLabel, stepValue, summaryText, type EstimateEntry } from "./estimateCatalog.ts";
 
 export type OfficeValue = MasterValue["value"];
 
@@ -25,7 +25,18 @@ export interface OfficeEstimateValue {
   /** 変えたとき（か、公式の値が新しくなって「このまま」を選んだとき）の公式の値の版（写しの rev）と値（知らせの「前の値」） */
   officialRev: number;
   officialValue: OfficeValue;
+  /** そのときの公式の値の出典（知らせの「前の出典」。この欄を足す前に変えた値には無い） */
+  officialSource?: OfficialSource;
 }
+
+/** 公式の値の出典（写しの題名・取得日・原本と照らし合わせたか） */
+export interface OfficialSource {
+  title: string;
+  retrievedAt: string | null;
+  reviewed: boolean;
+}
+
+const sourceOf = (m: MasterValue): OfficialSource => ({ title: m.title, retrievedAt: m.retrievedAt, reviewed: m.reviewed });
 
 export interface OfficeEstimates {
   /** 値ID → 事務所の値 */
@@ -97,11 +108,19 @@ export function readOfficeEstimates(v: unknown): OfficeEstimates {
       const kindOk = (y: unknown) => (Array.isArray(official.value) ? Array.isArray(y) : typeof y === typeof official.value);
       if (!kindOk(x.value) || !kindOk(x.officialValue)) continue;
       const text = typeof x.text === "string" ? cleanBasisText(x.text) : null;
-      values[id] = { value: x.value as OfficeValue, ...(text !== null ? { text } : {}), changedOn: x.changedOn, officialRev: x.officialRev as number, officialValue: x.officialValue as OfficeValue };
+      const src = readSource(x.officialSource);
+      values[id] = { value: x.value as OfficeValue, ...(text !== null ? { text } : {}), changedOn: x.changedOn, officialRev: x.officialRev as number, officialValue: x.officialValue as OfficeValue, ...(src !== null ? { officialSource: src } : {}) };
     }
   const known = new Set(FILL_TARGETS.map((t) => t.id));
   const noFill = Array.isArray(v.noFill) ? [...new Set(v.noFill.filter((x): x is string => typeof x === "string" && known.has(x)))].sort() : [];
   return { values, noFill };
+}
+
+/** 出典の欄を読む（形が違えば null。知らせでは前の出典を「記録が無い」として出す） */
+function readSource(v: unknown): OfficialSource | null {
+  if (!isObj(v) || typeof v.title !== "string" || typeof v.reviewed !== "boolean") return null;
+  if (v.retrievedAt !== null && (typeof v.retrievedAt !== "string" || !DATE.test(v.retrievedAt))) return null;
+  return { title: v.title, retrievedAt: v.retrievedAt, reviewed: v.reviewed };
 }
 
 export const isEmptyEstimates = (e: OfficeEstimates | undefined): boolean => e === undefined || (Object.keys(e.values).length === 0 && e.noFill.length === 0);
@@ -148,7 +167,7 @@ export function withOfficeValue(e: OfficeEstimates, id: string, value: OfficeVal
   const v = tidy(value);
   if (JSON.stringify(v) === JSON.stringify(tidy(official.value))) return { ...e, values: rest };
   const t = cleanBasisText(text);
-  return { ...e, values: { ...rest, [id]: { value: v, ...(t !== null ? { text: t } : {}), changedOn: on, officialRev: official.rev, officialValue: official.value } } };
+  return { ...e, values: { ...rest, [id]: { value: v, ...(t !== null ? { text: t } : {}), changedOn: on, officialRev: official.rev, officialValue: official.value, officialSource: sourceOf(official) } } };
 }
 
 /** 公式の値に戻す（事務所の値を外す） */
@@ -159,12 +178,30 @@ export function withoutOfficeValue(e: OfficeEstimates, id: string): OfficeEstima
   return { ...e, values: rest };
 }
 
-/** 公式の値が新しくなった値を「このまま」使う（今の公式の版と値を覚え直す。事務所の値・根拠の文・変えた年月は変えない） */
+/**
+ * 公式の値が新しくなった値を「このまま」使う（今の公式の版・値・出典を覚え直す。根拠の文・変えた年月は変えない）。
+ * 表のうち事務所で変えていない段（前の公式の値のままの段）は、新しい公式の値にする（keptValue）
+ */
 export function keepOfficeValue(e: OfficeEstimates, id: string): OfficeEstimates {
   const v = e.values[id];
   const official = officialEstimate(id);
   if (v === undefined || official === null) return e;
-  return { ...e, values: { ...e.values, [id]: { ...v, officialRev: official.rev, officialValue: official.value } } };
+  return { ...e, values: { ...e.values, [id]: { ...v, value: keptValue(v, official.value), officialRev: official.rev, officialValue: official.value, officialSource: sourceOf(official) } } };
+}
+
+/** 同じ段の分け方の表か */
+const sameSteps = (a: OfficeValue, b: OfficeValue): boolean =>
+  Array.isArray(a) && Array.isArray(b) && a.length === b.length && (a as readonly BracketStep[]).every((s, i) => s.upTo === (b as readonly BracketStep[])[i]?.upTo);
+
+/**
+ * 「このまま」を選んだ後の事務所の値: 定数はそのまま。表は、事務所で変えた段（前の公式の値と違う段）はそのまま、変えていない段は新しい公式の値
+ * （編集の欄で空欄にした段は「公式の値のまま」の約束なので、公式が新しくなれば新しい値に付いていく）。段の分け方が変わった表はそのまま（使えない）
+ */
+function keptValue(v: OfficeEstimateValue, official: OfficeValue): OfficeValue {
+  if (!sameSteps(v.value, official) || !sameSteps(v.value, v.officialValue)) return v.value;
+  const before = v.officialValue as readonly BracketStep[];
+  const now = official as readonly BracketStep[];
+  return tidy((v.value as readonly BracketStep[]).map((s, i) => (stepValue(s) === stepValue(before[i]) ? (now[i] as BracketStep) : s)));
 }
 
 /** 推定で埋めない欄を切り替える */
@@ -176,17 +213,158 @@ export function withNoFill(e: OfficeEstimates, target: string, on: boolean): Off
 }
 
 // ---- 公式の値が新しくなった知らせ ----
+// FP が「このまま」か「公式に戻す」を決められるよう、何がどう変わったか（前の公式・新しい公式・今の事務所の値・出典）と、押したらどうなるかを持つ
+
+/** 知らせの種類: 公式の値が変わった・値は同じで出典だけ新しくなった・段の分け方が変わって事務所の値を使えない */
+export type OfficialUpdateKind = "value" | "source" | "broken";
+
+/** 表の段ごとの行（公式の値が変わった段） */
+export interface UpdateStep {
+  label: string;
+  /** 前の公式の値・新しい公式の値（単位つきの文） */
+  before: string;
+  after: string;
+  /** 今の事務所の値（今の計算に使っている値） */
+  office: string;
+  /** 事務所で変えた段か（false は前の公式の値のままの段。「このまま」で新しい公式の値になる） */
+  officeChanged: boolean;
+}
 
 export interface OfficialUpdate {
   id: string;
   /** 画面の名前 */
   name: string;
-  /** 「前の公式の値 → 新しい公式の値」の文 */
-  change: string;
-  /** 公式の表の段の分け方が変わって、事務所の値を使えなくなった（「公式に戻す」か、値を入れ直す） */
+  kind: OfficialUpdateKind;
+  /** 公式の表の段の分け方が変わって、事務所の値を使えなくなった（kind が broken。「公式に戻す」か、値を入れ直す） */
   broken: boolean;
   /** 今の公式の値の版 */
   rev: number;
+  /** 公式の値の「前 → 新しい」の要約（表は変わった段を1つと「ほか○段」）。値が同じとき・使えないときは null */
+  change: string | null;
+  /** 定数の値（表は null）: 前の公式・新しい公式・今の事務所の値 */
+  single: { before: string; after: string; office: string } | null;
+  /** 表: 公式の値が変わった段 */
+  steps: UpdateStep[];
+  /** 表: 公式の値は変わっていないが事務所で変えている段（「2人 250,000円」）。使えない表は、前の分け方で事務所が変えていた段 */
+  officeSteps: string[];
+  /** 使えない表の段の分け方（「6段（1人・2人…）」）。ほかは null */
+  layout: { before: string; after: string } | null;
+  /** 今の事務所の値のあらまし */
+  office: string;
+  /** 「このまま」を選んだ後の事務所の値が、新しい公式の値と同じ（どちらを押しても計算は同じ） */
+  sameAsOfficial: boolean;
+  /** 前の出典（記録が無ければ null）と新しい出典 */
+  beforeSource: OfficialSource | null;
+  afterSource: OfficialSource;
+  /** 出典の何が新しくなったか（「出典の題名」「取得日」「原本との照らし合わせ」）。前の出典の記録が無ければ空 */
+  sourceChanges: string[];
+  /** 「このまま」（使えないときは「値を入れ直す」）を押したらどうなるか */
+  keepText: string;
+  /** 「公式に戻す」を押したらどうなるか */
+  revertText: string;
+  /** どの世帯にどう効くか */
+  effect: string;
+}
+
+/** 日の文（「2026年10月26日」） */
+const dayText = (d: string): string => `${d.slice(0, 4)}年${String(Number(d.slice(5, 7)))}月${String(Number(d.slice(8, 10)))}日`;
+
+/** 出典の1行（「「題名」・2026年10月26日に取得」。原本での確認待ちならそう書く）。題名はデータの読み方の注記を外す */
+export function sourceLine(s: OfficialSource): string {
+  const parts = [`「${sourceText(s.title).trim()}」`];
+  if (s.retrievedAt !== null) parts.push(`${dayText(s.retrievedAt)}に取得`);
+  if (!s.reviewed) parts.push("原本での確認待ち");
+  return parts.join("・");
+}
+
+/** 段の分け方の文（8段までは段の名前を並べる） */
+function layoutText(e: EstimateEntry, t: readonly BracketStep[]): string {
+  const labels = t.map((_, i) => stepLabel(e.axis, t, i));
+  if (labels.length <= 8) return `${t.length}段（${labels.join("・")}）`;
+  return `${t.length}段（${labels[0] ?? ""} から ${labels.at(-1) ?? ""} まで）`;
+}
+
+/** どの世帯にどう効くか（区画の説明と同じ決まり） */
+function effectText(e: EstimateEntry): string {
+  if (e.use === "template") return "ボタンで新しく足す行の初めの値に効きます。足してある行は変わりません。";
+  if (e.use === "engine") return "世帯に値が無いときの計算の目安として、どの世帯の計算にもすぐ効きます。";
+  return "どの世帯でも、これから入れる推定と計算のときの目安にすぐ効きます。世帯に入れてある推定のままの値は、その世帯の入力を直したときに入れ直します。FP が入れた値・確定にした値は変わりません。";
+}
+
+/** 1つの値の知らせの中身 */
+function updateOf(id: string, v: OfficeEstimateValue, entry: EstimateEntry, official: MasterValue): OfficialUpdate {
+  const fmt = (x: number | string | undefined) => formatNumber(entry.unit, x);
+  const broken = !usable(id, v);
+  const valueChanged = JSON.stringify(official.value) !== JSON.stringify(v.officialValue);
+  const kind: OfficialUpdateKind = broken ? "broken" : valueChanged ? "value" : "source";
+  const isTable = Array.isArray(official.value);
+  const single = !isTable && !Array.isArray(v.value) && !Array.isArray(v.officialValue) ? { before: fmt(v.officialValue as number | string), after: fmt(official.value as number | string), office: fmt(v.value as number | string) } : null;
+
+  const steps: UpdateStep[] = [];
+  const officeSteps: string[] = [];
+  if (isTable && !broken && sameSteps(official.value, v.officialValue) && sameSteps(official.value, v.value)) {
+    const now = official.value as readonly BracketStep[];
+    const before = v.officialValue as readonly BracketStep[];
+    const office = v.value as readonly BracketStep[];
+    now.forEach((s, i) => {
+      const label = stepLabel(entry.axis, now, i);
+      const officeChanged = stepValue(office[i]) !== stepValue(before[i]);
+      if (stepValue(s) !== stepValue(before[i])) steps.push({ label, before: fmt(stepValue(before[i])), after: fmt(stepValue(s)), office: fmt(stepValue(office[i])), officeChanged });
+      else if (officeChanged) officeSteps.push(`${label} ${fmt(stepValue(office[i]))}`);
+    });
+  }
+  let layout: OfficialUpdate["layout"] = null;
+  if (broken && Array.isArray(v.value) && isTable) {
+    const office = v.value as readonly BracketStep[];
+    const before = sameSteps(v.value, v.officialValue) ? (v.officialValue as readonly BracketStep[]) : null;
+    office.forEach((s, i) => {
+      if (before === null || stepValue(s) !== stepValue(before[i])) officeSteps.push(`${stepLabel(entry.axis, office, i)} ${fmt(stepValue(s))}`);
+    });
+    layout = { before: layoutText(entry, office), after: layoutText(entry, official.value as readonly BracketStep[]) };
+  }
+
+  const afterSource = sourceOf(official);
+  const beforeSource = v.officialSource ?? null;
+  const sourceChanges =
+    beforeSource === null
+      ? []
+      : [beforeSource.title !== afterSource.title ? "出典の題名" : null, beforeSource.retrievedAt !== afterSource.retrievedAt ? "取得日" : null, beforeSource.reviewed !== afterSource.reviewed ? "原本との照らし合わせ" : null].filter((x): x is string => x !== null);
+
+  const sameAsOfficial = !broken && JSON.stringify(tidy(keptValue(v, official.value))) === JSON.stringify(tidy(official.value));
+  const followsOfficial = steps.some((s) => !s.officeChanged);
+  let keepText: string;
+  let revertText: string;
+  if (broken) {
+    keepText = "「値を入れ直す」: 新しい段の分け方で、事務所の値を入れ直します。入れ直すまでは新しい公式の値で計算します。";
+    revertText = "「公式に戻す」: 事務所の値を外します。今も新しい公式の値で計算しているので、計算は変わりません。";
+  } else {
+    const keep = kind === "source" ? "「確かめた」" : "「このまま」";
+    keepText = followsOfficial
+      ? `${keep}: 事務所で変えた段はその値を使い続け、事務所で変えていない段は新しい公式の値にします。`
+      : `${keep}: 事務所の値${single !== null ? ` ${single.office}` : ""}を使い続けます。今の計算は変わりません。`;
+    revertText = `「公式に戻す」: 事務所の値を外し、新しい公式の値${single !== null ? ` ${single.after}` : "の表"}で計算します。推定の根拠は公式の出典になります。`;
+    if (sameAsOfficial) keepText += "新しい公式の値と同じ値になるので、どちらを押しても計算は同じです。";
+  }
+  return {
+    id,
+    name: entry.name,
+    kind,
+    broken,
+    rev: official.rev,
+    change: kind === "value" ? changeText(entry, v.officialValue, official.value) : null,
+    single,
+    steps,
+    officeSteps,
+    layout,
+    office: summaryText(entry, v.value),
+    sameAsOfficial,
+    beforeSource,
+    afterSource,
+    sourceChanges,
+    keepText,
+    revertText,
+    effect: effectText(entry),
+  };
 }
 
 /**
@@ -199,10 +377,21 @@ export function officialUpdates(e: OfficeEstimates | undefined): OfficialUpdate[
     const official = officialEstimate(id);
     const entry = estimateEntry(id);
     if (official === null || entry === undefined) continue;
-    const broken = !usable(id, v);
-    if (official.rev === v.officialRev && JSON.stringify(official.value) === JSON.stringify(v.officialValue) && !broken) continue;
-    const change = changeText(entry, v.officialValue, official.value) ?? "値は同じです（出典か、確かめの記録が新しくなりました）";
-    out.push({ id, name: entry.name, change, broken, rev: official.rev });
+    if (official.rev === v.officialRev && JSON.stringify(official.value) === JSON.stringify(v.officialValue) && usable(id, v)) continue;
+    out.push(updateOf(id, v, entry, official));
   }
   return out;
+}
+
+/** 出典が新しくなった所の文（お知らせの一覧の1行。題名が同じなら取得日などだけ） */
+export function sourceChangeText(u: Pick<OfficialUpdate, "beforeSource" | "afterSource">): string {
+  const b = u.beforeSource;
+  const a = u.afterSource;
+  if (b === null) return `新しい出典: ${sourceLine(a)}`;
+  if (b.title !== a.title) return `出典: 前 ${sourceLine(b)} → 新しい ${sourceLine(a)}`;
+  const parts: string[] = [];
+  if (b.retrievedAt !== a.retrievedAt) parts.push(`取得日: 前 ${b.retrievedAt === null ? "記録なし" : dayText(b.retrievedAt)} → 新しい ${a.retrievedAt === null ? "記録なし" : dayText(a.retrievedAt)}`);
+  if (b.reviewed !== a.reviewed) parts.push(a.reviewed ? "原本との照らし合わせが済みました" : "原本での確認待ちになりました");
+  if (parts.length === 0) parts.push("出典の記録の版が新しくなりました");
+  return `${parts.join("。")}。出典は同じ「${sourceText(a.title).trim()}」`;
 }

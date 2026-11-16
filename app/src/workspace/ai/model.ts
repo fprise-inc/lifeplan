@@ -5,7 +5,7 @@
 import type { AiCandidate, AiConsentMethod, AiHouseholdView, AiShareRecord, AiStatus } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Catalog } from "../plans/items.ts";
-import { savePlan, suggestName, type Values } from "../plans/plans.ts";
+import { headLetter, savePlan, suggestName, type Values } from "../plans/plans.ts";
 import { fromBody } from "../store/body.ts";
 import { sameJson } from "../undo/reopen.ts";
 
@@ -151,6 +151,25 @@ export { candidateRows, candidateValues, coerce, type CandidateRow } from "../pl
 /** プランの名前の例（アプリが作る。AI の題名はプランの名前に使わない） */
 export function candidatePlanName(wh: WorkingHousehold, cat: Catalog, values: Values): string {
   return suggestName(wh.proposals, values, wh, cat, null);
+}
+
+/**
+ * 承認待ちの候補ごとの、プランの名前の欄に出す名前（並びの順）。name は FP が欄で直した名前（直していなければ null。そのまま出す）。
+ * 直していない候補は、保存したプランの文字・FP が直した名前の文字・前の候補の名前の文字を避けて名前の例を作る
+ * （候補が2つ届いたら、保存する前から1つ目はプランC・2つ目はプランD。保存・捨てたあとは、残った候補で毎回作り直す）
+ */
+export function candidatePlanNames(wh: WorkingHousehold, cat: Catalog, list: readonly { values: Values; name: string | null }[]): string[] {
+  const taken = list.flatMap((c) => {
+    const l = c.name === null ? undefined : headLetter(c.name);
+    return l === undefined ? [] : [l];
+  });
+  return list.map((c) => {
+    if (c.name !== null) return c.name;
+    const name = suggestName(wh.proposals, c.values, wh, cat, null, taken);
+    const l = headLetter(name);
+    if (l !== undefined) taken.push(l);
+    return name;
+  });
 }
 
 /** 候補をプランとして保存する（FP が承認したときだけ呼ぶ）。差分の出どころは AI、承認は FP の記録を持つ */

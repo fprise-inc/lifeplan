@@ -506,6 +506,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-premise { font-size: 0.7rem; font-weight: 700; border-radius: 3px; padding: 0 5px; white-space: nowrap; color: var(--ink-2); background: var(--line-2); }
 .fld-premise.household { color: var(--prop-ink); background: var(--prop-bg); }
 .fld-premise.officeChanged { color: var(--est-ink); background: var(--est-bg); }
+/* お客さまに話すときの一言（前提条件のお客さまと確かめる前提。0214 の追記 2026-11-16）: 欄の下に、左の細い線つきで */
+.fld-talk { font-size: 0.82rem; line-height: 1.5; color: var(--ink); margin-top: 4px; padding-left: 8px; border-left: 3px solid var(--line-2); overflow-wrap: anywhere; }
 .ip-premise-fold { margin: 4px 0 12px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 6px; background: var(--card); }
 .ip-premise-fold > .link-btn { font-weight: 700; color: var(--ink); text-align: left; }
 .ip-premise-fold-act { font-weight: 400; color: var(--ink-2); margin-left: 4px; }
@@ -1748,6 +1750,14 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-est-actions { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 2px 0 0; }
 .os-est-update p { margin: 0 0 2px; font-size: 0.84rem; }
 .os-est-update + .os-est-update { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line-2); }
+.os-est-update summary { cursor: pointer; font-size: 0.86rem; }
+.os-est-update-body { margin: 4px 0 2px 1em; display: grid; gap: 4px; font-size: 0.84rem; }
+.os-est-update-vals { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 10px; margin: 0; }
+.os-est-update-vals dt { color: var(--ink-2); }
+.os-est-update-vals dd { margin: 0; overflow-wrap: anywhere; }
+.os-est-update-table { max-width: 100%; }
+.os-est-update-effects { margin: 2px 0 0; padding-left: 1.2em; }
+.os-est-muted { color: var(--ink-2); font-size: 0.8rem; }
 .os-est-preview-rows { margin: 4px 0 0; padding-left: 1.2em; font-size: 0.82rem; }
 .os-est-nofill { list-style: none; margin: 0; padding: 0; }
 .os-est-nofill li { padding: 4px 0; border-bottom: 1px solid var(--line-2); font-size: 0.86rem; }

@@ -14,7 +14,8 @@ import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { allFields, type FieldDef, type SectionDef, type StageDef, type StageId } from "./form.ts";
 import { ADULT_CARE_NONE, educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
-import { newId, type AddedItem, type WorkingHousehold } from "./household.ts";
+import { defaultEndAge, endYearRuleOf, newId, type AddedItem, type WorkingHousehold } from "./household.ts";
+import { premiseCounts, premiseOfId, premiseState } from "./premiseDefaults.ts";
 import { earners, memberLabel } from "./labels.ts";
 import { isRow, rowAt } from "./rows.ts";
 import { carDebts, leaseAnnual, upkeepAnnual } from "./stages/cars.ts";
@@ -533,18 +534,38 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritanceTax: string |
     }
     case "fee":
       return feeSummary(h.advisoryFees ?? []);
-    case "assumptions": {
-      // 「物価 1.0%・運用 1.0%」（結果に一番効く運用利回りも出す）。FP顧問料の契約があれば下の小さな1行（0041 の追記 2026-11-06）
-      const a = wh.request.input.assumptions;
-      const inf = a?.inflation?.default;
-      const ret = a?.investmentReturn?.default;
-      const pct = (v: string) => (Number(v) * 100).toFixed(1);
-      const fee = feeNote(h.advisoryFees ?? []);
-      const note = fee !== null ? { note: fee } : {};
-      if (inf !== undefined) return { pre: "物価 ", main: pct(inf), unit: ret !== undefined ? `%・運用 ${pct(ret)}%` : "%", ...note };
-      return ret === undefined ? { main: "既定の値", ...note } : { pre: "運用 ", main: pct(ret), unit: "%", ...note };
-    }
+    case "assumptions":
+      return assumptionsSummary(wh);
   }
+}
+
+/**
+ * 前提条件の要約: お客さまと確かめる前提の4つ（「物価 1.0%・給与 1.0%・運用 3.0%・95歳まで」）。この世帯だけ変えた物は値の後ろに「（この世帯だけ）」、
+ * 事務所の既定値が後で変わった物は「（前の既定値）」。下の小さな1行に、FP が決める細かい前提でこの世帯だけ変えた所の数と FP顧問料（0214 の追記 2026-11-16）
+ */
+function assumptionsSummary(wh: WorkingHousehold): Summary {
+  const a = wh.request.input.assumptions;
+  const pct = (v: string) => (Number(v) * 100).toFixed(1);
+  const mark = (id: string): string => {
+    const d = premiseOfId(id);
+    const st = d === undefined ? null : premiseState(d, wh)?.state;
+    return st === "household" ? "（この世帯だけ）" : st === "officeChanged" ? "（前の既定値）" : "";
+  };
+  const rate = (name: string, id: "inflation" | "wageGrowth" | "investmentReturn"): string | null => {
+    const v = a?.[id]?.default;
+    return v === undefined ? null : `${name} ${pct(v)}%${mark(id)}`;
+  };
+  const rule = endYearRuleOf(wh);
+  const end = rule.kind === "default" ? `${String(defaultEndAge())}歳まで` : rule.kind === "member" ? `${String(rule.age)}歳まで（この世帯だけ）` : `${String(wh.request.input.endYear)}年まで（この世帯だけ）`;
+  const fine = premiseCounts(wh, "fine").own;
+  const fee = feeNote(wh.request.input.household.advisoryFees ?? []);
+  const notes = [...(fine > 0 ? [`細かい前提: この世帯だけ変えた所 ${String(fine)}件`] : []), ...(fee !== null ? [fee] : [])];
+  const note = notes.length > 0 ? { note: notes.join("。") } : {};
+  const inf = a?.inflation?.default;
+  const rest = [rate("給与", "wageGrowth"), rate("運用", "investmentReturn"), end].filter((x) => x !== null);
+  // 大きく見せるのは物価の値（物価が無い前の世帯は、並びをそのまま）
+  if (inf !== undefined) return { pre: "物価 ", main: pct(inf), unit: `%${mark("inflation")}・${rest.join("・")}`, ...note };
+  return { main: rest.join("・"), ...note };
 }
 
 /** 項目に物（入れた値）があるか。無くても、FP が保存するか「当てはまらない」を押せば「当てはまらない」になる */
