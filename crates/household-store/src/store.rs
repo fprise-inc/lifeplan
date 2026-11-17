@@ -61,7 +61,26 @@ const BACKUPS_DIR: &str = "backups";
 
 const OFFICE_MAGIC: &[u8; 4] = b"LPOD";
 const OFFICE_FORMAT: &str = "lifeplan.officeData";
-const OFFICE_FORMAT_VERSION: &str = "0.1";
+/// この PC の事務所データ（officeData）の形式の版。読む側の決まり（0222 で決めた）: このアプリが知らない新しい版（MINOR を含む）の事務所データは、
+/// 読んで使うが書かない（閲覧だけ。世帯ファイルの新しい版と同じ考え方）。前の版のアプリは知らない欄を読み落として書き戻し、新しい版が足した欄
+/// （鍵を含む Web のヒアリングの依頼など）を消すため
+pub const OFFICE_FORMAT_VERSION: &str = "0.2";
+
+/// これまでの事務所データの形式の版（古い順）。消さない
+/// - 0.1: 最初の版
+/// - 0.2: 世帯ファイルにまだ入っていない Web のヒアリングの依頼 `hearingRequests`（0222）。この版から、新しい版の事務所データを閲覧だけで開く
+pub const OFFICE_KNOWN: &[&str] = &["0.1", "0.2"];
+
+/// 事務所データの形式の版が、このアプリの知っている版より新しいか（形の読めない版も新しいとみなす: 書かない側に倒す）
+pub fn office_version_too_new(v: &str) -> bool {
+    match (
+        crate::migrate::parse(v),
+        crate::migrate::parse(OFFICE_FORMAT_VERSION),
+    ) {
+        (Some(x), Some(cur)) => x > cur,
+        _ => true,
+    }
+}
 
 /// 世帯ファイルと事務所データの毎日の写しの世代数（0011 の6・0013 の4）
 pub const BACKUP_GENERATIONS: usize = 30;
@@ -294,6 +313,8 @@ pub struct Status {
     /// 削除してから30日たっていない世帯の数（バックアップからも読めなくなるのを待っている）
     pub deletions_pending: usize,
     pub deletions_completed: usize,
+    /// 事務所データがこのアプリより新しい版で書かれている（閲覧だけ。保存しない。アプリの更新を案内する。0222）
+    pub office_too_new: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -394,6 +415,8 @@ struct Session {
     shared: Option<shared::Shared>,
     /// 共有の設定はあるが使えない理由（共有フォルダが見つからない・秘密鍵が無いなど）
     share_problem: Option<StoreError>,
+    /// 事務所データがこのアプリより新しい版で書かれている（読んで使うが書かない。閲覧だけ。0222）
+    office_too_new: bool,
 }
 
 /// 本体が保存のたびに書き直す meta の欄（[`Store::with_meta`]）。これ以外の欄は開いた本文から持ち越す
@@ -620,11 +643,21 @@ fn encode_office(data: &OfficeData, office_id: &str, master: &[u8; 32]) -> Vec<u
 }
 
 fn decode_office(bytes: &[u8], master: &[u8; 32]) -> Result<OfficeData, StoreError> {
+    decode_office_versioned(bytes, master).map(|(d, _)| d)
+}
+
+/// 事務所データと、その形式の版（見出しに版の無い古いファイルは 0.1）
+fn decode_office_versioned(
+    bytes: &[u8],
+    master: &[u8; 32],
+) -> Result<(OfficeData, String), StoreError> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct H {
         cipher: String,
         format: String,
+        #[serde(default)]
+        format_version: Option<String>,
         nonce: String,
     }
     let p = container::split(OFFICE_MAGIC, bytes)?;
@@ -635,7 +668,8 @@ fn decode_office(bytes: &[u8], master: &[u8; 32]) -> Result<OfficeData, StoreErr
     let nonce: [u8; NONCE_LEN] = crypto::hex_array(&h.nonce).ok_or(StoreError::CORRUPT)?;
     let k = crypto::derive(master, purpose::OFFICE_DATA);
     let body = crypto::open(&k, &nonce, p.aad, p.ciphertext)?;
-    serde_json::from_slice(&body).map_err(|_| StoreError::CORRUPT)
+    let data = serde_json::from_slice(&body).map_err(|_| StoreError::CORRUPT)?;
+    Ok((data, h.format_version.unwrap_or_else(|| "0.1".into())))
 }
 
 /// 世帯ファイルの名前から世帯ID（`<ID>.lphf`・`.prev`・`.tmp-*`）
@@ -682,6 +716,35 @@ impl Store {
     #[doc(hidden)]
     pub fn set_fail_point(&self, fp: FailPoint) {
         self.lock().fail = fp;
+    }
+
+    /// 試験用: 今の事務所データを、見出しの形式の版だけを変えて書き直す（新しい版のアプリが書いた事務所データの代わり）
+    #[doc(hidden)]
+    pub fn write_office_version_for_test(&self, version: &str) -> Result<(), StoreError> {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct H<'a> {
+            cipher: &'a str,
+            format: &'a str,
+            format_version: &'a str,
+            nonce: String,
+            office_id: &'a str,
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let nonce = crypto::random_nonce();
+        let h = H {
+            cipher: crypto::CIPHER,
+            format: OFFICE_FORMAT,
+            format_version: version,
+            nonce: crypto::hex_encode(&nonce),
+            office_id: &s.office_id,
+        };
+        let body = serde_json::to_vec(&s.data).map_err(|_| StoreError::IO)?;
+        let k = crypto::derive(&s.master, purpose::OFFICE_DATA);
+        let bytes = container::seal(OFFICE_MAGIC, &container::header_json(&h), &k, &nonce, &body);
+        atomic::replace(&self.office_data_path(), &bytes, FailPoint::None)?;
+        Ok(())
     }
 
     /// 試験用: 開いている状態を忘れる（アプリを閉じて開き直した代わり）
@@ -745,6 +808,7 @@ impl Store {
                 StatusState::NeedsRecovery
             },
             first_run: g.first_run,
+            office_too_new: g.session.as_ref().is_some_and(|s| s.office_too_new),
             recovery_acknowledged: g.session.as_ref().is_some_and(|s| match &s.shared {
                 // 事務所で共有しているときは、事務所の復元キー（今の親鍵）を保管したか（0023 の5）
                 Some(sh) => sh.recovery_acknowledged(),
@@ -955,6 +1019,7 @@ impl Store {
             data,
             shared: None,
             share_problem: None,
+            office_too_new: false,
         });
         self.daily_backup(g.session.as_ref().unwrap());
         Ok(())
@@ -995,9 +1060,12 @@ impl Store {
         atomic::recover(&self.office_data_path(), |b| {
             decode_office(b, &m).ok().map(|_| 0)
         })?;
-        let data = match fs::read(self.office_data_path()) {
-            Ok(b) => decode_office(&b, &master)?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => OfficeData::new(&device_id),
+        let (data, office_version) = match fs::read(self.office_data_path()) {
+            Ok(b) => decode_office_versioned(&b, &master)?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => (
+                OfficeData::new(&device_id),
+                OFFICE_FORMAT_VERSION.to_owned(),
+            ),
             Err(_) => return Err(StoreError::IO),
         };
         let mut s = Session {
@@ -1008,6 +1076,7 @@ impl Store {
             data,
             shared: None,
             share_problem: None,
+            office_too_new: office_version_too_new(&office_version),
         };
         // 世帯ファイルの片付け（今のファイルが無く、一時ファイルか .prev だけがある世帯も戻す）
         for id in self.household_files() {
@@ -1025,13 +1094,16 @@ impl Store {
             .into_iter()
             .filter(|id| !s.data.households.contains_key(id) && s.vault.contains(id))
             .collect();
+        // 新しい版の事務所データは書かない（一覧に戻すのも、この起動の間だけ）
         if !missing.is_empty() {
             for id in missing {
                 if let Some(entry) = self.catalog_from_file(&s, &id) {
                     s.data.households.insert(id, entry);
                 }
             }
-            self.write_office(&s)?;
+            if !s.office_too_new {
+                self.write_office(&s)?;
+            }
         }
         g.needs_recovery = false;
         // 事務所で共有しているときは、共有フォルダの名簿を開く（0023）
@@ -1092,6 +1164,10 @@ impl Store {
     }
 
     fn write_office(&self, s: &Session) -> Result<(), StoreError> {
+        // このアプリより新しい版の事務所データは書かない（知らない欄を消さないように。0222）
+        if s.office_too_new {
+            return Err(StoreError::OFFICE_DATA_TOO_NEW);
+        }
         atomic::replace(
             &self.office_data_path(),
             &encode_office(&s.data, &s.office_id, &s.master),
@@ -1146,6 +1222,9 @@ impl Store {
 
     /// 書く操作の前置き: 事務所で共有していて、名簿の自分の役割が閲覧だけなら止める（0023 の2）
     fn writable(s: &Session) -> Result<(), StoreError> {
+        if s.office_too_new {
+            return Err(StoreError::OFFICE_DATA_TOO_NEW);
+        }
         match &s.shared {
             Some(sh) if !sh.can_edit() => Err(StoreError::OFFICE_VIEW_ONLY),
             _ => Ok(()),
@@ -1597,7 +1676,8 @@ impl Store {
                 .pointer("/meta/savedBy/name")
                 .and_then(Value::as_str)
                 .map(str::to_owned);
-            if s.data.last_opened.as_deref() != Some(id) {
+            // 新しい版の事務所データでは、最後に開いた世帯も書かない（閲覧だけ）
+            if s.data.last_opened.as_deref() != Some(id) && !s.office_too_new {
                 s.data.last_opened = Some(id.to_owned());
                 self.write_office(s)?;
             }

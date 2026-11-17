@@ -1,7 +1,7 @@
 # 0222. AI 接続口から Web のヒアリングの項目を決め、URL を発行する（get_hearing_options・issue_hearing_url・propose_hearing_template）
 
 - 状態: 採用（一部未確定）（2026-11-17）
-- 固定の強さ: 道具の名前と入出力（`get_hearing_options`・`issue_hearing_url`・`propose_hearing_template`）、接続口とアプリ本体の依頼（`getOfficeHearing`・`issueHearing`・`proposeHearingTemplate`）、本体の命令（`ai_hearing_jobs`・`ai_hearing_job_done`・`ai_hearing_template_candidates`・`ai_hearing_template_take`・`office_hearing_get`・`office_hearing_put`）は試験版（0015 と同じ。予告して変えることがある）。次は固定: 見直し（今の値を見せる項目）を含む依頼の URL と案内文は AI に返さない、鍵の組・合言葉はアプリの画面だけが作り世帯ファイルか事務所データにだけ置く（接続口・本体の受け口は鍵を持たない）、AI に顧客番号・世帯の内部 ID・呼び名を返さない、事務所のひな形は FP が承認したときだけ入る、暗号の形・受け付けの API・答えの中身の形（0125 の骨格）は変えない。上限の値・帯と一覧の言葉・事務所データの欄の形は内部（後から変えてよい。変えたら追記に書く）。世帯ファイルの形式は 0.81（`hearing.web` の1件に任意の欄 `origin` を足すだけの MINOR。10）
+- 固定の強さ: 道具の名前と入出力（`get_hearing_options`・`issue_hearing_url`・`propose_hearing_template`）、接続口とアプリ本体の依頼（`getOfficeHearing`・`issueHearing`・`proposeHearingTemplate`）、本体の命令（`ai_hearing_jobs`・`ai_hearing_job_done`・`ai_hearing_template_candidates`・`ai_hearing_template_take`・`office_hearing_get`・`office_hearing_put`）は試験版（0015 と同じ。予告して変えることがある）。次は固定: 見直し（今の値を見せる項目）を含む依頼の URL と案内文は AI に返さない、鍵の組・合言葉はアプリの画面だけが作り世帯ファイルか事務所データにだけ置く（接続口・本体の受け口は鍵を持たない）、AI に顧客番号・世帯の内部 ID・呼び名を返さない、事務所のひな形は FP が承認したときだけ入る、暗号の形・受け付けの API・答えの中身の形（0125 の骨格）は変えない。上限の値・帯と一覧の言葉・事務所データの欄の形は内部（後から変えてよい。変えたら追記に書く）。世帯ファイルの形式は 0.81（`hearing.web` の1件に任意の欄 `origin` を足すだけの MINOR。10）。この PC の事務所データの形式の版は 0.2 にし、このアプリより新しい版の事務所データは閲覧だけで開く（11。固定）
 - 前提にする記録: 0125（Web のヒアリング。暗号・受け付けの API・FP の側）、0192（FP の画面: ひな形・話題・独自の質問・数え方・発行・事務所のひな形）、0190（書類の頼み方）、0158（書類の別送り・期限）、0018（ヒアリングシートの形式）、0073（事務所の既定値）、0014・0015（同意・共有・AIに渡した記録・接続口）、0208（新しい世帯の候補。番号らしい所を消す決まり）、0210（入力の確かめ check_inputs）、0215・0216・0220（表示の設定の案。事務所の既定値の案と世帯ごとの案）
 
 ## 背景
@@ -69,6 +69,8 @@
 | 画面の答えを待つ長さ | 30秒（接続口は45秒） | 本体の受け口・接続口 |
 | 事務所データの依頼の欄の大きさ | 1MB | 本体（household-store） |
 
+- 1時間に10件・同時に20件は、利用者の判断（2026-11-17）で確定した。β で使われ方を見るまで、この値のままにする。
+
 - 渡された世帯の依頼は、受け付けのサーバーの回数の制限（0125 の3）と世帯ごとの FP の確かめで足りるので、同時の数を数えない。
 - 取り消した世帯の決まっていない依頼は期限の後に、そうでない依頼は延長の上限から30日の後に、事務所データから片付ける（記録 `log` は残す）。
 
@@ -85,6 +87,15 @@
 ### 10. 世帯ファイルの形式 0.81
 
 - `hearing.web` の1件に任意の欄 `origin`（`{kind: "ai", at, connector}`。AI 接続口から発行した依頼だけ）を足すだけの MINOR。前の版のアプリは欄を知らずに読み落とし、依頼の一覧で AI が発行した依頼と分からなくなるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の依頼は欄が無い＝FP の画面で発行した依頼）。0.80 の段の後に積む。見本 `0.81/`（0.80 の見本の依頼の記録に出どころを足したもの）。
+
+### 11. 事務所データの形式の版 0.2（新しい版は閲覧だけで開く）
+
+- 利用者の判断（2026-11-17）: 前の版のアプリで事務所データを保存し直すと、新しい欄 `hearingRequests`（世帯の決まっていない依頼の鍵）が消えるので、事務所データの形式の版を上げ、前の版のアプリは新しい版の事務所データを閲覧だけで開く（保存しない）。β の前に入れる。
+- この PC の事務所データ（`office.lpod`）の見出しの形式の版 `formatVersion` を `0.1` から `0.2` に上げた（`household_store::OFFICE_FORMAT_VERSION`。これまでの版は `OFFICE_KNOWN`。消さない）。中身は足した欄 `hearingRequests` だけで、0.1 の事務所データはそのまま読み、次に書くときに 0.2 になる。
+- 読む側の決まり（この版から）: 見出しの版が、このアプリの知っている版より新しい（MINOR を含む。形の読めない版も新しいとみなす）事務所データは、読んで使うが書かない。世帯ファイルの新しい版（0011 の5）と同じ考え方。共有フォルダのファイル（0023 の追記 2026-11-04）は MINOR なら知らない欄を残して書くが、この PC の事務所データは本体が全体を作り直して書く物で、知らない欄を残す仕組みが無いので、閲覧だけにした。
+  - 事務所データに書く操作（事務所の既定値・事務所の見た目・機能のコード・AI接続口の入切・世帯ファイルにまだ入っていない Web のヒアリングの依頼・世帯を作る・番号・区分など）は `E_STORE_OFFICE_DATA_TOO_NEW` で断る。最後に開いた世帯・一覧に戻した世帯も書かない。
+  - 世帯は閲覧だけで開く（保存しない。上の帯の「閲覧だけ（保存しません）」と同じ）。画面のいちばん上に「この PC の事務所データが、新しい版のアプリで保存されています。閲覧だけで開いています（保存しません）。アプリを更新してください」と出す（状態の `officeTooNew`）。
+- **防げない範囲**: 見出しの版を見る決まりは、この版から後のアプリにしか入っていない。この版より前に作ったアプリ（0.1 の版のアプリ）は、事務所データの見出しの版を読まずに開き、知らない欄を読み落として書き戻すので、そのアプリで保存すると `hearingRequests`（世帯の決まっていない依頼・開いていない世帯の依頼の鍵と記録）が消える。その依頼の答えは受け取れなくなる（お客さまの URL は期限まで開けるが、開ける鍵が無い）。β の公開の前で、配ったのは開発と試しのビルドだけなので、β 公開の版からは防げる。それまでは、AI 接続口で依頼を発行した PC で、この版より前のアプリを開いて保存しないよう注意が要る（アプリの側では止められない）。
 
 ### 決めたこと（迷った所。AI 接続のセッションの方向から変えた所）
 
@@ -114,6 +125,7 @@
 - 本体の受け口: `crates/ai-share` の `hearing.rs`（新）・`registry.rs`（`handle_office_hearing`・`handle_issue_hearing`・`handle_propose_hearing_template`・`set_hearing_issuer`・`set_office_hearing`）・`endpoint.rs`・`book.rs`（`screen_body`）。
 - アプリ本体: `app/src-tauri/src/ai.rs`（発行の仕事・命令4つ・状態の `hearingJobs`・`hearingTemplateCandidates`・AI接続口をオフにしたら仕事を断り案を消す）・`office.rs`（`office_hearing_get`・`office_hearing_put`）・`lib.rs`・`build.rs`・`capabilities/main.json`。`crates/household-store` の事務所データの欄 `hearing_requests`（`office_hearing_requests`・`set_office_hearing_requests`）と、世帯ファイルの形式 0.81。
 - 画面: `app/src/workspace/hearing/aiSelection.ts`（新）・`selection.ts`（新。web.ts から純な部品を分けた）・`aiHearing.ts`（新）・`useAiHearing.ts`（新）・`web.ts`（`origin`）・`WebRequests.tsx`（出どころ AI）・`app/src/workspace/ai/AiHearingIssued.tsx`（新。帯と一覧）・`app/src/workspace/office/HearingTemplateProposals.tsx`（新）・`OfficeSettingsPanel.tsx`・`App.tsx`・`engine/host.ts`・`vite.config.ts`（開発用のサーバーの代わり: `/__dev/ai/simulate?kind=hearing`・`kind=hearingTemplate`）。`hearing/src/sheets.ts`（新。シート定義だけを Excel の部品から分けた）。`app/src/connector/closest.ts`（新。近い候補）。
+- 事務所データの形式の版: `crates/household-store` の `store.rs`（`OFFICE_FORMAT_VERSION`・`OFFICE_KNOWN`・`office_version_too_new`・閲覧だけの決まり・状態の `office_too_new`）・`lib.rs`（`E_STORE_OFFICE_DATA_TOO_NEW`）、画面の `App.tsx`（いちばん上の知らせ・閲覧だけの理由）・`store/HouseholdPanel.tsx`・`store/autosave.ts`・`header/status.ts`・`engine/host.ts`。試験 `crates/household-store/tests/store.rs` の `newer_office_data_is_opened_view_only`・`app/test/office.test.ts`。
 - 計算エンジン・計算の結果・暗号の形・受け付けの API・答えの中身の形は変えない。
 - **テスト**: `app/test/hearing-ai.test.ts`（新。一覧と FP の画面と同じ数・知らない項目と近い候補・混ぜられない票・範囲の項目・見直しと足りない所だけ・上限ちょうどと超え・制御文字・事務所のひな形から始める・世帯の決まっていない依頼の発行と URL・見直しで URL を返さない・開いていない世帯の前回の値と開いたときに移す・同時の上限の19件と20件・受け付けのサーバーが無い・つながらない・番号らしい所を消す・新しい世帯と開いている世帯へ移して受け取る・取り消した依頼の片付け・ひな形の案の確かめと承認の画面・帯・一覧・出どころ AI）、`crates/lifeplan/tests/mcp_connector.rs` の `hearing_tools_check_the_selection_and_follow_the_share_rules`（新。アプリが起動していないとき・preview・確かめと近い候補・(a) と (b) の発行・見直しで URL を外す・記録・取り消しと期限切れ・1時間の上限の10件目と11件目・ひな形の案）と使い方の例、`crates/ai-ipc` の依頼の形、`crates/ai-share` の `hearing` の形の確かめ、`crates/household-store` の事務所データの欄（`tests/office_defaults.rs`）と形式 0.81 の見本・変換の段。
 
@@ -121,6 +133,6 @@
 
 - 開いていない世帯の依頼が事務所データにある間（その世帯を開くまで）、届いた知らせを世帯の一覧にも出すか（今は AI が発行した URL の一覧で確かめる）。
 - 事務所で共有している PC の間で、世帯の決まっていない依頼を見せ合うか（今は発行した PC の事務所データだけ。0073 と同じくこの PC の設定）。
-- 1時間の上限（10件）・同時の上限（20件）の値。β で使われ方を見て決める。
-- 前の版のアプリで事務所データを保存し直すと、事務所データの依頼の欄が消える（前の版は欄を知らない。鍵を失う）。事務所データの版の決まり（0214）に合わせて版を上げるか。
+- ~~1時間の上限（10件）・同時の上限（20件）の値。~~（2026-11-17 に決めた。β で使われ方を見るまでこのまま。7）
+- ~~前の版のアプリで事務所データを保存し直すと、事務所データの依頼の欄が消える。~~（2026-11-17 に決めた。事務所データの形式の版を 0.2 に上げ、新しい版は閲覧だけで開く。11）この版より前に作ったアプリでは防げない（11 の「防げない範囲」）。
 - お客さまの答えを AI が読む道具（今回の範囲の外）。

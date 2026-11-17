@@ -35,6 +35,7 @@ pub mod vault;
 pub use numbering::{Category, CategoryEdit, CategorySettings, Label, SampleInfo, SampleRequest};
 pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
+pub use store::{office_version_too_new, OFFICE_FORMAT_VERSION, OFFICE_KNOWN};
 pub use store::{
     Clock, CreateOptions, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView,
     NoticeView, OfficeStatus, Opened, PresenceView, PreviousGeneration, RemovedView, RenameOutcome,
@@ -175,6 +176,8 @@ impl StoreError {
     pub const OFFICE_DEFAULTS: StoreError = StoreError("E_STORE_OFFICE_DEFAULTS");
     /// 世帯ファイルにまだ入っていない Web のヒアリングの依頼の形が合わない（JSON のオブジェクトでない・大きすぎる。0222）
     pub const OFFICE_HEARING: StoreError = StoreError("E_STORE_OFFICE_HEARING");
+    /// この PC の事務所データが、このアプリより新しい版で書かれている（閲覧だけ。保存しない。アプリを更新する。0222）
+    pub const OFFICE_DATA_TOO_NEW: StoreError = StoreError("E_STORE_OFFICE_DATA_TOO_NEW");
     /// 機能を有効にするコードの数・長さ・形が合わない（0110）
     pub const FEATURE_CODES: StoreError = StoreError("E_STORE_FEATURE_CODES");
     /// 事務所の見た目（名前・色・明るさ）の形が合わない（0121）

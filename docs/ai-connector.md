@@ -484,7 +484,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 答え: 聞く項目の数（`selectedCount`）・お客さまの画面の数（`screens`）・所要時間の目安（`minutes`）・期限（`expiresAt`。30日）・依頼番号（`requestId`）・`summary`。**見直しを含まない依頼だけ** URL（`url`）と案内文（`invitation`）が付きます。見直しを含む依頼は、URL の # の後ろの鍵で今の値が読めるので返さず、FP がアプリの「URL の依頼」で案内文をコピーします。顧客番号・世帯の内部 ID・呼び名は返りません。
 - 発行はアプリ本体が画面に頼み、画面が FP の画面と同じ部品で鍵を作って受け付けのサーバーに問いを置きます（接続口は鍵も世帯ファイルも事務所データも扱いません）。AI が書いた文の番号らしい所は、書類の候補と同じ決まりで消します（`masked` に数）。置き場所は、渡された世帯をアプリで開いていれば世帯ファイル、開いていなければ事務所データ（その世帯を開いたときに世帯ファイルへ移る）、世帯の決まっていない依頼は事務所データ（答えが届いたら FP が新しい世帯か開いている世帯へ移す）です。
 - アプリの上の帯に「AI が URL を発行しました」が出て、FP は一覧で確かめ・取り消せます。世帯の「URL の依頼」の行には「出どころ AI」が出ます。
-- 上限: 1時間に10件（アプリを開いている間）・世帯の決まっていない受け付け中の依頼は20件まで。本番の受け付けのサーバーが無い（配布元の設定の `[hearing_web]` が空）・つながらないときは、その理由を返して何も発行しません。
+- 上限: 1時間に10件（アプリを開いている間）・世帯の決まっていない受け付け中の依頼は20件まで（利用者の判断〔2026-11-17〕で、β で使われ方を見るまでこの値）。本番の受け付けのサーバーが無い（配布元の設定の `[hearing_web]` が空）・つながらないときは、その理由を返して何も発行しません。
 - `propose_hearing_template` は、名前（40文字まで）と同じ書き方の選び方を、事務所の既定値の画面のいちばん上の「AIからのヒアリングのひな形の案」に承認待ちで出すだけです（4件まで。`review`・`missing`・`mode: confirm` は世帯に依るので断る）。FP が「ひな形として保存する」を押したときだけ事務所のひな形（URL で聞くときの「カスタム」）に入ります（同じ名前は置き換え。20件まで）。
 - お客さまの答えを読む道具はありません（受け取り・取り込みは FP がアプリで行います）。使い方の例（プロンプト）`hearing_url` が、この進め方の頼み方の型です。
 
@@ -563,7 +563,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 画面から呼べる命令は `ai_status`・`ai_set_enabled`・`ai_hearing_jobs`・`ai_hearing_job_done`・`ai_hearing_template_candidates`・`ai_hearing_template_take`・`ai_setup_copy`・`ai_household`・`ai_consent_record`・`ai_share_start`・`ai_share_stop`・`ai_candidate_decide`・`ai_documents_taken`・`ai_household_candidates`・`ai_household_candidate_discard`・`ai_household_candidate_create` と、架空の世帯をお客さまの世帯にする `store_make_client` だけで、パスも鍵も受け取らない・返しません。`ai_household_candidate_create` は、候補がまだ承認待ちか・本文の家族が候補と同じかを確かめ、出どころの記録（`meta.origin`）を本体が書いて作ります（0208）。
 - 開発用のビルドは、作業フォルダを `<アプリのデータの場所>/run-dev/`（`FINANCIA_DEV_RUNTIME_DIR` で差し替え）にし、製品の口とぶつからないようにします。接続の設定の文面には、作業フォルダの指定（`LIFEPLAN_RUNTIME_DIR`）が加わります。
 - 表示の設定（0213）: 起動時に、事務所の既定値の見せ方だけの欄を読む所を `set_office_display` で入れる（切り出し方は `ai_share::display::office_display_of` の1か所。合算BS には今使える機能を添える）。接続口からの `getOfficeDisplay` に答え、`getShareDisplay` は共有の元の見せ方の区画（帳面の `source` が本文から `display::household_display_of` で切り出す）を、仮の ID に置き換えて返し、記録に残す。
-- Web のヒアリング（0222）: 起動時に、事務所のひな形と話題を読む所（`set_office_hearing`）と、発行を画面に頼む所（`set_hearing_issuer`。`HearingJobs` に仕事を置き、画面の答えを30秒まで待つ）を入れる。画面は3秒ごとの `ai_status` の `hearingJobs` を見て、`ai_hearing_jobs` で仕事を受け取り、発行して記録を書いてから `ai_hearing_job_done` で答える（見直しを含む世帯の依頼には、本体の帳面の本文を添える）。世帯の決まっていない依頼と開いていない世帯の依頼は、事務所データの欄 `hearing_requests`（`office_hearing_get`・`office_hearing_put`）に置く。ひな形の案は `ai_hearing_template_candidates`・`ai_hearing_template_take`。AI接続口をオフにすると、待っている仕事を断り、ひな形の案を消す。
+- Web のヒアリング（0222）: 起動時に、事務所のひな形と話題を読む所（`set_office_hearing`）と、発行を画面に頼む所（`set_hearing_issuer`。`HearingJobs` に仕事を置き、画面の答えを30秒まで待つ）を入れる。画面は3秒ごとの `ai_status` の `hearingJobs` を見て、`ai_hearing_jobs` で仕事を受け取り、発行して記録を書いてから `ai_hearing_job_done` で答える（見直しを含む世帯の依頼には、本体の帳面の本文を添える）。世帯の決まっていない依頼と開いていない世帯の依頼は、事務所データの欄 `hearing_requests`（`office_hearing_get`・`office_hearing_put`）に置く（事務所データの形式の版 0.2。このアプリより新しい版の事務所データは閲覧だけで開き、書かない）。ひな形の案は `ai_hearing_template_candidates`・`ai_hearing_template_take`。AI接続口をオフにすると、待っている仕事を断り、ひな形の案を消す。
 - 接続口の版（`lifeplan --version`）とアプリの版をそろえる（違うと `VERSION_MISMATCH`。事務所の設定の画面にも出す）。接続口の同梱（アプリと同じフォルダに置く）は配布の回で行います。
 
 テスト: `cargo test --release -p lifeplan -p ai-share -p ai-ipc -p household-store`（本物の接続口を起動してアプリの方針の流れを確かめる `app_policy_consent_is_required_end_to_end` を含む）、`app/src-tauri` の `cargo test`、`app` の `npm test`（`test/ai.test.ts`）。

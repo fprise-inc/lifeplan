@@ -191,6 +191,8 @@ export interface StoreStatus {
   lastOpened: string | null;
   deletionsPending: number;
   deletionsCompleted: number;
+  /** この PC の事務所データが、このアプリより新しい版で保存されている（閲覧だけ。保存しない。アプリの更新を案内する。0222）。無い本体は false */
+  officeTooNew?: boolean;
 }
 
 /** 今その世帯を開いている他のメンバー（事務所で共有しているとき。0023 の7） */

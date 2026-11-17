@@ -527,6 +527,9 @@ export function App() {
   const [meetingFocus, setMeetingFocus] = useState<{ id: string; n: number } | null>(null);
   // 世帯の保存（0011・0013）
   const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
+  /** 事務所データが新しい版か（世帯を閲覧だけで開いたときの理由に使う。0222） */
+  const storeTooNewRef = useRef(false);
+  storeTooNewRef.current = storeStatus?.officeTooNew === true;
   const [storeUnavailable, setStoreUnavailable] = useState<string | null>(null);
   const [storeChecked, setStoreChecked] = useState(false);
   const [storedList, setStoredList] = useState<StoredHousehold[]>([]);
@@ -1210,7 +1213,8 @@ export function App() {
       // 写した値（0218）は、読んだ本文を保存済みとして、違いを自動保存で書く（書かないと、次に開いたときの事務所の値をまた写すことになる）
       const wrote = stored === undefined && filled !== st.wh ? r.body : undefined;
       autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? wrote ?? loaded));
-      if (r.readOnly) setSaveState({ kind: "error", code: r.viewOnly === true ? "E_OFFICE_VIEW_ONLY" : "E_STORE_READ_ONLY" });
+      // 事務所データが新しい版のときは、その理由で閲覧だけ（0222）
+      if (r.readOnly) setSaveState({ kind: "error", code: r.viewOnly === true ? (storeTooNewRef.current ? "E_STORE_OFFICE_DATA_TOO_NEW" : "E_OFFICE_VIEW_ONLY") : "E_STORE_READ_ONLY" });
       await install(o, w, shownKeys, `stored:${r.id}`, keep, "前にこの世帯を開いていたときと中身が違うため、元に戻す（↶）の履歴はここから始めます");
       if ((stored ?? wrote) !== undefined && (stored ?? wrote) !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
     },
@@ -2975,6 +2979,11 @@ export function App() {
         />
       ) : null}
       <main class="wrap">
+        {storeStatus?.officeTooNew === true ? (
+          <div class="presence-band" role="status" data-office-too-new>
+            <span>{storeMessage("E_STORE_OFFICE_DATA_TOO_NEW")}</span>
+          </div>
+        ) : null}
         {presence !== null && storedInfo !== null ? (
           <div class="presence-band" role="status" data-presence-band>
             <span>
