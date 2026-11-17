@@ -1816,6 +1816,12 @@
     "kind"
    ]
   },
+  "account.label": {
+   "collection": "account",
+   "path": [
+    "label"
+   ]
+  },
   "account.lots": {
    "collection": "account",
    "path": [

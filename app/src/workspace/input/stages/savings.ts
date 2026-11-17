@@ -6,7 +6,7 @@ import { ageAt, ageReachedMonth } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { putRow } from "../rows.ts";
-import { accountHolderRule, ACCOUNT_KINDS, ADULTS_WHO, ASSET_CLASSES, BUILDING_STRUCTURES, canHold, HELD_ESTATE_OPTIONS, HELD_SALE_TAXATION, heldEstateSubtypeOf, holderOptions, memberLabel, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf, VALUATION_DEFAULTS } from "../labels.ts";
+import { accountHolderRule, ACCOUNT_KINDS, accountLabelOf, accountLabelProblem, ADULTS_WHO, cleanAccountLabel, withAccountLabel, ASSET_CLASSES, BUILDING_STRUCTURES, canHold, HELD_ESTATE_OPTIONS, HELD_SALE_TAXATION, heldEstateSubtypeOf, holderOptions, memberLabel, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf, VALUATION_DEFAULTS } from "../labels.ts";
 import { addMonths } from "../../levers.ts";
 import { dropHeldCostRows, heldCostRow, heldEstateCostEstimate, heldEstateTaxInputs, newHeldCostRow, startsHeldEstateCost } from "../heldEstateTax.ts";
 import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
@@ -357,6 +357,45 @@ function moveToRental(h: Household, x: Account): void {
   dropHeldCostRows(h, x.id);
 }
 
+/** 口座の名前の欄の説明（0221） */
+export const ACCOUNT_LABEL_HELP =
+  "金融機関名や用途（例: ○○銀行・△△証券・教育資金用）を入れると、口座の一覧・取り崩す順番・年間収支の取り崩しの行などで、この名前で呼びます（種類と名義も添えます）。入れなくても計算は同じです。氏名・口座番号は入れません。持ち帰り用のレポートにも出ます（AI に渡す範囲には既定で入れません）";
+
+/**
+ * 口座の名前の欄（任意。表示だけで計算には使わない。0221）。打った文字は整えて（制御文字を空白に・続く空白を1つに・前後の空白を除く）書き、
+ * 空・空白だけは欄ごと外す（名前なし）。長すぎる名前・口座番号らしき数字は書かずに理由を出す
+ */
+export function accountLabelField(a: Pick<Account, "id">, find: Finder): FieldDef {
+  return withAddress(
+    field({
+      key: `sav/${a.id}/label`,
+      item: "account.label",
+      label: "名前",
+      // 名前の無い口座では目立たせない（口座の表は「名前を付ける」のリンクから開く。SavingsPanel の AccountLabel）
+      level: "detail",
+      kind: "text",
+      optional: true,
+      example: "例: ○○銀行",
+      help: ACCOUNT_LABEL_HELP,
+      refuse: (_w, v) => (typeof v === "string" ? accountLabelProblem(v) : null),
+      get: (w) => ({ value: accountLabelOf((find(w.request.input.household, w) ?? {}) as { label?: unknown }) }),
+      set: (w, v) => {
+        const t = typeof v === "string" ? cleanAccountLabel(v) : "";
+        if (t !== "" && accountLabelProblem(t) !== null) return w;
+        const x = find(w.request.input.household, w) as { label?: unknown } | undefined;
+        if (x === undefined || (t === "" ? x.label === undefined : x.label === t)) return w;
+        return mutate(w, (h) => {
+          const y = find(h, w) as { label?: string } | undefined;
+          if (y === undefined) return;
+          if (t === "") delete y.label;
+          else y.label = t;
+        });
+      },
+    }),
+    onAccount(a.id, "account.label"),
+  );
+}
+
 function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const find = byId(accounts, a.id);
   const k = `sav/${a.id}`;
@@ -365,6 +404,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const settlement = settlementOf(wh.request.input.household)?.id === a.id;
   const fields: FieldDef[] = [
     plain({ key: `${k}/kind`, item: "account.kind", label: "種類", level: "simple", kind: "select", options: ACCOUNT_KINDS, find, path: ["kind"], structural: true }),
+    accountLabelField(a, find),
     // 名義の候補は、その種類を持てる人だけ（iDeCo は20歳以上か働き方の期間がある人、NISA は18歳以上など。labels.ts の holderOptions）。
     // 預金の名義は、夫婦の世帯では標準（相続・万一で効く）。単身・ひとり親は詳細（0078）
     plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: a.kind === "deposit" && !hasSpouse(wh) ? "detail" : "simple", kind: "select", options: holderOptions(wh, accountHolderRule(a.kind), a.owner), find, path: ["owner"] }),
@@ -504,7 +544,8 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const groups: GroupDef[] = [
     {
       key: k,
-      title: `${ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座"}（${memberLabel(wh, a.owner)}）`,
+      // 名前のある口座は「名前（種類・名義）」（0221）
+      title: withAccountLabel(a, ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座", memberLabel(wh, a.owner)),
       ...(a.kind === "cryptoAsset" ? { note: CRYPTO_NOTE } : {}),
       level: "simple",
       fields,
@@ -902,7 +943,7 @@ export function returnStagesSection(wh: WorkingHousehold): SectionDef {
         key: `sav/${a.id}`,
         find: byId(accounts, a.id),
         accountId: a.id,
-        name: `${a.kind === "pooled" ? "金融資産の合計" : (ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座")}（${memberLabel(wh, a.owner)}）`,
+        name: a.kind === "pooled" ? `金融資産の合計（${memberLabel(wh, a.owner)}）` : withAccountLabel(a, ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座", memberLabel(wh, a.owner)),
         ...(owner !== undefined ? { ageOf: (hh: Household) => hh.members.find((m) => m.id === owner.id) } : {}),
         rate: (hh) => {
           const x = (hh.accounts ?? []).find((y) => y.id === a.id);
@@ -991,7 +1032,8 @@ export function flowSection(wh: WorkingHousehold): SectionDef {
         label: "収支が入る口座（決済口座）",
         level: "detail",
         kind: "select",
-        options: deposits.map((a, i) => ({ value: a.id, label: `${accountName(a, own(a.id))}${deposits.filter((x) => x.owner === a.owner).length > 1 ? ` ${i + 1}` : ""}` })),
+        // 同じ呼び名の預金が2つ以上あれば番号を添える（名前を付けた預金は名前で見分ける。0221）
+        options: deposits.map((a, i) => ({ value: a.id, label: `${accountName(a, own(a.id))}${deposits.filter((x) => accountName(x, own(x.id)) === accountName(a, own(a.id))).length > 1 ? ` ${i + 1}` : ""}` })),
         help: "給与・年金が入り、生活費・ローンを払う預金。ここが足りなくなると、下の順番でほかの口座から取り崩します。最初は一覧の最初の預金になっています",
         get: (w) => {
           const st = settlementOf(w.request.input.household);

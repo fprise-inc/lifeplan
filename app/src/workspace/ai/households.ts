@@ -11,7 +11,7 @@ import type { AiHouseholdCandidate } from "../../engine/host.ts";
 import type { EngineRequest, Member } from "../../engine/types.ts";
 import { group, monthlyMan } from "../../presentation/format.ts";
 import { cleanText, hasPersonalNumber, isPersonalNumberValue } from "../documents/privacy.ts";
-import { ACCOUNT_KINDS, DEBT_KINDS, EMPLOYMENT_TYPES, RESIDENCE_KINDS } from "../input/labels.ts";
+import { ACCOUNT_KINDS, DEBT_KINDS, EMPLOYMENT_TYPES, RESIDENCE_KINDS, withAccountLabel } from "../input/labels.ts";
 import { ageAt } from "../levers.ts";
 import { roles } from "../roles.ts";
 
@@ -201,7 +201,8 @@ export function householdOverview(input: EngineRequest["input"]): HouseholdOverv
     return { label: `${nameOf(p.member)}の${kind}`, value: `${money}${periodText(p.from, p.to)}`, ...(isEstimated(annual) ? { estimated: true } : {}) };
   });
   const assets: OverviewRow[] = (h.accounts ?? []).map((a) => ({
-    label: `${labelOf(ACCOUNT_KINDS, a.kind, "資産")}（${nameOf(a.owner)}）`,
+    // AI が口座に付けた名前（整えた後）があれば添える（0221）
+    label: withAccountLabel(a, labelOf(ACCOUNT_KINDS, a.kind, "資産"), nameOf(a.owner)),
     value: manText(boxValue(a.marketValue)),
     ...(isEstimated(a.marketValue) ? { estimated: true } : {}),
   }));

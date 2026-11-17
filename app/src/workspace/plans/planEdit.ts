@@ -834,7 +834,8 @@ export function objectLabel(wh: WorkingHousehold, collection: string, obj: Obj):
   }
   // 介護は、受ける人と在宅か施設かを添える（例: 介護（母・施設））。場所を変えた置き換えで前と後が分かるように
   if (collection === "care" && typeof obj.member === "string") return `${base}（${memberLabel(wh, obj.member)}・${obj.place === "facility" ? "施設" : "在宅"}）`;
-  const name = typeof obj.label === "string" ? obj.label : typeof obj.name === "string" ? obj.name : null;
+  // 空白だけの名前は名前なしと同じ（口座の名前など。0221）
+  const name = typeof obj.label === "string" && obj.label.trim() !== "" ? obj.label.trim() : typeof obj.name === "string" && obj.name.trim() !== "" ? obj.name.trim() : null;
   const kind = typeof obj.kind === "string" ? (KIND_TEXT[obj.kind] ?? null) : typeof obj.type === "string" ? (KIND_TEXT[obj.type] ?? null) : null;
   const who = typeof obj.member === "string" ? memberLabel(wh, obj.member) : typeof obj.owner === "string" ? memberLabel(wh, obj.owner) : null;
   return `${base}${kind !== null ? `（${kind}）` : ""}${name !== null ? `「${name}」` : who !== null && who !== "（いない家族）" ? `（${who}）` : ""}`;

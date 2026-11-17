@@ -40,6 +40,8 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
   "engine.input#/$defs/goal/properties/education/properties/lessons/items/properties/label": "drop",
   // 車の維持費の内訳の名前つきの行の名前（FP が書いた文。外す。0069）
   "engine.input#/$defs/car/properties/upkeepOther/items/properties/label": "drop",
+  // 口座の名前（金融機関名・用途など。お客さまが自分の口座を見分けるための名前なので残す。年間収支の取り崩しの行に出る。0221）
+  "engine.input#/$defs/account/properties/label": "keep",
   // 収益不動産の物件名・所在地・メモ（FP が書いた文。外す。物件の種類と番号から見せる。0079）
   "engine.input#/$defs/account/properties/property/properties/name": "drop",
   "engine.input#/$defs/account/properties/property/properties/location": "drop",

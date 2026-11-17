@@ -7,7 +7,7 @@ import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { PARAM_LABELS } from "../generated/labels.ts";
 import type { StageId } from "./input/form.ts";
 import type { WorkingHousehold } from "./input/household.ts";
-import { memberLabels } from "./input/labels.ts";
+import { accountLabelOf, memberLabels } from "./input/labels.ts";
 import { applyOfficeText, NO_OFFICE_TEXTS, noticeTextId, type OfficeTextEntry, type OfficeTexts } from "./office/customTexts.ts";
 
 export type NoticeKind = "input" | "missing" | "outside" | "assumed" | "data";
@@ -331,7 +331,8 @@ export function nameResolver(wh: WorkingHousehold, requests: readonly EngineRequ
     for (const g of h.goals ?? []) put(g.id, g.education !== undefined ? `${who(g.owner) ?? "子"}の教育` : typeof g.label === "string" ? g.label : null);
     for (const b of h.retirementBenefits ?? []) put(b.id, `${who(b.member) ?? ""}の退職金・企業年金`);
     for (const c of h.insuranceContracts ?? []) put(c.id, typeof c.label === "string" && c.label !== "" ? c.label : `${who(c.insured) ?? ""}の保険`);
-    for (const a of h.accounts ?? []) put(a.id, typeof a.label === "string" && a.label !== "" ? a.label : `${who(a.owner) ?? ""}の口座・資産`);
+    // 口座の名前（0221）は前後の空白を除き、空白だけの名前は名前なしと同じ
+    for (const a of h.accounts ?? []) put(a.id, accountLabelOf(a) ?? `${who(a.owner) ?? ""}の口座・資産`);
     for (const r of h.residences ?? []) put(r.id, r.kind === "rent" ? "賃貸の住まい" : "持ち家");
     for (const c of h.careExpenses ?? []) put(c.id, `${who(c.member) ?? ""}の介護`);
     for (const p of h.employmentPeriods ?? []) put(p.id, `${who(p.member) ?? ""}の働き方の期間`);
