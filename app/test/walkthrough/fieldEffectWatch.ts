@@ -25,6 +25,7 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
   { shape: "education:edu/*/lesson/*/label", why: "塾・習い事の行の名前（表示用）" },
   { shape: "education:edu/*/lesson/*/kind", why: "塾・習い事の行の種類（表示と既定の名前だけ）" },
   { shape: "insurance:ins/*/label", why: "契約の表示名（表示用）" },
+  { shape: "savings:sav/*/label", why: "口座の名前（表示用。0223）" },
   { shape: "events:ev/*/label", why: "行の名前（表示用）" },
   { shape: "events:ev/*/dreamNote", why: "夢のひとことメモ（なぜかなえたいか。表示用。0103）" },
   { shape: "housing:housing/debt/*/label", why: "ローンの名前（表示用）" },

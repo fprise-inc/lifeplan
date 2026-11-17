@@ -79,11 +79,15 @@ describe("CI のビルドの署名の段取り（0117 の5）", () => {
     expect(win.unset).toContain("AZURE_CLIENT_ID");
   });
 
-  it("今の配布元の設定（名前が空）では、秘密の値があっても OS の署名はしない（更新のファイルの署名だけ）", () => {
+  it("今の配布元の設定では、秘密の値がそろえば Mac・Windows とも署名し、無ければ署名せずにビルドする", () => {
+    expect(signingProblems(dist.signing)).toEqual([]);
     const mac = signingPlan("macos", dist.signing, allSecrets, "Financia");
-    expect(mac.config.bundle).toEqual({ createUpdaterArtifacts: true, macOS: { signingIdentity: null } });
+    expect(mac.config.bundle).toEqual({ createUpdaterArtifacts: true, macOS: { signingIdentity: dist.signing.mac_signing_identity, hardenedRuntime: true } });
     const win = signingPlan("windows", dist.signing, allSecrets, "Financia");
-    expect(win.config.bundle).toEqual({ createUpdaterArtifacts: true });
+    expect(win.needsArtifactSigningCli).toBe(true);
+    const none = { APPLE_CERTIFICATE: "", AZURE_CLIENT_ID: "" };
+    expect(signingPlan("macos", dist.signing, none, "Financia").config.bundle.macOS).toEqual({ signingIdentity: null });
+    expect(signingPlan("windows", dist.signing, none, "Financia").needsArtifactSigningCli).toBe(false);
   });
 
   it("名前と秘密の値がそろえば、Mac は署名と公証、Windows は Azure Artifact Signing で署名する", () => {

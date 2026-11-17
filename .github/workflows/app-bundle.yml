@@ -6,6 +6,7 @@
 #   Mac の公証      APPLE_API_ISSUER・APPLE_API_KEY（キーの ID）・APPLE_API_KEY_P8（.p8 の中身）
 #   Windows の署名  AZURE_CLIENT_ID・AZURE_CLIENT_SECRET・AZURE_TENANT_ID（Azure Artifact Signing の署名の役割だけを持つアプリの登録）
 #   更新のファイル  TAURI_SIGNING_PRIVATE_KEY・TAURI_SIGNING_PRIVATE_KEY_PASSWORD（アプリ更新用の鍵の現用。0117 の2）
+# 秘密の値は環境 release-signing の environment secrets に置く（必須の承認つき。対象は main ブランチとリリースのタグ v*）。
 name: app-bundle
 on:
   workflow_dispatch:
@@ -30,6 +31,8 @@ jobs:
           - os: ubuntu-latest
             args: --bundles deb
     runs-on: ${{ matrix.os }}
+    # 秘密の値は承認つきの環境に置く（0117 の6）。動かすたびに提供元の承認が要る。環境の名前を変えるときは GitHub の設定も直す
+    environment: release-signing
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

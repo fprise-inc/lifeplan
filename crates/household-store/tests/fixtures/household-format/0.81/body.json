@@ -955,6 +955,7 @@
               "contributions": [],
               "id": "b6088c23-3c27-45c8-99a5-ce3b42939948",
               "kind": "deposit",
+              "label": "架空のさくら銀行（給与振込）",
               "marketValue": {
                 "approval": {
                   "at": "2026-11-03T10:20:00+09:00",
@@ -1048,6 +1049,7 @@
               },
               "id": "03c2def7-bbb4-4402-a039-abdb08cc570d",
               "kind": "nisa",
+              "label": "架空のみどり証券",
               "marketValue": {
                 "origin": {
                   "kind": "manual"
@@ -1301,6 +1303,7 @@
               },
               "id": "7fc64cf7-e50e-46f3-89f3-839d360b0667",
               "kind": "taxable",
+              "label": "架空のみどり証券",
               "marketValue": {
                 "origin": {
                   "kind": "manual"
@@ -4138,32 +4141,6 @@
                 },
                 "costs": 2400000,
                 "downPayment": 30000000,
-                "homeInsurance": {
-                  "earthquake": {
-                    "estimate": {
-                      "basis": "地震保険の推定（5年分。保険金額1,050万円・東京都・ロ構造・建築年割引10%・長期係数4.7）",
-                      "method": "derived"
-                    },
-                    "origin": {
-                      "kind": "auto"
-                    },
-                    "state": "estimated",
-                    "value": 182500
-                  },
-                  "fire": {
-                    "estimate": {
-                      "basis": "火災保険の推定（5年分。中古の戸建て・保険金額は建物の分2,100万円・H構造（木造の戸建て）の目安）",
-                      "method": "derived"
-                    },
-                    "origin": {
-                      "kind": "auto"
-                    },
-                    "state": "estimated",
-                    "value": 68300
-                  },
-                  "prefecture": "13",
-                  "years": 5
-                },
                 "longLife": true,
                 "newBuild": false,
                 "price": 30000000
@@ -4211,24 +4188,6 @@
                 },
                 "costs": 3000000,
                 "downPayment": 6000000,
-                "homeInsurance": {
-                  "countedInInsurance": true,
-                  "earthquake": {
-                    "origin": {
-                      "kind": "manual"
-                    },
-                    "state": "confirmed",
-                    "value": 0
-                  },
-                  "fire": {
-                    "origin": {
-                      "kind": "manual"
-                    },
-                    "state": "confirmed",
-                    "value": 30000
-                  },
-                  "years": 1
-                },
                 "land": {
                   "at": {
                     "at": "2059-07"

@@ -221,8 +221,8 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(follow.is_none(), "{v}: 印は変換で書き足さない");
         }
-        // 0.81 から: 住宅購入の予定の火災保険・地震保険（0224）。変換で書き足さない（前の版の世帯は欄が無い＝計算に入らない）。
-        // 0.81 の見本は中古の戸建ての購入に推定の5年分（東京都）と、注文住宅に1年分の保険の入力項目で入れた印
+        // 0.82 から: 住宅購入の予定の火災保険・地震保険（0224）。変換で書き足さない（前の版の世帯は欄が無い＝計算に入らない）。
+        // 0.82 の見本は中古の戸建ての購入に推定の5年分（東京都）と、注文住宅に1年分の保険の入力項目で入れた印
         let insured: Vec<&Value> = now["household"]["request"]["input"]["household"]["residences"]
             .as_array()
             .map(|rs| {
@@ -231,11 +231,11 @@ fn every_format_version_has_a_fixture_and_opens() {
                     .collect()
             })
             .unwrap_or_default();
-        if migrate::parse(v).unwrap() >= (0, 81) {
+        if migrate::parse(v).unwrap() >= (0, 82) {
             assert_eq!(
                 insured.len(),
                 2,
-                "{v}: 0.81 からの見本は火災保険・地震保険を2件持つ"
+                "{v}: 0.82 からの見本は火災保険・地震保険を2件持つ"
             );
             assert_eq!(insured[0]["years"], 5);
             assert_eq!(insured[0]["prefecture"], "13");
@@ -243,7 +243,7 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(
                 insured.is_empty(),
-                "{v}: 火災保険・地震保険は 0.81 から（変換の段では足さない）"
+                "{v}: 火災保険・地震保険は 0.82 から（変換の段では足さない）"
             );
         }
         // 0.76 から: 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利の段も要素の ID を持つ（0206）。前の版の見本は
@@ -1092,6 +1092,26 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(
                 classes.is_empty(),
                 "{v}: 個人事業税の業種の区分は 0.79 から（変換の段では足さない＝第1種）"
+            );
+        }
+        // 0.81 から: 口座の名前（accounts[].label。0223）。0.81 の見本は預金・NISA・課税口座の3つに名前（2つは同じ金融機関）
+        let labels: Vec<&Value> = now["household"]["request"]["input"]["household"]["accounts"]
+            .as_array()
+            .map(|xs| xs.iter().filter_map(|a| a.get("label")).collect())
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 81) {
+            assert_eq!(
+                labels,
+                vec![
+                    &Value::from("架空のさくら銀行（給与振込）"),
+                    &Value::from("架空のみどり証券"),
+                    &Value::from("架空のみどり証券")
+                ]
+            );
+        } else {
+            assert!(
+                labels.is_empty(),
+                "{v}: 口座の名前は 0.81 から（変換の段では足さない＝名前なし）"
             );
         }
         if *v == "0.3" {
