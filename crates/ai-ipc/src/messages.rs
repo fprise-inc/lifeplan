@@ -60,6 +60,21 @@ pub enum Request {
     /// 共有の決まりは世帯を扱うほかの依頼と同じ（期限内・取り消されていない・同意がある。架空の世帯は同意が無くても渡せる）で、
     /// 案を出したことを「AIに渡した記録」に残す。`proposal` は `{ changes: [{ id, value, note? }] }`
     ProposeShareDisplay { share_id: String, proposal: Value },
+    /// 事務所の Web のヒアリングのひな形（事務所データの `defaults.hearingTemplates`）と、ご相談したいことの話題の事務所の既定値
+    /// （`defaults.hearingTopics`。無ければ null）を返す（読むだけ。0222）。世帯を渡していなくてよい
+    GetOfficeHearing,
+    /// Web のヒアリングの URL を発行する（0222）。`issue` は `{ selection, purpose? }`（selection は接続口が画面と同じ関数で確かめた WebSelection）。
+    /// `share_id` を書くと、渡された世帯の依頼（共有の決まりは世帯を扱うほかの依頼と同じで、発行したことを「AIに渡した記録」に残す）、
+    /// 省くと世帯の決まっていない依頼（新しいお客さま向け。鍵と記録は事務所データ）。発行はアプリの画面が FP の画面と同じ関数で行い、
+    /// 見直し（今の値を見せる項目）を含む依頼の URL と案内文は返さない。返事が来るまで長くかかる（`call_app` の期限は `ISSUE_HEARING_TIMEOUT`）
+    IssueHearing {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        share_id: Option<String>,
+        issue: Value,
+    },
+    /// Web のヒアリングの事務所のひな形（カスタム）の案を、アプリの画面に承認待ちの候補として出す（事務所の既定値は変えない。FPが画面で
+    /// 「ひな形として保存する」を押したときだけ入る。0222）。`proposal` は `{ name, selection, note? }`。世帯を渡していなくてよい
+    ProposeHearingTemplate { proposal: Value },
 }
 
 /// 失敗のコード（0015 の4）
@@ -213,6 +228,38 @@ mod tests {
             })
             .unwrap(),
             r#"{"op":"proposeShareDisplay","shareId":"s-1","proposal":{"changes":[]}}"#
+        );
+    }
+
+    #[test]
+    fn hearing_requests_use_camel_case() {
+        // Web のヒアリング（0222）
+        assert_eq!(
+            serde_json::to_string(&Request::GetOfficeHearing).unwrap(),
+            r#"{"op":"getOfficeHearing"}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&Request::IssueHearing {
+                share_id: None,
+                issue: serde_json::json!({ "selection": {} }),
+            })
+            .unwrap(),
+            r#"{"op":"issueHearing","issue":{"selection":{}}}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&Request::IssueHearing {
+                share_id: Some("s-1".into()),
+                issue: serde_json::json!({}),
+            })
+            .unwrap(),
+            r#"{"op":"issueHearing","shareId":"s-1","issue":{}}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&Request::ProposeHearingTemplate {
+                proposal: serde_json::json!({ "name": "初回" }),
+            })
+            .unwrap(),
+            r#"{"op":"proposeHearingTemplate","proposal":{"name":"初回"}}"#
         );
     }
 

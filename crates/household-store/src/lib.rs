@@ -173,6 +173,8 @@ impl StoreError {
     pub const STATEMENT_DICT: StoreError = StoreError("E_STORE_STATEMENT_DICT");
     /// 事務所の既定値の形が合わない（JSON のオブジェクトでない・大きすぎる。0073）
     pub const OFFICE_DEFAULTS: StoreError = StoreError("E_STORE_OFFICE_DEFAULTS");
+    /// 世帯ファイルにまだ入っていない Web のヒアリングの依頼の形が合わない（JSON のオブジェクトでない・大きすぎる。0222）
+    pub const OFFICE_HEARING: StoreError = StoreError("E_STORE_OFFICE_HEARING");
     /// 機能を有効にするコードの数・長さ・形が合わない（0110）
     pub const FEATURE_CODES: StoreError = StoreError("E_STORE_FEATURE_CODES");
     /// 事務所の見た目（名前・色・明るさ）の形が合わない（0121）

@@ -130,6 +130,8 @@
 //   足すだけ。本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝第1種〔5%〕）
 //   0.80 から: 表示の設定に、事務所の既定値に従う設定の印 display.followOffice（設定の id の並び。0213 の段C）。足すだけ。本体の変換の段は版だけを
 //   書き換える（前の版の世帯は欄が無い＝どの設定もこの世帯の値。事務所の既定値を変えても変わらない）
+//   0.81 から: Web のヒアリングの依頼の記録 hearing.web の1件に、任意の欄 origin（AI 接続口から発行した依頼の出どころ。0222）。足すだけ。
+//   本体の変換の段は版だけを書き換える（前の版の依頼は欄が無い＝FP の画面で発行した依頼）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -203,7 +205,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.80";
+export const BODY_FORMAT_VERSION = "0.81";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

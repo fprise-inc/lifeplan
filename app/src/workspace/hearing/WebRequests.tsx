@@ -6,6 +6,7 @@
 // - 保存は受け取った書類の一覧と同じ名前・同じ印（0191）
 // - 0192: 届いたかは開いたときと決まった間隔で確かめ、アプリを開いている間は覚える（画面を閉じても消えない）。行に何を頼んだか（ひな形・項目の数・
 //   書類・顧客番号）。送られた内容を、お客さまが見たのと同じ並びで見る・印刷する
+// - 0222: AI 接続口から発行した依頼の行に「出どころ AI」（発行の日時と AI のアプリの名乗り）。取り消しは FP の画面で発行した依頼と同じ
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SentAnswers } from "../../hearingForm/Form.tsx";
 import type { HearingWebHost } from "../../engine/host.ts";
@@ -218,6 +219,11 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 <b>{id}</b>
                 <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span>
                 {e.closedAt !== undefined ? <span class="hs-kind wr-st cancelled">受け付け終了</span> : null}
+                {e.origin?.kind === "ai" ? (
+                  <span class="hs-kind wr-origin" title={`AI 接続口から発行しました（${dayTime(e.origin.at)}${e.origin.connector !== null ? `・${e.origin.connector}` : ""}）`} data-web-origin="ai">
+                    出どころ AI
+                  </span>
+                ) : null}
                 {arrivedOf(id) && live ? (
                   <span class="hs-kind wr-st answered" data-web-arrived>
                     届いています
@@ -229,7 +235,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 </small>
               </div>
               <p class="rp-note wr-what" data-web-what>
-                {selectionName(e.record.selection)}（聞く項目 {selectedCount(e.record.selection)}）・書類: {docs.length === 0 ? "なし" : docs.length <= 2 ? docs.map((d) => d.title).join("・") : `${docs[0]?.title ?? ""}ほか${docs.length - 1}通`}・顧客番号 {e.record.customerNo}
+                {selectionName(e.record.selection)}（聞く項目 {selectedCount(e.record.selection)}）・書類: {docs.length === 0 ? "なし" : docs.length <= 2 ? docs.map((d) => d.title).join("・") : `${docs[0]?.title ?? ""}ほか${docs.length - 1}通`}{e.record.customerNo !== "" ? `・顧客番号 ${e.record.customerNo}` : ""}
               </p>
               {e.received !== undefined || batches.length > 0 ? (
                 <p class="rp-note wr-got" data-web-got>

@@ -170,7 +170,16 @@ struct OfficeData {
     /// この欄の無い古い事務所データは無しとして読む。この PC の設定（共有フォルダには置かない。0073 と同じ）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     branding: Option<crate::branding::Branding>,
+    /// 世帯ファイルにまだ入っていない Web のヒアリングの依頼（0222。AI 接続口から発行した、世帯の決まっていない依頼と、開いていない世帯の依頼。
+    /// 依頼の鍵の組・合言葉・問いの鍵の元を含むので、世帯ファイルと同じく暗号化した事務所データにだけ置く。形は画面の側が決めて確かめる
+    /// JSON の物）。この欄の無い古い事務所データは無しとして読む。この PC の設定（共有フォルダには置かない。0073 と同じ）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    hearing_requests: Option<serde_json::Map<String, serde_json::Value>>,
 }
+
+/// 世帯ファイルにまだ入っていない Web のヒアリングの依頼の JSON の大きさの上限（バイト。0222。依頼の記録は1件数KB〜十数KBで、
+/// 受け付け中の世帯の決まっていない依頼は20件まで・記録は直近の分だけ持つので 1MB で足りる）
+pub const OFFICE_HEARING_MAX_BYTES: usize = 1024 * 1024;
 
 /// 事務所の既定値の JSON の大きさの上限（バイト。0073。事務所の推定の値〔統計の表を含む。0111〕を入れるので 256KB）
 pub const OFFICE_DEFAULTS_MAX_BYTES: usize = 256 * 1024;
@@ -259,6 +268,7 @@ impl OfficeData {
             defaults: None,
             feature_codes: vec![],
             branding: None,
+            hearing_requests: None,
         }
     }
 }
@@ -2349,6 +2359,32 @@ impl Store {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
         s.data.defaults = if map.is_empty() { None } else { Some(map) };
+        self.write_office(s)
+    }
+
+    /// 世帯ファイルにまだ入っていない Web のヒアリングの依頼（0222）。まだ無ければ空のオブジェクト
+    pub fn office_hearing_requests(&self) -> Result<serde_json::Value, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(serde_json::Value::Object(
+            s.data.hearing_requests.clone().unwrap_or_default(),
+        ))
+    }
+
+    /// 世帯ファイルにまだ入っていない Web のヒアリングの依頼を置き換える（0222）。JSON のオブジェクトで、上限の大きさまで。空のオブジェクトは欄を外す
+    pub fn set_office_hearing_requests(&self, v: serde_json::Value) -> Result<(), StoreError> {
+        let serde_json::Value::Object(map) = v else {
+            return Err(StoreError::OFFICE_HEARING);
+        };
+        let len = serde_json::to_vec(&map)
+            .map_err(|_| StoreError::OFFICE_HEARING)?
+            .len();
+        if len > OFFICE_HEARING_MAX_BYTES {
+            return Err(StoreError::OFFICE_HEARING);
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        s.data.hearing_requests = if map.is_empty() { None } else { Some(map) };
         self.write_office(s)
     }
 

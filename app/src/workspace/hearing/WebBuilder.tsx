@@ -79,6 +79,9 @@ interface Props {
 /** 事務所の文（アプリを開いている間だけ覚える。ヒアリングシートの書き出しと同じ。顧客番号は覚えない: 世帯ごとの番号を使う） */
 const remembered = { purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "" };
 
+/** 個人情報の窓口（FP がこの画面で入れた物。AI 接続口から発行するときも同じ文を使う。0222） */
+export const rememberedContact = (): string => remembered.privacyContact;
+
 /** 繰り返しの軸の言葉（項目選びで、誰の・何の問いかを見分ける） */
 const AXIS_HINT: Readonly<Record<string, string>> = { adult: "ご本人・配偶者の方ごと", child: "お子さまごと", parent: "ご両親ごと", loan: "ローンごと", policy: "保険ごと" };
 

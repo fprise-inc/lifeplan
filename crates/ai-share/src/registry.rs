@@ -7,6 +7,9 @@ use crate::display_proposals::{
     self, DisplayCandidate, HouseholdDisplayCandidate, HouseholdDisplayPending,
 };
 use crate::documents::{self, PendingDocumentProposal};
+use crate::hearing::{
+    self, HearingIssuer, HearingJob, HearingTemplateCandidate, JobHousehold, OfficeHearingSource,
+};
 use crate::households::{self, HouseholdCandidate};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
 use crate::record::{
@@ -133,6 +136,12 @@ struct State {
     display_candidates: Vec<DisplayCandidate>,
     /// AIが出した、渡された世帯ごとの表示の設定の案（承認待ち。アプリのメモリの中だけ。FPがその世帯を開いて設定ごとに反映するか捨てるまで）
     household_display_candidates: Vec<HouseholdDisplayCandidate>,
+    /// AI 接続口から発行した Web のヒアリングの依頼の日時（1時間の上限を数える。アプリを開いている間だけ。0222）
+    hearing_issued: Vec<u64>,
+    /// 画面に頼んで答えを待っている発行の数（1時間の上限に入れて数える）
+    hearing_in_flight: usize,
+    /// AIが出した Web のヒアリングの事務所のひな形の案（承認待ち。アプリのメモリの中だけ。FPが画面で保存するか捨てるまで。0222）
+    hearing_templates: Vec<HearingTemplateCandidate>,
     /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
@@ -145,6 +154,8 @@ pub struct ShareRegistry {
     office: Mutex<Option<OfficeEstimatesSource>>,
     office_display: Mutex<Option<OfficeDisplaySource>>,
     household_check: Mutex<Option<HouseholdCheck>>,
+    hearing_issuer: Mutex<Option<HearingIssuer>>,
+    office_hearing: Mutex<Option<OfficeHearingSource>>,
 }
 
 /// 新しい世帯の候補の計算の入力を確かめる所（アプリ本体が入れる。計算エンジンのスキーマと同じ確かめ）。Err は AI に見せてよい理由
@@ -177,6 +188,8 @@ impl ShareRegistry {
             office: Mutex::new(None),
             office_display: Mutex::new(None),
             household_check: Mutex::new(None),
+            hearing_issuer: Mutex::new(None),
+            office_hearing: Mutex::new(None),
         }
     }
 
@@ -215,6 +228,22 @@ impl ShareRegistry {
             .household_check
             .lock()
             .unwrap_or_else(|p| p.into_inner()) = check;
+    }
+
+    /// Web のヒアリングの発行を画面に頼む所を入れる（アプリ本体が起動したときに入れる。0222）。入れなければ発行の依頼を断る
+    pub fn set_hearing_issuer(&self, issuer: Option<HearingIssuer>) {
+        *self
+            .hearing_issuer
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = issuer;
+    }
+
+    /// 事務所の Web のヒアリングのひな形と話題を読む所を入れる（アプリ本体が起動したときに入れる。0222）
+    pub fn set_office_hearing(&self, source: Option<OfficeHearingSource>) {
+        *self
+            .office_hearing
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = source;
     }
 
     /// 記録が変わった回数（世帯ファイルへ書き戻すかどうかの判定に使う）
@@ -603,6 +632,26 @@ impl ShareRegistry {
     }
 
     /// 表示の設定の案をすべて外す（AI接続口をオフにしたとき。渡された世帯ごとの案も外す）
+    /// Web のヒアリングの事務所のひな形の案（承認待ち。0222）
+    pub fn hearing_template_candidates(&self) -> Vec<HearingTemplateCandidate> {
+        self.lock().hearing_templates.clone()
+    }
+
+    /// Web のヒアリングの事務所のひな形の案を承認待ちから外す（FP が画面で保存した後か、「捨てる」を押したとき）
+    pub fn take_hearing_template(&self, candidate_id: &str) -> Option<HearingTemplateCandidate> {
+        let mut st = self.lock();
+        let at = st
+            .hearing_templates
+            .iter()
+            .position(|c| c.candidate_id == candidate_id)?;
+        Some(st.hearing_templates.remove(at))
+    }
+
+    /// AI接続口をオフにしたとき: 判断していないひな形の案を消す
+    pub fn clear_hearing_templates(&self) {
+        self.lock().hearing_templates.clear();
+    }
+
     pub fn clear_display_candidates(&self) {
         let mut st = self.lock();
         st.display_candidates.clear();
@@ -753,6 +802,174 @@ impl ShareRegistry {
             "status": "pendingReview",
             "settings": ids,
             "message": "表示の設定の案を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん上の「AIからの表示の設定の案」。上の帯にも出ます）に承認待ちで出しました。FPが画面で設定ごとに「今 → 案」を確かめて「反映する」を押した設定だけが、事務所の既定値に入ります（どの世帯にもすぐ効きます。input.items は新しく作る世帯にだけ効き、作った世帯は変わりません）。この道具では設定は変わりません。反映した後も、FPは事務所の既定値の画面の「前の値に戻す」で戻せます。",
+        })
+        .to_string())
+    }
+
+    /// 事務所の Web のヒアリングのひな形と話題（読むだけ。0222）。読む所が無い・読めないときは `available: false`。世帯を渡していなくてよく、
+    /// 世帯の中身ではないので AIに渡した記録には残さない
+    pub fn handle_office_hearing(&self) -> Result<String, Refusal> {
+        let source = self
+            .office_hearing
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        Ok(match source.and_then(|f| f()) {
+            Some(v) => json!({
+                "available": true,
+                "templates": v.get("templates").cloned().unwrap_or_else(|| json!([])),
+                "topics": v.get("topics").cloned().unwrap_or(Value::Null),
+            }),
+            None => json!({ "available": false, "templates": [], "topics": null }),
+        }
+        .to_string())
+    }
+
+    /// Web のヒアリングの URL の発行を画面に頼む（0222）。`share_id` があれば渡された世帯の依頼（共有の決まりは世帯の読み取りと同じで、
+    /// 発行したことを「AIに渡した記録」の `proposals` に `hearing:<依頼番号>` で残す）、無ければ世帯の決まっていない依頼。
+    /// 1時間に `HOURLY_LIMIT` 件まで（発行できたものと待っているものを数える）。画面の答えを `ISSUE_WAIT` まで待つので、受け口の糸を止めない所で呼ぶ
+    pub fn handle_issue_hearing(
+        &self,
+        share_id: Option<&str>,
+        issue: &Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let issue = hearing::validate_issue(issue).map_err(|m| (ErrorCode::Invalid, m))?;
+        let review = hearing::has_review(&issue["selection"]);
+        let issuer = self
+            .hearing_issuer
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone()
+            .ok_or_else(|| {
+                (
+                    ErrorCode::Invalid,
+                    "このアプリでは、AI 接続口から Web のヒアリングの URL を発行できません。"
+                        .to_owned(),
+                )
+            })?;
+        let now = self.now();
+        let household = {
+            let mut st = self.lock();
+            let household = match share_id {
+                None => None,
+                Some(id) => {
+                    usable(&mut st, id, now)?;
+                    let share = st.shares.get(id).ok_or_else(not_shared)?;
+                    Some(JobHousehold {
+                        household_id: share.source.household_id.clone(),
+                        customer_number: share.source.customer_number.clone(),
+                        share_id: id.to_owned(),
+                    })
+                }
+            };
+            let hour_ago = now.saturating_sub(3_600_000);
+            st.hearing_issued.retain(|t| *t > hour_ago);
+            if st.hearing_issued.len() + st.hearing_in_flight >= hearing::HOURLY_LIMIT {
+                return Err((
+                    ErrorCode::Invalid,
+                    format!("AI 接続口から発行できる URL は1時間に{}件までです。少し時間をおいてから、もう一度呼んでください（FP はアプリの画面からいつでも発行できます）。", hearing::HOURLY_LIMIT),
+                ));
+            }
+            st.hearing_in_flight += 1;
+            household
+        };
+        let job = HearingJob {
+            issue,
+            household: household.clone(),
+            connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
+            received_at: iso8601(now),
+        };
+        let answer = issuer(job);
+        let mut st = self.lock();
+        st.hearing_in_flight = st.hearing_in_flight.saturating_sub(1);
+        let v = answer.map_err(|m| (ErrorCode::Invalid, m))?;
+        if v["ok"] != true {
+            let msg = v["message"]
+                .as_str()
+                .unwrap_or("発行できませんでした。")
+                .to_owned();
+            return Err((ErrorCode::Invalid, msg));
+        }
+        let done = self.now();
+        st.hearing_issued.push(done);
+        if let (Some(h), Some(rid)) = (&household, v["requestId"].as_str()) {
+            let index = st.shares.get(&h.share_id).map(|s| s.record_index);
+            if let Some(r) =
+                index.and_then(|i| st.logs.get_mut(&h.household_id).and_then(|l| l.get_mut(i)))
+            {
+                r.proposals.push(ProposalEntry {
+                    candidate_id: format!("hearing:{rid}"),
+                    at: iso8601(done),
+                });
+            }
+            st.revision += 1;
+        }
+        let mut out = v;
+        if let Value::Object(m) = &mut out {
+            m.remove("ok");
+            // 見直し（今の値を見せる項目）を含む依頼は、URL の # の後ろの鍵で今の値が読めるので、URL と案内文を AI に返さない
+            // （画面も返さないが、ここでも外す。利用者の判断 2026-11-17）
+            if review {
+                m.remove("url");
+                m.remove("invitation");
+                m.insert("review".into(), json!(true));
+            }
+            if let Some(id) = share_id {
+                m.insert("shareId".into(), json!(id));
+            }
+        }
+        Ok(out.to_string())
+    }
+
+    /// Web のヒアリングの事務所のひな形（カスタム）の案を、承認待ちに入れる（事務所の既定値は変えない。0222）。世帯を渡していなくてよく、
+    /// 世帯の中身ではないので AIに渡した記録には残さない。同じ名前と選び方の案が既にあれば、それを返す
+    pub fn handle_propose_hearing_template(
+        &self,
+        proposal: &Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let (name, selection, note) =
+            hearing::validate_template(proposal).map_err(|m| (ErrorCode::Invalid, m))?;
+        if hearing::has_review(&selection) {
+            return Err((
+                ErrorCode::Invalid,
+                "確かめてもらう項目（見直し）は世帯の今の値に依るので、事務所のひな形にできません。".to_owned(),
+            ));
+        }
+        let now = self.now();
+        let mut st = self.lock();
+        let same = st
+            .hearing_templates
+            .iter()
+            .find(|c| c.name == name && c.selection == selection)
+            .map(|c| c.candidate_id.clone());
+        let id = match same {
+            Some(id) => id,
+            None => {
+                if st.hearing_templates.len() >= hearing::MAX_TEMPLATE_PENDING {
+                    return Err((
+                        ErrorCode::Invalid,
+                        format!("承認待ちのヒアリングのひな形の案が多すぎます（{}件まで）。FPがアプリの画面で今の案を保存するか捨てるまで、新しい案は出せません。", hearing::MAX_TEMPLATE_PENDING),
+                    ));
+                }
+                let id = reduce::random_uuid_v4();
+                st.hearing_templates.push(HearingTemplateCandidate {
+                    candidate_id: id.clone(),
+                    received_at: iso8601(now),
+                    connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
+                    name: name.clone(),
+                    selection,
+                    note,
+                });
+                id
+            }
+        };
+        Ok(json!({
+            "candidateId": id,
+            "status": "pendingReview",
+            "name": name,
+            "message": "ヒアリングのひな形の案を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん上の「AIからのヒアリングのひな形の案」。上の帯にも出ます）に承認待ちで出しました。FPが画面で中身を確かめて「ひな形として保存する」を押したときだけ、事務所のひな形（URL で聞くときの「カスタム」）に入ります。この道具では事務所の既定値は変わりません。",
         })
         .to_string())
     }

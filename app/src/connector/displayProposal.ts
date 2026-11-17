@@ -8,6 +8,7 @@
 // - 知らない id・案を出せない設定（世帯ごと・読むだけ）・選べない値・形の違う値は、理由と近い候補を添えて断る（接続口の「知らない引数を断る」
 //   〔crates/lifeplan/src/args.rs〕と同じ書き方: 書いた物を挙げ、近い物を「〜のことですか」で添える）。黙って直したり捨てたりしない
 // - 基本生活費の内訳の並べ方の行の名前は、人の文章が入る所なので、制御文字・書式の文字（見えない文字）を通さず、20文字（LIVING_LABEL_MAX）まで
+import { closestOf } from "./closest.ts";
 import { ALWAYS_SHOWN, readItemChoice } from "../workspace/input/itemChoice.ts";
 import { STAGE_ORDER } from "../workspace/input/stageOrder.ts";
 import { LIVING_LABEL_MAX, LIVING_PARTS_MAX, LIVING_PARTS_MIN, readLivingLayout, STANDARD_LIVING_LAYOUT, STANDARD_LIVING_NAMES } from "../workspace/office/livingLayout.ts";
@@ -43,42 +44,10 @@ let catalog: DisplayCatalog | null = null;
 const settingOf = (id: string): DisplaySetting | undefined => (catalog ??= buildDisplayCatalog()).settings.find((s) => s.id === id);
 
 export const isProposableDisplayId = (id: string): id is ProposableDisplayId => (PROPOSABLE_DISPLAY_IDS as readonly string[]).includes(id);
+export { closestOf } from "./closest.ts";
 export const isHouseholdProposableDisplayId = (id: string): id is HouseholdProposableDisplayId => (HOUSEHOLD_PROPOSABLE_DISPLAY_IDS as readonly string[]).includes(id);
 
-// ---- 近い候補（接続口の args.rs の closest と同じ決まり: 書き方の違いだけ → 1〜2文字の違い → 名前の一部） ----
-
-const folded = (s: string): string => s.replace(/[_\-\s]/g, "").toLowerCase();
-
-function distance(a: string, b: string): number {
-  const x = [...a];
-  const y = [...b];
-  let prev = Array.from({ length: y.length + 1 }, (_v, i) => i);
-  for (let i = 0; i < x.length; i++) {
-    const cur = [i + 1];
-    for (let j = 0; j < y.length; j++) cur.push(Math.min((prev[j] ?? 0) + (x[i] === y[j] ? 0 : 1), (prev[j + 1] ?? 0) + 1, (cur[j] ?? 0) + 1));
-    prev = cur;
-  }
-  return prev[y.length] ?? 0;
-}
-
-/** 書いた名前に近い、使える名前（見つからなければ null） */
-export function closestOf(name: string, allowed: readonly string[]): string | null {
-  const f = folded(name);
-  if (f === "") return null;
-  const same = allowed.find((a) => folded(a) === f);
-  if (same !== undefined) return same;
-  let best: { d: number; a: string } | null = null;
-  for (const a of allowed) {
-    const d = distance(folded(a), f);
-    if (d <= 2 && d < [...f].length && (best === null || d < best.d)) best = { d, a };
-  }
-  if (best !== null) return best.a;
-  if ([...f].length >= 4) {
-    const part = allowed.filter((a) => folded(a).includes(f) || f.includes(folded(a))).sort((a, b) => a.length - b.length);
-    return part[0] ?? null;
-  }
-  return null;
-}
+// ---- 近い候補: closest.ts（接続口の args.rs の closest と同じ決まり。Web のヒアリングの選び方の確かめ〔0222〕と共有） ----
 
 // ---- 値の確かめ ----
 
