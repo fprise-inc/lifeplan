@@ -50,6 +50,8 @@ const COMMANDS: &[&str] = &[
     "statement_open",
     "statement_sheet_save",
     "statement_sheet_open",
+    // 0034 の段階3（試し）: 明細の写真・スクショの文字を OS の文字認識で読む（画像のバイト列を受け、文字の塊だけを返す。ファイルを書かない・ネットにつながない）
+    "statement_ocr",
     // 0014・0015: AI接続口（事務所の設定・世帯ごとの同意・共有・記録・候補の判断。パスも鍵も受け取らない・返さない）
     "ai_status",
     "ai_set_enabled",

@@ -49,7 +49,8 @@ classify() {
   case "$1" in
     # 対応範囲の一覧（0183）: engine のビルドが確かめて dist/coverage.json にし、AI接続口（host）が埋め込む
     docs/coverage/*) on[engine]=1; on[host]=1 ;;
-    docs/*|LICENSE|.github/workflows/secret-scan.yml|.github/workflows/app-bundle.yml|.gitignore) ;;
+    # 文字認識の試し（statement-ocr.yml）は自分の paths で流れる
+    docs/*|LICENSE|.github/workflows/secret-scan.yml|.github/workflows/app-bundle.yml|.github/workflows/statement-ocr.yml|.gitignore) ;;
     # 速さの前の値（速さの計測は手で起動したときと毎晩だけ）
     engine/bench/*) ;;
     engine/*|sdk/*|registry/*|data/*) on[engine]=1; on[app]=1; on[report]=1; on[hearing]=1; on[host]=1 ;;

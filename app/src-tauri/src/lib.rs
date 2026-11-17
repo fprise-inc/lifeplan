@@ -366,6 +366,7 @@ pub fn run() {
             statement::statement_open,
             statement::statement_sheet_save,
             statement::statement_sheet_open,
+            statement::statement_ocr,
             ai::ai_status,
             ai::ai_set_enabled,
             ai::ai_setup_copy,

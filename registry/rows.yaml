@@ -537,6 +537,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.housing.insurance
+    status: active
+    label: "火災保険・地震保険"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense.housing.purchase
     status: active
     label: "住宅の取得"

@@ -5,7 +5,7 @@ import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { handleApi } from "../../hearing/relay/handler.ts";
 import { memoryStore } from "../../hearing/relay/store.ts";
-import { answersOf, checkSelection, draftKey, estimate, initialDraft, openRequest, packetBody, screens, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
+import { answersOf, checkAnswers, checkSelection, draftKey, estimate, initialDraft, openRequest, packetBody, screens, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { SHEET_KINDS, applyImport, approvalTime, logOf, sheetFor } from "../src/workspace/hearing/sheet.ts";
 import {
@@ -153,9 +153,16 @@ describe("ご相談したいことの話題（0192。2026-11-17 にやめた）"
     const o = await openRequest(new URL(r.entry.record.url).hash, t);
     // 問いには話題を載せない
     expect(o.packet.items.find((i) => i.key === "hs.consult.topics")?.topics).toBeUndefined();
-    const d: Draft = { ...initialDraft(o.packet), gates: { spouse: 0, child: 0 }, answers: { [draftKey("hs.consent.purpose")]: v("given"), [draftKey("hs.consult.topics")]: v("子どもの大学の費用が心配です") } };
-    // 前のページから届いた答え（話題つき）
-    const ans = { ...answersOf(o.packet, d, NOW), topics: ["相続のこと", "教育費"] };
+    const d: Draft = { ...initialDraft(o.packet), gates: { spouse: 0, child: 0 }, topics: ["相続のこと", "教育費"], answers: { [draftKey("hs.consent.purpose")]: v("given"), [draftKey("hs.consult.topics")]: v("子どもの大学の費用が心配です") } };
+    // お客さまの画面はご相談したいことを聞かなくなった（0138 の追記 2026-11-17）。前の画面から届く形（話題と自由記述）でも受け取れること
+    const base = answersOf(o.packet, d, NOW);
+    expect(base.topics).toBeUndefined();
+    expect(base.answers.some((a) => a.key === "hs.consult.topics")).toBe(false);
+    const ans = { ...base, answers: [...base.answers, { key: "hs.consult.topics", status: "value" as const, raw: { kind: "text" as const, text: "子どもの大学の費用が心配です" } }], topics: ["教育費", "相続のこと"] };
+    // 信用しない: 選び方に無い話題は捨てて数える
+    const checked = checkAnswers({ ...ans, topics: ["教育費", "知らない話題"] }, sheetFor("simple"), sel, r.entry.record.requestId);
+    expect(checked.topics).toEqual(["教育費"]);
+    expect(checked.dropped).toBe(1);
     await submitAnswers(o, ans, t);
     const got = (await receiveWeb(r.wh, r.entry, t, NOW))!;
     expect(got.entry.received?.topics).toEqual(["教育費", "相続のこと"]);

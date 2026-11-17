@@ -77,6 +77,10 @@
 //   相続の時の時価の近似）。亡くなった年の翌年からは、亡くなった人の NISA の枠の行を出さない
 // - 改訂28（約束の版 1.9。0205）: 世帯の負債ごとの、年ごとの返済のうち利息に充てた額・その年の最後の返済に当てた金利と、表の期間の利息の合計
 //   （debt.schedule の約束の版 1.5 の byYear）を details の loans に写す（エンジンが summary の loans に写す。計算は変えない）
+// - 改訂29（0026 の追記 2026-11-17）: 取り崩しの計画の始まりの年は、計画の額（始まりの月から年末までの分）と比較する収支の不足も、始まりの月から
+//   年末までの収支（年間収支と本人の掛金から、始まりの月より前の月の分を除く）で見る。前はまる1年の収支で見ていたので、始まりの月より前の
+//   黒字（まだ給与がある月など）が不足を打ち消し、始まりの年の取り崩しが多めに出ていた。始まりの年より後の年と、始まりが1月（計算基準年は
+//   計算基準月）以前の計画の結果は同じ
 import {
   inheritanceOf,
   splitEqually,
@@ -99,6 +103,7 @@ import {
   monthIndex,
   monthOf,
   netByYear,
+  parseYm,
   RATE_ZERO,
   yearOf,
   yen,
@@ -212,7 +217,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.9",
-  revision: 28,
+  revision: 29,
   requires: {
     "contingency.event": ">=1 <2",
     "plan.flows": ">=1 <2",
@@ -399,6 +404,10 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     // iDeCo・企業型DC（構成員ごと）と、本人が払う掛金（決済口座から出る）
     const dcYears = new Map<string, { kind: string; owner: string; byYear: Map<number, { closing: Yen; returns: Yen }> }>();
     const selfPaid = new Map<number, Yen>();
+    // 本人が払う掛金の月ごとの記録（取り崩しの計画の始まりの年に、始まりの月より前の分を除くため。0026 の追記 2026-11-17）。
+    // iDeCo・企業型DC は払った月と額、小規模企業共済は器ごと・年ごとの掛金（上限）と払った月と額
+    const selfPaidMonths: { m: MonthIndex; amount: Yen }[] = [];
+    const mutualAidMonths: { object: string; year: number; contributions: Yen; paid: { m: MonthIndex; amount: Yen }[] }[] = [];
     // 受け取ったお金を運用に回す iDeCo・企業型DC の受け取り（年ごと。0026）
     const reinvest = new Map<number, { object: string; owner: string; ym: string; amount: Yen }[]>();
     for (const m of members) {
@@ -416,6 +425,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         const ym = ctx.time.resolve({ at: p.ym });
         if (ym < base) continue;
         selfPaid.set(yearOf(ym), addYen(selfPaid.get(yearOf(ym)) ?? yen(0), p.amount));
+        selfPaidMonths.push({ m: ym, amount: p.amount });
       }
     }
     // 小規模企業共済（構成員ごと。掛金は決済口座から出る）
@@ -424,7 +434,11 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       const out = ctx.call<MutualAidOutput>("account.mutualAid", { member: m.id });
       for (const a of out.accounts) {
         mutualAid.set(a.object, { owner: m.id, byYear: new Map(a.years.map((y) => [y.year, { closing: y.closing, returns: y.returns }])) });
-        for (const y of a.years) selfPaid.set(y.year, addYen(selfPaid.get(y.year) ?? yen(0), y.contributions));
+        for (const y of a.years) {
+          selfPaid.set(y.year, addYen(selfPaid.get(y.year) ?? yen(0), y.contributions));
+          const paid = out.paid.filter((p) => p.object === a.object && Number(p.ym.slice(0, 4)) === y.year).map((p) => ({ m: parseYm(p.ym), amount: p.amount }));
+          if (y.contributions > 0) mutualAidMonths.push({ object: a.object, year: y.year, contributions: y.contributions, paid });
+        }
       }
     }
     // 負債の年末残高と、購入した持ち家
@@ -487,6 +501,28 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const taxAnnual = invest?.taxableTax === "annual";
     const dd = invest?.drawdown;
     const ddStart = dd === undefined ? null : ctx.time.resolve(dd.start);
+    // 取り崩しの計画の始まりの年の、始まりの月より前の年間収支と本人の掛金（0026 の追記 2026-11-17）。その年の収支の不足を、
+    // 計画の額と同じ期間（始まりの月から年末まで）で見るため、その年の年間収支・本人の掛金から始まりの月より前の月の分を除く。
+    // 始まりの月がその年の表の最初の月（1月。計算基準年は計算基準月）以前なら除くものは無い（まる1年で見る今までどおり）
+    let ddBefore: { year: number; net: number; selfPaid: number } | null = null;
+    if (ddStart !== null) {
+      const y0 = yearOf(ddStart);
+      if (y0 >= baseYear && y0 <= endYear && ddStart > (y0 === baseYear ? base : monthIndex(y0, 1))) {
+        const until = addMonths(ddStart, -1);
+        const agg = ctx.conventions.aggregation;
+        const n0 = (netByYear(collected.flows, agg, base, until).get(y0) ?? 0) + (reconciled.length > 0 ? (netByYear(reconciled, agg, base, until).get(y0) ?? 0) : 0);
+        let sp = 0;
+        for (const p of selfPaidMonths) if (yearOf(p.m) === y0 && p.m < ddStart) sp += p.amount;
+        // 小規模企業共済は、その年の掛金（亡くなった年は亡くなった月の前まで）を超えない
+        for (const a of mutualAidMonths) {
+          if (a.year !== y0) continue;
+          let s = 0;
+          for (const p of a.paid) if (p.m >= base && p.m < ddStart) s += p.amount;
+          sp += Math.min(s, a.contributions);
+        }
+        ddBefore = { year: y0, net: n0, selfPaid: sp };
+      }
+    }
     // 年の初めの金融資産（取り崩しの計画の率に使う。最初の年は入力の時価の合計）
     let openingFinancial = yen(0);
     for (const a of inputs) if (!NOT_FINANCIAL.has(a.kind)) openingFinancial = addYen(openingFinancial, boxValue(a.marketValue) ?? yen(0));
@@ -675,7 +711,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           }
         }
       }
-      // 取り崩しの計画: 始まりの月から、毎月の額か年の初めの金融資産×率を使う。その年の収支の不足より多い分を年間収支から引く（0026）
+      // 取り崩しの計画: 始まりの月から、毎月の額か年の初めの金融資産×率を使う。その年の収支の不足より多い分を年間収支から引く（0026）。
+      // 始まりの年の不足は、計画の額と同じく始まりの月から年末までの収支で見る（始まりの月より前の黒字で不足を打ち消さない。0026 の追記 2026-11-17）
       if (dd !== undefined && ddStart !== null && yearOf(ddStart) <= y) {
         const first = ddStart > (y === baseYear ? base : jan) ? ddStart : y === baseYear ? base : jan;
         const ddMonths = yearOf(first) === y ? 13 - monthOf(first) : 0;
@@ -684,7 +721,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           if (dd.method === "fixed") want = ctx.money.mulRatio(dd.monthly ?? yen(0), BigInt(ddMonths), 1n, "conv.flow.allocate");
           else if (dd.rate !== undefined && openingFinancial > 0) want = ctx.money.mulRatio(ctx.money.mulRate(openingFinancial, ctx.rate.of(dd.rate), "conv.flow.allocate"), BigInt(ddMonths), 12n, "conv.flow.allocate");
         }
-        const shortage = Math.max(0, -((net.get(y) ?? 0) - (selfPaid.get(y) ?? 0)));
+        const before = ddBefore !== null && ddBefore.year === y ? ddBefore : null;
+        const shortage = Math.max(0, -((net.get(y) ?? 0) - (before?.net ?? 0) - ((selfPaid.get(y) ?? 0) - (before?.selfPaid ?? 0))));
         const extra = yen(Math.max(0, want - shortage));
         if (extra > 0) {
           const parts = ctx.money.allocate(extra, Array.from({ length: ddMonths }, () => 1), "conv.flow.allocate", "first");

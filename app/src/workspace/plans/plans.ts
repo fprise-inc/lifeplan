@@ -14,6 +14,7 @@ import { ITEM_PLACES } from "../../generated/readings.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
 import type { ContingencyPlan } from "../contingency/planData.ts";
 import { applyPremiseDiffs, premisePath, readPath } from "../contingency/premiseItems.ts";
+import { drawdownOf, drawdownStartEstimate, setDrawdown } from "../input/savings/model.ts";
 import { applyAdvisoryFee, applyLevers, LEVER_KEYS, type LeverValues } from "../levers.ts";
 import { keyOf, readAt, resolveKey, unbox, type Address, type Reading } from "../store/readings.ts";
 import type { MixPart } from "./allocation.ts";
@@ -334,6 +335,9 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
       if (x === own || (placeExists(target, x.address) && !sameJson(readAt(was, x.address), readAt(target, x.address)))) writeAt(target, x.address, x.value);
     return { ...next, request: req };
   };
+  // 取り崩しの予定が無い世帯で、プランが毎月の取り崩し額・率だけを入れた（取り崩しを始める年齢を入れていない）とき、その項目は
+  // 始める年齢を、その項目を反映する時点の退職の年齢で決める。働く最後の年齢（対策）は欄のあとに反映するので、対策を反映したあとで決め直す（下。0036 の追記 2026-11-17）
+  const startByRetire = drawdownOf(w.request).method === "none" && !keyed.has("inv:wStart");
   for (const it of cat.items) {
     const e = it.phase === "field" ? keyed.get(it.key) : undefined;
     if (e === undefined) continue;
@@ -368,9 +372,24 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
   const fee = keyed.get("lever:fee")?.value;
   if (typeof fee === "boolean") req = applyAdvisoryFee(req, fee);
   for (const [k, e] of keyed) if (e.diff !== null && !reviews.has(e.diff.id) && cat.byKey.get(k)?.phase !== "field") reviews.set(e.diff.id, review("ok"));
+  if (startByRetire) req = withDrawdownStartByRetire(req);
   // プランの表はいつも現状と同じ年で終わる（表の最後の年はどのプランにも共通。0043 の追記 2026-11-05）
   if (req.input.endYear !== wh.request.input.endYear) req = { ...req, input: { ...req.input, endYear: wh.request.input.endYear } };
   return { request: req, contingency: applyPremiseDiffs(wh.contingency, plans), reviews };
+}
+
+/**
+ * 取り崩しの始まりを、プランの最後の退職の年齢から決め直す（0036 の追記 2026-11-17）: 65歳か退職の年齢の遅い方（過ぎていれば次に迎える
+ * 年齢。drawdownStartEstimate）。始まりが同じなら要求をそのまま返す（退職の年齢を変えないプランの要求は、前と同じになる）
+ */
+function withDrawdownStartByRetire(req: EngineRequest): EngineRequest {
+  const d = drawdownOf(req);
+  if (d.method === "none") return req;
+  const age = drawdownStartEstimate(req);
+  if (age === d.startAge) return req;
+  const out = structuredClone(req);
+  setDrawdown(out, { ...d, startAge: age });
+  return out;
 }
 
 /** プランを当てる（土台から順に） */
