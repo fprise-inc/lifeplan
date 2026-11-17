@@ -3273,7 +3273,7 @@ export function App() {
                             <button type="button" class="btn" onClick={openAiShare} data-imports-ai-open>
                               {ai.status?.enabled === true ? "同意と共有を開く" : "AI接続口を開く"}
                             </button>
-                            <span class="in-note">面談のメモ・文字起こし・前の帳票・財産の一覧などは、FP が使う AI に渡します。AI が読んだ値は候補として届き、承認したものだけが現状に入ります（外部AIへの同意がある世帯だけ）。</span>
+                            <span class="in-note">保険証券・ご契約内容のお知らせ・設計書は、FP が使う AI に渡せます。AI が読んだ保険の契約の値は AI接続口から候補として届き、承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。アプリの面談の履歴とメモは AI に渡しません。</span>
                           </div>
                         ) : null}
                       </>
