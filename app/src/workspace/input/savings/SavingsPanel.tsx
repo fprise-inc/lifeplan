@@ -1363,7 +1363,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
       <div class="sv-fld">
         <span class="lbl">
           取り崩し方
-          <Help label="取り崩し方">「予定なし」は、取り崩しの予定を入れず、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→暗号資産→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</Help>
+          <Help label="取り崩し方">「予定なし」は、取り崩しの予定を入れず、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→暗号資産→NISA）。定額・定率は、年金などで足りない分も含めて金融資産から使う額で、生活費への上乗せではありません。足りない分のほうが大きい年は足りない分を取り崩すので、それより小さい額や率にしても結果は変わりません。</Help>
         </span>
         <div class="ctl">
           <span class="seg-g sm" role="group" aria-label="取り崩し方">
@@ -1386,7 +1386,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
             <NumBox value={dd.monthly} unit="man" size="s" label="毎月の取り崩し額" onCommit={(v) => typeof v === "number" && setDd({ monthly: v })} />
             <span class="u">万円</span>
           </div>
-          <p class="help">毎年同じ額です（物価で伸ばしません）。年金などで足りない生活費の分を含めた、金融資産から使う額。結果の画面の「取り崩しの計算」で逆算もできます。</p>
+          <p class="help">毎年同じ額です（物価で伸ばしません）。年金などで足りない分も含めて、金融資産から使う額です。足りない分より小さい額にしても結果は変わりません。結果の画面の「取り崩しの計算」で逆算もできます。</p>
         </div>
       ) : dd.method === "rate" ? (
         <div class="sv-fld">
