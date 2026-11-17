@@ -137,7 +137,7 @@ entries:
       - 固定資産評価基準（経年減点補正率）
     rows: [cf.expense.housing.propertyTax, cf.expense.housing.maintenance]
     components:
-      housing.residence: 8
+      housing.residence: 9
     related: [housing.purchase]
 
   - id: housing.rent
@@ -159,29 +159,36 @@ entries:
     regulation: [housing.statistics.rentGrowth]
     rows: [cf.expense.housing.rent, cf.expense.housing.rent.renewal]
     components:
-      housing.residence: 8
+      housing.residence: 9
     related: [housing.saleAndMove]
 
   - id: housing.purchase
-    title: 住宅の購入（頭金・諸費用・親からの援助）
+    title: 住宅の購入（頭金・諸費用・火災保険・地震保険・親からの援助）
     status: included
     summary: >-
       入っています。購入の月に頭金と諸費用を払い、残りを住宅ローンで借ります。注文住宅は土地の決済と建物の代金の支払いを、それぞれの月に払います。
+      買った後の火災保険・地震保険は、買った月と、その後は契約の年数ごとに払い、地震保険の分は地震保険料控除に入れます。
       親・祖父母からの資金援助は受け取る人の一時金の収入にし、贈与税（住宅取得等資金の非課税を含む）も計算します。
     how: >-
       購入の月（省略は住み始め）に頭金と諸費用を払います。注文住宅は、頭金・諸費用のうち土地の決済の分と、引き渡しの前の契約金・着工金・中間金を
       それぞれの月に払い、残りを引き渡しの月に払います。親・祖父母からの資金援助は、受け取る構成員の一時金の収入（贈与）にし、贈与税は贈与の
       計算で住宅取得等資金の非課税を当てて出します。名義の人が万一の想定で亡くなったら、翌月から固定資産税などは相続する人の名で払います。
-    keywords: [住宅購入, マイホーム, 頭金, 諸費用, 注文住宅, 中間金, 住宅資金の援助, 住宅取得等資金]
+      火災保険・地震保険（建物）は、諸費用とは別の欄で、契約の年数（既定5年・最長5年）分の保険料を購入の月（注文住宅は引き渡しの月）と、その後は
+      年数ごとに払います（住み終わりの月より前の更新まで。保険料は伸ばさない）。入れなければ、物件の価格の建物の分と構造（火災保険の M・T・H、
+      地震保険のイ・ロ）・都道府県（分からなければいちばん高い区分）・建築年割引・長期係数から目安を出します。地震保険の分は名義の人の地震保険料控除に、
+      年数で割った額を毎年入れます。家財の保険は含めません。買った後の本当の契約を保険の入力項目（損害保険）で入れたら、こちらは数えない印を付けます。
+    keywords: [住宅購入, マイホーム, 頭金, 諸費用, 注文住宅, 中間金, 住宅資金の援助, 住宅取得等資金, 火災保険, 地震保険]
     items: [residence.purchase, residence.ownership, residence.kind]
     fields:
       - "「住まい・ローン」の入力項目の「＋ 住宅購入の予定」"
       - "「住まい・ローン」の入力項目の「頭金から払う額」"
       - "「住まい・ローン」の入力項目の「援助の額」"
       - "「住まい・ローン」の入力項目の「名義と持分」"
-    rows: [cf.expense.housing.purchase, cf.expense.housing.purchase.downPayment, cf.expense.housing.purchase.costs, cf.income.lumpSum.gift]
+      - "「住まい・ローン」の入力項目の「火災保険料」"
+      - "「住まい・ローン」の入力項目の「地震保険料」"
+    rows: [cf.expense.housing.purchase, cf.expense.housing.purchase.downPayment, cf.expense.housing.purchase.costs, cf.expense.housing.insurance, cf.income.lumpSum.gift]
     components:
-      housing.residence: 8
+      housing.residence: 9
       gift.received: 5
       gift.tax: 3
     related: [housing.mortgageRepayment, inheritance.giftTax, tax.housingLoanCredit]

@@ -11,7 +11,8 @@ import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, pct
 import { buildingPriceOf, CUSTOM_KEYS, customBuildNotes, isCustomBuild, landLoansOf, landMonthOf, startCustomBuild, stopCustomBuild } from "../customBuild.ts";
 import { applyOwnedHomeTax, ownedHomeTaxEstimate, startsOwnedHomeTax } from "../ownedHomeTax.ts";
 import { AS_OF_FOLLOWS, clearLand, clearPurchaseBasis, landOfShare, shareOfLand, dropAsOfFollow, followFromMonth, isCurrentOwned, landAmount, landEntered, markPurchaseBasis, ownedValueMode, putLand, totalOf } from "../ownedHomeValue.ts";
-import { BUILDING_STRUCTURES, donorCandidates, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
+import { homeInsuranceEstimateOf, overlapText } from "../homeInsurance.ts";
+import { BUILDING_STRUCTURES, PREFECTURES, donorCandidates, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
 import { rentGrowthStatistic } from "../../../../../hearing/src/housingEstimates.ts";
@@ -930,8 +931,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
       find,
       path: ["purchase", "costs"],
       help: custom
-        ? "土地の諸費用（仲介手数料・登記など）と建物の諸費用（登記・ローンの手数料・火災保険など）、つなぎ融資の利息と手数料の合計です。土地の諸費用は土地の決済の月、残りは引き渡しの月に払います。無ければ 0 を入れます"
-        : "登記・ローンの手数料・保険料・税など。目安は新築で価格の3〜7%、中古で6〜10%。無ければ 0 を入れます",
+        ? "土地の諸費用（仲介手数料・登記など）と建物の諸費用（登記・ローンの手数料など）、つなぎ融資の利息と手数料の合計です。火災保険・地震保険は下の別の欄で数えるので、ここには入れません。土地の諸費用は土地の決済の月、残りは引き渡しの月に払います。無ければ 0 を入れます"
+        : "登記・ローンの手数料・税など。火災保険・地震保険は下の別の欄で数えるので、ここには入れません。目安は新築で価格の3〜7%、中古で6〜10%。無ければ 0 を入れます",
       ...(notes.length > 0 ? { hint: () => notes.join("。") } : {}),
     }),
     ...(custom
@@ -942,6 +943,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
           },
         ]
       : []),
+    // 火災保険・地震保険（買った月と、その後は契約の年数ごと。諸費用とは別の欄。0221）
+    ...homeInsuranceFields(r, k),
     // 土地をいくらで買うか（割合でなく金額で。詳細。注文住宅は「土地の代金」の欄。0176）
     ...(custom ? [] : [purchaseLandField(wh, r, k)]),
     ...(viaCredit
@@ -960,6 +963,106 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
             help: "認定長期優良住宅なら、固定資産税の新築の軽減が長くなります（戸建て5年・マンション7年）。住宅ローンを組むときは、住宅ローン控除の住宅の種類で選びます",
           }),
         ]),
+  ];
+}
+
+/**
+ * 購入の予定の火災保険・地震保険の欄（0221）: 保険料（契約の年数分。推定）は標準、契約の年数・都道府県・保険の入力項目で入れた印は詳細。
+ * これから買う家には推定で欄を足す（homeInsurance.ts）。欄が無い購入の予定（前に買った家）には出さない（本当の契約は保険の入力項目で入れる。
+ * 欄を作りながら書く欄は1つの値をそのまま書かず、プランの動かす項目にできないため）
+ */
+function homeInsuranceFields(r: Residence, k: string): FieldDef[] {
+  const find = byId(residences, r.id);
+  const kp = `${k}/purchase/insurance`;
+  const landShare = (w: WorkingHousehold): string | undefined => w.request.input.assumptions?.realEstateValuation?.landShare;
+  const findIns = (h: Household, w: WorkingHousehold): Obj | undefined => (find(h, w) as Residence | undefined)?.purchase?.homeInsurance as Obj | undefined;
+  const cur = r.purchase?.homeInsurance;
+  if (cur === undefined) return [];
+  const years = cur.years;
+  const off = cur.countedInInsurance === true;
+  const premiumHint = (w: WorkingHousehold): string | null => {
+    const h = w.request.input.household;
+    const x = find(h, w) as Residence | undefined;
+    if (x === undefined) return null;
+    if (x.purchase?.homeInsurance?.countedInInsurance === true) return "保険の入力項目で入れたので、ここでは数えていません";
+    return overlapText(h, x);
+  };
+  const premium = (label: string, path: "fire" | "earthquake", help: string): FieldDef => ({
+    ...yenBox({
+      key: `${kp}/${path}`,
+      item: "residence.purchase",
+      label,
+      level: "simple",
+      basis: "once",
+      find: findIns,
+      path: [path],
+      help,
+      estimate: (h, w) => {
+        const x = find(h, w) as Residence | undefined;
+        const e = x === undefined ? null : homeInsuranceEstimateOf(h, x, landShare(w));
+        return e === null ? null : path === "fire" ? { value: e.fire, basis: e.fireBasis } : { value: e.earthquake, basis: e.earthquakeBasis };
+      },
+      hint: premiumHint,
+    }),
+    address: () => at(r.id, "residence.purchase", ["homeInsurance", path]),
+  });
+  return [
+    premium(
+      `火災保険料（${String(years)}年分）`,
+      "fire",
+      `買った家の建物の火災保険の、${String(years)}年分の保険料です。買った月（注文住宅は引き渡しの月）に払い、その後は${String(years)}年ごとに払います（住み終わる・売る予定があれば、その前の更新まで）。入れなければ、物件の価格の建物の分と構造の区分（マンション・鉄骨やコンクリート造の戸建て・木造の戸建て）から目安を出します（推定）。家財の保険は含めません。見積もりの額が分かれば入れてください`,
+    ),
+    premium(
+      `地震保険料（${String(years)}年分）`,
+      "earthquake",
+      `買った家の建物の地震保険の、${String(years)}年分の保険料です。火災保険と同じ月に払い、年数で割った額を毎年の地震保険料控除に入れます。入れなければ、保険金額を火災保険の半分として、都道府県と構造（イ構造・ロ構造）の基本料率から目安を出します（推定）。付けないなら 0 を入れます`,
+    ),
+    {
+      ...plain({
+        key: `${kp}/years`,
+        item: "residence.purchase",
+        label: "火災保険・地震保険の契約の年数",
+        level: "detail",
+        kind: "int",
+        min: 1,
+        max: 5,
+        suffix: "年",
+        find: findIns,
+        path: ["years"],
+        help: "1回の契約で何年分を払うかです（火災保険・地震保険とも最長5年）。推定のままの保険料は、年数に合わせて出し直します（長期係数で、長いほど1年あたりが安くなります）",
+      }),
+      address: () => at(r.id, "residence.purchase", ["homeInsurance", "years"]),
+    },
+    {
+      ...plain({
+        key: `${kp}/prefecture`,
+        item: "residence.purchase",
+        label: "建物のある都道府県（地震保険の目安）",
+        level: "detail",
+        kind: "select",
+        options: PREFECTURES,
+        find: findIns,
+        path: ["prefecture"],
+        optional: true,
+        help: "地震保険の基本料率は都道府県で約4倍違います。入れなければ、いちばん高い区分（東京都・神奈川県・千葉県・静岡県など）の料率で目安を出します。地震保険料の目安にだけ使います",
+      }),
+      address: () => at(r.id, "residence.purchase", ["homeInsurance", "prefecture"]),
+    },
+    {
+      ...plain({
+        key: `${kp}/counted`,
+        item: "residence.purchase",
+        label: "保険の入力項目で入れた",
+        level: off ? "simple" : "detail",
+        kind: "bool",
+        find: findIns,
+        path: ["countedInInsurance"],
+        optional: true,
+        fallback: false,
+        help: "買った後の本当の火災保険・地震保険の契約を、保険の入力項目（損害保険）で入れたら選びます。ここの保険料は数えず、地震保険料控除にも入れません（二重に数えないため）",
+      }),
+      address: () => at(r.id, "residence.purchase", ["homeInsurance", "countedInInsurance"]),
+    },
   ];
 }
 

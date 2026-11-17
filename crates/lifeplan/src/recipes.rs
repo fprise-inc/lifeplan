@@ -18,12 +18,15 @@ pub struct Recipe {
 pub const RECIPES: &[Recipe] = &[
     Recipe {
         key: "buyHome",
-        title: "家を買う（頭金・諸費用・入居・住宅ローン・住宅ローン控除の住宅の情報・固定資産税・修繕費。今の住まいはその前の月で住み終わり、持ち家なら売る）",
+        title: "家を買う（頭金・諸費用・火災保険・地震保険・入居・住宅ローン・住宅ローン控除の住宅の情報・固定資産税・修繕費。今の住まいはその前の月で住み終わり、持ち家なら売る）",
         params: &[
             ("at", "購入・入居の月 YYYY-MM（既定は計算基準月の1年後）"),
             ("price", "物件価格（円。既定 40000000）"),
             ("downPayment", "頭金（円。既定は価格の1割）"),
-            ("costs", "諸費用（円。既定は新築で価格の5%、中古で7%）"),
+            ("costs", "諸費用（円。既定は新築で価格の5%、中古で7%。火災保険・地震保険は別の欄）"),
+            ("insuranceYears", "火災保険・地震保険の1回の契約の年数（1〜5。既定 5）。買った月と、その後は年数ごとに払う"),
+            ("fireInsurance", "火災保険料（円。insuranceYears 年分。既定は建物の分〔価格の7割。マンションはその半分の専有部分〕と構造からの目安）"),
+            ("earthquakeInsurance", "地震保険料（円。insuranceYears 年分。既定は保険金額を火災保険の半分として、都道府県が分からないのでいちばん高い区分の基本料率・建築年割引10%・長期係数からの目安。付けないなら 0）"),
             ("loan", "借入額（円。既定は価格−頭金。0 ならローンなし）"),
             ("rate", "金利（率の文字。既定 \"0.009\"）"),
             ("rateType", "variable・fixed・fixedPeriod（既定 variable）"),
@@ -438,6 +441,10 @@ fn buy_home(input: &Value, p: &mut Params, w: &mut Work) -> Result<Vec<String>, 
         "maintenance",
         if style == "condo" { 30_000 } else { 15_000 },
     )?;
+    let ins_years = p.int("insuranceYears", 5, 1, 5)?;
+    let est = home_insurance_estimate(price, style == "condo", ins_years);
+    let fire = p.yen("fireInsurance", est.0)?;
+    let quake = p.yen("earthquakeInsurance", est.1)?;
     let owner = p.member(input, "member", "self")?;
     let owner_id = owner["id"].clone();
     let sell = p.flag("sellCurrent", true)?;
@@ -488,7 +495,10 @@ fn buy_home(input: &Value, p: &mut Params, w: &mut Work) -> Result<Vec<String>, 
         "/household/residences",
         json!({
             "id": home, "kind": "own", "from": { "event": move_in }, "to": null, "style": style,
-            "purchase": { "price": price, "downPayment": down, "costs": costs, "newBuild": new_build },
+            "purchase": {
+                "price": price, "downPayment": down, "costs": costs, "newBuild": new_build,
+                "homeInsurance": { "years": ins_years, "fire": box_yen(fire), "earthquake": box_yen(quake) }
+            },
             "propertyTax": { "annual": box_yen(tax), "growth": "0" },
             "maintenance": { "monthly": box_yen(maint), "growth": "0.01" },
             "ownership": [{ "member": owner_id, "share": "1" }],
@@ -496,6 +506,7 @@ fn buy_home(input: &Value, p: &mut Params, w: &mut Work) -> Result<Vec<String>, 
         }),
     )?;
     notes.push(format!("頭金 {down}円と諸費用 {costs}円は {at} に金融資産から出ます（足りないと不足の行に出ます）。固定資産税・修繕費は目安です"));
+    notes.push(format!("火災保険 {fire}円・地震保険 {quake}円（{ins_years}年分）を {at} と、その後は {ins_years}年ごとに払います（purchase.homeInsurance。地震保険は地震保険料控除に入ります）。既定は目安で、都道府県が分かればアプリの画面で直せます"));
     if loan > 0 {
         let mut repayment = json!({ "method": "equalPayment", "termMonths": term });
         if rate_type == "variable" {
@@ -517,6 +528,25 @@ fn buy_home(input: &Value, p: &mut Params, w: &mut Work) -> Result<Vec<String>, 
         notes.push("ローンなし（現金で買う）".into());
     }
     Ok(notes)
+}
+
+/// 火災保険・地震保険の目安（アプリの app/src/workspace/input/homeInsurance.ts と同じ式の簡略版。0221）:
+/// 保険金額は建物の分（価格の7割〔土地の割合の目安30%〕。マンションは専有部分としてその半分）。火災保険は1,000万円あたり5年分の目安
+/// （木造の戸建て 32,500円・マンション 17,900円）を長期係数で年数に直す。地震保険は保険金額を火災保険の半分（上限5,000万円）とし、
+/// 都道府県が分からないのでいちばん高い区分の基本料率（ロ構造 41,100円・イ構造 27,500円）×(1−建築年割引10%)×長期係数。100円に丸める
+fn home_insurance_estimate(price: i64, condo: bool, years: i64) -> (i64, i64) {
+    const LONG_TERM: [f64; 5] = [1.0, 1.9, 2.85, 3.75, 4.7];
+    let coef = LONG_TERM[(years.clamp(1, 5) - 1) as usize];
+    let to_100k = |v: f64| (v / 100_000.0).round() * 100_000.0;
+    let to_100 = |v: f64| ((v / 100.0).round() * 100.0) as i64;
+    let building = price as f64 * 0.7;
+    let insured = to_100k(if condo { building * 0.5 } else { building });
+    let fire_rate5 = if condo { 17_900.0 } else { 32_500.0 };
+    let fire = to_100(insured / 10_000_000.0 * fire_rate5 * coef / LONG_TERM[4]);
+    let quake_insured = to_100k(insured * 0.5).min(50_000_000.0);
+    let quake_rate = if condo { 27_500.0 } else { 41_100.0 };
+    let quake = to_100(quake_insured / 10_000_000.0 * quake_rate * 0.9 * coef);
+    (fire, quake)
 }
 
 /// 学年の4月（その年度に入学する年）: 1〜3月生まれは前の年度の学年
@@ -902,6 +932,25 @@ mod tests {
         assert_eq!(school_start("2027-05", 6), "2034-04");
         assert_eq!(school_start("2027-02", 6), "2033-04");
         assert_eq!(school_start("2027-05", 22), "2050-04");
+    }
+
+    #[test]
+    fn home_insurance_estimate_matches_the_app() {
+        // 4,000万円の新築の木造の戸建て: 保険金額2,800万円・H構造 32,500円×2.8＝91,000円、地震保険 1,400万円×41,100円×0.9×4.70＝243,400円
+        assert_eq!(
+            home_insurance_estimate(40_000_000, false, 5),
+            (91_000, 243_400)
+        );
+        // マンション: 専有部分1,400万円・M構造 17,900円×1.4＝25,100円、地震保険 700万円×27,500円×0.9×4.70＝81,400円
+        assert_eq!(
+            home_insurance_estimate(40_000_000, true, 5),
+            (25_100, 81_400)
+        );
+        // 1年: 火災保険は 91,000÷4.70、地震保険は 1,400万円×41,100円×0.9
+        assert_eq!(
+            home_insurance_estimate(40_000_000, false, 1),
+            (19_400, 51_800)
+        );
     }
 
     #[test]

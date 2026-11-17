@@ -178,7 +178,7 @@ entries:
     replacedBy: null
   - id: housing.residence
     status: active
-    label: "住まい（家賃・購入・固定資産税・修繕費）"
+    label: "住まい（家賃・購入・固定資産税・修繕費・火災保険）"
     since: draft
     aliases: []
     replacedBy: null

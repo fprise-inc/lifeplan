@@ -15,9 +15,10 @@ import { allFields, type FieldDef, type Level } from "./form.ts";
 import { fillAll, gapsOf, retirementNotices, type Gap } from "./fill.ts";
 import type { NoticeRow } from "../engineNotices.ts";
 import { noticeMeta } from "../engineNotices.ts";
-import type { WorkingHousehold } from "./household.ts";
+import { mutate, type WorkingHousehold } from "./household.ts";
 import { insuranceOverlapNotices } from "./insuranceView.ts";
 import { unfundedPurchaseNotice } from "./stages/housing.ts";
+import { countsHomeInsurance, nonLifeContracts, overlapText } from "./homeInsurance.ts";
 import { ackOf, ackToday, setNoticeAck } from "./noticeAck.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf, rowAt } from "./rows.ts";
@@ -441,6 +442,28 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
     if (rows.some((x) => x.fieldKey === fieldKey)) continue;
     rows.push({ id: `notice:zeroDownPayment:${r.id}`, kind: "notice", card: "housing", cardLabel: labels.get("housing") ?? "住まい・ローン", label: "住宅の購入: 頭金", detail: ZERO_DOWN_PAYMENT_TEXT, fieldKey, level: "simple", impact: 0, actions: [], value: "0円", item: "residence.purchase" });
   }
+  // 住宅購入の予定の火災保険・地震保険と、保険の入力項目の損害保険の両方がある（二重に数えているかもしれない。0221）。
+  // 「保険の入力項目で入れた」の1押しと「確認した」（今の住まいの家財の保険など。損害保険の契約を足す・外すと、また出る）
+  for (const r of homeInsuranceOverlaps(wh)) {
+    const id = `housing/homeInsurance/${r.id}`;
+    const of = [r.id, ...nonLifeContracts(wh.request.input.household).map((c) => c.id)];
+    if (ackOf(wh, id, of) !== null) continue;
+    rows.push({
+      id: `notice:${id}`,
+      kind: "notice",
+      card: "housing",
+      cardLabel: labels.get("housing") ?? "住まい・ローン",
+      label: "住宅の購入: 火災保険・地震保険",
+      detail: overlapText(wh.request.input.household, r),
+      fieldKey: `housing/res/${r.id}/purchase/insurance/counted`,
+      level: "simple",
+      impact: 0,
+      actions: [
+        { key: "fix", label: "保険の入力項目で入れた", title: "住宅購入の予定の火災保険・地震保険を数えないようにします", run: (w) => countInInsurance(w, r.id) },
+        { key: "ack", label: "確認した", title: ACK_TITLE, run: (w) => setNoticeAck(w, id, of, ackToday()) },
+      ],
+    });
+  }
   const order = new Map(items.map((i, n) => [i.id, n]));
   return rows.sort((x, y) => {
     const k = KIND_ORDER.indexOf(x.kind) - KIND_ORDER.indexOf(y.kind);
@@ -467,6 +490,21 @@ export function zeroDownPayments(wh: WorkingHousehold): NonNullable<Household["r
   });
 }
 
+/** 火災保険・地震保険を数えている住宅購入の予定（保険の入力項目に損害保険があるときだけ。0221） */
+export function homeInsuranceOverlaps(wh: WorkingHousehold): NonNullable<Household["residences"]> {
+  const h = wh.request.input.household;
+  if (nonLifeContracts(h).length === 0) return [];
+  return (h.residences ?? []).filter(countsHomeInsurance);
+}
+
+/** 住宅購入の予定の火災保険・地震保険を「保険の入力項目で入れた」にする（数えない） */
+function countInInsurance(wh: WorkingHousehold, rid: string): WorkingHousehold {
+  return mutate(wh, (h) => {
+    const ins = (h.residences ?? []).find((r) => r.id === rid)?.purchase?.homeInsurance;
+    if (ins !== undefined) ins.countedInInsurance = true;
+  });
+}
+
 const ACK_TITLE = "確かめ済みとして、この注意を出さないようにします（世帯に残ります。保険を足す・外すなどで重なりが変わると、また出ます）";
 
 /**
@@ -490,6 +528,25 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
       level: "simple",
       impact: 0,
       actions: [{ key: "unack", label: "また出す", title: "確かめの注意にまた出します", run: (w) => setNoticeAck(w, n.id, n.of, null) }],
+    });
+  }
+  // 住宅購入の予定の火災保険・地震保険と損害保険（0221）
+  for (const r of homeInsuranceOverlaps(wh)) {
+    const id = `housing/homeInsurance/${r.id}`;
+    const of = [r.id, ...nonLifeContracts(wh.request.input.household).map((c) => c.id)];
+    const a = ackOf(wh, id, of);
+    if (a === null) continue;
+    out.push({
+      id: `notice:${id}`,
+      kind: "notice",
+      card: "housing",
+      cardLabel: inputItems(wh).find((i) => i.id === "housing")?.label ?? "住まい・ローン",
+      label: "住宅の購入: 火災保険・地震保険",
+      detail: `${a.on} に確認しました（${overlapText(wh.request.input.household, r) ?? ""}）`,
+      fieldKey: null,
+      level: "simple",
+      impact: 0,
+      actions: [{ key: "unack", label: "また出す", title: "確かめの注意にまた出します", run: (w) => setNoticeAck(w, id, of, null) }],
     });
   }
   return out;

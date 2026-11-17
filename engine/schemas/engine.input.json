@@ -1361,6 +1361,19 @@
                 }
               }
             },
+            "homeInsurance": {
+              "description": "0221: 買った後の火災保険・地震保険（建物）。買った月（購入の月。注文住宅は引き渡しの月）に years 年分の保険料を払い、その後は years 年ごとに払う（住み終わりの月より前の更新まで。計算の最後の年をまたぐ更新も years 年分を払う）。保険料は1回に払う years 年分の額で、伸ばさない。地震保険の分は名義の人（持分の最初の人）の地震保険料控除に、年数で割った額を毎年入れる。家財の保険は含めない",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["years", "fire", "earthquake"],
+              "properties": {
+                "years": { "description": "1回の契約の年数（火災保険・地震保険とも最長5年）", "type": "integer", "minimum": 1, "maximum": 5 },
+                "fire": { "description": "火災保険料（建物。years 年分を一括で払う額）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+                "earthquake": { "description": "地震保険料（建物。years 年分を一括で払う額。付けないなら0）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+                "prefecture": { "description": "建物のある都道府県（JIS の都道府県の番号 01〜47。地震保険料の推定の元だけ。計算には使わない）", "type": "string", "pattern": "^(0[1-9]|[1-3][0-9]|4[0-7])$" },
+                "countedInInsurance": { "description": "買った後の本当の契約を保険の入力項目（損害保険）で入れたので、ここでは数えない（true のときは払わず、控除にも入れない。省略は数える）", "type": "boolean" }
+              }
+            },
             "gifts": {
               "description": "親・祖父母からの資金援助（受け取る構成員と額。贈与税は贈与の作業で扱う）",
               "type": "array",

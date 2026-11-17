@@ -160,8 +160,13 @@ describe("住宅の購入の種類（0052 の追記 2026-11-03）", () => {
     // 建て方だけ（新築か中古か分からない）→ 空
     const styleOnly = legacy((r) => void (r.style = "house"));
     expect(fieldOf(styleOnly, "/purchase/type").get(styleOnly).value).toBeNull();
-    // 開いても（仮の値・推定の入れ直しを通しても）世帯は変わらない
-    for (const x of [none, used, styleOnly]) expect(settle(x).request).toEqual(x.request);
+    // 開いても（仮の値・推定の入れ直しを通しても）種類は書かない。推定のままの火災保険・地震保険（0221）は建て方・建った年に合わせて入れ直すので比べない
+    const withoutInsurance = (req: WorkingHousehold["request"]) => {
+      const c = structuredClone(req);
+      for (const r of c.input.household.residences ?? []) if (r.purchase !== undefined) delete r.purchase.homeInsurance;
+      return c;
+    };
+    for (const x of [none, used, styleOnly]) expect(withoutInsurance(settle(x).request)).toEqual(withoutInsurance(x.request));
     // FP が確定にした控除の新築か中古か（中古）と、FP が入れた構造（鉄筋コンクリート造）→ 中古マンション
     wh = action(wh, "housing/addMortgage");
     wh = set(wh, `${loanOf(wh).id}/credit/newBuild`, "used");

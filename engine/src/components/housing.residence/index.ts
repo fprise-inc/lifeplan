@@ -21,6 +21,11 @@
 // 同じ上昇率をそのまま重ねる（家賃は住み始め〔計算基準月より前に住み始めた賃貸は計算基準月までの最後の更新〕から直近の更新までの経った年数、修繕費・固定資産税は計算基準年からの年数）。例外の年は、その年だけ例外の額
 // （元の額と同じ基準。上昇率は重ねる。0円はその年に払わない）。更新料は更新の前の月の家賃（例外の年は当てない）×月数
 // 改訂7（0173）: 固定資産税・維持費・購入の費用などのお金の動きは、名義の人（持分の最初の人）が万一の想定で亡くなった月の翌月から、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする（sdk の inheritFlows）
+// 改訂9（0221）: 住宅購入の予定の火災保険・地震保険（purchase.homeInsurance）。購入の月（注文住宅は引き渡しの月）に years 年分の保険料を払い、
+//   その後は years 年ごとに払う（住み終わりの月より前の更新まで。住み終わりの月の更新は払わない）。計算の最後の年をまたぐ更新も years 年分を払い、
+//   売るときの解約の返れい金は入れない。保険料は伸ばさない（入れた額のまま）。countedInInsurance（本当の契約を保険の入力項目で入れた）なら払わない。
+//   地震保険の分は、払った人・月・額・年数を earthquakePremiums に出す（tax.deductions が地震保険料控除に、年数で割った額を毎年入れる。
+//   計算基準月より前に払った分も、その後の年の控除のために出す）。購入の予定に homeInsurance が無い世帯の結果は同じ
 import {
   inheritFlows,
   addMonths,
@@ -65,9 +70,9 @@ function grower(ctx: Ctx, r: Rate | null): (amount: Yen, k: number) => Yen {
 
 export default defineComponent<Record<string, never>, ResidenceOutput>({
   id: "housing.residence",
-  title: "住まい（家賃・購入・固定資産税・修繕費）",
-  contract: "1.0",
-  revision: 8,
+  title: "住まい（家賃・購入・固定資産税・修繕費・火災保険）",
+  contract: "1.1",
+  revision: 9,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -87,6 +92,9 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
     const baseYear = yearOf(base);
     const flows: Flow[] = [];
     const properties: ResidenceOutput["properties"][number][] = [];
+    // 地震保険料（控除のため。計算基準月より前の支払いも。払った人は inheritFlows で万一の後の相続人に）
+    const quakes: Flow[] = [];
+    const quakeYears = new Map<string, number>();
     for (const h of ctx.list<ResidenceInput>("residence")) {
       const from = ctx.time.resolve(h.from);
       const to: MonthIndex = h.to === null ? end : ctx.time.resolve(h.to);
@@ -164,6 +172,18 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
         push(at, "cf.expense.housing.purchase.costs", costs, "housing.residence.purchaseCosts");
         const gifts = h.purchase.gifts ?? [];
         for (const gf of gifts) push(at, "cf.income.lumpSum.gift", gf.amount, "housing.residence.gift", gf.recipient);
+        // 火災保険・地震保険（改訂9。0221）: 購入の月から years 年ごと。住み終わりの月より前の更新まで（住み終わりの無い家は計算の最後まで）
+        const ins = h.purchase.homeInsurance;
+        if (ins !== undefined && ins.countedInInsurance !== true && ins.years >= 1) {
+          const fire = boxValue(ins.fire) ?? yen(0);
+          const quake = boxValue(ins.earthquake) ?? yen(0);
+          quakeYears.set(h.id, ins.years);
+          for (let m = at, k = 0; m <= end && (k === 0 || h.to === null || m < to); m = addMonths(m, ins.years * 12), k++) {
+            push(m, "cf.expense.housing.insurance", fire, "housing.residence.fireInsurance");
+            push(m, "cf.expense.housing.insurance", quake, "housing.residence.earthquakeInsurance");
+            if (quake > 0) quakes.push({ row: "cf.expense.housing.insurance", ym: formatYm(m), amount: quake, accrualYear: yearOf(m), ...(owner === null ? {} : { member: owner }), object: h.id, formula: "housing.residence.earthquakeInsurance" });
+          }
+        }
         properties.push({ object: h.id, owner, from: formatYm(at), to: h.to === null ? null : formatYm(to), price: h.purchase.price });
       }
       // 固定資産税（持ち家の期間の年。年額を4回に分ける）
@@ -213,6 +233,7 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
         }
       }
     }
-    return { flows: inheritFlows(ctx, flows), properties };
+    const earthquakePremiums = inheritFlows(ctx, quakes).flatMap((f) => (f.member === undefined ? [] : [{ member: f.member, ym: f.ym, amount: f.amount, years: quakeYears.get(f.object ?? "") ?? 1 }]));
+    return { flows: inheritFlows(ctx, flows), properties, ...(earthquakePremiums.length > 0 ? { earthquakePremiums } : {}) };
   },
 });
