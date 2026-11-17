@@ -62,14 +62,15 @@ feature_code_revocation = ["dev-fr1:RNTY3Y5si9xi6GZ8tl1SncKJOHwiDBhoS8kVGadxBP4"
 
 [signing]
 # OS のコード署名（0117 の4・5）。ここに書くのは秘密でない名前だけ。証明書・パスワード・鍵は CI の秘密の値に置く
-# （名前の一覧は .github/workflows/app-bundle.yml）。空のまま・秘密の値が無いときは、その OS は署名せずにビルドする（フォークの既定）。
+# （名前の一覧は .github/workflows/app-bundle.yml）。空のまま・秘密の値が無いときは、その OS は署名せずにビルドする。
+# フォークは下の名前を空にするか、自分の証明書の名前に替える（提供元の証明書は提供元の秘密の値が無いと使えない）。
 # Mac: 署名の名前（「Developer ID Application: <発行元の名前> (<チームID>)」。キーチェーンに入れた証明書の名前と同じ）
-mac_signing_identity = ""
+mac_signing_identity = "Developer ID Application: FPRISE, INC. (743THYJ3YA)"
 # Windows: 方式（"artifact-signing" か "none"）と、Azure Artifact Signing の場所・アカウント・証明書のプロファイルの名前
 windows_method   = "artifact-signing"
-windows_endpoint = ""
-windows_account  = ""
-windows_profile  = ""
+windows_endpoint = "https://jpe.codesigning.azure.net"
+windows_account  = "fprisesigning"
+windows_profile  = "financia"
 
 [hearing_web]
 # Web のヒアリング（0125）の受け付けのサーバー（暗号文だけを預かる。Cloudflare Workers と R2。設定は hearing/relay/wrangler.toml）。

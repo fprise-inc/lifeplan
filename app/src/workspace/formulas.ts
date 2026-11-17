@@ -42,6 +42,8 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "housing.residence.propertyTax": { label: "固定資産税", text: "固定資産税 ＝ 入力した年額" },
   "housing.residence.propertyTaxSettlement": { label: "固定資産税の精算（購入の年）", text: "固定資産税の精算 ＝ 年額 × 引き渡しの月から12月までの月数 ÷ 12（購入の年の税は1月1日の持ち主の売主にかかり、買い主は月割りを売主に払う）" },
   "housing.residence.maintenance": { label: "修繕費", text: "修繕費 ＝ 月額 × 上昇率での延ばし" },
+  "housing.residence.fireInsurance": { label: "火災保険", text: "火災保険料 ＝ 住宅購入の予定に入れた契約の年数分の保険料（買った月と、その後は契約の年数ごとに払う。住み終わりの月より前の更新まで）" },
+  "housing.residence.earthquakeInsurance": { label: "地震保険", text: "地震保険料 ＝ 住宅購入の予定に入れた契約の年数分の保険料（火災保険と同じ月に払う。年数で割った額を毎年の地震保険料控除に入れる）" },
   "housing.valuation.sale": { label: "持ち家の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の評価額）− 売却価格 × 売却の費用の割合（譲渡所得の税は別の行）" },
   "housing.valuation.saleTax": { label: "持ち家の譲渡所得の税", text: "譲渡所得の税 ＝ 入れた額（所得税・住民税の合計。売った月に払う。税の自動の計算はまだ無い）" },
   "asset.realEstate.rent": { label: "家賃収入", text: "家賃収入 ＝ 満室時の家賃（月額） × (1 − 空室率)（今の実際の家賃収入で入れた物件は、その額のまま。家賃は変化率で毎年動かす）" },

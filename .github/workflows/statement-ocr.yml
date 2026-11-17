@@ -1,0 +1,72 @@
+# 明細の写真・スクショの文字認識の試し（0034 の段階3）: 架空の明細の画像（statement/test/fixtures/ocr/）を OS の文字認識で読み、
+# 正解と比較した表をジョブの要約と成果物に出す。Windows は Windows.Media.Ocr（日本語の文字認識は OS の言語の機能。無ければ足す）、
+# macOS は Vision。読む部品（crates/statement-ocr）・画像・測る道具が変わった PR と、手で起動したときだけ流す（main の ci には入れない）
+name: statement-ocr
+on:
+  pull_request:
+    paths:
+      - crates/statement-ocr/**
+      - statement/scripts/ocr-*.ts
+      - statement/src/readers.ts
+      - statement/src/pdf/text.ts
+      - statement/test/fixtures/ocr/**
+      - .github/workflows/statement-ocr.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - name: 日本語の文字認識（Windows の言語の機能）を足す
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 30
+        continue-on-error: true
+        run: |
+          Get-WindowsCapability -Online | Where-Object Name -like 'Language.OCR*' | Format-Table Name, State -AutoSize
+          $name = 'Language.OCR~~~ja-JP~0.0.1.0'
+          $cap = Get-WindowsCapability -Online -Name $name
+          if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name $name | Format-List }
+          Get-WindowsCapability -Online -Name $name | Format-Table Name, State -AutoSize
+      - name: 文字認識の道具をビルドする
+        run: cargo build --locked --release -p statement-ocr --example ocr_measure
+      # 日本語（画面の命令と同じ）と、比較用の英語だけ（数字・日付・金額の読み方を比較する）の2回
+      - name: 架空の明細の画像を読む
+        shell: bash
+        run: |
+          exe=target/release/examples/ocr_measure
+          [ "$RUNNER_OS" = Windows ] && exe="$exe.exe"
+          for lang in ja en; do
+            OCR_LANG=$lang "$exe" statement/test/fixtures/ocr/*.png statement/test/fixtures/ocr/*.jpg > "ocr-${{ runner.os }}-$lang.json"
+          done
+      - name: 正解と比較する
+        shell: bash
+        run: |
+          for lang in ja en; do
+            node --disable-warning=ExperimentalWarning statement/scripts/ocr-measure.ts "ocr-${{ runner.os }}-$lang.json" \
+              --md "ocr-${{ runner.os }}-$lang.md" --json "ocr-result-${{ runner.os }}-$lang.json"
+            { echo "## 文字認識の試し（${{ runner.os }}・$lang）"; echo; cat "ocr-${{ runner.os }}-$lang.md"; echo; } >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: statement-ocr-${{ runner.os }}
+          path: |
+            ocr-${{ runner.os }}-*.json
+            ocr-${{ runner.os }}-*.md
+            ocr-result-${{ runner.os }}-*.json
+          if-no-files-found: error

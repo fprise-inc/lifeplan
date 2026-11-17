@@ -249,6 +249,46 @@ fn custom_scope_adds_wrapped_texts_only() {
 }
 
 #[test]
+fn account_label_is_left_out_by_default_and_wrapped_when_added() {
+    // 口座の名前（account.label。0223）: FP が書いた文なので、縮約版では外し、FP が足したときだけ包んだ文章として渡す
+    let mut src = source("salariedCoupleTwoKids");
+    let accounts = src.input["household"]["accounts"].as_array_mut().unwrap();
+    assert!(!accounts.is_empty());
+    accounts[0]["label"] = Value::String("架空のさくら銀行".to_owned());
+    let mut ps = Pseudonyms::for_input(&src.input);
+    let r = reduce(&src, &Scope::Reduced, &mut ps);
+    assert!(!r.input.to_string().contains("架空のさくら銀行"));
+    assert!(r.input["household"]["accounts"][0].get("label").is_none());
+    assert!(!r.fields.contains(&"account.label".to_owned()));
+    let scope = Scope::Custom {
+        added: ["account.label".to_owned()].into_iter().collect(),
+    };
+    let mut ps = Pseudonyms::for_input(&src.input);
+    let r = reduce(&src, &scope, &mut ps);
+    assert!(r.fields.contains(&"account.label".to_owned()));
+    assert!(
+        !r.input.to_string().contains("架空のさくら銀行"),
+        "入力からは抜く"
+    );
+    let named: Vec<&Value> = r
+        .texts
+        .iter()
+        .filter(|t| t["item"] == "account.label")
+        .collect();
+    assert_eq!(named.len(), 1);
+    assert_eq!(named[0]["author"], "FP（口座の名前）");
+    assert!(named[0]["wrapped"]
+        .as_str()
+        .unwrap()
+        .contains("架空のさくら銀行"));
+    // 物の ID は仮名で、入力の中の同じ口座を指す
+    assert_eq!(
+        named[0]["object"],
+        r.input["household"]["accounts"][0]["id"]
+    );
+}
+
+#[test]
 fn never_shared_items_cannot_be_added() {
     let (reg, _) = registry();
     for bad in [

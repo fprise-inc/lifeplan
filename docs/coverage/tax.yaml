@@ -37,7 +37,7 @@ entries:
       incomeTax.annual: 7
       tax.totalIncome: 10
       tax.totalIncomeBase: 3
-      tax.deductions: 8
+      tax.deductions: 9
     related:
       - tax.residentTax
       - tax.employmentIncomeDeduction
@@ -81,7 +81,7 @@ entries:
     rows: [cf.taxSi.residentTax]
     components:
       residentTax.annual: 10
-      tax.deductions: 8
+      tax.deductions: 9
     related:
       - tax.incomeTaxFlow
       - tax.residentTaxExemption
@@ -158,7 +158,7 @@ entries:
       - incomeTax.basicDeduction
       - residentTax.basicDeduction
     components:
-      tax.deductions: 8
+      tax.deductions: 9
     related:
       - tax.incomeTaxFlow
 
@@ -187,7 +187,7 @@ entries:
       - residentTax.spouseSpecialDeduction.tier1
     components:
       tax.spouseDeduction: 5
-      tax.deductions: 8
+      tax.deductions: 9
     related:
       - tax.dependentDeduction
       - socialInsurance.dependent
@@ -220,7 +220,7 @@ entries:
       - residentTax.dependentDeduction.general
     components:
       tax.dependentDeduction: 7
-      tax.deductions: 8
+      tax.deductions: 9
     related:
       - tax.spouseDeduction
 
@@ -249,7 +249,7 @@ entries:
       - residentTax.widowDeduction
     components:
       tax.survivorStatus: 5
-      tax.deductions: 8
+      tax.deductions: 9
     related:
       - tax.residentTaxExemption
       - benefits.childSupportAllowance
@@ -266,7 +266,7 @@ entries:
       - 所得税法74条
     components:
       tax.socialInsurancePaid: 4
-      tax.deductions: 8
+      tax.deductions: 9
     related:
       - socialInsurance.employeeHealth
       - socialInsurance.nationalHealth
@@ -277,12 +277,12 @@ entries:
     status: included
     summary: >-
       入っています。契約者がご本人の保険の、その年に払った保険料から、新契約・旧契約の区分と一般・介護医療・個人年金の区分ごとに生命保険料控除を、
-      地震保険・旧長期損害保険の保険料から地震保険料控除を計算します。
+      地震保険・旧長期損害保険の保険料から地震保険料控除を計算します。住宅購入の予定の地震保険料も入ります。
     how: >-
       保険の入力項目の保険料控除の区分（一般・介護医療・個人年金・地震・旧長期損害）と新旧（契約年月から）ごとに、その年に払った保険料を集め、
       控除の式（払った額×率＋額）と上限を当てます。新旧の両方があるときは、合わせた額（上限あり）と旧契約だけの額の多い方です。
       令和8年分からの特例として、23歳未満の扶養親族がいる人は、所得税の新契約の一般生命保険料の控除の上限が上がる扱いも入れています。
-      住民税は住民税の控除の表です。
+      住民税は住民税の控除の表です。住宅購入の予定の地震保険料（何年分かを一括で払う額）は、払った年から年数の間、年数で割った額を毎年の地震保険料にします。
     keywords: [生命保険料控除, 地震保険料控除, 介護医療保険料控除, 個人年金保険料控除, 新契約, 旧契約]
     items: [insurance.deductionCategory, insurance.policyholder, insurance.premium, insurance.contractDate]
     fields:
@@ -298,7 +298,7 @@ entries:
       - residentTax.lifeInsuranceDeduction.new
       - residentTax.earthquakeDeduction.earthquake
     components:
-      tax.deductions: 8
+      tax.deductions: 9
     related:
       - tax.incomeTaxFlow
 
