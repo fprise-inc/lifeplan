@@ -8,7 +8,7 @@ import { group } from "../../presentation/format.ts";
 import type { DemoHousehold } from "../catalog.ts";
 import { allFields, resolveTimepoint, type FieldDef, type StageDef } from "../input/form.ts";
 import { mutate, reemploymentOf, type WorkingHousehold } from "../input/household.ts";
-import { ACCOUNT_KINDS, EMPLOYMENT_TYPES, memberLabel } from "../input/labels.ts";
+import { ACCOUNT_KINDS, accountLabelOf, EMPLOYMENT_TYPES, memberLabel } from "../input/labels.ts";
 import { businessEstimate, ensureResidentTax, salaryAge, salaryEstimate } from "../input/estimates.ts";
 import { isAutoSmr } from "../input/smr.ts";
 import { convertPeriod } from "../input/stages/work.ts";
@@ -1045,7 +1045,8 @@ function mixItems(wh: WorkingHousehold): MovableItem[] {
         key: `mix:${a.id}`,
         item: "account.assetMix",
         target: { object: a.id },
-        label: `資産運用の配分（${kindLabel}・${memberLabel(wh, a.owner)}）`,
+        // 名前のある口座は名前を添える（0223）
+        label: `資産運用の配分（${accountLabelOf(a) !== null ? `${accountLabelOf(a)}・` : ""}${kindLabel}・${memberLabel(wh, a.owner)}）`,
         short: "配分",
         group: "よく使う",
         builtin: false,

@@ -221,8 +221,8 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(follow.is_none(), "{v}: 印は変換で書き足さない");
         }
-        // 0.81 から: 明細の行の読み取りが不確かの印 statements.imports[].rows[].readUncertain（0221）。変換で書き足さない（前の版の世帯は
-        // 欄が無い＝どの行も印なし）。0.81 の見本は写真から読んだ取り込みを1つ持ち、2行のうち1行に印
+        // 0.82 から: 明細の行の読み取りが不確かの印 statements.imports[].rows[].readUncertain（0221）。変換で書き足さない（前の版の世帯は
+        // 欄が無い＝どの行も印なし）。0.82 の見本は写真から読んだ取り込みを1つ持ち、2行のうち1行に印
         let unsure: Vec<&serde_json::Value> = now["statements"]["imports"]
             .as_array()
             .map(|a| {
@@ -232,11 +232,11 @@ fn every_format_version_has_a_fixture_and_opens() {
                     .collect()
             })
             .unwrap_or_default();
-        if migrate::parse(v).unwrap() >= (0, 81) {
+        if migrate::parse(v).unwrap() >= (0, 82) {
             assert_eq!(
                 unsure.len(),
                 1,
-                "{v}: 0.81 からの見本は読み取りが不確かの印の行を持つ"
+                "{v}: 0.82 からの見本は読み取りが不確かの印の行を持つ"
             );
             assert_eq!(unsure[0]["readUncertain"], serde_json::json!(true));
         } else {
@@ -1088,6 +1088,26 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(
                 classes.is_empty(),
                 "{v}: 個人事業税の業種の区分は 0.79 から（変換の段では足さない＝第1種）"
+            );
+        }
+        // 0.81 から: 口座の名前（accounts[].label。0223）。0.81 の見本は預金・NISA・課税口座の3つに名前（2つは同じ金融機関）
+        let labels: Vec<&Value> = now["household"]["request"]["input"]["household"]["accounts"]
+            .as_array()
+            .map(|xs| xs.iter().filter_map(|a| a.get("label")).collect())
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 81) {
+            assert_eq!(
+                labels,
+                vec![
+                    &Value::from("架空のさくら銀行（給与振込）"),
+                    &Value::from("架空のみどり証券"),
+                    &Value::from("架空のみどり証券")
+                ]
+            );
+        } else {
+            assert!(
+                labels.is_empty(),
+                "{v}: 口座の名前は 0.81 から（変換の段では足さない＝名前なし）"
             );
         }
         if *v == "0.3" {

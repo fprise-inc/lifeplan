@@ -43,7 +43,7 @@ entries:
       - cf.balance.account.childNisa
       - cf.balance.nisaFrame
     components:
-      plan.cashflow: 28
+      plan.cashflow: 29
       account.contribution: 2
     related:
       - investment.taxableAccountTax
@@ -233,7 +233,7 @@ entries:
       - 「貯蓄・運用」の入力項目の「利回りの変化」
     rows: [cf.balance.return]
     components:
-      plan.cashflow: 28
+      plan.cashflow: 29
       account.ideco: 7
     related:
       - basics.financialAssets
@@ -266,7 +266,7 @@ entries:
       決済口座の年末の残高が「預金に残しておく額」を下回ると、取り崩しの順番（既定は預金・外貨預金・財形・課税口座・暗号資産・持株会・旧NISA・NISA。
       まとめた金融資産は決済口座の次）で年末に売って補います。課税口座・暗号資産は税を引いた手取りで足りるだけ売ります。iDeCo・企業型DC（受け取りまで）・
       不動産・その他の資産・引き出せない期間の口座は取り崩しません。取り崩しの計画は、始まりの月から毎月の額か年の初めの金融資産×率を使い、
-      その年の収支の不足より多い分を「取り崩して使うお金」として年間収支から引きます。
+      その年の収支の不足より多い分を「取り崩して使うお金」として年間収支から引きます（始まりの年は、始まりの月から年末までの収支の不足と比較します）。
     keywords: [取り崩し, 取り崩しの順番, 定額取り崩し, 定率取り崩し, 4%ルール, 出口戦略, 生活防衛資金, 預金に残す額]
     items: [assumptions.withdrawal, account.settlement, account.withdrawalLockedUntil, assumptions.investment]
     fields:
@@ -275,7 +275,7 @@ entries:
       - 「貯蓄・運用」の入力項目の「引き出せない期間の終わり」
     rows: [cf.transfer.withdrawal, cf.expense.living.drawdown, cf.balance.shortfall]
     components:
-      plan.cashflow: 28
+      plan.cashflow: 29
     related:
       - basics.shortfall
       - investment.taxableAccountTax
@@ -307,7 +307,7 @@ entries:
       - incomeTax.defenseSurtax.rate
     rows: [cf.taxSi.incomeTax.capitalGains, cf.taxSi.residentTax.capitalGains, cf.balance.account.taxable, cf.transfer.investment]
     components:
-      plan.cashflow: 28
+      plan.cashflow: 29
     related:
       - investment.withdrawalOrder
       - investment.nisa
@@ -339,7 +339,7 @@ entries:
       - cf.taxSi.incomeTax.cryptoAsset
       - cf.taxSi.residentTax.cryptoAsset
     components:
-      plan.cashflow: 28
+      plan.cashflow: 29
     related:
       - investment.withdrawalOrder
 
@@ -358,6 +358,6 @@ entries:
     items: [account.kind, account.assetMix, account.expectedReturn, assumptions.depositReturn, assumptions.assetReturns]
     rows: [cf.balance.account.fxDeposit, cf.transfer.savings.deposit]
     components:
-      plan.cashflow: 28
+      plan.cashflow: 29
     related:
       - investment.returnSettings
