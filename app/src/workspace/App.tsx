@@ -2729,6 +2729,12 @@ export function App() {
     void ai.refresh();
     setAiPanel(storedInfo !== null ? "share" : "connector");
   };
+  /** 「取り込む」の「AI で保険の書類を読み取る」（FP のメニューも同じ）: AI とつながっていれば同意と共有の画面、つながっていなければ事務所の AI の接続の設定を開く */
+  const openAiImport = () => {
+    if (ai.status?.enabled === true) return openAiShare();
+    void ai.refresh();
+    setAiPanel("connector");
+  };
   const openOffice = () => {
     void host?.office.status().then(setOfficeStatus, () => undefined);
     setOfficeOpen(true);
@@ -2805,7 +2811,7 @@ export function App() {
       setEvidence(null);
       return setMemoOpen(true);
     }
-    if (a === "ai" && inputPlanSel === null) return openAiShare();
+    if (a === "ai" && inputPlanSel === null) return openAiImport();
     if (a === "storage") return openStorage();
     if (a === "office") return openOffice();
     if (a === "officeDefaults") return setOfficeSettingsOpen(true);
@@ -3268,12 +3274,12 @@ export function App() {
                           onPaste={() => setPasteOpen(true)}
                         />
                         {storedInfo !== null ? (
-                          <div class="hs-tools" role="group" aria-label="AI に資料を渡す" data-imports-ai>
-                            <span class="hs-tools-h">AI に資料を渡す</span>
-                            <button type="button" class="btn" onClick={openAiShare} data-imports-ai-open>
-                              {ai.status?.enabled === true ? "同意と共有を開く" : "AI接続口を開く"}
+                          <div class="hs-tools" role="group" aria-label="AI で保険の書類を読み取る" data-imports-ai>
+                            <span class="hs-tools-h">AI で保険の書類を読み取る</span>
+                            <button type="button" class="btn" onClick={openAiImport} data-imports-ai-open>
+                              {ai.status?.enabled === true ? "この世帯を AI に渡す" : "AI と接続する"}
                             </button>
-                            <span class="in-note">保険証券・ご契約内容のお知らせ・設計書は、FP が使う AI に渡せます。AI が読んだ保険の契約の値は AI接続口から候補として届き、承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。アプリの面談の履歴とメモは AI に渡しません。</span>
+                            <span class="in-note">お使いの AI（Claude など）をファイナンシアとつなぐと、保険証券・ご契約内容のお知らせ・設計書を AI が読み、読んだ保険の契約の値が「候補」として届きます。承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。面談の履歴とメモは AI に渡しません。</span>
                           </div>
                         ) : null}
                       </>

@@ -13,7 +13,7 @@ export interface DocumentStartProps {
   start: DocStart;
   /** AI の答えを貼り付ける画面を開く */
   onPaste: () => void;
-  /** AI に資料を渡す（同意と共有）を開く（保存した世帯だけ） */
+  /** 同意と共有の画面を開く（保存した世帯だけ） */
   onAiShare?: () => void;
   onClose: () => void;
 }
