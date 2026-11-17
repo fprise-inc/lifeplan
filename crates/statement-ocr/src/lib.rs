@@ -111,6 +111,30 @@ pub fn languages() -> Vec<String> {
 
 /// 画像の文字を読む（日本語と英数字）。ファイルは書かない・ネットにつながない
 pub fn recognize(bytes: &[u8]) -> Result<Vec<OcrBox>, OcrError> {
+    recognize_in(bytes, Language::Japanese)
+}
+
+/// 読む言語（試しの比べ用。画面の命令は日本語だけを使う）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Language {
+    /// 日本語（英数字も読む）
+    Japanese,
+    /// 英語だけ（数字・日付・金額の読み方を日本語と比べるため）
+    English,
+}
+
+impl Language {
+    #[cfg_attr(not(windows), allow(dead_code))]
+    fn tag_prefix(self) -> &'static str {
+        match self {
+            Language::Japanese => "ja",
+            Language::English => "en",
+        }
+    }
+}
+
+/// 言語を選んで画像の文字を読む
+pub fn recognize_in(bytes: &[u8], lang: Language) -> Result<Vec<OcrBox>, OcrError> {
     if bytes.len() > MAX_IMAGE_BYTES {
         return Err(OcrError::TooLarge);
     }
@@ -119,14 +143,15 @@ pub fn recognize(bytes: &[u8]) -> Result<Vec<OcrBox>, OcrError> {
     }
     #[cfg(target_os = "macos")]
     {
-        mac::recognize(bytes)
+        mac::recognize(bytes, lang)
     }
     #[cfg(windows)]
     {
-        win::recognize(bytes)
+        win::recognize(bytes, lang)
     }
     #[cfg(not(any(target_os = "macos", windows)))]
     {
+        let _ = lang;
         Err(OcrError::Unsupported)
     }
 }
@@ -143,7 +168,8 @@ pub(crate) struct Word {
 }
 
 /// 1行の単語を、近いものどうしでつなぐ（隙間が文字の高さの 0.9 倍を超えたら別の塊。表の欄をまたいでつながない）。
-/// つなぐときは、両側が半角の英数字・記号のときだけ空白をはさむ（日本語は1字ずつの単語で返ることがあるため）
+/// つなぐときは、両側が半角の英数字で、隙間が文字の高さの 0.3 倍を超えるときだけ空白をはさむ
+/// （Windows は日本語を1字ずつ、数字を「10」「/」「01」のように区切って返すため。英語の単語の間の空白だけを残す）
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn merge_line(words: &[Word]) -> Vec<Word> {
     let mut out: Vec<Word> = Vec::new();
@@ -155,9 +181,17 @@ pub(crate) fn merge_line(words: &[Word]) -> Vec<Word> {
             let gap = w.x - (last.x + last.w);
             let h = last.h.max(w.h);
             if gap <= h * 0.9 {
-                let ascii_end = last.text.chars().last().is_some_and(|c| c.is_ascii());
-                let ascii_start = w.text.chars().next().is_some_and(|c| c.is_ascii());
-                if ascii_end && ascii_start {
+                let alnum_end = last
+                    .text
+                    .chars()
+                    .last()
+                    .is_some_and(|c| c.is_ascii_alphanumeric());
+                let alnum_start = w
+                    .text
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_ascii_alphanumeric());
+                if alnum_end && alnum_start && gap > h * 0.3 {
                     last.text.push(' ');
                 }
                 last.text.push_str(&w.text);
@@ -228,20 +262,26 @@ mod tests {
 
     #[test]
     fn merges_close_words_but_not_across_columns() {
-        // 「10/03」「あ」「お」「ば」…「1,234」: 日付と店は欄が離れているので別の塊。日本語の1字ずつの単語は空白なしでつなぐ
+        // 「10」「/」「03」「あ」「お」「ば」…「1」「,」「234」: 日付と店は欄が離れているので別の塊。
+        // 日本語の1字ずつの単語と、区切られた数字は空白なしでつなぐ。英語の単語の間（隙間が高さの 0.3 倍より大きい）は空白
         let words = [
-            word("10/03", 0.0, 50.0),
+            word("10", 0.0, 20.0),
+            word("/", 21.0, 8.0),
+            word("03", 30.0, 20.0),
             word("あ", 100.0, 20.0),
             word("お", 121.0, 20.0),
             word("ば", 142.0, 20.0),
             word("ABC", 300.0, 30.0),
-            word("MART", 336.0, 40.0),
-            word("1,234", 600.0, 50.0),
+            word("MART", 340.0, 40.0),
+            word("1", 600.0, 10.0),
+            word(",", 611.0, 4.0),
+            word("234", 616.0, 30.0),
         ];
         let merged = merge_line(&words);
         let texts: Vec<&str> = merged.iter().map(|w| w.text.as_str()).collect();
         assert_eq!(texts, ["10/03", "あおば", "ABC MART", "1,234"]);
         assert_eq!(merged[1].x, 100.0);
+        assert_eq!(merged[0].w, 50.0);
         assert_eq!(merged[1].w, 62.0);
     }
 

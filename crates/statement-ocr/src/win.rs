@@ -10,7 +10,7 @@ use windows::Graphics::Imaging::{
 use windows::Media::Ocr::OcrEngine;
 use windows::Storage::Streams::{DataWriter, InMemoryRandomAccessStream};
 
-use crate::{merge_line, normalize, OcrBox, OcrError, Word};
+use crate::{merge_line, normalize, Language as Lang, OcrBox, OcrError, Word};
 
 pub(crate) fn languages() -> Vec<String> {
     let Ok(list) = OcrEngine::AvailableRecognizerLanguages() else {
@@ -21,18 +21,18 @@ pub(crate) fn languages() -> Vec<String> {
         .collect()
 }
 
-/// 日本語の文字認識（入っている言語のうち「ja」で始まるもの）
-fn japanese_engine() -> Result<OcrEngine, OcrError> {
+/// 選んだ言語の文字認識（入っている言語のうち「ja」「en」で始まるもの）
+fn engine(lang: Lang) -> Result<OcrEngine, OcrError> {
     let tag = languages()
         .into_iter()
-        .find(|t| t.to_ascii_lowercase().starts_with("ja"))
+        .find(|t| t.to_ascii_lowercase().starts_with(lang.tag_prefix()))
         .ok_or(OcrError::NoLanguage)?;
     let lang = Language::CreateLanguage(&HSTRING::from(tag)).map_err(|_| OcrError::NoLanguage)?;
     OcrEngine::TryCreateFromLanguage(&lang).map_err(|_| OcrError::NoLanguage)
 }
 
-pub(crate) fn recognize(bytes: &[u8]) -> Result<Vec<OcrBox>, OcrError> {
-    let engine = japanese_engine()?;
+pub(crate) fn recognize(bytes: &[u8], lang: Lang) -> Result<Vec<OcrBox>, OcrError> {
+    let engine = engine(lang)?;
     // メモリの中のストリームに画像のバイト列を書く
     let stream = InMemoryRandomAccessStream::new().map_err(|_| OcrError::Failed)?;
     let writer = DataWriter::CreateDataWriter(&stream).map_err(|_| OcrError::Failed)?;

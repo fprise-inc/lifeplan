@@ -45,23 +45,28 @@ jobs:
           Get-WindowsCapability -Online -Name $name | Format-Table Name, State -AutoSize
       - name: 文字認識の道具をビルドする
         run: cargo build --locked --release -p statement-ocr --example ocr_measure
+      # 日本語（画面の命令と同じ）と、比べ用の英語だけ（数字・日付・金額の読み方を比べる）の2回
       - name: 架空の明細の画像を読む
         shell: bash
         run: |
           exe=target/release/examples/ocr_measure
           [ "$RUNNER_OS" = Windows ] && exe="$exe.exe"
-          "$exe" statement/test/fixtures/ocr/*.png statement/test/fixtures/ocr/*.jpg > ocr-${{ runner.os }}.json
+          for lang in ja en; do
+            OCR_LANG=$lang "$exe" statement/test/fixtures/ocr/*.png statement/test/fixtures/ocr/*.jpg > "ocr-${{ runner.os }}-$lang.json"
+          done
       - name: 正解と比べる
         shell: bash
         run: |
-          node --disable-warning=ExperimentalWarning statement/scripts/ocr-measure.ts ocr-${{ runner.os }}.json \
-            --md ocr-${{ runner.os }}.md --json ocr-result-${{ runner.os }}.json
-          { echo "## 文字認識の試し（${{ runner.os }}）"; echo; cat ocr-${{ runner.os }}.md; } >> "$GITHUB_STEP_SUMMARY"
+          for lang in ja en; do
+            node --disable-warning=ExperimentalWarning statement/scripts/ocr-measure.ts "ocr-${{ runner.os }}-$lang.json" \
+              --md "ocr-${{ runner.os }}-$lang.md" --json "ocr-result-${{ runner.os }}-$lang.json"
+            { echo "## 文字認識の試し（${{ runner.os }}・$lang）"; echo; cat "ocr-${{ runner.os }}-$lang.md"; echo; } >> "$GITHUB_STEP_SUMMARY"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: statement-ocr-${{ runner.os }}
           path: |
-            ocr-${{ runner.os }}.json
-            ocr-${{ runner.os }}.md
-            ocr-result-${{ runner.os }}.json
+            ocr-${{ runner.os }}-*.json
+            ocr-${{ runner.os }}-*.md
+            ocr-result-${{ runner.os }}-*.json
           if-no-files-found: error

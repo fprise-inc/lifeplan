@@ -8,19 +8,26 @@ use objc2_vision::{
     VNImageRequestHandler, VNRecognizeTextRequest, VNRequest, VNRequestTextRecognitionLevel,
 };
 
-use crate::{OcrBox, OcrError};
+use crate::{Language, OcrBox, OcrError};
 
 /// 読む言語（先のものを優先する）
-const LANGUAGES: [&str; 2] = ["ja-JP", "en-US"];
+fn languages_for(lang: Language) -> &'static [&'static str] {
+    match lang {
+        Language::Japanese => &["ja-JP", "en-US"],
+        Language::English => &["en-US"],
+    }
+}
 
-fn request() -> Retained<VNRecognizeTextRequest> {
+fn request(lang: Language) -> Retained<VNRecognizeTextRequest> {
     // SAFETY: 引数の無い初期化。設定する値はどれも Vision の決まった値か、作った文字列の配列
     unsafe {
         let req = VNRecognizeTextRequest::init(VNRecognizeTextRequest::alloc());
         req.setRecognitionLevel(VNRequestTextRecognitionLevel::Accurate);
         req.setUsesLanguageCorrection(true);
-        let langs: Vec<Retained<NSString>> =
-            LANGUAGES.iter().map(|l| NSString::from_str(l)).collect();
+        let langs: Vec<Retained<NSString>> = languages_for(lang)
+            .iter()
+            .map(|l| NSString::from_str(l))
+            .collect();
         req.setRecognitionLanguages(&NSArray::from_retained_slice(&langs));
         req
     }
@@ -28,7 +35,7 @@ fn request() -> Retained<VNRecognizeTextRequest> {
 
 pub(crate) fn languages() -> Vec<String> {
     autoreleasepool(|_| {
-        let req = request();
+        let req = request(Language::Japanese);
         // SAFETY: 作った要求に、読める言語を聞くだけ
         match unsafe { req.supportedRecognitionLanguagesAndReturnError() } {
             Ok(list) => list.iter().map(|s| s.to_string()).collect(),
@@ -37,7 +44,7 @@ pub(crate) fn languages() -> Vec<String> {
     })
 }
 
-pub(crate) fn recognize(bytes: &[u8]) -> Result<Vec<OcrBox>, OcrError> {
+pub(crate) fn recognize(bytes: &[u8], lang: Language) -> Result<Vec<OcrBox>, OcrError> {
     autoreleasepool(|_| {
         let data = NSData::with_bytes(bytes);
         let options = NSDictionary::new();
@@ -46,7 +53,7 @@ pub(crate) fn recognize(bytes: &[u8]) -> Result<Vec<OcrBox>, OcrError> {
             &data,
             &options,
         );
-        let req = request();
+        let req = request(lang);
         let as_request: Retained<VNRequest> =
             Retained::into_super(Retained::into_super(req.clone()));
         let requests = NSArray::from_retained_slice(&[as_request]);

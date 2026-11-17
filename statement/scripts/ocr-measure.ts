@@ -25,6 +25,8 @@ interface OcrBox {
 }
 interface OcrReport {
   backend: string;
+  /** 読んだ言語（ja: 日本語と英数字、en: 英語だけ。比べ用） */
+  language?: string;
   languages: string[];
   images: { file: string; ms: number; boxes?: OcrBox[]; error?: string }[];
 }
@@ -318,7 +320,7 @@ async function main(): Promise<void> {
     results.push(r);
   }
   const md = [
-    `文字認識: ${report.backend}（読める言語のうち日本語・英語: ${report.languages.filter((l) => /^(ja|en)/iu.test(l)).join("・") || "なし"}）`,
+    `文字認識: ${report.backend}・読んだ言語: ${report.language === "en" ? "英語だけ（比べ用）" : "日本語"}（OS が読める言語のうち日本語・英語: ${report.languages.filter((l) => /^(ja|en)/iu.test(l)).join("・") || "なし"}）`,
     "",
     "文字＝正解の文字が読んだ文字の中にある割合。表＝日付・金額・店の名前がすべて正しい行の割合（理想＝文字が完全に読めたとき）。取りこぼし＝正解の行と対にできなかった割合",
     "",
@@ -336,7 +338,7 @@ async function main(): Promise<void> {
   const mdPath = opt("--md");
   if (mdPath !== undefined) writeFileSync(mdPath, md + "\n");
   const jsonPath = opt("--json");
-  if (jsonPath !== undefined) writeFileSync(jsonPath, JSON.stringify({ backend: report.backend, languages: report.languages, results }, null, 1) + "\n");
+  if (jsonPath !== undefined) writeFileSync(jsonPath, JSON.stringify({ backend: report.backend, language: report.language ?? "ja", languages: report.languages, results }, null, 1) + "\n");
 }
 
 await main();
