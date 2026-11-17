@@ -135,20 +135,28 @@ export const pdfTextReader: StatementReader = {
       throw e;
     }
     if (ex.chars === 0) return { table: { cells: [], lines: [], masked: 0 }, issues: [issue("error", "S_PDF_NO_TEXT", "この PDF には文字が入っていません（画像だけの PDF）。写真・スクショの文字の読み取りは今後の版で対応します")] };
-    const masked = maskTable(ex.lines);
-    const table: Table = { cells: masked.cells, lines: ex.lines.map((_, i) => i + 1), masked: masked.masked };
-    const statementDate = findStatementDate(masked.cells);
-    const sd = statementDate !== undefined ? { statementDate } : {};
-    if (findHeaderRow(table, "card") !== null || findHeaderRow(table, "bank") !== null) return { table, issues: [], ...sd };
-    const fb = pdfFallback(masked.cells);
-    return {
-      table: { cells: fb.cells, lines: fb.lines, masked: masked.masked },
-      issues: [],
-      fixedMapping: { headerRow: null, columns: { date: 0, merchant: 1, plan: 2, amount: 3 }, sign: "expensePositive" },
-      ...sd,
-    };
+    return linesToTable(ex.lines);
   },
 };
+
+/**
+ * 位置から行と欄にまとめた文字（`toLines()` の結果）を、読み手の表にする（番号を消し、見出しが無ければ「最初の欄が日付・最後の欄が金額」の行を読む）。
+ * 文字の入った PDF の読み手が使う。写真・スクショの文字認識の結果も同じ形にすればここから先に乗る（0034 の段階3）
+ */
+export function linesToTable(lines: readonly (readonly string[])[]): ReaderTable {
+  const masked = maskTable(lines.map((r) => [...r]));
+  const table: Table = { cells: masked.cells, lines: lines.map((_, i) => i + 1), masked: masked.masked };
+  const statementDate = findStatementDate(masked.cells);
+  const sd = statementDate !== undefined ? { statementDate } : {};
+  if (findHeaderRow(table, "card") !== null || findHeaderRow(table, "bank") !== null) return { table, issues: [], ...sd };
+  const fb = pdfFallback(masked.cells);
+  return {
+    table: { cells: fb.cells, lines: fb.lines, masked: masked.masked },
+    issues: [],
+    fixedMapping: { headerRow: null, columns: { date: 0, merchant: 1, plan: 2, amount: 3 }, sign: "expensePositive" },
+    ...sd,
+  };
+}
 
 /**
  * 明細の見出しの部分に書かれた日付（「2026年10月10日お支払い分」など。表の行より前の、1つの欄だけの行の年月日）。
