@@ -5,7 +5,7 @@ import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { handleApi } from "../../hearing/relay/handler.ts";
 import { memoryStore } from "../../hearing/relay/store.ts";
-import { answersOf, checkSelection, draftKey, estimate, initialDraft, openRequest, packetBody, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
+import { answersOf, checkSelection, draftKey, estimate, initialDraft, openRequest, packetBody, screens, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { SHEET_KINDS, applyImport, approvalTime, logOf, sheetFor } from "../src/workspace/hearing/sheet.ts";
 import {
@@ -42,6 +42,7 @@ import {
   withCustomEdit,
 } from "../src/workspace/hearing/web.ts";
 import { WebBuilder } from "../src/workspace/hearing/WebBuilder.tsx";
+import { HearingForm } from "../src/hearingForm/Form.tsx";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { DEFAULT_OFFICE_SETTINGS, isDefaultSettings, readOfficeSettings, withHearingTopics } from "../src/workspace/office/settings.ts";
@@ -161,6 +162,16 @@ describe("ご相談したいことの話題（0192。2026-11-17 にやめた）"
     const view = importWeb(got.wh, got.entry, "0.1.0", seq);
     expect(view.memo.some((m) => m.includes("選んだ話題: 教育費、相続のこと。子どもの大学の費用が心配です"))).toBe(true);
     expect(consultNotes(got.wh)).toMatchObject({ topics: ["教育費", "相続のこと"], text: "子どもの大学の費用が心配です" });
+  });
+
+  it("お客さまの画面: ご相談したいこと（話題・自由記述）は出さない。問いに話題が載っていても、入力内容の確認にも出さない（0138 の追記 2026-11-17）", async () => {
+    const def = sheetFor("simple");
+    const s = templateSelection("simple", blank());
+    const p = { ...packetBody(def, s, { requestId: "R-AAAAAA", expiresAt: NOW.toISOString(), office: OFFICE }), digest: "x" };
+    expect(screens(p, initialDraft(p)).some((x) => x.kind === "item" && x.key === "hs.consult.topics")).toBe(false);
+    const d = { ...initialDraft(p), topics: ["教育費", "親のこと"] };
+    const review = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "review" }));
+    for (const t of ["data-hf-topic", "ご相談したいこと", "教育費、親のこと"]) expect(review).not.toContain(t);
   });
 
   it("前に保存した事務所の既定の話題は読んで書き戻せる（画面からは使わない）", () => {

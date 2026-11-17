@@ -639,8 +639,8 @@ export function gateLines(e: WebLogEntry): { gate: GateId; label: string; text: 
   const counts = new Map(def?.axes.map((a) => [a.id, a.count]) ?? []);
   return GATE_IDS.filter((id) => g[id] !== undefined).map((id) => {
     const n = g[id] as number;
-    // 言葉は、お客さまの画面の選択肢と同じもの（人数の最後の段は「4人以上」）
-    const text = gateOptions(id, counts.get(id) ?? 1).find((o) => o.value === String(n))?.label ?? String(n);
+    // 言葉は、お客さまの画面の選択肢と同じもの（人数の最後の段は「4人以上」。配偶者の方は「いる／いない」。0192 の追記 2026-11-17）
+    const text = id === "spouse" ? (n === 1 ? "いる" : "いない") : (gateOptions(id, counts.get(id) ?? 1).find((o) => o.value === String(n))?.label ?? String(n));
     return { gate: id, label: GATE_LABEL[id], text };
   });
 }
@@ -662,7 +662,7 @@ export function gateNotes(wh: WorkingHousehold): { requestId: string; receivedAt
     // 人数の最後の段（4人以上）と同じかそれより多いときは違いとしない
     const top = (sheetOf(e.record.selection)?.axes.find((a) => a.id === l.gate)?.count ?? 0) === n && c >= n;
     if (top) return { label: l.label, text: l.text, now: null };
-    const now = l.gate === "spouse" ? (c === 1 ? "いらっしゃる" : "いらっしゃらない") : `${c}${unit[l.gate] ?? ""}`;
+    const now = l.gate === "spouse" ? (c === 1 ? "いる" : "いない") : `${c}${unit[l.gate] ?? ""}`;
     return { label: l.label, text: l.text, now };
   });
   return { requestId: e.record.requestId, receivedAt: e.received.at, lines };

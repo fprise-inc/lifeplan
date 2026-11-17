@@ -1648,7 +1648,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const back = fromBody(JSON.stringify(stored));
     expect(bodyObject(back)).toEqual(bodyObject(s));
     expect(webLog(back.wh)[0]?.batches).toHaveLength(2);
-    expect(gateLines(webLog(back.wh)[0]!).map((l) => `${l.label} ${l.text}`)).toEqual(["配偶者の方 いらっしゃらない", "お子さま いない"]);
+    expect(gateLines(webLog(back.wh)[0]!).map((l) => `${l.label} ${l.text}`)).toEqual(["配偶者の方 いない", "お子さま いない"]);
     // 前の版（0.69）の記録: 延長の上限は発行の日時から90日、分岐の答えと送りの記録は無し
     const old = webLog(sample069().wh)[0]!;
     expect(limitOf(old.record)).toBe("2027-02-03T09:00:00Z");
