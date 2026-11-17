@@ -6,7 +6,11 @@
 //!   返ってきたシートを選ばせて中身を返す。シートを作る・読むのは画面の statement/ の部品（土台は xlsx/）。パスは受け取らない・返さない。
 //! - 覚えた辞書と形（事務所データ。household-store の `statement_office`・`statement_learn`）を読み書きする。
 //!   直した人（`by`）は本体が決める（呼んだ側の値は使わない）。中身の検査は household-store が行う。
+//! - 明細の写真・スクショの文字を読む（0034 の段階3。試しの版）: 画面が渡した画像のバイト列を OS の文字認識（statement-ocr。
+//!   macOS は Vision、Windows は Windows.Media.Ocr）で読み、文字の塊（位置は画像に対する割合）だけを返す。ファイルを書かない・
+//!   ネットにつながない・外の AI に送らない。番号を消すのは受け取った画面の部品（statement/）。対応しない OS は「読めません」のコードを返す。
 
+use ::statement_ocr as ocr;
 use household_store::statement_dict::{DictionaryEntry, LearnedFormat, StatementOffice};
 use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::{AppHandle, WebviewWindow};
@@ -70,6 +74,26 @@ pub async fn statement_sheet_save(
     };
     let name = sheet_name(&header("x-customer-no"), &header("x-exported-on"));
     export::save(&app, &window, ExportKind::StatementSheet, &name, bytes).await
+}
+
+/// 明細の写真・スクショ（PNG・JPEG・HEIC など。10MB まで）の文字を読む。本文は画像のバイト列。
+/// 返すのは文字の塊（`text`・`x`・`y`・`w`・`h` は画像の幅・高さに対する 0〜1 の割合で左上が原点。`conf` は Vision だけ）。
+/// 読めないときはコード（E_OCR_UNSUPPORTED: この OS では読めない・E_OCR_NO_LANGUAGE: 日本語の文字認識が入っていない・
+/// E_OCR_IMAGE: 画像として読めない・E_OCR_FAILED: 文字認識が失敗した）
+#[tauri::command]
+pub async fn statement_ocr(request: Request<'_>) -> Result<Vec<ocr::OcrBox>, String> {
+    let InvokeBody::Raw(bytes) = request.body() else {
+        return Err("E_STATEMENT_OCR_BODY".to_owned());
+    };
+    if bytes.len() > ocr::MAX_IMAGE_BYTES || ocr::image_kind(bytes).is_none() {
+        return Err("E_STATEMENT_OCR_BODY".to_owned());
+    }
+    let bytes = bytes.clone();
+    // OS の文字認識は時間がかかる（1枚に1秒前後）ので、画面の処理を止めないよう別のスレッドで読む
+    tauri::async_runtime::spawn_blocking(move || ocr::recognize(&bytes))
+        .await
+        .map_err(|_| "E_OCR_FAILED".to_owned())?
+        .map_err(|e| e.code().to_owned())
 }
 
 /// 保存するときの既定のファイル名（顧客番号と日付は形を確かめたときだけ付ける）
