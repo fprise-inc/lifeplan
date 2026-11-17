@@ -221,6 +221,11 @@ export interface GateNotice {
   gate: GateKind;
   /** 例: お子さまは0人とのお答え（今の世帯は2人） */
   text: string;
+  /**
+   * お答えの方が多い（配偶者の方がいる・お子さまが多いなど）。増えた人・行は取り込みの候補（新規）で足せるので、入力の画面で直すことは無い
+   * （0192 の追記 2026-11-17: 取り込みの画面で、直す要るものと分けて出す）
+   */
+  more?: true;
 }
 
 export type ImportOutcome = { ok: true; view: ImportView } | { ok: false; issues: readonly Issue[] };
@@ -812,14 +817,14 @@ export function gateNotices(gates: GateAnswersIn | undefined, def: SheetDefiniti
   const cur = gateCounts(h);
   const out: GateNotice[] = [];
   const s = gates.spouse;
-  if (s !== undefined && s !== cur.spouse) out.push({ gate: "spouse", text: s === 0 ? "配偶者はいないとのお答え（今の世帯にはいます）" : "配偶者がいるとのお答え（今の世帯にはいません）" });
+  if (s !== undefined && s !== cur.spouse) out.push({ gate: "spouse", text: s === 0 ? "配偶者はいないとのお答え（今の世帯にはいます）" : "配偶者がいるとのお答え（今の世帯にはいません）", ...(s > cur.spouse ? { more: true as const } : {}) });
   for (const g of ["child", "loan", "policy"] as const) {
     const n = gates[g];
     if (n === undefined || n === cur[g]) continue;
     const max = def.axes.find((a) => a.id === g)?.count ?? 0;
     if (n === max && cur[g] >= n) continue;
     const u = GATE_UNIT[g];
-    out.push({ gate: g, text: `${u.head}は${n}${u.unit}${n === max && max > 2 ? "以上" : ""}とのお答え（今の世帯は${cur[g]}${u.unit}）` });
+    out.push({ gate: g, text: `${u.head}は${n}${u.unit}${n === max && max > 2 ? "以上" : ""}とのお答え（今の世帯は${cur[g]}${u.unit}）`, ...(n > cur[g] ? { more: true as const } : {}) });
   }
   if (gates.parent === 0 && (cur.parent > 0 || cur.parentRows > 0)) {
     out.push({ gate: "parent", text: `ご両親のことは答えないとのお答え（${cur.parent > 0 ? `今の世帯のご両親 ${cur.parent}人と、` : "今の世帯の"}仕送り・援助・介護・受け取る予定の相続の値は今のまま）` });

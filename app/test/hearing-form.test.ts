@@ -59,7 +59,7 @@ describe("お客さまの画面", () => {
   it("同意の画面: AI の文は、担当の FP が整理すること（お名前は渡さない）", async () => {
     const p = await packet();
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), startAt: "consent", now: () => NOW }));
-    expect(html).toContain("担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）");
+    expect(html).toContain("担当の FP が、AI を使って回答を整理することがあります（お名前は渡しません）");
     expect(html).not.toContain("外部のAIサービス");
   });
 

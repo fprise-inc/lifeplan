@@ -120,7 +120,7 @@ interface Props {
   /** 取り込みの中身を開いているか（親が持つ。FP のメニューから開く）。省くとホームの中で持つ */
   importsOpen?: boolean;
   onImportsOpen?: (open: boolean) => void;
-  /** Web のヒアリングの届いた知らせ（「回答が届いています 1件」。0192）。押すとヒアリング・取り込むを開く */
+  /** Web のヒアリングの届いた知らせ（「回答が届いています 1件」。0192）。押すと事前ヒアリング・取り込むを開く */
   hearingNote?: { text: string; onOpen: () => void } | null;
   /** ほかの人が開いていて、自動保存を止めている（「編集を始める」まで世帯に保存しない。0023 の7）。パネルの「保存」の後に「保存しました」と言わない */
   paused?: boolean;
@@ -294,7 +294,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
         <div class="ih-imports-list" data-imports-list {...(!button && off !== undefined ? { "data-current-only": true } : {})}>
           {!button ? (
             <div class="ih-imports-h">
-              <b>ヒアリング・取り込む</b>
+              <b>事前ヒアリング・取り込む</b>
               <button type="button" class="btn small" onClick={() => setOpen(false)} data-imports-close>
                 閉じる
               </button>
@@ -600,7 +600,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       </div>
       {hearingNote !== null ? (
         <p class="ih-hearing-note" role="status" data-hearing-note>
-          <span class="hs-kind answered">ヒアリング</span> {hearingNote.text}
+          <span class="hs-kind answered">事前ヒアリング</span> {hearingNote.text}
           <button type="button" class="link-btn" onClick={hearingNote.onOpen} data-hearing-note-open>
             開く
           </button>

@@ -7,6 +7,8 @@
 //   （DocumentsPacket。何回でも）で届き、答えには書類ごとの状態（付けた・手元にない・あとで送る・まだ）だけを入れる
 // - 0.2 のまま足した任意の欄（0192）: ご相談したいことの話題（選び方・問い・答えの topics）、独自の質問の答えの形（はい・いいえ／選択肢）、
 //   ひな形の名前（選び方の name。FP の画面だけ）。どれも省けば前と同じ。知らない欄は読む側が無視する
+// - 0192 の追記（2026-11-17）: ご相談したいことの話題はやめた（新しい選び方は topics を持たず、問いにも載せない）。前に発行した依頼の答えに
+//   話題があれば、今まで通り確かめて読む。外部 AI の同意（任意）は、発行のときに出さないこともできる（PacketOptions の aiConsent。選び方には置かない）
 import type { Answer, RawValue } from "../answers.ts";
 import { axisOf, itemByKey, type Axis, type SheetDefinition, type SheetItem } from "../definition.ts";
 import { canonicalJson } from "../layout.ts";
@@ -28,10 +30,11 @@ export const CUSTOM_ANSWER_MAX = 1000;
 /** 独自の質問の選択肢（答えの形が choice のとき）の数と1つの長さ */
 export const CUSTOM_CHOICES_MAX = 8;
 export const CUSTOM_CHOICE_LABEL_MAX = 40;
-/** ご相談したいこと（話題を選べる項目。0192） */
+/** ご相談したいこと（自由記述。0192 では話題を選べたが、2026-11-17 に話題はやめた。前の依頼の答えの話題は読む） */
 export const CONSULT_KEY = "hs.consult.topics";
-/** ご相談したいことの既定の話題（事務所の既定値・依頼ごとに、足す・外す・言い換えるができる） */
-export const DEFAULT_TOPICS: readonly string[] = ["毎月のやりくり", "教育費", "住まい・住宅ローン", "老後のお金・年金", "保険の見直し", "資産運用・NISA・iDeCo", "税金・確定申告", "親のこと", "働き方の変化"];
+/** 外部 AI への提供の同意（任意。発行のときに出さないこともできる。出さなければ、その世帯の同意は「聞いていない」のまま） */
+export const AI_CONSENT_KEY = "hs.consent.externalAi";
+/** 前の依頼の話題の数と1つの長さの上限（届いた答えの確かめ・事務所の既定値の読み込みに使う） */
 export const TOPICS_MAX = 20;
 export const TOPIC_LABEL_MAX = 30;
 /** 文の答え（自由記述）の上限 */
@@ -96,7 +99,7 @@ export interface WebSelection {
   readonly sections: readonly SelectedSection[];
   readonly custom: readonly CustomQuestion[];
   readonly documents: readonly RequestedDocument[];
-  /** ご相談したいことの話題（お客さまが選ぶ。省略・空は自由記述だけ。0192） */
+  /** ご相談したいことの話題（前の依頼だけ。2026-11-17 から新しい選び方には置かない。0192 の追記） */
   readonly topics?: readonly string[];
   /** どのひな形から作ったか（シンプル・詳細・見直し・カスタムの名前。FP の画面の依頼の一覧に出すだけ。問い・指紋に入れない） */
   readonly name?: string;
@@ -127,7 +130,7 @@ export interface WebItem {
   readonly confirm?: boolean;
   /** 「該当なし」のボタンの言葉（省略は「当てはまらない」。null は出さない: 分岐の問いで決まる欄） */
   readonly naLabel?: string | null;
-  /** ご相談したいことの選べる話題（この項目だけ。いくつでも選べ、答えの topics で届く。0192） */
+  /** ご相談したいことの選べる話題（0192。2026-11-17 から新しい問いには載せない。前の版の問いを読むために残す） */
   readonly topics?: readonly string[];
 }
 
@@ -367,6 +370,9 @@ export const WEB_LABELS: Readonly<Record<string, string>> = {
   "hs.housing.purchaseLand": "そのうち土地の値段（分からなければ空のままで大丈夫です）",
   "hs.plan.events": "これからの予定はありますか（住宅の購入・転職・独立・車の買い替えなど）",
   "hs.consult.topics": "ご相談したいこと・気になっていることを、自由にお書きください",
+  // 同意の文の「このことに同意します」は、ボタンの言葉（同意する・同意しない）と重なるので外す。お客さまに見える言葉は「お答え」でなく「回答」
+  // （0192 の追記 2026-11-17。Excel の票の言葉は変えない）
+  "hs.consent.externalAi": "（任意）担当の FP が、AI を使って回答を整理することがあります（お名前は渡しません）。",
   "hs.pension.notice.type": "お手元にある年金の書類はどれですか",
   "hs.loan.debtor": "このローンを借りている方（名義）",
   "hs.education.elementary": "小学校は公立・私立のどちらですか（予定を含む）",
@@ -442,6 +448,8 @@ export interface PacketOptions {
   readonly office: OfficeFace;
   /** 確かめてもらう項目の前回の値（exportAnswers の答え） */
   readonly prefill?: readonly Answer[];
+  /** 外部 AI への提供の同意（任意）を聞くか（省略は聞く）。false なら同意の画面に出さない */
+  readonly aiConsent?: boolean;
 }
 
 /** 独自の質問の選択肢（はい・いいえ／FP が書いた選択肢。値も言葉にして、FP 用のメモにそのまま入るように）。自由記述は undefined */
@@ -450,9 +458,6 @@ export function customChoices(c: CustomQuestion): { value: string; label: string
   if (c.answer === "choice") return (c.choices ?? []).map((x) => ({ value: x.trim(), label: x.trim() }));
   return undefined;
 }
-
-/** ご相談したいことの話題を選べるときの問いの言葉（0192） */
-export const CONSULT_TOPICS_LABEL = "ご相談したいことは何ですか（いくつでも選べます）";
 
 /** 選び方から問いを作る（選び方は checkSelection で確かめてから） */
 export async function buildPacket(def: SheetDefinition, s: WebSelection, o: PacketOptions): Promise<QuestionsPacket> {
@@ -469,7 +474,6 @@ export function packetBody(def: SheetDefinition, s: WebSelection, o: PacketOptio
   if (errs.length > 0) throw new Error(`E_WEB_SELECTION: ${errs.join("・")}`);
   const items = itemByKey(def);
   const custom = new Map(s.custom.map((c) => [c.key, c]));
-  const topics = (s.topics ?? []).filter((t) => t.trim() !== "");
   const out: WebItem[] = [];
   for (const sec of s.sections) {
     for (const it of sec.items) {
@@ -479,9 +483,8 @@ export function packetBody(def: SheetDefinition, s: WebSelection, o: PacketOptio
         out.push({ key: c.key, label: c.label, ...(choices !== undefined ? { type: "choice" as const, choices } : { type: "text" as const, maxLength: CUSTOM_ANSWER_MAX }), states: [], section: sec.id, ...(c.help !== undefined && c.help !== "" ? { guide: c.help } : {}) });
         continue;
       }
-      const plain = webItem(def, items.get(it.key) as SheetItem, sec.id);
-      // ご相談したいこと: 話題を選べるなら、話題（いくつでも）と自由記述（任意）を同じ画面で聞く（0192）
-      const base = it.key === CONSULT_KEY && topics.length > 0 ? { ...plain, label: CONSULT_TOPICS_LABEL, topics } : plain;
+      // ご相談したいことの話題は載せない（2026-11-17 にやめた。前の依頼の選び方に話題があっても、問いは自由記述のまま）
+      const base = webItem(def, items.get(it.key) as SheetItem, sec.id);
       if (it.mode !== "confirm") {
         out.push(base);
         continue;
@@ -501,7 +504,7 @@ export function packetBody(def: SheetDefinition, s: WebSelection, o: PacketOptio
     // 区画の題の番号（「2. ご家族」）は並びが変わるので外す
     return { id: sec.id, title: (d?.title ?? sec.id).replace(/^\d+\.\s*/, ""), ...(d?.lead !== undefined ? { lead: d.lead } : {}) };
   });
-  const consent = def.intro.consentItems.map((k) => webItem(def, items.get(k) as SheetItem, "consent"));
+  const consent = def.intro.consentItems.filter((k) => o.aiConsent !== false || k !== AI_CONSENT_KEY).map((k) => webItem(def, items.get(k) as SheetItem, "consent"));
   return {
     format: QUESTIONS_FORMAT,
     version: WEB_FORMAT_VERSION,
@@ -525,7 +528,7 @@ export function packetBody(def: SheetDefinition, s: WebSelection, o: PacketOptio
 
 /** お客さまのページの最初の画面の注意（シートの注意書きの Web 版。0138 で短く: 「当てはまらない」の説明は外し、名前の代わりに見分ける仕組みは言葉を変えた） */
 export const WEB_NOTES: readonly string[] = [
-  "お名前は書かないでください。お名前がなくても、担当の FP にはどなたのお答えか分かります。",
+  "お名前は書かないでください。お名前がなくても、担当の FP にはどなたの回答か分かります。",
   "わからないときは「わからない」を、あとで考えたいときは「あとで」を押してください。途中まででも送れます。答えていない所は、面談のときにうかがいます。",
   "次のことはお聞きしません: 病歴など健康の情報、マイナンバー・基礎年金番号・証券番号・口座番号などの番号。",
   "途中で閉じても、この端末のこのブラウザなら続きから答えられます（端末の中に暗号化して残します）。",
