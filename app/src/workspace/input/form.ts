@@ -184,6 +184,11 @@ interface FieldBase {
   swapNote?: string;
   help?: string;
   /**
+   * 「?」の説明の、説明の一覧の id（textIds.ts の helpTextId。省略は当て先から作る fieldTextId）。当て先の無い欄と、同じ当て先で説明が
+   * 何通りかある欄に書く（例: 見込みの欄。0212 の追記 2026-11-17）。名前・隠す・並べ替えの id は変えない
+   */
+  helpId?: string;
+  /**
    * 灰色の入力例（例: 「例: 1985-04」）。欄ごとに持つ。空欄に意味のある欄（blankMeans）は「空欄＝○○」を先に使い、欄に収まらない例は使わない
    * （placeholder.ts。収まらない「空欄＝○○」は欄の下の「空欄なら: ○○」の1行に出す）
    */

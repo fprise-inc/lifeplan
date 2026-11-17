@@ -2215,7 +2215,7 @@ async fn custom_texts_list_the_replaceable_texts() {
     );
     // 分野の数・書き方・承認の案内
     let areas = v["areas"].as_array().unwrap();
-    for k in ["field", "notice", "estimate", "result"] {
+    for k in ["field", "notice", "estimate", "result", "section"] {
         assert!(
             areas
                 .iter()
@@ -2258,9 +2258,84 @@ async fn custom_texts_list_the_replaceable_texts() {
         .collect();
     assert!(
         bm_ids.contains(&"result:dreamsAndPlans/lineSomeLasts")
-            && bm_ids.contains(&"result:dreamsAndPlans/childRepaid"),
+            && bm_ids.contains(&"result:dreamsAndPlans/childRepaid")
+            && bm_ids.contains(&"result:dreamsAndPlans/removedNote"),
         "{bm_ids:?}"
     );
+    // 夢と予定の区画の名前は名前の一覧（file: terms・kind: result。0212 の追記 2026-11-17）。数の入る名前は印つき
+    let bt = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "file": "terms", "prefix": "result:dreamsAndPlans/" }),
+    )
+    .await;
+    let bt_es = bt["entries"].as_array().unwrap();
+    let names: Vec<(&str, &str)> = bt_es
+        .iter()
+        .map(|e| (e["id"].as_str().unwrap(), e["text"].as_str().unwrap()))
+        .collect();
+    for (id, text) in [
+        ("result:dreamsAndPlans/groupDreams", "ご家族の夢"),
+        ("result:dreamsAndPlans/groupPay", "支払いの予定"),
+        ("result:dreamsAndPlans/groupReceive", "受け取りの予定"),
+        ("result:dreamsAndPlans/columnWhen", "時期"),
+        ("result:dreamsAndPlans/columnAmount", "金額"),
+        ("result:dreamsAndPlans/tagCertain", "確実"),
+        ("result:dreamsAndPlans/tagUncertain", "不確実"),
+        ("result:dreamsAndPlans/more", "ほか{count}を見る"),
+    ] {
+        assert!(names.contains(&(id, text)), "{id}: {names:?}");
+    }
+    assert_eq!(bt_es.len(), 8, "{names:?}");
+    for e in bt_es {
+        assert_eq!(e["audience"], "customer");
+        assert_eq!(e["ops"], json!(["replace"]));
+        assert_eq!(e["kind"], "result");
+    }
+    let more = bt_es
+        .iter()
+        .find(|e| e["id"] == "result:dreamsAndPlans/more")
+        .unwrap();
+    assert_eq!(more["vars"][0]["name"], "count");
+    assert_eq!(more["vars"][0]["number"], true);
+    assert!(bt["areas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|a| a["kind"] == "result" && a["count"] == 8));
+    // 見込みの「?」は5通りすべて（見本の世帯に出ない欄も）、見込みが「不確実」の行の注記は section: に載る
+    let lk = call_ok(
+        &c,
+        "list_custom_texts",
+        json!({ "query": "「不確実」にした", "kind": "field" }),
+    )
+    .await;
+    let mut lk_ids: Vec<&str> = lk["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap())
+        .collect();
+    lk_ids.sort_unstable();
+    assert_eq!(
+        lk_ids,
+        vec![
+            "field:debt.likelihood",
+            "field:goal.education/gifts/*/priority",
+            "field:incomeFlow.likelihood",
+            "field:incomeFlow.likelihood#receive",
+            "field:periodicExpense.priority",
+        ]
+    );
+    let sec = call_ok(&c, "list_custom_texts", json!({ "kind": "section" })).await;
+    let sec_es = sec["entries"].as_array().unwrap();
+    assert_eq!(sec_es.len(), 1, "{sec}");
+    assert_eq!(sec_es[0]["id"], "section:money.uncertainNote");
+    assert_eq!(sec_es[0]["ops"], json!(["replace"]));
+    assert!(sec_es[0]["text"]
+        .as_str()
+        .unwrap()
+        .starts_with("見込みが「不確実」なので、計算に入れていません"));
     let q = call_ok(
         &c,
         "list_custom_texts",

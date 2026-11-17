@@ -43,14 +43,14 @@ describe("名前の一覧・欄の一覧（画面の定義から作る）", () =
     expect(JSON.parse(readFileSync(FIELDS_CATALOG_PATH, "utf8"))).toEqual(JSON.parse(JSON.stringify(fields)));
   });
 
-  it("名前の一覧: 入力の欄の名前と表の行の名前。名前は消せない（書き換えだけ）。表の行はお客さまにも見える", () => {
+  it("名前の一覧: 入力の欄の名前と表の行の名前と結果の画面の名前。名前は消せない（書き換えだけ）。表の行と結果の画面の名前はお客さまにも見える", () => {
     expect(terms.schema).toBe(TERMS_CATALOG_SCHEMA);
     const ids = new Set<string>();
     for (const e of terms.entries) {
       expect(e.id).not.toMatch(UUID);
       expect(e.hash).toBe(sha(e.text));
       expect(e.ops).toEqual(["replace"]);
-      expect(e.audience).toBe(e.kind === "row" ? "customer" : "fp");
+      expect(e.audience).toBe(e.kind === "row" || e.kind === "result" ? "customer" : "fp");
       expect(ids.has(e.id)).toBe(false);
       ids.add(e.id);
     }

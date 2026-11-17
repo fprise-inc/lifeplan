@@ -877,6 +877,32 @@ fn name_rules() {
         st.warnings.iter().map(|w| w.code).collect::<Vec<_>>(),
         vec!["W_TERMS_VARS"]
     );
+    assert!(st.warnings[0].message.contains("人ごとの行"));
+    // 数の入る名前（結果の画面の「ほか○件を見る」。0212 の追記 2026-11-17）: 印を落とすと、数が出なくなることを注意する
+    let mut more = name_entry(
+        "result:dreamsAndPlans/more",
+        "ほか{count}を見る",
+        &["count"],
+    );
+    more["audience"] = json!("customer");
+    more["numberVars"] = json!(["count"]);
+    let tc2 = Catalog::parse(
+        &json!({ "schema": catalog::TERMS_CATALOG_SCHEMA, "entries": [more] }).to_string(),
+    )
+    .unwrap();
+    let ctx2 = env.ctx_of(Kind::Terms, &tc2);
+    env.write_kind(Kind::Terms, &json!({ "schema": "terms@1.0", "entries": [{ "id": "result:dreamsAndPlans/more", "name": "残りを表示", "basedOn": hash(&tc2, "result:dreamsAndPlans/more") }] }));
+    let st = ctx2.status();
+    assert!(st.errors.is_empty());
+    assert_eq!(
+        st.warnings
+            .iter()
+            .map(|w| (w.code, w.message.contains("件数などの数")))
+            .collect::<Vec<_>>(),
+        vec![("W_TERMS_VARS", true)]
+    );
+    env.write_kind(Kind::Terms, &json!({ "schema": "terms@1.0", "entries": [{ "id": "result:dreamsAndPlans/more", "name": "残り{count}を表示", "basedOn": hash(&tc2, "result:dreamsAndPlans/more") }] }));
+    assert!(ctx2.status().warnings.is_empty());
     // 版
     env.write_kind(
         Kind::Terms,

@@ -18,9 +18,10 @@ import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LAB
 import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseDatedYearMonth, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
-import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, type OfficeTextEntry } from "../office/customTexts.ts";
+import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, type OfficeTextEntry, type OfficeTexts } from "../office/customTexts.ts";
 import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "../office/customTextsContext.ts";
-import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId } from "./textIds.ts";
+import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId, helpTextId } from "./textIds.ts";
+import { NOTE_PARTS } from "./moneyRows.ts";
 import { fillName } from "../../../../report/src/rowNames.ts";
 import { ageExample, birthFromAge, convertWhen, endBeforeStart, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, typingCtx, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
@@ -261,11 +262,29 @@ export function OfficeTextMark({ entry, official }: { entry: OfficeTextEntry; of
   );
 }
 
+/**
+ * まとまりの注（「?」の中の文）のうち、説明の一覧に載せた部分（NOTE_PARTS。今は見込みが「不確実」の行の注記）に、承認した事務所の文を当てる。
+ * 注は「。」でつないだ1つの文なので、その部分だけを置き換える（ほかの部分は公式の文のまま。0212 の追記 2026-11-17）
+ */
+export function applyNoteParts(texts: OfficeTexts, note: string): { text: string; office: { entry: OfficeTextEntry; official: string }[] } {
+  if (texts.size === 0) return { text: note, office: [] };
+  let text = note;
+  const office: { entry: OfficeTextEntry; official: string }[] = [];
+  for (const p of NOTE_PARTS) {
+    if (!text.includes(p.text)) continue;
+    const ap = applyOfficeText(texts, p.id, p.text);
+    if (ap.office === null || ap.text === null) continue;
+    text = text.replace(p.text, ap.text);
+    office.push({ entry: ap.office, official: p.text });
+  }
+  return { text, office };
+}
+
 /** 欄の説明（「?」の中に入れる文）。承認した事務所の文があれば当てる（読むだけの理由には当てない）。無ければ null */
 function FieldHelp({ f, wh, extra = [] }: { f: FieldDef; wh: WorkingHousehold; extra?: readonly (string | null | undefined)[] }) {
   const texts = useContext(OfficeTextsContext);
   const help = f.readOnly === undefined && f.help !== undefined && f.help !== "" ? f.help : null;
-  const ap = help !== null && texts.size > 0 ? applyOfficeText(texts, fieldTextId(f, wh), help) : { text: f.readOnly ?? f.help ?? null, office: null };
+  const ap = help !== null && texts.size > 0 ? applyOfficeText(texts, helpTextId(f, wh), help) : { text: f.readOnly ?? f.help ?? null, office: null };
   const lines = [ap.text, f.sideEffects, ...extra].filter((x): x is string => x !== undefined && x !== null && x !== "");
   // 事務所の名前を当てた欄は、「?」でいつでも公式の名前を見られる（説明が無い欄でも「?」を出す）
   if (lines.length === 0 && f.officialLabel === undefined) return null;
@@ -626,6 +645,7 @@ function EstimateLine({ group, wh }: { group: GroupDef; wh: WorkingHousehold }) 
 export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub = [], nested = false, moreLast = false }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string; inner?: readonly InnerGroup[]; sub?: readonly ComponentChildren[]; nested?: boolean; moreLast?: boolean }) {
   // 事務所の欄の見せ方（カスタム層の隠す・並べ替え。見せ方だけで、世帯の値と計算は変えない。値の入った欄は隠さない）
   const layout = useContext(OfficeFieldsContext);
+  const texts = useContext(OfficeTextsContext);
   const arrange = (fs: readonly FieldDef[]) => arrangeFields(fs, (f) => fieldTextId(f, wh), (f) => hasFieldValue(f, wh), layout);
   // ふだんは閉じておくまとまり（folded。FoldedGroup.tsx）: 閉じている間は説明と開くボタンだけ
   const fold = useFold(group, useGroupOpen());
@@ -648,7 +668,16 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   const mainNodes = opened.rest.length > 0 ? [...main.nodes, ...opened.rest.map((x) => x.node)] : main.nodes;
   // 名前の無いまとまりの説明は、欄の並びの前に「?」だけを置く
   const gn = splitNote(group.note);
-  const noteHelp = gn.help !== null ? <Help label={group.title ?? "このまとまり"}>{helpBlocks(gn.help)}</Help> : null;
+  const gnote = gn.help !== null ? applyNoteParts(texts, gn.help) : null;
+  const noteHelp =
+    gnote !== null ? (
+      <Help label={group.title ?? "このまとまり"}>
+        {helpBlocks(gnote.text)}
+        {gnote.office.map((o) => (
+          <OfficeTextMark key={o.entry.id} entry={o.entry} official={o.official} />
+        ))}
+      </Help>
+    ) : null;
   const compact = group.band !== true && group.wideHead !== true && more?.open !== true && inner.length === 0 && sub.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
   return (
     <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}${compact ? " compact" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>

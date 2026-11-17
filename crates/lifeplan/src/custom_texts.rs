@@ -17,8 +17,10 @@ fn kind_label(file: &str, kind: &str) -> &'static str {
         ("texts", "notice") => "結果のタブの計算の知らせ",
         ("texts", "estimate") => "入力の欄の「推定」の根拠の文",
         ("texts", "result") => "結果の画面の文（結論の1文・取り崩しの条件・グラフの注・ポイント・夢と予定・万一のときの結論の1文）",
+        ("texts", "section") => "入力のまとまりの「?」の注（見込みが「不確実」の行の注記）",
         ("terms", "field") => "入力の欄の名前",
         ("terms", "row") => "キャッシュフロー表の行の名前（提案書・持ち帰り用のレポートも同じ名前）",
+        ("terms", "result") => "結果の画面の名前（夢と予定のまとまり・列の名前・見込み・「ほか○件を見る」）",
         ("fields", "field") => "入力の欄（隠す・まとまりの中で何番目に出すか）",
         _ => "",
     }
@@ -45,11 +47,12 @@ fn how_to(file: &str) -> Value {
     if file == "terms" {
         json!({
             "file": "settings/terms.json",
-            "shape": { "schema": "terms@1.0", "entries": [{ "id": "row:cf.expense.living", "name": "基本の生活費", "basedOn": "（一覧の hash をそのまま写す）" }] },
+            "shape": { "schema": "terms@1.0", "entries": [{ "id": "row:living", "name": "基本の生活費", "basedOn": "（一覧の hash をそのまま写す）" }] },
             "rules": [
                 "行は id・name・basedOn だけ。名前は1行・40字まで。消す・足すは無い（公式の名前に戻すときは行を消す）",
                 "basedOn には一覧の hash をそのまま写す（アプリの更新で公式の名前が変わったことを見つけるのに使う）",
-                "vars のある名前（人ごとの行など）は、その印（例 {person}）を名前に入れる",
+                "vars のある名前（人ごとの行・件数の入るボタンなど）は、その印（例 {person}・{count}）を名前に入れる。差し込む値は単位まで入る（例 {count} は「3件」）",
+                "audience が customer の名前は、お客さまと一緒に見る画面に出る（事務所の名前であることは画面に出さない）。名前を変えても計算の結果は変わらない",
             ],
         })
     } else {
