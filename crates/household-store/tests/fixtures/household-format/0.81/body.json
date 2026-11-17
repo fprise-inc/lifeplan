@@ -558,11 +558,6 @@
             "viewedAt": "2026-11-08T12:10:00Z"
           }
         ],
-        "origin": {
-          "at": "2026-11-17T01:00:00Z",
-          "connector": "test-ai 1.0",
-          "kind": "ai"
-        },
         "received": {
           "answers": [
             {
@@ -960,6 +955,7 @@
               "contributions": [],
               "id": "b6088c23-3c27-45c8-99a5-ce3b42939948",
               "kind": "deposit",
+              "label": "架空のさくら銀行（給与振込）",
               "marketValue": {
                 "approval": {
                   "at": "2026-11-03T10:20:00+09:00",
@@ -1053,6 +1049,7 @@
               },
               "id": "03c2def7-bbb4-4402-a039-abdb08cc570d",
               "kind": "nisa",
+              "label": "架空のみどり証券",
               "marketValue": {
                 "origin": {
                   "kind": "manual"
@@ -1306,6 +1303,7 @@
               },
               "id": "7fc64cf7-e50e-46f3-89f3-839d360b0667",
               "kind": "taxable",
+              "label": "架空のみどり証券",
               "marketValue": {
                 "origin": {
                   "kind": "manual"

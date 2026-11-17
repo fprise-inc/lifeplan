@@ -11,7 +11,7 @@ import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
 import { fieldStatus, typeValue } from "../valueState.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
-import { accountHolderRule, holderOptions, memberLabel } from "../labels.ts";
+import { accountHolderRule, accountLabelOf, accountLabelProblem, cleanAccountLabel, holderOptions, memberLabel, withAccountLabel } from "../labels.ts";
 import { buildStage } from "../stages/index.ts";
 import { accountMoreLabel, dropContributions, flowMatters, MAIN_ADD_KINDS, SETTLEMENT_CONTRIBUTION_UNUSED, SETTLEMENT_SAVES } from "../stages/savings.ts";
 import { revealAdded } from "../../../presentation/revealAdded.ts";
@@ -295,7 +295,7 @@ export interface SavingsPanelProps {
 export type FieldMap = ReadonlyMap<string, FieldDef>;
 
 /** 口座の表で入れる欄（口座ごとの詳細の区画には出さない） */
-const IN_TABLE = /\/(kind|owner|value|monthly|rate|cost|payout|payoutAge|payoutDest|payoutAt|payoutYears|lumpShare|enrolled)$/;
+const IN_TABLE = /\/(kind|label|owner|value|monthly|rate|cost|payout|payoutAge|payoutDest|payoutAt|payoutYears|lumpShare|enrolled)$/;
 
 export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
   const req = wh.request;
@@ -753,6 +753,97 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
   );
 }
 
+/**
+ * 口座の名前の欄（任意。0223）: 口座の表の「口座」の列に、種類の名前の下に細い欄で出す。名前の無い口座は欄を出さず、名義の横の小さな
+ * 「名前を付ける」のリンク（AccountsTable）で開く。打っている間は下書きだけで、離れたとき（Enter）に決める（NumBox と同じ）。
+ * 空にして離れたら名前を外して欄を閉じる。長すぎる名前・口座番号らしき数字は書かず、理由を欄の下に出す
+ */
+function AccountLabel(p: { a: Account; kindName: string; f: FieldDef | undefined; focus: boolean; onCommit: (v: string | null) => void; onClose: () => void }) {
+  const shown = accountLabelOf(p.a) ?? "";
+  const [draft, setDraft] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const start = useRef<string | null>(null);
+  /** Esc で打ちかけを捨てた（離れても書かない） */
+  const cancelled = useRef(false);
+  const el = useRef<HTMLInputElement>(null);
+  const leaveInput = useRef<(() => void) | null>(null);
+  const settleNow = useRef<() => Settled>(() => "none");
+  useEffect(() => {
+    if (p.focus) el.current?.focus();
+  }, [p.focus]);
+  useEffect(
+    () => () => {
+      leaveInput.current?.();
+      leaveInput.current = null;
+    },
+    [],
+  );
+  /** 打った文字を決める（入ったときと同じ文字なら何もしない。書けない名前は書かずに理由を出す） */
+  const decide = (t: string): Settled => {
+    if (!shouldCommitOnBlur(start.current, t)) return "none";
+    const why = accountLabelProblem(t);
+    setProblem(why !== null ? `入れられないため、前の名前のままです。${why}` : null);
+    if (why !== null) return "rejected";
+    const clean = cleanAccountLabel(t);
+    p.onCommit(clean === "" ? null : clean);
+    start.current = t;
+    if (clean === "") p.onClose();
+    return "committed";
+  };
+  settleNow.current = () => decide(el.current?.value ?? draft ?? shown);
+  const id = fieldDomId(`sav/${p.a.id}/label`);
+  return (
+    <span class="sv-lbl-w">
+      <input
+        ref={el}
+        id={id}
+        type="text"
+        class={`sv-lbl${problem !== null ? " bad" : ""}`}
+        value={draft ?? shown}
+        placeholder="名前（任意）例: ○○銀行"
+        aria-label={`${p.kindName}の名前（任意）`}
+        aria-invalid={problem !== null ? true : undefined}
+        aria-describedby={problem !== null ? `${id}-problem` : undefined}
+        title={p.f?.help}
+        data-account-label={p.a.id}
+        onFocus={() => {
+          setDraft(shown);
+          start.current = shown;
+          leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
+        }}
+        onInput={(e) => {
+          setDraft((e.currentTarget as HTMLInputElement).value);
+          setProblem(null);
+        }}
+        onBlur={(e) => {
+          leaveInput.current?.();
+          leaveInput.current = null;
+          const t = (e.currentTarget as HTMLInputElement).value;
+          // 書けない名前は前の名前のまま（理由は欄の下に残す）。Esc で捨てたときは書かない
+          if (!cancelled.current) decide(t);
+          cancelled.current = false;
+          setDraft(null);
+          start.current = null;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+          if (e.key === "Escape") {
+            cancelled.current = true;
+            setProblem(null);
+            (e.currentTarget as HTMLInputElement).blur();
+            if (shown === "") p.onClose();
+          }
+        }}
+      />
+      {problem !== null ? (
+        <span class="fld-help warn sv-rate-msg" id={`${id}-problem`} role="alert">
+          {problem}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function AccountsTable(p: {
   wh: WorkingHousehold;
   level: Level;
@@ -768,6 +859,8 @@ function AccountsTable(p: {
 }) {
   const { wh, level, method, stopAge, editAcc, editField, find, fields, onEdit, moreOf } = p;
   const opened = useGroupOpen();
+  // 「名前を付ける」で欄を開いた口座（名前を入れるまでの間だけ。名前のある口座は欄をいつも出す。0223）
+  const [naming, setNaming] = useState<string | null>(null);
   const req = wh.request;
   const h = req.input.household;
   const base = req.input.baseMonth;
@@ -847,6 +940,7 @@ function AccountsTable(p: {
             const open = more.length > 0 && opened.isOpen(moreKey);
             const owners = holderOptions(wh, accountHolderRule(a.kind), a.owner);
             const isSettle = a === settle;
+            const labelShown = accountLabelOf(a) !== null || naming === a.id;
             return (
               <Fragment key={a.id}>
               <tr data-account={a.kind}>
@@ -855,6 +949,17 @@ function AccountsTable(p: {
                     <i class="sw" style={{ background: info.color }} />
                     {name}
                   </span>
+                  {/* 名前（任意。0223）: 名前のある口座と「名前を付ける」で開いた口座だけ欄を出す */}
+                  {labelShown ? (
+                    <AccountLabel
+                      a={a}
+                      kindName={name}
+                      f={fields.get(`sav/${a.id}/label`)}
+                      focus={naming === a.id && accountLabelOf(a) === null}
+                      onCommit={(v) => editField(fields.get(`sav/${a.id}/label`), v)}
+                      onClose={() => setNaming(null)}
+                    />
+                  ) : null}
                   <span class="memo">{info.memo}</span>
                   <span class="own">
                     {/* 名義の候補は、その種類を持てる人だけ（iDeCo・NISA などに小さな子を出さない）。単身・ひとり親の預金の名義は詳細で選ぶ（0078） */}
@@ -869,6 +974,11 @@ function AccountsTable(p: {
                     ) : (
                       <span>{memberLabel(wh, a.owner)}</span>
                     )}
+                    {!labelShown && fields.has(`sav/${a.id}/label`) ? (
+                      <button type="button" class="link-btn sv-lbl-open" aria-label={`${name}に名前を付ける（任意）`} title="金融機関名や用途で口座を呼べます（入れなくても計算は同じです）" onClick={() => setNaming(a.id)} data-account-label-open={a.id}>
+                        名前を付ける
+                      </button>
+                    ) : null}
                     <button type="button" class="link-btn danger" onClick={() => editAcc((hh) => void (hh.accounts = (hh.accounts ?? []).filter((x) => x.id !== a.id)))}>
                       外す
                     </button>
@@ -1221,7 +1331,7 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
         const est = a.payout === undefined;
         const ageEst = payoutAgeOf(h, a) === null;
         const e = payoutEstimate(req, a);
-        const name = `${KIND_INFO[a.kind]?.name ?? ""}（${memberLabel(wh, a.owner)}）`;
+        const name = withAccountLabel(a, KIND_INFO[a.kind]?.name ?? "", memberLabel(wh, a.owner));
         const dest = a.payout?.destination ?? "deposit";
         return (
           <div class="sv-dc" key={a.id} data-payout={a.kind}>
@@ -1283,7 +1393,7 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
       })}
       {aids.map((a) => (
         <div class="sv-dc" key={a.id} data-payout={a.kind}>
-          <h4>{`${KIND_INFO[a.kind]?.name ?? ""}（${memberLabel(wh, a.owner)}）`}</h4>
+          <h4>{withAccountLabel(a, KIND_INFO[a.kind]?.name ?? "", memberLabel(wh, a.owner))}</h4>
           {generic(a, ["payout", "payoutAt", "payoutYears", "lumpShare", "enrolled"])}
         </div>
       ))}
