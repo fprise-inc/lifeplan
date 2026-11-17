@@ -201,7 +201,7 @@ export function householdOverview(input: EngineRequest["input"]): HouseholdOverv
     return { label: `${nameOf(p.member)}の${kind}`, value: `${money}${periodText(p.from, p.to)}`, ...(isEstimated(annual) ? { estimated: true } : {}) };
   });
   const assets: OverviewRow[] = (h.accounts ?? []).map((a) => ({
-    // AI が口座に付けた名前（整えた後）があれば添える（0221）
+    // AI が口座に付けた名前（整えた後）があれば添える（0223）
     label: withAccountLabel(a, labelOf(ACCOUNT_KINDS, a.kind, "資産"), nameOf(a.owner)),
     value: manText(boxValue(a.marketValue)),
     ...(isEstimated(a.marketValue) ? { estimated: true } : {}),

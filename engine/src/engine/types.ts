@@ -268,7 +268,7 @@ export type AccountKind =
 export interface AccountInput {
   readonly id: string;
   readonly kind: AccountKind;
-  /** 名前（金融機関名・用途など。40文字まで。表示だけで、計算には使わない。無ければ画面は種類と名義で呼ぶ。0221） */
+  /** 名前（金融機関名・用途など。40文字まで。表示だけで、計算には使わない。無ければ画面は種類と名義で呼ぶ。0223） */
   readonly label?: string;
   /**
    * その他の資産の細目（種類 otherAsset だけ。表示だけで、計算には使わない）: 自社株〔出資額〕・会社への貸付金（0105）と、貴金属・

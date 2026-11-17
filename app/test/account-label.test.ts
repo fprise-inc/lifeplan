@@ -1,4 +1,4 @@
-// 口座の名前（accounts[].label。金融機関名・用途など。表示だけで計算には使わない。形式 0.81。0221）:
+// 口座の名前（accounts[].label。金融機関名・用途など。表示だけで計算には使わない。形式 0.81。0223）:
 // 欄の書き方（整える・空と空白だけは名前なし・長さ・番号らしき数字）、名前が出る所（口座の表・まとまりの見出し・取り崩す順番・決済口座・
 // 年間収支の取り崩しの行・利回りの段階・資産運用の配分の項目）、計算の結果が変わらないこと、持ち帰り用のレポート、前回との違い、
 // 入れ方（合計・口座ごと）、世帯ファイルの読み書き（0.81 の見本と前の版）
@@ -51,7 +51,7 @@ function labelAll(req: EngineRequest): EngineRequest {
   return copy;
 }
 
-describe("名前の整え方と確かめ（0221）", () => {
+describe("名前の整え方と確かめ（0223）", () => {
   it("前後の空白を除き、続く空白・改行・タブを1つの空白にする。空・空白だけ・全角の空白だけは名前なし", () => {
     expect(cleanAccountLabel("  架空の銀行\t 普通\n口座  ")).toBe("架空の銀行 普通 口座");
     expect(cleanAccountLabel("　　")).toBe("");
@@ -77,7 +77,7 @@ describe("名前の整え方と確かめ（0221）", () => {
   });
 });
 
-describe("名前の欄（0221）", () => {
+describe("名前の欄（0223）", () => {
   it("金融資産の口座ごとに1つ（種類の次）。詳細の欄で、空欄は名前なし。合計の器・その他の資産には無い", () => {
     const wh = open();
     const keys = [...fieldsOf(wh).keys()];
@@ -138,7 +138,7 @@ describe("名前の欄（0221）", () => {
   });
 });
 
-describe("名前が出る所（0221）", () => {
+describe("名前が出る所（0223）", () => {
   it("まとまりの見出し・取り崩す順番・決済口座の選択肢・利回りの段階・資産運用の配分の項目に名前。無ければ今までどおり", () => {
     const wh = open();
     const [dep, inv] = [financial(wh).find((a) => a.kind === "deposit")!, financial(wh).find((a) => a.kind !== "deposit")!];
@@ -203,7 +203,7 @@ describe("名前が出る所（0221）", () => {
   });
 });
 
-describe("計算の結果は変わらない（0221）", () => {
+describe("計算の結果は変わらない（0223）", () => {
   it.each(MODEL_IDS)("%s: すべての口座に名前を付けても、表・要約・お知らせが同じ", (id) => {
     const req = modelHousehold(id);
     const a = preview(req);
@@ -228,7 +228,7 @@ describe("計算の結果は変わらない（0221）", () => {
   });
 });
 
-describe("持ち帰り用のレポート・前回との違い・世帯ファイル（0221）", () => {
+describe("持ち帰り用のレポート・前回との違い・世帯ファイル（0223）", () => {
   it("持ち帰り用のレポートの計算の要求に名前を残す（お客さまが自分の口座を見分ける名前）", () => {
     const req = labelAll(modelHousehold("investmentCouple"));
     const out = JSON.stringify(sanitizeRequest(req, new IdMap()));

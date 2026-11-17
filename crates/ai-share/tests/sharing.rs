@@ -250,7 +250,7 @@ fn custom_scope_adds_wrapped_texts_only() {
 
 #[test]
 fn account_label_is_left_out_by_default_and_wrapped_when_added() {
-    // 口座の名前（account.label。0221）: FP が書いた文なので、縮約版では外し、FP が足したときだけ包んだ文章として渡す
+    // 口座の名前（account.label。0223）: FP が書いた文なので、縮約版では外し、FP が足したときだけ包んだ文章として渡す
     let mut src = source("salariedCoupleTwoKids");
     let accounts = src.input["household"]["accounts"].as_array_mut().unwrap();
     assert!(!accounts.is_empty());

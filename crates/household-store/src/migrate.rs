@@ -284,7 +284,7 @@ pub const CURRENT: &str = "0.81";
 ///   足した（足すだけの MINOR）。印のある設定は事務所の既定値を読み、`display.result`・`display.balance` の値は印を付けたときの写し。前の版の
 ///   アプリは区画の知らない欄を読み落として書き戻し、印が外れる（事務所の既定値に従わなくなる）ので、版を上げて閲覧だけにする。変換の段は
 ///   形式の版だけを書き換える（前の版の世帯は欄が無い＝どの設定もその世帯の値のまま）。0.79 の段の後に積む
-/// - 0.81: 口座（資産の器）に名前 `accounts[].label`（金融機関名・用途など。40文字まで。表示だけで計算には使わない。0221）を足した
+/// - 0.81: 口座（資産の器）に名前 `accounts[].label`（金融機関名・用途など。40文字まで。表示だけで計算には使わない。0223）を足した
 ///   （足すだけの MINOR）。前の版のアプリは計算の入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は形式の版だけを
 ///   書き換える（前の版の世帯は欄が無い＝どの口座も名前なし。今までどおり種類と名義で呼ぶ）。0.80 の段の後に積む
 pub const KNOWN: &[&str] = &[
@@ -2613,7 +2613,7 @@ fn v0_79_to_0_80(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.80 → 0.81: 口座の名前 `accounts[].label`（0221）は任意の欄なので、形式の版だけを書き換える
+/// 0.80 → 0.81: 口座の名前 `accounts[].label`（0223）は任意の欄なので、形式の版だけを書き換える
 /// （前の版の世帯は欄が無い＝どの口座も名前なし。欄を書き足さない）
 fn v0_80_to_0_81(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
@@ -4105,7 +4105,7 @@ mod tests {
 
     #[test]
     fn v0_80_to_0_81_only_bumps_version() {
-        // 口座の名前（accounts[].label。0221）は足さない（前の版の世帯は、どの口座も名前なし）。口座のほかの欄に触れない
+        // 口座の名前（accounts[].label。0223）は足さない（前の版の世帯は、どの口座も名前なし）。口座のほかの欄に触れない
         let b = serde_json::json!({
             "meta": {"formatVersion": "0.80"},
             "household": {"request": {"input": {"household": {"accounts": [{"id": "a1", "kind": "nisa", "owner": "m1", "marketValue": {"value": 1000000, "state": "confirmed"}, "asOf": "2026-10", "contributions": []}]}}}},

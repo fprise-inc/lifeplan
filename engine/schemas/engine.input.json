@@ -873,7 +873,7 @@
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "器の種類", "x-item": "account.kind", "$ref": "#/$defs/accountKind" },
-        "label": { "title": "名前（金融機関名・用途など。表示用。計算には使わない。空や空白だけの名前は名前なしと同じに扱う。0221）", "x-item": "account.label", "type": "string", "maxLength": 40 },
+        "label": { "title": "名前（金融機関名・用途など。表示用。計算には使わない。空や空白だけの名前は名前なしと同じに扱う。0223）", "x-item": "account.label", "type": "string", "maxLength": 40 },
         "subtype": { "title": "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示と、売る予定の税の扱いの既定〔0123〕だけで使う。暗号資産は器の種類 cryptoAsset〔0122〕）と、貸していない不動産の細目（vacantLand 土地〔更地〕・forestFarm 山林や農地・villa 別荘・vacantHouse 空き家。種類 realEstate で中身 property の無いものだけ。表示と、売ったときの知らせ・画面の固定資産税の目安の元だけ。0123）", "x-item": "account.subtype", "enum": ["ownCompanyShares", "loanToCompany", "preciousMetal", "art", "membership", "securityDeposit", "businessAsset", "vacantLand", "forestFarm", "villa", "vacantHouse"] },
         "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "marketValue": { "title": "時価", "x-item": "account.marketValue", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },

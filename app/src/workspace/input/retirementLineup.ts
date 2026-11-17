@@ -115,7 +115,7 @@ function accountRows(wh: WorkingHousehold, a: Account, r: PreviewResult | null):
   const owner = h.members.find((x) => x.id === a.owner);
   if (owner === undefined) return [];
   const kind = a.kind === "ideco" ? "iDeCo" : a.kind === "corporateDc" ? "企業型DC" : (ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? a.kind);
-  // 名前のある口座は名前を添える（例「iDeCo（○○証券）の一時金」。0221）
+  // 名前のある口座は名前を添える（例「iDeCo（○○証券）の一時金」。0223）
   const named = accountLabelOf(a);
   const label = named !== null ? `${kind}（${named}）` : kind;
   const lumps = byYear(r, a.id, LUMP_ROWS);

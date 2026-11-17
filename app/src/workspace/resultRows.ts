@@ -53,7 +53,7 @@ export const OUTSIDE_INCOME_NOTE = "世帯の外の家族（家計が別）の�
 
 // ---- 年間収支の赤字の出どころ ----
 
-/** 口座の呼び名（名義人と種類。例: ご本人のNISA。FP が名前を付けた口座は「楽天証券（ご本人のNISA）」。0221） */
+/** 口座の呼び名（名義人と種類。例: ご本人のNISA。FP が名前を付けた口座は「楽天証券（ご本人のNISA）」。0223） */
 function accountName(req: EngineRequest, id: string): string {
   const a = (req.input.household.accounts ?? []).find((x) => x.id === id);
   if (a === undefined) return "口座";

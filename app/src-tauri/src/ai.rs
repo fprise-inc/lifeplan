@@ -1577,7 +1577,7 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（口座の名前〔0221〕で 0.81 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（口座の名前〔0223〕で 0.81 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT

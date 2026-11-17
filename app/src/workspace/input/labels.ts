@@ -435,11 +435,11 @@ export const BENEFITS: Option[] = [
   { value: "other", label: "その他" },
 ];
 
-/** 口座の名前の最大の長さ（文字。スキーマ engine.input の account.label の maxLength と同じ。0221） */
+/** 口座の名前の最大の長さ（文字。スキーマ engine.input の account.label の maxLength と同じ。0223） */
 export const ACCOUNT_LABEL_MAX = 40;
 
 /**
- * 口座の名前（金融機関名・用途など。0221）。前後の空白を除いた名前。空・空白だけ・名前の無い口座は null（今までどおり種類と名義で呼ぶ）。
+ * 口座の名前（金融機関名・用途など。0223）。前後の空白を除いた名前。空・空白だけ・名前の無い口座は null（今までどおり種類と名義で呼ぶ）。
  * 前の版の世帯・AI・取り込みで空白だけの名前が入っていても、名前の無い口座と同じに見せる
  */
 export function accountLabelOf(a: { label?: unknown }): string | null {
@@ -451,7 +451,7 @@ export function accountLabelOf(a: { label?: unknown }): string | null {
 /** 制御文字（書類の読み口の documents/privacy.ts と同じ範囲） */
 // eslint-disable-next-line no-control-regex
 const CONTROL = new RegExp("[\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029]", "gu");
-/** 打った名前を整える（改行・タブなどの制御文字を空白に、続く空白を1つに、前後の空白を除く。0221）。空なら空の文字 */
+/** 打った名前を整える（改行・タブなどの制御文字を空白に、続く空白を1つに、前後の空白を除く。0223）。空なら空の文字 */
 export function cleanAccountLabel(text: string): string {
   return text.replace(CONTROL, " ").replace(/\s+/gu, " ").trim();
 }
@@ -460,7 +460,7 @@ export function cleanAccountLabel(text: string): string {
 export const accountLabelLength = (text: string): number => [...text].length;
 
 /**
- * 打った名前の問題（長すぎる・口座番号などの番号らしき数字）。問題が無ければ null。書かずに、理由を欄の下に出す（0221）。
+ * 打った名前の問題（長すぎる・口座番号などの番号らしき数字）。問題が無ければ null。書かずに、理由を欄の下に出す（0223）。
  * 番号らしき数字の見分け方は明細の取り込みと同じ（statement の maskText: 7桁以上の数字・「口座番号」などの見出しの後の数字・10字以上の番号の並び）
  */
 export function accountLabelProblem(text: string): string | null {
@@ -472,7 +472,7 @@ export function accountLabelProblem(text: string): string | null {
 }
 
 /**
- * 名前のある口座の呼び名（0221）: 「名前（種類・名義）」。名前が無ければ「種類（名義）」（今までの形）。
+ * 名前のある口座の呼び名（0223）: 「名前（種類・名義）」。名前が無ければ「種類（名義）」（今までの形）。
  * 同じ金融機関に NISA と課税口座があっても見分けられるよう、名前があっても種類と名義を残す
  */
 export function withAccountLabel(a: { label?: unknown }, kind: string, owner: string | null): string {

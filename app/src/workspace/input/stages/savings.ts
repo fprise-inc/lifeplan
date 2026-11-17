@@ -357,12 +357,12 @@ function moveToRental(h: Household, x: Account): void {
   dropHeldCostRows(h, x.id);
 }
 
-/** 口座の名前の欄の説明（0221） */
+/** 口座の名前の欄の説明（0223） */
 export const ACCOUNT_LABEL_HELP =
   "金融機関名や用途（例: ○○銀行・△△証券・教育資金用）を入れると、口座の一覧・取り崩す順番・年間収支の取り崩しの行などで、この名前で呼びます（種類と名義も添えます）。入れなくても計算は同じです。氏名・口座番号は入れません。持ち帰り用のレポートにも出ます（AI に渡す範囲には既定で入れません）";
 
 /**
- * 口座の名前の欄（任意。表示だけで計算には使わない。0221）。打った文字は整えて（制御文字を空白に・続く空白を1つに・前後の空白を除く）書き、
+ * 口座の名前の欄（任意。表示だけで計算には使わない。0223）。打った文字は整えて（制御文字を空白に・続く空白を1つに・前後の空白を除く）書き、
  * 空・空白だけは欄ごと外す（名前なし）。長すぎる名前・口座番号らしき数字は書かずに理由を出す
  */
 export function accountLabelField(a: Pick<Account, "id">, find: Finder): FieldDef {
@@ -544,7 +544,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const groups: GroupDef[] = [
     {
       key: k,
-      // 名前のある口座は「名前（種類・名義）」（0221）
+      // 名前のある口座は「名前（種類・名義）」（0223）
       title: withAccountLabel(a, ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座", memberLabel(wh, a.owner)),
       ...(a.kind === "cryptoAsset" ? { note: CRYPTO_NOTE } : {}),
       level: "simple",
@@ -1032,7 +1032,7 @@ export function flowSection(wh: WorkingHousehold): SectionDef {
         label: "収支が入る口座（決済口座）",
         level: "detail",
         kind: "select",
-        // 同じ呼び名の預金が2つ以上あれば番号を添える（名前を付けた預金は名前で見分ける。0221）
+        // 同じ呼び名の預金が2つ以上あれば番号を添える（名前を付けた預金は名前で見分ける。0223）
         options: deposits.map((a, i) => ({ value: a.id, label: `${accountName(a, own(a.id))}${deposits.filter((x) => accountName(x, own(x.id)) === accountName(a, own(a.id))).length > 1 ? ` ${i + 1}` : ""}` })),
         help: "給与・年金が入り、生活費・ローンを払う預金。ここが足りなくなると、下の順番でほかの口座から取り崩します。最初は一覧の最初の預金になっています",
         get: (w) => {

@@ -754,7 +754,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
 }
 
 /**
- * 口座の名前の欄（任意。0221）: 口座の表の「口座」の列に、種類の名前の下に細い欄で出す。名前の無い口座は欄を出さず、名義の横の小さな
+ * 口座の名前の欄（任意。0223）: 口座の表の「口座」の列に、種類の名前の下に細い欄で出す。名前の無い口座は欄を出さず、名義の横の小さな
  * 「名前を付ける」のリンク（AccountsTable）で開く。打っている間は下書きだけで、離れたとき（Enter）に決める（NumBox と同じ）。
  * 空にして離れたら名前を外して欄を閉じる。長すぎる名前・口座番号らしき数字は書かず、理由を欄の下に出す
  */
@@ -859,7 +859,7 @@ function AccountsTable(p: {
 }) {
   const { wh, level, method, stopAge, editAcc, editField, find, fields, onEdit, moreOf } = p;
   const opened = useGroupOpen();
-  // 「名前を付ける」で欄を開いた口座（名前を入れるまでの間だけ。名前のある口座は欄をいつも出す。0221）
+  // 「名前を付ける」で欄を開いた口座（名前を入れるまでの間だけ。名前のある口座は欄をいつも出す。0223）
   const [naming, setNaming] = useState<string | null>(null);
   const req = wh.request;
   const h = req.input.household;
@@ -949,7 +949,7 @@ function AccountsTable(p: {
                     <i class="sw" style={{ background: info.color }} />
                     {name}
                   </span>
-                  {/* 名前（任意。0221）: 名前のある口座と「名前を付ける」で開いた口座だけ欄を出す */}
+                  {/* 名前（任意。0223）: 名前のある口座と「名前を付ける」で開いた口座だけ欄を出す */}
                   {labelShown ? (
                     <AccountLabel
                       a={a}

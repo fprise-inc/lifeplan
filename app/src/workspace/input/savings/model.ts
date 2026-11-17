@@ -741,7 +741,7 @@ export function withdrawableCount(req: EngineRequest): number {
   return (v.settlement !== undefined ? 1 : 0) + v.included.length + v.excluded.length;
 }
 
-/** 器の呼び名（種類と名義。例「NISA（夫）」。名前のある口座は「楽天証券（NISA・夫）」。0221） */
+/** 器の呼び名（種類と名義。例「NISA（夫）」。名前のある口座は「楽天証券（NISA・夫）」。0223） */
 export const accountName = (a: Account, owner: string): string => withAccountLabel(a, kindShort(a.kind), owner);
 /** 種類の短い名前（括弧の補足を除く。例「企業型DC」） */
 export const kindShort = (kind: string): string => (KIND_INFO[kind]?.name ?? "口座").replace(/（[^）]*）$/, "");

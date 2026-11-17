@@ -1069,7 +1069,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 個人事業税の業種の区分は 0.79 から（変換の段では足さない＝第1種）"
             );
         }
-        // 0.81 から: 口座の名前（accounts[].label。0221）。0.81 の見本は預金・NISA・課税口座の3つに名前（2つは同じ金融機関）
+        // 0.81 から: 口座の名前（accounts[].label。0223）。0.81 の見本は預金・NISA・課税口座の3つに名前（2つは同じ金融機関）
         let labels: Vec<&Value> = now["household"]["request"]["input"]["household"]["accounts"]
             .as_array()
             .map(|xs| xs.iter().filter_map(|a| a.get("label")).collect())

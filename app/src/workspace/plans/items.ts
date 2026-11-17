@@ -1045,7 +1045,7 @@ function mixItems(wh: WorkingHousehold): MovableItem[] {
         key: `mix:${a.id}`,
         item: "account.assetMix",
         target: { object: a.id },
-        // 名前のある口座は名前を添える（0221）
+        // 名前のある口座は名前を添える（0223）
         label: `資産運用の配分（${accountLabelOf(a) !== null ? `${accountLabelOf(a)}・` : ""}${kindLabel}・${memberLabel(wh, a.owner)}）`,
         short: "配分",
         group: "よく使う",
