@@ -30,6 +30,7 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
   { shape: "housing:housing/debt/*/label", why: "ローンの名前（表示用）" },
   { shape: "housing:housing/res/*/style", why: "建て方（表示と推定の元だけ）" },
   { shape: "housing:housing/debt/*/credit/newBuild", why: "新築か中古か（表示と推定の元だけ）" },
+  { shape: "housing:housing/res/*/purchase/insurance/prefecture", why: "建物のある都道府県（地震保険料の推定の元だけ。推定は画面の入れ直しで出し直す。計算エンジンは読まない。0224）" },
   { shape: "rental:housing/debt/*/label", why: "借入先（表示用）" },
   { shape: "rental:sav/*/property/name", why: "物件名（表示用）" },
   { shape: "rental:sav/*/property/location", why: "所在地（表示用）" },
