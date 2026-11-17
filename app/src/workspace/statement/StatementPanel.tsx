@@ -7,8 +7,10 @@
 // 明細のファイルのバイト列はこのパネルの中で読むときだけ持ち、閉じれば捨てる（世帯にも事務所データにも残さない）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
-import { CARD_ISSUERS, COLUMN_ROLES, LIVING_LABELS, markSheetWarnings, ROLE_LABELS, sameAsOtherAccount, WORK_STYLE_LABELS, type Bucket, type ColumnMapping, type ColumnRole, type Issue, type ReviewItem, type SourceKind, type StatementCandidate, type StatementCategory, type SameStatement, type StatementLog } from "../../../../statement/src/index.ts";
+import { CARD_ISSUERS, COLUMN_ROLES, LIVING_LABELS, markSheetWarnings, ROLE_LABELS, sameAsOtherAccount, WORK_STYLE_LABELS, type Bucket, type ColumnMapping, type ColumnRole, type Issue, type ReviewItem, type SourceKind, type StatementCandidate, type StatementCategory, type SameStatement, type StatementLog, type StatementReader } from "../../../../statement/src/index.ts";
 import type { SaveOutcome, StatementHost, StatementOfficeData } from "../../engine/host.ts";
+import { ImageCheck, ShootingTips } from "./ImageCheck.tsx";
+import { prepareImage, rasterizePdf } from "./rasterize.ts";
 import { approvalTime, randomBytes } from "../hearing/sheet.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
 import {
@@ -40,13 +42,19 @@ import {
   periodProblem,
   putRule,
   readFileWithYear,
+  editedRows,
+  editRowProblem,
+  editRowsOf,
+  isImageFile,
+  isImageRead,
+  readEdited,
+  statementReaders,
   readSheet,
   removeAccount,
   removeImport,
   oneOffNote,
   removeRule,
   requestSize,
-  rowsSpan,
   yearChoices,
   setInclude,
   setPeriod,
@@ -60,6 +68,7 @@ import {
   withSheetRequest,
   yen,
   type AccountDraft,
+  type EditRow,
   type Analysis,
   type ReadOk,
   type SheetRead,
@@ -259,6 +268,9 @@ function AccountsStep({ wh, log, onLog, onNext }: { wh: WorkingHousehold; log: S
 
 // ---- 2 明細の取り込み ----
 
+/** 読み手の呼び名（読んだ明細の見出しの横） */
+const READER_TEXT: Readonly<Record<string, string>> = { csv: "CSV", pdfText: "PDF", image: "写真・スクショ", pdfScan: "画像だけの PDF" };
+
 const SOURCE_TEXT: Record<ReadOk["mappingSource"], string> = {
   fp: "選び直した列の対応付けで読みました",
   learned: "事務所で覚えた列の対応付けで読みました",
@@ -348,15 +360,32 @@ function MappingEditor({ out, onMapping, busy }: { out: ReadOk; onMapping: (m: C
   );
 }
 
-interface Reading {
+interface ReadItem {
   bytes: Uint8Array;
+  out: ReadOk;
+  /** 写真・スクショ・画像だけの PDF の、画像の横で直す行（CSV・文字の入った PDF は null） */
+  rows: EditRow[] | null;
+}
+
+interface Reading {
   account: string;
   kind: SourceKind;
-  out: ReadOk;
+  /** 読んだファイル（写真・スクショは何枚か。1枚を1つの取り込みにする） */
+  items: ReadItem[];
+  /** 見ている画像 */
+  index: number;
   period: { from: string; to: string };
 }
 
-function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts }: { wh: WorkingHousehold; log: StatementLog; office: StatementOfficeData; host: StatementHost; onLog: (l: StatementLog) => void; onOffice: (o: StatementOfficeData) => void; onNext: () => void; onAccounts: () => void }) {
+const itemOf = (bytes: Uint8Array, out: ReadOk): ReadItem => ({ bytes, out, rows: isImageRead(out) ? editRowsOf(out) : null });
+
+/** 読んだファイルすべての使った日の最初と最後（直した行があればその日付から） */
+function readingSpan(items: readonly ReadItem[]): { from: string; to: string } | null {
+  const d = items.flatMap((it) => (it.rows !== null ? it.rows.map((r) => r.date).filter((x) => /^\d{4}-\d{2}-\d{2}$/u.test(x)) : it.out.rows.map((r) => r.date))).sort();
+  return d.length === 0 ? null : { from: d[0] as string, to: d[d.length - 1] as string };
+}
+
+function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, onAccounts }: { wh: WorkingHousehold; log: StatementLog; office: StatementOfficeData; host: StatementHost; readers: readonly StatementReader[]; onLog: (l: StatementLog) => void; onOffice: (o: StatementOfficeData) => void; onNext: () => void; onAccounts: () => void }) {
   const [account, setAccount] = useState<string | null>(log.accounts[0]?.id ?? null);
   const [reading, setReading] = useState<Reading | null>(null);
   const [failed, setFailed] = useState<readonly Issue[] | null>(null);
@@ -384,81 +413,130 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
     setFailed(null);
     setBusy(true);
     try {
-      const bytes = await host.open();
-      if (bytes === null) return;
-      const out = await readFileWithYear(bytes, acc.kind, office.formats);
-      if (!out.ok) {
-        setFailed(out.issues);
+      const files = await host.open();
+      if (files.length === 0) return;
+      if (files.length > 1 && !files.every(isImageFile)) {
+        setFailed([{ level: "error", code: "S_FORMAT_UNKNOWN", message: "何枚かまとめて選べるのは、写真・スクショだけです。CSV・PDF は1つずつ選んでください" }]);
         setReading(null);
         return;
       }
-      setReading({ bytes, account: acc.id, kind: acc.kind, out, period: rowsSpan(out) ?? { from: "", to: "" } });
-      setShowMap(out.needsMapping);
+      const items: ReadItem[] = [];
+      for (const [i, bytes] of files.entries()) {
+        const out = await readFileWithYear(bytes, acc.kind, office.formats, undefined, undefined, readers);
+        if (!out.ok) {
+          setFailed(files.length > 1 ? out.issues.map((x) => ({ ...x, message: `${i + 1}枚目: ${x.message}` })) : out.issues);
+          setReading(null);
+          return;
+        }
+        items.push(itemOf(bytes, out));
+      }
+      setReading({ account: acc.id, kind: acc.kind, items, index: 0, period: readingSpan(items) ?? { from: "", to: "" } });
+      setShowMap(items.length === 1 && (items[0] as ReadItem).out.needsMapping);
     } catch (e) {
-      setFailed([{ level: "error", code: "S_FORMAT_UNKNOWN", message: e === "E_IMPORT_TOO_LARGE" ? "ファイルが大きすぎます（10MBまで）。期間を分けて書き出してください" : `読み込めませんでした（${typeof e === "string" ? e : "E_STATEMENT_OPEN"}）` }]);
+      setFailed([{ level: "error", code: "S_FORMAT_UNKNOWN", message: e === "E_IMPORT_TOO_LARGE" ? "ファイルが大きすぎます（1つ10MB・まとめて100MBまで）。期間を分けて書き出してください" : e === "E_IMPORT_TOO_MANY" ? "一度に選べるのは30枚までです。何回かに分けて選んでください" : `読み込めませんでした（${typeof e === "string" ? e : "E_STATEMENT_OPEN"}）` }]);
     } finally {
       setBusy(false);
     }
   };
-  const remap = async (m: ColumnMapping) => {
+  /** 見ているファイルを読み直す（列の対応付け・年を選び直したとき。画像の横で直した行は読み直した行に戻る） */
+  const reread = async (m: ColumnMapping | undefined, year: number | undefined) => {
     if (reading === null) return;
+    const cur = reading.items[reading.index] as ReadItem;
     setBusy(true);
     try {
-      const out = await readFileWithYear(reading.bytes, reading.kind, office.formats, m, reading.out.yearless?.year);
+      const out = await readFileWithYear(cur.bytes, reading.kind, office.formats, m, year, readers);
       if (!out.ok) setFailed(out.issues);
-      else setReading({ ...reading, out, period: rowsSpan(out) ?? reading.period });
+      else {
+        const items = reading.items.map((it, i) => (i === reading.index ? itemOf(cur.bytes, out) : it));
+        setReading({ ...reading, items, period: readingSpan(items) ?? reading.period });
+      }
     } finally {
       setBusy(false);
     }
   };
+  const cur = reading?.items[reading.index];
+  const remap = (m: ColumnMapping) => void reread(m, cur?.out.yearless?.year);
   // 年の書かれていない明細の年を選び直す（FP が選び直した列の対応付けはそのまま）
-  const reyear = async (year: number) => {
+  const reyear = (year: number) => void reread(cur !== undefined && cur.out.mappingSource === "fp" ? cur.out.mapping : undefined, year);
+  const setRows = (i: number, rows: EditRow[]) => {
     if (reading === null) return;
-    setBusy(true);
-    try {
-      const out = await readFileWithYear(reading.bytes, reading.kind, office.formats, reading.out.mappingSource === "fp" ? reading.out.mapping : undefined, year);
-      if (!out.ok) setFailed(out.issues);
-      else setReading({ ...reading, out, period: rowsSpan(out) ?? reading.period });
-    } finally {
-      setBusy(false);
-    }
+    const items = reading.items.map((it, k) => (k === i ? { ...it, rows } : it));
+    const span = readingSpan(items);
+    setReading({ ...reading, items, period: span === null ? reading.period : { from: reading.period.from === "" || span.from < reading.period.from ? span.from : reading.period.from, to: reading.period.to === "" || span.to > reading.period.to ? span.to : reading.period.to } });
   };
+  const editProblem = reading?.items.some((it) => it.rows !== null && it.rows.some((r) => editRowProblem(r) !== null)) === true;
   const take = async (force = false) => {
     if (reading === null) return;
-    // 別の口座の行とほとんど同じ明細なら、取り込む前に聞く（「別の明細として取り込む」で force。0034 の8 の重ねない決めは変えない）
-    if (!force) {
-      const s = sameAsOtherAccount(log, reading.out.rows, reading.account);
-      if (s !== null) {
-        setSame(s);
-        return;
+    setBusy(true);
+    try {
+      // 画像の横で直した行を、今の取り込みの流れにもう一度通す（番号はここでもう一度消える）
+      const outs: ReadOk[] = [];
+      for (const it of reading.items) {
+        if (it.rows === null) {
+          outs.push(it.out);
+          continue;
+        }
+        const rows = editedRows(it.rows);
+        if (rows === null) return setMsg("直す表に、日付・店・金額の読めない行があります");
+        const o = await readEdited(it.bytes, it.out, rows, reading.kind);
+        if (!o.ok) return setFailed(o.issues);
+        outs.push(o);
       }
-    }
-    setSame(null);
-    const at = approvalTime();
-    const r = addImport(log, reading.out, { id: newId(), account: reading.account, at, period: reading.period });
-    if (!r.ok) {
-      setMsg(
-        r.reason === "duplicate"
-          ? "このファイルはもう取り込んでいます（同じファイルは2回取り込みません）"
-          : r.reason === "period"
-            ? "期間を確かめてください"
-            : r.reason === "tooMany"
-              ? "明細の行が多すぎるため取り込みませんでした（1つの世帯で5万行まで）。使わない明細を外してから取り込んでください"
-              : "取り込める行がありません。列の対応付けを確かめてください",
-      );
-      return;
-    }
-    onLog(r.log);
-    setReading(null);
-    setMsg(`「${accLabel(reading.account)}」に ${r.rows}行を取り込みました`);
-    const f = formatToLearn(reading.out, reading.kind, at);
-    if (f !== null) {
-      try {
-        onOffice(await host.learn([], [f]));
-      } catch {
-        setMsg(`「${accLabel(reading.account)}」に ${r.rows}行を取り込みました（列の対応付けは覚えられませんでした）`);
+      // 別の口座の行とほとんど同じ明細なら、取り込む前に聞く（「別の明細として取り込む」で force。0034 の8 の重ねない決めは変えない）
+      if (!force) {
+        const s = sameAsOtherAccount(log, outs.flatMap((o) => o.rows), reading.account);
+        if (s !== null) {
+          setSame(s);
+          return;
+        }
       }
+      setSame(null);
+      const at = approvalTime();
+      let next = log;
+      let total = 0;
+      for (const o of outs) {
+        const r = addImport(next, o, { id: newId(), account: reading.account, at, period: reading.period });
+        if (!r.ok) {
+          setMsg(
+            r.reason === "duplicate"
+              ? outs.length > 1
+                ? `${outs.indexOf(o) + 1}枚目はもう取り込んでいます（同じファイルは2回取り込みません）。その画像を外してから取り込んでください`
+                : "このファイルはもう取り込んでいます（同じファイルは2回取り込みません）"
+              : r.reason === "period"
+                ? "期間を確かめてください"
+                : r.reason === "tooMany"
+                  ? "明細の行が多すぎるため取り込みませんでした（1つの世帯で5万行まで）。使わない明細を外してから取り込んでください"
+                  : outs.length > 1
+                    ? `${outs.indexOf(o) + 1}枚目に取り込める行がありません。その画像を外すか、行を足してください`
+                    : "取り込める行がありません。列の対応付けを確かめてください",
+          );
+          return;
+        }
+        next = r.log;
+        total += r.rows;
+      }
+      onLog(next);
+      setReading(null);
+      const where = outs.length > 1 ? `（${outs.length}枚を、1枚ずつ別の取り込みにしました。重なった行は2回数えません）` : "";
+      setMsg(`「${accLabel(reading.account)}」に ${total}行を取り込みました${where}`);
+      const first = outs[0] as ReadOk;
+      const f = outs.length === 1 && !isImageRead(first) ? formatToLearn(first, reading.kind, at) : null;
+      if (f !== null) {
+        try {
+          onOffice(await host.learn([], [f]));
+        } catch {
+          setMsg(`「${accLabel(reading.account)}」に ${total}行を取り込みました（列の対応付けは覚えられませんでした）`);
+        }
+      }
+    } finally {
+      setBusy(false);
     }
+  };
+  const dropItem = (i: number) => {
+    if (reading === null) return;
+    const items = reading.items.filter((_, k) => k !== i);
+    if (items.length === 0) return setReading(null);
+    setReading({ ...reading, items, index: Math.min(reading.index, items.length - 1), period: readingSpan(items) ?? reading.period });
   };
 
   if (log.accounts.length === 0)
@@ -472,11 +550,14 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
         </div>
       </div>
     );
-  const out = reading?.out;
-  const pp = reading !== null ? periodProblem(reading.period, rowsSpan(reading.out)) : null;
+  const out = cur?.out;
+  const image = cur !== undefined && cur.rows !== null;
+  const rowCount = reading === null ? 0 : reading.items.reduce((n, it) => n + (it.rows ?? it.out.rows).length, 0);
+  const pp = reading !== null ? periodProblem(reading.period, readingSpan(reading.items)) : null;
   return (
     <div class="st-step" data-statement-step="import">
-      <p class="st-lead">口座・カードを選んでから、明細のファイル（CSV・TSV・文字の入った PDF）を選びます。読むのはこの PC の中だけで、外には送りません。</p>
+      <p class="st-lead">口座・カードを選んでから、明細のファイル（CSV・TSV・PDF、明細の写真・スクショ）を選びます。写真・スクショは何枚かまとめて選べます。読むのはこの PC の中だけで、外には送りません（文字は PC の OS の文字認識で読みます）。</p>
+      {reading === null ? <ShootingTips /> : null}
       <div class="st-pick" role="radiogroup" aria-label="取り込む口座・カード">
         {log.accounts.map((a) => (
           <button type="button" role="radio" key={a.id} aria-checked={account === a.id} class={account === a.id ? "on" : ""} onClick={() => setAccount(a.id)} data-statement-pick={a.kind}>
@@ -490,7 +571,7 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
           {busy && reading === null ? "読んでいます…" : "明細のファイルを選ぶ"}
         </button>
       </div>
-      {msg !== null ? (
+      {msg !== null && reading === null ? (
         <p class="hs-msg st-msg" role="status" data-statement-msg>
           {msg}
         </p>
@@ -506,10 +587,11 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
           <h3 class="st-h3">
             「{accLabel(reading.account)}」の明細を読みました
             <small>
-              {out.reader.id === "pdfText" ? "PDF" : "CSV"}・{out.rows.length}行{out.skipped > 0 ? `（読み飛ばした行 ${out.skipped}）` : ""}
+              {READER_TEXT[out.reader.id] ?? "CSV"}
+              {reading.items.length > 1 ? `・${reading.items.length}枚` : ""}・{rowCount}行{out.skipped > 0 ? `（読み飛ばした行 ${out.skipped}）` : ""}
             </small>
           </h3>
-          <p class={`rp-note${out.needsMapping ? " warn" : ""}`}>{SOURCE_TEXT[out.mappingSource]}</p>
+          {image && out.mappingSource === "reader" ? null : <p class={`rp-note${out.needsMapping ? " warn" : ""}`}>{SOURCE_TEXT[out.mappingSource]}</p>}
           <IssueList issues={out.issues} info />
           {out.yearless !== undefined ? (
             <div class="st-period st-year" data-statement-year>
@@ -535,6 +617,20 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
               列の対応付けを見る・選び直す
             </button>
           )}
+          {image && showMap ? <p class="rp-note">列を選び直すと、画像の横で直した行は読み直した行に戻ります。</p> : null}
+          {image ? (
+            <>
+              <ImageCheck items={reading.items.map((it) => ({ bytes: it.bytes, out: it.out, rows: it.rows ?? [] }))} index={reading.index} kind={reading.kind} busy={busy} onIndex={(i) => setReading({ ...reading, index: i })} onRows={setRows} />
+              {reading.items.length > 1 ? (
+                <div class="rp-actions">
+                  <button type="button" class="btn sm" disabled={busy} onClick={() => dropItem(reading.index)} data-statement-image-drop>
+                    この画像（{reading.index + 1}枚目）を外す
+                  </button>
+                </div>
+              ) : null}
+              <ShootingTips compact />
+            </>
+          ) : null}
           <div class="st-period">
             <span class="st-period-h">明細の期間</span>
             <input type="date" value={reading.period.from} onInput={(e) => setReading({ ...reading, period: { ...reading.period, from: (e.currentTarget as HTMLInputElement).value } })} aria-label="期間の始め" data-statement-from />
@@ -543,6 +639,11 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
             <small>使った日の最初と最後から入れています。12か月分の明細なら、明細の初日・末日に直すと月平均が正しくなります（使った日より狭くはできません）。</small>
           </div>
           {pp !== null ? <p class="fatal">{pp}</p> : null}
+          {msg !== null ? (
+            <p class="hs-msg st-msg" role="status" data-statement-msg>
+              {msg}
+            </p>
+          ) : null}
           {same !== null ? (
             <div class="rp-note warn" role="alert" data-statement-same>
               <p>
@@ -560,8 +661,8 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
             </div>
           ) : (
             <div class="rp-actions">
-              <button type="button" class="btn primary" disabled={busy || out.rows.length === 0 || pp !== null} onClick={() => void take()} data-statement-take>
-                取り込む（{out.rows.length}行）
+              <button type="button" class="btn primary" disabled={busy || rowCount === 0 || pp !== null || editProblem} onClick={() => void take()} data-statement-take>
+                取り込む（{rowCount}行）
               </button>
               <button type="button" class="btn" onClick={() => setReading(null)}>
                 やめる
@@ -1325,6 +1426,8 @@ export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose
     };
   }, [host]);
   const an = useMemo(() => (office === null ? null : analyze(wh, office.dictionary)), [wh, office]);
+  // 写真・スクショ・画像だけの PDF も読む読み手（文字は本体の OS の文字認識で読む。写真は向きをそろえてから渡す。パネルを開いている間は同じ画像を読み直さない）
+  const readers = useMemo(() => statementReaders(async (b) => host.ocr(await prepareImage(b)), rasterizePdf), [host]);
   const learn = (entries: ReturnType<typeof decide>["learn"]) => {
     if (officeErr !== null) return;
     host.learn(entries, []).then(setOffice, () => setMsg("事務所の辞書に覚えられませんでした（この世帯の決めたことは残っています）"));
@@ -1407,7 +1510,7 @@ export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose
           ) : step === "accounts" ? (
             <AccountsStep wh={wh} log={log} onLog={onLog} onNext={() => setStep("import")} />
           ) : step === "import" ? (
-            <ImportStep wh={wh} log={log} office={office} host={host} onLog={onLog} onOffice={setOffice} onNext={() => setStep("review")} onAccounts={() => setStep("accounts")} />
+            <ImportStep wh={wh} log={log} office={office} host={host} readers={readers} onLog={onLog} onOffice={setOffice} onNext={() => setStep("review")} onAccounts={() => setStep("accounts")} />
           ) : step === "review" ? (
             <ReviewStep wh={wh} log={log} an={an} office={office} host={host} {...(customerNo !== undefined ? { customerNo } : {})} onLog={onLog} onLearn={learn} onNext={() => setStep("result")} />
           ) : (

@@ -151,6 +151,50 @@ export function upgradeLearnedMapping(m: ColumnMapping, table: Table, kind: Sour
   return { ...m, columns };
 }
 
+/** 見出しの言葉（どの役割でも。looseKey の形） */
+const ALL_HEADER_KEYS: ReadonlySet<string> = new Set(Object.values(HEADER_WORDS).flatMap((w) => w.exact.map(looseKey)));
+
+/**
+ * 見出しの言葉だけが続いた文字（「ご利用日ご利用店名」。文字認識が近い見出しを1つの塊で返したとき）を、見出しの言葉ごとに分ける。
+ * 2つ以上に分けられなければ null。分けた所は元の文字のまま返す
+ */
+export function splitHeaderWords(text: string): string[] | null {
+  const chars = [...text];
+  const keys = chars.map((ch) => looseKey(ch));
+  const whole = keys.join("");
+  if (whole === "" || ALL_HEADER_KEYS.has(whole)) return null;
+  // looseKey の形の何文字目まで → 元の文字の何文字目まで
+  const at: number[] = [];
+  let n = 0;
+  keys.forEach((k, i) => {
+    n += [...k].length;
+    at[n] = i + 1;
+  });
+  const key = [...whole];
+  // 少ない数の言葉に分ける
+  const best: (number[] | null)[] = new Array<number[] | null>(key.length + 1).fill(null);
+  best[0] = [];
+  for (let i = 0; i < key.length; i++) {
+    const cur = best[i];
+    if (cur === null || cur === undefined) continue;
+    for (let j = key.length; j > i; j--) {
+      if (!ALL_HEADER_KEYS.has(key.slice(i, j).join(""))) continue;
+      const old = best[j];
+      if (old === null || old === undefined || cur.length + 1 < old.length) best[j] = [...cur, j];
+    }
+  }
+  const cuts = best[key.length];
+  if (cuts === null || cuts === undefined || cuts.length < 2) return null;
+  const out: string[] = [];
+  let from = 0;
+  for (const c of cuts) {
+    const to = at[c] ?? chars.length;
+    out.push(chars.slice(from, to).join("").trim());
+    from = to;
+  }
+  return out.every((p) => p !== "") ? out : null;
+}
+
 function headerScore(row: readonly string[], kind: SourceKind): number {
   const g = guessFromHeader(row, kind);
   const has = (r: ColumnRole) => g[r] !== undefined;
@@ -273,6 +317,8 @@ export interface ReadRow {
   readonly memo?: string;
   /** 年の無い日付を補った */
   readonly yearGuessed?: true;
+  /** 写真・スクショの文字の読み取りが不確か（読み違いを直した・2回の読みが食い違った・確からしさが低い。0034 の段階3）。FP が確かめれば外す */
+  readonly readUncertain?: true;
 }
 
 /**

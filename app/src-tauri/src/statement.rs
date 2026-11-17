@@ -6,9 +6,10 @@
 //!   返ってきたシートを選ばせて中身を返す。シートを作る・読むのは画面の statement/ の部品（土台は xlsx/）。パスは受け取らない・返さない。
 //! - 覚えた辞書と形（事務所データ。household-store の `statement_office`・`statement_learn`）を読み書きする。
 //!   直した人（`by`）は本体が決める（呼んだ側の値は使わない）。中身の検査は household-store が行う。
-//! - 明細の写真・スクショの文字を読む（0034 の段階3。試しの版）: 画面が渡した画像のバイト列を OS の文字認識（statement-ocr。
-//!   macOS は Vision、Windows は Windows.Media.Ocr）で読み、文字の塊（位置は画像に対する割合）だけを返す。ファイルを書かない・
-//!   ネットにつながない・外の AI に送らない。番号を消すのは受け取った画面の部品（statement/）。対応しない OS は「読めません」のコードを返す。
+//! - 明細の写真・スクショ・画像だけの PDF のページの文字を読む（0034 の段階3。0221）: 画面が渡した画像のバイト列を OS の文字認識
+//!   （statement-ocr。macOS は Vision、Windows は Windows.Media.Ocr で日本語と、数字の読み直しの英語の2回）で読み、文字の塊（位置は
+//!   画像に対する割合）と画像の大きさだけを返す。ファイルを書かない・ネットにつながない・外の AI に送らない。番号を消すのは受け取った
+//!   画面の部品（statement/）。対応しない OS・日本語の文字認識が無い Windows・古い Mac は、それぞれのコードを返す。
 
 use ::statement_ocr as ocr;
 use household_store::statement_dict::{DictionaryEntry, LearnedFormat, StatementOffice};
@@ -39,14 +40,31 @@ pub async fn statement_learn(
     blocking(app, move |s| s.statement_learn(&entries, &formats)).await
 }
 
-/// 明細のファイル（CSV・TSV・文字の入った PDF）を選んで、中身を返す。選ばなかったときは空
+/// 明細のファイル（CSV・TSV・PDF、写真・スクショは何枚か）を選んで、中身を返す。選ばなかったときは空。
+/// 返す形は [`pack_files`]（ファイル名・パスは入れない）
 #[tauri::command]
 pub async fn statement_open(window: WebviewWindow) -> Result<Response, String> {
-    Ok(Response::new(
-        crate::export::open_statement(&window, STATEMENT_MAX_BYTES)
-            .await?
-            .unwrap_or_default(),
-    ))
+    let files = crate::export::open_statement(&window, STATEMENT_MAX_BYTES).await?;
+    Ok(Response::new(pack_files(&files)))
+}
+
+/// 選んだファイルの並びを1つのバイト列にする（"STMF"・数〔u32 LE〕・それぞれの長さ〔u32 LE〕・中身を続けて）。選ばなかったときは空。
+/// 画面の `unpackFiles`（app/src/engine/host.ts）が読む
+pub fn pack_files(files: &[Vec<u8>]) -> Vec<u8> {
+    if files.is_empty() {
+        return Vec::new();
+    }
+    let mut out =
+        Vec::with_capacity(8 + files.len() * 4 + files.iter().map(Vec::len).sum::<usize>());
+    out.extend_from_slice(b"STMF");
+    out.extend_from_slice(&(files.len() as u32).to_le_bytes());
+    for f in files {
+        out.extend_from_slice(&(f.len() as u32).to_le_bytes());
+    }
+    for f in files {
+        out.extend_from_slice(f);
+    }
+    out
 }
 
 /// 明細の確認シート（画面の statement/ の部品が作った .xlsx のバイト列）を保存する。
@@ -76,12 +94,13 @@ pub async fn statement_sheet_save(
     export::save(&app, &window, ExportKind::StatementSheet, &name, bytes).await
 }
 
-/// 明細の写真・スクショ（PNG・JPEG・HEIC など。10MB まで）の文字を読む。本文は画像のバイト列。
-/// 返すのは文字の塊（`text`・`x`・`y`・`w`・`h` は画像の幅・高さに対する 0〜1 の割合で左上が原点。`conf` は Vision だけ）。
-/// 読めないときはコード（E_OCR_UNSUPPORTED: この OS では読めない・E_OCR_NO_LANGUAGE: 日本語の文字認識が入っていない・
-/// E_OCR_IMAGE: 画像として読めない・E_OCR_FAILED: 文字認識が失敗した）
+/// 明細の写真・スクショ・画像だけの PDF のページ（PNG・JPEG・HEIC など。10MB まで）の文字を読む。本文は画像のバイト列。
+/// 返すのは `{width, height, engine, boxes, digits?}`（画像の大きさ〔画素〕と、文字の塊。塊の `x`・`y`・`w`・`h` は画像の幅・高さに対する
+/// 0〜1 の割合で左上が原点。`conf` は Vision だけ。`digits` は Windows で英語でもう1回読んだ塊）。
+/// 読めないときはコード（E_OCR_UNSUPPORTED: この OS では読めない・E_OCR_NO_LANGUAGE: 日本語の文字認識が入っていない Windows・
+/// E_OCR_OLD_MAC: 日本語を読めない古い macOS・E_OCR_IMAGE: 画像として読めない・E_OCR_FAILED: 文字認識が失敗した）
 #[tauri::command]
-pub async fn statement_ocr(request: Request<'_>) -> Result<Vec<ocr::OcrBox>, String> {
+pub async fn statement_ocr(request: Request<'_>) -> Result<ocr::OcrPage, String> {
     let InvokeBody::Raw(bytes) = request.body() else {
         return Err("E_STATEMENT_OCR_BODY".to_owned());
     };
@@ -90,7 +109,7 @@ pub async fn statement_ocr(request: Request<'_>) -> Result<Vec<ocr::OcrBox>, Str
     }
     let bytes = bytes.clone();
     // OS の文字認識は時間がかかる（1枚に1秒前後）ので、画面の処理を止めないよう別のスレッドで読む
-    tauri::async_runtime::spawn_blocking(move || ocr::recognize(&bytes))
+    tauri::async_runtime::spawn_blocking(move || ocr::recognize_page(&bytes))
         .await
         .map_err(|_| "E_OCR_FAILED".to_owned())?
         .map_err(|e| e.code().to_owned())
@@ -124,6 +143,17 @@ pub async fn statement_sheet_open(window: WebviewWindow) -> Result<Response, Str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn packs_files_without_names() {
+        assert!(pack_files(&[]).is_empty());
+        let b = pack_files(&[b"ab".to_vec(), b"xyz".to_vec()]);
+        assert_eq!(&b[..4], b"STMF");
+        assert_eq!(u32::from_le_bytes(b[4..8].try_into().unwrap()), 2);
+        assert_eq!(u32::from_le_bytes(b[8..12].try_into().unwrap()), 2);
+        assert_eq!(u32::from_le_bytes(b[12..16].try_into().unwrap()), 3);
+        assert_eq!(&b[16..], b"abxyz");
+    }
 
     #[test]
     fn sheet_names_do_not_take_paths() {

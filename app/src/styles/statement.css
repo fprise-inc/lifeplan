@@ -140,3 +140,28 @@
 .st-cands .st-cand { display: grid; gap: 2px; }
 html.big .st-buckets button { font-size: 1.15rem; }
 .st-before { font-size: 0.85rem; color: var(--ink-2); font-weight: 700; }
+
+/* 写真・スクショ・画像だけの PDF の明細を、画像の横で確かめて直す（0034 の段階3） */
+.st-tips { border: 1px dashed var(--line); border-radius: 10px; padding: 6px 12px; font-size: 0.88rem; color: var(--ink-2); }
+.st-tips ul { margin: 4px 0 0; padding-left: 1.2em; }
+.st-img { display: grid; gap: 8px; }
+.st-img-pager { display: flex; gap: 6px; flex-wrap: wrap; }
+.st-img-pager button { border: 2px solid var(--line); background: var(--card); border-radius: 8px; padding: 2px 10px; font: inherit; font-weight: 700; cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline; }
+.st-img-pager button small { font-weight: 400; color: var(--ink-2); }
+.st-img-pager button.on { border-color: var(--prop); background: var(--prop-bg); color: var(--prop-ink); }
+.st-img-cols { display: grid; grid-template-columns: minmax(220px, 2fr) 3fr; gap: 12px; align-items: start; }
+@media (max-width: 900px) { .st-img-cols { grid-template-columns: 1fr; } }
+.st-img-view { position: sticky; top: 0; max-height: 70vh; overflow: auto; border: 1px solid var(--line-2); border-radius: 8px; background: var(--base-bg); }
+.st-img-page { display: block; width: 100%; height: auto; }
+.st-img-page + .st-img-page { border-top: 2px solid var(--line); }
+.st-img-table { display: grid; gap: 6px; min-width: 0; }
+.st-edit-t { border-collapse: collapse; font-size: 0.88rem; width: 100%; }
+.st-edit-t th, .st-edit-t td { border-bottom: 1px solid var(--line-2); padding: 3px 4px; text-align: left; vertical-align: top; }
+.st-edit-t th.num, .st-edit-t td.num { text-align: right; }
+.st-edit-t input { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; font: inherit; width: 100%; box-sizing: border-box; background: var(--card); color: var(--ink); }
+.st-edit-t td.num input { text-align: right; }
+.st-edit-t tr.unsure td { background: var(--est-bg); }
+.st-edit-t small.fatal { display: block; }
+.st-unsure { display: inline-flex; gap: 6px; align-items: center; margin-top: 2px; font-size: 0.8rem; font-weight: 700; color: var(--est-ink); }
+.st-edit-t td:first-child input { min-width: 8.6em; }
+.st-edit-t td.num input { min-width: 6em; }

@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.80";
+pub const CURRENT: &str = "0.81";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -284,6 +284,10 @@ pub const CURRENT: &str = "0.80";
 ///   足した（足すだけの MINOR）。印のある設定は事務所の既定値を読み、`display.result`・`display.balance` の値は印を付けたときの写し。前の版の
 ///   アプリは区画の知らない欄を読み落として書き戻し、印が外れる（事務所の既定値に従わなくなる）ので、版を上げて閲覧だけにする。変換の段は
 ///   形式の版だけを書き換える（前の版の世帯は欄が無い＝どの設定もその世帯の値のまま）。0.79 の段の後に積む
+/// - 0.81: 明細の取り込みの記録 `statements.imports[].rows[]` に、写真・スクショの文字の読み取りが不確かな行の印 `readUncertain`
+///   （true だけ。0034 の段階3・0221）を足した（足すだけの MINOR）。前の版のアプリは行の知らない欄を読み落として書き戻し、印が外れる
+///   （ヒアリングの迷う行・確認シートから消える）ので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は
+///   欄が無い＝どの行も印なし）。0.80 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -291,7 +295,7 @@ pub const KNOWN: &[&str] = &[
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80",
+    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81",
 ];
 
 /// 1段分の変換
@@ -697,6 +701,11 @@ pub const STEPS: &[Step] = &[
         from: "0.79",
         to: "0.80",
         apply: v0_79_to_0_80,
+    },
+    Step {
+        from: "0.80",
+        to: "0.81",
+        apply: v0_80_to_0_81,
     },
 ];
 
@@ -2605,6 +2614,16 @@ fn v0_79_to_0_80(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.80 → 0.81: 明細の行の読み取りが不確かの印 `statements.imports[].rows[].readUncertain`（0221）は任意の欄なので、形式の版だけを
+/// 書き換える（前の版の世帯は欄が無い＝どの行も印なし）
+fn v0_80_to_0_81(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.81".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3592,7 +3611,8 @@ mod tests {
         assert_eq!(access("0.78").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.79").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.80").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.81").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.81").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.82").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3605,7 +3625,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.81", b.clone()).unwrap(),
+            upgrade("0.82", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
