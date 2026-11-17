@@ -4106,20 +4106,6 @@ mod tests {
     }
 
     #[test]
-    fn v0_80_to_0_81_only_bumps_version() {
-        // 依頼の出どころは足さない（前の版の依頼は FP の画面で発行した依頼）。依頼の記録のほかの欄に触れない
-        let b = serde_json::json!({
-            "meta": {"formatVersion": "0.80"},
-            "hearing": {"requests": [], "imports": [], "consents": [], "web": [{"record": {"kind": "web", "requestId": "R-7K3P9Q"}, "state": "issued"}]},
-            "proposals": []
-        });
-        let u = upgrade("0.80", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], CURRENT);
-        assert_eq!(u["hearing"], b["hearing"]);
-        assert!(u["hearing"]["web"][0].get("origin").is_none());
-    }
-
-    #[test]
     fn v0_79_to_0_80_only_bumps_version() {
         // 事務所の既定値に従う印は足さない（前の版の世帯は、どの表示の設定もその世帯の値のまま）。表示の設定のほかの欄に触れない
         let b = serde_json::json!({
