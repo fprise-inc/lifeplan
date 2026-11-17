@@ -360,6 +360,9 @@ function feeItem(wh: WorkingHousehold): MovableItem[] {
 
 const WORKING_TYPES = new Set(["regular", "contract", "partTime", "civilServant", "executive"]);
 
+/** 収入のある働き方か（勤め・自営業。結果のタブの「足りる境目」を出す世帯か。0221） */
+export const earningType = (type: string): boolean => WORKING_TYPES.has(type) || type === "selfEmployed";
+
 /** 計算基準月にしている働き方の期間か、これから始まる最初の期間（終わった期間だけなら無し。終わった働き方は動かさない） */
 export function nowPeriodOf(h: Household, memberId: string, baseMonth: string): EmploymentPeriod | undefined {
   const ps = (h.employmentPeriods ?? []).filter((e) => e.member === memberId).sort((a, b) => ((a.from.at ?? "") < (b.from.at ?? "") ? -1 : 1));

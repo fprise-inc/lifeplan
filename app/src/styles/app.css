@@ -1300,8 +1300,8 @@ html.big .chart .hv-dot { stroke-width: 3; }
 /* 計算のお知らせとポイント（0064・0074 の追記 2026-11-12）: 閉じているときは灰色の小さい1行に並べる。色の強い枠・背景は使わない。
    2つの外枠は display: contents にして、押す所（.quiet-toggle）を同じ行に、開いた中身（.cn-body・.ins-body）をその下の全幅に出す */
 .result-quiet { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 18px; margin-top: 6px; }
-.result-quiet > .calc-notices, .result-quiet > .fp-insights { display: contents; }
-.result-quiet .cn-body, .result-quiet .ins-body { order: 1; flex-basis: 100%; min-width: 0; }
+.result-quiet > .calc-notices, .result-quiet > .fp-insights, .result-quiet > .threshold { display: contents; }
+.result-quiet .cn-body, .result-quiet .ins-body, .result-quiet .th-body { order: 1; flex-basis: 100%; min-width: 0; }
 .quiet-toggle { appearance: none; border: 0; background: none; padding: 2px 0; margin: 0; font: inherit; font-size: 0.82rem; line-height: 1.5; color: var(--base-ink); cursor: pointer; }
 .quiet-toggle:hover { color: var(--ink); text-decoration: underline; }
 .quiet-toggle[aria-expanded="true"] { color: var(--ink-2); }
@@ -1322,6 +1322,31 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .cn-office span { display: block; margin-top: 2px; }
 .cn-hidden { margin-top: 8px; color: var(--ink-2); }
 .cn-hidden summary { font-size: 0.86rem; }
+/* 足りる境目（0221）: 開いたときだけ、小さな表（行＝利回り・年齢、列＝5通りの利回り）。今のプランの列は太字と薄い地。押せる列は押す所の形にする。
+   狭い幅・文字の大きさ「大」では表の枠の中だけ横に送る（画面は横にはみ出さない） */
+.th-body { padding: 2px 0 6px; }
+.th-h { font-size: 0.9rem; margin: 8px 0 4px; }
+.th-scroll { overflow-x: auto; max-width: 100%; }
+.th-table { border-collapse: collapse; font-size: 0.86rem; line-height: 1.4; }
+.th-table th, .th-table td { border-bottom: 1px solid var(--line-2); padding: 4px 8px; text-align: center; vertical-align: middle; font-weight: 400; }
+.th-table th[scope="row"] { text-align: left; color: var(--ink-2); white-space: nowrap; padding-left: 0; }
+.th-table td { min-width: 4.6em; max-width: 8em; }
+.th-who { font-size: 0.8rem; }
+.th-table .th-now { font-weight: 700; background: var(--base-bg); }
+.th-table td.th-short { color: var(--short-ink); }
+.th-use { appearance: none; border: 1px solid var(--line); border-radius: 6px; background: var(--card); padding: 2px 8px; font: inherit; color: inherit; cursor: pointer; }
+.th-use:hover { border-color: var(--prop); background: var(--prop-bg); }
+.th-use, .th-table th[scope="col"] { white-space: nowrap; }
+.th-note { margin: 4px 0 0; font-size: 0.8rem; color: var(--ink-2); }
+/* 狭い幅: 行の名前は折り返し、ますの余白を詰めて5列を幅に収める（収まらないときだけ表の枠の中で横に送る） */
+@media (max-width: 639.98px) {
+  .th-table { font-size: 0.8rem; }
+  .th-table th, .th-table td { padding: 3px 3px; }
+  .th-table th[scope="row"] { white-space: normal; min-width: 4.5em; }
+  .th-table td { min-width: 0; }
+  .th-who { display: block; }
+  .th-use { padding: 2px 4px; }
+}
 
 /* ③ 対策 */
 .levers { padding: 12px 18px 14px; }

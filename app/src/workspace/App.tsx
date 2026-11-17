@@ -3,7 +3,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
-import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type PreviousGeneration, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
+import { batchCompute, devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type PreviousGeneration, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
 import { ALL_ROWS, applyRowsView, forEngine, pickRow, type RowsView } from "../engine/moneyRows.ts";
 import { CalcNotices } from "./CalcNotices.tsx";
@@ -73,6 +73,8 @@ import type { ExtValue } from "../../../report/src/index.ts";
 import { combinedHiddenText, expiredFor, featureOn, NO_FEATURES, type FeatureStatus } from "./office/featureCodes.ts";
 import { FpTools } from "./tools/FpTools.tsx";
 import { EndYearNote, Insights, useInheritanceFor } from "./tools/Insights.tsx";
+import { Threshold } from "./tools/Threshold.tsx";
+import { cellValues, lastsToEnd, RATE_KEY, RETIRE_KEY, thresholdSetup, type Judge } from "./tools/threshold.ts";
 import { pensionNotices } from "./input/stages/pension.ts";
 import { withProvisionalHousing } from "./input/housingCredit.ts";
 import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
@@ -214,6 +216,8 @@ export function parseHash(hash: string): {
   officeDefaults?: boolean;
   /** 結果のタブの計算の知らせを開いた状態で開く（#notices） */
   notices?: boolean;
+  /** 結果のタブの「足りる境目」を開いた状態で開く（#threshold。画面の確かめ用。0221） */
+  threshold?: boolean;
   /** #bell: 上の帯のお知らせの一覧を開いて開く（#bell=鍵 はその1件の詳しい中身。画面の確かめ用。0087） */
   bell?: string | null;
   /** #feedback: 「要望・不具合を送る」を開いて開く（画面の確かめ用） */
@@ -298,6 +302,7 @@ export function parseHash(hash: string): {
     else if (k === "officedefaults") out.officeDefaults = true;
     else if (k === "premisemenu") out.premiseMenu = true;
     else if (k === "notices") out.notices = true;
+    else if (k === "threshold") out.threshold = true;
     else if (k === "bell") out.bell = v !== undefined && v !== "" ? decodeURIComponent(v) : null;
     else if (k === "feedback") out.feedback = true;
     else if (k === "documents") out.documents = v === "sample" ? "sample" : "open";
@@ -1763,6 +1768,8 @@ export function App() {
   );
   /** 取り崩しの計算・前回の控えの1回（本体の正の計算。同時に頼まれても1つずつ・同じ要求は1回） */
   const computeOne = useMemo(() => (host === null ? async (): Promise<PreviewResult | null> => null : singleCompute(host)), [host]);
+  /** 何件かをまとめて頼む正の計算（結果のタブの「足りる境目」。0221） */
+  const computeBatch = useMemo(() => (host === null ? null : batchCompute(host)), [host]);
   /**
    * 表示の設定をその世帯で変える（元に戻すの履歴に入る）。値の変わった設定は「事務所の既定値に従う」の印を外し、この世帯だけの値にする（0213 の段C）
    */
@@ -2618,6 +2625,27 @@ export function App() {
     const changes = !modified.has(work.sel) ? changesOf(opened.wh.proposals, work.sel, opened.wh, opened.catalog) : changesOfValues(v, opened.wh, opened.catalog);
     return { changes, suggested: suggestName(opened.wh.proposals, v, opened.wh, opened.catalog, work.sel) };
   }, [opened, work, modified]);
+
+  // 結果のタブの「足りる境目」（0221）: 選んでいるプランの値（と結果の見方）が変わったときだけ、列と判定を作り直す
+  const selKey = JSON.stringify(selValues);
+  const thSetup = useMemo(() => (opened === null ? null : thresholdSetup(opened.wh, opened.catalog, selValues)), [opened, selKey]);
+  const thJudge = useMemo((): Judge | null => {
+    if (opened === null || computeBatch === null) return null;
+    const values = selValues;
+    const view = rowsView;
+    return async (cells) => {
+      // 表に出している結果と同じ要求（プランの値を当て、結果の見方を当てる。reqOf と同じ。覚えの数を食わないように覚えずに作る）
+      const reqs = cells.map((c) => applyRowsView(applyValues(opened.wh, cellValues(values, c.rate, c.age), opened.catalog), view));
+      const res = await computeBatch(reqs);
+      return res.map((r, i) => (r === null ? null : lastsToEnd(reqs[i] as EngineRequest, r)));
+    };
+  }, [opened, computeBatch, selKey, rowsView]);
+  /** 「足りる境目」の列を押した: 対策の「働く最後の年齢」と「運用の利回り」を、スライダーを動かしたのと同じく変える（元に戻すの1回で両方戻る） */
+  const applyThreshold = (rate: string, age: number) =>
+    history.track(() => {
+      setValue(RETIRE_KEY, age, "slide");
+      setValue(RATE_KEY, rate, "release");
+    });
 
   const shownSet = new Set(shown);
   const removeItem = (o: Opened, k: string) => {
@@ -3512,6 +3540,7 @@ export function App() {
                   <div class="result-quiet">
                     <CalcNotices rows={calcNotices} onOpenCard={openCard} {...(initial.notices === true ? { initialOpen: true } : {})} />
                     {selReq !== null ? <Insights req={selReq} result={selRes} months={bsSettings.moneyThree.months} inheritance={insightInheritance} computeOne={computeOne} onYear={pinYear} /> : null}
+                    {thSetup !== null && thJudge !== null && !failed ? <Threshold setup={thSetup} judge={thJudge} plan={names.selected} locked={locked !== null} onUse={applyThreshold} {...(initial.threshold === true ? { initialOpen: true } : {})} /> : null}
                   </div>
                 </>
               }

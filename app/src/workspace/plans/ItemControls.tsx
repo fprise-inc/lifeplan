@@ -218,11 +218,15 @@ function FieldAmountSlider({ item, value, onSlide, onRelease, slider }: ItemRowP
 
 function RateRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "rate" } } }) {
   const c = item.control;
-  const min = rateToInt(c.min);
-  const max = rateToInt(c.max);
   const step = rateToInt(c.step);
+  // 今の値・基準の値がスライダーの外にあれば広げる（結果のタブの「足りる境目」・AI の候補から入れた値。年齢のスライダーと同じ。0221）
+  const inside = [value, base].filter((x): x is string => typeof x === "string").map(rateToInt);
+  const min = Math.min(rateToInt(c.min), ...inside);
+  const max = Math.max(rateToInt(c.max), ...inside);
   const v = typeof value === "string" ? rateToInt(value) : min;
   const b = typeof base === "string" ? base : c.min;
+  // 端の文字: 広げた端は、その値の文字（10進の文字列のまま）
+  const endText = (n: number, orig: string) => (n === rateToInt(orig) ? orig : ([value, base].find((x): x is string => typeof x === "string" && rateToInt(x) === n) ?? intToRate(n)));
   return (
     <>
       <input
@@ -240,11 +244,11 @@ function RateRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }
         onKeyUp={onRelease}
       />
       <div class="range-scale">
-        <span>{pctText(c.min)}</span>
+        <span>{pctText(endText(min, c.min))}</span>
         <span class="base-mark">
           {baseLabel} {pctText(b)}
         </span>
-        <span>{pctText(c.max)}</span>
+        <span>{pctText(endText(max, c.max))}</span>
       </div>
     </>
   );

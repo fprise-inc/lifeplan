@@ -1089,6 +1089,31 @@ export function singleCompute(host: Pick<HostApi, "compute">): (req: EngineReque
   };
 }
 
+/**
+ * 何件かをまとめて頼む正の計算（結果のタブの「足りる境目」。0221）。1回の呼び出しで全部を本体に渡し（本体は枠を同時に計算する）、
+ * 頼んだ順に結果を返す。違う呼び出しは1つずつ順に計算する。本体の失敗とエンジンのエラーは null（呼び出し側が「計算しています…」のまま残らない）
+ */
+export function batchCompute(host: Pick<HostApi, "compute">): (reqs: readonly EngineRequest[]) => Promise<(PreviewResult | null)[]> {
+  let queue: Promise<unknown> = Promise.resolve();
+  return (reqs) => {
+    const run = async (): Promise<(PreviewResult | null)[]> => {
+      if (reqs.length === 0) return [];
+      try {
+        const res = await host.compute(reqs.map((r, i) => ({ id: `b${i}`, rev: 1, request: JSON.stringify(forEngine(r)) })));
+        return reqs.map((_, i) => {
+          const r = res.slots[`b${i}`]?.result;
+          return r === undefined || isEngineError(r) ? null : r;
+        });
+      } catch {
+        return reqs.map(() => null);
+      }
+    };
+    const p = queue.then(run);
+    queue = p;
+    return p;
+  };
+}
+
 /** 開発用のサーバーの答え（失敗は符号の文字列で投げる。本体の命令と同じ） */
 async function devJson<T>(res: Response): Promise<T> {
   if (!res.ok) throw (await res.text()) || `E_DEV_${res.status}`;
