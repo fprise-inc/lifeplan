@@ -1,4 +1,4 @@
-// 住宅購入の予定の火災保険・地震保険（0221）のテスト（L1）: 購入の月（注文住宅は引き渡しの月）から契約の年数ごとに払う（housing.residence 改訂9）、
+// 住宅購入の予定の火災保険・地震保険（0224）のテスト（L1）: 購入の月（注文住宅は引き渡しの月）から契約の年数ごとに払う（housing.residence 改訂9）、
 // 住み終わり・計算の最後の年・保険の入力項目で入れた印との境目、地震保険の分の地震保険料控除（tax.deductions 改訂9。年数で割った額を毎年）
 import { describe, expect, it } from "vitest";
 import { runEngine } from "../src/engine/run.ts";

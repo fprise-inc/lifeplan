@@ -574,7 +574,7 @@ export interface ResidenceInput {
     /** 0115: 引き渡しの前に頭金から払う建物の代金（契約金・着工金・中間金。頭金の内数）。残りの頭金は引き渡しの月（at）に払う */
     readonly payments?: readonly { readonly id?: string; readonly at: Timepoint; readonly amount: Yen; readonly kind?: "contract" | "start" | "interim" | "other" }[];
     /**
-     * 0221: 買った後の火災保険・地震保険（建物）。買った月（注文住宅は引き渡しの月）に years 年分を払い、その後は years 年ごとに払う
+     * 0224: 買った後の火災保険・地震保険（建物）。買った月（注文住宅は引き渡しの月）に years 年分を払い、その後は years 年ごとに払う
      * （住み終わりの月より前の更新まで）。保険料は1回に払う years 年分の額（伸ばさない）。地震保険の分は地震保険料控除に入れる（年数で割った額を毎年）
      */
     readonly homeInsurance?: HomeInsuranceInput;
@@ -604,7 +604,7 @@ export interface ResidenceInput {
   };
 }
 
-/** 住宅購入の予定の火災保険・地震保険（0221） */
+/** 住宅購入の予定の火災保険・地震保険（0224） */
 export interface HomeInsuranceInput {
   /** 1回の契約の年数（1〜5。火災保険・地震保険とも最長5年） */
   readonly years: number;

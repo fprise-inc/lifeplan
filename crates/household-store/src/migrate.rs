@@ -285,7 +285,7 @@ pub const CURRENT: &str = "0.81";
 ///   アプリは区画の知らない欄を読み落として書き戻し、印が外れる（事務所の既定値に従わなくなる）ので、版を上げて閲覧だけにする。変換の段は
 ///   形式の版だけを書き換える（前の版の世帯は欄が無い＝どの設定もその世帯の値のまま）。0.79 の段の後に積む
 /// - 0.81: 住宅購入の予定に、買った後の火災保険・地震保険 `residences[].purchase.homeInsurance`（契約の年数 `years`・年数分の火災保険料 `fire`・
-///   地震保険料 `earthquake`〔値の箱〕・推定の元の都道府県 `prefecture`・保険の入力項目で入れた印 `countedInInsurance`）を足した（0221。
+///   地震保険料 `earthquake`〔値の箱〕・推定の元の都道府県 `prefecture`・保険の入力項目で入れた印 `countedInInsurance`）を足した（0224。
 ///   足すだけの MINOR。計算に使う）。前の版のアプリは計算の入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は
 ///   形式の版だけを書き換える（前の版の世帯は欄が無い＝計算に入らない。画面は開いたときに、これから買う家の購入の予定へ推定で足す）。
 ///   0.80 の段の後に積む
@@ -2615,7 +2615,7 @@ fn v0_79_to_0_80(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.80 → 0.81: 住宅購入の予定の火災保険・地震保険 `residences[].purchase.homeInsurance`（0221）は任意の欄なので、形式の版だけを書き換える
+/// 0.80 → 0.81: 住宅購入の予定の火災保険・地震保険 `residences[].purchase.homeInsurance`（0224）は任意の欄なので、形式の版だけを書き換える
 /// （前の版の世帯は欄が無い＝計算に入らない。欄を書き足さない。画面が開いたときに、これから買う家の購入の予定へ推定で足す）
 fn v0_80_to_0_81(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;

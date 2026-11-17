@@ -1,4 +1,4 @@
-// 住宅購入の予定の火災保険・地震保険（0221）: 目安（建物の種類・構造・都道府県・年数）、推定で足す・入れ直す、FP が入れた額を変えない、
+// 住宅購入の予定の火災保険・地震保険（0224）: 目安（建物の種類・構造・都道府県・年数）、推定で足す・入れ直す、FP が入れた額を変えない、
 // 前に買った家・今の持ち家には足さない、保険の入力項目の損害保険との二重の計上の注意、計算の表と地震保険料控除、見本の世帯
 import { afterEach, describe, expect, it } from "vitest";
 import type { PreviewResult, Residence } from "../src/engine/types.ts";
@@ -82,7 +82,7 @@ describe("目安の式（建物の種類ごと）", () => {
   });
 });
 
-describe("住宅購入の予定の欄（0221）", () => {
+describe("住宅購入の予定の欄（0224）", () => {
   it("住宅購入の予定を足すと、5年分の火災保険・地震保険を推定で入れる。保険料の欄は標準、年数・都道府県・印は詳細", () => {
     const wh = action(salaried(), "housing", "housing/addPurchase");
     expect(ins(wh)).toMatchObject({ years: 5, fire: { state: "estimated", value: 91000 }, earthquake: { state: "estimated", value: 243400 } });
@@ -139,7 +139,7 @@ describe("住宅購入の予定の欄（0221）", () => {
   });
 });
 
-describe("保険の入力項目の損害保険と二重に数えない（0221）", () => {
+describe("保険の入力項目の損害保険と二重に数えない（0224）", () => {
   const withNonLife = () => action(action(salaried(), "housing", "housing/addPurchase"), "insurance", "ins/addNonLife");
   const notice = (wh: WorkingHousehold) => checkList(wh).find((r) => r.id.startsWith("notice:housing/homeInsurance/"));
 

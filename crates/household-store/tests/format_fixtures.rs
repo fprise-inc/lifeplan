@@ -221,7 +221,7 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(follow.is_none(), "{v}: 印は変換で書き足さない");
         }
-        // 0.81 から: 住宅購入の予定の火災保険・地震保険（0221）。変換で書き足さない（前の版の世帯は欄が無い＝計算に入らない）。
+        // 0.81 から: 住宅購入の予定の火災保険・地震保険（0224）。変換で書き足さない（前の版の世帯は欄が無い＝計算に入らない）。
         // 0.81 の見本は中古の戸建ての購入に推定の5年分（東京都）と、注文住宅に1年分の保険の入力項目で入れた印
         let insured: Vec<&Value> = now["household"]["request"]["input"]["household"]["residences"]
             .as_array()

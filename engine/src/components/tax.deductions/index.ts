@@ -7,7 +7,7 @@
 // 自動で切り替わる。0156）。
 // 住民税の調整控除の人的控除額の差は、寡婦1万円・ひとり親（母）5万円・ひとり親（父）1万円（制度データ）
 // 改訂（0044）: 合計所得金額の判定に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
-// 改訂9（0221）: 地震保険料控除に、住宅購入の予定の地震保険料（housing.residence の earthquakePremiums）を足す。何年分かを一括で払った保険料は、
+// 改訂9（0224）: 地震保険料控除に、住宅購入の予定の地震保険料（housing.residence の earthquakePremiums）を足す。何年分かを一括で払った保険料は、
 //   払った年から年数の間、保険料を年数で割った額（円未満切り捨て）をその年の地震保険料にする（一括払いの長期契約の扱い）。払った人の分だけ
 import {
   bracketFor,
@@ -164,7 +164,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
       if (cap !== null && life > cap) life = cap;
     }
     let earthquake = yen(0);
-    // 住宅購入の予定の地震保険料（0221）: 払った年から年数の間、年数で割った額を毎年
+    // 住宅購入の予定の地震保険料（0224）: 払った年から年数の間、年数で割った額を毎年
     let homeQuake = yen(0);
     for (const q of ctx.call<ResidenceOutput>("housing.residence", {}).earthquakePremiums ?? []) {
       const y0 = Number(q.ym.slice(0, 4));

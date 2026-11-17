@@ -17,7 +17,7 @@ export interface Timepoint {
   memberAge?: { member: string; years: number; months?: number; ageSwitch?: string };
 }
 
-/** 住宅購入の予定の火災保険・地震保険（0221）。保険料は years 年分を一括で払う額 */
+/** 住宅購入の予定の火災保険・地震保険（0224）。保険料は years 年分を一括で払う額 */
 export interface HomeInsurance {
   years: number;
   fire: Box<number>;
@@ -592,7 +592,7 @@ export interface Residence {
   rent?: { monthly: Box<number>; stages?: AmountStage[]; exceptions?: AmountException[]; [key: string]: unknown };
   /** newBuild: 新築か中古か（住宅の購入の種類。0052 の追記 2026-11-03）、longLife: 認定長期優良住宅か（固定資産税の推定。0112）。どちらも表示と推定の元だけ */
   /** land・payments: 注文住宅の土地（土地の決済の月・土地の代金・その月に払う頭金と諸費用。どれも合計の内数）と、引き渡しの前に頭金から払う建物の代金（0115） */
-  /** homeInsurance: 買った後の火災保険・地震保険（契約の年数・年数分の保険料・推定の元の都道府県・保険の入力項目で入れた印。0221） */
+  /** homeInsurance: 買った後の火災保険・地震保険（契約の年数・年数分の保険料・推定の元の都道府県・保険の入力項目で入れた印。0224） */
   purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[]; newBuild?: boolean; longLife?: boolean; land?: PurchaseLand; payments?: PurchasePayment[]; homeInsurance?: HomeInsurance };
   propertyTax?: { annual: Box<number>; growth?: string } & Staged;
   maintenance?: { monthly: Box<number>; growth?: string } & Staged;

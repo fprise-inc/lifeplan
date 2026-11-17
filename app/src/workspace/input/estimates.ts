@@ -139,7 +139,7 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   refreshCustomBuild(h, landShare);
   // 購入の予定の持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。propertyTax.ts。0112）
   refreshPropertyTax(h, last, landShare);
-  // 購入の予定の火災保険・地震保険（これから買う家に欄が無ければ推定で足し、推定のままの保険料を入れ直す。homeInsurance.ts。0221）
+  // 購入の予定の火災保険・地震保険（これから買う家に欄が無ければ推定で足し、推定のままの保険料を入れ直す。homeInsurance.ts。0224）
   refreshHomeInsurance(h, baseMonth, landShare);
   // 今住んでいる持ち家の買った年月（評価の時点）を住み始めに合わせる（印のある物だけ。ownedHomeValue.ts。0176）。固定資産税の推定の元なので先に
   refreshOwnedHomeAsOf(h, baseMonth);

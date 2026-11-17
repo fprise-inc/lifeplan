@@ -473,7 +473,7 @@ export interface ResidenceOutput {
   readonly flows: readonly Flow[];
   readonly properties: readonly { readonly object: string; readonly owner: string | null; readonly from: string; readonly to: string | null; readonly price: Yen }[];
   /**
-   * 0221（約束の版 1.1）: 住宅購入の予定の地震保険料の支払い（払った人・月・years 年分の額・年数）。計算基準月より前の支払いも含む。
+   * 0224（約束の版 1.1）: 住宅購入の予定の地震保険料の支払い（払った人・月・years 年分の額・年数）。計算基準月より前の支払いも含む。
    * 地震保険料控除は、払った年から years 年の間、額を年数で割った額を毎年入れる（tax.deductions）。無ければ省く
    */
   readonly earthquakePremiums?: readonly { readonly member: string; readonly ym: string; readonly amount: Yen; readonly years: number }[];

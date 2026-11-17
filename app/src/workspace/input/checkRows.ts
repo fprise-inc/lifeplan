@@ -442,7 +442,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
     if (rows.some((x) => x.fieldKey === fieldKey)) continue;
     rows.push({ id: `notice:zeroDownPayment:${r.id}`, kind: "notice", card: "housing", cardLabel: labels.get("housing") ?? "住まい・ローン", label: "住宅の購入: 頭金", detail: ZERO_DOWN_PAYMENT_TEXT, fieldKey, level: "simple", impact: 0, actions: [], value: "0円", item: "residence.purchase" });
   }
-  // 住宅購入の予定の火災保険・地震保険と、保険の入力項目の損害保険の両方がある（二重に数えているかもしれない。0221）。
+  // 住宅購入の予定の火災保険・地震保険と、保険の入力項目の損害保険の両方がある（二重に数えているかもしれない。0224）。
   // 「保険の入力項目で入れた」の1押しと「確認した」（今の住まいの家財の保険など。損害保険の契約を足す・外すと、また出る）
   for (const r of homeInsuranceOverlaps(wh)) {
     const id = `housing/homeInsurance/${r.id}`;
@@ -490,7 +490,7 @@ export function zeroDownPayments(wh: WorkingHousehold): NonNullable<Household["r
   });
 }
 
-/** 火災保険・地震保険を数えている住宅購入の予定（保険の入力項目に損害保険があるときだけ。0221） */
+/** 火災保険・地震保険を数えている住宅購入の予定（保険の入力項目に損害保険があるときだけ。0224） */
 export function homeInsuranceOverlaps(wh: WorkingHousehold): NonNullable<Household["residences"]> {
   const h = wh.request.input.household;
   if (nonLifeContracts(h).length === 0) return [];
@@ -530,7 +530,7 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
       actions: [{ key: "unack", label: "また出す", title: "確かめの注意にまた出します", run: (w) => setNoticeAck(w, n.id, n.of, null) }],
     });
   }
-  // 住宅購入の予定の火災保険・地震保険と損害保険（0221）
+  // 住宅購入の予定の火災保険・地震保険と損害保険（0224）
   for (const r of homeInsuranceOverlaps(wh)) {
     const id = `housing/homeInsurance/${r.id}`;
     const of = [r.id, ...nonLifeContracts(wh.request.input.household).map((c) => c.id)];

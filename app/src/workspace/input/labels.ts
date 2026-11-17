@@ -589,7 +589,7 @@ const PREFS = "北海道,青森,岩手,宮城,秋田,山形,福島,茨城,栃木
 /** 協会けんぽの支部（都道府県。kyokaikenpo.01〜47） */
 export const KYOKAI_BRANCHES: Option[] = PREFS.map((p, i) => ({ value: `kyokaikenpo.${String(i + 1).padStart(2, "0")}`, label: `${p}支部` }));
 
-/** 都道府県（JIS の番号 01〜47。住宅購入の予定の地震保険料の推定の元。0221） */
+/** 都道府県（JIS の番号 01〜47。住宅購入の予定の地震保険料の推定の元。0224） */
 const prefName = (p: string): string => (p === "北海道" ? p : p === "東京" ? "東京都" : p === "大阪" || p === "京都" ? `${p}府` : `${p}県`);
 export const PREFECTURES: Option[] = PREFS.map((p, i) => ({ value: String(i + 1).padStart(2, "0"), label: prefName(p) }));
 
