@@ -4141,6 +4141,32 @@
                 },
                 "costs": 2400000,
                 "downPayment": 30000000,
+                "homeInsurance": {
+                  "earthquake": {
+                    "estimate": {
+                      "basis": "地震保険の推定（5年分。保険金額1,050万円・東京都・ロ構造・建築年割引10%・長期係数4.7）",
+                      "method": "derived"
+                    },
+                    "origin": {
+                      "kind": "auto"
+                    },
+                    "state": "estimated",
+                    "value": 182500
+                  },
+                  "fire": {
+                    "estimate": {
+                      "basis": "火災保険の推定（5年分。中古の戸建て・保険金額は建物の分2,100万円・H構造（木造の戸建て）の目安）",
+                      "method": "derived"
+                    },
+                    "origin": {
+                      "kind": "auto"
+                    },
+                    "state": "estimated",
+                    "value": 68300
+                  },
+                  "prefecture": "13",
+                  "years": 5
+                },
                 "longLife": true,
                 "newBuild": false,
                 "price": 30000000
@@ -4188,6 +4214,24 @@
                 },
                 "costs": 3000000,
                 "downPayment": 6000000,
+                "homeInsurance": {
+                  "countedInInsurance": true,
+                  "earthquake": {
+                    "origin": {
+                      "kind": "manual"
+                    },
+                    "state": "confirmed",
+                    "value": 0
+                  },
+                  "fire": {
+                    "origin": {
+                      "kind": "manual"
+                    },
+                    "state": "confirmed",
+                    "value": 30000
+                  },
+                  "years": 1
+                },
                 "land": {
                   "at": {
                     "at": "2059-07"
@@ -8407,64 +8451,6 @@
             "key": "架空スーパー",
             "line": 4,
             "merchant": "架空スーパー"
-          }
-        ]
-      },
-      {
-        "account": "acc-1",
-        "at": "2026-11-17T10:00:00+09:00",
-        "file": {
-          "bytes": 245760,
-          "sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
-        },
-        "format": {
-          "fingerprint": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
-          "mapping": {
-            "columns": {
-              "amount": 3,
-              "date": 0,
-              "merchant": 1,
-              "plan": 2
-            },
-            "headerRow": null,
-            "sign": "expensePositive"
-          },
-          "source": "reader"
-        },
-        "id": "imp-2",
-        "include": true,
-        "kind": "statement",
-        "period": {
-          "from": "2026-10-01",
-          "to": "2026-10-31"
-        },
-        "reader": {
-          "id": "image",
-          "version": 1
-        },
-        "rows": [
-          {
-            "amount": 3280,
-            "date": "2026-10-01",
-            "id": "r6",
-            "key": "アオバマート",
-            "line": 6,
-            "merchant": "あおばマート みどり一丁目店",
-            "plan": {
-              "kind": "lump"
-            }
-          },
-          {
-            "amount": 1980,
-            "date": "2026-10-22",
-            "id": "r8",
-            "key": "コモレビ審店",
-            "line": 8,
-            "merchant": "こもれび審店",
-            "plan": {
-              "kind": "lump"
-            },
-            "readUncertain": true
           }
         ]
       }

@@ -221,9 +221,34 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(follow.is_none(), "{v}: 印は変換で書き足さない");
         }
-        // 0.82 から: 明細の行の読み取りが不確かの印 statements.imports[].rows[].readUncertain（0221）。変換で書き足さない（前の版の世帯は
-        // 欄が無い＝どの行も印なし）。0.82 の見本は写真から読んだ取り込みを1つ持ち、2行のうち1行に印
-        let unsure: Vec<&serde_json::Value> = now["statements"]["imports"]
+        // 0.82 から: 住宅購入の予定の火災保険・地震保険（0224）。変換で書き足さない（前の版の世帯は欄が無い＝計算に入らない）。
+        // 0.82 の見本は中古の戸建ての購入に推定の5年分（東京都）と、注文住宅に1年分の保険の入力項目で入れた印
+        let insured: Vec<&Value> = now["household"]["request"]["input"]["household"]["residences"]
+            .as_array()
+            .map(|rs| {
+                rs.iter()
+                    .filter_map(|r| r["purchase"].get("homeInsurance"))
+                    .collect()
+            })
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 82) {
+            assert_eq!(
+                insured.len(),
+                2,
+                "{v}: 0.82 からの見本は火災保険・地震保険を2件持つ"
+            );
+            assert_eq!(insured[0]["years"], 5);
+            assert_eq!(insured[0]["prefecture"], "13");
+            assert_eq!(insured[1]["countedInInsurance"], true);
+        } else {
+            assert!(
+                insured.is_empty(),
+                "{v}: 火災保険・地震保険は 0.82 から（変換の段では足さない）"
+            );
+        }
+        // 0.83 から: 明細の行の読み取りが不確かの印 statements.imports[].rows[].readUncertain（0221）。変換で書き足さない（前の版の世帯は
+        // 欄が無い＝どの行も印なし）。0.83 の見本は写真から読んだ取り込みを1つ持ち、2行のうち1行に印
+        let unsure: Vec<&Value> = now["statements"]["imports"]
             .as_array()
             .map(|a| {
                 a.iter()
@@ -232,11 +257,11 @@ fn every_format_version_has_a_fixture_and_opens() {
                     .collect()
             })
             .unwrap_or_default();
-        if migrate::parse(v).unwrap() >= (0, 82) {
+        if migrate::parse(v).unwrap() >= (0, 83) {
             assert_eq!(
                 unsure.len(),
                 1,
-                "{v}: 0.82 からの見本は読み取りが不確かの印の行を持つ"
+                "{v}: 0.83 からの見本は読み取りが不確かの印の行を持つ"
             );
             assert_eq!(unsure[0]["readUncertain"], serde_json::json!(true));
         } else {
