@@ -52,10 +52,10 @@ describe("足す・欄（0122）", () => {
     expect(a.costBasis).toBeUndefined();
   });
 
-  it("欄: 種類・名義・残高・時点・取得価額・売ったときの税・積立・利回り・引き出せない期間（0124）。資産の配分は出さない。利回りの空欄は0", () => {
+  it("欄: 種類・名前（任意。0223）・名義・残高・時点・取得価額・売ったときの税・積立・利回り・引き出せない期間（0124）。資産の配分は出さない。利回りの空欄は0", () => {
     const { wh, a } = addCrypto(open());
     const keys = [...fieldsOf(wh).keys()].filter((k) => k.startsWith(`sav/${a.id}/`));
-    expect(keys).toEqual([`sav/${a.id}/kind`, `sav/${a.id}/owner`, `sav/${a.id}/value`, `sav/${a.id}/asOf`, `sav/${a.id}/cost`, `sav/${a.id}/cryptoTax`, `sav/${a.id}/monthly`, `sav/${a.id}/rate`, `sav/${a.id}/lock`]);
+    expect(keys).toEqual([`sav/${a.id}/kind`, `sav/${a.id}/label`, `sav/${a.id}/owner`, `sav/${a.id}/value`, `sav/${a.id}/asOf`, `sav/${a.id}/cost`, `sav/${a.id}/cryptoTax`, `sav/${a.id}/monthly`, `sav/${a.id}/rate`, `sav/${a.id}/lock`]);
     expect(fieldOf(wh, `sav/${a.id}/rate`).get(wh)).toMatchObject({ value: null, hint: "空欄: 年0.0%" });
     expect(fieldOf(wh, `sav/${a.id}/rate`).help).toContain("入れなければ0");
     const group = buildStage("savings", wh).sections.flatMap((s) => s.groups).find((g) => g.key === `sav/${a.id}`)!;

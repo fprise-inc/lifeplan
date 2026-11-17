@@ -268,6 +268,8 @@ export type AccountKind =
 export interface AccountInput {
   readonly id: string;
   readonly kind: AccountKind;
+  /** 名前（金融機関名・用途など。40文字まで。表示だけで、計算には使わない。無ければ画面は種類と名義で呼ぶ。0223） */
+  readonly label?: string;
   /**
    * その他の資産の細目（種類 otherAsset だけ。表示だけで、計算には使わない）: 自社株〔出資額〕・会社への貸付金（0105）と、貴金属・
    * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」。暗号資産は細目でなく器の種類 cryptoAsset（0122）。
@@ -573,6 +575,11 @@ export interface ResidenceInput {
     readonly land?: { readonly at: Timepoint; readonly price: Yen; readonly downPayment?: Yen; readonly costs?: Yen };
     /** 0115: 引き渡しの前に頭金から払う建物の代金（契約金・着工金・中間金。頭金の内数）。残りの頭金は引き渡しの月（at）に払う */
     readonly payments?: readonly { readonly id?: string; readonly at: Timepoint; readonly amount: Yen; readonly kind?: "contract" | "start" | "interim" | "other" }[];
+    /**
+     * 0224: 買った後の火災保険・地震保険（建物）。買った月（注文住宅は引き渡しの月）に years 年分を払い、その後は years 年ごとに払う
+     * （住み終わりの月より前の更新まで）。保険料は1回に払う years 年分の額（伸ばさない）。地震保険の分は地震保険料控除に入れる（年数で割った額を毎年）
+     */
+    readonly homeInsurance?: HomeInsuranceInput;
     readonly gifts?: readonly {
       readonly recipient: string;
       readonly giver?: "parent" | "grandparent" | "other";
@@ -597,6 +604,20 @@ export interface ResidenceInput {
     /** 売ったときにこの住まいの住宅ローンを住み終わりの月に一括で返す（省略は返す。debt.schedule 改訂6） */
     readonly repayLoan?: boolean;
   };
+}
+
+/** 住宅購入の予定の火災保険・地震保険（0224） */
+export interface HomeInsuranceInput {
+  /** 1回の契約の年数（1〜5。火災保険・地震保険とも最長5年） */
+  readonly years: number;
+  /** 火災保険料（建物。years 年分を一括で払う額） */
+  readonly fire: ValueBox<Yen>;
+  /** 地震保険料（建物。years 年分を一括で払う額。付けないなら0） */
+  readonly earthquake: ValueBox<Yen>;
+  /** 建物のある都道府県（JIS の2桁の番号 "01"〜"47"。地震保険料の推定の元だけ。計算には使わない） */
+  readonly prefecture?: string;
+  /** 買った後の本当の契約を保険の入力項目（損害保険）で入れたので、ここでは数えない */
+  readonly countedInInsurance?: boolean;
 }
 
 /** 建物の構造（耐用年数の目安を選ぶ） */
