@@ -16,6 +16,7 @@ import { DEBT_KINDS } from "./input/labels.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 import { depletionYear, displayYears } from "./present.ts";
 import { ageInYear, roles } from "./roles.ts";
+import { OFFICIAL_NAMES } from "./resultTerms.ts";
 import { OFFICIAL_WORDING, type Wording } from "./resultTexts.ts";
 
 /** 「夢と予定」の行の入れ外しの相手（engine/moneyRows.ts の ViewCandidate の key・off） */
@@ -42,12 +43,12 @@ export interface BigMoneyRow {
   removed?: true;
 }
 
-/** 選んでいるプランで外した物の行に添える文 */
-export const BIG_MONEY_REMOVED_NOTE = "このプランでは外しています";
+/** 選んでいるプランで外した物の行に添える文（公式の文。結果の画面の文の表の result:dreamsAndPlans/removedNote。画面は事務所の文を当てて出す） */
+export const BIG_MONEY_REMOVED_NOTE = OFFICIAL_WORDING.text("result:dreamsAndPlans/removedNote");
 
 export interface BigMoneyGroup {
   key: "dreams" | "pay" | "receive";
-  /** 「ご家族の夢」「支払いの予定」「受け取りの予定」 */
+  /** 「ご家族の夢」「支払いの予定」「受け取りの予定」（公式の名前。画面は結果の画面の名前の表〔resultTerms.ts〕から事務所の名前を当てて出す） */
   title: string;
   rows: BigMoneyRow[];
   /** 計算に入れている行の数（見出しの「4/7件」の4） */
@@ -98,9 +99,9 @@ interface Item {
 }
 
 const GROUPS: { key: GroupKey; title: string }[] = [
-  { key: "dreams", title: "ご家族の夢" },
-  { key: "pay", title: "支払いの予定" },
-  { key: "receive", title: "受け取りの予定" },
+  { key: "dreams", title: OFFICIAL_NAMES("result:dreamsAndPlans/groupDreams") },
+  { key: "pay", title: OFFICIAL_NAMES("result:dreamsAndPlans/groupPay") },
+  { key: "receive", title: OFFICIAL_NAMES("result:dreamsAndPlans/groupReceive") },
 ];
 
 const GIFT_PURPOSE: Record<string, string> = { wedding: "結婚資金", housing: "住宅資金", other: "援助" };

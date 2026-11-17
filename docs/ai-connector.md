@@ -393,11 +393,12 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 
 ### 事務所の言い方に文言を直す（0212・0016 の追記）
 
-画面の文（入力の欄の「?」の説明・計算の知らせ・推定の根拠の文・結果の画面の文）と名前（入力の欄・キャッシュフロー表の行）は、カスタム層の `settings/texts.json`・`settings/terms.json` で事務所の言い方に直せます。`list_custom_texts` は、アプリに同梱した一覧（アプリ本体が埋め込む物と同じ中身）を返すだけの道具です。
+画面の文（入力の欄の「?」の説明・入力のまとまりの注〔見込みが「不確実」の行の注記〕・計算の知らせ・推定の根拠の文・結果の画面の文）と名前（入力の欄・キャッシュフロー表の行・結果の画面の「夢と予定」のまとまり・列の名前・見込み・「ほか○件を見る」）は、カスタム層の `settings/texts.json`・`settings/terms.json` で事務所の言い方に直せます。`list_custom_texts` は、アプリに同梱した一覧（アプリ本体が埋め込む物と同じ中身）を返すだけの道具です。
 
 - 1件ごとに `id`・`where`（画面のどこに出るか）・`audience`（`customer` はお客さまと一緒に見る画面の文）・`text`（公式の文。差し込みの印つき）・`vars`（使える印。`meaning` と、計算の値の入る印には `number: true`）・`ops`（できる操作）・`hash`（下書きの `basedOn` に写す指紋）。
-- 絞り方: `file`（`texts`＝文〔既定〕・`terms`＝名前）・`kind`（文は `field`・`notice`・`estimate`・`result`、名前は `field`・`row`）・`prefix`（id の頭。例 `result:invest/`）・`query`（言葉。全角・半角と大文字・小文字の違いは問いません〔言葉と文の両方を NFKC にそろえて照らし合わせる。「ＮＩＳＡ」でも「NISA」と同じ結果〕。`search_coverage`・`get_regulation_value` の `query`、`list_sample_households` の `tags` も同じ）・`limit`（既定50、200まで）・`offset`。答えには分野ごとの数（`areas`）と書き方（`howTo`）が付きます。
-- 結果の画面の文（`result:<タブ>/<名前>`）は、数字と名前がいつも差し込みの印です（例 `result:invest/verdict` の公式の文は `{plan}では、金融資産は {age} まで持ちます`）。差し込む値は単位まで入ります（`{age}` は「84歳」）。書き換えるだけで、消せるのはグラフの注だけです。知らない印は承認できず、数字の入る印を落とすと注意が出ます。
+- 絞り方: `file`（`texts`＝文〔既定〕・`terms`＝名前）・`kind`（文は `field`・`section`・`notice`・`estimate`・`result`、名前は `field`・`row`・`result`）・`prefix`（id の頭。例 `result:invest/`）・`query`（言葉。全角・半角と大文字・小文字の違いは問いません〔言葉と文の両方を NFKC にそろえて照らし合わせる。「ＮＩＳＡ」でも「NISA」と同じ結果〕。`search_coverage`・`get_regulation_value` の `query`、`list_sample_households` の `tags` も同じ）・`limit`（既定50、200まで）・`offset`。答えには分野ごとの数（`areas`）と書き方（`howTo`）が付きます。
+- 結果の画面の文（`result:<タブ>/<名前>`）は、数字と名前がいつも差し込みの印です（例 `result:invest/verdict` の公式の文は `{plan}では、金融資産は {age} まで持ちます`）。差し込む値は単位まで入ります（`{age}` は「84歳」）。書き換えるだけで、消せるのはグラフの注だけです。知らない印は承認できず、数字の入る印を落とすと注意が出ます。名前の一覧の `result:dreamsAndPlans/…`（「夢と予定」のまとまり・列の名前・見込み・「ほか{count}を見る」）も同じで、`{count}` には「4件」のように「件」まで入ります（行の名前は、入力の画面とそろえるので載せていません）。
+- 入力の欄の見込みの「?」は、見本の世帯に出ない欄も含めて5通りが載っています（入るお金の行のうち相続・贈与でない物は `field:incomeFlow.likelihood#receive`、子への援助は `field:goal.education/gifts/*/priority`）。見込みが「不確実」の行の注記は `section:money.uncertainNote` で、書き換えるだけです（まとまりの注の中のその部分だけが変わります）。
 - この接続口はカスタム層のファイルを書きません。FP のフォルダに書ける AI が下書きを書くか、FP に渡して置いてもらいます。効くのは、FP がアプリの事務所の既定値の画面（「説明の文（カスタム層）」「名前（カスタム層）」）で承認した後だけで、計算の結果はどの文でも変わりません。プロンプト `office_wording` が、この進め方の頼み方の型です。
 - 入力の欄の隠す・並べ替え（`settings/fields.json`）の id は、`file: fields` で引けます（0213）。中身はアプリ本体が埋め込む欄の一覧（`fields-reference@1.0`）と同じで、1件の `text` は公式の欄の名前、`ops` は `hide`・`order` です。答えの `howTo` に書き方（行は `id` と `hide`〔true〕・`order`〔1〜99。まとまりの中で何番目に出すか〕。値の入った欄は隠しても出る・既定の値は書けない・計算は変わらない）が付きます。承認は事務所の既定値の画面の「入力の欄の見せ方（カスタム層）」です。
 

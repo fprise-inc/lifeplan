@@ -18,6 +18,14 @@ export function fieldTextId(f: FieldDef, wh: WorkingHousehold): string | null {
 }
 
 /**
+ * 欄の「?」の説明の id。欄の定義に helpId があればそれ（当て先の無い欄・同じ当て先で説明が何通りかある欄。例: 見込みの欄）、
+ * 無ければ当て先から作る id（fieldTextId）。名前の差し替え・隠す・並べ替えは fieldTextId のまま
+ */
+export function helpTextId(f: FieldDef, wh: WorkingHousehold): string | null {
+  return f.helpId ?? fieldTextId(f, wh);
+}
+
+/**
  * 推定の根拠の文の id（`estimate:<入力項目ID>[/<道>]`。0016 の 2026-11-01 の追記の2）。欄の説明の id と同じ当て先から作る。
  * 公式の文は世帯ごとに違う（統計の版・人数・額が入る）ので、一覧の公式の文は差し込みの印 {basis}（公式の根拠の文）だけで、
  * 事務所の文には {basis} と {value}（推定の値）を差し込める

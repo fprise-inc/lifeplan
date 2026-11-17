@@ -399,6 +399,13 @@ const DEFS = [
     vars: { child: "子の呼び方（例: 第2子）", from: "返し始める年月（例: 2038年10月）", to: "返し終わる年月（例: 2053年9月）", monthly: "最初の月の返済額（例: 約1.4万円。「約」と単位まで入る）", total: "表の期間の中の返済の合計（例: 約257万円。「約」と単位まで入る）" },
     numberVars: ["from", "to", "monthly", "total"],
   },
+  {
+    id: "result:dreamsAndPlans/removedNote",
+    where: "結果のタブの対策の下の「夢と予定」の、選んでいるプランで外した物の行の名前の下に添える文",
+    official: ["このプランでは外しています"],
+    vars: {},
+    numberVars: [],
+  },
 
   // ---- 万一のときのタブの結論の1文（contingency/present.ts の scenarioModel・protectionChart）----
   {

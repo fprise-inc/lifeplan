@@ -256,9 +256,13 @@ fn check_row(i: usize, r: &Row, catalog: &Catalog, out: &mut Checked) {
                         Some(i),
                         id,
                         "W_TERMS_VARS",
-                        format!(
-                            "差し込みの印 {{{v}}} がありません（人ごとの行も、同じ名前になります）"
-                        ),
+                        if e.number_vars.contains(v) {
+                            format!("差し込みの印 {{{v}}} がありません（件数などの数が名前に出なくなります）")
+                        } else {
+                            format!(
+                                "差し込みの印 {{{v}}} がありません（人ごとの行も、同じ名前になります）"
+                            )
+                        },
                     ));
                 }
             }

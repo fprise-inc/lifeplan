@@ -378,8 +378,33 @@ export function likelihoodHelp(of: LikelihoodOf): string {
   const w = LIKELIHOOD_WHAT[of];
   return `${w.sure}「確実」にしてください。「不確実」にした${w.what}は、計算には入りません。結果の画面の「夢と予定」でチェックを入れると、計算に入れて比較できます`;
 }
+/**
+ * 見込みの欄の「?」の、説明の一覧の id と画面のどこか（0212 の追記 2026-11-17）。見本の世帯に出ない欄も一覧に載せるので、ここに5通りを書く
+ * （app/scripts/textsCatalog.ts が読む）。id は当て先から作る id（fieldTextId）と同じにし、当て先から作れない所だけ別に書く:
+ * - 入るお金の行は、相続・贈与とそれ以外で説明が違うのに当て先が同じなので、相続・贈与でない方を `#receive` で分ける（相続・贈与の方は前からの id）
+ * - 子への援助の欄は当て先を持たないので、援助の並びの道で書く
+ */
+export const LIKELIHOOD_HELP: Readonly<Record<LikelihoodOf, { id: string; where: string }>> = {
+  pay: { id: "field:periodicExpense.priority", where: "出るお金の行（ライフイベント・介護・親・相続・贈与など）の「見込み」の「?」" },
+  gift: { id: "field:goal.education/gifts/*/priority", where: "子ども・教育の「子への援助」の「見込み」の「?」" },
+  receive: { id: "field:incomeFlow.likelihood#receive", where: "入るお金の行（相続・贈与のほか）の「見込み」の「?」" },
+  inherit: { id: "field:incomeFlow.likelihood", where: "相続・贈与の受け取る相続・贈与の行の「見込み」の「?」" },
+  debt: { id: "field:debt.likelihood", where: "相続・贈与の「相続で受け継ぐ借金」の「見込み」の「?」" },
+};
+/** 見込みの欄の「?」の説明と、その id（欄の定義に足す） */
+const likelihoodHelpOf = (of: LikelihoodOf): { help: string; helpId: string } => ({ help: likelihoodHelp(of), helpId: LIKELIHOOD_HELP[of].id });
+
 /** 見込みが「不確実」の行の注記（ふだんの計算に入れていない） */
 export const UNCERTAIN_NOTE = "見込みが「不確実」なので、計算に入れていません（結果の画面の「夢と予定」でチェックを入れると比較できます）";
+/**
+ * その注記の、説明の一覧の id（まとまりの説明 `section:`。0016 の 2026-11-01 の追記の2。入るお金・出るお金の行のまとまりの注で、どの入力項目にも出るので
+ * 頭は入力項目でなく `money`。0212 の追記 2026-11-17）。まとまりの注は「。」でつないだ1つの文なので、画面はこの部分だけを事務所の文に置き換える
+ */
+export const UNCERTAIN_NOTE_ID = "section:money.uncertainNote";
+/** まとまりの注のうち説明の一覧に載せた部分（画面は FieldViews.tsx の applyNoteParts で当てる。一覧は app/scripts/textsCatalog.ts が読む） */
+export const NOTE_PARTS: readonly { id: string; text: string; where: string }[] = [
+  { id: UNCERTAIN_NOTE_ID, text: UNCERTAIN_NOTE, where: "入るお金・出るお金の行（相続で受け継ぐ借金も）のまとまりの「?」の、見込みが「不確実」の行の注記" },
+];
 
 /**
  * 見込みの欄（入るお金・相続で受け継ぐ借金）の、前の版の「この行を計算に入れる」（includeInBase が true）の読み方: ふだんの計算に入るので「確実」で見せる
@@ -1181,7 +1206,8 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
         address(f.id, "incomeFlow.to"),
       ),
     );
-  fields.push(includeAlias(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, likelihoodHelp(BASE_EXCLUDED_KINDS.has(f.kind) ? "inherit" : "receive"), badgeLevel(card)), find));
+  const likely = likelihoodHelpOf(BASE_EXCLUDED_KINDS.has(f.kind) ? "inherit" : "receive");
+  fields.push({ ...includeAlias(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, likely.help, badgeLevel(card)), find), helpId: likely.helpId });
   const badge = stagedBadge(f as unknown as Record<string, unknown>, ["stages"], ["exceptions"], amountName(c, f.everyYears));
   const detailNotes = [
     ...(f.taxTreatment !== undefined && f.kind !== "sideJob" ? [`課税: ${TAX_TREATMENTS.find((t) => t.value === f.taxTreatment)?.label ?? ""}`] : []),
@@ -1360,7 +1386,8 @@ export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card
 
 /** 出るお金の行の見込み（値は priority）。どのカードでも標準に出す（ライフイベントの行も、行の右で「確実」「不確実」を選ぶ。0068 の追記 2026-10-31） */
 export function expensePriorityField(p: PeriodicExpense): FieldDef {
-  return badgeField(`ev/${p.id}/priority`, "periodicExpense.priority", "見込み", PRIORITIES, "need", byId(periodic, p.id), "priority", p.id, likelihoodHelp("pay"), "simple");
+  const likely = likelihoodHelpOf("pay");
+  return { ...badgeField(`ev/${p.id}/priority`, "periodicExpense.priority", "見込み", PRIORITIES, "need", byId(periodic, p.id), "priority", p.id, likely.help, "simple"), helpId: likely.helpId };
 }
 
 /** 出るお金の行の詳細のまとまり（あげる贈与／払う人・相手・伸び方・万一のときの扱い） */
@@ -1607,7 +1634,7 @@ export function inheritedDebtGroups(wh: WorkingHousehold): GroupDef[] {
       level: "simple",
       fields: [
         withAddress(plain({ key: `${k}/from`, item: "debt.inheritedFrom", label: "元の借り手", level: "simple", kind: "select", options: counterpartyOptions(wh).slice(1), find, path: ["inheritedFrom"] }), address(d.id, "debt.inheritedFrom")),
-        withAddress(includeAlias(aliasBadge(plain({ key: `${k}/likelihood`, item: "debt.likelihood", label: "見込み", level: "simple", kind: "select", options: LIKELIHOODS, find, path: ["likelihood"], optional: true, fallback: "likely", help: likelihoodHelp("debt") })), find), address(d.id, "debt.likelihood")),
+        { ...withAddress(includeAlias(aliasBadge(plain({ key: `${k}/likelihood`, item: "debt.likelihood", label: "見込み", level: "simple", kind: "select", options: LIKELIHOODS, find, path: ["likelihood"], optional: true, fallback: "likely", help: likelihoodHelp("debt") })), find), address(d.id, "debt.likelihood")), helpId: LIKELIHOOD_HELP.debt.id },
       ],
       actions: [removeAction(`${k}/remove`, "外す", "simple", (hh) => void (hh.debts = (hh.debts ?? []).filter((x) => x.id !== d.id)))],
     };

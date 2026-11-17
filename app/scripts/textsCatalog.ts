@@ -3,7 +3,11 @@
 //
 // 今載せる物:
 // - 欄の説明（`field:<入力項目ID>[/<道>]`。FieldDef.help）: 見本の世帯すべてで入力の画面を組み、当て先のある欄の説明を集める。
-//   同じ id で世帯によって文が違う所（年・物の種類が文に入る所）は、差し込みの印（vars）を付けるまで載せない（数は summary に出す）
+//   同じ id で世帯によって文が違う所（年・物の種類が文に入る所）は、差し込みの印（vars）を付けるまで載せない（数は summary に出す）。
+//   欄の定義に helpId のある欄（当て先の無い欄・同じ当て先で説明が何通りかある欄）はその id。見込みの欄の「?」は、見本の世帯に出ない欄も
+//   載せる（input/moneyRows.ts の LIKELIHOOD_HELP の5通り。0212 の追記 2026-11-17）
+// - まとまりの注のうち載せた部分（`section:<名前>`。input/moneyRows.ts の NOTE_PARTS。今は見込みが「不確実」の行の注記だけ）: 書き換えるだけ
+//   （「計算に入れていない」ことを言う注なので消せない。「。」でつないだ1つの注の一部なので足すも無し）
 // - 計算の知らせ（`notice:<文の表の鍵>`。engineNotices.ts の文の表）: 種類（noticeKind）を付け、消せるのは前提の外・仮の値・制度データの知らせだけ
 // - 推定の根拠の文（`estimate:<入力項目ID>[/<道>]`。2026-11-02 の追記の4）: 見本の世帯すべてで推定の欄を集める。公式の文は世帯ごとに違う
 //   （統計の版・人数・額が入る）ので、一覧の公式の文は差し込みの印 {basis}（公式の根拠の文）だけ。事務所の文には {basis}・{value}（推定の値）を
@@ -11,13 +15,14 @@
 // - 結果の画面の文（`result:<タブ>/<名前>`。0212）: 結論の1文・その2行目・取り崩しの条件・グラフの注・結果のタブのポイント・「夢と予定」の区画の文・万一のときのタブの
 //   結論の1文。表は src/workspace/resultTexts.ts（公式の文は差し込みの印つきの型）。結果の画面はお客さまと一緒に見るので audience は customer。
 //   書き換えるだけ（消せるのはグラフの注だけ）。計算の値が入る印は numberVars（書き換えで落とすと本体の検査が注意を出す）
-// まだ載せない物（後の回）: 当て先の無い欄（`field:ui.…`）・区画とまとまりの説明・ボタンの説明・入力項目の見出し・確かめの注意・提示層の文
+// まだ載せない物（後の回）: 当て先の無い欄（`field:ui.…`）・区画とまとまりの説明（上の注記のほか）・ボタンの説明・入力項目の見出し・確かめの注意・提示層の文
 //   （説明モード・お客さまに見せる画面）・提案書の文
 //
 // 名前の一覧（terms-catalog.json。`terms-reference@1.0`）と欄の一覧（fields-catalog.json。`fields-reference@1.0`）も、同じ画面の定義から作る
 // （2026-11-02 の追記の1・2）:
 // - 名前の一覧: 入力の欄の名前（`field:…`。見本の世帯すべてで同じ名前の欄だけ）と、結果の表の行の名前（`row:<行の鍵>`。report/src/rowNames.ts の表。
-//   FP の画面・お客さまに見せる画面・提案書・持ち帰り用のレポートのどこでも同じ名前になるので audience は customer）
+//   FP の画面・お客さまに見せる画面・提案書・持ち帰り用のレポートのどこでも同じ名前になるので audience は customer）と、結果の画面の名前
+//   （`result:<区画>/<名前>`。src/workspace/resultTerms.ts の表。「夢と予定」のまとまり・列の名前・見込み・「ほか○件を見る」。お客さまと一緒に見るので customer）
 // - 欄の一覧: 隠す・並べ替えのできる入力の欄（当て先のある欄すべて）
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -27,8 +32,10 @@ import { noticeTextTable } from "../src/workspace/engineNotices.ts";
 import type { FieldDef, StageId } from "../src/workspace/input/form.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { buildStage, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
-import { ESTIMATE_OFFICIAL, estimateTextId, fieldTextId } from "../src/workspace/input/textIds.ts";
+import { LIKELIHOOD_HELP, likelihoodHelp, NOTE_PARTS, type LikelihoodOf } from "../src/workspace/input/moneyRows.ts";
+import { ESTIMATE_OFFICIAL, estimateTextId, fieldTextId, helpTextId } from "../src/workspace/input/textIds.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
+import { RESULT_TERMS } from "../src/workspace/resultTerms.ts";
 import { RESULT_TEXTS, resultOfficialText } from "../src/workspace/resultTexts.ts";
 import { ROW_NAME_VARS, ROW_NAMES } from "../../report/src/rowNames.ts";
 import { APP_DIR, REPO_DIR } from "./lib.ts";
@@ -56,7 +63,7 @@ export interface CatalogEntry {
 export interface TextsCatalog {
   schema: string;
   /** 作った元の数（載せなかった物の数も。確かめ用） */
-  summary: { fields: number; fieldsVarying: number; notices: number; estimates: number; results: number };
+  summary: { fields: number; fieldsVarying: number; notices: number; estimates: number; results: number; sections: number };
   entries: CatalogEntry[];
 }
 
@@ -100,11 +107,17 @@ export function buildTextsCatalog(): TextsCatalog {
       if (id !== null && !estimates.has(id)) estimates.set(id, `${st.label}の「${f.label}」の推定の根拠（「推定」の印を押すと出る文）`);
     }
     if (f.help === undefined || f.help === "" || f.readOnly !== undefined) continue;
-    const id = fieldTextId(f, wh);
+    const id = helpTextId(f, wh);
     if (id === null) continue;
     const e = fields.get(id) ?? { texts: new Set<string>(), where: `${st.label}の「${f.label}」の「?」` };
     e.texts.add(f.help);
     fields.set(id, e);
+  }
+  // 見込みの欄の「?」は、見本の世帯に出ない欄も載せる（見本の世帯に出る欄は、見本の世帯の文と同じであること）
+  for (const [of, d] of Object.entries(LIKELIHOOD_HELP) as [LikelihoodOf, (typeof LIKELIHOOD_HELP)[LikelihoodOf]][]) {
+    const e = fields.get(d.id) ?? { texts: new Set<string>(), where: d.where };
+    e.texts.add(likelihoodHelp(of));
+    fields.set(d.id, e);
   }
   const entries: CatalogEntry[] = [];
   let varying = 0;
@@ -141,8 +154,12 @@ export function buildTextsCatalog(): TextsCatalog {
       ...(d.numberVars.length > 0 ? { numberVars: [...d.numberVars] } : {}),
     });
   }
+  for (const p of NOTE_PARTS) {
+    const text = escapeBraces(p.text);
+    entries.push({ id: p.id, kind: "section", where: p.where, audience: "fp", text, vars: [], hash: sha(text), ops: ["replace"] });
+  }
   entries.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return { schema: CATALOG_SCHEMA, summary: { fields: fields.size - varying, fieldsVarying: varying, notices: notices.length, estimates: estimates.size, results: RESULT_TEXTS.length }, entries };
+  return { schema: CATALOG_SCHEMA, summary: { fields: fields.size - varying, fieldsVarying: varying, notices: notices.length, estimates: estimates.size, results: RESULT_TEXTS.length, sections: NOTE_PARTS.length }, entries };
 }
 
 export interface NamedCatalog {
@@ -185,8 +202,23 @@ export function buildTermsCatalog(): NamedCatalog {
       ...(vars.length > 0 ? { varsHelp: { person: "人の呼び方（ご本人・配偶者など）" } } : {}),
     });
   }
+  for (const d of RESULT_TERMS) {
+    const vars = Object.keys(d.vars);
+    entries.push({
+      id: d.id,
+      kind: "result",
+      where: d.where,
+      audience: "customer",
+      text: d.official,
+      vars,
+      hash: sha(d.official),
+      ops: ["replace"],
+      ...(vars.length > 0 ? { varsHelp: { ...d.vars } } : {}),
+      ...(d.numberVars.length > 0 ? { numberVars: [...d.numberVars] } : {}),
+    });
+  }
   entries.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return { schema: TERMS_CATALOG_SCHEMA, summary: { fields: names.size - varying, fieldsVarying: varying, rows: Object.keys(ROW_NAMES).length }, entries };
+  return { schema: TERMS_CATALOG_SCHEMA, summary: { fields: names.size - varying, fieldsVarying: varying, rows: Object.keys(ROW_NAMES).length, results: RESULT_TERMS.length }, entries };
 }
 
 /** 欄の一覧（隠す・並べ替えのできる入力の欄。text は公式の名前） */
