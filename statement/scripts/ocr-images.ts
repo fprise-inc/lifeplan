@@ -99,7 +99,7 @@ function cardWeb(): Doc {
   const W = 980;
   const els: El[] = [
     { t: "rect", x: 0, y: 0, w: W, h: 56, fill: "#1f4e79" },
-    { t: "text", x: 24, y: 36, text: "アオバカード 会員ページ", size: 18, weight: 700, color: "#fff", font: SANS },
+    { t: "text", x: 24, y: 36, text: "アオバカード オンライン明細", size: 18, weight: 700, color: "#fff", font: SANS },
     mark(820, 34),
     { t: "text", x: 30, y: 100, text: "ご利用明細", size: 22, weight: 700, color: "#222", font: SANS },
     { t: "text", x: 30, y: 132, text: "2026年11月10日お支払い分", size: 15, color: "#333", font: SANS },
@@ -481,7 +481,7 @@ function gray(c) {
   for (let i = 0; i < out.length; i++) out[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
   return out;
 }
-// 二値化（明るさむらに強い、周りの平均との比べ方。Bradley の方法）
+// 二値化（明るさむらに強い、周りの平均との比較のしかた。Bradley の方法）
 function darkMask(c) {
   const w = c.width, h = c.height, v = gray(c);
   const I = new Float64Array((w + 1) * (h + 1));

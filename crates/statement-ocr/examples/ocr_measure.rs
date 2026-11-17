@@ -1,7 +1,7 @@
 //! 文字認識の試し（0034 の段階3）: 画像のファイルを読み、OS の文字認識の結果を JSON で標準出力に書く。
 //! 架空の明細の画像（statement/test/fixtures/ocr/）で読める度合いを測るのに使う（statement/scripts/ocr-measure.ts が読む）。
 //!   cargo run --release -p statement-ocr --example ocr_measure -- <画像> ...
-//! 環境変数 OCR_LANG=en で英語だけで読む（数字・日付・金額の読み方を日本語と比べるため）
+//! 環境変数 OCR_LANG=en で英語だけで読む（数字・日付・金額の読み方を日本語と比較するため）
 use std::time::Instant;
 
 use serde::Serialize;

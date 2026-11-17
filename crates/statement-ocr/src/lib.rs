@@ -114,12 +114,12 @@ pub fn recognize(bytes: &[u8]) -> Result<Vec<OcrBox>, OcrError> {
     recognize_in(bytes, Language::Japanese)
 }
 
-/// 読む言語（試しの比べ用。画面の命令は日本語だけを使う）
+/// 読む言語（試しの比較用。画面の命令は日本語だけを使う）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Language {
     /// 日本語（英数字も読む）
     Japanese,
-    /// 英語だけ（数字・日付・金額の読み方を日本語と比べるため）
+    /// 英語だけ（数字・日付・金額の読み方を日本語と比較するため）
     English,
 }
 

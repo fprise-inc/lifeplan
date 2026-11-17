@@ -1,9 +1,9 @@
-// 文字認識の試し（0034 の段階3）: OS の文字認識の結果（crates/statement-ocr の ocr_measure の JSON）を、架空の明細の正解と比べる。
+// 文字認識の試し（0034 の段階3）: OS の文字認識の結果（crates/statement-ocr の ocr_measure の JSON）を、架空の明細の正解と比較する。
 //   node scripts/ocr-measure.ts <文字認識の結果.json> [--md 表.md] [--json 結果.json] [--lines]
 // 画像ごとに次を出す:
 // - 文字: 正解の日付・金額・店の名前の文字が、読んだ文字の中にいくつあるか（空白を除き NFKC でそろえて数える。表の形に関係しない読める度合い）
 // - 表（今の組み立て）: 読んだ文字の塊を toLines() で行と欄にし、PDF と同じ読み手の後半（linesToTable）と readStatement に通した行を、
-//   正解の行（正解の日付・店・金額を同じ取り込みの流れで読んだもの）と比べる。「理想」は描いた文字の塊（文字が完全に読めたとき）を通した結果
+//   正解の行（正解の日付・店・金額を同じ取り込みの流れで読んだもの）と比較する。「理想」は描いた文字の塊（文字が完全に読めたとき）を通した結果
 // - 表（組み立ての試し）: 次の PR の読み手の候補として、(1) 文字の塊の並びから傾きを推し量って座標を回す、(2) 行は塊の上下の中心でまとめる、
 //   (3) 見出しの行の塊の位置で欄を決め、各行の塊を重なる欄に入れる（空の欄を詰めない）、を足した組み立て（src/ には入れない。ここだけの試し）
 import { readFileSync, writeFileSync } from "node:fs";
@@ -25,7 +25,7 @@ interface OcrBox {
 }
 interface OcrReport {
   backend: string;
-  /** 読んだ言語（ja: 日本語と英数字、en: 英語だけ。比べ用） */
+  /** 読んだ言語（ja: 日本語と英数字、en: 英語だけ。比較用） */
   language?: string;
   languages: string[];
   images: { file: string; ms: number; boxes?: OcrBox[]; error?: string }[];
@@ -144,7 +144,7 @@ export function assembleByColumns(items: readonly TextItem[], kind: SourceKind):
   return { lines: out, angle };
 }
 
-// ---- 比べ方 ----
+// ---- 比較のしかた ----
 
 const norm = (s: string) =>
   s
@@ -320,7 +320,7 @@ async function main(): Promise<void> {
     results.push(r);
   }
   const md = [
-    `文字認識: ${report.backend}・読んだ言語: ${report.language === "en" ? "英語だけ（比べ用）" : "日本語"}（OS が読める言語のうち日本語・英語: ${report.languages.filter((l) => /^(ja|en)/iu.test(l)).join("・") || "なし"}）`,
+    `文字認識: ${report.backend}・読んだ言語: ${report.language === "en" ? "英語だけ（比較用）" : "日本語"}（OS が読める言語のうち日本語・英語: ${report.languages.filter((l) => /^(ja|en)/iu.test(l)).join("・") || "なし"}）`,
     "",
     "文字＝正解の文字が読んだ文字の中にある割合。表＝日付・金額・店の名前がすべて正しい行の割合（理想＝文字が完全に読めたとき）。取りこぼし＝正解の行と対にできなかった割合",
     "",

@@ -1,5 +1,5 @@
 # 明細の写真・スクショの文字認識の試し（0034 の段階3）: 架空の明細の画像（statement/test/fixtures/ocr/）を OS の文字認識で読み、
-# 正解と比べた表をジョブの要約と成果物に出す。Windows は Windows.Media.Ocr（日本語の文字認識は OS の言語の機能。無ければ足す）、
+# 正解と比較した表をジョブの要約と成果物に出す。Windows は Windows.Media.Ocr（日本語の文字認識は OS の言語の機能。無ければ足す）、
 # macOS は Vision。読む部品（crates/statement-ocr）・画像・測る道具が変わった PR と、手で起動したときだけ流す（main の ci には入れない）
 name: statement-ocr
 on:
@@ -45,7 +45,7 @@ jobs:
           Get-WindowsCapability -Online -Name $name | Format-Table Name, State -AutoSize
       - name: 文字認識の道具をビルドする
         run: cargo build --locked --release -p statement-ocr --example ocr_measure
-      # 日本語（画面の命令と同じ）と、比べ用の英語だけ（数字・日付・金額の読み方を比べる）の2回
+      # 日本語（画面の命令と同じ）と、比較用の英語だけ（数字・日付・金額の読み方を比較する）の2回
       - name: 架空の明細の画像を読む
         shell: bash
         run: |
@@ -54,7 +54,7 @@ jobs:
           for lang in ja en; do
             OCR_LANG=$lang "$exe" statement/test/fixtures/ocr/*.png statement/test/fixtures/ocr/*.jpg > "ocr-${{ runner.os }}-$lang.json"
           done
-      - name: 正解と比べる
+      - name: 正解と比較する
         shell: bash
         run: |
           for lang in ja en; do
