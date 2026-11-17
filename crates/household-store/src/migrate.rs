@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.81";
+pub const CURRENT: &str = "0.82";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -287,6 +287,11 @@ pub const CURRENT: &str = "0.81";
 /// - 0.81: 口座（資産の器）に名前 `accounts[].label`（金融機関名・用途など。40文字まで。表示だけで計算には使わない。0223）を足した
 ///   （足すだけの MINOR）。前の版のアプリは計算の入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は形式の版だけを
 ///   書き換える（前の版の世帯は欄が無い＝どの口座も名前なし。今までどおり種類と名義で呼ぶ）。0.80 の段の後に積む
+/// - 0.82: 住宅購入の予定に、買った後の火災保険・地震保険 `residences[].purchase.homeInsurance`（契約の年数 `years`・年数分の火災保険料 `fire`・
+///   地震保険料 `earthquake`〔値の箱〕・推定の元の都道府県 `prefecture`・保険の入力項目で入れた印 `countedInInsurance`）を足した（0224。
+///   足すだけの MINOR。計算に使う）。前の版のアプリは計算の入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は
+///   形式の版だけを書き換える（前の版の世帯は欄が無い＝計算に入らない。画面は開いたときに、これから買う家の購入の予定へ推定で足す）。
+///   0.81 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -294,7 +299,7 @@ pub const KNOWN: &[&str] = &[
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81",
+    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82",
 ];
 
 /// 1段分の変換
@@ -705,6 +710,11 @@ pub const STEPS: &[Step] = &[
         from: "0.80",
         to: "0.81",
         apply: v0_80_to_0_81,
+    },
+    Step {
+        from: "0.81",
+        to: "0.82",
+        apply: v0_81_to_0_82,
     },
 ];
 
@@ -2623,6 +2633,16 @@ fn v0_80_to_0_81(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.81 → 0.82: 住宅購入の予定の火災保険・地震保険 `residences[].purchase.homeInsurance`（0224）は任意の欄なので、形式の版だけを書き換える
+/// （前の版の世帯は欄が無い＝計算に入らない。欄を書き足さない。画面が開いたときに、これから買う家の購入の予定へ推定で足す）
+fn v0_81_to_0_82(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.82".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3611,7 +3631,8 @@ mod tests {
         assert_eq!(access("0.79").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.80").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.81").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.82").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.82").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.83").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3624,7 +3645,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.81", b.clone()).unwrap(),
+            upgrade("0.83", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4122,9 +4143,30 @@ mod tests {
                 .is_none(),
             "口座の名前は書き足さない"
         );
-        // 0.81 の世帯の名前は、そのまま残る
+        // 0.81 の世帯の名前は、そのまま残る（0.82 の段は版だけを書き換える）
         let named = serde_json::json!({"meta": {"formatVersion": "0.81"}, "household": {"request": {"input": {"household": {"accounts": [{"id": "a1", "label": "架空のさくら銀行"}]}}}}});
-        assert_eq!(upgrade("0.81", named.clone()).unwrap(), named);
+        let up = upgrade("0.81", named.clone()).unwrap();
+        assert_eq!(up["household"], named["household"]);
+        assert_eq!(up["meta"]["formatVersion"], CURRENT);
+    }
+
+    #[test]
+    fn v0_81_to_0_82_only_bumps_version() {
+        // 住宅購入の予定の火災保険・地震保険（purchase.homeInsurance。0224）は足さない（前の版の世帯は欄が無い＝計算に入らない）
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.81"},
+            "household": {"request": {"input": {"household": {"residences": [{"id": "r1", "kind": "own", "purchase": {"price": 40000000, "downPayment": 4000000, "costs": 2000000}}]}}}},
+            "proposals": []
+        });
+        let u = upgrade("0.81", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.82");
+        assert_eq!(u["household"], b["household"]);
+        assert!(
+            u["household"]["request"]["input"]["household"]["residences"][0]["purchase"]
+                .get("homeInsurance")
+                .is_none(),
+            "火災保険・地震保険は書き足さない"
+        );
     }
 
     #[test]
