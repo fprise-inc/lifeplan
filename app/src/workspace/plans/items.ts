@@ -683,7 +683,7 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
       },
       text: (v) => (typeof v === "number" ? (v === 0 ? "予定なし" : `月${manDecimal(v)}`) : "—"),
       same: jsonSame,
-      note: () => "年金などで足りない分を含めた、金融資産から使う額（収支の不足のほうが大きい年は不足の分）",
+      note: () => "年金などで足りない分も含めて、金融資産から使う額です。足りない分のほうが大きい年は足りない分を取り崩すので、それより小さい額にしても結果は変わりません",
     },
     {
       key: "inv:wRate",
