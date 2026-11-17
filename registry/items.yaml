@@ -110,6 +110,14 @@ entries:
     replacedBy: null
     collection: account
     path: [kind]
+  - id: account.label
+    status: active
+    label: "名前（金融機関名・用途など。表示用。計算には使わない。空や空白だけの名前は名前なしと同じに扱う。0223）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [label]
   - id: account.lots
     status: active
     label: "旧NISA・ジュニアNISA の買付の年ごとの内訳（非課税期間の終わりを判定する）"

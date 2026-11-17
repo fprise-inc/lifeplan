@@ -6,7 +6,7 @@
 import type { EngineRequest, Member, TableCell } from "../engine/types.ts";
 import type { TableChildRow, TableRowModel } from "../presentation/model.ts";
 import { dependentLimits } from "../../../hearing/src/estimates.ts";
-import { ACCOUNT_KINDS } from "./input/labels.ts";
+import { ACCOUNT_KINDS, accountLabelOf } from "./input/labels.ts";
 import { ageInYear, roles } from "./roles.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 
@@ -53,14 +53,15 @@ export const OUTSIDE_INCOME_NOTE = "世帯の外の家族（家計が別）の�
 
 // ---- 年間収支の赤字の出どころ ----
 
-/** 口座の呼び名（FP が付けた名前か、名義人と種類。例: ご本人のNISA） */
+/** 口座の呼び名（名義人と種類。例: ご本人のNISA。FP が名前を付けた口座は「楽天証券（ご本人のNISA）」。0223） */
 function accountName(req: EngineRequest, id: string): string {
   const a = (req.input.household.accounts ?? []).find((x) => x.id === id);
   if (a === undefined) return "口座";
-  if (typeof a.label === "string" && a.label !== "") return a.label;
   const kind = ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座";
   const owner = roles(req).find((r) => r.member.id === a.owner);
-  return owner !== undefined ? `${owner.label}の${kind}` : kind;
+  const base = owner !== undefined ? `${owner.label}の${kind}` : kind;
+  const label = accountLabelOf(a);
+  return label !== null ? `${label}（${base}）` : base;
 }
 
 /**
