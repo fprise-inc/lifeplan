@@ -58,6 +58,42 @@ const selfOf = (wh: WorkingHousehold) => wh.request.input.household.members.find
 
 describe("入力の欄を動かす項目は、どれもプランに保存できる（0036 の追記 2026-10-29）", () => {
   const hs = households();
+  const names = [...hs.keys()];
+  /** 世帯ごとの動かす項目の一覧（作るのに時間がかかるので、世帯ごとに1回だけ作り、世帯ごとの1件どうしで使い回す） */
+  const catalogs = new Map<string, Catalog>();
+  const catalogOf = (name: string): Catalog => {
+    const got = catalogs.get(name);
+    if (got !== undefined) return got;
+    const wh = hs.get(name)!;
+    const cat = buildCatalog(wh, selfOf(wh), null);
+    catalogs.set(name, cat);
+    return cat;
+  };
+  /**
+   * 「値を入れて保存し…」で確かめる欄と入れる値。同じ型の欄は、世帯の並びの順に、値を動かせる3つの世帯まで確かめる（すべての世帯ですべての欄を
+   * 確かめると時間がかかる。FIELD_SAVE_ALL=1 で全部）。どの世帯で確かめるかは前の世帯で決まるので、世帯の並びの順に、まだ選んでいない世帯の分だけ選ぶ
+   */
+  const picked = new Map<string, number>();
+  const picks = new Map<string, { it: MovableItem; v1: ItemValue }[]>();
+  const picksOf = (name: string): { it: MovableItem; v1: ItemValue }[] => {
+    for (const n of names.slice(0, names.indexOf(name) + 1)) {
+      if (picks.has(n)) continue;
+      const wh = hs.get(n)!;
+      const list: { it: MovableItem; v1: ItemValue }[] = [];
+      for (const it of catalogOf(n).items) {
+        if (it.control.kind !== "field") continue;
+        const p = patternOf(it.key);
+        const c = picked.get(p) ?? 0;
+        if (c >= PER_PATTERN) continue;
+        const v1 = bumped(wh, it);
+        if (v1 === null) continue;
+        picked.set(p, c + 1);
+        list.push({ it, v1 });
+      }
+      picks.set(n, list);
+    }
+    return picks.get(name)!;
+  };
 
   it.runIf(process.env.WRITE_LATER_READINGS !== undefined)("今の欄の定義から、0.16 より後に足した欄の当て先の表を作る", () => {
     const r = generateLater(KNOWN, LATER_FIELD_ENTRIES, BODY_FORMAT_VERSION);
@@ -87,44 +123,35 @@ describe("入力の欄を動かす項目は、どれもプランに保存でき�
     }
   });
 
-  it("読み替えられない欄は動かす項目に出さない（出して、保存で黙って落とさない）", () => {
+  // 次の2つは世帯ごとに1件ずつ（1件にまとめると世帯が増えるたびに長くなり、重い実行機で時間の上限に近づいていた）。確かめる中身は前と同じ
+  it.each(names)("読み替えられない欄は動かす項目に出さない（出して、保存で黙って落とさない）（%s）", (name) => {
+    const wh = hs.get(name)!;
+    const cat = catalogOf(name);
     const shown = new Set<string>();
     const missing = new Set<string>();
-    for (const [name, wh] of hs) {
-      const cat = buildCatalog(wh, selfOf(wh), null);
-      for (const f of movableFields(wh)) {
-        const key = `field:${f.key}`;
-        const p = patternOf(key);
-        const r = resolveKey(key, wh.request.input as never);
-        if (notMovable(p)) {
-          if (cat.byKey.has(key)) shown.add(`${p}（${name}）`);
-        } else if (r === null) missing.add(`${p}（${name}）`);
-        else if (r.kind === "unresolved" && cat.byKey.has(key)) shown.add(`${p}（${name}）`);
-      }
+    for (const f of movableFields(wh)) {
+      const key = `field:${f.key}`;
+      const p = patternOf(key);
+      const r = resolveKey(key, wh.request.input as never);
+      if (notMovable(p)) {
+        if (cat.byKey.has(key)) shown.add(`${p}（${name}）`);
+      } else if (r === null) missing.add(`${p}（${name}）`);
+      else if (r.kind === "unresolved" && cat.byKey.has(key)) shown.add(`${p}（${name}）`);
     }
     expect([...shown]).toEqual([]);
     expect([...missing]).toEqual([]);
   });
 
-  it("値を入れて保存し、開き直すと値が残り、当てた中身は欄に書いたのと同じ", () => {
-    const failures = new Map<string, string>();
-    const tried = new Map<string, number>();
-    for (const [name, wh] of hs) {
-      const cat = buildCatalog(wh, selfOf(wh), null);
-      for (const it of cat.items) {
-        if (it.control.kind !== "field") continue;
-        const p = patternOf(it.key);
-        // 同じ型の欄は3つの世帯まで確かめる（すべての世帯ですべての欄を確かめると時間がかかる。FIELD_SAVE_ALL=1 で全部）
-        const n = tried.get(p) ?? 0;
-        if (n >= PER_PATTERN || failures.has(p)) continue;
-        const why = roundTrip(wh, cat, it);
-        if (why === "same") continue;
-        tried.set(p, n + 1);
-        if (why !== null) failures.set(p, `${why}（${name}）`);
-      }
-    }
-    expect(tried.size).toBeGreaterThan(250);
-    expect([...failures].map(([p, why]) => `${p}: ${why}`).sort()).toEqual([]);
+  it.each(names)("値を入れて保存し、開き直すと値が残り、当てた中身は欄に書いたのと同じ（%s）", (name) => {
+    const wh = hs.get(name)!;
+    const cat = catalogOf(name);
+    const failures = picksOf(name).map(({ it, v1 }) => [patternOf(it.key), checkSaved(wh, cat, it, v1)] as const).filter(([, why]) => why !== null);
+    expect(failures.map(([p, why]) => `${p}: ${why}（${name}）`).sort()).toEqual([]);
+  });
+
+  it("値を入れて保存し…（まとめ）: 確かめた欄の型は250より多い", () => {
+    picksOf(names.at(-1)!);
+    expect(picked.size).toBeGreaterThan(250);
   });
 
   it("欄が一緒に変える値がある 0.16 の表の欄は、どの見本の世帯でも、当てた中身の全体が欄に書いたのと同じ（0036 の追記 2026-10-29 の2）", () => {
@@ -174,12 +201,23 @@ function withIds<T>(f: () => T): T {
 
 /** 1つの項目に値を入れて保存し、開き直して確かめる（問題が無ければ null、値を動かせなければ "same"） */
 function roundTrip(wh: WorkingHousehold, cat: Catalog, it: MovableItem): string | null | "same" {
+  const v1 = bumped(wh, it);
+  return v1 === null ? "same" : checkSaved(wh, cat, it, v1);
+}
+
+/** 項目に入れる、今と違う値（入れても世帯が変わらない＝値を動かせない項目は null） */
+function bumped(wh: WorkingHousehold, it: MovableItem): ItemValue | null {
   const f = (it.control as { field: Parameters<typeof bump>[0] }).field;
   const v0 = it.read(wh);
   const v1 = bump(f, v0) as ItemValue;
-  if (it.same(v1, v0)) return "same";
+  if (it.same(v1, v0)) return null;
   const want = withIds(() => it.apply(wh, v1).request.input);
-  if (sameJson(want, wh.request.input)) return "same";
+  if (sameJson(want, wh.request.input)) return null;
+  return v1;
+}
+
+/** 動かせる項目（bumped の値 v1）を保存し、開き直して確かめる（問題が無ければ null） */
+function checkSaved(wh: WorkingHousehold, cat: Catalog, it: MovableItem, v1: ItemValue): string | null {
   const saved = savePlan(wh, cat, { name: "見本", base: null, values: { [it.key]: v1 }, now: NOW });
   const plan = saved.wh.proposals.find((x) => x.id === saved.id);
   if (plan === undefined || plan.diffs.length === 0) return "保存すると差分になりません";
