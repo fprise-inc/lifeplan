@@ -2,7 +2,7 @@
 // - 本体の状態（3秒ごとの読み直し）の hearingJobs が1件以上なら、仕事を受け取って発行し（aiHearing.ts の runIssueJob）、置き場所に書いてから答える。
 //   置き場所に書けなかったら、サーバーから消してから「発行できなかった」と答える（鍵を失った依頼を残さない）
 // - 開いた世帯の依頼が事務所データにあれば、世帯ファイルへ移す（保存できてから事務所データから外す）
-// - 事務所データへの書き込みは1つずつ（読み直した最新の値に当てる）
+// - 事務所データへの書き込みは1つずつ（読み直した最新の値に書き足す）
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type { AiHost, AiHearingJob, HearingWebHost, OfficeHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
