@@ -5,7 +5,7 @@ import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { handleApi } from "../../hearing/relay/handler.ts";
 import { memoryStore } from "../../hearing/relay/store.ts";
-import { answersOf, checkAnswers, checkSelection, draftKey, estimate, initialDraft, openRequest, packetBody, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
+import { answersOf, checkAnswers, checkSelection, draftKey, estimate, initialDraft, openRequest, packetBody, screens, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { SHEET_KINDS, applyImport, approvalTime, logOf, sheetFor } from "../src/workspace/hearing/sheet.ts";
 import {
@@ -128,9 +128,11 @@ describe("ご相談したいことの話題（0192）", () => {
     expect(item.topics).toEqual(["教育費", "老後のお金・年金", "相続のこと"]);
     expect(item.label).toContain("いくつでも");
     const d: Draft = { ...initialDraft(o.packet), gates: { spouse: 0, child: 0 }, topics: ["相続のこと", "教育費"], answers: { [draftKey("hs.consent.purpose")]: v("given"), [draftKey("hs.consult.topics")]: v("子どもの大学の費用が心配です") } };
-    const ans = answersOf(o.packet, d, NOW);
-    // 並びは選び方の順
-    expect(ans.topics).toEqual(["教育費", "相続のこと"]);
+    // お客さまの画面はご相談したいことを聞かなくなった（0138 の追記 2026-11-17）。前の画面から届く形（話題と自由記述）でも受け取れること
+    const base = answersOf(o.packet, d, NOW);
+    expect(base.topics).toBeUndefined();
+    expect(base.answers.some((a) => a.key === "hs.consult.topics")).toBe(false);
+    const ans = { ...base, answers: [...base.answers, { key: "hs.consult.topics", status: "value" as const, raw: { kind: "text" as const, text: "子どもの大学の費用が心配です" } }], topics: ["教育費", "相続のこと"] };
     // 信用しない: 選び方に無い話題は捨てて数える
     const checked = checkAnswers({ ...ans, topics: ["教育費", "知らない話題"] }, sheetFor("simple"), sel, r.entry.record.requestId);
     expect(checked.topics).toEqual(["教育費"]);
@@ -143,16 +145,14 @@ describe("ご相談したいことの話題（0192）", () => {
     expect(consultNotes(got.wh)).toMatchObject({ topics: ["教育費", "相続のこと"], text: "子どもの大学の費用が心配です" });
   });
 
-  it("お客さまの画面: 話題をいくつでも選ぶボタンと、自由に書く欄を同じ画面に。確かめの画面に選んだ話題", async () => {
+  it("お客さまの画面: ご相談したいこと（話題・自由記述）は出さない。問いに話題が載っていても、入力内容の確認にも出さない（0138 の追記 2026-11-17）", async () => {
     const def = sheetFor("simple");
     const s = templateSelection("simple", blank());
     const p = { ...packetBody(def, s, { requestId: "R-AAAAAA", expiresAt: NOW.toISOString(), office: OFFICE }), digest: "x" };
-    const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), startAt: "item:hs.consult.topics#0" }));
-    for (const t of DEFAULT_TOPICS) expect(html).toContain(`data-hf-topic="${t}"`);
-    expect(html).toContain("ほかにあれば、自由にお書きください（任意）");
+    expect(screens(p, initialDraft(p)).some((x) => x.kind === "item" && x.key === "hs.consult.topics")).toBe(false);
     const d = { ...initialDraft(p), topics: ["教育費", "親のこと"] };
     const review = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "review" }));
-    expect(review).toContain("教育費、親のこと");
+    for (const t of ["data-hf-topic", "ご相談したいこと", "教育費、親のこと"]) expect(review).not.toContain(t);
   });
 
   it("話題を空にすると自由記述だけ（今までの問い）。話題の空・重なり・長すぎは発行の前に知らせる", () => {

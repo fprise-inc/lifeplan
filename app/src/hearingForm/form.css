@@ -549,11 +549,11 @@
 .hf-exact {
   margin-top: 6px;
 }
-/* 最初の画面 */
-.hf-title {
-  margin: -6px 0 12px;
-  color: var(--hf-sub);
+/* 具体額が先の金額: 「わからなければ、範囲で選ぶ」は欄の下に小さく（0138 の追記 2026-11-17） */
+.hf-range {
+  margin-top: 6px;
 }
+/* 最初の画面 */
 .hf-facts {
   list-style: none;
   padding: 12px 14px;

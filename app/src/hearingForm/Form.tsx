@@ -1,6 +1,7 @@
 // お客さまの画面（0125・0138）: 1画面に小さなまとまりの問い・進み具合・戻る／次へ・「わからない」「あとで」・確かめの画面・送った後の画面。
 // お客さまのページ（main.tsx。live）と、FP のアプリの見本（preview。通信しない・端末に何も残さない）で同じ部品を使う。
-// - 手軽さが主軸: 金額は「だいたいの範囲」を押すだけで答えられ、きっちりした額は「くわしい額を入れる」で開く。空のまま「次へ」は「あとで」と同じ
+// - 金額は具体額を入れるのが主で、わからなければ「範囲で選ぶ」を開いて範囲で答える（住宅ローンの残高だけ範囲が先。flow.ts の rangeFirst）。空のまま「次へ」は「あとで」と同じ
+// - お客さまの画面の言葉は flow.ts の customerText・itemLabel にそろえる（「伺う」・「第一子」・作る側の言葉〔置き場・送った物〕を使わない）
 // - スマホを先に考える（文字は大きめ・押す所は大きく・1列）。外のフォント・画像は読まない（CSP）
 // - 問いの流れは hearing/src/web/flow.ts（答えに合わせて問いを飛ばす・人数で繰り返す・1画面にまとめる）
 // - 書類は答えと別に動く（0158）: 書類の画面の「書類だけ先に送る」、送るときは書類を先に送ってから答え。答えを送った後の画面と、
@@ -9,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import { MONTH_LABELS, yearLabel } from "../../../hearing/src/definition.ts";
 import { DOCUMENT_LIMITS, hideTip, PHOTO_TIPS } from "../../../hearing/src/web/documents.ts";
-import { answerText, coverLine, coverSummary, customerDocTitle, docShown, DOCS_SECTION, DOCS_TITLE, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, insteadLine, markSent, MONTH_UNKNOWN, normNumber, progress, screenFields, screenGates, screenId, screens, START_SECTION, START_TITLE, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
+import { answerText, coverLine, coverSummary, customerDocTitle, customerText, docShown, DOCS_SECTION, DOCS_TITLE, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, insteadLine, itemGuide, itemLabel, markSent, MONTH_UNKNOWN, normNumber, progress, rangeFirst, REVIEW_TITLE, screenFields, screenGates, screenId, screens, START_SECTION, START_TITLE, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
 import type { GateId, PacketDocument, QuestionsPacket, WebItem } from "../../../hearing/src/web/packet.ts";
 import { prepareFile } from "./photo.ts";
 
@@ -19,7 +20,7 @@ export interface FormProps {
   initial: Draft;
   /** 下書きが変わった（live は端末の中に暗号化して残す） */
   onDraft?: (d: Draft) => void;
-  /** この端末の入力を消す（live は端末の中の下書きを消す。付けた書類は、この部品が先に外す） */
+  /** この端末の入力を消す（live は端末の中の下書きを消す。添付した書類は、この部品が先に外す） */
   onClear?: () => void;
   /** 書類のファイルを暗号化して置く（live だけ） */
   upload?: (bytes: Uint8Array<ArrayBuffer>) => Promise<{ fileId: string; sha256: string }>;
@@ -37,6 +38,17 @@ export interface FormProps {
   startAt?: string;
   /** 今の日時（年の選択肢・送った日時。試しで固定する） */
   now?: () => Date;
+  /** 書類の「撮影する」を出すか（省略はタッチの端末かで決める。カメラの無い PC では「ファイルを選ぶ」だけ） */
+  camera?: boolean;
+}
+
+/** カメラで撮影できそうな端末か（タッチの端末。PC のブラウザは capture を使えず、ファイルを選ぶ画面になる） */
+export function touchDevice(): boolean {
+  try {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
 }
 
 /** この端末から送った書類の控え（1回の送りごと。書類の ID とファイルの数だけ。中身・ファイル名は残さない） */
@@ -76,20 +88,18 @@ function sentRecordsOf(d: Pick<Draft, "documents">): SentRecord[] {
 }
 
 const ERRORS: Record<string, string> = {
-  E_RELAY_SUBMITTED: "このご質問には、もうお答えいただいています。",
+  E_RELAY_SUBMITTED: "このご質問には、もうご回答いただいています。",
   E_RELAY_SEALED: "その書類はもう送ってあります。ページを開き直してください。",
   E_RELAY_EXPIRED: "回答の期限が過ぎています。担当の FP にご連絡ください。",
   E_RELAY_GONE: "このリンクはもう使えません。担当の FP にご連絡ください。",
   E_RELAY_TOO_LARGE: "送る内容が大きすぎます。書類の数を減らしてください。",
   E_RELAY_BUSY: "混み合っています。少し待ってから、もう一度送ってください。",
-  E_RELAY_UNREACHABLE: "つながりませんでした。電波の良い所で、もう一度送ってください（答えはこの端末に残っています）。",
+  E_RELAY_UNREACHABLE: "つながりませんでした。電波の良い所で、もう一度送ってください（回答はこの端末に残っています）。",
 };
 export const errorText = (code: string): string => ERRORS[code] ?? "うまく送れませんでした。もう一度お試しください。続くときは担当の FP にご連絡ください。";
 
-const AGE_KEY = "hs.family.adult.age";
-
 /** 数の欄の確かめ（取り込みでも同じ決まりで読む。ここでは打ち間違いに早く気づいてもらうため） */
-function inputProblem(item: WebItem, a: DraftAnswer | undefined, ageAnswered: boolean): string | null {
+function inputProblem(item: WebItem, a: DraftAnswer | undefined): string | null {
   if (a === undefined || a.status !== "value" || a.raw === undefined || a.raw.kind === "bool") return null;
   const t = normNumber(a.raw.text).replace(/万円?$|円$|%$/, "");
   if (item.type === "money" || item.type === "integer" || item.type === "decimal" || item.type === "percent") {
@@ -103,7 +113,8 @@ function inputProblem(item: WebItem, a: DraftAnswer | undefined, ageAnswered: bo
   if (item.type === "yearMonth") {
     const m = a.raw2 === undefined || a.raw2.kind === "bool" ? "" : a.raw2.text;
     if (t === "") return "年も選んでください";
-    if (m === MONTH_UNKNOWN) return ageAnswered ? null : "月がわからなければ、下の「年齢」を入れてください（あとで答えるなら「あとで」）";
+    // 月が「わからない」は先へ進める（年だけでは取り込めないので送らない。面談で伺う）
+    if (m === MONTH_UNKNOWN) return null;
     if (m === "") return "月も選んでください";
   }
   return null;
@@ -136,7 +147,9 @@ const rawText = (a: DraftAnswer | undefined): string => (a?.status === "value" &
 const raw2Text = (a: DraftAnswer | undefined): string => (a?.status === "value" && a.raw2 !== undefined && a.raw2.kind !== "bool" ? a.raw2.text : "");
 
 /** 1つの項目の記入欄 */
-function Field({ item, a, onChange, years, autoFocus, now, monthUnknown }: { item: WebItem; a: DraftAnswer | undefined; onChange: (a: DraftAnswer | undefined) => void; years: { from: number; to: number }; autoFocus: boolean; now: Date; monthUnknown: boolean }) {
+function Field({ item, a, onChange, years, autoFocus, now, monthUnknown, label }: { item: WebItem; a: DraftAnswer | undefined; onChange: (a: DraftAnswer | undefined) => void; years: { from: number; to: number }; autoFocus: boolean; now: Date; monthUnknown: boolean; label?: string }) {
+  // 読み上げの名前（画面の問いの言葉。省略は customerText の言葉）
+  const name = label ?? customerText(item.label);
   const ref = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (autoFocus && ref.current !== null && window.matchMedia("(pointer: fine)").matches) ref.current.focus();
@@ -146,9 +159,9 @@ function Field({ item, a, onChange, years, autoFocus, now, monthUnknown }: { ite
   switch (item.type) {
     case "choice":
       // 短い選択肢（男性・女性 など）と、5つ以上の選択肢（働き方 など）は2列にして画面を短く（1画面にまとめた問いが長くならないように）
-      return <Choices compact={(item.choices ?? []).length >= 5 || (item.choices ?? []).every((c) => c.label.length <= 8)} name={item.label} options={item.choices ?? []} value={a?.status === "value" ? text : null} onPick={(v) => onChange({ status: "value", raw: { kind: "text", text: v } })} />;
+      return <Choices compact={(item.choices ?? []).length >= 5 || (item.choices ?? []).every((c) => c.label.length <= 8)} name={name} options={(item.choices ?? []).map((c) => ({ value: c.value, label: customerText(c.label) }))} value={a?.status === "value" ? text : null} onPick={(v) => onChange({ status: "value", raw: { kind: "text", text: v } })} />;
     case "moneyRange":
-      return <Choices compact name={item.label} options={(item.ranges ?? []).map((r) => ({ value: r.label, label: r.label }))} value={a?.status === "value" ? text : null} onPick={(v) => onChange({ status: "value", raw: { kind: "text", text: v } })} />;
+      return <Choices compact name={name} options={(item.ranges ?? []).map((r) => ({ value: r.label, label: r.label }))} value={a?.status === "value" ? text : null} onPick={(v) => onChange({ status: "value", raw: { kind: "text", text: v } })} />;
     case "yearMonth": {
       const y = /\d{4}/.exec(normNumber(text))?.[0] ?? "";
       const m = raw2Text(a);
@@ -158,7 +171,7 @@ function Field({ item, a, onChange, years, autoFocus, now, monthUnknown }: { ite
         <div class="hf-ym">
           <label>
             <span>年</span>
-            <select value={y} onChange={(e) => put((e.currentTarget as HTMLSelectElement).value, m)} aria-label={`${item.label}の年`}>
+            <select value={y} onChange={(e) => put((e.currentTarget as HTMLSelectElement).value, m)} aria-label={`${name}の年`}>
               <option value="">選んでください</option>
               {list.map((n) => (
                 <option key={n} value={String(n)}>
@@ -169,7 +182,7 @@ function Field({ item, a, onChange, years, autoFocus, now, monthUnknown }: { ite
           </label>
           <label>
             <span>月</span>
-            <select value={m} onChange={(e) => put(y, (e.currentTarget as HTMLSelectElement).value)} aria-label={`${item.label}の月`}>
+            <select value={m} onChange={(e) => put(y, (e.currentTarget as HTMLSelectElement).value)} aria-label={`${name}の月`}>
               <option value="">–</option>
               {MONTH_LABELS.map((l, i) => (
                 <option key={l} value={String(i + 1)}>
@@ -183,14 +196,14 @@ function Field({ item, a, onChange, years, autoFocus, now, monthUnknown }: { ite
       );
     }
     case "text":
-      return <textarea ref={ref as never} class="hf-text" rows={4} maxLength={item.maxLength ?? 2000} value={text} onInput={(e) => set((e.currentTarget as HTMLTextAreaElement).value, "text")} placeholder={item.example ?? ""} aria-label={item.label} />;
+      return <textarea ref={ref as never} class="hf-text" rows={4} maxLength={item.maxLength ?? 2000} value={text} onInput={(e) => set((e.currentTarget as HTMLTextAreaElement).value, "text")} placeholder={item.example ?? ""} aria-label={name} />;
     default: {
       const n = Number(normNumber(text).replace(/万円?$|円$/, ""));
       const man = item.type === "money" && item.unit?.scale === "manYen" && text !== "" && Number.isFinite(n);
       return (
         <div class="hf-num">
           {basisText(item) !== null ? <span class="hf-basis">{basisText(item)}</span> : null}
-          <input ref={ref as never} type="text" inputMode={item.type === "integer" ? "numeric" : "decimal"} autoComplete="off" value={text} onInput={(e) => set((e.currentTarget as HTMLInputElement).value, "number")} aria-label={item.label} />
+          <input ref={ref as never} type="text" inputMode={item.type === "integer" ? "numeric" : "decimal"} autoComplete="off" value={text} onInput={(e) => set((e.currentTarget as HTMLInputElement).value, "number")} aria-label={name} />
           <span class="hf-unit">{unitText(item)}</span>
           {man ? <small class="hf-yen">＝ {(n * 10000).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}円</small> : null}
         </div>
@@ -232,17 +245,19 @@ function Office({ p }: { p: QuestionsPacket }) {
 
 const dateText = (iso: string) => new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 
-/** 一番下の小さな「このページの仕組み」（専門用語を避けて短く。提供元の名前と窓口は、配る所の説明のページに置く） */
+/**
+ * 「このページの仕組み」（最初の画面と、答えを送った後に開き直した「書類を送る」の画面の一番下に小さく。専門用語・作る側の言葉を避けて短く。
+ * 提供元の名前と窓口は、配る所の説明のページに置く）
+ */
 function About({ p }: { p: QuestionsPacket }) {
   const who = p.office.name !== "" ? `${p.office.name}の担当の FP` : "担当の FP";
   return (
     <details class="hf-about" data-hf-about>
       <summary>このページの仕組み</summary>
       <ul>
-        <li>お答えと書類は、この端末の中で鍵をかけて（暗号化して）から送ります。開けるのは、{who}のアプリだけです。</li>
-        <li>途中で預かる置き場も、このページを動かしている提供元も、中身は読めない仕組みです。</li>
-        <li>送った物は、担当の FP が受け取るか、回答の期限（{dateText(p.expiresAt)}）が過ぎると、置き場から消えます。</li>
-        <li>途中のお答えは、この端末のこのブラウザの中に鍵をかけて残します。送ると消えます。「この端末の入力を消す」でも消せます。</li>
+        <li>回答と書類は、この端末の中で鍵をかけて（暗号化して）から送ります。開けるのは、{who}のアプリだけです。</li>
+        <li>回答と書類は、担当の FP が受け取ると、このページからは消えます（受け取られないまま回答の期限〔{dateText(p.expiresAt)}〕を過ぎたときも消えます）。</li>
+        <li>途中の回答は、この端末のこのブラウザの中に鍵をかけて残します。送ると消えます。「この端末の入力を消す」でも消せます。</li>
       </ul>
     </details>
   );
@@ -252,11 +267,18 @@ function fileLabel(f: DraftFile): string {
   return f.label;
 }
 
-/** 撮る前の注意（その書類で隠してよい番号と、撮り方。0190） */
+/**
+ * PC（撮影するを出さない端末）の書類の画面・書類を送るの一覧の一言（スマートフォンをすすめる）。途中の回答は端末ごとに残るので、
+ * 書類の画面では、回答はこの端末で続けてよいことを添える（書類は回答を送った後でも同じリンクから送れる、は最後の書類の画面の一言）
+ */
+const PHONE_NOTE = "スマートフォンで同じリンクを開くと、その場で撮影して送れます。";
+const PHONE_LATER = "回答は、このままこの端末で続けてかまいません。";
+
+/** 撮影する前の注意（その書類で隠してよい番号と、撮り方。0190） */
 function PhotoTips({ kind, open }: { kind: string | null; open: boolean }) {
   return (
     <details class="hf-tips" open={open}>
-      <summary>撮る前に</summary>
+      <summary>撮影する前に</summary>
       <ul>
         {[hideTip(kind), ...PHOTO_TIPS].map((t) => (
           <li key={t}>{t}</li>
@@ -267,10 +289,10 @@ function PhotoTips({ kind, open }: { kind: string | null; open: boolean }) {
 }
 
 /**
- * 書類1通（撮る・ファイルを選ぶ・手元にない・あとで送る）。screen は1通1画面の書類の画面（見出しは大きく、撮る前の注意を開いて出す）、
- * list は答えを送った後の「書類を送る」の一覧（撮る前の注意は一覧の上に1回）
+ * 書類1通（撮影する〔タッチの端末だけ〕・ファイルを選ぶ・手元にない・あとで送る）。screen は1通1画面の書類の画面（見出しは大きく、撮影する前の注意を開いて出す）、
+ * list は答えを送った後の「書類を送る」の一覧（撮影する前の注意は一覧の上に1回）
  */
-function DocCard({ p, doc, d, mode, setDoc, upload, removeFile, thumbs, after = false, level }: { p: QuestionsPacket; doc: PacketDocument; d: Pick<Draft, "documents">; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string>; after?: boolean; level: "screen" | "list" }) {
+function DocCard({ p, doc, d, mode, setDoc, upload, removeFile, thumbs, after = false, level, camera }: { p: QuestionsPacket; doc: PacketDocument; d: Pick<Draft, "documents">; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string>; after?: boolean; level: "screen" | "list"; camera: boolean }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const total = Object.values(d.documents).reduce((s, x) => s + x.files.reduce((t, f) => t + f.bytes, 0), 0);
@@ -282,7 +304,7 @@ function DocCard({ p, doc, d, mode, setDoc, upload, removeFile, thumbs, after = 
     setErr("");
     for (const f of Array.from(files)) {
       if (list.length >= DOCUMENT_LIMITS.filesPerDocument) {
-        setErr(`1つの書類に付けられるのは${DOCUMENT_LIMITS.filesPerDocument}枚までです`);
+        setErr(`1つの書類に添付できるのは${DOCUMENT_LIMITS.filesPerDocument}枚までです`);
         break;
       }
       if (count + list.length - x.files.length >= DOCUMENT_LIMITS.files) {
@@ -322,7 +344,7 @@ function DocCard({ p, doc, d, mode, setDoc, upload, removeFile, thumbs, after = 
     setDoc(doc.id, { status: files.length > 0 ? "attached" : "blank", files });
   };
   const unsent = x.files.filter((f) => f.sentAt === undefined).length;
-  const chip = x.status === "attached" ? (unsent === 0 ? `送りました（${x.files.length}）` : `付けました（${x.files.length}）`) : x.status === "notAvailable" ? "手元にない" : x.status === "later" ? "あとで送る" : "まだ";
+  const chip = x.status === "attached" ? (unsent === 0 ? `送りました（${x.files.length}）` : `添付しました（${x.files.length}）`) : x.status === "notAvailable" ? "手元にない" : x.status === "later" ? "あとで送る" : "まだ";
   const uses = coverLine(doc);
   const Title = level === "screen" ? "h2" : "h3";
   return (
@@ -362,10 +384,12 @@ function DocCard({ p, doc, d, mode, setDoc, upload, removeFile, thumbs, after = 
         </ul>
       ) : null}
       <div class="hf-doc-actions">
-        <label class={`hf-btn${busy ? " busy" : ""}`}>
-          <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={(e) => void attach((e.currentTarget as HTMLInputElement).files).then(() => ((e.target as HTMLInputElement).value = ""))} />
-          撮る
-        </label>
+        {camera ? (
+          <label class={`hf-btn${busy ? " busy" : ""}`} data-hf-camera>
+            <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={(e) => void attach((e.currentTarget as HTMLInputElement).files).then(() => ((e.target as HTMLInputElement).value = ""))} />
+            撮影する
+          </label>
+        ) : null}
         <label class="hf-btn">
           <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" multiple disabled={busy} onChange={(e) => void attach((e.currentTarget as HTMLInputElement).files).then(() => ((e.target as HTMLInputElement).value = ""))} />
           ファイルを選ぶ
@@ -381,24 +405,35 @@ function DocCard({ p, doc, d, mode, setDoc, upload, removeFile, thumbs, after = 
           </>
         )}
       </div>
+      {level === "screen" && !camera ? (
+        <p class="hf-note" data-hf-phone>
+          {PHONE_NOTE}
+          {after ? "" : PHONE_LATER}
+        </p>
+      ) : null}
       {busy ? <p class="hf-note">暗号化して送っています…</p> : null}
       {err !== "" ? <p class="hf-err">{err}</p> : null}
-      {x.status === "later" && !after ? <p class="hf-note">用意できたら、お答えを送った後でも、期限（{dateText(p.expiresAt)}）までにこのページから送れます。</p> : null}
+      {x.status === "later" && !after ? <p class="hf-note">用意できたら、回答を送った後でも、期限（{dateText(p.expiresAt)}）までにこのページから送れます。</p> : null}
       {mode === "preview" ? <p class="hf-note">（見本では、選んだファイルは送られません）</p> : null}
     </section>
   );
 }
 
-/** 答えを送った後の「書類を送る」の一覧（撮る前の注意は上に1回） */
-function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs }: { p: QuestionsPacket; d: Pick<Draft, "documents" | "gates">; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string> }) {
+/** 答えを送った後の「書類を送る」の一覧（撮影する前の注意は上に1回） */
+function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs, camera }: { p: QuestionsPacket; d: Pick<Draft, "documents" | "gates">; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string>; camera: boolean }) {
   return (
     <div class="hf-docs">
       <p class="hf-lead">写真か PDF で送ってください。書類はこの端末の中で暗号化して送り、担当の FP だけが開けます。</p>
       <PhotoTips kind={null} open={false} />
+      {camera ? null : (
+        <p class="hf-note" data-hf-phone>
+          {PHONE_NOTE}
+        </p>
+      )}
       {p.documents
         .filter((doc) => docShown(d, doc))
         .map((doc) => (
-          <DocCard key={doc.id} p={p} doc={doc} d={d} mode={mode} thumbs={thumbs} upload={upload} removeFile={removeFile} setDoc={setDoc} after level="list" />
+          <DocCard key={doc.id} p={p} doc={doc} d={d} mode={mode} thumbs={thumbs} upload={upload} removeFile={removeFile} setDoc={setDoc} after level="list" camera={camera} />
         ))}
     </div>
   );
@@ -427,7 +462,7 @@ function GateQuestions({ p, d, gates, onPick, first }: { p: QuestionsPacket; d: 
   );
 }
 
-const secTitle = (p: QuestionsPacket, id: string) => (id === START_SECTION ? START_TITLE : id === DOCS_SECTION ? "書類のかわりにうかがったこと" : (p.sections.find((s) => s.id === id)?.title ?? ""));
+const secTitle = (p: QuestionsPacket, id: string) => (id === START_SECTION ? START_TITLE : id === DOCS_SECTION ? "書類のかわりに伺ったこと" : (p.sections.find((s) => s.id === id)?.title ?? ""));
 
 type Row = { readonly i: number; readonly section: string; readonly gate: GateId } | { readonly i: number; readonly section: string; readonly f: ScreenField };
 
@@ -475,17 +510,14 @@ function AnswerList({ p, list, d, itemOf, onFix }: { p: QuestionsPacket; list: r
               const subs = r.f.alt.map((k) => ({ it: itemOf.get(k) as WebItem, a: d.answers[draftKey(k, r.f.index)] })).filter((x) => x.a !== undefined && x.a.status !== "later");
               const main = d.answers[draftKey(r.f.key, r.f.index)];
               const mainShown = main !== undefined && main.status !== "later";
-              // 別の答え方（範囲・年齢）は、答えの欄が空か「わからない」か、生年月の月がわからないときに添える
-              const withSubs = subs.length > 0 && mainShown && (main.status !== "value" || raw2Text(main) === MONTH_UNKNOWN);
-              const base = !mainShown && subs.length > 0 ? subs.map((x) => answerText(x.it, x.a)).join("・") : !mainShown ? "（まだ）" : answerText(it, main) + (withSubs ? `（${subs.map((x) => answerText(x.it, x.a)).join("・")}）` : "");
-              // ご相談したいこと: 選んだ話題と、書いた文（0192）
-              const picked = it.topics === undefined ? [] : it.topics.filter((t) => (d.topics ?? []).includes(t));
-              const shown = picked.length === 0 ? base : `${picked.join("、")}${mainShown ? `（${answerText(it, main)}）` : ""}`;
+              // 別の答え方（範囲）は、答えの欄が空か「わからない」のときに添える
+              const withSubs = subs.length > 0 && mainShown && main.status !== "value";
+              const shown = !mainShown && subs.length > 0 ? subs.map((x) => answerText(x.it, x.a)).join("・") : !mainShown ? "（まだ）" : answerText(it, main) + (withSubs ? `（${subs.map((x) => answerText(x.it, x.a)).join("・")}）` : "");
               return (
                 <div key={draftKey(r.f.key, r.f.index)} class={`hf-rv${fieldAnswered(d, r.f) ? "" : " todo"}`}>
                   <dt>
                     {head !== null ? `${head} ` : ""}
-                    {it.label}
+                    {itemLabel(it, d, r.f.index)}
                   </dt>
                   <dd>
                     {shown}
@@ -514,7 +546,7 @@ function DocumentList({ p, d, onFix }: { p: QuestionsPacket; d: Draft; onFix?: (
       <dl>
         {docs.map((x) => {
           const v = d.documents[x.id];
-          const t = v === undefined || v.status === "blank" ? "（まだ）" : v.status === "attached" ? `付けました（${v.files.map((f) => f.label).join("・")}）` : v.status === "notAvailable" ? "手元にない" : "あとで送る";
+          const t = v === undefined || v.status === "blank" ? "（まだ）" : v.status === "attached" ? `添付しました（${v.files.map((f) => f.label).join("・")}）` : v.status === "notAvailable" ? "手元にない" : "あとで送る";
           return (
             <div class={`hf-rv${v === undefined || v.status === "blank" ? " todo" : ""}`} key={x.id}>
               <dt>{customerDocTitle(x)}</dt>
@@ -559,7 +591,7 @@ function ClearDraft({ onClear }: { onClear: () => void }) {
     );
   return (
     <div class="hf-clear ask" role="alert">
-      <p>この端末に残っている途中のお答えと、付けた書類を消します。よろしいですか。</p>
+      <p>この端末に残っている途中の回答と、添付した書類を消します。よろしいですか。</p>
       <button type="button" class="hf-state" onClick={onClear} data-hf-clear-yes>
         消す
       </button>
@@ -570,25 +602,8 @@ function ClearDraft({ onClear }: { onClear: () => void }) {
   );
 }
 
-/** 画面の中の1つの問い（答えの欄・別の答え方・わからない など） */
-/** ご相談したいことの話題（いくつでも選べる。0192） */
-function Topics({ item, picked, onChange }: { item: WebItem; picked: readonly string[]; onChange: (t: string[]) => void }) {
-  const list = item.topics ?? [];
-  return (
-    <div class="hf-choices hf-compact hf-multi" role="group" aria-label={item.label} data-hf-topics>
-      {list.map((t) => {
-        const on = picked.includes(t);
-        return (
-          <button type="button" key={t} class={`hf-choice${on ? " on" : ""}`} aria-pressed={on} onClick={() => onChange(on ? picked.filter((x) => x !== t) : list.filter((x) => x === t || picked.includes(x)))} data-hf-topic={t}>
-            {t}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Question({ p, d, f, itemOf, setAnswer, setTopics, first, showHead, now, mode }: { p: QuestionsPacket; d: Draft; f: ScreenField; itemOf: Map<string, WebItem>; setAnswer: (key: string, index: number | undefined, a: DraftAnswer | undefined) => void; setTopics: (t: string[]) => void; first: boolean; showHead: boolean; now: Date; mode: FormProps["mode"] }) {
+/** 画面の中の1つの問い（答えの欄・金額の範囲・わからない など） */
+function Question({ p, d, f, itemOf, setAnswer, first, showHead, now, mode }: { p: QuestionsPacket; d: Draft; f: ScreenField; itemOf: Map<string, WebItem>; setAnswer: (key: string, index: number | undefined, a: DraftAnswer | undefined) => void; first: boolean; showHead: boolean; now: Date; mode: FormProps["mode"] }) {
   const it = itemOf.get(f.key) as WebItem;
   const a = d.answers[draftKey(f.key, f.index)];
   const head = indexLabel(it, f.index);
@@ -596,46 +611,72 @@ function Question({ p, d, f, itemOf, setAnswer, setTopics, first, showHead, now,
   const range = f.alt.map((k) => itemOf.get(k) as WebItem).find((x) => x.type === "moneyRange");
   const others = f.alt.filter((k) => k !== range?.key);
   const ra = range === undefined ? undefined : d.answers[draftKey(range.key, f.index)];
-  const [open, setOpen] = useState(a?.status === "value");
+  const byRange = range !== undefined && rangeFirst(f.key);
+  // 範囲が先の金額: 具体額の欄を開いているか（前の答えに額があれば開く）。具体額が先の金額: 範囲のボタンを開いているか（前の答えに範囲があれば開く）
+  const [open, setOpen] = useState(byRange ? a?.status === "value" : ra?.status === "value");
   const Heading = first ? "h2" : "h3";
   const setMain = (x: DraftAnswer | undefined) => {
     setAnswer(f.key, f.index, x);
     // 金額か範囲のどちらかで答える（片方を選んだら、もう片方を消す）
     if (x !== undefined && range !== undefined) setAnswer(range.key, f.index, undefined);
   };
-  const age = others.includes(AGE_KEY) ? itemOf.get(AGE_KEY) : undefined;
-  const birthYear = it.type === "yearMonth" && raw2Text(a) === MONTH_UNKNOWN ? Number(/\d{4}/.exec(rawText(a))?.[0]) : NaN;
+  const setRange = (x: DraftAnswer | undefined) => {
+    if (range === undefined) return;
+    setAnswer(range.key, f.index, x);
+    if (x !== undefined) setAnswer(f.key, f.index, undefined);
+  };
+  // 月を「わからない」にできるのは大人の生年月だけ（年齢の項目がある簡易の票。今までと同じ）。年だけでは取り込めないので送らず、面談で伺う
+  const monthUnknown = it.key === "hs.family.adult.birthYearMonth" && itemOf.has("hs.family.adult.age");
+  const noMonth = it.type === "yearMonth" && raw2Text(a) === MONTH_UNKNOWN;
+  const basis = basisText(it);
+  const label = itemLabel(it, d, f.index);
+  const guide = itemGuide(it);
+  const exact = (focus: boolean) => (
+    <>
+      <Field item={it} a={a?.status === "value" ? a : undefined} onChange={setMain} years={p.years} autoFocus={focus} now={now} monthUnknown={false} label={label} />
+      {it.example !== undefined ? <p class="hf-example">記入例: {it.example}</p> : null}
+    </>
+  );
+  const rangeChoices = range === undefined ? null : <Field item={range} a={ra?.status === "value" ? ra : undefined} onChange={setRange} years={p.years} autoFocus={false} now={now} monthUnknown={false} />;
   return (
     <div class={`hf-field${first ? "" : " more"}`} data-hf-field={draftKey(f.key, f.index)}>
       {showHead && head !== null ? <p class="hf-who-line">{head}</p> : null}
-      <Heading class={first ? "hf-q" : "hf-q2"}>{it.label}</Heading>
-      {it.guide !== undefined ? <p class="hf-guide">{it.guide}</p> : null}
-      {pre !== undefined ? <p class="hf-pre">前回のお答え: {answerText(it, pre as DraftAnswer)}（変わっていなければ、そのまま「次へ」）</p> : null}
-      {range !== undefined ? (
+      <Heading class={first ? "hf-q" : "hf-q2"}>{label}</Heading>
+      {guide !== undefined ? <p class="hf-guide">{guide}</p> : null}
+      {pre !== undefined ? <p class="hf-pre">前回の回答: {answerText(it, pre as DraftAnswer)}（変わっていなければ、そのまま「次へ」）</p> : null}
+      {range !== undefined && byRange ? (
         <>
-          {basisText(it) !== null ? <p class="hf-basis-line">{basisText(it)}・だいたいの範囲を選んでください</p> : <p class="hf-basis-line">だいたいの範囲を選んでください</p>}
-          <Field item={range} a={ra?.status === "value" ? ra : undefined} onChange={(x) => (setAnswer(range.key, f.index, x), x !== undefined ? setAnswer(f.key, f.index, undefined) : undefined)} years={p.years} autoFocus={false} now={now} monthUnknown={false} />
+          {basis !== null ? <p class="hf-basis-line">{basis}・だいたいの範囲を選んでください</p> : <p class="hf-basis-line">だいたいの範囲を選んでください</p>}
+          {rangeChoices}
           {open ? (
-            <div class="hf-exact">
-              <Field item={it} a={a?.status === "value" ? a : undefined} onChange={setMain} years={p.years} autoFocus={mode === "live"} now={now} monthUnknown={false} />
-              {it.example !== undefined ? <p class="hf-example">記入例: {it.example}</p> : null}
-            </div>
+            <div class="hf-exact">{exact(mode === "live")}</div>
           ) : (
             <button type="button" class="hf-link hf-open" onClick={() => setOpen(true)} data-hf-exact={f.key}>
               くわしい額を入れる
             </button>
           )}
         </>
-      ) : it.topics !== undefined ? (
+      ) : range !== undefined ? (
         <>
-          <Topics item={it} picked={d.topics ?? []} onChange={setTopics} />
-          <p class="hf-also-h">ほかにあれば、自由にお書きください（任意）</p>
-          <Field item={it} a={a?.status === "value" ? a : undefined} onChange={setMain} years={p.years} autoFocus={false} now={now} monthUnknown={false} />
+          {exact(first && mode === "live")}
+          <div class="hf-range" data-hf-range-box={f.key}>
+            {open ? (
+              <>
+                <p class="hf-basis-line">わからなければ、だいたいの範囲を選んでください{basis !== null ? `（${basis}）` : ""}</p>
+                {rangeChoices}
+              </>
+            ) : (
+              <button type="button" class="hf-link hf-open" onClick={() => setOpen(true)} data-hf-range={f.key}>
+                わからなければ、範囲で選ぶ
+              </button>
+            )}
+          </div>
         </>
       ) : (
         <>
-          <Field item={it} a={a?.status === "value" ? a : undefined} onChange={setMain} years={p.years} autoFocus={first && mode === "live"} now={now} monthUnknown={age !== undefined} />
+          <Field item={it} a={a?.status === "value" ? a : undefined} onChange={setMain} years={p.years} autoFocus={first && mode === "live"} now={now} monthUnknown={monthUnknown} label={label} />
           {it.example !== undefined && it.type !== "text" && it.type !== "yearMonth" ? <p class="hf-example">記入例: {it.example}</p> : null}
+          {noMonth ? <p class="hf-note">月がわからないときは、面談のときに伺います。</p> : null}
         </>
       )}
       <StateButtons
@@ -651,12 +692,7 @@ function Question({ p, d, f, itemOf, setAnswer, setTopics, first, showHead, now,
         const sa = d.answers[draftKey(k, f.index)];
         return (
           <div class="hf-also" key={k}>
-            <p class="hf-also-h">{k === AGE_KEY ? "年齢（生まれた年月がわからないとき）" : sub.label}</p>
-            {k === AGE_KEY && Number.isFinite(birthYear) ? (
-              <p class="hf-note">
-                {birthYear}年生まれなら、いま{now.getFullYear() - birthYear - 1}歳か{now.getFullYear() - birthYear}歳です
-              </p>
-            ) : null}
+            <p class="hf-also-h">{itemLabel(sub, d, f.index)}</p>
             <Field item={sub} a={sa?.status === "value" ? sa : undefined} onChange={(x) => setAnswer(k, f.index, x)} years={p.years} autoFocus={false} now={now} monthUnknown={false} />
             <StateButtons item={sub} a={sa} onChange={(x) => setAnswer(k, f.index, x)} />
           </div>
@@ -712,10 +748,10 @@ function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProp
       <main class="hf-main">
         <h1 class="hf-q">書類を送る</h1>
         <p class="hf-pre" data-hf-answered>
-          {answeredAt !== null ? `お答えは${new Date(answeredAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}に送っていただいています。` : "お答えは送っていただいています。"}
+          {answeredAt !== null ? `${new Date(answeredAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}にご回答いただいています。` : "ご回答いただいています。"}
           ありがとうございました。書類は、回答の期限（{dateText(p.expiresAt)}）まで、このページから何回でも送れます。
         </p>
-        <Documents p={p} d={{ documents: m.documents, gates: {} }} mode={mode} thumbs={thumbs} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => setM((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} />
+        <Documents p={p} d={{ documents: m.documents, gates: {} }} mode={mode} thumbs={thumbs} camera={props.camera ?? touchDevice()} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => setM((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} />
         {err !== null ? (
           <p class="hf-err" role="alert">
             {err}
@@ -743,7 +779,7 @@ function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProp
       <nav class="hf-nav">
         <span />
         <button type="button" class="hf-next" disabled={count === 0 || sending} onClick={() => void send()} data-hf-send-docs>
-          {sending ? "送っています…" : count === 0 ? "書類を付けてください" : `書類を送る（${count}）`}
+          {sending ? "送っています…" : count === 0 ? "書類を添付してください" : `書類を送る（${count}）`}
         </button>
       </nav>
     </div>
@@ -806,14 +842,6 @@ export function HearingForm(props: FormProps): JSX.Element {
       return { ...cur, answers };
     });
   };
-  const setTopics = (t: string[]) => {
-    setProblem(null);
-    update((cur) => {
-      const { topics: _t, ...rest } = cur;
-      void _t;
-      return t.length > 0 ? { ...rest, topics: t } : rest;
-    });
-  };
   const go = (n: number) => {
     const s = list[Math.max(0, Math.min(list.length - 1, n))];
     if (s === undefined) return;
@@ -837,15 +865,13 @@ export function HearingForm(props: FormProps): JSX.Element {
       return { ...cur, answers };
     });
   };
-  const pendingAt = list.findIndex((x) => screenFields(x).some((f) => !fieldAnswered(d, f)) || screenGates(x).some((g) => d.gates[g] === undefined));
   const next = () => {
     if (screen.kind === "item" || screen.kind === "document") {
       for (const f of screen.fields) {
-        const ageAnswered = f.alt.includes(AGE_KEY) && d.answers[draftKey(AGE_KEY, f.index)] !== undefined && d.answers[draftKey(AGE_KEY, f.index)]?.status !== "later";
         for (const k of fieldKeys(f)) {
           const it = itemOf.get(k);
-          const msg = it === undefined ? null : inputProblem(it, d.answers[draftKey(k, f.index)], ageAnswered);
-          if (msg !== null) return setProblem(screen.fields.length > 1 || screen.kind === "document" ? `${(itemOf.get(f.key) as WebItem).label}: ${msg}` : msg);
+          const msg = it === undefined ? null : inputProblem(it, d.answers[draftKey(k, f.index)]);
+          if (msg !== null) return setProblem(screen.fields.length > 1 || screen.kind === "document" ? `${itemLabel(itemOf.get(f.key) as WebItem, d, f.index)}: ${msg}` : msg);
         }
       }
       // 空のまま「次へ」は「あとで」と同じ（確かめの画面で「まだの問い」に出る。続きからは飛ばす）
@@ -920,6 +946,7 @@ export function HearingForm(props: FormProps): JSX.Element {
   };
   const style = p.office.color !== null ? ({ "--hf-accent": p.office.color } as Record<string, string>) : undefined;
   const now = clock();
+  const camera = props.camera ?? touchDevice();
 
   if (more !== null) return <MoreDocuments props={props} answeredAt={props.answeredAt ?? (sent !== null ? sent.toISOString() : null)} initial={more} thumbs={thumbs} />;
 
@@ -932,7 +959,7 @@ export function HearingForm(props: FormProps): JSX.Element {
           <div class="hf-check" aria-hidden="true">
             ✓
           </div>
-          <h1>{p.office.name !== "" ? `${p.office.name}に届きました` : "送りました"}</h1>
+          <h1>事前ヒアリングの内容を送りました</h1>
           <p>
             {sent.toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}に送りました。ご協力ありがとうございました。
           </p>
@@ -962,7 +989,6 @@ export function HearingForm(props: FormProps): JSX.Element {
           ) : null}
           <p class="hf-note">このページを閉じると、送った内容はこの端末には残りません。控えが要るときは、閉じる前に印刷してください。</p>
           {mode === "preview" ? <p class="hf-note">（見本です。答えは送っていません）</p> : null}
-          <About p={p} />
         </main>
       </div>
     );
@@ -994,37 +1020,37 @@ export function HearingForm(props: FormProps): JSX.Element {
     const summary = coverSummary(p, d);
     body = (
       <div class="hf-intro">
-        <h1>{officeName(p)}からのご質問です</h1>
-        <p class="hf-title">{p.title}</p>
-        {p.office.purpose !== "" ? <p class="hf-lead">{p.office.purpose}にお聞きします。</p> : null}
+        <h1>ライフプラン事前ヒアリング</h1>
         <ul class="hf-facts" data-hf-facts>
           <li>
             ご質問は<b>{est.screens}画面</b>ほど、<b>{est.minutes}分</b>ほどで答えられます。
           </li>
-          <li>お答えは、この端末の中で暗号化してから送ります。{p.office.name !== "" ? `${p.office.name}の` : ""}担当の FP だけが開けます。</li>
+          <li>回答は、この端末の中で暗号化してから送ります。{p.office.name !== "" ? `${p.office.name}の` : ""}担当の FP だけが開けます。</li>
           <li>
             回答の期限: <b>{dateText(p.expiresAt)}</b>まで
           </li>
           {summary !== null ? <li data-hf-cover-summary>{summary}</li> : null}
+          {p.documents.some((x) => docShown(d, x)) && !camera ? <li data-hf-phone-intro>書類の撮影があるので、スマートフォンで開くのがおすすめです。</li> : null}
         </ul>
         <ul class="hf-notes">
           {p.notes.map((n) => (
-            <li key={n}>{n}</li>
+            <li key={n}>{customerText(n)}</li>
           ))}
         </ul>
         {p.office.privacyContact !== "" ? <p class="hf-note">個人情報のお問い合わせ: {p.office.privacyContact}</p> : null}
         {d.started ? <ClearDraft onClear={clear} /> : null}
+        <About p={p} />
       </div>
     );
   } else if (screen.kind === "consent") {
     body = (
       <div>
-        <h2 class="hf-q">{p.consent.title}</h2>
-        <p class="hf-lead">{p.consent.lead}</p>
+        <h2 class="hf-q">{customerText(p.consent.title)}</h2>
+        <p class="hf-lead">{customerText(p.consent.lead)}</p>
         {p.consent.items.map((it) => (
           <div class="hf-consent" key={it.key}>
-            <p>{it.label}</p>
-            <Choices name={it.label} options={it.choices ?? []} value={rawText(d.answers[draftKey(it.key)]) || null} onPick={(v) => setAnswer(it.key, undefined, { status: "value", raw: { kind: "text", text: v } })} />
+            <p>{customerText(it.label)}</p>
+            <Choices name={customerText(it.label)} options={it.choices ?? []} value={rawText(d.answers[draftKey(it.key)]) || null} onPick={(v) => setAnswer(it.key, undefined, { status: "value", raw: { kind: "text", text: v } })} />
           </div>
         ))}
       </div>
@@ -1049,7 +1075,7 @@ export function HearingForm(props: FormProps): JSX.Element {
           {head !== null ? <b class="hf-who">{head}</b> : null}
         </p>
         {screen.fields.map((f, i) => (
-          <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} setTopics={setTopics} first={i === 0} showHead={!sameIndex} now={now} mode={mode} />
+          <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} first={i === 0} showHead={!sameIndex} now={now} mode={mode} />
         ))}
         {problem !== null ? (
           <p class="hf-err" role="alert">
@@ -1068,13 +1094,13 @@ export function HearingForm(props: FormProps): JSX.Element {
         <p class="hf-sec">
           送っていただきたい書類{docs.length > 1 ? `（${docs.indexOf(screen) + 1}/${docs.length}）` : ""}
         </p>
-        <DocCard p={p} doc={doc} d={d} mode={mode} thumbs={thumbs} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => update((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} level="screen" />
+        <DocCard p={p} doc={doc} d={d} mode={mode} thumbs={thumbs} camera={camera} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => update((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} level="screen" />
         {none ? (
           <div class="hf-instead" data-hf-instead>
             <p class="hf-pre">{insteadLine(doc, screen, p)}</p>
             <GateQuestions p={p} d={d} gates={screen.gates} onPick={pickGate} first={false} />
             {screen.fields.map((f) => (
-              <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} setTopics={setTopics} first={false} showHead now={now} mode={mode} />
+              <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} first={false} showHead now={now} mode={mode} />
             ))}
             {problem !== null ? (
               <p class="hf-err" role="alert">
@@ -1085,7 +1111,7 @@ export function HearingForm(props: FormProps): JSX.Element {
         ) : null}
         {unsentFiles(d).length > 0 ? (
           <div class="hf-pre" data-hf-early>
-            <p>付けた書類は、最後にお答えと一緒に送ります。お答えの前に、書類だけ先に送ることもできます。</p>
+            <p>添付した書類は、最後に回答と一緒に送ります。回答の前に、書類だけ先に送ることもできます。</p>
             <button type="button" class="hf-state" disabled={earlySending} onClick={() => void sendEarly()} data-hf-send-early>
               {earlySending ? "送っています…" : "書類だけ先に送る"}
             </button>
@@ -1096,28 +1122,23 @@ export function HearingForm(props: FormProps): JSX.Element {
             {earlyErr}
           </p>
         ) : null}
-        {docs.indexOf(screen) === docs.length - 1 ? <p class="hf-note">書類は、お答えを送った後でも、期限までに同じリンクから送れます。</p> : null}
+        {docs.indexOf(screen) === docs.length - 1 ? <p class="hf-note">書類は、回答を送った後でも、期限までに同じリンクから送れます。</p> : null}
       </div>
     );
   } else {
-    // 確かめの画面
+    // 入力内容の確認の画面
     nextLabel = sending ? "送っています…" : "この内容で送る";
     const pending = list.reduce((n, s) => n + screenFields(s).filter((f) => !fieldAnswered(d, f)).length, 0);
     const docsPending = p.documents.filter((x) => docShown(d, x) && (d.documents[x.id]?.status ?? "blank") === "blank").length;
     body = (
       <div class="hf-review">
-        <h2 class="hf-q">お答えの確かめ</h2>
+        <h2 class="hf-q">{REVIEW_TITLE}</h2>
         <p class="hf-lead">直したい所は「直す」を押してください。よければ、いちばん下の「この内容で送る」を押してください。</p>
         {pending + docsPending > 0 ? (
           <div class="hf-pre" data-hf-pending>
             <p>
-              まだの問いが{pending}、まだの書類が{docsPending}あります。途中まででも送れます。答えていない所は、面談のときにうかがいます。
+              まだの問いが{pending}、まだの書類が{docsPending}あります。途中まででも送れます。答えていない所は、面談のときに伺います。
             </p>
-            {pendingAt >= 0 && pendingAt < list.length - 1 ? (
-              <button type="button" class="hf-state" onClick={() => (setBack(true), go(pendingAt))} data-hf-todo>
-                まだの問いに答える
-              </button>
-            ) : null}
           </div>
         ) : null}
         <AnswerList p={p} list={list} d={d} itemOf={itemOf} onFix={(i) => (setBack(true), go(i))} />
@@ -1127,7 +1148,7 @@ export function HearingForm(props: FormProps): JSX.Element {
             {sendErr}
           </p>
         ) : null}
-        <p class="hf-note">お答えは、送った後は直せません。直したいことがあれば、担当の FP にお伝えください。書類は、送った後も足せます。</p>
+        <p class="hf-note">回答は、送った後は直せません。直したいことがあれば、担当の FP にお伝えください。書類は、送った後も足せます。</p>
         <ClearDraft onClear={clear} />
       </div>
     );
@@ -1136,10 +1157,7 @@ export function HearingForm(props: FormProps): JSX.Element {
     <div class={`hf${mode === "preview" ? " preview" : ""}`} style={style} data-hf-screen={screenId(screen)}>
       {header}
       {mode === "preview" ? <p class="hf-banner">見本です（お客さまにはこう見えます。答えは送られません）</p> : null}
-      <main class="hf-main">
-        {body}
-        <About p={p} />
-      </main>
+      <main class="hf-main">{body}</main>
       <nav class="hf-nav">
         {/* 確かめの画面の「直す」から来たときは、戻る先は確かめの画面だけ（右のボタン）。左には何も出さない */}
         {at > 0 && !back ? (
@@ -1155,7 +1173,7 @@ export function HearingForm(props: FormProps): JSX.Element {
           </button>
         ) : null}
         <button type="button" class="hf-next" disabled={!canNext || sending} onClick={() => (screen.kind === "review" ? void send() : next())} data-hf-next>
-          {back && screen.kind !== "review" ? "確かめに戻る" : nextLabel}
+          {back && screen.kind !== "review" ? `${REVIEW_TITLE}に戻る` : nextLabel}
         </button>
       </nav>
     </div>

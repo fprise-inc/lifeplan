@@ -90,7 +90,7 @@ describe("お客さまの画面: 1通1画面・書類で分かる問いを出さ
     const { wh, sel } = selection("detail");
     const p = await previewPacket(wh, sel, OFFICE, NOW);
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), now: () => NOW }));
-    expect(html).toContain("お給料と年金の額は、お送りいただく源泉徴収票・ねんきん定期便の数字を使います。そのぶん、お答えいただく問いが少なくなっています。");
+    expect(html).toContain("お給料と年金の額は、お送りいただく源泉徴収票・ねんきん定期便の数字を使います。そのぶん、ご回答いただく問いが少なくなっています。");
     const d: Draft = { ...initialDraft(p), gates: { spouse: 1 }, answers: { [draftKey("hs.work.type", 1)]: v("regular"), [draftKey("hs.work.type", 2)]: v("regular") } };
     const keys = screens(p, d).flatMap((s) => (s.kind === "item" ? s.fields.map((f) => draftKey(f.key, f.index)) : []));
     expect(keys).not.toContain(draftKey("hs.income.salary", 1));
@@ -98,11 +98,12 @@ describe("お客さまの画面: 1通1画面・書類で分かる問いを出さ
     expect(keys.some((k) => k.startsWith("hs.pension.") && k.endsWith("#1"))).toBe(false);
   });
 
-  it("書類の画面: 「ご本人さまの源泉徴収票」・お給料の額は、この書類の数字を使います・どこが写っていればよいか・撮る前の注意（隠してよい番号）・何通目か", async () => {
+  it("書類の画面: 「ご本人さまの源泉徴収票」・お給料の額は、この書類の数字を使います・どこが写っていればよいか・撮影する前の注意（隠してよい番号）・何通目か", async () => {
     const { wh, sel } = selection();
     const p = await previewPacket(wh, sel, OFFICE, NOW);
-    const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), startAt: "doc:d1", now: () => NOW }));
-    for (const t of ["送っていただきたい書類（1/2）", "ご本人さまの源泉徴収票", "お給料の額は、この書類の数字を使います。", "どこが写っていればよいか", "「支払金額」と「社会保険料等の金額」の欄", "撮る前に", "マイナンバー（個人番号）は、写さないか隠してかまいません。", "明るい所で、書類の全体が入るように", "撮る", "ファイルを選ぶ", "手元にない", "あとで送る"]) expect(html).toContain(t);
+    const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), startAt: "doc:d1", now: () => NOW, camera: true }));
+    for (const t of ["送っていただきたい書類（1/2）", "ご本人さまの源泉徴収票", "お給料の額は、この書類の数字を使います。", "どこが写っていればよいか", "「支払金額」と「社会保険料等の金額」の欄", "撮影する前に", "マイナンバー（個人番号）は、写さないか隠してかまいません。", "明るい所で、書類の全体が入るように", "撮影する", "ファイルを選ぶ", "手元にない", "あとで送る"]) expect(html).toContain(t);
+    expect(html).not.toContain("撮る");
     expect(html).not.toContain("聞きません");
     // 2通目はねんきん定期便（簡易の票には年金の問いが無いので、数字を使う一言は出さない）
     const second = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), startAt: "doc:d2", now: () => NOW }));
@@ -110,20 +111,21 @@ describe("お客さまの画面: 1通1画面・書類で分かる問いを出さ
     expect(second).not.toContain("この書類の数字を使います");
   });
 
-  it("「手元にない」を選ぶと、その画面で「大丈夫です。かわりに、お給料のだいたいの額をうかがいます（1問）。」と年収の問い", async () => {
+  it("「手元にない」を選ぶと、その画面で「大丈夫です。かわりに、お給料の額を伺います（1問）。」と年収の問い（具体額が先・わからなければ範囲）", async () => {
     const { wh, sel } = selection();
     const p = await previewPacket(wh, sel, OFFICE, NOW);
     const d: Draft = { ...initialDraft(p), gates: { spouse: 0, child: 0 }, answers: { [draftKey("hs.work.type", 1)]: v("regular") }, documents: { d1: { status: "notAvailable", files: [] } } };
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "doc:d1", now: () => NOW }));
-    for (const t of ["大丈夫です。かわりに、お給料のだいたいの額をうかがいます（1問）。", "年収", "だいたいの範囲を選んでください", "くわしい額を入れる"]) expect(html).toContain(t);
+    for (const t of ["大丈夫です。かわりに、お給料の額を伺います（1問）。", "年収（賞与を含む）", "わからなければ、範囲で選ぶ"]) expect(html).toContain(t);
+    expect(html).not.toContain("くわしい額を入れる");
     // 確かめの画面にも出る
     const rv = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "review", now: () => NOW }));
-    expect(rv).toContain("書類のかわりにうかがったこと");
+    expect(rv).toContain("書類のかわりに伺ったこと");
     expect(rv).toContain("ご本人さまの源泉徴収票");
     // 「あとで送る」は問いを出さず、送れる時期を言う
     const later = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: { ...d, documents: { d1: { status: "later", files: [] } } }, startAt: "doc:d1", now: () => NOW }));
     expect(later).not.toContain("かわりに");
-    expect(later).toContain("お答えを送った後でも");
+    expect(later).toContain("回答を送った後でも");
   });
 });
 
