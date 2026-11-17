@@ -235,6 +235,146 @@ describe("取り崩しの計画（0026）", () => {
   });
 });
 
+describe("取り崩しの計画の始まりの年は、始まりの月から年末までの収支の不足と比較する（0026 の追記 2026-11-17）", () => {
+  type Out = ReturnType<typeof full>;
+  const living = (monthly: number) => ({ id: uid("living"), mode: "total", monthly: box(monthly) });
+  /** 本人が払う掛金の行（決済口座から出る） */
+  const SELF = new Set(["cf.transfer.ideco.ideco", "cf.transfer.ideco.matching", "cf.transfer.mutualAid"]);
+  const sign = (row: string) => (row.startsWith("cf.income.") ? 1 : row.startsWith("cf.taxSi.") || row.startsWith("cf.expense.") ? -1 : 0);
+  /** y 年の from（年月）から年末までの、取り崩して使うお金を除いた収支と本人の掛金（お金の動きから数える） */
+  const windowOf = (r: Out, y: number, from: string) => {
+    let net = 0;
+    let self = 0;
+    for (const f of r.flows as unknown as { row: string; ym: string; amount: number }[]) {
+      if (Number(f.ym.slice(0, 4)) !== y || f.ym < from || f.row === "cf.expense.living.drawdown") continue;
+      net += sign(f.row) * f.amount;
+      if (SELF.has(f.row)) self += f.amount;
+    }
+    return { net, self };
+  };
+  const extraOf = (want: number, w: { net: number; self: number }) => Math.max(0, want - Math.max(0, -(w.net - w.self)));
+  const drawdownIn = (r: Out, y: number) => cells(r, "cf.expense.living.drawdown", y);
+  /**
+   * 1980年6月生まれ。退職（働き方の期間の終わり）・計算基準月・取り崩しの計画を変えられる世帯。生活費は月25万円。
+   * 65歳（2045年6月）から公的年金
+   */
+  const make = (o: { retire: string; start: string; baseMonth?: string; method?: "fixed" | "rate"; monthly?: number; ideco?: number; mutualAid?: number }) =>
+    withInput(
+      household({
+        baseMonth: o.baseMonth ?? "2026-01",
+        members: [member("a", "self", "1980-06")],
+        periods: [period("p", { member: "a", from: "2003-04", to: o.retire, annual: 8000000, std: [620000, 620000] })],
+        accounts: [
+          dep(60000000),
+          ...(o.ideco !== undefined ? [{ id: uid("ideco"), kind: "ideco", owner: A, marketValue: box(1000000), asOf: "2025-12", enrolledSince: "2010-01", contributions: [{ from: at("2026-01"), to: at(o.retire), monthly: o.ideco }] }] : []),
+          ...(o.mutualAid !== undefined ? [{ id: uid("sbm"), kind: "smallBusinessMutualAid", owner: A, marketValue: box(1000000), asOf: "2025-12", contributions: [{ from: at("2026-01"), to: at(o.retire), monthly: o.mutualAid }] }] : []),
+        ],
+        endYear: 2050,
+      }),
+      (h, input) => {
+        h.livingExpenses = [living(250000)];
+        (input.assumptions as Obj).investment = { drawdown: { start: at(o.start), ...(o.method === "rate" ? { method: "rate", rate: "0.04" } : { method: "fixed", monthly: o.monthly ?? 300000 }) } };
+      },
+    );
+  const monthsFrom = (start: string) => 13 - Number(start.slice(5, 7));
+
+  it("年の途中から（退職の翌月から）: 始まりの月より前の給与の黒字で不足を打ち消さない。始まりの年の取り崩しは前より少なく、次の年はまる1年で今までどおり", () => {
+    const r = full(make({ retire: "2036-06", start: "2036-07" }));
+    const after = windowOf(r, 2036, "2036-07");
+    const whole = windowOf(r, 2036, "2036-01");
+    // 始まりの月より前は黒字、後は不足の年
+    expect(whole.net - after.net).toBeGreaterThan(0);
+    expect(after.net).toBeLessThan(0);
+    const want = 300000 * 6;
+    expect(drawdownIn(r, 2036)).toBe(extraOf(want, after));
+    // 前の比較のしかた（まる1年の不足）より少ない
+    expect(drawdownIn(r, 2036)).toBeLessThan(extraOf(want, whole));
+    // 次の年はまる1年の不足と比較する
+    expect(drawdownIn(r, 2037)).toBe(extraOf(300000 * 12, windowOf(r, 2037, "2037-01")));
+    // 始まりの前の年は取り崩さない
+    expect(drawdownIn(r, 2035)).toBe(0);
+  });
+
+  it("始まりが1月なら、まる1年の不足と比較する（今までどおり）", () => {
+    const r = full(make({ retire: "2035-12", start: "2036-01" }));
+    expect(drawdownIn(r, 2036)).toBe(extraOf(300000 * 12, windowOf(r, 2036, "2036-01")));
+  });
+
+  it("始まりが12月なら、12月の1か月の額と12月の収支の不足を比較する", () => {
+    const r = full(make({ retire: "2036-06", start: "2036-12" }));
+    expect(drawdownIn(r, 2036)).toBe(extraOf(300000, windowOf(r, 2036, "2036-12")));
+    expect(drawdownIn(r, 2037)).toBe(extraOf(300000 * 12, windowOf(r, 2037, "2037-01")));
+  });
+
+  it("定率も同じ: 年の初めの金融資産×率×月数/12 と、始まりの月から年末までの不足と比較する", () => {
+    const r = full(make({ retire: "2036-06", start: "2036-07", method: "rate" }));
+    const opening = cells(r, "cf.balance.financial", 2035);
+    const want = Math.floor((Math.floor(opening * 0.04) * 6) / 12);
+    const after = windowOf(r, 2036, "2036-07");
+    expect(drawdownIn(r, 2036)).toBe(extraOf(want, after));
+    expect(drawdownIn(r, 2036)).toBeLessThan(extraOf(want, windowOf(r, 2036, "2036-01")));
+  });
+
+  it("始まりの月から後も黒字の年（まだ働いている年）は、不足が無いので計画の額をそのまま使う", () => {
+    const r = full(make({ retire: "2040-12", start: "2036-07" }));
+    const after = windowOf(r, 2036, "2036-07");
+    expect(after.net).toBeGreaterThan(0);
+    expect(drawdownIn(r, 2036)).toBe(300000 * 6);
+  });
+
+  it("本人の iDeCo の掛金も、始まりの月より前の分を除く", () => {
+    const r = full(make({ retire: "2036-06", start: "2036-07", ideco: 20000 }));
+    const after = windowOf(r, 2036, "2036-07");
+    const whole = windowOf(r, 2036, "2036-01");
+    expect(whole.self).toBeGreaterThan(0);
+    expect(after.self).toBe(0);
+    expect(drawdownIn(r, 2036)).toBe(extraOf(300000 * 6, after));
+  });
+
+  it("小規模企業共済の掛金も、始まりの月より前の分を除く", () => {
+    const r = full(make({ retire: "2036-06", start: "2036-07", mutualAid: 30000 }));
+    const after = windowOf(r, 2036, "2036-07");
+    expect(windowOf(r, 2036, "2036-01").self).toBe(30000 * 6);
+    expect(after.self).toBe(0);
+    expect(drawdownIn(r, 2036)).toBe(extraOf(300000 * 6, after));
+  });
+
+  it("公的年金を受け取り始める年（65歳の6月から）に始めるときも、始まりの月から年末までで比較する", () => {
+    for (const start of ["2045-03", "2045-06", "2045-09"]) {
+      const r = full(make({ retire: "2040-12", start }));
+      expect(drawdownIn(r, 2045)).toBe(extraOf(300000 * monthsFrom(start), windowOf(r, 2045, start)));
+      expect(drawdownIn(r, 2046)).toBe(extraOf(300000 * 12, windowOf(r, 2046, "2046-01")));
+    }
+  });
+
+  it("計算基準月が1〜3月の世帯: 始まりが計算基準年の途中なら計算基準月からではなく始まりの月から、計算基準月以前なら計算基準月から年末まで", () => {
+    for (const baseMonth of ["2026-01", "2026-02", "2026-03"]) {
+      // 退職の後の年は住民税などで不足が大きいので、毎月の額を大きくして比較する
+      const mid = full(make({ baseMonth, retire: "2026-05", start: "2026-06", monthly: 800000 }));
+      const after = windowOf(mid, 2026, "2026-06");
+      expect(after.net).toBeLessThan(0);
+      expect(drawdownIn(mid, 2026)).toBe(extraOf(800000 * 7, after));
+      expect(drawdownIn(mid, 2026)).toBeGreaterThan(0);
+      expect(drawdownIn(mid, 2026)).toBeLessThan(extraOf(800000 * 7, windowOf(mid, 2026, baseMonth)));
+      // 始まりが計算基準月より前（もう始めている）: 計算基準月から年末まで（その年の表の全部）で比較する
+      const early = full(make({ baseMonth, retire: "2025-12", start: "2025-10" }));
+      expect(drawdownIn(early, 2026)).toBe(extraOf(300000 * monthsFrom(baseMonth), windowOf(early, 2026, baseMonth)));
+      // 始まりが計算基準月と同じ
+      const same = full(make({ baseMonth, retire: "2025-12", start: baseMonth }));
+      expect(drawdownIn(same, 2026)).toBe(extraOf(300000 * monthsFrom(baseMonth), windowOf(same, 2026, baseMonth)));
+    }
+  });
+
+  it("プランで始まりを変えても、それぞれの始まりの年は始まりの月から、それより後の年はまる1年で比較する", () => {
+    for (const start of ["2036-04", "2036-10", "2037-02"]) {
+      const r = full(make({ retire: "2036-06", start }));
+      const y = Number(start.slice(0, 4));
+      expect(drawdownIn(r, y)).toBe(extraOf(300000 * monthsFrom(start), windowOf(r, y, start)));
+      expect(drawdownIn(r, y + 1)).toBe(extraOf(300000 * 12, windowOf(r, y + 1, `${y + 1}-01`)));
+    }
+  });
+});
+
 describe("相場が下がった場合・利回りの書き換え（0026）", () => {
   const mixed = { id: uid("tx"), kind: "taxable", owner: A, marketValue: box(10000000), costBasis: box(10000000), asOf: "2025-12", assetMix: [{ assetClass: "equity.global", share: "0.6" }, { assetClass: "bond.global", share: "0.4" }], contributions: [] };
   const rets = (input: Obj) => ((input.assumptions as Obj).assetReturns = { "equity.global": { default: "0" }, "bond.global": { default: "0" } });
