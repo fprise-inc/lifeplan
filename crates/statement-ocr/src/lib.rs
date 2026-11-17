@@ -309,7 +309,7 @@ pub(crate) struct Word {
 }
 
 /// 1行の単語を、近いものどうしでつなぐ（隙間が文字の高さの 0.9 倍を超えたら別の塊。表の欄をまたいでつながない）。
-/// つなぐときは、両側が半角の英数字で隙間が文字の高さの 0.3 倍を超えるとき、またはどの字でも隙間が 0.5 倍を超えるときに空白をはさむ
+/// つなぐときは、両側が半角の英数字で隙間が文字の高さの 0.3 倍を超えるとき、またはどの字でも隙間が 0.75 倍を超えるときに空白をはさむ
 /// （Windows は日本語を1字ずつ、数字を「10」「/」「01」のように区切って返すため。英語の単語の間と、店の名前と支店名の間の空白を残す。
 /// 空白があれば、画面の部品が欄をまたぐ塊を空白で分けられる）
 #[cfg_attr(not(windows), allow(dead_code))]
@@ -333,7 +333,7 @@ pub(crate) fn merge_line(words: &[Word]) -> Vec<Word> {
                     .chars()
                     .next()
                     .is_some_and(|c| c.is_ascii_alphanumeric());
-                if (alnum_end && alnum_start && gap > h * 0.3) || gap > h * 0.5 {
+                if (alnum_end && alnum_start && gap > h * 0.3) || gap > h * 0.75 {
                     last.text.push(' ');
                 }
                 last.text.push_str(&w.text);
@@ -415,8 +415,8 @@ mod tests {
             word("ば", 142.0, 20.0),
             word("ABC", 300.0, 30.0),
             word("MART", 340.0, 40.0),
-            word("駅", 392.0, 20.0),
-            word("前", 413.0, 20.0),
+            word("駅", 396.0, 20.0),
+            word("前", 417.0, 20.0),
             word("1", 600.0, 10.0),
             word(",", 611.0, 4.0),
             word("234", 616.0, 30.0),

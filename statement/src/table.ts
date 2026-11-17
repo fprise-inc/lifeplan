@@ -195,6 +195,22 @@ export function splitHeaderWords(text: string): string[] | null {
   return out.every((p) => p !== "") ? out : null;
 }
 
+/**
+ * 見出しの言葉と1字だけ違う言葉（文字認識の読み違い。「お預人れ」→「お預入れ」）を、その見出しの言葉にする（3字以上で、1つに決まるときだけ）。
+ * 見出しの言葉そのもの・決まらないときは null
+ */
+export function nearHeaderWord(text: string): string | null {
+  const k = [...looseKey(text)];
+  if (k.length < 3 || ALL_HEADER_KEYS.has(k.join(""))) return null;
+  const hits = new Set<string>();
+  for (const w of Object.values(HEADER_WORDS).flatMap((x) => x.exact)) {
+    const t = [...looseKey(w)];
+    if (t.length !== k.length) continue;
+    if (t.filter((ch, i) => ch !== k[i]).length === 1) hits.add(w);
+  }
+  return hits.size === 1 ? ([...hits][0] as string) : null;
+}
+
 function headerScore(row: readonly string[], kind: SourceKind): number {
   const g = guessFromHeader(row, kind);
   const has = (r: ColumnRole) => g[r] !== undefined;

@@ -12,7 +12,7 @@ import { issue, type Issue } from "./issues.ts";
 import { assemblePages, type CellMeta, type LayoutItem } from "./layout.ts";
 import { merchantKey } from "./merchant.ts";
 import { linesToTable, type ReaderTable, type StatementReader } from "./readers.ts";
-import type { ColumnMapping, ReadRow, SourceKind } from "./table.ts";
+import { guessFromHeader, nearHeaderWord, type ColumnMapping, type ReadRow, type SourceKind } from "./table.ts";
 import { DATE_LIKE, maskCellLoose } from "./text/mask.ts";
 import { nfkc } from "./text/normalize.ts";
 import { parseAmount, parseDate, parsePlan, type PaymentPlan } from "./text/values.ts";
@@ -114,10 +114,15 @@ export function fixDigits(text: string): { text: string; fixed: boolean } {
 
 /**
  * 決済サービスの前置きの「*」（「PAYPAY*そらまめカフェ」）を、引用符・記号と読んだものを「*」に戻す（店の鍵の前置きの外し方に乗せるため）。
- * 英大文字が2字以上続いた後ろの、引用符・®・中黒などだけ
+ * 英大文字が2字以上続いた後ろの、引用符・®・中黒などだけ。カタカナの後ろの長音をハイフンと読んだものも長音に戻す
  */
 export function fixSymbols(text: string): string {
-  return text.replace(/(^|[^A-Za-z0-9])([A-Z][A-Z0-9]{1,})[”“"'’‘`´®°·•]+(?=[^\s”“"'’‘`´®°·•])/gu, "$1$2*");
+  return (
+    text
+      .replace(/(^|[^A-Za-z0-9])([A-Z][A-Z0-9]{1,})[”“"'’‘`´®°·•・･]+(?=[^\s”“"'’‘`´®°·•・･])/gu, "$1$2*")
+      // カタカナの後ろの長音を、ハイフン・ダッシュと読んだもの（「ス-パ-」→「スーパー」）
+      .replace(/(?<=[\u30a1-\u30fa\u30fc])[-‐‑–—―－−](?=[\u30a1-\u30fa]|$|\s)/gu, "ー")
+  );
 }
 
 /**
@@ -356,7 +361,9 @@ export function ocrTable(pages: readonly OcrPage[], kind: SourceKind, source: Im
   if (perPage.every((p) => p.length === 0)) return empty([issue("error", "S_OCR_NO_TEXT", "文字が見つかりませんでした。明るい所で、真上から、文字が大きく写るように撮り直してください")]);
   const raw = assemblePages(perPage, kind, { deskew: true, joinSpace: true });
   // 銀行・家計簿アプリの明細は、振込の相手の名前を外せるように、振込の言葉の後ろの空白を戻す
-  const asm = kind === "card" ? raw : { ...raw, lines: raw.lines.map((l) => l.map(separateTransfer)) };
+  const sep = kind === "card" ? raw.lines : raw.lines.map((l) => l.map(separateTransfer));
+  // 見出しの言葉の1字の読み違い（「お預人れ」）を直す（見出しの行らしい行だけ。見出しの言葉が2つ以上ある行）
+  const asm = { ...raw, lines: sep.map((l) => (l.filter((c) => nearHeaderWord(c) === null && headerLike(c)).length >= 2 ? l.map((c) => nearHeaderWord(c) ?? c) : l)) };
   const heights = perPage.flat().map((i) => i.size);
   const textPx = [...heights].sort((a, b) => a - b)[Math.floor(heights.length / 2)] ?? 0;
   const engine = pages[0]?.engine ?? "";
@@ -394,6 +401,9 @@ export function ocrTable(pages: readonly OcrPage[], kind: SourceKind, source: Im
 }
 
 const FIXED: ColumnMapping = { headerRow: null, columns: { date: 0, merchant: 1, plan: 2, amount: 3 }, sign: "expensePositive" };
+
+/** 見出しの言葉か（どれかの役割の言葉と同じ） */
+const headerLike = (c: string): boolean => Object.keys(guessFromHeader([c], "bank")).length + Object.keys(guessFromHeader([c], "card")).length > 0;
 
 /** 見出しのある表で、明細の行らしい行（日付と金額の欄がある）の数 */
 function countHeaderRows(lines: readonly (readonly string[])[]): number {

@@ -37,6 +37,7 @@ import {
 } from "../src/index.ts";
 import { fixDigits as fix, fixSymbols, separateTransfer } from "../src/ocr.ts";
 import { UNCERTAIN_MARK } from "../src/sheet/write.ts";
+import { nearHeaderWord } from "../src/table.ts";
 import { text, unzip } from "../../xlsx/test/helpers.ts";
 import { BASE_MONTH, HOUSEHOLD } from "./helpers.ts";
 
@@ -139,6 +140,17 @@ describe("見出しの位置で欄に入れる（空の欄で列が詰まらな�
     const out = await readImage(p, "card");
     expect(out.table.cells[out.mapping.headerRow ?? -1]).toEqual(["ご利用日", "ご利用店名", "ご利用金額"]);
     expect(out.rows).toHaveLength(CARD_ROWS.length);
+  });
+
+  it("見出しの言葉の1字の読み違い（「お預人れ」）は、見出しの行だけで直す", async () => {
+    expect(nearHeaderWord("お預人れ")).toBe("お預入れ");
+    expect(nearHeaderWord("お預入れ")).toBeNull();
+    expect(nearHeaderWord("あおばマート")).toBeNull();
+    const p = page([
+      { y: 100, cells: [{ t: "日付", x: 40 }, { t: "摘要", x: 200 }, { t: "お引出し", x: 520 }, { t: "お預人れ", x: 680 }] },
+      { y: 150, cells: [{ t: "2026.10.25", x: 40 }, { t: "キュウヨ", x: 200 }, { t: "312,000", x: 690 }] },
+    ]);
+    expect((await readImage(p, "bank")).rows.map((r) => r.amount)).toEqual([-312000]);
   });
 
   it("文字の入った PDF と同じ組み立て: 1字ずつの塊・空の欄（PDF の座標）", () => {
@@ -265,6 +277,9 @@ describe("数字の読み違いを直す・番号を消す（英字の O・I・l
     expect(fix("OISHII 食堂")).toEqual({ text: "OISHII 食堂", fixed: false });
     expect(fixSymbols("PAYPAY”そらまめカフェ")).toBe("PAYPAY*そらまめカフェ");
     expect(fixSymbols("“ひかり”スーパー")).toBe("“ひかり”スーパー");
+    expect(fixSymbols("PAYPAY・そらまめカフェ")).toBe("PAYPAY*そらまめカフェ");
+    expect(fixSymbols("ひかりス-パ-")).toBe("ひかりスーパー");
+    expect(fixSymbols("XYZ-123 ABC")).toBe("XYZ-123 ABC");
     const p = page([
       { y: 140, cells: [{ t: "ご利用日", x: 40 }, { t: "ご利用店名", x: 140 }, { t: "ご利用金額", x: 760 }] },
       { y: 190, cells: [{ t: "1O/O1", x: 40 }, { t: "あおばマート", x: 140 }, { t: "3.28O", x: 800 }] },
