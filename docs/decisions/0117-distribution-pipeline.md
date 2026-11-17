@@ -250,3 +250,5 @@ if let UpdatePlan::Offer { version, tauri_pubkey, required } =
   - **秘密の値の置き場所**: 6 の最後の段のとおり、必須の承認を付けた GitHub の環境 `release-signing` の秘密の値に置き、`.github/workflows/app-bundle.yml` のビルドのジョブに `environment: release-signing` を足した。環境で使えるのは `main` ブランチとリリースのタグ（`v*`）だけにする（環境の設定は提供元が GitHub の画面で行う）。動かすたびに提供元の承認が要る
   - **フォーク**: `[signing]` の名前を空にするか、自分の証明書の名前に替える。名前が残っていても、秘密の値が無ければ署名せずにビルドする（6 のとおり）
   - 未確定のまま: `artifact-signing-cli` の版の固定、アプリの登録の秘密の値の代わりに GitHub の OIDC を使うか、Windows の証明書に載る名前の確認（証明書のプロファイルの名前は `FPRISE, INC.`。実際の署名で確かめる）
+  - **dmg も公証する**（2026-11-17 の最初の署名つきのビルドで分かった）: Tauri が公証してチケットを貼るのは `.app` だけで、dmg は署名だけになり、`spctl --type open` が「Unnotarized Developer ID」で dmg を受け付けなかった（中の `.app` は「Notarized Developer ID」で受け付けた）。`app/scripts/bundle.ts` で、ビルドの後に dmg を `notarytool` で公証し、`stapler` で貼り、`spctl` の判定が通ることまで確かめる（通らなければビルドを失敗にする）
+  - **Windows の署名の確かめ**（同じビルド）: NSIS のインストーラーと MSI に `CN=FPRISE, INC., O=FPRISE, INC., L=Tsukuba, ST=Ibaraki-ken, C=JP` の署名とタイムスタンプが付き、署名の後に中身が変わっていないことを `osslsigncode verify` で確かめた（Microsoft の信頼のルートまでのつながりは Windows の上で確かめる）。Windows の証明書に載る名前は英語の `FPRISE, INC.` で、Mac の発行元の名前と同じになった（上の「未確定のまま」の3つ目は解決）
