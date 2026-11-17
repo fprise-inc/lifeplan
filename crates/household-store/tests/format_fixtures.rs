@@ -1069,6 +1069,26 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 個人事業税の業種の区分は 0.79 から（変換の段では足さない＝第1種）"
             );
         }
+        // 0.81 から: 口座の名前（accounts[].label。0223）。0.81 の見本は預金・NISA・課税口座の3つに名前（2つは同じ金融機関）
+        let labels: Vec<&Value> = now["household"]["request"]["input"]["household"]["accounts"]
+            .as_array()
+            .map(|xs| xs.iter().filter_map(|a| a.get("label")).collect())
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 81) {
+            assert_eq!(
+                labels,
+                vec![
+                    &Value::from("架空のさくら銀行（給与振込）"),
+                    &Value::from("架空のみどり証券"),
+                    &Value::from("架空のみどり証券")
+                ]
+            );
+        } else {
+            assert!(
+                labels.is_empty(),
+                "{v}: 口座の名前は 0.81 から（変換の段では足さない＝名前なし）"
+            );
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }

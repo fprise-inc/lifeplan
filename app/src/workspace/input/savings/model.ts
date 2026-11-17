@@ -9,7 +9,7 @@ import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
-import { ASSET_CLASSES } from "../labels.ts";
+import { ASSET_CLASSES, withAccountLabel } from "../labels.ts";
 import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 
 export type Method = "total" | "accounts" | "allocation";
@@ -741,8 +741,10 @@ export function withdrawableCount(req: EngineRequest): number {
   return (v.settlement !== undefined ? 1 : 0) + v.included.length + v.excluded.length;
 }
 
-/** 器の呼び名（種類と名義。例「NISA（夫）」） */
-export const accountName = (a: Account, owner: string): string => `${(KIND_INFO[a.kind]?.name ?? "口座").replace(/（[^）]*）$/, "")}（${owner}）`;
+/** 器の呼び名（種類と名義。例「NISA（夫）」。名前のある口座は「楽天証券（NISA・夫）」。0223） */
+export const accountName = (a: Account, owner: string): string => withAccountLabel(a, kindShort(a.kind), owner);
+/** 種類の短い名前（括弧の補足を除く。例「企業型DC」） */
+export const kindShort = (kind: string): string => (KIND_INFO[kind]?.name ?? "口座").replace(/（[^）]*）$/, "");
 
 /** 今の基本生活費の月額（最初の生活費の物。合計の入れ方は合計、費目の入れ方は費目の合計） */
 export function livingMonthlyOf(h: Household): number | null {
