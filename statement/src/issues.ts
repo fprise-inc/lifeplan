@@ -58,7 +58,16 @@ export type IssueCode =
   | "S_SHEET_ROW_GONE"
   | "S_SHEET_VALUE"
   | "S_SHEET_FORMULA"
-  | "S_SHEET_NO_MARKS";
+  | "S_SHEET_NO_MARKS"
+  // 写真・スクショ・画像だけの PDF の文字認識（0034 の段階3。0221）
+  | "S_OCR_UNSUPPORTED"
+  | "S_OCR_NO_LANGUAGE"
+  | "S_OCR_OLD_MAC"
+  | "S_OCR_FAILED"
+  | "S_OCR_NO_TEXT"
+  | "S_OCR_SMALL_TEXT"
+  | "S_OCR_PAGES"
+  | "S_OCR_UNCERTAIN";
 
 export interface Issue {
   readonly level: IssueLevel;
