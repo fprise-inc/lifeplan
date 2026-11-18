@@ -112,7 +112,7 @@ describe("お客さまの画面", () => {
     const p = await packet();
     const d = { ...initialDraft(p), started: true, gates: { spouse: 0, child: 0 }, answers: { [draftKey("hs.housing.type")]: { status: "value" as const, raw: { kind: "text" as const, text: "rent" } }, [draftKey("hs.housing.rent")]: { status: "value" as const, raw: { kind: "number" as const, text: "９８，０００" } } } };
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "review", now: () => NOW }));
-    for (const t of ["入力内容の確認", "賃貸", "月 98,000円", "直す", "この内容で送る", "まだの問いが", "途中まででも送れます", "答えていない所は、面談のときに伺います", "この端末の入力を消す"]) expect(html).toContain(t);
+    for (const t of ["入力内容の確認", "賃貸", "月 98,000円", "直す", "この内容で送る", "まだの問いが", "ご家族の生年月と性別のほかは、途中まででも送れます",  "答えていない所は、面談のときに伺います", "この端末の入力を消す"]) expect(html).toContain(t);
     for (const t of ["お答えの確かめ", "まだの問いに答える", "このページの仕組み", "うかが"]) expect(html).not.toContain(t);
     // 進み具合の段の名前も「入力内容の確認」
     expect(html).toContain("<span>入力内容の確認</span>");

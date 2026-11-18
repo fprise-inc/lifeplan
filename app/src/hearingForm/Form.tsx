@@ -1169,7 +1169,7 @@ export function HearingForm(props: FormProps): JSX.Element {
         {pending + docsPending > 0 ? (
           <div class="hf-pre" data-hf-pending>
             <p>
-              まだの問いが{pending}、まだの書類が{docsPending}あります。途中まででも送れます。答えていない所は、面談のときに伺います。
+              まだの問いが{pending}、まだの書類が{docsPending}あります。ご家族の生年月と性別のほかは、途中まででも送れます。答えていない所は、面談のときに伺います。
             </p>
           </div>
         ) : null}
