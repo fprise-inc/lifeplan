@@ -11,8 +11,8 @@ import { sameJson } from "../undo/reopen.ts";
 
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
-  E_AI_OFF: "AI接続口がオフです。事務所の設定（世帯の一覧の「AI接続口」）でオンにしてください",
-  E_AI_ENDPOINT: "AI接続口の受け口を開けませんでした。アプリを起動し直してください",
+  E_AI_OFF: "AI との接続がオフです。事務所の設定（世帯の一覧の「AI との接続」）でオンにしてください",
+  E_AI_ENDPOINT: "AI との接続の受け口を開けませんでした。アプリを起動し直してください",
   E_AI_NO_CONSENT: "外部AIへの提供の同意が記録されていない世帯は、AIに渡せません",
   E_AI_NOT_SAVED: "保存していない世帯（見本）は、AIに渡せません。世帯を保存してから使ってください",
   E_AI_ALREADY_SHARED: "この世帯はもう共有中です",
@@ -31,12 +31,12 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_KIND: "架空の世帯かお客さまの世帯かを選んでください",
   E_AI_PERSIST: "記録を世帯ファイルに書けませんでした。もう一度試してください",
   E_AI_RECORDS: "同意とAIの記録が書き換えられていたため、保存を止めました",
-  E_AI_CONNECTOR_MISSING: "AI接続口の実行ファイルが見つかりません",
-  E_AI_DEV_BROWSER: "開発用のブラウザでは AI接続口を使えません（アプリで確かめてください）",
+  E_AI_CONNECTOR_MISSING: "AI とつなぐ道具の実行ファイルが見つかりません",
+  E_AI_DEV_BROWSER: "開発用のブラウザでは AI との接続を使えません（アプリで確かめてください）",
   E_STORE_NOT_OPEN: "世帯を開き直してください",
 };
 
-export const aiMessage = (code: string): string => AI_MESSAGES[code] ?? `AI接続口の処理に失敗しました（${code}）`;
+export const aiMessage = (code: string): string => AI_MESSAGES[code] ?? `AI との接続の処理に失敗しました（${code}）`;
 export const codeOf = (e: unknown): string => (typeof e === "string" ? e : e instanceof Error ? e.message : "E_AI");
 
 export const METHODS: { value: AiConsentMethod; label: string }[] = [
@@ -109,7 +109,7 @@ export function shareState(status: AiStatus | null, view: AiHouseholdView | null
 }
 
 export const SHARE_STATE_TEXT: Record<ShareState, { short: string; long: string }> = {
-  off: { short: "AI: 使わない", long: "AI接続口はオフです（事務所の設定）。この世帯はAIに渡りません" },
+  off: { short: "AI: 使わない", long: "AI との接続はオフです（事務所の設定）。この世帯はAIに渡りません" },
   unsaved: { short: "AI: 共有しない", long: "保存していない世帯はAIに渡せません" },
   none: { short: "AI: 共有しない", long: "外部AIへの提供の同意が記録されていません。AIに渡せません" },
   refused: { short: "AI: 共有しない（同意なし）", long: "顧客は外部AIへの提供に同意しませんでした。AIに渡せません" },
