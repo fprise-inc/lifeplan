@@ -195,7 +195,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
       <div ref={panel} class="rk-panel ai-panel" role="dialog" aria-modal="true" aria-labelledby="ai-hearing-title" tabIndex={-1} data-ai-hearing-panel>
         <h2 id="ai-hearing-title">AI が発行した URL</h2>
         <p class="in-note">
-          AI 接続口から発行した、Web のヒアリングの URL です。アプリはメールを送りません（URL を送るのは FP です）。要らない URL は「取り消す」でお客さまが開けなくなります。世帯の決まっていない依頼は、答えが届いたら取り込む世帯を選んでください（受け付け中は{UNASSIGNED_LIMIT}件まで。今 {unassigned}件）。
+          AI から発行した、Web のヒアリングの URL です。アプリはメールを送りません（URL を送るのは FP です）。要らない URL は「取り消す」でお客さまが開けなくなります。世帯の決まっていない依頼は、答えが届いたら取り込む世帯を選んでください（受け付け中は{UNASSIGNED_LIMIT}件まで。今 {unassigned}件）。
         </p>
         {logs.length === 0 && extra.length === 0 ? <p class="rp-note">AI が発行した URL はありません。</p> : null}
         <ul class="wr-list">

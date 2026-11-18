@@ -364,6 +364,7 @@ describe("事務所のひな形の案（propose_hearing_template）", () => {
     const s = sel({ template: "simple", documents: [{ kind: "withholding" }] });
     const html = renderToString(h(HearingTemplateProposals, { candidates: [{ candidateId: "c1", receivedAt: "2026-11-17T01:00:00Z", connector: "test-ai 1.0", name: "初回", selection: s, note: "よく使う" }, { candidateId: "c2", receivedAt: "2026-11-17T01:00:00Z", connector: null, name: "壊れた", selection: { base: {} } }], templates: [], onSave: async () => undefined, onDiscard: async () => undefined }));
     expect(html).toContain("AIからのヒアリングのひな形の案");
+    expect(html).not.toContain("接続口");
     expect(html).toContain("カスタム: ");
     expect(html).toContain("源泉徴収票（ご本人）");
     expect(html).toContain("よく使う");
@@ -379,6 +380,7 @@ describe("画面: 帯・AI が発行した URL の一覧・依頼の一覧の出
     expect(renderToString(h(AiHearingBand, { count: 0, onOpen: () => undefined }))).toBe("");
     const html = renderToString(h(AiHearingBand, { count: 2, onOpen: () => undefined }));
     expect(html).toContain("AI が URL を発行しました（2件）");
+    expect(html).not.toContain("接続口");
     expect(html).not.toContain("顧客番号");
   });
 
@@ -393,6 +395,9 @@ describe("画面: 帯・AI が発行した URL の一覧・依頼の一覧の出
     const web = { config, call: r.t, saveDocument: async () => ({ saved: false }), saveDocuments: async () => ({ picked: false, saved: [], failed: 0, syncFolder: false, via: "folder" as const }) };
     const html = renderToString(h(AiHearingPanel, { store, web: web as never, officeName: "", opened: { id: "hh-9", customerNo: "A0009", readOnly: false }, onEntry: async () => undefined, onAssignOpened: async () => true, onCreate: async () => null, onOpenHousehold: () => undefined, onClose: () => undefined }));
     expect(html).toContain("AI が発行した URL");
+    // 画面の文は「AI から」（利用者の判断 2026-11-18）
+    expect(html).toContain("AI から発行した、Web のヒアリングの URL です。");
+    expect(html).not.toContain("接続口");
     expect(html).toContain('data-ai-hearing-place="new"');
     expect(html).toContain("新しい世帯を作って取り込む");
     expect(html).toContain("開いている世帯（顧客番号 A0009）に取り込む");
@@ -412,6 +417,7 @@ describe("画面: 帯・AI が発行した URL の一覧・依頼の一覧の出
     const html = renderToString(h(WebRequests, { wh, web: web as never, officeName: "", appVersion: "0.1.0", onSave: () => undefined, saveNow: async () => true, onImport: () => undefined }));
     expect(html.match(/data-web-origin="ai"/g)).toHaveLength(1);
     expect(html).toContain("出どころ AI");
+    expect(html).not.toContain("接続口");
   });
 });
 
