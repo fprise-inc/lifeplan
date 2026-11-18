@@ -326,4 +326,25 @@ describe("取り込み: 答えの無い欄の印と、Web の記入の年月（�
     expect(withGates.candidates).toEqual(plain.candidates);
     expect(importAnswers(def, sheet(...minimal), { baseMonth: "2026-10", newId: idSeq("g"), gates: { child: 5, spouse: 2, parent: -1 } }).gates).toEqual({});
   });
+
+  it("分岐の問いで「配偶者の方がいる」と答えれば、配偶者の方の欄に回答が無くても配偶者の方の候補を作る（生年月はご本人と同じ年月の仮の値。0192 の追記 2026-11-18）", () => {
+    const base = minimal.filter((x) => !(x.key === "hs.family.adult.birthYearMonth" && x.index === 2));
+    const opts = { baseMonth: "2026-10", filledOnIsSubmission: true } as const;
+    const none = importAnswers(def, sheet(...base), { ...opts, newId: idSeq("s") });
+    expect(none.request.input.household.members.map((m) => m.kind)).toEqual(["self"]);
+    const r = importAnswers(def, sheet(...base), { ...opts, newId: idSeq("s"), gates: { spouse: 1 } });
+    const h = r.request.input.household;
+    expect(h.members.map((m) => m.kind)).toEqual(["self", "spouse"]);
+    const spouse = h.members[1]!;
+    expect(spouse.birth.birthYearMonth).toBe("1985-04");
+    expect(spouse.sex).toBe("male");
+    expect(h.relations).toContainEqual(expect.objectContaining({ type: "spouse", b: spouse.id }));
+    const cand = r.candidates.find((c) => c.collection === "members" && (c.value as { id: string }).id === spouse.id)!;
+    // 生年月は仮の値で、回答の無い欄（今の世帯に配偶者の方がいれば今の値のまま）
+    expect(cand.fields.find((f) => f.path === "/birth/birthYearMonth")).toMatchObject({ state: "assumed", noAnswer: true });
+    expect(r.issues.some((i) => i.code === "H_MISSING" && i.message.includes("配偶者の方がいるとの回答ですが、生年月がありません"))).toBe(true);
+    expect(r.gates).toEqual({ spouse: 1 });
+    // 「いない」（0）では作らない
+    expect(importAnswers(def, sheet(...base), { ...opts, newId: idSeq("s"), gates: { spouse: 0 } }).request.input.household.members.map((m) => m.kind)).toEqual(["self"]);
+  });
 });

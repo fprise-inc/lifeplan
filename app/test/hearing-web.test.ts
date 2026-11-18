@@ -529,6 +529,34 @@ describe("分岐の答え（お子さまの人数など）を取り込みの候�
     expect(gateNotices({ spouse: 1 }, full, { ...h, members: h.members.filter((m) => m.kind !== "spouse") }).map((g) => g.text)).toEqual(["配偶者がいるとのお答え（今の世帯にはいません）"]);
     expect(gateNotices(undefined, full, h)).toEqual([]);
   });
+
+  it("配偶者の方「いる」だけで欄に回答が無い: 空の世帯では配偶者の方を新規の候補で足せる。配偶者の方のいる世帯では今の生年月のまま（0192 の追記 2026-11-18）", async () => {
+    const got = await answeredWeb(blank(), { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1985, 6) }, { spouse: 1, child: 0, parent: 0 });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    expect(view.gates).toEqual([{ gate: "spouse", text: "配偶者がいるとのお答え（今の世帯にはいません）", more: true }]);
+    const spouse = view.candidates.find((c) => c.group === "家族" && c.kind === "new" && c.title !== "ご本人");
+    expect(spouse).toBeDefined();
+    const out = applyImport(got.wh, view, new Set(view.candidates.map((c) => c.id)), AT_WEB).wh.request.input.household;
+    expect(out.members.filter((m) => m.kind === "spouse").map((m) => m.birth.birthYearMonth)).toEqual(["1985-06"]);
+
+    const wh = filled();
+    const before = wh.request.input.household.members.find((m) => m.kind === "spouse")!;
+    const got2 = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7) }, { spouse: 1, child: 2, parent: 0 });
+    const view2 = importWeb(got2.wh, got2.entry, "0.1.0", seq);
+    expect(view2.gates).toEqual([]);
+    const out2 = applyImport(got2.wh, view2, new Set(view2.candidates.map((c) => c.id)), AT_WEB).wh.request.input.household;
+    expect(out2.members.filter((m) => m.kind === "spouse")).toEqual([before]);
+  });
+
+  it("お答えの方が多くても、生年月などの回答が無くて候補にできない人・行があれば「新規の候補で足せる」にしない（入力の画面で足す要確認）", async () => {
+    const got = await answeredWeb(blank(), { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1985, 6), [draftKey("hs.family.child.birthYearMonth", 1)]: ym(2018, 4) }, { spouse: 0, child: 2, parent: 0 });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    expect(view.gates).toEqual([{ gate: "child", text: "お子さまは2人とのお答え（今の世帯は0人）。回答に生年月などが無い分は候補にしていません。入力の画面で足してください" }]);
+    const full = sheetFor("simple");
+    const h = blank().request.input.household;
+    // 取り込んだ側の世帯を渡さないときは今までどおり（数だけで分ける）
+    expect(gateNotices({ child: 2 }, full, h)[0]?.more).toBe(true);
+  });
 });
 
 const AT_WEB = approvalTime(new Date(2026, 10, 7, 10, 0, 0));
