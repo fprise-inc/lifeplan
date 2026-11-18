@@ -45,8 +45,8 @@ async function openPicker(p: Page): Promise<void> {
     if (await p.eval<boolean>(`return w.all("button").some((b) => w.txt(b) === "変更を捨てて閉じる")`)) await p.click("変更を捨てて閉じる", { exact: true });
   }
   for (let i = 0; ; i++) {
-    // 初めての起動で先に出る問い（復元キーの保管）は「あとで」
-    if (await p.eval<boolean>(`return w.all("button").some((b) => w.txt(b) === "あとで")`)) await p.click("あとで", { exact: true });
+    // 初めての起動で先に出る問い（復元キーの保管）は「あとで保管する」
+    if (await p.eval<boolean>(`return w.all("button").some((b) => w.txt(b) === "あとで保管する")`)) await p.click("あとで保管する", { exact: true });
     const head = await p.eval<string>(`return w.all("header button").map(w.txt).find((t) => /[▼▲]$/.test(t)) ?? ""`);
     if (head !== "") await p.click(head, { exact: true });
     try {
@@ -58,12 +58,12 @@ async function openPicker(p: Page): Promise<void> {
   }
 }
 
-/** 世帯を選ぶ → 空から作る → 入力のタブ。初めての起動の問い（区分を使うか・復元キー）は「使わない」「あとで」 */
+/** 世帯を選ぶ → 空から作る → 入力のタブ。初めての起動の問い（区分を使うか・復元キー）は「使わない」「あとで保管する」 */
 export async function newHousehold(p: Page): Promise<void> {
   await openPicker(p);
   if (await p.eval<boolean>(`return w.txt(w.dialog()).includes("区分を使いますか")`)) await p.click("使わない（通し番号だけ）", { within: "dialog" });
   await p.click("空から作る", { within: "dialog" });
-  if (await p.eval<boolean>(`return w.all("[role=dialog]").some((d) => w.txt(d).startsWith("復元キー"))`)) await p.click("あとで", { within: "dialog", exact: true });
+  if (await p.eval<boolean>(`return w.all("[role=dialog]").some((d) => w.txt(d).startsWith("復元キー"))`)) await p.click("あとで保管する", { within: "dialog", exact: true });
   await p.click("入力", { exact: true });
   await p.until(`w.all("button").some((b) => w.txt(b).startsWith("家族"))`, "入力のホーム");
 }

@@ -3991,6 +3991,10 @@ export function App() {
             setRecovery(null);
             setStorageOpen("default");
           }}
+          onOffice={() => {
+            setRecovery(null);
+            openOffice();
+          }}
           onStatus={(st) => {
             setStoreStatus(st);
             // 事務所の復元キーを保管した・試して通った: 止めていた共有の操作の表示を戻す（0023 の5）
