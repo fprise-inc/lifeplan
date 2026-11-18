@@ -10,6 +10,7 @@
 // - 生年月の代わりの年齢の欄は出さない（簡易の票の年齢の項目は、生年月があれば画面に出さない。0138 の追記 2026-11-17）
 // - 「ご相談したいこと」（ご相談の話題を含む）は、お客さまの画面には出さない（問いに載っていても。0138 の追記 2026-11-17）
 // - 見えなくなった問いの答えは、送るときに捨てる（下書きには残すので、戻って答えを変えれば元に戻る）
+// - ご家族の生年月と性別だけは、入れていただくまで先へ進めない（画面に出ている欄だけ。REQUIRED_KEYS。0138 の追記 2026-11-18）。ほかの問いは答えなくても進める
 // - 書類（0190）: 1通1画面。頼んだ書類で分かる問い（PacketDocument.covers）は問いの画面に出さない。お客さまがその書類を「手元にない」にしたときだけ、
 //   その書類の画面で聞く（分岐の問いが要れば一緒に）。「あとで送る」「まだ」のときは聞かない（FP に書類の状態が届く）。
 //   配偶者の方の書類は、配偶者の方が「いない」なら出さない
@@ -519,6 +520,71 @@ export function initialDraft(p: QuestionsPacket): Draft {
 
 /** 年月の答えに月があるか（月を「わからない」にした答えは、年だけでは取り込めないので送らない） */
 const hasMonth = (a: DraftAnswer): boolean => a.raw2 !== undefined && a.raw2.kind !== "bool" && /^\d{1,2}$/.test(a.raw2.text);
+
+// ---- 必ず入れていただく欄（0138 の追記 2026-11-18） ----
+
+const CHILD_BIRTH_KEY = "hs.family.child.birthYearMonth";
+const CHILD_SEX_KEY = "hs.family.child.sex";
+/**
+ * ご家族の生年月と性別（利用者の判断 2026-11-18。「どの問いも答えなくても進める」の例外）。画面に出ている欄だけが対象
+ * （配偶者の方が「いない」・人数の外の欄は画面に出ないので外れる。隠れた欄に残った答えも見ない）
+ */
+const REQUIRED_KEYS = new Set([BIRTH_KEY, "hs.family.adult.sex", CHILD_BIRTH_KEY, CHILD_SEX_KEY]);
+
+/** 必ず入れていただく項目か */
+export const requiredKey = (key: string): boolean => REQUIRED_KEYS.has(key);
+
+/** 生まれる前のお子さま（生年月が今月より後）か。生年月がまだなら false */
+export function expectedChild(d: Pick<Draft, "answers">, index: number | undefined, now: Date): boolean {
+  const a = d.answers[draftKey(CHILD_BIRTH_KEY, index)];
+  if (a === undefined || a.status !== "value" || a.raw === undefined || a.raw.kind === "bool" || !hasMonth(a)) return false;
+  const y = /\d{4}/.exec(normNumber(a.raw.text))?.[0];
+  if (y === undefined) return false;
+  return Number(y) * 12 + Number((a.raw2 as { text: string }).text) > now.getFullYear() * 12 + now.getMonth() + 1;
+}
+
+/** 「わからない」のボタンを出すか（必ず入れていただく欄は出さない。お子さまの性別だけ、生まれる前なら出す） */
+export function unknownShown(item: WebItem, d: Pick<Draft, "answers">, index: number | undefined, now: Date): boolean {
+  if (!item.states.includes("unknown")) return false;
+  if (item.key === CHILD_SEX_KEY) return expectedChild(d, index, now);
+  return !requiredKey(item.key);
+}
+
+/** 必ず入れていただく欄を満たしたか（生年月は年と月の両方・性別は選んである。お子さまの性別は、生まれる前なら「わからない」でもよい）。対象でない欄は true */
+export function requiredMet(d: Pick<Draft, "answers">, f: ScreenField, now: Date): boolean {
+  if (!requiredKey(f.key)) return true;
+  const a = d.answers[draftKey(f.key, f.index)];
+  if (a === undefined) return false;
+  if (a.status === "unknown") return f.key === CHILD_SEX_KEY && expectedChild(d, f.index, now);
+  if (a.status !== "value" || a.raw === undefined || a.raw.kind === "bool" || a.raw.text.trim() === "") return false;
+  if (f.key === BIRTH_KEY || f.key === CHILD_BIRTH_KEY) return /\d{4}/.test(normNumber(a.raw.text)) && hasMonth(a);
+  return true;
+}
+
+/** 画面の中の、まだ入っていない必ず入れていただく欄 */
+export const requiredMissing = (s: Screen, d: Pick<Draft, "answers">, now: Date): ScreenField[] => screenFields(s).filter((f) => !requiredMet(d, f, now));
+
+/**
+ * 必ず入れていただく欄が欠けているときの言葉（責める言い方にしない。「生年月と性別は、ライフプランの計算に使うので、入れていただけますか。」）。
+ * who は誰の欄かを添えるか（1画面に1人なら添えない。2人までは名前、3人以上は「ご家族」）
+ */
+export function requiredText(p: QuestionsPacket, missing: readonly ScreenField[], who: boolean): string {
+  const birth = missing.some((f) => f.key === BIRTH_KEY || f.key === CHILD_BIRTH_KEY);
+  return `${who ? requiredWho(p, missing) : ""}${requiredWhat(missing)}は、ライフプランの計算に使うので、${birth ? "入れて" : "選んで"}いただけますか。`;
+}
+
+/** 欠けている欄の言葉（「生年月と性別」「生年月」「性別」） */
+export function requiredWhat(missing: readonly ScreenField[]): string {
+  const birth = missing.some((f) => f.key === BIRTH_KEY || f.key === CHILD_BIRTH_KEY);
+  const sex = missing.some((f) => f.key !== BIRTH_KEY && f.key !== CHILD_BIRTH_KEY);
+  return birth && sex ? "生年月と性別" : birth ? "生年月" : "性別";
+}
+
+/** 欠けている欄が誰のものか（「第一子の」「ご本人・配偶者の方の」。3人以上は「ご家族の」） */
+export function requiredWho(p: QuestionsPacket, missing: readonly ScreenField[]): string {
+  const names = [...new Set(missing.map((f) => indexLabel(p.items.find((i) => i.key === f.key) as WebItem, f.index) ?? ""))].filter((x) => x !== "");
+  return names.length === 0 ? "" : names.length <= 2 ? `${names.join("・")}の` : "ご家族の";
+}
 
 /** 下書きから送る答えを作る（見えない問いの答えは捨てる。分岐の答えを決まった答えに写す。記入の年月は送る月） */
 export function answersOf(p: QuestionsPacket, d: Draft, submittedAt: Date): AnswersPacket {
