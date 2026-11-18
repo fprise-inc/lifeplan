@@ -452,7 +452,7 @@ export function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt, receiv
       {view.consents.length > 0 ? (
         <p class="rp-note" data-hearing-consents>
           同意: {view.consents.map((c) => `${c.kind === "purpose" ? "利用目的" : c.kind === "familyInfo" ? "家族の情報" : "外部AIへの提供"}は${c.decision === "given" ? "同意あり" : "同意なし"}`).join("・")}
-          {view.consents.some((c) => c.kind === "externalAi") ? "" : "・外部AIへの提供は回答なし（この世帯では AI接続口を使えません）"}（承認すると同意の記録の下書きに入ります）
+          {view.consents.some((c) => c.kind === "externalAi") ? "" : "・外部AIへの提供は回答なし"}（承認すると同意の記録の下書きに入ります）
         </p>
       ) : null}
       {shown.length === 0 ? (

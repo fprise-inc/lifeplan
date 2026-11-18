@@ -177,6 +177,7 @@ describe("外部 AI の同意を聞かない依頼（0192 の追記・0138）", 
     expect(view.consents.map((c) => c.kind)).toEqual(["purpose"]);
     const html = renderToString(h(ReviewPanel, { wh: got.wh, view, onSave: () => undefined, onClose: () => undefined }));
     expect(html).toContain("外部AIへの提供は回答なし");
+    expect(html).not.toContain("接続口");
     // 送られた内容（FP の側の控え・お客さまの側の控え）に、答えの無い外部 AI の同意の行を出さない（聞かなかったことは記録しない。2026-11-18）
     const aiText = "AI を使って回答を整理";
     const fpSent = renderToString(h(SentAnswers, { packet: packetOf(got.entry)!, draft: receivedDraft(got.entry)! }));
