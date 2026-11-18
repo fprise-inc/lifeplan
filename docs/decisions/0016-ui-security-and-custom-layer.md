@@ -431,3 +431,8 @@ Mac（Apple M5、WKWebView、Tauri 2.12.1）で確かめた。
 
 - 記録の食い違いの直し: 2026-10-17 の追記の「設定は事務所の設定として持てる形（`workspace/settings.ts` の `DisplaySettings`）」は、2026-10-20 の追記のとおり、今は**世帯ごとの設定**（世帯ファイルの本文の `display.result`。資産と負債のタブは `display.balance`）で、事務所の既定値には無い。事務所の既定値を足し、値を変えていない世帯がそれに従う形にするのは 0213 の段C。
 - 3 の「既定の値はカスタム層では扱わない」の「のちに、AI からも変えられるようにする」の道は、事務所の既定値の書き出しファイルではなく、AI接続口から承認待ちの候補を出し、FP がアプリで「今 → 案」を確かめて「反映する」を押す形にした（0213 の段B）。カスタム層の承認の台帳とは別の道で、事務所の既定値の置き場所は事務所データのまま。段A として、見せ方だけの設定の一覧と今の値を読む道具 `get_display_settings` を足した。カスタム層の入力の欄の一覧（`fields-reference@1.0`）も、`list_custom_texts` の `file: fields` で AI が引けるようにした。
+
+## 追記（2026-11-18）: WebView2 の一般の自動入力を切る
+
+- WebView を開くときに、WebView2 の一般の自動入力（住所・連絡先などの候補。WebView2 では「Suggestions」）を切る（`tauri.conf.json` の main のウィンドウの `generalAutofillEnabled: false`。Tauri 2.11 からの設定で、WebView2 の `ICoreWebView2Settings4.IsGeneralAutofillEnabled` を false にする）。WebView2 の自動入力は、入力欄の `autocomplete="off"` を守らないことがあるため。incognito と同じく、画面に入れた文字を WebView の置き場に残さない側に倒す。
+- 対象は画面のすべての入力欄（世帯の名前・復元キー・事務所の番号など）。入れた文字の候補は出なくなる。パスワードとクレジットカードの自動入力はこの設定では切れない（画面にパスワードとカードの欄は無い）。macOS・Linux では何もしない設定。
