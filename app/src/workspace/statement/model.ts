@@ -14,8 +14,18 @@ import {
   buildCandidates,
   CATEGORIES,
   classify,
+  createEditedReader,
+  createImageReader,
   createImport,
   createMarkSheet,
+  createPdfScanReader,
+  csvReader,
+  imageType,
+  parseAmount,
+  parseDate,
+  pdfTextReader,
+  planToText,
+  totalCheck,
   emptyLog,
   includedImports,
   learnFromDecisions,
@@ -37,6 +47,11 @@ import {
   type ClassifiedRow,
   type ColumnMapping,
   type DictionaryEntry,
+  type EditedRow,
+  type OcrFn,
+  type OcrPage,
+  type RasterizeFn,
+  type StatementReader,
   type HouseholdLike,
   type HouseholdRule,
   type LearnedFormat,
@@ -169,19 +184,140 @@ export function ownerOptions(wh: WorkingHousehold): { value: string; label: stri
 
 // ---- 読む・取り込む ----
 
-/** 明細のファイルを読む（PC の中だけ。番号らしき数字は読んだ時点で消える） */
-export function readFile(bytes: Uint8Array, kind: SourceKind, formats: readonly LearnedFormat[], mapping?: ColumnMapping, year?: number): Promise<ReadOutcome> {
-  return readStatement(bytes, { kind, formats, ...(mapping !== undefined ? { mapping } : {}), ...(year !== undefined ? { yearHint: year } : {}) });
+/** 明細のファイルを読む（PC の中だけ。番号らしき数字は読んだ時点で消える）。readers を渡すと、写真・スクショ・画像だけの PDF も読む */
+export function readFile(bytes: Uint8Array, kind: SourceKind, formats: readonly LearnedFormat[], mapping?: ColumnMapping, year?: number, readers?: readonly StatementReader[]): Promise<ReadOutcome> {
+  return readStatement(bytes, { kind, formats, ...(mapping !== undefined ? { mapping } : {}), ...(year !== undefined ? { yearHint: year } : {}), ...(readers !== undefined ? { readers } : {}) });
+}
+
+/**
+ * 明細の読み手（CSV・文字の入った PDF に、写真・スクショ・画像だけの PDF を足す。0034 の段階3）。文字を読むのは本体の OS の文字認識。
+ * 同じ画像・同じ PDF は、パネルを開いている間は1回だけ読む（年・列の対応付けを選び直しても読み直さない）。結果はパネルの外に残さない
+ */
+export function statementReaders(ocr: OcrFn, rasterize: RasterizeFn): StatementReader[] {
+  const pages = new WeakMap<Uint8Array, Promise<OcrPage>>();
+  const once: OcrFn = (b) => {
+    let p = pages.get(b);
+    if (p === undefined) {
+      p = ocr(b);
+      pages.set(b, p);
+      p.catch(() => pages.delete(b));
+    }
+    return p;
+  };
+  const drawn = new WeakMap<Uint8Array, ReturnType<RasterizeFn>>();
+  const draw: RasterizeFn = (pdf, max) => {
+    let p = drawn.get(pdf);
+    if (p === undefined) {
+      p = rasterize(pdf, max);
+      drawn.set(pdf, p);
+      p.catch(() => drawn.delete(pdf));
+    }
+    return p;
+  };
+  return [pdfTextReader, createPdfScanReader(once, draw), createImageReader(once), csvReader];
+}
+
+/** 写真・スクショ・画像だけの PDF から読んだ明細か（画像の横で行を直す） */
+export const isImageRead = (out: ReadOk): boolean => out.reader.id === "image" || out.reader.id === "pdfScan";
+
+/** 写真・スクショのファイルか（何枚か選べるのは画像だけ） */
+export const isImageFile = (b: Uint8Array): boolean => imageType(b) !== null;
+
+/** 画像の横で直す1行（入力の欄の文字のまま持つ） */
+export interface EditRow {
+  /** 画面の行の鍵（足した行は新しい番号） */
+  readonly key: string;
+  /** 元の行の番号（足した行は 100000 から） */
+  readonly line: number;
+  readonly date: string;
+  readonly merchant: string;
+  readonly amount: string;
+  readonly plan: string;
+  /** まだ確かめていない「読み取りが不確か」の行 */
+  readonly uncertain: boolean;
+  /** 「読み取りが不確か」の理由の短い文（残高と合わない・明細の合計と合わない。画面に出すだけで、世帯ファイルには残さない） */
+  readonly why?: string;
+}
+
+/** 読んだ行を、直す表の行にする */
+export function editRowsOf(out: ReadOk): EditRow[] {
+  const why = new Map((out.uncertainReasons ?? []).map((x) => [x.line, x.text]));
+  return out.rows.map((r, i) => {
+    const w = r.readUncertain === true ? why.get(r.line) : undefined;
+    return { key: `r${r.line}-${i}`, line: r.line, date: r.date, merchant: r.merchant, amount: String(r.amount), plan: planToText(r.plan), uncertain: r.readUncertain === true, ...(w !== undefined ? { why: w } : {}) };
+  });
+}
+
+/** 明細の合計と読んだ行の和が合わないときの、「読み取りが不確か」の理由 */
+export const TOTAL_MISMATCH_WHY = "明細の合計と、読んだ行の和が合いません（どの行かは分からないため、全部の行に印を付けています）";
+
+/**
+ * 明細の合計と読んだ行の和が合わないとき、その画像（まとめて読んだ何枚かの画像は全部）から読んだ全部の行を「読み取りが不確か」にする。
+ * 合計が合う・合計が読めない・銀行の明細（合計は残高なので見ない）は今のまま。何枚かのスクショの重なりは2回足さない（totalCheck）。
+ * 読んだときに1回だけ付ける（直している間に付け直さない）。印の外し方は今の不確かな行と同じ（「確かめた」・直す）。
+ * only を渡すと、その番号の画像の行だけに付ける（1枚を読み直したとき。ほかの画像の確かめた行はそのまま）
+ */
+export function markTotalMismatch<T extends { readonly out: ReadOk; readonly rows: readonly EditRow[] | null }>(items: readonly T[], kind: SourceKind, only?: number): { items: T[]; marked: boolean } {
+  const images = items.filter((it): it is T & { rows: readonly EditRow[] } => it.rows !== null);
+  const check = editTotalCheck(images, kind);
+  if (check === null || check.ok) return { items: [...items], marked: false };
+  return {
+    items: items.map((it, i) => (it.rows === null || (only !== undefined && i !== only) ? it : { ...it, rows: it.rows.map((r) => ({ ...r, uncertain: true, why: r.why ?? TOTAL_MISMATCH_WHY })) })),
+    marked: true,
+  };
+}
+
+/** 足す行 */
+export function newEditRow(rows: readonly EditRow[], date: string): EditRow {
+  const line = Math.max(99999, ...rows.map((r) => r.line)) + 1;
+  return { key: `add-${line}`, line, date, merchant: "", amount: "", plan: "", uncertain: false };
+}
+
+/** 直す表の1行の問題（日付・金額が読めない、店の名前が空）。問題が無ければ null */
+export function editRowProblem(r: EditRow): string | null {
+  if (parseDate(r.date) === null) return "日付を 2026-10-01 の形で入れてください";
+  if (r.merchant.trim() === "") return "店の名前を入れてください";
+  if (parseAmount(r.amount) === null) return "金額を数で入れてください（返品は -1,234）";
+  return null;
+}
+
+/** 直した行を、今の取り込みの流れに通す形にする（問題のある行があれば null） */
+export function editedRows(rows: readonly EditRow[]): EditedRow[] | null {
+  if (rows.some((r) => editRowProblem(r) !== null)) return null;
+  return rows.map((r) => ({ line: r.line, date: (parseDate(r.date) as { date: string }).date, merchant: r.merchant.trim(), amount: parseAmount(r.amount) as number, plan: r.plan, ...(r.uncertain ? { uncertain: true } : {}) }));
+}
+
+/**
+ * 直した行を、もう一度今の取り込みの流れ（readStatement）に通す。番号はそこでもう一度消える。指紋は元の画像（PDF）のもの。
+ * 読み手の id・版は読んだときのまま
+ */
+export function readEdited(bytes: Uint8Array, out: ReadOk, rows: readonly EditedRow[], kind: SourceKind): Promise<ReadOutcome> {
+  return readStatement(bytes, { kind, readers: [createEditedReader(out.reader, rows)] });
+}
+
+/** 明細の合計と、直した行の和の照らし合わせ（何枚かのスクショは重なりを2回足さない）。合計が書かれていなければ null */
+export function editTotalCheck(items: readonly { readonly out: ReadOk; readonly rows: readonly EditRow[] }[], kind: SourceKind): ReturnType<typeof totalCheck> {
+  return totalCheck(
+    items.map((it) => ({
+      totals: it.out.ocr?.totals ?? [],
+      rows: it.rows.flatMap((r) => {
+        const d = parseDate(r.date);
+        const a = parseAmount(r.amount);
+        return d === null || a === null ? [] : [{ date: d.date, merchant: r.merchant, amount: a }];
+      }),
+    })),
+    kind,
+  );
 }
 
 /**
  * 明細を読む（年の書かれていない日付だけの明細は、年を選んでいなければ推定の年で読み直す。選んだ年は yearless.year に入る）。
  * FP は画面で年を選び直せる（yearChoices）
  */
-export async function readFileWithYear(bytes: Uint8Array, kind: SourceKind, formats: readonly LearnedFormat[], mapping?: ColumnMapping, year?: number): Promise<ReadOutcome> {
-  const out = await readFile(bytes, kind, formats, mapping, year);
+export async function readFileWithYear(bytes: Uint8Array, kind: SourceKind, formats: readonly LearnedFormat[], mapping?: ColumnMapping, year?: number, readers?: readonly StatementReader[]): Promise<ReadOutcome> {
+  const out = await readFile(bytes, kind, formats, mapping, year, readers);
   if (!out.ok || out.yearless === undefined || out.yearless.year !== undefined) return out;
-  return readFile(bytes, kind, formats, mapping, out.yearless.suggested);
+  return readFile(bytes, kind, formats, mapping, out.yearless.suggested, readers);
 }
 
 /** 年の書かれていない明細で選べる年（推定の年の翌年から10年前まで。新しい順） */

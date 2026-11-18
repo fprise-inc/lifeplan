@@ -1,5 +1,6 @@
 // 明細の取り込みと仕分けの部品の入口（0034）。アプリの画面からは、ここの関数だけを呼ぶ。
 //   読む: readStatement … CSV・文字の入った PDF を「欄の表」にし、列の対応付けで明細の行にする（番号らしき数字は読んだ時点で消す）
+//     写真・スクショ・画像だけの PDF は createImageReader・createPdfScanReader（文字を読む関数はアプリ本体の命令を外から渡す。0221）
 //   記録: createImport・readLog … 世帯ファイルの本文の区画 statements に持つ形（元のファイルは持たない）
 //   仕分け: classify … 辞書（同梱・事務所で覚えた）・世帯の決まり・働き方で、項目・区分・迷う印を付ける
 //   数: summarize … 基本生活費の内訳ごとの月平均（使った日で数える）・一時的支出・参考の値・注意
@@ -42,6 +43,37 @@ export {
   type StatementRow,
 } from "./log.ts";
 export { displayMerchant, MAX_KEY, merchantKey } from "./merchant.ts";
+export {
+  boxesToItems,
+  CONF_MIN,
+  createEditedReader,
+  createImageReader,
+  createPdfScanReader,
+  fixDigits,
+  findTotals,
+  imageType,
+  lineUncertain,
+  MAX_SCAN_PAGES,
+  mergeDigits,
+  OCR_MESSAGES,
+  OcrFailure,
+  ocrTable,
+  planToText,
+  sourceOf,
+  totalCheck,
+  twoLineRows,
+  type EditedRow,
+  type ImageSource,
+  type ImageType,
+  type OcrBox,
+  type OcrFn,
+  type OcrInfo,
+  type OcrLayout,
+  type OcrPage,
+  type RasterizeFn,
+} from "./ocr.ts";
+export { assemble, assemblePages, estimateSkew, type CellMeta, type Layout, type LayoutItem } from "./layout.ts";
+export { balanceCheck, balanceColumn } from "./balance.ts";
 export { csvReader, DEFAULT_READERS, fileDigest, MAX_FILE_BYTES, pdfTextReader, readStatement, suggestYear, type ReadContext, type ReaderTable, type ReadOutcome, type StatementReader } from "./readers.ts";
 export { addRule, applyDecisions, DecisionError, learnFromDecisions, removeRule, reviewList, unknownMerchants, type ReviewItem, type RowDecision, type UnknownMerchant } from "./review.ts";
 export { coveredDays, FULL_YEAR_DAYS, MIN_DAYS_FOR_CANDIDATE, monthlyAverage, monthsText, paymentSchedule, summarize, type AccountCoverage, type LivingLine, type OneOffItem, type StatementSummary } from "./summary.ts";
@@ -51,6 +83,6 @@ export { percentShare, readMarkSheet, type Mark, type MarkCandidate, type MarkMe
 export { groupable, planMarkSheet, SHOP_FLAGS, type SheetLine, type SheetPlan } from "./sheet/plan.ts";
 export { createMarkSheet, markSheetWarnings, type MarkSheetOptions, type MarkSheetResult } from "./sheet/write.ts";
 export { decodeText, type Decoded, type Encoding } from "./text/decode.ts";
-export { MASK, maskCell, maskText } from "./text/mask.ts";
+export { MASK, maskCell, maskCellLoose, maskText } from "./text/mask.ts";
 export { looseKey } from "./text/normalize.ts";
 export { parseAmount, parseDate, parsePlan, parseUser, parseYearMonth, type PaymentPlan } from "./text/values.ts";

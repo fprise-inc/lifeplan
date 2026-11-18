@@ -21,6 +21,7 @@
         "height": 900,
         "minWidth": 1024,
         "minHeight": 700,
+        "visible": false,
         "incognito": true,
         "create": false
       }
@@ -52,6 +53,17 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "languages": [
+          "Japanese",
+          "English"
+        ]
+      },
+      "wix": {
+        "language": "ja-JP"
+      }
+    }
   }
 }
