@@ -199,11 +199,14 @@ describe("取り込みの画面の整理（0192 の追記）", () => {
     const { t, r } = await answered(blank());
     const got = (await receiveWeb(r.wh, r.entry, t, NOW))!;
     const view = importWeb(got.wh, got.entry, "0.1.0", seq);
-    expect(view.gates.length).toBeGreaterThan(0);
-    expect(view.gates.every((g) => g.more === true)).toBe(true);
+    // 配偶者の方は生年月の回答があるので新規の候補で足せる。お子さま1人は生年月の回答が無く候補にならないので、入力の画面で足す要確認にする（0192 の追記 2026-11-18）
+    expect(view.gates.find((g) => g.gate === "spouse")?.more).toBe(true);
+    const child = view.gates.find((g) => g.gate === "child")!;
+    expect(child.more).toBeUndefined();
+    expect(child.text).toBe("お子さまは1人とのお答え（今の世帯は0人）。回答に生年月などが無い分は候補にしていません。入力の画面で足してください");
     const html = renderToString(h(ReviewPanel, { wh: got.wh, view, onSave: () => undefined, onClose: () => undefined, heading: "事前ヒアリングの取り込み（URL の回答・R-TEST01）", received: "受け取りました" }));
     expect(html).toContain("data-hearing-gates-more");
-    expect(html).not.toContain("data-hearing-gates=");
+    expect(html).toContain("data-hearing-gates=");
     expect(html).toContain("data-hearing-quiet");
     expect(html).toContain("data-hearing-received");
     expect(html).toContain("事前ヒアリングの取り込み（URL の回答・R-TEST01）");
