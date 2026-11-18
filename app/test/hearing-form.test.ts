@@ -204,7 +204,10 @@ describe("お客さまの画面: ご家族の生年月と性別は入れてい�
   it("最初の画面: ご家族の生年月と性別は入れていただくことを、注意に一言", async () => {
     const p = await packet();
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), now: () => NOW }));
-    expect(html).toContain("ご家族の生年月と性別は、ライフプランの計算に使うので、入れていただけますか。");
+    expect(html).toContain("<li>ご家族の生年月と性別は、ライフプランの土台になるので必ずご入力ください。</li>");
+    expect(html).not.toContain("ただ、ご家族の生年月と性別は");
+    // いちばん上の箇条（お名前の注意より前）
+    expect(html.indexOf("ライフプランの土台になるので")).toBeLessThan(html.indexOf("お名前は書かないでください"));
   });
 
   it("生年月と性別の画面には「あとで」を出さない（ほかの画面には出す）", async () => {
