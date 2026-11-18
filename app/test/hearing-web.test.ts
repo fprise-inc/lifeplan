@@ -197,10 +197,10 @@ describe("Web のヒアリング（FP の側）", () => {
     const got = await receiveWeb(r.wh, r.entry, t, NOW);
     const e = webLog(got!.wh)[0]!;
     expect(e.received?.gates).toEqual({ spouse: 1, child: 0, parent: 0 });
-    expect(gateLines(e).map((l) => `${l.label} ${l.text}`)).toEqual(["配偶者の方 いらっしゃる", "お子さま いない", "ご両親のこと いいえ（今回は答えない）"]);
+    expect(gateLines(e).map((l) => `${l.label} ${l.text}`)).toEqual(["配偶者の方 いる", "お子さま いない", "ご両親のこと いいえ（今回は答えない）"]);
     const notes = gateNotes(got!.wh);
     expect(notes?.lines).toEqual([
-      { label: "配偶者の方", text: "いらっしゃる", now: null },
+      { label: "配偶者の方", text: "いる", now: null },
       { label: "お子さま", text: "いない", now: "2人" },
       { label: "ご両親のこと", text: "いいえ（今回は答えない）", now: null },
     ]);

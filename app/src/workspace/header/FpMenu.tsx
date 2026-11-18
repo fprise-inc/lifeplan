@@ -73,8 +73,8 @@ export function fpMenuGroups(p: FpMenuInput): FpMenuGroup[] {
   if (p.imports !== null)
     out.push({
       id: "imports",
-      label: "ヒアリング・取り込む",
-      items: [{ action: "hearing", label: "ヒアリング（Excel・URL で聞く・取り込む）", ...(p.imports.hearing != null ? { note: p.imports.hearing } : {}) }, ...(p.imports.ai ? [{ action: "ai" as const, label: "AI に資料を渡す", pop: true }] : [])],
+      label: "事前ヒアリング・取り込む",
+      items: [{ action: "hearing", label: "事前ヒアリング（Excel・URL生成・取り込む）", ...(p.imports.hearing != null ? { note: p.imports.hearing } : {}) }, ...(p.imports.ai ? [{ action: "ai" as const, label: "AI に資料を渡す", pop: true }] : [])],
     });
   if (p.office !== null)
     out.push({

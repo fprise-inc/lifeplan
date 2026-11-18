@@ -803,12 +803,39 @@ describe("お客さまの画面の言葉と入れやすさ", () => {
     expect(a.find((x) => x.key === "hs.loan.balanceTotalRange")).toMatchObject({ status: "value" });
   });
 
-  it("同意の文: 担当の FP が AI でお答えを整理すること（お名前は渡さない）。Excel のシートも同じ文", async () => {
+  it("同意の文: 担当の FP が AI で回答を整理すること（お名前は渡さない）。お客さまの画面では「このことに同意します」を外す（Excel のシートの文は変えない）", async () => {
     const p = await basicPacket();
     const label = p.consent.items.find((i) => i.key === "hs.consent.externalAi")?.label ?? "";
-    expect(label).toContain("担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）");
+    expect(label).toBe("（任意）担当の FP が、AI を使って回答を整理することがあります（お名前は渡しません）。");
     expect(label).not.toContain("外部のAIサービス");
-    for (const def of [simple(), full2(), full3(), full5()]) expect(def.items.find((i) => i.key === "hs.consent.externalAi")?.label).toBe(label);
+    for (const def of [simple(), full2(), full3(), full5()]) expect(def.items.find((i) => i.key === "hs.consent.externalAi")?.label).toBe("（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します");
+  });
+
+  it("外部 AI の同意は、発行のときに出さないこともできる（ほかの同意は残る）。届いた答えにその同意があっても、問いに無ければ扱いは変わらない（0192 の追記）", async () => {
+    const def = simple();
+    const sel = selectionFromSheet(def);
+    const off = await buildPacket(def, sel, { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE, aiConsent: false });
+    expect(off.consent.items.map((i) => i.key)).toEqual(["hs.consent.purpose", "hs.consent.familyInfo"]);
+    const on = await buildPacket(def, sel, { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE });
+    expect(on.consent.items.map((i) => i.key)).toContain("hs.consent.externalAi");
+    // 指紋は同じ（同意は選び方に入れない）
+    expect(off.digest).toBe(on.digest);
+    // 発行の通り道にも渡せる
+    const { transport } = relayFor();
+    const issued = await issueRequest({ definition: def, selection: sel, requestId: "R-7K3P9Q", customerNo: "A1", office: OFFICE, now: new Date("2026-11-05T09:00:00Z"), pageUrl: "https://relay.test/h/", aiConsent: false, transport });
+    expect(issued.packet.consent.items.some((i) => i.key === "hs.consent.externalAi")).toBe(false);
+  });
+
+  it("ご相談したいことの話題は問いに載せない（前の依頼の選び方に話題があっても、自由記述の問いのまま。届いた話題は今まで通り確かめて読む。0192 の追記）", async () => {
+    const def = simple();
+    const sel = { ...selectionFromSheet(def), topics: ["教育費", "老後のお金・年金"] };
+    const p = await buildPacket(def, sel, { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE });
+    const item = p.items.find((i) => i.key === "hs.consult.topics");
+    expect(item?.topics).toBeUndefined();
+    expect(item?.label).toBe("ご相談したいこと・気になっていることを、自由にお書きください");
+    const checked = checkAnswers({ format: "fprise-lifeplan-hearing-web-answers", version: "0.2", requestId: "R-7K3P9Q", submittedAt: "2026-11-05T09:00:00Z", answers: [], gates: {}, documents: [], topics: ["老後のお金・年金", "知らない話題"] }, def, sel, "R-7K3P9Q");
+    expect(checked.topics).toEqual(["老後のお金・年金"]);
+    expect(checked.dropped).toBe(1);
   });
 });
 
