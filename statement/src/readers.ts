@@ -4,6 +4,7 @@
 //   ocr.ts（文字を読む関数をアプリ本体から受け取るので、使う側が readers に足す）
 // - 読み手は、表のすべての欄を maskCell に通してから返す。そのあと見出しを見て、番号の列を列ごと消す（maskNumberColumns）。
 //   元のファイルのバイト列は readStatement の外へ出さず、指紋（SHA-256）と大きさだけを返す（元のファイルは保存しない）
+import { balanceCheck } from "./balance.ts";
 import { CsvError, parseCsv } from "./csv/parse.ts";
 import { issue, type Issue } from "./issues.ts";
 import { PdfError } from "./pdf/objects.ts";
@@ -238,6 +239,11 @@ export type ReadOutcome =
       readonly yearless?: { readonly rows: number; readonly end: string; readonly suggested: number; readonly year?: number };
       /** 写真・スクショ・画像だけの PDF から読んだとき: 読んだ形・明細に書かれた合計・傾きなど */
       readonly ocr?: OcrInfo;
+      /**
+       * 読み取りが不確かな行の理由の短い文（銀行の明細の残高と合わない行など。行の番号ごと）。画面に出すだけで、世帯ファイルには残さない
+       * （行の readUncertain の印だけが残る）
+       */
+      readonly uncertainReasons?: readonly { readonly line: number; readonly text: string }[];
     }
   | { readonly ok: false; readonly issues: readonly Issue[] };
 
@@ -316,8 +322,9 @@ export async function readStatement(bytes: Uint8Array, ctx: ReadContext): Promis
   }
   const tr = tableToRows(table, mapping, ctx.kind, { ...(ctx.yearHint !== undefined ? { year: ctx.yearHint } : rt.statementDate !== undefined ? { year: Number(rt.statementDate.slice(0, 4)) } : {}), ...(rt.statementDate !== undefined ? { notAfter: rt.statementDate } : {}) });
   issues.push(...tr.issues);
-  // 読み取りが不確かな行（写真・スクショの文字認識）に印を付ける
-  const unsure = new Set(rt.uncertain ?? []);
+  // 読み取りが不確かな行（写真・スクショの文字認識）に印を付ける。銀行の明細は、残高の欄で行ごとに照らし合わせて合わない行にも（理由の短い文つき）
+  const why = rt.ocr !== undefined && ctx.kind === "bank" ? balanceCheck(table, mapping, tr.rows) : new Map<number, string>();
+  const unsure = new Set([...(rt.uncertain ?? []), ...why.keys()]);
   const rows = unsure.size === 0 ? tr.rows : tr.rows.map((r) => (unsure.has(r.line) ? { ...r, readUncertain: true as const } : r));
   const nUnsure = rows.filter((r) => r.readUncertain === true).length;
   if (nUnsure > 0) issues.push(issue("warning", "S_OCR_UNCERTAIN", `読み取りが不確かな行が ${nUnsure}行あります。画像と照らし合わせて確かめてください（確かめないで取り込むと、ヒアリングの迷う行に残ります）`));
@@ -341,5 +348,6 @@ export async function readStatement(bytes: Uint8Array, ctx: ReadContext): Promis
     issues,
     ...(yearless !== undefined ? { yearless } : {}),
     ...(rt.ocr !== undefined ? { ocr: rt.ocr } : {}),
+    ...(why.size > 0 ? { uncertainReasons: rows.flatMap((r) => (why.has(r.line) ? [{ line: r.line, text: why.get(r.line) as string }] : [])) } : {}),
   };
 }

@@ -268,6 +268,146 @@ describe("スマホのスクショ（1件が2行）", () => {
   });
 });
 
+describe("明細の合計と読んだ行の和（境目）", () => {
+  const shop = (rows: readonly [string, string, string][], total: string | null) =>
+    page([
+      ...(total !== null ? [{ y: 40, cells: [{ t: `ご利用合計 ${total}`, x: 40 }] }] : []),
+      { y: 140, cells: [{ t: "ご利用日", x: 40 }, { t: "ご利用店名", x: 140 }, { t: "ご利用金額", x: 760 }] },
+      ...rows.map(([d, m, a], i) => ({ y: 190 + i * 44, cells: [{ t: d, x: 40 }, { t: m, x: 140 }, { t: a, x: 800 }] })),
+    ]);
+  const check = (o: Extract<ReadOutcome, { ok: true }>) => totalCheck([{ rows: o.rows, totals: o.ocr?.totals ?? [] }], "card");
+
+  it("ちょうど合う・1円ずれる・合計の行が無い", async () => {
+    const exact = await readImage(shop(CARD_ROWS, "17,320"), "card");
+    expect(check(exact)).toEqual({ totals: [17320], sum: 17320, ok: true });
+    const off = await readImage(shop(CARD_ROWS, "17,321"), "card");
+    expect(check(off)).toEqual({ totals: [17321], sum: 17320, ok: false });
+    const none = await readImage(shop(CARD_ROWS, null), "card");
+    expect(check(none)).toBeNull();
+    // 合計の照らし合わせは読み手の印を変えない（全部の行の印は、画面が何枚かの画像をまとめて照らし合わせてから付ける）
+    for (const o of [exact, off, none]) expect(o.rows.some((r) => r.readUncertain === true)).toBe(false);
+  });
+});
+
+describe("銀行の明細の残高の欄で、行ごとに照らし合わせる", () => {
+  /** [日付, 摘要, 出金, 入金, 残高] */
+  type BankLine = readonly [string, string, string, string, string];
+  const bankPage = (rows: readonly BankLine[], o: { engine?: string } = {}) =>
+    page(
+      [
+        { y: 100, cells: [{ t: "日付", x: 40 }, { t: "摘要", x: 200 }, { t: "お引出し", x: 520 }, { t: "お預入れ", x: 680 }, { t: "残高", x: 860 }] },
+        ...rows.map(([d, m, w, dep, b], i) => ({
+          y: 150 + i * 44,
+          cells: [{ t: d, x: 40 }, { t: m, x: 200 }, ...(w !== "" ? [{ t: w, x: 540 }] : []), ...(dep !== "" ? [{ t: dep, x: 690 }] : []), ...(b !== "" ? [{ t: b, x: 860 }] : [])],
+        })),
+      ],
+      o,
+    );
+  const ROWS: readonly BankLine[] = [
+    ["2026.10.01", "前月繰越", "", "", "182,450"],
+    ["2026.10.05", "カード アオバカード", "59,000", "", "123,450"],
+    ["2026.10.10", "デンキ ミドリデンリヨク", "8,432", "", "115,018"],
+    ["2026.10.15", "スイドウ ミドリシ", "4,180", "", "110,838"],
+    ["2026.10.25", "給与 ホシゾラシヨウジ", "", "312,000", "422,838"],
+    ["2026.10.28", "XYZケイタイ", "7,315", "", "415,523"],
+  ];
+  const marks = (o: Extract<ReadOutcome, { ok: true }>) => o.rows.map((r) => r.readUncertain === true);
+  const swap = (rows: readonly BankLine[], i: number, col: number, v: string): BankLine[] => rows.map((r, k) => (k === i ? (r.map((c, j) => (j === col ? v : c)) as unknown as BankLine) : r));
+
+  it("合う明細には印を付けない（前月繰越の行は前の残高に使う。最初の行は前の残高が無いので照らし合わせない）", async () => {
+    const out = await readImage(bankPage(ROWS), "bank");
+    expect(out.rows).toHaveLength(5);
+    expect(marks(out)).toEqual([false, false, false, false, false]);
+    expect(out.uncertainReasons).toBeUndefined();
+    // 前月繰越の行が無い明細: 最初の行は照らし合わせない
+    const noOpen = await readImage(bankPage(ROWS.slice(1)), "bank");
+    expect(marks(noOpen)).toEqual([false, false, false, false, false]);
+    // 最初の行の金額を読み違えても、前の残高が無ければ印は付かない（誤って付けない側）
+    expect(marks(await readImage(bankPage(swap(ROWS.slice(1), 0, 2, "58,000")), "bank"))).toEqual([false, false, false, false, false]);
+  });
+
+  it("金額の欄の読み違い1件だけ: その行だけに印（理由の短い文つき）。他の行には付けない", async () => {
+    const out = await readImage(bankPage(swap(ROWS, 2, 2, "8,482")), "bank");
+    expect(marks(out)).toEqual([false, true, false, false, false]);
+    expect(out.uncertainReasons).toEqual([{ line: 4, text: "残高と合いません（前の残高 123,450円 から計算すると 114,968円、明細の残高は 115,018円）" }]);
+    expect(out.issues.map((i) => i.code)).toContain("S_OCR_UNCERTAIN");
+    // 入金の欄の読み違い
+    expect(marks(await readImage(bankPage(swap(ROWS, 4, 3, "312,800")), "bank"))).toEqual([false, false, false, true, false]);
+  });
+
+  it("残高の欄の読み違い: 途中の行は金額が正しいので印を付けない。最後の行は確かめようが無いのでその行に印", async () => {
+    expect(marks(await readImage(bankPage(swap(ROWS, 2, 4, "115,618")), "bank"))).toEqual([false, false, false, false, false]);
+    expect(marks(await readImage(bankPage(swap(ROWS, 5, 4, "415,528")), "bank"))).toEqual([false, false, false, false, true]);
+  });
+
+  it("残高の空の行を挟む・同じ日の複数行（残高がその日の最後の行だけの明細も）", async () => {
+    const sameDay: BankLine[] = [
+      ["2026.10.01", "前月繰越", "", "", "100,000"],
+      ["2026.10.05", "コンビニ", "1,200", "", ""],
+      ["2026.10.05", "スーパー", "3,800", "", ""],
+      ["2026.10.05", "ドラッグ", "2,000", "", "93,000"],
+      ["2026.10.06", "パンヤ", "500", "", "92,500"],
+      ["2026.10.06", "ホンヤ", "1,500", "", "91,000"],
+      ["2026.10.07", "ATM", "10,000", "", "81,000"],
+    ];
+    expect(marks(await readImage(bankPage(sameDay), "bank"))).toEqual([false, false, false, false, false, false]);
+    // 残高の無い行の金額の読み違い: どの行か分からないので、その日の残高のある行までの行に印（他の日には付けない）
+    expect(marks(await readImage(bankPage(swap(sameDay, 2, 2, "3,300")), "bank"))).toEqual([true, true, true, false, false, false]);
+    // 同じ日の残高のある行の読み違いは、その行だけ
+    expect(marks(await readImage(bankPage(swap(sameDay, 5, 2, "1,600")), "bank"))).toEqual([false, false, false, false, true, false]);
+  });
+
+  it("出金と入金が同じ行に両方ある", async () => {
+    const both: BankLine[] = [
+      ["2026.10.01", "前月繰越", "", "", "50,000"],
+      ["2026.10.10", "ソウサイ", "3,000", "10,000", "57,000"],
+      ["2026.10.12", "デンキ", "8,000", "", "49,000"],
+    ];
+    const out = await readImage(bankPage(both), "bank");
+    expect(out.rows.map((r) => r.amount)).toEqual([-7000, 8000]);
+    expect(marks(out)).toEqual([false, false]);
+    expect(marks(await readImage(bankPage(swap(both, 1, 3, "16,000")), "bank"))).toEqual([true, false]);
+  });
+
+  it("新しい順の明細は下から照らし合わせる（読み違いはその行だけ）", async () => {
+    const newest = [...ROWS].reverse();
+    expect(marks(await readImage(bankPage(newest), "bank"))).toEqual([false, false, false, false, false]);
+    // 新しい順で 10/10 の金額を読み違えた
+    const out = await readImage(bankPage(swap(newest, 3, 2, "8,482")), "bank");
+    expect(out.rows.map((r) => r.date)[3]).toBe("2026-10-10");
+    expect(marks(out)).toEqual([false, false, false, true, false]);
+  });
+
+  it("残高の欄の読み取りそのものが怪しい（合わない行が多い）・並びが決まらないときは照らし合わせない", async () => {
+    const junk = ROWS.map((r, i) => [r[0], r[1], r[2], r[3], i === 0 ? r[4] : `${(i * 7919) % 1000},${String(i * 13).padStart(3, "0")}`] as const);
+    expect(marks(await readImage(bankPage(junk), "bank"))).toEqual([false, false, false, false, false]);
+    // 2行だけ・同じ日・合わない（どちらの並びか決まらない）
+    const two: BankLine[] = [
+      ["2026.10.05", "コンビニ", "1,200", "", "98,800"],
+      ["2026.10.05", "スーパー", "3,800", "", "95,500"],
+    ];
+    expect(marks(await readImage(bankPage(two), "bank"))).toEqual([false, false]);
+  });
+
+  it("カード・家計簿アプリの明細、見出しの無い表、CSV は照らし合わせない（今の CSV の取り込みは変わらない）", async () => {
+    const bad = swap(ROWS, 2, 2, "8,482");
+    expect(marks(await readImage(bankPage(bad), "app"))).toEqual([false, false, false, false, false]);
+    const csv = new TextEncoder().encode(["日付,摘要,お引出し,お預入れ,残高", ...bad.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n"));
+    const out = await readStatement(csv, { kind: "bank" });
+    if (!out.ok) throw new Error(JSON.stringify(out.issues));
+    expect(out.rows).toHaveLength(5);
+    expect(out.rows.some((r) => r.readUncertain === true)).toBe(false);
+    expect(out.uncertainReasons).toBeUndefined();
+  });
+
+  it("直した行をもう一度通すときは照らし合わせない（印は画面の確かめのとおり）", async () => {
+    const first = await readImage(bankPage(swap(ROWS, 2, 2, "8,482")), "bank");
+    const edited = await readStatement(PNG(), { kind: "bank", readers: [createEditedReader(first.reader, first.rows.map((r) => ({ line: r.line, date: r.date, merchant: r.merchant, amount: r.amount })))] });
+    if (!edited.ok) throw new Error(JSON.stringify(edited.issues));
+    expect(edited.rows.some((r) => r.readUncertain === true)).toBe(false);
+  });
+});
+
 describe("数字の読み違いを直す・番号を消す（英字の O・I・l も数字とみなす）", () => {
   it("O と 0・l と 1・「数字.3桁」を直し、読み取りが不確かの印を付ける", async () => {
     expect(fixDigits("2O26/1O/O1")).toEqual({ text: "2026/10/01", fixed: true });
@@ -473,5 +613,7 @@ describe("架空の明細の画像の正解の文字の塊を、そのまま読�
     const p: OcrPage = { width, height, engine: "vision", boxes: d.items.map((i) => ({ text: i.text, x: i.x / width, y: 1 - (i.y + i.size) / height, w: i.width / width, h: i.size / height, conf: 1 })) };
     const out = await readImage(p, d.kind === "bank" ? "bank" : "card");
     expect(out.rows.map((r) => [r.date, r.amount])).toEqual(d.rows.map((r) => [r.date, r.amount]));
+    // 正しく読めた明細には、残高の照らし合わせの印が付かない
+    expect(out.rows.some((r) => r.readUncertain === true)).toBe(false);
   });
 });

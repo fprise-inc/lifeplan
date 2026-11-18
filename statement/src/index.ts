@@ -73,6 +73,7 @@ export {
   type RasterizeFn,
 } from "./ocr.ts";
 export { assemble, assemblePages, estimateSkew, type CellMeta, type Layout, type LayoutItem } from "./layout.ts";
+export { balanceCheck, balanceColumn } from "./balance.ts";
 export { csvReader, DEFAULT_READERS, fileDigest, MAX_FILE_BYTES, pdfTextReader, readStatement, suggestYear, type ReadContext, type ReaderTable, type ReadOutcome, type StatementReader } from "./readers.ts";
 export { addRule, applyDecisions, DecisionError, learnFromDecisions, removeRule, reviewList, unknownMerchants, type ReviewItem, type RowDecision, type UnknownMerchant } from "./review.ts";
 export { coveredDays, FULL_YEAR_DAYS, MIN_DAYS_FOR_CANDIDATE, monthlyAverage, monthsText, paymentSchedule, summarize, type AccountCoverage, type LivingLine, type OneOffItem, type StatementSummary } from "./summary.ts";

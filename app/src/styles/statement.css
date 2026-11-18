@@ -162,6 +162,7 @@ html.big .st-buckets button { font-size: 1.15rem; }
 .st-edit-t td.num input { text-align: right; }
 .st-edit-t tr.unsure td { background: var(--est-bg); }
 .st-edit-t small.fatal { display: block; }
-.st-unsure { display: inline-flex; gap: 6px; align-items: center; margin-top: 2px; font-size: 0.8rem; font-weight: 700; color: var(--est-ink); }
+.st-unsure { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; font-size: 0.8rem; font-weight: 700; color: var(--est-ink); }
+.st-unsure-why { flex-basis: 100%; font-weight: 400; }
 .st-edit-t td:first-child input { min-width: 8.6em; }
 .st-edit-t td.num input { min-width: 6em; }

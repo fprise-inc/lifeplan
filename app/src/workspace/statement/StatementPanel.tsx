@@ -45,6 +45,7 @@ import {
   editedRows,
   editRowProblem,
   editRowsOf,
+  markTotalMismatch,
   isImageFile,
   isImageRead,
   readEdited,
@@ -365,6 +366,8 @@ interface ReadItem {
   out: ReadOk;
   /** 写真・スクショ・画像だけの PDF の、画像の横で直す行（CSV・文字の入った PDF は null） */
   rows: EditRow[] | null;
+  /** 読んだときに明細の合計と合わず、全部の行に「読み取りが不確か」の印を付けた */
+  totalMarked?: boolean;
 }
 
 interface Reading {
@@ -430,7 +433,10 @@ function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, o
         }
         items.push(itemOf(bytes, out));
       }
-      setReading({ account: acc.id, kind: acc.kind, items, index: 0, period: readingSpan(items) ?? { from: "", to: "" } });
+      // 明細の合計と読んだ行の和が合わなければ、読んだ全部の行（まとめて読んだ何枚かは全部）に「読み取りが不確か」の印を付ける
+      const t = markTotalMismatch(items, acc.kind);
+      const marked = t.items.map((it) => (t.marked && it.rows !== null ? { ...it, totalMarked: true } : it));
+      setReading({ account: acc.id, kind: acc.kind, items: marked, index: 0, period: readingSpan(marked) ?? { from: "", to: "" } });
       setShowMap(items.length === 1 && (items[0] as ReadItem).out.needsMapping);
     } catch (e) {
       setFailed([{ level: "error", code: "S_FORMAT_UNKNOWN", message: e === "E_IMPORT_TOO_LARGE" ? "ファイルが大きすぎます（1つ10MB・まとめて100MBまで）。期間を分けて書き出してください" : e === "E_IMPORT_TOO_MANY" ? "一度に選べるのは30枚までです。何回かに分けて選んでください" : `読み込めませんでした（${typeof e === "string" ? e : "E_STATEMENT_OPEN"}）` }]);
@@ -447,7 +453,13 @@ function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, o
       const out = await readFileWithYear(cur.bytes, reading.kind, office.formats, m, year, readers);
       if (!out.ok) setFailed(out.issues);
       else {
-        const items = reading.items.map((it, i) => (i === reading.index ? itemOf(cur.bytes, out) : it));
+        // 読み直した画像の行だけ、明細の合計と合わなければ印を付ける（ほかの画像の確かめた行はそのまま）
+        const t = markTotalMismatch(
+          reading.items.map((it, i) => (i === reading.index ? itemOf(cur.bytes, out) : it)),
+          reading.kind,
+          reading.index,
+        );
+        const items = t.items.map((it, i) => (i === reading.index && t.marked && it.rows !== null ? { ...it, totalMarked: true } : it));
         setReading({ ...reading, items, period: readingSpan(items) ?? reading.period });
       }
     } finally {
@@ -620,7 +632,7 @@ function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, o
           {image && showMap ? <p class="rp-note">列を選び直すと、画像の横で直した行は読み直した行に戻ります。</p> : null}
           {image ? (
             <>
-              <ImageCheck items={reading.items.map((it) => ({ bytes: it.bytes, out: it.out, rows: it.rows ?? [] }))} index={reading.index} kind={reading.kind} busy={busy} onIndex={(i) => setReading({ ...reading, index: i })} onRows={setRows} />
+              <ImageCheck items={reading.items.map((it) => ({ bytes: it.bytes, out: it.out, rows: it.rows ?? [], ...(it.totalMarked === true ? { totalMarked: true } : {}) }))} index={reading.index} kind={reading.kind} busy={busy} onIndex={(i) => setReading({ ...reading, index: i })} onRows={setRows} />
               {reading.items.length > 1 ? (
                 <div class="rp-actions">
                   <button type="button" class="btn sm" disabled={busy} onClick={() => dropItem(reading.index)} data-statement-image-drop>

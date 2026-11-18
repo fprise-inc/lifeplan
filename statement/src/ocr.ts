@@ -8,6 +8,8 @@
 // - 「読み取りが不確か」の行（迷う行）: 直した・食い違った数字、確からしさの低い文字、読めない字のある行。Windows の写真・スキャンは、
 //   2回の読みで同じにならなかった数字のある行すべて（確かめを強める）
 // - 形の違う明細: 見出しのある表・見出しの無い「日付…金額」の行・スマホのスクショ（1件が2行: 店と金額、その下に日付）を読み分ける
+// - 銀行の明細は、残高の欄で行ごとに照らし合わせ、合わない行も「読み取りが不確か」（balance.ts。readStatement が行にしてから）。
+//   明細の合計と読んだ行の和が合わないときは、画面が何枚かの画像をまとめて照らし合わせてから、全部の行に印を付ける（totalCheck）
 import { issue, type Issue } from "./issues.ts";
 import { assemblePages, type CellMeta, type LayoutItem } from "./layout.ts";
 import { merchantKey } from "./merchant.ts";

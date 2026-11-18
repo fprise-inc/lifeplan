@@ -1,7 +1,9 @@
 // 写真・スクショ・画像だけの PDF から読んだ明細を、画像の横で確かめて直す（0034 の段階3。0221）。
 // - 左に画像（PDF はページを描いた絵）、右に読んだ表（日付・店・金額）。行を直す・消す・足す。「読み取りが不確か」の行には印を出し、
 //   画像と照らし合わせて「確かめた」を押すか直すと印が外れる。直した行は取り込むときに今の取り込みの流れにもう一度通す（番号はそこでもう一度消える）
-// - 明細に合計が書かれていれば、読んだ行の和と照らし合わせる（何枚かのスクショは重なりを2回足さない）
+//   印の理由が分かるもの（銀行の明細の残高と合わない・明細の合計と合わない）は、印の下に短く出す
+// - 明細に合計が書かれていれば、読んだ行の和と照らし合わせる（何枚かのスクショは重なりを2回足さない）。読んだときに合わなければ、
+//   読んだ全部の行に「読み取りが不確か」の印が付いている（markTotalMismatch）
 // - 画像は描くときだけパネルの中で持ち、どこにも保存しない
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { SourceKind } from "../../../../statement/src/index.ts";
@@ -12,6 +14,8 @@ export interface ImageItem {
   readonly bytes: Uint8Array;
   readonly out: ReadOk;
   readonly rows: readonly EditRow[];
+  /** 読んだときに明細の合計と合わず、全部の行に「読み取りが不確か」の印を付けた */
+  readonly totalMarked?: boolean;
 }
 
 /** 画像（PNG・JPEG・HEIC）か、画像だけの PDF のページを、キャンバスに描く */
@@ -84,7 +88,7 @@ export function ImageCheck({ items, index, kind, busy, onIndex, onRows }: { item
         <p class={`rp-note${total.ok ? "" : " warn"}`} data-statement-total={total.ok ? "ok" : "ng"}>
           {total.ok
             ? `明細の合計（${yen(total.sum)}）と、読んだ行の和が合っています。`
-            : `明細の合計（${total.totals.map(yen).join("・")}）と、読んだ行の和（${yen(total.sum)}）が合いません。読めていない行か、読み違えた金額があります。`}
+            : `明細の合計（${total.totals.map(yen).join("・")}）と、読んだ行の和（${yen(total.sum)}）が合いません。読めていない行か、読み違えた金額があります。${items.some((x) => x.totalMarked === true) ? "読んだ全部の行に「読み取りが不確か」の印を付けました。" : ""}`}
         </p>
       ) : null}
       <div class="st-img-cols">
@@ -115,6 +119,11 @@ export function ImageCheck({ items, index, kind, busy, onIndex, onRows }: { item
                           <button type="button" class="btn sm" disabled={busy} onClick={() => set(r.key, { uncertain: false })} data-statement-edit-ok>
                             確かめた
                           </button>
+                          {r.why !== undefined ? (
+                            <small class="st-unsure-why" data-statement-edit-why>
+                              {r.why}
+                            </small>
+                          ) : null}
                         </span>
                       ) : null}
                       {p !== null ? <small class="fatal">{p}</small> : null}

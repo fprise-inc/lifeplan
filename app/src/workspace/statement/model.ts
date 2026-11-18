@@ -235,11 +235,36 @@ export interface EditRow {
   readonly plan: string;
   /** まだ確かめていない「読み取りが不確か」の行 */
   readonly uncertain: boolean;
+  /** 「読み取りが不確か」の理由の短い文（残高と合わない・明細の合計と合わない。画面に出すだけで、世帯ファイルには残さない） */
+  readonly why?: string;
 }
 
 /** 読んだ行を、直す表の行にする */
 export function editRowsOf(out: ReadOk): EditRow[] {
-  return out.rows.map((r, i) => ({ key: `r${r.line}-${i}`, line: r.line, date: r.date, merchant: r.merchant, amount: String(r.amount), plan: planToText(r.plan), uncertain: r.readUncertain === true }));
+  const why = new Map((out.uncertainReasons ?? []).map((x) => [x.line, x.text]));
+  return out.rows.map((r, i) => {
+    const w = r.readUncertain === true ? why.get(r.line) : undefined;
+    return { key: `r${r.line}-${i}`, line: r.line, date: r.date, merchant: r.merchant, amount: String(r.amount), plan: planToText(r.plan), uncertain: r.readUncertain === true, ...(w !== undefined ? { why: w } : {}) };
+  });
+}
+
+/** 明細の合計と読んだ行の和が合わないときの、「読み取りが不確か」の理由 */
+export const TOTAL_MISMATCH_WHY = "明細の合計と、読んだ行の和が合いません（どの行かは分からないため、全部の行に印を付けています）";
+
+/**
+ * 明細の合計と読んだ行の和が合わないとき、その画像（まとめて読んだ何枚かの画像は全部）から読んだ全部の行を「読み取りが不確か」にする。
+ * 合計が合う・合計が読めない・銀行の明細（合計は残高なので見ない）は今のまま。何枚かのスクショの重なりは2回足さない（totalCheck）。
+ * 読んだときに1回だけ付ける（直している間に付け直さない）。印の外し方は今の不確かな行と同じ（「確かめた」・直す）。
+ * only を渡すと、その番号の画像の行だけに付ける（1枚を読み直したとき。ほかの画像の確かめた行はそのまま）
+ */
+export function markTotalMismatch<T extends { readonly out: ReadOk; readonly rows: readonly EditRow[] | null }>(items: readonly T[], kind: SourceKind, only?: number): { items: T[]; marked: boolean } {
+  const images = items.filter((it): it is T & { rows: readonly EditRow[] } => it.rows !== null);
+  const check = editTotalCheck(images, kind);
+  if (check === null || check.ok) return { items: [...items], marked: false };
+  return {
+    items: items.map((it, i) => (it.rows === null || (only !== undefined && i !== only) ? it : { ...it, rows: it.rows.map((r) => ({ ...r, uncertain: true, why: r.why ?? TOTAL_MISMATCH_WHY })) })),
+    marked: true,
+  };
 }
 
 /** 足す行 */
