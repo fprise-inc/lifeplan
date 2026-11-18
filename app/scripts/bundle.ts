@@ -10,6 +10,9 @@ import { parse } from "smol-toml";
 import { APP_DIR, REPO_DIR } from "./lib.ts";
 import { signingPlan, signingProblems, type Os, type Signing } from "./signing.ts";
 
+/** Windows の署名の道具の版（2026-11-18 に署名が通った版） */
+const ARTIFACT_SIGNING_CLI_VERSION = "0.12.0";
+
 const args = process.argv.slice(2);
 const planOnly = args.includes("--plan");
 const sep = args.indexOf("--");
@@ -40,8 +43,11 @@ if (plan.writeApiKeyFile) {
   delete env.APPLE_API_KEY_P8;
 }
 if (plan.needsArtifactSigningCli) {
-  // Windows の署名の道具（Tauri の説明のとおり cargo で入れる。版の固定は 0117 の未確定）
-  execFileSync("cargo", ["install", "artifact-signing-cli", "--locked"], { stdio: "inherit" });
+  // Windows の署名の道具（Tauri の説明のとおり cargo で入れる。版は固定する）。CI のキャッシュが「入っている」という記録だけを戻して
+  // 本体の .exe を戻さないことがあり、そのときは cargo が入れ直さずに署名で止まるので、動かないときは --force で入れ直す（0117 の追記 2026-11-18）
+  const cli = ["install", "artifact-signing-cli", "--version", ARTIFACT_SIGNING_CLI_VERSION, "--locked"];
+  const runs = spawnSync("artifact-signing-cli", ["--version"], { stdio: "ignore" }).error === undefined;
+  execFileSync("cargo", runs ? cli : [...cli, "--force"], { stdio: "inherit" });
 }
 const override = join(work, "signing.json");
 writeFileSync(override, JSON.stringify(plan.config));
