@@ -1,15 +1,19 @@
 // 読み手（0034 の3）。明細のファイルを「欄の表」にする部品を差し替えられる形にする。
 // - 段階1: CSV（カード・銀行・家計簿アプリ）と、文字の入った PDF
-// - 段階2（会計ソフトの試算表）・段階3（スクショ・写真の文字認識）は、同じ形の読み手を DEFAULT_READERS に足す
+// - 段階2（会計ソフトの試算表）は、同じ形の読み手を DEFAULT_READERS に足す。段階3（写真・スクショ・画像だけの PDF の文字認識）の読み手は
+//   ocr.ts（文字を読む関数をアプリ本体から受け取るので、使う側が readers に足す）
 // - 読み手は、表のすべての欄を maskCell に通してから返す。そのあと見出しを見て、番号の列を列ごと消す（maskNumberColumns）。
 //   元のファイルのバイト列は readStatement の外へ出さず、指紋（SHA-256）と大きさだけを返す（元のファイルは保存しない）
+import { balanceCheck } from "./balance.ts";
 import { CsvError, parseCsv } from "./csv/parse.ts";
 import { issue, type Issue } from "./issues.ts";
 import { PdfError } from "./pdf/objects.ts";
-import { extractPdfLines } from "./pdf/text.ts";
+import { assemblePages } from "./layout.ts";
+import type { OcrInfo } from "./ocr.ts";
+import { extractPdfItems } from "./pdf/text.ts";
 import { checkMapping, findHeaderRow, guessMapping, headerFingerprint, maskNumberColumns, tableToRows, upgradeLearnedMapping, type ColumnMapping, type LearnedFormat, type ReadRow, type SourceKind, type Table } from "./table.ts";
 import { decodeText, type Encoding } from "./text/decode.ts";
-import { maskCell } from "./text/mask.ts";
+import { maskCell, maskCellLoose } from "./text/mask.ts";
 import { parseAmount, parseDate, parsePlan } from "./text/values.ts";
 
 /** 1つのファイルの大きさの上限（10MB。ヒアリングシートと同じ） */
@@ -23,6 +27,14 @@ export interface ReaderTable {
   readonly fixedMapping?: ColumnMapping;
   /** 明細に書かれた日付（お支払日・発行日など）。年の無い日付の年を補い、この日より後にならないようにする */
   readonly statementDate?: string;
+  /** 文字認識の結果（英字の O・I・l も数字とみなして番号を消す。readStatement でもその形でもう一度通す） */
+  readonly loose?: true;
+  /** 読み取りが不確かな行（表の lines の番号）。読んだ行に readUncertain の印を付ける */
+  readonly uncertain?: readonly number[];
+  /** 文字認識の補い（読んだ形・合計・傾きなど） */
+  readonly ocr?: OcrInfo;
+  /** この読み手では読めない（文字の入っていない PDF など）。次に合う読み手があればそちらで読む */
+  readonly next?: true;
 }
 
 /** 読み手（差し替えられる部品） */
@@ -36,11 +48,11 @@ export interface StatementReader {
   table(bytes: Uint8Array, kind: SourceKind): Promise<ReaderTable>;
 }
 
-function maskTable(cells: string[][]): { cells: string[][]; masked: number } {
+function maskTable(cells: string[][], loose = false): { cells: string[][]; masked: number } {
   let masked = 0;
   const out = cells.map((r) =>
     r.map((c) => {
-      const m = maskCell(c);
+      const m = loose ? maskCellLoose(c) : maskCell(c);
       if (m.masked) masked++;
       return m.text;
     }),
@@ -84,7 +96,7 @@ export const csvReader: StatementReader = {
 };
 
 /** PDF の行のうち、明細の行らしいもの（最初の欄が日付・最後の欄が金額）を [日付, 店, 支払い方法, 金額] の表にする */
-function pdfFallback(lines: string[][]): { cells: string[][]; lines: number[] } {
+export function fallbackRows(lines: string[][]): { cells: string[][]; lines: number[] } {
   const cells: string[][] = [];
   const at: number[] = [];
   lines.forEach((ln, i) => {
@@ -109,17 +121,21 @@ function pdfFallback(lines: string[][]): { cells: string[][]; lines: number[] } 
   return { cells, lines: at };
 }
 
+/**
+ * 文字の入った PDF の読み手。版 2（2026-11-17）から、行は文字の上下の中心でまとめ、見出しの行があれば見出しの位置で欄に入れる
+ * （写真・スクショの文字認識の結果と同じ組み立て。layout.ts）。空の欄（銀行の明細の出金・入金のどちらか）で列が詰まらない
+ */
 export const pdfTextReader: StatementReader = {
   id: "pdfText",
-  version: 1,
+  version: 2,
   label: "PDF（文字の入ったもの）",
   accepts(bytes) {
     return startsWith(bytes, "%PDF") ? 0.95 : 0;
   },
-  async table(bytes) {
-    let ex: { lines: string[][]; pages: number; chars: number };
+  async table(bytes, kind) {
+    let ex: Awaited<ReturnType<typeof extractPdfItems>>;
     try {
-      ex = await extractPdfLines(bytes);
+      ex = await extractPdfItems(bytes);
     } catch (e) {
       if (e instanceof PdfError) {
         const msg =
@@ -134,8 +150,8 @@ export const pdfTextReader: StatementReader = {
       }
       throw e;
     }
-    if (ex.chars === 0) return { table: { cells: [], lines: [], masked: 0 }, issues: [issue("error", "S_PDF_NO_TEXT", "この PDF には文字が入っていません（画像だけの PDF）。写真・スクショの文字の読み取りは今後の版で対応します")] };
-    return linesToTable(ex.lines);
+    if (ex.chars === 0) return { table: { cells: [], lines: [], masked: 0 }, issues: [issue("error", "S_PDF_NO_TEXT", "この PDF には文字が入っていません（画像だけの PDF）。この PC では画像の文字を読めないため、CSV か、文字の入った PDF を選んでください")], next: true };
+    return linesToTable(assemblePages(ex.pages, kind).lines);
   },
 };
 
@@ -143,13 +159,16 @@ export const pdfTextReader: StatementReader = {
  * 位置から行と欄にまとめた文字（`toLines()` の結果）を、読み手の表にする（番号を消し、見出しが無ければ「最初の欄が日付・最後の欄が金額」の行を読む）。
  * 文字の入った PDF の読み手が使う。写真・スクショの文字認識の結果も同じ形にすればここから先に乗る（0034 の段階3）
  */
-export function linesToTable(lines: readonly (readonly string[])[]): ReaderTable {
-  const masked = maskTable(lines.map((r) => [...r]));
+export function linesToTable(lines: readonly (readonly string[])[], opts: { readonly loose?: boolean } = {}): ReaderTable {
+  const masked = maskTable(
+    lines.map((r) => [...r]),
+    opts.loose === true,
+  );
   const table: Table = { cells: masked.cells, lines: lines.map((_, i) => i + 1), masked: masked.masked };
   const statementDate = findStatementDate(masked.cells);
   const sd = statementDate !== undefined ? { statementDate } : {};
   if (findHeaderRow(table, "card") !== null || findHeaderRow(table, "bank") !== null) return { table, issues: [], ...sd };
-  const fb = pdfFallback(masked.cells);
+  const fb = fallbackRows(masked.cells);
   return {
     table: { cells: fb.cells, lines: fb.lines, masked: masked.masked },
     issues: [],
@@ -163,7 +182,7 @@ export function linesToTable(lines: readonly (readonly string[])[]): ReaderTable
  * 「お支払」「ご請求」「発行」の言葉のある行を先に使う。期間の行（「ご利用期間 2026年9月16日〜2026年10月15日」のように
  * 年月日が2つ以上ある行）は使わない（期間の始めの日を明細の日付にすると、その日より後の利用がすべて前の年になるため）
  */
-function findStatementDate(lines: readonly (readonly string[])[]): string | undefined {
+export function findStatementDate(lines: readonly (readonly string[])[]): string | undefined {
   let first: string | undefined;
   for (const ln of lines.slice(0, 15)) {
     if (ln.length !== 1) continue;
@@ -218,6 +237,13 @@ export type ReadOutcome =
        * suggested は推定の年（いちばん新しい月日が今日より後にならない、いちばん近い年）。year は読むのに使った年（選んでいなければ無い）
        */
       readonly yearless?: { readonly rows: number; readonly end: string; readonly suggested: number; readonly year?: number };
+      /** 写真・スクショ・画像だけの PDF から読んだとき: 読んだ形・明細に書かれた合計・傾きなど */
+      readonly ocr?: OcrInfo;
+      /**
+       * 読み取りが不確かな行の理由の短い文（銀行の明細の残高と合わない行など。行の番号ごと）。画面に出すだけで、世帯ファイルには残さない
+       * （行の readUncertain の印だけが残る）
+       */
+      readonly uncertainReasons?: readonly { readonly line: number; readonly text: string }[];
     }
   | { readonly ok: false; readonly issues: readonly Issue[] };
 
@@ -243,18 +269,28 @@ export async function readStatement(bytes: Uint8Array, ctx: ReadContext): Promis
   if (bytes.length === 0) return { ok: false, issues: [issue("error", "S_FILE_EMPTY", "空のファイルです")] };
   if (bytes.length > MAX_FILE_BYTES) return { ok: false, issues: [issue("error", "S_FILE_TOO_LARGE", "ファイルが大きすぎます（10MBまで）。期間を分けて書き出してください")] };
   const readers = ctx.readers ?? DEFAULT_READERS;
-  let best: StatementReader | undefined;
-  let score = 0;
-  for (const r of readers) {
-    const s = r.accepts(bytes, ctx.fileName);
-    if (s > score) [best, score] = [r, s];
-  }
-  if (best === undefined) return { ok: false, issues: [issue("error", "S_FORMAT_UNKNOWN", "読めないファイルの形です（CSV か、文字の入った PDF を選んでください）")] };
+  // 一番大きい accepts の読み手から試す（同じなら並びの順）。読み手が「この形は読めない」（next）と返せば、次に合う読み手で読む
+  const ranked = readers
+    .map((r, i) => ({ r, i, s: r.accepts(bytes, ctx.fileName) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => x.r);
+  if (ranked.length === 0) return { ok: false, issues: [issue("error", "S_FORMAT_UNKNOWN", "読めないファイルの形です（CSV か、文字の入った PDF を選んでください）")] };
   const sha256 = await fileDigest(bytes);
-  const rt = await best.table(bytes, ctx.kind);
+  let best = ranked[0] as StatementReader;
+  let rt = await best.table(bytes, ctx.kind);
+  for (const r of ranked.slice(1)) {
+    if (rt.next !== true) break;
+    best = r;
+    rt = await r.table(bytes, ctx.kind);
+  }
   if (rt.issues.some((i) => i.level === "error")) return { ok: false, issues: rt.issues };
-  // 読み手が消していても、もう一度すべての欄を通す（差し替えた読み手が消し忘れても、ここより外へ番号を出さない）
-  const again = maskTable(rt.table.cells.map((r) => [...r]));
+  // 読み手が消していても、もう一度すべての欄を通す（差し替えた読み手が消し忘れても、ここより外へ番号を出さない）。
+  // 文字認識の結果は、英字の O・I・l も数字とみなして消す
+  const again = maskTable(
+    rt.table.cells.map((r) => [...r]),
+    rt.loose === true,
+  );
   const headerGuess = rt.fixedMapping?.headerRow ?? findHeaderRow({ ...rt.table, cells: again.cells }, ctx.kind);
   const nc = maskNumberColumns(again.cells, headerGuess);
   const table: Table = { cells: nc.cells, lines: rt.table.lines, masked: rt.table.masked + again.masked + nc.masked };
@@ -286,6 +322,12 @@ export async function readStatement(bytes: Uint8Array, ctx: ReadContext): Promis
   }
   const tr = tableToRows(table, mapping, ctx.kind, { ...(ctx.yearHint !== undefined ? { year: ctx.yearHint } : rt.statementDate !== undefined ? { year: Number(rt.statementDate.slice(0, 4)) } : {}), ...(rt.statementDate !== undefined ? { notAfter: rt.statementDate } : {}) });
   issues.push(...tr.issues);
+  // 読み取りが不確かな行（写真・スクショの文字認識）に印を付ける。銀行の明細は、残高の欄で行ごとに照らし合わせて合わない行にも（理由の短い文つき）
+  const why = rt.ocr !== undefined && ctx.kind === "bank" ? balanceCheck(table, mapping, tr.rows) : new Map<number, string>();
+  const unsure = new Set([...(rt.uncertain ?? []), ...why.keys()]);
+  const rows = unsure.size === 0 ? tr.rows : tr.rows.map((r) => (unsure.has(r.line) ? { ...r, readUncertain: true as const } : r));
+  const nUnsure = rows.filter((r) => r.readUncertain === true).length;
+  if (nUnsure > 0) issues.push(issue("warning", "S_OCR_UNCERTAIN", `読み取りが不確かな行が ${nUnsure}行あります。画像と照らし合わせて確かめてください（確かめないで取り込むと、ヒアリングの迷う行に残ります）`));
   const needsMapping = source === "guessed" || tr.rows.length === 0;
   const yearless =
     tr.yearless !== undefined && rt.statementDate === undefined
@@ -301,9 +343,11 @@ export async function readStatement(bytes: Uint8Array, ctx: ReadContext): Promis
     mappingSource: source,
     fingerprint,
     needsMapping,
-    rows: tr.rows,
+    rows,
     skipped: tr.skipped,
     issues,
     ...(yearless !== undefined ? { yearless } : {}),
+    ...(rt.ocr !== undefined ? { ocr: rt.ocr } : {}),
+    ...(why.size > 0 ? { uncertainReasons: rows.flatMap((r) => (why.has(r.line) ? [{ line: r.line, text: why.get(r.line) as string }] : [])) } : {}),
   };
 }

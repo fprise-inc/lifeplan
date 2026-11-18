@@ -27,6 +27,7 @@ export interface ReviewItem {
 /** 印の重さ（一覧の並びに使う） */
 const PRIORITY: Record<Flag, number> = {
   bucketNotAllowed: 0,
+  readUncertain: 1,
   cardPaymentKept: 1,
   highAmount: 2,
   annualUnsure: 3,

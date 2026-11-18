@@ -275,6 +275,7 @@ function readRow(v: unknown): StatementRow | null {
     ...(v.transfer === true ? { transfer: true as const } : {}),
     ...(str(v.memo, MAX_MEMO) ? { memo: v.memo } : {}),
     ...(v.yearGuessed === true ? { yearGuessed: true as const } : {}),
+    ...(v.readUncertain === true ? { readUncertain: true as const } : {}),
     ...(str(v.owner, 64) ? { owner: v.owner } : {}),
     ...(isCategory(v.category) ? { category: v.category } : {}),
     ...((BUCKETS as readonly unknown[]).includes(v.bucket) ? { bucket: v.bucket as Bucket } : {}),

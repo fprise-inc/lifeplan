@@ -78,6 +78,10 @@ export interface MarkSheetResult {
 /** 顧客番号の決まり（世帯の保存と同じ: 英数字・ハイフン・下線の16字まで。氏名は入れない） */
 const CUSTOMER_NO = /^[A-Za-z0-9_-]{1,16}$/u;
 
+/** 写真・スクショから読んだ行のうち、読み取りが不確かな行の印と説明（0034 の段階3） */
+export const UNCERTAIN_MARK = "※読み取りが不確か";
+const UNCERTAIN_NOTE = "「※読み取りが不確か」の行は、写真・スクショの文字を読んだ行です。ご利用日・お店・金額がお手元の明細と違うときは、メモの欄に正しい値を書いてください。";
+
 /** 番号らしき数字を消した文字（消すものが無ければ元のまま。全角の括弧などをそろえ直さない） */
 function masked(t: string): string {
   const m = maskText(t);
@@ -143,6 +147,7 @@ export async function createMarkSheet(o: MarkSheetOptions): Promise<MarkSheetRes
   const noteTexts: [string, number][] = [
     ["カード・口座の明細のうち、使い道や、家計に入れるかどうかを確かめたい行です。黄色の欄を ▼ から選んでください。分からない行は空欄のままで構いません。", STYLE.text],
     ...(plan.shops > 0 ? [[shopNote, STYLE.text] as [string, number]] : []),
+    ...(rows.some((l) => l.items.some((x) => x.reasons.includes("readUncertain"))) ? [[UNCERTAIN_NOTE, STYLE.text] as [string, number]] : []),
     ["「何に使ったか」は食費・日用品などの項目です。「どこに入るか」は、ふだんの家計か、お仕事で使った分（会社に請求する立替・事業の経費・会社の経費）か、旅行などの一時的支出かを選びます。選べるものは、お使いになった方の働き方に合わせてあります。", STYLE.text],
     ["事業の経費のときは、事業で使った割合（1〜100 の%）も書いてください。お仕事と暮らしの両方で使うもの（携帯電話・車など）は、だいたいの割合で構いません。", STYLE.text],
     ["番号・ご利用日・金額の欄は書き換えないでください（お預かりした明細と照らし合わせて読みます）。気になることはメモの欄にどうぞ。", STYLE.text],
@@ -174,13 +179,15 @@ export async function createMarkSheet(o: MarkSheetOptions): Promise<MarkSheetRes
     b.set(r, COLS.amount, X.amount, num(l.total));
     b.set(r, COLS.account, X.readonly, text(masked(accountOf(it))));
     b.set(r, COLS.owner, X.readonly, text(it.owner === null ? "ご家族（共用）" : (o.owners.get(it.owner) ?? "ご家族")));
-    b.set(r, COLS.guess, X.readonly, text(`${it.category === null ? "分からない" : categoryShort(it.category)}／${SHEET_BUCKET_LABELS[it.bucket].replace(/（.*）$/u, "")}`));
+    const unsure = l.items.some((x) => x.reasons.includes("readUncertain")) ? `\n${UNCERTAIN_MARK}` : "";
+    const guess = `${it.category === null ? "分からない" : categoryShort(it.category)}／${SHEET_BUCKET_LABELS[it.bucket].replace(/（.*）$/u, "")}${unsure}`;
+    b.set(r, COLS.guess, X.readonly, text(guess));
     b.set(r, COLS.category, STYLE.input);
     b.set(r, COLS.bucket, STYLE.input);
     const business = it.allowed.includes("business");
     b.set(r, COLS.share, business ? STYLE.input : STYLE.locked);
     b.set(r, COLS.memo, STYLE.inputText);
-    b.height(r, Math.max(22, 16 * Math.max(textLines(merchant, WIDTHS[2]), textLines(date, WIDTHS[1]), lines(accountOf(it), WIDTHS[4])) + 4));
+    b.height(r, Math.max(22, 16 * Math.max(textLines(merchant, WIDTHS[2]), textLines(date, WIDTHS[1]), lines(accountOf(it), WIDTHS[4]), ...(unsure !== "" ? [textLines(guess, WIDTHS[6])] : [])) + 4));
     b.validations.push(listValidation(`${COLS.bucket}${r}`, lists, it.allowed.map((x) => SHEET_BUCKET_LABELS[x]), "選択肢から選んでください（お使いになった方の働き方で選べるものだけです）"));
     if (business) b.validations.push(numberValidation(`${COLS.share}${r}`, "whole", 1, 100, "1〜100 の数で書いてください"));
   });
