@@ -16,9 +16,9 @@
 use std::sync::Arc;
 
 use household_store::{
-    CategoryEdit, CategorySettings, CreateOptions, CreateRequest, HouseholdEntry, Opened,
-    OsSecretStore, PreviousGeneration, RenameOutcome, SampleRequest, Saved, SecretStore, Status,
-    Store, StoreError, SystemClock,
+    CategoryEdit, CategorySettings, CreateOptions, CreateRequest, HearingPeek, HouseholdEntry,
+    Opened, OsSecretStore, PreviousGeneration, RenameOutcome, SampleRequest, Saved, SecretStore,
+    Status, Store, StoreError, SystemClock,
 };
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -294,6 +294,12 @@ pub async fn store_open(app: AppHandle, id: String) -> Result<Opened, String> {
         ai.on_opened(o, summary)
     })
     .await
+}
+
+/// 開いていない世帯の、Web のヒアリングの依頼の確かめに要る欄だけを読む（開いた印を変えない。0192 の追記 2026-11-18）
+#[tauri::command]
+pub async fn store_peek_hearing(app: AppHandle, id: String) -> Result<Vec<HearingPeek>, String> {
+    blocking(app, move |s| s.peek_hearing(&id)).await
 }
 
 /// 開けなかった世帯の、直前の世代（.prev）の時点（開き直せないときは null。0011 の7）

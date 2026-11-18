@@ -23,6 +23,8 @@ const COMMANDS: &[&str] = &[
     "store_list",
     "store_create",
     "store_open",
+    // 0192 の追記: 開いていない世帯の Web のヒアリングの依頼を、開かずに確かめる（届いたかの確かめに要る欄だけ）
+    "store_peek_hearing",
     // 0011 の7: 開けない世帯ファイルを直前の世代で開き直す
     "store_previous_generation",
     "store_open_previous",

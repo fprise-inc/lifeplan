@@ -475,6 +475,11 @@ export interface StoreHost {
   /** 新しい世帯（opts.category は区分の記号。無ければ見込み客（区分を使わないときは通し番号だけ）。opts.sample があれば見本として作る。0033） */
   create(body: string, summary: string, opts?: { category?: string; sample?: SampleRequest }): Promise<StoredOpened>;
   open(id: string): Promise<StoredOpened>;
+  /**
+   * 開かずに、Web のヒアリングの依頼の、届いたかの確かめに要る欄だけを読む（開いていない世帯の届いた知らせ。0192 の追記 2026-11-18）。
+   * 開いた印（前回開いた世帯・事務所の共有の「開いている」）を変えない。答え・書類・選び方・URL は返さない。古い本体には無い
+   */
+  peekHearing?(id: string): Promise<unknown>;
   /** 開けなかった世帯の、直前の世代の時点（直前の世代で開き直せないときは null。0011 の7） */
   previousGeneration(id: string): Promise<PreviousGeneration | null>;
   /** 開けなかった世帯を、直前の世代で開き直す（開けなかったファイルは本体がこの PC の中に別名で残す） */
@@ -959,6 +964,7 @@ export function tauriHost(): HostApi {
       list: () => invoke<StoredHousehold[]>("store_list"),
       create: (body, summary, opts) => invoke<StoredOpened>("store_create", { body, summary, category: opts?.category ?? null, sample: opts?.sample ?? null }),
       open: (id) => invoke<StoredOpened>("store_open", { id }),
+      peekHearing: (id) => invoke<unknown>("store_peek_hearing", { id }),
       previousGeneration: (id) => invoke<PreviousGeneration | null>("store_previous_generation", { id }),
       openPrevious: (id) => invoke<StoredOpened>("store_open_previous", { id }),
       save: (id, body, summary) => invoke<{ generation: number; savedAt: string }>("store_save", { id, body, summary }),
@@ -1209,6 +1215,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       list: async () => devJson<StoredHousehold[]>(await devStore("list")),
       create: async (body, summary, opts) => devJson<StoredOpened>(await devStore("create", { body, summary, ...(opts?.category !== undefined ? { category: opts.category } : {}), ...(opts?.sample !== undefined ? { sample: JSON.stringify(opts.sample) } : {}) })),
       open: async (id) => devJson<StoredOpened>(await devStore("open", { id })),
+      peekHearing: async (id) => devJson<unknown>(await devStore("peekHearing", { id })),
       previousGeneration: async (id) => devJson<PreviousGeneration | null>(await devStore("previousGeneration", { id })),
       openPrevious: async (id) => devJson<StoredOpened>(await devStore("openPrevious", { id })),
       save: async (id, body, summary) => devJson<{ generation: number; savedAt: string }>(await devStore("save", { id, body, summary })),
