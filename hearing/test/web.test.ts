@@ -932,12 +932,12 @@ describe("ご家族の生年月と性別は入れていただく（0138 の追�
     const list = screens(p, d);
     const selfScreen = screenWith(list, "hs.family.adult.birthYearMonth", 1);
     const both = requiredMissing(selfScreen, d, NOW);
-    expect(requiredText(p, both, false)).toBe("生年月と性別は、ライフプランの計算に使うので、入れていただけますか。");
+    expect(requiredText(p, both, false)).toBe("生年月と性別は、ライフプランの土台になるので必ずご入力ください。");
     const sexOnly = requiredMissing(selfScreen, withAnswers(d, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1986, 4) }), NOW);
-    expect(requiredText(p, sexOnly, false)).toBe("性別は、ライフプランの計算に使うので、選んでいただけますか。");
-    expect(requiredText(p, both, true)).toBe("ご本人の生年月と性別は、ライフプランの計算に使うので、入れていただけますか。");
+    expect(requiredText(p, sexOnly, false)).toBe("性別は、ライフプランの土台になるので必ずお選びください。");
+    expect(requiredText(p, both, true)).toBe("ご本人の生年月と性別は、ライフプランの土台になるので必ずご入力ください。");
     const all = list.flatMap((s) => requiredMissing(s, d, NOW));
-    expect(requiredText(p, all, true)).toBe("ご家族の生年月と性別は、ライフプランの計算に使うので、入れていただけますか。");
+    expect(requiredText(p, all, true)).toBe("ご家族の生年月と性別は、ライフプランの土台になるので必ずご入力ください。");
     expect(requiredWho(p, all.filter((f) => f.key.startsWith("hs.family.child") && (f.index ?? 0) <= 2))).toBe("第一子・第二子の");
     expect(requiredWhat(all.filter((f) => f.key === "hs.family.child.birthYearMonth"))).toBe("生年月");
     for (const t of [requiredText(p, both, false), requiredText(p, sexOnly, false), requiredText(p, all, true)]) for (const ng of ["必須", "入力してください", "当て", "お答え"]) expect(t).not.toContain(ng);
@@ -949,7 +949,7 @@ describe("ご家族の生年月と性別は入れていただく（0138 の追�
     const kids = screenWith(screens(p, d), "hs.family.child.birthYearMonth", 1);
     const miss = requiredMissing(kids, d, NOW);
     expect(miss.map((f) => draftKey(f.key, f.index))).toEqual(["hs.family.child.birthYearMonth#2"]);
-    expect(requiredText(p, miss, true)).toBe("第二子の生年月は、ライフプランの計算に使うので、入れていただけますか。");
+    expect(requiredText(p, miss, true)).toBe("第二子の生年月は、ライフプランの土台になるので必ずご入力ください。");
   });
 
   it("必須にする前に送られた答え（ご家族の生年月と性別が無い）も、今までどおり受け取って取り込める", async () => {

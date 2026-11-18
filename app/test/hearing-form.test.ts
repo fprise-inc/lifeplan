@@ -238,7 +238,7 @@ describe("お客さまの画面: ご家族の生年月と性別は入れてい�
     const p = await packet();
     const d = { ...initialDraft(p), started: true, gates: { spouse: 1, child: 0 }, answers: { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1986, 4), [draftKey("hs.family.adult.sex", 1)]: pick("female"), [draftKey("hs.family.adult.birthYearMonth", 2)]: { status: "later" as const } } };
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "review", now: () => NOW }));
-    for (const t of ['data-hf-need="top"', "配偶者の方の生年月と性別は、ライフプランの計算に使うので、入れていただけますか。", "配偶者の方の生年月と性別を入れる", "この内容で送る", "途中まででも送れます"]) expect(html).toContain(t);
+    for (const t of ['data-hf-need="top"', "配偶者の方の生年月と性別は、ライフプランの土台になるので必ずご入力ください。", "配偶者の方の生年月と性別を入れる", "この内容で送る", "途中まででも送れます"]) expect(html).toContain(t);
     for (const t of ["必須", "入力してください"]) expect(html).not.toContain(t);
     // 配偶者の方を「いない」にすれば、隠れた欄は見ない（残った「あとで」でも止めない）
     const none = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: { ...d, gates: { spouse: 0, child: 0 } }, startAt: "review", now: () => NOW }));

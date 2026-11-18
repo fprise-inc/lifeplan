@@ -565,12 +565,12 @@ export function requiredMet(d: Pick<Draft, "answers">, f: ScreenField, now: Date
 export const requiredMissing = (s: Screen, d: Pick<Draft, "answers">, now: Date): ScreenField[] => screenFields(s).filter((f) => !requiredMet(d, f, now));
 
 /**
- * 必ず入れていただく欄が欠けているときの言葉（責める言い方にしない。「生年月と性別は、ライフプランの計算に使うので、入れていただけますか。」）。
+ * 必ず入れていただく欄が欠けているときの言葉（「生年月と性別は、ライフプランの土台になるので必ずご入力ください。」。最初の画面の注意と同じ言い方。利用者の判断）。
  * who は誰の欄かを添えるか（1画面に1人なら添えない。2人までは名前、3人以上は「ご家族」）
  */
 export function requiredText(p: QuestionsPacket, missing: readonly ScreenField[], who: boolean): string {
   const birth = missing.some((f) => f.key === BIRTH_KEY || f.key === CHILD_BIRTH_KEY);
-  return `${who ? requiredWho(p, missing) : ""}${requiredWhat(missing)}は、ライフプランの計算に使うので、${birth ? "入れて" : "選んで"}いただけますか。`;
+  return `${who ? requiredWho(p, missing) : ""}${requiredWhat(missing)}は、ライフプランの土台になるので必ず${birth ? "ご入力" : "お選び"}ください。`;
 }
 
 /** 欠けている欄の言葉（「生年月と性別」「生年月」「性別」） */
