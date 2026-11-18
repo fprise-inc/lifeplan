@@ -851,6 +851,8 @@ export interface Arrival {
   submitted: boolean;
   /** 確かめた日時 */
   at: string;
+  /** どの世帯の依頼か（世帯の内部ID。ベルの知らせから世帯を開くため。0192 の追記 2026-11-18）。無ければ前の結果の世帯のまま */
+  household?: string;
 }
 
 const arrivals = new Map<string, Arrival>();
@@ -861,10 +863,23 @@ export function arrivalOf(requestId: string): Arrival | undefined {
   return arrivals.get(requestId);
 }
 
-/** 確かめの結果を覚える（画面に知らせる） */
+/** 確かめの結果を覚える（画面に知らせる）。世帯を書かない結果は、前の結果の世帯を引き継ぐ */
 export function noteArrival(requestId: string, a: Arrival | null): void {
   if (a === null) arrivals.delete(requestId);
-  else arrivals.set(requestId, a);
+  else {
+    const household = a.household ?? arrivals.get(requestId)?.household;
+    arrivals.set(requestId, household === undefined ? a : { ...a, household });
+  }
+  for (const f of listeners) f();
+}
+
+/** 覚えている確かめの結果の全部（依頼番号と結果。ベルの知らせ） */
+export function allArrivals(): [string, Arrival][] {
+  return [...arrivals.entries()];
+}
+
+/** 確かめの結果が変わったことを画面に知らせる（覚えた結果は変えない） */
+export function touchArrivals(): void {
   for (const f of listeners) f();
 }
 
@@ -877,13 +892,13 @@ export function onArrivals(f: () => void): () => void {
 /** 届いたかを確かめる間隔（世帯を開いている間。依頼ごとの回数の制限〔1分60回〕より十分に少ない） */
 export const ARRIVAL_INTERVAL_MS = 5 * 60_000;
 
-/** 受け付けている依頼を全部確かめ、結果を覚える（つながらなければ前の結果のまま。消えていれば忘れる） */
-export async function checkArrivals(wh: WorkingHousehold, t: RelayTransport, now: Date = new Date()): Promise<void> {
+/** 受け付けている依頼を全部確かめ、結果を覚える（つながらなければ前の結果のまま。消えていれば忘れる）。household は世帯の内部ID（ベルの知らせ） */
+export async function checkArrivals(wh: WorkingHousehold, t: RelayTransport, now: Date = new Date(), household?: string): Promise<void> {
   for (const e of webLog(wh)) {
     if (!accepting(e, now)) continue;
     try {
       const a = await checkAnswered(e, t);
-      noteArrival(e.record.requestId, a === null ? null : { answers: a.newAnswers, batches: a.batches, submitted: a.answered, at: now.toISOString() });
+      noteArrival(e.record.requestId, a === null ? null : { answers: a.newAnswers, batches: a.batches, submitted: a.answered, at: now.toISOString(), ...(household !== undefined ? { household } : {}) });
     } catch {
       // つながらない・本体の命令が無い: 前の結果のまま（次の確かめで取り直す）
     }

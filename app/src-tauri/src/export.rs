@@ -444,35 +444,68 @@ async fn open_book<R: Runtime>(
     read_limited(&path, max_bytes).map(Some)
 }
 
-/// 明細のファイル（CSV・TSV・文字の入った PDF。0034）を選んで中身を返す。選ばなかったときは None。
-/// パス・ファイル名は返さない。開発用のビルドだけ、環境変数 `FINANCIA_DEV_OPEN_STATEMENT` のファイルをダイアログの代わりに読む
+/// 明細を選ぶダイアログで、何枚かまとめて選べる写真・スクショの上限と、合わせた大きさの上限
+pub const STATEMENT_MAX_FILES: usize = 30;
+pub const STATEMENT_MAX_TOTAL_BYTES: u64 = 100 * 1024 * 1024;
+
+/// 明細のファイルの拡張子（CSV・TSV・PDF と、写真・スクショ。HEIC は Mac だけ〔画面で描けて OS の文字認識が読む〕。0034 の段階3）
+fn statement_extensions() -> &'static [&'static str] {
+    if cfg!(target_os = "macos") {
+        &[
+            "csv", "tsv", "txt", "pdf", "png", "jpg", "jpeg", "heic", "heif",
+        ]
+    } else {
+        &["csv", "tsv", "txt", "pdf", "png", "jpg", "jpeg"]
+    }
+}
+
+/// 明細のファイル（CSV・TSV・PDF、明細の写真・スクショ。0034）を選んで中身を返す（何枚か選べる。選んだ順）。選ばなかったときは空。
+/// パス・ファイル名は返さない。1つ 10MB・合わせて 100MB・30 まで。開発用のビルドだけ、環境変数 `FINANCIA_DEV_OPEN_STATEMENT` の
+/// ファイル（`+` でつなぐと何枚か選んだことにする）をダイアログの代わりに読む
 pub async fn open_statement<R: Runtime>(
     window: &WebviewWindow<R>,
     max_bytes: u64,
-) -> Result<Option<Vec<u8>>, String> {
+) -> Result<Vec<Vec<u8>>, String> {
     let dev = if cfg!(debug_assertions) {
-        std::env::var_os("FINANCIA_DEV_OPEN_STATEMENT")
+        std::env::var("FINANCIA_DEV_OPEN_STATEMENT")
+            .ok()
             .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
+            .map(|v| v.split('+').map(PathBuf::from).collect::<Vec<_>>())
     } else {
         None
     };
-    let path = match dev {
+    let paths = match dev {
         Some(p) => p,
         None => {
             let picked = rfd::AsyncFileDialog::new()
-                .set_title("明細のファイルを選ぶ（CSV・PDF）")
-                .add_filter("明細（CSV・TSV・PDF）", &["csv", "tsv", "txt", "pdf"])
+                .set_title("明細のファイルを選ぶ（CSV・PDF・写真・スクショ）")
+                .add_filter(
+                    "明細（CSV・TSV・PDF・写真・スクショ）",
+                    statement_extensions(),
+                )
                 .set_parent(window)
-                .pick_file()
+                .pick_files()
                 .await;
             match picked {
-                Some(h) => h.path().to_path_buf(),
-                None => return Ok(None),
+                Some(list) => list.iter().map(|h| h.path().to_path_buf()).collect(),
+                None => return Ok(Vec::new()),
             }
         }
     };
-    read_limited(&path, max_bytes).map(Some)
+    if paths.len() > STATEMENT_MAX_FILES {
+        return Err("E_IMPORT_TOO_MANY".to_owned());
+    }
+    let mut total = 0u64;
+    let mut out = Vec::with_capacity(paths.len());
+    for p in &paths {
+        let b = read_limited(p, max_bytes)?;
+        total += b.len() as u64;
+        if total > STATEMENT_MAX_TOTAL_BYTES {
+            return Err("E_IMPORT_TOO_LARGE".to_owned());
+        }
+        out.push(b);
+    }
+    Ok(out)
 }
 
 /// 事務所のロゴの画像（PNG・JPEG。0121）を選んで中身を返す。選ばなかったときは None。パス・ファイル名は返さない。

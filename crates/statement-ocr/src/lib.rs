@@ -1,4 +1,4 @@
-//! 明細の写真・スクショ・画像だけの PDF のページの文字を、PC の中で読む（0034 の段階3。試しの版）。
+//! 明細の写真・スクショ・画像だけの PDF のページの文字を、PC の中で読む（0034 の段階3。0221）。
 //!
 //! - 外の AI・外のサービスには送らない。OS に入っている文字認識を本体から呼ぶ: macOS は Vision（`VNRecognizeTextRequest`）、
 //!   Windows は Windows.Media.Ocr。ほかの OS（Linux など）は [`OcrError::Unsupported`]（読めません）を返す。
@@ -7,6 +7,9 @@
 //!   1つの塊は「横に続く文字のまとまり」（Vision は観測の1つ、Windows は1行の中の近い単語をつないだもの）。
 //!   画面の部品（statement/ の `toLines()`）で行と欄にまとめる前提なので、表の欄をまたいでつなげない。
 //! - 番号を消す（0034 の2）のは、読んだ文字を受け取った画面の部品が行う（ここでは文字をそのまま返す）。
+//! - Windows は、日本語で読んだあと、同じ画像を英語でもう1回読む（[`OcrPage::digits`]。日本語の文字認識は数字を日本語の字と取り違える
+//!   ことがあるため。どちらを使うかは画面の部品が数字の塊ごとに決める）。英語の文字認識が無ければ1回だけ読む。
+//! - macOS は日本語を読める Vision（macOS 13 以降）でなければ [`OcrError::OldOs`]（古い Mac）。
 
 use serde::Serialize;
 
@@ -44,6 +47,8 @@ pub enum OcrError {
     Image,
     /// 画像が大きすぎる
     TooLarge,
+    /// OS が古く、日本語を読めない（macOS 13 より前の Vision）
+    OldOs,
     /// OS の文字認識が失敗した
     Failed,
 }
@@ -55,6 +60,7 @@ impl OcrError {
             OcrError::NoLanguage => "E_OCR_NO_LANGUAGE",
             OcrError::Image => "E_OCR_IMAGE",
             OcrError::TooLarge => "E_OCR_TOO_LARGE",
+            OcrError::OldOs => "E_OCR_OLD_MAC",
             OcrError::Failed => "E_OCR_FAILED",
         }
     }
@@ -114,6 +120,141 @@ pub fn recognize(bytes: &[u8]) -> Result<Vec<OcrBox>, OcrError> {
     recognize_in(bytes, Language::Japanese)
 }
 
+/// 1枚の画像を読んだ結果（画面の命令 `statement_ocr` が返す形）
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct OcrPage {
+    /// 画像の幅・高さ（画素）
+    pub width: u32,
+    pub height: u32,
+    /// どの文字認識か（[`backend`]）
+    pub engine: &'static str,
+    /// 日本語で読んだ塊
+    pub boxes: Vec<OcrBox>,
+    /// 英語でもう1回読んだ塊（Windows だけ。英語の文字認識が無ければ無い）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub digits: Option<Vec<OcrBox>>,
+}
+
+/// 画面の命令が使う読み方: 日本語で読み、Windows は英語でもう1回読む（数字の読み直し。決めたこと 2）
+pub fn recognize_page(bytes: &[u8]) -> Result<OcrPage, OcrError> {
+    if bytes.len() > MAX_IMAGE_BYTES {
+        return Err(OcrError::TooLarge);
+    }
+    if image_kind(bytes).is_none() {
+        return Err(OcrError::Image);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let boxes = mac::recognize(bytes, Language::Japanese)?;
+        let (width, height) = image_size(bytes).ok_or(OcrError::Image)?;
+        Ok(OcrPage {
+            width,
+            height,
+            engine: backend(),
+            boxes,
+            digits: None,
+        })
+    }
+    #[cfg(windows)]
+    {
+        let (boxes, width, height) = win::recognize_sized(bytes, Language::Japanese)?;
+        // 英語の文字認識が入っていない Windows は、日本語の1回だけ（数字の読み直しをしない）
+        let digits = match win::recognize_sized(bytes, Language::English) {
+            Ok((d, _, _)) => Some(d),
+            Err(OcrError::NoLanguage) => None,
+            Err(e) => return Err(e),
+        };
+        Ok(OcrPage {
+            width,
+            height,
+            engine: backend(),
+            boxes,
+            digits,
+        })
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        Err(OcrError::Unsupported)
+    }
+}
+
+fn be16(b: &[u8], at: usize) -> Option<u32> {
+    Some(u32::from(u16::from_be_bytes(
+        b.get(at..at + 2)?.try_into().ok()?,
+    )))
+}
+fn be32(b: &[u8], at: usize) -> Option<u32> {
+    Some(u32::from_be_bytes(b.get(at..at + 4)?.try_into().ok()?))
+}
+fn le16(b: &[u8], at: usize) -> Option<u32> {
+    Some(u32::from(u16::from_le_bytes(
+        b.get(at..at + 2)?.try_into().ok()?,
+    )))
+}
+fn le32(b: &[u8], at: usize) -> Option<i64> {
+    Some(i64::from(i32::from_le_bytes(
+        b.get(at..at + 4)?.try_into().ok()?,
+    )))
+}
+
+/// 画像の幅と高さ（画素。先頭の部分だけを読む）。PNG・JPEG・GIF・BMP・HEIC（いちばん大きい ispe）。読めなければ None
+pub fn image_size(b: &[u8]) -> Option<(u32, u32)> {
+    let size = match image_kind(b)? {
+        "png" => (be32(b, 16)?, be32(b, 20)?),
+        "gif" => (le16(b, 6)?, le16(b, 8)?),
+        "bmp" => (
+            u32::try_from(le32(b, 18)?.abs()).ok()?,
+            u32::try_from(le32(b, 22)?.abs()).ok()?,
+        ),
+        "jpeg" => {
+            let mut i = 2;
+            loop {
+                if *b.get(i)? != 0xff {
+                    i += 1;
+                    continue;
+                }
+                let marker = *b.get(i + 1)?;
+                if (0xc0..=0xcf).contains(&marker) && ![0xc4, 0xc8, 0xcc].contains(&marker) {
+                    break (be16(b, i + 7)?, be16(b, i + 5)?);
+                }
+                if marker == 0xd8 || marker == 0x01 || (0xd0..=0xd7).contains(&marker) {
+                    i += 2;
+                    continue;
+                }
+                i += 2 + be16(b, i + 2)? as usize;
+            }
+        }
+        "heic" => {
+            // 画像の大きさの箱（ispe）のうち、いちばん大きいもの（縮小の絵・分けた絵の箱より、まとめた絵の箱が大きい）
+            let mut best: Option<(u32, u32)> = None;
+            let mut at = 0;
+            while let Some(p) = b[at..].windows(4).position(|w| w == b"ispe") {
+                let k = at + p;
+                if let (Some(w), Some(h)) = (be32(b, k + 8), be32(b, k + 12)) {
+                    if best.is_none_or(|(bw, bh)| {
+                        u64::from(w) * u64::from(h) > u64::from(bw) * u64::from(bh)
+                    }) {
+                        best = Some((w, h));
+                    }
+                }
+                at = k + 4;
+            }
+            // 回し（irot）が 90度・270度なら幅と高さを入れ替える
+            let (w, h) = best?;
+            match b
+                .windows(4)
+                .position(|w| w == b"irot")
+                .and_then(|k| b.get(k + 4))
+            {
+                Some(r) if r & 1 == 1 => (h, w),
+                _ => (w, h),
+            }
+        }
+        _ => return None,
+    };
+    (size.0 > 0 && size.1 > 0).then_some(size)
+}
+
 /// 読む言語（試しの比較用。画面の命令は日本語だけを使う）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Language {
@@ -168,8 +309,9 @@ pub(crate) struct Word {
 }
 
 /// 1行の単語を、近いものどうしでつなぐ（隙間が文字の高さの 0.9 倍を超えたら別の塊。表の欄をまたいでつながない）。
-/// つなぐときは、両側が半角の英数字で、隙間が文字の高さの 0.3 倍を超えるときだけ空白をはさむ
-/// （Windows は日本語を1字ずつ、数字を「10」「/」「01」のように区切って返すため。英語の単語の間の空白だけを残す）
+/// つなぐときは、両側が半角の英数字で隙間が文字の高さの 0.3 倍を超えるとき、またはどの字でも隙間が 0.75 倍を超えるときに空白をはさむ
+/// （Windows は日本語を1字ずつ、数字を「10」「/」「01」のように区切って返すため。英語の単語の間と、店の名前と支店名の間の空白を残す。
+/// 空白があれば、画面の部品が欄をまたぐ塊を空白で分けられる）
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn merge_line(words: &[Word]) -> Vec<Word> {
     let mut out: Vec<Word> = Vec::new();
@@ -191,7 +333,7 @@ pub(crate) fn merge_line(words: &[Word]) -> Vec<Word> {
                     .chars()
                     .next()
                     .is_some_and(|c| c.is_ascii_alphanumeric());
-                if alnum_end && alnum_start && gap > h * 0.3 {
+                if (alnum_end && alnum_start && gap > h * 0.3) || gap > h * 0.75 {
                     last.text.push(' ');
                 }
                 last.text.push_str(&w.text);
@@ -273,16 +415,62 @@ mod tests {
             word("ば", 142.0, 20.0),
             word("ABC", 300.0, 30.0),
             word("MART", 340.0, 40.0),
+            word("駅", 396.0, 20.0),
+            word("前", 417.0, 20.0),
             word("1", 600.0, 10.0),
             word(",", 611.0, 4.0),
             word("234", 616.0, 30.0),
         ];
         let merged = merge_line(&words);
         let texts: Vec<&str> = merged.iter().map(|w| w.text.as_str()).collect();
-        assert_eq!(texts, ["10/03", "あおば", "ABC MART", "1,234"]);
+        assert_eq!(texts, ["10/03", "あおば", "ABC MART 駅前", "1,234"]);
         assert_eq!(merged[1].x, 100.0);
         assert_eq!(merged[0].w, 50.0);
         assert_eq!(merged[1].w, 62.0);
+    }
+
+    #[test]
+    fn reads_image_sizes() {
+        let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
+        png.extend_from_slice(&1170u32.to_be_bytes());
+        png.extend_from_slice(&2532u32.to_be_bytes());
+        assert_eq!(image_size(&png), Some((1170, 2532)));
+        // JPEG: APP0 の後ろの SOF0
+        let jpeg = [
+            0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x02,
+            0xf8, 0x04, 0xd8, 0x03,
+        ];
+        assert_eq!(image_size(&jpeg), Some((1240, 760)));
+        let mut heic = b"\0\0\0\x18ftypheic\0\0\0\0".to_vec();
+        for (w, h) in [(320u32, 240u32), (4032, 3024)] {
+            heic.extend_from_slice(b"\0\0\0\x14ispe\0\0\0\0");
+            heic.extend_from_slice(&w.to_be_bytes());
+            heic.extend_from_slice(&h.to_be_bytes());
+        }
+        assert_eq!(image_size(&heic), Some((4032, 3024)));
+        heic.extend_from_slice(b"\0\0\0\x09irot\x01");
+        assert_eq!(
+            image_size(&heic),
+            Some((3024, 4032)),
+            "90度の回しは幅と高さを入れ替える"
+        );
+        assert_eq!(image_size(b"%PDF-1.7"), None);
+        assert_eq!(image_size(b"\x89PNG\r\n\x1a\n"), None, "途中で切れた画像");
+    }
+
+    #[test]
+    fn page_rejects_non_images() {
+        assert_eq!(recognize_page(b"%PDF-1.7"), Err(OcrError::Image));
+        assert_eq!(OcrError::OldOs.code(), "E_OCR_OLD_MAC");
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    #[test]
+    fn other_os_page_cannot_read() {
+        assert_eq!(
+            recognize_page(b"\x89PNG\r\n\x1a\n"),
+            Err(OcrError::Unsupported)
+        );
     }
 
     #[test]

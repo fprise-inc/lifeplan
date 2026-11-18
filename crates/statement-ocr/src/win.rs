@@ -32,6 +32,14 @@ fn engine(lang: Lang) -> Result<OcrEngine, OcrError> {
 }
 
 pub(crate) fn recognize(bytes: &[u8], lang: Lang) -> Result<Vec<OcrBox>, OcrError> {
+    recognize_sized(bytes, lang).map(|(boxes, _, _)| boxes)
+}
+
+/// 読んだ塊と、読んだ画像の幅・高さ（画素。写真の向きを直した後）
+pub(crate) fn recognize_sized(
+    bytes: &[u8],
+    lang: Lang,
+) -> Result<(Vec<OcrBox>, u32, u32), OcrError> {
     let engine = engine(lang)?;
     // メモリの中のストリームに画像のバイト列を書く
     let stream = InMemoryRandomAccessStream::new().map_err(|_| OcrError::Failed)?;
@@ -78,8 +86,10 @@ pub(crate) fn recognize(bytes: &[u8], lang: Lang) -> Result<Vec<OcrBox>, OcrErro
         )
         .and_then(|op| op.join())
         .map_err(|_| OcrError::Image)?;
-    let width = bitmap.PixelWidth().map_err(|_| OcrError::Image)? as f32;
-    let height = bitmap.PixelHeight().map_err(|_| OcrError::Image)? as f32;
+    let pw = bitmap.PixelWidth().map_err(|_| OcrError::Image)?;
+    let ph = bitmap.PixelHeight().map_err(|_| OcrError::Image)?;
+    let width = pw as f32;
+    let height = ph as f32;
     if width <= 0.0 || height <= 0.0 {
         return Err(OcrError::Image);
     }
@@ -109,5 +119,5 @@ pub(crate) fn recognize(bytes: &[u8], lang: Lang) -> Result<Vec<OcrBox>, OcrErro
                 .map(|w| normalize(w, width, height, None)),
         );
     }
-    Ok(out)
+    Ok((out, w0, h0))
 }
