@@ -10,6 +10,7 @@ import { snapshotDateText, TRIGGER_TEXT, type Snapshot } from "../snapshots/snap
 import { withoutRemovedAssumptions } from "../surplus.ts";
 import { householdContents, inputChanges, nextYearEvents, pastPlans, resultFigures, type ResultFigures } from "./fpTools.ts";
 import { consultNotes, gateNotes } from "../hearing/web.ts";
+import { HEARING_EXCEL_SHOWN } from "../hearing/excelSwitch.ts";
 import { latestMeeting, meetingDateText, type Meeting } from "../meetings/meetings.ts";
 
 export interface FpToolsProps {
@@ -271,7 +272,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
           )}
         </li>
         <li>
-          <b>ヒアリングシートの見直し</b>（「事前ヒアリング・取り込む」で「見直し」の Excel を書き出すか URL生成で URL を作り、届いた答えを取り込みます。確かめの一覧で「次回確かめる」の印を付けた所は、印の行を写して面談に使えます）
+          <b>ヒアリングシートの見直し</b>（「事前ヒアリング・取り込む」で{HEARING_EXCEL_SHOWN ? "「見直し」の Excel を書き出すか URL生成で URL を作り" : "URL生成で「見直し」の URL を作り"}、届いた答えを取り込みます。確かめの一覧で「次回確かめる」の印を付けた所は、印の行を写して面談に使えます）
           <GateNotes wh={wh} />
         </li>
         <li data-fp-review-diff>
