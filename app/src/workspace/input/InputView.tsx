@@ -514,6 +514,10 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         }
       : {};
   const importCtl = importsOpen !== undefined ? { open: importsOpen, ...(onImportsOpen !== undefined ? { onOpen: onImportsOpen } : {}) } : { open: homeImports, onOpen: setHomeImports };
+  // 取り込みの置き場（新しい世帯は2行目、ほかは開いた中身の置き場）は、開いている間は動かさない。
+  // 新しい世帯に取り込みを承認すると値が入って fresh でなくなるが、そこで置き場を移すと中身が作り直され、「N件を現状に入れました」の知らせが消える
+  const importsAtBar = useRef(fresh);
+  if (!importCtl.open) importsAtBar.current = fresh;
 
   return (
     <DocViewContext.Provider value={rd}>
@@ -588,7 +592,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       {/* 2行目: 編集の対象（と、新しい世帯のときだけ「取り込む」）と、右端に「入力項目を選ぶ」。控え・面談の準備は上の帯の FP のメニューから開き、中身はこの行の下に幅いっぱいで出す */}
       <div class="ih-bar" data-home-bar>
         {plans !== undefined && (plans.list.length > 0 || plans.sel !== null) ? <PlanTarget p={plans} {...(editing !== null ? { diffs: { rows, open: diffOpen, onOpen: setDiffOpen } } : {})} /> : null}
-        {imports !== undefined && fresh ? (
+        {imports !== undefined && importsAtBar.current ? (
           <div class="ih-tools">
             <ImportMenu {...importOff} {...importCtl}>
               {imports}
@@ -609,7 +613,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       {/* FP のメニューから開いた中身（控え・面談の準備・取り込む）の置き場。余白はこの箱が持つ（パネルごとに足さない。0077 の追記） */}
       <div class="ih-opened" data-home-opened>
         {tools}
-        {imports !== undefined && !fresh ? (
+        {imports !== undefined && !importsAtBar.current ? (
           <ImportMenu button={false} {...importOff} {...importCtl}>
             {imports}
           </ImportMenu>
