@@ -58,7 +58,8 @@ html.big .rk-key { font-size: 1.45rem; }
 .rk-row input { flex: 1 1 320px; border: 1.5px solid var(--field); border-radius: 6px; padding: 6px 8px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 .rk-ok { color: var(--good); font-weight: 700; }
 .rk-later { border-top: 1px solid var(--line-2); margin-top: 12px; }
-.rk-foot { display: flex; justify-content: flex-end; margin-top: 14px; }
+.rk-foot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 14px; }
+.rk-foot .in-note { flex: 1 1 auto; margin: 0; }
 
 /* 事務所の共有（0023） */
 .hh-presence { display: inline-block; border: 1.5px solid var(--est-band); background: var(--est-bg); color: var(--est-ink); border-radius: 999px; padding: 0 8px; font-size: 0.78rem; font-weight: 700; }

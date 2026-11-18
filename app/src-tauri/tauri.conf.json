@@ -22,6 +22,7 @@
         "minWidth": 1024,
         "minHeight": 700,
         "incognito": true,
+        "generalAutofillEnabled": false,
         "create": false
       }
     ],

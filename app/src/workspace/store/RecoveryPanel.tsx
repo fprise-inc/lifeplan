@@ -1,10 +1,11 @@
 // 復元キーの案内（中央のパネル。0013 の3）:
-// - 初回: 復元キーを表示して、保管を強く勧める（保管するかは FP が選ぶ）。「保管した」を記録する
-// - 「復元キーで実際に開けるか試す」（データは変えない）
+// - 初回: 復元キーを表示して、保管を強く勧める（保管するかは FP が選ぶ）。「保管した」を記録する。初回の案内には「試す」を出さない
+// - 「復元キーで実際に開けるか試す」（データは変えない）は、設定から開く復元キーの画面（manage）にだけ置く（0013 の3の追記）
 // - 保管庫に親鍵が無いとき: 復元キーを入れて戻す
 // - 事務所で共有しているとき（shared）: 事務所の復元キー（共有の事務所の鍵）。試して開けたら保管済みとして記録する（0023 の5）
 // - 1人で2台の PC の同期フォルダ（personal。0024）: 同期フォルダの復元キー（どの PC でも同じ）。初回の案内には「2台目の PC なら、
 //   すでに使っている同期フォルダを開く」への入口を出す
+// - 入れた中身が復元キーの形でない（アドレス・文字数が大きく違う・使わない文字が多い）ときは、打ち間違いと分けて伝える
 // 復元キーは表示のためだけに受け取り、パネルを閉じたら消す（画面はどこにも保存しない。0016 の1）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { StoreHost, StoreStatus } from "../../engine/host.ts";
@@ -15,6 +16,46 @@ const MESSAGES: Record<string, string> = {
   E_RECOVERY_TYPO: "打ち間違いがあります。文字を確かめてください（大文字・小文字、区切りの有無は問いません）",
   E_RECOVERY_MISMATCH: "この事務所の復元キーではありません",
 };
+/** 復元キーの形でない中身を入れたときの文（打ち間違いとは分ける） */
+export const NOT_A_KEY_TEXT = "復元キーではない文字が入っています（貼り付けた中身を確かめてください）。復元キーは XXXX-XXXX-… の72文字です（4文字ずつ「-」で区切った英数字）";
+
+// 復元キーの形（crates/household-store/src/recovery.rs と同じ）: 数字と英大文字の32文字（I・L・O・U を使わない）で58文字、4文字ずつ「-」で区切って72文字
+const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const CHARS = 58;
+/** 打ち間違いとみなす幅: 区切りを除いた文字数が 58 から 1組（4文字）＋2文字まで多い・少ない、使わない文字が 3文字まで */
+const LEN_SLACK = 6;
+const BAD_SLACK = 3;
+const isSeparator = (c: string) => /\s/.test(c) || "-‐－ー—–_.・".includes(c);
+/** 全角の英数字を半角に、小文字を大文字に、O→0・I と L→1（入力で吸収する紛らわしい文字） */
+function normalizeChar(c: string): string {
+  const code = c.codePointAt(0) ?? 0;
+  const half = (code >= 0xff10 && code <= 0xff19) || (code >= 0xff21 && code <= 0xff3a) || (code >= 0xff41 && code <= 0xff5a) ? String.fromCodePoint(code - 0xfee0) : c;
+  const up = half.toUpperCase();
+  return up === "O" ? "0" : up === "I" || up === "L" ? "1" : up;
+}
+
+/**
+ * 入れた中身が復元キーの形か。"key" は形が合う（確かめ用の4バイトの照合と打ち間違いの判定は本体がする）、
+ * "notKey" は復元キーでない物が入っている（アドレス・文字数が大きく違う・使わない文字が多い）
+ */
+export function recoveryKeyShape(input: string): "key" | "notKey" {
+  if (/:\/\/|^\s*(https?|www\.)|@/i.test(input)) return "notKey";
+  let n = 0;
+  let bad = 0;
+  for (const c of input) {
+    if (isSeparator(c)) continue;
+    n++;
+    if (!ALPHABET.includes(normalizeChar(c))) bad++;
+  }
+  return Math.abs(n - CHARS) > LEN_SLACK || bad > BAD_SLACK ? "notKey" : "key";
+}
+
+/**
+ * 最初の案内で「あとで保管する」を選ぶときの、あとから開く道（世帯の一覧の下の「復元キー」→「復元キーを表示する」）。
+ * 復元キーは保管庫に鍵がある間は何度でも表示できる（本体の recovery_key は表示の回数を数えない。共有の事務所・同期フォルダでも同じ道）
+ */
+export const LATER_HINT = "あとで保管するときは、世帯の一覧（上の帯の世帯の名前を押すと開きます）の下の「復元キー」を押して「復元キーを表示する」から、何度でも表示できます。";
+
 const message = (code: string) => MESSAGES[code] ?? `確かめられませんでした（${code}）`;
 const codeOf = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : "E_STORE");
 
@@ -36,6 +77,7 @@ export function RecoveryPanel({
   personal = false,
   onOpenSync,
   onStorage,
+  onOffice,
 }: {
   mode: RecoveryMode;
   store: StoreHost;
@@ -49,6 +91,8 @@ export function RecoveryPanel({
   onOpenSync?: () => void;
   /** 保存先のパネルを開く */
   onStorage?: () => void;
+  /** 事務所の共有のパネルを開く（上の帯の FP のメニューの「事務所の共有」と同じ） */
+  onOffice?: () => void;
 }) {
   const [key, setKey] = useState<string | null>(null);
   const [kept, setKept] = useState(false);
@@ -70,6 +114,10 @@ export function RecoveryPanel({
   }, [mode, onClose]);
 
   const tryKey = async () => {
+    if (recoveryKeyShape(input) === "notKey") {
+      setResult({ ok: false, text: NOT_A_KEY_TEXT });
+      return;
+    }
     setBusy(true);
     setResult(null);
     try {
@@ -162,49 +210,67 @@ export function RecoveryPanel({
                 </button>
               </div>
             ) : null}
+            {/* 初回の案内には「試す」の欄が無いので、「保管した」の記録に失敗したときの文はここに出す */}
+            {mode === "first" && result !== null ? <p class={result.ok ? "rk-ok" : "hh-err"} role="status">{result.text}</p> : null}
             {status?.recoveryAcknowledged === true ? <p class="in-note">復元キーは保管済みとして記録しています。</p> : null}
           </>
         )}
-        <form
-          class="rk-test"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void tryKey();
-          }}
-        >
-          <h3>{mode === "restore" ? "復元キーを入れる" : "復元キーで実際に開けるか試す"}</h3>
-          {mode !== "restore" ? (
-            <p class="in-note">
-              保管した控えが正しいかを確かめます。世帯のデータは変えません。{shared ? "開けたら、事務所の復元キーを保管済みとして記録します。" : ""}
-              {status?.recoveryVerifiedAt != null ? "（前に確かめた控えがあります）" : ""}
-            </p>
-          ) : null}
-          <div class="rk-row">
-            <input value={input} onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)} placeholder="XXXX-XXXX-…（72文字）" aria-label="復元キー" autoComplete="off" spellcheck={false} data-recovery-input />
-            <button type="submit" class="btn" disabled={busy || input.trim() === ""} data-recovery-try>
-              {mode === "restore" ? "戻す" : "試す"}
-            </button>
-          </div>
-          {result !== null ? <p class={result.ok ? "rk-ok" : "hh-err"} role="status">{result.text}</p> : null}
-        </form>
+        {mode !== "first" ? (
+          <form
+            class="rk-test"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void tryKey();
+            }}
+          >
+            <h3>{mode === "restore" ? "復元キーを入れる" : "復元キーで実際に開けるか試す"}</h3>
+            {mode !== "restore" ? (
+              <p class="in-note">
+                控えた復元キーを下の欄に入れて「試す」を押すと、控えが正しいかを確かめます。世帯のデータは変えません。{shared ? "開けたら、事務所の復元キーを保管済みとして記録します。" : ""}
+                {status?.recoveryVerifiedAt != null ? "（前に確かめた控えがあります）" : ""}
+              </p>
+            ) : null}
+            <div class="rk-row">
+              <input value={input} onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)} placeholder="XXXX-XXXX-…（72文字）" aria-label="復元キー" autoComplete="off" spellcheck={false} data-recovery-input />
+              <button type="submit" class="btn" disabled={busy || input.trim() === ""} data-recovery-try>
+                {mode === "restore" ? "戻す" : "試す"}
+              </button>
+            </div>
+            {result !== null ? <p class={result.ok ? "rk-ok" : "hh-err"} role="status">{result.text}</p> : null}
+          </form>
+        ) : null}
         {mode !== "restore" && !shared ? (
           <div class="rk-later">
             <h3>別の PC で使う・同期フォルダに置く</h3>
             <p class="in-note">
               1人で2台のPCで使うときは、世帯の一覧の「保存先」から同期フォルダを選びます（この復元キーをそのまま使います。2台目のPCで開くときに入れます）。
-              複数のFPで使うときは「事務所の共有」から始めます（事務所の復元キーは新しくなり、保管が必須になります）。
+              複数のFPで使うときは「事務所の共有」から始めます（上の帯の FP のメニュー〔かばんのアイコン〕の「事務所の設定」にあります。事務所の復元キーは新しくなり、保管が必須になります）。
             </p>
-            {onStorage !== undefined ? (
-              <button type="button" class="btn" onClick={onStorage} data-recovery-to-storage>
-                保存先を開く
-              </button>
+            {onStorage !== undefined || onOffice !== undefined ? (
+              <div class="rk-row">
+                {onStorage !== undefined ? (
+                  <button type="button" class="btn" onClick={onStorage} data-recovery-to-storage>
+                    保存先を開く
+                  </button>
+                ) : null}
+                {onOffice !== undefined ? (
+                  <button type="button" class="btn" onClick={onOffice} data-recovery-to-office>
+                    事務所の共有を開く
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : null}
         {mode !== "restore" ? (
           <div class="rk-foot">
+            {mode === "first" && status?.recoveryAcknowledged !== true ? (
+              <p class="in-note" data-recovery-later-hint>
+                {LATER_HINT}
+              </p>
+            ) : null}
             <button type="button" class="btn" onClick={onClose} data-recovery-close>
-              {status?.recoveryAcknowledged === true ? "閉じる" : "あとで"}
+              {status?.recoveryAcknowledged === true ? "閉じる" : "あとで保管する"}
             </button>
           </div>
         ) : null}
