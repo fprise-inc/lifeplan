@@ -57,8 +57,9 @@ describe("お客さまの画面", () => {
     // 生年月・性別は人ごとに1画面（年齢の欄は出さない）。年は15年前から、月は「わからない」も選べる
     const birth = screenId(screens(p, d).find((s) => s.kind === "item" && s.key === "hs.family.adult.birthYearMonth")!);
     const html2 = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: birth, now: () => NOW }));
-    for (const t of ["生まれた年と月", "1986年（昭和61年）", "2011年（平成23年）", "わからない", "性別", "男性"]) expect(html2).toContain(t);
-    for (const t of ["年齢", "わからなければ、下の"]) expect(html2).not.toContain(t);
+    for (const t of ["生まれた年と月", "1986年（昭和61年）", "2011年（平成23年）", "性別", "男性"]) expect(html2).toContain(t);
+    // 月の「わからない」は出さない（2026-11-18）
+    for (const t of ["年齢", "わからなければ、下の", "わからない", "面談のときに伺います"]) expect(html2).not.toContain(t);
     expect(html2).not.toContain("2012年（平成24年）");
     // 配偶者の方がいるかは分岐の問いで聞くので、生年月に「当てはまらない」は出さない
     expect(html2).not.toContain("当てはまらない");
