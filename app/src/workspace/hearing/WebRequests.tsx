@@ -9,13 +9,15 @@
 // - 0192 の追記（2026-11-17）: 行の形を段階で分けた（rowMode）。回答が届いたら「受け取る」「取り消す」だけ。「受け取る」で、そのまま取り込みの
 //   候補の画面へ。取り消す・受け付けを終えるは、どの段階でも1回確かめる。取り込み済みは1行にたたむ（送られた内容・書類はたたんだ行から開ける）。
 //   書類を「あとで送る」の書類待ちがあれば、期限まで書類待ちの段を出す
+// - 0192 の追記（2026-11-18）: 取り込み済みの依頼は一覧から外す（web.ts の listed。書類待ち・届いた書類があれば期限まで残す。一覧が空なら枠ごと
+//   出さない）。外した依頼の送られた内容は、取り込み済みの回答（ImportedAnswers。「事前ヒアリングを取り込む」の下）から見る・印刷する
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SentAnswers } from "../../hearingForm/Form.tsx";
 import type { HearingWebHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { ImportView } from "./sheet.ts";
 import { useDocView } from "./ReceivedDocs.tsx";
-import { accepting, answeredScreens, arrivalOf, checkAnswered, checkArrivals, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importWeb, invitationText, limitOf, noteArrival, onArrivals, packetOf, receivedDraft, receiveWeb, removeOnServer, rowMode, selectedCount, selectionName, sentAtText, STATUS_TEXT, statusOf, waitingDocuments, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
+import { accepting, answeredScreens, arrivalOf, checkAnswered, checkArrivals, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importedEntries, importWeb, invitationText, limitOf, listed, noteArrival, onArrivals, packetOf, receivedDraft, receiveWeb, removeOnServer, rowMode, selectedCount, selectionName, sentAtText, STATUS_TEXT, statusOf, waitingDocuments, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -96,7 +98,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("ja-JP");
 const dayTime = (iso: string) => new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, onImport }: Props) {
-  const list = webLog(wh).slice().sort((a, b) => (a.record.issuedAt < b.record.issuedAt ? 1 : -1));
+  const list = webLog(wh).filter((e) => listed(e, new Date(), wh)).sort((a, b) => (a.record.issuedAt < b.record.issuedAt ? 1 : -1));
   // 届いたかの確かめの結果は、アプリを開いている間覚える（web.ts の arrivals。画面を閉じても消えない。0192）
   const [, setTick] = useState(0);
   useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
@@ -495,5 +497,40 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * 取り込み済みの回答（0192 の追記 2026-11-18）: 「URL の依頼」の一覧から外した取り込み済みの依頼の、送られた内容を見る・印刷の入口。
+ * たたんだ1行で出し、開くと依頼ごとに「送られた内容を見る・印刷」（書類は入力のホームの「受け取った書類」から）
+ */
+export function ImportedAnswers({ wh }: { wh: WorkingHousehold }) {
+  const list = importedEntries(wh);
+  const [open, setOpen] = useState<string | null>(null);
+  if (list.length === 0) return null;
+  return (
+    <details class="hs-group hs-fold wr-imported" data-web-imported={list.length}>
+      <summary>
+        <b>取り込み済みの URL の回答（{list.length}）</b> <small>送られた内容を見る・印刷できます</small>
+      </summary>
+      <ul class="hs-list">
+        {list.map((e) => {
+          const id = e.record.requestId;
+          return (
+            <li key={id} data-web-imported-item={id}>
+              <span>
+                {id}・{selectionName(e.record.selection)}・顧客番号 {e.record.customerNo}
+                {e.importedAt !== undefined ? `・${day(e.importedAt)} に取り込み` : ""}
+              </span>{" "}
+              <button type="button" class="link-btn" onClick={() => setOpen(open === id ? null : id)} aria-expanded={open === id} data-web-answers-open>
+                {open === id ? "送られた内容を閉じる" : "送られた内容を見る・印刷"}
+              </button>
+              {open === id ? <SentView e={e} /> : null}
+            </li>
+          );
+        })}
+      </ul>
+      {list.some((e) => (e.files ?? []).length > 0) ? <p class="rp-note">受け取った書類は、入力のホームの「受け取った書類」から開けます。</p> : null}
+    </details>
   );
 }

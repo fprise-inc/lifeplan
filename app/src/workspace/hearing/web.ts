@@ -10,6 +10,7 @@
 // - 0192 の追記（2026-11-17）: ご相談したいことの話題はやめた（新しい選び方に置かない。前の依頼の話題は読む）。ご相談したいこと・これからの予定は
 //   ひな形の既定から外した（カスタムで選べる）。数の目安は、どのひな形も夫婦と子2人で数え、この世帯の数を別に添える。外部 AI の同意（任意）は
 //   発行のときに出さないこともできる（問いにだけ効く。依頼の記録には置かない）。依頼の一覧の行の形（rowMode）・書類待ち（waitingDocuments）
+// - 0192 の追記（2026-11-18）: 取り込み済みの依頼は一覧から外す（listed。書類待ち・届いた書類があれば期限まで残す）。記録は世帯に残す
 import { importAnswers, OFFICIAL_SHEETS, requestIdFrom, type SheetDefinition } from "../../../../hearing/src/index.ts";
 import { axisOf } from "../../../../hearing/src/definition.ts";
 import { exportAnswers } from "../../../../hearing/src/export.ts";
@@ -146,6 +147,24 @@ export function waitingDocuments(e: WebLogEntry, now: Date): RequestedDocument[]
     const st = e.received?.documents.find((x) => x.id === d.id)?.status ?? "blank";
     return (st === "later" || st === "blank") && !got.has(d.id);
   });
+}
+
+/**
+ * 「URL の依頼」の一覧に出すか（0192 の追記 2026-11-18）: 取り込み済みの依頼は出さない。ただし書類待ちがある間（期限まで）と、届いた書類を
+ * まだ受け取っていない間は出す（受け取り終えたら消える）。一覧から外すだけで、依頼の記録は世帯に残す（受け取った答え・書類・面談の準備・
+ * 元に戻す・届いた知らせが読むため。世帯ファイルの形式は変えない）。取り込んだ答えの「送られた内容を見る」は、取り込み済みの回答（importedEntries）から
+ */
+export function listed(e: WebLogEntry, now: Date, wh?: WorkingHousehold): boolean {
+  const a = arrivalOf(e.record.requestId);
+  if (rowMode(e, now, a, wh) !== "done") return true;
+  return waitingDocuments(e, now).length > 0 || (accepting(e, now) && a !== undefined && (a.answers || a.batches > 0));
+}
+
+/** 取り込み済みで、一覧から外した依頼（新しく取り込んだ順。送られた内容を見る・印刷の入口に使う） */
+export function importedEntries(wh: WorkingHousehold, now: Date = new Date()): WebLogEntry[] {
+  return webLog(wh)
+    .filter((e) => e.received !== undefined && !listed(e, now, wh))
+    .sort((a, b) => ((a.importedAt ?? "") < (b.importedAt ?? "") ? 1 : -1));
 }
 
 /** お客さまが送った日時の言葉（例: 11月6日 22:15） */

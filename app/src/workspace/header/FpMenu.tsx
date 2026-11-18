@@ -5,6 +5,7 @@
 // （入力のホームの中身なら、親が入力のタブに切り替えて開く。どのタブでも帯は同じ）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
+import { HEARING_EXCEL_SHOWN } from "../hearing/excelSwitch.ts";
 
 /** メニューで押せる物 */
 export type FpMenuAction = "memo" | "meetings" | "snapTake" | "snapList" | "contents" | "year" | "review" | "hearing" | "ai" | "storage" | "office" | "officeDefaults" | "feedback";
@@ -74,7 +75,7 @@ export function fpMenuGroups(p: FpMenuInput): FpMenuGroup[] {
     out.push({
       id: "imports",
       label: "事前ヒアリング・取り込む",
-      items: [{ action: "hearing", label: "事前ヒアリング（Excel・URL生成・取り込む）", ...(p.imports.hearing != null ? { note: p.imports.hearing } : {}) }, ...(p.imports.ai ? [{ action: "ai" as const, label: "AI に資料を渡す", pop: true }] : [])],
+      items: [{ action: "hearing", label: HEARING_EXCEL_SHOWN ? "事前ヒアリング（Excel・URL生成・取り込む）" : "事前ヒアリング（URL生成・取り込む）", ...(p.imports.hearing != null ? { note: p.imports.hearing } : {}) }, ...(p.imports.ai ? [{ action: "ai" as const, label: "AI に資料を渡す", pop: true }] : [])],
     });
   if (p.office !== null)
     out.push({
