@@ -6,6 +6,9 @@
 // - 1人で2台の PC の同期フォルダ（personal。0024）: 同期フォルダの復元キー（どの PC でも同じ）。初回の案内には「2台目の PC なら、
 //   すでに使っている同期フォルダを開く」への入口を出す
 // - 入れた中身が復元キーの形でない（アドレス・文字数が大きく違う・使わない文字が多い）ときは、打ち間違いと分けて伝える
+// - キーの横の「コピー」: パスワード管理のソフトに保存しやすくする。クリップボードの履歴・端末をまたぐ同期に残ることを短く伝える
+//   （アプリからは消せない。数十秒後に空にする仕組みは入れない: 中身がまだ鍵かを確かめるにはクリップボードを読む必要があり、
+//   空にしても履歴と同期に残った分は消えないため）
 // 復元キーは表示のためだけに受け取り、パネルを閉じたら消す（画面はどこにも保存しない。0016 の1）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { StoreHost, StoreStatus } from "../../engine/host.ts";
@@ -55,6 +58,48 @@ export function recoveryKeyShape(input: string): "key" | "notKey" {
  * 復元キーは保管庫に鍵がある間は何度でも表示できる（本体の recovery_key は表示の回数を数えない。共有の事務所・同期フォルダでも同じ道）
  */
 export const LATER_HINT = "あとで保管するときは、世帯の一覧（上の帯の世帯の名前を押すと開きます）の下の「復元キー」を押して「復元キーを表示する」から、何度でも表示できます。";
+
+/** 「コピー」の横の注意（クリップボードの履歴・同期に残る） */
+export const COPY_CAUTION = "コピーした復元キーは、クリップボードの履歴（Windows の Win＋V など）や、ほかの端末とのクリップボードの同期に残ることがあります。アプリからは消せないので、貼り付けたら履歴から消してください。";
+export const COPY_OK = "復元キーをコピーしました。パスワード管理のソフトに貼り付けたら、クリップボードの履歴からも消してください";
+export const COPY_FAILED = "コピーできませんでした。キーの枠を押して選び、コピーするか、印刷してください";
+
+/** 復元キーをクリップボードに写す（ほかの画面の「写す」と同じく navigator.clipboard）。知らせの文を返す */
+export async function copyRecoveryKey(value: string, write: (text: string) => Promise<void> = (t) => navigator.clipboard.writeText(t)): Promise<{ ok: boolean; text: string }> {
+  try {
+    await write(value);
+    return { ok: true, text: COPY_OK };
+  } catch {
+    return { ok: false, text: COPY_FAILED };
+  }
+}
+
+/** 復元キーの枠と「コピー」（最初の案内と、設定から開いて「復元キーを表示する」を押した後） */
+export function RecoveryKeyBox({ value, write }: { value: string; write?: (text: string) => Promise<void> }) {
+  const [copied, setCopied] = useState<{ ok: boolean; text: string } | null>(null);
+  return (
+    <>
+      <div class="rk-key" data-recovery-key>
+        {keyLines(value).map((l) => (
+          <div key={l}>{l}</div>
+        ))}
+      </div>
+      <div class="rk-copy">
+        <button type="button" class="btn" onClick={() => void copyRecoveryKey(value, write).then(setCopied)} data-recovery-copy>
+          コピー
+        </button>
+        <p class="in-note" data-recovery-copy-caution>
+          {COPY_CAUTION}
+        </p>
+      </div>
+      {copied !== null ? (
+        <p class={copied.ok ? "rk-ok" : "hh-err"} role="status" data-recovery-copied>
+          {copied.text}
+        </p>
+      ) : null}
+    </>
+  );
+}
 
 const message = (code: string) => MESSAGES[code] ?? `確かめられませんでした（${code}）`;
 const codeOf = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : "E_STORE");
@@ -173,11 +218,7 @@ export function RecoveryPanel({
             )}
             <p class="rk-advice">印刷するか、パスワード管理のソフトに保存してください。画面の写真やメールでの保管は避けてください。</p>
             {key !== null ? (
-              <div class="rk-key" data-recovery-key>
-                {keyLines(key).map((l) => (
-                  <div key={l}>{l}</div>
-                ))}
-              </div>
+              <RecoveryKeyBox value={key} />
             ) : mode === "manage" ? (
               <button type="button" class="btn" onClick={() => void store.recoveryKey().then(setKey, () => setKey(null))} data-show-key>
                 復元キーを表示する

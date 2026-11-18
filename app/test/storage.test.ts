@@ -8,7 +8,7 @@ import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
 import { HouseholdPanel } from "../src/workspace/store/HouseholdPanel.tsx";
 import { presenceText } from "../src/workspace/store/office.ts";
 import { OfficePanel } from "../src/workspace/store/OfficePanel.tsx";
-import { LATER_HINT, NOT_A_KEY_TEXT, RecoveryPanel, recoveryKeyShape } from "../src/workspace/store/RecoveryPanel.tsx";
+import { COPY_CAUTION, COPY_FAILED, COPY_OK, copyRecoveryKey, LATER_HINT, NOT_A_KEY_TEXT, RecoveryKeyBox, RecoveryPanel, recoveryKeyShape } from "../src/workspace/store/RecoveryPanel.tsx";
 import { StoragePanel } from "../src/workspace/store/StoragePanel.tsx";
 import { storageNoticeText, SYNC_MESSAGES, syncMessage } from "../src/workspace/store/storage.ts";
 
@@ -303,6 +303,39 @@ describe("入れた中身が復元キーの形か（打ち間違いと、復元�
     expect(NOT_A_KEY_TEXT).toContain("復元キーではない文字");
     expect(NOT_A_KEY_TEXT).toContain("72文字");
     expect(NOT_A_KEY_TEXT).not.toContain("打ち間違い");
+  });
+});
+
+describe("復元キーの「コピー」", () => {
+  const KEY = Array.from({ length: 58 }, (_, i) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(i * 11 + 5) % 32]).join("").replace(/(.{4})(?=.)/g, "$1-");
+  it("キーの枠の横に「コピー」と、クリップボードの履歴・同期に残る注意を出す", () => {
+    const html = renderToString(h(RecoveryKeyBox, { value: KEY }));
+    expect(html).toContain("data-recovery-key");
+    expect(html).toContain(">コピー</button>");
+    expect(html).toContain("data-recovery-copy-caution");
+    expect(html).toContain(COPY_CAUTION);
+    expect(COPY_CAUTION).toContain("クリップボードの履歴");
+    expect(COPY_CAUTION).toContain("アプリからは消せない");
+    // キーは5組ずつの行で出す（コピーする中身は区切りつきの72文字のまま）
+    expect(html).toContain(KEY.split("-").slice(0, 5).join("-"));
+  });
+  it("押すとキー（72文字のまま）をクリップボードに渡し、できたと知らせる", async () => {
+    const got: string[] = [];
+    const r = await copyRecoveryKey(KEY, async (t) => {
+      got.push(t);
+    });
+    expect(got).toEqual([KEY]);
+    expect(got[0]?.length).toBe(72);
+    expect(r).toEqual({ ok: true, text: COPY_OK });
+  });
+  it("写せないとき（許可が無い・クリップボードが使えない）は、できなかったと知らせ、ほかの保管の仕方を書く", async () => {
+    const r = await copyRecoveryKey(KEY, async () => Promise.reject(new Error("NotAllowedError")));
+    expect(r).toEqual({ ok: false, text: COPY_FAILED });
+    expect(COPY_FAILED).toContain("コピーできませんでした");
+    expect(COPY_FAILED).toContain("印刷");
+    // navigator.clipboard が無い環境（テストの node）でも、投げずに知らせを返す
+    const r2 = await copyRecoveryKey(KEY);
+    expect(r2.ok).toBe(false);
   });
 });
 
