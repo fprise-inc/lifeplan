@@ -21,6 +21,7 @@
 //!   承認の台帳はデータフォルダの中（カスタム層の外）。画面は承認した文を文字として当てるだけ。
 //! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
 //!   Windows・Linux はメニューバーを出さない（キー操作は画面が受ける）。
+//! - 起動時の窓（window_fit.rs。0225）: 見えない状態で作り、窓が出るモニターの作業領域に収めてから見せる。
 
 mod ai;
 mod custom;
@@ -40,6 +41,7 @@ mod revocations;
 mod statement;
 mod store;
 mod takeaway;
+mod window_fit;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -455,11 +457,21 @@ pub fn run() {
                 .find(|w| w.label == "main")
                 .cloned()
                 .ok_or("tauri.conf.json に main のウィンドウがありません")?;
-            WebviewWindowBuilder::from_config(app.handle(), &config)?
+            let window = WebviewWindowBuilder::from_config(app.handle(), &config)?
                 .initialization_script(HARDENING_JS)
                 .on_navigation(allowed_navigation)
                 .on_new_window(|_, _| NewWindowResponse::Deny)
                 .build()?;
+            // 0225: 見えない状態で作った窓を、窓が出るモニターの作業領域（タスクバーなどを除く）に収めてから見せる
+            window_fit::fit_to_work_area(
+                &window,
+                (config.width, config.height),
+                (
+                    config.min_width.unwrap_or(config.width),
+                    config.min_height.unwrap_or(config.height),
+                ),
+            );
+            window.show().ok();
             if let Some(w) = app.get_webview_window("main") {
                 w.set_focus().ok();
                 let handle = app.handle().clone();
