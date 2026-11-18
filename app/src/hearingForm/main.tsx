@@ -60,7 +60,7 @@ function Page() {
   if (state.kind === "loading") return <Message title="読み込んでいます" text="少しお待ちください。" />;
   if (state.kind === "error") {
     if (state.code === "E_WEB_LINK" || state.code === "E_WEB_DECRYPT") return <Message title="リンクが正しくありません" text="届いたリンクを、最後まで（# の後ろまで）そのまま開いてください。続くときは担当の FP にご連絡ください。" />;
-    if (state.code === "E_RELAY_SUBMITTED") return <Message title="お答えいただいています" text="このご質問には、もうお答えいただいています。直したいことがあれば、担当の FP にお伝えください。" />;
+    if (state.code === "E_RELAY_SUBMITTED") return <Message title="ご回答いただいています" text="このご質問には、もうご回答いただいています。直したいことがあれば、担当の FP にお伝えください。" />;
     return <Message title="開けませんでした" text={errorText(state.code)} />;
   }
   const { o } = state;

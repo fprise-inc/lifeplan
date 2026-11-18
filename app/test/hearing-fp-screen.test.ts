@@ -5,7 +5,7 @@ import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { handleApi } from "../../hearing/relay/handler.ts";
 import { memoryStore } from "../../hearing/relay/store.ts";
-import { answersOf, checkAnswers, checkSelection, draftKey, estimate, initialDraft, openRequest, packetBody, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
+import { answersOf, checkAnswers, checkSelection, draftKey, estimate, initialDraft, openRequest, packetBody, screens, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { SHEET_KINDS, applyImport, approvalTime, logOf, sheetFor } from "../src/workspace/hearing/sheet.ts";
 import {
@@ -33,6 +33,8 @@ import {
   splitSummary,
   templateForSave,
   templateSelection,
+  TEMPLATE_OFF_ITEMS,
+  HIDDEN_ITEMS,
   WEB_TEMPLATES,
   waitingDocs,
   webLog,
@@ -44,7 +46,7 @@ import { HearingForm } from "../src/hearingForm/Form.tsx";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { DEFAULT_OFFICE_SETTINGS, isDefaultSettings, readOfficeSettings, withHearingTopics } from "../src/workspace/office/settings.ts";
-import { DEFAULT_TOPICS } from "../../hearing/src/web/packet.ts";
+import { selectionFromSheet } from "../../hearing/src/web/packet.ts";
 import type { HearingWebHost } from "../src/engine/host.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -80,16 +82,26 @@ describe("ひな形の名前と中身（0192）", () => {
     expect(JSON.stringify([WEB_TEMPLATES, SHEET_KINDS])).not.toMatch(/初回の前|通常/);
   });
 
-  it("シンプルはご両親を既定で外す（詳細は外さない）。話題は標準の9つ。名前を選び方に持つ", () => {
+  it("シンプルはご両親を既定で外す（詳細は外さない）。名前を選び方に持つ。話題は持たない。これからの予定・ご相談したいことは、どのひな形も既定で外す（0192 の追記）", () => {
     const s = templateSelection("simple", blank());
     expect(s.sections.map((x) => x.id)).not.toContain("parents");
-    expect(s.sections.map((x) => x.id)).toContain("other");
-    expect(s.topics).toEqual(DEFAULT_TOPICS);
-    expect(DEFAULT_TOPICS).toHaveLength(9);
+    expect(s.topics).toBeUndefined();
     expect(s.name).toBe("シンプル");
     expect(templateSelection("detail", blank()).sections.map((x) => x.id)).toContain("parents");
-    // 事務所の既定の話題
-    expect(templateSelection("simple", blank(), ["教育費", "相続のこと"]).topics).toEqual(["教育費", "相続のこと"]);
+    for (const k of ["simple", "detail", "review"] as const) {
+      for (const wh of [blank(), filled()]) {
+        const keys = templateSelection(k, wh).sections.flatMap((x) => x.items.map((i) => i.key));
+        expect(keys).not.toContain("hs.plan.events");
+        expect(keys).not.toContain("hs.consult.topics");
+        expect(keys.length).toBeGreaterThan(10);
+      }
+    }
+    // シンプルの「これからのこと」は2問とも外したので、区画ごと聞かない
+    expect(s.sections.map((x) => x.id)).not.toContain("other");
+    // カスタムで選べば聞ける（選べる項目には残る。ご相談したいことは FP の画面の一覧に出さない）
+    expect(TEMPLATE_OFF_ITEMS.has("hs.plan.events")).toBe(true);
+    expect(HIDDEN_ITEMS.has("hs.plan.events")).toBe(false);
+    expect(HIDDEN_ITEMS.has("hs.consult.topics")).toBe(true);
   });
 
   it("聞く項目の数は、金額の「だいたいの範囲」を数えない。名前の無い前の依頼は元のシートと聞き方から", () => {
@@ -105,6 +117,20 @@ describe("ひな形の名前と中身（0192）", () => {
 });
 
 describe("数え方を1つに（0192。H-106）", () => {
+  it("ひな形の時間は、どれも夫婦と子2人で数える（詳細と見直しは同じ項目なら同じ時間）。この世帯の数は別に（0192 の追記）", () => {
+    const wh = filled();
+    const d = estimateOf(wh, templateSelection("detail", wh))!;
+    const r = estimateOf(wh, templateSelection("review", wh))!;
+    expect(selectedCount(templateSelection("detail", wh))).toBe(selectedCount(templateSelection("review", wh)));
+    expect(r.std).toEqual(d.std);
+    // 見直しは前回の値に合わせて問いを飛ばすので、この世帯の数（お客さまの最初の画面・案内文に出る数）は少ない
+    expect(r.own).not.toBeNull();
+    expect(r.shown.screens).toBeLessThan(r.std.screens);
+    expect(r.shown).toEqual(r.own);
+    // 見直しでない選び方は、お客さまの画面の数＝基準の数
+    expect(d.shown).toEqual(d.std);
+  });
+
   it("FP の画面の数は、お客さまの最初の画面と同じ数え方（夫婦と子2人）。この世帯の人数でも数えて添える", async () => {
     const wh = filled();
     const s = templateSelection("simple", wh);
@@ -117,20 +143,22 @@ describe("数え方を1つに（0192。H-106）", () => {
   });
 });
 
-describe("ご相談したいことの話題（0192）", () => {
-  it("お客さまが選んだ話題は答えの topics で届き、取り込みでメモに入り、面談の準備で読める。選び方に無い話題は捨てる", async () => {
+describe("ご相談したいことの話題（0192。2026-11-17 にやめた）", () => {
+  it("前に発行した依頼（選び方に話題がある）の答えの話題は、今まで通り確かめて取り込みのメモに入り、面談の準備で読める", async () => {
     const { t } = relayFor();
     const wh = blank();
-    const sel = { ...templateSelection("simple", wh), topics: ["教育費", "老後のお金・年金", "相続のこと"] };
+    const def = sheetFor("simple");
+    const sel = { ...selectionFromSheet(def), topics: ["教育費", "老後のお金・年金", "相続のこと"], name: "シンプル" };
     const r = await issueWeb(wh, { selection: sel, customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
     const o = await openRequest(new URL(r.entry.record.url).hash, t);
-    const item = o.packet.items.find((i) => i.key === "hs.consult.topics")!;
-    expect(item.topics).toEqual(["教育費", "老後のお金・年金", "相続のこと"]);
-    expect(item.label).toContain("いくつでも");
+    // 問いには話題を載せない
+    expect(o.packet.items.find((i) => i.key === "hs.consult.topics")?.topics).toBeUndefined();
     const d: Draft = { ...initialDraft(o.packet), gates: { spouse: 0, child: 0 }, topics: ["相続のこと", "教育費"], answers: { [draftKey("hs.consent.purpose")]: v("given"), [draftKey("hs.consult.topics")]: v("子どもの大学の費用が心配です") } };
-    const ans = answersOf(o.packet, d, NOW);
-    // 並びは選び方の順
-    expect(ans.topics).toEqual(["教育費", "相続のこと"]);
+    // お客さまの画面はご相談したいことを聞かなくなった（0138 の追記 2026-11-17）。前の画面から届く形（話題と自由記述）でも受け取れること
+    const base = answersOf(o.packet, d, NOW);
+    expect(base.topics).toBeUndefined();
+    expect(base.answers.some((a) => a.key === "hs.consult.topics")).toBe(false);
+    const ans = { ...base, answers: [...base.answers, { key: "hs.consult.topics", status: "value" as const, raw: { kind: "text" as const, text: "子どもの大学の費用が心配です" } }], topics: ["教育費", "相続のこと"] };
     // 信用しない: 選び方に無い話題は捨てて数える
     const checked = checkAnswers({ ...ans, topics: ["教育費", "知らない話題"] }, sheetFor("simple"), sel, r.entry.record.requestId);
     expect(checked.topics).toEqual(["教育費"]);
@@ -143,36 +171,20 @@ describe("ご相談したいことの話題（0192）", () => {
     expect(consultNotes(got.wh)).toMatchObject({ topics: ["教育費", "相続のこと"], text: "子どもの大学の費用が心配です" });
   });
 
-  it("お客さまの画面: 話題をいくつでも選ぶボタンと、自由に書く欄を同じ画面に。確かめの画面に選んだ話題", async () => {
+  it("お客さまの画面: ご相談したいこと（話題・自由記述）は出さない。問いに話題が載っていても、入力内容の確認にも出さない（0138 の追記 2026-11-17）", async () => {
     const def = sheetFor("simple");
     const s = templateSelection("simple", blank());
     const p = { ...packetBody(def, s, { requestId: "R-AAAAAA", expiresAt: NOW.toISOString(), office: OFFICE }), digest: "x" };
-    const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), startAt: "item:hs.consult.topics#0" }));
-    for (const t of DEFAULT_TOPICS) expect(html).toContain(`data-hf-topic="${t}"`);
-    expect(html).toContain("ほかにあれば、自由にお書きください（任意）");
+    expect(screens(p, initialDraft(p)).some((x) => x.kind === "item" && x.key === "hs.consult.topics")).toBe(false);
     const d = { ...initialDraft(p), topics: ["教育費", "親のこと"] };
     const review = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "review" }));
-    expect(review).toContain("教育費、親のこと");
+    for (const t of ["data-hf-topic", "ご相談したいこと", "教育費、親のこと"]) expect(review).not.toContain(t);
   });
 
-  it("話題を空にすると自由記述だけ（今までの問い）。話題の空・重なり・長すぎは発行の前に知らせる", () => {
-    const def = sheetFor("simple");
-    const s = { ...templateSelection("simple", blank()), topics: [] };
-    const p = packetBody(def, s, { requestId: "R-AAAAAA", expiresAt: NOW.toISOString(), office: OFFICE });
-    expect(p.items.find((i) => i.key === "hs.consult.topics")?.topics).toBeUndefined();
-    expect(checkSelection(def, { ...s, topics: ["教育費", "教育費"] }).join()).toContain("話題");
-    expect(checkSelection(def, { ...s, topics: [""] }).join()).toContain("話題");
-    expect(checkSelection(def, { ...s, topics: ["あ".repeat(31)] }).join()).toContain("話題");
-  });
-
-  it("事務所の既定値に置き、標準に戻せる（空の一覧は「話題を出さない」）", () => {
+  it("前に保存した事務所の既定の話題は読んで書き戻せる（画面からは使わない）", () => {
     const a = withHearingTopics(DEFAULT_OFFICE_SETTINGS, [" 教育費 ", "教育費", "相続のこと"]);
-    expect(a.hearingTopics).toEqual(["教育費", "相続のこと"]);
     expect(readOfficeSettings(JSON.parse(JSON.stringify(a))).hearingTopics).toEqual(["教育費", "相続のこと"]);
-    expect(readOfficeSettings(JSON.parse(JSON.stringify(withHearingTopics(DEFAULT_OFFICE_SETTINGS, [])))).hearingTopics).toEqual([]);
-    const back = withHearingTopics(a, null);
-    expect(back.hearingTopics).toBeUndefined();
-    expect(isDefaultSettings(back)).toBe(true);
+    expect(isDefaultSettings(withHearingTopics(a, null))).toBe(true);
   });
 });
 
@@ -277,16 +289,27 @@ describe("届いた知らせ・送られた内容・書類待ち・0件の承認
     expect(logOf(out.wh).imports.some((i) => i.requestId === r.entry.record.requestId)).toBe(true);
   });
 
-  it("案内文: 所要時間は問いの数から・URL の頭・聞かないこと・送れるのは1回だけ", async () => {
+  it("案内文: 所要時間は問いの数から・URL の頭・聞かないこと・送れるのは1回だけ。段落ごとに空行。お客さまに見える言葉は「回答」（0192 の追記）", async () => {
     const { r } = await issued(blank());
     const text = invitationText(r.entry, "【架空】みらいFP事務所");
     const est = estimateOf(null, r.entry.record.selection)!;
     expect(text).toContain(`（${est.std.minutes}分ほどです）`);
+    expect(text).toContain("いつもお世話になっております。【架空】みらいFP事務所です。\n\nライフプランの面談の前に、いくつかご質問させてください。\n\n次のリンクを開くと、スマートフォンでも画面に沿ってご回答いただけます");
+    expect(text).not.toContain("お答え");
+    // 書類を頼まない依頼には、撮影の一言を出さない
+    expect(text).not.toContain("書類の撮影があるので");
     expect(pageHead(r.entry.record.url)).toBe("https://relay.test/h/");
     expect(text).toContain("リンクは「https://relay.test/h/」で始まります。違うときは開かずに、ご連絡ください。");
     expect(text).toContain("お名前・口座番号・暗証番号・カード番号・マイナンバーはお聞きしません。ログインもありません。");
-    expect(text).toContain("お答えを送れるのは1回だけです");
+    expect(text).toContain("回答を送れるのは1回だけです");
     expect(text).not.toContain("10〜15分");
+  });
+
+  it("案内文: 書類を1通以上頼む依頼には「書類の撮影があるので、スマートフォンで開くのがおすすめです。」の段落を足す（0192 の追記）", async () => {
+    const { r } = await issued(blank(), true);
+    const text = invitationText(r.entry, "試しの事務所");
+    expect(text).toContain("\n\n書類の撮影があるので、スマートフォンで開くのがおすすめです。\n\n");
+    expect(text.indexOf("書類の撮影があるので")).toBeLessThan(text.indexOf(r.entry.record.url));
   });
 
   it("書類の送りのある依頼でも、届いた書類の数を知らせる", async () => {
@@ -302,7 +325,7 @@ describe("届いた知らせ・送られた内容・書類待ち・0件の承認
 
 describe("FP の画面（WebBuilder の描画）", () => {
   const host = { config: async () => ({ pageUrl: "https://relay.test/h/" }), call: async () => ({ status: 500, body: "" }) } as unknown as HearingWebHost;
-  it("ひな形・カスタム・聞く／聞かないの要約・範囲は別の項目にしない・顧客番号は世帯の番号・事務所名が空の注意・ご相談の話題", () => {
+  it("ひな形・カスタム・聞く／聞かないの要約・範囲は別の項目にしない・顧客番号は世帯の番号・事務所名が空の注意。話題の欄は無い・「？」の説明・外部 AI の同意を聞くか（0192 の追記）", () => {
     const html = renderToString(h(WebBuilder, { wh: filled(), web: host, office: { name: "", color: null }, templates: [], onTemplates: async () => undefined, customerNo: "B0007", persisted: true, onSave: () => undefined, saveNow: async () => true, onClose: () => undefined }));
     expect(html).toContain("シンプル");
     expect(html).toContain("カスタム（自分で選んだ・保存した組み合わせ）");
@@ -311,7 +334,18 @@ describe("FP の画面（WebBuilder の描画）", () => {
     expect(html).toContain('data-web-range="hs.income.annual"');
     expect(html).toContain('value="B0007"');
     expect(html).toContain("data-web-no-office");
-    expect(html).toContain("data-web-topics");
+    expect(html).not.toContain("data-web-topics");
+    expect(html).not.toContain("ご相談したいことの話題");
+    expect(html).not.toContain('data-web-item="hs.consult.topics"');
+    expect(html).toContain('data-web-item="hs.plan.events"');
+    expect(html).toContain("URL生成");
+    for (const id of ["customerNo", "officeName", "privacyContact", "aiConsent"]) expect(html).toContain(`data-web-help="${id}"`);
+    expect(html).toContain("個人情報のお問い合わせ: ");
+    expect(html).toMatch(/data-web-ai-consent-check[^>]*checked|checked[^>]*data-web-ai-consent-check/);
+    expect(html).toContain("AI接続口が使えません");
+    expect(html).not.toContain("何のための問いか");
+    // ひな形の時間は夫婦と子2人で数え、この世帯の数を添える
+    expect(html).toMatch(/\d+項目・\d+分ほど（夫婦と子2人）・この世帯では\d+分ほど/);
     expect(html).toContain("data-web-has-values");
     expect(html).toContain("夫婦と子2人で数えた目安");
     expect(html).toMatch(/URL を発行する（聞く項目 \d+・書類 0）/);

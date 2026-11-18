@@ -42,6 +42,8 @@ export interface IssueOptions {
   /** お客さまのページの URL（# の前まで。例 https://<受け付けのホスト>/h/） */
   readonly pageUrl: string;
   readonly prefill?: readonly Answer[];
+  /** 外部 AI への提供の同意（任意）を聞くか（省略は聞く。0192 の追記 2026-11-17）。問いにだけ効き、依頼の記録には置かない */
+  readonly aiConsent?: boolean;
   readonly transport: RelayTransport;
 }
 
@@ -59,7 +61,7 @@ export function expiresOn(now: Date): string {
 export async function issueRequest(o: IssueOptions): Promise<Issued> {
   const secrets = await newRequestSecrets();
   const d = await derive(fromB64u(secrets.secret));
-  const packet = await buildPacket(o.definition, o.selection, { requestId: o.requestId, expiresAt: expiresOn(o.now), office: o.office, ...(o.prefill !== undefined ? { prefill: o.prefill } : {}) });
+  const packet = await buildPacket(o.definition, o.selection, { requestId: o.requestId, expiresAt: expiresOn(o.now), office: o.office, ...(o.prefill !== undefined ? { prefill: o.prefill } : {}), ...(o.aiConsent === false ? { aiConsent: false } : {}) });
   const questions = await sealQuestions(utf8(JSON.stringify(packet)), d, secrets.publicKey);
   if (questions.length > RELAY_LIMITS.questionsChars) throw new Error("E_WEB_TOO_LARGE");
   const { expiresAt, limitAt } = await relay.create(o.transport, { id: d.id, questions, submitHash: await sha256Hex(d.submitToken), pickupHash: await sha256Hex(secrets.pickupToken) });

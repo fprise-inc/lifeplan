@@ -271,7 +271,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
           )}
         </li>
         <li>
-          <b>ヒアリングシートの見直し</b>（「ヒアリング・取り込む」で「見直し」の Excel を書き出すか URL で聞き、届いた答えを取り込みます。確かめの一覧で「次回確かめる」の印を付けた所は、印の行を写して面談に使えます）
+          <b>ヒアリングシートの見直し</b>（「事前ヒアリング・取り込む」で「見直し」の Excel を書き出すか URL生成で URL を作り、届いた答えを取り込みます。確かめの一覧で「次回確かめる」の印を付けた所は、印の行を写して面談に使えます）
           <GateNotes wh={wh} />
         </li>
         <li data-fp-review-diff>

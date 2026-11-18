@@ -6,13 +6,16 @@
 // - 保存は受け取った書類の一覧と同じ名前・同じ印（0191）
 // - 0192: 届いたかは開いたときと決まった間隔で確かめ、アプリを開いている間は覚える（画面を閉じても消えない）。行に何を頼んだか（ひな形・項目の数・
 //   書類・顧客番号）。送られた内容を、お客さまが見たのと同じ並びで見る・印刷する
+// - 0192 の追記（2026-11-17）: 行の形を段階で分けた（rowMode）。回答が届いたら「受け取る」「取り消す」だけ。「受け取る」で、そのまま取り込みの
+//   候補の画面へ。取り消す・受け付けを終えるは、どの段階でも1回確かめる。取り込み済みは1行にたたむ（送られた内容・書類はたたんだ行から開ける）。
+//   書類を「あとで送る」の書類待ちがあれば、期限まで書類待ちの段を出す
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SentAnswers } from "../../hearingForm/Form.tsx";
 import type { HearingWebHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { ImportView } from "./sheet.ts";
 import { useDocView } from "./ReceivedDocs.tsx";
-import { accepting, answeredScreens, arrivalOf, checkAnswered, checkArrivals, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importWeb, invitationText, limitOf, noteArrival, onArrivals, packetOf, receivedDraft, receiveWeb, removeOnServer, selectedCount, selectionName, sentAtText, STATUS_TEXT, statusOf, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
+import { accepting, answeredScreens, arrivalOf, checkAnswered, checkArrivals, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importWeb, invitationText, limitOf, noteArrival, onArrivals, packetOf, receivedDraft, receiveWeb, removeOnServer, rowMode, selectedCount, selectionName, sentAtText, STATUS_TEXT, statusOf, waitingDocuments, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -21,7 +24,8 @@ interface Props {
   appVersion: string;
   onSave: (wh: WorkingHousehold) => void;
   saveNow: () => Promise<boolean>;
-  onImport: (view: ImportView, requestId: string, submittedAt: string | null) => void;
+  /** 取り込みの候補の画面を開く（received は「受け取る」から直に来たときの受け取りの知らせ） */
+  onImport: (view: ImportView, requestId: string, submittedAt: string | null, received?: string) => void;
 }
 
 const DOC_STATUS: Record<string, string> = { attached: "届いた", notAvailable: "手元にない", later: "あとで送る", blank: "まだ" };
@@ -113,6 +117,8 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
   const [open, setOpen] = useState<string | null>(null);
   const [view, setView] = useState<string | null>(null);
   const [closing, setClosing] = useState<string | null>(null);
+  /** たたんだ行（取り込み済み・取り消し・期限切れ）のうち、開いて詳しく見ている行 */
+  const [unfolded, setUnfolded] = useState<string | null>(null);
   /** 入力のホームの見る枠と、受け取った書類の一覧の保存（あれば使う。0191） */
   const rd = useDocView();
   if (list.length === 0) return null;
@@ -146,7 +152,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       noteArrival(e.record.requestId, a === null ? null : { answers: a.newAnswers, batches: a.batches, submitted: a.answered, at: new Date().toISOString() });
       if (a === null) return note(e.record.requestId, "サーバーにありません（期限が過ぎたか、消しました）");
       const parts = [...(a.newAnswers ? ["答え"] : []), ...(a.batches > 0 ? [`書類（${a.batches}回分）`] : [])];
-      note(e.record.requestId, parts.length > 0 ? `${parts.join("と")}が届いています。「受け取る」を押してください` : a.answered ? "新しく届いた書類はありません" : "まだ届いていません");
+      note(e.record.requestId, parts.length > 0 ? `${parts.join("と")}が届いています。「${a.newAnswers || e.received === undefined ? "受け取る" : "届いた書類を受け取る"}」で受け取れます` : a.answered ? "新しく届いた書類はありません" : "まだ届いていません");
     });
   const take = (e: WebLogEntry) =>
     run(e, async () => {
@@ -157,12 +163,19 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       onSave(r.wh);
       // 世帯ファイルに書けてから、受け取った分だけサーバーから消す（書けなければ消さない。もう一度受け取れる）
       if (!(await saveNow())) return note(e.record.requestId, "受け取りました。世帯を保存できなかったので、サーバーの分は消していません");
-      await cleanupOnServer(r.entry, r.taken, web.call);
+      // サーバーから消せなくても、受け取った分は世帯にある（次に受け取るときは読まない）。取り込みには進む
+      const cleaned = await cleanupOnServer(r.entry, r.taken, web.call).then(
+        () => true,
+        () => false,
+      );
       const t = r.taken;
       const n = answeredScreens(r.entry);
-      const what = [...(t.answers ? [n !== null ? `お答え ${n.answered}画面（問いの画面 ${n.total}）` : "お答え"] : []), ...(t.batches.length > 0 ? [`書類 ${t.files}（${t.batches.length}回分）`] : [])];
+      const what = [...(t.answers ? [n !== null ? `回答 ${n.answered}画面（問いの画面 ${n.total}）` : "回答"] : []), ...(t.batches.length > 0 ? [`書類 ${t.files}（${t.batches.length}回分）`] : [])];
       const warn = [...(t.missingFiles > 0 ? [`受け取れなかった書類 ${t.missingFiles}`] : []), ...(t.badBatches > 0 ? [`開けなかった書類の送り ${t.badBatches}`] : []), ...(t.dropped > 0 ? [`形の違う答え ${t.dropped}は捨てました`] : [])];
-      note(e.record.requestId, `受け取りました（${[...what, ...warn].join("・")}）。受け取った分はサーバーから消しました。書類は期限（${day(r.entry.record.expiresAt)}）まで、同じ URL で続けて届きます`);
+      const text = `受け取りました（${[...what, ...warn].join("・")}）。${cleaned ? "受け取った分はサーバーから消しました" : "サーバーの分は消せませんでした（期限が来れば消えます）"}。書類は期限（${day(r.entry.record.expiresAt)}）まで、同じ URL で続けて届きます`;
+      // 答えを受け取ったら、受け取りの画面を挟まず、そのまま取り込みの候補の画面へ（0192 の追記 2026-11-17）
+      if (t.answers && r.entry.received !== undefined) return onImport(importWeb(r.wh, r.entry, appVersion), e.record.requestId, r.entry.received.submittedAt, text);
+      note(e.record.requestId, text);
     });
   const extend = (e: WebLogEntry) =>
     run(e, async () => {
@@ -197,44 +210,229 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
     const out = await web.saveDocument(fileBytes(f), { fileName: documentFileName(e.record.customerNo, title, f, n) });
     note(e.record.requestId, out.saved ? `「${out.fileName ?? ""}」を保存しました。${out.syncFolder ? "同期フォルダの中です。" : ""}写し終えたら消してください` : "保存しませんでした");
   };
+  /** 届いた書類の一覧（行の下に開く） */
+  const docsBox = (e: WebLogEntry) => {
+    const id = e.record.requestId;
+    const docs = e.record.selection.documents;
+    const batches = e.batches ?? [];
+    return (
+      <div class="wr-docs" data-web-docs>
+        {batches.length > 0 ? (
+          <div class="wr-batches" data-web-batches>
+            <b>受け取った書類の送り</b>
+            <ol>
+              {batches.map((b) => (
+                <li key={b.batchId} data-web-batch>
+                  {dayTime(b.sentAt)} に送られ、{dayTime(b.receivedAt)} に受け取り:{" "}
+                  {b.documents.map((x) => `${docs.find((d) => d.id === x.id)?.title ?? x.id} ${x.files}`).join("・") || "（受け取れたファイルなし）"}
+                  {b.missingFiles > 0 ? `（受け取れなかったファイル ${b.missingFiles}）` : ""}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
+        {docs.map((d) => {
+          const a = e.received?.documents.find((x) => x.id === d.id);
+          const files = (e.files ?? []).filter((f) => f.docId === d.id);
+          const status = files.length > 0 ? "attached" : (a?.status ?? "blank");
+          return (
+            <div class="wr-doc" key={d.id} data-web-doc-received={d.id}>
+              <div class="wr-h">
+                <b>{d.title}</b>
+                <span class={`hs-kind ${status === "attached" ? "new" : status === "notAvailable" || status === "later" ? "review" : ""}`}>{DOC_STATUS[status]}</span>
+                {d.docRequest !== undefined ? <small>書類待ちの欄と結びついています（写したら書類待ちが消えます）</small> : null}
+              </div>
+              {files.map((f, n) => {
+                const b = batches.find((x) => x.batchId === f.batchId);
+                return (
+                  <div class="wr-file" key={f.fileId}>
+                    <span>
+                      {f.mime === "application/pdf" ? "PDF" : "写真"} {n + 1}（{Math.ceil(f.bytes / 1024)}KB{b !== undefined ? `・${dayTime(b.receivedAt)} に受け取り` : ""}）
+                    </span>
+                    {f.viewedAt !== undefined ? <small data-web-doc-viewed>見た</small> : null}
+                    {f.savedAt !== undefined ? <small data-web-doc-saved>保存した</small> : null}
+                    {rd !== null ? (
+                      <button type="button" class="link-btn" onClick={() => rd.view(rd.viewing === f.fileId ? null : f.fileId)} data-web-doc-view>
+                        {rd.viewing === f.fileId ? "閉じる" : "開く"}
+                      </button>
+                    ) : f.mime !== "application/pdf" ? (
+                      <button type="button" class="link-btn" onClick={() => setView(view === f.fileId ? null : f.fileId)}>
+                        {view === f.fileId ? "閉じる" : "開く"}
+                      </button>
+                    ) : null}
+                    <button type="button" class="link-btn" onClick={() => void save(e, f, d.title, n + 1)} data-web-doc-save>
+                      保存
+                    </button>
+                    <button type="button" class="link-btn" onClick={() => onSave(withoutFile(wh, id, f.fileId))} data-web-doc-delete>
+                      消す
+                    </button>
+                    {view === f.fileId ? <DocImage f={f} /> : null}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+        <p class="rp-note">書類はこの世帯のファイルの中に暗号化して置いています（ほかの世帯からは見えません）。入力のホームの「受け取った書類」で、全部の書類の一覧・横に出して見る・まとめて自分のフォルダに保存ができます。保存したファイルは暗号化されません。</p>
+      </div>
+    );
+  };
+  /** 取り消す・受け付けを終えるの確かめ（押してすぐは取り消さない。どの段階でも1回確かめる。確かめのボタンは元のボタンと別の段に出す） */
+  const cancelAsk = (e: WebLogEntry, arrived: boolean) => (
+    <div class="wr-ask" role="alertdialog" aria-label={e.received === undefined ? "取り消しの確かめ" : "受け付けを終えるかの確かめ"} data-web-cancel-ask>
+      <span>
+        {e.received !== undefined
+          ? "お客さまはこの URL を開けなくなり、書類も届きません。受け付けを終えますか。"
+          : arrived
+            ? "届いている回答を受け取らずに、サーバーから消します（もう受け取れません）。お客さまもこの URL を開けなくなります。取り消しますか。"
+            : "お客さまはこの URL を開けなくなります（途中の回答も送れません）。取り消しますか。"}
+      </span>
+      <span class="wr-ask-acts">
+        <button type="button" class="btn" onClick={() => setClosing(null)} data-web-cancel-no>
+          やめる
+        </button>
+        <button type="button" class="btn danger" disabled={busy !== null} onClick={() => void cancel(e)} data-web-cancel-yes>
+          {e.received === undefined ? "はい、取り消す" : "はい、受け付けを終える"}
+        </button>
+      </span>
+    </div>
+  );
+  /** 送られた内容・書類のボタン（たたんだ行からも開ける） */
+  const viewButtons = (e: WebLogEntry, link: boolean) => {
+    const id = e.record.requestId;
+    const cls = link ? "link-btn" : "btn";
+    return (
+      <>
+        {e.received !== undefined ? (
+          <button type="button" class={cls} onClick={() => setAnswersOpen(answersOpen === id ? null : id)} aria-expanded={answersOpen === id} data-web-answers-open>
+            {answersOpen === id ? "送られた内容を閉じる" : "送られた内容を見る・印刷"}
+          </button>
+        ) : null}
+        {(e.received !== undefined || (e.batches ?? []).length > 0) && e.record.selection.documents.length > 0 ? (
+          <button type="button" class={cls} onClick={() => setOpen(open === id ? null : id)} aria-expanded={open === id} data-web-docs-open>
+            書類（{e.files?.length ?? 0}）
+          </button>
+        ) : null}
+      </>
+    );
+  };
+  const importNow = (e: WebLogEntry) => onImport(importWeb(wh, e, appVersion), e.record.requestId, e.received?.submittedAt ?? null);
   return (
     <section class="card hs-panel wr" aria-label="URL の依頼" data-web-requests>
       <div class="card-h">
         <h2>URL の依頼（{list.length}）</h2>
-        <span class="aside">受け取ると、答えと書類はこの世帯のファイルの中に暗号化して置き、受け取った分はサーバーから消します。書類は期限まで何回でも届きます</span>
+        <span class="aside">「受け取る」を押すと、答えと書類をこの世帯のファイルの中に暗号化して置き（受け取った分はサーバーから消します）、そのまま取り込みの候補の画面に進みます。書類は期限まで何回でも届きます</span>
       </div>
       <ul class="wr-list">
         {list.map((e) => {
-          const st = statusOf(e, now, answeredOf(e.record.requestId), wh);
           const id = e.record.requestId;
+          const arr = arrivalOf(id);
+          const st = statusOf(e, now, answeredOf(id), wh);
+          const mode = rowMode(e, now, arr, wh);
           const docs = e.record.selection.documents;
           const live = accepting(e, now);
           const ext = extendState(e, now);
-          const batches = e.batches ?? [];
           const gates = gateLines(e);
+          const waitingDocs = waitingDocuments(e, now);
+          /** 届いたもの（まだ受け取っていない答え・書類の送り）があり、受け取れる */
+          const canTake = live && arrivedOf(id);
+          const folded = (mode === "done" || mode === "closed") && unfolded !== id;
+          const what = `${selectionName(e.record.selection)}（聞く項目 ${selectedCount(e.record.selection)}）・書類: ${docs.length === 0 ? "なし" : docs.length <= 2 ? docs.map((d) => d.title).join("・") : `${docs[0]?.title ?? ""}ほか${docs.length - 1}通`}・顧客番号 ${e.record.customerNo}`;
+          const takeBtn = (primary: boolean) => (
+            <button type="button" class={`btn${primary ? " primary" : ""}`} disabled={busy !== null} onClick={() => void take(e)} data-web-receive>
+              {busy === id ? "受け取っています…" : mode === "waiting" || mode === "arrived" ? "受け取る" : "届いた書類を受け取る"}
+            </button>
+          );
+          const cancelBtn = (label: string) => (
+            <button type="button" class="btn" disabled={busy !== null || closing === id} onClick={() => setClosing(id)} aria-expanded={closing === id} data-web-cancel>
+              {label}
+            </button>
+          );
+          const tail = (
+            <>
+              {closing === id ? cancelAsk(e, mode === "arrived" || canTake) : null}
+              {msg[id] !== undefined ? (
+                <p class="rp-note" role="status">
+                  {msg[id]}
+                </p>
+              ) : null}
+              {answersOpen === id && e.received !== undefined ? <SentView e={e} /> : null}
+              {open === id ? docsBox(e) : null}
+            </>
+          );
+          if (folded) {
+            // 取り込み済み・取り消し・期限切れは1行にたたむ。書類待ちがあれば、期限まで書類待ちの段を出す（0192 の追記 2026-11-17）
+            return (
+              <li key={id} class={`wr-row wr-fold st-${st}`} data-web-request={id} data-web-status={st} data-web-folded>
+                <div class="wr-h">
+                  <b>{id}</b>
+                  <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span>
+                  {e.closedAt !== undefined ? <span class="hs-kind wr-st cancelled">受け付け終了</span> : null}
+                  {canTake ? (
+                    <span class="hs-kind wr-st answered" data-web-arrived>
+                      書類が届いています
+                    </span>
+                  ) : null}
+                  <small>
+                    {selectionName(e.record.selection)}・顧客番号 {e.record.customerNo}
+                    {e.importedAt !== undefined && mode === "done" ? `・${day(e.importedAt)} に取り込み` : mode === "closed" ? `・発行 ${day(e.record.issuedAt)}` : ""}
+                  </small>
+                  <span class="wr-fold-acts">
+                    {viewButtons(e, true)}
+                    <button type="button" class="link-btn" onClick={() => setUnfolded(id)} data-web-unfold>
+                      詳しく
+                    </button>
+                  </span>
+                </div>
+                {waitingDocs.length > 0 ? (
+                  <div class="wr-waiting" data-web-docs-waiting>
+                    <span>
+                      書類待ち: {waitingDocs.map((d) => d.title).join("・")}（期限 {day(e.record.expiresAt)} まで。届いたら、ここに「届いた書類を受け取る」が出ます）
+                    </span>
+                    <span class="rp-actions">
+                      {canTake ? takeBtn(true) : null}
+                      <button type="button" class="link-btn" disabled={busy !== null} onClick={() => void check(e)} data-web-check>
+                        届いたかを確かめる
+                      </button>
+                    </span>
+                  </div>
+                ) : canTake ? (
+                  <div class="rp-actions">{takeBtn(true)}</div>
+                ) : null}
+                {tail}
+              </li>
+            );
+          }
           return (
-            <li key={id} class={`wr-row st-${st}`} data-web-request={id} data-web-status={st}>
+            <li key={id} class={`wr-row st-${st}`} data-web-request={id} data-web-status={st} data-web-mode={mode}>
               <div class="wr-h">
                 <b>{id}</b>
                 <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span>
                 {e.closedAt !== undefined ? <span class="hs-kind wr-st cancelled">受け付け終了</span> : null}
-                {arrivedOf(id) && live ? (
+                {canTake ? (
                   <span class="hs-kind wr-st answered" data-web-arrived>
                     届いています
                   </span>
                 ) : null}
                 <small>
-                  発行 {day(e.record.issuedAt)}・期限 <span data-web-expires>{day(e.record.expiresAt)}</span>（延長は {day(limitOf(e.record))} まで）
+                  発行 {day(e.record.issuedAt)}・期限 <span data-web-expires>{day(e.record.expiresAt)}</span>
+                  {mode === "waiting" ? `（延長は ${day(limitOf(e.record))} まで）` : ""}
                   {e.received !== undefined ? <span data-web-sent-at>・お客さまが送った日時 {sentAtText(e.received.submittedAt)}</span> : null}
                 </small>
+                {unfolded === id ? (
+                  <button type="button" class="link-btn" onClick={() => setUnfolded(null)} data-web-fold>
+                    たたむ
+                  </button>
+                ) : null}
               </div>
               <p class="rp-note wr-what" data-web-what>
-                {selectionName(e.record.selection)}（聞く項目 {selectedCount(e.record.selection)}）・書類: {docs.length === 0 ? "なし" : docs.length <= 2 ? docs.map((d) => d.title).join("・") : `${docs[0]?.title ?? ""}ほか${docs.length - 1}通`}・顧客番号 {e.record.customerNo}
+                {what}
               </p>
-              {e.received !== undefined || batches.length > 0 ? (
+              {e.received !== undefined || (e.batches ?? []).length > 0 ? (
                 <p class="rp-note wr-got" data-web-got>
                   {e.received !== undefined ? `答え: ${dayTime(e.received.at)} に受け取り（${((n) => (n === null ? "" : `問いの画面 ${n.total}のうち ${n.answered}画面に答えあり`))(answeredScreens(e))}）` : "答え: まだ"}
-                  {docs.length > 0 ? `・書類: ${batches.length > 0 ? `${batches.length}回受け取り（最後 ${dayTime(batches[batches.length - 1]?.receivedAt ?? "")}）` : "まだ"}` : ""}
+                  {docs.length > 0 ? `・書類: ${(e.batches ?? []).length > 0 ? `${(e.batches ?? []).length}回受け取り（最後 ${dayTime((e.batches ?? [])[(e.batches ?? []).length - 1]?.receivedAt ?? "")}）` : "まだ"}` : ""}
+                  {waitingDocs.length > 0 ? `・書類待ち: ${waitingDocs.map((d) => d.title).join("・")}` : ""}
                 </p>
               ) : null}
               {gates.length > 0 ? (
@@ -243,132 +441,55 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 </p>
               ) : null}
               <div class="rp-actions">
-                {live ? (
+                {mode === "waiting" ? (
                   <>
-                    {/* 届いていると分かるまでは「届いたかを確かめる」が主のボタン。分かったら「受け取る」を主にする（0139・0158） */}
-                    <button type="button" class={`btn${arrivedOf(id) ? "" : " primary"}`} disabled={busy !== null} onClick={() => void check(e)} data-web-check>
+                    {/* 届く前: 届いたかを確かめる・延長・案内文をコピー・取り消す（書類だけ先に届いていれば受け取る） */}
+                    {canTake ? takeBtn(true) : null}
+                    <button type="button" class={`btn${canTake ? "" : " primary"}`} disabled={busy !== null} onClick={() => void check(e)} data-web-check>
                       届いたかを確かめる
                     </button>
-                    {arrivedOf(id) ? (
-                      <button type="button" class="btn primary" disabled={busy !== null} onClick={() => void take(e)} data-web-receive>
-                        受け取る
-                      </button>
-                    ) : null}
                     <button type="button" class="btn" disabled={busy !== null || !ext.ok} onClick={() => void extend(e)} title={ext.ok ? "押した日から30日に延ばします（発行した日から90日まで）" : undefined} data-web-extend>
                       {ext.ok && ext.to !== null ? `延長（${day(ext.to)}まで）` : "延長（今日から30日）"}
                     </button>
-                    {e.received === undefined ? (
-                      <button type="button" class="btn" onClick={() => void navigator.clipboard?.writeText(invitationText(e, officeName, wh)).then(() => note(id, "案内文を写しました"))}>
-                        案内文をコピー
-                      </button>
-                    ) : null}
-                    {closing === id ? (
-                      <span class="wr-confirm" role="alert" data-web-cancel-ask>
-                        {e.received === undefined ? "お客さまはこの URL を開けなくなります（途中のお答えも送れません）。取り消しますか。" : "お客さまはこの URL を開けなくなり、書類も届きません。受け付けを終えますか。"}
-                        <button type="button" class="btn" disabled={busy !== null} onClick={() => void cancel(e)} data-web-cancel-yes>
-                          {e.received === undefined ? "取り消す" : "終える"}
-                        </button>
-                        <button type="button" class="btn" onClick={() => setClosing(null)}>
-                          やめる
-                        </button>
-                      </span>
-                    ) : (
-                      <button type="button" class="btn" disabled={busy !== null} onClick={() => setClosing(id)} data-web-cancel>
-                        {e.received === undefined ? "取り消す" : "受け付けを終える"}
-                      </button>
-                    )}
+                    <button type="button" class="btn" onClick={() => void navigator.clipboard?.writeText(invitationText(e, officeName, wh)).then(() => note(id, "案内文を写しました"))} data-web-copy>
+                      案内文をコピー
+                    </button>
+                    {cancelBtn("取り消す")}
                   </>
                 ) : null}
-                {st === "received" || st === "imported" || st === "undone" ? (
-                  <button type="button" class={`btn${st === "imported" ? "" : " primary"}`} onClick={() => onImport(importWeb(wh, e, appVersion), id, e.received?.submittedAt ?? null)} data-web-import>
-                    {st === "received" ? "取り込む（候補を確かめる）" : "もう一度取り込む"}
-                  </button>
+                {mode === "arrived" ? (
+                  <>
+                    {/* 回答が届いた: 受け取る（そのまま取り込みの候補の画面へ）・取り消すだけ */}
+                    {takeBtn(true)}
+                    {cancelBtn("取り消す")}
+                  </>
                 ) : null}
-                {st === "undone" ? <span class="rp-note">取り込みを元に戻したので、世帯には入っていません（受け取った答えはこの世帯に残っています）。</span> : null}
-                {e.received !== undefined ? (
-                  <button type="button" class="btn" onClick={() => setAnswersOpen(answersOpen === id ? null : id)} aria-expanded={answersOpen === id} data-web-answers-open>
-                    {answersOpen === id ? "送られた内容を閉じる" : "送られた内容を見る"}
-                  </button>
-                ) : null}
-                {(e.received !== undefined || batches.length > 0) && docs.length > 0 ? (
-                  <button type="button" class="btn" onClick={() => setOpen(open === id ? null : id)} aria-expanded={open === id} data-web-docs-open>
-                    書類（{e.files?.length ?? 0}）
-                  </button>
+                {mode === "toImport" || mode === "done" || mode === "closed" ? (
+                  <>
+                    {e.received !== undefined ? (
+                      <button type="button" class={`btn${mode === "toImport" ? " primary" : ""}`} onClick={() => importNow(e)} data-web-import>
+                        {mode === "toImport" ? "取り込む（候補を確かめる）" : "もう一度取り込む"}
+                      </button>
+                    ) : null}
+                    {canTake ? takeBtn(false) : null}
+                    {viewButtons(e, false)}
+                    {live && waitingDocs.length > 0 ? (
+                      <button type="button" class="btn" disabled={busy !== null || !ext.ok} onClick={() => void extend(e)} title={ext.ok ? "書類の期限を、押した日から30日に延ばします（発行した日から90日まで）" : undefined} data-web-extend>
+                        {ext.ok && ext.to !== null ? `書類の期限を延長（${day(ext.to)}まで）` : "書類の期限を延長"}
+                      </button>
+                    ) : null}
+                    {live ? cancelBtn("受け付けを終える") : null}
+                  </>
                 ) : null}
               </div>
-              {live && !ext.ok && ext.reason === "limit" ? (
+              {st === "undone" ? <p class="rp-note">取り込みを元に戻したので、世帯には入っていません（受け取った答えはこの世帯に残っています）。</p> : null}
+              {live && !ext.ok && ext.reason === "limit" && (mode === "waiting" || waitingDocs.length > 0) ? (
                 <p class="rp-note" data-web-extend-limit>
                   期限は発行した日から90日（{day(limitOf(e.record))}）までです。これ以上は延ばせません。
                 </p>
               ) : null}
               {st === "expired" && e.closedAt === undefined ? <p class="rp-note">期限が過ぎました（サーバーでは期限を過ぎると消えます）。まだ答えや書類が要るときは、新しく発行してください。</p> : null}
-              {msg[id] !== undefined ? (
-                <p class="rp-note" role="status">
-                  {msg[id]}
-                </p>
-              ) : null}
-              {answersOpen === id && e.received !== undefined ? <SentView e={e} /> : null}
-              {open === id ? (
-                <div class="wr-docs" data-web-docs>
-                  {batches.length > 0 ? (
-                    <div class="wr-batches" data-web-batches>
-                      <b>受け取った書類の送り</b>
-                      <ol>
-                        {batches.map((b) => (
-                          <li key={b.batchId} data-web-batch>
-                            {dayTime(b.sentAt)} に送られ、{dayTime(b.receivedAt)} に受け取り:{" "}
-                            {b.documents.map((x) => `${docs.find((d) => d.id === x.id)?.title ?? x.id} ${x.files}`).join("・") || "（受け取れたファイルなし）"}
-                            {b.missingFiles > 0 ? `（受け取れなかったファイル ${b.missingFiles}）` : ""}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  ) : null}
-                  {docs.map((d) => {
-                    const a = e.received?.documents.find((x) => x.id === d.id);
-                    const files = (e.files ?? []).filter((f) => f.docId === d.id);
-                    const status = files.length > 0 ? "attached" : (a?.status ?? "blank");
-                    return (
-                      <div class="wr-doc" key={d.id} data-web-doc-received={d.id}>
-                        <div class="wr-h">
-                          <b>{d.title}</b>
-                          <span class={`hs-kind ${status === "attached" ? "new" : status === "notAvailable" || status === "later" ? "review" : ""}`}>{DOC_STATUS[status]}</span>
-                          {d.docRequest !== undefined ? <small>書類待ちの欄と結びついています（写したら書類待ちが消えます）</small> : null}
-                        </div>
-                        {files.map((f, n) => {
-                          const b = batches.find((x) => x.batchId === f.batchId);
-                          return (
-                            <div class="wr-file" key={f.fileId}>
-                              <span>
-                                {f.mime === "application/pdf" ? "PDF" : "写真"} {n + 1}（{Math.ceil(f.bytes / 1024)}KB{b !== undefined ? `・${dayTime(b.receivedAt)} に受け取り` : ""}）
-                              </span>
-                              {f.viewedAt !== undefined ? <small data-web-doc-viewed>見た</small> : null}
-                              {f.savedAt !== undefined ? <small data-web-doc-saved>保存した</small> : null}
-                              {rd !== null ? (
-                                <button type="button" class="link-btn" onClick={() => rd.view(rd.viewing === f.fileId ? null : f.fileId)} data-web-doc-view>
-                                  {rd.viewing === f.fileId ? "閉じる" : "開く"}
-                                </button>
-                              ) : f.mime !== "application/pdf" ? (
-                                <button type="button" class="link-btn" onClick={() => setView(view === f.fileId ? null : f.fileId)}>
-                                  {view === f.fileId ? "閉じる" : "開く"}
-                                </button>
-                              ) : null}
-                              <button type="button" class="link-btn" onClick={() => void save(e, f, d.title, n + 1)} data-web-doc-save>
-                                保存
-                              </button>
-                              <button type="button" class="link-btn" onClick={() => onSave(withoutFile(wh, id, f.fileId))} data-web-doc-delete>
-                                消す
-                              </button>
-                              {view === f.fileId ? <DocImage f={f} /> : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                  <p class="rp-note">書類はこの世帯のファイルの中に暗号化して置いています（ほかの世帯からは見えません）。入力のホームの「受け取った書類」で、全部の書類の一覧・横に出して見る・まとめて自分のフォルダに保存ができます。保存したファイルは暗号化されません。</p>
-                </div>
-              ) : null}
+              {tail}
             </li>
           );
         })}
