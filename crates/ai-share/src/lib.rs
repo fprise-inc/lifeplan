@@ -4,6 +4,7 @@
 //!   同意の撤回による自動の取り消し・アプリの終了で全部閉じる。有効かどうかはメモリの中のこの台帳だけで決める
 //! - 縮約版と文章の包み方（`reduce`・`wrap`）: AIに世帯を渡す経路は、必ずこの1か所を通る
 //! - AIに渡した記録（`record`）: 共有の開始・読まれた記録・プランの候補・終わりを、追記だけで残す（世帯ファイルの `aiShares`）
+//! - AI接続を使えるかの判定（`basis`。0226）: 同意・事務所のプライバシーポリシーの確かめ・架空の世帯から決める1か所。画面と接続口の両方がこれを使う
 //! - 同意の記録（`consent`）と、世帯ごとの「同意とAIの記録」の帳面（`book`）: 世帯ファイルの `consents`・`aiShares`・`candidates` はアプリ本体だけが書く
 //! - 書類から読んだ値の候補（`documents`。0151）: AIの答えをメモリの中に承認待ちで置くだけ。確かめと番号を落とす決まりは画面の読み口
 //! - 新しい世帯の候補（`households`）: AIが組み立てた世帯をメモリの中に承認待ちで置くだけ。世帯を作るのは FP が画面で押したときのアプリ本体
@@ -13,6 +14,7 @@
 //!
 //! このクレートはアプリ本体に組み込む。接続口（crates/lifeplan）は依存しない（テストを除く）。
 
+pub mod basis;
 pub mod book;
 pub mod clock;
 pub mod consent;
@@ -29,6 +31,7 @@ mod schema;
 pub mod source;
 pub mod wrap;
 
+pub use basis::{ai_documents_use, ai_use, AiUse};
 pub use book::{AiCandidate, CandidateStatus, HouseholdAiView, HouseholdBook};
 pub use consent::{Author, ConsentRecord, ExternalAiConsentInput};
 pub use display_proposals::{

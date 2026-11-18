@@ -236,6 +236,11 @@ impl Default for Numbering {
 struct AiConnectorSetting {
     enabled: bool,
     changed_at: Option<String>,
+    /// FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめた日時（0226。無い＝確かめていない）。
+    /// 確かめていると、外部AIへの提供の同意の答えが無い世帯も AI に渡せる（お客さまが「同意しない」と答えた世帯・撤回した世帯は渡せない）。
+    /// この欄の無い古い事務所データは確かめていないとして読む。前の版のアプリが書き戻すと欄が落ちるが、落ちると確かめていない側（渡せない側）になる
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    privacy_policy_confirmed_at: Option<String>,
 }
 
 impl OfficeData {
@@ -2417,13 +2422,37 @@ impl Store {
         let now = self.now();
         let s = Self::session(&mut g)?;
         if s.data.ai_connector.enabled != enabled {
-            s.data.ai_connector = AiConnectorSetting {
-                enabled,
-                changed_at: Some(iso_of(now)),
-            };
+            s.data.ai_connector.enabled = enabled;
+            s.data.ai_connector.changed_at = Some(iso_of(now));
             self.write_office(s)?;
         }
         Ok(enabled)
+    }
+
+    /// 「事務所のプライバシーポリシーに AI の利用を書いている」を FP が確かめた日時（0226。確かめていなければ None）
+    pub fn ai_privacy_policy_confirmed_at(&self) -> Result<Option<String>, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(s.data.ai_connector.privacy_policy_confirmed_at.clone())
+    }
+
+    /// 「事務所のプライバシーポリシーに AI の利用を書いている」の確かめを記録する・外す（FP がアプリの設定の画面で操作したときだけ呼ぶ。0226）。
+    /// 確かめたときは今の日時を書き、外したときは消す。もう同じ状態なら書き直さない（確かめた日時は最初のまま）
+    pub fn set_ai_privacy_policy_confirmed(
+        &self,
+        confirmed: bool,
+    ) -> Result<Option<String>, StoreError> {
+        let mut g = self.lock();
+        let now = self.now();
+        let s = Self::session(&mut g)?;
+        let at = &mut s.data.ai_connector.privacy_policy_confirmed_at;
+        if at.is_some() != confirmed {
+            *at = confirmed.then(|| iso_of(now));
+            let out = at.clone();
+            self.write_office(s)?;
+            return Ok(out);
+        }
+        Ok(at.clone())
     }
 
     /// 「保管した」を記録する

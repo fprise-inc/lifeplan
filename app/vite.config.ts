@@ -722,6 +722,8 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  */
 const devAi = {
   enabled: false,
+  /** 事務所のプライバシーポリシーに AI の利用を書いていることを確かめた日時（0226。本体の事務所データの代わり） */
+  privacyPolicyAt: null as string | null,
   books: new Map<string, { consents: Record<string, unknown>[]; records: Record<string, unknown>[]; candidates: Record<string, unknown>[] }>(),
   share: null as null | { householdId: string; shareId: string; alias: string; expiresMs: number },
   /** 書類から読んだ値の候補（本体と同じく、メモリの中だけ。画面が受け取ったら takeDocuments で外す） */
@@ -792,10 +794,23 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
   const consentState = (b: ReturnType<typeof book>) => (b.consents.at(-1)?.decision as string | undefined) ?? "none";
   const fictional = (hid: string) => devStore.households.get(hid)?.label.fictional === true;
   const consentDocuments = (b: ReturnType<typeof book>) => consentState(b) === "given" && b.consents.at(-1)?.documents === true;
+  // 渡せるかの判定（本体の ai_share::ai_use・ai_documents_use の代わり。開発用の見本。0226）
+  const aiUse = (b: ReturnType<typeof book>, hid: string) => {
+    const c = consentState(b);
+    if (c === "given") return "consent";
+    if (fictional(hid)) return "fictional";
+    if (c === "refused" || c === "withdrawn") return c;
+    return devAi.privacyPolicyAt !== null ? "officePolicy" : "none";
+  };
+  const aiDocumentsUse = (b: ReturnType<typeof book>, hid: string) => {
+    const u = aiUse(b, hid);
+    if (u !== "consent" || consentDocuments(b)) return u;
+    return devAi.privacyPolicyAt !== null ? "officePolicy" : "consentWithoutDocuments";
+  };
   const view = () => {
     const b = book();
     const sh = shareStatus();
-    return { consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, hearingSheetExplanation: DEV_AI_SHEET_TEXT, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), displayProposals: devAi.householdDisplays.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id), fictional: fictional(id) };
+    return { aiUse: aiUse(b, id), aiDocumentsUse: aiDocumentsUse(b, id), consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, hearingSheetExplanation: DEV_AI_SHEET_TEXT, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), displayProposals: devAi.householdDisplays.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id), fictional: fictional(id) };
   };
   const setup = (title: string, client: string, text: string) => ({ client, title, text });
   switch (op) {
@@ -805,6 +820,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         ok: true,
         value: {
           enabled: devAi.enabled,
+          privacyPolicyConfirmedAt: devAi.privacyPolicyAt,
           running: devAi.enabled,
           problem: null,
           storeReady: true,
@@ -839,6 +855,13 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         devAi.householdDisplays = [];
       }
       return devAiOp("status", {});
+    case "setPrivacyPolicy": {
+      devAi.privacyPolicyAt = a.confirmed === true ? (devAi.privacyPolicyAt ?? now) : null;
+      // 外すと、それを理由に渡していた共有を取り消す（本体の set_office_policy と同じ）
+      const s = active();
+      if (devAi.privacyPolicyAt === null && s !== null && consentState(devAi.books.get(s.householdId) ?? { consents: [], records: [], candidates: [] }) !== "given" && !fictional(s.householdId)) end("revoked");
+      return devAiOp("status", {});
+    }
     case "proposeFeatureCode": {
       // 接続口の propose_feature_code が届いたことにする（本体の受け口と同じ決まり: AI接続口がオンのときだけ・形だけ見る・同じコードはまとめる・4件まで）
       if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
@@ -867,13 +890,14 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
     case "startShare": {
       const b = book();
       if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
-      // 架空の世帯は同意の記録が無くても渡せる（本体の registry.grant と同じ）
-      if (consentState(b) !== "given" && !fictional(id)) return { ok: false, code: "E_AI_NO_CONSENT" };
+      // 同意がある・事務所のプライバシーポリシー（断られていない）・架空の世帯だけ（本体の registry.grant と同じ。0226）
+      const use = aiUse(b, id);
+      if (use !== "consent" && use !== "officePolicy" && use !== "fictional") return { ok: false, code: "E_AI_NO_CONSENT" };
       if (active() !== null) return { ok: false, code: "E_AI_ALREADY_SHARED" };
       const minutes = Number(a.minutes);
       const shareId = `s-${crypto.randomUUID().slice(0, 8)}`;
       devAi.share = { householdId: id, shareId, alias: "共有中の世帯A", expiresMs: Date.now() + minutes * 60_000 };
-      b.records.push({ id: crypto.randomUUID(), kind: "household", shareId, grantedAt: now, expiresAt: new Date(Date.now() + minutes * 60_000).toISOString().replace(/\.\d+Z$/, "Z"), endedAt: null, endReason: null, scope: "reduced", allowlistVersion: "reduced@2", fields: view().fields, householdRevision: "generation-dev", destinationDeclared: String(a.destination), consentAtGrant: consentState(b) === "given" ? { state: "given", recordId: (b.consents.at(-1)?.id as string) ?? null, warned: false } : { state: "fictional", recordId: null, warned: false }, reads: [], proposals: [] });
+      b.records.push({ id: crypto.randomUUID(), kind: "household", shareId, grantedAt: now, expiresAt: new Date(Date.now() + minutes * 60_000).toISOString().replace(/\.\d+Z$/, "Z"), endedAt: null, endReason: null, scope: "reduced", allowlistVersion: "reduced@2", fields: view().fields, householdRevision: "generation-dev", destinationDeclared: String(a.destination), consentAtGrant: use === "consent" ? { state: "given", recordId: (b.consents.at(-1)?.id as string) ?? null, warned: false } : { state: use, recordId: null, warned: false }, reads: [], proposals: [] });
       return { ok: true, value: view() };
     }
     case "stopShare":

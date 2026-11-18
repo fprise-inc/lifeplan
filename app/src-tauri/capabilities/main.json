@@ -53,6 +53,7 @@
     "allow-statement-ocr",
     "allow-ai-status",
     "allow-ai-set-enabled",
+    "allow-ai-set-privacy-policy",
     "allow-ai-setup-copy",
     "allow-ai-household",
     "allow-ai-consent-record",

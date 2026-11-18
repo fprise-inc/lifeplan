@@ -3657,7 +3657,7 @@ export function App() {
       {pasteOpen && opened !== null ? (
         <PasteAnswer
           wh={opened.wh}
-          gate={pasteGate({ sample: sampleHousehold || currentFictional, saved: storedInfo !== null, consentState: ai.view?.consentState ?? null, consentDocuments: ai.view?.consentDocuments === true })}
+          gate={pasteGate({ sample: sampleHousehold || currentFictional, saved: storedInfo !== null, consentState: ai.view?.consentState ?? null, consentDocuments: ai.view?.consentDocuments === true, ...(ai.view?.aiDocumentsUse !== undefined ? { documentsUse: ai.view.aiDocumentsUse } : {}) })}
           guide={{ options: GUIDE_DOC_TYPES, text: guideText }}
           {...(storedInfo !== null
             ? {

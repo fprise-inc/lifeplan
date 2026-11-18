@@ -2,8 +2,9 @@
 //!
 //! - **事務所全体の設定**: AI接続口を使うかどうか（既定はオフ。事務所データに暗号化して保存）。オンのときだけ、
 //!   アプリ本体の受け口（そのOSユーザー専用のソケット・`app.json`）を開ける。オフにすると、すべての共有を取り消して口を閉じる。
-//! - **世帯ごとの同意**: 外部AIへの提供の同意の記録（0014 の2）。同意が `given` の世帯だけを渡せる（共有の台帳の
-//!   `require_consent`。0014 の6 より保守的な側）。撤回すると、その世帯の共有をすぐに取り消す。
+//! - **世帯ごとの同意**: 外部AIへの提供の同意の記録（0014 の2）。同意が `given` の世帯と、事務所の設定で「事務所のプライバシーポリシーに
+//!   AI の利用を書いている」を確かめていてお客さまが「同意しない」と答えていない世帯だけを渡せる（共有の台帳の `require_consent`。
+//!   判定は ai-share の `basis` の1か所。0226）。撤回すると、その世帯の共有をすぐに取り消す。
 //! - **世帯を渡す**: FPが画面で「AIに渡す」を押したときだけ、期限つきの共有を作る（既定60分・最長8時間）。渡るのは縮約版だけ
 //!   （FPのメモなどの文章は渡さない）。世帯の中身は、保存した本文（本体が復号したもの）から作る。
 //! - **記録**: 世帯ファイルの `consents`・`consentExplanations`・`aiShares`・`candidates` は本体だけが書く。画面から届いた本文に
@@ -579,6 +580,9 @@ pub struct ConnectorInfo {
 pub struct AiStatus {
     /// 事務所全体の設定（既定はオフ）
     enabled: bool,
+    /// 事務所の設定で FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめた日時（0226。確かめていなければ None）。
+    /// 確かめていると、外部AIへの提供の同意の答えが無い世帯も渡せる（「同意しない」と答えた世帯・撤回した世帯は渡せない）
+    privacy_policy_confirmed_at: Option<String>,
     /// アプリ本体の受け口が開いているか
     running: bool,
     problem: Option<String>,
@@ -601,17 +605,29 @@ pub struct AiStatus {
     household_display_candidates: Vec<HouseholdDisplayPending>,
 }
 
+/// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」の確かめを、共有の台帳に入れる（0226）。
+/// 確かめた日時を返す。事務所データを読めなければ確かめていない側（渡せない側）にする
+fn sync_office_policy(ai: &AiState, store: &Store) -> Option<String> {
+    let at = store.ai_privacy_policy_confirmed_at().ok().flatten();
+    if ai.registry.set_office_policy(at.is_some()) > 0 {
+        ai.persist_all(store);
+    }
+    at
+}
+
 fn status(ai: &AiState, store: &Store) -> AiStatus {
     let store_ready = store.ai_connector_enabled().is_ok();
     if store_ready {
         ai.ensure_endpoint(store);
     }
+    let privacy_policy_confirmed_at = sync_office_policy(ai, store);
     let enabled = store.ai_connector_enabled().unwrap_or(false);
     let path = connector_path();
     let version = path.as_deref().and_then(connector_version);
     let dev = cfg!(debug_assertions);
     AiStatus {
         enabled,
+        privacy_policy_confirmed_at,
         running: lock(&ai.endpoint).is_some(),
         problem: lock(&ai.problem).clone(),
         store_ready,
@@ -647,7 +663,9 @@ fn view(ai: &AiState, books: &HashMap<String, Entry>, id: &str) -> Result<Househ
         .active_shares()
         .into_iter()
         .find(|s| s.household_id == id);
-    let mut v = e.book.view(&ai.registry.records(id), share);
+    let mut v = e
+        .book
+        .view(&ai.registry.records(id), share, ai.registry.office_policy());
     v.document_proposals = ai.registry.document_proposals(id);
     v.display_proposals = ai.registry.household_display_candidates(id);
     Ok(v)
@@ -705,10 +723,27 @@ pub async fn ai_setup_copy(app: AppHandle, client: String) -> Result<bool, Strin
     .await
 }
 
+/// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」を確かめた・外した（FP が事務所の設定の画面で操作したときだけ。0226）。
+/// 外すと、それを理由に渡していた共有（同意の答えが無い世帯）を、その場で取り消す
+#[tauri::command]
+pub async fn ai_set_privacy_policy(app: AppHandle, confirmed: bool) -> Result<AiStatus, String> {
+    blocking(app, move |ai, store| {
+        store
+            .set_ai_privacy_policy_confirmed(confirmed)
+            .map_err(code)?;
+        Ok(status(ai, store))
+    })
+    .await
+}
+
 /// 世帯の「同意とAIの記録」
 #[tauri::command]
 pub async fn ai_household(app: AppHandle, id: String) -> Result<HouseholdAiView, String> {
-    blocking(app, move |ai, _| view(ai, &lock(&ai.books), &id)).await
+    blocking(app, move |ai, store| {
+        sync_office_policy(ai, store);
+        view(ai, &lock(&ai.books), &id)
+    })
+    .await
 }
 
 /// 外部AIへの提供の同意（同意しなかった・撤回）を記録する。すぐに世帯ファイルへ書く。撤回なら共有をすぐに取り消す
@@ -744,7 +779,8 @@ pub async fn ai_consent_record(
     .await
 }
 
-/// 世帯をAIに渡す（期限つきの共有を作る）。同意が `given` で、AI接続口がオンのときだけ
+/// 世帯をAIに渡す（期限つきの共有を作る）。AI接続口がオンで、渡す理由（同意がある・事務所のプライバシーポリシーを確かめていてお客さまが断っていない・
+/// 架空の世帯。0226）があるときだけ
 #[tauri::command]
 pub async fn ai_share_start(
     app: AppHandle,
@@ -776,6 +812,14 @@ pub async fn ai_share_start(
             return Err("E_AI_ALREADY_SHARED".into());
         }
         let source = e.book.source().ok_or("E_AI_BODY")?;
+        // 渡せるかは共有の台帳が basis の1か所で決める（同意・事務所のプライバシーポリシー・架空の世帯。0226）
+        ai.registry.set_office_policy(
+            store
+                .ai_privacy_policy_confirmed_at()
+                .ok()
+                .flatten()
+                .is_some(),
+        );
         ai.registry
             .grant(
                 source,

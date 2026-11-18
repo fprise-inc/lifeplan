@@ -540,6 +540,11 @@ export interface AiSetupGuide {
 export interface AiStatus {
   /** 事務所全体の設定（既定はオフ） */
   enabled: boolean;
+  /**
+   * 事務所の設定で FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめた日時（0226。確かめていなければ null。無い本体は確かめていないとして扱う）。
+   * 確かめていると、外部AIへの提供の同意の答えが無い世帯も AI に渡せる（「同意しない」と答えた世帯・撤回した世帯は渡せない）
+   */
+  privacyPolicyConfirmedAt?: string | null;
   /** アプリ本体の受け口が開いているか */
   running: boolean;
   problem: string | null;
@@ -694,7 +699,20 @@ export interface AiHouseholdView {
   saved: boolean;
   /** 架空の世帯（同意の記録が無くても渡せる。無い本体はお客さまの世帯として扱う） */
   fictional?: boolean;
+  /**
+   * この世帯を AI に渡せるか・その理由（0226。本体の ai_share::ai_use の1か所で決めた判定。画面はこれを見せるだけ）。
+   * 無い本体（古い版・テストの代わり）は ai/model.ts の aiUseOf が同意の状態だけで読む（事務所の設定は見ない側）
+   */
+  aiUse?: AiUse;
+  /** 書類（お名前・番号を伏せたもの）を AI に渡せるか・その理由（0157・0226。本体の ai_documents_use） */
+  aiDocumentsUse?: AiUse;
 }
+
+/**
+ * AI接続を使える・使えない理由（0226）: consent＝同意がある、officePolicy＝事務所のプライバシーポリシー（FP が確かめ済みで、お客さまが「同意しない」と答えていない）、
+ * fictional＝架空の世帯、refused＝お客さまが「同意しない」と答えた、withdrawn＝撤回した、consentWithoutDocuments＝書類を含まない同意（書類の判定だけ）、none＝理由が無い
+ */
+export type AiUse = "consent" | "officePolicy" | "fictional" | "refused" | "withdrawn" | "consentWithoutDocuments" | "none";
 
 /**
  * AI接続口の道具（propose_display_settings）で届いた、事務所の既定値の表示の設定の案（0215）。本体はメモリの中に置くだけで、設定は変えない。
@@ -750,6 +768,8 @@ export interface AiConsentInput {
 export interface AiHost {
   status(): Promise<AiStatus>;
   setEnabled(enabled: boolean): Promise<AiStatus>;
+  /** 事務所のプライバシーポリシーに AI の利用を書いていることを確かめた・外した（0226。外すと、それを理由に渡していた共有を取り消す）。無い本体は使えない */
+  setPrivacyPolicy?(confirmed: boolean): Promise<AiStatus>;
   /** 接続の設定の文面（本物の場所入り）を本体が OS のクリップボードへ写す */
   copySetup(client: string): Promise<boolean>;
   household(id: string): Promise<AiHouseholdView>;
@@ -1023,6 +1043,7 @@ export function tauriHost(): HostApi {
     ai: {
       status: () => invoke<AiStatus>("ai_status"),
       setEnabled: (enabled) => invoke<AiStatus>("ai_set_enabled", { enabled }),
+      setPrivacyPolicy: (confirmed) => invoke<AiStatus>("ai_set_privacy_policy", { confirmed }),
       copySetup: (client) => invoke<boolean>("ai_setup_copy", { client }),
       household: (id) => invoke<AiHouseholdView>("ai_household", { id }),
       recordConsent: (id, input) => invoke<AiHouseholdView>("ai_consent_record", { id, input }),
@@ -1277,6 +1298,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
     ai: {
       status: async () => devJson<AiStatus>(await devAi("status")),
       setEnabled: async (enabled) => devJson<AiStatus>(await devAi("setEnabled", { enabled })),
+      setPrivacyPolicy: async (confirmed) => devJson<AiStatus>(await devAi("setPrivacyPolicy", { confirmed })),
       copySetup: async (client) => devJson<boolean>(await devAi("copySetup", { client })),
       household: async (id) => devJson<AiHouseholdView>(await devAi("household", { id })),
       recordConsent: async (id, input) => devJson<AiHouseholdView>(await devAi("recordConsent", { id, input })),

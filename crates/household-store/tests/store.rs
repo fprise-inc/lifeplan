@@ -122,6 +122,32 @@ fn ai_connector_is_off_by_default_and_the_setting_is_kept() {
 }
 
 #[test]
+fn office_privacy_policy_check_is_kept_with_its_time_and_independent_of_the_switch() {
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    assert_eq!(
+        store.ai_privacy_policy_confirmed_at().unwrap(),
+        None,
+        "既定は確かめていない（0226）"
+    );
+    let at = store.set_ai_privacy_policy_confirmed(true).unwrap();
+    assert!(at.is_some());
+    // もう一度確かめても日時は最初のまま
+    assert_eq!(store.set_ai_privacy_policy_confirmed(true).unwrap(), at);
+    // AI接続口の入切を変えても、確かめた印は消えない
+    store.set_ai_connector_enabled(true).unwrap();
+    store.set_ai_connector_enabled(false).unwrap();
+    let store2 = env.store();
+    store2.status().unwrap();
+    assert_eq!(store2.ai_privacy_policy_confirmed_at().unwrap(), at);
+    assert_eq!(store2.set_ai_privacy_policy_confirmed(false).unwrap(), None);
+    let store3 = env.store();
+    store3.status().unwrap();
+    assert_eq!(store3.ai_privacy_policy_confirmed_at().unwrap(), None);
+}
+
+#[test]
 fn save_and_open_round_trip() {
     let env = Env::new();
     let store = env.store();

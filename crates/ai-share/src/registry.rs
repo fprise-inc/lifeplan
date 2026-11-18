@@ -1,6 +1,7 @@
 //! 共有の台帳（0015 の5）。共有が有効かどうかは、アプリ本体のメモリの中のこの台帳だけで決める。
 //! アプリを終了・再起動すると、すべての共有が無効になる（台帳ごと消える）。
 
+use crate::basis::{ai_documents_use, ai_use, AiUse};
 use crate::clock::{iso8601, Clock, SystemClock};
 use crate::display;
 use crate::display_proposals::{
@@ -13,7 +14,7 @@ use crate::record::{
     verify_append_only, AiShareRecord, Caller, ConsentAtGrant, EndReason, ProposalEntry,
 };
 use crate::reduce::{self, allowlist, is_addable, Pseudonyms, Scope};
-use crate::source::{ConsentDecision, SharedHouseholdSource};
+use crate::source::SharedHouseholdSource;
 use ai_ipc::ErrorCode;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -60,7 +61,8 @@ pub enum GrantError {
     NotAddable(String),
     /// 接続先の申告が無い
     DestinationMissing,
-    /// 外部AIへの提供の同意が `given` でない（警告を見せて、FPが続けるなら proceed_without_consent で呼び直す）
+    /// AI接続を使える理由が無い（外部AIへの提供の同意が `given` でなく、事務所のプライバシーポリシーも使えない。0226）。
+    /// 警告を見せて、FPが続けるなら proceed_without_consent で呼び直す（アプリ本体は `require_consent` で続けさせない）
     ConsentMissing { state: String },
 }
 
@@ -72,6 +74,8 @@ pub struct Granted {
     pub expires_at: String,
     pub fields: Vec<String>,
     pub consent_warned: bool,
+    /// どの理由で渡したか（0226。同意・事務所のプライバシーポリシー・架空の世帯。警告を見て続けたときは同意の状態）
+    pub basis: AiUse,
 }
 
 /// 共有中の表示（帯）のための状態
@@ -121,6 +125,8 @@ pub struct FeatureCodeCandidate {
 #[derive(Default)]
 struct State {
     shares: HashMap<String, Share>,
+    /// 事務所の設定で、FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめているか（0226。アプリ本体が入れる）
+    office_policy: bool,
     issued: u32,
     logs: HashMap<String, Vec<AiShareRecord>>,
     proposals: Vec<PendingProposal>,
@@ -243,20 +249,21 @@ impl ShareRegistry {
         if opts.destination_declared.trim().is_empty() {
             return Err(GrantError::DestinationMissing);
         }
-        let consent_state = match &source.external_ai_consent {
-            Some(c) => match c.decision {
-                ConsentDecision::Given => "given",
-                ConsentDecision::Refused => "refused",
-                ConsentDecision::Withdrawn => "withdrawn",
-            },
-            None => "none",
-        };
+        // 渡せるかは basis の1か所で決める（同意がある・事務所のプライバシーポリシーを確かめていて断られていない・架空の世帯。0226）。
         // 架空の世帯は、お客さまの情報を含まないので同意の記録が無くても渡せる（期限・取り消し・記録・縮約版は同じ）
-        let fictional = source.fictional && consent_state != "given";
-        let warned = !fictional && consent_state != "given";
-        if warned && (!opts.proceed_without_consent || self.lock().require_consent) {
+        let (require, office_policy) = {
+            let st = self.lock();
+            (st.require_consent, st.office_policy)
+        };
+        let basis = ai_use(
+            source.external_ai_consent.as_ref(),
+            office_policy,
+            source.fictional,
+        );
+        let warned = !basis.allowed();
+        if warned && (!opts.proceed_without_consent || require) {
             return Err(GrantError::ConsentMissing {
-                state: consent_state.to_owned(),
+                state: basis.grant_state().to_owned(),
             });
         }
         let now = self.now();
@@ -282,12 +289,7 @@ impl ShareRegistry {
             household_revision: source.revision.clone(),
             destination_declared: opts.destination_declared.clone(),
             consent_at_grant: ConsentAtGrant {
-                state: if fictional {
-                    "fictional"
-                } else {
-                    consent_state
-                }
-                .to_owned(),
+                state: basis.grant_state().to_owned(),
                 record_id: source
                     .external_ai_consent
                     .as_ref()
@@ -320,6 +322,7 @@ impl ShareRegistry {
             expires_at: iso8601(expires_ms),
             fields: reduced.fields,
             consent_warned: warned,
+            basis,
         })
     }
 
@@ -328,7 +331,7 @@ impl ShareRegistry {
         let now = self.now();
         let mut st = self.lock();
         let require = st.require_consent;
-        let consent_ok = may_share(&source);
+        let consent_ok = may_share(&st, &source);
         let updated = match st.shares.get_mut(share_id) {
             Some(s) if s.ended.is_none() && s.source.household_id == source.household_id => {
                 s.source = source;
@@ -371,6 +374,29 @@ impl ShareRegistry {
         self.end_where(EndReason::ConsentWithdrawn, |_, s| {
             s.source.household_id == household_id
         })
+    }
+
+    /// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」の確かめを入れる（アプリ本体が起動したとき・FPが変えたときに入れる。0226）。
+    /// 外したときは、それを理由に渡していた共有（同意の答えが無い世帯。書類を含まない同意の世帯は計算の項目を渡せるので閉じない）を、その場で「取り消し」で閉じる。
+    /// 閉じた共有の数を返す
+    pub fn set_office_policy(&self, on: bool) -> usize {
+        let was = std::mem::replace(&mut self.lock().office_policy, on);
+        if on || !was {
+            return 0;
+        }
+        self.end_where(EndReason::Revoked, |_, s| {
+            !ai_use(
+                s.source.external_ai_consent.as_ref(),
+                false,
+                s.source.fictional,
+            )
+            .allowed()
+        })
+    }
+
+    /// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」を確かめているか（0226）
+    pub fn office_policy(&self) -> bool {
+        self.lock().office_policy
     }
 
     /// アプリの終了のときに呼ぶ（すべての共有を閉じる）
@@ -898,11 +924,12 @@ impl ShareRegistry {
         let mut st = self.lock();
         usable(&mut st, share_id, now)?;
         let share = st.shares.get(share_id).ok_or_else(not_shared)?;
-        // 書類を AI に渡すことを含む説明での同意が要る（版1の説明の同意では受けない。0157）。共有は閉じない（計算の項目は今までどおり読める）
-        if st.require_consent && !consent_covers_documents(&share.source) {
+        // 書類を AI に渡すことを含む説明での同意か、事務所のプライバシーポリシーが要る（版1の説明の同意だけでは受けない。0157・0226）。
+        // 共有は閉じない（計算の項目は今までどおり読める）
+        if st.require_consent && !documents_basis_of(&st, &share.source).allowed() {
             return Err((
                 ErrorCode::NotShared,
-                "この世帯のお客さまの同意は、書類を AI に渡すことを含んでいません（前の版の説明で同意した世帯です）。書類から読んだ値の候補は受け取れません。FPがアプリの「同意と共有」でお客さまに今の説明を見せ、同意を記録し直すまで、この世帯の書類を読まないでください（渡された書類の内容は使わないでください）。".to_owned(),
+                "この世帯のお客さまの同意は、書類を AI に渡すことを含んでいません（前の版の説明かヒアリングシートの同意欄で同意した世帯で、事務所のプライバシーポリシーも確かめられていません）。書類から読んだ値の候補は受け取れません。FPがアプリの「同意と共有」でお客さまに今の説明を見せて同意を記録し直すか、事務所の設定で事務所のプライバシーポリシーを確かめるまで、この世帯の書類を読まないでください（渡された書類の内容は使わないでください）。".to_owned(),
             ));
         }
         let (restored, counts) =
@@ -1022,8 +1049,9 @@ impl ShareRegistry {
         let mut list: Vec<(String, serde_json::Value)> = st
             .shares
             .iter()
-            .filter(|(_, s)| s.ended.is_none() && (!require || may_share(&s.source)))
+            .filter(|(_, s)| s.ended.is_none() && (!require || may_share(&st, &s.source)))
             .map(|(id, s)| {
+                let basis = basis_of(&st, &s.source);
                 (
                     s.alias.clone(),
                     json!({
@@ -1032,6 +1060,10 @@ impl ShareRegistry {
                         "scope": s.scope.name(),
                         "expiresAt": iso8601(s.expires_ms),
                         "expiresInSec": (s.expires_ms - now) / 1000,
+                        // どの理由で渡されているか（0226。consent・officePolicy・fictional）と、書類を渡せるか
+                        "basis": basis.name(),
+                        "basisNote": basis.note_for_ai(),
+                        "documents": documents_basis_of(&st, &s.source).allowed(),
                     }),
                 )
             })
@@ -1076,6 +1108,11 @@ impl ShareRegistry {
         let now = self.now();
         let mut st = self.lock();
         usable(&mut st, share_id, now)?;
+        let basis = st
+            .shares
+            .get(share_id)
+            .map(|s| basis_of(&st, &s.source))
+            .ok_or_else(not_shared)?;
         let share = st.shares.get_mut(share_id).ok_or_else(not_shared)?;
         let reduced = reduce::reduce(&share.source, &share.scope, &mut share.pseudonyms);
         let mut payload = json!({
@@ -1086,6 +1123,9 @@ impl ShareRegistry {
             "expiresAt": iso8601(share.expires_ms),
             "expiresInSec": (share.expires_ms - now) / 1000,
             "notice": SHARED_NOTICE,
+            // どの理由で渡されているか（0226。consent・officePolicy・fictional）
+            "basis": basis.name(),
+            "basisNote": basis.note_for_ai(),
             "fields": reduced.fields,
             "input": reduced.input,
             "texts": reduced.texts,
@@ -1203,25 +1243,27 @@ fn content_digest(scope: &str, reduced: &reduce::Reduced, pseudonyms: &Pseudonym
     format!("sha256:{:x}", Sha256::digest(content.as_bytes()))
 }
 
-fn consent_given(source: &SharedHouseholdSource) -> bool {
-    source
-        .external_ai_consent
-        .as_ref()
-        .is_some_and(|c| c.decision == ConsentDecision::Given)
+/// 渡してよい世帯かの理由（判定は basis の1か所。0226）
+fn basis_of(st: &State, source: &SharedHouseholdSource) -> AiUse {
+    ai_use(
+        source.external_ai_consent.as_ref(),
+        st.office_policy,
+        source.fictional,
+    )
 }
 
-/// 渡してよい世帯か: 外部AIへの提供の同意が `given` か、架空の世帯（お客さまの情報を含まない）
-fn may_share(source: &SharedHouseholdSource) -> bool {
-    source.fictional || consent_given(source)
+/// 渡してよい世帯か: 同意がある・事務所のプライバシーポリシーを確かめていて断られていない・架空の世帯（0226）
+fn may_share(st: &State, source: &SharedHouseholdSource) -> bool {
+    basis_of(st, source).allowed()
 }
 
-/// 書類を AI に渡すことを含む説明（版2〜）で同意した世帯か（0157）。架空の世帯は同意が要らない
-fn consent_covers_documents(source: &SharedHouseholdSource) -> bool {
-    source.fictional
-        || source
-            .external_ai_consent
-            .as_ref()
-            .is_some_and(|c| c.decision == ConsentDecision::Given && c.documents)
+/// 書類（お名前・番号を伏せたもの）を AI に渡してよい世帯かの理由（0157・0226）
+fn documents_basis_of(st: &State, source: &SharedHouseholdSource) -> AiUse {
+    ai_documents_use(
+        source.external_ai_consent.as_ref(),
+        st.office_policy,
+        source.fictional,
+    )
 }
 
 fn not_shared() -> Refusal {
@@ -1238,10 +1280,17 @@ fn usable(st: &mut State, share_id: &str, now: u64) -> Result<(), Refusal> {
     };
     match s.ended {
         Some(EndReason::Expired) => return Err(expired_refusal()),
-        Some(EndReason::Revoked) | Some(EndReason::ConsentWithdrawn) => {
+        Some(EndReason::Revoked) => {
             return Err((
                 ErrorCode::Revoked,
                 "この世帯の共有は取り消されました。続けるには、FPがアプリでもう一度渡す必要があります。".to_owned(),
+            ))
+        }
+        // 同意の状態が変わって渡す理由が無くなった（撤回・「同意しない」の記録・架空の世帯をお客さまの世帯にした。0226）
+        Some(EndReason::ConsentWithdrawn) => {
+            return Err((
+                ErrorCode::Revoked,
+                "この世帯の共有は取り消されました（お客さまの外部AIへの提供の同意の状態が変わり、渡す理由が無くなりました）。お客さまが「同意しない」と答えた世帯・同意を撤回した世帯は、事務所の設定にかかわらず AI に渡せません。".to_owned(),
             ))
         }
         Some(EndReason::AppClosed) => return Err(not_shared()),
@@ -1251,11 +1300,12 @@ fn usable(st: &mut State, share_id: &str, now: u64) -> Result<(), Refusal> {
         expire(st, share_id);
         return Err(expired_refusal());
     }
-    if st.require_consent && !may_share(&s.source) {
+    if st.require_consent && !may_share(st, &s.source) {
+        let note = basis_of(st, &s.source).note_for_ai();
         end_share(st, share_id, iso8601(now), EndReason::ConsentWithdrawn);
         return Err((
             ErrorCode::Revoked,
-            "この世帯の共有は取り消されました（外部AIへの提供の同意がありません）。".to_owned(),
+            format!("この世帯の共有は取り消されました（{note}）"),
         ));
     }
     Ok(())
