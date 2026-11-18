@@ -9,6 +9,7 @@ import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { docRequests, requestMessage, SAFE_SENDING, type DocRequest } from "./docRequests.ts";
 import { docRequestStatus } from "../hearing/web.ts";
+import { HEARING_EXCEL_SHOWN } from "../hearing/excelSwitch.ts";
 import { readableDoc } from "../documents/start.ts";
 import { useDocView } from "../hearing/ReceivedDocs.tsx";
 
@@ -57,7 +58,7 @@ export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
             <p>書類ごとに、その書類から写す欄と今の代わりの値を並べます。「開く」でその欄に移り、書類の値を打つと書類待ちが消え、この一覧からも消えます。</p>
             <p>「この書類を読む」は、届いた書類の読み取り（電子データ〔XML〕・AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入り、書類待ちが消えます。</p>
             <p>「文をコピー」は、メール・メッセージに貼るお願いの文を写します。書類の名前と見たい所だけで、金額・番号・顧客番号は入りません。お名前・事務所名は文に入れるだけで、保存しません。</p>
-            <p>同じ一覧は、ヒアリングシートを書き出すときに1枚目の「今回お願いしたい書類」にも載ります。</p>
+            <p>{HEARING_EXCEL_SHOWN ? "同じ一覧は、ヒアリングシートを書き出すときに1枚目の「今回お願いしたい書類」にも載ります。" : "同じ一覧から、事前ヒアリングの URL生成で、お客さまに頼む書類を足せます。"}</p>
           </Help>
         </h2>
         <p class="ck-lead">

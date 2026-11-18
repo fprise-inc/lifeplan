@@ -342,7 +342,10 @@ describe("FP の画面（WebBuilder の描画）", () => {
     for (const id of ["customerNo", "officeName", "privacyContact", "aiConsent"]) expect(html).toContain(`data-web-help="${id}"`);
     expect(html).toContain("個人情報のお問い合わせ: ");
     expect(html).toMatch(/data-web-ai-consent-check[^>]*checked|checked[^>]*data-web-ai-consent-check/);
-    expect(html).toContain("AI接続口が使えません");
+    // AI の同意の言葉は FP が読んで分かる言葉で（2026-11-18）。「接続口」は画面に出さず、「聞かないと使えない」とも書かない
+    expect(html).toContain("お客さまが「同意しない」と答えた世帯では、AI を使った資料の読み取りや分析は使えません");
+    expect(html).not.toContain("接続口");
+    expect(html).not.toContain("聞いていない」のまま");
     expect(html).not.toContain("何のための問いか");
     // ひな形の時間は夫婦と子2人で数え、この世帯の数を添える
     expect(html).toMatch(/\d+項目・\d+分ほど（夫婦と子2人）・この世帯では\d+分ほど/);

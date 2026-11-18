@@ -823,3 +823,64 @@ fn previous_generation_responses_never_contain_paths() {
         );
     }
 }
+
+/// 開いていない世帯の Web のヒアリングの依頼を、開かずに読む（0192 の追記 2026-11-18）: 確かめるのに要る欄だけを返し、開いた印を変えない
+#[test]
+fn peek_hearing_reads_only_what_the_arrival_check_needs_without_opening() {
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    let rec = |id: &str| serde_json::json!({"kind": "web", "requestId": id, "serverId": format!("srv-{id}"), "secrets": {"pickupToken": format!("tok-{id}"), "answerKey": "架空の鍵"}, "selection": {"sections": []}, "customerNo": "0001", "issuedAt": "2026-10-18T00:00:00Z", "expiresAt": "2026-11-17T00:00:00Z", "url": "https://example.invalid/h/#架空"});
+    let mut v: serde_json::Value = serde_json::from_str(&body(1)).unwrap();
+    v["hearing"] = serde_json::json!({"imports": [], "web": [
+        {"record": rec("W-AAAA"), "state": "issued"},
+        {"record": rec("W-BBBB"), "state": "imported", "received": {"answers": [{"q": "架空の答え"}]}, "batches": [{"batchId": "b1"}, {"batchId": "b2"}], "files": [{"fileId": "f1", "data": "架空"}]},
+        {"record": rec("W-CCCC"), "state": "cancelled"},
+        {"record": rec("W-DDDD"), "state": "received", "closedAt": "2026-10-20T00:00:00Z"}
+    ]});
+    let a = store
+        .create(CreateRequest {
+            body: v.to_string(),
+            summary: "本人".into(),
+        })
+        .unwrap();
+    let b = create(&store, 2);
+    let before = store.status().unwrap().last_opened;
+    assert_eq!(before.as_deref(), Some(b.id.as_str()));
+    let peeks = store.peek_hearing(&a.id).unwrap();
+    assert_eq!(
+        peeks
+            .iter()
+            .map(|p| p.request_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["W-AAAA", "W-BBBB"],
+        "取り消し・受け付けを終えた依頼は返さない"
+    );
+    assert_eq!(peeks[0].pickup_token, "tok-W-AAAA");
+    assert_eq!(peeks[0].server_id, "srv-W-AAAA");
+    assert!(!peeks[0].received);
+    assert!(peeks[1].received);
+    assert_eq!(peeks[1].batch_ids, vec!["b1", "b2"]);
+    // 答え・書類・URL・問いの鍵は返さない
+    let json = serde_json::to_string(&peeks).unwrap();
+    for word in [
+        "架空の答え",
+        "answerKey",
+        "example.invalid",
+        "fileId",
+        "selection",
+    ] {
+        assert!(!json.contains(word), "{word} を返さない");
+    }
+    // 開いた印を変えない（前回開いた世帯は b のまま）
+    assert_eq!(store.status().unwrap().last_opened, before);
+    assert_eq!(
+        env.store().status().unwrap().last_opened,
+        before,
+        "開き直しても前回の世帯は b"
+    );
+    // 依頼の無い世帯は空、知らない世帯は拒む
+    assert!(store.peek_hearing(&b.id).unwrap().is_empty());
+    assert!(store.peek_hearing(&crypto::new_uuid()).is_err());
+    assert!(store.peek_hearing("../x").is_err());
+}
