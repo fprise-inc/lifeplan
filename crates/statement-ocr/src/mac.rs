@@ -1,7 +1,10 @@
 //! macOS: Vision の文字認識（`VNRecognizeTextRequest`。正確さを優先する読み方・日本語と英語）。
 //! 画像はメモリの中のバイト列のまま渡す（ファイルに書かない）。Vision は PC の中で動き、ネットにつながない。
 
+use std::sync::OnceLock;
+
 use objc2::rc::{autoreleasepool, Retained};
+use objc2::runtime::AnyClass;
 use objc2::AnyThread;
 use objc2_foundation::{NSArray, NSData, NSDictionary, NSString};
 use objc2_vision::{
@@ -33,7 +36,21 @@ fn request(lang: Language) -> Retained<VNRecognizeTextRequest> {
     }
 }
 
+/// この Mac の Vision で日本語を読めるか（macOS 13 より前は文字認識の要求が無いか、日本語を読めない）
+fn japanese_ready() -> bool {
+    static READY: OnceLock<bool> = OnceLock::new();
+    *READY.get_or_init(|| {
+        AnyClass::get(c"VNRecognizeTextRequest").is_some()
+            && languages()
+                .iter()
+                .any(|l| l.to_ascii_lowercase().starts_with("ja"))
+    })
+}
+
 pub(crate) fn languages() -> Vec<String> {
+    if AnyClass::get(c"VNRecognizeTextRequest").is_none() {
+        return Vec::new();
+    }
     autoreleasepool(|_| {
         let req = request(Language::Japanese);
         // SAFETY: 作った要求に、読める言語を聞くだけ
@@ -45,6 +62,9 @@ pub(crate) fn languages() -> Vec<String> {
 }
 
 pub(crate) fn recognize(bytes: &[u8], lang: Language) -> Result<Vec<OcrBox>, OcrError> {
+    if !japanese_ready() {
+        return Err(OcrError::OldOs);
+    }
     autoreleasepool(|_| {
         let data = NSData::with_bytes(bytes);
         let options = NSDictionary::new();

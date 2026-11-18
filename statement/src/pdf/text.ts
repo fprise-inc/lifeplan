@@ -373,16 +373,15 @@ export function toLines(items: readonly TextItem[]): string[][] {
   });
 }
 
-/** PDF の文字を、すべてのページの行と欄にする */
-export async function extractPdfLines(bytes: Uint8Array): Promise<{ lines: string[][]; pages: number; chars: number }> {
+/** PDF の文字を、ページごとの位置つきの塊にする（行と欄にまとめるのは layout.ts の assemblePages） */
+export async function extractPdfItems(bytes: Uint8Array): Promise<{ pages: TextItem[][]; chars: number }> {
   const doc = await PdfDocument.open(bytes);
-  const pages = doc.pages();
-  const lines: string[][] = [];
+  const pages: TextItem[][] = [];
   let chars = 0;
-  for (const p of pages) {
+  for (const p of doc.pages()) {
     const items = await pageItems(doc, p);
     chars += items.reduce((n, i) => n + i.text.length, 0);
-    lines.push(...toLines(items));
+    pages.push(items);
   }
-  return { lines, pages: pages.length, chars };
+  return { pages, chars };
 }
