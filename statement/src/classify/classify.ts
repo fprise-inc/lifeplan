@@ -43,10 +43,11 @@ export type Flag =
   | "revolving"
   | "familyCard"
   | "engineTax"
-  | "durable";
+  | "durable"
+  | "readUncertain";
 
 /** 迷う行の印（ヒアリングの画面で FP が決める） */
-export const REVIEW_FLAGS: readonly Flag[] = ["unknownMerchant", "bucketUndecided", "bucketNotAllowed", "highAmount", "annualUnsure", "cardPaymentKept", "revolving", "refundUnmatched"];
+export const REVIEW_FLAGS: readonly Flag[] = ["readUncertain", "unknownMerchant", "bucketUndecided", "bucketNotAllowed", "highAmount", "annualUnsure", "cardPaymentKept", "revolving", "refundUnmatched"];
 
 export const FLAG_LABELS: Record<Flag, string> = {
   unknownMerchant: "辞書で分からない店",
@@ -64,6 +65,7 @@ export const FLAG_LABELS: Record<Flag, string> = {
   familyCard: "家族カードの行",
   engineTax: "税・社会保険料（計算で出すので除外）",
   durable: "家電・家具の店の3万円以上の買い物（月平均から外し、家電・家具の買い替えの候補）",
+  readUncertain: "読み取りが不確か（写真・スクショの文字。日付・金額・店を確かめる）",
 };
 
 export interface AnnualInfo {
@@ -228,6 +230,7 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
       if (DURABLE_CATEGORIES.includes(category) && r.amount >= DURABLE_MIN && !flags.has("cardPaymentExcluded") && !annualHint) flags.add("durable");
       if (r.cardUser === "family" && r.owner === undefined) flags.add("familyCard");
       if (r.plan?.kind === "revolving") flags.add("revolving");
+      if (r.readUncertain === true) flags.add("readUncertain");
       const counted = !dup.has(r);
       if (!counted) flags.add("duplicate");
       work.push({ imp, acc, r, owner, st, allowed: bucketsOf(st), category, source, flags, counted, annualHint, ...(issuer !== undefined ? { issuer } : {}) });

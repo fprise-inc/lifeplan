@@ -8,6 +8,9 @@ on:
       - crates/statement-ocr/**
       - statement/scripts/ocr-*.ts
       - statement/src/readers.ts
+      - statement/src/layout.ts
+      - statement/src/ocr.ts
+      - statement/src/text/mask.ts
       - statement/src/pdf/text.ts
       - statement/test/fixtures/ocr/**
       - .github/workflows/statement-ocr.yml

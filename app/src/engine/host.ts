@@ -1,6 +1,6 @@
 // 本体（Rust）と画面側のエンジンへの入口
 import { invoke } from "@tauri-apps/api/core";
-import type { DictionaryEntry, LearnedFormat } from "../../../statement/src/index.ts";
+import { OcrFailure, type DictionaryEntry, type LearnedFormat, type OcrPage } from "../../../statement/src/index.ts";
 import { forEngine } from "./moneyRows.ts";
 import { retryTimedOut } from "./retry.ts";
 import { isEngineError, type EngineError, type EngineRequest, type FullResult, type PreviewResult } from "./types.ts";
@@ -121,8 +121,16 @@ export interface StatementHost {
   office(): Promise<StatementOfficeData>;
   /** FP が直した結果を覚える（直した人は本体が決める）。合わせた後の辞書と形を返す */
   learn(entries: readonly DictionaryEntry[], formats: readonly LearnedFormat[]): Promise<StatementOfficeData>;
-  /** 本体の開くダイアログで選んだ明細のファイルの中身（10MB まで。パス・ファイル名は渡らない）。選ばなかったときは null */
-  open(): Promise<Uint8Array | null>;
+  /**
+   * 本体の開くダイアログで選んだ明細のファイルの中身（1つ 10MB まで。パス・ファイル名は渡らない）。写真・スクショは何枚か選べる
+   * （選んだ順。CSV・PDF は1つ）。選ばなかったときは空
+   */
+  open(): Promise<Uint8Array[]>;
+  /**
+   * 明細の写真・スクショ（画像のバイト列）の文字を、本体が OS の文字認識で読む（0034 の段階3。外に送らない）。
+   * 読めないときは OcrFailure（E_OCR_UNSUPPORTED・E_OCR_NO_LANGUAGE・E_OCR_OLD_MAC・E_OCR_IMAGE など）
+   */
+  ocr(image: Uint8Array): Promise<OcrPage>;
   /** 確認シート（画面の statement/ の部品が作った .xlsx）を、本体の平文の書き出しの出口で保存する（0034 の9） */
   saveSheet(bytes: Uint8Array, meta: { customerNo: string; exportedOn: string }): Promise<SaveOutcome>;
   /** お客さまが印を付けた確認シートを選んで、中身を返す（10MB まで。パス・ファイル名は渡らない）。選ばなかったときは null */
@@ -467,6 +475,11 @@ export interface StoreHost {
   /** 新しい世帯（opts.category は区分の記号。無ければ見込み客（区分を使わないときは通し番号だけ）。opts.sample があれば見本として作る。0033） */
   create(body: string, summary: string, opts?: { category?: string; sample?: SampleRequest }): Promise<StoredOpened>;
   open(id: string): Promise<StoredOpened>;
+  /**
+   * 開かずに、Web のヒアリングの依頼の、届いたかの確かめに要る欄だけを読む（開いていない世帯の届いた知らせ。0192 の追記 2026-11-18）。
+   * 開いた印（前回開いた世帯・事務所の共有の「開いている」）を変えない。答え・書類・選び方・URL は返さない。古い本体には無い
+   */
+  peekHearing?(id: string): Promise<unknown>;
   /** 開けなかった世帯の、直前の世代の時点（直前の世代で開き直せないときは null。0011 の7） */
   previousGeneration(id: string): Promise<PreviousGeneration | null>;
   /** 開けなかった世帯を、直前の世代で開き直す（開けなかったファイルは本体がこの PC の中に別名で残す） */
@@ -898,6 +911,24 @@ export interface HostApi {
 
 const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Uint8Array.from(b));
 
+/** 本体が返す、選んだ明細のファイルの並び（"STMF"・数〔u32 LE〕・それぞれの長さ〔u32 LE〕・中身を続けて）。空は選ばなかった */
+export function unpackFiles(b: Uint8Array): Uint8Array[] {
+  if (b.length === 0) return [];
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  if (b.length < 8 || String.fromCharCode(...b.subarray(0, 4)) !== "STMF") throw "E_STATEMENT_OPEN";
+  const n = dv.getUint32(4, true);
+  if (n > 100 || 8 + n * 4 > b.length) throw "E_STATEMENT_OPEN";
+  const out: Uint8Array[] = [];
+  let at = 8 + n * 4;
+  for (let i = 0; i < n; i++) {
+    const len = dv.getUint32(8 + i * 4, true);
+    if (at + len > b.length) throw "E_STATEMENT_OPEN";
+    out.push(b.subarray(at, at + len));
+    at += len;
+  }
+  return out;
+}
+
 export function tauriHost(): HostApi {
   return {
     kind: "tauri",
@@ -933,6 +964,7 @@ export function tauriHost(): HostApi {
       list: () => invoke<StoredHousehold[]>("store_list"),
       create: (body, summary, opts) => invoke<StoredOpened>("store_create", { body, summary, category: opts?.category ?? null, sample: opts?.sample ?? null }),
       open: (id) => invoke<StoredOpened>("store_open", { id }),
+      peekHearing: (id) => invoke<unknown>("store_peek_hearing", { id }),
       previousGeneration: (id) => invoke<PreviousGeneration | null>("store_previous_generation", { id }),
       openPrevious: (id) => invoke<StoredOpened>("store_open_previous", { id }),
       save: (id, body, summary) => invoke<{ generation: number; savedAt: string }>("store_save", { id, body, summary }),
@@ -1014,9 +1046,13 @@ export function tauriHost(): HostApi {
     statements: {
       office: () => invoke<StatementOfficeData>("statement_office"),
       learn: (entries, formats) => invoke<StatementOfficeData>("statement_learn", { entries, formats }),
-      open: async () => {
-        const b = bytesOf(await invoke<ArrayBuffer>("statement_open"));
-        return b.length === 0 ? null : b;
+      open: async () => unpackFiles(bytesOf(await invoke<ArrayBuffer>("statement_open"))),
+      ocr: async (image) => {
+        try {
+          return await invoke<OcrPage>("statement_ocr", image);
+        } catch (e) {
+          throw new OcrFailure(typeof e === "string" ? e : "E_OCR_FAILED");
+        }
       },
       saveSheet: (bytes, m) => invoke<SaveOutcome>("statement_sheet_save", bytes, { headers: { "x-customer-no": m.customerNo, "x-exported-on": m.exportedOn } }),
       openSheet: async () => {
@@ -1179,6 +1215,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       list: async () => devJson<StoredHousehold[]>(await devStore("list")),
       create: async (body, summary, opts) => devJson<StoredOpened>(await devStore("create", { body, summary, ...(opts?.category !== undefined ? { category: opts.category } : {}), ...(opts?.sample !== undefined ? { sample: JSON.stringify(opts.sample) } : {}) })),
       open: async (id) => devJson<StoredOpened>(await devStore("open", { id })),
+      peekHearing: async (id) => devJson<unknown>(await devStore("peekHearing", { id })),
       previousGeneration: async (id) => devJson<PreviousGeneration | null>(await devStore("previousGeneration", { id })),
       openPrevious: async (id) => devJson<StoredOpened>(await devStore("openPrevious", { id })),
       save: async (id, body, summary) => devJson<{ generation: number; savedAt: string }>(await devStore("save", { id, body, summary })),
@@ -1267,9 +1304,15 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       learn: async (entries, formats) => devJson<StatementOfficeData>(await fetch("/__dev/statement/learn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entries, formats }) })),
       open: async () => {
         const res = await fetch("/__dev/statement/open");
-        if (res.status === 204) return null;
+        if (res.status === 204) return [];
         if (!res.ok) throw (await res.text()) || `E_DEV_${res.status}`;
-        return new Uint8Array(await res.arrayBuffer());
+        return unpackFiles(new Uint8Array(await res.arrayBuffer()));
+      },
+      // 文字認識の代わり: 開発用のサーバーが、ビルドした文字認識の道具（crates/statement-ocr の ocr_page。Mac は Vision）を呼ぶ
+      ocr: async (image) => {
+        const res = await fetch("/__dev/statement/ocr", { method: "POST", body: image as Uint8Array<ArrayBuffer> });
+        if (!res.ok) throw new OcrFailure((await res.text()) || "E_OCR_FAILED");
+        return (await res.json()) as OcrPage;
       },
       saveSheet: async (bytes, m) =>
         devJson<SaveOutcome>(await fetch(`/__dev/statement/sheetsave?customerNo=${encodeURIComponent(m.customerNo)}&exportedOn=${encodeURIComponent(m.exportedOn)}`, { method: "POST", body: bytes as Uint8Array<ArrayBuffer> })),

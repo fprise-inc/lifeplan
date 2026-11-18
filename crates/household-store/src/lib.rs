@@ -36,9 +36,9 @@ pub use numbering::{Category, CategoryEdit, CategorySettings, Label, SampleInfo,
 pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
 pub use store::{
-    Clock, CreateOptions, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView,
-    NoticeView, OfficeStatus, Opened, PresenceView, PreviousGeneration, RemovedView, RenameOutcome,
-    RequestView, Saved, Status, StatusState, StorageNotice, Store, SystemClock,
+    Clock, CreateOptions, CreateRequest, ForkChoice, ForkInfo, HearingPeek, HouseholdEntry,
+    MemberView, NoticeView, OfficeStatus, Opened, PresenceView, PreviousGeneration, RemovedView,
+    RenameOutcome, RequestView, Saved, Status, StatusState, StorageNotice, Store, SystemClock,
 };
 
 #[cfg(feature = "os-keyring")]

@@ -43,7 +43,8 @@ import { seedDemo } from "./demoSeed.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
 import { HearingTools } from "./hearing/HearingTools.tsx";
-import { ARRIVAL_INTERVAL_MS, checkArrivals, listSummary, onArrivals, pendingCount, pendingMark } from "./hearing/web.ts";
+import { accepting, ARRIVAL_INTERVAL_MS, checkArrivals, listSummary, onArrivals, pendingCount, pendingMark, webLog } from "./hearing/web.ts";
+import { askFocus, checkUnopened, hearingBellItems, peekedLive, type PeekCache } from "./hearing/bell.ts";
 import { ReportTab } from "./report/ReportTab.tsx";
 import { runWireCheck } from "./report/wirecheck.ts";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel.tsx";
@@ -759,13 +760,41 @@ export function App() {
     if (hearingWebHost === undefined || openedId === null) return;
     const run = () => {
       const o = openedRef.current;
-      if (o !== null && storedRef.current?.id === openedId) void checkArrivals(o.wh, hearingWebHost.call).catch(() => undefined);
+      if (o !== null && storedRef.current?.id === openedId) void checkArrivals(o.wh, hearingWebHost.call, new Date(), openedId).catch(() => undefined);
     };
     run();
     const t = setInterval(run, ARRIVAL_INTERVAL_MS);
     return () => clearInterval(t);
   }, [hearingWebHost, openedId]);
   useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
+  // 開いていない世帯の届いた知らせ（0192 の追記 2026-11-18）: 起動したとき（保存の準備ができたとき）と決まった間隔で、保存した世帯の一覧から
+  // 受け付けている Web の依頼のある世帯だけをサーバーに確かめる。世帯は開かず、本体に依頼の欄だけを読んでもらう（一覧の更新日時が変わった世帯だけ。
+  // 開いた印を変えない）。結果は上の帯のベルに出す（世帯ファイルには置かない）
+  const peekCache = useRef<PeekCache>(new Map());
+  const [peekList, setPeekList] = useState<StoredHousehold[]>([]);
+  const storeReady = storeStatus?.state === "ready";
+  useEffect(() => {
+    const store = host?.store;
+    if (hearingWebHost === undefined || store?.peekHearing === undefined || !storeReady) return;
+    let busy = false;
+    const run = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const list = await store.list();
+        setPeekList(list);
+        const cur = storedRef.current;
+        await checkUnopened({ list, current: cur !== null && cur.sample === undefined ? cur.id : null, peek: (id) => store.peekHearing?.(id) ?? Promise.resolve([]), call: hearingWebHost.call, cache: peekCache.current });
+      } catch {
+        // 一覧を読めない: 次の確かめで取り直す
+      } finally {
+        busy = false;
+      }
+    };
+    void run();
+    const t = setInterval(() => void run(), ARRIVAL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [host, hearingWebHost, storeReady]);
 
   // 起動: 本体（Tauri）か、開発用のサーバー（ブラウザでの確認）か
   useEffect(() => {
@@ -2774,6 +2803,21 @@ export function App() {
       action: { label: "事務所の既定値", run: () => setOfficeSettingsOpen(true) },
       read: noticeLocal.read[n.key] !== undefined,
     })),
+    // Web のヒアリングの届いた知らせ（0192 の追記 2026-11-18）: まだ受け取っていない答え・書類のある依頼ごとに1件（開いていない世帯も）。受け取れば消える
+    ...hearingBellItems([...storedList, ...peekList], (hh, rid) => (opened !== null && hh === openedId ? webLog(opened.wh).some((e) => e.record.requestId === rid && accepting(e, new Date())) : peekedLive(peekCache.current, hh, rid, new Date()))).map(
+      (n): CenterItem => ({
+        key: n.key,
+        category: "household",
+        urgency: "normal",
+        date: null,
+        title: n.title,
+        body: n.body,
+        household: n.household,
+        receipts: [],
+        action: { label: "受け取る画面", run: () => openHearingRequest(n.householdId, n.requestId) },
+        read: noticeLocal.read[n.key] !== undefined,
+      }),
+    ),
     ...visibleFeed(parseFeed(feedText), { appVersion: APP_VERSION, receipts: noticeLocal.receipts }).map((n): CenterItem => {
       const target = n.screen;
       return {
@@ -2791,6 +2835,21 @@ export function App() {
     }),
   ];
   const readNotices = (keys: string[]) => updateLocal((st) => markRead(st, keys, localDate()));
+  /** ベルの届いた知らせの「受け取る画面を開く」: その世帯を開いて（開いていなければ）、事前ヒアリング・取り込むのその依頼の「受け取る」へ */
+  function openHearingRequest(householdId: string, requestId: string) {
+    const go = () => {
+      askFocus(requestId);
+      setFpOpen("imports");
+      setTab("input");
+      window.scrollTo({ top: 0 });
+    };
+    if (storedRef.current?.id === householdId && openedRef.current !== null) return go();
+    void guard(async () => {
+      const ok = await openStored(householdId);
+      if (ok) go();
+      return ok;
+    }, openMessage);
+  }
   // 重大なお知らせ（未読）は、上の帯の札でも出す。押すとお知らせの一覧でその1件を開く
   const criticalAlerts = centerItems
     .filter((i) => i.urgency === "critical" && !i.read)
