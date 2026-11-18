@@ -1305,7 +1305,9 @@ function devHost(): Plugin {
           return;
         }
         // 明細の取り込み（本体の statement_office・statement_learn・statement_open の代わり。0034）: 覚えた辞書と形はメモリの中だけ。
-        // 開くは FINANCIA_DEV_OPEN_STATEMENT（カンマ区切りのパス）か、架空の明細（statement/test/fixtures）を順に返す。statement/reset で最初に戻す
+        // 開くは FINANCIA_DEV_OPEN_STATEMENT（カンマ区切りのパス。「+」でつなぐと何枚か選んだことにする）か、架空の明細（statement/test/fixtures）を
+        // 順に返す。statement/reset で最初に戻す。文字認識（本体の statement_ocr の代わり）は、ビルドした crates/statement-ocr の ocr_page
+        // （FINANCIA_DEV_OCR_BIN。無ければ target/release/examples/ocr_page）に画像を標準入力で渡す（ファイルに書かない）
         const sm = /^statement\/([a-z]+)(?:\?|$)/.exec(path);
         if (sm !== null) {
           void (async () => {
@@ -1359,10 +1361,29 @@ function devHost(): Plugin {
               const env = process.env.FINANCIA_DEV_OPEN_STATEMENT ?? "";
               const fx = join(REPO_DIR, "statement", "test", "fixtures");
               const list = env !== "" ? env.split(",") : ["card-year-utf8bom.csv", "bank-utf8.csv", "card-statement.pdf", "app-utf8bom.csv"].map((f) => join(fx, f));
-              const f = list[devStatement.next++ % list.length] as string;
-              if (statSync(f).size > 10 * 1024 * 1024) return void ((res.statusCode = 400), res.end("E_IMPORT_TOO_LARGE"));
+              const files = (list[devStatement.next++ % list.length] as string).split("+");
+              if (files.some((f) => statSync(f).size > 10 * 1024 * 1024)) return void ((res.statusCode = 400), res.end("E_IMPORT_TOO_LARGE"));
+              // 本体の statement_open と同じ形（"STMF"・数・それぞれの長さ・中身）
+              const bodies = files.map((f) => readFileSync(f));
+              const head = Buffer.alloc(8 + bodies.length * 4);
+              head.write("STMF", 0, "latin1");
+              head.writeUInt32LE(bodies.length, 4);
+              bodies.forEach((b, i) => head.writeUInt32LE(b.length, 8 + i * 4));
               res.setHeader("content-type", "application/octet-stream");
-              return void res.end(readFileSync(f));
+              return void res.end(Buffer.concat([head, ...bodies]));
+            }
+            if (op === "ocr" && req.method === "POST") {
+              const body = await readBody(req);
+              const bin = process.env.FINANCIA_DEV_OCR_BIN ?? join(REPO_DIR, "target", "release", "examples", process.platform === "win32" ? "ocr_page.exe" : "ocr_page");
+              if (!existsSync(bin)) return void ((res.statusCode = 400), res.end("E_OCR_UNSUPPORTED"));
+              const child = execFile(bin, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
+                const out = err === null ? (JSON.parse(stdout) as { error?: string }) : { error: "E_OCR_FAILED" };
+                if (out.error !== undefined) return void ((res.statusCode = 400), res.end(out.error));
+                res.setHeader("content-type", "application/json; charset=utf-8");
+                res.end(stdout);
+              });
+              child.stdin?.end(body);
+              return;
             }
             res.statusCode = 404;
             res.end();

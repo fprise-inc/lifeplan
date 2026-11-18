@@ -265,7 +265,8 @@ export async function runIssueJob(job: IssueJob, ctx: IssueContext, office: Offi
   const origin: WebOrigin = { kind: "ai", at: record.issuedAt, connector: job.connector };
   const entry: WebLogEntry = { record, state: "issued", origin };
   const place = job.householdId !== null && ctx.opened !== null && ctx.opened.id === job.householdId && !ctx.opened.readOnly ? "open" : "office";
-  const est = estimateOf(wh, selection)?.std ?? null;
+  // お客さまの最初の画面・案内文と同じ数（見直しは前回の値に合わせて問いを飛ばすので、この世帯の数。0192 の追記 2026-11-17）
+  const est = estimateOf(wh, selection)?.shown ?? null;
   const count = selectedCount(selection);
   const log: AiIssueLog = { requestId: record.requestId, at: record.issuedAt, connector: job.connector, household: job.householdId === null ? "new" : "shared", customerNo: job.customerNumber, review, name: selection.name ?? "", selectedCount: count, seen: false };
   const where = job.householdId === null ? "世帯の決まっていない依頼として、アプリの「AI が発行した URL」に置きました（答えが届いたら、FP が新しい世帯を作るか、開いている世帯に取り込むかを選びます）" : "その世帯の「URL の依頼」に置きました（その世帯を開いていなければ、開いたときに移ります）";

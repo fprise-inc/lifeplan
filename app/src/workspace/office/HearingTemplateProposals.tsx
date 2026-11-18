@@ -1,6 +1,6 @@
 // AIからの Web のヒアリングのひな形の案（0222。接続口の propose_hearing_template）: 事務所の既定値の画面のいちばん上に、案ごとに名前・票・聞く項目・
-// 独自の質問・頼む書類・話題と AI の理由を出し、「ひな形として保存する」か「捨てる」を選ぶ。保存したときだけ事務所のひな形（hearingTemplates）に入る。
-// AI が書いた名前・独自の質問・話題・理由は信用しない文章として文字のまま出す（番号らしい所は書類の候補と同じ決まりで消してある）
+// 独自の質問・頼む書類と AI の理由を出し、「ひな形として保存する」か「捨てる」を選ぶ。保存したときだけ事務所のひな形（hearingTemplates）に入る。
+// AI が書いた名前・独自の質問・理由は信用しない文章として文字のまま出す（番号らしい所は書類の候補と同じ決まりで消してある）
 import type { AiHearingTemplateCandidate } from "../../engine/host.ts";
 import { readTemplateProposal } from "../hearing/aiHearing.ts";
 import { selectionSummary } from "../hearing/aiSelection.ts";
@@ -37,7 +37,7 @@ export function HearingTemplateProposals({ candidates, templates, onSave, onDisc
       <p class="pl-sub">URL で聞くときの「カスタム」に入る組み合わせの案です。「ひな形として保存する」を押したときだけ、事務所のひな形に入ります（{TEMPLATE_MAX}件まで）。</p>
       {candidates.map((c) => {
         const v = readTemplateProposal(c, templates, TEMPLATE_MAX);
-        const sum = v.selection === null ? null : (selectionSummary(v.selection) as { sheet: string; sections: { title: string; items: { label: string }[] }[]; documents: string[]; topics: string[] });
+        const sum = v.selection === null ? null : (selectionSummary(v.selection) as { sheet: string; sections: { title: string; items: { label: string }[] }[]; documents: string[] });
         return (
           <div class="os-code-cand" key={c.candidateId} role="group" aria-label="AIからの、ヒアリングのひな形の案" data-ai-hearing-template={c.candidateId}>
             <p class="os-code-cand-title">
@@ -52,7 +52,7 @@ export function HearingTemplateProposals({ candidates, templates, onSave, onDisc
             {sum !== null && v.selection !== null ? (
               <>
                 <p class="rp-note">
-                  {sum.sheet === "simple" ? "シンプル" : "詳細"}の票・聞く項目 {selectedCount(v.selection)}・書類: {sum.documents.length === 0 ? "なし" : sum.documents.join("・")}・話題 {sum.topics.length}
+                  {sum.sheet === "simple" ? "シンプル" : "詳細"}の票・聞く項目 {selectedCount(v.selection)}・書類: {sum.documents.length === 0 ? "なし" : sum.documents.join("・")}
                 </p>
                 <ul class="os-hearing-items">
                   {sum.sections.map((s) => (

@@ -6566,15 +6566,13 @@ async fn hearing_tools_check_the_selection_and_follow_the_share_rules() {
         l.push(job);
         Ok(json!({ "ok": true, "requestId": format!("R-TEST{:02}", l.len()), "expiresAt": "2026-12-17T00:00:00Z", "selectedCount": 3, "screens": 6, "minutes": 3, "household": "new", "review": false, "masked": 0, "url": "https://relay.test/h/#1.TEST-ONLY.KEY", "invitation": "〇〇様 https://relay.test/h/#1.TEST-ONLY.KEY", "message": "URL を発行しました" }))
     })));
-    reg.set_office_hearing(Some(Arc::new(|| {
-        Some(json!({ "templates": [], "topics": ["教育費", "老後のお金・年金"] }))
-    })));
+    reg.set_office_hearing(Some(Arc::new(|| Some(json!({ "templates": [] })))));
     let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
     let o = call_ok(&c, "get_hearing_options", json!({})).await;
     assert_eq!(o["app"]["status"], "running");
-    assert_eq!(o["topics"]["office"], json!(["教育費", "老後のお金・年金"]));
+    assert!(o.get("topics").is_none());
 
-    // (a) 世帯の決まっていない依頼: URL と案内文が返る。話題は事務所の既定値。世帯は付かない
+    // (a) 世帯の決まっていない依頼: URL と案内文が返る。話題は持たない（0192 の追記）。世帯は付かない
     let r = call_ok(
         &c,
         "issue_hearing_url",
@@ -6594,10 +6592,7 @@ async fn hearing_tools_check_the_selection_and_follow_the_share_rules() {
         assert!(l[0].household.is_none());
         assert_eq!(l[0].connector.as_deref(), Some("test-ai 1.2"));
         assert_eq!(l[0].issue["purpose"], "面談の前に");
-        assert_eq!(
-            l[0].issue["selection"]["topics"],
-            json!(["教育費", "老後のお金・年金"])
-        );
+        assert!(l[0].issue["selection"].get("topics").is_none());
         assert_eq!(
             l[0].issue["selection"]["documents"][0]["title"],
             "源泉徴収票（ご本人）"

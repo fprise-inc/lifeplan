@@ -1,0 +1,24 @@
+[package]
+name = "statement-ocr"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "明細の写真・スクショの文字を PC の中で読む（OS の文字認識。macOS は Vision、Windows は Windows.Media.Ocr。0034 の段階3の試し）"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+# macOS: Vision（OS に入っている文字認識）。部品は objc2 の Vision の束（Zlib OR Apache-2.0 OR MIT）。使う型だけを有効にする
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", default-features = false, features = ["std"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSData", "NSDictionary", "NSString", "NSError", "NSObject", "NSEnumerator"] }
+objc2-vision = { version = "0.3", default-features = false, features = ["std", "VNRequest", "VNRecognizeTextRequest", "VNRequestHandler", "VNObservation", "VNTypes", "objc2-core-foundation"] }
+objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFCGTypes"] }
+
+# Windows: Windows.Media.Ocr（OS に入っている文字認識。日本語は OS の言語の機能が要る）。部品は windows（MIT OR Apache-2.0）
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", default-features = false, features = ["std", "Foundation", "Foundation_Collections", "Globalization", "Graphics_Imaging", "Media_Ocr", "Storage_Streams"] }
+
+[dev-dependencies]
+serde_json = "1"

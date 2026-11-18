@@ -4,7 +4,7 @@
 import type { SheetDefinition } from "../../../../hearing/src/definition.ts";
 import { OFFICIAL_SHEETS } from "../../../../hearing/src/sheets.ts";
 import { DOCUMENT_TEMPLATES, OWNER_LABEL, templateOf, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
-import { CUSTOM_PREFIX, DEFAULT_TOPICS, selectionFromSheet, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
+import { CONSULT_KEY, CUSTOM_PREFIX, selectionFromSheet, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 
 /** ひな形（0192）: シンプル（basic）・詳細（full）・見直し（full で今の値を確かめてもらう）。自分で選んだ・保存した組み合わせは「カスタム」 */
 export type WebTemplateKind = "simple" | "detail" | "review";
@@ -87,19 +87,27 @@ export function documentFromTemplate(sel: WebSelection, kind: string, owner?: st
 }
 
 /**
- * ひな形から始める選び方（世帯に依らない部品）。見直しは、has（今の世帯に値のある項目か）が true の項目を「確かめてもらう」に。シンプルはご両親を外す。
- * ご相談したいことの話題は、事務所の既定値か標準の話題
+ * どのひな形でも既定で外す項目（0192 の追記 2026-11-17）: これからの予定（FP が具体的な項目を選んで聞く。カスタムで選べば聞ける）と、
+ * ご相談したいこと（なぜライフプランを作るかは FP が先に説明する。お客さまの画面にも出さない）
  */
-export function templateSelectionOf(kind: WebTemplateKind, has: (key: string) => boolean, topics: readonly string[] = DEFAULT_TOPICS): WebSelection {
+export const TEMPLATE_OFF_ITEMS: ReadonlySet<string> = new Set(["hs.plan.events", CONSULT_KEY]);
+
+/** FP の画面の項目の一覧に出さない項目（ご相談したいことは、お客さまの画面に出さないので選べなくした。前の依頼の答えは読む） */
+export const HIDDEN_ITEMS: ReadonlySet<string> = new Set([CONSULT_KEY]);
+
+/**
+ * ひな形から始める選び方（世帯に依らない部品）。見直しは、has（今の世帯に値のある項目か）が true の項目を「確かめてもらう」に。
+ * シンプルはご両親を外す。どれも TEMPLATE_OFF_ITEMS を外す（0192 の追記 2026-11-17）
+ */
+export function templateSelectionOf(kind: WebTemplateKind, has: (key: string) => boolean): WebSelection {
   const def = baseSheet(kind);
   const label = WEB_TEMPLATES.find((t) => t.value === kind)?.label ?? kind;
-  const extra = { topics: [...topics], name: label };
-  if (kind === "simple") {
-    const s = selectionFromSheet(def);
-    return { ...s, sections: s.sections.filter((x) => !SIMPLE_OFF_SECTIONS.has(x.id)), ...extra };
-  }
-  if (kind !== "review") return { ...selectionFromSheet(def), ...extra };
-  return { ...selectionFromSheet(def, (k) => (has(k) ? "confirm" : "ask")), ...extra };
+  const s = selectionFromSheet(def, (k) => (kind === "review" && has(k) ? "confirm" : "ask"));
+  const sections = s.sections
+    .filter((x) => kind !== "simple" || !SIMPLE_OFF_SECTIONS.has(x.id))
+    .map((x) => ({ ...x, items: x.items.filter((i) => !TEMPLATE_OFF_ITEMS.has(i.key)) }))
+    .filter((x) => x.items.length > 0);
+  return { ...s, sections, name: label };
 }
 
 // ---- 事務所のひな形（事務所の既定値 0073 の hearingTemplates） ----

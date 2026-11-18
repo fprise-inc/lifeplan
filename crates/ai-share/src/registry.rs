@@ -238,7 +238,7 @@ impl ShareRegistry {
             .unwrap_or_else(|p| p.into_inner()) = issuer;
     }
 
-    /// 事務所の Web のヒアリングのひな形と話題を読む所を入れる（アプリ本体が起動したときに入れる。0222）
+    /// 事務所の Web のヒアリングのひな形を読む所を入れる（アプリ本体が起動したときに入れる。0222）
     pub fn set_office_hearing(&self, source: Option<OfficeHearingSource>) {
         *self
             .office_hearing
@@ -806,7 +806,7 @@ impl ShareRegistry {
         .to_string())
     }
 
-    /// 事務所の Web のヒアリングのひな形と話題（読むだけ。0222）。読む所が無い・読めないときは `available: false`。世帯を渡していなくてよく、
+    /// 事務所の Web のヒアリングのひな形（読むだけ。0222）。読む所が無い・読めないときは `available: false`。世帯を渡していなくてよく、
     /// 世帯の中身ではないので AIに渡した記録には残さない
     pub fn handle_office_hearing(&self) -> Result<String, Refusal> {
         let source = self
@@ -818,9 +818,8 @@ impl ShareRegistry {
             Some(v) => json!({
                 "available": true,
                 "templates": v.get("templates").cloned().unwrap_or_else(|| json!([])),
-                "topics": v.get("topics").cloned().unwrap_or(Value::Null),
             }),
-            None => json!({ "available": false, "templates": [], "topics": null }),
+            None => json!({ "available": false, "templates": [] }),
         }
         .to_string())
     }

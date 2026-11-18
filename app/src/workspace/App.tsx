@@ -61,7 +61,7 @@ import { settleBeforeLeave, settleInput } from "./input/pendingInput.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { withOfficeSources } from "./input/officeSource.ts";
 import { applyLook, brandOf, EMPTY_BRANDING, readBranding, resolveMode, setBrandingNow, usesStandardColor, type Appearance, type OfficeBranding } from "./office/branding.ts";
-import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withHearingTemplates, withHearingTopics, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withHearingTemplates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { checkBase } from "../presentation/theme.ts";
 import { keepWebLog } from "./hearing/web.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
@@ -3271,7 +3271,7 @@ export function App() {
                   ) : null}
                 </>
               }
-              hearingNote={((p) => (host?.hearingWeb === undefined || (p.arrived === 0 && p.toImport === 0) ? null : { text: p.arrived > 0 ? `URL で聞いた回答が届いています（${p.arrived}件）` : `受け取った回答の取り込みがまだです（${p.toImport}件）`, onOpen: () => setFpOpen("imports") }))(pendingCount(opened.wh))}
+              hearingNote={((p) => (host?.hearingWeb === undefined || (p.arrived === 0 && p.toImport === 0) ? null : { text: p.arrived > 0 ? `URL の事前ヒアリングの回答が届いています（${p.arrived}件）` : `受け取った回答の取り込みがまだです（${p.toImport}件）`, onOpen: () => setFpOpen("imports") }))(pendingCount(opened.wh))}
               importsOpen={fpOpen === "imports"}
               onImportsOpen={(o) => setFpOpen(o ? "imports" : null)}
               {...(host !== null
@@ -3296,12 +3296,6 @@ export function App() {
                                   },
                                   persisted: storedInfo !== null && !storedInfo.readOnly,
                                   saveNow,
-                                  topics: officeSettings.hearingTopics ?? null,
-                                  onTopics: async (list) => {
-                                    const next = withHearingTopics(officeSettingsRef.current, list);
-                                    await host.office.putDefaults(next as unknown as Record<string, unknown>);
-                                    putOfficeSettings(next);
-                                  },
                                 },
                               }
                             : {})}

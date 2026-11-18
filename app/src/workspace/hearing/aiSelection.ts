@@ -11,19 +11,15 @@ import { DOCUMENT_TEMPLATES, OWNER_LABEL, templateOf, type DocumentOwner } from 
 import { estimate } from "../../../../hearing/src/web/flow.ts";
 import {
   checkSelection,
-  CONSULT_KEY,
   CUSTOM_ANSWER_MAX,
   CUSTOM_CHOICE_LABEL_MAX,
   CUSTOM_CHOICES_MAX,
   CUSTOM_HELP_MAX,
   CUSTOM_LABEL_MAX,
   CUSTOM_MAX,
-  DEFAULT_TOPICS,
   FP_SECTION,
   packetBody,
   selectableItems,
-  TOPIC_LABEL_MAX,
-  TOPICS_MAX,
   type CustomAnswer,
   type CustomQuestion,
   type RequestedDocument,
@@ -32,7 +28,7 @@ import {
   type WebSelection,
 } from "../../../../hearing/src/web/packet.ts";
 import { DOCUMENT_LIMITS } from "../../../../hearing/src/web/documents.ts";
-import { baseSheet, CUSTOM_TEMPLATE, selectedCount, sheetOf, SIMPLE_OFF_SECTIONS, templateSelectionOf, WEB_TEMPLATES, withOwner, type WebTemplateKind } from "./selection.ts";
+import { baseSheet, CUSTOM_TEMPLATE, HIDDEN_ITEMS, selectedCount, sheetOf, SIMPLE_OFF_SECTIONS, TEMPLATE_OFF_ITEMS, templateSelectionOf, WEB_TEMPLATES, withOwner, type WebTemplateKind } from "./selection.ts";
 
 /** AI が呼ぶときの票の名前（FP の画面のひな形の名前にそろえる: シンプル＝簡易の票 basic・詳細＝詳細の票 full） */
 export type AiSheet = "simple" | "detail";
@@ -101,8 +97,6 @@ export interface HearingOptionsArgs {
   filled?: readonly string[] | null;
   /** 事務所のひな形（アプリが起動していれば。無ければ null） */
   officeTemplates?: readonly { name: string; selection: WebSelection }[] | null;
-  /** 事務所の既定の話題（null は標準の話題・undefined はアプリが起動していない） */
-  officeTopics?: readonly string[] | null;
 }
 
 /** 数え方の説明（FP の画面・案内文と同じ） */
@@ -124,7 +118,7 @@ export function hearingOptions(a: HearingOptionsArgs = {}): Record<string, unkno
         ...(s === "simple" && SIMPLE_OFF_SECTIONS.has(sec.id) ? { offInTemplate: true } : {}),
         items: sec.groups
           .flatMap((g) => g.items.map((k) => ({ k, axis: g.axis })))
-          .filter(({ k }) => ok.has(k) && items.get(k)?.rangeOf === undefined)
+          .filter(({ k }) => ok.has(k) && !HIDDEN_ITEMS.has(k) && items.get(k)?.rangeOf === undefined)
           .map(({ k, axis }) => {
             const it = items.get(k) as SheetItem;
             const axisLabels = axis === undefined ? undefined : def.axes.find((x) => x.id === axis)?.labels;
@@ -134,7 +128,7 @@ export function hearingOptions(a: HearingOptionsArgs = {}): Record<string, unkno
               shape: itemShape(it),
               ...(ranges.has(k) ? { range: true } : {}),
               ...(axis !== undefined ? { repeat: axis, repeatLabels: axisLabels } : {}),
-              ...(k === CONSULT_KEY ? { topics: true } : {}),
+              ...(TEMPLATE_OFF_ITEMS.has(k) ? { offInTemplate: true } : {}),
               ...(filled !== null ? { filled: filled.has(k) } : {}),
             };
           }),
@@ -155,7 +149,7 @@ export function hearingOptions(a: HearingOptionsArgs = {}): Record<string, unkno
     const needs = t === "review" || t === "missing";
     let counts: Record<string, unknown> | null = null;
     if (!needs || filled !== null) {
-      const sel = aiSelection({ template: t }, { filled: filled === null ? null : [...filled], officeTemplates: null, officeTopics: null });
+      const sel = aiSelection({ template: t }, { filled: filled === null ? null : [...filled], officeTemplates: null });
       if (sel.selection !== null) counts = { selectedCount: sel.counts?.selectedCount, screens: sel.counts?.screens, minutes: sel.counts?.minutes };
     }
     return { id: t, label, sheet: t === "simple" ? "simple" : "detail", needsShare: needs, note, ...(counts !== null ? counts : {}) };
@@ -175,7 +169,6 @@ export function hearingOptions(a: HearingOptionsArgs = {}): Record<string, unkno
     templates: AI_TEMPLATES.map(tmpl),
     officeTemplates: office,
     documents: DOCUMENT_TEMPLATES.map((d) => ({ kind: d.kind, title: d.title, purpose: d.purpose, where: d.where, owner: d.whose === "person" ? "required" : d.whose === "either" ? "optional" : "none", covers: d.covers })),
-    topics: { standard: DEFAULT_TOPICS, office: a.officeTopics === undefined ? "unknown" : a.officeTopics, max: TOPICS_MAX, labelMax: TOPIC_LABEL_MAX },
     custom: { max: CUSTOM_MAX, labelMax: CUSTOM_LABEL_MAX, helpMax: CUSTOM_HELP_MAX, answerMax: CUSTOM_ANSWER_MAX, answers: ["text", "yesNo", "choice"], choicesMax: CUSTOM_CHOICES_MAX, choiceLabelMax: CUSTOM_CHOICE_LABEL_MAX },
     limits: { documents: DOCUMENT_LIMITS.documents, nameMax: AI_NAME_MAX, purposeMax: AI_PURPOSE_MAX, documentTitleMax: DOC_TITLE_MAX, documentTextMax: DOC_TEXT_MAX },
     counting: COUNTING_NOTE,
@@ -211,8 +204,6 @@ export interface AiSelectionArgs {
   items?: AiItemArg[];
   custom?: AiCustomArg[];
   documents?: AiDocumentArg[];
-  /** ご相談したいことの話題（省くと事務所の既定値か標準の話題。[] は話題を出さない） */
-  topics?: string[];
   name?: string;
 }
 
@@ -220,7 +211,6 @@ export interface AiSelectionContext {
   /** 渡された世帯の、今の値のある項目キー（世帯が無ければ null） */
   filled: readonly string[] | null;
   officeTemplates: readonly { name: string; selection: WebSelection }[] | null;
-  officeTopics: readonly string[] | null;
 }
 
 export interface AiSelectionResult {
@@ -231,7 +221,7 @@ export interface AiSelectionResult {
   review: boolean;
 }
 
-const ARG_KEYS = ["template", "sheet", "items", "custom", "documents", "topics", "name"] as const;
+const ARG_KEYS = ["template", "sheet", "items", "custom", "documents", "name"] as const;
 
 /** 独自の質問のキー（並びと文から決める。乱数を使わない: 同じ選び方なら同じキー） */
 export function aiCustomKey(index: number, label: string): string {
@@ -262,7 +252,6 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
     problems.push(`sheet ${show(a.sheet)}は選べません${near(String(a.sheet), AI_SHEETS)}。simple（シンプル）か detail（詳細）です`);
     return fail();
   }
-  const topicsBase = ctx.officeTopics ?? DEFAULT_TOPICS;
   const t = a.template;
   if (t !== undefined) {
     const office = ctx.officeTemplates?.find((x) => x.name === t || `${CUSTOM_TEMPLATE}: ${x.name}` === t) ?? null;
@@ -279,12 +268,12 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
         return fail();
       }
       if (kind === "missing") {
-        const s = templateSelectionOf("detail", () => false, topicsBase);
+        const s = templateSelectionOf("detail", () => false);
         // 値のある金額の項目の「だいたいの範囲」も一緒に外す
         const of = new Map(sheetDefOf("detail").items.filter((i) => i.rangeOf !== undefined).map((i) => [i.key, i.rangeOf as string]));
         const has = (k: string) => (filled as Set<string>).has(k) || (filled as Set<string>).has(of.get(k) ?? "");
         start = { ...s, sections: s.sections.map((x) => ({ ...x, items: x.items.filter((i) => !has(i.key)) })).filter((x) => x.items.length > 0), name: "足りない所だけ（詳細から）" };
-      } else start = templateSelectionOf(kind === "review" ? "review" : kindOf(sh), (k) => filled?.has(k) === true, topicsBase);
+      } else start = templateSelectionOf(kind === "review" ? "review" : kindOf(sh), (k) => filled?.has(k) === true);
     } else if (office !== null) {
       const sh = aiSheetOf(office.selection.base.sheetId);
       if (sh === null || sheetOf(office.selection) === undefined) {
@@ -296,7 +285,10 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
         return fail();
       }
       sheet = sh;
-      start = { ...office.selection, name: `${CUSTOM_TEMPLATE}: ${office.name}` };
+      // 前に保存したひな形の話題は使わない（話題は 2026-11-17 にやめた。0192 の追記）
+      const { topics: _old, ...rest } = office.selection;
+      void _old;
+      start = { ...rest, name: `${CUSTOM_TEMPLATE}: ${office.name}` };
     } else {
       const names = [...AI_TEMPLATES, ...(ctx.officeTemplates ?? []).map((x) => x.name)];
       problems.push(`template ${show(t)}は選べません${near(t, names)}。選べるのは ${AI_TEMPLATES.join("・")}${(ctx.officeTemplates ?? []).length > 0 ? ` と事務所のひな形（${(ctx.officeTemplates ?? []).map((x) => x.name).join("・")}）` : ""}です`);
@@ -307,7 +299,7 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
   const def = sheetDefOf(sheet);
   // 事務所のひな形が前の版の票で作られていれば、その版のまま使う（FP の画面と同じ）
   const useDef = start !== null ? (sheetOf(start) ?? def) : def;
-  start ??= templateSelectionOf(kindOf(sheet), () => false, topicsBase);
+  start ??= templateSelectionOf(kindOf(sheet), () => false);
 
   // 項目（書けば置き換える）
   let sections: SelectedSection[] = start.sections.filter((s) => s.id !== FP_SECTION.id).map((s) => ({ ...s, items: s.items.filter((i) => !i.key.startsWith("ext.office.")) }));
@@ -317,7 +309,8 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
       problems.push("items は項目の並び（[{ key, mode?, range? }]）で書いてください");
       return fail();
     }
-    const ok = new Set(selectableItems(useDef).map((i) => i.key));
+    // ご相談したいことは選べない（お客さまの画面に出さない。0192 の追記 2026-11-17）
+    const ok = new Set(selectableItems(useDef).map((i) => i.key).filter((k) => !HIDDEN_ITEMS.has(k)));
     const items = new Map(useDef.items.map((i) => [i.key, i]));
     const ranges = rangeMap(useDef);
     const plain = [...ok].filter((k) => items.get(k)?.rangeOf === undefined);
@@ -340,6 +333,10 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
       const it = items.get(key);
       if (it?.rangeOf !== undefined) {
         problems.push(`${at}.key ${show(key)}は「だいたいの範囲」の項目です。金額の項目 ${it.rangeOf} に range: true を書いてください（範囲は金額の項目と一緒に選びます）`);
+        return;
+      }
+      if (HIDDEN_ITEMS.has(key)) {
+        problems.push(`${at}.key ${show(key)}は選べる項目にありません（ご相談したいことは、お客さまの画面に出さないので選べません）`);
         return;
       }
       if (!ok.has(key)) {
@@ -495,23 +492,6 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
     });
   }
 
-  // 話題（省くと事務所の既定値か標準）
-  let topics: string[] = [...(start.topics ?? topicsBase)];
-  if (a.topics !== undefined) {
-    if (!Array.isArray(a.topics)) {
-      problems.push("topics は話題の言葉の並びで書いてください（[] は話題を出さない）");
-      return fail();
-    }
-    if (a.topics.length > TOPICS_MAX) problems.push(`話題は${TOPICS_MAX}までです（${a.topics.length}）`);
-    topics = [];
-    a.topics.slice(0, TOPICS_MAX).forEach((x, n) => {
-      const p = textProblem(x, `topics[${n}]`, TOPIC_LABEL_MAX);
-      if (p !== null) problems.push(p);
-      else if (topics.includes((x as string).trim())) problems.push(`topics[${n}] ${show(x)}が2回あります`);
-      else topics.push((x as string).trim());
-    });
-  }
-
   // 名前
   let name = start.name ?? CUSTOM_TEMPLATE;
   if (a.items !== undefined || a.custom !== undefined) name = t === undefined ? `${CUSTOM_TEMPLATE}（AI）` : `${CUSTOM_TEMPLATE}（${(start.name ?? "").replace(`${CUSTOM_TEMPLATE}: `, "")}から）`;
@@ -522,7 +502,7 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
   }
   if (problems.length > 0) return fail();
 
-  const sel: WebSelection = { base: { sheetId: useDef.sheetId, version: useDef.version }, sections, custom, documents, topics, name };
+  const sel: WebSelection = { base: { sheetId: useDef.sheetId, version: useDef.version }, sections, custom, documents, name };
   const errs = checkSelection(useDef, sel);
   if (errs.length > 0) {
     problems.push(...errs);
@@ -558,7 +538,6 @@ export function selectionSummary(sel: WebSelection): Record<string, unknown> {
       items: s.items.filter((i) => items.get(i.key)?.rangeOf === undefined).map((i) => ({ key: i.key, label: sel.custom.find((c) => c.key === i.key)?.label ?? items.get(i.key)?.label ?? i.key, ...(i.mode === "confirm" ? { mode: "confirm" } : {}) })),
     })),
     documents: sel.documents.map((d) => d.title),
-    topics: sel.topics ?? [],
   };
 }
 

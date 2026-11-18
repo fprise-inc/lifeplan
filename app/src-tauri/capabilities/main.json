@@ -50,6 +50,7 @@
     "allow-statement-open",
     "allow-statement-sheet-save",
     "allow-statement-sheet-open",
+    "allow-statement-ocr",
     "allow-ai-status",
     "allow-ai-set-enabled",
     "allow-ai-setup-copy",

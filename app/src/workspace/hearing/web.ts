@@ -7,6 +7,9 @@
 // - 期限は30日の決め打ち。延長は押した日から30日（作った日から90日まで）
 // - ひな形はシンプル・詳細・見直しと、カスタム（自分で選んだ・保存した組み合わせ）。シンプルはご両親を既定で外す（0192）
 // - 届いたかは、世帯を開いている間に決まった間隔で確かめ（届いた知らせ）、アプリを開いている間は覚える（世帯ファイルには置かない。0192）
+// - 0192 の追記（2026-11-17）: ご相談したいことの話題はやめた（新しい選び方に置かない。前の依頼の話題は読む）。ご相談したいこと・これからの予定は
+//   ひな形の既定から外した（カスタムで選べる）。数の目安は、どのひな形も夫婦と子2人で数え、この世帯の数を別に添える。外部 AI の同意（任意）は
+//   発行のときに出さないこともできる（問いにだけ効く。依頼の記録には置かない）。依頼の一覧の行の形（rowMode）・書類待ち（waitingDocuments）
 import { importAnswers, requestIdFrom, type SheetDefinition } from "../../../../hearing/src/index.ts";
 import { baseSheet, newCustomKey, nextDocId, ownerFrom, templateSelectionOf, withOwner, type WebTemplateKind } from "./selection.ts";
 import { axisOf } from "../../../../hearing/src/definition.ts";
@@ -16,7 +19,7 @@ import { b64u, fromB64u } from "../../../../hearing/src/web/b64.ts";
 import { docForCheck, HIDE_NUMBERS, MIME_EXT, templateOf, type DocumentMime } from "../../../../hearing/src/web/documents.ts";
 import { extendRequest, extendTarget, filledOf, issueRequest, receive, removeReceived, type WebRequestRecord } from "../../../../hearing/src/web/fp.ts";
 import { draftKey, estimate, fieldAnswered, gateOptions, initialDraft, screenFields, screenGates, screens, type Draft, type DraftAnswer, type DraftDocument } from "../../../../hearing/src/web/flow.ts";
-import { buildPacket, checkSelection, CONSULT_KEY, DEFAULT_TOPICS, documentCovers, FILLED_ON, FP_SECTION, GATE_IDS, importDefinition, packetBody, TOPIC_LABEL_MAX, TOPICS_MAX, type CustomQuestion, type DocumentAnswer, type GateAnswers, type GateId, type OfficeFace, type QuestionsPacket, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
+import { buildPacket, checkSelection, CONSULT_KEY, documentCovers, FILLED_ON, FP_SECTION, GATE_IDS, importDefinition, packetBody, TOPIC_LABEL_MAX, TOPICS_MAX, type CustomQuestion, type DocumentAnswer, type GateAnswers, type GateId, type OfficeFace, type QuestionsPacket, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 import { relay, RELAY_LIMITS, type RelayTransport } from "../../../../hearing/src/web/protocol.ts";
 import type { Answer } from "../../../../hearing/src/answers.ts";
 import type { DocRequest } from "../input/docRequests.ts";
@@ -128,6 +131,37 @@ export function statusOf(e: WebLogEntry, now: Date, answered = false, wh?: Worki
 
 export const STATUS_TEXT: Readonly<Record<WebStatus, string>> = { issued: "発行済み", answered: "回答あり", received: "受け取り済み", imported: "取り込み済み", undone: "受け取り済み（取り込みを元に戻しました）", expired: "期限切れ", cancelled: "取り消し" };
 
+/**
+ * 依頼の一覧の行の形（0192 の追記 2026-11-17）:
+ * - waiting: 届く前（届いたかを確かめる・延長・案内文をコピー・取り消す）
+ * - arrived: 回答が届いた（受け取る・取り消すだけ。受け取ると、そのまま取り込みの候補の画面へ）
+ * - toImport: 受け取って取り込んでいない（取り込む）
+ * - done: 取り込み済み（1行にたたむ。書類待ちがあれば、期限まで書類待ちの行を出す）
+ * - closed: 取り消し・期限切れ（答えなし。1行にたたむ）
+ */
+export type RowMode = "waiting" | "arrived" | "toImport" | "done" | "closed";
+
+export function rowMode(e: WebLogEntry, now: Date, arrival: Arrival | undefined, wh?: WorkingHousehold): RowMode {
+  const st = statusOf(e, now, arrival?.submitted === true, wh);
+  if (st === "imported") return "done";
+  if (st === "received" || st === "undone") return "toImport";
+  if (st === "cancelled" || st === "expired") return "closed";
+  return st === "answered" || arrival?.answers === true ? "arrived" : "waiting";
+}
+
+/**
+ * 書類待ち: 答えは届いたが、お客さまが「あとで送る」にした（または何も選ばなかった）書類で、まだ1回も届いていないもの。受け付けている
+ * （期限の中・取り消していない）間だけ。取り込み済みの行も、これがあれば期限まで書類待ちとして残す（書類が届いたことが分かるように）
+ */
+export function waitingDocuments(e: WebLogEntry, now: Date): RequestedDocument[] {
+  if (e.received === undefined || !accepting(e, now)) return [];
+  const got = new Set([...(e.files ?? []).map((f) => f.docId), ...(e.batches ?? []).flatMap((b) => b.documents.filter((x) => x.files > 0).map((x) => x.id))]);
+  return e.record.selection.documents.filter((d) => {
+    const st = e.received?.documents.find((x) => x.id === d.id)?.status ?? "blank";
+    return (st === "later" || st === "blank") && !got.has(d.id);
+  });
+}
+
 /** お客さまが送った日時の言葉（例: 11月6日 22:15） */
 export function sentAtText(iso: string): string {
   const d = new Date(iso);
@@ -147,13 +181,16 @@ export function prefillOf(wh: WorkingHousehold, def: SheetDefinition): Answer[] 
 }
 
 /**
- * ひな形から始める選び方（見直しは、今の世帯に値のある項目を「確かめてもらう」に。シンプルはご両親を外す）。
- * ご相談したいことの話題は、事務所の既定値（topics）か標準の話題
+ * どのひな形でも既定で外す項目（0192 の追記 2026-11-17）: これからの予定（FP が具体的な項目を選んで聞く。カスタムで選べば聞ける）と、
+ * ご相談したいこと（なぜライフプランを作るかは FP が先に説明する。お客さまの画面にも出さない）
  */
-export function templateSelection(kind: WebTemplateKind, wh: WorkingHousehold, topics: readonly string[] = DEFAULT_TOPICS): WebSelection {
-  if (kind !== "review") return templateSelectionOf(kind, () => false, topics);
+export { HIDDEN_ITEMS, TEMPLATE_OFF_ITEMS } from "./selection.ts";
+
+/** ひな形から始める選び方（見直しは、今の世帯に値のある項目を「確かめてもらう」に。シンプルはご両親を外す。どれも TEMPLATE_OFF_ITEMS を外す） */
+export function templateSelection(kind: WebTemplateKind, wh: WorkingHousehold): WebSelection {
+  if (kind !== "review") return templateSelectionOf(kind, () => false);
   const has = new Set(prefillOf(wh, baseSheet(kind)).filter((a) => a.status !== "blank").map((a) => a.key));
-  return templateSelectionOf(kind, (k) => has.has(k), topics);
+  return templateSelectionOf(kind, (k) => has.has(k));
 }
 
 /** 依頼の一覧に出すひな形の名前（前の版の依頼は名前を持たないので、元のシートと聞き方から） */
@@ -177,21 +214,32 @@ export function householdShape(wh: WorkingHousehold): string | null {
 }
 
 /**
- * お客さまの画面の数と所要時間の目安（0192。お客さまの最初の画面・案内文と同じ数え方 estimate）。std は夫婦と子2人で数えた数（お客さまの
- * 最初の画面に出る数）、own は今の世帯の人数で数えた数（本人だけの新しい世帯は null）。選び方に問題があれば null
+ * お客さまの画面の数と所要時間の目安（0192。お客さまの最初の画面・案内文と同じ数え方 estimate）。
+ * - std: 夫婦と子2人・住宅ローン1本・保険2件で数えた数。どのひな形も同じ基準（見直しも前回の値を載せずに数える。0192 の追記 2026-11-17。
+ *   前は見直しだけ開いている世帯の前回の値で数え、同じ項目の数で時間が違って見えた）
+ * - own: 今の世帯の人数（見直しは前回の値も）で数えた数（本人だけの新しい世帯は null）
+ * - shown: お客さまの最初の画面と案内文に出る数（見直しは前回の値に合わせて問いを飛ばすので、この世帯の数。ほかは std）
+ * 選び方に問題があれば null
  */
-export function estimateOf(wh: WorkingHousehold | null, sel: WebSelection): { std: Count; own: Count | null; withoutParents: Count | null } | null {
+export function estimateOf(wh: WorkingHousehold | null, sel: WebSelection): { std: Count; own: Count | null; shown: Count; withoutParents: Count | null } | null {
   const def = sheetOf(sel);
   if (def === undefined || checkSelection(def, sel).length > 0) return null;
-  // 確かめてもらう項目の前回の値も載せる（お客さまの画面は、前回の値に合わせて問いを飛ばすので、同じ問いで数える）
+  const office = { name: "", color: null, purpose: "", privacyContact: "" };
   const confirm = sel.sections.some((s) => s.items.some((i) => i.mode === "confirm"));
-  const p = packetBody(def, sel, { requestId: "R-COUNT1", expiresAt: "2099-01-01T00:00:00Z", office: { name: "", color: null, purpose: "", privacyContact: "" }, ...(confirm && wh !== null ? { prefill: prefillOf(wh, def) } : {}) });
+  // 基準の数: 確かめてもらう項目も空欄から聞くとして数える（前回の値で問いを飛ばさない）
+  const plain = confirm ? { ...sel, sections: sel.sections.map((s) => ({ ...s, items: s.items.map((i) => ({ ...i, mode: "ask" as const })) })) } : sel;
+  const pStd = packetBody(def, plain, { requestId: "R-COUNT1", expiresAt: "2099-01-01T00:00:00Z", office });
+  // この世帯の数: 確かめてもらう項目の前回の値も載せる（お客さまの画面は、前回の値に合わせて問いを飛ばすので、同じ問いで数える）
+  const pre = confirm && wh !== null ? prefillOf(wh, def) : [];
+  const pOwn = pre.length > 0 ? packetBody(def, sel, { requestId: "R-COUNT1", expiresAt: "2099-01-01T00:00:00Z", office, prefill: pre }) : pStd;
+  const std = estimate(pStd);
   const gates = wh === null || householdShape(wh) === null ? null : householdGates(wh);
-  const own = gates === null ? null : estimate(p, gates);
+  const own = gates === null ? (pOwn !== pStd ? estimate(pOwn) : null) : estimate(pOwn, gates);
+  const shown = pOwn !== pStd ? estimate(pOwn) : std;
   // ご両親を聞くとき、お客さまが「ご両親のことは答えない」を選んだときの数（答えで変わる幅。0192）
-  const asked = p.items.some((i) => i.axis?.id === "parent");
-  const without = asked ? estimate(p, { ...(gates ?? {}), parent: 0 }) : null;
-  return { std: estimate(p), own, withoutParents: without !== null && without.screens !== (own ?? estimate(p)).screens ? without : null };
+  const asked = pStd.items.some((i) => i.axis?.id === "parent");
+  const without = asked ? estimate(pOwn, { ...(gates ?? {}), parent: 0 }) : null;
+  return { std, own, shown, withoutParents: without !== null && without.screens !== (own ?? std).screens ? without : null };
 }
 
 /** 画面の数と所要時間 */
@@ -215,9 +263,9 @@ export function filledCount(wh: WorkingHousehold): number {
   return prefillOf(wh, baseSheet("detail")).filter((a) => a.status !== "blank").length;
 }
 
-// ---- ご相談したいことの話題（0192） ----
+// ---- ご相談したいことの話題（0192。2026-11-17 にやめた。前に保存した事務所の既定値を読んで書き戻すためだけに残す） ----
 
-/** 話題の一覧を読む（事務所の既定値。読めない・空なら null＝標準の話題） */
+/** 話題の一覧を読む（事務所の既定値。読めない・空なら null） */
 export function readHearingTopics(v: unknown): string[] | null {
   if (!Array.isArray(v)) return null;
   const out: string[] = [];
@@ -307,11 +355,11 @@ export function officeFace(o: { name: string; color: string | null; purpose: str
   return { name: o.name.trim().slice(0, 60), color: o.color, purpose: o.purpose.trim().slice(0, 120), privacyContact: o.privacyContact.trim().slice(0, 120) };
 }
 
-/** 見本の問い（通信しない。FP のアプリの見本に使う） */
-export async function previewPacket(wh: WorkingHousehold, sel: WebSelection, office: OfficeFace, now: Date): Promise<QuestionsPacket> {
+/** 見本の問い（通信しない。FP のアプリの見本に使う）。aiConsent は外部 AI の同意（任意）を聞くか（省略は聞く） */
+export async function previewPacket(wh: WorkingHousehold, sel: WebSelection, office: OfficeFace, now: Date, aiConsent = true): Promise<QuestionsPacket> {
   const def = sheetOf(sel);
   if (def === undefined) throw new Error("E_HEARING_NO_SHEET");
-  return buildPacket(def, sel, { requestId: "R-PREV1E", expiresAt: new Date(now.getTime() + RELAY_LIMITS.days * 86400_000).toISOString(), office, prefill: prefillOf(wh, def) });
+  return buildPacket(def, sel, { requestId: "R-PREV1E", expiresAt: new Date(now.getTime() + RELAY_LIMITS.days * 86400_000).toISOString(), office, prefill: prefillOf(wh, def), ...(aiConsent ? {} : { aiConsent: false }) });
 }
 
 // ---- 発行 ----
@@ -324,6 +372,11 @@ export interface IssueInput {
   transport: RelayTransport;
   now?: Date;
   random?: Uint8Array;
+  /**
+   * 外部 AI への提供の同意（任意）をお客さまに聞くか（省略は聞く）。false なら問いに載せない（届く答えにも無いので、その世帯の同意は
+   * 「聞いていない」のまま。AI接続口は同意のある世帯だけ使える）。依頼の記録には置かない（世帯ファイルの形を変えない）
+   */
+  aiConsent?: boolean;
 }
 
 /** URL を発行し、依頼の記録を世帯に足す（サーバーに置けたときだけ） */
@@ -340,6 +393,7 @@ export async function issueWeb(wh: WorkingHousehold, o: IssueInput): Promise<{ w
     now: o.now ?? new Date(),
     pageUrl: o.pageUrl,
     ...(confirm ? { prefill: prefillOf(wh, def) } : {}),
+    ...(o.aiConsent === false ? { aiConsent: false } : {}),
     transport: o.transport,
   });
   const entry: WebLogEntry = { record, state: "issued" };
@@ -364,25 +418,34 @@ export function invitationText(e: WebLogEntry, office: string, wh: WorkingHouseh
   const end = new Date(e.record.expiresAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
   const docs = e.record.selection.documents.length;
   // お客さまの最初の画面と同じ数（見直しは前回の値も載せて数える）
-  const est = estimateOf(wh, e.record.selection)?.std ?? null;
+  const est = estimateOf(wh, e.record.selection)?.shown ?? null;
   const head = pageHead(e.record.url);
+  // 段落ごとに空行を挟む（メールや LINE に貼ったとき読みやすいように。0192 の追記 2026-11-17）
   return [
     "〇〇様",
     "",
     `いつもお世話になっております。${office.trim() !== "" ? office.trim() : "（事務所名）"}です。`,
-    `ライフプランの面談の前に、いくつかご質問させてください。次のリンクを開くと、スマートフォンでも画面に沿ってお答えいただけます${est !== null ? `（${est.minutes}分ほどです）` : ""}。`,
+    "",
+    "ライフプランの面談の前に、いくつかご質問させてください。",
+    "",
+    `次のリンクを開くと、スマートフォンでも画面に沿ってご回答いただけます${est !== null ? `（${est.minutes}分ほどです）` : ""}。`,
+    // 書類を頼む依頼は、撮影があるのでスマートフォンで開くのをすすめる（0192 の追記 2026-11-17）
+    ...(docs > 0 ? ["", "書類の撮影があるので、スマートフォンで開くのがおすすめです。"] : []),
     "",
     e.record.url,
     "",
-    `・お答えの期限: ${end}まで`,
+    `回答の期限は ${end} までです。`,
+    "",
+    "回答を送れるのは1回だけです。送る前に、入力内容の確認の画面で見直せます。わからない所は空けたままでかまいません。",
+    ...(docs > 0 ? ["", `書類の写真をお願いする所があります。${HIDE_NUMBERS}`, "書類は、回答を送った後でも、期限までに同じリンクから何回でも送れます。"] : []),
+    "",
+    "【ご注意】",
     ...(head !== null ? [`・リンクは「${head}」で始まります。違うときは開かずに、ご連絡ください。`] : []),
     "・お名前・口座番号・暗証番号・カード番号・マイナンバーはお聞きしません。ログインもありません。",
-    "・お答えを送れるのは1回だけです。送る前に、確かめの画面で見直せます。",
-    ...(docs > 0 ? [`・書類の写真をお願いする所があります。${HIDE_NUMBERS}`, "・書類は、お答えを送った後でも、期限までに同じリンクから何回でも送れます。"] : []),
-    "・お答えと書類は、お使いの端末の中で暗号化して送られ、担当の FP だけが開けます。",
+    "・回答と書類は、お使いの端末の中で暗号化して送られ、担当の FP だけが開けます。",
     "・このリンクはご本人さま専用です。ほかの方に転送しないでください。",
     "",
-    "わからない所は空けたままでかまいません。どうぞよろしくお願いいたします。",
+    "どうぞよろしくお願いいたします。",
   ].join("\n");
 }
 
@@ -501,8 +564,8 @@ export function gateLines(e: WebLogEntry): { gate: GateId; label: string; text: 
   const counts = new Map(def?.axes.map((a) => [a.id, a.count]) ?? []);
   return GATE_IDS.filter((id) => g[id] !== undefined).map((id) => {
     const n = g[id] as number;
-    // 言葉は、お客さまの画面の選択肢と同じもの（人数の最後の段は「4人以上」）
-    const text = gateOptions(id, counts.get(id) ?? 1).find((o) => o.value === String(n))?.label ?? String(n);
+    // 言葉は、お客さまの画面の選択肢と同じもの（人数の最後の段は「4人以上」。配偶者の方は「いる／いない」。0192 の追記 2026-11-17）
+    const text = id === "spouse" ? (n === 1 ? "いる" : "いない") : (gateOptions(id, counts.get(id) ?? 1).find((o) => o.value === String(n))?.label ?? String(n));
     return { gate: id, label: GATE_LABEL[id], text };
   });
 }
@@ -524,7 +587,7 @@ export function gateNotes(wh: WorkingHousehold): { requestId: string; receivedAt
     // 人数の最後の段（4人以上）と同じかそれより多いときは違いとしない
     const top = (sheetOf(e.record.selection)?.axes.find((a) => a.id === l.gate)?.count ?? 0) === n && c >= n;
     if (top) return { label: l.label, text: l.text, now: null };
-    const now = l.gate === "spouse" ? (c === 1 ? "いらっしゃる" : "いらっしゃらない") : `${c}${unit[l.gate] ?? ""}`;
+    const now = l.gate === "spouse" ? (c === 1 ? "いる" : "いない") : `${c}${unit[l.gate] ?? ""}`;
     return { label: l.label, text: l.text, now };
   });
   return { requestId: e.record.requestId, receivedAt: e.received.at, lines };

@@ -6,13 +6,15 @@
 //   （配偶者の方がいない → 配偶者の方の生年月・年齢・ご結婚の形を「該当なし」。人数を超える分・聞かないと答えた分は出さない＝未回答）。受け皿は Excel と同じ
 //   同じ区画の分岐の問いは1画面にまとめる（ご家族: 配偶者の方・お子さまの人数）
 // - 項目ごとの出す条件（働き方・住まい・保険の種類・ご健在か など）は SHOW の表。前の答えがまだ無いときは出す（飛ばしすぎない）
-// - 金額の項目と、その「だいたいの範囲」は同じ欄の別の答え方（alt）。生年月と年齢（簡易の票）も同じ
-// - 「ご相談したいこと・気になっていること」は同意の直後に出す（答える気持ちが続くように）
+// - 金額の項目と、その「だいたいの範囲」は同じ欄の別の答え方（alt）。金額は具体額が主で、わからなければ範囲（住宅ローンの残高だけ範囲が主。RANGE_FIRST）
+// - 生年月の代わりの年齢の欄は出さない（簡易の票の年齢の項目は、生年月があれば画面に出さない。0138 の追記 2026-11-17）
+// - 「ご相談したいこと」（ご相談の話題を含む）は、お客さまの画面には出さない（問いに載っていても。0138 の追記 2026-11-17）
 // - 見えなくなった問いの答えは、送るときに捨てる（下書きには残すので、戻って答えを変えれば元に戻る）
 // - 書類（0190）: 1通1画面。頼んだ書類で分かる問い（PacketDocument.covers）は問いの画面に出さない。お客さまがその書類を「手元にない」にしたときだけ、
 //   その書類の画面で聞く（分岐の問いが要れば一緒に）。「あとで送る」「まだ」のときは聞かない（FP に書類の状態が届く）。
-//   配偶者の方の書類は、配偶者の方が「いらっしゃらない」なら出さない
-// - ご相談したいこと（0192）: FP が話題を用意したら、話題をいくつでも選べ、自由記述も同じ画面で書ける。選んだ話題は答えの topics で届く
+//   配偶者の方の書類は、配偶者の方が「いない」なら出さない
+// - お客さまの画面の言葉（customerText・itemLabel・indexLabel）: 「うかがう」は「伺う」、お子さまの番号は「第一子」「第二子」…、
+//   年収の「自営業の方は事業の所得」は自営業の方にだけ。票の定義（Excel）の言葉は変えない
 import type { Answer, RawValue } from "../answers.ts";
 import { yearLabel } from "../definition.ts";
 import { OWNER_CUSTOMER, OWNER_LABEL, templateOf } from "./documents.ts";
@@ -49,13 +51,13 @@ export interface Draft {
   readonly documents: Readonly<Record<string, DraftDocument>>;
   /** 最初の画面の「はじめる」を押したか */
   readonly started: boolean;
-  /** ご相談したいことで選んだ話題（0192。選んでいなければ省く） */
+  /** ご相談したいことで選んだ話題（0192。今はお客さまの画面で聞かないが、前の下書きを読めるように残す） */
   readonly topics?: readonly string[];
 }
 
 export const draftKey = (key: string, index?: number): string => `${key}#${String(index ?? 0)}`;
 
-/** 1つの画面の中の1つの問い（key の答えか、alt のどれかで答える。alt は金額の「だいたいの範囲」・生年月の代わりの年齢） */
+/** 1つの画面の中の1つの問い（key の答えか、alt のどれかで答える。alt は金額の「だいたいの範囲」） */
 export interface ScreenField {
   readonly key: string;
   readonly index?: number;
@@ -79,11 +81,20 @@ export type Screen =
 export const DOCS_SECTION = "@documents";
 export const DOCS_TITLE = "書類";
 
-/** 同意の直後に出す問いの区画（「はじめに」） */
+/** 同意の画面の区画（「はじめに」） */
 export const START_SECTION = "@start";
 export const START_TITLE = "はじめに";
-/** 同意の直後に出す問い */
-const FIRST_KEYS = [CONSULT_KEY];
+/** 確かめの画面の名前（進み具合の段・確かめの画面の見出し） */
+export const REVIEW_TITLE = "入力内容の確認";
+/** お客さまの画面に出さない問い（ご相談したいこと。0138 の追記 2026-11-17） */
+const HIDDEN_KEYS = new Set([CONSULT_KEY]);
+/** 生年月の代わりの年齢（簡易の票）。生年月の問いがあれば画面に出さない */
+const AGE_KEY = "hs.family.adult.age";
+const BIRTH_KEY = "hs.family.adult.birthYearMonth";
+/** 範囲が主の金額（具体額より範囲で答えやすいもの）。ほかの金額は具体額が主で、わからなければ範囲で選ぶ */
+const RANGE_FIRST = new Set(["hs.loan.balanceTotal"]);
+/** 範囲のある金額のうち、範囲のボタンを先に出す項目か */
+export const rangeFirst = (key: string): boolean => RANGE_FIRST.has(key);
 
 export const screenId = (s: Screen): string => (s.kind === "item" ? `item:${draftKey(s.key, s.index)}` : s.kind === "gate" ? `gate:${s.gates.join("+")}` : s.kind === "document" ? `doc:${s.id}` : s.kind);
 
@@ -100,11 +111,11 @@ function axisCount(p: QuestionsPacket, id: string): number {
 }
 
 const GATE_TEXT: Readonly<Record<GateId, { readonly label: string; readonly lead: string }>> = {
-  spouse: { label: "配偶者の方（事実婚の方を含みます）はいらっしゃいますか", lead: "いらっしゃらなければ、配偶者の方についての問いは出しません。" },
+  spouse: { label: "配偶者の方（事実婚の方を含みます）はいらっしゃいますか", lead: "いなければ、配偶者の方についての問いは出しません。" },
   child: { label: "お子さまは何人いらっしゃいますか（出産の予定を含みます）", lead: "人数の分だけ、お子さまごとにお聞きします。" },
   loan: { label: "住宅ローンは何本ありますか", lead: "ペアローンなどで2本あるときは「2本」を選んでください。" },
   policy: { label: "ご加入の保険は何件ありますか（保険証券の数）", lead: "件数の分だけ、1件ずつお聞きします。" },
-  parent: { label: "ご両親のことも、うかがってよいですか", lead: "お年や暮らし方を、介護や相続の備えを考えるのに使います。答えたくなければ「いいえ」で飛ばせます。" },
+  parent: { label: "ご両親のことも、伺ってよいですか", lead: "お年や暮らし方を、介護や相続の備えを考えるのに使います。答えたくなければ「いいえ」で飛ばせます。" },
 };
 
 const COUNT_WORD: Readonly<Partial<Record<GateId, { readonly unit: string; readonly zero: string }>>> = {
@@ -121,14 +132,18 @@ export function gateOptions(g: GateId, max: number): readonly { readonly value: 
   return Array.from({ length: max + 1 }, (_, n) => ({ value: String(n), label: n === 0 ? w.zero : n === max && max > 2 ? `${n}${w.unit}以上` : `${n}${w.unit}` }));
 }
 
-/** 分岐の問いの言葉と選択肢（人数・本数は「1人」「2本」。最後の段は「4人以上」のように） */
+/** お客さまの画面の配偶者の方の選択肢（「いる／いない」。FP の画面の言葉は gateOptions） */
+const SPOUSE_CUSTOMER = [{ value: "1", label: "いる" }, { value: "0", label: "いない" }] as const;
+
+/** 分岐の問いの言葉と選択肢（お客さまの画面。人数・本数は「1人」「2本」。最後の段は「4人以上」のように） */
 export function gateText(p: QuestionsPacket, g: GateId): { readonly label: string; readonly lead: string; readonly options: readonly { readonly value: string; readonly label: string }[] } {
   const t = GATE_TEXT[g];
-  if (g === "spouse" || g === "parent") return { ...t, options: gateOptions(g, 1) };
+  if (g === "spouse") return { ...t, options: SPOUSE_CUSTOMER };
+  if (g === "parent") return { ...t, options: gateOptions(g, 1) };
   const w = COUNT_WORD[g] as { unit: string; zero: string };
   const max = axisCount(p, g);
   const options = gateOptions(g, max);
-  const lead = max > 2 ? `${t.lead}${max + 1}${w.unit}以上のときは「${max}${w.unit}以上」を選び、${max}${w.unit}までお答えください。` : t.lead;
+  const lead = max > 2 ? `${t.lead}${max + 1}${w.unit}以上のときは「${max}${w.unit}以上」を選び、${max}${w.unit}までご回答ください。` : t.lead;
   return { label: t.label, lead, options };
 }
 
@@ -241,12 +256,11 @@ const GROUPS: Readonly<Record<string, readonly string[]>> = {
 /** 番号ごとに分けず、全員を1画面に並べる項目（続けて出す項目が無いときだけ。簡易の票のお子さまの生年月） */
 const ACROSS = new Set(["hs.family.child.birthYearMonth"]);
 
-/** 別の答え方（主の項目 → その欄）: 金額の「だいたいの範囲」と、簡易の票の生年月の代わりの年齢 */
+/** 別の答え方（主の項目 → その欄）: 金額の「だいたいの範囲」（生年月の代わりの年齢は、今は画面に出さない） */
 function alternatives(p: QuestionsPacket): Map<string, string[]> {
   const keys = new Set(p.items.map((i) => i.key));
   const out = new Map<string, string[]>();
   const add = (main: string, sub: string) => out.set(main, [...(out.get(main) ?? []), sub]);
-  if (keys.has("hs.family.adult.birthYearMonth") && keys.has("hs.family.adult.age")) add("hs.family.adult.birthYearMonth", "hs.family.adult.age");
   for (const i of p.items) if (i.rangeOf !== undefined && keys.has(i.rangeOf)) add(i.rangeOf, i.key);
   return out;
 }
@@ -294,7 +308,7 @@ const docStatus = (d: Pick<Draft, "documents">, id: string): DocumentAnswer["sta
 const coverHit = (doc: PacketDocument, key: string, n: number | undefined): boolean => (doc.covers ?? []).some((c) => c === key || (n !== undefined && c === `${key}#${n}`));
 const coverKeys = (doc: PacketDocument): string[] => [...new Set((doc.covers ?? []).map((c) => c.split("#")[0] as string))];
 
-/** その書類をお客さまの画面に出すか（配偶者の方の書類は、配偶者の方が「いらっしゃらない」なら出さない） */
+/** その書類をお客さまの画面に出すか（配偶者の方の書類は、配偶者の方が「いない」なら出さない） */
 export function docShown(d: Pick<Draft, "gates">, doc: RequestedDocument): boolean {
   return !(doc.owner === "spouse" && d.gates.spouse === 0);
 }
@@ -337,7 +351,7 @@ export function coverSummary(p: QuestionsPacket, d: Pick<Draft, "gates">): strin
   }
   const what = [...by.entries()].map(([aspect, nouns]) => `${nouns.join("と")}の${aspect}`).join("、");
   const titles = [...new Set(docs.map((x) => baseDocTitle(x)))].join("・");
-  return `${what}は、お送りいただく${titles}の数字を使います。そのぶん、お答えいただく問いが少なくなっています。`;
+  return `${what}は、お送りいただく${titles}の数字を使います。そのぶん、ご回答いただく問いが少なくなっています。`;
 }
 
 /** 書類の画面の一言（「お給料の額は、この書類の数字を使います。」）。書類で分かる問いが無ければ null */
@@ -346,13 +360,13 @@ export function coverLine(doc: PacketDocument): string | null {
   return t === undefined ? null : `${t.noun}の${t.aspect}は、この書類の数字を使います。`;
 }
 
-/** 「手元にない」を選んだときの一言（「大丈夫です。かわりに、お給料のだいたいの額をうかがいます（1問）。」） */
+/** 「手元にない」を選んだときの一言（「大丈夫です。かわりに、お給料の額を伺います（1問）。」。範囲が主の金額なら「だいたいの額」） */
 export function insteadLine(doc: PacketDocument, s: Extract<Screen, { kind: "document" }>, p: QuestionsPacket): string {
   const t = topicOf(doc);
   const n = s.fields.length + s.gates.length;
   if (t === undefined || n === 0) return "大丈夫です。担当の FP にお伝えします。";
-  const range = s.fields.some((f) => f.alt.some((k) => p.items.find((i) => i.key === k)?.type === "moneyRange"));
-  return `大丈夫です。かわりに、${t.noun}の${range ? "だいたいの" : ""}${t.aspect}をうかがいます（${n}問）。`;
+  const range = s.fields.some((f) => rangeFirst(f.key) && f.alt.some((k) => p.items.find((i) => i.key === k)?.type === "moneyRange"));
+  return `大丈夫です。かわりに、${t.noun}の${range ? "だいたいの" : ""}${t.aspect}を伺います（${n}問）。`;
 }
 
 /** その項目のために要る分岐の問い（並びの順） */
@@ -364,12 +378,20 @@ function gatesOf(item: WebItem): GateId[] {
   return [];
 }
 
-/** 今の下書きで出す画面の並び（最初の画面・同意・はじめの問い・問い・書類・確かめ） */
+/** お客さまの画面に出さない項目（ご相談したいこと・生年月があるときの年齢） */
+function hiddenKeys(p: QuestionsPacket): Set<string> {
+  const out = new Set(HIDDEN_KEYS);
+  if (p.items.some((i) => i.key === BIRTH_KEY)) out.add(AGE_KEY);
+  return out;
+}
+
+/** 今の下書きで出す画面の並び（最初の画面・同意・問い・書類・確かめ） */
 export function screens(p: QuestionsPacket, d: Draft): Screen[] {
   const out: Screen[] = [{ kind: "intro" }];
   if (p.consent.items.length > 0) out.push({ kind: "consent" });
   const alts = alternatives(p);
-  const altKeys = new Set([...alts.values()].flat());
+  // 別の答え方の欄と、お客さまの画面に出さない項目は、それだけの画面を作らない
+  const altKeys = new Set([...[...alts.values()].flat(), ...hiddenKeys(p)]);
   const follow = followers(p);
   const byKey = new Map(p.items.map((i) => [i.key, i]));
   const field = (it: WebItem, n: number | undefined): ScreenField => ({ key: it.key, ...(n !== undefined ? { index: n } : {}), alt: (alts.get(it.key) ?? []).filter((k) => itemShown(p, d, byKey.get(k) as WebItem, n)) });
@@ -381,11 +403,6 @@ export function screens(p: QuestionsPacket, d: Draft): Screen[] {
     const f = fields[0];
     if (f !== undefined) out.push({ kind: "item", key: f.key, ...(f.index !== undefined ? { index: f.index } : {}), section, fields });
   };
-  // はじめの問い（ご相談したいこと）は同意の直後
-  for (const k of FIRST_KEYS) {
-    const it = byKey.get(k);
-    if (it !== undefined && it.axis === undefined && itemShown(p, d, it, undefined)) push(START_SECTION, fieldsAt(it, undefined));
-  }
   const asked = new Set<GateId>();
   const gateOn = (g: GateId) => !(g === "loan" && !OWN(d, undefined)) && (g === "spouse" || g === "parent" || axisCount(p, g) > 0);
   // 書類で分かる問い（0190）: 全員の分が書類で分かる項目（と、続けて出す項目）しか無いまとまりは、分岐の問いごと出さない
@@ -393,7 +410,7 @@ export function screens(p: QuestionsPacket, d: Draft): Screen[] {
   const fullyCovered = (it: WebItem) => (it.axis === undefined ? covered(it.key, undefined) : Array.from({ length: it.axis.labels.length }, (_, i) => i + 1).every((n) => covered(it.key, n)));
   const needed = (it: WebItem) => !fullyCovered(it) || (GROUPS[it.key] ?? []).some((k) => follow.get(k) === it.key && !fullyCovered(byKey.get(k) as WebItem));
   for (const sec of p.sections) {
-    const items = p.items.filter((i) => i.section === sec.id && !altKeys.has(i.key) && !follow.has(i.key) && !FIRST_KEYS.includes(i.key));
+    const items = p.items.filter((i) => i.section === sec.id && !altKeys.has(i.key) && !follow.has(i.key));
     const runs = splitRuns(items).filter((run) => run.some(needed));
     for (let r = 0; r < runs.length; r++) {
       const run = runs[r] as WebItem[];
@@ -471,9 +488,8 @@ export function screenOf(list: readonly Screen[], key: string): Screen | undefin
   return list.find((s) => s.kind === "item" && s.fields.some((f) => fieldKeys(f).includes(key))) ?? list.find((s) => s.kind === "document" && s.covers.includes(key));
 }
 
-/** 問いに答えたか（答えの欄か、別の答え方のどれかに「あとで」でない答えがある。ご相談したいことは話題を選んでいれば答えた） */
+/** 問いに答えたか（答えの欄か、別の答え方のどれかに「あとで」でない答えがある） */
 export function fieldAnswered(d: Draft, f: ScreenField): boolean {
-  if (f.key === CONSULT_KEY && (d.topics ?? []).length > 0) return true;
   return fieldKeys(f).some((k) => {
     const a = d.answers[draftKey(k, f.index)];
     return a !== undefined && a.status !== "later";
@@ -532,10 +548,8 @@ export function answersOf(p: QuestionsPacket, d: Draft, submittedAt: Date): Answ
     const status = x === undefined ? "blank" : x.status === "attached" && x.files.length === 0 ? "blank" : x.status;
     return { id: doc.id, status };
   });
-  // ご相談したいことの話題（問いに載る言葉だけ・問いの並びで。ご相談したいことの画面が出ているときだけ）
-  const consult = p.items.find((i) => i.key === CONSULT_KEY);
-  const picked = consult?.topics === undefined || !screens(p, d).some((s) => screenFields(s).some((f) => f.key === CONSULT_KEY)) ? [] : consult.topics.filter((t) => (d.topics ?? []).includes(t));
-  return { format: ANSWERS_FORMAT, version: WEB_FORMAT_VERSION, requestId: p.requestId, submittedAt: submittedAt.toISOString(), answers: out, gates: gateAnswersOf(p, d), documents, ...(picked.length > 0 ? { topics: picked } : {}) };
+  // ご相談したいことの話題は、お客さまの画面で聞かないので送らない（答えの形の topics は省ける。0138 の追記 2026-11-17）
+  return { format: ANSWERS_FORMAT, version: WEB_FORMAT_VERSION, requestId: p.requestId, submittedAt: submittedAt.toISOString(), answers: out, gates: gateAnswersOf(p, d), documents };
 }
 
 /** 送る分岐の答え: 今の答えで出る分岐の問いのうち、答えたものだけ（人数を「0」と答えたことも FP に届ける。0158） */
@@ -572,10 +586,49 @@ export function markSent<T extends Pick<Draft, "documents">>(d: T, fileIds: read
 
 // ---- 画面に出す言葉 ----
 
-/** 繰り返しの見出し（ご本人・お子さま1 …） */
+const KANJI = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+
+/**
+ * お客さまの画面の言葉にそろえる（票の定義・問いに載る言葉は変えず、画面に出すときに直す）: 「うかがう」→「伺う」、「お答え」→「回答」（「お答えください」→「ご回答ください」）、
+ * 「お子さま1（いちばん上）」「お子さま2」→「第一子」「第二子」
+ */
+export function customerText(t: string): string {
+  return t
+    .replaceAll("うかが", "伺")
+    .replaceAll("お答えください", "ご回答ください")
+    .replaceAll("お答えいただ", "ご回答いただ")
+    .replaceAll("お答え", "回答")
+    .replace(/お子さま([1-9])(?![0-9人])(?:（いちばん上）)?/g, (_, n: string) => `第${KANJI[Number(n)] as string}子`);
+}
+
+/** 繰り返しの見出し（ご本人・第一子 …） */
 export function indexLabel(item: WebItem, index?: number): string | null {
   if (item.axis === undefined || index === undefined) return null;
-  return item.axis.labels[index - 1] ?? `${index}番目`;
+  return customerText(item.axis.labels[index - 1] ?? `${index}番目`);
+}
+
+/** お客さまの画面の問いの手引き（customerText のうえで、出さない年齢の欄を指す文〔「わからなければ、下の『年齢』だけでも」〕は外す） */
+export function itemGuide(item: WebItem): string | undefined {
+  if (item.guide === undefined) return undefined;
+  const t = customerText(item.guide);
+  if (item.key !== BIRTH_KEY) return t;
+  const out = t
+    .split(/(?<=。)/)
+    .filter((x) => !x.includes("「年齢」"))
+    .join("")
+    .trim();
+  return out === "" ? undefined : out;
+}
+
+/** 年収の言葉の「自営業の方は事業の所得」（自営業の方にだけ出す） */
+const SELF_EMPLOYED_NOTE = /。?自営業の方は事業の所得/;
+
+/** お客さまの画面の問いの言葉（customerText のうえで、年収の「自営業の方は事業の所得」は働き方で自営業を選んだ方にだけ） */
+export function itemLabel(item: WebItem, d: Pick<Draft, "answers">, index?: number): string {
+  const t = customerText(item.label);
+  if (item.key !== "hs.income.annual" || !SELF_EMPLOYED_NOTE.test(t)) return t;
+  if (valueOf(d as Draft, "hs.work.type", index) === "selfEmployed") return t;
+  return t.replace(SELF_EMPLOYED_NOTE, "").replace("（）", "");
 }
 
 /** 打った数の文字をそろえる（全角→半角・桁区切りと空白を外す。取り込みと同じ読み方） */
@@ -595,7 +648,7 @@ export function answerText(item: WebItem, a: DraftAnswer | undefined): string {
   const t = a.raw === undefined ? "" : a.raw.kind === "bool" ? (a.raw.value ? "はい" : "いいえ") : a.raw.text;
   switch (item.type) {
     case "choice":
-      return item.choices?.find((c) => c.value === t || c.label === t)?.label ?? t;
+      return customerText(item.choices?.find((c) => c.value === t || c.label === t)?.label ?? t);
     case "moneyRange": {
       const basis = item.unit?.basis === "monthly" ? "月 " : item.unit?.basis === "annual" ? "年 " : "";
       return `${basis}${item.ranges?.find((r) => r.label === t)?.label ?? t}`;
@@ -623,19 +676,21 @@ export function answerText(item: WebItem, a: DraftAnswer | undefined): string {
   }
 }
 
-/** 年の選択肢（新しい年から。大人の生年月は15年前から・お子さまの生年月は出産の予定のため3年後から・ほかの年月は今年から） */
+/**
+ * 年の選択肢（新しい年から。大人の生年月は15年前から・お子さまの生年月は出産の予定のため3年後から・ほかの年月は今年から）。
+ * 上の端は今日からの相対で決め、票の定義の years.to では頭打ちにしない（年が進んでも選べるように。下の端は years.from）
+ */
 export function yearChoices(item: WebItem, years: { readonly from: number; readonly to: number }, now: Date, selected?: number): number[] {
   const y = now.getFullYear();
-  const top = item.key === "hs.family.child.birthYearMonth" ? y + 3 : item.key === "hs.family.adult.birthYearMonth" ? y - 15 : y;
-  const to = Math.min(years.to, top);
+  const top = item.key === "hs.family.child.birthYearMonth" ? y + 3 : item.key === BIRTH_KEY ? y - 15 : y;
   const list: number[] = [];
-  for (let n = to; n >= years.from; n--) list.push(n);
+  for (let n = top; n >= years.from; n--) list.push(n);
   // 前回の答えなどで範囲の外の年が入っていれば、それも選べるように
-  if (selected !== undefined && !list.includes(selected) && selected >= years.from && selected <= years.to) return [selected, ...list].sort((a, b) => b - a);
+  if (selected !== undefined && Number.isInteger(selected) && !list.includes(selected) && selected >= years.from) return [selected, ...list].sort((a, b) => b - a);
   return list;
 }
 
-/** 進み具合の段（最初の段は同意とご相談・後は区画の順・書類・確かめ）。分母は答えで変わらない */
+/** 進み具合の段（最初の段は同意・後は区画の順・書類・入力内容の確認）。分母は答えで変わらない */
 export interface Progress {
   readonly stages: readonly { readonly id: string; readonly title: string }[];
   /** 今の段の番号（0から。最初の画面は -1） */
@@ -648,10 +703,11 @@ const stageOf = (s: Screen): string | null => (s.kind === "intro" ? null : s.kin
 
 export function progress(p: QuestionsPacket, list: readonly Screen[], at: number): Progress {
   const stages: { id: string; title: string }[] = [];
-  if (p.consent.items.length > 0 || p.items.some((i) => FIRST_KEYS.includes(i.key))) stages.push({ id: START_SECTION, title: START_TITLE });
-  for (const s of p.sections) if (p.items.some((i) => i.section === s.id && !FIRST_KEYS.includes(i.key))) stages.push({ id: s.id, title: s.title });
+  const hidden = hiddenKeys(p);
+  if (p.consent.items.length > 0) stages.push({ id: START_SECTION, title: START_TITLE });
+  for (const s of p.sections) if (p.items.some((i) => i.section === s.id && !hidden.has(i.key))) stages.push({ id: s.id, title: s.title });
   if (p.documents.length > 0) stages.push({ id: "documents", title: DOCS_TITLE });
-  stages.push({ id: "review", title: "確かめ" });
+  stages.push({ id: "review", title: REVIEW_TITLE });
   const here = list[at];
   const id = here === undefined ? null : stageOf(here);
   const current = id === null ? -1 : stages.findIndex((x) => x.id === id);

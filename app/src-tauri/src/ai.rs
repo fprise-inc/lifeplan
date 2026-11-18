@@ -197,13 +197,12 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
             .unwrap_or_default();
         office_display_of(store, &active)
     })));
-    // Web のヒアリングの事務所のひな形と話題（get_hearing_options・issue_hearing_url。0222。読むだけ）
+    // Web のヒアリングの事務所のひな形（get_hearing_options・issue_hearing_url。0222。読むだけ）
     let handle = app.clone();
     registry.set_office_hearing(Some(Arc::new(move || {
         let d = handle.try_state::<StoreState>()?.store.office_defaults().ok()?;
         Some(serde_json::json!({
             "templates": d.get("hearingTemplates").cloned().unwrap_or_else(|| serde_json::json!([])),
-            "topics": d.get("hearingTopics").cloned().unwrap_or(serde_json::Value::Null),
         }))
     })));
     // Web のヒアリングの発行は画面に頼む（鍵は画面だけが作る。0222）
@@ -1793,12 +1792,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（住宅購入の予定の火災保険・地震保険〔0224〕で 0.82 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（Web のヒアリングの依頼の出どころ〔0222〕で 0.84 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.82");
+        assert_eq!(file["meta"]["formatVersion"], "0.84");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());

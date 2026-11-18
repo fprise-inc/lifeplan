@@ -72,12 +72,12 @@ describe("頼んだ書類で分かる問いは、お客さまの画面に出さ�
     expect(a.filter((s) => s.kind === "document").map((s) => s.kind === "document" && s.id)).toEqual(["d1"]);
   });
 
-  it("「手元にない」を選ぶと、その書類の画面で年収を聞く（範囲が先の1問）。答えは届く。「あとで送る」「まだ」は聞かない", async () => {
+  it("「手元にない」を選ぶと、その書類の画面で年収を聞く（具体額が先・わからなければ範囲の1問）。答えは届く。「あとで送る」「まだ」は聞かない", async () => {
     const p = await pack(simple(), [doc("d1", "withholding", "self")]);
     const none = withDoc(family(p), "d1", "notAvailable");
     const s = docScreen(screens(p, none), "d1");
     expect(s.fields.map((f) => [draftKey(f.key, f.index), f.alt])).toEqual([[draftKey("hs.income.annual", 1), ["hs.income.annualRange"]]]);
-    expect(insteadLine(p.documents[0]!, s, p)).toBe("大丈夫です。かわりに、お給料のだいたいの額をうかがいます（1問）。");
+    expect(insteadLine(p.documents[0]!, s, p)).toBe("大丈夫です。かわりに、お給料の額を伺います（1問）。");
     expect(asked(screens(p, none))).not.toContain(draftKey("hs.income.annual", 1));
     const answered = { ...none, answers: { ...none.answers, [draftKey("hs.income.annualRange", 1)]: v("500〜600万円") } };
     expect(answersOf(p, answered, new Date("2026-11-06T00:00:00Z")).answers).toContainEqual({ key: "hs.income.annualRange", index: 1, status: "value", raw: { kind: "text", text: "500〜600万円" } });
@@ -170,7 +170,7 @@ describe("画面の数と問いの数（夫婦と子2人・会社員の夫婦・
 describe("お客さまの画面の言葉", () => {
   it("最初の画面の一言・書類の画面の一言・見出しの持ち主", async () => {
     const p = await pack(full5(), [doc("d1", "withholding", "self"), doc("d2", "pensionNotice", "self"), doc("d3", "payslip", "self")]);
-    expect(coverSummary(p, initialDraft(p))).toBe("お給料と年金の額は、お送りいただく源泉徴収票・ねんきん定期便の数字を使います。そのぶん、お答えいただく問いが少なくなっています。");
+    expect(coverSummary(p, initialDraft(p))).toBe("お給料と年金の額は、お送りいただく源泉徴収票・ねんきん定期便の数字を使います。そのぶん、ご回答いただく問いが少なくなっています。");
     expect(coverLine(p.documents[0]!)).toBe("お給料の額は、この書類の数字を使います。");
     expect(coverLine(p.documents[2]!)).toBeNull();
     expect(customerDocTitle(p.documents[0]!)).toBe("ご本人さまの源泉徴収票");

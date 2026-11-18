@@ -22,7 +22,7 @@ import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const NOW = new Date("2026-11-17T09:00:00Z");
-const NONE: AiSelectionContext = { filled: null, officeTemplates: null, officeTopics: null };
+const NONE: AiSelectionContext = { filled: null, officeTemplates: null };
 
 function relayFor(clock: { t: Date } = { t: NOW }) {
   const store = memoryStore();
@@ -46,8 +46,8 @@ const sel = (a: AiSelectionArgs, ctx = NONE): WebSelection => {
 const filledHousehold = (): WorkingHousehold => fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
 
 describe("選び方の一覧（get_hearing_options。FP の画面と同じ関数）", () => {
-  it("票ごとの分野・項目（範囲の項目は並べず、金額の項目の range）・ひな形の数・書類・話題・独自の質問の上限・数え方", () => {
-    const o = options({}) as { sheets: { sheet: string; sections: { id: string; offInTemplate?: boolean; items: { key: string; range?: boolean; repeat?: string }[] }[] }[]; templates: { id: string; selectedCount?: number; screens?: number; minutes?: number; needsShare: boolean }[]; documents: { kind: string; owner: string }[]; topics: { standard: string[]; max: number }; custom: { max: number }; counting: string };
+  it("票ごとの分野・項目（範囲の項目は並べず、金額の項目の range）・ひな形の数・書類・独自の質問の上限・数え方。ご相談したいことは選べず、これからの予定はひな形の既定で外す", () => {
+    const o = options({}) as { sheets: { sheet: string; sections: { id: string; offInTemplate?: boolean; items: { key: string; range?: boolean; repeat?: string }[] }[] }[]; templates: { id: string; selectedCount?: number; screens?: number; minutes?: number; needsShare: boolean }[]; documents: { kind: string; owner: string }[]; custom: { max: number }; counting: string };
     expect(o.sheets.map((s) => s.sheet)).toEqual(["simple", "detail"]);
     const simple = o.sheets[0]!;
     const keys = simple.sections.flatMap((s) => s.items.map((i) => i.key));
@@ -66,7 +66,9 @@ describe("選び方の一覧（get_hearing_options。FP の画面と同じ関数
     expect(o.templates.find((x) => x.id === "review")?.selectedCount).toBeUndefined();
     expect(o.documents.find((d) => d.kind === "withholding")?.owner).toBe("required");
     expect(o.documents.find((d) => d.kind === "loanSchedule")?.owner).toBe("none");
-    expect(o.topics.standard).toHaveLength(9);
+    expect(keys).not.toContain("hs.consult.topics");
+    expect(simple.sections.flatMap((s) => s.items).find((i) => i.key === "hs.plan.events")).toMatchObject({ offInTemplate: true });
+    expect(JSON.stringify(o)).not.toContain('"topics"');
     expect(o.custom.max).toBe(10);
     expect(o.counting).toContain("夫婦と子2人");
   });
@@ -82,12 +84,13 @@ describe("選び方の一覧（get_hearing_options。FP の画面と同じ関数
     expect(out.household).toBeDefined();
   });
 
-  it("事務所のひな形と話題は、アプリ本体の答えから（アプリが起動していなければ unknown）", () => {
-    const office = JSON.stringify({ available: true, templates: [{ name: "初回", selection: sel({ template: "simple" }) }], topics: ["教育費"] });
-    const out = JSON.parse(hearingOptions("{}", "", office)) as { officeTemplates: { name: string; sheet: string }[]; topics: { office: unknown } };
+  it("事務所のひな形は、アプリ本体の答えから（アプリが起動していなければ null）。前に保存したひな形の話題は使わない", () => {
+    const office = JSON.stringify({ available: true, templates: [{ name: "初回", selection: { ...sel({ template: "simple" }), topics: ["教育費"] } }] });
+    const out = JSON.parse(hearingOptions("{}", "", office)) as { officeTemplates: { name: string; sheet: string }[] };
     expect(out.officeTemplates).toEqual([expect.objectContaining({ name: "初回", sheet: "simple" })]);
-    expect(out.topics.office).toEqual(["教育費"]);
-    expect((JSON.parse(hearingOptions("{}", "", "")) as { topics: { office: unknown } }).topics.office).toBe("unknown");
+    expect((JSON.parse(hearingOptions("{}", "", "")) as { officeTemplates: unknown }).officeTemplates).toBeNull();
+    const r = JSON.parse(hearingCheck(JSON.stringify({ template: "初回" }), "", office)) as { selection: WebSelection };
+    expect(r.selection.topics).toBeUndefined();
   });
 });
 
@@ -126,7 +129,7 @@ describe("選び方の確かめ（issue_hearing_url・propose_hearing_template �
     expect(aiSelection({ template: "review" }, { ...NONE, filled }).review).toBe(true);
   });
 
-  it("上限ちょうどは通り、超えると断る（独自の質問10問・書類15通・話題20・文の長さ）。制御文字・見えない書式の文字は断る", () => {
+  it("上限ちょうどは通り、超えると断る（独自の質問10問・書類15通・文の長さ）。制御文字・見えない書式の文字は断る", () => {
     const q = (n: number) => Array.from({ length: n }, (_, i) => ({ label: `質問${i + 1}` }));
     expect(aiSelection({ template: "simple", custom: q(10) }, NONE).selection).not.toBeNull();
     expect(problems({ template: "simple", custom: q(11) })).toContain("10問まで");
@@ -142,10 +145,10 @@ describe("選び方の確かめ（issue_hearing_url・propose_hearing_template �
     expect(problems({ template: "simple", documents: [{ kind: "withholdng" }] })).toContain("withholding のことですか");
     expect(problems({ template: "simple", documents: [{ kind: "loanSchedule", owner: "self" }] })).toContain("持ち主を選ばない");
     expect(problems({ template: "simple", documents: [{ kind: "other" }] })).toContain("title");
-    const t20 = Array.from({ length: 20 }, (_, i) => `話題${i + 1}`);
-    expect(aiSelection({ template: "simple", topics: t20 }, NONE).selection?.topics).toHaveLength(20);
-    expect(problems({ template: "simple", topics: [...t20, "21"] })).toContain("20までです");
-    expect(problems({ template: "simple", topics: ["あ".repeat(31)] })).toContain("30文字まで");
+    // 話題はやめた（0192 の追記 2026-11-17）: 書くと知らない名前として断る。ご相談したいことは選べない
+    expect(problems({ template: "simple", topics: ["教育費"] })).toContain("知らない名前です: topics");
+    expect(problems({ sheet: "simple", items: [{ key: "hs.consult.topics" }] })).toContain("選べる項目にありません");
+    expect(aiSelection({ sheet: "simple", items: [{ key: "hs.plan.events" }] }, NONE).selection).not.toBeNull();
     expect(problems({ template: "simple", name: "あ".repeat(41) })).toContain("40文字まで");
   });
 

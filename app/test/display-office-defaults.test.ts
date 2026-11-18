@@ -116,7 +116,7 @@ describe("世帯ファイルの「事務所の既定値に従う」の印（形�
     const back = fromBody(JSON.stringify(bodyObject(st)));
     expect(back.display).toEqual(st.display);
     expect(readDisplay({ followOffice: "result.metrics" }).followOffice).toBeUndefined();
-    expect(BODY_FORMAT_VERSION).toBe("0.82");
+    expect(BODY_FORMAT_VERSION).toBe("0.84");
   });
 
   it("新しく作る世帯は11件とも事務所の既定値に従い、世帯の値にも作ったときの事務所の既定値を書く（前の版のアプリで開いても同じ見た目）", () => {

@@ -7,7 +7,7 @@
 //!   上限は、事務所データを持つ画面が数える（`UNASSIGNED_LIMIT`。画面の側の定数と同じ）
 //! - 事務所のひな形の案（接続口の道具 `propose_hearing_template`）: 名前と選び方の形の外側を確かめて、メモリの中に承認待ちで置くだけ。
 //!   事務所の既定値に入れるのは、FPが画面で「ひな形として保存する」を押したときの画面（ほかの事務所の既定値の案と同じ。0215）
-//! - 選び方の中身（項目・票・独自の質問・書類・話題）は、接続口が案を出す前に・画面が発行と保存の前に、FP の画面と同じ関数
+//! - 選び方の中身（項目・票・独自の質問・書類）は、接続口が案を出す前に・画面が発行と保存の前に、FP の画面と同じ関数
 //!   （app/src/workspace/hearing/aiSelection.ts・hearing/src/web/packet.ts の checkSelection）で確かめる。ここでは信用しない入口として形だけを見る
 
 use crate::households::clean_line;
@@ -30,7 +30,7 @@ pub const MAX_TEMPLATE_NAME: usize = 40;
 pub const MAX_PURPOSE: usize = 120;
 /// AI が書いた理由の長さの上限（文字。ほかの案と同じ）
 pub const MAX_NOTE_CHARS: usize = 500;
-/// 選び方の JSON の大きさの上限（バイト。独自の質問10問・書類20通・話題20でも収まる大きさ）
+/// 選び方の JSON の大きさの上限（バイト。独自の質問10問・書類15通でも収まる大きさ）
 pub const MAX_SELECTION_BYTES: usize = 64 * 1024;
 
 /// 画面に頼む発行の1件（画面だけが鍵を作り、記録を書く）
@@ -60,7 +60,7 @@ pub struct JobHousehold {
 /// 画面に発行を頼む所（アプリ本体が入れる）。Ok は画面の答え（`{ ok: true, requestId, … }`）、Err は AI に見せてよい理由
 pub type HearingIssuer = Arc<dyn Fn(HearingJob) -> Result<Value, String> + Send + Sync>;
 
-/// 事務所の Web のヒアリングのひな形と話題（事務所データの defaults の hearingTemplates・hearingTopics）を読む所（アプリ本体が入れる）
+/// 事務所の Web のヒアリングのひな形（事務所データの defaults の hearingTemplates）を読む所（アプリ本体が入れる）
 pub type OfficeHearingSource = Arc<dyn Fn() -> Option<Value> + Send + Sync>;
 
 /// 承認待ちの事務所のひな形の案（形だけを確かめて置く。信用しない。画面が同じ関数で確かめ直してから出す）
@@ -111,7 +111,7 @@ fn selection(v: &Value) -> Result<Value, String> {
     let Value::Object(m) = v else {
         return Err("selection は物（JSON の object）で書いてください。".into());
     };
-    // WebSelection の欄（hearing/src/web/packet.ts。足すときはここにも足す）
+    // WebSelection の欄（hearing/src/web/packet.ts。足すときはここにも足す。topics は前の版の依頼の欄で、新しい選び方には置かない）
     const KEYS: [&str; 6] = ["base", "sections", "custom", "documents", "topics", "name"];
     if let Some(k) = m.keys().find(|k| !KEYS.contains(&k.as_str())) {
         return Err(format!("selection に知らない欄があります: {k}"));

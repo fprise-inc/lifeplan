@@ -36,12 +36,11 @@ export function filledKeys(input: unknown): string[] | null {
   return [...out];
 }
 
-/** アプリ本体の答え（事務所のひな形と話題。getOfficeHearing）を読む。アプリが起動していなければ null */
-function officeOf(json: string): { templates: { name: string; selection: WebSelection }[]; topics: string[] | null } | null {
+/** アプリ本体の答え（事務所のひな形。getOfficeHearing）を読む。アプリが起動していなければ null */
+function officeOf(json: string): { templates: { name: string; selection: WebSelection }[] } | null {
   const v = parse(json);
   if (!isObj(v)) return null;
-  const topics = Array.isArray(v.topics) ? v.topics.filter((t): t is string => typeof t === "string") : null;
-  return { templates: readHearingTemplates(v.templates), topics };
+  return { templates: readHearingTemplates(v.templates) };
 }
 
 /** get_hearing_options（a は { sheet? }、shared は渡された世帯の計算の入力か ""、office はアプリ本体の答えか ""） */
@@ -50,7 +49,7 @@ export function hearingOptions(a: string, shared: string, office: string): strin
   const sheet = isObj(args) && typeof args.sheet === "string" && (AI_SHEETS as readonly string[]).includes(args.sheet) ? (args.sheet as AiSheet) : undefined;
   const o = officeOf(office);
   const filled = filledKeys(parse(shared));
-  return JSON.stringify(options({ ...(sheet !== undefined ? { sheet } : {}), filled, officeTemplates: o?.templates ?? null, ...(o !== null ? { officeTopics: o.topics } : {}) }));
+  return JSON.stringify(options({ ...(sheet !== undefined ? { sheet } : {}), filled, officeTemplates: o?.templates ?? null }));
 }
 
 /** issue_hearing_url・propose_hearing_template の選び方の確かめ（a は選び方の引数、shared・office は上と同じ） */
@@ -58,6 +57,6 @@ export function hearingCheck(a: string, shared: string, office: string): string 
   const args = parse(a);
   if (!isObj(args)) return JSON.stringify({ selection: null, problems: ["選び方は JSON の物で書いてください"], counts: null, review: false });
   const o = officeOf(office);
-  const r = aiSelection(args as AiSelectionArgs, { filled: filledKeys(parse(shared)), officeTemplates: o?.templates ?? null, officeTopics: o?.topics ?? null });
+  const r = aiSelection(args as AiSelectionArgs, { filled: filledKeys(parse(shared)), officeTemplates: o?.templates ?? null });
   return JSON.stringify({ ...r, ...(r.selection !== null ? { summary: selectionSummary(r.selection) } : {}) });
 }

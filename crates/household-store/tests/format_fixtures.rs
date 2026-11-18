@@ -246,6 +246,39 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 火災保険・地震保険は 0.82 から（変換の段では足さない）"
             );
         }
+        // 0.83 から: 明細の行の読み取りが不確かの印 statements.imports[].rows[].readUncertain（0221）。変換で書き足さない（前の版の世帯は
+        // 欄が無い＝どの行も印なし）。0.83 の見本は写真から読んだ取り込みを1つ持ち、2行のうち1行に印
+        let unsure: Vec<&Value> = now["statements"]["imports"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .flat_map(|i| i["rows"].as_array().into_iter().flatten())
+                    .filter(|r| r.get("readUncertain").is_some())
+                    .collect()
+            })
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 83) {
+            assert_eq!(
+                unsure.len(),
+                1,
+                "{v}: 0.83 からの見本は読み取りが不確かの印の行を持つ"
+            );
+            assert_eq!(unsure[0]["readUncertain"], serde_json::json!(true));
+        } else {
+            assert!(unsure.is_empty(), "{v}: 印は変換で書き足さない");
+        }
+        // 0.84 から: Web のヒアリングの依頼の出どころ hearing.web[].origin（0222。AI から発行した依頼だけ）。変換で書き足さない
+        // （前の版の依頼は FP の画面で発行した依頼）。0.84 の見本は1件目が AI の発行
+        let origin = now["hearing"]["web"][0].get("origin");
+        if migrate::parse(v).unwrap() >= (0, 84) {
+            assert_eq!(
+                origin.and_then(|o| o.get("kind")),
+                Some(&serde_json::json!("ai")),
+                "{v}: 0.84 からの見本は依頼の出どころを持つ"
+            );
+        } else {
+            assert!(origin.is_none(), "{v}: 出どころは変換で書き足さない");
+        }
         // 0.76 から: 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利の段も要素の ID を持つ（0206）。前の版の見本は
         // 変換で、画面がその要素を指していた決まった ID（場所から作る）と同じ ID が付く。0.76 の見本は ID を書いた形で、借り換えも持つ
         let hh = &now["household"]["request"]["input"]["household"];

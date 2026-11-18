@@ -167,16 +167,6 @@
         "string",
         "null"
       ]
-    },
-    "topics": {
-      "description": "ご相談したいことの話題（省くと事務所の既定値か標準の話題、[] は話題を出さない）",
-      "items": {
-        "type": "string"
-      },
-      "type": [
-        "array",
-        "null"
-      ]
     }
   },
   "required": [

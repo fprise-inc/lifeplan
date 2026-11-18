@@ -74,7 +74,7 @@ args = ["mcp"]
 | 表示の設定を読む（0213） | `get_display_settings`（画面の見せ方だけの設定〔対策に最初から出す項目・万一のときのタブの場面と想定の前提・入力項目の出し方と並び・基本生活費の内訳の並べ方・結果のタブと資産と負債のタブの表示の設定など〕の一覧と今の値。読むだけ） | 一覧と既定はいつでも。事務所の既定値の今の値は、アプリが起動していて AI接続口がオンのときだけ。`share_id` の世帯の今の値は世帯を扱う群と同じ条件 |
 | 表示の設定の案を出す（0215・0216・0220） | `propose_display_settings`（事務所の既定値の見せ方だけの18件〔入力項目の並び・新しい世帯で出す入力項目・基本生活費の内訳の並べ方・対策に最初から出す項目・万一のときのタブの想定の前提と場面の帯と開いたときの場面と、結果のタブ・資産と負債のタブの表示の設定の事務所の既定値11件〕の案を、選べる値で確かめてから、アプリの画面に承認待ちの候補として出す。`share_id` を書くと、渡された世帯の世帯ごとの13件の案。設定は変わらない） | アプリが起動していて、AI接続口がオンのときだけ（事務所の既定値の案は世帯を渡していなくてよい。世帯ごとの案は世帯を扱う群と同じ共有の決まり） |
 | 新しい世帯の候補を出す | `propose_household`（AIが組み立てた世帯〔`calculate` の `input` と同じ形〕を、架空かお客さまか・題・推定したことと一緒に、アプリの画面に「新しい世帯の候補」として承認待ちで出す。世帯は作られない。0208） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい。計算できない入力の直し方は、アプリが起動していなくても返る） |
-| Web のヒアリング（0222） | `get_hearing_options`（URL で聞く事前のヒアリングで聞ける項目の一覧: 票〔シンプル・詳細〕ごとの分野と項目キー・問いの言葉・範囲でも答えられるか・繰り返し、ひな形〔シンプル・詳細・見直し・足りない所だけ〕と数、頼める書類、話題、独自の質問の上限、数え方。`share_id` を書くと項目ごとに今の値があるか。読むだけ）・`issue_hearing_url`（FP の画面と同じ関数で確かめた選び方で URL を発行する。見直しを含む依頼の URL と案内文は返さない。`preview: true` は数と要約だけ）・`propose_hearing_template`（事務所のひな形〔カスタム〕の案を承認待ちで出す） | 一覧と `preview` はいつでも（事務所のひな形はアプリが起動していて AI接続口がオンのとき）。発行とひな形の案は、アプリが起動していて AI接続口がオンのときだけ（世帯を渡していなくてよい。`share_id` は世帯を扱う群と同じ共有の決まり） |
+| Web のヒアリング（0222） | `get_hearing_options`（URL で聞く事前のヒアリングで聞ける項目の一覧: 票〔シンプル・詳細〕ごとの分野と項目キー・問いの言葉・範囲でも答えられるか・繰り返し、ひな形〔シンプル・詳細・見直し・足りない所だけ〕と数、頼める書類、独自の質問の上限、数え方。`share_id` を書くと項目ごとに今の値があるか。読むだけ）・`issue_hearing_url`（FP の画面と同じ関数で確かめた選び方で URL を発行する。見直しを含む依頼の URL と案内文は返さない。`preview: true` は数と要約だけ）・`propose_hearing_template`（事務所のひな形〔カスタム〕の案を承認待ちで出す） | 一覧と `preview` はいつでも（事務所のひな形はアプリが起動していて AI接続口がオンのとき）。発行とひな形の案は、アプリが起動していて AI接続口がオンのときだけ（世帯を渡していなくてよい。`share_id` は世帯を扱う群と同じ共有の決まり） |
 
 道具の名前と入出力は試験版です（予告して変えることがあります。0001・0015）。
 
@@ -468,11 +468,11 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 「新しいお客さまに URL で事前のヒアリングを送りたい」「この世帯の足りない所だけ URL で聞きたい」のように頼まれたときは、`get_hearing_options` で聞ける項目を引き、`issue_hearing_url` で URL を発行します（FP の承認は挟みません。利用者の判断。アプリもこの接続口もメールは送らず、URL と案内文を送るのは FP です）。
 
 - 票は2つ（`simple`＝シンプル〔簡易の票〕・`detail`＝詳細〔詳細の票〕）で、1つの依頼に混ぜられません。項目キー・ひな形・数え方は FP の画面と同じです（0192）。金額の「だいたいの範囲」は金額の項目の `range`（既定は付ける）で付け外しします。
-- 書き方: `template`（`simple`・`detail`・`review`〔見直し〕・`missing`〔足りない所だけ〕か事務所のひな形の名前）から始め、要るときだけ `items`（`[{ key, mode?, range? }]`。書くとひな形の項目を置き換える。分野はその項目の分野）・`custom`（独自の質問。10問まで。`answer` は `text`・`yesNo`・`choice`）・`documents`（頼む書類。15通まで。`[{ kind, owner? }]`。人の書類は省くとご本人）・`topics`（ご相談したいことの話題。省くと事務所の既定値か標準の9つ。`[]` は出さない）・`name`（依頼の一覧に出す名前）・`purpose`（何のための問いか）を書きます。`preview: true` は発行せずに数と要約だけを返します。
+- 書き方: `template`（`simple`・`detail`・`review`〔見直し〕・`missing`〔足りない所だけ〕か事務所のひな形の名前）から始め、要るときだけ `items`（`[{ key, mode?, range? }]`。書くとひな形の項目を置き換える。分野はその項目の分野）・`custom`（独自の質問。10問まで。`answer` は `text`・`yesNo`・`choice`）・`documents`（頼む書類。15通まで。`[{ kind, owner? }]`。人の書類は省くとご本人）・`name`（依頼の一覧に出す名前）・`purpose`（何のための問いか）を書きます。`preview: true` は発行せずに数と要約だけを返します。
 
 ```json
 { "template": "simple",
-  "items": [{ "key": "hs.family.adult.birthYearMonth" }, { "key": "hs.work.type" }, { "key": "hs.income.annual" }, { "key": "hs.housing.type" }, { "key": "hs.assets.depositTotal" }, { "key": "hs.consult.topics" }],
+  "items": [{ "key": "hs.family.adult.birthYearMonth" }, { "key": "hs.work.type" }, { "key": "hs.income.annual" }, { "key": "hs.housing.type" }, { "key": "hs.assets.depositTotal" }],
   "custom": [{ "label": "面談の場所のご希望", "answer": "choice", "choices": ["事務所", "オンライン"] }],
   "documents": [{ "kind": "withholding" }],
   "name": "初回の面談の前",
@@ -563,7 +563,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 画面から呼べる命令は `ai_status`・`ai_set_enabled`・`ai_hearing_jobs`・`ai_hearing_job_done`・`ai_hearing_template_candidates`・`ai_hearing_template_take`・`ai_setup_copy`・`ai_household`・`ai_consent_record`・`ai_share_start`・`ai_share_stop`・`ai_candidate_decide`・`ai_documents_taken`・`ai_household_candidates`・`ai_household_candidate_discard`・`ai_household_candidate_create` と、架空の世帯をお客さまの世帯にする `store_make_client` だけで、パスも鍵も受け取らない・返しません。`ai_household_candidate_create` は、候補がまだ承認待ちか・本文の家族が候補と同じかを確かめ、出どころの記録（`meta.origin`）を本体が書いて作ります（0208）。
 - 開発用のビルドは、作業フォルダを `<アプリのデータの場所>/run-dev/`（`FINANCIA_DEV_RUNTIME_DIR` で差し替え）にし、製品の口とぶつからないようにします。接続の設定の文面には、作業フォルダの指定（`LIFEPLAN_RUNTIME_DIR`）が加わります。
 - 表示の設定（0213）: 起動時に、事務所の既定値の見せ方だけの欄を読む所を `set_office_display` で入れる（切り出し方は `ai_share::display::office_display_of` の1か所。合算BS には今使える機能を添える）。接続口からの `getOfficeDisplay` に答え、`getShareDisplay` は共有の元の見せ方の区画（帳面の `source` が本文から `display::household_display_of` で切り出す）を、仮の ID に置き換えて返し、記録に残す。
-- Web のヒアリング（0222）: 起動時に、事務所のひな形と話題を読む所（`set_office_hearing`）と、発行を画面に頼む所（`set_hearing_issuer`。`HearingJobs` に仕事を置き、画面の答えを30秒まで待つ）を入れる。画面は3秒ごとの `ai_status` の `hearingJobs` を見て、`ai_hearing_jobs` で仕事を受け取り、発行して記録を書いてから `ai_hearing_job_done` で答える（見直しを含む世帯の依頼には、本体の帳面の本文を添える）。世帯の決まっていない依頼と開いていない世帯の依頼は、事務所データの欄 `hearing_requests`（`office_hearing_get`・`office_hearing_put`）に置く（事務所データの形式の版 0.2。このアプリより新しい版の事務所データは閲覧だけで開き、書かない）。ひな形の案は `ai_hearing_template_candidates`・`ai_hearing_template_take`。AI接続口をオフにすると、待っている仕事を断り、ひな形の案を消す。
+- Web のヒアリング（0222）: 起動時に、事務所のひな形を読む所（`set_office_hearing`）と、発行を画面に頼む所（`set_hearing_issuer`。`HearingJobs` に仕事を置き、画面の答えを30秒まで待つ）を入れる。画面は3秒ごとの `ai_status` の `hearingJobs` を見て、`ai_hearing_jobs` で仕事を受け取り、発行して記録を書いてから `ai_hearing_job_done` で答える（見直しを含む世帯の依頼には、本体の帳面の本文を添える）。世帯の決まっていない依頼と開いていない世帯の依頼は、事務所データの欄 `hearing_requests`（`office_hearing_get`・`office_hearing_put`）に置く（事務所データの形式の版 0.2。このアプリより新しい版の事務所データは閲覧だけで開き、書かない）。ひな形の案は `ai_hearing_template_candidates`・`ai_hearing_template_take`。AI接続口をオフにすると、待っている仕事を断り、ひな形の案を消す。
 - 接続口の版（`lifeplan --version`）とアプリの版をそろえる（違うと `VERSION_MISMATCH`。事務所の設定の画面にも出す）。接続口の同梱（アプリと同じフォルダに置く）は配布の回で行います。
 
 テスト: `cargo test --release -p lifeplan -p ai-share -p ai-ipc -p household-store`（本物の接続口を起動してアプリの方針の流れを確かめる `app_policy_consent_is_required_end_to_end` を含む）、`app/src-tauri` の `cargo test`、`app` の `npm test`（`test/ai.test.ts`）。

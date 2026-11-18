@@ -183,16 +183,6 @@
         "string",
         "null"
       ]
-    },
-    "topics": {
-      "description": "ご相談したいことの話題（20まで・1つ30文字まで）。省くと事務所の既定値か標準の話題、[] は話題を出さない",
-      "items": {
-        "type": "string"
-      },
-      "type": [
-        "array",
-        "null"
-      ]
     }
   },
   "type": "object"

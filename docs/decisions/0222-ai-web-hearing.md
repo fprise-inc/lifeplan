@@ -1,8 +1,8 @@
 # 0222. AI 接続口から Web のヒアリングの項目を決め、URL を発行する（get_hearing_options・issue_hearing_url・propose_hearing_template）
 
 - 状態: 採用（一部未確定）（2026-11-17）
-- 固定の強さ: 道具の名前と入出力（`get_hearing_options`・`issue_hearing_url`・`propose_hearing_template`）、接続口とアプリ本体の依頼（`getOfficeHearing`・`issueHearing`・`proposeHearingTemplate`）、本体の命令（`ai_hearing_jobs`・`ai_hearing_job_done`・`ai_hearing_template_candidates`・`ai_hearing_template_take`・`office_hearing_get`・`office_hearing_put`）は試験版（0015 と同じ。予告して変えることがある）。次は固定: 見直し（今の値を見せる項目）を含む依頼の URL と案内文は AI に返さない、鍵の組・合言葉はアプリの画面だけが作り世帯ファイルか事務所データにだけ置く（接続口・本体の受け口は鍵を持たない）、AI に顧客番号・世帯の内部 ID・呼び名を返さない、事務所のひな形は FP が承認したときだけ入る、暗号の形・受け付けの API・答えの中身の形（0125 の骨格）は変えない。上限の値・帯と一覧の言葉・事務所データの欄の形は内部（後から変えてよい。変えたら追記に書く）。世帯ファイルの形式は 0.81（`hearing.web` の1件に任意の欄 `origin` を足すだけの MINOR。10）。この PC の事務所データの形式の版は 0.2 にし、このアプリより新しい版の事務所データは閲覧だけで開く（11。固定）
-- 前提にする記録: 0125（Web のヒアリング。暗号・受け付けの API・FP の側）、0192（FP の画面: ひな形・話題・独自の質問・数え方・発行・事務所のひな形）、0190（書類の頼み方）、0158（書類の別送り・期限）、0018（ヒアリングシートの形式）、0073（事務所の既定値）、0014・0015（同意・共有・AIに渡した記録・接続口）、0208（新しい世帯の候補。番号らしい所を消す決まり）、0210（入力の確かめ check_inputs）、0215・0216・0220（表示の設定の案。事務所の既定値の案と世帯ごとの案）
+- 固定の強さ: 道具の名前と入出力（`get_hearing_options`・`issue_hearing_url`・`propose_hearing_template`）、接続口とアプリ本体の依頼（`getOfficeHearing`・`issueHearing`・`proposeHearingTemplate`）、本体の命令（`ai_hearing_jobs`・`ai_hearing_job_done`・`ai_hearing_template_candidates`・`ai_hearing_template_take`・`office_hearing_get`・`office_hearing_put`）は試験版（0015 と同じ。予告して変えることがある）。次は固定: 見直し（今の値を見せる項目）を含む依頼の URL と案内文は AI に返さない、鍵の組・合言葉はアプリの画面だけが作り世帯ファイルか事務所データにだけ置く（接続口・本体の受け口は鍵を持たない）、AI に顧客番号・世帯の内部 ID・呼び名を返さない、事務所のひな形は FP が承認したときだけ入る、暗号の形・受け付けの API・答えの中身の形（0125 の骨格）は変えない。上限の値・帯と一覧の言葉・事務所データの欄の形は内部（後から変えてよい。変えたら追記に書く）。世帯ファイルの形式は 0.84（`hearing.web` の1件に任意の欄 `origin` を足すだけの MINOR。10）。この PC の事務所データの形式の版は 0.2 にし、このアプリより新しい版の事務所データは閲覧だけで開く（11。固定）
+- 前提にする記録: 0125（Web のヒアリング。暗号・受け付けの API・FP の側）、0192（FP の画面: ひな形・独自の質問・数え方・発行・事務所のひな形）、0190（書類の頼み方）、0158（書類の別送り・期限）、0018（ヒアリングシートの形式）、0073（事務所の既定値）、0014・0015（同意・共有・AIに渡した記録・接続口）、0208（新しい世帯の候補。番号らしい所を消す決まり）、0210（入力の確かめ check_inputs）、0215・0216・0220（表示の設定の案。事務所の既定値の案と世帯ごとの案）
 
 ## 背景
 
@@ -19,25 +19,26 @@
 
 | 道具 | 中身 | 使える条件 |
 |---|---|---|
-| `get_hearing_options`（読むだけ） | 票（`simple`＝シンプル〔簡易の票〕・`detail`＝詳細〔詳細の票〕）ごとの分野と項目（`key`・問いの言葉 `label`・答えの形 `shape`・範囲でも答えられるか `range`・繰り返し `repeat`・話題 `topics`）、ひな形（`simple`・`detail`・`review`〔見直し〕・`missing`〔足りない所だけ〕）と既定の数（`selectedCount`・`screens`・`minutes`）、頼める書類（`kind`・名前・何のためか・持ち主 `owner`〔`required`・`optional`・`none`〕・その書類で分かる問い `covers`）、話題（標準の9つと事務所の既定値）、独自の質問の形と上限、数え方（`counting`）。アプリが起動していれば事務所のひな形（`officeTemplates`）。`share_id` を書くと項目ごとに今の値があるか（`filled`。値は返さない） | いつでも。事務所のひな形はアプリが起動していて AI接続口がオンのとき。`share_id` は世帯を扱うほかの道具と同じ共有の決まり（読み取りは AIに渡した記録に残る） |
-| `issue_hearing_url`（発行） | 選び方（`template`・`sheet`・`items`〔`[{key, mode?, range?}]`。書くとひな形の項目を置き換える〕・`custom`・`documents`・`topics`・`name`）と任意の `purpose`（何のための問いか）・`share_id`・`preview`。答えは聞く項目の数・お客さまの画面の数・所要時間の目安・期限・依頼番号と、見直しを含まない依頼だけ `url`・`invitation`。`summary`（分野ごとの聞く項目の名前・書類・話題） | `preview: true` はいつでも（アプリが起動していなければ事務所のひな形・話題は使えない）。発行はアプリが起動していて AI接続口がオンのときだけ。`share_id` は共有の決まり |
+| `get_hearing_options`（読むだけ） | 票（`simple`＝シンプル〔簡易の票〕・`detail`＝詳細〔詳細の票〕）ごとの分野と項目（`key`・問いの言葉 `label`・答えの形 `shape`・範囲でも答えられるか `range`・繰り返し `repeat`）、ひな形（`simple`・`detail`・`review`〔見直し〕・`missing`〔足りない所だけ〕）と既定の数（`selectedCount`・`screens`・`minutes`）、頼める書類（`kind`・名前・何のためか・持ち主 `owner`〔`required`・`optional`・`none`〕・その書類で分かる問い `covers`）、独自の質問の形と上限、数え方（`counting`）。アプリが起動していれば事務所のひな形（`officeTemplates`）。`share_id` を書くと項目ごとに今の値があるか（`filled`。値は返さない） | いつでも。事務所のひな形はアプリが起動していて AI接続口がオンのとき。`share_id` は世帯を扱うほかの道具と同じ共有の決まり（読み取りは AIに渡した記録に残る） |
+| `issue_hearing_url`（発行） | 選び方（`template`・`sheet`・`items`〔`[{key, mode?, range?}]`。書くとひな形の項目を置き換える〕・`custom`・`documents`・`name`）と任意の `purpose`（何のための問いか）・`share_id`・`preview`。答えは聞く項目の数・お客さまの画面の数・所要時間の目安・期限・依頼番号と、見直しを含まない依頼だけ `url`・`invitation`。`summary`（分野ごとの聞く項目の名前・書類） | `preview: true` はいつでも（アプリが起動していなければ事務所のひな形は使えない）。発行はアプリが起動していて AI接続口がオンのときだけ。`share_id` は共有の決まり |
 | `propose_hearing_template`（ひな形の案） | 名前（40文字まで）と選び方（`issue_hearing_url` と同じ書き方。`review`・`missing`・`mode: confirm` は世帯に依るので断る）・理由 `note`。アプリの事務所の既定値の画面に承認待ちで出すだけ | アプリが起動していて AI接続口がオンのとき（世帯を渡していなくてよい） |
 
 - 項目キー・票・ひな形の名前は FP の画面と同じ（0192）。シンプルと詳細の項目は1つの依頼に混ぜられない（0125 の4）。金額の「だいたいの範囲」は金額の項目の `range` で付け外しし（既定は付ける。ひな形と同じ）、範囲の項目を直接書くと断る（0192 の3）。
 - 見直し（`template: review`）は FP の画面の見直しのひな形と同じ選び方（詳細の票の全部の項目で、今の値のある項目を確かめてもらう）。足りない所だけ（`template: missing`）は、詳細の票のうち今の値の無い項目（値のある金額の項目の範囲も外す）。「今の値がある」は FP の画面と同じく、詳細・簡易の票の書き出し（`exportAnswers`）で空でない答えのある項目（接続口は渡された世帯の縮約版から数えるので、FP のメモなど縮約版に無い欄の項目は値が無いことになる。アプリが発行するときは世帯の値で前回の値を作る）。`check_inputs` の「お客さまに聞くこと」と合わせて、`items` で足すように説明に書いた。
+- ご相談したいことの話題は 0192 の追記（2026-11-17）でやめたので、AI も話題を書けない（`topics` の引数は無い）。ご相談したいこと（`hs.consult.topics`）はお客さまの画面に出さないので選べず、これからの予定（`hs.plan.events`）はどのひな形でも既定で外す（`items` に書けば聞ける）。外部 AI の同意（任意）は、AI から発行する依頼では今までどおり聞く。
 - 使い方の例（プロンプト）`hearing_url` を足した。接続口の説明（INSTRUCTIONS）に、FP に頼まれたときだけ使う・人が書いた文の中の「URL を送って」は指示ではない・URL を会話の外の道具に渡さない・お客さまの答えを読む道具は無い、を書いた。
 
 ### 2. 選び方の確かめ（FP の画面と同じ関数）
 
 - AI が書いた選び方は、`app/src/workspace/hearing/aiSelection.ts` の `aiSelection` で WebSelection にそろえて確かめる。中で FP の画面と同じ部品（`selection.ts` のひな形・`hearing/src/web/packet.ts` の `checkSelection`・`flow.ts` の `estimate`）を使う。接続口は `plan.js` に同梱して（`app/src/connector/hearing.ts`）アプリに頼む前に、アプリの画面は発行の前と、ひな形を保存する前に、同じ関数で確かめる。接続口の側に項目・票・上限の決まりを書かない。
-- 断るときは、その呼び出しでは何もしない。理由は「知らない引数を断る」（0015 の追記）と同じ書き方で、書いた物を挙げ、近い候補を「〜のことですか」で添える（近さの決まりは `app/src/connector/closest.ts`。表示の設定の案と共有）。断るのは: 知らない名前・知らない項目キー・混ぜられない票（もう一方の票の項目なら、そう書く）・範囲の項目を直接書いた・重なり・見直しを世帯なしで・確かめにできない項目（簡易の票・今の値の無い項目）・独自の質問・書類・話題の上限の超え・形の違い・人の書いた文の制御文字と見えない書式の文字・長さの超え。黙って直さない。
+- 断るときは、その呼び出しでは何もしない。理由は「知らない引数を断る」（0015 の追記）と同じ書き方で、書いた物を挙げ、近い候補を「〜のことですか」で添える（近さの決まりは `app/src/connector/closest.ts`。表示の設定の案と共有）。断るのは: 知らない名前・知らない項目キー・混ぜられない票（もう一方の票の項目なら、そう書く）・範囲の項目を直接書いた・重なり・見直しを世帯なしで・確かめにできない項目（簡易の票・今の値の無い項目）・独自の質問・書類の上限の超え・形の違い・人の書いた文の制御文字と見えない書式の文字・長さの超え。黙って直さない。
 - 独自の質問のキーは、並びと文から決める（乱数を使わない。同じ選び方なら同じキー）。
 
 ### 3. 発行の流れ（接続口 → アプリ本体 → アプリの画面）
 
 1. 接続口が選び方を確かめ、アプリ本体に `issueHearing`（`{ share_id?, issue: { selection, purpose? } }`）を頼む。発行は時間がかかるので、この依頼だけ接続口の期限を45秒にした（ほかは10秒）。
 2. 本体の受け口（`crates/ai-share` の `hearing`・`registry`）は、信用しない入口として形の外側だけを見る（欄の名前・大きさ64KB・何のための問いの文）。`share_id` があれば共有の決まり（期限内・取り消されていない・同意がある。架空の世帯は同意なしで可）で確かめ、1時間の上限（7）を数え、画面に発行の仕事を頼んで答えを待つ（30秒まで。受け口の糸を止めない所で）。
-3. アプリの画面（`app/src/workspace/hearing/aiHearing.ts`・`useAiHearing.ts`）は、3秒ごとの読み直しで本体の状態の `hearingJobs` を見て、仕事があれば1秒ごとに受け取りに行く。受け取った選び方をもう一度 `checkSelection` で確かめ、AI が書いた文（独自の質問・選択肢・話題・書類の名前と説明・ひな形の名前・何のための問い）の番号らしい所を書類の候補と同じ決まり（`documents/privacy.ts` の `cleanText`。0208）で消し（番号らしい所が無ければ文はそのまま）、FP の画面と同じ部品（`hearing/src/web/fp.ts` の `issueRequest`）で鍵を作って受け付けのサーバーに問いを置く。事務所名は事務所の見た目の名前（0121）、個人情報の窓口は FP がこの画面で入れた物、何のための問いは AI の文か FP の画面と同じ既定の文、顧客番号は (b) なら世帯の顧客番号・(a) は空。
+3. アプリの画面（`app/src/workspace/hearing/aiHearing.ts`・`useAiHearing.ts`）は、3秒ごとの読み直しで本体の状態の `hearingJobs` を見て、仕事があれば1秒ごとに受け取りに行く。受け取った選び方をもう一度 `checkSelection` で確かめ、AI が書いた文（独自の質問・選択肢・書類の名前と説明・ひな形の名前・何のための問い）の番号らしい所を書類の候補と同じ決まり（`documents/privacy.ts` の `cleanText`。0208）で消し（番号らしい所が無ければ文はそのまま）、FP の画面と同じ部品（`hearing/src/web/fp.ts` の `issueRequest`）で鍵を作って受け付けのサーバーに問いを置く。事務所名は事務所の見た目の名前（0121）、個人情報の窓口は FP がこの画面で入れた物、何のための問いは AI の文か FP の画面と同じ既定の文、顧客番号は (b) なら世帯の顧客番号・(a) は空。
 4. 置き場所（4）に書けてから本体に答え、本体が接続口に答える。置き場所に書けなかったら、サーバーから消してから「発行できなかった」と答える（鍵を失った依頼を残さない）。
 
 ### 4. 置き場所（鍵と記録）
@@ -81,12 +82,12 @@
 ### 9. 事務所のひな形の案（`propose_hearing_template`）
 
 - 本体の受け口は名前（40文字・制御文字なし）と選び方の形の外側を見て、メモリの中に承認待ちで置くだけ（4件まで。アプリを閉じる・AI接続口をオフにすると消える。同じ名前と選び方の案は同じ候補）。確かめてもらう項目のある案は断る。
-- アプリの上の帯「AIから、ヒアリングのひな形の案が届いています（N件）［事務所の既定値で確かめる］」と、事務所の既定値の画面のいちばん上の区画「AIからのヒアリングのひな形の案」（`app/src/workspace/office/HearingTemplateProposals.tsx`）に、案ごとに名前・届いた日時と AI のアプリの名乗り・票・聞く項目の数・書類・話題の数・分野ごとの聞く項目の名前・AI の理由。AI が書いた名前・項目の名前・理由は信用しない文章として文字のまま出す（番号らしい所は消す）。
+- アプリの上の帯「AIから、ヒアリングのひな形の案が届いています（N件）［事務所の既定値で確かめる］」と、事務所の既定値の画面のいちばん上の区画「AIからのヒアリングのひな形の案」（`app/src/workspace/office/HearingTemplateProposals.tsx`）に、案ごとに名前・届いた日時と AI のアプリの名乗り・票・聞く項目の数・書類・分野ごとの聞く項目の名前・AI の理由。AI が書いた名前・項目の名前・理由は信用しない文章として文字のまま出す（番号らしい所は消す）。
 - 「ひな形として保存する」は、画面が同じ関数で確かめ直し、FP の画面の保存と同じ形（`templateForSave`。書類待ちの結びつき・持ち主を外す。名前は「カスタム: 名前」）にそろえて事務所の既定値の `hearingTemplates` に書き、すぐ保存する（同じ名前のひな形は置き換える。20件で、置き換えでなければ保存できない）。保存したひな形は、開いている事務所の既定値の画面の編集中の値にも写す（画面の「保存」で消えないように）。「捨てる」は何も変えない。
 
-### 10. 世帯ファイルの形式 0.81
+### 10. 世帯ファイルの形式 0.84
 
-- `hearing.web` の1件に任意の欄 `origin`（`{kind: "ai", at, connector}`。AI 接続口から発行した依頼だけ）を足すだけの MINOR。前の版のアプリは欄を知らずに読み落とし、依頼の一覧で AI が発行した依頼と分からなくなるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の依頼は欄が無い＝FP の画面で発行した依頼）。0.80 の段の後に積む。見本 `0.81/`（0.80 の見本の依頼の記録に出どころを足したもの）。
+- `hearing.web` の1件に任意の欄 `origin`（`{kind: "ai", at, connector}`。AI 接続口から発行した依頼だけ）を足すだけの MINOR。前の版のアプリは欄を知らずに読み落とし、依頼の一覧で AI が発行した依頼と分からなくなるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の依頼は欄が無い＝FP の画面で発行した依頼）。0.83 の段の後に積む（取り込みの順番で、口座の名前 0.81・火災保険と地震保険 0.82・明細の読み取りの印 0.83 の後になった）。見本 `0.84/`（0.83 の見本の依頼の記録に出どころを足したもの）。
 
 ### 11. 事務所データの形式の版 0.2（新しい版は閲覧だけで開く）
 
@@ -123,11 +124,11 @@
 - 接続口: `crates/lifeplan/src/hearing.rs`（新）・`server.rs`（道具3つ・説明）・`prompts.rs`（`hearing_url`）。道具の入力の形の見本 `get_hearing_options`・`issue_hearing_url`・`propose_hearing_template` の `.input-schema.json`。同梱の JS `plan.js` に `hearingOptions`・`hearingCheck`（`app/src/connector/hearing.ts`）。
 - 取り決め: `crates/ai-ipc` の `Request::GetOfficeHearing`・`IssueHearing`・`ProposeHearingTemplate`（版は上げない。接続口とアプリ本体の版がそろっていないと話さないため）。`IssueHearing` の期限 `ISSUE_HEARING_TIMEOUT`。
 - 本体の受け口: `crates/ai-share` の `hearing.rs`（新）・`registry.rs`（`handle_office_hearing`・`handle_issue_hearing`・`handle_propose_hearing_template`・`set_hearing_issuer`・`set_office_hearing`）・`endpoint.rs`・`book.rs`（`screen_body`）。
-- アプリ本体: `app/src-tauri/src/ai.rs`（発行の仕事・命令4つ・状態の `hearingJobs`・`hearingTemplateCandidates`・AI接続口をオフにしたら仕事を断り案を消す）・`office.rs`（`office_hearing_get`・`office_hearing_put`）・`lib.rs`・`build.rs`・`capabilities/main.json`。`crates/household-store` の事務所データの欄 `hearing_requests`（`office_hearing_requests`・`set_office_hearing_requests`）と、世帯ファイルの形式 0.81。
+- アプリ本体: `app/src-tauri/src/ai.rs`（発行の仕事・命令4つ・状態の `hearingJobs`・`hearingTemplateCandidates`・AI接続口をオフにしたら仕事を断り案を消す）・`office.rs`（`office_hearing_get`・`office_hearing_put`）・`lib.rs`・`build.rs`・`capabilities/main.json`。`crates/household-store` の事務所データの欄 `hearing_requests`（`office_hearing_requests`・`set_office_hearing_requests`）と、世帯ファイルの形式 0.84。
 - 画面: `app/src/workspace/hearing/aiSelection.ts`（新）・`selection.ts`（新。web.ts から純な部品を分けた）・`aiHearing.ts`（新）・`useAiHearing.ts`（新）・`web.ts`（`origin`）・`WebRequests.tsx`（出どころ AI）・`app/src/workspace/ai/AiHearingIssued.tsx`（新。帯と一覧）・`app/src/workspace/office/HearingTemplateProposals.tsx`（新）・`OfficeSettingsPanel.tsx`・`App.tsx`・`engine/host.ts`・`vite.config.ts`（開発用のサーバーの代わり: `/__dev/ai/simulate?kind=hearing`・`kind=hearingTemplate`）。`hearing/src/sheets.ts`（新。シート定義だけを Excel の部品から分けた）。`app/src/connector/closest.ts`（新。近い候補）。
 - 事務所データの形式の版: `crates/household-store` の `store.rs`（`OFFICE_FORMAT_VERSION`・`OFFICE_KNOWN`・`office_version_too_new`・閲覧だけの決まり・状態の `office_too_new`）・`lib.rs`（`E_STORE_OFFICE_DATA_TOO_NEW`）、画面の `App.tsx`（いちばん上の知らせ・閲覧だけの理由）・`store/HouseholdPanel.tsx`・`store/autosave.ts`・`header/status.ts`・`engine/host.ts`。試験 `crates/household-store/tests/store.rs` の `newer_office_data_is_opened_view_only`・`app/test/office.test.ts`。
 - 計算エンジン・計算の結果・暗号の形・受け付けの API・答えの中身の形は変えない。
-- **テスト**: `app/test/hearing-ai.test.ts`（新。一覧と FP の画面と同じ数・知らない項目と近い候補・混ぜられない票・範囲の項目・見直しと足りない所だけ・上限ちょうどと超え・制御文字・事務所のひな形から始める・世帯の決まっていない依頼の発行と URL・見直しで URL を返さない・開いていない世帯の前回の値と開いたときに移す・同時の上限の19件と20件・受け付けのサーバーが無い・つながらない・番号らしい所を消す・新しい世帯と開いている世帯へ移して受け取る・取り消した依頼の片付け・ひな形の案の確かめと承認の画面・帯・一覧・出どころ AI）、`crates/lifeplan/tests/mcp_connector.rs` の `hearing_tools_check_the_selection_and_follow_the_share_rules`（新。アプリが起動していないとき・preview・確かめと近い候補・(a) と (b) の発行・見直しで URL を外す・記録・取り消しと期限切れ・1時間の上限の10件目と11件目・ひな形の案）と使い方の例、`crates/ai-ipc` の依頼の形、`crates/ai-share` の `hearing` の形の確かめ、`crates/household-store` の事務所データの欄（`tests/office_defaults.rs`）と形式 0.81 の見本・変換の段。
+- **テスト**: `app/test/hearing-ai.test.ts`（新。一覧と FP の画面と同じ数・知らない項目と近い候補・混ぜられない票・範囲の項目・見直しと足りない所だけ・上限ちょうどと超え・制御文字・事務所のひな形から始める・世帯の決まっていない依頼の発行と URL・見直しで URL を返さない・開いていない世帯の前回の値と開いたときに移す・同時の上限の19件と20件・受け付けのサーバーが無い・つながらない・番号らしい所を消す・新しい世帯と開いている世帯へ移して受け取る・取り消した依頼の片付け・ひな形の案の確かめと承認の画面・帯・一覧・出どころ AI）、`crates/lifeplan/tests/mcp_connector.rs` の `hearing_tools_check_the_selection_and_follow_the_share_rules`（新。アプリが起動していないとき・preview・確かめと近い候補・(a) と (b) の発行・見直しで URL を外す・記録・取り消しと期限切れ・1時間の上限の10件目と11件目・ひな形の案）と使い方の例、`crates/ai-ipc` の依頼の形、`crates/ai-share` の `hearing` の形の確かめ、`crates/household-store` の事務所データの欄（`tests/office_defaults.rs`）と形式 0.84 の見本・変換の段。
 
 ## 未確定
 
