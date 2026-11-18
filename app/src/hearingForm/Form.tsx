@@ -625,9 +625,7 @@ function Question({ p, d, f, itemOf, setAnswer, first, showHead, now, mode }: { 
     setAnswer(range.key, f.index, x);
     if (x !== undefined) setAnswer(f.key, f.index, undefined);
   };
-  // 月を「わからない」にできるのは大人の生年月だけ（年齢の項目がある簡易の票。今までと同じ）。年だけでは取り込めないので送らず、面談で伺う
-  const monthUnknown = it.key === "hs.family.adult.birthYearMonth" && itemOf.has("hs.family.adult.age");
-  const noMonth = it.type === "yearMonth" && raw2Text(a) === MONTH_UNKNOWN;
+  // 生年月の月は「わからない」を出さない（ご本人・ご家族の生まれた月は分かるため。2026-11-18 利用者の判断）。前に「わからない」で残した下書きは、今までどおり読める
   const basis = basisText(it);
   const label = itemLabel(it, d, f.index);
   const guide = itemGuide(it);
@@ -674,9 +672,8 @@ function Question({ p, d, f, itemOf, setAnswer, first, showHead, now, mode }: { 
         </>
       ) : (
         <>
-          <Field item={it} a={a?.status === "value" ? a : undefined} onChange={setMain} years={p.years} autoFocus={first && mode === "live"} now={now} monthUnknown={monthUnknown} label={label} />
+          <Field item={it} a={a?.status === "value" ? a : undefined} onChange={setMain} years={p.years} autoFocus={first && mode === "live"} now={now} monthUnknown={false} label={label} />
           {it.example !== undefined && it.type !== "text" && it.type !== "yearMonth" ? <p class="hf-example">記入例: {it.example}</p> : null}
-          {noMonth ? <p class="hf-note">月がわからないときは、面談のときに伺います。</p> : null}
         </>
       )}
       <StateButtons
