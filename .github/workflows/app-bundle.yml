@@ -7,6 +7,8 @@
 #   Windows の署名  AZURE_CLIENT_ID・AZURE_CLIENT_SECRET・AZURE_TENANT_ID（Azure Artifact Signing の署名の役割だけを持つアプリの登録）
 #   更新のファイル  TAURI_SIGNING_PRIVATE_KEY・TAURI_SIGNING_PRIVATE_KEY_PASSWORD（アプリ更新用の鍵の現用。0117 の2）
 # 秘密の値は環境 release-signing の environment secrets に置く（必須の承認つき。対象は main ブランチとリリースのタグ v*）。
+# main とリリースのタグ以外（PR のブランチの確かめ）は環境を使わず、秘密の値なしで署名せずにビルドする（環境が受け付けずに止まらないように）。
+# AI接続の本体（lifeplan）もここで作り、アプリと同じフォルダに入れる（app/scripts/bundle.ts・connector.ts。0015 の追記 2026-11-19）。
 name: app-bundle
 on:
   workflow_dispatch:
@@ -32,7 +34,8 @@ jobs:
             args: --bundles deb
     runs-on: ${{ matrix.os }}
     # 秘密の値は承認つきの環境に置く（0117 の6）。動かすたびに提供元の承認が要る。環境の名前を変えるときは GitHub の設定も直す
-    environment: release-signing
+    # main とリリースのタグ以外は環境を使わない（空の名前は環境なし）。秘密の値は環境にしか無いので、そのときは署名しない
+    environment: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'release-signing' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,7 +55,10 @@ jobs:
           targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: app/src-tauri -> target
+          # アプリ本体と、AI接続の本体（リポジトリ直下のワークスペースの lifeplan）
+          workspaces: |
+            app/src-tauri -> target
+            . -> target
       - name: アプリの画面の依存
         working-directory: app
         run: npm ci

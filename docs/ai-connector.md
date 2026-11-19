@@ -9,6 +9,10 @@ AIのアプリ（Claude Code・Claude Desktop・Codex）が `lifeplan mcp` を�
 
 ## 1. 作る
 
+配布用のアプリ（インストーラーで入れたもの）では、接続口はアプリと同じフォルダに入っているので、作る必要はありません
+（Mac は `Financia.app/Contents/MacOS/lifeplan`、Windows はインストール先の `lifeplan.exe`、Linux の deb は `/usr/bin/lifeplan`。アプリと同じ版で、アプリと同じ名前で署名しています。0015 の追記 2026-11-19）。
+開発用に手元で作るときは次のとおりです。
+
 ```sh
 cd engine && npm ci && npm run build && cd ..   # 計算エンジンと制度データ・対応範囲の一覧（engine/dist）
 cd app && npm ci && npm run build:explain && cd ..   # 数字の根拠の読み方・プランの動かす項目・見本の名前と目印・差し替えられる文と欄の一覧・表示の設定の一覧（crates/lifeplan/dist/explain.js・plan.js・samples.json・texts-catalog.json・terms-catalog.json・fields-catalog.json・display-catalog.json。0183・0195・0199・0212・0213）
@@ -576,7 +580,8 @@ FP が「〇〇するにはどこを押す？」のように画面の操作を�
 - 開発用のビルドは、作業フォルダを `<アプリのデータの場所>/run-dev/`（`FINANCIA_DEV_RUNTIME_DIR` で差し替え）にし、製品の口とぶつからないようにします。接続の設定の文面には、作業フォルダの指定（`LIFEPLAN_RUNTIME_DIR`）が加わります。
 - 表示の設定（0213）: 起動時に、事務所の既定値の見せ方だけの欄を読む所を `set_office_display` で入れる（切り出し方は `ai_share::display::office_display_of` の1か所。合算BS には今使える機能を添える）。接続口からの `getOfficeDisplay` に答え、`getShareDisplay` は共有の元の見せ方の区画（帳面の `source` が本文から `display::household_display_of` で切り出す）を、仮の ID に置き換えて返し、記録に残す。
 - Web のヒアリング（0222）: 起動時に、事務所のひな形を読む所（`set_office_hearing`）と、発行を画面に頼む所（`set_hearing_issuer`。`HearingJobs` に仕事を置き、画面の答えを30秒まで待つ）を入れる。画面は3秒ごとの `ai_status` の `hearingJobs` を見て、`ai_hearing_jobs` で仕事を受け取り、発行して記録を書いてから `ai_hearing_job_done` で答える（見直しを含む世帯の依頼には、本体の帳面の本文を添える）。世帯の決まっていない依頼と開いていない世帯の依頼は、事務所データの欄 `hearing_requests`（`office_hearing_get`・`office_hearing_put`）に置く（事務所データの形式の版 0.2。このアプリより新しい版の事務所データは閲覧だけで開き、書かない）。ひな形の案は `ai_hearing_template_candidates`・`ai_hearing_template_take`。AI接続口をオフにすると、待っている仕事を断り、ひな形の案を消す。
-- 接続口の版（`lifeplan --version`）とアプリの版をそろえる（違うと `VERSION_MISMATCH`。事務所の設定の画面にも出す）。接続口の同梱（アプリと同じフォルダに置く）は配布の回で行います。
+- 接続口の版（`lifeplan --version`）とアプリの版をそろえる（違うと `VERSION_MISMATCH`。事務所の設定の画面にも出す）。
+- 配布物への同梱（0015 の追記 2026-11-19）: `app/scripts/bundle.ts`（CI の `app-bundle`）が、`tauri build` の前に `app/scripts/connector.ts` で接続口を作り（`npm run build:explain` → `cargo build --release -p lifeplan --target <ターゲット>`。Mac の universal は2つのアーキテクチャを `lipo` でまとめる）、`app/src-tauri/binaries/lifeplan-<ターゲット>` に置いて、Tauri の `externalBin`（サイドカー）で入れます。`externalBin` は `bundle.ts` の上書きの設定にだけ書きます（`tauri.conf.json` に書くと、開発用の起動と CI のテストのビルドがサイドカーを求めて止まるため）。ビルドの前に `tauri.conf.json` と `crates/lifeplan/Cargo.toml` の版が同じか、作った接続口の `--version` がアプリの版かを確かめます。
 
 テスト: `cargo test --release -p lifeplan -p ai-share -p ai-ipc -p household-store`（本物の接続口を起動してアプリの方針の流れを確かめる `app_policy_consent_is_required_end_to_end` を含む）、`app/src-tauri` の `cargo test`、`app` の `npm test`（`test/ai.test.ts`）。
 作業フォルダは環境変数 `LIFEPLAN_RUNTIME_DIR` で差し替えられます（開発とテストのためだけ）。既定は Mac `~/Library/Application Support/com.fprise.lifeplan/run/`、Windows `%LOCALAPPDATA%\com.fprise.lifeplan\run\`（識別子は `config/distribution.toml` から）。
