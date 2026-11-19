@@ -24,6 +24,7 @@ import { relay, RELAY_LIMITS, type RelayTransport } from "../../../../hearing/sr
 import type { Answer } from "../../../../hearing/src/answers.ts";
 import type { DocRequest } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
+import { inputItems, nothingEnteredYet } from "../input/items.ts";
 import { gateCounts, logOf, viewOfResult, type ImportView } from "./sheet.ts";
 
 /** 受け取った書類のファイル（世帯ファイルの中。暗号化は世帯ファイルの暗号化のまま） */
@@ -224,7 +225,7 @@ export const HIDDEN_ITEMS: ReadonlySet<string> = new Set([CONSULT_KEY]);
 export function templateSelection(kind: WebTemplateKind, wh: WorkingHousehold): WebSelection {
   const def = baseSheet(kind);
   const label = WEB_TEMPLATES.find((t) => t.value === kind)?.label ?? kind;
-  const has = kind === "review" ? new Set(prefillOf(wh, def).filter((a) => a.status !== "blank").map((a) => a.key)) : new Set<string>();
+  const has = kind === "review" ? enteredKeys(wh, def) : new Set<string>();
   const s = selectionFromSheet(def, (k) => (has.has(k) ? "confirm" : "ask"));
   const sections = s.sections
     .filter((x) => kind !== "simple" || !SIMPLE_OFF_SECTIONS.has(x.id))
@@ -310,7 +311,16 @@ export function previewDraft(p: QuestionsPacket, wh: WorkingHousehold): Draft {
 
 /** 世帯にもう値が入っているか（シンプル・詳細で聞くときの注意。H-119。詳細の票で書き出せる値の数） */
 export function filledCount(wh: WorkingHousehold): number {
-  return prefillOf(wh, baseSheet("detail")).filter((a) => a.status !== "blank").length;
+  return enteredKeys(wh, baseSheet("detail")).size;
+}
+
+/**
+ * 今の世帯で値のある問いのキー。まだ何も入れていない新しい世帯は、初めの値（性別・働き方など）と仮の値しかないので、無しと読む
+ * （入力のホームの「新しい世帯」と同じ決め方。0192 の追記 2026-11-19）
+ */
+function enteredKeys(wh: WorkingHousehold, def: SheetDefinition): Set<string> {
+  if (nothingEnteredYet(wh, inputItems(wh))) return new Set();
+  return new Set(prefillOf(wh, def).filter((a) => a.status !== "blank").map((a) => a.key));
 }
 
 // ---- ご相談したいことの話題（0192。2026-11-17 にやめた。前に保存した事務所の既定値を読んで書き戻すためだけに残す） ----

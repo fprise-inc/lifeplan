@@ -6,7 +6,7 @@ import { memoryStore } from "../../hearing/relay/store.ts";
 import { answersOf, draftKey, initialDraft, openRequest, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { applyImport, approvalTime, defaultSelection, gateNotices, sheetFor } from "../src/workspace/hearing/sheet.ts";
-import { accepting, checkAnswered, cleanupOnServer, docRequestStatus, documentFromTemplate, extendState, extendWeb, gateLines, gateNotes, importWeb, invitationText, issueWeb, keepWebLog, markImported, officeFace, previewPacket, readHearingTemplates, receiveWeb, receivedDocuments, removeOnServer, sentAtText, STATUS_TEXT, statusOf, templateSelection, webLog, withCustom, withoutFile, type WebTemplateKind } from "../src/workspace/hearing/web.ts";
+import { accepting, checkAnswered, cleanupOnServer, docRequestStatus, documentFromTemplate, extendState, filledCount, extendWeb, gateLines, gateNotes, importWeb, invitationText, issueWeb, keepWebLog, markImported, officeFace, previewPacket, readHearingTemplates, receiveWeb, receivedDocuments, removeOnServer, sentAtText, STATUS_TEXT, statusOf, templateSelection, webLog, withCustom, withoutFile, type WebTemplateKind } from "../src/workspace/hearing/web.ts";
 import type { DraftAnswer } from "../../hearing/src/web/flow.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
@@ -226,6 +226,13 @@ describe("Web のヒアリング（FP の側）", () => {
     expect(birth?.confirm).toBe(true);
     expect(Object.keys(birth?.prefill ?? {})).toContain("1");
     expect(initialDraft(p).gates.spouse).toBe(1);
+  });
+
+  it("まだ何も入れていない新しい世帯は、初めの値（性別・働き方など）を入力した値と数えない（見直しも確かめてもらう項目なし）", () => {
+    const fresh = blankHousehold("2026-11");
+    expect(filledCount(fresh)).toBe(0);
+    expect(templateSelection("review", fresh).sections.flatMap((s) => s.items).filter((i) => i.mode === "confirm")).toEqual([]);
+    expect(filledCount(fromRequest(modelHousehold("salariedCoupleTwoKids")))).toBeGreaterThan(5);
   });
 
   it("書類待ちの1通と結びつけた書類は、頼んだ・届いたが書類のお願いの一覧で分かる", async () => {
