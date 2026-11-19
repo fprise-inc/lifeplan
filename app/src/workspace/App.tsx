@@ -3476,7 +3476,7 @@ export function App() {
                 onDiscard={discardDisplayProposal}
               />
             ) : null}
-            {panel === "list" ? <PlanList wh={opened.wh} catalog={opened.catalog} letters={letters} band={work.band} onBand={toggleBand} onEdit={(w) => setPlans(w)} onReflect={reflect}
+            {panel === "list" ? <PlanList wh={opened.wh} catalog={opened.catalog} letters={letters} band={work.band} stored={storedInfo !== null} onBand={toggleBand} onEdit={(w) => setPlans(w)} onReflect={reflect}
                   onOpenInput={(id) => {
                     selectInputPlan(id);
                     setPanel(null);
