@@ -421,7 +421,7 @@ describe("画面にパスや鍵が渡らない（0016 の1）", () => {
   it("AI接続口の命令に渡すのは、内部ID・設定の入切・文面の種類・同意の入力・期限・申告・候補の判断（受け取った書類の候補の ID を含む）だけ", () => {
     const src = readFileSync(join(APP_DIR, "src", "engine", "host.ts"), "utf8");
     const calls = [...src.matchAll(/invoke<[^>]*>\("(ai_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
-    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_candidate_decide", "ai_consent_record", "ai_display_candidates", "ai_display_change_take", "ai_documents_taken", "ai_household", "ai_household_candidate_create", "ai_household_candidate_discard", "ai_household_candidates", "ai_household_display_take", "ai_set_enabled", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
+    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_app_register", "ai_app_unregister", "ai_apps_status", "ai_candidate_decide", "ai_consent_record", "ai_display_candidates", "ai_display_change_take", "ai_documents_taken", "ai_household", "ai_household_candidate_create", "ai_household_candidate_discard", "ai_household_candidates", "ai_household_display_take", "ai_set_enabled", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
     // 新しい世帯の候補から作るときは、FP が選んだ種類・画面が組み立てた本文・一覧の要約・区分（新しく作るときと同じ）も渡す。
     // 表示の設定の案（0215）は、承認待ちから外す設定の id（setting）だけ。世帯ごとの案（0213 の段B の後半）は、世帯の内部ID・案の ID・設定の id
     const allowed = new Set(["id", "enabled", "client", "input", "minutes", "destination", "candidate", "accept", "plan", "kind", "body", "summary", "category", "setting"]);

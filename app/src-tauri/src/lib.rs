@@ -24,6 +24,7 @@
 //! - 起動時の窓（window_fit.rs。0225）: 見えない状態で作り、窓が出るモニターの作業領域に収めてから見せる。
 
 mod ai;
+mod ai_apps;
 mod custom;
 /// 開発用のビルドだけの鍵の保管庫（ファイル。製品のビルドには入らない）
 #[cfg(debug_assertions)]
@@ -373,6 +374,9 @@ pub fn run() {
             ai::ai_status,
             ai::ai_set_enabled,
             ai::ai_setup_copy,
+            ai_apps::ai_apps_status,
+            ai_apps::ai_app_register,
+            ai_apps::ai_app_unregister,
             ai::ai_household,
             ai::ai_consent_record,
             ai::ai_share_start,

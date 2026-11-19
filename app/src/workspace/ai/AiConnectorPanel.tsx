@@ -1,10 +1,12 @@
 // AI接続口の事務所全体の設定（中央のパネル。0015）:
 // - 使うかどうか（既定はオフ）。オフにすると、共有中の世帯をすべて取り消して受け口を閉じる
 // - 接続中の表示（共有中の世帯）と止めるボタン
-// - FP が自分の AI に設定する手順（接続口の場所は伏せた文面。本物は本体がクリップボードへ写す）と、AI 向けの説明書の置き場所（0019）
+// - AI のアプリへの登録（AiAppRegister。押したときだけ本体が AI のアプリの設定に書く。0228）
+// - FP が自分の AI に手で設定する手順（接続口の場所は伏せた文面。本物は本体がクリップボードへ写す）と、AI 向けの説明書の置き場所（0019）
 // - 防げる範囲と防げない範囲（0015 の9）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { AiHost, AiStatus } from "../../engine/host.ts";
+import { AiAppRegister } from "./AiAppRegister.tsx";
 import { aiMessage, codeOf, remainingText } from "./model.ts";
 
 export interface AiConnectorPanelProps {
@@ -126,7 +128,9 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
           </button>
         ) : null}
 
-        <h3>お使いの AI のアプリに設定する</h3>
+        <h3>AI のアプリに登録する</h3>
+        <AiAppRegister ai={ai} />
+        <h3>手で設定する</h3>
         {status === null ? null : !status.connector.found ? (
           <p class="hh-warn">AI接続口の実行ファイルが見つかりません。アプリを入れ直してください。</p>
         ) : !status.connector.versionMatches ? (
@@ -136,7 +140,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         )}
         <p class="in-note">
           お使いの AI のアプリに合う文面を、そのアプリの設定に足してください（設定に要る名前と引数は文面に入っています）。下の文面は接続口の場所を伏せています。
-          「文面をコピー」で、本物の場所が入った文面をクリップボードに写します。このアプリが AI のアプリの設定を書き換えることはありません。
+          「文面をコピー」で、本物の場所が入った文面をクリップボードに写します。上の「登録する」を使わずに、手で設定したいときに使います。
           {status?.dev === true ? "（開発版: 開発用の作業フォルダの指定が加わります）" : ""}
         </p>
         {(status?.setup ?? []).map((g) => (

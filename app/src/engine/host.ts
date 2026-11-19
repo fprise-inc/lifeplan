@@ -751,12 +751,40 @@ export interface AiConsentInput {
   fpConfirmed: boolean;
 }
 
+/** AI のアプリへの登録の状態（0228）。書く場所はホームを ~ にした表示、書く中身は AI とつなぐ道具の場所を伏せた文面 */
+export interface AiAppView {
+  client: "claudeDesktop" | "claudeCode" | "codex" | "gemini";
+  title: string;
+  state: "registered" | "unregistered" | "stale" | "unreadable" | "missing" | "unsupported";
+  target: string;
+  preview: string;
+  how: "file" | "command";
+  /** 押せない理由（E_AI_APP_RUNNING など）。null なら押せる */
+  blocked: string | null;
+  /** 提供元が実物で試したか */
+  tested: boolean;
+}
+
+export interface AiAppsStatus {
+  apps: AiAppView[];
+  /** 登録の名前（開発用のビルドは別の名前） */
+  serverName: string;
+  /** AI とつなぐ道具の場所の問題（あればどれも登録できない） */
+  locationProblem: string | null;
+}
+
 /** AI接続口（本体の命令。世帯は内部IDだけで指す） */
 export interface AiHost {
   status(): Promise<AiStatus>;
   setEnabled(enabled: boolean): Promise<AiStatus>;
   /** 接続の設定の文面（本物の場所入り）を本体が OS のクリップボードへ写す */
   copySetup(client: string): Promise<boolean>;
+  /** AI のアプリごとの登録の状態（0228。無い本体〔開発用のブラウザ〕は undefined） */
+  apps?(): Promise<AiAppsStatus>;
+  /** AI のアプリに登録する（すでにあれば場所だけ直す）。FP が押したときだけ本体が書く */
+  registerApp?(client: string): Promise<AiAppsStatus>;
+  /** AI のアプリの登録を外す（自分の名前の所だけ） */
+  unregisterApp?(client: string): Promise<AiAppsStatus>;
   household(id: string): Promise<AiHouseholdView>;
   recordConsent(id: string, input: AiConsentInput): Promise<AiHouseholdView>;
   startShare(id: string, minutes: number, destination: string): Promise<AiHouseholdView>;
@@ -1030,6 +1058,9 @@ export function tauriHost(): HostApi {
       status: () => invoke<AiStatus>("ai_status"),
       setEnabled: (enabled) => invoke<AiStatus>("ai_set_enabled", { enabled }),
       copySetup: (client) => invoke<boolean>("ai_setup_copy", { client }),
+      apps: () => invoke<AiAppsStatus>("ai_apps_status"),
+      registerApp: (client) => invoke<AiAppsStatus>("ai_app_register", { client }),
+      unregisterApp: (client) => invoke<AiAppsStatus>("ai_app_unregister", { client }),
       household: (id) => invoke<AiHouseholdView>("ai_household", { id }),
       recordConsent: (id, input) => invoke<AiHouseholdView>("ai_consent_record", { id, input }),
       startShare: (id, minutes, destination) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination }),
