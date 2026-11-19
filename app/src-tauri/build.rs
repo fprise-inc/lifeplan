@@ -74,6 +74,11 @@ const COMMANDS: &[&str] = &[
     // 0215: AIからの表示の設定の案（承認待ち）を見る・設定ごとに外す（反映は画面が事務所の既定値に書く）
     "ai_display_candidates",
     "ai_display_change_take",
+    // 0222: AI 接続口から頼まれた Web のヒアリングの発行（画面が発行して答える）と、事務所のひな形の案（承認待ち）
+    "ai_hearing_jobs",
+    "ai_hearing_job_done",
+    "ai_hearing_template_candidates",
+    "ai_hearing_template_take",
     // 渡された世帯ごとの表示の設定の案（承認待ち）を設定ごとに外す（反映は画面がその世帯に書く。0213 の段B の後半）
     "ai_household_display_take",
     // 0023: 事務所での共有（共有フォルダは本体のダイアログで選ばせる。パスも鍵も受け取らない・返さない）
@@ -92,6 +97,9 @@ const COMMANDS: &[&str] = &[
     // 0073: 事務所の既定値（事務所データに暗号化して持つ。JSON のオブジェクトだけ）
     "office_defaults_get",
     "office_defaults_put",
+    // 0222: 世帯ファイルにまだ入っていない Web のヒアリングの依頼（鍵を含む。事務所データに暗号化して持つ）
+    "office_hearing_get",
+    "office_hearing_put",
     // 0121: 事務所の見た目（名前・ロゴの画像・基調の色・この PC の画面の明るさ）。ロゴは本体のダイアログで選ばせる（パスは受け取らない・返さない）
     "office_branding_get",
     "office_branding_put",

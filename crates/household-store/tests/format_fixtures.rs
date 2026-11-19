@@ -267,6 +267,18 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(unsure.is_empty(), "{v}: 印は変換で書き足さない");
         }
+        // 0.84 から: Web のヒアリングの依頼の出どころ hearing.web[].origin（0222。AI から発行した依頼だけ）。変換で書き足さない
+        // （前の版の依頼は FP の画面で発行した依頼）。0.84 の見本は1件目が AI の発行
+        let origin = now["hearing"]["web"][0].get("origin");
+        if migrate::parse(v).unwrap() >= (0, 84) {
+            assert_eq!(
+                origin.and_then(|o| o.get("kind")),
+                Some(&serde_json::json!("ai")),
+                "{v}: 0.84 からの見本は依頼の出どころを持つ"
+            );
+        } else {
+            assert!(origin.is_none(), "{v}: 出どころは変換で書き足さない");
+        }
         // 0.76 から: 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利の段も要素の ID を持つ（0206）。前の版の見本は
         // 変換で、画面がその要素を指していた決まった ID（場所から作る）と同じ ID が付く。0.76 の見本は ID を書いた形で、借り換えも持つ
         let hh = &now["household"]["request"]["input"]["household"];

@@ -393,11 +393,12 @@ async fn prompts_list_and_expand() {
         "prepare_questions",
         "office_wording",
         "office_display",
+        "hearing_url",
     ];
     for n in expected {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
     }
-    // 使い方の例は上の一覧のとおり（0210 で prepare_questions、0212 で office_wording、0213 で office_display を足した。足したら一覧にも書く）
+    // 使い方の例は上の一覧のとおり（0210 で prepare_questions、0212 で office_wording、0213 で office_display、0222 で hearing_url を足した。足したら一覧にも書く）
     assert_eq!(prompts.len(), expected.len(), "{names:?}");
     for p in &prompts {
         assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
@@ -622,6 +623,21 @@ async fn prompts_list_and_expand() {
                 "AIに渡した記録",
                 "list_custom_texts",
                 "入力が足りない",
+            ],
+        ),
+        (
+            "hearing_url",
+            json!({ "want": "初回の面談の前に、収入と住まい", "household": "" }),
+            vec![
+                "初回の面談の前に、収入と住まい",
+                "新しいお客さま",
+                "get_hearing_options",
+                "issue_hearing_url",
+                "preview: true",
+                "check_inputs",
+                "URL と案内文が返らない",
+                "propose_hearing_template",
+                "AI からは読めない",
             ],
         ),
         (
@@ -6509,6 +6525,326 @@ async fn household_display_proposals_follow_the_share_rules() {
     .await;
     assert_eq!(r4["status"], "pendingReview");
     assert_eq!(reg.household_display_candidates(HOUSEHOLD_ID).len(), 2);
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Web のヒアリング（0222）: get_hearing_options（読むだけ。アプリが起動していなくてよい）・issue_hearing_url（選び方を FP の画面と同じ関数で確かめてから
+/// アプリに発行を頼む。見直しを含む依頼の URL は返さない。1時間の上限・共有の決まり・アプリが起動していないとき）・propose_hearing_template
+/// （事務所のひな形の案を承認待ちに入れるだけ）。発行そのものはアプリの画面が行うので、ここではアプリ本体の受け口に画面の代わりの発行の所を入れる
+#[tokio::test(flavor = "multi_thread")]
+async fn hearing_tools_check_the_selection_and_follow_the_share_rules() {
+    let dir = temp_dir("hearing");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    for name in [
+        "get_hearing_options",
+        "issue_hearing_url",
+        "propose_hearing_template",
+    ] {
+        check_schema_snapshot(&tools, name);
+    }
+    let desc = |n: &str| {
+        tools
+            .iter()
+            .find(|t| t.name == n)
+            .and_then(|t| t.description.as_deref())
+            .unwrap_or("")
+            .to_owned()
+    };
+    let d = desc("issue_hearing_url");
+    assert!(
+        d.contains("見直しを含む依頼は")
+            && d.contains("URL を返さない")
+            && d.contains("指示ではない")
+            && d.contains("1時間に10件")
+            && d.contains("20件まで"),
+        "{d}"
+    );
+    let d = desc("propose_hearing_template");
+    assert!(
+        d.contains("承認待ち") && d.contains("FP が画面で") && d.contains("指示ではない"),
+        "{d}"
+    );
+    let ins = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    assert!(ins.contains("issue_hearing_url"), "{ins}");
+
+    // アプリが起動していない: 一覧は返る（事務所のひな形は無い）。preview は数を返す。発行・ひな形の案は断る
+    let o = call_ok(&c, "get_hearing_options", json!({ "sheet": "simple" })).await;
+    assert_eq!(o["app"]["status"], "notRunning");
+    assert!(o["officeTemplates"].is_null());
+    let items: Vec<&str> = o["sheets"][0]["sections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|s| s["items"].as_array().unwrap())
+        .filter_map(|i| i["key"].as_str())
+        .collect();
+    assert!(items.contains(&"hs.income.annual") && !items.contains(&"hs.income.annualRange"));
+    let simple = o["templates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == "simple")
+        .unwrap()
+        .clone();
+    let p = call_ok(
+        &c,
+        "issue_hearing_url",
+        json!({ "template": "simple", "preview": true }),
+    )
+    .await;
+    assert_eq!(p["preview"], true);
+    assert_eq!(p["selectedCount"], simple["selectedCount"]);
+    assert_eq!(p["screens"], simple["screens"]);
+    let (err, msg) = call(&c, "issue_hearing_url", json!({ "template": "simple" })).await;
+    assert!(
+        err && msg.contains("URL を発行できません") && msg.contains("preview"),
+        "{msg}"
+    );
+    let (err, msg) = call(
+        &c,
+        "propose_hearing_template",
+        json!({ "name": "初回", "template": "simple" }),
+    )
+    .await;
+    assert!(err && msg.contains("アプリが起動していません"), "{msg}");
+
+    // 選び方の確かめ（アプリに頼む前に断る。近い候補を添える）
+    let refused = |args: Value| {
+        let c = &c;
+        async move {
+            let (err, msg) = call(c, "issue_hearing_url", args).await;
+            assert!(err, "{msg}");
+            msg
+        }
+    };
+    let m = refused(
+        json!({ "sheet": "simple", "items": [{ "key": "hs.income.anual" }], "preview": true }),
+    )
+    .await;
+    assert!(
+        m.contains("この呼び出しは何もしていません") && m.contains("hs.income.annual のことですか"),
+        "{m}"
+    );
+    let m = refused(json!({ "template": "simple", "sheet": "detail", "preview": true })).await;
+    assert!(m.contains("混ぜられません"), "{m}");
+    let m = refused(json!({ "template": "review", "preview": true })).await;
+    assert!(m.contains("share_id"), "{m}");
+    let m = refused(
+        json!({ "template": "simple", "documents": [{ "kind": "withholdng" }], "preview": true }),
+    )
+    .await;
+    assert!(m.contains("withholding のことですか"), "{m}");
+    let many: Vec<Value> = (0..11)
+        .map(|i| json!({ "label": format!("質問{i}") }))
+        .collect();
+    let m = refused(json!({ "template": "simple", "custom": many, "preview": true })).await;
+    assert!(m.contains("10問まで"), "{m}");
+    let (err, m) = call(
+        &c,
+        "issue_hearing_url",
+        json!({ "template": "simple", "items": [{ "key": "hs.income.annual", "mod": "ask" }] }),
+    )
+    .await;
+    assert!(err && m.contains("mode のことですか"), "{m}");
+
+    // アプリが起動している（画面の代わりの発行の所: 届いた仕事を覚え、見直しでも URL を入れて返す。本体が外すことを確かめる）
+    let clock = ManualClock::new(1_792_198_923_000);
+    let reg = Arc::new(ShareRegistry::with_clock(Arc::new(clock.clone())));
+    reg.require_consent(true);
+    let jobs: Arc<std::sync::Mutex<Vec<ai_share::HearingJob>>> = Arc::default();
+    let seen = jobs.clone();
+    let fail_next = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let fail = fail_next.clone();
+    reg.set_hearing_issuer(Some(Arc::new(move |job: ai_share::HearingJob| {
+        if fail.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            return Ok(json!({ "ok": false, "code": "E_HEARING_WEB_NO_RELAY", "message": "受け付けのサーバーがまだ用意されていません（この版のアプリには、本番の受け付けのサーバーの設定がありません）。URL は発行していません。" }));
+        }
+        let mut l = seen.lock().unwrap();
+        l.push(job);
+        Ok(json!({ "ok": true, "requestId": format!("R-TEST{:02}", l.len()), "expiresAt": "2026-12-17T00:00:00Z", "selectedCount": 3, "screens": 6, "minutes": 3, "household": "new", "review": false, "masked": 0, "url": "https://relay.test/h/#1.TEST-ONLY.KEY", "invitation": "〇〇様 https://relay.test/h/#1.TEST-ONLY.KEY", "message": "URL を発行しました" }))
+    })));
+    reg.set_office_hearing(Some(Arc::new(|| Some(json!({ "templates": [] })))));
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let o = call_ok(&c, "get_hearing_options", json!({})).await;
+    assert_eq!(o["app"]["status"], "running");
+    assert!(o.get("topics").is_none());
+
+    // (a) 世帯の決まっていない依頼: URL と案内文が返る。話題は持たない（0192 の追記）。世帯は付かない
+    let r = call_ok(
+        &c,
+        "issue_hearing_url",
+        json!({ "template": "simple", "documents": [{ "kind": "withholding" }], "purpose": "面談の前に" }),
+    )
+    .await;
+    assert_eq!(r["requestId"], "R-TEST01");
+    assert!(r["url"]
+        .as_str()
+        .unwrap()
+        .starts_with("https://relay.test/h/#"));
+    assert!(r["invitation"].is_string());
+    assert!(r.get("ok").is_none());
+    assert_eq!(r["summary"]["sheet"], "simple");
+    {
+        let l = jobs.lock().unwrap();
+        assert!(l[0].household.is_none());
+        assert_eq!(l[0].connector.as_deref(), Some("test-ai 1.2"));
+        assert_eq!(l[0].issue["purpose"], "面談の前に");
+        assert!(l[0].issue["selection"].get("topics").is_none());
+        assert_eq!(
+            l[0].issue["selection"]["documents"][0]["title"],
+            "源泉徴収票（ご本人）"
+        );
+    }
+    // 本番の受け付けが無い（画面が断る）: 分かる文で返す
+    fail_next.store(true, std::sync::atomic::Ordering::SeqCst);
+    let (err, m) = call(&c, "issue_hearing_url", json!({ "template": "simple" })).await;
+    assert!(
+        err && m.contains("受け付けのサーバーがまだ用意されていません")
+            && m.contains("URL は発行していません"),
+        "{m}"
+    );
+
+    // (b) 渡された世帯: 見直しは今の値のある項目を確かめてもらう。URL と案内文は返さない（本体が外す）。顧客番号・世帯の内部 ID は返さない
+    let (err, m) = call(
+        &c,
+        "issue_hearing_url",
+        json!({ "share_id": "s-unknown", "template": "review" }),
+    )
+    .await;
+    assert!(err && m.contains("NOT_SHARED"), "{m}");
+    let g = reg.grant(source("single25", false), grant_opts()).unwrap();
+    let o = call_ok(
+        &c,
+        "get_hearing_options",
+        json!({ "share_id": g.share_id, "sheet": "detail" }),
+    )
+    .await;
+    let filled: Vec<&str> = o["sheets"][0]["sections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|s| s["items"].as_array().unwrap())
+        .filter(|i| i["filled"] == true)
+        .filter_map(|i| i["key"].as_str())
+        .collect();
+    assert!(
+        filled.contains(&"hs.family.adult.birthYearMonth"),
+        "{filled:?}"
+    );
+    let r = call_ok(
+        &c,
+        "issue_hearing_url",
+        json!({ "share_id": g.share_id, "template": "review" }),
+    )
+    .await;
+    assert_eq!(r["review"], true);
+    assert!(
+        r.get("url").is_none() && r.get("invitation").is_none(),
+        "{r}"
+    );
+    assert_eq!(r["shareId"], json!(g.share_id));
+    let text = r.to_string();
+    assert!(
+        !text.contains(CUSTOMER_NUMBER) && !text.contains(HOUSEHOLD_ID),
+        "{text}"
+    );
+    {
+        let l = jobs.lock().unwrap();
+        let h = l[1].household.as_ref().unwrap();
+        assert_eq!(h.household_id, HOUSEHOLD_ID);
+        assert_eq!(h.customer_number.as_deref(), Some(CUSTOMER_NUMBER));
+        assert!(l[1].issue["selection"]["sections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|i| i["mode"] == "confirm")));
+    }
+    // 発行したことは、その世帯の「AIに渡した記録」の proposals に残る（読み取りも残る）
+    let rec = reg.records(HOUSEHOLD_ID);
+    assert!(rec[0]
+        .proposals
+        .iter()
+        .any(|p| p.candidate_id == "hearing:R-TEST02"));
+    assert!(rec[0].reads.iter().any(|x| x.tool == "issue_hearing_url"));
+    // 足りない所だけ: 今の値のある項目を聞かない
+    let r = call_ok(
+        &c,
+        "issue_hearing_url",
+        json!({ "share_id": g.share_id, "template": "missing", "preview": true }),
+    )
+    .await;
+    let asked: Vec<&str> = r["summary"]["sections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|s| s["items"].as_array().unwrap())
+        .filter_map(|i| i["key"].as_str())
+        .collect();
+    assert!(
+        !asked.contains(&"hs.family.adult.birthYearMonth"),
+        "{asked:?}"
+    );
+    // 取り消し・期限切れ
+    assert!(reg.revoke(&g.share_id));
+    let (err, m) = call(
+        &c,
+        "issue_hearing_url",
+        json!({ "share_id": g.share_id, "template": "simple" }),
+    )
+    .await;
+    assert!(
+        err && m.contains("REVOKED") && m.contains("URL は発行していません"),
+        "{m}"
+    );
+    let g2 = reg.grant(source("single25", false), grant_opts()).unwrap();
+    clock.advance_ms(61 * 60 * 1000);
+    let (err, m) = call(
+        &c,
+        "issue_hearing_url",
+        json!({ "share_id": g2.share_id, "template": "simple" }),
+    )
+    .await;
+    assert!(err && m.contains("EXPIRED"), "{m}");
+
+    // 1時間に10件まで（ちょうど10件目は通り、11件目は断る。1時間たてばまた出せる）。上の2件は期限切れの確かめで1時間より前になった
+    for _ in 0..10 {
+        call_ok(&c, "issue_hearing_url", json!({ "template": "simple" })).await;
+    }
+    let (err, m) = call(&c, "issue_hearing_url", json!({ "template": "simple" })).await;
+    assert!(err && m.contains("1時間に10件まで"), "{m}");
+    clock.advance_ms(61 * 60 * 1000);
+    call_ok(&c, "issue_hearing_url", json!({ "template": "simple" })).await;
+
+    // 事務所のひな形の案: 承認待ちに入るだけ。見直し・足りない所だけは断る。同じ案は同じ候補
+    let (err, m) = call(
+        &c,
+        "propose_hearing_template",
+        json!({ "name": "見直し", "template": "review" }),
+    )
+    .await;
+    assert!(err && m.contains("事務所のひな形にできません"), "{m}");
+    let args = json!({ "name": "初回の面談の前", "template": "simple", "custom": [{ "label": "面談の場所のご希望", "answer": "choice", "choices": ["事務所", "オンライン"] }], "note": "よく使う" });
+    let t1 = call_ok(&c, "propose_hearing_template", args.clone()).await;
+    assert_eq!(t1["status"], "pendingReview");
+    let t2 = call_ok(&c, "propose_hearing_template", args).await;
+    assert_eq!(t1["candidateId"], t2["candidateId"]);
+    let list = reg.hearing_template_candidates();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].name, "初回の面談の前");
+    assert_eq!(list[0].note.as_deref(), Some("よく使う"));
+    assert_eq!(list[0].selection["name"], "初回の面談の前");
     ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);

@@ -34,6 +34,10 @@ import { AiDisplayProposals } from "./ai/AiDisplayProposals.tsx";
 import { withHouseholdValue } from "./ai/displayProposals.ts";
 import { applyDisplayValue, restoreDisplayValue } from "./office/displayProposals.ts";
 import { AiHouseholdCandidateBand, AiHouseholdCandidates } from "./ai/AiHouseholdCandidates.tsx";
+import { AiHearingBand, AiHearingPanel } from "./ai/AiHearingIssued.tsx";
+import { unseenCount } from "./hearing/aiHearing.ts";
+import { useAiHearing } from "./hearing/useAiHearing.ts";
+import { AiHearingTemplateBand } from "./office/HearingTemplateProposals.tsx";
 import { approvalAt, noteMemo, withAiOrigin, type HouseholdKind, type ReadHousehold } from "./ai/households.ts";
 import { AiSharePanel } from "./ai/AiSharePanel.tsx";
 import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, savedInputOf, shareState, SHARE_STATE_TEXT, unsavedForAi } from "./ai/model.ts";
@@ -67,7 +71,8 @@ import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "./o
 import { wordingOf } from "./resultTexts.ts";
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
 import { previewOfficeChange } from "./office/estimatePreview.ts";
-import type { AiDisplayCandidate, AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";
+import type { AiDisplayCandidate, AiHearingTemplateCandidate, AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";
+import { TEMPLATE_MAX, templateForSave } from "./hearing/selection.ts";
 import { OFFICIAL_EXTENSIONS } from "./extensions/official.ts";
 import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues, SAMPLE_SAVED_TEXT, sampleExtensions, savedSampleNotice } from "./extensions/run.ts";
 import type { ExtValue } from "../../../report/src/index.ts";
@@ -523,6 +528,9 @@ export function App() {
   const [meetingFocus, setMeetingFocus] = useState<{ id: string; n: number } | null>(null);
   // 世帯の保存（0011・0013）
   const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
+  /** 事務所データが新しい版か（世帯を閲覧だけで開いたときの理由に使う。0222） */
+  const storeTooNewRef = useRef(false);
+  storeTooNewRef.current = storeStatus?.officeTooNew === true;
   const [storeUnavailable, setStoreUnavailable] = useState<string | null>(null);
   const [storeChecked, setStoreChecked] = useState(false);
   const [storedList, setStoredList] = useState<StoredHousehold[]>([]);
@@ -551,6 +559,8 @@ export function App() {
   const [aiPanel, setAiPanel] = useState<null | "connector" | "share">(null);
   /** AIからの新しい世帯の候補を確かめる画面（開いているときは届いている候補。閉じているときは null） */
   const [hhCands, setHhCands] = useState<AiHouseholdCandidate[] | null>(null);
+  /** AI が発行した Web のヒアリングの URL を確かめる画面（0222） */
+  const [hearingPanel, setHearingPanel] = useState(false);
   // 事務所での共有（0023）
   const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
   const [officeOpen, setOfficeOpen] = useState(false);
@@ -1232,7 +1242,8 @@ export function App() {
       // 写した値（0218）は、読んだ本文を保存済みとして、違いを自動保存で書く（書かないと、次に開いたときの事務所の値をまた写すことになる）
       const wrote = stored === undefined && filled !== st.wh ? r.body : undefined;
       autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? wrote ?? loaded));
-      if (r.readOnly) setSaveState({ kind: "error", code: r.viewOnly === true ? "E_OFFICE_VIEW_ONLY" : "E_STORE_READ_ONLY" });
+      // 事務所データが新しい版のときは、その理由で閲覧だけ（0222）
+      if (r.readOnly) setSaveState({ kind: "error", code: r.viewOnly === true ? (storeTooNewRef.current ? "E_STORE_OFFICE_DATA_TOO_NEW" : "E_OFFICE_VIEW_ONLY") : "E_STORE_READ_ONLY" });
       await install(o, w, shownKeys, `stored:${r.id}`, keep, "前にこの世帯を開いていたときと中身が違うため、元に戻す（↶）の履歴はここから始めます");
       if ((stored ?? wrote) !== undefined && (stored ?? wrote) !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
     },
@@ -1896,6 +1907,24 @@ export function App() {
   );
   // ---- AI接続口（0014・0015）: 状態と世帯の記録は本体から読む。AIからの候補は FP が承認したときだけプランになる ----
   const ai = useAi(host?.ai ?? null, storeStatus?.state === "ready", storedInfo?.id ?? null);
+  // AI 接続口から頼まれた Web のヒアリングの発行（0222）: 画面が FP の画面と同じ部品で発行し、開いている世帯か事務所データに置く。
+  // 開いていない世帯の依頼は、その世帯を開いたときに世帯ファイルへ移す
+  const aiHearing = useAiHearing({
+    ai: host?.ai ?? null,
+    office: host?.office ?? null,
+    web: host?.hearingWeb ?? null,
+    jobs: ai.status?.hearingJobs ?? 0,
+    ready: storeStatus?.state === "ready",
+    opened: () => {
+      const o = openedRef.current;
+      const sr = storedRef.current;
+      return o !== null && sr !== null && sr.sample === undefined ? { id: sr.id, wh: o.wh, readOnly: sr.readOnly } : null;
+    },
+    openedId,
+    edit,
+    saveNow,
+    look: { name: branding.name ?? "", color: usesStandardColor(branding) || branding.color === undefined ? null : checkBase(branding.color).light },
+  });
   /** AIからの新しい世帯の候補を確かめる画面を開く（候補は本体から読む） */
   const openHouseholdCandidates = useCallback(async () => {
     if (host === null) return;
@@ -2132,6 +2161,13 @@ export function App() {
     if (host === null || storeStatus?.state !== "ready") return;
     void host.ai.displayCandidates().then(setDisplayCands, () => undefined);
   }, [host, storeStatus?.state, displayCandCount, officeSettingsOpen]);
+  // Web のヒアリングのひな形の案（0222）: 届いた・減ったとき・事務所の既定値の画面を開いたときに読み直す（中身は事務所の既定値の画面に出す）
+  const hearingTemplateCount = ai.status?.hearingTemplateCandidates ?? 0;
+  const [hearingTemplateCands, setHearingTemplateCands] = useState<AiHearingTemplateCandidate[]>([]);
+  useEffect(() => {
+    if (host === null || storeStatus?.state !== "ready" || host.ai.hearingTemplateCandidates === undefined) return;
+    void host.ai.hearingTemplateCandidates().then(setHearingTemplateCands, () => undefined);
+  }, [host, storeStatus?.state, hearingTemplateCount, officeSettingsOpen]);
   // 新しい世帯の候補が届いた・減ったとき、確かめの画面を開いていれば読み直す
   const hhCandCount = ai.status?.householdCandidates ?? 0;
   useEffect(() => {
@@ -2968,6 +3004,7 @@ export function App() {
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} paused={presence !== null && storedInfo !== null} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
+      <AiHearingTemplateBand count={officeSettingsOpen ? 0 : hearingTemplateCount} onOpen={() => setOfficeSettingsOpen(true)} />
       <AiDisplayCandidateBand
         office={officeSettingsOpen ? 0 : displayCandCount}
         households={ai.status?.householdDisplayCandidates ?? []}
@@ -2982,6 +3019,13 @@ export function App() {
         onOpenHousehold={(id) => void guard(() => openStored(id), openMessage)}
       />
       <AiHouseholdCandidateBand count={hhCands !== null ? 0 : hhCandCount} onOpen={() => void openHouseholdCandidates()} />
+      <AiHearingBand
+        count={hearingPanel ? 0 : unseenCount(aiHearing.store)}
+        onOpen={() => {
+          setHearingPanel(true);
+          void aiHearing.seen().catch(() => undefined);
+        }}
+      />
       {opened !== null && !docsOpen ? (
         <AiDocumentBand
           wh={opened.wh}
@@ -2994,6 +3038,11 @@ export function App() {
         />
       ) : null}
       <main class="wrap">
+        {storeStatus?.officeTooNew === true ? (
+          <div class="presence-band" role="status" data-office-too-new>
+            <span>{storeMessage("E_STORE_OFFICE_DATA_TOO_NEW")}</span>
+          </div>
+        ) : null}
         {presence !== null && storedInfo !== null ? (
           <div class="presence-band" role="status" data-presence-band>
             <span>
@@ -3695,6 +3744,32 @@ export function App() {
         />
       ) : null}
       {evidence !== null ? <EvidencePanel state={evidence} onClose={() => setEvidence(null)} /> : null}
+      {hearingPanel && host !== null ? (
+        <AiHearingPanel
+          store={aiHearing.store}
+          web={host.hearingWeb ?? null}
+          officeName={branding.name ?? ""}
+          opened={storedInfo !== null && storedInfo.sample === undefined ? { id: storedInfo.id, customerNo: storedInfo.customerNo, readOnly: storedInfo.readOnly } : null}
+          onEntry={aiHearing.putEntry}
+          onAssignOpened={async (rid) => (storedInfo === null ? false : aiHearing.assign(rid, storedInfo.id, storedInfo.customerNo))}
+          onCreate={async (rid) => {
+            // 新しい世帯を作って開き、その世帯に結びつける（開いた世帯へ移る）。取り込みは、その世帯の「URL の依頼」で
+            if (!(await open(BLANK))) return "新しい世帯を作るのをやめました";
+            await persistCurrent();
+            const sr = storedRef.current;
+            if (sr === null) return "新しい世帯を作れませんでした";
+            const moved = await aiHearing.assign(rid, sr.id, sr.customerNo);
+            setHearingPanel(false);
+            setFpOpen("imports");
+            return moved ? null : "新しい世帯を作りました。依頼は、世帯を保存できたら「URL の依頼」に移ります";
+          }}
+          onOpenHousehold={(id) => {
+            setHearingPanel(false);
+            void guard(() => openStored(id), openMessage);
+          }}
+          onClose={() => setHearingPanel(false)}
+        />
+      ) : null}
       {hhCands !== null && host !== null ? <AiHouseholdCandidates candidates={hhCands} check={checkHouseholdCandidate} onCreate={createFromCandidate} onDiscard={discardHouseholdCandidate} onClose={() => setHhCands(null)} /> : null}
       {aiPanel === "connector" && host !== null ? <AiConnectorPanel ai={host.ai} status={ai.status} onStatus={ai.setStatus} onChanged={() => void ai.refresh()} onClose={() => setAiPanel(null)} /> : null}
       {aiPanel === "share" && host !== null && storedInfo !== null ? (
@@ -3858,6 +3933,25 @@ export function App() {
                 putOfficeSettings(next);
               }
               return next;
+            },
+          }}
+          hearingTemplates={{
+            candidates: hearingTemplateCands,
+            // ひな形として保存する（0222）: 事務所のひな形と同じ形（templateForSave）にそろえ、同じ名前は置き換えて、すぐ事務所データに保存する。保存してから承認待ちから外す
+            onSave: async (candidate, name, sel) => {
+              const cur = officeSettingsRef.current;
+              const list = [...(cur.hearingTemplates ?? []).filter((t) => t.name !== name), { name, selection: templateForSave(sel, name) }];
+              if (list.length > TEMPLATE_MAX) throw "E_HEARING_TEMPLATES_FULL";
+              const next = withHearingTemplates(cur, list);
+              await host.office.putDefaults(next as unknown as Record<string, unknown>);
+              putOfficeSettings(next);
+              if (host.ai.takeHearingTemplate !== undefined) setHearingTemplateCands(await host.ai.takeHearingTemplate(candidate));
+              void ai.refresh();
+              return next;
+            },
+            onDiscard: async (candidate) => {
+              if (host.ai.takeHearingTemplate !== undefined) setHearingTemplateCands(await host.ai.takeHearingTemplate(candidate));
+              void ai.refresh();
             },
           }}
           features={featureStatus}

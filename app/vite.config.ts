@@ -325,7 +325,8 @@ function devReportBrand(accent: string | null): { brand?: Record<string, unknown
 }
 
 /** 事務所の既定値（開発用のサーバーのメモリの中だけ。0073） */
-const devOfficeDefaults: { value: Record<string, unknown> } = { value: {} };
+/** 事務所の既定値と、世帯ファイルにまだ入っていない Web のヒアリングの依頼（0222。本体の office_hearing_* の代わり） */
+const devOfficeDefaults: { value: Record<string, unknown>; hearing: Record<string, unknown> } = { value: {}, hearing: {} };
 
 /**
  * 事務所の見た目（本体の office_branding_get・office_branding_put・office_logo_pick の代わり。0121）: メモリの中だけ。
@@ -605,6 +606,14 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       devOfficeDefaults.value = v as Record<string, unknown>;
       return { ok: true, value: null };
     }
+    case "hearingGet":
+      return { ok: true, value: devOfficeDefaults.hearing };
+    case "hearingPut": {
+      const v = a.value;
+      if (typeof v !== "object" || v === null || Array.isArray(v) || JSON.stringify(v).length > 1024 * 1024) return { ok: false, code: "E_STORE_OFFICE_HEARING" };
+      devOfficeDefaults.hearing = v as Record<string, unknown>;
+      return { ok: true, value: null };
+    }
     case "brandingGet":
       return { ok: true, value: devBranding.value };
     case "brandingPut": {
@@ -733,6 +742,9 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  * 内訳をまとめる・「○歳時点」の年齢を85歳に・お金の3つの分け方の何か月分を3か月に）が届いたことにする。`/__dev/ai/proposeDisplay`（POST {changes}）で、任意の案が届いたことにする（0215）
  * `/__dev/ai/simulate?kind=householdDisplay` で、渡している世帯に、世帯ごとの表示の設定の案（見本: 「○歳時点」の年齢を85歳に・比較の仕方を左右に並べる・
  * この世帯で並べる時点・家計の体力の目安を出さない）が届いたことにする（0213 の段B の後半。共有中の世帯だけ）
+ * `/__dev/ai/simulate?kind=hearing` で、AI 接続口から Web のヒアリングの発行（世帯の決まっていない依頼。選び方は接続口の見本
+ * crates/lifeplan/tests/fixtures/hearing/selection.json）が頼まれたことにする（画面が受け取って発行し、答える。答えは /__dev/ai/hearingAnswers）。
+ * `/__dev/ai/simulate?kind=hearingTemplate` で、事務所のひな形の案が届いたことにする（0222）
  */
 const devAi = {
   enabled: false,
@@ -748,7 +760,36 @@ const devAi = {
   displays: [] as { candidateId: string; receivedAt: string; connector: string | null; changes: { id: string; value: unknown; note?: string }[] }[],
   /** 渡された世帯ごとの表示の設定の案（本体と同じく、メモリの中だけ。FP がその世帯を開いて設定ごとに反映するか捨てるまで） */
   householdDisplays: [] as { candidateId: string; receivedAt: string; connector: string | null; shareId: string; householdId: string; customerNumber: string | null; alias: string; changes: { id: string; value: unknown; note?: string }[] }[],
+  /** Web のヒアリングの発行の仕事（本体の HearingJobs の代わり。画面が受け取って発行し、答える。0222） */
+  hearingJobs: [] as { jobId: string; issue: unknown; householdId: string | null; customerNumber: string | null; body: string | null; connector: string | null; receivedAt: string }[],
+  /** 画面の答え（見本の確かめ用に残す） */
+  hearingAnswers: [] as { jobId: string; result: unknown }[],
+  /** Web のヒアリングの事務所のひな形の案（本体と同じく、メモリの中だけ。0222） */
+  hearingTemplates: [] as { candidateId: string; receivedAt: string; connector: string | null; name: string; selection: unknown; note?: string }[],
 };
+
+/** 開発用のサーバーの、Web のヒアリングの発行の仕事とひな形の案（本体の ai_hearing_* の代わり。0222） */
+function devHearingOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
+  switch (op) {
+    case "hearingJobs":
+      return { ok: true, value: devAi.hearingJobs };
+    case "hearingJobDone": {
+      const i = devAi.hearingJobs.findIndex((j) => j.jobId === a.job);
+      if (i < 0) return { ok: true, value: false };
+      devAi.hearingJobs.splice(i, 1);
+      devAi.hearingAnswers.push({ jobId: String(a.job), result: a.result });
+      return { ok: true, value: true };
+    }
+    case "hearingAnswers":
+      return { ok: true, value: devAi.hearingAnswers };
+    case "hearingTemplates":
+      return { ok: true, value: devAi.hearingTemplates };
+    case "takeHearingTemplate":
+      devAi.hearingTemplates = devAi.hearingTemplates.filter((c) => c.candidateId !== a.candidate);
+      return { ok: true, value: devAi.hearingTemplates };
+  }
+  return { ok: false, code: "E_DEV_AI_OP" };
+}
 
 /** 案を出せる表示の設定（本体の ai_share::display_proposals::PROPOSABLE_IDS と同じ。0213 の段C で結果のタブ・資産と負債のタブの11件を足した） */
 const DEV_DISPLAY_IDS: readonly string[] = PROPOSABLE_DISPLAY_IDS;
@@ -850,6 +891,8 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
           featureCodeCandidates: devFeatures.candidates.length,
           householdCandidates: devAi.households.length,
           displayCandidates: devAi.displays.length,
+          hearingJobs: devAi.hearingJobs.length,
+          hearingTemplateCandidates: devAi.hearingTemplates.length,
           householdDisplayCandidates: devAi.householdDisplays.reduce<{ householdId: string; customerNumber: string | null; alias: string; count: number }[]>((out, c) => {
             const p = out.find((x) => x.householdId === c.householdId);
             if (p !== undefined) p.count += c.changes.length;
@@ -867,6 +910,8 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         devAi.households = [];
         devAi.displays = [];
         devAi.householdDisplays = [];
+        devAi.hearingJobs = [];
+        devAi.hearingTemplates = [];
       }
       return devAiOp("status", {});
     case "setPrivacyPolicy": {
@@ -928,6 +973,12 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
     case "displayCandidates":
     case "takeDisplayChange":
       return devDisplayOp(op, a, now);
+    case "hearingJobs":
+    case "hearingJobDone":
+    case "hearingAnswers":
+    case "hearingTemplates":
+    case "takeHearingTemplate":
+      return devHearingOp(op, a);
     case "proposeHousehold":
     case "householdCandidates":
     case "discardHouseholdCandidate":
@@ -961,6 +1012,18 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         const p = JSON.parse(readFileSync(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-household", "proposal.json"), "utf8")) as { input: { household: { periodicExpenses?: unknown[]; members: { id: string }[] } } };
         p.input.household.periodicExpenses = [{ id: crypto.randomUUID(), row: "cf.expense.lumpSum.other", label: "家族旅行（予約番号 123456789012）", from: { at: "2027-08" }, to: { at: "2047-08" }, everyYears: 2, amount: { value: 300000, state: "estimated", origin: { kind: "manual" }, estimate: { method: "statistic", basis: "2人の国内旅行の平均的な費用" } } }];
         return devHouseholdOp("proposeHousehold", { proposal: p }, now);
+      }
+      if (a.kind === "hearing" || a.kind === "hearingTemplate") {
+        // AI 接続口から Web のヒアリングの発行（世帯の決まっていない依頼。0222）か、事務所のひな形の案が届いたことにする（共有していなくてよい）。
+        // 選び方は接続口の見本（crates/lifeplan/tests/fixtures/hearing/selection.json。接続口が FP の画面と同じ関数でそろえた物）
+        if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
+        const selection = JSON.parse(readFileSync(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "hearing", "selection.json"), "utf8")) as unknown;
+        if (a.kind === "hearingTemplate") {
+          devAi.hearingTemplates.push({ candidateId: crypto.randomUUID(), receivedAt: now, connector: "dev-client 1.0", name: "初回の面談の前（AI）", selection, note: "初回の面談の前に、収入・住まい・貯蓄と源泉徴収票をお願いすることが多いため" });
+          return { ok: true };
+        }
+        devAi.hearingJobs.push({ jobId: `j${devAi.hearingJobs.length + devAi.hearingAnswers.length + 1}`, issue: { selection }, householdId: null, customerNumber: null, body: null, connector: "dev-client 1.0", receivedAt: now });
+        return { ok: true };
       }
       if (a.kind === "display") {
         // 表示の設定の案の見本（0215。共有していなくてよい）
