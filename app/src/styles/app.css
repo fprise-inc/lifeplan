@@ -766,26 +766,6 @@ h2 .ih-st { font-size: 0.8rem; }
 /* 保険の入力項目の保険料と解約返戻金（欄の下。0055 の追記） */
 .ip-body .ins-ov { margin-top: 14px; }
 .ins-ov .in-note { margin: 2px 0; }
-/* 変額保険: 続ける（A）と、解約して保障と運用に分ける（B）の比較（0233） */
-.ip-body .vs { margin-top: 14px; }
-.vs-h { margin: 0 0 4px; }
-.vs-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0; }
-.vs-panel { margin: 6px 0 12px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--card); }
-.vs-fields { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
-.vs-f { display: block; }
-.vs-sub { margin-left: 4px; font-size: 0.78rem; color: var(--ink-2); }
-.vs-wide { width: 6.5em; }
-.vs-rate { border: 0; padding: 0; margin: 4px 0 0; }
-.vs-rate legend { padding: 0; margin-bottom: 2px; }
-.vs-rate label { display: block; margin: 2px 0; }
-.vs-rates { margin: 6px 0; padding-left: 1.2em; font-size: 0.86rem; }
-.vs-table-wrap { overflow-x: auto; margin: 6px 0; }
-.vs-table td { text-align: right; white-space: nowrap; }
-.vs-table th[scope="row"] { white-space: nowrap; font-weight: 400; }
-.vs-cautions { margin: 8px 0; padding: 6px 10px; border-left: 4px solid #c9a400; background: var(--wash-warm, #fffbea); font-size: 0.86rem; }
-.vs-cautions p, .vs-cautions ul { margin: 2px 0; }
-.vs-cautions ul { padding-left: 1.2em; }
-.vs-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; }
 .ip-inherit details { margin: 2px 0 4px; }
 .ip-inherit details summary { cursor: pointer; color: var(--ink-2); }
 .ip-inherit-note { margin: 4px 0 0; font-size: 0.8rem; }

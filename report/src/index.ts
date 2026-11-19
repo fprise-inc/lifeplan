@@ -11,4 +11,4 @@ export { DEFAULT_MONEY_THREE, MONEY_THREE_LIST_MAX, MONEY_THREE_NAME_CHOICES, mo
 export { childScholarshipNotes, childScholarshipsOf, type ChildScholarship } from "./childScholarships.ts";
 export { fillName, ROW_NAME_VARS, ROW_NAMES, rowName, rowNameId, sameRowName, type OfficeRowNames } from "./rowNames.ts";
 export { EXTENSION_CONTRACT, GROUP_ORDER, man, type BalanceView, type ChapterData, type ExtColumn, type ExtFieldDecl, type ExtFieldsDecl, type ExtFieldType, type ExtInput, type ExtManifest, type ExtProvide, type ExtSection, type ExtValue, type ExtensionPoint, type HouseholdNow } from "./sdk.ts";
-export { SPLIT_CAUTIONS, SPLIT_LEAD, splitCautionNotes, surrendersVariable } from "./variableSplit.ts";
+export { SURRENDER_CAUTIONS, SURRENDER_LEAD, SURRENDER_RATE_NOTE, surrenderCautionNotes, surrendersVariable } from "./variableSurrender.ts";

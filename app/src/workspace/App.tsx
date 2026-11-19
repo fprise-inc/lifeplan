@@ -21,7 +21,6 @@ import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
 import { balanceTabModel, bsPlan, bsPrev, defaultGuideBasis } from "./balanceTab.ts";
 import { RentalTab } from "../presentation/RentalTab.tsx";
-import { recordSplit, splitContractName, splitPlanName, type SplitOptions } from "./input/variableSplit.ts";
 import { analysisOf, hasRentalProperty, recordSaleVariant, rentalPropertyName, rentalTabModel, resolveRentalView, salePlanName, saleVariantOf, useRentalSale, type RentalUi } from "./rentalTab.ts";
 import { MONEY_THREE_NAME_CHOICES, moneyThreeModel } from "./moneyThree.ts";
 import { snapshotDateText, TRIGGER_TEXT } from "./snapshots/snapshots.ts";
@@ -2216,30 +2215,6 @@ export function App() {
     },
     [placeNew, reqOf],
   );
-  /**
-   * 保険の入力項目の変額保険の「解約して分けたら」の「このプランを作る」（0233）: 入力で編集の対象にしているプラン（現状なら現状）を写して
-   * 新しいプランを作り、そのプランに、変額保険を解約して保障と運用に分けた差分を入力画面でプランを直したときと同じ記録で足す。
-   * 元のプランを比較の基準にして、新しいプランを選び、結果のタブで並べる（元のプランは変えない。0128 の売る年のプランと同じ作り方）
-   */
-  const splitPlanFromInput = useCallback(
-    (base: string | null, contract: string, opts: SplitOptions) => {
-      const o = openedRef.current;
-      const w = workRef.current;
-      if (o === null) return;
-      const src = base ?? CURRENT;
-      const values = valuesOf(o.wh, w, src);
-      const head = planLabel(headLetter(suggestName(o.wh.proposals, savedValues(o.wh, src), o.wh, o.catalog, base)) ?? "");
-      const name = splitPlanName(head, splitContractName(reqOf(o, values), contract));
-      const r = savePlan(o.wh, o.catalog, { name, base, values, now: nowIso() });
-      const wh = recordSplit(r.wh, o.catalog, r.id, contract, opts);
-      if (wh === r.wh) return;
-      const srcLetter = planLetters(o.wh.proposals).get(src)?.letter ?? "A";
-      const newLetter = planLetters(wh.proposals).get(r.id)?.letter ?? "";
-      placeNew({ ...w, base: src }, wh, r.id, w.drafts, `${planLabel(srcLetter)}（続ける）を元に ${planLabel(newLetter)}「${name.slice(head.length + 1)}」を作り、並べました（${planLabel(srcLetter)}の入力は変えていません）`);
-      setTab("main");
-    },
-    [placeNew, reqOf],
-  );
   /** 入力の画面の編集の対象を選ぶ（0036 の8）: プランを選ぶと、結果のタブでもそのプランを選ぶ（帯に無ければ足す）。現状を選ぶと現状 */
   const selectInputPlan = useCallback(
     (id: string | null) => {
@@ -3248,7 +3223,6 @@ export function App() {
             {error !== null && !busyError ? <p class="fatal">今の入力では計算できませんでした{error}</p> : null}
             <InputView
               onReadDoc={setDocStart}
-              onSplitPlan={splitPlanFromInput}
               key={cardOpen?.n ?? 0}
               received={{ update: putWeb, ...(host?.hearingWeb !== undefined ? { host: host.hearingWeb } : {}) }}
               wh={opened.wh}

@@ -20,7 +20,6 @@ import { inSimpleOnlyGroup, type Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
-import type { SplitOptions } from "./variableSplit.ts";
 import { DEFAULT_LAYOUT, estimatedList, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, itemStage, notApplicableCard, pinItems, progressOf, shownItems, summarySegments, togglePin, type CardLayout, type InputItem, type ItemStatus, type PinItem, type Summary } from "./items.ts";
 import { InputFind } from "./InputFind.tsx";
 import type { FindHit, FindTarget } from "./inputSearch.ts";
@@ -133,11 +132,6 @@ interface Props {
   unsaved?: boolean;
   /** Web のヒアリングで受け取った書類の保存の口と、依頼の記録の書き換え（見た・保存した・消す。0191）。省くと保存のボタンを出さない */
   received?: ReceivedProps;
-  /**
-   * 保険の入力項目の変額保険の「解約して分けたら」の「このプランを作る」（0233）。base は編集の対象のプラン（現状なら null）。
-   * パネルの保存していない変更は、先に保存してから呼ぶ
-   */
-  onSplitPlan?: (base: string | null, contract: string, o: SplitOptions) => void;
 }
 
 /** 進み具合の状態の名前（絞り込みの文） */
@@ -324,7 +318,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null, paused = false, viewOnly = false, sample = false, unsaved = false, onSplitPlan }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null, paused = false, viewOnly = false, sample = false, unsaved = false }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -470,18 +464,6 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     backTo.current = null;
     setOpenId(null);
     onReadDoc(start);
-  };
-  // 変額保険を解約して分けたプランを作る（パネルから: 保存していない変更を保存し、パネルを閉じてから。0233）
-  const splitFromPanel = (contract: string, o: SplitOptions, saved?: WorkingHousehold) => {
-    if (onSplitPlan === undefined) return;
-    if (saved !== undefined) {
-      const next = keepWeb(saved);
-      if (editing !== null && plans !== undefined) plans.onSavePlan(next);
-      else onSave(next);
-    }
-    backTo.current = null;
-    setOpenId(null);
-    onSplitPlan(editing?.id ?? null, contract, o);
   };
   const backFromStatement = (approved?: number) => {
     setStatementOpen(false);
@@ -714,7 +696,6 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           {...(computeOne !== undefined ? { computeOne } : {})}
           {...(openId === "living" && statement !== undefined && editing === null ? { onStatement: openStatement } : {})}
           {...(onReadDoc !== undefined && editing === null ? { onReadDoc: readDocFromPanel } : {})}
-          {...(onSplitPlan !== undefined && openId === "insurance" ? { onSplitPlan: splitFromPanel } : {})}
           {...(editing !== null && pcat !== undefined ? { plan: { id: editing.id, label: editing.label, color: editing.color, cat: pcat } } : {})}
           docs={<DocLinks rd={rd} card={pins.find((x) => x.id === openId)?.owner ?? openId} />}
         />

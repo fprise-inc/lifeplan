@@ -1,9 +1,9 @@
-// 変額保険を解約して保障と運用に分けるプラン（0233）の注意: 提案か比較のページのプランが、現状に解約の予定の無い変額保険を解約するときだけ、
+// 変額保険を解約するプラン（0233）の注意: 提案か比較のページのプランが、現状では解約の予定が無い変額保険を解約するときだけ（手で作ったプランでも）、
 // 「前提条件と注意書き」に頭の一文と注意の4つを載せる
 import { describe, expect, it } from "vitest";
 import { buildProposalInput } from "../src/build.ts";
 import type { EngineRequest, ProposalBundle } from "../src/bundle.ts";
-import { SPLIT_CAUTIONS, SPLIT_LEAD, splitCautionNotes, surrendersVariable } from "../src/variableSplit.ts";
+import { SURRENDER_CAUTIONS, SURRENDER_LEAD, surrenderCautionNotes, surrendersVariable } from "../src/variableSurrender.ts";
 import { modelHousehold, run } from "../scripts/engine.ts";
 
 const V = "5d0c2f9e-6a1b-4c3d-9e8f-0a1b2c3d4e5f";
@@ -42,7 +42,7 @@ const bundleOf = (current: EngineRequest, proposal: EngineRequest, comparison?: 
     layout: { orientation: "portrait", cashflow: "summary" },
   };
 };
-const expected = [SPLIT_LEAD, ...SPLIT_CAUTIONS.map((t) => `${t}。`)];
+const expected = [SURRENDER_LEAD, ...SURRENDER_CAUTIONS.map((t) => `${t}。`)];
 
 describe("変額保険を解約するプランの注意（提案書）", () => {
   it("現状に解約の予定の無い変額保険を、提案で解約するときだけ", () => {
@@ -52,8 +52,8 @@ describe("変額保険を解約するプランの注意（提案書）", () => {
     // 現状でもう解約の予定がある・変額保険でない契約は出さない
     expect(surrendersVariable(withVariable("2030-01"), withVariable("2026-10"))).toBe(false);
     expect(surrendersVariable(withVariable(undefined, "insurance.wholeLife"), withVariable("2026-10", "insurance.wholeLife"))).toBe(false);
-    expect(splitCautionNotes(now, [now])).toEqual([]);
-    expect(splitCautionNotes(now, [now, withVariable("2026-10")])).toEqual(expected);
+    expect(surrenderCautionNotes(now, [now])).toEqual([]);
+    expect(surrenderCautionNotes(now, [now, withVariable("2026-10")])).toEqual(expected);
   });
 
   it("「前提条件と注意書き」の注に、頭の一文と注意の4つ（提案のプランが解約する）", () => {
@@ -66,6 +66,6 @@ describe("変額保険を解約するプランの注意（提案書）", () => {
   it("比較のページのプランが解約するときも載せる", () => {
     const now = withVariable();
     const notes = buildProposalInput(bundleOf(now, now, [now, withVariable("2026-10")])).assumptions.notes;
-    expect(notes).toContain(SPLIT_LEAD);
+    expect(notes).toContain(SURRENDER_LEAD);
   });
 });
