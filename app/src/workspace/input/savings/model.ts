@@ -764,7 +764,8 @@ export function reservePreset(h: Household, months: 6 | 12): { value: number; ba
 // ---- NISA の枠の見込み ----
 
 /** NISA の枠（画面の知らせだけに使う目安。計算はエンジンの制度データ） */
-const NISA = { tsumitate: 1_200_000, growth: 2_400_000, lifetime: 18_000_000, growthLifetime: 12_000_000 };
+export const NISA_LIMITS = { tsumitate: 1_200_000, growth: 2_400_000, lifetime: 18_000_000, growthLifetime: 12_000_000 } as const;
+const NISA = NISA_LIMITS;
 
 export interface NisaHit {
   year: number;

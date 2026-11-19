@@ -35,6 +35,8 @@ import type { FindTarget } from "./inputSearch.ts";
 import { docRequests } from "./docRequests.ts";
 import { docStartOf, STAGE_STARTS, type DocStart } from "../documents/start.ts";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
+import { VariableSplit } from "./VariableSplit.tsx";
+import type { SplitOptions } from "./variableSplit.ts";
 import { RentalOverview } from "./RentalOverview.tsx";
 import { useRentalFigures } from "../rentalTab.ts";
 import { useInsuranceView } from "./useInsuranceView.ts";
@@ -80,6 +82,11 @@ export interface InputPanelProps {
   groupOpen?: GroupOpenState;
   /** 見出しの下に出す「届いた書類を見る」の入口（Web のヒアリングで受け取った書類。0191） */
   docs?: ComponentChildren;
+  /**
+   * 保険の入力項目の変額保険の「解約して分けたら」の「このプランを作る」（0233）。保存していない変更があれば、先に保存する世帯を渡す
+   * （プランを直しているときは、そのプランの差分を含む世帯）
+   */
+  onSplitPlan?: (contract: string, o: SplitOptions, saved?: WorkingHousehold) => void;
 }
 
 export interface PanelPlan {
@@ -134,7 +141,7 @@ function PremiseFoldLine({ wh, open, onToggle }: { wh: WorkingHousehold; open: b
   );
 }
 
-export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, onReadDoc, focusKey, focusAt, plan, groupOpen, docs }: InputPanelProps) {
+export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, onReadDoc, focusKey, focusAt, plan, groupOpen, docs, onSplitPlan }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(wh);
   // 前提条件の細かい前提の区画は、ふだん1行にたたむ（0214 の4・その追記 2026-11-16）。確かめの一覧・検索からその欄へ来たときは開いて出す
   const [premiseOpen, setPremiseOpen] = useState(() => itemId === "assumptions" && (inPremiseFold(focusKey) || inPremiseFold(focusAt?.key) || inPremiseFold(focusAt?.section)));
@@ -317,6 +324,11 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
   const readDoc = (start: DocStart) => {
     if (onReadDoc === undefined || !settleInput().ok) return;
     onReadDoc(start, dirtyRef.current ? saveItem(latest.current, itemId) : undefined);
+  };
+  // 変額保険を解約して分けたプランを作る（0233）。保存していない変更は保存してから作る（プランは保存した世帯から作るので、下書きと食い違わせない）
+  const splitPlan = (contract: string, o: SplitOptions) => {
+    if (onSplitPlan === undefined || !settleInput().ok) return;
+    onSplitPlan(contract, o, dirtyRef.current ? (plan === undefined ? saveItem(latest.current, itemId) : latest.current) : undefined);
   };
   const readDocRef = useRef(readDoc);
   readDocRef.current = readDoc;
@@ -634,6 +646,8 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                 ) : null}
                 {/* 保険: 入れる区画の下に保険料と解約返戻金（読むだけ。過不足は万一のタブで見る。0055 の追記） */}
                 {itemId === "insurance" ? <InsuranceOverview view={insurance} /> : null}
+                {/* 保険: 変額保険を続けるか、解約して保障と運用に分けるかの比較の試算（0233） */}
+                {itemId === "insurance" ? <VariableSplit wh={shown} planLabel={plan?.label ?? null} {...(computeOne !== undefined ? { computeOne } : {})} {...(onSplitPlan !== undefined ? { onPlan: splitPlan } : {})} /> : null}
                 {/* 相続・贈与: 入れる区画の下に相続税の目安（読むだけ。ほかのカードと同じく、入れる欄を先に出す。0060 の追記） */}
                 {itemId === "inheritance" && (inheritanceView(shown, inheritance).points.length > 0 || legacyLine(shown, inheritance) !== null) ? (
                   <div class="ip-inherit" role="note" data-inheritance-line>
