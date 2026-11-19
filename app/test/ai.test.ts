@@ -109,7 +109,7 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     // AI接続口がオフなら、同意があっても渡せない
     const off = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status(), view: view({ consentState: "given" }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
     expect(off).not.toContain("data-ai-share-start");
-    expect(off).toContain("AI接続口はオフです（既定）");
+    expect(off).toContain("AI と接続していません（既定）");
   });
 
   it("世帯のパネル: 前の版の説明（書類を含まない）の同意は、渡せるまま、今の説明で記録し直す欄を出す（0157）", () => {
@@ -180,7 +180,7 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     expect(brief).not.toContain("A0001");
     expect(brief).not.toContain("共有中の世帯A");
     // 「AI接続口の設定」はパネルを開くので、小窓が開く印を付ける
-    for (const x of [html, brief]) expect(x.slice(x.indexOf("data-ai-band-open"))).toMatch(/^[^<]*AI接続口の設定<svg [^>]*data-pop-icon/);
+    for (const x of [html, brief]) expect(x.slice(x.indexOf("data-ai-band-open"))).toMatch(/^[^<]*AI との接続の設定<svg [^>]*data-pop-icon/);
   });
 
   it("保存していない入力の変更があるときだけ、共有中の帯に「保存するとAIにも反映されます」を出す（0184 の追記）", () => {

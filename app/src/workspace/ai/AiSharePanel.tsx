@@ -290,7 +290,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
             <h3>この世帯をAIに渡す</h3>
             {!enabled ? (
               <p class="in-note">
-                AI接続口はオフです（既定）。
+                AI と接続していません（既定）。
                 <button type="button" class="link-btn" onClick={p.onOpenConnector} data-ai-open-connector>
                   事務所の設定を開く
                 </button>
@@ -315,7 +315,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 class="ai-form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void run(() => p.ai.startShare(p.householdId, minutes, destination), "AIに渡しました。期限が来るか取り消すまで、AI接続口から読めます");
+                  void run(() => p.ai.startShare(p.householdId, minutes, destination), "AIに渡しました。期限が来るか取り消すまで、つないだ AI から読めます");
                 }}
                 data-ai-share-form
               >
@@ -337,7 +337,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 </div>
                 <ul class="ai-limits">
                   <li>渡すのは計算に要る項目だけ（縮約版）です。物の ID は共有ごとの仮の ID に置き換えます。</li>
-                  <li>許可は「このPCのAI接続口全体」に出すものです。申告したアプリの名前は確かめられません（記録には申告として残ります）。</li>
+                  <li>許可は「このPCの AI との接続全体」に出すものです。申告したアプリの名前は確かめられません（記録には申告として残ります）。</li>
                   <li>取り消しで止まるのは今後の読み取りだけです。すでに送った内容は、AIの会社の側に残ります。</li>
                   {noDocuments ? <li data-ai-share-no-documents>{NO_DOCUMENTS_NOTE}</li> : null}
                   {use === "officePolicy" ? <li data-ai-share-office>{OFFICE_POLICY_NOTE}</li> : null}
@@ -414,7 +414,7 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
                     <td>{x.tool}</td>
                     <td class="num">{x.count}</td>
                     <td>
-                      {[x.caller.mcpClientDeclared !== null ? `名乗り: ${x.caller.mcpClientDeclared}` : null, x.caller.parentExe !== null ? `起動したアプリ: ${x.caller.parentExe}` : null, x.caller.connectorExe !== null ? `接続口: ${x.caller.connectorExe}${x.caller.connectorPid !== null ? `（${x.caller.connectorPid}）` : ""}` : null]
+                      {[x.caller.mcpClientDeclared !== null ? `名乗り: ${x.caller.mcpClientDeclared}` : null, x.caller.parentExe !== null ? `起動したアプリ: ${x.caller.parentExe}` : null, x.caller.connectorExe !== null ? `つなぐ道具: ${x.caller.connectorExe}${x.caller.connectorPid !== null ? `（${x.caller.connectorPid}）` : ""}` : null]
                         .filter((s) => s !== null)
                         .join("・") || "—"}
                     </td>

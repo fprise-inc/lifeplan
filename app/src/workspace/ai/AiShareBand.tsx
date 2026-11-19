@@ -23,7 +23,7 @@ export function AiShareBand({ shares, detailed, unsaved = false, paused = false,
         <span>{remainingText(Math.min(...shares.map((s) => s.expiresInSec)))}</span>
         {note}
         <button type="button" class="link-btn" onClick={onOpen} data-ai-band-open>
-          AI接続口の設定
+          AI との接続の設定
           <PopIcon />
         </button>
       </div>
@@ -42,7 +42,7 @@ export function AiShareBand({ shares, detailed, unsaved = false, paused = false,
       ))}
       {note}
       <button type="button" class="link-btn" onClick={onOpen} data-ai-band-open>
-        AI接続口の設定
+        AI との接続の設定
         <PopIcon />
       </button>
     </div>
