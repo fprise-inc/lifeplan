@@ -428,21 +428,29 @@ impl HearingSelection {
     }
 }
 
-/// 渡された世帯の計算の入力（縮約版）をアプリ本体に頼む（読み取りは道具の名前で「AIに渡した記録」に残る）
+/// 渡された世帯の計算の入力（縮約版）と定年後の条件・画面の入力の進み具合をアプリ本体に頼む（読み取りは道具の名前で「AIに渡した記録」に残る）
 async fn hearing_shared_input(
     ctx: &RequestContext<RoleServer>,
     tool: &str,
     share_id: &str,
 ) -> Result<String, AppError> {
+    // 計算の読み取りで頼み、画面の入力の進み具合（enteredState。AI には見せない）も受け取る。同梱の JS が画面と同じ関数で、まだ何も入れて
+    // いない新しい世帯を「値なし」と読む（0222 の追記 2026-11-19）
     let req = Request::GetShare {
         share_id: share_id.to_owned(),
         tool: tool.to_owned(),
-        for_calc: false,
+        for_calc: true,
     };
     let payload = ask_app(ctx, req).await?;
     let v: Value =
         serde_json::from_str(&payload).map_err(|_| AppError::Other("返事の形が違います".into()))?;
-    Ok(v["input"].to_string())
+    let mut m = Map::new();
+    for k in ["input", "postRetirement", "enteredState"] {
+        if !v[k].is_null() {
+            m.insert(k.into(), v[k].clone());
+        }
+    }
+    Ok(Value::Object(m).to_string())
 }
 
 /// 事務所のひな形（アプリが起動していない・読めなければ ""）と、アプリが起動しているか

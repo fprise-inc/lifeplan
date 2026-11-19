@@ -82,7 +82,20 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
             documents: true,
         }),
         fictional: false,
+        entered: None,
     }
+}
+
+/// 作ったばかりの世帯（画面の新しい世帯と同じ形: ご本人だけ・生年月は仮の値。物の無い区画は空）。`confirmed` は保存した入力項目の数
+fn fresh_source(confirmed: u64) -> SharedHouseholdSource {
+    let mut s = source("single25", false);
+    let me = s.input["household"]["members"][0].clone();
+    let id = me["id"].as_str().unwrap().to_owned();
+    s.input["household"] = json!({ "members": [me], "relations": [], "events": [], "employmentPeriods": [], "accounts": [], "insuranceContracts": [], "livingExpenses": [] });
+    s.entered = Some(
+        json!({ "confirmed": confirmed, "addedItems": 0, "assumed": [format!("family/{id}/birth")] }),
+    );
+    s
 }
 
 /// 接続口の道具と画面の読み口の両方に通す見本の答え（document-candidates@1。0151）
@@ -6634,6 +6647,30 @@ async fn hearing_tools_check_the_selection_and_follow_the_share_rules() {
         filled.contains(&"hs.family.adult.birthYearMonth"),
         "{filled:?}"
     );
+    // まだ何も入れていない新しい世帯は「値なし」（画面と同じ関数。アプリが添える画面の入力の進み具合で決める。0222 の追記 2026-11-19）。
+    // 入力項目を1つ保存すれば、値のある項目が出る
+    for (confirmed, any) in [(0, false), (1, true)] {
+        let g = reg.grant(fresh_source(confirmed), grant_opts()).unwrap();
+        let o = call_ok(
+            &c,
+            "get_hearing_options",
+            json!({ "share_id": g.share_id, "sheet": "detail" }),
+        )
+        .await;
+        let n = o["sheets"][0]["sections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|s| s["items"].as_array().unwrap())
+            .filter(|i| i["filled"] == true)
+            .count();
+        assert_eq!(n > 0, any, "保存した入力項目 {confirmed}: {o}");
+        assert!(
+            !o.to_string().contains("enteredState") && !o.to_string().contains("confirmed\""),
+            "進み具合は AI に見せない"
+        );
+        assert!(reg.revoke(&g.share_id));
+    }
     let r = call_ok(
         &c,
         "issue_hearing_url",
