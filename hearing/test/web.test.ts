@@ -5,7 +5,7 @@ import { handleApi, PAGE_HEADERS, sweepExpired } from "../relay/handler.ts";
 import { memoryStore } from "../relay/store.ts";
 import { importAnswers } from "../src/index.ts";
 import { exportAnswers } from "../src/export.ts";
-import { answersOf, answerText, b64u, buildPacket, checkAnswers, checkDocuments, estimate, extendRequest, extendTarget, gateText, markSent, progress, removeReceived, screenId, sendDocuments, unsentFiles, webPrefill, yearChoices, DOCUMENT_TEMPLATES, draftKey, filledOf, fromB64u, importDefinition, initialDraft, issueRequest, openRequest, receive, relay, removeFile, screens, selectionFromSheet, sniffMime, submitAnswers, uploadFile, utf8, type Draft, type DraftAnswer, type DraftFile, type Opened, type QuestionsPacket, type RelayTransport, type Screen, type WebSelection } from "../src/web/index.ts";
+import { answersOf, answerText, b64u, expectedChild, requiredMet, requiredMissing, requiredText, requiredWhat, requiredWho, unknownShown, customerText, gateOptions, indexLabel, itemGuide, itemLabel, rangeFirst, buildPacket, checkAnswers, checkDocuments, estimate, extendRequest, extendTarget, gateText, markSent, progress, removeReceived, screenId, sendDocuments, unsentFiles, webPrefill, yearChoices, DOCUMENT_TEMPLATES, draftKey, filledOf, fromB64u, importDefinition, initialDraft, issueRequest, openRequest, receive, relay, removeFile, screens, selectionFromSheet, sniffMime, submitAnswers, uploadFile, utf8, type Draft, type DraftAnswer, type DraftFile, type Opened, type QuestionsPacket, type RelayTransport, type Screen, type WebSelection } from "../src/web/index.ts";
 import { API_PREFIX } from "../src/web/protocol.ts";
 import { full2, full3, full5, idSeq, modelHousehold, simple } from "./helpers.ts";
 
@@ -417,7 +417,7 @@ describe("問いを飛ばす決まり", () => {
     expect(list.find((s) => s.kind === "gate")).toMatchObject({ gates: ["spouse", "child"] });
   });
 
-  it("お子さまの生年月は全員を1画面に。人ごとに生年月（年齢）と性別・働き方と年収を1画面に。金額と範囲は同じ問い", async () => {
+  it("お子さまの生年月は全員を1画面に。人ごとに生年月と性別（年齢の欄は出さない）・働き方と年収を1画面に。金額と範囲は同じ問い", async () => {
     const p = await packetOf();
     const d = withAnswers(initialDraft(p), {}, { spouse: 1, child: 2 });
     const list = screens(p, d);
@@ -427,9 +427,10 @@ describe("問いを飛ばす決まり", () => {
     expect(kids).toHaveLength(1);
     const birth = itemOnly(list).find((s) => s.key === "hs.family.adult.birthYearMonth" && s.index === 1);
     expect(birth?.fields).toEqual([
-      { key: "hs.family.adult.birthYearMonth", index: 1, alt: ["hs.family.adult.age"] },
+      { key: "hs.family.adult.birthYearMonth", index: 1, alt: [] },
       { key: "hs.family.adult.sex", index: 1, alt: [] },
     ]);
+    expect(keys.some((k) => k.startsWith("hs.family.adult.age"))).toBe(false);
     expect(keys).not.toContain("hs.income.annualRange#1");
     const work = itemOnly(list).find((s) => s.key === "hs.work.type" && s.index === 1);
     expect(work?.fields).toEqual([
@@ -442,7 +443,7 @@ describe("問いを飛ばす決まり", () => {
     expect(itemOnly(list).find((s) => s.key === "hs.expense.living")?.fields.map((f) => f.key)).toEqual(["hs.expense.living", "hs.insurance.premiumTotal"]);
   });
 
-  it("シンプルの票: 夫婦と子2人・持ち家・ご両親は聞かないで、問いの画面は13（同意・ご相談・ご家族の分岐・ご本人・配偶者の方・お子さま・働き方2・お住まい・家を買った年月と値段・お金・毎月のお金・これからの予定）", async () => {
+  it("シンプルの票: 夫婦と子2人・持ち家・ご両親は聞かないで、問いの画面は12（同意・ご家族の分岐・ご本人・配偶者の方・お子さま・働き方2・お住まい・家を買った年月と値段・お金・毎月のお金・これからの予定）", async () => {
     const p = await packetOf();
     const d = withAnswers(initialDraft(p), { [draftKey("hs.housing.type")]: v("own") }, { spouse: 1, child: 2, parent: 0 });
     const list = screens(p, d);
@@ -450,7 +451,6 @@ describe("問いを飛ばす決まり", () => {
     // ご両親を聞かないと答えると、ご両親の画面は出ない（分岐の問いの1画面だけ）
     expect(questions.map((s) => screenId(s))).toEqual([
       "consent",
-      "item:hs.consult.topics#0",
       "gate:spouse+child",
       "item:hs.family.adult.birthYearMonth#1",
       "item:hs.family.adult.birthYearMonth#2",
@@ -464,15 +464,15 @@ describe("問いを飛ばす決まり", () => {
       "gate:parent",
       "item:hs.plan.events#0",
     ]);
-    expect(questions.filter((s) => s.kind !== "gate" || !s.gates.includes("parent"))).toHaveLength(13);
+    expect(questions.filter((s) => s.kind !== "gate" || !s.gates.includes("parent"))).toHaveLength(12);
     expect(answersOf(p, withAnswers(d, { [draftKey("hs.family.parent.alive", 1)]: v("alive") }), new Date()).answers.some((a) => a.key.startsWith("hs.family.parent"))).toBe(false);
     // 最初の画面の目安（ご両親も聞く前提で数える。1画面15秒）
     const e = estimate(p);
-    expect(e.screens).toBe(18);
-    expect(e.minutes).toBe(5);
+    expect(e.screens).toBe(17);
+    expect(e.minutes).toBe(4);
   });
 
-  it("ご両親は1人1画面（ご健在か・お年・同居）。最初に「うかがってよいですか」", async () => {
+  it("ご両親は1人1画面（ご健在か・お年・同居）。最初に「伺ってよいですか」", async () => {
     const p = await packetOf();
     const d = withAnswers(initialDraft(p), {}, { spouse: 1, child: 0, parent: 1 });
     const list = screens(p, d);
@@ -489,11 +489,25 @@ describe("問いを飛ばす決まり", () => {
     expect(p.items.find((i) => i.key === "hs.family.parent.age")?.label).toBe("お年はおいくつですか");
   });
 
-  it("「ご相談したいこと」は同意の直後", async () => {
+  it("「ご相談したいこと」はお客さまの画面に出さない（問いに載っていても。答えも話題も送らない）", async () => {
     const p = await packetOf();
-    const list = screens(p, initialDraft(p));
-    expect(list.slice(0, 3).map((s) => screenId(s))).toEqual(["intro", "consent", "item:hs.consult.topics#0"]);
-    expect(list.filter((s) => s.kind === "item" && s.key === "hs.consult.topics")).toHaveLength(1);
+    expect(p.items.some((i) => i.key === "hs.consult.topics")).toBe(true);
+    const d = withAnswers(initialDraft(p), { [draftKey("hs.consult.topics")]: v("前の下書きに残った文") }, { spouse: 0, child: 0 });
+    const list = screens(p, { ...d, topics: ["教育費"] });
+    expect(list.slice(0, 3).map((s) => screenId(s))).toEqual(["intro", "consent", "gate:spouse+child"]);
+    expect(itemScreens(list)).not.toContain("hs.consult.topics#0");
+    const a = answersOf(p, { ...d, topics: ["教育費"] }, new Date());
+    expect(a.answers.some((x) => x.key === "hs.consult.topics")).toBe(false);
+    expect(a.topics).toBeUndefined();
+    // 話題のある問い（前に作った URL）でも同じ
+    const withTopics: QuestionsPacket = { ...p, items: p.items.map((i) => (i.key === "hs.consult.topics" ? { ...i, topics: ["教育費", "相続のこと"] } : i)) };
+    expect(itemScreens(screens(withTopics, d))).not.toContain("hs.consult.topics#0");
+    expect(answersOf(withTopics, { ...d, topics: ["教育費"] }, new Date()).topics).toBeUndefined();
+    // 同意の項目が無い問い（同意を出さない）でも、最初の画面の次は分岐の問い。進み具合に「はじめに」は出さない
+    const noConsent: QuestionsPacket = { ...p, consent: { ...p.consent, items: [] } };
+    const l2 = screens(noConsent, d);
+    expect(l2.slice(0, 2).map((s) => screenId(s))).toEqual(["intro", "gate:spouse+child"]);
+    expect(progress(noConsent, l2, 1).stages[0]?.title).toBe("ご家族");
   });
 
   it("働き方・住まい・ご健在かで問いを飛ばす。見えない問いの答えは送らない", async () => {
@@ -682,18 +696,22 @@ describe("お客さまの画面の言葉と入れやすさ", () => {
     const a = at(withAnswers(initialDraft(p), {}, { spouse: 0, child: 0 }));
     const b = at(withAnswers(initialDraft(p), { [draftKey("hs.housing.type")]: v("own") }, { spouse: 1, child: 3 }));
     expect(a.stages).toEqual(b.stages);
-    expect(a.stages.map((x) => x.title)).toEqual(["はじめに", "ご家族", "お仕事と収入", "お住まい", "貯蓄・投資", "毎月のお金", "ご両親", "これからのこと", "確かめ"]);
+    expect(a.stages.map((x) => x.title)).toEqual(["はじめに", "ご家族", "お仕事と収入", "お住まい", "貯蓄・投資", "毎月のお金", "ご両親", "これからのこと", "入力内容の確認"]);
     expect(a.current).toBe(2);
     expect(b.current).toBe(2);
   });
 
-  it("分岐の問いの言葉: いない／1人／2人／3人／4人以上", async () => {
+  it("分岐の問いの言葉: いない／1人／2人／3人／4人以上。配偶者の方は「いる／いない」（FP の画面の言葉は変えない）", async () => {
     const p = await basicPacket();
+    expect(gateText(p, "spouse").options.map((o) => o.label)).toEqual(["いる", "いない"]);
+    expect(gateText(p, "spouse").lead).not.toContain("いらっしゃら");
+    expect(gateText(p, "parent").label).toBe("ご両親のことも、伺ってよいですか");
+    expect(gateOptions("spouse", 1).map((o) => o.label)).toEqual(["いらっしゃる", "いらっしゃらない"]);
     expect(gateText(p, "child").options.map((o) => o.label)).toEqual(["いない", "1人", "2人", "3人", "4人以上"]);
     expect(gateText(p, "child").lead).toContain("5人以上");
   });
 
-  it("生年の選択: 大人は15年前から・お子さまは3年後から（新しい年から並べる）", async () => {
+  it("生年の選択: 大人は15年前から・お子さまは3年後から（新しい年から並べる）。上の端は今日からの相対で、票の定義の years.to で頭打ちにしない", async () => {
     const p = await basicPacket();
     const now = new Date("2026-11-06T10:00:00+09:00");
     const adult = yearChoices(p.items.find((i) => i.key === "hs.family.adult.birthYearMonth")!, p.years, now);
@@ -702,14 +720,22 @@ describe("お客さまの画面の言葉と入れやすさ", () => {
     expect(adult.indexOf(1981)).toBe(30);
     expect(child[0]).toBe(2029);
     expect(adult.at(-1)).toBe(p.years.from);
+    // 票の定義の上の端（2045年）を過ぎても、今日から数える
+    const later = new Date("2046-04-01T10:00:00+09:00");
+    expect(p.years.to).toBe(2045);
+    expect(yearChoices(p.items.find((i) => i.key === "hs.family.child.birthYearMonth")!, p.years, later)[0]).toBe(2049);
+    expect(yearChoices(p.items.find((i) => i.key === "hs.housing.purchaseMonth")!, p.years, later)[0]).toBe(2046);
+    expect(yearChoices(p.items.find((i) => i.key === "hs.family.adult.birthYearMonth")!, p.years, later)[0]).toBe(2031);
+    // 前回の答えなどで範囲の外の年が入っていれば、それも選べる
+    expect(yearChoices(p.items.find((i) => i.key === "hs.family.adult.birthYearMonth")!, p.years, now, 2020)[0]).toBe(2020);
   });
 
-  it("生年月の月が「わからない」: 年だけの生年月は送らず（取り込めない）、年齢で答える", async () => {
+  it("生年月の月が「わからない」: 年だけの生年月は送らない（取り込めない。面談で伺う）。年齢の欄は出さないので、下書きに残った年齢も送らない", async () => {
     const p = await basicPacket();
     const d = withAnswers(initialDraft(p), { [draftKey("hs.family.adult.birthYearMonth", 1)]: { status: "value", raw: { kind: "text", text: "1981" }, raw2: { kind: "text", text: "unknown" } }, [draftKey("hs.family.adult.age", 1)]: v("45", "number") }, { spouse: 0 });
     const a = answersOf(p, d, new Date()).answers;
     expect(a.some((x) => x.key === "hs.family.adult.birthYearMonth" && x.index === 1)).toBe(false);
-    expect(a.find((x) => x.key === "hs.family.adult.age" && x.index === 1)).toMatchObject({ status: "value" });
+    expect(a.some((x) => x.key === "hs.family.adult.age" && x.index === 1)).toBe(false);
     expect(answerText(p.items.find((i) => i.key === "hs.family.adult.birthYearMonth")!, d.answers[draftKey("hs.family.adult.birthYearMonth", 1)])).toBe("1981年（昭和56年）（月はわからない）");
   });
 
@@ -729,12 +755,213 @@ describe("お客さまの画面の言葉と入れやすさ", () => {
     expect(itemScreens(screens(p, d))).not.toContain("hs.loan.balanceTotal#0");
   });
 
-  it("同意の文: 担当の FP が AI でお答えを整理すること（お名前は渡さない）。Excel のシートも同じ文", async () => {
+  it("お客さまの画面の言葉: 「伺う」・「第一子」「第二子」…（票の定義の言葉は変えない）", async () => {
+    const p = await basicPacket();
+    expect(customerText("面談のときにうかがいます")).toBe("面談のときに伺います");
+    expect(customerText("お子さま1（いちばん上）")).toBe("第一子");
+    expect(customerText("お子さま3")).toBe("第三子");
+    expect(customerText("お子さま2人")).toBe("お子さま2人");
+    const birth = p.items.find((i) => i.key === "hs.family.child.birthYearMonth")!;
+    expect([1, 2, 3, 4].map((n) => indexLabel(birth, n))).toEqual(["第一子", "第二子", "第三子", "第四子"]);
+    // 票の定義（Excel）の言葉はそのまま
+    expect(birth.axis?.labels[0]).toBe("お子さま1（いちばん上）");
+    // 詳細の票の保険の被保険者の選択肢も同じ言い方（答えの値は変えない）
+    const full = await buildPacket(full5(), selectionFromSheet(full5()), { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE });
+    const insured = full.items.find((i) => i.key === "hs.insurance.insured")!;
+    expect(answerText(insured, v("child.1"))).toBe("第一子");
+  });
+
+  it("年収の「自営業の方は事業の所得」は、働き方で自営業を選んだ方にだけ出す（人ごと）", async () => {
+    const p = await basicPacket();
+    const annual = p.items.find((i) => i.key === "hs.income.annual")!;
+    expect(annual.label).toContain("自営業の方は事業の所得");
+    const d = withAnswers(initialDraft(p), { [draftKey("hs.work.type", 1)]: v("selfEmployed"), [draftKey("hs.work.type", 2)]: v("regular") }, { spouse: 1 });
+    expect(itemLabel(annual, d, 1)).toBe(annual.label);
+    expect(itemLabel(annual, d, 2)).toBe("年収（賞与を含む）");
+    // まだ働き方を選んでいなければ出さない。ほかの問いの言葉はそのまま
+    expect(itemLabel(annual, initialDraft(p), 1)).toBe("年収（賞与を含む）");
+    const rent = p.items.find((i) => i.key === "hs.housing.rent")!;
+    expect(itemLabel(rent, d)).toBe(rent.label);
+  });
+
+  it("生年月の手引きから、出さない年齢の欄を指す文を外す", async () => {
+    const p = await basicPacket();
+    const birth = p.items.find((i) => i.key === "hs.family.adult.birthYearMonth")!;
+    expect(birth.guide ?? "").toContain("「年齢」");
+    expect(itemGuide(birth) ?? "").not.toContain("年齢");
+  });
+
+  it("金額は具体額が主で、わからなければ範囲（住宅ローンの残高だけ範囲が主）。答えの形は今のまま（金額か範囲のどちらか）", async () => {
+    const p = await basicPacket();
+    for (const k of ["hs.income.annual", "hs.loan.monthlyTotal", "hs.housing.purchasePrice", "hs.assets.depositTotal", "hs.assets.investTotal", "hs.expense.living"]) expect(rangeFirst(k)).toBe(false);
+    expect(rangeFirst("hs.loan.balanceTotal")).toBe(true);
+    // 具体額で答えた問いは金額の欄、範囲で答えた問いは範囲の欄の答えを送る（送る形は前と同じ）
+    const d = withAnswers(initialDraft(p), { [draftKey("hs.housing.type")]: v("own"), [draftKey("hs.loan.monthlyTotal")]: v("12", "number"), [draftKey("hs.loan.balanceTotalRange")]: v(p.items.find((i) => i.key === "hs.loan.balanceTotalRange")!.ranges![1]!.label) }, { spouse: 0, child: 0 });
+    const a = answersOf(p, d, new Date()).answers;
+    expect(a.find((x) => x.key === "hs.loan.monthlyTotal")).toMatchObject({ status: "value", raw: { text: "12" } });
+    expect(a.some((x) => x.key === "hs.loan.monthlyTotalRange")).toBe(false);
+    expect(a.find((x) => x.key === "hs.loan.balanceTotalRange")).toMatchObject({ status: "value" });
+  });
+
+  it("同意の文: 担当の FP が AI で回答を整理すること（お名前は渡さない）。お客さまの画面では「このことに同意します」を外す（Excel のシートの文は変えない）", async () => {
     const p = await basicPacket();
     const label = p.consent.items.find((i) => i.key === "hs.consent.externalAi")?.label ?? "";
-    expect(label).toContain("担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）");
+    expect(label).toBe("（任意）担当の FP が、AI を使って回答を整理することがあります（お名前は渡しません）。");
     expect(label).not.toContain("外部のAIサービス");
-    for (const def of [simple(), full2(), full3(), full5()]) expect(def.items.find((i) => i.key === "hs.consent.externalAi")?.label).toBe(label);
+    for (const def of [simple(), full2(), full3(), full5()]) expect(def.items.find((i) => i.key === "hs.consent.externalAi")?.label).toBe("（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します");
+  });
+
+  it("外部 AI の同意は、発行のときに出さないこともできる（ほかの同意は残る）。届いた答えにその同意があっても、問いに無ければ扱いは変わらない（0192 の追記）", async () => {
+    const def = simple();
+    const sel = selectionFromSheet(def);
+    const off = await buildPacket(def, sel, { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE, aiConsent: false });
+    expect(off.consent.items.map((i) => i.key)).toEqual(["hs.consent.purpose", "hs.consent.familyInfo"]);
+    const on = await buildPacket(def, sel, { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE });
+    expect(on.consent.items.map((i) => i.key)).toContain("hs.consent.externalAi");
+    // 指紋は同じ（同意は選び方に入れない）
+    expect(off.digest).toBe(on.digest);
+    // 発行の通り道にも渡せる
+    const { transport } = relayFor();
+    const issued = await issueRequest({ definition: def, selection: sel, requestId: "R-7K3P9Q", customerNo: "A1", office: OFFICE, now: new Date("2026-11-05T09:00:00Z"), pageUrl: "https://relay.test/h/", aiConsent: false, transport });
+    expect(issued.packet.consent.items.some((i) => i.key === "hs.consent.externalAi")).toBe(false);
+  });
+
+  it("ご相談したいことの話題は問いに載せない（前の依頼の選び方に話題があっても、自由記述の問いのまま。届いた話題は今まで通り確かめて読む。0192 の追記）", async () => {
+    const def = simple();
+    const sel = { ...selectionFromSheet(def), topics: ["教育費", "老後のお金・年金"] };
+    const p = await buildPacket(def, sel, { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE });
+    const item = p.items.find((i) => i.key === "hs.consult.topics");
+    expect(item?.topics).toBeUndefined();
+    expect(item?.label).toBe("ご相談したいこと・気になっていることを、自由にお書きください");
+    const checked = checkAnswers({ format: "fprise-lifeplan-hearing-web-answers", version: "0.2", requestId: "R-7K3P9Q", submittedAt: "2026-11-05T09:00:00Z", answers: [], gates: {}, documents: [], topics: ["老後のお金・年金", "知らない話題"] }, def, sel, "R-7K3P9Q");
+    expect(checked.topics).toEqual(["老後のお金・年金"]);
+    expect(checked.dropped).toBe(1);
+  });
+});
+
+describe("ご家族の生年月と性別は入れていただく（0138 の追記 2026-11-18）", () => {
+  const NOW = new Date("2026-11-18T09:00:00+09:00");
+  const simplePacket = () => buildPacket(simple(), selectionFromSheet(simple()), { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE });
+  const fullPacket = () => buildPacket(full5(), selectionFromSheet(full5()), { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE });
+  const screenWith = (list: Screen[], key: string, index?: number) => itemOnly(list).find((s) => s.fields.some((f) => f.key === key && f.index === index))!;
+  /** 今の下書きで、まだ入っていない必ず入れていただく欄（画面に出ている欄だけ） */
+  const missingOf = (p: QuestionsPacket, d: Draft) => screens(p, d).flatMap((s) => requiredMissing(s, d, NOW).map((f) => draftKey(f.key, f.index)));
+  const self = { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1986, 4), [draftKey("hs.family.adult.sex", 1)]: v("female") };
+
+  it("対象はご本人・配偶者の方（いるとき）・お子さま（人数の分）の生年月と性別だけ。ほかの問いは答えなくてよい", async () => {
+    const p = await fullPacket();
+    const d = withAnswers(initialDraft(p), {}, { spouse: 1, child: 2 });
+    expect(missingOf(p, d)).toEqual([
+      "hs.family.adult.birthYearMonth#1",
+      "hs.family.adult.sex#1",
+      "hs.family.adult.birthYearMonth#2",
+      "hs.family.adult.sex#2",
+      "hs.family.child.birthYearMonth#1",
+      "hs.family.child.sex#1",
+      "hs.family.child.birthYearMonth#2",
+      "hs.family.child.sex#2",
+    ]);
+    // 生年月は年と月の両方。性別は選んである。「あとで」・月の「わからない」（前の下書き）では満たさない
+    const birth = { key: "hs.family.adult.birthYearMonth", index: 1, alt: [] };
+    const only = (a: DraftAnswer) => withAnswers(d, { [draftKey("hs.family.adult.birthYearMonth", 1)]: a });
+    expect(requiredMet(only({ status: "value", raw: { kind: "text", text: "1986" } }), birth, NOW)).toBe(false);
+    expect(requiredMet(only({ status: "value", raw: { kind: "text", text: "1986" }, raw2: { kind: "text", text: "unknown" } }), birth, NOW)).toBe(false);
+    expect(requiredMet(only({ status: "later" }), birth, NOW)).toBe(false);
+    expect(requiredMet(only(ym(1986, 4)), birth, NOW)).toBe(true);
+    expect(requiredMet(withAnswers(d, { [draftKey("hs.family.adult.sex", 1)]: { status: "later" } }), { key: "hs.family.adult.sex", index: 1, alt: [] }, NOW)).toBe(false);
+    // ほかの問い（働き方・お住まい など）は対象にしない
+    expect(requiredMet(d, { key: "hs.work.type", index: 1, alt: [] }, NOW)).toBe(true);
+    expect(requiredMet(d, { key: "hs.housing.type", alt: [] }, NOW)).toBe(true);
+  });
+
+  it("配偶者の方を「いる」→「いない」、お子さまの人数を減らすと、隠れた欄は対象から外れる（残った答え・空欄で止めない）", async () => {
+    const p = await fullPacket();
+    const kids = { [draftKey("hs.family.child.birthYearMonth", 1)]: ym(2018, 6), [draftKey("hs.family.child.sex", 1)]: v("male") };
+    // 配偶者の方の生年月に年だけ残った下書き・第二子は空のまま
+    const d = withAnswers(initialDraft(p), { ...self, ...kids, [draftKey("hs.family.adult.birthYearMonth", 2)]: { status: "value", raw: { kind: "text", text: "1984" } } }, { spouse: 1, child: 2 });
+    expect(missingOf(p, d)).toEqual(["hs.family.adult.birthYearMonth#2", "hs.family.adult.sex#2", "hs.family.child.birthYearMonth#2", "hs.family.child.sex#2"]);
+    expect(missingOf(p, { ...d, gates: { ...d.gates, spouse: 0 } })).toEqual(["hs.family.child.birthYearMonth#2", "hs.family.child.sex#2"]);
+    expect(missingOf(p, { ...d, gates: { ...d.gates, spouse: 0, child: 1 } })).toEqual([]);
+    // 送る答えにも隠れた欄は入らない（配偶者の方は「該当なし」）
+    const a = answersOf(p, { ...d, gates: { ...d.gates, spouse: 0, child: 1 } }, NOW).answers;
+    expect(a.find((x) => x.key === "hs.family.adult.birthYearMonth" && x.index === 2)?.status).toBe("notApplicable");
+    expect(a.some((x) => x.key === "hs.family.child.birthYearMonth" && x.index === 2)).toBe(false);
+  });
+
+  it("見直しの票: 前回の値で埋まっている欄は満たしている", async () => {
+    const def = full5();
+    const prefill = exportAnswers(def, modelHousehold("salariedCoupleTwoKids")).answers;
+    const p = await buildPacket(def, selectionFromSheet(def, () => "confirm"), { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE, prefill });
+    const d = initialDraft(p);
+    expect(d.gates).toMatchObject({ spouse: 1, child: 2 });
+    expect(missingOf(p, d)).toEqual([]);
+  });
+
+  it("双子など、同じ生年月のお子さまが何人いても止めない（送る答えにも全員が入る）", async () => {
+    const p = await fullPacket();
+    const twins = { [draftKey("hs.family.child.birthYearMonth", 1)]: ym(2020, 3), [draftKey("hs.family.child.sex", 1)]: v("male"), [draftKey("hs.family.child.birthYearMonth", 2)]: ym(2020, 3), [draftKey("hs.family.child.sex", 2)]: v("male") };
+    const d = withAnswers(initialDraft(p), { ...self, ...twins }, { spouse: 0, child: 2 });
+    expect(missingOf(p, d)).toEqual([]);
+    const a = answersOf(p, d, NOW).answers.filter((x) => x.key === "hs.family.child.birthYearMonth");
+    expect(a.map((x) => x.index)).toEqual([1, 2]);
+  });
+
+  it("「わからない」: 必ず入れていただく欄には出さない。お子さまの性別だけ、生まれる前（生年月が今月より後）なら出して、それで満たす", async () => {
+    const p = await fullPacket();
+    const item = (key: string) => p.items.find((i) => i.key === key)!;
+    const sex = { key: "hs.family.child.sex", index: 1, alt: [] };
+    const born = withAnswers(initialDraft(p), { [draftKey("hs.family.child.birthYearMonth", 1)]: ym(2018, 6), [draftKey("hs.family.child.sex", 1)]: { status: "unknown" } }, { child: 1 });
+    const coming = withAnswers(born, { [draftKey("hs.family.child.birthYearMonth", 1)]: ym(2027, 3) });
+    const thisMonth = withAnswers(born, { [draftKey("hs.family.child.birthYearMonth", 1)]: ym(2026, 11) });
+    expect(item("hs.family.child.sex").states).toContain("unknown");
+    expect([expectedChild(born, 1, NOW), expectedChild(coming, 1, NOW), expectedChild(thisMonth, 1, NOW)]).toEqual([false, true, false]);
+    // 生年月がまだなら出さない（生まれる前と分かってから出す）
+    expect(unknownShown(item("hs.family.child.sex"), initialDraft(p), 1, NOW)).toBe(false);
+    expect(unknownShown(item("hs.family.child.sex"), born, 1, NOW)).toBe(false);
+    expect(unknownShown(item("hs.family.child.sex"), coming, 1, NOW)).toBe(true);
+    expect(requiredMet(born, sex, NOW)).toBe(false);
+    expect(requiredMet(coming, sex, NOW)).toBe(true);
+    // ほかの「わからない」のある問いは今までどおり出す
+    const other = p.items.find((i) => !i.key.startsWith("hs.family.") && i.states.includes("unknown"))!;
+    expect(unknownShown(other, initialDraft(p), 1, NOW)).toBe(true);
+  });
+
+  it("止めたときの言葉: 責める言い方にしない（「必須」「入力してください」と言わない）。1画面に何人かいるときは誰の欄かを添える", async () => {
+    const p = await fullPacket();
+    const d = withAnswers(initialDraft(p), {}, { spouse: 1, child: 3 });
+    const list = screens(p, d);
+    const selfScreen = screenWith(list, "hs.family.adult.birthYearMonth", 1);
+    const both = requiredMissing(selfScreen, d, NOW);
+    expect(requiredText(p, both, false)).toBe("生年月と性別は、ライフプランの土台になるので必ずご入力ください。");
+    const sexOnly = requiredMissing(selfScreen, withAnswers(d, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1986, 4) }), NOW);
+    expect(requiredText(p, sexOnly, false)).toBe("性別は、ライフプランの土台になるので必ずお選びください。");
+    expect(requiredText(p, both, true)).toBe("ご本人の生年月と性別は、ライフプランの土台になるので必ずご入力ください。");
+    const all = list.flatMap((s) => requiredMissing(s, d, NOW));
+    expect(requiredText(p, all, true)).toBe("ご家族の生年月と性別は、ライフプランの土台になるので必ずご入力ください。");
+    expect(requiredWho(p, all.filter((f) => f.key.startsWith("hs.family.child") && (f.index ?? 0) <= 2))).toBe("第一子・第二子の");
+    expect(requiredWhat(all.filter((f) => f.key === "hs.family.child.birthYearMonth"))).toBe("生年月");
+    for (const t of [requiredText(p, both, false), requiredText(p, sexOnly, false), requiredText(p, all, true)]) for (const ng of ["必須", "入力してください", "当て", "お答え"]) expect(t).not.toContain(ng);
+  });
+
+  it("シンプルの票（お子さまは生年月だけを全員1画面）でも同じ。誰の生年月かを添える", async () => {
+    const p = await simplePacket();
+    const d = withAnswers(initialDraft(p), { ...self, [draftKey("hs.family.child.birthYearMonth", 1)]: ym(2018, 6) }, { spouse: 0, child: 2 });
+    const kids = screenWith(screens(p, d), "hs.family.child.birthYearMonth", 1);
+    const miss = requiredMissing(kids, d, NOW);
+    expect(miss.map((f) => draftKey(f.key, f.index))).toEqual(["hs.family.child.birthYearMonth#2"]);
+    expect(requiredText(p, miss, true)).toBe("第二子の生年月は、ライフプランの土台になるので必ずご入力ください。");
+  });
+
+  it("必須にする前に送られた答え（ご家族の生年月と性別が無い）も、今までどおり受け取って取り込める", async () => {
+    const { transport } = relayFor();
+    const { def, issued } = await issueSimple(transport);
+    const opened = await openRequest(new URL(issued.record.url).hash, transport);
+    const d = withAnswers(initialDraft(opened.packet), { [draftKey("hs.housing.type")]: v("rent") }, { spouse: 1, child: 1 });
+    await submitAnswers(opened, answersOf(opened.packet, d, NOW), transport);
+    const got = await receive(issued.record, def, transport);
+    expect(got!.answers!.dropped).toBe(0);
+    const r = importAnswers(importDefinition(def, issued.record.selection), filledOf(issued.record, got!.answers!, "0.1.0"), { baseMonth: "2026-11", newId: idSeq("web") });
+    expect(r.candidates.filter((c) => c.collection === "members").length).toBe(1);
   });
 });
 

@@ -9,7 +9,7 @@ import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
-import { ASSET_CLASSES } from "../labels.ts";
+import { ASSET_CLASSES, withAccountLabel } from "../labels.ts";
 import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 
 export type Method = "total" | "accounts" | "allocation";
@@ -741,8 +741,10 @@ export function withdrawableCount(req: EngineRequest): number {
   return (v.settlement !== undefined ? 1 : 0) + v.included.length + v.excluded.length;
 }
 
-/** 器の呼び名（種類と名義。例「NISA（夫）」） */
-export const accountName = (a: Account, owner: string): string => `${(KIND_INFO[a.kind]?.name ?? "口座").replace(/（[^）]*）$/, "")}（${owner}）`;
+/** 器の呼び名（種類と名義。例「NISA（夫）」。名前のある口座は「楽天証券（NISA・夫）」。0223） */
+export const accountName = (a: Account, owner: string): string => withAccountLabel(a, kindShort(a.kind), owner);
+/** 種類の短い名前（括弧の補足を除く。例「企業型DC」） */
+export const kindShort = (kind: string): string => (KIND_INFO[kind]?.name ?? "口座").replace(/（[^）]*）$/, "");
 
 /** 今の基本生活費の月額（最初の生活費の物。合計の入れ方は合計、費目の入れ方は費目の合計） */
 export function livingMonthlyOf(h: Household): number | null {
@@ -963,15 +965,26 @@ export function nextAgeOf(req: EngineRequest): number | null {
 }
 
 /**
- * 取り崩しを始める年齢の初めの値: 予定があればその年齢、無ければ65歳か退職の年齢の遅い方。
+ * 取り崩しを始める年齢の初めの値: 予定があればその年齢、無ければ65歳か退職の年齢の遅い方（drawdownStartEstimate）。
  * どちらも過ぎた年齢（受給中の世帯など）なら、次に迎える年齢にする
  */
 export function drawdownStartDefault(req: EngineRequest): number {
   const d = drawdownOf(req);
-  const age = d.method === "none" ? Math.max(65, retireAgeOf(req) ?? 65) : d.startAge;
+  return d.method === "none" ? drawdownStartEstimate(req) : atLeastNext(req, d.startAge);
+}
+
+/**
+ * 取り崩しの予定が無いときに始める年齢: 65歳か退職の年齢（本人）の遅い方。過ぎた年齢なら次に迎える年齢。
+ * プランで毎月の取り崩し額・率だけを入れたとき（始める年齢を入れていないとき）は、プランの最後の退職の年齢で決め直す（plans.ts の applyDiffs）
+ */
+export function drawdownStartEstimate(req: EngineRequest): number {
+  return atLeastNext(req, Math.max(65, retireAgeOf(req) ?? 65));
+}
+
+const atLeastNext = (req: EngineRequest, age: number): number => {
   const next = nextAgeOf(req);
   return next !== null && age < next ? next : age;
-}
+};
 
 export function setDrawdown(req: EngineRequest, v: DrawdownView): void {
   const self = selfOf(req.input.household);

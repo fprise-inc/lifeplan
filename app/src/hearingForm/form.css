@@ -301,6 +301,20 @@
   border-style: dashed;
   color: var(--hf-sub);
 }
+/* 下の並びのボタンは1行に。スマホの幅で「戻る」「あとで」と並ぶと、数ピクセル足りずにどれも2行になっていた（0138 の追記 2026-11-19） */
+.hf-nav {
+  gap: 8px;
+}
+.hf-nav button {
+  white-space: nowrap;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+@media (max-width: 340px) {
+  .hf-nav button {
+    font-size: 16px;
+  }
+}
 .hf-link {
   font: inherit;
   font-size: 15px;
@@ -549,11 +563,11 @@
 .hf-exact {
   margin-top: 6px;
 }
-/* 最初の画面 */
-.hf-title {
-  margin: -6px 0 12px;
-  color: var(--hf-sub);
+/* 具体額が先の金額: 「わからなければ、範囲で選ぶ」は欄の下に小さく（0138 の追記 2026-11-17） */
+.hf-range {
+  margin-top: 6px;
 }
+/* 最初の画面 */
 .hf-facts {
   list-style: none;
   padding: 12px 14px;
@@ -656,4 +670,24 @@
 }
 .hf-pre .hf-state {
   margin-top: 4px;
+}
+/* ご家族の生年月と性別が欠けているときの知らせ（0138 の追記 2026-11-18）。責める見え方にしないよう、赤字にせず事務所の色の線でやわらかく */
+.hf-need {
+  background: var(--hf-soft);
+  border-left: 4px solid var(--hf-accent);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.hf-need p {
+  margin: 0 0 8px;
+}
+.hf-need p:last-child {
+  margin-bottom: 0;
+}
+.hf-need .hf-state {
+  max-width: 100%;
+  text-align: center;
 }

@@ -221,6 +221,11 @@ export interface GateNotice {
   gate: GateKind;
   /** 例: お子さまは0人とのお答え（今の世帯は2人） */
   text: string;
+  /**
+   * お答えの方が多い（配偶者の方がいる・お子さまが多いなど）。増えた人・行は取り込みの候補（新規）で足せるので、入力の画面で直すことは無い
+   * （0192 の追記 2026-11-17: 取り込みの画面で、直す要るものと分けて出す）
+   */
+  more?: true;
 }
 
 export type ImportOutcome = { ok: true; view: ImportView } | { ok: false; issues: readonly Issue[] };
@@ -805,21 +810,28 @@ const GATE_UNIT: Readonly<Record<"child" | "loan" | "policy", { head: string; un
 
 /**
  * 分岐の答えを今の世帯と照らした要確認の知らせ（0139 の追記 2026-11-08）。同じなら出さない。人数・本数・件数の最後の段（4人以上など）は、
- * 今の世帯がそれ以上なら同じとみる。ご両親のことを「答えない」は、今の世帯にご両親か、ご両親の区画の行があるときだけ出す（無ければ何も変わらない）
+ * 今の世帯がそれ以上なら同じとみる。ご両親のことを「答えない」は、今の世帯にご両親か、ご両親の区画の行があるときだけ出す（無ければ何も変わらない）。
+ * imported は取り込んだ側の世帯（候補のもと）。お答えの方が多くても、生年月などの回答が無くて候補にできなかった人・行があれば「新規の候補で足せる」
+ * とは言わず、入力の画面で足す要確認にする（0192 の追記 2026-11-18。お子さまの人数だけ答えて生年月が無いなど）
  */
-export function gateNotices(gates: GateAnswersIn | undefined, def: SheetDefinition, h: Household): GateNotice[] {
+export function gateNotices(gates: GateAnswersIn | undefined, def: SheetDefinition, h: Household, imported?: Household): GateNotice[] {
   if (gates === undefined) return [];
   const cur = gateCounts(h);
+  const got = imported === undefined ? undefined : gateCounts(imported);
   const out: GateNotice[] = [];
+  /** お答えの方が多いときの印: 取り込んだ側に答えの数だけあれば「新規の候補で足せる」、足りなければ入力の画面で足す一言を添える */
+  const moreOf = (g: Exclude<GateKind, "parent">, n: number, text: string): GateNotice =>
+    got === undefined || got[g] >= n ? { gate: g, text, more: true } : { gate: g, text: `${text}。回答に生年月などが無い分は候補にしていません。入力の画面で足してください` };
   const s = gates.spouse;
-  if (s !== undefined && s !== cur.spouse) out.push({ gate: "spouse", text: s === 0 ? "配偶者はいないとのお答え（今の世帯にはいます）" : "配偶者がいるとのお答え（今の世帯にはいません）" });
+  if (s !== undefined && s !== cur.spouse) out.push(s > cur.spouse ? moreOf("spouse", s, "配偶者がいるとのお答え（今の世帯にはいません）") : { gate: "spouse", text: "配偶者はいないとのお答え（今の世帯にはいます）" });
   for (const g of ["child", "loan", "policy"] as const) {
     const n = gates[g];
     if (n === undefined || n === cur[g]) continue;
     const max = def.axes.find((a) => a.id === g)?.count ?? 0;
     if (n === max && cur[g] >= n) continue;
     const u = GATE_UNIT[g];
-    out.push({ gate: g, text: `${u.head}は${n}${u.unit}${n === max && max > 2 ? "以上" : ""}とのお答え（今の世帯は${cur[g]}${u.unit}）` });
+    const text = `${u.head}は${n}${u.unit}${n === max && max > 2 ? "以上" : ""}とのお答え（今の世帯は${cur[g]}${u.unit}）`;
+    out.push(n > cur[g] ? moreOf(g, n, text) : { gate: g, text });
   }
   if (gates.parent === 0 && (cur.parent > 0 || cur.parentRows > 0)) {
     out.push({ gate: "parent", text: `ご両親のことは答えないとのお答え（${cur.parent > 0 ? `今の世帯のご両親 ${cur.parent}人と、` : "今の世帯の"}仕送り・援助・介護・受け取る予定の相続の値は今のまま）` });
@@ -990,7 +1002,7 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold, wait
   const checklist = r.checklist.filter((x) => !(x.reason === "missing" && quiet(x.key, x.index)));
   const issues = r.issues.filter((x) => !((x.code === "H_MISSING" || x.code === "H_ESTIMATED" || x.code === "H_ASSUMED") && x.level !== "error" && quiet(x.key, x.index)));
   // 分岐の答え（Web だけ）が今の世帯と違えば知らせる。今の世帯の人・行を消す候補は作らない（FP が入力の画面で直す。0139 の追記 2026-11-08）
-  return { definition: r.definition, candidates, checklist, issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match, gates: gateNotices(r.gates, r.definition, cur) };
+  return { definition: r.definition, candidates, checklist, issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match, gates: gateNotices(r.gates, r.definition, cur, imp.input.household) };
 }
 
 /**

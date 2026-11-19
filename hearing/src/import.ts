@@ -50,7 +50,8 @@ export interface ImportOptions {
   readonly filledOnIsSubmission?: boolean;
   /**
    * 分岐の問いの答え（Web のヒアリングだけ。0158）。Excel のシートには無い（省略）。取り込みの部品は世帯を知らないので、形を確かめて
-   * 結果（ImportResult.gates）に写すだけ。今の世帯と照らして知らせるのはアプリの側（0139 の追記 2026-11-08）
+   * 結果（ImportResult.gates）に写す。今の世帯と照らして知らせるのはアプリの側（0139 の追記 2026-11-08）。「配偶者の方がいる」だけは、
+   * 配偶者の方の欄に回答が無くても配偶者の方の候補を作るのに使う（0192 の追記 2026-11-18）
    */
   readonly gates?: GateAnswersIn;
 }
@@ -514,7 +515,8 @@ export function importAnswers(def: SheetDefinition, filled: FilledSheet, options
   }
 
   simpleAliases(c);
-  const adults = importFamily(c, h, options.baseMonth, asOf);
+  const gates = options.gates !== undefined ? gatesOf(def, options.gates) : undefined;
+  const adults = importFamily(c, h, options.baseMonth, asOf, gates?.spouse === 1);
   importParents(c, h, adults, asOf, options.baseMonth);
   importInheritance(c, h, options.baseMonth);
   const periods = importWork(c, h, adults, options.baseMonth);
@@ -551,7 +553,7 @@ export function importAnswers(def: SheetDefinition, filled: FilledSheet, options
     pending: c.pending,
     record: { kind: "hearing", requestId: m.requestId, sheetId: m.sheetId, sheetVersion: m.sheetVersion, layoutDigest: m.layoutDigest, exportedOn: m.exportedOn, answers: filled.answers },
     loanEntry: c.loanEntry,
-    ...(options.gates !== undefined ? { gates: gatesOf(def, options.gates) } : {}),
+    ...(gates !== undefined ? { gates } : {}),
   };
 }
 
@@ -618,7 +620,11 @@ const SPOUSE_KEYS = [
   "hs.company.guarantee",
 ];
 
-function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Adults {
+/**
+ * spouseGate は分岐の問いで「配偶者の方がいる」と答えたとき（Web のヒアリング）。配偶者の方の欄にどれも回答が無くても、配偶者の方の候補を作る
+ * （生年月はご本人と同じ年月の仮の値。0192 の追記 2026-11-18。前は欄に回答が無いと作らず、取り込みの画面の「新規の候補で足せる」と合わなかった）
+ */
+function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string, spouseGate = false): Adults {
   const B = "hs.family.adult.birthYearMonth";
   const A = "hs.family.adult.age";
   const S = "hs.family.adult.sex";
@@ -663,7 +669,7 @@ function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Ad
   const spouseTouched = SPOUSE_KEYS.some((k) => c.get(k, 2).status === "value");
   if (sb.status === "notApplicable" || (sb.status !== "value" && sa.status === "notApplicable")) {
     if (spouseTouched) c.contradiction(sb.status === "notApplicable" ? B : A, 2, "配偶者の方は「該当なし」ですが、配偶者の方の欄に記入があります（配偶者の方の欄は取り込みませんでした）");
-  } else if (sb.status === "value" || sa.status === "value" || spouseTouched) {
+  } else if (sb.status === "value" || sa.status === "value" || spouseTouched || spouseGate) {
     const id = c.newId();
     let sBirth: string;
     const given = birthOf(id, 2);
@@ -671,7 +677,7 @@ function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Ad
       sBirth = given;
     } else {
       sBirth = birth;
-      c.missing(B, 2, "配偶者の方の欄に記入がありますが、生年月がありません");
+      c.missing(B, 2, spouseTouched ? "配偶者の方の欄に記入がありますが、生年月がありません" : "配偶者の方がいるとの回答ですが、生年月がありません");
       c.assume(`family/${id}/birth`, "仮の値（ご本人と同じ年月として計算）", { objectId: id, key: B, index: 2, item: "member.birth", path: "/birth/birthYearMonth" });
     }
     spouse = { id, kind: "spouse", birth: { birthYearMonth: sBirth, bornOnFirst: false }, sex: sexOf(c, id, S, 2, self.sex === "male" ? "female" : "male"), joins: null, leaves: null, expected: false };

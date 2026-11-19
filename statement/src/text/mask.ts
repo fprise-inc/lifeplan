@@ -58,3 +58,50 @@ export function maskCell(raw: string): { text: string; masked: boolean } {
 
 /** 見出しから、列ごと消す列か（口座番号・カード番号などの列） */
 export const NUMBER_HEADER = /(口座|番号)/u;
+
+/**
+ * 文字認識の結果の欄を消す（0034 の段階3）。数字の 0・1 を英字の O・I・l と読むことがある（カード番号の「0000」を「OOOO」など）ので、
+ * 英字の O・o・I・l・| も数字とみなして A〜C の消し方で探し、見つかった所を元の文字から消す（消し過ぎの側に倒す）。
+ * 日付・金額として読める欄はそのまま。英字を数字とみなして初めて当たる所だけでなく、ふつうの消し方で当たる所も消す
+ */
+export function maskCellLoose(raw: string): { text: string; masked: boolean } {
+  const s = nfkc(raw);
+  if (s === "") return { text: "", masked: false };
+  if (DATE_LIKE.test(s) || AMOUNT_LIKE.test(s)) return { text: s, masked: false };
+  const plain = maskText(s);
+  // 英字を数字に置き換えた影の文字（1字は1字のまま。位置がそろう）
+  const shadow = [...s].map((ch) => (/[Oo]/u.test(ch) ? "0" : /[Il|]/u.test(ch) ? "1" : ch)).join("");
+  if (shadow === s) return plain;
+  const chars = [...s];
+  const sh = [...shadow];
+  // 影の文字で消す所（コードポイントの位置）を集める
+  const spans: [number, number, string][] = [];
+  const at = (re: RegExp, label: (m: RegExpExecArray) => string | null) => {
+    const str = sh.join("");
+    re.lastIndex = 0;
+    for (let m = re.exec(str); m !== null; m = re.exec(str)) {
+      const keep = label(m);
+      if (keep === null) continue;
+      const from = [...str.slice(0, m.index)].length;
+      spans.push([from, from + [...m[0]].length, keep]);
+      if (m[0] === "") re.lastIndex++;
+    }
+  };
+  at(new RegExp(LABELED.source, "giu"), (m) => (/\d/u.test(m[0]) ? `${m[1] as string} ${MASK}` : null));
+  at(new RegExp(RUN_A.source, "giu"), (m) => (digitsOf(m[0]) >= 10 && /\d/u.test(m[0]) ? MASK : null));
+  at(new RegExp(RUN_C.source, "gu"), () => MASK);
+  if (spans.length === 0) return plain;
+  spans.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  let out = "";
+  let i = 0;
+  for (const [from, to, keep] of spans) {
+    if (to <= i) continue;
+    out += chars.slice(i, Math.max(i, from)).join("");
+    out += from >= i ? keep : MASK;
+    i = to;
+  }
+  out += chars.slice(i).join("");
+  // 残りの所もふつうの消し方で消す（伏せ字の並びなど）
+  const rest = maskText(out);
+  return { text: rest.text, masked: true };
+}

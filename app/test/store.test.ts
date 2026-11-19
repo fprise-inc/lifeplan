@@ -1400,7 +1400,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.80");
+    expect(BODY_FORMAT_VERSION).toBe("0.83");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1648,7 +1648,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const back = fromBody(JSON.stringify(stored));
     expect(bodyObject(back)).toEqual(bodyObject(s));
     expect(webLog(back.wh)[0]?.batches).toHaveLength(2);
-    expect(gateLines(webLog(back.wh)[0]!).map((l) => `${l.label} ${l.text}`)).toEqual(["配偶者の方 いらっしゃらない", "お子さま いない"]);
+    expect(gateLines(webLog(back.wh)[0]!).map((l) => `${l.label} ${l.text}`)).toEqual(["配偶者の方 いない", "お子さま いない"]);
     // 前の版（0.69）の記録: 延長の上限は発行の日時から90日、分岐の答えと送りの記録は無し
     const old = webLog(sample069().wh)[0]!;
     expect(limitOf(old.record)).toBe("2027-02-03T09:00:00Z");

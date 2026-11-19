@@ -11,7 +11,7 @@ import type { Address } from "../../store/readings.ts";
 import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, periodsOf, type WorkingHousehold } from "../household.ts";
 import { clearRetirementNone, fillRetirement, retirementNone, retirementNotApplicable } from "../fill.ts";
-import { ACCOUNT_KINDS, EMPLOYMENT_TYPES, earners, memberLabel } from "../labels.ts";
+import { ACCOUNT_KINDS, EMPLOYMENT_TYPES, earners, memberLabel, withAccountLabel } from "../labels.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 import {
@@ -665,7 +665,7 @@ export function retirementStage(wh: WorkingHousehold): StageDef {
   const ro = readGroup(
     "retirement/dc",
     undefined,
-    dc.map((a) => readLine(`retirement/dc/${a.id}`, `${kindLabel(a.kind)}（${memberLabel(wh, a.owner)}）`, receiptText(wh, a), "貯蓄・運用")),
+    dc.map((a) => readLine(`retirement/dc/${a.id}`, withAccountLabel(a, kindLabel(a.kind), memberLabel(wh, a.owner)), receiptText(wh, a), "貯蓄・運用")),
   );
   if (ro !== null)
     sections.push({

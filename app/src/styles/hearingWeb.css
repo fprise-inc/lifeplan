@@ -46,6 +46,8 @@
 .wb-issued textarea { font: inherit; font-size: 0.88rem; width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
 .wr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .wr-row { border: 1px solid var(--card-line); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; }
+/* ベルの届いた知らせから来た行（0192 の追記 2026-11-18）: しばらく縁を強める */
+.wr-row.wr-focus { border-color: var(--prop); box-shadow: 0 0 0 2px var(--prop-bg); }
 .wr-h { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
 .wr-h small { color: var(--ink-2); }
 .wr-st.answered, .wr-st.received { border-color: var(--good); color: var(--good); }
@@ -113,10 +115,6 @@ html.doc-side .scrim { right: var(--dv-w); }
 .wb-choices { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .wb-choice { display: inline-flex; gap: 4px; align-items: center; }
 .wb-choice input { width: 12em; border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; font: inherit; }
-.wb-topics { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(17em, 1fr)); gap: 4px 12px; }
-.wb-topics li { display: flex; gap: 4px; align-items: center; }
-.wb-topics input, .wb-topic-add input { flex: 1; min-width: 0; border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 8px; font: inherit; }
-.wb-topic-add { display: flex; gap: 6px; }
 .wr-what { margin: 0; }
 .wr-answers { display: grid; gap: 6px; border-top: 1px dashed var(--card-line); padding-top: 6px; }
 .wr-answers-list.hf { min-height: 0; max-width: 640px; background: var(--card); border: 1px solid var(--card-line); border-radius: 8px; }
@@ -130,3 +128,24 @@ html.doc-side .scrim { right: var(--dv-w); }
   body.printing-answers .wr-answers .link-btn { display: none; }
 }
 .hs-kind.answered { border-color: var(--good); color: var(--good); }
+
+/* 0192 の追記（2026-11-17）: 依頼の行の段階・たたんだ行・書類待ち・取り消しの確かめ・外部 AI の同意を聞くか */
+.wr-fold { padding: 5px 10px; gap: 4px; background: var(--base-bg); }
+.wr-fold .wr-h { align-items: center; }
+.wr-fold-acts { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; margin-left: auto; }
+.wr-waiting { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: 0.88rem; border-left: 3px solid var(--prop); padding: 2px 8px; background: var(--card); border-radius: 4px; }
+.wr-waiting .rp-actions { margin: 0; }
+.wr-ask { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; border: 1.5px solid var(--short-ink); border-radius: 8px; padding: 8px 10px; background: var(--card); }
+.wr-ask-acts { display: inline-flex; gap: 8px; margin-left: auto; }
+.wb-ai-consent { margin: 6px 0; }
+.hs-form label > span .wb-help, .wb-ai-consent .wb-help { margin-left: 4px; vertical-align: middle; }
+/* 取り込みの画面（0192 の追記 2026-11-17）: 頭の1段・聞いていない欄をまとめた1行・お答えなしはたたむ・承認のボタンは下に貼り付く */
+.hs-review-head { display: grid; gap: 2px; margin: 0 0 6px; }
+.hs-review-lead { margin: 0; font-size: 0.9rem; }
+.hs-review-lead .wb-help { margin-left: 4px; vertical-align: middle; }
+.hs-review-sum { margin: 0; font-size: 0.85rem; color: var(--ink-2); }
+.hs-quiet { margin: 2px 0 0; font-size: 0.8rem; color: var(--ink-2); }
+.hs-quiet span { display: block; }
+.hs-fold > summary { cursor: pointer; padding: 4px 0; }
+.hs-fold > summary small { color: var(--ink-2); font-weight: 400; }
+.hs-review .hs-review-acts { position: sticky; bottom: 0; z-index: 2; background: var(--card); border-top: 1px solid var(--card-line); padding: 8px 0; margin-top: 8px; }

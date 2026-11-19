@@ -130,6 +130,13 @@
 //   足すだけ。本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝第1種〔5%〕）
 //   0.80 から: 表示の設定に、事務所の既定値に従う設定の印 display.followOffice（設定の id の並び。0213 の段C）。足すだけ。本体の変換の段は版だけを
 //   書き換える（前の版の世帯は欄が無い＝どの設定もこの世帯の値。事務所の既定値を変えても変わらない）
+//   0.81 から: 口座（資産の器）の名前 accounts[].label（金融機関名・用途など。40文字まで。表示だけで計算には使わない。0223）。足すだけ。
+//   本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝どの口座も名前なし）
+//   0.82 から: 住宅購入の予定の火災保険・地震保険 residences[].purchase.homeInsurance（契約の年数・年数分の火災保険料と地震保険料・推定の元の
+//   都道府県・保険の入力項目で入れた印。0224）。足すだけ。本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝計算に入らない。画面は
+//   これから買う家の購入の予定に、開いたときに推定で足す。input/homeInsurance.ts）
+//   0.83 から: 明細の取り込みの記録の行 statements.imports[].rows[] に、写真・スクショの文字の読み取りが不確かの印 readUncertain（true だけ。
+//   0221）。足すだけ。本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝どの行も印なし。statement/ の readLog が読む）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -203,7 +210,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.80";
+export const BODY_FORMAT_VERSION = "0.83";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

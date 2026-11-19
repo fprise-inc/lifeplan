@@ -6,19 +6,21 @@
 //   ひな形を切り替えても書類・独自の質問・話題は残す（項目を直した後なら確かめる）。分野は外しても元の位置に残す（灰色）。金額の「だいたいの範囲」は
 //   金額の項目の「範囲でも答えられる」で選ぶ（別の項目として並べない・数えない）。数は1つの数え方（聞く項目の数・お客さまの画面の数と所要時間）。
 //   顧客番号は開いている世帯の番号（世帯をまたいで覚えない）。事務所のひな形には、その世帯の書類待ちの結びつきと持ち主を入れない
+// - 0192 の追記（2026-11-17）: 名前は「URL生成」。ご相談したいことの話題はやめた（欄・事務所の既定値）。ご相談したいこと・これからの予定は
+//   ひな形の既定から外した。ひな形の説明の数は、どれも夫婦と子2人で数え、この世帯の数を添える。分かりにくい欄に「？」の説明。外部 AI の同意（任意）を
+//   お客さまに聞くかを選べる（既定は聞く）。「何のための問いか」の欄はなくした（お客さまの最初の画面に出さなくなったため。問いには今までの文を入れる）
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { HearingForm } from "../../hearingForm/Form.tsx";
 import { screenId, screenOf, screens } from "../../../../hearing/src/web/flow.ts";
 import { DOCUMENT_TEMPLATES, OWNER_LABEL, templateOf, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
 import { axisOf } from "../../../../hearing/src/definition.ts";
-import { checkSelection, CONSULT_KEY, CUSTOM_CHOICES_MAX, CUSTOM_CHOICE_LABEL_MAX, CUSTOM_HELP_MAX, CUSTOM_LABEL_MAX, CUSTOM_MAX, DEFAULT_TOPICS, documentCovers, FP_SECTION, selectableItems, TOPIC_LABEL_MAX, TOPICS_MAX, type CustomAnswer, type CustomQuestion, type QuestionsPacket, type RequestedDocument, type SelectedItem, type SelectedSection, type WebSelection } from "../../../../hearing/src/web/packet.ts";
+import { checkSelection, CUSTOM_CHOICES_MAX, CUSTOM_CHOICE_LABEL_MAX, CUSTOM_HELP_MAX, CUSTOM_LABEL_MAX, CUSTOM_MAX, documentCovers, FP_SECTION, selectableItems, type CustomAnswer, type CustomQuestion, type QuestionsPacket, type RequestedDocument, type SelectedItem, type SelectedSection, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 import { answerText } from "../../../../hearing/src/web/flow.ts";
 import type { HearingWebHost } from "../../engine/host.ts";
 import { docRequests } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { CUSTOMER_NO_PATTERN } from "./sheet.ts";
 import {
-  cleanTopics,
   coverageHelp,
   coverageOf,
   CUSTOM_TEMPLATE,
@@ -27,6 +29,8 @@ import {
   documentFromTemplate,
   estimateOf,
   filledCount,
+  HIDDEN_ITEMS,
+  hiddenAge,
   householdShape,
   invitationText,
   issueWeb,
@@ -64,9 +68,6 @@ interface Props {
   office: OfficeLook;
   templates: readonly HearingTemplate[];
   onTemplates: (list: HearingTemplate[]) => Promise<void>;
-  /** ご相談したいことの話題の事務所の既定値（null は標準の話題）と、その保存（null で標準に戻す）。0192 */
-  topics?: readonly string[] | null;
-  onTopics?: (list: string[] | null) => Promise<void>;
   /** 開いている世帯の顧客番号（保存していない世帯は null。0192: 世帯をまたいで覚えない） */
   customerNo?: string | null;
   /** 保存した世帯か（保存していない世帯では、鍵を失うので発行しない） */
@@ -107,9 +108,28 @@ const move = <T,>(list: readonly T[], i: number, d: -1 | 1): T[] => {
   return out;
 };
 
+/** 欄の「？」の説明（押すと開く。0192 の追記 2026-11-17: 意味の分かりにくい欄に） */
+function Help({ text, id }: { text: string; id: string }) {
+  return (
+    <details class="wb-help" data-web-help={id}>
+      <summary aria-label="説明">？</summary>
+      <p>{text}</p>
+    </details>
+  );
+}
+
+/** URL を発行する所の欄の説明 */
+export const FIELD_HELP = {
+  customerNo: "この世帯の顧客番号です。依頼の一覧と、受け取った書類を保存するときのファイル名に使います。お客さまの画面には出ません。氏名は入れません。",
+  officeName: "お客さまの画面のいちばん上の帯と、最初の画面の「（事務所名）の担当の FP だけが開けます」に出ます（どこからの質問か分かるように）。空なら「担当の FP」と出ます。",
+  privacyContact: "お客さまの最初の画面のいちばん下に「個人情報のお問い合わせ: （ここに書いた連絡先）」と出ます。事務所の電話番号やメールアドレスなど。空なら出しません。",
+  aiConsent:
+    "お客さまの同意の画面に「（任意）担当の FP が、AI を使って回答を整理することがあります（お名前は渡しません）」と、同意する・同意しないを出します。外すと、この問いを出しません。お客さまが「同意しない」と答えた世帯では、AI を使った資料の読み取りや分析は使えません。",
+} as const;
+
 /** 区画の並び（選んだ区画は選んだ並びのまま、選んでいない区画は元のシートの位置の近くに差し込む。外した区画も元の位置に残す。H-123） */
 function orderOf(def: NonNullable<ReturnType<typeof sheetOf>>, sel: WebSelection): string[] {
-  const choosable = new Set(selectableItems(def).map((i) => i.key));
+  const choosable = new Set(selectableItems(def).map((i) => i.key).filter((k) => !HIDDEN_ITEMS.has(k)));
   const base = [...def.sections.filter((s) => s.groups.some((g) => g.items.some((k) => choosable.has(k)))).map((s) => s.id), FP_SECTION.id];
   return displayKeys(base, sel.sections.map((s) => s.id)).filter((id) => id !== FP_SECTION.id || sel.sections.some((s) => s.id === id));
 }
@@ -132,10 +152,9 @@ function displayKeys(base: readonly string[], chosen: readonly string[]): string
 
 const sameSel = (a: WebSelection, b: WebSelection) => JSON.stringify(a.sections) === JSON.stringify(b.sections);
 
-export function WebBuilder({ wh, web, office, templates, onTemplates, topics: officeTopics = null, onTopics, customerNo = null, persisted, onSave, saveNow, onClose }: Props) {
-  const baseTopics = officeTopics ?? DEFAULT_TOPICS;
+export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo = null, persisted, onSave, saveNow, onClose }: Props) {
   const [kind, setKind] = useState<string>("simple");
-  const [origin, setOrigin] = useState<WebSelection>(() => templateSelection("simple", wh, baseTopics));
+  const [origin, setOrigin] = useState<WebSelection>(() => templateSelection("simple", wh));
   const [sel, setSel] = useState<WebSelection>(origin);
   const [asking, setAsking] = useState<string | null>(null);
   const [label, setLabel] = useState("");
@@ -143,8 +162,8 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
   const [answerKind, setAnswerKind] = useState<CustomAnswer>("text");
   const [choices, setChoices] = useState<string[]>(["", ""]);
   const [editing, setEditing] = useState<string | null>(null);
-  const [topicDraft, setTopicDraft] = useState("");
-  const [topicMsg, setTopicMsg] = useState<string | null>(null);
+  /** 外部 AI への提供の同意（任意）をお客さまに聞くか（既定は聞く。この依頼だけ） */
+  const [aiConsent, setAiConsent] = useState(true);
   const [tplName, setTplName] = useState("");
   const [form, setForm] = useState({ ...remembered, name: office.name, customerNo: customerNo ?? "" });
   const [packet, setPacket] = useState<QuestionsPacket | null>(null);
@@ -164,31 +183,32 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
   const est = useMemo(() => estimateOf(wh, sel), [wh, sel]);
   const shape = useMemo(() => householdShape(wh), [wh]);
   const filled = useMemo(() => filledCount(wh), [wh]);
-  // ひな形の説明の数（聞く項目の数・所要時間。お客さまの最初の画面と同じ数え方）
+  // ひな形の説明の数（聞く項目の数・所要時間）。所要時間はどのひな形も夫婦と子2人で数え、この世帯で数えた時間を添える（発行の所と同じ書き方）
   const notes = useMemo(
     () =>
       new Map(
         WEB_TEMPLATES.map((t) => {
-          const s = templateSelection(t.value, wh, baseTopics);
-          const e = estimateOf(null, s);
-          return [t.value, `${selectedCount(s)}項目${e !== null ? `・${e.std.minutes}分ほど` : ""}`] as const;
+          const s = templateSelection(t.value, wh);
+          const e = estimateOf(wh, s);
+          const own = e?.own ?? null;
+          return [t.value, `${selectedCount(s)}項目${e !== null ? `・${e.std.minutes}分ほど（夫婦と子2人）${own !== null && own.minutes !== e.std.minutes ? `・この世帯では${own.minutes}分ほど` : ""}` : ""}`] as const;
         }),
       ),
-    [wh, baseTopics],
+    [wh],
   );
 
   useEffect(() => {
     let live = true;
     if (problems.length > 0) return;
-    void previewPacket(wh, sel, face, new Date()).then((p) => live && setPacket(p), () => live && setPacket(null));
+    void previewPacket(wh, sel, face, new Date(), aiConsent).then((p) => live && setPacket(p), () => live && setPacket(null));
     return () => {
       live = false;
     };
-  }, [sel, face.name, face.purpose, face.privacyContact, face.color]);
+  }, [sel, face.name, face.purpose, face.privacyContact, face.color, aiConsent]);
 
   /** 項目を直したか（ひな形を選んだときから聞く項目・並び・聞き方が変わった） */
   const edited = !sameSel(sel, origin);
-  /** ひな形を選ぶ。書類・独自の質問・話題は残す（保存した組み合わせは、その中身に置き換える）。直した項目が消えるときは確かめる（H-107） */
+  /** ひな形を選ぶ。書類・独自の質問は残す（保存した組み合わせは、その中身に置き換える）。直した項目が消えるときは確かめる（H-107） */
   const pickTemplate = (k: string, sure = false) => {
     const saved = k.startsWith("t:") ? templates[Number(k.slice(2))] : undefined;
     const loses = edited || (saved !== undefined && (sel.documents.length > 0 || sel.custom.length > 0));
@@ -199,9 +219,9 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
     let next: WebSelection;
     if (saved !== undefined) next = saved.selection;
     else {
-      const t = templateSelection(k as WebTemplateKind, wh, sel.topics ?? baseTopics);
+      const t = templateSelection(k as WebTemplateKind, wh);
       const fp = sel.sections.find((s) => s.id === FP_SECTION.id);
-      next = { ...t, custom: sel.custom, documents: sel.documents, ...(sel.topics !== undefined ? { topics: sel.topics } : {}), sections: fp !== undefined ? [...t.sections, fp] : t.sections };
+      next = { ...t, custom: sel.custom, documents: sel.documents, sections: fp !== undefined ? [...t.sections, fp] : t.sections };
     }
     setOrigin(next);
     setSel(next);
@@ -215,7 +235,8 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
   const rangeOf = new Map(def.items.filter((i) => i.rangeOf !== undefined).map((i) => [i.rangeOf as string, i.key]));
   const isRange = (k: string) => items.get(k)?.rangeOf !== undefined;
   const order = orderOf(def, sel);
-  const baseKeys = (id: string) => (def.sections.find((s) => s.id === id)?.groups.flatMap((g) => g.items) ?? []).filter((k) => choosable.some((i) => i.key === k));
+  const age = hiddenAge(sel);
+  const baseKeys = (id: string) => (def.sections.find((s) => s.id === id)?.groups.flatMap((g) => g.items) ?? []).filter((k) => !HIDDEN_ITEMS.has(k) && k !== age && choosable.some((i) => i.key === k));
   const secOf = (id: string): SelectedSection | undefined => sel.sections.find((s) => s.id === id);
   /** 区画を置き換える（選んでいた区画はその位置で。新しく選んだ区画は、今の並びの位置に差し込む） */
   const setSection = (id: string, next: SelectedSection | null) => {
@@ -281,9 +302,6 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
   };
   const setDoc = (id: string, d: RequestedDocument | null) => setSel({ ...sel, documents: d === null ? sel.documents.filter((x) => x.id !== id) : sel.documents.map((x) => (x.id === id ? d : x)) });
   const addDoc = (d: RequestedDocument) => setSel((cur) => ({ ...cur, documents: [...cur.documents, { ...d, id: nextDocId(cur) }] }));
-  const topics = sel.topics ?? [];
-  const setTopics = (list: string[]) => setSel((cur) => ({ ...cur, topics: list }));
-  const consultOn = sel.sections.some((s) => s.items.some((i) => i.key === CONSULT_KEY));
 
   const issue = async () => {
     setBusy(true);
@@ -291,10 +309,13 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
     Object.assign(remembered, { purpose: form.purpose, privacyContact: form.privacyContact });
     try {
       const cfg = await web.config();
-      const r = await issueWeb(wh, { selection: { ...sel, name: edited && !kind.startsWith("t:") ? `${CUSTOM_TEMPLATE}（${WEB_TEMPLATES.find((t) => t.value === kind)?.label ?? ""}から）` : (sel.name ?? CUSTOM_TEMPLATE) }, customerNo: form.customerNo, office: face, pageUrl: cfg.pageUrl, transport: web.call });
+      // 前に保存したカスタムに話題があっても、新しい依頼には載せない（0192 の追記 2026-11-17）
+      const { topics: _old, ...plain } = sel;
+      void _old;
+      const r = await issueWeb(wh, { selection: { ...plain, name: edited && !kind.startsWith("t:") ? `${CUSTOM_TEMPLATE}（${WEB_TEMPLATES.find((t) => t.value === kind)?.label ?? ""}から）` : (sel.name ?? CUSTOM_TEMPLATE) }, customerNo: form.customerNo, office: face, pageUrl: cfg.pageUrl, transport: web.call, ...(aiConsent ? {} : { aiConsent: false }) });
       onSave(r.wh);
       await saveNow();
-      setIssued({ entry: r.entry, sel: JSON.stringify(sel) });
+      setIssued({ entry: r.entry, sel: JSON.stringify([sel, aiConsent]) });
     } catch (e) {
       const code = e instanceof Error ? e.message : String(e);
       setErr(code === "E_RELAY_UNREACHABLE" ? "受け付けのサーバーにつながりませんでした（インターネットにつながっているか確かめてください）" : `発行できませんでした（${code}）`);
@@ -313,7 +334,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
   const draft = packet === null ? null : previewDraft(packet, wh);
   const list = packet === null || draft === null ? [] : screens(packet, draft);
   const count = selectedCount(sel);
-  const sameAsIssued = issued !== null && issued.sel === JSON.stringify(sel);
+  const sameAsIssued = issued !== null && issued.sel === JSON.stringify([sel, aiConsent]);
   const confirmAny = sel.sections.some((s) => s.items.some((i) => i.mode === "confirm"));
   const titleOf = (sid: string) => (sid === FP_SECTION.id ? FP_SECTION.title : (def.sections.find((x) => x.id === sid)?.title ?? sid).replace(/^\d+\.\s*/, ""));
   const nameOf = (key: string) => sel.custom.find((c) => c.key === key)?.label ?? items.get(key)?.label ?? key;
@@ -340,9 +361,9 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
     ) : null;
 
   return (
-    <section class="card hs-panel wb" aria-label="URL で聞く" data-web-builder>
+    <section class="card hs-panel wb" aria-label="URL生成" data-web-builder>
       <div class="card-h">
-        <h2>URL で聞く（Web のヒアリング）</h2>
+        <h2>URL生成（Web の事前ヒアリング）</h2>
         <span class="aside">お客さまがスマホなどで画面に沿って答えます。答えと書類はお客さまの端末で暗号化され、このアプリだけが開けます</span>
       </div>
       <div class="wb-grid">
@@ -386,7 +407,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
             {asking !== null ? (
               <p class="wr-confirm" role="alert" data-web-template-ask>
                 {edited ? "直した項目は、選んだひな形の項目に戻ります。" : ""}
-                {asking.startsWith("t:") ? "書類・独自の質問も、保存した組み合わせのものになります。" : "書類・独自の質問・ご相談の話題はそのまま残します。"}
+                {asking.startsWith("t:") ? "書類・独自の質問も、保存した組み合わせのものになります。" : "書類・独自の質問はそのまま残します。"}
                 よろしいですか。
                 <button type="button" class="btn" onClick={() => pickTemplate(asking, true)} data-web-template-yes>
                   選ぶ
@@ -419,7 +440,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
             {order.map((sid) => {
               const s = secOf(sid);
               const title = titleOf(sid);
-              const chosenKeys = (s?.items ?? []).map((i) => i.key).filter((k) => !isRange(k));
+              const chosenKeys = (s?.items ?? []).map((i) => i.key).filter((k) => !isRange(k) && k !== age);
               const keys = sid === FP_SECTION.id ? chosenKeys : displayKeys(baseKeys(sid).filter((k) => !isRange(k)), chosenKeys);
               const on = chosenKeys.length;
               const all = sid === FP_SECTION.id ? on : baseKeys(sid).filter((k) => !isRange(k)).length;
@@ -502,7 +523,6 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
                               </details>
                             </span>
                           ) : null}
-                          {chosen !== undefined && key === CONSULT_KEY ? <small class="wb-axis">話題 {topics.length}（下で直せます）</small> : null}
                           {chosen !== undefined ? (
                             <span class="wb-move">
                               {target !== undefined ? (
@@ -564,53 +584,6 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
               </button>
             </div>
           </div>
-
-          {consultOn ? (
-            <div class="wb-box" data-web-topics>
-              <h3>ご相談したいことの話題（{topics.length}）</h3>
-              <p class="rp-note">お客さまは、この中からいくつでも選べます。ほかにあれば自由に書く欄も一緒に出ます。言い換える・外す・足すができます（この依頼だけ）。いつも使う話題は「事務所の既定にする」で、次から最初に入ります。</p>
-              <ul class="wb-topics">
-                {topics.map((t, i) => (
-                  <li key={i} data-web-topic={i}>
-                    <input type="text" value={t} maxLength={TOPIC_LABEL_MAX} onInput={(e) => setTopics(topics.map((x, j) => (j === i ? (e.currentTarget as HTMLInputElement).value : x)))} aria-label={`話題 ${i + 1}`} />
-                    <span class="wb-move">
-                      <button type="button" class="link-btn" disabled={i === 0} onClick={() => setTopics(move(topics, i, -1))} aria-label={`${t}を上へ`}>
-                        ↑
-                      </button>
-                      <button type="button" class="link-btn" disabled={i >= topics.length - 1} onClick={() => setTopics(move(topics, i, 1))} aria-label={`${t}を下へ`}>
-                        ↓
-                      </button>
-                      <button type="button" class="link-btn" onClick={() => setTopics(topics.filter((_, j) => j !== i))} data-web-topic-remove={i}>
-                        外す
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <div class="hs-form wb-topic-add">
-                <input type="text" value={topicDraft} maxLength={TOPIC_LABEL_MAX} placeholder="話題を足す（例: 相続のこと）" onInput={(e) => setTopicDraft((e.currentTarget as HTMLInputElement).value)} aria-label="足す話題" data-web-topic-new />
-                <button type="button" class="btn" disabled={topicDraft.trim() === "" || topics.length >= TOPICS_MAX || topics.includes(topicDraft.trim())} onClick={() => (setTopics([...topics, topicDraft.trim()]), setTopicDraft(""))} data-web-topic-add>
-                  足す
-                </button>
-              </div>
-              {onTopics !== undefined ? (
-                <div class="rp-actions">
-                  <button type="button" class="btn" disabled={cleanTopics(topics).length !== topics.length} onClick={() => void onTopics(cleanTopics(topics)).then(() => setTopicMsg("事務所の既定にしました。次に URL で聞くときから、この話題が入ります"))} data-web-topics-office>
-                    事務所の既定にする
-                  </button>
-                  <button type="button" class="btn" onClick={() => (setTopics([...DEFAULT_TOPICS]), void onTopics(null).then(() => setTopicMsg("標準の話題に戻しました")))} data-web-topics-reset>
-                    標準の話題に戻す
-                  </button>
-                  {officeTopics !== null ? <small class="rp-note">今の事務所の既定: {officeTopics.length > 0 ? officeTopics.join("・") : "話題なし（自由記述だけ）"}</small> : null}
-                </div>
-              ) : null}
-              {topicMsg !== null ? (
-                <p class="rp-note" role="status">
-                  {topicMsg}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
 
           <div class="wb-box" data-web-docs>
             <h3>送っていただきたい書類（{sel.documents.length}）</h3>
@@ -697,7 +670,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
           <div class="wb-box" data-web-save-template>
             <h3>{CUSTOM_TEMPLATE}として保存</h3>
             <p class="rp-note">
-              今の組み合わせ（項目・並び・独自の質問・ご相談の話題・書類）を、事務所の{CUSTOM_TEMPLATE}のひな形にします（事務所データに暗号化して置きます。{TEMPLATE_MAX}件まで）。書類は種類だけを保存します（この世帯の書類待ちとの結びつき・誰の書類かは保存しません）。
+              今の組み合わせ（項目・並び・独自の質問・書類）を、事務所の{CUSTOM_TEMPLATE}のひな形にします（事務所データに暗号化して置きます。{TEMPLATE_MAX}件まで）。書類は種類だけを保存します（この世帯の書類待ちとの結びつき・誰の書類かは保存しません）。
             </p>
             <div class="hs-form">
               <input type="text" value={tplName} maxLength={40} placeholder="名前（例: 子育て世帯の最初の面談）" onInput={(e) => setTplName((e.currentTarget as HTMLInputElement).value)} aria-label="カスタムの名前" />
@@ -712,7 +685,9 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
             {issuedBox}
             <div class="hs-form">
               <label>
-                <span>顧客番号（英数字）</span>
+                <span>
+                  顧客番号（英数字） <Help id="customerNo" text={FIELD_HELP.customerNo} />
+                </span>
                 <input
                   type="text"
                   value={form.customerNo}
@@ -726,7 +701,9 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
                 />
               </label>
               <label>
-                <span>事務所名（最初の画面に出ます）</span>
+                <span>
+                  事務所名 <Help id="officeName" text={FIELD_HELP.officeName} />
+                </span>
                 <input
                   type="text"
                   value={form.name}
@@ -739,19 +716,9 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
                 />
               </label>
               <label>
-                <span>何のための問いか</span>
-                <input
-                  type="text"
-                  value={form.purpose}
-                  maxLength={120}
-                  onInput={(e) => {
-                    const v = (e.currentTarget as HTMLInputElement).value;
-                    setForm((f) => ({ ...f, purpose: v }));
-                  }}
-                />
-              </label>
-              <label>
-                <span>個人情報の窓口（任意）</span>
+                <span>
+                  個人情報の窓口（任意） <Help id="privacyContact" text={FIELD_HELP.privacyContact} />
+                </span>
                 <input
                   type="text"
                   value={form.privacyContact}
@@ -760,13 +727,23 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
                     const v = (e.currentTarget as HTMLInputElement).value;
                     setForm((f) => ({ ...f, privacyContact: v }));
                   }}
+                  placeholder="例: 03-0000-0000（平日10時〜17時）"
                 />
               </label>
             </div>
+            <label class="hs-check wb-ai-consent" data-web-ai-consent>
+              <input type="checkbox" checked={aiConsent} onChange={(e) => setAiConsent((e.currentTarget as HTMLInputElement).checked)} data-web-ai-consent-check />
+              <span>
+                外部 AI の同意（任意）をお客さまに聞く <Help id="aiConsent" text={FIELD_HELP.aiConsent} />
+                <small> — 外すと同意の画面に出しません。お客さまが「同意しない」と答えた世帯では、AI を使った資料の読み取りや分析は使えません</small>
+              </span>
+            </label>
             {est !== null ? (
               <p class="rp-note" data-web-estimate>
-                お客さまの画面: 問い {est.std.screens}画面・{est.std.minutes}分ほど（夫婦と子2人で数えた目安。お客さまの最初の画面と案内文にも同じ数が出ます）
-                {est.own !== null && shape !== null ? `。この世帯（${shape}）では ${est.own.screens}画面・${est.own.minutes}分ほど` : ""}
+                お客さまの画面: 問い {est.std.screens}画面・{est.std.minutes}分ほど（夫婦と子2人で数えた目安
+                {confirmAny ? "" : "。お客さまの最初の画面と案内文にも同じ数が出ます"}）
+                {est.own !== null ? `。この世帯${shape !== null ? `（${shape}）` : ""}では ${est.own.screens}画面・${est.own.minutes}分ほど` : ""}
+                {confirmAny && est.shown !== est.std ? `（見直しは前回の値に合わせて問いを飛ばすので、お客さまの最初の画面と案内文はこの世帯の数 ${est.shown.minutes}分ほど）` : ""}
                 {est.withoutParents !== null ? `。ご両親のことを「答えない」を選ぶと ${est.withoutParents.screens}画面` : ""}
               </p>
             ) : null}

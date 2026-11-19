@@ -3,12 +3,15 @@
 // 秘密の値（CI の secrets）があれば署名・公証・更新のファイルの署名をし、無ければ署名せずに普通にビルドする。
 // 署名の名前（秘密でないもの）は config/distribution.toml の [signing] から読む。--plan は段取りを出すだけでビルドしない。
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "smol-toml";
 import { APP_DIR, REPO_DIR } from "./lib.ts";
 import { signingPlan, signingProblems, type Os, type Signing } from "./signing.ts";
+
+/** Windows の署名の道具の版（2026-11-18 に署名が通った版） */
+const ARTIFACT_SIGNING_CLI_VERSION = "0.12.0";
 
 const args = process.argv.slice(2);
 const planOnly = args.includes("--plan");
@@ -40,10 +43,29 @@ if (plan.writeApiKeyFile) {
   delete env.APPLE_API_KEY_P8;
 }
 if (plan.needsArtifactSigningCli) {
-  // Windows の署名の道具（Tauri の説明のとおり cargo で入れる。版の固定は 0117 の未確定）
-  execFileSync("cargo", ["install", "artifact-signing-cli", "--locked"], { stdio: "inherit" });
+  // Windows の署名の道具（Tauri の説明のとおり cargo で入れる。版は固定する）。CI のキャッシュが「入っている」という記録だけを戻して
+  // 本体の .exe を戻さないことがあり、そのときは cargo が入れ直さずに署名で止まるので、動かないときは --force で入れ直す（0117 の追記 2026-11-18）
+  const cli = ["install", "artifact-signing-cli", "--version", ARTIFACT_SIGNING_CLI_VERSION, "--locked"];
+  const runs = spawnSync("artifact-signing-cli", ["--version"], { stdio: "ignore" }).error === undefined;
+  execFileSync("cargo", runs ? cli : [...cli, "--force"], { stdio: "inherit" });
 }
 const override = join(work, "signing.json");
 writeFileSync(override, JSON.stringify(plan.config));
 const r = spawnSync("npx", ["tauri", "build", ...tauriArgs, "--config", override], { cwd: APP_DIR, env, stdio: "inherit", shell: process.platform === "win32" });
+if (r.status === 0 && plan.writeApiKeyFile) {
+  // Tauri が公証してチケットを貼るのは .app だけで、dmg は署名だけになる。署名つきの dmg は Gatekeeper が開く前に公証を確かめるので、
+  // 配る入れ物の dmg も公証して貼り、Gatekeeper の判定が通ることまで確かめる（0117 の4）
+  for (const dmg of builtDmgs(join(APP_DIR, "src-tauri", "target"))) {
+    const key = ["--key", env.APPLE_API_KEY_PATH ?? "", "--key-id", env.APPLE_API_KEY ?? "", "--issuer", env.APPLE_API_ISSUER ?? ""];
+    execFileSync("xcrun", ["notarytool", "submit", dmg, ...key, "--wait"], { stdio: "inherit" });
+    execFileSync("xcrun", ["stapler", "staple", dmg], { stdio: "inherit" });
+    execFileSync("spctl", ["--assess", "-vv", "--type", "open", "--context", "context:primary-signature", dmg], { stdio: "inherit" });
+  }
+}
 process.exit(r.status ?? 1);
+
+/** target/release/bundle/dmg と target/<ターゲット>/release/bundle/dmg にできた dmg */
+function builtDmgs(target: string): string[] {
+  const dirs = [join(target, "release", "bundle", "dmg"), ...readdirSync(target).map((t) => join(target, t, "release", "bundle", "dmg"))];
+  return [...new Set(dirs)].filter((d) => existsSync(d)).flatMap((d) => readdirSync(d).filter((f) => f.endsWith(".dmg")).map((f) => join(d, f)));
+}

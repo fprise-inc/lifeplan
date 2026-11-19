@@ -17,6 +17,17 @@ export interface Timepoint {
   memberAge?: { member: string; years: number; months?: number; ageSwitch?: string };
 }
 
+/** 住宅購入の予定の火災保険・地震保険（0224）。保険料は years 年分を一括で払う額 */
+export interface HomeInsurance {
+  years: number;
+  fire: Box<number>;
+  earthquake: Box<number>;
+  /** 建物のある都道府県（"01"〜"47"。地震保険料の推定の元だけ） */
+  prefecture?: string;
+  /** 買った後の本当の契約を保険の入力項目（損害保険）で入れた（ここでは数えない） */
+  countedInInsurance?: boolean;
+}
+
 export interface Member {
   id: string;
   kind: "self" | "spouse" | "child" | "parent" | "grandparent" | "other" | string;
@@ -128,6 +139,8 @@ export interface ReturnStage {
 export interface Account {
   id: string;
   kind: string;
+  /** 名前（金融機関名・用途など。40文字まで。表示だけで、計算には使わない。無ければ種類と名義で呼ぶ。空白だけの名前は持たない。0223） */
+  label?: string;
   /**
    * その他の資産の細目（種類 otherAsset だけ。表示だけで、計算には使わない）: 自社株〔出資額〕・会社への貸付金（0105）と、貴金属・
    * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」。暗号資産は細目でなく器の種類 cryptoAsset（0122）。
@@ -581,7 +594,8 @@ export interface Residence {
   rent?: { monthly: Box<number>; stages?: AmountStage[]; exceptions?: AmountException[]; [key: string]: unknown };
   /** newBuild: 新築か中古か（住宅の購入の種類。0052 の追記 2026-11-03）、longLife: 認定長期優良住宅か（固定資産税の推定。0112）。どちらも表示と推定の元だけ */
   /** land・payments: 注文住宅の土地（土地の決済の月・土地の代金・その月に払う頭金と諸費用。どれも合計の内数）と、引き渡しの前に頭金から払う建物の代金（0115） */
-  purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[]; newBuild?: boolean; longLife?: boolean; land?: PurchaseLand; payments?: PurchasePayment[] };
+  /** homeInsurance: 買った後の火災保険・地震保険（契約の年数・年数分の保険料・推定の元の都道府県・保険の入力項目で入れた印。0224） */
+  purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[]; newBuild?: boolean; longLife?: boolean; land?: PurchaseLand; payments?: PurchasePayment[]; homeInsurance?: HomeInsurance };
   propertyTax?: { annual: Box<number>; growth?: string } & Staged;
   maintenance?: { monthly: Box<number>; growth?: string } & Staged;
   ownership?: { member: string; share: string }[];

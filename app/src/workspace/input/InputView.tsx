@@ -120,7 +120,7 @@ interface Props {
   /** 取り込みの中身を開いているか（親が持つ。FP のメニューから開く）。省くとホームの中で持つ */
   importsOpen?: boolean;
   onImportsOpen?: (open: boolean) => void;
-  /** Web のヒアリングの届いた知らせ（「回答が届いています 1件」。0192）。押すとヒアリング・取り込むを開く */
+  /** Web のヒアリングの届いた知らせ（「回答が届いています 1件」。0192）。押すと事前ヒアリング・取り込むを開く */
   hearingNote?: { text: string; onOpen: () => void } | null;
   /** ほかの人が開いていて、自動保存を止めている（「編集を始める」まで世帯に保存しない。0023 の7）。パネルの「保存」の後に「保存しました」と言わない */
   paused?: boolean;
@@ -284,7 +284,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
             取り込む {open ? "▴" : "▾"}
           </button>
           <Help label="取り込む">
-            <p>ヒアリングシート・AI が読んだ保険の書類から、まとめて取り込みます。どれも候補として受け、確かめてから現状に入ります。</p>
+            <p>事前ヒアリング・AI が読んだ保険の書類から、まとめて取り込みます。どれも候補として受け、確かめてから現状に入ります。</p>
             <p>明細（口座・カード）は、基本生活費の項目の見出しの「明細から出す」から取り込みます。</p>
             <p>取り込みは現状に入るため、プランの編集中は使えません。はじめのほかは、上の帯の FP のメニューから開きます。</p>
           </Help>
@@ -294,7 +294,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
         <div class="ih-imports-list" data-imports-list {...(!button && off !== undefined ? { "data-current-only": true } : {})}>
           {!button ? (
             <div class="ih-imports-h">
-              <b>ヒアリング・取り込む</b>
+              <b>事前ヒアリング・取り込む</b>
               <button type="button" class="btn small" onClick={() => setOpen(false)} data-imports-close>
                 閉じる
               </button>
@@ -514,6 +514,10 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         }
       : {};
   const importCtl = importsOpen !== undefined ? { open: importsOpen, ...(onImportsOpen !== undefined ? { onOpen: onImportsOpen } : {}) } : { open: homeImports, onOpen: setHomeImports };
+  // 取り込みの置き場（新しい世帯は2行目、ほかは開いた中身の置き場）は、開いている間は動かさない。
+  // 新しい世帯に取り込みを承認すると値が入って fresh でなくなるが、そこで置き場を移すと中身が作り直され、「N件を現状に入れました」の知らせが消える
+  const importsAtBar = useRef(fresh);
+  if (!importCtl.open) importsAtBar.current = fresh;
 
   return (
     <DocViewContext.Provider value={rd}>
@@ -588,7 +592,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       {/* 2行目: 編集の対象（と、新しい世帯のときだけ「取り込む」）と、右端に「入力項目を選ぶ」。控え・面談の準備は上の帯の FP のメニューから開き、中身はこの行の下に幅いっぱいで出す */}
       <div class="ih-bar" data-home-bar>
         {plans !== undefined && (plans.list.length > 0 || plans.sel !== null) ? <PlanTarget p={plans} {...(editing !== null ? { diffs: { rows, open: diffOpen, onOpen: setDiffOpen } } : {})} /> : null}
-        {imports !== undefined && fresh ? (
+        {imports !== undefined && importsAtBar.current ? (
           <div class="ih-tools">
             <ImportMenu {...importOff} {...importCtl}>
               {imports}
@@ -600,7 +604,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       </div>
       {hearingNote !== null ? (
         <p class="ih-hearing-note" role="status" data-hearing-note>
-          <span class="hs-kind answered">ヒアリング</span> {hearingNote.text}
+          <span class="hs-kind answered">事前ヒアリング</span> {hearingNote.text}
           <button type="button" class="link-btn" onClick={hearingNote.onOpen} data-hearing-note-open>
             開く
           </button>
@@ -609,7 +613,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       {/* FP のメニューから開いた中身（控え・面談の準備・取り込む）の置き場。余白はこの箱が持つ（パネルごとに足さない。0077 の追記） */}
       <div class="ih-opened" data-home-opened>
         {tools}
-        {imports !== undefined && !fresh ? (
+        {imports !== undefined && !importsAtBar.current ? (
           <ImportMenu button={false} {...importOff} {...importCtl}>
             {imports}
           </ImportMenu>
