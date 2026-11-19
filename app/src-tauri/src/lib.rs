@@ -372,6 +372,7 @@ pub fn run() {
             statement::statement_ocr,
             ai::ai_status,
             ai::ai_set_enabled,
+            ai::ai_set_privacy_policy,
             ai::ai_setup_copy,
             ai::ai_household,
             ai::ai_consent_record,

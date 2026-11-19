@@ -12,6 +12,7 @@
 //!
 //! 画面に返す本文からは、これらの区画を外す（画面は `view` で見る）。
 
+use crate::basis::{ai_documents_use, ai_use, AiUse};
 use crate::consent::{
     self, current_external_ai, explanation_for, explanation_ref, verify_consents_append_only,
     Author, ConsentRecord, ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION,
@@ -140,6 +141,10 @@ pub struct HouseholdAiView {
     pub saved: bool,
     /// 架空の世帯（AIの候補から「架空」として作った世帯）か。架空の世帯は同意の記録が無くても渡せる
     pub fictional: bool,
+    /// この世帯を AI に渡せるか・その理由（0226。判定は `basis::ai_use` の1か所。画面はこれを見せるだけ）
+    pub ai_use: AiUse,
+    /// 書類（お名前・番号を伏せたもの）を AI に渡せるか・その理由（0157・0226。`basis::ai_documents_use`）
+    pub ai_documents_use: AiUse,
 }
 
 /// 開いている世帯の帳面
@@ -413,9 +418,16 @@ impl HouseholdBook {
         Ok(())
     }
 
-    /// 画面に返す形
-    pub fn view(&self, records: &[AiShareRecord], share: Option<ShareStatus>) -> HouseholdAiView {
+    /// 画面に返す形。`office_policy` は、事務所の設定で FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめているか（0226）
+    pub fn view(
+        &self,
+        records: &[AiShareRecord],
+        share: Option<ShareStatus>,
+        office_policy: bool,
+    ) -> HouseholdAiView {
         let consent = self.consent();
+        let ai_use = ai_use(consent.as_ref(), office_policy, self.fictional);
+        let ai_documents_use = ai_documents_use(consent.as_ref(), office_policy, self.fictional);
         let consent_state = match consent.as_ref().map(|c| c.decision) {
             None => "none",
             Some(ConsentDecision::Given) => "given",
@@ -439,6 +451,8 @@ impl HouseholdBook {
             fields: reduced_items(),
             saved: self.generation > 0,
             fictional: self.fictional,
+            ai_use,
+            ai_documents_use,
         }
     }
 }

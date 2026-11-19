@@ -57,6 +57,8 @@ const COMMANDS: &[&str] = &[
     // 0014・0015: AI接続口（事務所の設定・世帯ごとの同意・共有・記録・候補の判断。パスも鍵も受け取らない・返さない）
     "ai_status",
     "ai_set_enabled",
+    // 0226: 事務所のプライバシーポリシーに AI の利用を書いていることを確かめた・外した（事務所データに日時だけを持つ）
+    "ai_set_privacy_policy",
     "ai_setup_copy",
     "ai_household",
     "ai_consent_record",
