@@ -6,11 +6,13 @@
 // - 保存は受け取った書類の一覧と同じ名前・同じ印（0191）
 // - 0192: 届いたかは開いたときと決まった間隔で確かめ、アプリを開いている間は覚える（画面を閉じても消えない）。行に何を頼んだか（ひな形・項目の数・
 //   書類・顧客番号）。送られた内容を、お客さまが見たのと同じ並びで見る・印刷する
+// - 0222: AI から発行した依頼の行に「出どころ AI」（発行の日時と AI のアプリの名乗り）。取り消しは FP の画面で発行した依頼と同じ
 // - 0192 の追記（2026-11-17）: 行の形を段階で分けた（rowMode）。回答が届いたら「受け取る」「取り消す」だけ。「受け取る」で、そのまま取り込みの
 //   候補の画面へ。取り消す・受け付けを終えるは、どの段階でも1回確かめる。取り込み済みは1行にたたむ（送られた内容・書類はたたんだ行から開ける）。
 //   書類を「あとで送る」の書類待ちがあれば、期限まで書類待ちの段を出す
 // - 0192 の追記（2026-11-18）: 取り込み済みの依頼は一覧から外す（web.ts の listed。書類待ち・届いた書類があれば期限まで残す。一覧が空なら枠ごと
 //   出さない）。外した依頼の送られた内容は、取り込み済みの回答（ImportedAnswers。「事前ヒアリングを取り込む」の下）から見る・印刷する
+
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SentAnswers } from "../../hearingForm/Form.tsx";
 import type { HearingWebHost } from "../../engine/host.ts";
@@ -357,7 +359,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
           /** 届いたもの（まだ受け取っていない答え・書類の送り）があり、受け取れる */
           const canTake = live && arrivedOf(id);
           const folded = (mode === "done" || mode === "closed") && unfolded !== id;
-          const what = `${selectionName(e.record.selection)}（聞く項目 ${selectedCount(e.record.selection)}）・書類: ${docs.length === 0 ? "なし" : docs.length <= 2 ? docs.map((d) => d.title).join("・") : `${docs[0]?.title ?? ""}ほか${docs.length - 1}通`}・顧客番号 ${e.record.customerNo}`;
+          const what = `${selectionName(e.record.selection)}（聞く項目 ${selectedCount(e.record.selection)}）・書類: ${docs.length === 0 ? "なし" : docs.length <= 2 ? docs.map((d) => d.title).join("・") : `${docs[0]?.title ?? ""}ほか${docs.length - 1}通`}${e.record.customerNo !== "" ? `・顧客番号 ${e.record.customerNo}` : ""}`;
           const takeBtn = (primary: boolean) => (
             <button type="button" class={`btn${primary ? " primary" : ""}`} disabled={busy !== null} onClick={() => void take(e)} data-web-receive>
               {busy === id ? "受け取っています…" : mode === "waiting" || mode === "arrived" ? "受け取る" : "届いた書類を受け取る"}
@@ -388,13 +390,19 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                   <b>{id}</b>
                   <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span>
                   {e.closedAt !== undefined ? <span class="hs-kind wr-st cancelled">受け付け終了</span> : null}
+                  {e.origin?.kind === "ai" ? (
+                    <span class="hs-kind wr-origin" title={`AI が発行しました（${dayTime(e.origin.at)}${e.origin.connector !== null ? `・${e.origin.connector}` : ""}）`} data-web-origin="ai">
+                      出どころ AI
+                    </span>
+                  ) : null}
                   {canTake ? (
                     <span class="hs-kind wr-st answered" data-web-arrived>
                       書類が届いています
                     </span>
                   ) : null}
                   <small>
-                    {selectionName(e.record.selection)}・顧客番号 {e.record.customerNo}
+                    {selectionName(e.record.selection)}
+                    {e.record.customerNo !== "" ? `・顧客番号 ${e.record.customerNo}` : ""}
                     {e.importedAt !== undefined && mode === "done" ? `・${day(e.importedAt)} に取り込み` : mode === "closed" ? `・発行 ${day(e.record.issuedAt)}` : ""}
                   </small>
                   <span class="wr-fold-acts">
@@ -429,7 +437,13 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 <b>{id}</b>
                 <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span>
                 {e.closedAt !== undefined ? <span class="hs-kind wr-st cancelled">受け付け終了</span> : null}
+                {e.origin?.kind === "ai" ? (
+                  <span class="hs-kind wr-origin" title={`AI が発行しました（${dayTime(e.origin.at)}${e.origin.connector !== null ? `・${e.origin.connector}` : ""}）`} data-web-origin="ai">
+                    出どころ AI
+                  </span>
+                ) : null}
                 {canTake ? (
+
                   <span class="hs-kind wr-st answered" data-web-arrived>
                     届いています
                   </span>
@@ -447,6 +461,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
               </div>
               <p class="rp-note wr-what" data-web-what>
                 {what}
+
               </p>
               {e.received !== undefined || (e.batches ?? []).length > 0 ? (
                 <p class="rp-note wr-got" data-web-got>

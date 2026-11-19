@@ -824,6 +824,94 @@ fn previous_generation_responses_never_contain_paths() {
     }
 }
 
+/// 事務所データの形式の版（0222）: このアプリより新しい版の事務所データは読んで使うが書かない（閲覧だけ）。世帯は閲覧だけで開き、
+/// 設定・世帯の保存・最後に開いた世帯も書かない。ファイルは変わらない。知っている版（今の版・前の版）はふだんどおり
+#[test]
+fn newer_office_data_is_opened_view_only() {
+    assert_eq!(
+        household_store::OFFICE_KNOWN.last().copied(),
+        Some(household_store::OFFICE_FORMAT_VERSION)
+    );
+    assert!(!household_store::office_version_too_new("0.1"));
+    assert!(!household_store::office_version_too_new(
+        household_store::OFFICE_FORMAT_VERSION
+    ));
+    assert!(household_store::office_version_too_new("0.3"));
+    assert!(household_store::office_version_too_new("1.0"));
+    assert!(household_store::office_version_too_new("x"));
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    let a = create(&store, 1);
+    let b = create(&store, 2);
+    store
+        .set_office_hearing_requests(serde_json::json!({ "v": 1, "requests": [{ "entry": { "record": { "requestId": "R-7K3P9Q" } } }] }))
+        .unwrap();
+    assert!(!store.status().unwrap().office_too_new);
+    // 前の版（見出しの版 0.1）の事務所データは、今のアプリでふだんどおり書ける
+    store.write_office_version_for_test("0.1").unwrap();
+    let store = env.store();
+    assert!(!store.status().unwrap().office_too_new);
+    store
+        .set_office_defaults(serde_json::json!({ "version": 4 }))
+        .unwrap();
+    // 新しい版のアプリが書いた事務所データ
+    store.write_office_version_for_test("0.3").unwrap();
+    let path = env.root.join("office.lpod");
+    let before = std::fs::read(&path).ok();
+    let store = env.store();
+    let st = store.status().unwrap();
+    assert!(st.office_too_new);
+    // 読める
+    assert_eq!(
+        store.office_defaults().unwrap(),
+        serde_json::json!({ "version": 4 })
+    );
+    assert_eq!(
+        store.office_hearing_requests().unwrap()["requests"][0]["entry"]["record"]["requestId"],
+        "R-7K3P9Q"
+    );
+    assert_eq!(store.list().unwrap().len(), 2);
+    // 書かない
+    for e in [
+        store
+            .set_office_defaults(serde_json::json!({}))
+            .unwrap_err(),
+        store
+            .set_office_hearing_requests(serde_json::json!({}))
+            .unwrap_err(),
+        store.set_ai_connector_enabled(true).unwrap_err(),
+        store
+            .create(CreateRequest {
+                body: body(3),
+                summary: "本人".into(),
+            })
+            .unwrap_err(),
+    ] {
+        assert_eq!(e, StoreError::OFFICE_DATA_TOO_NEW);
+    }
+    // 世帯は閲覧だけで開く（最後に開いた世帯も書かない）。保存しない
+    let o = store.open(&b.id).unwrap();
+    assert!(o.read_only && o.view_only);
+    assert!(store.save(&b.id, &body(9), "本人").is_err());
+    let o = store.open(&a.id).unwrap();
+    assert!(o.read_only);
+    if let Some(before) = before {
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            before,
+            "事務所データのファイルは変わらない"
+        );
+    }
+    // 開き直しても新しい版のまま（知らない欄は消えていない）
+    let again = env.store();
+    assert!(again.status().unwrap().office_too_new);
+    assert_eq!(
+        again.office_hearing_requests().unwrap()["requests"][0]["entry"]["record"]["requestId"],
+        "R-7K3P9Q"
+    );
+}
+
 /// 開いていない世帯の Web のヒアリングの依頼を、開かずに読む（0192 の追記 2026-11-18）: 確かめるのに要る欄だけを返し、開いた印を変えない
 #[test]
 fn peek_hearing_reads_only_what_the_arrival_check_needs_without_opening() {

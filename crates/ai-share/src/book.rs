@@ -237,6 +237,12 @@ impl HouseholdBook {
         Ok(())
     }
 
+    /// 画面から届いた最後の本文（アプリ本体だけが書く区画は外したもの）の JSON。AI 接続口から渡された世帯の Web のヒアリングを発行するとき、
+    /// その世帯を開いていない画面が、見直しの前回の値を世帯の値から作るためにだけ使う（0222。AI には渡さない）
+    pub fn screen_body(&self) -> String {
+        Value::Object(self.body.clone()).to_string()
+    }
+
     /// 世帯ファイルに書く本文を作る（前に保存した記録から追記だけかを確かめる。外れたら書かない）
     pub fn compose(&self, ai_shares: &[AiShareRecord]) -> Result<String, String> {
         verify_consents_append_only(&self.saved_consents, &self.consents)?;
