@@ -406,7 +406,8 @@ describe("入力のパネルの「保存」の知らせ（保存を止めてい�
   it("閲覧だけかどうかは、上の帯の「閲覧だけ」の札と同じ条件（保存した世帯で、保存の状態が閲覧だけの失敗。止めている間は止めている札）", () => {
     const base: BarInputs = { opened: true, stored: true, save: { kind: "idle" }, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message: (c) => c };
     const readOnly = (i: BarInputs) => barAlerts(i).some((a) => a.kind === "readOnly");
-    for (const code of ["E_STORE_READ_ONLY", "E_OFFICE_VIEW_ONLY"]) {
+    // 事務所データが新しい版のときも閲覧だけ（0222）
+    for (const code of ["E_STORE_READ_ONLY", "E_OFFICE_VIEW_ONLY", "E_STORE_OFFICE_DATA_TOO_NEW"]) {
       expect(readOnly({ ...base, save: { kind: "error", code } })).toBe(true);
       expect(readOnly({ ...base, stored: false, save: { kind: "error", code } })).toBe(false);
       expect(readOnly({ ...base, paused: true, save: { kind: "error", code } })).toBe(false);

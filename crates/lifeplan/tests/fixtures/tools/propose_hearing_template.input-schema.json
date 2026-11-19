@@ -1,0 +1,176 @@
+{
+  "$defs": {
+    "HearingCustomArg": {
+      "additionalProperties": false,
+      "description": "FP の独自の質問の1問（答えは FP 用のメモに入り、計算には使わない）",
+      "properties": {
+        "answer": {
+          "description": "答えの形: text（自由に書く。既定）・yesNo（はい・いいえ）・choice（選択肢から選ぶ）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "choices": {
+          "description": "選択肢（answer が choice のとき。2〜8つ・1つ40文字まで）",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "help": {
+          "description": "補足（300文字まで）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "問いの文（120文字まで。お客さまの画面にそのまま出る）",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "type": "object"
+    },
+    "HearingDocumentArg": {
+      "additionalProperties": false,
+      "description": "頼む書類の1通（get_hearing_options の documents の kind）",
+      "properties": {
+        "kind": {
+          "description": "書類の種類（例 withholding＝源泉徴収票・pensionNotice＝ねんきん定期便・other＝その他の書類〔title が要る〕）",
+          "type": "string"
+        },
+        "owner": {
+          "description": "持ち主: self（ご本人）・spouse（配偶者の方）。人の書類（owner が required）は省くとご本人",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "purpose": {
+          "description": "何のためか（省くと一覧の説明。200文字まで）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "description": "書類の名前（省くと一覧の名前。80文字まで）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "where": {
+          "description": "どこが写っていればよいか（省くと一覧の説明。200文字まで）",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "HearingItemArg": {
+      "additionalProperties": false,
+      "description": "ヒアリングで聞く項目の1件（get_hearing_options の sheets の items の key）",
+      "properties": {
+        "key": {
+          "description": "項目キー（例 hs.income.annual）。シンプルと詳細の項目は1つの依頼に混ぜられない",
+          "type": "string"
+        },
+        "mode": {
+          "description": "ask（空欄から聞く。既定）か confirm（今の値を見せて確かめてもらう。詳細の票で、share_id の世帯に値のある項目だけ）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "range": {
+          "description": "金額の「だいたいの範囲」でも答えられるようにするか（範囲のある金額の項目だけ。既定は true）",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "custom": {
+      "description": "FP の独自の質問（10問まで）",
+      "items": {
+        "$ref": "#/$defs/HearingCustomArg"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "documents": {
+      "description": "頼む書類（15通まで）",
+      "items": {
+        "$ref": "#/$defs/HearingDocumentArg"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "items": {
+      "description": "聞く項目（書くと、ひな形の項目を置き換える）",
+      "items": {
+        "$ref": "#/$defs/HearingItemArg"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "name": {
+      "description": "ひな形の名前（40文字まで。FP の画面の「カスタム: 名前」になる）",
+      "type": "string"
+    },
+    "note": {
+      "description": "理由（500文字まで。FP がアプリで確かめるときの手がかり）",
+      "maxLength": 500,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sheet": {
+      "description": "票（simple・detail）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "template": {
+      "description": "始めるひな形（simple・detail か、事務所のひな形の名前）。見直し・足りない所だけは世帯に依るので使えない",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "type": "object"
+}
