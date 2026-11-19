@@ -1,6 +1,7 @@
 // お客さまの画面（0125・0138）: 1画面に小さなまとまりの問い・進み具合・戻る／次へ・「わからない」「あとで」・確かめの画面・送った後の画面。
 // お客さまのページ（main.tsx。live）と、FP のアプリの見本（preview。通信しない・端末に何も残さない）で同じ部品を使う。
 // - 金額は具体額を入れるのが主で、わからなければ「範囲で選ぶ」を開いて範囲で答える（住宅ローンの残高だけ範囲が先。flow.ts の rangeFirst）。空のまま「次へ」は「あとで」と同じ
+// - ご家族の生年月と性別だけは、入れていただくまで先へ進めない（その画面に「あとで」を出さない・確かめの画面から送らない。flow.ts の requiredMissing。0138 の追記 2026-11-18）
 // - お客さまの画面の言葉は flow.ts の customerText・itemLabel にそろえる（「伺う」・「第一子」・作る側の言葉〔置き場・送った物〕を使わない）
 // - スマホを先に考える（文字は大きめ・押す所は大きく・1列）。外のフォント・画像は読まない（CSP）
 // - 問いの流れは hearing/src/web/flow.ts（答えに合わせて問いを飛ばす・人数で繰り返す・1画面にまとめる）
@@ -10,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import { MONTH_LABELS, yearLabel } from "../../../hearing/src/definition.ts";
 import { DOCUMENT_LIMITS, hideTip, PHOTO_TIPS } from "../../../hearing/src/web/documents.ts";
-import { answerText, coverLine, coverSummary, customerDocTitle, customerText, docShown, DOCS_SECTION, DOCS_TITLE, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, insteadLine, itemGuide, itemLabel, markSent, MONTH_UNKNOWN, normNumber, progress, rangeFirst, REVIEW_TITLE, screenFields, screenGates, screenId, screens, START_SECTION, START_TITLE, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
+import { answerText, coverLine, coverSummary, customerDocTitle, customerText, docShown, DOCS_SECTION, DOCS_TITLE, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, insteadLine, itemGuide, itemLabel, markSent, MONTH_UNKNOWN, normNumber, progress, rangeFirst, requiredKey, requiredMissing, requiredText, requiredWhat, requiredWho, REVIEW_TITLE, screenFields, screenGates, screenId, screens, START_SECTION, START_TITLE, unknownShown, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
 import type { GateId, PacketDocument, QuestionsPacket, WebItem } from "../../../hearing/src/web/packet.ts";
 import { prepareFile } from "./photo.ts";
 
@@ -212,9 +213,9 @@ function Field({ item, a, onChange, years, autoFocus, now, monthUnknown, label }
   }
 }
 
-function StateButtons({ item, a, onChange }: { item: WebItem; a: DraftAnswer | undefined; onChange: (a: DraftAnswer | undefined) => void }) {
+/** 「わからない」「当てはまらない」のボタン（unknown は「わからない」を出すか。必ず入れていただく欄は出さない: flow.ts の unknownShown） */
+function StateButtons({ item, a, onChange, unknown }: { item: WebItem; a: DraftAnswer | undefined; onChange: (a: DraftAnswer | undefined) => void; unknown: boolean }) {
   const pick = (status: "unknown" | "notApplicable") => onChange(a?.status === status ? undefined : { status });
-  const unknown = item.states.includes("unknown");
   const na = item.states.includes("notApplicable") && item.naLabel !== null;
   if (!unknown && !na) return null;
   return (
@@ -679,6 +680,7 @@ function Question({ p, d, f, itemOf, setAnswer, first, showHead, now, mode }: { 
       <StateButtons
         item={it}
         a={a}
+        unknown={unknownShown(it, d, f.index, now)}
         onChange={(x) => {
           setAnswer(f.key, f.index, x);
           if (x !== undefined && range !== undefined) setAnswer(range.key, f.index, undefined);
@@ -691,7 +693,7 @@ function Question({ p, d, f, itemOf, setAnswer, first, showHead, now, mode }: { 
           <div class="hf-also" key={k}>
             <p class="hf-also-h">{itemLabel(sub, d, f.index)}</p>
             <Field item={sub} a={sa?.status === "value" ? sa : undefined} onChange={(x) => setAnswer(k, f.index, x)} years={p.years} autoFocus={false} now={now} monthUnknown={false} />
-            <StateButtons item={sub} a={sa} onChange={(x) => setAnswer(k, f.index, x)} />
+            <StateButtons item={sub} a={sa} unknown={unknownShown(sub, d, f.index, now)} onChange={(x) => setAnswer(k, f.index, x)} />
           </div>
         );
       })}
@@ -794,13 +796,16 @@ export function HearingForm(props: FormProps): JSX.Element {
   const list = useMemo(() => screens(p, d), [p, d]);
   const [cur, setCur] = useState<string>(props.startAt ?? "intro");
   const [back, setBack] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  /** 画面の知らせ（need はご家族の生年月と性別が欠けているときのやわらかい知らせ。ほかは打ち間違いの知らせ） */
+  const [problem, setProblem] = useState<{ readonly text: string; readonly need?: boolean } | null>(null);
   const [sending, setSending] = useState(false);
   // 見本だけ、送った後の画面を開ける（FP のアプリの見本・試し）
   const [sent, setSent] = useState<Date | null>(mode === "preview" && props.startAt === "sent" ? clock() : null);
   const [showSent, setShowSent] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
+  /** 確かめの画面で、ご家族の生年月と性別が欠けたまま「この内容で送る」を押した */
+  const [needShown, setNeedShown] = useState(false);
   /** 送った直後の「書類を続けて送る」の始まりの状態（答えと一緒に送った書類の控え） */
   const [moreAfter, setMoreAfter] = useState<MoreState>(EMPTY_MORE);
   const thumbs = useRef(new Map<string, string>()).current;
@@ -823,6 +828,13 @@ export function HearingForm(props: FormProps): JSX.Element {
     }
     props.onDraft?.(d);
   }, [d]);
+  // 知らせを出したら、画面の下の固定のボタンに隠れないように見える所へ（スマホでは問いの下の知らせが隠れやすい）
+  const mainRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if ((problem === null && !needShown) || mode !== "live") return;
+    const el = [...(mainRef.current?.querySelectorAll('[role="alert"]') ?? [])].pop();
+    if (el !== undefined && typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
+  }, [problem, needShown]);
   useEffect(() => {
     if (!printing) return;
     setPrinting(false);
@@ -843,12 +855,14 @@ export function HearingForm(props: FormProps): JSX.Element {
     const s = list[Math.max(0, Math.min(list.length - 1, n))];
     if (s === undefined) return;
     setProblem(null);
+    setNeedShown(false);
     setCur(screenId(s));
     if (typeof window !== "undefined" && mode === "live") window.scrollTo(0, 0);
   };
   const toReview = () => {
     setBack(false);
     setProblem(null);
+    setNeedShown(false);
     setCur("review");
     if (typeof window !== "undefined" && mode === "live") window.scrollTo(0, 0);
   };
@@ -868,15 +882,18 @@ export function HearingForm(props: FormProps): JSX.Element {
         for (const k of fieldKeys(f)) {
           const it = itemOf.get(k);
           const msg = it === undefined ? null : inputProblem(it, d.answers[draftKey(k, f.index)]);
-          if (msg !== null) return setProblem(screen.fields.length > 1 || screen.kind === "document" ? `${itemLabel(itemOf.get(f.key) as WebItem, d, f.index)}: ${msg}` : msg);
+          if (msg !== null) return setProblem({ text: screen.fields.length > 1 || screen.kind === "document" ? `${itemLabel(itemOf.get(f.key) as WebItem, d, f.index)}: ${msg}` : msg });
         }
       }
+      // ご家族の生年月と性別は、入れていただくまで先へ進めない（0138 の追記 2026-11-18）。1画面に何人かいるときは誰の欄かを添える
+      const need = requiredMissing(screen, d, clock());
+      if (need.length > 0) return setProblem({ text: requiredText(p, need, screen.kind === "document" || new Set(screen.fields.map((f) => f.index)).size > 1), need: true });
       // 空のまま「次へ」は「あとで」と同じ（確かめの画面で「まだの問い」に出る。続きからは飛ばす）
       markLater();
     }
     if (screen.kind === "intro" && d.started) {
-      // 続きから: まだ答えていない最初の問い（無ければ確かめの画面）。「あとで」にした問いは飛ばす
-      const todo = list.find((x) => (x.kind === "item" && x.fields.every((f) => fieldKeys(f).every((k) => d.answers[draftKey(k, f.index)] === undefined))) || (x.kind === "gate" && x.gates.some((g) => d.gates[g] === undefined)));
+      // 続きから: まだ答えていない最初の問い（無ければ確かめの画面）。「あとで」にした問いは飛ばす（ご家族の生年月と性別が欠けている画面は飛ばさない）
+      const todo = list.find((x) => (x.kind === "item" && x.fields.every((f) => fieldKeys(f).every((k) => d.answers[draftKey(k, f.index)] === undefined))) || (x.kind === "gate" && x.gates.some((g) => d.gates[g] === undefined)) || requiredMissing(x, d, clock()).length > 0);
       return go(todo === undefined ? list.length - 1 : list.indexOf(todo));
     }
     if (screen.kind === "intro") update((cur) => ({ ...cur, started: true }));
@@ -910,6 +927,8 @@ export function HearingForm(props: FormProps): JSX.Element {
     }
   };
   const send = async () => {
+    // ご家族の生年月と性別が欠けていれば送らない（下書きを開き直したときも。入れる画面へ戻る道を出す）
+    if (list.some((s) => requiredMissing(s, d, clock()).length > 0)) return setNeedShown(true);
     setSending(true);
     setSendErr(null);
     try {
@@ -1008,6 +1027,12 @@ export function HearingForm(props: FormProps): JSX.Element {
     </>
   );
 
+  const problemLine =
+    problem === null ? null : (
+      <p class={problem.need === true ? "hf-need" : "hf-err"} role="alert" {...(problem.need === true ? { "data-hf-need": "" } : {})}>
+        {problem.text}
+      </p>
+    );
   let body: JSX.Element;
   let canNext = true;
   let nextLabel = "次へ";
@@ -1064,7 +1089,8 @@ export function HearingForm(props: FormProps): JSX.Element {
     const lead = itemOf.get(screen.key) as WebItem;
     const sameIndex = screen.fields.every((f) => f.index === screen.index);
     const head = sameIndex ? indexLabel(lead, screen.index) : null;
-    showLater = true;
+    // ご家族の生年月と性別の画面には「あとで」を出さない（押しても先へ進めないため。0138 の追記 2026-11-18）
+    showLater = !screen.fields.some((f) => requiredKey(f.key));
     body = (
       <div>
         <p class="hf-sec">
@@ -1074,11 +1100,7 @@ export function HearingForm(props: FormProps): JSX.Element {
         {screen.fields.map((f, i) => (
           <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} first={i === 0} showHead={!sameIndex} now={now} mode={mode} />
         ))}
-        {problem !== null ? (
-          <p class="hf-err" role="alert">
-            {problem}
-          </p>
-        ) : null}
+        {problemLine}
       </div>
     );
   } else if (screen.kind === "document") {
@@ -1099,11 +1121,7 @@ export function HearingForm(props: FormProps): JSX.Element {
             {screen.fields.map((f) => (
               <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} first={false} showHead now={now} mode={mode} />
             ))}
-            {problem !== null ? (
-              <p class="hf-err" role="alert">
-                {problem}
-              </p>
-            ) : null}
+            {problemLine}
           </div>
         ) : null}
         {unsentFiles(d).length > 0 ? (
@@ -1127,19 +1145,37 @@ export function HearingForm(props: FormProps): JSX.Element {
     nextLabel = sending ? "送っています…" : "この内容で送る";
     const pending = list.reduce((n, s) => n + screenFields(s).filter((f) => !fieldAnswered(d, f)).length, 0);
     const docsPending = p.documents.filter((x) => docShown(d, x) && (d.documents[x.id]?.status ?? "blank") === "blank").length;
+    // ご家族の生年月と性別が欠けていれば送らず、最初に欠けている画面へ戻る道を出す（0138 の追記 2026-11-18）
+    const need = list.flatMap((s, i) => requiredMissing(s, d, now).map((f) => ({ i, f })));
+    const firstNeed = need[0];
+    const needNote = (alert: boolean) => {
+      if (firstNeed === undefined) return null;
+      const here = need.filter((x) => x.i === firstNeed.i).map((x) => x.f);
+      return (
+        <div class="hf-need" role={alert ? "alert" : undefined} data-hf-need={alert ? "send" : "top"}>
+          <p>{requiredText(p, need.map((x) => x.f), true)}</p>
+          <button type="button" class="hf-state" onClick={() => (setBack(true), go(firstNeed.i))} data-hf-need-go>
+            {requiredWho(p, here)}
+            {requiredWhat(here)}を入れる
+          </button>
+        </div>
+      );
+    };
     body = (
       <div class="hf-review">
         <h2 class="hf-q">{REVIEW_TITLE}</h2>
         <p class="hf-lead">直したい所は「直す」を押してください。よければ、いちばん下の「この内容で送る」を押してください。</p>
+        {needNote(false)}
         {pending + docsPending > 0 ? (
           <div class="hf-pre" data-hf-pending>
             <p>
-              まだの問いが{pending}、まだの書類が{docsPending}あります。途中まででも送れます。答えていない所は、面談のときに伺います。
+              まだの問いが{pending}、まだの書類が{docsPending}あります。ご家族の生年月と性別のほかは、途中まででも送れます。答えていない所は、面談のときに伺います。
             </p>
           </div>
         ) : null}
         <AnswerList p={p} list={list} d={d} itemOf={itemOf} onFix={(i) => (setBack(true), go(i))} />
         <DocumentList p={p} d={d} onFix={(id) => (setBack(true), go(list.findIndex((s) => s.kind === "document" && s.id === id)))} />
+        {needShown ? needNote(true) : null}
         {sendErr !== null ? (
           <p class="hf-err" role="alert">
             {sendErr}
@@ -1154,7 +1190,7 @@ export function HearingForm(props: FormProps): JSX.Element {
     <div class={`hf${mode === "preview" ? " preview" : ""}`} style={style} data-hf-screen={screenId(screen)}>
       {header}
       {mode === "preview" ? <p class="hf-banner">見本です（お客さまにはこう見えます。答えは送られません）</p> : null}
-      <main class="hf-main">{body}</main>
+      <main class="hf-main" ref={mainRef}>{body}</main>
       <nav class="hf-nav">
         {/* 確かめの画面の「直す」から来たときは、戻る先は確かめの画面だけ（右のボタン）。左には何も出さない */}
         {at > 0 && !back ? (

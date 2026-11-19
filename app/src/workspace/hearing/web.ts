@@ -10,6 +10,7 @@
 // - 0192 の追記（2026-11-17）: ご相談したいことの話題はやめた（新しい選び方に置かない。前の依頼の話題は読む）。ご相談したいこと・これからの予定は
 //   ひな形の既定から外した（カスタムで選べる）。数の目安は、どのひな形も夫婦と子2人で数え、この世帯の数を別に添える。外部 AI の同意（任意）は
 //   発行のときに出さないこともできる（問いにだけ効く。依頼の記録には置かない）。依頼の一覧の行の形（rowMode）・書類待ち（waitingDocuments）
+// - 0192 の追記（2026-11-18）: 取り込み済みの依頼は一覧から外す（listed。書類待ち・届いた書類があれば期限まで残す）。記録は世帯に残す
 import { importAnswers, OFFICIAL_SHEETS, requestIdFrom, type SheetDefinition } from "../../../../hearing/src/index.ts";
 import { axisOf } from "../../../../hearing/src/definition.ts";
 import { exportAnswers } from "../../../../hearing/src/export.ts";
@@ -17,12 +18,13 @@ import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/
 import { b64u, fromB64u } from "../../../../hearing/src/web/b64.ts";
 import { DOCUMENT_TEMPLATES, docForCheck, HIDE_NUMBERS, MIME_EXT, OWNER_LABEL, templateOf, type DocumentMime, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
 import { extendRequest, extendTarget, filledOf, issueRequest, receive, removeReceived, type WebRequestRecord } from "../../../../hearing/src/web/fp.ts";
-import { draftKey, estimate, fieldAnswered, gateOptions, initialDraft, screenFields, screenGates, screens, type Draft, type DraftAnswer, type DraftDocument } from "../../../../hearing/src/web/flow.ts";
+import { AGE_KEY, ageReplaced, draftKey, estimate, fieldAnswered, gateOptions, initialDraft, screenFields, screenGates, screens, type Draft, type DraftAnswer, type DraftDocument } from "../../../../hearing/src/web/flow.ts";
 import { buildPacket, checkSelection, CONSULT_KEY, CUSTOM_PREFIX, documentCovers, FILLED_ON, FP_SECTION, GATE_IDS, importDefinition, packetBody, selectionFromSheet, TOPIC_LABEL_MAX, TOPICS_MAX, type CustomQuestion, type DocumentAnswer, type GateAnswers, type GateId, type OfficeFace, type QuestionsPacket, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 import { relay, RELAY_LIMITS, type RelayTransport } from "../../../../hearing/src/web/protocol.ts";
 import type { Answer } from "../../../../hearing/src/answers.ts";
 import type { DocRequest } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
+import { inputItems, nothingEnteredYet } from "../input/items.ts";
 import { gateCounts, logOf, viewOfResult, type ImportView } from "./sheet.ts";
 
 /** 受け取った書類のファイル（世帯ファイルの中。暗号化は世帯ファイルの暗号化のまま） */
@@ -148,6 +150,24 @@ export function waitingDocuments(e: WebLogEntry, now: Date): RequestedDocument[]
   });
 }
 
+/**
+ * 「URL の依頼」の一覧に出すか（0192 の追記 2026-11-18）: 取り込み済みの依頼は出さない。ただし書類待ちがある間（期限まで）と、届いた書類を
+ * まだ受け取っていない間は出す（受け取り終えたら消える）。一覧から外すだけで、依頼の記録は世帯に残す（受け取った答え・書類・面談の準備・
+ * 元に戻す・届いた知らせが読むため。世帯ファイルの形式は変えない）。取り込んだ答えの「送られた内容を見る」は、取り込み済みの回答（importedEntries）から
+ */
+export function listed(e: WebLogEntry, now: Date, wh?: WorkingHousehold): boolean {
+  const a = arrivalOf(e.record.requestId);
+  if (rowMode(e, now, a, wh) !== "done") return true;
+  return waitingDocuments(e, now).length > 0 || (accepting(e, now) && a !== undefined && (a.answers || a.batches > 0));
+}
+
+/** 取り込み済みで、一覧から外した依頼（新しく取り込んだ順。送られた内容を見る・印刷の入口に使う） */
+export function importedEntries(wh: WorkingHousehold, now: Date = new Date()): WebLogEntry[] {
+  return webLog(wh)
+    .filter((e) => e.received !== undefined && !listed(e, now, wh))
+    .sort((a, b) => ((a.importedAt ?? "") < (b.importedAt ?? "") ? 1 : -1));
+}
+
 /** お客さまが送った日時の言葉（例: 11月6日 22:15） */
 export function sentAtText(iso: string): string {
   const d = new Date(iso);
@@ -205,7 +225,7 @@ export const HIDDEN_ITEMS: ReadonlySet<string> = new Set([CONSULT_KEY]);
 export function templateSelection(kind: WebTemplateKind, wh: WorkingHousehold): WebSelection {
   const def = baseSheet(kind);
   const label = WEB_TEMPLATES.find((t) => t.value === kind)?.label ?? kind;
-  const has = kind === "review" ? new Set(prefillOf(wh, def).filter((a) => a.status !== "blank").map((a) => a.key)) : new Set<string>();
+  const has = kind === "review" ? enteredKeys(wh, def) : new Set<string>();
   const s = selectionFromSheet(def, (k) => (has.has(k) ? "confirm" : "ask"));
   const sections = s.sections
     .filter((x) => kind !== "simple" || !SIMPLE_OFF_SECTIONS.has(x.id))
@@ -228,7 +248,16 @@ export function selectionName(sel: WebSelection): string {
 export function selectedCount(sel: WebSelection): number {
   const def = sheetOf(sel);
   const range = new Set((def?.items ?? []).filter((i) => i.rangeOf !== undefined).map((i) => i.key));
-  return sel.sections.reduce((n, s) => n + s.items.filter((i) => !range.has(i.key)).length, 0);
+  const age = hiddenAge(sel);
+  return sel.sections.reduce((n, s) => n + s.items.filter((i) => !range.has(i.key) && i.key !== age).length, 0);
+}
+
+/**
+ * お客さまの画面に出さない年齢の問いのキー（生年月の問いを選んでいるとき。なければ null）。FP の画面の一覧に並べず、聞く項目の数にも数えない。
+ * 生年月の問いを外すと、年齢の問いが出て並ぶ（0192 の追記 2026-11-19）
+ */
+export function hiddenAge(sel: WebSelection): string | null {
+  return ageReplaced(sel.sections.flatMap((s) => s.items.map((i) => i.key))) ? AGE_KEY : null;
 }
 
 /** 今の世帯の人数（分岐の問いの答えの形。配偶者の方・お子さま・住宅ローン・保険。ご両親は答える） */
@@ -291,7 +320,16 @@ export function previewDraft(p: QuestionsPacket, wh: WorkingHousehold): Draft {
 
 /** 世帯にもう値が入っているか（シンプル・詳細で聞くときの注意。H-119。詳細の票で書き出せる値の数） */
 export function filledCount(wh: WorkingHousehold): number {
-  return prefillOf(wh, baseSheet("detail")).filter((a) => a.status !== "blank").length;
+  return enteredKeys(wh, baseSheet("detail")).size;
+}
+
+/**
+ * 今の世帯で値のある問いのキー。まだ何も入れていない新しい世帯は、初めの値（性別・働き方など）と仮の値しかないので、無しと読む
+ * （入力のホームの「新しい世帯」と同じ決め方。0192 の追記 2026-11-19）
+ */
+function enteredKeys(wh: WorkingHousehold, def: SheetDefinition): Set<string> {
+  if (nothingEnteredYet(wh, inputItems(wh))) return new Set();
+  return new Set(prefillOf(wh, def).filter((a) => a.status !== "blank").map((a) => a.key));
 }
 
 // ---- ご相談したいことの話題（0192。2026-11-17 にやめた。前に保存した事務所の既定値を読んで書き戻すためだけに残す） ----
@@ -511,7 +549,7 @@ export function invitationText(e: WebLogEntry, office: string, wh: WorkingHouseh
     "",
     `回答の期限は ${end} までです。`,
     "",
-    "回答を送れるのは1回だけです。送る前に、入力内容の確認の画面で見直せます。わからない所は空けたままでかまいません。",
+    "回答を送れるのは1回だけです。送る前に、入力内容の確認の画面で見直せます。ご家族の生年月と性別のほかは、わからない所は空けたままでかまいません。",
     ...(docs > 0 ? ["", `書類の写真をお願いする所があります。${HIDE_NUMBERS}`, "書類は、回答を送った後でも、期限までに同じリンクから何回でも送れます。"] : []),
     "",
     "【ご注意】",
@@ -832,6 +870,8 @@ export interface Arrival {
   submitted: boolean;
   /** 確かめた日時 */
   at: string;
+  /** どの世帯の依頼か（世帯の内部ID。ベルの知らせから世帯を開くため。0192 の追記 2026-11-18）。無ければ前の結果の世帯のまま */
+  household?: string;
 }
 
 const arrivals = new Map<string, Arrival>();
@@ -842,10 +882,23 @@ export function arrivalOf(requestId: string): Arrival | undefined {
   return arrivals.get(requestId);
 }
 
-/** 確かめの結果を覚える（画面に知らせる） */
+/** 確かめの結果を覚える（画面に知らせる）。世帯を書かない結果は、前の結果の世帯を引き継ぐ */
 export function noteArrival(requestId: string, a: Arrival | null): void {
   if (a === null) arrivals.delete(requestId);
-  else arrivals.set(requestId, a);
+  else {
+    const household = a.household ?? arrivals.get(requestId)?.household;
+    arrivals.set(requestId, household === undefined ? a : { ...a, household });
+  }
+  for (const f of listeners) f();
+}
+
+/** 覚えている確かめの結果の全部（依頼番号と結果。ベルの知らせ） */
+export function allArrivals(): [string, Arrival][] {
+  return [...arrivals.entries()];
+}
+
+/** 確かめの結果が変わったことを画面に知らせる（覚えた結果は変えない） */
+export function touchArrivals(): void {
   for (const f of listeners) f();
 }
 
@@ -858,13 +911,13 @@ export function onArrivals(f: () => void): () => void {
 /** 届いたかを確かめる間隔（世帯を開いている間。依頼ごとの回数の制限〔1分60回〕より十分に少ない） */
 export const ARRIVAL_INTERVAL_MS = 5 * 60_000;
 
-/** 受け付けている依頼を全部確かめ、結果を覚える（つながらなければ前の結果のまま。消えていれば忘れる） */
-export async function checkArrivals(wh: WorkingHousehold, t: RelayTransport, now: Date = new Date()): Promise<void> {
+/** 受け付けている依頼を全部確かめ、結果を覚える（つながらなければ前の結果のまま。消えていれば忘れる）。household は世帯の内部ID（ベルの知らせ） */
+export async function checkArrivals(wh: WorkingHousehold, t: RelayTransport, now: Date = new Date(), household?: string): Promise<void> {
   for (const e of webLog(wh)) {
     if (!accepting(e, now)) continue;
     try {
       const a = await checkAnswered(e, t);
-      noteArrival(e.record.requestId, a === null ? null : { answers: a.newAnswers, batches: a.batches, submitted: a.answered, at: now.toISOString() });
+      noteArrival(e.record.requestId, a === null ? null : { answers: a.newAnswers, batches: a.batches, submitted: a.answered, at: now.toISOString(), ...(household !== undefined ? { household } : {}) });
     } catch {
       // つながらない・本体の命令が無い: 前の結果のまま（次の確かめで取り直す）
     }

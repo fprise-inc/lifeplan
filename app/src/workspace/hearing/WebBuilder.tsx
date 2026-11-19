@@ -30,6 +30,7 @@ import {
   estimateOf,
   filledCount,
   HIDDEN_ITEMS,
+  hiddenAge,
   householdShape,
   invitationText,
   issueWeb,
@@ -123,7 +124,7 @@ export const FIELD_HELP = {
   officeName: "お客さまの画面のいちばん上の帯と、最初の画面の「（事務所名）の担当の FP だけが開けます」に出ます（どこからの質問か分かるように）。空なら「担当の FP」と出ます。",
   privacyContact: "お客さまの最初の画面のいちばん下に「個人情報のお問い合わせ: （ここに書いた連絡先）」と出ます。事務所の電話番号やメールアドレスなど。空なら出しません。",
   aiConsent:
-    "お客さまの同意の画面に「（任意）担当の FP が、AI を使って回答を整理することがあります（お名前は渡しません）」と、同意する・同意しないを出します。外すと、この問いを出しません。その世帯の外部 AI の同意は「聞いていない」のままで、AI接続口（AI に資料を渡す）は使えません。",
+    "お客さまの同意の画面に「（任意）担当の FP が、AI を使って回答を整理することがあります（お名前は渡しません）」と、同意する・同意しないを出します。外すと、この問いを出しません。お客さまが「同意しない」と答えた世帯では、AI を使った資料の読み取りや分析は使えません。",
 } as const;
 
 /** 区画の並び（選んだ区画は選んだ並びのまま、選んでいない区画は元のシートの位置の近くに差し込む。外した区画も元の位置に残す。H-123） */
@@ -234,7 +235,8 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
   const rangeOf = new Map(def.items.filter((i) => i.rangeOf !== undefined).map((i) => [i.rangeOf as string, i.key]));
   const isRange = (k: string) => items.get(k)?.rangeOf !== undefined;
   const order = orderOf(def, sel);
-  const baseKeys = (id: string) => (def.sections.find((s) => s.id === id)?.groups.flatMap((g) => g.items) ?? []).filter((k) => !HIDDEN_ITEMS.has(k) && choosable.some((i) => i.key === k));
+  const age = hiddenAge(sel);
+  const baseKeys = (id: string) => (def.sections.find((s) => s.id === id)?.groups.flatMap((g) => g.items) ?? []).filter((k) => !HIDDEN_ITEMS.has(k) && k !== age && choosable.some((i) => i.key === k));
   const secOf = (id: string): SelectedSection | undefined => sel.sections.find((s) => s.id === id);
   /** 区画を置き換える（選んでいた区画はその位置で。新しく選んだ区画は、今の並びの位置に差し込む） */
   const setSection = (id: string, next: SelectedSection | null) => {
@@ -438,7 +440,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
             {order.map((sid) => {
               const s = secOf(sid);
               const title = titleOf(sid);
-              const chosenKeys = (s?.items ?? []).map((i) => i.key).filter((k) => !isRange(k));
+              const chosenKeys = (s?.items ?? []).map((i) => i.key).filter((k) => !isRange(k) && k !== age);
               const keys = sid === FP_SECTION.id ? chosenKeys : displayKeys(baseKeys(sid).filter((k) => !isRange(k)), chosenKeys);
               const on = chosenKeys.length;
               const all = sid === FP_SECTION.id ? on : baseKeys(sid).filter((k) => !isRange(k)).length;
@@ -733,7 +735,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
               <input type="checkbox" checked={aiConsent} onChange={(e) => setAiConsent((e.currentTarget as HTMLInputElement).checked)} data-web-ai-consent-check />
               <span>
                 外部 AI の同意（任意）をお客さまに聞く <Help id="aiConsent" text={FIELD_HELP.aiConsent} />
-                <small> — 外すと同意の画面に出しません。同意が無いと、この世帯では AI接続口が使えません</small>
+                <small> — 外すと同意の画面に出しません。お客さまが「同意しない」と答えた世帯では、AI を使った資料の読み取りや分析は使えません</small>
               </span>
             </label>
             {est !== null ? (

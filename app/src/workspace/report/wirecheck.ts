@@ -1,6 +1,8 @@
 // 画面の自己確認（開発用のサーバーのときだけ。#selfcheck=wire）: 提案書のタブで PDF を作る → 見本が出る → 保存する、
 // 入力のホームでヒアリングシートを書き出す → 記入済みのシートを取り込む → 承認すると入力のホームのカードが変わる、を画面の操作で流し、
 // 結果を開発用のサーバー（/__dev/report）に送る。保存先は本体・開発用のサーバーの FINANCIA_DEV_SAVE_DIR（開発のときだけの口）
+import { HEARING_EXCEL_SHOWN } from "../hearing/excelSwitch.ts";
+
 const sleep = (ms: number) => fetch(`/__dev/sleep/${Math.round(ms)}`).then(() => undefined);
 
 async function waitFor<T extends Element>(sel: string, timeoutMs = 60000, pred: (el: T) => boolean = () => true): Promise<T> {
@@ -84,45 +86,48 @@ export async function runWireCheck(host: string): Promise<void> {
     report.reportSave = { saved: saved.dataset.reportSaved, text: saved.textContent?.trim() };
     await stage("report-saved", report, 500);
 
-    // ---- ヒアリングシート（空の世帯で）----
-    clickTab("入力");
-    await waitFor(".ih");
-    // 上の帯の「世帯」から「空から作る」（開発用のサーバーの保存はメモリの中だけ）
-    (await waitFor<HTMLButtonElement>("[data-household-button]")).click();
-    (await waitFor<HTMLButtonElement>("[data-create-blank]")).click();
-    await sleep(1200);
-    await waitFor("[data-hearing-export]");
-    const before = cards();
-    const progressBefore = document.querySelector("[data-progress]")?.textContent?.trim();
-    (await waitFor<HTMLButtonElement>("[data-hearing-export]")).click();
-    (await waitFor<HTMLButtonElement>("[data-hearing-export-go]")).click();
-    const hs = await waitFor<HTMLElement>("[data-hearing-saved]", 30000);
-    report.hearingExport = { saved: hs.dataset.hearingSaved, text: hs.textContent?.trim() };
-    await stage("hearing-exported", report, 500);
-    (await waitFor<HTMLButtonElement>("[data-hearing-import]")).click();
-    await waitFor("[data-hearing-review]", 30000);
-    report.hearingReview = {
-      candidates: [...document.querySelectorAll<HTMLElement>("[data-candidate]")].map((c) => c.dataset.candidate),
-      marks: document.querySelectorAll("[data-hearing-review] .badge.est").length,
-    };
-    window.scrollTo(0, 0);
-    await stage("hearing-review", report);
-    (await waitFor<HTMLButtonElement>("[data-hearing-approve]")).click();
-    const msg = await waitFor<HTMLElement>("[data-hearing-msg]", 10000);
-    await sleep(600);
-    const after = cards();
-    report.hearingApprove = {
-      message: msg.textContent?.trim(),
-      progressBefore,
-      progressAfter: document.querySelector("[data-progress]")?.textContent?.trim(),
-      before,
-      after,
-      changedCards: Object.keys(after).filter((k) => after[k] !== before[k]),
-      // 承認した後の世帯を計算できるか（計算できなければ「計算できませんでした」が出る）
-      calcError: document.querySelector(".fatal")?.textContent?.trim() ?? null,
-    };
-    window.scrollTo(0, 0);
-    await stage("hearing-approved", report);
+    // ---- ヒアリングシート（空の世帯で）。Excel のシートを画面から外しているときは流さない（excelSwitch.ts。0192 の追記 2026-11-18）----
+    if (!HEARING_EXCEL_SHOWN) report.hearingSheet = "skipped";
+    else {
+      clickTab("入力");
+      await waitFor(".ih");
+      // 上の帯の「世帯」から「空から作る」（開発用のサーバーの保存はメモリの中だけ）
+      (await waitFor<HTMLButtonElement>("[data-household-button]")).click();
+      (await waitFor<HTMLButtonElement>("[data-create-blank]")).click();
+      await sleep(1200);
+      await waitFor("[data-hearing-export]");
+      const before = cards();
+      const progressBefore = document.querySelector("[data-progress]")?.textContent?.trim();
+      (await waitFor<HTMLButtonElement>("[data-hearing-export]")).click();
+      (await waitFor<HTMLButtonElement>("[data-hearing-export-go]")).click();
+      const hs = await waitFor<HTMLElement>("[data-hearing-saved]", 30000);
+      report.hearingExport = { saved: hs.dataset.hearingSaved, text: hs.textContent?.trim() };
+      await stage("hearing-exported", report, 500);
+      (await waitFor<HTMLButtonElement>("[data-hearing-import]")).click();
+      await waitFor("[data-hearing-review]", 30000);
+      report.hearingReview = {
+        candidates: [...document.querySelectorAll<HTMLElement>("[data-candidate]")].map((c) => c.dataset.candidate),
+        marks: document.querySelectorAll("[data-hearing-review] .badge.est").length,
+      };
+      window.scrollTo(0, 0);
+      await stage("hearing-review", report);
+      (await waitFor<HTMLButtonElement>("[data-hearing-approve]")).click();
+      const msg = await waitFor<HTMLElement>("[data-hearing-msg]", 10000);
+      await sleep(600);
+      const after = cards();
+      report.hearingApprove = {
+        message: msg.textContent?.trim(),
+        progressBefore,
+        progressAfter: document.querySelector("[data-progress]")?.textContent?.trim(),
+        before,
+        after,
+        changedCards: Object.keys(after).filter((k) => after[k] !== before[k]),
+        // 承認した後の世帯を計算できるか（計算できなければ「計算できませんでした」が出る）
+        calcError: document.querySelector(".fatal")?.textContent?.trim() ?? null,
+      };
+      window.scrollTo(0, 0);
+      await stage("hearing-approved", report);
+    }
     report.ok = true;
   } catch (e) {
     report.ok = false;

@@ -46,6 +46,8 @@
 .wb-issued textarea { font: inherit; font-size: 0.88rem; width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
 .wr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .wr-row { border: 1px solid var(--card-line); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; }
+/* ベルの届いた知らせから来た行（0192 の追記 2026-11-18）: しばらく縁を強める */
+.wr-row.wr-focus { border-color: var(--prop); box-shadow: 0 0 0 2px var(--prop-bg); }
 .wr-h { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
 .wr-h small { color: var(--ink-2); }
 .wr-st.answered, .wr-st.received { border-color: var(--good); color: var(--good); }

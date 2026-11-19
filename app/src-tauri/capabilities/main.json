@@ -27,6 +27,7 @@
     "allow-store-list",
     "allow-store-create",
     "allow-store-open",
+    "allow-store-peek-hearing",
     "allow-store-previous-generation",
     "allow-store-open-previous",
     "allow-store-save",

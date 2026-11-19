@@ -7,6 +7,8 @@
 //   取り込みの画面は、頼んだ書類で分かる問いのお答えなしを「書類を待っています」と言い分け、入れる値が無くても取り込み済みにできる
 // - 0192 の追記（2026-11-17）: 名前を「事前ヒアリング内容を作る（Excel を書き出す・URL生成）」「事前ヒアリングを取り込む」に。URL の依頼の
 //   「受け取る」から、受け取りの画面を挟まず取り込みの候補の画面へ。ご相談したいことの話題（事務所の既定値）はやめた
+// - 0192 の追記（2026-11-18）: Excel のシート（書き出す・記入済みを取り込む）は画面から外した（excelSwitch.ts の1か所で戻せる。部品・テストは残す）。
+//   取り込み済みの URL の依頼は一覧から外し、送られた内容は「取り込み済みの URL の回答」から見る
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
 import type { HearingWebHost, SaveOutcome, SheetHost } from "../../engine/host.ts";
@@ -14,8 +16,9 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { today } from "../report/assemble.ts";
 import { docRequests, docRequestTitles } from "../input/docRequests.ts";
 import { WebBuilder, type OfficeLook } from "./WebBuilder.tsx";
-import { WebRequests } from "./WebRequests.tsx";
-import { markImported, onArrivals, pendingCount, sentAtText, type HearingTemplate } from "./web.ts";
+import { ImportedAnswers, WebRequests } from "./WebRequests.tsx";
+import { HEARING_EXCEL_SHOWN } from "./excelSwitch.ts";
+import { listed, markImported, onArrivals, pendingCount, sentAtText, webLog, type HearingTemplate } from "./web.ts";
 import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, defaultWorkModes, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, workChangeTexts, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind, type WorkChangeMode } from "./sheet.ts";
 
 interface Props {
@@ -449,7 +452,7 @@ export function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt, receiv
       {view.consents.length > 0 ? (
         <p class="rp-note" data-hearing-consents>
           同意: {view.consents.map((c) => `${c.kind === "purpose" ? "利用目的" : c.kind === "familyInfo" ? "家族の情報" : "外部AIへの提供"}は${c.decision === "given" ? "同意あり" : "同意なし"}`).join("・")}
-          {view.consents.some((c) => c.kind === "externalAi") ? "" : "・外部AIへの提供は回答なし（この世帯では AI接続口を使えません）"}（承認すると同意の記録の下書きに入ります）
+          {view.consents.some((c) => c.kind === "externalAi") ? "" : "・外部AIへの提供は回答なし"}（承認すると同意の記録の下書きに入ります）
         </p>
       ) : null}
       {shown.length === 0 ? (
@@ -471,7 +474,7 @@ export function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt, receiv
 }
 
 /** 入力のホームの上部（進み具合の近く）に置くボタンと、開いたパネル */
-export function HearingTools({ wh, sheets, onSave, webProps, customerNo = null }: Props & { webProps?: WebProps }) {
+export function HearingTools({ wh, sheets, onSave, webProps, customerNo = null, excel = HEARING_EXCEL_SHOWN }: Props & { webProps?: WebProps; /** Excel のシートの入口を出すか（既定は excelSwitch.ts。テストで出すときだけ渡す） */ excel?: boolean }) {
   // 届いた知らせ（アプリを開いている間に確かめた結果。0192）が変わったら描き直す
   const [, setTick] = useState(0);
   useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
@@ -503,35 +506,44 @@ export function HearingTools({ wh, sheets, onSave, webProps, customerNo = null }
   };
   return (
     <>
-      <div class="hs-tools" role="group" aria-label="事前ヒアリング内容を作る" data-hearing-ask>
-        <span class="hs-tools-h">事前ヒアリング内容を作る</span>
-        <button type="button" class="btn" onClick={() => setMode(mode === "export" ? null : "export")} aria-expanded={mode === "export"} data-hearing-export>
-          Excel を書き出す
-        </button>
-        {webProps !== undefined ? (
-          <button type="button" class="btn" onClick={() => setMode(mode === "web" ? null : "web")} aria-expanded={mode === "web"} data-hearing-web>
-            URL生成
-          </button>
-        ) : null}
-      </div>
-      <div class="hs-tools" role="group" aria-label="事前ヒアリングを取り込む" data-hearing-take>
-        <span class="hs-tools-h">事前ヒアリングを取り込む</span>
-        <button type="button" class="btn" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
-          {mode === "busy" ? "読んでいます…" : "記入済みの Excel を取り込む"}
-        </button>
-        {webProps !== undefined ? (
-          <span class="rp-note" data-hearing-web-pending>
-            URL の回答は、下の「URL の依頼」の「受け取る」から取り込みます
-            {pend.arrived > 0 ? <b class="hs-kind answered">（届いています {pend.arrived}件）</b> : pend.toImport > 0 ? <b class="hs-kind review">（取り込み待ち {pend.toImport}件）</b> : null}
-          </span>
-        ) : null}
-      </div>
+      {excel || webProps !== undefined ? (
+        <>
+          <div class="hs-tools" role="group" aria-label="事前ヒアリング内容を作る" data-hearing-ask>
+            <span class="hs-tools-h">事前ヒアリング内容を作る</span>
+            {excel ? (
+              <button type="button" class="btn" onClick={() => setMode(mode === "export" ? null : "export")} aria-expanded={mode === "export"} data-hearing-export>
+                Excel を書き出す
+              </button>
+            ) : null}
+            {webProps !== undefined ? (
+              <button type="button" class="btn" onClick={() => setMode(mode === "web" ? null : "web")} aria-expanded={mode === "web"} data-hearing-web>
+                URL生成
+              </button>
+            ) : null}
+          </div>
+          <div class="hs-tools" role="group" aria-label="事前ヒアリングを取り込む" data-hearing-take>
+            <span class="hs-tools-h">事前ヒアリングを取り込む</span>
+            {excel ? (
+              <button type="button" class="btn" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
+                {mode === "busy" ? "読んでいます…" : "記入済みの Excel を取り込む"}
+              </button>
+            ) : null}
+            {webProps !== undefined ? (
+              <span class="rp-note" data-hearing-web-pending>
+                {webLog(wh).some((e) => listed(e, new Date(), wh)) ? "URL の回答は、下の「URL の依頼」の「受け取る」から取り込みます" : "URL生成で作った依頼に回答が届いたら、ここに出る「URL の依頼」の「受け取る」から取り込みます"}
+                {pend.arrived > 0 ? <b class="hs-kind answered">（届いています {pend.arrived}件）</b> : pend.toImport > 0 ? <b class="hs-kind review">（取り込み待ち {pend.toImport}件）</b> : null}
+              </span>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+      {webProps !== undefined && view === null ? <ImportedAnswers wh={wh} /> : null}
       {msg !== null ? (
         <p class="hs-msg" role="status" data-hearing-msg>
           {msg}
         </p>
       ) : null}
-      {mode === "export" ? <ExportPanel wh={wh} sheets={sheets} onSave={onSave} customerNo={customerNo} onClose={() => setMode(null)} /> : null}
+      {mode === "export" && excel ? <ExportPanel wh={wh} sheets={sheets} onSave={onSave} customerNo={customerNo} onClose={() => setMode(null)} /> : null}
       {mode === "web" && webProps !== undefined ? (
         <WebBuilder
           wh={wh}

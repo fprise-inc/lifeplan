@@ -1,5 +1,7 @@
 // Web のヒアリングの FP の画面の手直し（0192 の追記 2026-11-17）: 名前・依頼の行の段階（届いたら「受け取る」「取り消す」だけ・取り消しは1回確かめる・
 // 取り込み済みはたたむ・書類待ちは期限まで残す）・外部 AI の同意を聞かない依頼・取り込みの画面（聞いていない欄をまとめる・人数の違いの分け方）
+// 0192 の追記（2026-11-18）: Excel のシートを画面から外す（excelSwitch.ts）・取り込み済みの依頼は一覧から外す（送られた内容は取り込み済みの回答から）・
+// 聞かなかった外部 AI の同意を送られた内容に出さない
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
@@ -8,8 +10,10 @@ import { memoryStore } from "../../hearing/relay/store.ts";
 import { answersOf, draftKey, initialDraft, openRequest, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { applyImport, approvalTime } from "../src/workspace/hearing/sheet.ts";
-import { documentFromTemplate, importWeb, issueWeb, markImported, noteArrival, officeFace, receiveWeb, rowMode, templateSelection, waitingDocuments, webLog, type WebLogEntry } from "../src/workspace/hearing/web.ts";
-import { WebRequests } from "../src/workspace/hearing/WebRequests.tsx";
+import { documentFromTemplate, importedEntries, importWeb, issueWeb, listed, markImported, noteArrival, officeFace, packetOf, receivedDraft, receiveWeb, rowMode, templateSelection, waitingDocuments, webLog, type WebLogEntry } from "../src/workspace/hearing/web.ts";
+import { ImportedAnswers, WebRequests } from "../src/workspace/hearing/WebRequests.tsx";
+import { SentAnswers } from "../src/hearingForm/Form.tsx";
+import { HEARING_EXCEL_SHOWN } from "../src/workspace/hearing/excelSwitch.ts";
 import { HearingTools, ReviewPanel, splitFields } from "../src/workspace/hearing/HearingTools.tsx";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
@@ -57,13 +61,24 @@ async function answered(wh: WorkingHousehold, o: { withDoc?: boolean; aiConsent?
   return { t, r, op };
 }
 
+const sheets = { save: async () => ({ saved: false }), open: async () => null } as unknown as SheetHost;
+const webProps = { web: host, office: { name: "", color: null }, templates: [], onTemplates: async () => undefined, persisted: true, saveNow: async () => true };
+
 describe("名前（0192 の追記）", () => {
-  it("FP のメニューと入口: 事前ヒアリング・取り込む／事前ヒアリング内容を作る（Excel を書き出す・URL生成）／事前ヒアリングを取り込む", () => {
-    const sheets = { save: async () => ({ saved: false }), open: async () => null } as unknown as SheetHost;
-    const html = renderToString(h(HearingTools, { wh: blank(), sheets, onSave: () => undefined, webProps: { web: host, office: { name: "", color: null }, templates: [], onTemplates: async () => undefined, persisted: true, saveNow: async () => true } }));
+  it("Excel のシートを出すとき: 事前ヒアリング内容を作る（Excel を書き出す・URL生成）／事前ヒアリングを取り込む（記入済みの Excel を取り込む）", () => {
+    const html = renderToString(h(HearingTools, { wh: blank(), sheets, onSave: () => undefined, webProps, excel: true }));
     for (const t of ["事前ヒアリング内容を作る", "Excel を書き出す", "URL生成", "事前ヒアリングを取り込む", "記入済みの Excel を取り込む"]) expect(html).toContain(t);
     expect(html).not.toContain("URL で聞く");
     expect(html).not.toMatch(/>ヒアリングで聞く</);
+  });
+
+  it("既定は Excel のシートを外す（2026-11-18）: URL生成と URL の回答の取り込みだけ。Excel に触れる言葉を出さない", () => {
+    expect(HEARING_EXCEL_SHOWN).toBe(false);
+    const html = renderToString(h(HearingTools, { wh: blank(), sheets, onSave: () => undefined, webProps }));
+    for (const t of ["事前ヒアリング内容を作る", "URL生成", "事前ヒアリングを取り込む", "URL生成で作った依頼に回答が届いたら"]) expect(html).toContain(t);
+    for (const t of ["Excel", "記入済み", "ヒアリングシート", "data-hearing-export", "data-hearing-import"]) expect(html).not.toContain(t);
+    // 本体に受け付けの命令が無い画面（Web も Excel も無い）では、入口の段を出さない
+    expect(renderToString(h(HearingTools, { wh: blank(), sheets, onSave: () => undefined }))).not.toContain("data-hearing-ask");
   });
 });
 
@@ -92,7 +107,7 @@ describe("依頼の行の段階（0192 の追記）", () => {
     for (const a of ["data-web-check", "data-web-extend", "data-web-copy", "data-web-import"]) expect(html).not.toContain(a);
   });
 
-  it("「受け取る」から取り込みの候補の画面へ直に行ける（受け取った答えで候補を作れる）。取り込み済みは1行にたたみ、送られた内容はたたんだ行から開ける", async () => {
+  it("「受け取る」から取り込みの候補の画面へ直に行ける（受け取った答えで候補を作れる）。取り込み済みは一覧から外し（枠ごと出さない）、送られた内容は取り込み済みの回答から開ける", async () => {
     const { t, r } = await answered(blank());
     const got = (await receiveWeb(r.wh, r.entry, t, NOW))!;
     expect(rowMode(got.entry, NOW, undefined, got.wh)).toBe("toImport");
@@ -101,12 +116,26 @@ describe("依頼の行の段階（0192 の追記）", () => {
     const done = markImported(out.wh, r.entry.record.requestId, approvalTime(NOW));
     const e = webLog(done).find((x) => x.record.requestId === r.entry.record.requestId) as WebLogEntry;
     expect(rowMode(e, NOW, undefined, done)).toBe("done");
-    const html = rows(done);
-    expect(html).toContain("data-web-folded");
-    expect(html).toContain("data-web-answers-open");
-    expect(html).toContain("data-web-unfold");
-    expect(html).not.toContain("data-web-docs-waiting");
-    expect(html).not.toContain("data-web-cancel");
+    // 一覧から外す（記録は世帯に残す）。一覧が空なら「URL の依頼」の枠ごと出さない
+    expect(listed(e, NOW, done)).toBe(false);
+    expect(webLog(done)).toHaveLength(1);
+    expect(rows(done)).toBe("");
+    expect(importedEntries(done, NOW).map((x) => x.record.requestId)).toEqual([r.entry.record.requestId]);
+    const imp = renderToString(h(ImportedAnswers, { wh: done }));
+    expect(imp).toContain("取り込み済みの URL の回答（1）");
+    expect(imp).toContain("data-web-answers-open");
+    // 入口の段の案内は、一覧が無いときの言葉
+    const tools = renderToString(h(HearingTools, { wh: done, sheets, onSave: () => undefined, webProps }));
+    expect(tools).toContain("data-web-imported");
+    expect(tools).not.toContain("data-web-requests");
+    expect(tools).toContain("URL生成で作った依頼に回答が届いたら");
+    // 取り込みを元に戻した（世帯の取り込みの記録から消えた）依頼は、また一覧に出す（もう一度取り込める）
+    const undone = markImported(got.wh, r.entry.record.requestId, approvalTime(NOW));
+    const ue = webLog(undone)[0] as WebLogEntry;
+    expect(rowMode(ue, NOW, undefined, undone)).toBe("toImport");
+    expect(listed(ue, NOW, undone)).toBe(true);
+    expect(rows(undone)).toContain("data-web-import");
+    expect(importedEntries(undone, NOW)).toEqual([]);
   });
 
   it("書類を「あとで送る」の依頼は、取り込んだ後も期限まで書類待ちの段を残す。書類が届けば受け取れ、届いた後は書類待ちが消える", async () => {
@@ -129,7 +158,12 @@ describe("依頼の行の段階（0192 の追記）", () => {
     const more = (await receiveWeb(done, e, t, NOW))!;
     noteArrival(e.record.requestId, { answers: false, batches: 0, submitted: true, at: NOW.toISOString() });
     expect(waitingDocuments(more.entry, NOW)).toEqual([]);
-    expect(rows(more.wh)).not.toContain("data-web-docs-waiting");
+    // 書類を受け取り終えたら一覧から外す（2026-11-18）
+    expect(listed(more.entry, NOW, more.wh)).toBe(false);
+    expect(rows(more.wh)).toBe("");
+    const imp = renderToString(h(ImportedAnswers, { wh: more.wh }));
+    expect(imp).toContain("data-web-imported");
+    expect(imp).toContain("受け取った書類");
   });
 });
 
@@ -143,6 +177,17 @@ describe("外部 AI の同意を聞かない依頼（0192 の追記・0138）", 
     expect(view.consents.map((c) => c.kind)).toEqual(["purpose"]);
     const html = renderToString(h(ReviewPanel, { wh: got.wh, view, onSave: () => undefined, onClose: () => undefined }));
     expect(html).toContain("外部AIへの提供は回答なし");
+    expect(html).not.toContain("接続口");
+    // 送られた内容（FP の側の控え・お客さまの側の控え）に、答えの無い外部 AI の同意の行を出さない（聞かなかったことは記録しない。2026-11-18）
+    const aiText = "AI を使って回答を整理";
+    const fpSent = renderToString(h(SentAnswers, { packet: packetOf(got.entry)!, draft: receivedDraft(got.entry)! }));
+    expect(fpSent).toContain("data-hf-sent-list");
+    expect(fpSent).not.toContain(aiText);
+    expect(fpSent).not.toContain("同意");
+    expect(Object.keys(got.entry.record.selection)).not.toContain("aiConsent");
+    const custSent = renderToString(h(SentAnswers, { packet: op.packet, draft: receivedDraft(got.entry)! }));
+    expect(custSent).not.toContain(aiText);
+    expect(custSent).not.toContain("同意");
     const on = await answered(blank(), { ai: "given" });
     const got2 = (await receiveWeb(on.r.wh, on.r.entry, on.t, NOW))!;
     expect(importWeb(got2.wh, got2.entry, "0.1.0", seq).consents.find((c) => c.kind === "externalAi")?.decision).toBe("given");
@@ -154,11 +199,14 @@ describe("取り込みの画面の整理（0192 の追記）", () => {
     const { t, r } = await answered(blank());
     const got = (await receiveWeb(r.wh, r.entry, t, NOW))!;
     const view = importWeb(got.wh, got.entry, "0.1.0", seq);
-    expect(view.gates.length).toBeGreaterThan(0);
-    expect(view.gates.every((g) => g.more === true)).toBe(true);
+    // 配偶者の方は生年月の回答があるので新規の候補で足せる。お子さま1人は生年月の回答が無く候補にならないので、入力の画面で足す要確認にする（0192 の追記 2026-11-18）
+    expect(view.gates.find((g) => g.gate === "spouse")?.more).toBe(true);
+    const child = view.gates.find((g) => g.gate === "child")!;
+    expect(child.more).toBeUndefined();
+    expect(child.text).toBe("お子さまは1人とのお答え（今の世帯は0人）。回答に生年月などが無い分は候補にしていません。入力の画面で足してください");
     const html = renderToString(h(ReviewPanel, { wh: got.wh, view, onSave: () => undefined, onClose: () => undefined, heading: "事前ヒアリングの取り込み（URL の回答・R-TEST01）", received: "受け取りました" }));
     expect(html).toContain("data-hearing-gates-more");
-    expect(html).not.toContain("data-hearing-gates=");
+    expect(html).toContain("data-hearing-gates=");
     expect(html).toContain("data-hearing-quiet");
     expect(html).toContain("data-hearing-received");
     expect(html).toContain("事前ヒアリングの取り込み（URL の回答・R-TEST01）");
