@@ -746,9 +746,11 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         : []),
     ],
   });
-  // 変額保険に解約の月を入れたとき: 解約の月の近くに、利回りをそろえる一言と注意の4つ（説明の欄。折りたためる。0233）。外貨建て保険は対象にしない
+  // 変額保険に解約の月を入れたとき: 解約の月の近くに、利回りをそろえる一言と注意の4つ（説明の欄。折りたためる。0233）。外貨建て保険は対象にしない。
+  // 解約の月の欄と同じ出し方にする: 詳細の欄で、キーを契約のまとまりの下（`${k}/…`）に置き、標準で「▸ 詳しく」を開いたときもその契約の中に出す（groupUnits）
   if (c.template === "insurance.variable" && c.surrender !== undefined) {
-    groups.push({ ...infoNote(`${k}/surrenderNote`, "解約するときの注意", surrenderNoteText(), "insurance/variableSurrender"), level: "detail", placeIn: { group: k, after: `${k}/surrender` } });
+    const note = infoNote("", "解約するときの注意", surrenderNoteText(), "insurance/variableSurrender");
+    groups.push({ ...note, key: `${k}/surrenderNote`, level: "detail", placeIn: { group: k, after: `${k}/surrender` } });
   }
   return groups;
 }

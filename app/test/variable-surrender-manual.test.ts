@@ -1,7 +1,10 @@
 // 変額保険を解約して保障と運用に分けるプランを、今の入力の欄で最後まで組み立てられるか（0233 の4）: 解約の月と解約返戻金（一時所得の税）・
 // 掛け捨ての保険・NISA の積立を増やす・解約返戻金をまとめて成長投資枠と課税口座に入れる（年齢の期間で1年に分けて）・枠を超えた分の扱い。
 // あわせて、解約の月の近くの説明の欄と、今から始まらない積立の期間が読み直しても残ること（savings/model.ts の writeSteps の直し）
+import { h } from "preact";
+import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
+import { GroupOpen, Section } from "../src/workspace/input/FieldViews.tsx";
 import type { EngineRequest, InsuranceContract } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -76,6 +79,23 @@ describe("(a) 変額保険に解約の月を入れる", () => {
     expect(surrenderNoteText().startsWith(SURRENDER_RATE_NOTE)).toBe(true);
     for (const t of SURRENDER_CAUTIONS) expect(surrenderNoteText()).toContain(t);
     expect(has(set(family("insurance.foreignCurrency"), `ins/${V}/surrender`, { at: "2027-01" }))).toBe(false);
+  });
+
+  it("解約の月の欄と同じ出し方: 標準で契約の「▸ 詳しく」を開いたときと詳細で、解約の月のすぐ後に出る。標準で閉じているときは出ない", () => {
+    const wh = surrender(family(), 3000000);
+    const sec = stage(wh).sections.find((s) => s.groups.some((g) => g.key === `ins/${V}`))!;
+    const render = (level: "simple" | "detail", open: boolean) =>
+      renderToString(h(GroupOpen.Provider, { value: { isOpen: (key: string) => open && key === `ins/${V}`, toggle: () => undefined } }, h(Section, { section: sec, wh, level, onEdit: () => undefined })));
+    const at = (html: string) => ({ field: html.indexOf("解約の月"), note: html.indexOf("解約するときの注意") });
+    for (const html of [render("simple", true), render("detail", false)]) {
+      const p = at(html);
+      expect(p.field).toBeGreaterThanOrEqual(0);
+      expect(p.note).toBeGreaterThan(p.field);
+      // 解約の月の欄の後、次の欄（解約の月の解約返戻金）の前
+      expect(html.indexOf("解約の月の解約返戻金")).toBeGreaterThan(p.note);
+    }
+    const closed = render("simple", false);
+    expect(closed).not.toContain("解約するときの注意");
   });
 });
 
