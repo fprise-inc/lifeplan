@@ -40,7 +40,22 @@
 // - 入れていない決まり（notIncluded）: 2割加算・小規模宅地等の特例・土地の評価の細部・一次と二次の分け方の比べ・暦年課税の贈与の加算・
 //   相次相続控除・未成年者控除・障害者控除・受け取る側の目安（親の遺産の総額から）。当たりそうなとき（兄弟姉妹が相続人・持ち家がある・数えない
 //   養子がいる・相続人でない人への精算課税の贈与）は cautions に出す
+// - 改訂5・約束の版 1.2（0231）: 「相続税も試算する」（要求の detailed）の世帯だけ、不動産ごとの設定（lands）で土地と建物を評価し、小規模宅地等の
+//   特例・2割加算・未成年者控除を入れる。detailed の無い世帯の結果は改訂4と同じ（年ごとの計算は増やさない。時点ごとに1回）
+//   - 土地（物件全体）: 路線価×面積・固定資産税評価額×倍率・固定資産税評価額×8/7（推定）・時価×評価の割合（省略）。補正の率を掛ける。入れた値は
+//     計算基準年（持ち始めが後ならその年）の値とみなし、ほかの年は評価額の推移（土地の行）と同じ割合で動かす
+//   - 建物: 固定資産税評価額（入れた値か、画面が固定資産税の目安から入れた推定 buildingEstimate。建物の行と同じ割合で動かす）。無ければ時価×評価の割合
+//   - 貸している物件: 建物は借家権割合（30%）×賃貸割合、土地は借地権割合×借家権割合×賃貸割合を引く（貸家・貸家建付地）。賃貸割合の省略は、亡くなる月に
+//     貸していれば 1−空室率（今の家賃で入れた物件は1）、貸していなければ0。民泊・宿は貸家にしない
+//   - 小規模宅地等の特例: 自宅（特定居住用 330㎡・80%）・事業（特定事業用と特定同族会社事業用 合わせて400㎡・80%）・貸付（200㎡・50%）。取得する人と
+//     要件は利用者が選ぶ（一次は primary、二次〔二人とも亡くなった後〕は secondary。自宅を配偶者が取得するときは要件なし。一次で選んでいない自宅は
+//     配偶者がいれば配偶者が取得するとみなす）。貸し始めて3年以内の貸付は対象にしない（事業的規模を3年を超えて続けている印があれば対象）。
+//     面積の上限は、貸付を入れないとき自宅330㎡・事業400㎡を別に、入れるとき 自宅×200/330＋事業×200/400＋貸付≦200㎡。減る額の大きい土地から
+//     適用し、貸付を入れる・入れないの多く減る方を採る
+//   - 2割加算（兄弟姉妹・祖父母・代襲でない孫養子）と未成年者控除（法定相続人で18歳未満。引ききれない分は他の相続人〔配偶者から〕の税から引く）
 import {
+  RATE_ONE,
+  type Rate,
   bracketFor,
   boxValue,
   defineComponent,
@@ -83,7 +98,42 @@ interface Request {
   readonly heirCounts?: readonly { readonly decedent: string; readonly count: number }[];
   readonly retirementAllowances?: readonly { readonly decedent: string; readonly amount: Yen }[];
   readonly overrides?: readonly { readonly point: Point; readonly decedent?: string; readonly amount: Yen }[];
+  readonly detailed?: boolean;
+  readonly lands?: readonly LandSetting[];
 }
+
+type Acquirer = "spouse" | "cohabiting" | "noHome" | "successor" | "other";
+interface Choice {
+  readonly acquirer: Acquirer;
+  readonly met?: boolean;
+}
+type Use = "residence" | "rental" | "business" | "familyCompany" | "none";
+/** 相続税の試算の不動産1つの設定（0231。物件全体の値） */
+interface LandSetting {
+  readonly object: string;
+  readonly area?: string;
+  readonly method?: "market" | "routePrice" | "multiplier" | "fixedEstimate";
+  readonly routePrice?: Yen;
+  readonly fixedValue?: Yen;
+  readonly multiplier?: string;
+  readonly adjustment?: string;
+  readonly leaseholdRatio?: keyof typeof LEASEHOLD;
+  readonly buildingValue?: Yen;
+  readonly buildingEstimate?: Yen;
+  readonly rentalRatio?: string;
+  readonly use?: Use;
+  readonly rentalContinued?: boolean;
+  readonly primary?: Choice;
+  readonly secondary?: Choice;
+}
+
+/** 借地権割合（路線価図の記号。財産評価基本通達の財産評価基準書の凡例）。省略は D（60%。0231） */
+export const LEASEHOLD = { A: "0.9", B: "0.8", C: "0.7", D: "0.6", E: "0.5", F: "0.4", G: "0.3" } as const;
+export const LEASEHOLD_DEFAULT = "D";
+/** 借家権割合（財産評価基準書。各国税局とも30%。財産評価基本通達94） */
+export const TENANCY_RIGHT_RATIO = "0.3";
+/** 固定資産税評価額から路線価の水準を推定する割合（評価額は公示価格の7割程度、路線価は8割程度を目途とするため 8/7。0231） */
+export const FIXED_TO_ROUTE = { num: 8, den: 7 } as const;
 
 const P = {
   base: "inheritanceTax.basicDeduction.base",
@@ -97,6 +147,16 @@ const P = {
   taxableRound: "inheritanceTax.taxable.rounding",
   totalRound: "inheritanceTax.total.rounding",
   taxRound: "inheritanceTax.tax.rounding",
+  resArea: "inheritanceTax.smallLand.residential.areaLimit",
+  resRate: "inheritanceTax.smallLand.residential.reductionRate",
+  bizArea: "inheritanceTax.smallLand.business.areaLimit",
+  bizRate: "inheritanceTax.smallLand.business.reductionRate",
+  rentArea: "inheritanceTax.smallLand.rental.areaLimit",
+  rentRate: "inheritanceTax.smallLand.rental.reductionRate",
+  rentRecent: "inheritanceTax.smallLand.rental.recentYears",
+  surcharge: "inheritanceTax.surcharge.rate",
+  minorPerYear: "inheritanceTax.minorCredit.perYear",
+  minorAge: "inheritanceTax.minorCredit.untilAge",
 };
 
 /** 所得の税の行（所得税・住民税・事業税。上場株式等と暗号資産の譲渡益の税は除く。必要保障額の protection.need と同じ範囲。改訂3） */
@@ -116,6 +176,16 @@ export const NOT_INCLUDED: readonly string[] = [
   "calendarGiftAddBack",
   "successiveInheritanceCredit",
   "minorCredit",
+  "disabilityCredit",
+  "receivingSideEstimate",
+];
+
+/** 相続税も試算する世帯（detailed）で含めていない決まり（0231。土地の評価・小規模宅地等の特例・2割加算・未成年者控除を外し、補正の細部を足す） */
+export const NOT_INCLUDED_DETAILED: readonly string[] = [
+  "landCorrectionDetail",
+  "primarySecondaryComparison",
+  "calendarGiftAddBack",
+  "successiveInheritanceCredit",
   "disabilityCredit",
   "receivingSideEstimate",
 ];
@@ -163,6 +233,25 @@ const frac = (n: bigint, d: bigint): [bigint, bigint] => {
 };
 const fmtFrac = (f: [bigint, bigint]) => `${f[0]}/${f[1]}`;
 
+type SpecialStatus = "applied" | "limit" | "notSet" | "notMet" | "noArea" | "within3Years" | "notLived" | "notRented" | "none";
+/** 不動産1つの評価（亡くなる人の分）と小規模宅地等の特例（0231） */
+type LandResult = {
+  object: string;
+  method: "market" | "routePrice" | "multiplier" | "fixedEstimate";
+  /** 時価（亡くなる人の分。土地・建物） */
+  landMarket: Yen;
+  buildingMarket: Yen;
+  /** 評価（亡くなる人の分。貸家建付地・貸家の減額の後、特例の前） */
+  land: Yen;
+  building: Yen;
+  buildingSource: "entered" | "estimate" | "market" | "none";
+  rentalRatio?: string;
+  /** 土地の面積のうち亡くなる人の分（㎡） */
+  area?: string;
+  use: Use;
+  special: { status: SpecialStatus; rate?: string; acquirer?: Acquirer; defaulted?: boolean; appliedArea?: string; reduction: Yen; recentRental?: boolean };
+};
+
 type PointResult = {
   point: Point;
   decedent: string;
@@ -172,7 +261,7 @@ type PointResult = {
   assets: Record<
     "financial" | "realEstateMarket" | "realEstate" | "other" | "insurance" | "insuranceExempt" | "retirement" | "retirementExempt" | "settlementGifts" | "debts" | "funeral" | "taxablePrice",
     Yen
-  > & { unpaidTaxes?: Yen };
+  > & { unpaidTaxes?: Yen; smallLandReduction?: Yen };
   heirs: { member: string; relation: Relation; outside: boolean; counted: boolean; share?: string; adopted?: boolean; representing?: string }[];
   heirCount: number;
   heirCountOverridden: boolean;
@@ -181,7 +270,12 @@ type PointResult = {
   totalTax: Yen;
   spouseReduction: Yen;
   settlementCredit: Yen;
-  byHeir: { member?: string; count?: number; outside: boolean; acquisition: Yen; tax: Yen; spouseReduction: Yen; credit: Yen; payable: Yen; refund: Yen }[];
+  byHeir: { member?: string; count?: number; outside: boolean; acquisition: Yen; tax: Yen; spouseReduction: Yen; credit: Yen; payable: Yen; refund: Yen; surcharge?: Yen; minorCredit?: Yen }[];
+  /** 0231: 2割加算・未成年者控除の合計（相続税も試算する世帯だけ） */
+  surcharge?: Yen;
+  minorCredit?: Yen;
+  /** 0231: 不動産ごとの評価と小規模宅地等の特例（相続税も試算する世帯だけ） */
+  lands?: LandResult[];
   payable: Yen;
   payableHousehold: Yen;
   payableOutside: Yen;
@@ -196,8 +290,8 @@ type PointResult = {
 export default defineComponent<{ request: Request }, { points: PointResult[]; notIncluded: readonly string[] }>({
   id: "inheritance.estimate",
   title: "相続税の目安（基礎控除・法定相続人・非課税・速算表・配偶者の軽減・精算課税の足し戻し）",
-  contract: "1.1",
-  revision: 4,
+  contract: "1.2",
+  revision: 5,
   requires: {
     "plan.cashflow": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -247,6 +341,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     "car.purchase",
     "residence.ownership",
     "residence.from",
+    "residence.to",
     "residence.purchase",
     "goal.kind",
     "goal.owner",
@@ -397,7 +492,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     const accounts = ctx.list<AccountInput>("account");
     const contracts = ctx.list<InsuranceContractInput>("insurance");
     const debts = ctx.list<DebtInput>("debt");
-    const residences = ctx.list<{ id: string; from: unknown; purchase?: { at?: unknown; land?: { at: unknown } }; ownership?: readonly { member: string; share: string }[] }>("residence");
+    const residences = ctx.list<{ id: string; from: unknown; to?: unknown; purchase?: { at?: unknown; land?: { at: unknown } }; ownership?: readonly { member: string; share: string }[] }>("residence");
     // いまの時点（計算基準月。opening）の財産（改訂4）: 計算基準月の初め（入力の時価の時点。その月のお金の動きの前）に持っている物・借りている
     // 負債だけを数える。計算基準月より後に、または計算基準月に買う・借りる・持ち始める物は入れず、計算基準月より後に売る物は入れる
     const S = base;
@@ -420,7 +515,8 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     }
     // 計算基準月から計算基準年の12月までに売る不動産（年末の評価額の行が無い）の、その年の評価額
     const soldLater: { object: string; owner: string | null; value: Yen }[] = [];
-    for (const p of [...ctx.call<HousingValuationOutput>("housing.valuation", {}).properties, ...ctx.call<RealEstateOutput>("asset.realEstate", {}).properties]) {
+    const valued = [...ctx.call<HousingValuationOutput>("housing.valuation", {}).properties, ...ctx.call<RealEstateOutput>("asset.realEstate", {}).properties];
+    for (const p of valued) {
       if (p.sale === null) continue;
       const m = parseYm(p.sale.ym);
       if (m >= S && yearOf(m) === baseYear && heldAtS.get(p.object) !== false) soldLater.push({ object: p.object, owner: p.owner, value: p.sale.value });
@@ -474,6 +570,216 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       return owners.has(owner) ? "1" : null;
     };
     const part = (amount: Yen, share: string | null): number => (share === null || amount <= 0 ? 0 : share === "1" ? amount : ctx.money.mulRate(amount, ctx.rate.of(share), "conv.exact"));
+
+
+    // ---- 相続税も試算する世帯（detailed）: 不動産ごとの評価と小規模宅地等の特例（0231） ----
+    const detailed = req.detailed === true;
+    const landSettings = new Map((req.lands ?? []).map((l) => [l.object, l]));
+    const VAL = "conv.asset.valuation";
+    const rOf = (n: number): Rate => ctx.rate.of(String(n));
+    const ZERO = ctx.rate.of("0");
+    const valuedYears = new Map(valued.map((p) => [p.object, p.years]));
+    /** 入れた値（路線価・固定資産税評価額）の時点の物件全体の時価: 計算基準年（持ち始めが後ならその年）の年末の評価額。中身の無い器は入力の時価 */
+    const refOf = (object: string): { land: number; building: number } => {
+      const ys = valuedYears.get(object);
+      if (ys !== undefined) {
+        const y = ys.find((e) => e.year >= baseYear);
+        return y === undefined ? { land: 0, building: 0 } : { land: y.land, building: y.building };
+      }
+      const a = accounts.find((x) => x.id === object);
+      return { land: a === undefined ? 0 : (boxValue(a.marketValue) ?? 0), building: 0 };
+    };
+    const growth = (now: number, ref: number): Rate => (now > 0 && ref > 0 ? ctx.rate.div(rOf(now), rOf(ref)) : RATE_ONE);
+    /** 亡くなる月に貸しているか・賃貸割合の省略の値・貸し始め（asset.realEstate の貸している月と同じ読み方） */
+    const rentalAt = (object: string, D: MonthIndex): { rented: boolean; ratio: Rate; start: MonthIndex | null } => {
+      const a = accounts.find((x) => x.id === object);
+      const p = a?.property;
+      const r = p?.rental;
+      // 民泊・宿は貸家（借家権）ではないので、貸家・貸家建付地と貸付の特例の省略の対象にしない（asset.realEstate の rentedShare も民泊・宿には出さない。0232）
+      if (a === undefined || p === undefined || r === undefined || p.lodging !== undefined) return { rented: false, ratio: ZERO, start: null };
+      const acq = p.acquisition?.at !== undefined ? parseYm(p.acquisition.at) : null;
+      const hold = p.holdFrom !== undefined ? ctx.time.resolve(p.holdFrom) : null;
+      let start = r.from !== undefined ? ctx.time.resolve(r.from) : acq;
+      if (start !== null && hold !== null && hold > start) start = hold;
+      const sale = a.sale !== undefined ? ctx.time.resolve(a.sale.at) : (p.sale?.at !== undefined ? ctx.time.resolve(p.sale.at) : null);
+      const to = r.to === undefined || r.to === null ? (sale !== null ? sale - 1 : null) : ctx.time.resolve(r.to);
+      const rented = (start === null || start <= D) && (to === null || to >= D) && (hold === null || hold <= D);
+      const full = r.rentBy === "actual";
+      return { rented, ratio: rented ? (full ? RATE_ONE : ctx.rate.sub(RATE_ONE, ctx.rate.of(r.vacancyRate ?? "0"))) : ZERO, start };
+    };
+    /** 亡くなる月に住んでいる持ち家か */
+    const livedAt = (object: string, D: MonthIndex): boolean => {
+      const r = residences.find((x) => x.id === object);
+      if (r === undefined) return false;
+      const from = resolveTp(r.from);
+      const to = resolveTp(r.to);
+      return (from === null || from <= D) && (to === null || to >= D);
+    };
+    type Cand = { i: number; kind: "residence" | "business" | "rental"; value: Yen; area: Rate; rate: Rate };
+    /**
+     * 面積の上限で、どの土地のどれだけの面積に特例を適用するか（措置法69条の4第2項）。貸付を入れないとき: 自宅330㎡・事業400㎡を別々に、
+     * 1㎡あたりの減る額の大きい順。貸付を入れるとき: 自宅×200/330＋事業×200/400＋貸付≦200㎡ を、換算した1㎡あたりの減る額の大きい順
+     * （分けられる量の詰め方なので、この順が最も多く減る）。2つのうち多く減る方（同じなら貸付を入れない方）
+     */
+    const allocate = (cands: readonly Cand[], at: MonthCtx): { applied: Map<number, Rate>; withRental: boolean } => {
+      const lim = { residence: rOf(at.paramCount(P.resArea) ?? 0), business: rOf(at.paramCount(P.bizArea) ?? 0), rental: rOf(at.paramCount(P.rentArea) ?? 0) };
+      const perArea = (c: Cand): Rate => ctx.rate.mul(ctx.rate.div(rOf(c.value), c.area), c.rate);
+      const reductionOf = (c: Cand, a: Rate): Yen => ctx.money.mulRate(c.value, ctx.rate.mul(ctx.rate.div(a, c.area), c.rate), VAL);
+      const byDesc = (key: (c: Cand) => Rate) => (a: Cand, b: Cand) => ctx.rate.compare(key(b), key(a)) || a.i - b.i;
+      const minR = (a: Rate, b: Rate): Rate => (ctx.rate.compare(a, b) <= 0 ? a : b);
+      // 貸付を入れない
+      const a1 = new Map<number, Rate>();
+      for (const kind of ["residence", "business"] as const) {
+        let left = lim[kind];
+        for (const c of cands.filter((x) => x.kind === kind).sort(byDesc(perArea))) {
+          const take = minR(c.area, left);
+          if (ctx.rate.compare(take, ZERO) <= 0) break;
+          a1.set(c.i, take);
+          left = ctx.rate.sub(left, take);
+        }
+      }
+      const total = (m: Map<number, Rate>) => cands.reduce((sum, c) => sum + (m.has(c.i) ? reductionOf(c, m.get(c.i) as Rate) : 0), 0);
+      if (!cands.some((c) => c.kind === "rental")) return { applied: a1, withRental: false };
+      // 貸付を入れる（換算: 自宅 200/330・事業 200/400・貸付 1。割り算の丸めが出ないよう、上限の面積どうしの比で数える）
+      const num = (c: Cand): Rate => (c.kind === "rental" ? RATE_ONE : lim.rental);
+      const den = (c: Cand): Rate => (c.kind === "rental" ? RATE_ONE : lim[c.kind]);
+      const a2 = new Map<number, Rate>();
+      let left = lim.rental;
+      for (const c of [...cands].sort(byDesc((c) => ctx.rate.div(ctx.rate.mul(perArea(c), den(c)), num(c))))) {
+        const room = ctx.rate.div(ctx.rate.mul(left, den(c)), num(c));
+        if (ctx.rate.compare(room, ZERO) <= 0) break;
+        if (ctx.rate.compare(c.area, room) >= 0) {
+          a2.set(c.i, room);
+          left = ZERO;
+        } else {
+          a2.set(c.i, c.area);
+          left = ctx.rate.sub(left, ctx.rate.div(ctx.rate.mul(c.area, num(c)), den(c)));
+        }
+      }
+      return total(a2) > total(a1) ? { applied: a2, withRental: true } : { applied: a1, withRental: false };
+    };
+    /** 不動産ごとの評価（亡くなる人の分）と特例の減額 */
+    const evaluateLands = (
+      parts: ReadonlyMap<string, { land: number; building: number; unsplit: number; fullLand: number; fullBuilding: number; fullUnsplit: number; share: string }>,
+      job: { point: Point; decedent: string; D: MonthIndex },
+      at: MonthCtx,
+      cautions: Set<string>,
+    ): { value: Yen; reduction: Yen; lands: LandResult[] } => {
+      const { point, decedent: X, D } = job;
+      const second = point === "bothAfter";
+      const spouseAlive = !second && legalSpouseAt(X, D) !== null;
+      const lands: LandResult[] = [];
+      const cands: Cand[] = [];
+      let value = 0;
+      for (const [object, pt] of parts) {
+        const st = landSettings.get(object);
+        const isHome = residences.some((r) => r.id === object);
+        const share = ctx.rate.of(pt.share);
+        // 中身の無い器（と、その年のうちに売る物件）は時価の全部を土地とみなす
+        const fullLand = pt.fullLand + pt.fullUnsplit;
+        const ref = refOf(object);
+        const gL = growth(fullLand, ref.land);
+        const gB = pt.fullUnsplit > 0 && pt.fullBuilding === 0 ? gL : growth(pt.fullBuilding, ref.building);
+        const adj = ctx.rate.of(st?.adjustment ?? "1");
+        // 面積の省略は、住まい以外の不動産の中身の土地の面積（0079）
+        const areaText = st?.area ?? (accounts.find((x) => x.id === object)?.property as { area?: { land?: string } } | undefined)?.area?.land;
+        const area = areaText !== undefined ? ctx.rate.of(areaText) : null;
+        let method = st?.method ?? "market";
+        let landFull: Yen;
+        if (method === "routePrice" && st?.routePrice !== undefined && area !== null) landFull = ctx.money.mulRate(st.routePrice, ctx.rate.mul(ctx.rate.mul(area, adj), gL), VAL);
+        else if (method === "multiplier" && st?.fixedValue !== undefined && st.multiplier !== undefined) landFull = ctx.money.mulRate(st.fixedValue, ctx.rate.mul(ctx.rate.mul(ctx.rate.of(st.multiplier), adj), gL), VAL);
+        else if (method === "fixedEstimate" && st?.fixedValue !== undefined) landFull = ctx.money.mulRate(ctx.money.mulRatio(st.fixedValue, FIXED_TO_ROUTE.num, FIXED_TO_ROUTE.den, VAL), ctx.rate.mul(adj, gL), VAL);
+        else {
+          if (method !== "market") cautions.add("landInputMissing");
+          method = "market";
+          landFull = ctx.money.mulRate(ctx.money.mulRate(yen(fullLand), realRatio, VAL), adj, VAL);
+        }
+        // 建物（固定資産税評価額。無ければ時価×評価の割合。中身の無い器を時価で評価するときは土地に含めている）
+        const bv = st?.buildingValue ?? st?.buildingEstimate;
+        let buildingFull: Yen = yen(0);
+        let buildingSource: LandResult["buildingSource"] = "none";
+        if (pt.fullBuilding > 0 || (bv !== undefined && !(pt.fullUnsplit > 0 && method === "market"))) {
+          if (bv !== undefined) {
+            buildingFull = ctx.money.mulRate(bv, gB, VAL);
+            buildingSource = st?.buildingValue !== undefined ? "entered" : "estimate";
+          } else {
+            buildingFull = ctx.money.mulRate(yen(pt.fullBuilding), realRatio, VAL);
+            buildingSource = "market";
+          }
+        }
+        // 貸家・貸家建付地（賃貸割合は亡くなる月に貸していなければ0）
+        const rent = isHome ? { rented: false, ratio: ZERO, start: null } : rentalAt(object, D);
+        const rr = rent.rented ? (st?.rentalRatio !== undefined ? ctx.rate.of(st.rentalRatio) : rent.ratio) : ZERO;
+        if (ctx.rate.compare(rr, ZERO) > 0) {
+          const tenancy = ctx.rate.of(TENANCY_RIGHT_RATIO);
+          const lease = ctx.rate.of(LEASEHOLD[st?.leaseholdRatio ?? LEASEHOLD_DEFAULT]);
+          buildingFull = ctx.money.mulRate(buildingFull, ctx.rate.sub(RATE_ONE, ctx.rate.mul(tenancy, rr)), VAL);
+          landFull = ctx.money.mulRate(landFull, ctx.rate.sub(RATE_ONE, ctx.rate.mul(ctx.rate.mul(lease, tenancy), rr)), VAL);
+        }
+        const land = ctx.money.mulRate(landFull, share, VAL);
+        const building = ctx.money.mulRate(buildingFull, share, VAL);
+        value += land + building;
+        const areaMine = area === null ? null : ctx.rate.mul(area, share);
+        // 小規模宅地等の特例
+        const use: Use = st?.use ?? (isHome ? "residence" : rent.rented ? "rental" : "none");
+        const special: LandResult["special"] = { status: "none", reduction: yen(0) };
+        if (use !== "none" && land > 0) {
+          const kind = use === "residence" ? "residence" : use === "rental" ? "rental" : "business";
+          const rate = at.paramRate(kind === "residence" ? P.resRate : kind === "rental" ? P.rentRate : P.bizRate) ?? ZERO;
+          special.rate = ctx.rate.toString(rate);
+          let choice = second ? st?.secondary : st?.primary;
+          if (choice === undefined && use === "residence" && spouseAlive) {
+            choice = { acquirer: "spouse" };
+            special.defaulted = true;
+          }
+          if (choice !== undefined) special.acquirer = choice.acquirer;
+          const recentYears = at.paramCount(P.rentRecent) ?? 0;
+          const recent = use === "rental" && rent.start !== null && rent.start > D - recentYears * 12;
+          if (recent) special.recentRental = true;
+          if (use === "residence" && !(isHome && livedAt(object, D))) special.status = "notLived";
+          else if (use === "rental" && !rent.rented) special.status = "notRented";
+          else if (recent && st?.rentalContinued !== true) special.status = "within3Years";
+          else if (choice === undefined) special.status = "notSet";
+          else if (choice.acquirer === "other" || (choice.acquirer === "spouse" && !spouseAlive) || !((choice.acquirer === "spouse" && use === "residence") || choice.met === true)) special.status = "notMet";
+          else if (areaMine === null || ctx.rate.compare(areaMine, ZERO) <= 0) special.status = "noArea";
+          else {
+            special.status = "limit";
+            cands.push({ i: lands.length, kind, value: land, area: areaMine, rate });
+          }
+          if (recent) cautions.add("smallLandRecentRental");
+          if (special.status === "notSet") cautions.add("smallLandNotSet");
+          if (special.status === "noArea") cautions.add("smallLandAreaMissing");
+        }
+        lands.push({
+          object,
+          method,
+          landMarket: yen(pt.land + pt.unsplit),
+          buildingMarket: yen(pt.building),
+          land,
+          building,
+          buildingSource,
+          ...(ctx.rate.compare(rr, ZERO) > 0 ? { rentalRatio: ctx.rate.toString(rr) } : {}),
+          ...(areaMine !== null ? { area: ctx.rate.toString(areaMine) } : {}),
+          use,
+          special,
+        });
+      }
+      let reduction = 0;
+      if (cands.length > 0) {
+        const { applied } = allocate(cands, at);
+        for (const c of cands) {
+          const a = applied.get(c.i);
+          const l = lands[c.i] as LandResult;
+          if (a === undefined) continue;
+          const red = ctx.money.mulRate(c.value, ctx.rate.mul(ctx.rate.div(a, c.area), c.rate), VAL);
+          l.special = { ...l.special, status: "applied", appliedArea: ctx.rate.toString(a), reduction: red };
+          reduction += red;
+          if (ctx.rate.compare(a, c.area) < 0) cautions.add("smallLandAreaLimit");
+        }
+        if (lands.some((l) => l.special.status === "limit")) cautions.add("smallLandAreaLimit");
+      }
+      return { value: yen(value), reduction: yen(reduction), lands };
+    };
 
     const results: PointResult[] = [];
     const contingencyDeath = (() => {
@@ -552,7 +858,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       const given = req.heirCounts?.find((h) => h.decedent === X)?.count;
       const N = given ?? autoCount;
       if (heirs.some((h) => !h.counted)) cautions.add("adoptedLimit");
-      if (heirs.some((h) => h.relation === "sibling" || h.relation === "grandparent")) cautions.add("twentyPercentSurcharge");
+      if (!detailed && heirs.some((h) => h.relation === "sibling" || h.relation === "grandparent")) cautions.add("twentyPercentSurcharge");
       const hasSpouse = heirs.some((h) => h.relation === "spouse") || (job.point === "bothAfter" ? false : legalSpouseAt(X, D) !== null);
       const unassigned = req.unassignedShare ?? (job.point === "bothAfter" || !hasSpouse || adults.length < 2 ? "1" : "0.5");
 
@@ -577,6 +883,23 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         return ctx.rate.compare(sum, ctx.rate.of("0")) === 0 ? null : ctx.rate.toString(sum);
       };
       let hasHome = false;
+      // 不動産ごとの時価（物件全体 full と亡くなる人の分 mine。土地・建物・分けていない器。相続税も試算する世帯で使う。0231）
+      const parts = new Map<string, { land: number; building: number; unsplit: number; fullLand: number; fullBuilding: number; fullUnsplit: number; share: string }>();
+      const addPart = (object: string | undefined, kind: "land" | "building" | "unsplit", full: number, mine: number, share: string | null) => {
+        if (object === undefined || share === null || mine <= 0) return;
+        const e = parts.get(object) ?? { land: 0, building: 0, unsplit: 0, fullLand: 0, fullBuilding: 0, fullUnsplit: 0, share };
+        if (kind === "land") {
+          e.land += mine;
+          e.fullLand += full;
+        } else if (kind === "building") {
+          e.building += mine;
+          e.fullBuilding += full;
+        } else {
+          e.unsplit += mine;
+          e.fullUnsplit += full;
+        }
+        parts.set(object, e);
+      };
       /** 世帯の負債の、亡くなる人の分（負担の割合。団信で消える分を除く） */
       const debtShare = (d: DebtInput, total: Yen, unpaidInterest: boolean): number => {
         const mine = d.debtors.filter((x) => owners.has(x.member) && x.role !== "guarantor");
@@ -611,8 +934,10 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           if ((a.kind === "realEstate" && a.property === undefined) || a.kind === "otherAsset") {
             if (a.holdFrom !== undefined && ctx.time.resolve(a.holdFrom) >= S) continue;
             if (a.sale !== undefined && ctx.time.resolve(a.sale.at) < S) continue;
-            if (a.kind === "realEstate") realMarket += part(v, s);
-            else other += part(v, s);
+            if (a.kind === "realEstate") {
+              realMarket += part(v, s);
+              addPart(a.id, "unsplit", v, part(v, s), s);
+            } else other += part(v, s);
             continue;
           }
           if (FINANCIAL_EXCLUDED.has(a.kind) && !RETIREMENT_KINDS.has(a.kind)) continue;
@@ -621,9 +946,11 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         }
         for (const x of soldLater) {
           const rs = residenceShare(x.object);
-          const v = part(x.value, rs !== undefined ? rs : shareOf(x.owner, owners, unassigned));
+          const xs = rs !== undefined ? rs : shareOf(x.owner, owners, unassigned);
+          const v = part(x.value, xs);
           if (v > 0 && residences.some((r) => r.id === x.object)) hasHome = true;
           realMarket += v;
+          addPart(x.object, "unsplit", x.value, v, xs);
         }
         for (const d of point === "now" ? debts : []) {
           const b = debtAtS.get(d.id);
@@ -642,6 +969,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
             const v = part(a.amount, s);
             if (v > 0 && residences.some((r) => r.id === a.object)) hasHome = true;
             realMarket += v;
+            addPart(a.object, k === "realEstate.land" ? "land" : k === "realEstate.building" ? "building" : "unsplit", a.amount, v, s);
             continue;
           }
           if (k === "insurance") {
@@ -756,8 +1084,10 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       // 非課税と課税価格
       const insExempt = Math.min(insurance, ctx.money.mulRatio(at.paramYen(P.insurance) ?? yen(0), N, 1, "conv.exact"));
       const retExempt = Math.min(retirement, ctx.money.mulRatio(at.paramYen(P.retirement) ?? yen(0), N, 1, "conv.exact"));
-      const realEval = ctx.money.mulRate(yen(realMarket), realRatio, "conv.asset.valuation");
-      const gross = financial + realEval + other + (insurance - insExempt) + (retirement - retExempt) + settlement;
+      // 相続税も試算する世帯は不動産ごとに評価し、小規模宅地等の特例で減らす（0231）。ほかは時価の合計×評価の割合（今まで）
+      const landEval = detailed ? evaluateLands(parts, job, at, cautions) : null;
+      const realEval = landEval !== null ? landEval.value : ctx.money.mulRate(yen(realMarket), realRatio, "conv.asset.valuation");
+      const gross = financial + realEval - (landEval?.reduction ?? 0) + other + (insurance - insExempt) + (retirement - retExempt) + settlement;
       const T = at.money.round(yen(Math.max(0, gross - debtTotal - funeral)), P.taxableRound);
       const basic = yen((at.paramYen(P.base) ?? 0) + ctx.money.mulRatio(at.paramYen(P.perHeir) ?? yen(0), N, 1, "conv.exact"));
       const assets: PointResult["assets"] = {
@@ -772,10 +1102,11 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         settlementGifts: yen(settlement),
         debts: yen(debtTotal),
         ...(unpaidTaxes > 0 ? { unpaidTaxes: yen(unpaidTaxes) } : {}),
+        ...(landEval !== null && landEval.reduction > 0 ? { smallLandReduction: landEval.reduction } : {}),
         funeral: yen(funeral),
         taxablePrice: T,
       };
-      if (hasHome) cautions.add("smallLandSpecial");
+      if (hasHome && !detailed) cautions.add("smallLandSpecial");
       const heirIds = new Set(heirs.filter((h) => h.counted).map((h) => h.member));
       if ([...credits.keys()].some((id) => !heirIds.has(id))) cautions.add("settlementGiftToNonHeir");
       const heirsOut = heirs.map((h) => ({
@@ -828,9 +1159,31 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       let payableOutside = 0;
       let refund = 0;
       const byHeir: PointResult["byHeir"] = [];
-      for (const s of slots) {
+      // 2割加算（相続税法18条）と未成年者控除（同19条の3）は、相続税も試算する世帯だけ（0231）。人ごとの行（数を直していない）のとき
+      const kidsOfX = new Set(job.childrenFrom ?? childrenOfX(X));
+      const surchargeRate = detailed ? at.paramRate(P.surcharge) : null;
+      const minorAge = detailed ? at.paramCount(P.minorAge) : null;
+      const minorPer = detailed ? at.paramYen(P.minorPerYear) : null;
+      /** 2割加算の対象か: 一親等の血族（代襲の孫を含む）と配偶者のほか。孫養子（子の子を養子にした人）は代襲でなければ対象 */
+      const surchargeOf = (member: string | undefined): boolean => {
+        const h = heirs.find((x) => x.member === member);
+        if (h === undefined) return false;
+        if (h.relation === "sibling" || h.relation === "grandparent") return true;
+        return h.relation === "child" && h.adopted && relations.some((r) => r.type === "parentOf" && r.child === h.member && r.parent !== X && kidsOfX.has(r.parent));
+      };
+      /** 未成年者控除の額（満18歳になるまでの年数。1年未満は1年。年齢は月で数える） */
+      const minorOf = (member: string | undefined): number => {
+        if (minorAge === null || minorPer === null || member === undefined) return 0;
+        const b = byId.get(member)?.birth ?? null;
+        if (b === null || b > D) return 0;
+        const age = Math.floor((D - b) / 12);
+        return age < minorAge ? ctx.money.mulRatio(minorPer, minorAge - age, 1, "conv.exact") : 0;
+      };
+      const heirRows = slots.map((s) => {
         const acquisition = ctx.money.mulRatio(T, s.share[0], s.share[1], "conv.tax.allocate");
-        const tax = ctx.money.mulRatio(totalTax, s.share[0], s.share[1], "conv.tax.allocate");
+        const base = ctx.money.mulRatio(totalTax, s.share[0], s.share[1], "conv.tax.allocate");
+        const surcharge = surchargeRate !== null && s.count === undefined && surchargeOf(s.member) ? ctx.money.mulRate(base, surchargeRate, "conv.tax.allocate") : 0;
+        const tax = base + surcharge;
         let sRed = 0;
         if (s.spouse && T > 0) {
           const legal = ctx.money.mulRatio(T, s.share[0], s.share[1], "conv.tax.allocate");
@@ -838,14 +1191,33 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           // 相続税法19条の2: 相続税の総額×（配偶者の課税価格と「1億6,000万円か法定相続分の額の多い方」の小さい方）÷課税価格の合計
           sRed = Math.min(tax, ctx.money.mulRatio(totalTax, lim, T, "conv.tax.allocate"));
         }
+        const minorFull = s.count === undefined ? minorOf(s.member) : 0;
+        const minor = Math.min(minorFull, tax - sRed);
+        return { s, acquisition, base, surcharge, tax, sRed, minor, excess: minorFull - minor };
+      });
+      // 引ききれない未成年者控除は、扶養義務者（配偶者、次に他の相続人の順）の税から引く
+      let excess = heirRows.reduce((sum, r) => sum + r.excess, 0);
+      for (const r of [...heirRows.filter((x) => x.s.spouse), ...heirRows.filter((x) => !x.s.spouse)]) {
+        if (excess <= 0) break;
+        const room = r.tax - r.sRed - r.minor;
+        const take = Math.min(room, excess);
+        if (take <= 0 || r.excess > 0) continue;
+        r.minor += take;
+        excess -= take;
+      }
+      let surchargeSum = 0;
+      let minorSum = 0;
+      for (const { s, acquisition, tax, surcharge, sRed, minor } of heirRows) {
         const credit = s.member !== undefined ? (credits.get(s.member) ?? 0) : 0;
-        const before = tax - sRed;
+        const before = tax - sRed - minor;
         const pay = at.money.round(yen(Math.max(0, before - credit)), P.taxRound);
         const back = Math.max(0, credit - before);
         red += sRed;
         creditSum += credit;
         payable += pay;
         refund += back;
+        surchargeSum += surcharge;
+        minorSum += minor;
         if (s.outside) payableOutside += pay;
         else payableHousehold += pay;
         byHeir.push({
@@ -853,11 +1225,13 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           ...(s.count !== undefined ? { count: s.count } : {}),
           outside: s.outside,
           acquisition,
-          tax,
+          tax: yen(tax),
           spouseReduction: yen(sRed),
           credit: yen(credit),
           payable: pay,
           refund: yen(back),
+          ...(surcharge > 0 ? { surcharge: yen(surcharge) } : {}),
+          ...(minor > 0 ? { minorCredit: yen(minor) } : {}),
         });
       }
       const override = req.overrides?.find((o) => o.point === point && (o.decedent === undefined || o.decedent === X));
@@ -874,12 +1248,13 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         refund: yen(refund),
         amount: override !== undefined ? override.amount : yen(payable),
         state: override !== undefined ? "confirmed" : "estimated",
+        ...(detailed ? { surcharge: yen(surchargeSum), minorCredit: yen(minorSum), lands: landEval?.lands ?? [] } : {}),
         cautions: [...cautions].sort(),
       });
     }
     // 目安（推定）であることと、不動産の評価の割合に既定（時価の80%）を使ったこと
     if (results.some((p) => p.status === "ok")) ctx.notice("N_ESTIMATED", ["inheritanceTax.estimate"]);
     if (req.realEstateRatio === undefined && results.some((p) => p.assets.realEstateMarket > 0)) ctx.notice("N_DEFAULT_USED", ["inheritanceTax.realEstateRatio"]);
-    return { points: results, notIncluded: NOT_INCLUDED };
+    return { points: results, notIncluded: detailed ? NOT_INCLUDED_DETAILED : NOT_INCLUDED };
   },
 });

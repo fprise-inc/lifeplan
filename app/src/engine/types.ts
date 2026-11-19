@@ -887,6 +887,51 @@ export interface InheritanceTaxRequest {
   heirCounts?: { decedent: string; count: number }[];
   retirementAllowances?: { decedent: string; amount: number }[];
   overrides?: { point: "now" | "bothAfter" | "contingency"; decedent?: string; amount: number }[];
+  /** 相続税も試算する（0231）。チェックした世帯だけ lands と2割加算・未成年者控除を計算に入れる */
+  detailed?: boolean;
+  /** 相続税の試算の、不動産ごとの設定（0231） */
+  lands?: InheritanceLandSetting[];
+}
+
+/** 小規模宅地等の特例で土地を取得する人と、要件を満たすか（0231） */
+export interface SmallLandChoice {
+  acquirer: "spouse" | "cohabiting" | "noHome" | "successor" | "other";
+  met?: boolean;
+}
+
+/** 相続税の試算の不動産1つの設定（0231。物件全体の値） */
+export interface InheritanceLandSetting {
+  object: string;
+  area?: string;
+  method?: "market" | "routePrice" | "multiplier" | "fixedEstimate";
+  routePrice?: number;
+  fixedValue?: number;
+  multiplier?: string;
+  adjustment?: string;
+  leaseholdRatio?: "A" | "B" | "C" | "D" | "E" | "F" | "G";
+  buildingValue?: number;
+  /** 建物の固定資産税評価額の推定（画面が計算の要求を作るときだけ入れる。世帯には保存しない） */
+  buildingEstimate?: number;
+  rentalRatio?: string;
+  use?: "residence" | "rental" | "business" | "familyCompany" | "none";
+  rentalContinued?: boolean;
+  primary?: SmallLandChoice;
+  secondary?: SmallLandChoice;
+}
+
+/** 相続税の試算の不動産1つの結果（0231。額は亡くなる人の分） */
+export interface InheritanceLandResult {
+  object: string;
+  method: "market" | "routePrice" | "multiplier" | "fixedEstimate";
+  landMarket: number;
+  buildingMarket: number;
+  land: number;
+  building: number;
+  buildingSource: "entered" | "estimate" | "market" | "none";
+  rentalRatio?: string;
+  area?: string;
+  use: "residence" | "rental" | "business" | "familyCompany" | "none";
+  special: { status: "applied" | "limit" | "notSet" | "notMet" | "noArea" | "within3Years" | "notLived" | "notRented" | "none"; rate?: string; acquirer?: SmallLandChoice["acquirer"]; defaulted?: boolean; appliedArea?: string; reduction: number; recentRental?: boolean };
 }
 
 /** 相続税の目安の1時点（0039。engine/schemas/engine.output.json の inheritanceTax のうち画面が使う部分） */
@@ -908,6 +953,10 @@ export interface InheritancePoint {
   amount: number;
   state: "estimated" | "confirmed";
   cautions: string[];
+  /** 0231: 相続税も試算する世帯だけ */
+  surcharge?: number;
+  minorCredit?: number;
+  lands?: InheritanceLandResult[];
 }
 
 export interface InheritanceOutput {

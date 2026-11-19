@@ -398,6 +398,42 @@
             "properties": { "decedent": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
           }
         },
+        "detailed": {
+          "description": "相続税も試算する（0231）。true のときだけ、不動産ごとの設定 lands（土地の評価の入れ方・貸家と貸家建付地の減額・小規模宅地等の特例）と2割加算・未成年者控除を入れる。省略は今までの目安（不動産は時価×評価の割合）",
+          "type": "boolean"
+        },
+        "lands": {
+          "description": "相続税の試算の、不動産ごとの設定（0231。detailed のときだけ読む）。object は持ち家（residences）か住まい以外の不動産の器（accounts の realEstate）。入れていない不動産も、特例の種類の省略の決まりで数える",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["object"],
+            "properties": {
+              "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "area": { "description": "土地の面積（㎡。物件全体。亡くなる人の分は名義の割合で分ける。省略は住まい以外の不動産の中身の土地の面積 property.area.land）", "$ref": "#/$defs/landArea" },
+              "method": {
+                "description": "土地の評価の入れ方: routePrice は路線価×面積（路線価地域）、multiplier は固定資産税評価額×倍率（倍率地域）、fixedEstimate は固定資産税評価額×8/7（路線価が分からないときの推定）、market は時価×評価の割合（省略）",
+                "enum": ["market", "routePrice", "multiplier", "fixedEstimate"]
+              },
+              "routePrice": { "description": "路線価（1㎡あたりの円。正面の路線の価格）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "fixedValue": { "description": "土地の固定資産税評価額（物件全体）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "multiplier": { "description": "評価倍率（倍率表の倍率）", "$ref": "#/$defs/positiveDecimal" },
+              "adjustment": { "description": "補正の率（奥行価格補正・不整形地補正などを掛けた率。省略は1＝補正しない）", "$ref": "#/$defs/positiveDecimal" },
+              "leaseholdRatio": { "description": "借地権割合の記号（路線価図の A〜G。A 90%〜G 30%。貸家建付地の減額に使う。省略は D〔60%〕）", "enum": ["A", "B", "C", "D", "E", "F", "G"] },
+              "buildingValue": { "description": "建物の固定資産税評価額（物件全体）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "buildingEstimate": { "description": "建物の固定資産税評価額の推定（画面が固定資産税の目安〔0112・0181〕から入れる。世帯には保存しない。buildingValue が無いときに使う）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "rentalRatio": { "description": "賃貸割合（貸している床面積の割合。省略は、亡くなる月に貸していれば 1−空室率〔今の家賃で入れた物件は1〕、貸していなければ0。民泊・宿は貸家にしない）", "$ref": "#/$defs/unitShare" },
+              "use": {
+                "description": "小規模宅地等の特例の種類: residence は自宅（特定居住用）、rental は貸付（貸付事業用）、business は事業（特定事業用）、familyCompany は自分の会社に貸している土地（特定同族会社事業用）、none は特例を使わない。省略は、持ち家なら residence、亡くなる月に貸している不動産なら rental、ほかは none",
+                "enum": ["residence", "rental", "business", "familyCompany", "none"]
+              },
+              "rentalContinued": { "description": "貸し始めて3年以内でも、事業的規模の貸付（特定貸付事業）を3年を超えて続けている（貸付の特例の3年の決まりの例外。利用者が確かめる）", "type": "boolean" },
+              "primary": { "description": "一次の相続（いま亡くなったら・万一の想定）で、この土地を取得する人と要件", "$ref": "#/$defs/smallLandChoice" },
+              "secondary": { "description": "二次の相続（二人とも亡くなった後）で、この土地を取得する人と要件", "$ref": "#/$defs/smallLandChoice" }
+            }
+          }
+        },
         "overrides": {
           "description": "FP が入れた額（税理士の試算など）。時点（と亡くなる人）ごとに、目安より優先する",
           "type": "array",
@@ -860,6 +896,26 @@
       "type": "string",
       "pattern": "^(0(\\.[0-9]{1,12})?|1(\\.0{1,12})?)$"
     },
+    "landArea": {
+      "description": "土地の面積（㎡。10進の文字列、小数2桁まで。0231）",
+      "type": "string",
+      "pattern": "^[0-9]{1,7}(\\.[0-9]{1,2})?$"
+    },
+    "positiveDecimal": {
+      "description": "0 以上の10進の文字列（倍率・補正の率。小数4桁まで。0231）",
+      "type": "string",
+      "pattern": "^[0-9]{1,3}(\\.[0-9]{1,4})?$"
+    },
+    "smallLandChoice": {
+      "description": "小規模宅地等の特例で土地を取得する人と、要件を満たすか（利用者が確かめる。0231）。acquirer: spouse は配偶者（自宅は要件なし）、cohabiting は同居の親族、noHome は持ち家の無い親族（いわゆる家なき子）、successor は事業・貸付・会社の役員を引き継ぐ親族、other は要件を満たさない人（特例を使わない）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acquirer"],
+      "properties": {
+        "acquirer": { "enum": ["spouse", "cohabiting", "noHome", "successor", "other"] },
+        "met": { "description": "取得する人が要件（居住・保有・事業の継続、役員であることなど）を満たす。配偶者が自宅を取得するときは読まない（要件なし）", "type": "boolean" }
+      }
+    },
     "assetClass": {
       "description": "0008 の9: 資産クラス（公式の一覧）。期待リターンは前提の assetReturns で資産クラスごとに持つ",
       "enum": ["cash.deposit", "cash.foreign", "bond.domestic", "bond.global", "equity.domestic", "equity.global", "reit.domestic", "reit.global", "balanced", "commodity", "realEstate", "other"]
@@ -1011,7 +1067,7 @@
             "tenure": { "description": "権利（所有権 ownership・借地権 leasehold。表示用。計算には使わない。0079）", "enum": ["ownership", "leasehold"] },
             "units": { "description": "戸数（一棟のとき。表示用。計算は事業的規模の目安を数えるときだけ読む〔0081〕。空室は rental.vacancyRate で入れる。0079）", "type": "integer", "minimum": 1, "maximum": 9999 },
             "area": {
-              "description": "面積（㎡。10進の文字列。land 土地・floor 建物の延べ床。表示用。計算には使わない。0079）",
+              "description": "面積（㎡。10進の文字列。land 土地・floor 建物の延べ床。0079）。land は相続税の試算の土地の面積の省略に使う（0231）。ほかの計算には使わない",
               "type": "object",
               "additionalProperties": false,
               "properties": {

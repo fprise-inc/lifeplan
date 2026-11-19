@@ -267,6 +267,23 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(unsure.is_empty(), "{v}: 印は変換で書き足さない");
         }
+        // 0.85 から: 相続税の試算の設定 inheritanceTax.detailed・lands（0231）。変換で書き足さない（前の版の世帯は相続税も試算しない）。
+        // 0.85 の見本は持ち家（路線価・二次の取得する人）と物件（倍率・貸家建付地・貸付の取得する人）の2件
+        let tax = &now["household"]["request"]["input"]["inheritanceTax"];
+        if migrate::parse(v).unwrap() >= (0, 85) {
+            assert_eq!(
+                tax["detailed"], true,
+                "{v}: 0.85 からの見本は相続税も試算する"
+            );
+            assert_eq!(tax["lands"].as_array().map(Vec::len), Some(2));
+            assert_eq!(tax["lands"][0]["method"], "routePrice");
+            assert_eq!(tax["lands"][1]["primary"]["acquirer"], "successor");
+        } else {
+            assert!(
+                tax.get("detailed").is_none() && tax.get("lands").is_none(),
+                "{v}: 試算の設定は変換で書き足さない"
+            );
+        }
         // 0.84 から: Web のヒアリングの依頼の出どころ hearing.web[].origin（0222。AI から発行した依頼だけ）。変換で書き足さない
         // （前の版の依頼は FP の画面で発行した依頼）。0.84 の見本は1件目が AI の発行
         let origin = now["hearing"]["web"][0].get("origin");

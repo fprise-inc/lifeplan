@@ -1,0 +1,20 @@
+id: inheritanceTax.surcharge.rate
+title: 相続税額の2割加算の割合（20%）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.2"
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4157.htm", "retrievedAt": "2026-11-19", "retrievedVia": "searchExcerpt", "locator": "No.4157 相続税額の2割加算（令和8年4月1日現在法令等）", "quote": "各人の税額控除前の相続税額×0.2", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
+    recordedIn: "2026.22.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "相続税法18条1項（100分の20）。一親等の血族（代襲相続人の孫を含む）と配偶者のほかが対象。孫養子は代襲でなければ対象（同条2項）"}

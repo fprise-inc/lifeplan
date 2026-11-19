@@ -1,0 +1,20 @@
+id: inheritanceTax.smallLand.rental.recentYears
+title: 小規模宅地等の特例で、相続の開始の前に新たに貸付事業に使った宅地等を対象にしない年数（3年）
+unit: years
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2018-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4124.htm", "retrievedAt": "2026-11-19", "retrievedVia": "searchExcerpt", "locator": "No.4124 相続した事業の用や居住の用の宅地等の価額の特例（小規模宅地等の特例）（令和8年4月1日現在法令等）", "quote": "相続開始前3年以内に新たに貸付事業の用に供された宅地等", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.22.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "租税特別措置法69条の4第3項4号（平成30年度の改正。経過措置は書いていない）。相続の開始の日まで3年を超えて引き続き特定貸付事業を行っていた人の宅地等は除かない（部品は利用者の印 rentalContinued で読む）"}

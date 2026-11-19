@@ -1338,6 +1338,35 @@ export interface InheritanceTaxRequest {
   readonly heirCounts?: readonly { readonly decedent: string; readonly count: number }[];
   readonly retirementAllowances?: readonly { readonly decedent: string; readonly amount: Yen }[];
   readonly overrides?: readonly { readonly point: InheritancePoint; readonly decedent?: string; readonly amount: Yen }[];
+  /** 相続税も試算する（0231）。true のときだけ lands と2割加算・未成年者控除を入れる */
+  readonly detailed?: boolean;
+  /** 相続税の試算の、不動産ごとの設定（0231） */
+  readonly lands?: readonly InheritanceLandSetting[];
+}
+
+/** 小規模宅地等の特例で土地を取得する人と、要件を満たすか（利用者が確かめる。0231） */
+export interface SmallLandChoice {
+  readonly acquirer: "spouse" | "cohabiting" | "noHome" | "successor" | "other";
+  readonly met?: boolean;
+}
+
+/** 相続税の試算の不動産1つの設定（0231。物件全体の値。亡くなる人の分は名義の割合で分ける） */
+export interface InheritanceLandSetting {
+  readonly object: string;
+  readonly area?: string;
+  readonly method?: "market" | "routePrice" | "multiplier" | "fixedEstimate";
+  readonly routePrice?: Yen;
+  readonly fixedValue?: Yen;
+  readonly multiplier?: string;
+  readonly adjustment?: string;
+  readonly leaseholdRatio?: "A" | "B" | "C" | "D" | "E" | "F" | "G";
+  readonly buildingValue?: Yen;
+  readonly buildingEstimate?: Yen;
+  readonly rentalRatio?: string;
+  readonly use?: "residence" | "rental" | "business" | "familyCompany" | "none";
+  readonly rentalContinued?: boolean;
+  readonly primary?: SmallLandChoice;
+  readonly secondary?: SmallLandChoice;
 }
 
 /** 持ち家の評価の前提（世帯ごと・事務所の標準で変えられる。省略した項目は housing.valuation の目安） */

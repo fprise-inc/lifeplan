@@ -63,9 +63,13 @@
 #   原本の写しを非公開のリポジトリにまだ置いていないので、すべて確認待ち（pendingReview）。
 #   青色申告特別控除の「複式簿記（紙で申告）」の額（incomeTax.blueReturnDeduction.doubleEntry）に令和9年分からの10万円の行を足し、55万円の行を令和8年分までにした
 #   （令和8年法律第12号による措置法25条の2の改正。同法附則33条で令和9年分以後に適用。rev 2 に supersededIn）
+# 2026.22.0: 相続税の試算（0231）の値を新しいファイルで足した: 小規模宅地等の特例の限度面積と減額の割合（inheritanceTax.smallLand.*。租税特別措置法69条の4）、
+#   貸し始めて3年以内の貸付の年数、相続税額の2割加算の割合（inheritanceTax.surcharge.rate。相続税法18条）、未成年者控除の1年あたりの額と年齢
+#   （inheritanceTax.minorCredit.*。同19条の3）。国税庁のタックスアンサー（No.4124・4157・4164）の本文の抜粋で読んだので、すべて原本での確認待ち（pendingReview）。
+#   既存のファイルは変えていない
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.21.0"
+version: "2026.22.0"
 features: []
 title: 所得税・住民税
 requires:

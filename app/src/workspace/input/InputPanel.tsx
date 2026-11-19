@@ -24,7 +24,8 @@ import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { LEVEL_HELP_COMMON, levelDiffLine } from "./levelHelp.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
-import { inheritanceTaxNote, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { detailPrompt, inheritanceTaxNote, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { setDetailed } from "./inheritanceLand.ts";
 import { RetirementLineup } from "./RetirementLineup.tsx";
 import { AssumptionList } from "./AssumptionList.tsx";
 import { PensionEstimate } from "./PensionEstimate.tsx";
@@ -670,6 +671,15 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                             </li>
                           ))}
                         </ul>
+                        {/* 目安でかかりそうな世帯にだけ「詳しく試算しますか」（押すと相続税も試算するにチェックし、区画「相続税の試算」が標準に出る。0231） */}
+                        {detailPrompt(shown, inheritance) !== null ? (
+                          <p class="ip-inherit-note" data-inherit-detail-prompt>
+                            {detailPrompt(shown, inheritance)}
+                            <button type="button" class="link-btn" onClick={() => edit(setDetailed(shown, true))} data-inherit-detail-on>
+                              詳しく試算する
+                            </button>
+                          </p>
+                        ) : null}
                         {inheritanceView(shown, inheritance).notIncluded.length > 0 ? (
                           <p class="ip-inherit-note">
                             含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}

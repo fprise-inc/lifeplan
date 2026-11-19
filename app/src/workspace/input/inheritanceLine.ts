@@ -6,13 +6,15 @@ import type { EngineRequest, Household, InheritancePoint, PreviewResult } from "
 import type { WorkingHousehold } from "./household.ts";
 import { manText } from "./items.ts";
 import { bothAfterLabel, memberLabel } from "./labels.ts";
+import { isDetailed, landTargets, withLandEstimates } from "./inheritanceLand.ts";
 
 /** 相続税の目安を求める要求（今の世帯の写し。万一の想定・必要保障額の推移は外す） */
 export function inheritanceRequest(req: EngineRequest): EngineRequest {
   const out = structuredClone(req);
   delete out.input.contingencies;
   delete out.input.protection;
-  out.input.inheritanceTax = { ...(req.input.inheritanceTax ?? {}), points: ["now", "bothAfter"] };
+  // 相続税も試算する世帯は、建物の固定資産税評価額の推定を足す（世帯には保存しない。0231）
+  out.input.inheritanceTax = { ...withLandEstimates(req.input.inheritanceTax ?? {}, req), points: ["now", "bothAfter"] };
   out.trace = "none";
   return out;
 }
@@ -66,6 +68,12 @@ export const CAUTION_TEXT: Readonly<Record<string, string>> = {
   adoptedLimit: "法定相続人の数に入れない養子がいます（実子がいれば1人・いなければ2人まで）",
   settlementGiftToNonHeir: "相続人でない人への相続時精算課税の贈与があります（その人も相続税を納めます）",
   noHeirs: "相続人がいないので、税を出していません",
+  // 相続税も試算する世帯（0231）
+  smallLandNotSet: "小規模宅地等の特例の取得する人を選んでいない土地があります（選ぶまで特例を使いません）",
+  smallLandAreaMissing: "土地の面積が無いので、小規模宅地等の特例を使っていない土地があります",
+  smallLandAreaLimit: "小規模宅地等の特例の面積の上限を超えた分は、減らしていません（減る額の大きい土地から適用）",
+  smallLandRecentRental: "貸し始めて3年以内の貸付があります（事業的規模の貸付を3年を超えて続けていなければ、貸付の特例の対象になりません）",
+  landInputMissing: "土地の評価の入れ方に要る値（路線価と面積・固定資産税評価額・倍率）が無い土地は、時価×評価の割合で見ています",
 };
 
 /** 目安に含めていない決まり（エンジンの notIncluded） */
@@ -79,7 +87,31 @@ export const NOT_INCLUDED_TEXT: Readonly<Record<string, string>> = {
   minorCredit: "未成年者控除",
   disabilityCredit: "障害者控除",
   receivingSideEstimate: "受け取る側の相続税（親の遺産から）",
+  landCorrectionDetail: "土地の補正（奥行・間口・形。補正の率を入れたときだけ）",
 };
+
+/** 特例の状態の言葉（0231） */
+const SPECIAL_TEXT: Readonly<Record<string, string>> = {
+  limit: "面積の上限で使えない",
+  notSet: "取得する人を選んでいない",
+  notMet: "要件を満たさない",
+  noArea: "面積が無い",
+  within3Years: "貸し始めて3年以内",
+  notLived: "住んでいない",
+  notRented: "貸していない",
+};
+const METHOD_TEXT: Readonly<Record<string, string>> = { market: "時価×評価の割合", routePrice: "路線価×面積", multiplier: "固定資産税評価額×倍率", fixedEstimate: "固定資産税評価額×8/7" };
+const BUILDING_TEXT: Readonly<Record<string, string>> = { entered: "固定資産税評価額", estimate: "固定資産税評価額の推定", market: "時価×評価の割合" };
+
+/**
+ * 「詳しく試算しますか」の一言（0231）: 相続税も試算していない世帯で、目安でかかりそうな時点（FP が入れた額でない）があり、不動産を持つときだけ。
+ * 不動産が無ければ土地の試算は要らないので出さない
+ */
+export function detailPrompt(wh: WorkingHousehold, r: PreviewResult | null): string | null {
+  if (isDetailed(wh) || landTargets(wh.request.input.household).length === 0) return null;
+  const likely = (r?.inheritanceTax?.points ?? []).some((p) => p.status === "ok" && p.state === "estimated" && !p.noTax);
+  return likely ? "相続税がかかりそうです。土地の評価（路線価など）と小規模宅地等の特例を入れて、詳しく試算しますか" : null;
+}
 
 const RELATION_TEXT: Readonly<Record<string, string>> = { spouse: "配偶者", child: "子", grandchild: "孫（代襲）", parent: "親", grandparent: "祖父母", sibling: "兄弟姉妹" };
 
@@ -124,12 +156,12 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
     if (p.status === "noHeirs") details.push(NO_HEIRS_HINT);
     if (p.status === "ok") {
       const a = p.assets;
-      // 不動産の評価の割合（相続税の目安の設定。入れていなければ計算エンジンの既定の80%）
+      // 不動産の評価の割合（相続税の目安の設定。入れていなければ計算エンジンの既定の80%）。相続税も試算する世帯は、不動産ごとの評価の合計（下の行に内訳）
       const ratio = Number(wh.request.input.inheritanceTax?.realEstateRatio ?? REAL_ESTATE_RATIO_DEFAULT);
       const ratioText = `${String(Math.round(ratio * 1000) / 10)}%`;
       const parts = [
         `金融資産 ${man(a.financial ?? 0)}`,
-        ...((a.realEstateMarket ?? 0) > 0 ? [`不動産 ${man(a.realEstate ?? 0)}（時価 ${man(a.realEstateMarket ?? 0)} の${ratioText}）`] : []),
+        ...((a.realEstateMarket ?? 0) > 0 ? [p.lands !== undefined ? `不動産 ${man(a.realEstate ?? 0)}（時価 ${man(a.realEstateMarket ?? 0)}）` : `不動産 ${man(a.realEstate ?? 0)}（時価 ${man(a.realEstateMarket ?? 0)} の${ratioText}）`] : []),
         ...((a.insurance ?? 0) > 0 ? [`死亡保険金 ${man(a.insurance ?? 0)}（非課税 ${man(a.insuranceExempt ?? 0)}）`] : []),
         ...((a.retirement ?? 0) > 0 ? [`死亡退職金 ${man(a.retirement ?? 0)}（非課税 ${man(a.retirementExempt ?? 0)}）`] : []),
         ...((a.other ?? 0) > 0 ? [`その他 ${man(a.other ?? 0)}`] : []),
@@ -138,13 +170,30 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
         ...((a.debts ?? 0) > 0 ? [`債務 −${man(a.debts ?? 0)}${(a.unpaidTaxes ?? 0) > 0 ? `（うち まだ払っていない税 ${man(a.unpaidTaxes ?? 0)}）` : ""}`] : []),
         ...((a.funeral ?? 0) > 0 ? [`葬式の費用 −${man(a.funeral ?? 0)}`] : []),
       ];
-      details.push(`財産（${p.valuationYear}年末）: ${parts.join("・")} → 課税価格 ${man(a.taxablePrice ?? 0)}`);
+      details.push(`財産（${p.valuationYear}年末）: ${parts.join("・")}${(a.smallLandReduction ?? 0) > 0 ? `・小規模宅地等の特例 −${man(a.smallLandReduction ?? 0)}` : ""} → 課税価格 ${man(a.taxablePrice ?? 0)}`);
+      // 相続税も試算する世帯: 不動産ごとの評価と特例（0231）
+      const titles = new Map(landTargets(wh.request.input.household).map((t) => [t.object, t.title]));
+      for (const l of p.lands ?? []) {
+        const sp = l.special;
+        const special = sp.status === "applied" ? `特例 ${sp.appliedArea !== undefined ? `${String(Math.round(Number(sp.appliedArea) * 100) / 100)}㎡ ` : ""}−${man(sp.reduction)}${sp.defaulted === true ? "（配偶者が取得するとみなした）" : ""}` : sp.status === "none" ? null : `特例なし（${SPECIAL_TEXT[sp.status] ?? sp.status}）`;
+        const bits = [
+          `土地 ${man(l.land)}（${METHOD_TEXT[l.method] ?? l.method}${l.rentalRatio !== undefined ? `・貸家建付地（賃貸割合${String(Math.round(Number(l.rentalRatio) * 1000) / 10)}%）` : ""}）`,
+          ...(l.buildingSource !== "none" ? [`建物 ${man(l.building)}（${BUILDING_TEXT[l.buildingSource] ?? ""}${l.rentalRatio !== undefined ? "・貸家" : ""}）`] : []),
+          ...(special !== null ? [special] : []),
+        ];
+        details.push(`${titles.get(l.object) ?? "不動産"}: ${bits.join("・")}`);
+      }
       const heirs = (p.heirs ?? []).filter((x) => x.counted);
       const who = heirs.map((x) => `${RELATION_TEXT[x.relation] ?? "相続人"}${x.outside ? "（世帯の外）" : ""}${x.adopted === true ? "（養子）" : ""}`);
       details.push(`法定相続人 ${String(p.heirCount)}人${p.heirCountOverridden === true ? "（直した数）" : who.length > 0 ? `（${who.join("・")}）` : ""} → 基礎控除 ${man(p.basicDeduction)}`);
       if (p.noTax) details.push(`基礎控除まで あと ${man(Math.max(0, p.margin))}`);
       else {
-        const minus = [...((p.spouseReduction ?? 0) > 0 ? [`配偶者の軽減 −${man(p.spouseReduction ?? 0)}`] : []), ...((p.settlementCredit ?? 0) > 0 ? [`精算課税で払った贈与税 −${man(p.settlementCredit ?? 0)}`] : [])];
+        const minus = [
+          ...((p.surcharge ?? 0) > 0 ? [`2割加算 ＋${man(p.surcharge ?? 0)}`] : []),
+          ...((p.spouseReduction ?? 0) > 0 ? [`配偶者の軽減 −${man(p.spouseReduction ?? 0)}`] : []),
+          ...((p.minorCredit ?? 0) > 0 ? [`未成年者控除 −${man(p.minorCredit ?? 0)}`] : []),
+          ...((p.settlementCredit ?? 0) > 0 ? [`精算課税で払った贈与税 −${man(p.settlementCredit ?? 0)}`] : []),
+        ];
         details.push(`課税遺産総額 ${man(p.taxableEstate ?? 0)} → 税の総額 ${man(p.totalTax)}${minus.length > 0 ? `（${minus.join("・")}）` : ""} → 納める額 ${man(p.payable)}（世帯の人 ${man(p.payableHousehold)}${p.payableOutside > 0 ? `・世帯の外の相続人 ${man(p.payableOutside)}` : ""}。法定相続分どおりに分けたとして）`);
       }
       if (p.state === "confirmed") details.push(`目安は ${p.noTax ? "かからない見込み" : `約${man(p.payable)}`}（FP が入れた額を使っています）`);

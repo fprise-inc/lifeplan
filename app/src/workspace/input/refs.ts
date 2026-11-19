@@ -188,6 +188,9 @@ export function refSites(input: Obj): RefSite[] {
     at("inheritanceTax.lastSurvivor", it.lastSurvivor, "donor", null, clear(it, "lastSurvivor"));
     for (const key of ["heirCounts", "retirementAllowances"]) for (const x of list(it, key)) at(`inheritanceTax.${key}`, x.decedent, "donor", null, dropRow(it, key, x));
     for (const x of list(it, "overrides")) at("inheritanceTax.overrides", x.decedent, "donor", null, clear(x, "decedent"));
+    // 相続税の試算の不動産ごとの設定（0231）: 持ち家か住まい以外の不動産を外したら、その行を消す
+    const homes = new Set(list(h, "residences").map((r) => r.id));
+    for (const x of list(it, "lands")) at("inheritanceTax.lands", x.object, homes.has(x.object) ? "residence" : "account", null, dropRow(it, "lands", x));
   }
   return out;
 }
@@ -253,6 +256,7 @@ export const SCHEMA_REF_FIELDS: readonly string[] = [
   ".assumptions.withdrawal.order[].object",
   ".inheritanceTax.adopted[]",
   ".inheritanceTax.heirCounts[].decedent",
+  ".inheritanceTax.lands[].object",
   ".inheritanceTax.lastSurvivor",
   ".inheritanceTax.members[]",
   ".inheritanceTax.overrides[].decedent",

@@ -96,6 +96,7 @@
                   "settlementGifts": { "description": "相続時精算課税で贈与した財産（年ごとの基礎控除の後）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "debts": { "description": "債務（団信で消える分を除く。亡くなった人がまだ払っていない所得の税を含む）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "unpaidTaxes": { "description": "債務のうち、亡くなった人がまだ払っていない死亡の年までの所得の税（任意。約束の版 1.1）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "smallLandReduction": { "description": "小規模宅地等の特例で減らした額（任意。相続税も試算する世帯だけ。約束の版 1.2・0231）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "funeral": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "taxablePrice": { "description": "課税価格の合計（1,000円未満切り捨て）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
                 }
@@ -124,6 +125,46 @@
               "totalTax": { "description": "相続税の総額", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
               "spouseReduction": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
               "settlementCredit": { "description": "相続時精算課税で払った贈与税（引く額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "surcharge": { "description": "2割加算の合計（任意。相続税も試算する世帯だけ。約束の版 1.2・0231）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "minorCredit": { "description": "未成年者控除の合計（任意。相続税も試算する世帯だけ。約束の版 1.2・0231）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "lands": {
+                "description": "不動産ごとの評価と小規模宅地等の特例（任意。相続税も試算する世帯だけ。約束の版 1.2・0231）。額は亡くなる人の分",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["object", "method", "landMarket", "buildingMarket", "land", "building", "buildingSource", "use", "special"],
+                  "properties": {
+                    "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                    "method": { "description": "使った土地の評価の入れ方（入れ方に要る値が無ければ market）", "enum": ["market", "routePrice", "multiplier", "fixedEstimate"] },
+                    "landMarket": { "description": "土地の時価（分けていない器は全体）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "buildingMarket": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "land": { "description": "土地の評価（貸家建付地の減額の後、特例の前）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "building": { "description": "建物の評価（貸家の減額の後）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "buildingSource": { "description": "建物の評価の元: entered は入れた固定資産税評価額、estimate は固定資産税の目安の推定、market は時価×評価の割合、none は建物なし", "enum": ["entered", "estimate", "market", "none"] },
+                    "rentalRatio": { "description": "賃貸割合（貸しているときだけ）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                    "area": { "description": "土地の面積のうち亡くなる人の分（㎡）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                    "use": { "enum": ["residence", "rental", "business", "familyCompany", "none"] },
+                    "special": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["status", "reduction"],
+                      "properties": {
+                        "status": {
+                          "description": "applied は適用した、limit は面積の上限で適用できなかった、notSet は取得する人を選んでいない、notMet は要件を満たさない、noArea は面積が無い、within3Years は貸し始めて3年以内、notLived は亡くなる月に住んでいない、notRented は亡くなる月に貸していない、none は特例を使わない",
+                          "enum": ["applied", "limit", "notSet", "notMet", "noArea", "within3Years", "notLived", "notRented", "none"]
+                        },
+                        "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+                        "acquirer": { "enum": ["spouse", "cohabiting", "noHome", "successor", "other"] },
+                        "defaulted": { "description": "取得する人を選んでいない自宅で、配偶者が取得するとみなした", "type": "boolean" },
+                        "appliedArea": { "description": "特例を適用した面積（㎡）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                        "reduction": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "recentRental": { "description": "貸し始めて3年以内", "type": "boolean" }
+                      }
+                    }
+                  }
+                }
+              },
               "byHeir": {
                 "description": "人ごと（法定相続分どおりに分けたとする）。法定相続人の数を直したときは、配偶者のほかをまとめた1行（member なし・count）",
                 "type": "array",
@@ -140,7 +181,9 @@
                     "spouseReduction": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                     "credit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                     "payable": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                    "refund": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                    "refund": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "surcharge": { "description": "2割加算（tax の内数。約束の版 1.2）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "minorCredit": { "description": "未成年者控除（引ききれない分を扶養義務者の税から引いた分を含む。約束の版 1.2）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
                   }
                 }
               },
