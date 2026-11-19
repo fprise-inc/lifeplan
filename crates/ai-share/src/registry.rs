@@ -1295,7 +1295,7 @@ impl ShareRegistry {
         tool: &str,
         caller: &Caller,
     ) -> Result<String, Refusal> {
-        self.get_payload(share_id, tool, caller)
+        self.get_payload(share_id, tool, caller, false)
             .map(|v| v.to_string())
     }
 
@@ -1308,7 +1308,7 @@ impl ShareRegistry {
         tool: &str,
         caller: &Caller,
     ) -> Result<String, Refusal> {
-        let mut payload = self.get_payload(share_id, tool, caller)?;
+        let mut payload = self.get_payload(share_id, tool, caller, true)?;
         // 共有の台帳のロックを放してから読む（事務所の値を読む所は、アプリ本体の保存の部品のロックを取る）
         let source = self
             .office
@@ -1320,7 +1320,13 @@ impl ShareRegistry {
         Ok(payload.to_string())
     }
 
-    fn get_payload(&self, share_id: &str, tool: &str, caller: &Caller) -> Result<Value, Refusal> {
+    fn get_payload(
+        &self,
+        share_id: &str,
+        tool: &str,
+        caller: &Caller,
+        for_calc: bool,
+    ) -> Result<Value, Refusal> {
         let now = self.now();
         let mut st = self.lock();
         usable(&mut st, share_id, now)?;
@@ -1349,6 +1355,13 @@ impl ShareRegistry {
         // 定年後の働き方の条件（数と選択肢だけ。物の ID は仮名。0195）。元の世帯が条件を持たなければ欄を出さない
         if let Some(p) = &reduced.post_retirement {
             payload["postRetirement"] = p.clone();
+        }
+        // 画面の入力の進み具合（接続口の計算の読み取りだけ。AI には見せない。0222 の追記 2026-11-19）: 保存した・足した入力項目の数と、
+        // 仮の値を入れた欄のキー（物の ID は仮の ID に。置き換えられない鍵は落とす）。接続口はこれで「まだ何も入れていない新しい世帯」を画面と同じ関数で決める
+        if for_calc {
+            if let Some(e) = &share.source.entered {
+                payload["enteredState"] = entered_state(e, &share.pseudonyms);
+            }
         }
         let digest = content_digest(share.scope.name(), &reduced, &share.pseudonyms);
         let household_id = share.source.household_id.clone();
@@ -1480,6 +1493,23 @@ fn documents_basis_of(st: &State, source: &SharedHouseholdSource) -> AiUse {
         st.office_policy,
         source.fictional,
     )
+}
+
+/// 画面の入力の進み具合を接続口に渡す形にする（数はそのまま、仮の値を入れた欄のキーは物の ID を仮の ID に。置き換えられない鍵は落とす）
+fn entered_state(e: &Value, p: &Pseudonyms) -> Value {
+    let n = |k: &str| e.get(k).and_then(Value::as_u64).unwrap_or(0);
+    let assumed: Vec<Value> = e
+        .get("assumed")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .filter_map(|k| display::pseudonymize_key(k, p))
+                .map(Value::String)
+                .collect()
+        })
+        .unwrap_or_default();
+    json!({ "confirmed": n("confirmed"), "addedItems": n("addedItems"), "assumed": assumed })
 }
 
 fn not_shared() -> Refusal {

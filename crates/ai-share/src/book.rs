@@ -147,6 +147,22 @@ pub struct HouseholdAiView {
     pub ai_documents_use: AiUse,
 }
 
+/// 画面の入力の進み具合（保存した入力項目と足した入力項目の数・仮の値を入れた欄のキー。0222 の追記 2026-11-19）。文は写さない
+fn entered_of(body: &Map<String, Value>) -> Value {
+    let h = body.get("household");
+    let count = |k: &str| {
+        h.and_then(|h| h.get(k))
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len)
+    };
+    let assumed: Vec<Value> = h
+        .and_then(|h| h.get("assumed"))
+        .and_then(Value::as_object)
+        .map(|m| m.keys().map(|k| Value::String(k.clone())).collect())
+        .unwrap_or_default();
+    serde_json::json!({ "confirmed": count("confirmed"), "addedItems": count("addedItems"), "assumed": assumed })
+}
+
 /// 開いている世帯の帳面
 #[derive(Debug, Clone)]
 pub struct HouseholdBook {
@@ -338,6 +354,7 @@ impl HouseholdBook {
             display: Some(crate::display::household_display_of(&self.body)),
             external_ai_consent: self.consent(),
             fictional: self.fictional,
+            entered: Some(entered_of(&self.body)),
         })
     }
 

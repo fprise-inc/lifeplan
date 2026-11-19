@@ -13,7 +13,8 @@ import { hearingCheck, hearingOptions } from "../src/connector/hearing.ts";
 import { AiHearingBand, AiHearingPanel } from "../src/workspace/ai/AiHearingIssued.tsx";
 import { assignTo, EMPTY_OFFICE_HEARING, markSeen, moveInto, pendingFor, pruned, readOfficeHearing, readTemplateProposal, relayMessage, runIssueJob, scrubSelection, UNASSIGNED_LIMIT, unassignedAccepting, unseenCount, withIssued, withPending, type IssueJob, type OfficeHearing } from "../src/workspace/hearing/aiHearing.ts";
 import { aiSelection, hearingOptions as options, type AiSelectionArgs, type AiSelectionContext } from "../src/workspace/hearing/aiSelection.ts";
-import { estimateOf, prefillOf, receiveWeb, selectedCount, sheetOf, statusOf, templateSelection, webLog, withWebEntry, type WebLogEntry } from "../src/workspace/hearing/web.ts";
+import { enteredKeys, estimateOf, filledCount, prefillOf, receiveWeb, selectedCount, sheetOf, statusOf, templateSelection, webLog, withWebEntry, type WebLogEntry } from "../src/workspace/hearing/web.ts";
+import { baseSheet } from "../src/workspace/hearing/selection.ts";
 import { WebRequests } from "../src/workspace/hearing/WebRequests.tsx";
 import { HearingTemplateProposals } from "../src/workspace/office/HearingTemplateProposals.tsx";
 import { bodyOf, fromBody } from "../src/workspace/store/body.ts";
@@ -75,7 +76,7 @@ describe("選び方の一覧（get_hearing_options。FP の画面と同じ関数
 
   it("渡された世帯があれば、項目ごとに今の値があるか（値は返さない）と見直し・足りない所だけの数", () => {
     const input = modelHousehold("salariedCoupleTwoKids").input;
-    const out = JSON.parse(hearingOptions(JSON.stringify({ sheet: "detail" }), JSON.stringify(input), "")) as { sheets: { sections: { items: { key: string; filled?: boolean }[] }[] }[]; templates: { id: string; selectedCount?: number }[]; household?: unknown };
+    const out = JSON.parse(hearingOptions(JSON.stringify({ sheet: "detail" }), JSON.stringify({ input }), "")) as { sheets: { sections: { items: { key: string; filled?: boolean }[] }[] }[]; templates: { id: string; selectedCount?: number }[]; household?: unknown };
     const items = out.sheets[0]!.sections.flatMap((s) => s.items);
     expect(items.find((i) => i.key === "hs.family.adult.birthYearMonth")?.filled).toBe(true);
     expect(items.some((i) => i.filled === false)).toBe(true);
@@ -91,6 +92,55 @@ describe("選び方の一覧（get_hearing_options。FP の画面と同じ関数
     expect((JSON.parse(hearingOptions("{}", "", "")) as { officeTemplates: unknown }).officeTemplates).toBeNull();
     const r = JSON.parse(hearingCheck(JSON.stringify({ template: "初回" }), "", office)) as { selection: WebSelection };
     expect(r.selection.topics).toBeUndefined();
+  });
+});
+
+/** アプリ本体が接続口に渡す形（計算の入力・定年後の条件・画面の入力の進み具合。0222 の追記 2026-11-19） */
+const sharedOf = (wh: WorkingHousehold): string =>
+  JSON.stringify({ input: wh.request.input, postRetirement: wh.postRetirement, enteredState: { confirmed: wh.confirmed.length, addedItems: wh.addedItems.length, assumed: Object.keys(wh.assumed) } });
+/** 接続口の答えで、詳細の票の項目のうち今の値がある物 */
+const aiFilled = (wh: WorkingHousehold): string[] => {
+  const out = JSON.parse(hearingOptions(JSON.stringify({ sheet: "detail" }), sharedOf(wh), "")) as { sheets: { sections: { items: { key: string; filled?: boolean }[] }[] }[] };
+  return out.sheets[0]!.sections.flatMap((s) => s.items).filter((i) => i.filled === true).map((i) => i.key).sort();
+};
+/** 画面の答え（詳細の票の項目のうち今の値がある物。接続口が並べる項目だけ） */
+const screenFilled = (wh: WorkingHousehold): string[] => {
+  const listed = new Set((JSON.parse(hearingOptions(JSON.stringify({ sheet: "detail" }), "", "")) as { sheets: { sections: { items: { key: string }[] }[] }[] }).sheets[0]!.sections.flatMap((s) => s.items.map((i) => i.key)));
+  return [...enteredKeys(wh, baseSheet("detail"))].filter((k) => listed.has(k)).sort();
+};
+const aiReview = (wh: WorkingHousehold) => JSON.parse(hearingCheck(JSON.stringify({ template: "review" }), sharedOf(wh), "")) as { selection: WebSelection | null; problems: string[] };
+const confirmKeys = (sel: WebSelection | null | undefined): string[] => (sel?.sections ?? []).flatMap((s) => s.items).filter((i) => i.mode === "confirm").map((i) => i.key).sort();
+
+describe("今の値があるか: 画面と AI で同じ答え（同じ関数 enteredKeys。0222 の追記 2026-11-19）", () => {
+  it("作ったばかりの世帯: 画面も AI も「値なし」（初めの値・仮の値を入力した値と数えない）。見直しも確かめてもらう項目なし", () => {
+    for (const wh of [blankHousehold("2026-11"), withRefreshedEstimates(blankHousehold("2026-11"))]) {
+      expect(filledCount(wh)).toBe(0);
+      expect(aiFilled(wh)).toEqual([]);
+      expect(screenFilled(wh)).toEqual([]);
+      expect(confirmKeys(templateSelection("review", wh))).toEqual([]);
+      expect(confirmKeys(aiReview(wh).selection)).toEqual([]);
+    }
+  });
+
+  it("一部だけ入れた世帯（入力項目を1つ保存した・足した）: 画面も AI も同じ項目に値あり", () => {
+    const base = withRefreshedEstimates(blankHousehold("2026-11"));
+    const saved: WorkingHousehold = { ...base, confirmed: ["family"] };
+    expect(filledCount(saved)).toBeGreaterThan(0);
+    expect(aiFilled(saved)).toEqual(screenFilled(saved));
+    expect(aiFilled(saved)).toContain("hs.family.adult.birthYearMonth");
+    expect(confirmKeys(aiReview(saved).selection)).toEqual(confirmKeys(templateSelection("review", saved)));
+    // 仮の値を入れた欄は、画面も AI も書き出さない（値ありと読まない）
+    expect(aiFilled(base)).toEqual(screenFilled(base));
+  });
+
+  it("見直しのひな形: 値の入った世帯で、画面と AI の確かめてもらう項目が同じ", () => {
+    const wh = filledHousehold();
+    expect(aiFilled(wh)).toEqual(screenFilled(wh));
+    expect(aiFilled(wh).length).toBeGreaterThan(5);
+    const r = aiReview(wh);
+    expect(r.problems).toEqual([]);
+    expect(r.selection?.sections).toEqual(templateSelection("review", wh).sections);
+    expect(confirmKeys(r.selection).length).toBeGreaterThan(5);
   });
 });
 

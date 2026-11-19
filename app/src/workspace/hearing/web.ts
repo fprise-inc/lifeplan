@@ -15,8 +15,6 @@ import { importAnswers, requestIdFrom, type SheetDefinition } from "../../../../
 import { baseSheet, newCustomKey, nextDocId, ownerFrom, templateSelectionOf, withOwner, type WebTemplateKind } from "./selection.ts";
 
 import { axisOf } from "../../../../hearing/src/definition.ts";
-import { exportAnswers } from "../../../../hearing/src/export.ts";
-import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import { b64u, fromB64u } from "../../../../hearing/src/web/b64.ts";
 import { docForCheck, HIDE_NUMBERS, MIME_EXT, templateOf, type DocumentMime } from "../../../../hearing/src/web/documents.ts";
 import { extendRequest, extendTarget, filledOf, issueRequest, receive, removeReceived, type WebRequestRecord } from "../../../../hearing/src/web/fp.ts";
@@ -27,9 +25,12 @@ import { relay, RELAY_LIMITS, type RelayTransport } from "../../../../hearing/sr
 import type { Answer } from "../../../../hearing/src/answers.ts";
 import type { DocRequest } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
-import { inputItems, nothingEnteredYet } from "../input/items.ts";
 import { gateCounts, logOf, viewOfResult, type ImportView } from "./sheet.ts";
 import { sheetOf } from "./selection.ts";
+import { enteredKeys, prefillOf } from "./entered.ts";
+
+// 今の世帯で値のある問い・前回の値は entered.ts（AI接続の同梱の JS と同じ関数。0222 の追記 2026-11-19）
+export { enteredKeys, prefillOf } from "./entered.ts";
 
 // 選び方の純な部品（ひな形・数・書類・独自の質問のキー）は selection.ts（AI接続口の同梱の JS からも使う。0222）
 export { baseSheet, CUSTOM_TEMPLATE, defaultOwner, documentFromTemplate, newCustomKey, nextDocId, ownerFrom, readHearingTemplates, hiddenAge, selectedCount, sheetOf, TEMPLATE_MAX, templateForSave, WEB_TEMPLATES, withOwner, type HearingTemplate, type WebTemplateKind } from "./selection.ts";
@@ -192,15 +193,6 @@ export function sentAtText(iso: string): string {
 
 // ---- 元のシート・ひな形 ----
 
-/** 今の世帯の値（確かめてもらう項目の前回の値。詳細のシートだけ） */
-export function prefillOf(wh: WorkingHousehold, def: SheetDefinition): Answer[] {
-  if (def.sheetId !== "full") return [];
-  try {
-    return [...exportAnswers(def, wh.request as unknown as HearingEngineRequest, { assumed: wh.assumed }).answers];
-  } catch {
-    return [];
-  }
-}
 
 /**
  * どのひな形でも既定で外す項目（0192 の追記 2026-11-17）: これからの予定（FP が具体的な項目を選んで聞く。カスタムで選べば聞ける）と、
@@ -287,14 +279,6 @@ export function filledCount(wh: WorkingHousehold): number {
   return enteredKeys(wh, baseSheet("detail")).size;
 }
 
-/**
- * 今の世帯で値のある問いのキー。まだ何も入れていない新しい世帯は、初めの値（性別・働き方など）と仮の値しかないので、無しと読む
- * （入力のホームの「新しい世帯」と同じ決め方。0192 の追記 2026-11-19）
- */
-function enteredKeys(wh: WorkingHousehold, def: SheetDefinition): Set<string> {
-  if (nothingEnteredYet(wh, inputItems(wh))) return new Set();
-  return new Set(prefillOf(wh, def).filter((a) => a.status !== "blank").map((a) => a.key));
-}
 
 // ---- ご相談したいことの話題（0192。2026-11-17 にやめた。前に保存した事務所の既定値を読んで書き戻すためだけに残す） ----
 

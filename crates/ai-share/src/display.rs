@@ -118,7 +118,7 @@ pub fn household_display_of(body: &Map<String, Value>) -> Value {
 }
 
 /// 鍵の中の物の ID（乱数ID の形の部分）を、共有ごとの仮の ID に置き換える。この共有の世帯に無い ID を含む鍵は None（渡さない）
-fn pseudonymize_key(key: &str, p: &Pseudonyms) -> Option<String> {
+pub(crate) fn pseudonymize_key(key: &str, p: &Pseudonyms) -> Option<String> {
     let mut out = String::with_capacity(key.len());
     let mut i = 0;
     while i < key.len() {
