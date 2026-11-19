@@ -12,3 +12,5 @@ dist/
 *.p12
 *.p8
 *.mobileprovision
+# AI接続の本体のサイドカー（app/scripts/bundle.ts が作る。0015 の追記 2026-11-19）
+app/src-tauri/binaries/

@@ -116,7 +116,7 @@
 2. 公証の鍵は App Store Connect の API キー（チームのキー。役割は「Developer」で足りる）。発行者 ID を `APPLE_API_ISSUER`、キーの ID を `APPLE_API_KEY`、.p8 の中身を `APPLE_API_KEY_P8` に置く（.p8 は1回しかダウンロードできない）。Apple ID とアプリ用パスワードの方式は使わない（人の Apple ID に結びつくため）。
 3. 配布元の設定の `[signing] mac_signing_identity` に「Developer ID Application: <発行元の名前> (<チームID>)」を書く（秘密ではない）。
 4. CI（`app/scripts/bundle.ts`）が、証明書と名前がそろっていれば署名の名前を Tauri の設定に上書きし（hardened runtime は有効）、API キーがそろっていれば .p8 を一時ファイルに書いて `APPLE_API_KEY_PATH` で渡す。Tauri が一時のキーチェーンへの取り込み・署名・公証・公証の結果の貼り付け（staple）をする。対象は Intel・Apple シリコン両対応の1つのビルド（`universal-apple-darwin`）。
-5. 同梱する実行ファイル（AI接続口。0015）も同じ名前で署名される（Tauri が中の実行ファイルも署名する。署名した版で確かめる）。
+5. 同梱する実行ファイル（AI接続口。0015）も同じ名前で署名される（Tauri が中の実行ファイルも署名する。署名した版で確かめる）。入れ方は 0015 の追記 2026-11-19（Tauri の `externalBin`。`app/scripts/connector.ts`）。
 
 ### 5. Windows の署名の方式（調べた結果と結論）
 
