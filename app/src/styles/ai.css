@@ -23,6 +23,14 @@
 .ai-setup { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 12px; margin: 6px 0; }
 .ai-setup summary { cursor: pointer; font-weight: 700; }
 .ai-setup pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; background: var(--base-bg); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font-size: 0.82rem; white-space: pre-wrap; word-break: break-all; }
+/* AI のアプリへの登録（0228） */
+.ai-apps-list { list-style: none; padding: 0; margin: 6px 0; }
+.ai-apps-list > li { border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
+.ai-app-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.ai-app-head .btn { padding: 4px 12px; }
+.ai-app-state { font-size: 0.85rem; font-weight: 700; border-radius: 4px; padding: 0 6px; border: 1.5px solid var(--line); color: var(--ink-2); }
+.ai-app-state.s-registered { border-color: var(--prop); background: var(--prop-bg); color: var(--ink); }
+.ai-app-state.s-stale, .ai-app-state.s-unreadable { border-color: var(--short); background: var(--short-bg); color: var(--ink); }
 .ai-limits { margin: 4px 0; padding-left: 1.3em; font-size: 0.88rem; color: var(--ink-2); }
 .ai-limits li { margin: 2px 0; }
 .ai-state { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; border-radius: 10px; padding: 10px 14px; margin: 8px 0; border: 2px solid var(--line); background: var(--base-bg); }

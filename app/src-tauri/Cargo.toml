@@ -28,7 +28,7 @@ distribution = { path = "../../crates/distribution" }
 # 0016: プラグインは入れない（ファイル・シェル・ブラウザを開く・HTTP などの権限を画面に与えない）
 tauri = { version = "2.12", features = [] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["raw_value"] }
 # 0005: 正の計算は quickjs-ng（engine-host）。計算ごとに新しい実行環境
 engine-host = { path = "../../crates/engine-host" }
 # 0009: 提案書の PDF（Typst をライブラリとして組み込む。刻印・必須の記載・内部情報は帳票の外側で付ける）
@@ -53,6 +53,8 @@ statement-ocr = { path = "../../crates/statement-ocr" }
 # 0110 の追記・0017 の4: 配信元の「止めた一覧」を取りに行く HTTP の部品（本体だけが通信する。画面には HTTP の権限を与えない）。
 # reqwest は Tauri が既に使っている版。TLS は rustls（暗号は ring）で、証明書は OS の仕組みで確かめる（rustls-platform-verifier）。
 # クッキー・プロキシ・圧縮・HTTP/2 は入れない（既定の機能を外す）
+# 0228: AI のアプリの設定（Codex の config.toml）に自分の登録だけを足す・外す（コメント・ほかの行を残す）。Tauri の依存が既に使っている版
+toml_edit = "0.25"
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 

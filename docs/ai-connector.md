@@ -1,11 +1,31 @@
 # AI接続口（`lifeplan mcp`）のつなぎ方
 
 ファイナンシアの AI接続口は、FPのPCの中だけで動く MCP サーバーです（設計記録 [0015](decisions/0015-ai-connector-mcp.md)）。
-AIのアプリ（Claude Code・Claude Desktop・Codex）が `lifeplan mcp` を起動し、**標準入出力だけ**で話します。ネットワークの口は開けません。
+AIのアプリ（Claude Code・Claude Desktop・Codex・Gemini CLI）が `lifeplan mcp` を起動し、**標準入出力だけ**で話します。ネットワークの口は開けません。
 
-> アプリの画面では、世帯の一覧の「AI接続口」（事務所全体の設定。既定はオフ）で使うかどうかを決め、接続の設定の文面を見られます
-> （接続口の場所は画面では伏せ、「文面をコピー」で本物の場所の入った文面をクリップボードに写します）。アプリが AI のアプリの設定を
-> 書き換えることはまだしないので、下の設定は手で書きます（「AIとつなぐ」の書き込みは 0015 の10。後の回）。
+> アプリの画面では、世帯の一覧のいちばん下の「AI との接続」（事務所全体の設定。既定はオフ）で使うかどうかを決め、**「AI のアプリに登録する」のボタンで、
+> AI のアプリの設定に登録します**（下の「0. ボタンで登録する」。設計記録 0228）。手で書きたいときは「手で設定する」の「文面をコピー」で、
+> 本物の場所の入った文面をクリップボードに写し、下の2〜4のとおり書きます（接続口の場所は画面では伏せます）。
+
+## 0. ボタンで登録する（アプリの画面。0228）
+
+事務所の設定の AI の区画の「AI のアプリに登録する」に、AI のアプリごとの状態（登録済み・未登録・場所が古い・このPCに見つかりません）と
+ボタンが出ます。**「登録する」を押したときだけ**アプリが書き込みます（アプリの更新のときに勝手には書きません）。
+
+| AIのアプリ | 登録のしかた | 気をつけること |
+|---|---|---|
+| Claude Desktop | 設定のファイル（Mac `~/Library/Application Support/Claude/claude_desktop_config.json`、Windows `%APPDATA%\Claude\claude_desktop_config.json`）の `mcpServers` に `fprise-lifeplan` を足す | **Claude Desktop を完全に終了してから**押します。起動していると、アプリは書きません（「Claude Desktop が起動しています」と出ます。終了してから「もう一度確かめる」）。Linux には Claude Desktop がありません |
+| Claude Code | `claude mcp add --transport stdio --scope user fprise-lifeplan -- <接続口の絶対パス> mcp` を呼ぶ（設定のファイルは直接書かない） | `claude` コマンドが見つからないときは押せません（手で設定する手順に戻ります）。状態は `~/.claude.json` を読んで見ます |
+| Codex | `~/.codex/config.toml`（`CODEX_HOME` があればその下）に `[mcp_servers.fprise-lifeplan]` を足す | コメントやほかの行はそのまま残ります。Codex のアプリと CLI は同じファイルを使います |
+| Gemini CLI | `~/.gemini/settings.json` の `mcpServers` に `fprise-lifeplan` を足す | **提供元はまだ実物で試していません**（書く形は Gemini CLI の説明書のとおり。画面にも書いています） |
+
+- 書く前の設定のファイルは、アプリのデータの場所の `ai-app-backups/`（Mac `~/Library/Application Support/com.fprise.lifeplan/ai-app-backups/`）に、AI のアプリの名前と日時をつけて控えます。元に戻したいときは、その控えを元の場所に写します（アプリには「元に戻す」のボタンはありません。0228 の4）。
+- ほかのサーバーの設定・ほかの欄は変えません（JSON は元の文をそのまま写し、`fprise-lifeplan` の所だけを足す・直す・外します）。すでに登録があれば、場所（`command`）と引数だけを直し、自分で足した欄（`env` など）は残します。
+- 設定のファイルを読めないとき（コメントの入った JSON・`mcpServers` が表でない など）は書きません。「手で設定する」の文面で手で足してください。
+- **場所が古い**: アプリを別の場所に入れ直した・動かしたときは、登録した場所と今の場所が違うので「場所が古い」と出ます。「場所を直す」で今の場所に書き直します。
+- Mac で dmg から直接開いた・ダウンロードのフォルダのまま開いたアプリ（一時的な場所で動いている）は登録できません。「アプリケーション」フォルダに入れてから開き直します。
+- 「登録を外す」で、`fprise-lifeplan` の所だけを外します。
+- 開発用のビルドは、製品の登録を上書きしないよう `fprise-lifeplan-dev` という名前で登録します（作業フォルダの指定 `LIFEPLAN_RUNTIME_DIR` も入ります）。
 
 ## 1. 作る
 
@@ -23,7 +43,7 @@ target/release/lifeplan --version
 以下の `<接続口の絶対パス>` は、`target/release/lifeplan` の絶対パス（例: `/Users/you/Projects/fprise-lifeplan/target/release/lifeplan`）に置き換えます。
 設定の名前は **`fprise-lifeplan`**、引数は **`mcp`** の1つだけです（0015 の10）。
 
-## 2. Claude Code
+## 2. 手で書く: Claude Code
 
 ```sh
 claude mcp add --transport stdio --scope user fprise-lifeplan -- <接続口の絶対パス> mcp
@@ -32,7 +52,7 @@ claude mcp list        # fprise-lifeplan が Connected になる
 
 外すときは `claude mcp remove --scope user fprise-lifeplan`。
 
-## 3. Claude Desktop
+## 3. 手で書く: Claude Desktop
 
 **Claude Desktop を完全に終了してから**（メニューの「終了」。ウィンドウを閉じるだけでは足りません）、設定ファイルを編集します。
 Claude Desktop は終了するときに設定ファイルを書き直すので、起動中に書き足すと消えます（0015 の追記）。
@@ -55,17 +75,20 @@ Claude Desktop は終了するときに設定ファイルを書き直すので�
 
 保存してから Claude Desktop を起動し、道具の一覧に `fprise-lifeplan` が出ることを確かめます。
 使い方の例（下の「使い方の例（プロンプト）」）は、Claude Desktop の接続口のプロンプトとして選べます。
-ワンクリックで入る拡張（MCPB）は、署名の回で用意します（0015 の10）。
+ワンクリックで入る拡張（MCPB）は、今は用意していません（0228 の2）。
 
-## 4. Codex
+## 4. 手で書く: Codex・Gemini CLI
 
-`~/.codex/config.toml`（`CODEX_HOME` があればその下）に足します。
+Codex は `~/.codex/config.toml`（`CODEX_HOME` があればその下）に足します。
 
 ```toml
 [mcp_servers.fprise-lifeplan]
 command = "<接続口の絶対パス>"
 args = ["mcp"]
 ```
+
+Gemini CLI は `~/.gemini/settings.json` の `mcpServers` に、Claude Desktop と同じ形（`command` と `args`）で足すか、
+`gemini mcp add -s user fprise-lifeplan <接続口の絶対パス> mcp` を使います（提供元は実物で試していません）。
 
 ## 5. 道具
 
@@ -576,7 +599,8 @@ FP が「〇〇するにはどこを押す？」のように画面の操作を�
 - 起動時に `ShareRegistry` を作り、`require_consent(true)`（同意が `given` の世帯と、架空の世帯だけを渡せる。0208）。新しい世帯の候補の入力を確かめる所（`set_household_check`。画面と同じ計算エンジンに通す `engine::check_input`）を入れる。事務所の推定の値を読む所（事務所データの `defaults.estimates` を切り出す）を `set_office_estimates` で入れる。接続口の計算に使う読み取り（`getShare` の `forCalc`）の返事にだけ、そのときの値を `officeEstimates` として添える（0184）。受け口（`AppEndpoint`）は事務所の設定がオンのときだけ開け、終了時（`RunEvent::Exit`）に、すべての共有を「アプリの終了」で閉じて記録を書き戻し、口を閉じます。
 - 世帯を開く・作るときに帳面（`HouseholdBook::from_opened`）を作り、架空の印を世帯の一覧の札から写し（`book.fictional`）、同じ起動で初めてなら `load_records`（終わりの記録が無い共有は「アプリの終了」で閉じる）。保存は帳面の `compose`（追記だけかを確かめる）を通し、共有中なら `update_source` で渡す中身を置き換えます。
 - 2秒ごとの見回りで、期限切れを閉じ、`take_proposals` の候補を帳面に入れ、記録を世帯ファイルへ書き戻します（画面への通知は使わず、画面は3秒ごとに読み直す）。
-- 画面から呼べる命令は `ai_status`・`ai_set_enabled`・`ai_hearing_jobs`・`ai_hearing_job_done`・`ai_hearing_template_candidates`・`ai_hearing_template_take`・`ai_setup_copy`・`ai_household`・`ai_consent_record`・`ai_share_start`・`ai_share_stop`・`ai_candidate_decide`・`ai_documents_taken`・`ai_household_candidates`・`ai_household_candidate_discard`・`ai_household_candidate_create` と、架空の世帯をお客さまの世帯にする `store_make_client` だけで、パスも鍵も受け取らない・返しません。`ai_household_candidate_create` は、候補がまだ承認待ちか・本文の家族が候補と同じかを確かめ、出どころの記録（`meta.origin`）を本体が書いて作ります（0208）。
+- AI のアプリへの登録（0228）は `app/src-tauri/src/ai_apps.rs`。命令は `ai_apps_status`・`ai_app_register`・`ai_app_unregister`（AI のアプリの種類だけを受け取り、パスは受け取らない・返さない。書く場所はホームを `~` にした表示、書く中身は場所を伏せた文面だけを画面に返す）。
+- 画面から呼べる命令は `ai_status`・`ai_set_enabled`・`ai_hearing_jobs`・`ai_hearing_job_done`・`ai_hearing_template_candidates`・`ai_hearing_template_take`・`ai_setup_copy`・`ai_apps_status`・`ai_app_register`・`ai_app_unregister`・`ai_household`・`ai_consent_record`・`ai_share_start`・`ai_share_stop`・`ai_candidate_decide`・`ai_documents_taken`・`ai_household_candidates`・`ai_household_candidate_discard`・`ai_household_candidate_create` と、架空の世帯をお客さまの世帯にする `store_make_client` だけで、パスも鍵も受け取らない・返しません。`ai_household_candidate_create` は、候補がまだ承認待ちか・本文の家族が候補と同じかを確かめ、出どころの記録（`meta.origin`）を本体が書いて作ります（0208）。
 - 開発用のビルドは、作業フォルダを `<アプリのデータの場所>/run-dev/`（`FINANCIA_DEV_RUNTIME_DIR` で差し替え）にし、製品の口とぶつからないようにします。接続の設定の文面には、作業フォルダの指定（`LIFEPLAN_RUNTIME_DIR`）が加わります。
 - 表示の設定（0213）: 起動時に、事務所の既定値の見せ方だけの欄を読む所を `set_office_display` で入れる（切り出し方は `ai_share::display::office_display_of` の1か所。合算BS には今使える機能を添える）。接続口からの `getOfficeDisplay` に答え、`getShareDisplay` は共有の元の見せ方の区画（帳面の `source` が本文から `display::household_display_of` で切り出す）を、仮の ID に置き換えて返し、記録に残す。
 - Web のヒアリング（0222）: 起動時に、事務所のひな形を読む所（`set_office_hearing`）と、発行を画面に頼む所（`set_hearing_issuer`。`HearingJobs` に仕事を置き、画面の答えを30秒まで待つ）を入れる。画面は3秒ごとの `ai_status` の `hearingJobs` を見て、`ai_hearing_jobs` で仕事を受け取り、発行して記録を書いてから `ai_hearing_job_done` で答える（見直しを含む世帯の依頼には、本体の帳面の本文を添える）。世帯の決まっていない依頼と開いていない世帯の依頼は、事務所データの欄 `hearing_requests`（`office_hearing_get`・`office_hearing_put`）に置く（事務所データの形式の版 0.2。このアプリより新しい版の事務所データは閲覧だけで開き、書かない）。ひな形の案は `ai_hearing_template_candidates`・`ai_hearing_template_take`。AI接続口をオフにすると、待っている仕事を断り、ひな形の案を消す。
