@@ -90,8 +90,10 @@ export const REVIEW_TITLE = "入力内容の確認";
 /** お客さまの画面に出さない問い（ご相談したいこと。0138 の追記 2026-11-17） */
 const HIDDEN_KEYS = new Set([CONSULT_KEY]);
 /** 生年月の代わりの年齢（簡易の票）。生年月の問いがあれば画面に出さない */
-const AGE_KEY = "hs.family.adult.age";
+export const AGE_KEY = "hs.family.adult.age";
 const BIRTH_KEY = "hs.family.adult.birthYearMonth";
+/** 年齢の問いを出さないか（生年月の問いがあるとき。お客さまの画面と、FP の画面の一覧・聞く項目の数で同じ決め方。0192 の追記 2026-11-19） */
+export const ageReplaced = (keys: Iterable<string>): boolean => [...keys].includes(BIRTH_KEY);
 /** 範囲が主の金額（具体額より範囲で答えやすいもの）。ほかの金額は具体額が主で、わからなければ範囲で選ぶ */
 const RANGE_FIRST = new Set(["hs.loan.balanceTotal"]);
 /** 範囲のある金額のうち、範囲のボタンを先に出す項目か */
@@ -382,7 +384,7 @@ function gatesOf(item: WebItem): GateId[] {
 /** お客さまの画面に出さない項目（ご相談したいこと・生年月があるときの年齢） */
 function hiddenKeys(p: QuestionsPacket): Set<string> {
   const out = new Set(HIDDEN_KEYS);
-  if (p.items.some((i) => i.key === BIRTH_KEY)) out.add(AGE_KEY);
+  if (ageReplaced(p.items.map((i) => i.key))) out.add(AGE_KEY);
   return out;
 }
 

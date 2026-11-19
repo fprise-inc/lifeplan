@@ -18,7 +18,7 @@ import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/
 import { b64u, fromB64u } from "../../../../hearing/src/web/b64.ts";
 import { DOCUMENT_TEMPLATES, docForCheck, HIDE_NUMBERS, MIME_EXT, OWNER_LABEL, templateOf, type DocumentMime, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
 import { extendRequest, extendTarget, filledOf, issueRequest, receive, removeReceived, type WebRequestRecord } from "../../../../hearing/src/web/fp.ts";
-import { draftKey, estimate, fieldAnswered, gateOptions, initialDraft, screenFields, screenGates, screens, type Draft, type DraftAnswer, type DraftDocument } from "../../../../hearing/src/web/flow.ts";
+import { AGE_KEY, ageReplaced, draftKey, estimate, fieldAnswered, gateOptions, initialDraft, screenFields, screenGates, screens, type Draft, type DraftAnswer, type DraftDocument } from "../../../../hearing/src/web/flow.ts";
 import { buildPacket, checkSelection, CONSULT_KEY, CUSTOM_PREFIX, documentCovers, FILLED_ON, FP_SECTION, GATE_IDS, importDefinition, packetBody, selectionFromSheet, TOPIC_LABEL_MAX, TOPICS_MAX, type CustomQuestion, type DocumentAnswer, type GateAnswers, type GateId, type OfficeFace, type QuestionsPacket, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 import { relay, RELAY_LIMITS, type RelayTransport } from "../../../../hearing/src/web/protocol.ts";
 import type { Answer } from "../../../../hearing/src/answers.ts";
@@ -248,7 +248,16 @@ export function selectionName(sel: WebSelection): string {
 export function selectedCount(sel: WebSelection): number {
   const def = sheetOf(sel);
   const range = new Set((def?.items ?? []).filter((i) => i.rangeOf !== undefined).map((i) => i.key));
-  return sel.sections.reduce((n, s) => n + s.items.filter((i) => !range.has(i.key)).length, 0);
+  const age = hiddenAge(sel);
+  return sel.sections.reduce((n, s) => n + s.items.filter((i) => !range.has(i.key) && i.key !== age).length, 0);
+}
+
+/**
+ * お客さまの画面に出さない年齢の問いのキー（生年月の問いを選んでいるとき。なければ null）。FP の画面の一覧に並べず、聞く項目の数にも数えない。
+ * 生年月の問いを外すと、年齢の問いが出て並ぶ（0192 の追記 2026-11-19）
+ */
+export function hiddenAge(sel: WebSelection): string | null {
+  return ageReplaced(sel.sections.flatMap((s) => s.items.map((i) => i.key))) ? AGE_KEY : null;
 }
 
 /** 今の世帯の人数（分岐の問いの答えの形。配偶者の方・お子さま・住宅ローン・保険。ご両親は答える） */

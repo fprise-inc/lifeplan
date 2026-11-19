@@ -30,6 +30,7 @@ import {
   estimateOf,
   filledCount,
   HIDDEN_ITEMS,
+  hiddenAge,
   householdShape,
   invitationText,
   issueWeb,
@@ -234,7 +235,8 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
   const rangeOf = new Map(def.items.filter((i) => i.rangeOf !== undefined).map((i) => [i.rangeOf as string, i.key]));
   const isRange = (k: string) => items.get(k)?.rangeOf !== undefined;
   const order = orderOf(def, sel);
-  const baseKeys = (id: string) => (def.sections.find((s) => s.id === id)?.groups.flatMap((g) => g.items) ?? []).filter((k) => !HIDDEN_ITEMS.has(k) && choosable.some((i) => i.key === k));
+  const age = hiddenAge(sel);
+  const baseKeys = (id: string) => (def.sections.find((s) => s.id === id)?.groups.flatMap((g) => g.items) ?? []).filter((k) => !HIDDEN_ITEMS.has(k) && k !== age && choosable.some((i) => i.key === k));
   const secOf = (id: string): SelectedSection | undefined => sel.sections.find((s) => s.id === id);
   /** 区画を置き換える（選んでいた区画はその位置で。新しく選んだ区画は、今の並びの位置に差し込む） */
   const setSection = (id: string, next: SelectedSection | null) => {
@@ -438,7 +440,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
             {order.map((sid) => {
               const s = secOf(sid);
               const title = titleOf(sid);
-              const chosenKeys = (s?.items ?? []).map((i) => i.key).filter((k) => !isRange(k));
+              const chosenKeys = (s?.items ?? []).map((i) => i.key).filter((k) => !isRange(k) && k !== age);
               const keys = sid === FP_SECTION.id ? chosenKeys : displayKeys(baseKeys(sid).filter((k) => !isRange(k)), chosenKeys);
               const on = chosenKeys.length;
               const all = sid === FP_SECTION.id ? on : baseKeys(sid).filter((k) => !isRange(k)).length;
