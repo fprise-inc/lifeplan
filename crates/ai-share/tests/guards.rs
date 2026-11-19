@@ -41,6 +41,7 @@ fn source(input: Value) -> SharedHouseholdSource {
             documents: true,
         }),
         fictional: false,
+        entered: None,
     }
 }
 

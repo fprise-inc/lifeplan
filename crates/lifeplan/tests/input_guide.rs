@@ -381,6 +381,7 @@ async fn recipe_for_a_shared_household() {
             documents: true,
         }),
         fictional: false,
+        entered: None,
     };
     let g = reg
         .grant(
