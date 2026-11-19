@@ -551,3 +551,52 @@ fn candidate_places_survive_open_and_save() {
     let composed: Value = serde_json::from_str(&b.compose(&[]).unwrap()).unwrap();
     assert_eq!(composed["candidates"], body["candidates"]);
 }
+
+/// 画面の入力の進み具合（0222 の追記 2026-11-19）: 本文の保存した・足した入力項目の数と仮の値を入れた欄のキーを、接続口の計算の読み取りに
+/// だけ添える（AI に見せるふつうの読み取りには添えない）。欄のキーの物の ID は仮の ID に置き換え、この世帯に無い ID の鍵は落とす
+#[test]
+fn the_entered_state_goes_only_to_calc_reads_with_pseudonyms() {
+    let (reg, _) = registry();
+    let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+    let first = v["household"]["request"]["input"]["household"]["members"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let unknown = "0f0e0d0c-0b0a-4909-8807-060504030201";
+    v["household"]["confirmed"] = json!(["family", "work"]);
+    v["household"]["addedItems"] = json!([{ "id": "a-1" }]);
+    v["household"]["assumed"] = json!({
+        format!("family/{first}/birth"): "仮の値",
+        format!("family/{unknown}/birth"): "仮の値",
+    });
+    let mut b =
+        HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NO.into()), 1, &v.to_string())
+            .unwrap()
+            .0;
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    let g = reg.grant(b.source().unwrap(), opts()).unwrap();
+    let calc: Value = serde_json::from_str(
+        &reg.handle_get_for_calc(&g.share_id, "get_hearing_options", &Caller::default())
+            .unwrap(),
+    )
+    .unwrap();
+    let st = &calc["enteredState"];
+    assert_eq!(st["confirmed"], 2);
+    assert_eq!(st["addedItems"], 1);
+    let assumed = st["assumed"].as_array().unwrap();
+    assert_eq!(
+        assumed.len(),
+        1,
+        "この世帯に無い ID の鍵は落とす: {assumed:?}"
+    );
+    let key = assumed[0].as_str().unwrap();
+    assert!(key.starts_with("family/") && key.ends_with("/birth"));
+    assert!(!calc.to_string().contains(&first), "物の ID は仮の ID に");
+    assert!(!calc.to_string().contains(unknown));
+    let view: Value = serde_json::from_str(&get(&reg, &g.share_id).unwrap()).unwrap();
+    assert!(
+        view.get("enteredState").is_none(),
+        "AI に見せる読み取りには添えない"
+    );
+}

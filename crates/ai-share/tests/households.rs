@@ -169,6 +169,7 @@ fn source(fictional: bool, consent: Option<ConsentDecision>) -> SharedHouseholdS
             documents: decision == ConsentDecision::Given,
         }),
         fictional,
+        entered: None,
     }
 }
 
