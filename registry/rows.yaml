@@ -693,6 +693,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.lumpSum.realEstatePurchase
+    status: active
+    label: "収益不動産の取得（建てる・買う予定の自己資金。0232）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense.care
     status: active
     label: 介護・医療

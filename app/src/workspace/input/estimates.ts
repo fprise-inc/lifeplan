@@ -15,6 +15,7 @@ import { refreshCustomBuild } from "./customBuild.ts";
 import { refreshOwnedHomeTax } from "./ownedHomeTax.ts";
 import { refreshHeldEstateCost } from "./heldEstateTax.ts";
 import { refreshHomeInsurance } from "./homeInsurance.ts";
+import { refreshRentalPlans } from "./stages/rentalPlan.ts";
 import {
   businessEstimate as businessStatistic,
   fillsByEstimate,
@@ -141,6 +142,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   refreshPropertyTax(h, last, landShare);
   // 購入の予定の火災保険・地震保険（これから買う家に欄が無ければ推定で足し、推定のままの保険料を入れ直す。homeInsurance.ts。0224）
   refreshHomeInsurance(h, baseMonth, landShare);
+  // 収益不動産の建てる・買う予定の建物の固定資産税評価額（相続税の評価の材料。推定のままの額だけ。stages/rentalPlan.ts。0232）
+  refreshRentalPlans(h);
   // 今住んでいる持ち家の買った年月（評価の時点）を住み始めに合わせる（印のある物だけ。ownedHomeValue.ts。0176）。固定資産税の推定の元なので先に
   refreshOwnedHomeAsOf(h, baseMonth);
   // 今住んでいる持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。ownedHomeTax.ts。0112 の追記 2026-11-03）

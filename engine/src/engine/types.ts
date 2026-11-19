@@ -357,6 +357,25 @@ export interface HeldSaleInput {
  * 原状回復／清掃・リネン（民泊・宿）／消耗品（民泊・宿）／光熱費・通信（民泊・宿）／税理士の報酬・その他 */
 export type RealEstateExpenseItem = "management" | "propertyTax" | "insurance" | "groundRent" | "facility" | "leasing" | "cleaning" | "supplies" | "utilities" | "other";
 
+/**
+ * 収益不動産の建てる・買う予定（0232）。
+ * - buy（土地ごと買う）: at の月から持つ。評価額（時価）は代金の合計（parts）を at の年の額とし、取得（減価償却・帳簿価額・取得費）は parts・costs・
+ *   equity（property.acquisition は読まない）。器の時価（marketValue）は読まない
+ * - build（持っている土地に建てる）: 器の時価を土地の額とみなし（土地の割合 1）、at の月から建物（parts の building と equipment。at の年に新築）を
+ *   足す。property.acquisition は土地の取得（取得費・所有期間）
+ * - どちらも at の月に自己資金（equity。省略は代金＋諸費用−計算基準月以後に借りるこの物件のローンの借入額）を払い、家賃・経費・減価償却は at の月から
+ */
+export interface RealEstatePlanInput {
+  readonly type: "buy" | "build";
+  readonly at: Timepoint;
+  readonly parts?: { readonly land?: Yen; readonly building?: Yen; readonly equipment?: Yen };
+  readonly equipmentLife?: number;
+  readonly costs?: Yen;
+  readonly equity?: Yen;
+  /** 建物（建物附属設備を含む）の固定資産税評価額（at の年の額。画面が推定で入れる。相続税の評価の材料。表の評価額には使わない） */
+  readonly assessed?: ValueBox<Yen>;
+}
+
 /** 住まい以外の不動産の中身（0028）。入れた器は、評価額を土地と建物に分け、家賃収入・経費・売却を計算する */
 export interface RealEstatePropertyInput {
   /** 物件の種類と戸数（0079。見分けるための欄。計算は事業的規模の目安〔5棟10室〕を数えるときだけ読む。0081） */
@@ -370,6 +389,8 @@ export interface RealEstatePropertyInput {
   readonly landShare?: string;
   /** 持ち始める時点（相続・贈与で受け取る不動産。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い。省略は前から持っている。0039） */
   readonly holdFrom?: Timepoint;
+  /** 建てる・買う予定（支払いのある取得。0232）。入れたら holdFrom は読まない */
+  readonly planned?: RealEstatePlanInput;
   /** 取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月。取得の年月だけでもよい〔price の省略は取得価額が未入力。0137〕） */
   readonly acquisition?: {
     readonly price?: Yen;

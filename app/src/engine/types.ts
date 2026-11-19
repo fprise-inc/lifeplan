@@ -210,6 +210,11 @@ export interface RealEstateProperty {
   memo?: string;
   /** 持ち始める時点（相続・贈与で受け取る不動産。0039） */
   holdFrom?: Timepoint;
+  /**
+   * 建てる・買う予定（0232）: 土地ごと買う buy・持っている土地に建てる build、買う・建てる時点、購入代金・建築費の内訳、建物附属設備の耐用年数、
+   * 取得の諸費用、自己資金（省略は代金＋諸費用−これから借りるこの物件のローンの借入額）、建物の固定資産税評価額（画面が推定で入れる）
+   */
+  planned?: RealEstatePlan;
   structure?: string;
   builtYear?: number;
   landShare?: string;
@@ -232,6 +237,17 @@ export interface RealEstateProperty {
   lodging?: { business?: "privateLodging" | "inn" | "specialZone"; salesBy?: "night" | "month"; nightly?: number; occupancy?: string; days?: number; platformRate?: string; incomeKind?: "miscellaneous" | "business" | "realEstate" };
   /** repayLoan: 売ったときにこの物件のローンを返す（省略は返す。0081） */
   sale?: { at: Timepoint; price?: number; costRate?: string; repayLoan?: boolean };
+}
+
+/** 収益不動産の建てる・買う予定（0232。エンジンの RealEstatePlanInput と同じ形） */
+export interface RealEstatePlan {
+  type: "buy" | "build";
+  at: Timepoint;
+  parts?: { land?: number; building?: number; equipment?: number };
+  equipmentLife?: number;
+  costs?: number;
+  equity?: number;
+  assessed?: Box<number>;
 }
 
 /** 不動産の経費の費目（0080） */

@@ -39,7 +39,7 @@ entries:
       - inheritanceTax.total.rounding
       - inheritanceTax.tax.rounding
     components:
-      inheritance.estimate: 4
+      inheritance.estimate: 5
       gift.tax: 3
     related: [inheritance.heirs, inheritance.insuranceExemption, inheritance.spouseReduction, inheritance.smallLand, inheritance.otherRules]
 
@@ -56,7 +56,7 @@ entries:
     items: [plan.inheritanceTax, member.kind, member.outside, member.leaves, donor.relative, donor.leaves]
     regulation: [inheritanceTax.adoptedChildren.withNatural, inheritanceTax.adoptedChildren.withoutNatural]
     components:
-      inheritance.estimate: 4
+      inheritance.estimate: 5
     related: [inheritance.estimate]
 
   - id: inheritance.insuranceExemption
@@ -71,7 +71,7 @@ entries:
     items: [plan.inheritanceTax, insurance.policyholder, insurance.insured]
     regulation: [inheritanceTax.lifeInsurance.exemptionPerHeir, inheritanceTax.retirementAllowance.exemptionPerHeir]
     components:
-      inheritance.estimate: 4
+      inheritance.estimate: 5
     related: [insurance.benefitTax, inheritance.estimate]
 
   - id: inheritance.spouseReduction
@@ -86,7 +86,7 @@ entries:
       - 相続税法19条の2
     regulation: [inheritanceTax.spouseReduction.floor]
     components:
-      inheritance.estimate: 4
+      inheritance.estimate: 5
     related: [inheritance.estimate]
 
   - id: inheritance.smallLand
@@ -101,7 +101,7 @@ entries:
     rules:
       - 租税特別措置法69条の4
     components:
-      inheritance.estimate: 4
+      inheritance.estimate: 5
     related: [inheritance.estimate]
 
   - id: inheritance.otherRules
@@ -114,7 +114,7 @@ entries:
     keywords: [生前贈与加算, 2割加算, 相次相続控除, 未成年者控除, 障害者控除, 一次相続と二次相続]
     items: [plan.inheritanceTax]
     components:
-      inheritance.estimate: 4
+      inheritance.estimate: 5
     related: [inheritance.estimate, inheritance.giftTax]
 
   - id: inheritance.received
@@ -194,7 +194,7 @@ entries:
     rows: [cf.taxSi.giftTax]
     components:
       gift.tax: 3
-      inheritance.estimate: 4
+      inheritance.estimate: 5
     related: [inheritance.giftTax, inheritance.estimate]
 
   - id: inheritance.legacy

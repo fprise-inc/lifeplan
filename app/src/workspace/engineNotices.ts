@@ -162,6 +162,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_ASSUMED|realEstate.saleEstimatedCost": { kind: "assumed", text: "売る物件の取得価額が入っていないので、取得費を売却価格の5%（概算取得費）として譲渡所得の税を計算しています", card: "rental" },
   "N_ASSUMED|realEstate.saleHoldingLong": { kind: "assumed", text: "売る物件の取得の年月が入っていないので、所有期間を5年超（長期譲渡）として計算しています", card: "rental" },
   "N_ASSUMED|realEstate.saleTaxSimplified": { kind: "assumed", text: "収益不動産を売ったときの譲渡所得の税は、特例（特別控除・買換えなど）と、引ききれない所得控除を譲渡所得から引く扱いを入れずに計算しています", card: "rental" },
+  "N_ASSUMED|realEstate.planSaleIgnored": { kind: "input", text: "収益不動産の売る予定が、建てる・買う予定の月か、それより前になっています。この売る予定は計算に入れていません（売る時期を予定の月より後にしてください）", card: "rental" },
   "N_ASSUMED|realEstate.repairExpensed": { kind: "assumed", text: "収益不動産の大きな修繕は、全額をその年の経費として計算しています", card: "rental" },
   "N_DEFAULT_USED|residentTax.exemption.perCapita.gradeOne": { kind: "assumed", text: "住民税の非課税の基準は、1級地（大都市）の額で計算しています" },
   "N_DEFAULT_USED|socialInsurance.care.firstInsured.nationalAverage": { kind: "assumed", text: "65歳以上の介護保険料は、全国平均の基準額で計算しています（お住まいの市区町村の額は入れていません）" },

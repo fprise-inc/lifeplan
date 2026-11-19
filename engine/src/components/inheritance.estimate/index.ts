@@ -40,6 +40,7 @@
 // - 入れていない決まり（notIncluded）: 2割加算・小規模宅地等の特例・土地の評価の細部・一次と二次の分け方の比べ・暦年課税の贈与の加算・
 //   相次相続控除・未成年者控除・障害者控除・受け取る側の目安（親の遺産の総額から）。当たりそうなとき（兄弟姉妹が相続人・持ち家がある・数えない
 //   養子がいる・相続人でない人への精算課税の贈与）は cautions に出す
+// - 改訂5（0232）: 収益不動産の建てる・買う予定の「土地ごと買う」は、買う月から持つ物として数える（持ち始める時点と同じ。予定の無い世帯の結果は同じ）
 import {
   bracketFor,
   boxValue,
@@ -47,6 +48,7 @@ import {
   formatYm,
   monthIndex,
   parseYm,
+  propertyHoldStart,
   yearOf,
   yen,
   type AccountInput,
@@ -197,7 +199,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
   id: "inheritance.estimate",
   title: "相続税の目安（基礎控除・法定相続人・非課税・速算表・配偶者の軽減・精算課税の足し戻し）",
   contract: "1.1",
-  revision: 4,
+  revision: 5,
   requires: {
     "plan.cashflow": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -416,7 +418,9 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       heldAtS.set(r.id, from === null || from < S);
     }
     for (const a of ctx.list<AccountInput>("account")) {
-      if (a.kind === "realEstate" && a.property?.holdFrom !== undefined) heldAtS.set(a.id, ctx.time.resolve(a.property.holdFrom) < S);
+      // 建てる・買う予定の「土地ごと買う」は買う月から持つ（sdk の propertyHoldStart。0232）
+      const from = a.kind === "realEstate" && a.property !== undefined ? propertyHoldStart(ctx, a.property) : null;
+      if (from !== null) heldAtS.set(a.id, from < S);
     }
     // 計算基準月から計算基準年の12月までに売る不動産（年末の評価額の行が無い）の、その年の評価額
     const soldLater: { object: string; owner: string | null; value: Yen }[] = [];

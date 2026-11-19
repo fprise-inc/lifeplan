@@ -26,6 +26,7 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   car: "車の費用",
   realEstateExpense: "不動産の経費",
   realEstateLoan: "不動産のローンの返済",
+  realEstatePurchase: "不動産の取得",
   advisoryFee: "FP顧問料",
   expenseOther: "その他の支出",
   taxSi: "税・社会保険料",
