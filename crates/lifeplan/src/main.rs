@@ -18,6 +18,7 @@ mod display;
 mod engine;
 mod fold;
 mod guide;
+mod hearing;
 mod plan;
 mod prompts;
 mod recipes;

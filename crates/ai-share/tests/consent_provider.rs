@@ -117,7 +117,7 @@ fn a_hearing_sheet_consent_records_the_sheet_text_and_does_not_cover_documents()
             .contains_key(&explanation_ref(EXTERNAL_AI_EXPLANATION)),
         "見せていないアプリの説明文は写さない"
     );
-    let v = b.view(&[], None);
+    let v = b.view(&[], None, false);
     assert_eq!(v.consent_state, "given");
     assert!(!v.consent_documents);
     assert_eq!(v.hearing_sheet_explanation, HEARING_SHEET_EXTERNAL_AI_TEXT);

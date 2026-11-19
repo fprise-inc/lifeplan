@@ -2,7 +2,7 @@
 // - 画面は本体から「同意とAIの記録」（AiHouseholdView）と状態（AiStatus）を受け取って見せるだけ。記録を書くのは本体
 // - AIが書いた題名・説明・理由は、信用しない文章として文字のまま出す（HTML にしない。0016）
 // - 候補の変更は、主画面の「動かす項目」（plans/items.ts）に対応するものだけをプランにする。対応しないものは取り込まない
-import type { AiCandidate, AiConsentMethod, AiHouseholdView, AiShareRecord, AiStatus } from "../../engine/host.ts";
+import type { AiCandidate, AiConsentMethod, AiHouseholdView, AiShareRecord, AiStatus, AiUse } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Catalog } from "../plans/items.ts";
 import { headLetter, savePlan, suggestName, type Values } from "../plans/plans.ts";
@@ -93,31 +93,65 @@ export function todayText(now: Date = new Date()): string {
 /** 入力項目IDの短い名前。知らない ID はそのまま */
 export { itemName } from "../plans/candidates.ts";
 
+/**
+ * この世帯を AI に渡せるか・その理由（0226）。判定は本体（ai_share::ai_use）の1か所で、画面は本体が返した `aiUse` を見せるだけ。
+ * 本体が返さないとき（古い版・テストの代わり）だけ、同意の状態と架空の印から読む（事務所の設定は見ない＝渡せない側）
+ */
+export function aiUseOf(view: AiHouseholdView): AiUse {
+  if (view.aiUse !== undefined) return view.aiUse;
+  if (view.consentState === "given") return "consent";
+  if (view.fictional === true) return "fictional";
+  if (view.consentState === "refused" || view.consentState === "withdrawn") return view.consentState;
+  return "none";
+}
+
+/** 書類（お名前・番号を伏せたもの）を AI に渡せるか・その理由（0157・0226。本体の ai_documents_use。返さない本体は同意の状態だけで読む） */
+export function aiDocumentsUseOf(view: AiHouseholdView): AiUse {
+  if (view.aiDocumentsUse !== undefined) return view.aiDocumentsUse;
+  const u = aiUseOf(view);
+  return u === "consent" && view.consentDocuments !== true ? "consentWithoutDocuments" : u;
+}
+
+/** その理由で AI に渡せるか */
+export const aiUseAllowed = (u: AiUse): boolean => u === "consent" || u === "officePolicy" || u === "fictional";
+
 /** 世帯の「AIとの共有」の状態（カード・上の帯の印） */
-export type ShareState = "off" | "unsaved" | "none" | "refused" | "withdrawn" | "given" | "fictional" | "sharing";
+export type ShareState = "off" | "unsaved" | "none" | "refused" | "withdrawn" | "given" | "office" | "fictional" | "sharing";
 
 export function shareState(status: AiStatus | null, view: AiHouseholdView | null): ShareState {
   if (view !== null && view.share !== null) return "sharing";
   if (status === null || !status.enabled) return "off";
   if (view === null || !view.saved) return "unsaved";
-  if (view.consentState === "given") return "given";
+  const u = aiUseOf(view);
+  if (u === "consent") return "given";
   // 架空の世帯（AIの候補から架空として作った世帯）は、同意の記録が無くても渡せる
-  if (view.fictional === true) return "fictional";
-  if (view.consentState === "refused") return "refused";
-  if (view.consentState === "withdrawn") return "withdrawn";
+  if (u === "fictional") return "fictional";
+  // 同意の答えが無く、事務所のプライバシーポリシーを FP が確かめている（0226）
+  if (u === "officePolicy") return "office";
+  if (u === "refused") return "refused";
+  if (u === "withdrawn") return "withdrawn";
   return "none";
 }
 
 export const SHARE_STATE_TEXT: Record<ShareState, { short: string; long: string }> = {
   off: { short: "AI: 使わない", long: "AI との接続はオフです（事務所の設定）。この世帯はAIに渡りません" },
   unsaved: { short: "AI: 共有しない", long: "保存していない世帯はAIに渡せません" },
-  none: { short: "AI: 共有しない", long: "外部AIへの提供の同意が記録されていません。AIに渡せません" },
-  refused: { short: "AI: 共有しない（同意なし）", long: "顧客は外部AIへの提供に同意しませんでした。AIに渡せません" },
-  withdrawn: { short: "AI: 共有しない（撤回）", long: "顧客は外部AIへの提供の同意を撤回しました。AIに渡せません" },
+  none: { short: "AI: 共有しない", long: "外部AIへの提供の同意が記録されていません。同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確かめるまで、AIに渡せません" },
+  refused: { short: "AI: 共有しない（同意なし）", long: "お客さまが外部AIへの提供に「同意しない」と答えました。事務所の設定にかかわらず、AIに渡せません" },
+  withdrawn: { short: "AI: 共有しない（撤回）", long: "お客さまが外部AIへの提供の同意を撤回しました。事務所の設定にかかわらず、AIに渡せません" },
   given: { short: "AI: 同意あり・共有していない", long: "同意があります。いまはAIに渡していません" },
+  office: { short: "AI: 事務所のポリシー・共有していない", long: "同意の記録はありませんが、事務所のプライバシーポリシーに沿って AI に渡せます（お客さまは「同意しない」と答えていません）。いまはAIに渡していません" },
   fictional: { short: "AI: 架空の世帯・共有していない", long: "架空の世帯なので、同意の記録が無くてもAIに渡せます。いまはAIに渡していません" },
   sharing: { short: "AI: 共有中", long: "この世帯をAIに渡しています（縮約版。期限つき）" },
 };
+
+/** AIに渡した記録の「渡したときの同意」の欄（0226。officePolicy は事務所のプライバシーポリシーで渡した記録） */
+export function grantStateText(state: string): string {
+  if (state === "given") return "同意あり";
+  if (state === "officePolicy") return "事務所のプライバシーポリシー（同意の記録なし・お客さまは断っていない）";
+  if (state === "fictional") return "架空の世帯（同意は要らない）";
+  return `同意なし（${state}）`;
+}
 
 /**
  * 保存した本文から、AIに渡る現状の入力（世帯の request.input）を画面の形で取り出す（0184 の追記）。

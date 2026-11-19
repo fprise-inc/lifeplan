@@ -216,3 +216,50 @@ fn branding_is_kept_encrypted_and_reopens() {
     s2.set_office_branding(Branding::default()).unwrap();
     assert_eq!(s2.office_branding().unwrap(), Branding::default());
 }
+
+// 世帯ファイルにまだ入っていない Web のヒアリングの依頼（0222）: 暗号化して持つ・開き直しても残る・事務所の既定値と別の欄・形の合わない値と大きすぎる値は受けない
+#[test]
+fn hearing_requests_are_kept_encrypted_apart_from_defaults() {
+    let dir = Dir(std::env::temp_dir().join(format!("hs-hearing-{}", crypto::new_uuid())));
+    let root = dir.0.join("data");
+    let secrets = Arc::new(MemorySecretStore::default());
+    let clock = TestClock(Arc::new(AtomicI64::new(1_792_368_000)));
+    let s = Store::new(root.clone(), secrets.clone(), clock.clone(), "0.1.0-test");
+    s.status().unwrap();
+    assert_eq!(s.office_hearing_requests().unwrap(), serde_json::json!({}));
+    let v = serde_json::json!({"v": 1, "requests": [{"record": {"requestId": "R-7K3P9Q", "secrets": {"secret": "TEST-ONLY-SECRET"}}, "householdId": null}]});
+    s.set_office_hearing_requests(v.clone()).unwrap();
+    for e in std::fs::read_dir(&root).unwrap() {
+        let p = e.unwrap().path();
+        if p.is_file() {
+            assert!(
+                !String::from_utf8_lossy(&std::fs::read(&p).unwrap()).contains("TEST-ONLY-SECRET"),
+                "{}",
+                p.display()
+            );
+        }
+    }
+    // 事務所の既定値を置き換えても消えない（別の欄）
+    s.set_office_defaults(serde_json::json!({"version": 4}))
+        .unwrap();
+    s.set_office_defaults(serde_json::json!({})).unwrap();
+    assert_eq!(s.office_hearing_requests().unwrap(), v);
+    drop(s);
+    let s2 = Store::new(root.clone(), secrets.clone(), clock.clone(), "0.1.0-test");
+    s2.status().unwrap();
+    assert_eq!(s2.office_hearing_requests().unwrap(), v);
+    assert_eq!(
+        s2.set_office_hearing_requests(serde_json::json!([1]))
+            .unwrap_err(),
+        StoreError::OFFICE_HEARING
+    );
+    let big = serde_json::json!({"x": "y".repeat(1100 * 1024)});
+    assert_eq!(
+        s2.set_office_hearing_requests(big).unwrap_err(),
+        StoreError::OFFICE_HEARING
+    );
+    assert_eq!(s2.office_hearing_requests().unwrap(), v);
+    s2.set_office_hearing_requests(serde_json::json!({}))
+        .unwrap();
+    assert_eq!(s2.office_hearing_requests().unwrap(), serde_json::json!({}));
+}

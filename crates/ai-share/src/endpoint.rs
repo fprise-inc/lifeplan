@@ -200,6 +200,20 @@ async fn serve(
             Request::GetShareDisplay { share_id, tool } => {
                 registry.handle_get_display(share_id, tool, &caller)
             }
+            Request::GetOfficeHearing => registry.handle_office_hearing(),
+            Request::ProposeHearingTemplate { proposal } => {
+                registry.handle_propose_hearing_template(proposal, &caller)
+            }
+            Request::IssueHearing { share_id, issue } => {
+                // 発行はアプリの画面が行い、答えが来るまで待つので、受け口の糸を止めない所で
+                let reg = registry.clone();
+                let (share_id, issue, caller) = (share_id.clone(), issue.clone(), caller.clone());
+                tokio::task::spawn_blocking(move || {
+                    reg.handle_issue_hearing(share_id.as_deref(), &issue, &caller)
+                })
+                .await
+                .unwrap_or_else(|_| Err((ErrorCode::Invalid, "発行できませんでした。".to_owned())))
+            }
             Request::ProposeHousehold { proposal } => {
                 // 計算の入力の確かめは計算エンジンを動かすので、受け口の糸を止めない所で
                 let reg = registry.clone();

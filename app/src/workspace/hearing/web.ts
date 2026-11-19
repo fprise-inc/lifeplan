@@ -11,21 +11,28 @@
 //   ひな形の既定から外した（カスタムで選べる）。数の目安は、どのひな形も夫婦と子2人で数え、この世帯の数を別に添える。外部 AI の同意（任意）は
 //   発行のときに出さないこともできる（問いにだけ効く。依頼の記録には置かない）。依頼の一覧の行の形（rowMode）・書類待ち（waitingDocuments）
 // - 0192 の追記（2026-11-18）: 取り込み済みの依頼は一覧から外す（listed。書類待ち・届いた書類があれば期限まで残す）。記録は世帯に残す
-import { importAnswers, OFFICIAL_SHEETS, requestIdFrom, type SheetDefinition } from "../../../../hearing/src/index.ts";
+import { importAnswers, requestIdFrom, type SheetDefinition } from "../../../../hearing/src/index.ts";
+import { baseSheet, newCustomKey, nextDocId, ownerFrom, templateSelectionOf, withOwner, type WebTemplateKind } from "./selection.ts";
+
 import { axisOf } from "../../../../hearing/src/definition.ts";
 import { exportAnswers } from "../../../../hearing/src/export.ts";
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import { b64u, fromB64u } from "../../../../hearing/src/web/b64.ts";
-import { DOCUMENT_TEMPLATES, docForCheck, HIDE_NUMBERS, MIME_EXT, OWNER_LABEL, templateOf, type DocumentMime, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
+import { docForCheck, HIDE_NUMBERS, MIME_EXT, templateOf, type DocumentMime } from "../../../../hearing/src/web/documents.ts";
 import { extendRequest, extendTarget, filledOf, issueRequest, receive, removeReceived, type WebRequestRecord } from "../../../../hearing/src/web/fp.ts";
-import { AGE_KEY, ageReplaced, draftKey, estimate, fieldAnswered, gateOptions, initialDraft, screenFields, screenGates, screens, type Draft, type DraftAnswer, type DraftDocument } from "../../../../hearing/src/web/flow.ts";
-import { buildPacket, checkSelection, CONSULT_KEY, CUSTOM_PREFIX, documentCovers, FILLED_ON, FP_SECTION, GATE_IDS, importDefinition, packetBody, selectionFromSheet, TOPIC_LABEL_MAX, TOPICS_MAX, type CustomQuestion, type DocumentAnswer, type GateAnswers, type GateId, type OfficeFace, type QuestionsPacket, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
+import { draftKey, estimate, fieldAnswered, gateOptions, initialDraft, screenFields, screenGates, screens, type Draft, type DraftAnswer, type DraftDocument } from "../../../../hearing/src/web/flow.ts";
+import { buildPacket, checkSelection, CONSULT_KEY, documentCovers, FILLED_ON, FP_SECTION, GATE_IDS, importDefinition, packetBody, TOPIC_LABEL_MAX, TOPICS_MAX, type CustomQuestion, type DocumentAnswer, type GateAnswers, type GateId, type OfficeFace, type QuestionsPacket, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
+
 import { relay, RELAY_LIMITS, type RelayTransport } from "../../../../hearing/src/web/protocol.ts";
 import type { Answer } from "../../../../hearing/src/answers.ts";
 import type { DocRequest } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { inputItems, nothingEnteredYet } from "../input/items.ts";
 import { gateCounts, logOf, viewOfResult, type ImportView } from "./sheet.ts";
+import { sheetOf } from "./selection.ts";
+
+// 選び方の純な部品（ひな形・数・書類・独自の質問のキー）は selection.ts（AI接続口の同梱の JS からも使う。0222）
+export { baseSheet, CUSTOM_TEMPLATE, defaultOwner, documentFromTemplate, newCustomKey, nextDocId, ownerFrom, readHearingTemplates, hiddenAge, selectedCount, sheetOf, TEMPLATE_MAX, templateForSave, WEB_TEMPLATES, withOwner, type HearingTemplate, type WebTemplateKind } from "./selection.ts";
 
 /** 受け取った書類のファイル（世帯ファイルの中。暗号化は世帯ファイルの暗号化のまま） */
 export interface StoredDocumentFile {
@@ -82,6 +89,15 @@ export interface WebLogEntry {
   importedAt?: string;
   /** FP が受け付けを終えた（サーバーから消した）日時。答えを受け取った後で URL を止めたとき */
   closedAt?: string;
+  /** 出どころ（0222。AI 接続口から発行した依頼だけ。発行の日時と AI のアプリの名乗り〔自己申告〕。FP の画面で発行した依頼は持たない） */
+  origin?: WebOrigin;
+}
+
+/** 依頼の出どころ（AI 接続口から発行した依頼。0222） */
+export interface WebOrigin {
+  kind: "ai";
+  at: string;
+  connector: string | null;
 }
 
 /** 受け取った書類の1世帯の上限（世帯ファイルが大きくなりすぎないように。写し終えたら消す） */
@@ -176,29 +192,6 @@ export function sentAtText(iso: string): string {
 
 // ---- 元のシート・ひな形 ----
 
-/** ひな形（0192）: シンプル（basic）・詳細（full）・見直し（full で今の値を確かめてもらう）。自分で選んだ・保存した組み合わせは「カスタム」 */
-export type WebTemplateKind = "simple" | "detail" | "review";
-
-export const WEB_TEMPLATES: readonly { value: WebTemplateKind; label: string; note: string }[] = [
-  { value: "simple", label: "シンプル", note: "ご家族・収入・住まい・貯蓄・生活費を大まかに。金額は範囲でも答えられます" },
-  { value: "detail", label: "詳細", note: "書類を見ながら答えてもらう詳しい問い" },
-  { value: "review", label: "見直し", note: "詳細の問いで、今の値を見せて確かめてもらう" },
-];
-
-/** 自分で選んだ・保存した組み合わせの呼び名 */
-export const CUSTOM_TEMPLATE = "カスタム";
-
-export function baseSheet(kind: WebTemplateKind): SheetDefinition {
-  const id = kind === "simple" ? "basic" : "full";
-  const d = OFFICIAL_SHEETS.filter((x) => x.sheetId === id && x.status !== "retired").sort((a, b) => b.version - a.version)[0];
-  if (d === undefined) throw new Error("E_HEARING_NO_SHEET");
-  return d;
-}
-
-export function sheetOf(sel: WebSelection): SheetDefinition | undefined {
-  return OFFICIAL_SHEETS.find((d) => d.sheetId === sel.base.sheetId && d.version === sel.base.version);
-}
-
 /** 今の世帯の値（確かめてもらう項目の前回の値。詳細のシートだけ） */
 export function prefillOf(wh: WorkingHousehold, def: SheetDefinition): Answer[] {
   if (def.sheetId !== "full") return [];
@@ -209,29 +202,18 @@ export function prefillOf(wh: WorkingHousehold, def: SheetDefinition): Answer[] 
   }
 }
 
-/** シンプルで既定で外す区画（ご両親。FP が足せば聞ける。0192） */
-const SIMPLE_OFF_SECTIONS: ReadonlySet<string> = new Set(["parents"]);
-
 /**
  * どのひな形でも既定で外す項目（0192 の追記 2026-11-17）: これからの予定（FP が具体的な項目を選んで聞く。カスタムで選べば聞ける）と、
  * ご相談したいこと（なぜライフプランを作るかは FP が先に説明する。お客さまの画面にも出さない）
  */
-export const TEMPLATE_OFF_ITEMS: ReadonlySet<string> = new Set(["hs.plan.events", CONSULT_KEY]);
-
-/** FP の画面の項目の一覧に出さない項目（ご相談したいことは、お客さまの画面に出さないので選べなくした。前の依頼の答えは読む） */
-export const HIDDEN_ITEMS: ReadonlySet<string> = new Set([CONSULT_KEY]);
+export { HIDDEN_ITEMS, TEMPLATE_OFF_ITEMS } from "./selection.ts";
 
 /** ひな形から始める選び方（見直しは、今の世帯に値のある項目を「確かめてもらう」に。シンプルはご両親を外す。どれも TEMPLATE_OFF_ITEMS を外す） */
 export function templateSelection(kind: WebTemplateKind, wh: WorkingHousehold): WebSelection {
-  const def = baseSheet(kind);
-  const label = WEB_TEMPLATES.find((t) => t.value === kind)?.label ?? kind;
-  const has = kind === "review" ? enteredKeys(wh, def) : new Set<string>();
-  const s = selectionFromSheet(def, (k) => (has.has(k) ? "confirm" : "ask"));
-  const sections = s.sections
-    .filter((x) => kind !== "simple" || !SIMPLE_OFF_SECTIONS.has(x.id))
-    .map((x) => ({ ...x, items: x.items.filter((i) => !TEMPLATE_OFF_ITEMS.has(i.key)) }))
-    .filter((x) => x.items.length > 0);
-  return { ...s, sections, name: label };
+  if (kind !== "review") return templateSelectionOf(kind, () => false);
+  const has = enteredKeys(wh, baseSheet(kind));
+  return templateSelectionOf(kind, (k) => has.has(k));
+
 }
 
 /** 依頼の一覧に出すひな形の名前（前の版の依頼は名前を持たないので、元のシートと聞き方から） */
@@ -241,24 +223,6 @@ export function selectionName(sel: WebSelection): string {
   return sel.sections.some((s) => s.items.some((i) => i.mode === "confirm")) ? "見直し" : "詳細";
 }
 
-/**
- * 聞く項目の数（0192。FP の画面の見出し・ひな形の説明・依頼の一覧で同じ数）。金額の「だいたいの範囲」は元の金額の項目の答え方なので数えない。
- * 独自の質問は数える
- */
-export function selectedCount(sel: WebSelection): number {
-  const def = sheetOf(sel);
-  const range = new Set((def?.items ?? []).filter((i) => i.rangeOf !== undefined).map((i) => i.key));
-  const age = hiddenAge(sel);
-  return sel.sections.reduce((n, s) => n + s.items.filter((i) => !range.has(i.key) && i.key !== age).length, 0);
-}
-
-/**
- * お客さまの画面に出さない年齢の問いのキー（生年月の問いを選んでいるとき。なければ null）。FP の画面の一覧に並べず、聞く項目の数にも数えない。
- * 生年月の問いを外すと、年齢の問いが出て並ぶ（0192 の追記 2026-11-19）
- */
-export function hiddenAge(sel: WebSelection): string | null {
-  return ageReplaced(sel.sections.flatMap((s) => s.items.map((i) => i.key))) ? AGE_KEY : null;
-}
 
 /** 今の世帯の人数（分岐の問いの答えの形。配偶者の方・お子さま・住宅ローン・保険。ご両親は答える） */
 export function householdGates(wh: WorkingHousehold): GateAnswers {
@@ -352,14 +316,6 @@ export function cleanTopics(list: readonly string[]): string[] {
   return out;
 }
 
-/** 独自の質問の新しいキー（ext.office.q + 8字の乱数） */
-export function newCustomKey(random: Uint8Array = crypto.getRandomValues(new Uint8Array(6))): string {
-  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
-  let s = "";
-  for (let i = 0; i < 8; i++) s += chars[(random[i % random.length] as number + i * 7) % chars.length];
-  return `${CUSTOM_PREFIX}q${s}`;
-}
-
 /** 選び方に独自の質問を足す（FP の質問の区画の最後に） */
 export function withCustom(sel: WebSelection, label: string, help: string, key = newCustomKey(), answer: Pick<CustomQuestion, "answer" | "choices"> = {}): WebSelection {
   const custom = [...sel.custom, { key, label: label.trim(), ...(help.trim() !== "" ? { help: help.trim() } : {}), ...customAnswer(answer) }];
@@ -385,42 +341,6 @@ export function withCustomEdit(sel: WebSelection, key: string, next: Pick<Custom
 
 export function withoutCustom(sel: WebSelection, key: string): WebSelection {
   return { ...sel, custom: sel.custom.filter((c) => c.key !== key), sections: sel.sections.map((s) => ({ ...s, items: s.items.filter((i) => i.key !== key) })).filter((s) => s.items.length > 0) };
-}
-
-/** 次の書類の ID（d1・d2 …） */
-export function nextDocId(sel: WebSelection): string {
-  let n = 1;
-  while (sel.documents.some((d) => d.id === `d${n}`)) n++;
-  return `d${n}`;
-}
-
-/** 持ち主の言葉（「ご本人」「配偶者」「配偶者の方」、または self・spouse）→ 持ち主（0190）。分からなければ undefined */
-export function ownerFrom(whose: string | null | undefined): DocumentOwner | undefined {
-  if (whose === "self" || whose === "ご本人") return "self";
-  if (whose === "spouse" || whose === "配偶者" || whose === "配偶者の方") return "spouse";
-  return undefined;
-}
-
-/** 書類の持ち主を変える（見出しの括弧「（ご本人）」も付け替える。FP の画面・受け取った書類の一覧で、どなたの書類か分かるように） */
-export function withOwner(doc: RequestedDocument, owner: DocumentOwner | undefined): RequestedDocument {
-  const tags = Object.values(OWNER_LABEL).map((l) => `（${l}）`);
-  const tag = tags.find((x) => doc.title.endsWith(x));
-  const base = tag === undefined ? doc.title : doc.title.slice(0, -tag.length);
-  const { owner: _o, ...rest } = doc;
-  void _o;
-  return owner === undefined ? { ...rest, title: base } : { ...rest, title: base === "" ? base : `${base}（${OWNER_LABEL[owner]}）`, owner };
-}
-
-/** 一覧から足すときの持ち主の初めの値: 人の書類はご本人（同じ書類をもうご本人の分で頼んでいれば配偶者の方）。ほかは選ばない */
-export function defaultOwner(sel: WebSelection, kind: string): DocumentOwner | undefined {
-  if (templateOf(kind)?.whose !== "person") return undefined;
-  return sel.documents.some((d) => d.kind === kind && d.owner === "self") && !sel.documents.some((d) => d.kind === kind && d.owner === "spouse") ? "spouse" : "self";
-}
-
-/** 公式の書類のひな形から頼む書類を作る（owner は持ち主。「ご本人」などの言葉でもよい） */
-export function documentFromTemplate(sel: WebSelection, kind: string, owner?: string): RequestedDocument {
-  const t = DOCUMENT_TEMPLATES.find((x) => x.kind === kind);
-  return withOwner({ id: nextDocId(sel), kind, title: t?.title ?? kind, purpose: t?.purpose ?? "", where: t?.where ?? "" }, ownerFrom(owner));
 }
 
 /** 書類待ちの1通（0102）から頼む書類を作る（書類待ちと結びつける。人の書類は持ち主も入れる） */
@@ -819,43 +739,6 @@ export function withoutFile(wh: WorkingHousehold, requestId: string, fileId: str
   const e = webLog(wh).find((x) => x.record.requestId === requestId);
   if (e === undefined) return wh;
   return withWebEntry(wh, { ...e, files: (e.files ?? []).filter((f) => f.fileId !== fileId) });
-}
-
-// ---- 事務所のひな形（事務所の既定値 0073 の hearingTemplates） ----
-
-export interface HearingTemplate {
-  name: string;
-  selection: WebSelection;
-}
-
-export const TEMPLATE_MAX = 20;
-
-/**
- * 事務所のひな形に保存する選び方（H-115）: 頼む書類から、その世帯の書類待ちの結びつき（docRequest）と持ち主（ご本人など）を外し、書類の種類だけを
- * 残す（書類待ちの欄から足した書類は、見出し・説明を書類の一覧の言葉に戻す）。名前はひな形の名前（カスタム）
- */
-export function templateForSave(sel: WebSelection, name: string): WebSelection {
-  const documents = sel.documents.map((d) => {
-    const t = d.docRequest !== undefined ? templateOf(d.kind) : undefined;
-    const { docRequest: _r, ...rest } = withOwner(d, undefined);
-    void _r;
-    return t === undefined ? rest : { ...rest, title: t.title, purpose: t.purpose, where: t.where };
-  });
-  return { ...sel, documents, name: `${CUSTOM_TEMPLATE}: ${name}` };
-}
-
-export function readHearingTemplates(v: unknown): HearingTemplate[] {
-  if (!Array.isArray(v)) return [];
-  const out: HearingTemplate[] = [];
-  for (const t of v.slice(0, TEMPLATE_MAX)) {
-    if (typeof t !== "object" || t === null) continue;
-    const o = t as { name?: unknown; selection?: unknown };
-    const s = o.selection as WebSelection | undefined;
-    if (typeof o.name !== "string" || o.name.trim() === "" || s === undefined || typeof s !== "object" || s === null || typeof s.base?.sheetId !== "string" || !Array.isArray(s.sections) || !Array.isArray(s.custom) || !Array.isArray(s.documents)) continue;
-    if (OFFICIAL_SHEETS.find((d) => d.sheetId === s.base.sheetId && d.version === s.base.version) === undefined) continue;
-    out.push({ name: o.name.trim().slice(0, 40), selection: s });
-  }
-  return out;
 }
 
 // ---- 届いた知らせ（0192。H-110） ----
