@@ -1,6 +1,7 @@
 // ビルドの時に、計算エンジンのまとめた JS・制度データのパック・架空のモデル世帯（と、その説明）を埋め込む一覧を作る（アプリ本体の build.rs と同じもの）。
 // AI接続口だけのものとして、「数字の根拠」の読み方（画面と同じ関数をまとめた JS。dist/explain.js）と対応範囲の一覧（engine/dist/coverage.json）も埋め込む（0183）。
-// 見本の世帯の一覧の名前と目印（アプリの見本の棚と同じ物。dist/samples.json）も埋め込む（0199）
+// 見本の世帯の一覧の名前と目印（アプリの見本の棚と同じ物。dist/samples.json）も埋め込む（0199）。
+// 画面の操作の手引き（docs/app-guide/NN-<画面>.md。リポジトリの中の正本をそのまま）も埋め込む（0227）
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -120,6 +121,36 @@ fn main() {
         display_catalog.display().to_string()
     )
     .unwrap();
+    // 画面の操作の手引き（0227）: docs/app-guide/ の「2桁の数-名前.md」を名前の順に（README.md は書き方の説明なので入れない）
+    let app_guide = repo.join("docs/app-guide");
+    println!("cargo:rerun-if-changed={}", app_guide.display());
+    let mut guide_files: Vec<PathBuf> = std::fs::read_dir(&app_guide)
+        .unwrap_or_else(|e| panic!("{} を読めません: {e}", app_guide.display()))
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| {
+            let n = p.file_name().unwrap_or_default().to_string_lossy();
+            n.ends_with(".md")
+                && n.len() > 3
+                && n.as_bytes()[..2].iter().all(u8::is_ascii_digit)
+                && n.as_bytes()[2] == b'-'
+        })
+        .collect();
+    guide_files.sort();
+    if guide_files.is_empty() {
+        panic!("画面の操作の手引き（docs/app-guide/NN-<画面>.md）がありません");
+    }
+    out.push_str("/// 画面の操作の手引き（docs/app-guide/NN-<画面>.md。名前の順）: (ファイルの名前, 中身)。0227\npub const APP_GUIDE: &[(&str, &str)] = &[\n");
+    for p in guide_files {
+        println!("cargo:rerun-if-changed={}", p.display());
+        let name = p.file_name().unwrap().to_string_lossy().to_string();
+        writeln!(
+            out,
+            "    ({name:?}, include_str!({:?})),",
+            p.display().to_string()
+        )
+        .unwrap();
+    }
+    out.push_str("];\n");
     out.push_str("/// 制度データ・マスタのパック（engine/dist/regulation/*.json。名前の順）\npub const PACKS: &[&str] = &[\n");
     for p in list_json(&regulation) {
         println!("cargo:rerun-if-changed={}", p.display());

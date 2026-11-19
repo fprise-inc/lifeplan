@@ -41,7 +41,7 @@ struct List {
 }
 
 /// 文の正規化: 全角・半角を NFKC でそろえ（全角の英数字は半角に、半角のカナは全角に。fold.rs）、英字を小文字に、空白と記号を外す
-fn normalize(s: &str) -> String {
+pub(crate) fn normalize(s: &str) -> String {
     crate::fold::fold(s)
         .chars()
         .filter_map(|c| {
@@ -71,7 +71,7 @@ fn is_hiragana(c: char) -> bool {
 }
 
 /// 2文字の並び（ひらがなだけの並びは外す）
-fn bigrams(s: &str) -> BTreeSet<String> {
+pub(crate) fn bigrams(s: &str) -> BTreeSet<String> {
     let cs: Vec<char> = s.chars().collect();
     cs.windows(2)
         .filter(|w| !(is_hiragana(w[0]) && is_hiragana(w[1])))
