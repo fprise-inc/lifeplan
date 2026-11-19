@@ -28,7 +28,9 @@ pub enum Request {
     ListShares,
     /// 渡された世帯（縮約版が既定）。`tool` は読んだ道具の名前（AIに渡した記録の `reads` に残す。0014 の3）。
     /// `for_calc` は計算に使う読み取り（calculate・explain_value）: 返事に、画面が計算の前に足す事務所の推定の値
-    /// （事務所データの `defaults.estimates`）を `officeEstimates` として添える。接続口は計算にだけ使い、AIには見せない（0184）
+    /// （事務所データの `defaults.estimates`）を `officeEstimates` として添える。接続口は計算にだけ使い、AIには見せない（0184）。
+    /// ヒアリングの道具（get_hearing_options など）もこの読み取りで、画面の入力の進み具合 `enteredState`（保存した・足した入力項目の数、
+    /// 仮の値を入れた欄のキー）を受け取り、今の値があるかを画面と同じ関数で決める（AIには見せない。0222 の追記 2026-11-19）
     GetShare {
         share_id: String,
         tool: String,
