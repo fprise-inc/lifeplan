@@ -277,6 +277,15 @@ describe("相続税の評価の材料", () => {
     expect(q?.years[0]?.rentedShare).toBe("1");
   });
 
+  it("経年減点補正率は、画面（app の propertyTax.ts の keinenRate）と同じ値（app/test/rental-plan.test.ts が同じ値を確かめる）", () => {
+    const wood = [0.8, 0.75, 0.7, 0.68, 0.65, 0.63, 0.61, 0.59, 0.56, 0.54, 0.52, 0.5, 0.47, 0.45, 0.43, 0.4, 0.38, 0.36, 0.34, 0.31, 0.29, 0.27, 0.25, 0.22, 0.2];
+    for (let age = 1; age <= 70; age++) expect(Number(keinenRateText("wood", age)), `wood ${age}`).toBe(wood[Math.min(age, 25) - 1]);
+    // 非木造は画面と同じ式（0.7 − 0.5×(経過−3)÷(年数−3) を小数4桁に）で照らす
+    const nonWood = (n: number, a: number) => (a <= 3 ? [0.8, 0.75, 0.7][a - 1] : a >= n ? 0.2 : Math.round((0.7 - (0.5 * (a - 3)) / (n - 3)) * 10000) / 10000);
+    for (const [s, n] of [["rc", 60], ["steel", 40], ["lightSteel", 30]] as const) for (let age = 1; age <= 70; age++) expect(Number(keinenRateText(s, age)), `${s} ${age}`).toBe(nonWood(n, age));
+    expect([4, 30, 59].map((a) => keinenRateText("rc", a))).toEqual(["0.6912", "0.4632", "0.2088"]);
+  });
+
   it("経年減点補正率の非木造の表（小数4桁）", () => {
     expect(keinenRateText("rc", 1)).toBe("0.80");
     expect(keinenRateText("rc", 4)).toBe("0.6912");

@@ -283,10 +283,18 @@ fn every_format_version_has_a_fixture_and_opens() {
         // 0.85 の見本は土地ごと買う予定の物件を1件持つ
         let planned: Vec<&Value> = now["household"]["request"]["input"]["household"]["accounts"]
             .as_array()
-            .map(|xs| xs.iter().filter_map(|a| a["property"].get("planned")).collect())
+            .map(|xs| {
+                xs.iter()
+                    .filter_map(|a| a["property"].get("planned"))
+                    .collect()
+            })
             .unwrap_or_default();
         if migrate::parse(v).unwrap() >= (0, 85) {
-            assert_eq!(planned.len(), 1, "{v}: 0.85 からの見本は建てる・買う予定の物件を持つ");
+            assert_eq!(
+                planned.len(),
+                1,
+                "{v}: 0.85 からの見本は建てる・買う予定の物件を持つ"
+            );
             assert_eq!(planned[0]["type"], "buy");
         } else {
             assert!(planned.is_empty(), "{v}: 予定は変換で書き足さない");

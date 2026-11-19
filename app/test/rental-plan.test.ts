@@ -1,8 +1,6 @@
 // 収益不動産の建てる・買う予定（0232）: 入力の画面（「＋ 建てる・買う予定」「＋ この土地に建てる予定」・予定のまとまりの欄・予定の物件で出さない欄）、
 // 自己資金の空欄の額、建物の固定資産税評価額の推定と入れ直し、経年減点補正率が計算エンジンと同じ、表の「不動産の取得」の行、予定の月から借りるローン
 import { describe, expect, it } from "vitest";
-import { keinenRateText } from "../../engine/src/sdk/index.ts";
-import type { BuildingStructure } from "../../engine/src/engine/types.ts";
 import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { refreshEstimates } from "../src/workspace/input/estimates.ts";
@@ -141,8 +139,13 @@ describe("建物の固定資産税評価額の推定", () => {
     expect(planAssessedEstimate({ type: "build", at: { at: "2028-04" } })).toBeNull();
   });
 
-  it("経年減点補正率は、計算エンジン（sdk の keinenRateText）と画面（propertyTax.ts の keinenRate）で同じ値", () => {
-    for (const s of ["wood", "lightSteel", "steel", "rc"] as BuildingStructure[]) for (let age = 1; age <= 70; age++) expect(Number(keinenRateText(s, age)), `${s} ${age}`).toBe(keinenRate(s, age));
+  it("経年減点補正率（画面の keinenRate）は、計算エンジンの表（engine/test/rentalPlan.test.ts で同じ値を確かめる）と同じ法令の値", () => {
+    // 計算エンジンの内部は読まない（app の型の検査はエンジンの生成物より前に流れる）。両方が同じ値の表に合うことで、同じ値であることを確かめる
+    const wood = [0.8, 0.75, 0.7, 0.68, 0.65, 0.63, 0.61, 0.59, 0.56, 0.54, 0.52, 0.5, 0.47, 0.45, 0.43, 0.4, 0.38, 0.36, 0.34, 0.31, 0.29, 0.27, 0.25, 0.22, 0.2];
+    for (let age = 1; age <= 70; age++) expect(keinenRate("wood", age), `wood ${age}`).toBe(wood[Math.min(age, 25) - 1]);
+    expect([1, 2, 3, 4, 30, 59, 60, 70].map((a) => keinenRate("rc", a))).toEqual([0.8, 0.75, 0.7, 0.6912, 0.4632, 0.2088, 0.2, 0.2]);
+    expect([4, 20, 39, 40].map((a) => keinenRate("steel", a))).toEqual([0.6865, 0.4703, 0.2135, 0.2]);
+    expect([4, 15, 29, 30].map((a) => keinenRate("lightSteel", a))).toEqual([0.6815, 0.4778, 0.2185, 0.2]);
   });
 });
 
