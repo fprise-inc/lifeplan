@@ -1,6 +1,6 @@
 // プランの一覧（作業の層。主画面の帯の左の「一覧から選ぶ」で、帯のすぐ下に開く。別の窓は出さない）。
 // 保存できるプランの数に上限は無い。帯に並べるプランを最大5つ選ぶ。印で絞る・名前と印・現状に反映（確認つき）・外す（確認つき）。
-// 保存はまだファイルにしない（アプリを閉じると消える）
+// プランは世帯ファイルに保存する（保存していない世帯のプランは、アプリを閉じると消える。控えの一覧と同じ言い方で出し分ける）
 import { useState } from "preact/hooks";
 import type { WorkingHousehold } from "../input/household.ts";
 import { MAX_BAND } from "./band.ts";
@@ -21,6 +21,8 @@ export interface PlanListProps {
   /** 「入力で直す」（入力の画面でこのプランを編集の対象にする。0036 の8） */
   onOpenInput?: (id: string) => void;
   onClose: () => void;
+  /** 保存している世帯か（見本・保存していない世帯のプランは、アプリを閉じると消える） */
+  stored: boolean;
 }
 
 const dateText = (iso: string) => {
@@ -42,7 +44,7 @@ export function PlanList(p: PlanListProps) {
       <div class="card-h">
         <h2 id="h-plans">プランの一覧（{plans.length}件）</h2>
         <span class="aside">
-          帯に並べるプランを {MAX_BAND}つまで選べます（{p.band.length}/{MAX_BAND}）。保存できるプランの数に上限はありません。保存はまだファイルにしません（アプリを閉じると消えます）
+          帯に並べるプランを {MAX_BAND}つまで選べます（{p.band.length}/{MAX_BAND}）。保存できるプランの数に上限はありません。{p.stored ? "世帯ファイルに保存しています" : "保存していない世帯です。アプリを閉じると消えます"}
         </span>
         <button type="button" class="btn" onClick={p.onClose}>
           閉じる

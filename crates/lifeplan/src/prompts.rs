@@ -150,12 +150,26 @@ pub struct OfficeWordingArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct HearingUrlArgs {
+    /// 誰に聞くか: FP が渡した世帯の share_id（その世帯の足りない所・見直し）。省くと新しいお客さま（世帯の決まっていない依頼）
+    pub household: Option<String>,
+    /// 聞きたいこと（例「初回の面談の前に、収入・住まい・貯蓄をざっくり。源泉徴収票も」「前回から変わった所の見直し」）。省くと AI がひな形から選ぶ
+    pub want: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct OfficeDisplayArgs {
     /// 変えたい見せ方（例「対策に最初から NISA も出したい」「家計の体力の目安の幅を変えたい」「万一のときのタブを収入が減るの場面で開きたい」）。
     /// 省くと、今の設定と変えられることをひととおり
     pub want: Option<String>,
     /// 世帯ごとの設定も見たい・その世帯だけの案を出したい世帯（FP が渡した世帯の share_id）。省くと事務所の既定値だけ
     pub household: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct HowToUseArgs {
+    /// やりたいこと（例「プランを保存したい」「お客さまに URL でヒアリングを送りたい」「AI に世帯を渡したい」）。省くと、手引きの目次から主な操作をひととおり
+    pub want: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -175,7 +189,7 @@ impl LifeplanMcp {
         result(
             "この接続口でできること",
             "ファイナンシアの AI接続口で何ができるかを、FP 向けに短く紹介してください。\n\
-             - できることを場面ごとに（計算・対策を並べて比較する・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・作った世帯をアプリに入れる・面談の準備・面談でお客さまに聞くことのまとめ・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
+             - できることを場面ごとに（計算・対策を並べて比較する・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・作った世帯をアプリに入れる・面談の準備・面談でお客さまに聞くことのまとめ・プランの候補・保険の書類からの入力の候補・アプリの画面の操作の手引き〔どこを押す？〕）、頼み方の例を1つずつ添えて。\n\
              - アプリが起動していなくても見本の世帯（架空）で試せること、お客さまの世帯は FP がアプリで渡したときだけ読めることを一言。\n\
              - 最後に、list_sample_households で見本を1つ選び、calculate（omit に [\"years\"]）で主な数字を1つ見せて、試し方の例にしてください。"
                 .to_owned(),
@@ -545,8 +559,64 @@ impl LifeplanMcp {
                  3. 案を出せる設定（答えの proposable が true の、事務所の既定値の見せ方の18件。結果のタブ・資産と負債のタブの表示の設定は事務所の既定値の案になる）は、FP が「変えて」と頼んだときだけ、propose_display_settings で案をアプリに出す（value は current.office.value と同じ形で、変えたい設定だけ。理由を note に短く書く）。案はアプリの事務所の既定値の画面に承認待ちで出るだけで、**この接続口からは設定を直接変えられない**: FP が画面で設定ごとに「今 → 案」を確かめて「反映する」を押したときだけ変わり、後で前の値にも戻せる。案を出したことを伝え、設定を変えたとは言わない。断られたら、理由と近い候補を見て直す。\n\
                  4. 渡された世帯ごとの案（答えの householdProposable が true の13件。結果のタブ・資産と負債のタブの表示の設定・この世帯で並べる時点・入力項目の選び方）は、FP が「この世帯だけ変えて」と頼んだときだけ、propose_display_settings に share_id を書いて出す（value は current.household.value と同じ形）。案はその世帯の結果のタブ（プランの帯の下）に承認待ちで出るだけで、FP が「反映する」を押した設定だけがこの世帯だけの値になる（事務所の既定値に従っていた設定も、事務所の既定値に従わなくなる）。案を出したことは、その世帯の「AIに渡した記録」に残る。対策に足した項目（result.addedItems）は物の ID を含むので案を出せない。\n\
                  5. 案を出せない設定（対策に足した項目・読むだけの設定）は、変える所を答えの change の画面と区画の名前のまま FP に伝える。\n\
-                 6. 一覧に無いこと（計算の結果を変える設定〔前提条件の標準値・推定の値など〕・名前やロゴ・ヒアリングのひな形）は、この一覧の外だと伝える。画面の文や名前を事務所の言い方に直したい・入力の欄を隠したいときは、list_custom_texts でカスタム層の下書き（settings/texts.json・settings/terms.json・settings/fields.json）を作る進め方にする。\n\
+                 6. 一覧に無いこと（計算の結果を変える設定〔前提条件の標準値・推定の値など〕・名前やロゴ・ヒアリングのひな形）は、この一覧の外だと伝える（ヒアリングのひな形は get_hearing_options の officeTemplates で読み、propose_hearing_template で案を出せる）。画面の文や名前を事務所の言い方に直したい・入力の欄を隠したいときは、list_custom_texts でカスタム層の下書き（settings/texts.json・settings/terms.json・settings/fields.json）を作る進め方にする。\n\
                  7. 計算のお知らせの「入力が足りない」「計算に入れていない」と確かめの注意は、どの設定でも隠せない（答えの neverHidden）。隠したいと言われても、隠す方法は案内しない。",
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "how_to_use",
+        title = "ファイナンシアの使い方を聞く",
+        description = "アプリの画面の操作（どこを押すか・どの画面で何ができるか）を、同梱した画面の操作の手引き（search_app_guide・get_app_guide）で調べて、手引きどおりに答える。手引きに無い操作は推測で手順を作らず「手引きに見当たらない」と答える"
+    )]
+    async fn how_to_use(&self, Parameters(a): Parameters<HowToUseArgs>) -> GetPromptResult {
+        let want = given(&a.want);
+        let first = want.map_or_else(
+            || "1. get_app_guide を id なしで呼んで画面ごとの目次を見て、よく使う操作（世帯を作る・入力する・取り込む・プランを作って保存する・比較する・提案書を作る・AI と接続する など）を画面ごとに短く紹介する。詳しく知りたい操作を FP に聞く。".to_owned(),
+            |w| format!("1. search_app_guide の query に「{w}」を渡して、当たる節を探す（当たらなければ、画面の名前・短い言葉に言い換えて探し直す）。"),
+        );
+        result(
+            "ファイナンシアの使い方を聞く",
+            format!(
+                "ファイナンシアのアプリの画面で、次のことをするにはどうすればよいかを教えてください。\n\
+                 - やりたいこと: {}\n\n\
+                 進め方:\n\
+                 {first}\n\
+                 2. 当たった節を get_app_guide で読む（要るときは「関係する節」も読む）。\n\
+                 3. 本文の手順どおりに、どの画面で・何を押すかを番号つきで短く答える。画面のボタン・見出し・タブの名前は、本文の「」の中のまま書き、言い換えない。条件（保存した世帯だけ・AI と接続しているときだけ など）があれば添える。\n\
+                 4. 手引きに無い操作・ボタンは、推測で手順を作らず「手引きに見当たらない」と答え、アプリの画面で確かめるよう勧める。アプリに欲しい操作なら、アプリの「要望・不具合を送る」から送れると伝える（ここからは送らない）。\n\
+                 5. 計算の中身（何をどう計算しているか）を聞かれたら search_coverage・get_coverage、入力の形を聞かれたら get_input_guide を使う（画面の操作の手引きは画面の手順だけ）。",
+                want.unwrap_or("（指定なし。主な操作をひととおり）"),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "hearing_url",
+        title = "URL で事前のヒアリングをする",
+        description = "Web のヒアリング（URL を送って、お客さまにスマートフォンなどで答えてもらう事前のヒアリング）の項目を get_hearing_options で選び、issue_hearing_url で URL を発行する。新しいお客さま（世帯を渡していない）にも、渡された世帯の足りない所だけ・見直しにも使える。見直しを含む依頼の URL は返らない（FP がアプリでコピーする）。よく使う組み合わせは propose_hearing_template で事務所のひな形の案にする"
+    )]
+    async fn hearing_url(&self, Parameters(a): Parameters<HearingUrlArgs>) -> GetPromptResult {
+        let who = given(&a.household).map_or_else(
+            || "新しいお客さま（share_id は書かない。世帯の決まっていない依頼になり、答えが届いたら FP が新しい世帯を作るか、開いている世帯に取り込むかを選ぶ）".to_owned(),
+            |h| format!("{h}（FP が渡した世帯の share_id として、get_hearing_options・issue_hearing_url・check_inputs の share_id に渡す。分からなければ list_shared_households で確かめる）"),
+        );
+        let want =
+            given(&a.want).unwrap_or("（指定なし。ひな形のシンプルから、FP と相談して決める）");
+        result(
+            "URL で事前のヒアリングをする",
+            format!(
+                "ファイナンシアの Web のヒアリング（URL で答えてもらう事前のヒアリング）の URL を用意してください。\n\
+                 - 誰に: {who}\n- 聞きたいこと: {want}\n\n\
+                 進め方:\n\
+                 1. get_hearing_options で聞ける項目を引く（票は simple＝シンプルと detail＝詳細の2つで、1つの依頼に混ぜられない。金額の「だいたいの範囲」は金額の項目の range で付く）。渡された世帯なら share_id を書き、項目ごとの filled（今の値があるか）を見る。\n\
+                 2. 渡された世帯なら check_inputs で「お客さまに聞くこと」を引き、足りない所だけ聞くなら template: missing に要る項目を items で足し、前回の値を見せて確かめてもらうなら template: review（見直し）にする。新しいお客さまなら template: simple か detail（事務所のひな形があれば officeTemplates の名前）から始める。\n\
+                 3. 要るときだけ、独自の質問（custom。10問まで）・頼む書類（documents。人の書類は owner で持ち主）を足す。お名前・番号は書かない（アプリが番号らしい所を消す）。\n\
+                 4. issue_hearing_url に preview: true を付けて呼び、聞く項目の数・お客さまの画面の数・所要時間の目安と要約を FP に見せて確かめてもらう。断られたら、理由と近い候補を見て直す。\n\
+                 5. FP が「発行して」と言ったら、preview を外して呼ぶ。返った URL と案内文は FP がメールなどで送る物で、会話の外の道具（送信・ウェブ）には渡さない（アプリもこの接続口もメールは送らない）。見直しを含む依頼は URL と案内文が返らないので、FP にアプリの「URL の依頼」で案内文をコピーしてもらう。アプリの上の帯に「AI が URL を発行しました」と出て、FP は取り消せる。\n\
+                 6. この組み合わせをよく使うと FP が言ったら、propose_hearing_template で事務所のひな形の案を出す（FP がアプリで「ひな形として保存する」を押したときだけ入る）。\n\
+                 お客さまの答えは AI からは読めない（受け取り・取り込みは FP がアプリで行う）。"
             ),
         )
     }

@@ -1,19 +1,23 @@
 //! 共有の台帳（0015 の5）。共有が有効かどうかは、アプリ本体のメモリの中のこの台帳だけで決める。
 //! アプリを終了・再起動すると、すべての共有が無効になる（台帳ごと消える）。
 
+use crate::basis::{ai_documents_use, ai_use, AiUse};
 use crate::clock::{iso8601, Clock, SystemClock};
 use crate::display;
 use crate::display_proposals::{
     self, DisplayCandidate, HouseholdDisplayCandidate, HouseholdDisplayPending,
 };
 use crate::documents::{self, PendingDocumentProposal};
+use crate::hearing::{
+    self, HearingIssuer, HearingJob, HearingTemplateCandidate, JobHousehold, OfficeHearingSource,
+};
 use crate::households::{self, HouseholdCandidate};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
 use crate::record::{
     verify_append_only, AiShareRecord, Caller, ConsentAtGrant, EndReason, ProposalEntry,
 };
 use crate::reduce::{self, allowlist, is_addable, Pseudonyms, Scope};
-use crate::source::{ConsentDecision, SharedHouseholdSource};
+use crate::source::SharedHouseholdSource;
 use ai_ipc::ErrorCode;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -60,7 +64,8 @@ pub enum GrantError {
     NotAddable(String),
     /// 接続先の申告が無い
     DestinationMissing,
-    /// 外部AIへの提供の同意が `given` でない（警告を見せて、FPが続けるなら proceed_without_consent で呼び直す）
+    /// AI接続を使える理由が無い（外部AIへの提供の同意が `given` でなく、事務所のプライバシーポリシーも使えない。0226）。
+    /// 警告を見せて、FPが続けるなら proceed_without_consent で呼び直す（アプリ本体は `require_consent` で続けさせない）
     ConsentMissing { state: String },
 }
 
@@ -72,6 +77,8 @@ pub struct Granted {
     pub expires_at: String,
     pub fields: Vec<String>,
     pub consent_warned: bool,
+    /// どの理由で渡したか（0226。同意・事務所のプライバシーポリシー・架空の世帯。警告を見て続けたときは同意の状態）
+    pub basis: AiUse,
 }
 
 /// 共有中の表示（帯）のための状態
@@ -121,6 +128,8 @@ pub struct FeatureCodeCandidate {
 #[derive(Default)]
 struct State {
     shares: HashMap<String, Share>,
+    /// 事務所の設定で、FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめているか（0226。アプリ本体が入れる）
+    office_policy: bool,
     issued: u32,
     logs: HashMap<String, Vec<AiShareRecord>>,
     proposals: Vec<PendingProposal>,
@@ -133,6 +142,12 @@ struct State {
     display_candidates: Vec<DisplayCandidate>,
     /// AIが出した、渡された世帯ごとの表示の設定の案（承認待ち。アプリのメモリの中だけ。FPがその世帯を開いて設定ごとに反映するか捨てるまで）
     household_display_candidates: Vec<HouseholdDisplayCandidate>,
+    /// AI 接続口から発行した Web のヒアリングの依頼の日時（1時間の上限を数える。アプリを開いている間だけ。0222）
+    hearing_issued: Vec<u64>,
+    /// 画面に頼んで答えを待っている発行の数（1時間の上限に入れて数える）
+    hearing_in_flight: usize,
+    /// AIが出した Web のヒアリングの事務所のひな形の案（承認待ち。アプリのメモリの中だけ。FPが画面で保存するか捨てるまで。0222）
+    hearing_templates: Vec<HearingTemplateCandidate>,
     /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
@@ -145,6 +160,8 @@ pub struct ShareRegistry {
     office: Mutex<Option<OfficeEstimatesSource>>,
     office_display: Mutex<Option<OfficeDisplaySource>>,
     household_check: Mutex<Option<HouseholdCheck>>,
+    hearing_issuer: Mutex<Option<HearingIssuer>>,
+    office_hearing: Mutex<Option<OfficeHearingSource>>,
 }
 
 /// 新しい世帯の候補の計算の入力を確かめる所（アプリ本体が入れる。計算エンジンのスキーマと同じ確かめ）。Err は AI に見せてよい理由
@@ -177,6 +194,8 @@ impl ShareRegistry {
             office: Mutex::new(None),
             office_display: Mutex::new(None),
             household_check: Mutex::new(None),
+            hearing_issuer: Mutex::new(None),
+            office_hearing: Mutex::new(None),
         }
     }
 
@@ -217,6 +236,22 @@ impl ShareRegistry {
             .unwrap_or_else(|p| p.into_inner()) = check;
     }
 
+    /// Web のヒアリングの発行を画面に頼む所を入れる（アプリ本体が起動したときに入れる。0222）。入れなければ発行の依頼を断る
+    pub fn set_hearing_issuer(&self, issuer: Option<HearingIssuer>) {
+        *self
+            .hearing_issuer
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = issuer;
+    }
+
+    /// 事務所の Web のヒアリングのひな形を読む所を入れる（アプリ本体が起動したときに入れる。0222）
+    pub fn set_office_hearing(&self, source: Option<OfficeHearingSource>) {
+        *self
+            .office_hearing
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = source;
+    }
+
     /// 記録が変わった回数（世帯ファイルへ書き戻すかどうかの判定に使う）
     pub fn revision(&self) -> u64 {
         self.lock().revision
@@ -243,20 +278,21 @@ impl ShareRegistry {
         if opts.destination_declared.trim().is_empty() {
             return Err(GrantError::DestinationMissing);
         }
-        let consent_state = match &source.external_ai_consent {
-            Some(c) => match c.decision {
-                ConsentDecision::Given => "given",
-                ConsentDecision::Refused => "refused",
-                ConsentDecision::Withdrawn => "withdrawn",
-            },
-            None => "none",
-        };
+        // 渡せるかは basis の1か所で決める（同意がある・事務所のプライバシーポリシーを確かめていて断られていない・架空の世帯。0226）。
         // 架空の世帯は、お客さまの情報を含まないので同意の記録が無くても渡せる（期限・取り消し・記録・縮約版は同じ）
-        let fictional = source.fictional && consent_state != "given";
-        let warned = !fictional && consent_state != "given";
-        if warned && (!opts.proceed_without_consent || self.lock().require_consent) {
+        let (require, office_policy) = {
+            let st = self.lock();
+            (st.require_consent, st.office_policy)
+        };
+        let basis = ai_use(
+            source.external_ai_consent.as_ref(),
+            office_policy,
+            source.fictional,
+        );
+        let warned = !basis.allowed();
+        if warned && (!opts.proceed_without_consent || require) {
             return Err(GrantError::ConsentMissing {
-                state: consent_state.to_owned(),
+                state: basis.grant_state().to_owned(),
             });
         }
         let now = self.now();
@@ -282,12 +318,7 @@ impl ShareRegistry {
             household_revision: source.revision.clone(),
             destination_declared: opts.destination_declared.clone(),
             consent_at_grant: ConsentAtGrant {
-                state: if fictional {
-                    "fictional"
-                } else {
-                    consent_state
-                }
-                .to_owned(),
+                state: basis.grant_state().to_owned(),
                 record_id: source
                     .external_ai_consent
                     .as_ref()
@@ -320,6 +351,7 @@ impl ShareRegistry {
             expires_at: iso8601(expires_ms),
             fields: reduced.fields,
             consent_warned: warned,
+            basis,
         })
     }
 
@@ -328,7 +360,7 @@ impl ShareRegistry {
         let now = self.now();
         let mut st = self.lock();
         let require = st.require_consent;
-        let consent_ok = may_share(&source);
+        let consent_ok = may_share(&st, &source);
         let updated = match st.shares.get_mut(share_id) {
             Some(s) if s.ended.is_none() && s.source.household_id == source.household_id => {
                 s.source = source;
@@ -371,6 +403,29 @@ impl ShareRegistry {
         self.end_where(EndReason::ConsentWithdrawn, |_, s| {
             s.source.household_id == household_id
         })
+    }
+
+    /// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」の確かめを入れる（アプリ本体が起動したとき・FPが変えたときに入れる。0226）。
+    /// 外したときは、それを理由に渡していた共有（同意の答えが無い世帯。書類を含まない同意の世帯は計算の項目を渡せるので閉じない）を、その場で「取り消し」で閉じる。
+    /// 閉じた共有の数を返す
+    pub fn set_office_policy(&self, on: bool) -> usize {
+        let was = std::mem::replace(&mut self.lock().office_policy, on);
+        if on || !was {
+            return 0;
+        }
+        self.end_where(EndReason::Revoked, |_, s| {
+            !ai_use(
+                s.source.external_ai_consent.as_ref(),
+                false,
+                s.source.fictional,
+            )
+            .allowed()
+        })
+    }
+
+    /// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」を確かめているか（0226）
+    pub fn office_policy(&self) -> bool {
+        self.lock().office_policy
     }
 
     /// アプリの終了のときに呼ぶ（すべての共有を閉じる）
@@ -603,6 +658,26 @@ impl ShareRegistry {
     }
 
     /// 表示の設定の案をすべて外す（AI接続口をオフにしたとき。渡された世帯ごとの案も外す）
+    /// Web のヒアリングの事務所のひな形の案（承認待ち。0222）
+    pub fn hearing_template_candidates(&self) -> Vec<HearingTemplateCandidate> {
+        self.lock().hearing_templates.clone()
+    }
+
+    /// Web のヒアリングの事務所のひな形の案を承認待ちから外す（FP が画面で保存した後か、「捨てる」を押したとき）
+    pub fn take_hearing_template(&self, candidate_id: &str) -> Option<HearingTemplateCandidate> {
+        let mut st = self.lock();
+        let at = st
+            .hearing_templates
+            .iter()
+            .position(|c| c.candidate_id == candidate_id)?;
+        Some(st.hearing_templates.remove(at))
+    }
+
+    /// AI接続口をオフにしたとき: 判断していないひな形の案を消す
+    pub fn clear_hearing_templates(&self) {
+        self.lock().hearing_templates.clear();
+    }
+
     pub fn clear_display_candidates(&self) {
         let mut st = self.lock();
         st.display_candidates.clear();
@@ -757,6 +832,173 @@ impl ShareRegistry {
         .to_string())
     }
 
+    /// 事務所の Web のヒアリングのひな形（読むだけ。0222）。読む所が無い・読めないときは `available: false`。世帯を渡していなくてよく、
+    /// 世帯の中身ではないので AIに渡した記録には残さない
+    pub fn handle_office_hearing(&self) -> Result<String, Refusal> {
+        let source = self
+            .office_hearing
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        Ok(match source.and_then(|f| f()) {
+            Some(v) => json!({
+                "available": true,
+                "templates": v.get("templates").cloned().unwrap_or_else(|| json!([])),
+            }),
+            None => json!({ "available": false, "templates": [] }),
+        }
+        .to_string())
+    }
+
+    /// Web のヒアリングの URL の発行を画面に頼む（0222）。`share_id` があれば渡された世帯の依頼（共有の決まりは世帯の読み取りと同じで、
+    /// 発行したことを「AIに渡した記録」の `proposals` に `hearing:<依頼番号>` で残す）、無ければ世帯の決まっていない依頼。
+    /// 1時間に `HOURLY_LIMIT` 件まで（発行できたものと待っているものを数える）。画面の答えを `ISSUE_WAIT` まで待つので、受け口の糸を止めない所で呼ぶ
+    pub fn handle_issue_hearing(
+        &self,
+        share_id: Option<&str>,
+        issue: &Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let issue = hearing::validate_issue(issue).map_err(|m| (ErrorCode::Invalid, m))?;
+        let review = hearing::has_review(&issue["selection"]);
+        let issuer = self
+            .hearing_issuer
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone()
+            .ok_or_else(|| {
+                (
+                    ErrorCode::Invalid,
+                    "このアプリでは、AI 接続口から Web のヒアリングの URL を発行できません。"
+                        .to_owned(),
+                )
+            })?;
+        let now = self.now();
+        let household = {
+            let mut st = self.lock();
+            let household = match share_id {
+                None => None,
+                Some(id) => {
+                    usable(&mut st, id, now)?;
+                    let share = st.shares.get(id).ok_or_else(not_shared)?;
+                    Some(JobHousehold {
+                        household_id: share.source.household_id.clone(),
+                        customer_number: share.source.customer_number.clone(),
+                        share_id: id.to_owned(),
+                    })
+                }
+            };
+            let hour_ago = now.saturating_sub(3_600_000);
+            st.hearing_issued.retain(|t| *t > hour_ago);
+            if st.hearing_issued.len() + st.hearing_in_flight >= hearing::HOURLY_LIMIT {
+                return Err((
+                    ErrorCode::Invalid,
+                    format!("AI 接続口から発行できる URL は1時間に{}件までです。少し時間をおいてから、もう一度呼んでください（FP はアプリの画面からいつでも発行できます）。", hearing::HOURLY_LIMIT),
+                ));
+            }
+            st.hearing_in_flight += 1;
+            household
+        };
+        let job = HearingJob {
+            issue,
+            household: household.clone(),
+            connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
+            received_at: iso8601(now),
+        };
+        let answer = issuer(job);
+        let mut st = self.lock();
+        st.hearing_in_flight = st.hearing_in_flight.saturating_sub(1);
+        let v = answer.map_err(|m| (ErrorCode::Invalid, m))?;
+        if v["ok"] != true {
+            let msg = v["message"]
+                .as_str()
+                .unwrap_or("発行できませんでした。")
+                .to_owned();
+            return Err((ErrorCode::Invalid, msg));
+        }
+        let done = self.now();
+        st.hearing_issued.push(done);
+        if let (Some(h), Some(rid)) = (&household, v["requestId"].as_str()) {
+            let index = st.shares.get(&h.share_id).map(|s| s.record_index);
+            if let Some(r) =
+                index.and_then(|i| st.logs.get_mut(&h.household_id).and_then(|l| l.get_mut(i)))
+            {
+                r.proposals.push(ProposalEntry {
+                    candidate_id: format!("hearing:{rid}"),
+                    at: iso8601(done),
+                });
+            }
+            st.revision += 1;
+        }
+        let mut out = v;
+        if let Value::Object(m) = &mut out {
+            m.remove("ok");
+            // 見直し（今の値を見せる項目）を含む依頼は、URL の # の後ろの鍵で今の値が読めるので、URL と案内文を AI に返さない
+            // （画面も返さないが、ここでも外す。利用者の判断 2026-11-17）
+            if review {
+                m.remove("url");
+                m.remove("invitation");
+                m.insert("review".into(), json!(true));
+            }
+            if let Some(id) = share_id {
+                m.insert("shareId".into(), json!(id));
+            }
+        }
+        Ok(out.to_string())
+    }
+
+    /// Web のヒアリングの事務所のひな形（カスタム）の案を、承認待ちに入れる（事務所の既定値は変えない。0222）。世帯を渡していなくてよく、
+    /// 世帯の中身ではないので AIに渡した記録には残さない。同じ名前と選び方の案が既にあれば、それを返す
+    pub fn handle_propose_hearing_template(
+        &self,
+        proposal: &Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let (name, selection, note) =
+            hearing::validate_template(proposal).map_err(|m| (ErrorCode::Invalid, m))?;
+        if hearing::has_review(&selection) {
+            return Err((
+                ErrorCode::Invalid,
+                "確かめてもらう項目（見直し）は世帯の今の値に依るので、事務所のひな形にできません。".to_owned(),
+            ));
+        }
+        let now = self.now();
+        let mut st = self.lock();
+        let same = st
+            .hearing_templates
+            .iter()
+            .find(|c| c.name == name && c.selection == selection)
+            .map(|c| c.candidate_id.clone());
+        let id = match same {
+            Some(id) => id,
+            None => {
+                if st.hearing_templates.len() >= hearing::MAX_TEMPLATE_PENDING {
+                    return Err((
+                        ErrorCode::Invalid,
+                        format!("承認待ちのヒアリングのひな形の案が多すぎます（{}件まで）。FPがアプリの画面で今の案を保存するか捨てるまで、新しい案は出せません。", hearing::MAX_TEMPLATE_PENDING),
+                    ));
+                }
+                let id = reduce::random_uuid_v4();
+                st.hearing_templates.push(HearingTemplateCandidate {
+                    candidate_id: id.clone(),
+                    received_at: iso8601(now),
+                    connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
+                    name: name.clone(),
+                    selection,
+                    note,
+                });
+                id
+            }
+        };
+        Ok(json!({
+            "candidateId": id,
+            "status": "pendingReview",
+            "name": name,
+            "message": "ヒアリングのひな形の案を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん上の「AIからのヒアリングのひな形の案」。上の帯にも出ます）に承認待ちで出しました。FPが画面で中身を確かめて「ひな形として保存する」を押したときだけ、事務所のひな形（URL で聞くときの「カスタム」）に入ります。この道具では事務所の既定値は変わりません。",
+        })
+        .to_string())
+    }
+
     /// 渡された世帯の世帯ごとの表示の設定の案を、承認待ちに入れる（世帯ファイルは変えない。0213 の段B の後半）。共有の決まりは世帯の読み取りと
     /// 同じ（期限内・取り消されていない・同意がある。架空の世帯は同意が無くても渡せる）で、案を出したことを「AIに渡した記録」の `proposals` に残す。
     /// 同じ世帯に同じ中身の案が既にあれば、それを返す（記録にも足さない）
@@ -898,11 +1140,12 @@ impl ShareRegistry {
         let mut st = self.lock();
         usable(&mut st, share_id, now)?;
         let share = st.shares.get(share_id).ok_or_else(not_shared)?;
-        // 書類を AI に渡すことを含む説明での同意が要る（版1の説明の同意では受けない。0157）。共有は閉じない（計算の項目は今までどおり読める）
-        if st.require_consent && !consent_covers_documents(&share.source) {
+        // 書類を AI に渡すことを含む説明での同意か、事務所のプライバシーポリシーが要る（版1の説明の同意だけでは受けない。0157・0226）。
+        // 共有は閉じない（計算の項目は今までどおり読める）
+        if st.require_consent && !documents_basis_of(&st, &share.source).allowed() {
             return Err((
                 ErrorCode::NotShared,
-                "この世帯のお客さまの同意は、書類を AI に渡すことを含んでいません（前の版の説明で同意した世帯です）。書類から読んだ値の候補は受け取れません。FPがアプリの「同意と共有」でお客さまに今の説明を見せ、同意を記録し直すまで、この世帯の書類を読まないでください（渡された書類の内容は使わないでください）。".to_owned(),
+                "この世帯のお客さまの同意は、書類を AI に渡すことを含んでいません（前の版の説明かヒアリングシートの同意欄で同意した世帯で、事務所のプライバシーポリシーも確かめられていません）。書類から読んだ値の候補は受け取れません。FPがアプリの「同意と共有」でお客さまに今の説明を見せて同意を記録し直すか、事務所の設定で事務所のプライバシーポリシーを確かめるまで、この世帯の書類を読まないでください（渡された書類の内容は使わないでください）。".to_owned(),
             ));
         }
         let (restored, counts) =
@@ -1022,8 +1265,9 @@ impl ShareRegistry {
         let mut list: Vec<(String, serde_json::Value)> = st
             .shares
             .iter()
-            .filter(|(_, s)| s.ended.is_none() && (!require || may_share(&s.source)))
+            .filter(|(_, s)| s.ended.is_none() && (!require || may_share(&st, &s.source)))
             .map(|(id, s)| {
+                let basis = basis_of(&st, &s.source);
                 (
                     s.alias.clone(),
                     json!({
@@ -1032,6 +1276,10 @@ impl ShareRegistry {
                         "scope": s.scope.name(),
                         "expiresAt": iso8601(s.expires_ms),
                         "expiresInSec": (s.expires_ms - now) / 1000,
+                        // どの理由で渡されているか（0226。consent・officePolicy・fictional）と、書類を渡せるか
+                        "basis": basis.name(),
+                        "basisNote": basis.note_for_ai(),
+                        "documents": documents_basis_of(&st, &s.source).allowed(),
                     }),
                 )
             })
@@ -1076,6 +1324,11 @@ impl ShareRegistry {
         let now = self.now();
         let mut st = self.lock();
         usable(&mut st, share_id, now)?;
+        let basis = st
+            .shares
+            .get(share_id)
+            .map(|s| basis_of(&st, &s.source))
+            .ok_or_else(not_shared)?;
         let share = st.shares.get_mut(share_id).ok_or_else(not_shared)?;
         let reduced = reduce::reduce(&share.source, &share.scope, &mut share.pseudonyms);
         let mut payload = json!({
@@ -1086,6 +1339,9 @@ impl ShareRegistry {
             "expiresAt": iso8601(share.expires_ms),
             "expiresInSec": (share.expires_ms - now) / 1000,
             "notice": SHARED_NOTICE,
+            // どの理由で渡されているか（0226。consent・officePolicy・fictional）
+            "basis": basis.name(),
+            "basisNote": basis.note_for_ai(),
             "fields": reduced.fields,
             "input": reduced.input,
             "texts": reduced.texts,
@@ -1203,25 +1459,27 @@ fn content_digest(scope: &str, reduced: &reduce::Reduced, pseudonyms: &Pseudonym
     format!("sha256:{:x}", Sha256::digest(content.as_bytes()))
 }
 
-fn consent_given(source: &SharedHouseholdSource) -> bool {
-    source
-        .external_ai_consent
-        .as_ref()
-        .is_some_and(|c| c.decision == ConsentDecision::Given)
+/// 渡してよい世帯かの理由（判定は basis の1か所。0226）
+fn basis_of(st: &State, source: &SharedHouseholdSource) -> AiUse {
+    ai_use(
+        source.external_ai_consent.as_ref(),
+        st.office_policy,
+        source.fictional,
+    )
 }
 
-/// 渡してよい世帯か: 外部AIへの提供の同意が `given` か、架空の世帯（お客さまの情報を含まない）
-fn may_share(source: &SharedHouseholdSource) -> bool {
-    source.fictional || consent_given(source)
+/// 渡してよい世帯か: 同意がある・事務所のプライバシーポリシーを確かめていて断られていない・架空の世帯（0226）
+fn may_share(st: &State, source: &SharedHouseholdSource) -> bool {
+    basis_of(st, source).allowed()
 }
 
-/// 書類を AI に渡すことを含む説明（版2〜）で同意した世帯か（0157）。架空の世帯は同意が要らない
-fn consent_covers_documents(source: &SharedHouseholdSource) -> bool {
-    source.fictional
-        || source
-            .external_ai_consent
-            .as_ref()
-            .is_some_and(|c| c.decision == ConsentDecision::Given && c.documents)
+/// 書類（お名前・番号を伏せたもの）を AI に渡してよい世帯かの理由（0157・0226）
+fn documents_basis_of(st: &State, source: &SharedHouseholdSource) -> AiUse {
+    ai_documents_use(
+        source.external_ai_consent.as_ref(),
+        st.office_policy,
+        source.fictional,
+    )
 }
 
 fn not_shared() -> Refusal {
@@ -1238,10 +1496,17 @@ fn usable(st: &mut State, share_id: &str, now: u64) -> Result<(), Refusal> {
     };
     match s.ended {
         Some(EndReason::Expired) => return Err(expired_refusal()),
-        Some(EndReason::Revoked) | Some(EndReason::ConsentWithdrawn) => {
+        Some(EndReason::Revoked) => {
             return Err((
                 ErrorCode::Revoked,
                 "この世帯の共有は取り消されました。続けるには、FPがアプリでもう一度渡す必要があります。".to_owned(),
+            ))
+        }
+        // 同意の状態が変わって渡す理由が無くなった（撤回・「同意しない」の記録・架空の世帯をお客さまの世帯にした。0226）
+        Some(EndReason::ConsentWithdrawn) => {
+            return Err((
+                ErrorCode::Revoked,
+                "この世帯の共有は取り消されました（お客さまの外部AIへの提供の同意の状態が変わり、渡す理由が無くなりました）。お客さまが「同意しない」と答えた世帯・同意を撤回した世帯は、事務所の設定にかかわらず AI に渡せません。".to_owned(),
             ))
         }
         Some(EndReason::AppClosed) => return Err(not_shared()),
@@ -1251,11 +1516,12 @@ fn usable(st: &mut State, share_id: &str, now: u64) -> Result<(), Refusal> {
         expire(st, share_id);
         return Err(expired_refusal());
     }
-    if st.require_consent && !may_share(&s.source) {
+    if st.require_consent && !may_share(st, &s.source) {
+        let note = basis_of(st, &s.source).note_for_ai();
         end_share(st, share_id, iso8601(now), EndReason::ConsentWithdrawn);
         return Err((
             ErrorCode::Revoked,
-            "この世帯の共有は取り消されました（外部AIへの提供の同意がありません）。".to_owned(),
+            format!("この世帯の共有は取り消されました（{note}）"),
         ));
     }
     Ok(())

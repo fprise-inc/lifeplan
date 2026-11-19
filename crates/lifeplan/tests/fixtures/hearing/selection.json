@@ -1,0 +1,109 @@
+{
+  "base": {
+    "sheetId": "basic",
+    "version": 3
+  },
+  "sections": [
+    {
+      "id": "family",
+      "items": [
+        {
+          "key": "hs.family.adult.birthYearMonth",
+          "mode": "ask"
+        },
+        {
+          "key": "hs.family.adult.sex",
+          "mode": "ask"
+        },
+        {
+          "key": "hs.family.child.birthYearMonth",
+          "mode": "ask"
+        }
+      ]
+    },
+    {
+      "id": "work",
+      "items": [
+        {
+          "key": "hs.work.type",
+          "mode": "ask"
+        },
+        {
+          "key": "hs.income.annual",
+          "mode": "ask"
+        },
+        {
+          "key": "hs.income.annualRange",
+          "mode": "ask"
+        }
+      ]
+    },
+    {
+      "id": "housing",
+      "items": [
+        {
+          "key": "hs.housing.type",
+          "mode": "ask"
+        }
+      ]
+    },
+    {
+      "id": "savings",
+      "items": [
+        {
+          "key": "hs.assets.depositTotal",
+          "mode": "ask"
+        },
+        {
+          "key": "hs.assets.depositTotalRange",
+          "mode": "ask"
+        }
+      ]
+    },
+    {
+      "id": "living",
+      "items": [
+        {
+          "key": "hs.expense.living",
+          "mode": "ask"
+        },
+        {
+          "key": "hs.expense.livingRange",
+          "mode": "ask"
+        }
+      ]
+    },
+    {
+      "id": "fp",
+      "items": [
+        {
+          "key": "ext.office.qtikttfsj",
+          "mode": "ask"
+        }
+      ]
+    }
+  ],
+  "custom": [
+    {
+      "key": "ext.office.qtikttfsj",
+      "label": "面談の場所のご希望",
+      "answer": "choice",
+      "choices": [
+        "事務所",
+        "オンライン",
+        "ご自宅"
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "id": "d1",
+      "kind": "withholding",
+      "title": "源泉徴収票（ご本人）",
+      "purpose": "年収と、給与から引かれている税・社会保険料を正しく計算するため",
+      "where": "「支払金額」と「社会保険料等の金額」の欄",
+      "owner": "self"
+    }
+  ],
+  "name": "初回の面談の前"
+}

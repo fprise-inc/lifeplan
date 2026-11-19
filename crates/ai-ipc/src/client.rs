@@ -10,6 +10,9 @@ use std::time::Duration;
 
 /// アプリ本体への1回の依頼の期限
 const CALL_TIMEOUT: Duration = Duration::from_secs(10);
+/// Web のヒアリングの URL の発行（`IssueHearing`）の期限。アプリの画面が鍵を作り、受け付けのサーバーに問いを置いてから答えるので長い
+/// （アプリ本体が画面を待つのは `ai_share::hearing::ISSUE_WAIT` まで。それより少し長くする。0222）
+pub const ISSUE_HEARING_TIMEOUT: Duration = Duration::from_secs(45);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppError {
@@ -58,6 +61,11 @@ pub async fn call_app(
     hello: &ClientHello,
     request: Request,
 ) -> Result<String, AppError> {
+    let limit = if matches!(request, Request::IssueHearing { .. }) {
+        ISSUE_HEARING_TIMEOUT
+    } else {
+        CALL_TIMEOUT
+    };
     let disc = Discovery::read(dir).map_err(|_| AppError::NotRunning)?;
     if disc.ipc_version != IPC_VERSION || disc.app_version != hello.client_version {
         return Err(AppError::Refused {
@@ -107,13 +115,11 @@ pub async fn call_app(
             Err(refused(resp))
         }
     };
-    tokio::time::timeout(CALL_TIMEOUT, fut)
-        .await
-        .unwrap_or_else(|_| {
-            Err(AppError::Other(
-                "アプリの返事が時間内に来ませんでした".into(),
-            ))
-        })
+    tokio::time::timeout(limit, fut).await.unwrap_or_else(|_| {
+        Err(AppError::Other(
+            "アプリの返事が時間内に来ませんでした".into(),
+        ))
+    })
 }
 
 fn refused(resp: Response) -> AppError {

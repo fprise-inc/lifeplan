@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "limit": {
+      "description": "返す数（1〜10。既定5）",
+      "format": "uint8",
+      "maximum": 10,
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "query": {
+      "description": "FP がやりたいこと・聞かれた操作（例: 「プランを保存するにはどこを押す？」「お客さまに URL でヒアリングを送るには」「AI に世帯を渡す」）",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "type": "object"
+}

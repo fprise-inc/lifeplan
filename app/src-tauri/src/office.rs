@@ -287,6 +287,22 @@ pub async fn office_defaults_put(app: AppHandle, value: serde_json::Value) -> Re
     blocking(app, move |s, _| s.set_office_defaults(value).map_err(code)).await
 }
 
+/// 世帯ファイルにまだ入っていない Web のヒアリングの依頼（0222。AI 接続口から発行した、世帯の決まっていない依頼と開いていない世帯の依頼。
+/// 鍵の組・合言葉を含むので、事務所データに暗号化して持つ）。まだ無ければ空のオブジェクト
+#[tauri::command]
+pub async fn office_hearing_get(app: AppHandle) -> Result<serde_json::Value, String> {
+    blocking(app, |s, _| s.office_hearing_requests().map_err(code)).await
+}
+
+/// 世帯ファイルにまだ入っていない Web のヒアリングの依頼を置き換える（JSON のオブジェクトだけ。形は画面の側が確かめる。0222）
+#[tauri::command]
+pub async fn office_hearing_put(app: AppHandle, value: serde_json::Value) -> Result<(), String> {
+    blocking(app, move |s, _| {
+        s.set_office_hearing_requests(value).map_err(code)
+    })
+    .await
+}
+
 /// 事務所の見た目（0121。事務所の名前・ロゴの画像・基調の色・この PC の画面の明るさ）。まだ決めていなければ空。
 /// ロゴの画像のバイトは base64 の文字で返す（画面は URL にせず、キャンバスに描く。CSP の img-src は変えない）
 #[tauri::command]

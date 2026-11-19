@@ -18,9 +18,10 @@ export const hasOldPlanWord = (s: string): boolean => s.replace(OTHER_WORDS, "")
 
 /**
  * 表示の設定の案（0215）の画面の部品。利用者の判断で「案」を使う（2026-11-15。「今 → 案」「AIからの表示の設定の案」）。
- * この部品だけは、「案」そのものでなく、以前のプランの呼び方の形（hasOldPlanName）を止める
+ * この部品だけは、「案」そのものでなく、以前のプランの呼び方の形（hasOldPlanName）を止める。Web のヒアリングのひな形の案（0222。「AIからのヒアリングのひな形の案」）も
+ * 事務所の既定値の案と同じ言い方なので、同じ見分け方にする
  */
-const DISPLAY_PROPOSAL_FILES = new Set(["app/src/connector/displayProposal.ts", "app/src/workspace/office/DisplayProposalsSection.tsx", "app/src/workspace/office/displayProposals.ts", "app/src/workspace/ai/AiDisplayCandidateBand.tsx", "app/src/workspace/ai/AiDisplayProposals.tsx", "app/src/workspace/ai/displayProposals.ts"]);
+const DISPLAY_PROPOSAL_FILES = new Set(["app/src/connector/displayProposal.ts", "app/src/workspace/office/DisplayProposalsSection.tsx", "app/src/workspace/office/displayProposals.ts", "app/src/workspace/ai/AiDisplayCandidateBand.tsx", "app/src/workspace/ai/AiDisplayProposals.tsx", "app/src/workspace/ai/displayProposals.ts", "app/src/workspace/office/HearingTemplateProposals.tsx"]);
 
 /** 以前のプランの呼び方の形（B案・案A・基準の案・選んだ案・比較する案・案として保存・案を保存・案の名前・案を比較）が残っているか */
 export const hasOldPlanName = (s: string): boolean => /[A-ZＡ-Ｚ]案|案[A-ZＡ-Ｚ]|基準の案|選んだ案|比較する案|案として保存|案を保存|案の名前|案を比較/.test(s.replace(OTHER_WORDS, ""));

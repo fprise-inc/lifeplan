@@ -117,7 +117,7 @@ export function featureErrorText(e: unknown): string {
     case "E_FEATURE_CODE_REVOKED":
       return "このコードは提供元が止めています。コードを受け取った所に問い合わせてください。";
     case "E_FEATURE_CODE_CANDIDATE_UNKNOWN":
-      return "この候補はもうありません（アプリを閉じた・AI接続口をオフにした、など）。";
+      return "この候補はもうありません（アプリを閉じた・AI との接続をオフにした、など）。";
     case "E_FEATURE_CODE_NO_FEATURE":
       return "この版のアプリで使える機能が入っていないコードです。アプリを新しくしてから入れてください。";
     case "E_FEATURE_CODE_LIMIT":

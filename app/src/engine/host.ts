@@ -199,6 +199,8 @@ export interface StoreStatus {
   lastOpened: string | null;
   deletionsPending: number;
   deletionsCompleted: number;
+  /** この PC の事務所データが、このアプリより新しい版で保存されている（閲覧だけ。保存しない。アプリの更新を案内する。0222）。無い本体は false */
+  officeTooNew?: boolean;
 }
 
 /** 今その世帯を開いている他のメンバー（事務所で共有しているとき。0023 の7） */
@@ -436,6 +438,12 @@ export interface OfficeHost {
   defaults(): Promise<unknown>;
   /** 事務所の既定値を置き換える */
   putDefaults(value: Record<string, unknown>): Promise<void>;
+  /**
+   * 世帯ファイルにまだ入っていない Web のヒアリングの依頼（0222。AI 接続口から発行した、世帯の決まっていない依頼と開いていない世帯の依頼。
+   * 鍵を含むので事務所データに暗号化して持つ）。形は hearing/aiHearing.ts の readOfficeHearing で確かめる。無い本体は使えない
+   */
+  hearingRequests?(): Promise<unknown>;
+  putHearingRequests?(value: Record<string, unknown>): Promise<void>;
   /** 事務所の見た目（0121。名前・ロゴの画像・基調の色・この PC の画面の明るさ）。形は office/branding.ts の readBranding で確かめる */
   branding(): Promise<unknown>;
   /** 事務所の見た目を置き換える（本体が確かめて整えた値を返す。断るときは E_STORE_BRANDING・E_STORE_LOGO・E_STORE_LOGO_TOO_LARGE） */
@@ -545,6 +553,11 @@ export interface AiSetupGuide {
 export interface AiStatus {
   /** 事務所全体の設定（既定はオフ） */
   enabled: boolean;
+  /**
+   * 事務所の設定で FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめた日時（0226。確かめていなければ null。無い本体は確かめていないとして扱う）。
+   * 確かめていると、外部AIへの提供の同意の答えが無い世帯も AI に渡せる（「同意しない」と答えた世帯・撤回した世帯は渡せない）
+   */
+  privacyPolicyConfirmedAt?: string | null;
   /** アプリ本体の受け口が開いているか */
   running: boolean;
   problem: string | null;
@@ -563,6 +576,33 @@ export interface AiStatus {
   displayCandidates?: number;
   /** AIから世帯ごとの表示の設定の案が届いている世帯（承認待ち。中身はその世帯の household の displayProposals。無い本体は空。0213 の段B の後半） */
   householdDisplayCandidates?: AiDisplayPendingHousehold[];
+  /** AI接続口から頼まれた Web のヒアリングの発行の仕事の数（画面が hearingJobs で受け取って発行し、hearingJobDone で答える。無い本体は0。0222） */
+  hearingJobs?: number;
+  /** AIから届いた、Web のヒアリングの事務所のひな形の案の数（承認待ち。中身は hearingTemplateCandidates で読む。無い本体は0。0222） */
+  hearingTemplateCandidates?: number;
+}
+
+/** AI接続口から頼まれた Web のヒアリングの発行の仕事（0222）。issue は接続口が FP の画面と同じ関数で確かめた選び方（画面も確かめ直す）と、任意の何のための問いか */
+export interface AiHearingJob {
+  jobId: string;
+  issue: { selection: unknown; purpose?: string };
+  /** 渡された世帯の依頼ならその世帯（内部ID・顧客番号）。世帯の決まっていない依頼は null */
+  householdId: string | null;
+  customerNumber: string | null;
+  /** 見直しを含む世帯の依頼だけ: 本体の帳面の本文（その世帯を開いていないとき、前回の値を作る） */
+  body: string | null;
+  connector: string | null;
+  receivedAt: string;
+}
+
+/** AIからの Web のヒアリングの事務所のひな形の案（0222。値は信用しない: 画面が checkSelection で確かめてから出す。note は AI が書いた理由） */
+export interface AiHearingTemplateCandidate {
+  candidateId: string;
+  receivedAt: string;
+  connector: string | null;
+  name: string;
+  selection: unknown;
+  note?: string | null;
 }
 
 /** 表示の設定の案が届いている世帯（上の帯に出す。顧客番号は案が届いたときの共有の物） */
@@ -699,7 +739,20 @@ export interface AiHouseholdView {
   saved: boolean;
   /** 架空の世帯（同意の記録が無くても渡せる。無い本体はお客さまの世帯として扱う） */
   fictional?: boolean;
+  /**
+   * この世帯を AI に渡せるか・その理由（0226。本体の ai_share::ai_use の1か所で決めた判定。画面はこれを見せるだけ）。
+   * 無い本体（古い版・テストの代わり）は ai/model.ts の aiUseOf が同意の状態だけで読む（事務所の設定は見ない側）
+   */
+  aiUse?: AiUse;
+  /** 書類（お名前・番号を伏せたもの）を AI に渡せるか・その理由（0157・0226。本体の ai_documents_use） */
+  aiDocumentsUse?: AiUse;
 }
+
+/**
+ * AI接続を使える・使えない理由（0226）: consent＝同意がある、officePolicy＝事務所のプライバシーポリシー（FP が確かめ済みで、お客さまが「同意しない」と答えていない）、
+ * fictional＝架空の世帯、refused＝お客さまが「同意しない」と答えた、withdrawn＝撤回した、consentWithoutDocuments＝書類を含まない同意（書類の判定だけ）、none＝理由が無い
+ */
+export type AiUse = "consent" | "officePolicy" | "fictional" | "refused" | "withdrawn" | "consentWithoutDocuments" | "none";
 
 /**
  * AI接続口の道具（propose_display_settings）で届いた、事務所の既定値の表示の設定の案（0215）。本体はメモリの中に置くだけで、設定は変えない。
@@ -755,6 +808,8 @@ export interface AiConsentInput {
 export interface AiHost {
   status(): Promise<AiStatus>;
   setEnabled(enabled: boolean): Promise<AiStatus>;
+  /** 事務所のプライバシーポリシーに AI の利用を書いていることを確かめた・外した（0226。外すと、それを理由に渡していた共有を取り消す）。無い本体は使えない */
+  setPrivacyPolicy?(confirmed: boolean): Promise<AiStatus>;
   /** 接続の設定の文面（本物の場所入り）を本体が OS のクリップボードへ写す */
   copySetup(client: string): Promise<boolean>;
   household(id: string): Promise<AiHouseholdView>;
@@ -771,6 +826,14 @@ export interface AiHost {
   discardHouseholdCandidate(candidate: string): Promise<AiHouseholdCandidate[]>;
   /** 表示の設定の案（承認待ち。0215） */
   displayCandidates(): Promise<AiDisplayCandidate[]>;
+  /** Web のヒアリングの発行の仕事（0222。無い本体は使えない） */
+  hearingJobs?(): Promise<AiHearingJob[]>;
+  /** 発行の仕事の答え（{ ok: true, requestId, … } か { ok: false, message }）。もう待っていなければ false */
+  hearingJobDone?(jobId: string, result: Record<string, unknown>): Promise<boolean>;
+  /** Web のヒアリングの事務所のひな形の案（承認待ち。0222） */
+  hearingTemplateCandidates?(): Promise<AiHearingTemplateCandidate[]>;
+  /** ひな形の案を承認待ちから外す（保存した後か「捨てる」を押したとき。事務所の既定値は変えない） */
+  takeHearingTemplate?(candidate: string): Promise<AiHearingTemplateCandidate[]>;
   /** 表示の設定の案の1つの設定を承認待ちから外す（FP が「反映する」で事務所の既定値に書いた後か、「捨てる」を押したとき。設定は変えない） */
   takeDisplayChange(candidate: string, setting: string): Promise<AiDisplayCandidate[]>;
   /** 世帯ごとの表示の設定の案の1つの設定を承認待ちから外す（FP が「反映する」でその世帯に書いた後か、「捨てる」を押したとき。設定は変えない） */
@@ -1005,6 +1068,8 @@ export function tauriHost(): HostApi {
       acceptRoster: (key) => invoke<OfficeStatus>("office_accept_roster", { key }),
       defaults: () => invoke<unknown>("office_defaults_get"),
       putDefaults: (value) => invoke<void>("office_defaults_put", { value }),
+      hearingRequests: () => invoke<unknown>("office_hearing_get"),
+      putHearingRequests: (value) => invoke<void>("office_hearing_put", { value }),
       branding: () => invoke<unknown>("office_branding_get"),
       putBranding: (value) => invoke<unknown>("office_branding_put", { value }),
       pickLogo: () => invoke<unknown>("office_logo_pick"),
@@ -1029,6 +1094,7 @@ export function tauriHost(): HostApi {
     ai: {
       status: () => invoke<AiStatus>("ai_status"),
       setEnabled: (enabled) => invoke<AiStatus>("ai_set_enabled", { enabled }),
+      setPrivacyPolicy: (confirmed) => invoke<AiStatus>("ai_set_privacy_policy", { confirmed }),
       copySetup: (client) => invoke<boolean>("ai_setup_copy", { client }),
       household: (id) => invoke<AiHouseholdView>("ai_household", { id }),
       recordConsent: (id, input) => invoke<AiHouseholdView>("ai_consent_record", { id, input }),
@@ -1039,6 +1105,10 @@ export function tauriHost(): HostApi {
       householdCandidates: () => invoke<AiHouseholdCandidate[]>("ai_household_candidates"),
       discardHouseholdCandidate: (candidate) => invoke<AiHouseholdCandidate[]>("ai_household_candidate_discard", { candidate }),
       displayCandidates: () => invoke<AiDisplayCandidate[]>("ai_display_candidates"),
+      hearingJobs: () => invoke<AiHearingJob[]>("ai_hearing_jobs"),
+      hearingJobDone: (job, result) => invoke<boolean>("ai_hearing_job_done", { job, result }),
+      hearingTemplateCandidates: () => invoke<AiHearingTemplateCandidate[]>("ai_hearing_template_candidates"),
+      takeHearingTemplate: (candidate) => invoke<AiHearingTemplateCandidate[]>("ai_hearing_template_take", { candidate }),
       takeDisplayChange: (candidate, setting) => invoke<AiDisplayCandidate[]>("ai_display_change_take", { candidate, setting }),
       takeHouseholdDisplayChange: (id, candidate, setting) => invoke<AiHouseholdView>("ai_household_display_take", { id, candidate, setting }),
       createFromCandidate: (candidate, kind, body, summary, category) => invoke<StoredOpened>("ai_household_candidate_create", { candidate, kind, body, summary, category }),
@@ -1257,6 +1327,8 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       acceptRoster: async (code) => devJson<OfficeStatus>(await devOffice("acceptRoster", { code })),
       defaults: async () => devJson<unknown>(await devOffice("defaultsGet")),
       putDefaults: async (value) => void (await devJson<unknown>(await devOffice("defaultsPut", { value }))),
+      hearingRequests: async () => devJson<unknown>(await devOffice("hearingGet")),
+      putHearingRequests: async (value) => void (await devJson<unknown>(await devOffice("hearingPut", { value }))),
       branding: async () => devJson<unknown>(await devOffice("brandingGet")),
       putBranding: async (value) => devJson<unknown>(await devOffice("brandingPut", { value })),
       pickLogo: async () => devJson<unknown>(await devOffice("logoPick")),
@@ -1284,6 +1356,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
     ai: {
       status: async () => devJson<AiStatus>(await devAi("status")),
       setEnabled: async (enabled) => devJson<AiStatus>(await devAi("setEnabled", { enabled })),
+      setPrivacyPolicy: async (confirmed) => devJson<AiStatus>(await devAi("setPrivacyPolicy", { confirmed })),
       copySetup: async (client) => devJson<boolean>(await devAi("copySetup", { client })),
       household: async (id) => devJson<AiHouseholdView>(await devAi("household", { id })),
       recordConsent: async (id, input) => devJson<AiHouseholdView>(await devAi("recordConsent", { id, input })),
@@ -1294,6 +1367,10 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       householdCandidates: async () => devJson<AiHouseholdCandidate[]>(await devAi("householdCandidates")),
       discardHouseholdCandidate: async (candidate) => devJson<AiHouseholdCandidate[]>(await devAi("discardHouseholdCandidate", { candidate })),
       displayCandidates: async () => devJson<AiDisplayCandidate[]>(await devAi("displayCandidates")),
+      hearingJobs: async () => devJson<AiHearingJob[]>(await devAi("hearingJobs")),
+      hearingJobDone: async (job, result) => devJson<boolean>(await devAi("hearingJobDone", { job, result })),
+      hearingTemplateCandidates: async () => devJson<AiHearingTemplateCandidate[]>(await devAi("hearingTemplates")),
+      takeHearingTemplate: async (candidate) => devJson<AiHearingTemplateCandidate[]>(await devAi("takeHearingTemplate", { candidate })),
       takeDisplayChange: async (candidate, setting) => devJson<AiDisplayCandidate[]>(await devAi("takeDisplayChange", { candidate, setting })),
       takeHouseholdDisplayChange: async (id, candidate, setting) => devJson<AiHouseholdView>(await devAi("takeHouseholdDisplayChange", { id, candidate, setting })),
       createFromCandidate: async (candidate, kind, body, summary, category) => devJson<StoredOpened>(await devAi("createFromCandidate", { candidate, kind, body, summary, ...(category !== undefined ? { category } : {}) })),

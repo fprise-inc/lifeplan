@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.83";
+pub const CURRENT: &str = "0.84";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -296,6 +296,10 @@ pub const CURRENT: &str = "0.83";
 ///   （true だけ。0034 の段階3・0221）を足した（足すだけの MINOR）。前の版のアプリは行の知らない欄を読み落として書き戻し、印が外れる
 ///   （ヒアリングの迷う行・確認シートから消える）ので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は
 ///   欄が無い＝どの行も印なし）。0.82 の段の後に積む
+/// - 0.84: Web のヒアリングの依頼の記録 `hearing.web` の1件に、任意の欄 `origin`（出どころ。AI から発行した依頼だけ
+///   `{kind: "ai", at, connector}`。0222）を足した（足すだけの MINOR）。前の版のアプリは欄を知らずに読み落とし、依頼の一覧で AI が発行した
+///   依頼と分からなくなるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の依頼は欄が無い＝FP の画面で発行した依頼）。
+///   0.83 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -303,7 +307,7 @@ pub const KNOWN: &[&str] = &[
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83",
+    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84",
 ];
 
 /// 1段分の変換
@@ -724,6 +728,11 @@ pub const STEPS: &[Step] = &[
         from: "0.82",
         to: "0.83",
         apply: v0_82_to_0_83,
+    },
+    Step {
+        from: "0.83",
+        to: "0.84",
+        apply: v0_83_to_0_84,
     },
 ];
 
@@ -2662,6 +2671,16 @@ fn v0_82_to_0_83(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.83 → 0.84: Web のヒアリングの依頼の出どころ `hearing.web[].origin`（0222）は任意の欄なので、形式の版だけを書き換える
+/// （前の版の依頼は欄が無い＝FP の画面で発行した依頼。欄を書き足さない）
+fn v0_83_to_0_84(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.84".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3652,7 +3671,8 @@ mod tests {
         assert_eq!(access("0.81").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.82").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.83").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.84").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.84").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.85").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3665,7 +3685,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.84", b.clone()).unwrap(),
+            upgrade("0.85", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4171,6 +4191,20 @@ mod tests {
     }
 
     #[test]
+    fn v0_83_to_0_84_only_bumps_version() {
+        // 依頼の出どころは足さない（前の版の依頼は FP の画面で発行した依頼）。依頼の記録のほかの欄に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.83"},
+            "hearing": {"requests": [], "imports": [], "consents": [], "web": [{"record": {"kind": "web", "requestId": "R-7K3P9Q"}, "state": "issued"}]},
+            "proposals": []
+        });
+        let u = upgrade("0.83", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.84");
+        assert_eq!(u["hearing"], b["hearing"]);
+        assert!(u["hearing"]["web"][0].get("origin").is_none());
+    }
+
+    #[test]
     fn v0_81_to_0_82_only_bumps_version() {
         // 住宅購入の予定の火災保険・地震保険（purchase.homeInsurance。0224）は足さない（前の版の世帯は欄が無い＝計算に入らない）
         let b = serde_json::json!({
@@ -4197,7 +4231,7 @@ mod tests {
             "statements": {"version": 1, "accounts": [], "imports": [{"id": "i1", "rows": [{"id": "r1", "line": 1, "date": "2026-10-01", "merchant": "架空の店", "amount": 100}]}], "rules": [], "applied": []}
         });
         let u = upgrade("0.82", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.83");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["statements"], b["statements"]);
     }
 

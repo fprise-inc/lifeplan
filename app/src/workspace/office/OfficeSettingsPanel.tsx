@@ -27,10 +27,11 @@ import { BrandingSection, type BrandingSectionProps } from "./BrandingSection.ts
 import { EstimatesSection } from "./EstimatesSection.tsx";
 import { EMPTY_ESTIMATES, type OfficeEstimates } from "./estimates.ts";
 import type { PreviewRow } from "./estimatePreview.ts";
-import { withEstimates } from "./settings.ts";
+import { withEstimates, withHearingTemplates } from "./settings.ts";
 import type { AiDisplayCandidate, CustomHost, CustomTextsStatus } from "../../engine/host.ts";
 import type { ProposableDisplayId } from "../../connector/displayCatalog.ts";
 import { DisplayProposalsSection } from "./DisplayProposalsSection.tsx";
+import { HearingTemplateProposals, type HearingTemplateProposalsProps } from "./HearingTemplateProposals.tsx";
 import { DisplayDefaultsSection } from "./DisplayDefaultsSection.tsx";
 import { withOfficeDisplay } from "./settings.ts";
 import { officeDisplayOf } from "../settings.ts";
@@ -77,6 +78,8 @@ export interface OfficeSettingsPanelProps {
     onDiscard: (candidate: string, id: string) => Promise<void>;
     onRestore: (id: ProposableDisplayId, index: number) => Promise<OfficeSettings>;
   };
+  /** AIからの Web のヒアリングのひな形の案（0222。接続口の propose_hearing_template）。保存はすぐ事務所データへ。無ければ区画を出さない */
+  hearingTemplates?: Omit<HearingTemplateProposalsProps, "templates" | "onSave"> & { onSave: (candidateId: string, name: string, selection: Parameters<HearingTemplateProposalsProps["onSave"]>[2]) => Promise<OfficeSettings> };
 }
 
 /**
@@ -244,7 +247,7 @@ const PREMISE_SECTION_NOTES: Readonly<Record<PremiseSection, string>> = {
   assetReturns: "資産配分の種類ごとの利回り（信託報酬などを引く前の年率）。空欄は、預金・外貨預金は預金の利回り、不動産（貸していない不動産の値動き）は0%、ほかは運用利回りで計算します。",
 };
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding, display }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding, display, hearingTemplates }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
   // 事務所の推定の値（0111）: 区画の中で押すとすぐ保存する。パネルの「保存」・「全部を既定に戻す」では変えない（保存のときは今の値を持ち越す）
   const [est, setEst] = useState<OfficeEstimates>(value.estimates ?? EMPTY_ESTIMATES);
@@ -503,6 +506,18 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
               setS((x) => carryDisplayValue(x, saved, id));
               return saved;
             }}
+          />
+        ) : null}
+        {hearingTemplates !== undefined ? (
+          <HearingTemplateProposals
+            candidates={hearingTemplates.candidates}
+            templates={value.hearingTemplates ?? []}
+            // 保存したひな形を、編集中の欄にも写す（パネルの「保存」で消えないように）
+            onSave={async (c, name, sel) => {
+              const saved = await hearingTemplates.onSave(c, name, sel);
+              setS((x) => withHearingTemplates(x, saved.hearingTemplates ?? []));
+            }}
+            onDiscard={hearingTemplates.onDiscard}
           />
         ) : null}
         {branding !== undefined ? <BrandingSection {...branding} shared={shared} /> : null}
