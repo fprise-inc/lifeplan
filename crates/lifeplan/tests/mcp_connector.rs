@@ -1075,6 +1075,111 @@ async fn app_policy_consent_is_required_end_to_end() {
     ep.shutdown();
 }
 
+/// AI接続を使える条件（0226。利用者の判断 2026-11-18）の4通りを、本物の接続口から確かめる:
+/// 同意あり／答え無し＋事務所のプライバシーポリシーを確かめ済み／答え無し＋未確認／同意しない＋確かめ済み。
+/// どの理由で渡されたかは一覧と読み取りの `basis` に出し、断った世帯は「同意しない」と答えたと分かる文で止める
+#[tokio::test(flavor = "multi_thread")]
+async fn app_policy_office_privacy_policy_end_to_end() {
+    let dir = temp_dir("office-policy");
+    let reg = Arc::new(ShareRegistry::new());
+    reg.require_consent(true);
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    let ids = model_ids();
+    let with = |n: usize, consent: Option<ConsentDecision>| {
+        let mut s = source(&ids[n % ids.len()], false);
+        s.household_id = format!("5b0c9e4e-1f1a-4b8e-9a51-3d2f7c6e8a9{n}");
+        s.external_ai_consent = consent.map(|decision| ConsentRef {
+            decision,
+            record_id: format!("c-{n}"),
+            documents: decision == ConsentDecision::Given,
+        });
+        s
+    };
+
+    // 答え無し＋未確認: 渡せず、接続口からは何も見えない
+    assert!(reg.grant(with(1, None), grant_opts()).is_err());
+    assert_eq!(
+        call_ok(&c, "list_shared_households", json!({})).await["shares"],
+        json!([])
+    );
+
+    // 同意あり: 渡せる（basis は consent）
+    let given = reg
+        .grant(with(2, Some(ConsentDecision::Given)), grant_opts())
+        .unwrap();
+    let got = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": given.share_id }),
+    )
+    .await;
+    assert_eq!(got["basis"], "consent");
+
+    // 答え無し＋確かめ済み: 渡せる（basis は officePolicy）。書類の候補も受ける世帯として一覧に出る（受け取りは ai-share の試験）
+    reg.set_office_policy(true);
+    let office = reg.grant(with(3, None), grant_opts()).unwrap();
+    let list = call_ok(&c, "list_shared_households", json!({})).await;
+    let row = list["shares"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["shareId"] == office.share_id.as_str())
+        .unwrap()
+        .clone();
+    assert_eq!(row["basis"], "officePolicy");
+    assert_eq!(row["documents"], true);
+    assert!(row["basisNote"]
+        .as_str()
+        .unwrap()
+        .contains("事務所のプライバシーポリシー"));
+    let got = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": office.share_id }),
+    )
+    .await;
+    assert_eq!(got["basis"], "officePolicy");
+
+    // 同意しない＋確かめ済み: 渡せない（お客さまの断りを事務所の設定で上書きしない）
+    assert!(reg
+        .grant(with(4, Some(ConsentDecision::Refused)), grant_opts())
+        .is_err());
+    assert_eq!(
+        call_ok(&c, "list_shared_households", json!({})).await["shares"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    // 事務所のプライバシーポリシーで渡していた世帯で、お客さまが「同意しない」と答えた: その場で止まり、AI には理由の分かる文を返す
+    assert!(!reg.update_source(&office.share_id, with(3, Some(ConsentDecision::Refused))));
+    let (err, msg) = call(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": office.share_id }),
+    )
+    .await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    assert!(msg.contains("「同意しない」と答えた"), "{msg}");
+
+    // 確かめを外すと、それを理由に渡していた共有だけが止まる（同意のある世帯は続く）
+    let office2 = reg.grant(with(5, None), grant_opts()).unwrap();
+    assert_eq!(reg.set_office_policy(false), 1);
+    let (err, msg) = call(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": office2.share_id }),
+    )
+    .await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    let list = call_ok(&c, "list_shared_households", json!({})).await;
+    assert_eq!(list["shares"].as_array().unwrap().len(), 1);
+    assert_eq!(list["shares"][0]["basis"], "consent");
+    c.cancel().await.unwrap();
+    ep.shutdown();
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn version_mismatch_is_explained() {
     let dir = temp_dir("ver");

@@ -3,12 +3,14 @@
 // - 外部AIへの提供の同意を記録する（範囲・同意の取り方・日付・FP の確認）。撤回もここで記録する（撤回すると共有はすぐに止まる）
 // - 前の版の説明・ヒアリングシートの同意欄（書類を含まない）で同意した世帯は、今の説明で同意を記録し直せる（0157・0172。計算の項目はそのまま渡せる）
 // - 同意は「外部の AI サービスに渡すことへの同意」1つ。どの AI の会社かは聞かない（0172。前の版の記録の会社はそのまま出す）
+// - 渡せるかは本体の判定（aiUse。0226）を見せるだけ: 同意がある・事務所のプライバシーポリシー（FP が事務所の設定で確かめ済み）で、
+//   お客さまが「同意しない」と答えていない・架空の世帯。断った・撤回した世帯は、事務所の設定にかかわらず渡せない
 // - 世帯をAIに渡す（申告した接続先・期限）・取り消す
 // - 記録: 同意の記録・AIに渡した記録（いつ・どの接続から・何を・何回）・AIからの候補
 // 記録を書くのは本体。画面は入力を送り、本体が返した記録を見せるだけ
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { AiConsentDecision, AiConsentMethod, AiHost, AiHouseholdView, AiStatus } from "../../engine/host.ts";
-import { aiMessage, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeText, durationText, END_REASONS, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
+import { aiDocumentsUseOf, aiMessage, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
 
 export type AiPanelTab = "consent" | "records";
 
@@ -30,6 +32,16 @@ interface ConsentForm {
   date: string;
   confirmed: boolean;
 }
+
+/** 渡せない世帯の「この世帯をAIに渡す」の欄の文（0226。理由ごと） */
+const BLOCKED_TEXT: Record<string, string> = {
+  refused: "お客さまが外部AIへの提供に「同意しない」と答えました。事務所の設定にかかわらず、この世帯は AI に渡せません。",
+  withdrawn: "お客さまが外部AIへの提供の同意を撤回しました。事務所の設定にかかわらず、この世帯は AI に渡せません。",
+  none: "外部AIへの提供の同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確かめると、渡せるようになります。",
+};
+
+/** 事務所のプライバシーポリシーで渡す世帯の注意（0226） */
+const OFFICE_POLICY_NOTE = "この世帯は、事務所のプライバシーポリシーに沿って渡します（同意の記録はありません。お客さまは「同意しない」と答えていません）。";
 
 /** 書類を含まない同意（前の版の説明・ヒアリングシートの同意欄）の世帯を渡すときの注意（0157・0172） */
 const NO_DOCUMENTS_NOTE = "この世帯の同意は、書類を AI に渡すことを含みません。同意を記録し直すまで、書類は AI に渡さないでください（AI から書類の候補が届いても受け取りません）。";
@@ -92,8 +104,13 @@ export function AiSharePanel(p: AiSharePanelProps) {
   const enabled = p.status?.enabled === true;
   // 架空の世帯（AIの候補から架空として作った世帯）: お客さまの情報を含まないので、同意の記録は要らない（期限・取り消し・記録は同じ）
   const fictional = v?.fictional === true;
-  // 書類を含まない同意（前の版の説明・ヒアリングシートの同意欄）の世帯: 計算の項目は渡せるが、書類を AI に渡す前に取り直す（0157・0172）
+  // 渡せるか・その理由（本体の判定。0226）
+  const use = v !== null ? aiUseOf(v) : "none";
+  const documentsUse = v !== null ? aiDocumentsUseOf(v) : "none";
+  // 書類を含まない同意（前の版の説明・ヒアリングシートの同意欄）の世帯: 計算の項目は渡せる。今の説明で取り直せる（0157・0172）
   const renew = v !== null && v.consentState === "given" && v.consentDocuments !== true;
+  // 取り直すまで書類を渡せない（事務所のプライバシーポリシーを確かめていれば、書類も渡せる。0226）
+  const noDocuments = renew && documentsUse === "consentWithoutDocuments";
   // ヒアリングシートの同意欄で記録する（シートの文で、書類を含まない。取り直しでは選べない。0172）
   const sheet = !renew && form.method === "hearingSheet";
   return (
@@ -137,10 +154,19 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 {providerText(latest.externalAi) !== null ? `・提供先 ${providerText(latest.externalAi)}` : ""}
                 {latest.decision === "given" ? documentsLabel(latest.documents, latest.method) : ""}）
               </p>
+            ) : use === "officePolicy" ? (
+              <p class="in-note" data-ai-consent-office>
+                まだ記録がありません。事務所の設定で事務所のプライバシーポリシーを確かめているので、事務所のプライバシーポリシーに沿って AI に渡せます。お客さまが「同意しない」と答えたら、下の「同意しなかったことを記録する」で記録してください（記録すると、事務所の設定にかかわらず渡せなくなります）。
+              </p>
             ) : (
-              <p class="in-note">まだ記録がありません。同意が無い世帯は、AIに渡せません（既定は「渡さない」）。</p>
+              <p class="in-note">まだ記録がありません。同意が無い世帯は、AIに渡せません（既定は「渡さない」）。事務所の設定で事務所のプライバシーポリシーを確かめると、同意の答えが無い世帯も渡せます。</p>
             )}
-            {renew ? (
+            {renew && !noDocuments ? (
+              <p class="in-note" data-ai-consent-renew-office>
+                この世帯の同意は{latest?.method === "hearingSheet" ? "ヒアリングシートの同意欄" : "前の版の説明"}でいただいたもので、書類の読み取りは含まれていませんが、事務所のプライバシーポリシーを確かめているので、書類も AI に渡せます。今の説明で同意を記録し直すこともできます。
+              </p>
+            ) : null}
+            {noDocuments ? (
               <p class="hh-warn" data-ai-consent-renew>
                 この世帯の同意は{latest?.method === "hearingSheet" ? "ヒアリングシートの同意欄" : "前の版の説明"}でいただいたもので、書類の読み取りで書類を AI に渡すことは含まれていません。計算に要る項目を AI に渡すことは、このまま続けられます。書類を AI に渡す前に、お客さまに今の説明を見せて、同意を記録し直してください。今の説明に同意いただけないときは、記録しなくてかまいません（書類は AI に渡さず、手で入れてください）。
               </p>
@@ -274,13 +300,16 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 <p>
                   AIには「<b>{v.share.alias}</b>」として見えています（顧客番号・お名前は渡していません）。{remainingText(v.share.expiresInSec)}。
                 </p>
-                {renew ? <p class="in-note" data-ai-sharing-no-documents>{NO_DOCUMENTS_NOTE}</p> : null}
+                {noDocuments ? <p class="in-note" data-ai-sharing-no-documents>{NO_DOCUMENTS_NOTE}</p> : null}
+                {use === "officePolicy" ? <p class="in-note" data-ai-sharing-office>{OFFICE_POLICY_NOTE}</p> : null}
                 <button type="button" class="btn danger" disabled={busy} onClick={() => void run(() => p.ai.stopShare(p.householdId), "共有を取り消しました")} data-ai-stop>
                   共有を取り消す
                 </button>
               </div>
-            ) : v.consentState !== "given" && !fictional ? (
-              <p class="in-note">外部AIへの提供の同意を記録すると、渡せるようになります。</p>
+            ) : !aiUseAllowed(use) ? (
+              <p class="in-note" data-ai-share-blocked={use}>
+                {BLOCKED_TEXT[use] ?? BLOCKED_TEXT.none}
+              </p>
             ) : (
               <form
                 class="ai-form"
@@ -310,7 +339,8 @@ export function AiSharePanel(p: AiSharePanelProps) {
                   <li>渡すのは計算に要る項目だけ（縮約版）です。物の ID は共有ごとの仮の ID に置き換えます。</li>
                   <li>許可は「このPCのAI接続口全体」に出すものです。申告したアプリの名前は確かめられません（記録には申告として残ります）。</li>
                   <li>取り消しで止まるのは今後の読み取りだけです。すでに送った内容は、AIの会社の側に残ります。</li>
-                  {renew ? <li data-ai-share-no-documents>{NO_DOCUMENTS_NOTE}</li> : null}
+                  {noDocuments ? <li data-ai-share-no-documents>{NO_DOCUMENTS_NOTE}</li> : null}
+                  {use === "officePolicy" ? <li data-ai-share-office>{OFFICE_POLICY_NOTE}</li> : null}
                 </ul>
                 <div class="ai-actions">
                   <button type="submit" class="btn primary" disabled={busy || destination.trim() === ""} data-ai-share-start>
@@ -357,7 +387,7 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
               {r.scope === "reduced" ? "縮約版" : r.scope}（{r.allowlistVersion}・{r.fields.length}項目）
             </dd>
             <dt>渡した時点の同意</dt>
-            <dd>{r.consentAtGrant.state === "given" ? "同意あり" : `同意なし（${r.consentAtGrant.state}）`}</dd>
+            <dd>{grantStateText(r.consentAtGrant.state)}</dd>
             <dt>読まれた回数</dt>
             <dd>{readCount(r)}回</dd>
             <dt>プランの候補</dt>

@@ -1,11 +1,13 @@
 // AI接続口の事務所全体の設定（中央のパネル。0015）:
 // - 使うかどうか（既定はオフ）。オフにすると、共有中の世帯をすべて取り消して受け口を閉じる
+// - 事務所のプライバシーポリシーに AI の利用を書いていることを FP が確かめた印（0226。確かめた日時を残す）。確かめると、同意の答えが無い世帯も渡せる
+//   （お客さまが「同意しない」と答えた世帯・撤回した世帯は渡せない）。外すと、それを理由に渡していた共有をすぐに取り消す
 // - 接続中の表示（共有中の世帯）と止めるボタン
 // - FP が自分の AI に設定する手順（接続口の場所は伏せた文面。本物は本体がクリップボードへ写す）と、AI 向けの説明書の置き場所（0019）
 // - 防げる範囲と防げない範囲（0015 の9）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { AiHost, AiStatus } from "../../engine/host.ts";
-import { aiMessage, codeOf, remainingText } from "./model.ts";
+import { aiMessage, codeOf, dateTimeText, remainingText } from "./model.ts";
 
 export interface AiConnectorPanelProps {
   ai: AiHost;
@@ -43,6 +45,8 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
 
   const enabled = status?.enabled === true;
   const shares = status?.shares ?? [];
+  const policyAt = status?.privacyPolicyConfirmedAt ?? null;
+  const setPolicy = ai.setPrivacyPolicy;
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={onClose} />
@@ -50,7 +54,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         <h2 id="ai-conn-title">AI接続口（事務所全体の設定）</h2>
         <p>
           FP がお使いの AI のアプリから、このアプリの計算・制度の値・架空の見本の世帯を使えるようにする口です。このPCの中だけで動き、ネットワークの口は開けません。
-          顧客の世帯は、<b>顧客の同意を記録し、世帯ごとに「AIに渡す」を押したときだけ</b>、計算に要る項目だけ（縮約版）を期限つきで渡します。お名前・ご住所・FPのメモは渡しません。
+          顧客の世帯は、<b>顧客の同意を記録するか下の事務所のプライバシーポリシーを確かめ、世帯ごとに「AIに渡す」を押したときだけ</b>、計算に要る項目だけ（縮約版）を期限つきで渡します。お名前・ご住所・FPのメモは渡しません。
         </p>
         {status !== null && !status.storeReady ? <p class="hh-warn">事務所の鍵が使えないため、設定を変えられません（復元キーを確かめてください）。</p> : null}
         <div class={`ai-switch${enabled ? " on" : ""}`}>
@@ -81,6 +85,32 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
             {msg.text}
           </p>
         ) : null}
+
+        <h3>事務所のプライバシーポリシー</h3>
+        <label class="ai-check">
+          <input
+            type="checkbox"
+            checked={policyAt !== null}
+            disabled={busy || status === null || !status.storeReady || setPolicy === undefined}
+            onChange={(e) => {
+              const on = (e.currentTarget as HTMLInputElement).checked;
+              if (setPolicy === undefined) return;
+              void run(async () => {
+                onStatus(await setPolicy(on));
+                onChanged();
+                setMsg({ ok: true, text: on ? "事務所のプライバシーポリシーを確かめたことを記録しました" : "確かめた印を外しました。同意の記録が無いまま渡していた世帯の共有は取り消しました" });
+              });
+            }}
+            data-ai-privacy-policy
+          />
+          事務所のプライバシーポリシーに、お客さまの情報を外部の AI サービスで扱うこと（AI を使った資料の読み取りや分析）を書いていることを確かめました
+        </label>
+        <p class="in-note" data-ai-privacy-policy-at>
+          {policyAt !== null ? `確かめた日時: ${dateTimeText(policyAt)}` : "まだ確かめていません。"}
+        </p>
+        <p class="in-note">
+          確かめると、外部AIへの提供の同意の答えが無いお客さまの世帯も、事務所のプライバシーポリシーに沿って AI に渡せます。お客さまが「同意しない」と答えた世帯と、同意を撤回した世帯は、確かめた後も渡せません。印を外すと、同意の記録が無いまま渡していた世帯の共有は、すぐに取り消します。
+        </p>
 
         <h3>共有中の世帯</h3>
         {shares.length === 0 ? (
