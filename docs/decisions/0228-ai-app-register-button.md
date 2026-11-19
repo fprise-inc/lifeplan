@@ -69,7 +69,7 @@
 
 - `app/src-tauri/src/ai_apps.rs`（新規。状態・書き方・控え・Claude Code の呼び方と、命令3つ）、`app/src-tauri/src/ai.rs`（`connector_path` を crate の中から使えるように）、`build.rs`・`capabilities/main.json`・`lib.rs`（命令を足す）、`Cargo.toml`（`toml_edit` 0.25〔Tauri の依存が既に使っている版〕・`serde_json` の `raw_value`）。
 - 画面: `app/src/workspace/ai/AiAppRegister.tsx`（新規）、`AiConnectorPanel.tsx`（見出しを「AI のアプリに登録する」と「手で設定する」にした）、`app/src/engine/host.ts`（`apps`・`registerApp`・`unregisterApp`。開発用のブラウザの本体には無い）。
-- 手引き: `docs/ai-connector.md` の0（ボタンで登録する）を先に、2〜4（手で書く）を後にした。
+- 手引き: `docs/ai-connector.md` の0（ボタンで登録する）を先に、2〜4（手で書く）を後にした。画面の操作の手引き（0227）の `docs/app-guide/09-ai.md` に節「AI のアプリに登録する」（`ai.register`）を足し、「事務所全体で AI と接続する」の節を今の画面の名前に直した。
 
 ## 試験での確認
 

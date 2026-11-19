@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "share_id": {
+      "description": "FPが渡した世帯の共有 ID（list_shared_households）。書くと、項目ごとに今の世帯に値があるか（filled。値は返さない）を添え、\n見直し（review）・足りない所だけ（missing）のひな形の数も返す（渡された世帯の読み取りはアプリの「AIに渡した記録」に残る）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sheet": {
+      "description": "返す票（simple＝シンプル〔簡易の票〕・detail＝詳細〔詳細の票〕）。省くと両方",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

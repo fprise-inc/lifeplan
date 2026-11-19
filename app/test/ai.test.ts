@@ -97,7 +97,8 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
   it("世帯のパネル: 同意が無いときは同意の記録の欄を出し、AIに渡すボタンは出さない", () => {
     const html = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view(), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
     expect(html).toContain("data-ai-consent-form");
-    expect(html).toContain("同意を記録すると、渡せるようになります");
+    expect(html).toContain('data-ai-share-blocked="none"');
+    expect(html).toContain("同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確かめると、渡せるようになります");
     expect(html).not.toContain("data-ai-share-start");
     // 同意があるときだけ、渡すボタンが出る
     const given = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view({ consentState: "given", consentDocuments: true }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
@@ -108,7 +109,7 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     // AI接続口がオフなら、同意があっても渡せない
     const off = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status(), view: view({ consentState: "given" }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
     expect(off).not.toContain("data-ai-share-start");
-    expect(off).toContain("AI接続口はオフです（既定）");
+    expect(off).toContain("AI と接続していません（既定）");
   });
 
   it("世帯のパネル: 前の版の説明（書類を含まない）の同意は、渡せるまま、今の説明で記録し直す欄を出す（0157）", () => {
@@ -179,7 +180,7 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     expect(brief).not.toContain("A0001");
     expect(brief).not.toContain("共有中の世帯A");
     // 「AI接続口の設定」はパネルを開くので、小窓が開く印を付ける
-    for (const x of [html, brief]) expect(x.slice(x.indexOf("data-ai-band-open"))).toMatch(/^[^<]*AI接続口の設定<svg [^>]*data-pop-icon/);
+    for (const x of [html, brief]) expect(x.slice(x.indexOf("data-ai-band-open"))).toMatch(/^[^<]*AI との接続の設定<svg [^>]*data-pop-icon/);
   });
 
   it("保存していない入力の変更があるときだけ、共有中の帯に「保存するとAIにも反映されます」を出す（0184 の追記）", () => {
@@ -421,10 +422,12 @@ describe("画面にパスや鍵が渡らない（0016 の1）", () => {
   it("AI接続口の命令に渡すのは、内部ID・設定の入切・文面の種類・同意の入力・期限・申告・候補の判断（受け取った書類の候補の ID を含む）だけ", () => {
     const src = readFileSync(join(APP_DIR, "src", "engine", "host.ts"), "utf8");
     const calls = [...src.matchAll(/invoke<[^>]*>\("(ai_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
-    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_app_register", "ai_app_unregister", "ai_apps_status", "ai_candidate_decide", "ai_consent_record", "ai_display_candidates", "ai_display_change_take", "ai_documents_taken", "ai_household", "ai_household_candidate_create", "ai_household_candidate_discard", "ai_household_candidates", "ai_household_display_take", "ai_set_enabled", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
+    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_app_register", "ai_app_unregister", "ai_apps_status", "ai_candidate_decide", "ai_consent_record", "ai_display_candidates", "ai_display_change_take", "ai_documents_taken", "ai_hearing_job_done", "ai_hearing_jobs", "ai_hearing_template_candidates", "ai_hearing_template_take", "ai_household", "ai_household_candidate_create", "ai_household_candidate_discard", "ai_household_candidates", "ai_household_display_take", "ai_set_enabled", "ai_set_privacy_policy", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
     // 新しい世帯の候補から作るときは、FP が選んだ種類・画面が組み立てた本文・一覧の要約・区分（新しく作るときと同じ）も渡す。
-    // 表示の設定の案（0215）は、承認待ちから外す設定の id（setting）だけ。世帯ごとの案（0213 の段B の後半）は、世帯の内部ID・案の ID・設定の id
-    const allowed = new Set(["id", "enabled", "client", "input", "minutes", "destination", "candidate", "accept", "plan", "kind", "body", "summary", "category", "setting"]);
+    // 表示の設定の案（0215）は、承認待ちから外す設定の id（setting）だけ。世帯ごとの案（0213 の段B の後半）は、世帯の内部ID・案の ID・設定の id。
+    // Web のヒアリングの発行の仕事（0222）は、仕事の ID（job）と画面の答え（result。依頼番号・数・URL と案内文。鍵は含まない）
+    // 事務所のプライバシーポリシーの確かめ（0226）は、確かめたかの真偽（confirmed）だけ
+    const allowed = new Set(["id", "enabled", "client", "input", "minutes", "destination", "candidate", "accept", "plan", "kind", "body", "summary", "category", "setting", "job", "result", "confirmed"]);
     for (const c of calls) {
       const args = (c[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "");
       for (const a of args) expect(allowed.has(a), `${c[1]} の引数 ${a}`).toBe(true);
@@ -434,7 +437,7 @@ describe("画面にパスや鍵が渡らない（0016 の1）", () => {
   it("本体の AI の命令は、パス・鍵を返す型を持たない（返すのは状態・記録・伏せた文面だけ）", () => {
     const rs = readFileSync(join(APP_DIR, "src-tauri", "src", "ai.rs"), "utf8");
     const sigs = [...rs.matchAll(/#\[tauri::command\]\s*pub async fn (ai_[a-z_]+)\(([^)]*)\)\s*->\s*([^{]+)\{/g)];
-    expect(sigs.length).toBe(15);
+    expect(sigs.length).toBe(20);
     for (const [, name, args, ret] of sigs) {
       expect(`${args}`.toLowerCase(), name).not.toMatch(/path|dir|file|key/);
       expect(`${ret}`, name).not.toMatch(/PathBuf|String,|Vec<u8>/);

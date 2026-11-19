@@ -35,7 +35,7 @@
 .ai-limits li { margin: 2px 0; }
 .ai-state { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; border-radius: 10px; padding: 10px 14px; margin: 8px 0; border: 2px solid var(--line); background: var(--base-bg); }
 .ai-state b { font-size: 1.1rem; }
-.ai-state.s-given, .ai-state.s-fictional { border-color: var(--prop); background: var(--prop-bg); }
+.ai-state.s-given, .ai-state.s-office, .ai-state.s-fictional { border-color: var(--prop); background: var(--prop-bg); }
 .ai-state.s-sharing { border-color: var(--est); background: var(--est-bg); color: var(--est-ink); }
 .ai-state.s-refused, .ai-state.s-withdrawn { border-color: var(--short); background: var(--short-bg); }
 .ai-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-2); margin: 6px 0 4px; }

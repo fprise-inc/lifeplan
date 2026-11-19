@@ -29,6 +29,7 @@ import {
   receivedDraft,
   receiveWeb,
   selectedCount,
+  hiddenAge,
   selectionName,
   splitSummary,
   templateForSave,
@@ -108,11 +109,22 @@ describe("ひな形の名前と中身（0192）", () => {
     const s = templateSelection("simple", blank());
     const all = s.sections.reduce((k, x) => k + x.items.length, 0);
     expect(selectedCount(s)).toBeLessThan(all);
-    expect(selectedCount(s)).toBe(all - s.sections.flatMap((x) => x.items).filter((i) => i.key.endsWith("Range")).length);
+    // 生年月の問いがあるときの年齢の問いも、お客さまの画面に出さないので数えない（0192 の追記 2026-11-19）
+    expect(selectedCount(s)).toBe(all - s.sections.flatMap((x) => x.items).filter((i) => i.key.endsWith("Range") || i.key === "hs.family.adult.age").length);
     const { name: _n, ...old } = s;
     void _n;
     expect(selectionName(old)).toBe("シンプル");
     expect(selectionName({ ...templateSelection("detail", blank()), name: "" })).toBe("詳細");
+  });
+
+  it("年齢の問いは、生年月の問いを選んでいる間は一覧に並べず数えない。生年月を外すと出る（お客さまの画面と同じ決め方）", () => {
+    const s = templateSelection("simple", blank());
+    const keys = (x: typeof s) => x.sections.flatMap((y) => y.items.map((i) => i.key));
+    expect(keys(s)).toContain("hs.family.adult.age");
+    expect(hiddenAge(s)).toBe("hs.family.adult.age");
+    const noBirth = { ...s, sections: s.sections.map((x) => ({ ...x, items: x.items.filter((i) => i.key !== "hs.family.adult.birthYearMonth") })) };
+    expect(hiddenAge(noBirth)).toBeNull();
+    expect(selectedCount(noBirth)).toBe(selectedCount(s));
   });
 });
 
