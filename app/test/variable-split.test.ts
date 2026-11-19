@@ -11,7 +11,9 @@ import { fromRequest } from "../src/workspace/input/household.ts";
 import {
   defaultSplit,
   lumpLine,
+  allocationRate,
   needsSurrenderValue,
+  netRateOf,
   rateLines,
   rateOf,
   recordSplit,
@@ -259,12 +261,14 @@ describe("年ごとの表と利回りの並び", () => {
     const req = family();
     const c = contractOf(req);
     const lines = rateLines(req, c, options(req, { rateKind: "class", illustrated: "0.06", assetClass: "equity.global" }));
-    expect(lines[0]).toBe("A の数表（設計書）の利回り: 年6%の例");
-    expect(lines[1]).toMatch(/^資産クラスの前提: 外国株式 年/);
+    expect(lines[0]).toBe("A の数表（設計書）: 年6%の運用の例（解約返戻金は保険の費用を引いた後の額）");
+    expect(lines[1]).toMatch(/^資産クラスの前提: 外国株式 年.*（前提条件の利回り。費用を引く前）$/);
     expect(lines).toContain("設計書の利回りは運用の例で、約束された値ではありません。高い利回りの例だけで判断しないでください");
     // 数表と同じ利回りにそろえると、そろっていないという行は出ない
     const same = rateLines(req, c, options(req, { rateKind: "illustrated", illustrated: "0.06" }));
     expect(same.some((x) => x.startsWith("A と B の利回りの前提がそろっていません"))).toBe(false);
+    // そろえるのは費用を引く前の利回り。B はそこから運用の費用（既定 0.25%）を引く
+    expect(same).toContain("B の運用の利回り: 年6%−運用の費用 年0.25%＝費用を引いた後 年5.75%");
     expect(rateLines(req, c, options(req, { rateKind: "custom", custom: "0.03", illustrated: "0.06" })).some((x) => x.startsWith("A と B の利回りの前提がそろっていません"))).toBe(true);
     // 数表の利回りを入れていなければ B の利回りは決まらない
     expect(rateOf(req, c, options(req, { rateKind: "illustrated", illustrated: null }))).toBeNull();
@@ -337,5 +341,38 @@ describe("保険の入力項目の区画", () => {
     for (const t of ["健康状態によっては", "解約控除", "保険料は上がります", "説明する決まり", "資産クラスの前提", "掛け捨ての保険の保険料を入れると"]) expect(html).toContain(t);
     expect(html).not.toContain("data-split-table");
     expect(html).toMatch(/<button[^>]*disabled[^>]*data-action="ins\/split\/plan"/);
+  });
+});
+
+describe("B の運用の費用（費用を引いた後の利回り）", () => {
+  it("既定は事務所の既定の運用の費用（0.25%）で、NISA・課税口座の「運用の費用」に入れる（計算のエンジンが利回りから引く）", () => {
+    const req = family({ schedule: { rows: rows((py) => py * 3000000) } });
+    const o = options(req);
+    expect(o.fee).toBe("0.0025");
+    expect(netRateOf(req, contractOf(req), o)).toBe("0.0275");
+    const b = bOf(req, o);
+    for (const id of [IDS.nisa, IDS.taxable]) expect(b.input.household.accounts!.find((a) => a.id === id)).toMatchObject({ expectedReturn: "0.03", fee: "0.0025" });
+    // 費用を0にすると欄を書かない
+    expect(bOf(req, options(req, { fee: "0" })).input.household.accounts!.find((a) => a.id === IDS.nisa)!.fee).toBeUndefined();
+  });
+
+  it("費用を引くと B の運用残高は小さくなる", () => {
+    const req = family();
+    const at = (o: SplitOptions) => sum(preview(baseRequest(bOf(req, o))), (c) => c.year === 2040 && c.object === IDS.nisa && c.row.startsWith("cf.balance.account."));
+    expect(at(options(req))).toBeLessThan(at(options(req, { fee: "0" })));
+  });
+
+  it("資産配分の入れ方（配分あり）は、世帯の資産配分の期待リターンと信託報酬で計算し、利回りの選び方は使わない", () => {
+    const req = family();
+    req.input.assumptions = { ...req.input.assumptions!, investment: { method: "allocation", allocation: { mix: [{ assetClass: "equity.global", share: "1" }], fee: "0.001" } }, assetReturns: { "equity.global": { default: "0.05" } } };
+    const c = contractOf(req);
+    const o = options(req, { rateKind: "custom", custom: "0.09" });
+    expect(allocationRate(req, o)).toEqual({ gross: "0.05", fee: "0.001" });
+    expect(rateOf(req, c, o)).toBe("0.05");
+    expect(netRateOf(req, c, o)).toBe("0.049");
+    expect(defaultSplit(req, c).fee).toBe("0.001");
+    const lines = rateLines(req, c, o);
+    expect(lines).toContain("B の運用の利回り（世帯の資産配分）: 年5%−運用の費用 年0.1%＝費用を引いた後 年4.9%");
+    expect(lines).toContain("資産配分の入れ方のため、B の運用も世帯の資産配分と信託報酬で計算します");
   });
 });

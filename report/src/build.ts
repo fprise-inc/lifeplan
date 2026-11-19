@@ -7,6 +7,7 @@ import { childScholarshipNotes } from "./childScholarships.ts";
 import { rowName, sameRowName, type OfficeRowNames } from "./rowNames.ts";
 import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateAnalysisAmounts, RealEstateAnalysisYear, RealEstateDetail, Run, TableCell } from "./bundle.ts";
 import { saleCompareOf, type SaleResult } from "./rentalSale.ts";
+import { splitCautionNotes } from "./variableSplit.ts";
 import { depreciationEndText, pctText, timesText } from "./rentalText.ts";
 import { selectChapters } from "./chapters.ts";
 import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, OTHER_ASSET_LINES, otherAssetLine, type BsGroup, type BsHousehold } from "./bsGroups.ts";
@@ -1270,6 +1271,8 @@ function assumptions(ctx: Ctx): ProposalInput["assumptions"] {
   if (advisoryFee !== null) notes.push("ご本人が払うFP顧問料は、所得から差し引かない扱いで計算しています。");
   // 子が返す貸与の奨学金の返済（世帯の収支に入れていない額。0104）
   for (const n of childScholarshipNotes(ctx.bundle.proposal.result.summary, (id) => ctx.rs.find((r) => r.member.id === id)?.label ?? "お子さま")) notes.push(`${n}。`);
+  // 変額保険を解約して保障と運用に分けるプラン（0233）: 提案か比較のページのプランが、現状に解約の予定の無い変額保険を解約するとき
+  for (const n of splitCautionNotes(ctx.bundle.current.request, [ctx.bundle.proposal.request, ...(ctx.bundle.comparison?.plans ?? []).map((p) => p.run.request)])) notes.push(n);
   // 推定の値: どの欄かは書かない（FP 向けの画面だけで示す）
   if (ctx.bundle.estimated === true || hasEstimatedBox(ctx.bundle.current.request.input.household) || hasEstimatedBox(ctx.bundle.proposal.request.input.household)) notes.push(ESTIMATED_NOTE);
   return { rates, dataSet, survivor, survivorReform: reform, advisoryFee, notes };

@@ -5,20 +5,21 @@
 //   数表に無ければ FP が入れた額を、B のプランだけ、その保険年度の数表の行として足す
 // - 掛け捨ての保険: 定期保険か収入保障保険を、解約の月に契約者・被保険者・受取人を変額保険と同じにして入れる。保険料は FP が入れる（月払い）。
 //   保障の額の既定は今の死亡保険金、保障と払込の終わりは被保険者の年齢（既定 65歳。今もう近ければ10年後）
-// - 運用: 契約者の名義の NISA の口座を1つ足す（利回りは A と同じ前提にそろえられる）。浮いた保険料（A の保険料−掛け捨ての保険料。マイナスなら
+// - 運用: 契約者の名義の NISA の口座を1つ足す（利回りは A と同じ前提にそろえられ、口座の「運用の費用」で信託報酬などを引く）。浮いた保険料（A の保険料−掛け捨ての保険料。マイナスなら
 //   積み立てない）を、解約の月から A の払込が終わる前の月まで、つみたて投資枠で毎月。解約返戻金（税を引く前。税は預金から払う。0026 の4 と同じ近似）は、
 //   成長投資枠に年ごとの枠の残りまで（解約の年は解約の月、次の年からは1月）。NISA の生涯の枠に入らない分は、解約の月に課税口座へ。
 //   枠の数え方はエンジンの NISA の部品と同じ（つみたて投資枠を超えた積立は成長投資枠へ）。名義の人の今の NISA の積立・使った枠も数える
+import { SPLIT_CAUTIONS } from "../../../../report/src/variableSplit.ts";
 import type { Account, EngineRequest, Household, InsuranceContract, Member, PreviewResult, TableCell, Timepoint } from "../../engine/types.ts";
 import { addMonths, ageAt } from "../levers.ts";
-import { classRate } from "../plans/allocation.ts";
-import { cmpRate, pctText } from "../plans/decimal.ts";
+import { classRate, expectedReturn } from "../plans/allocation.ts";
+import { cmpRate, pctText, subRate } from "../plans/decimal.ts";
 import type { Catalog } from "../plans/items.ts";
 import { planView, recordPlanEdit } from "../plans/planEdit.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { newId, type WorkingHousehold } from "./household.ts";
 import { kindOf } from "./insuranceKinds.ts";
-import { CLASSES, methodOf, NISA_LIMITS, stopAgeOrEstimate, stopMonth } from "./savings/model.ts";
+import { CLASSES, defaultFee, investmentOf, methodOf, NISA_LIMITS, stopAgeOrEstimate, stopMonth } from "./savings/model.ts";
 
 const VARIABLE = "insurance.variable";
 
@@ -46,6 +47,8 @@ export interface SplitOptions {
   custom: string | null;
   /** 解約返戻金（数表に解約の保険年度の行が無いときに FP が入れる額。null は入れていない） */
   surrenderValue: number | null;
+  /** B の運用の費用（信託報酬など。年率の10進。上の利回りから引く。口座の「運用の費用」と同じ） */
+  fee: string;
 }
 
 /** B で足す物の ID */
@@ -58,13 +61,8 @@ export interface SplitIds {
 
 export const newSplitIds = (): SplitIds => ({ cover: newId(), coverMain: newId(), nisa: newId(), taxable: newId() });
 
-/** 必ず出す注意 */
-export const SPLIT_CAUTIONS: readonly string[] = [
-  "健康状態によっては、新しい保険に入れないことがあります。掛け捨ての保険に入れることを確かめてから解約を考えてください",
-  "早い時期の解約には解約控除がかかり、解約返戻金が払った保険料を下回ることがあります",
-  "年齢が上がると、新しく入る保険の保険料は上がります（入る時期が遅いほど高くなります）",
-  "保険の募集人が乗り換えを勧めるときには、今の契約と新しい契約の違い（不利になる点を含む）を説明する決まりがあります",
-];
+/** 必ず出す注意（提案書の注意書きと同じ文。report/src/variableSplit.ts） */
+export { SPLIT_CAUTIONS };
 
 export const COVER_OPTIONS: readonly { value: CoverKind; label: string }[] = [
   { value: "term", label: "定期保険" },
@@ -156,7 +154,24 @@ export function defaultSplit(req: EngineRequest, c: InsuranceContract, nowDeath?
     assetClass: cls,
     custom: null,
     surrenderValue: null,
+    fee: defaultFeeOf(req),
   };
+}
+
+/**
+ * B の運用の費用の既定（今の作りに合わせる）: 資産配分の入れ方で信託報酬を入れていればその値、ほかは事務所の既定の運用の費用
+ * （資産配分の既定と同じ目安 preset.invest.fee）
+ */
+export const defaultFeeOf = (req: EngineRequest): string => investmentOf(req).allocation?.fee ?? defaultFee();
+
+/**
+ * 資産配分の入れ方で配分を入れている世帯は、計算のエンジンが運用する口座の利回りを世帯の資産配分にそろえる（口座の利回りは使わない。0026 の5）ので、
+ * B の口座も世帯の資産配分（費用を引く前の期待リターンと、信託報酬。信託報酬が無ければ B の運用の費用）で計算する。ほかの入れ方は null
+ */
+export function allocationRate(req: EngineRequest, o: SplitOptions): { gross: string; fee: string } | null {
+  const inv = investmentOf(req);
+  if (methodOf(req) !== "allocation" || inv.allocation === undefined) return null;
+  return { gross: expectedReturn(req, { kind: "nisa", assetMix: inv.allocation.mix }, yearOf(req.input.baseMonth) + 1), fee: inv.allocation.fee ?? o.fee };
 }
 
 /**
@@ -176,27 +191,47 @@ export const classPremise = (req: EngineRequest, cls: string): string => classRa
 /** A の積立金の利回り（前の入れ方〔円の目安の形でない〕の変額保険。エンジンが積立金を伸ばす利回り） */
 export const fundRate = (req: EngineRequest, c: InsuranceContract): string => classRate(req, c.simple?.assetClass ?? "", yearOf(req.input.baseMonth) + 1).rate;
 
-/** B の運用の利回り（入っていなければ null） */
+/**
+ * B の運用の利回り（費用を引く前。入っていなければ null）。どの選び方も「市場の利回り」の前提で、B はそこから運用の費用を引く
+ * （A の数表は、保険の費用を引いた後の解約返戻金なので、同じ利回りの例から、それぞれの費用を引いた形で並ぶ）
+ */
 export function rateOf(req: EngineRequest, c: InsuranceContract, o: SplitOptions): string | null {
+  const alloc = allocationRate(req, o);
+  if (alloc !== null) return alloc.gross;
   if (o.rateKind === "class") return classPremise(req, o.assetClass);
   if (o.rateKind === "custom") return o.custom;
   return isEstimate(c) ? o.illustrated : fundRate(req, c);
 }
 
+/** B の運用の費用（資産配分の入れ方は世帯の信託報酬） */
+export const feeOf = (req: EngineRequest, o: SplitOptions): string => allocationRate(req, o)?.fee ?? o.fee;
+
+/** B の運用の費用を引いた後の利回り（入っていなければ null） */
+export function netRateOf(req: EngineRequest, c: InsuranceContract, o: SplitOptions): string | null {
+  const g = rateOf(req, c, o);
+  return g === null ? null : subRate(g, feeOf(req, o));
+}
+
 /** A の解約返戻金・積立金がどの利回りの数字か（数表の利回りを入れていない・数表の無い目安の形は null） */
 export const aRateOf = (req: EngineRequest, c: InsuranceContract, o: SplitOptions): string | null => (isEstimate(c) ? (hasSchedule(c) ? o.illustrated : null) : fundRate(req, c));
 
-/** 利回りを並べる行（設計書の利回り・資産クラスの前提・B に使う利回り・そろっているか） */
+/** 利回りを並べる行（設計書の利回り・資産クラスの前提・B に使う利回りと費用を引いた後・そろっているか） */
 export function rateLines(req: EngineRequest, c: InsuranceContract, o: SplitOptions): string[] {
   const out: string[] = [];
+  const pct = (r: string) => pctText(r, 2);
   const aRate = aRateOf(req, c, o);
-  if (!isEstimate(c)) out.push(`A の積立金: 年${pctText(fundRate(req, c), 1)}（前提条件の利回りで計算しています）`);
+  if (!isEstimate(c)) out.push(`A の積立金: 年${pct(fundRate(req, c))}の前提で伸ばしています（保険料のうち積立に回らない分を引いた後）`);
   else if (!hasSchedule(c)) out.push("A: 数表（設計書の解約返戻金）が入っていないので、これからの解約返戻金は出せません");
-  else out.push(aRate === null ? "A の数表（設計書）の利回り: 未入力（設計書の運用実績の例の利回りを入れてください）" : `A の数表（設計書）の利回り: 年${pctText(aRate, 1)}の例`);
+  else out.push(aRate === null ? "A の数表（設計書）の利回り: 未入力（設計書の運用実績の例の利回りを入れてください）" : `A の数表（設計書）: 年${pct(aRate)}の運用の例（解約返戻金は保険の費用を引いた後の額）`);
   const cls = CLASS_OPTIONS.find((x) => x.value === o.assetClass)?.label ?? o.assetClass;
-  out.push(`資産クラスの前提: ${cls} 年${pctText(classPremise(req, o.assetClass), 1)}（前提条件の利回り）`);
+  out.push(`資産クラスの前提: ${cls} 年${pct(classPremise(req, o.assetClass))}（前提条件の利回り。費用を引く前）`);
+  const alloc = allocationRate(req, o);
   const b = rateOf(req, c, o);
-  out.push(b === null ? "B の運用の利回り: 未入力" : `B の運用の利回り: 年${pctText(b, 1)}`);
+  const fee = feeOf(req, o);
+  const net = netRateOf(req, c, o);
+  const head = alloc !== null ? "B の運用の利回り（世帯の資産配分）" : "B の運用の利回り";
+  out.push(b === null || net === null ? `${head}: 未入力` : `${head}: 年${pct(b)}−運用の費用 年${pct(fee)}＝費用を引いた後 年${pct(net)}`);
+  if (alloc !== null) out.push("資産配分の入れ方のため、B の運用も世帯の資産配分と信託報酬で計算します");
   if (b !== null && aRate !== null && cmpRate(b, aRate) !== 0) out.push("A と B の利回りの前提がそろっていません（そろえると、保険と運用の違いだけを比較できます）");
   out.push("設計書の利回りは運用の例で、約束された値ではありません。高い利回りの例だけで判断しないでください");
   return out;
@@ -300,7 +335,7 @@ export const waitingAt = (p: SplitPlan, year: number): number => p.chunks.filter
 const box0 = () => ({ value: 0, state: "confirmed", origin: { kind: "manual" } });
 
 /**
- * B の要求（解約の月・掛け捨ての保険・NISA の口座。数表に無い解約返戻金は数表の行として足す）。rate は B の運用の利回り。
+ * B の要求（解約の月・掛け捨ての保険・NISA の口座。数表に無い解約返戻金は数表の行として足す）。rate は B の運用の利回り（費用を引く前）。
  * 変額保険が見つからなければ同じ中身の写し
  */
 export function splitRequest(req: EngineRequest, contract: string, o: SplitOptions, rate: string, ids: SplitIds): EngineRequest {
@@ -335,9 +370,11 @@ export function splitRequest(req: EngineRequest, contract: string, o: SplitOptio
   if (p.savingUntil !== null) contributions.push({ from: { at: p.ym }, to: { at: p.savingUntil }, monthly: p.saving });
   for (const x of p.chunks) contributions.push({ from: { at: x.ym }, to: { at: x.ym }, monthly: x.amount, tranche: "growth" });
   const accounts = (h.accounts ??= []);
-  accounts.push({ id: ids.nisa, kind: "nisa", owner: c.policyholder, label: "分けた運用（NISA）", marketValue: box0(), asOf: out.input.baseMonth, contributions, expectedReturn: rate });
+  // 運用の費用は口座の「運用の費用」に入れ、計算のエンジンが利回りから引く（資産配分の入れ方で信託報酬があれば、エンジンがそちらに置き換える）
+  const feeField = cmpRate(o.fee, "0") > 0 ? { fee: o.fee } : {};
+  accounts.push({ id: ids.nisa, kind: "nisa", owner: c.policyholder, label: "分けた運用（NISA）", marketValue: box0(), asOf: out.input.baseMonth, contributions, expectedReturn: rate, ...feeField });
   if (p.taxable > 0) {
-    accounts.push({ id: ids.taxable, kind: "taxable", owner: c.policyholder, label: "分けた運用（課税口座）", marketValue: box0(), asOf: out.input.baseMonth, contributions: [{ from: { at: p.ym }, to: { at: p.ym }, monthly: p.taxable }], expectedReturn: rate });
+    accounts.push({ id: ids.taxable, kind: "taxable", owner: c.policyholder, label: "分けた運用（課税口座）", marketValue: box0(), asOf: out.input.baseMonth, contributions: [{ from: { at: p.ym }, to: { at: p.ym }, monthly: p.taxable }], expectedReturn: rate, ...feeField });
   }
   return out;
 }

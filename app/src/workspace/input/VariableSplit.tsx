@@ -16,6 +16,7 @@ import {
   lumpLine,
   needsSurrenderValue,
   newSplitIds,
+  allocationRate,
   rateLines,
   rateOf,
   savingLine,
@@ -115,6 +116,7 @@ export function SplitPanel({ req, c, label, computeOne, onPlan, planLabel }: { r
   const ym = surrenderYm(req, o.year);
   const needs = needsSurrenderValue(c, ym);
   const rate = rateOf(req, c, o);
+  const allocated = allocationRate(req, o) !== null;
   const missing = [o.premium === null ? "掛け捨ての保険の保険料" : null, rate === null ? "運用の利回り" : null, needs && o.surrenderValue === null ? "解約返戻金" : null].filter((x): x is string => x !== null);
   const bReq = useMemo(() => (missing.length === 0 && rate !== null ? baseRequest(splitRequest(req, c.id, o, rate, ids)) : null), [req, c.id, o, rate, ids, missing.length]);
   const [bRes, setBRes] = useState<{ o: SplitOptions; res: PreviewResult | null } | null>(null);
@@ -178,8 +180,9 @@ export function SplitPanel({ req, c, label, computeOne, onPlan, planLabel }: { r
         <label class="vs-f">
           保障の終わり <input type="number" class="dd-n" min={20} max={100} value={o.endAge} onInput={(e) => put({ endAge: Math.min(100, Math.max(20, Math.round(num(e) ?? o.endAge))) })} data-split-field="endAge" /> 歳
         </label>
+        {allocated ? null : (
         <fieldset class="vs-f vs-rate">
-          <legend>B の運用の利回り（A と同じ前提にそろえると、保険と運用の違いだけを比較できます）</legend>
+          <legend>B の運用の利回り（費用を引く前。A と同じ前提にそろえると、保険と運用の違いだけを比較できます）</legend>
           <label>
             <input type="radio" name={`vs-rate-${c.id}`} checked={o.rateKind === "illustrated"} onChange={() => put({ rateKind: "illustrated" as RateKind })} />
             {isEstimate(c) ? (
@@ -206,6 +209,13 @@ export function SplitPanel({ req, c, label, computeOne, onPlan, planLabel }: { r
             ほかの利回り 年 <input type="number" class="dd-n" step={0.1} value={pctOf(o.custom)} onInput={(e) => put({ custom: rateFromPct(num(e)), rateKind: "custom" })} data-split-field="custom" /> %
           </label>
         </fieldset>
+        )}
+        {allocated ? null : (
+          <label class="vs-f">
+            B の運用の費用（信託報酬など） 年 <input type="number" class="dd-n" min={0} max={5} step={0.01} value={pctOf(o.fee)} onInput={(e) => { const v = rateFromPct(num(e)); put({ fee: v === null || Number(v) < 0 ? "0" : v }); }} data-split-field="fee" /> %
+            <span class="vs-sub">（上の利回りから引きます。A の数表は保険の費用を引いた後の額なので、B も費用を引いた後で並べます）</span>
+          </label>
+        )}
       </div>
       <ul class="vs-rates" data-split-rates>
         {rateLines(req, c, o).map((t) => (
