@@ -8,7 +8,7 @@ import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
 import { HouseholdPanel } from "../src/workspace/store/HouseholdPanel.tsx";
 import { presenceText } from "../src/workspace/store/office.ts";
 import { OfficePanel } from "../src/workspace/store/OfficePanel.tsx";
-import { RecoveryPanel } from "../src/workspace/store/RecoveryPanel.tsx";
+import { COPY_CAUTION, COPY_FAILED, COPY_OK, copyRecoveryKey, LATER_HINT, NOT_A_KEY_TEXT, RecoveryKeyBox, RecoveryPanel, recoveryKeyShape } from "../src/workspace/store/RecoveryPanel.tsx";
 import { StoragePanel } from "../src/workspace/store/StoragePanel.tsx";
 import { storageNoticeText, SYNC_MESSAGES, syncMessage } from "../src/workspace/store/storage.ts";
 
@@ -194,6 +194,70 @@ describe("初回の案内（復元キー）", () => {
     // 共有・同期フォルダで使っているときは出さない
     expect(rk({ onOpenSync: () => undefined, shared: true })).not.toContain("data-recovery-second-pc");
   });
+  it("最初の案内には「復元キーで実際に開けるか試す」の欄を出さない。設定から開く画面（manage）には出す", () => {
+    const first = rk({});
+    expect(first).not.toContain("開けるか試す");
+    expect(first).not.toContain("data-recovery-try");
+    expect(first).not.toContain("data-recovery-input");
+    expect(first).not.toContain("rk-test");
+    for (const props of [{}, { shared: true }, { shared: true, personal: true }]) {
+      const manage = renderToString(h(RecoveryPanel, { mode: "manage", store, status: ready(), onStatus: () => undefined, onClose: () => undefined, ...props }));
+      expect(manage, JSON.stringify(props)).toContain("復元キーで実際に開けるか試す");
+      expect(manage, JSON.stringify(props)).toContain("data-recovery-try");
+    }
+    // 鍵を戻す画面（restore）は今までどおり入れる欄がある
+    const restore = renderToString(h(RecoveryPanel, { mode: "restore", store, status: null, onStatus: () => undefined, onClose: () => undefined }));
+    expect(restore).toContain("復元キーを入れる");
+    expect(restore).toContain("data-recovery-try");
+  });
+  it("最初の案内の残りの中身は、共有の事務所・同期フォルダ・2台目の PC の入口があるときも変わらない（「試す」だけが無い）", () => {
+    const cases: { props: Record<string, unknown>; has: string[]; not: string[] }[] = [
+      { props: {}, has: ["<h2 id=\"rk-title\">復元キー</h2>", "rk-advice", "rk-later", "data-recovery-close"], not: ["data-recovery-second-pc", "data-recovery-shared", "data-recovery-personal"] },
+      { props: { onOpenSync: () => undefined }, has: ["data-recovery-second-pc", "rk-advice", "rk-later", "data-recovery-close"], not: ["data-recovery-shared", "data-recovery-personal"] },
+      { props: { shared: true }, has: ["事務所の復元キー", "data-recovery-shared", "rk-advice", "data-recovery-close"], not: ["data-recovery-second-pc", "rk-later"] },
+      { props: { shared: true, personal: true, onOpenSync: () => undefined }, has: ["復元キー（同期フォルダ）", "data-recovery-personal", "rk-advice", "data-recovery-close"], not: ["data-recovery-second-pc", "rk-later"] },
+    ];
+    for (const c of cases) {
+      const html = rk(c.props);
+      const name = Object.keys(c.props).join(",") || "PCの中だけ";
+      for (const x of c.has) expect(html, name).toContain(x);
+      for (const x of c.not) expect(html, name).not.toContain(x);
+      expect(html, name).not.toContain("開けるか試す");
+      expect(html, name).not.toContain("data-recovery-try");
+      // 最初の案内では「あとで保管する」で閉じる（保管するかは FP が選ぶ）。あとから開く道も書く（どの場合も同じ道）
+      expect(html, name).toContain(">あとで保管する</button>");
+      expect(html, name).toContain("data-recovery-later-hint");
+      expect(html, name).toContain(LATER_HINT);
+    }
+  });
+  it("一番下のボタンは、まだ保管していなければ「あとで保管する」、保管したら「閉じる」。あとから開く道の文は、最初の案内でまだ保管していないときだけ", () => {
+    const first = rk({});
+    expect(first).toContain(">あとで保管する</button>");
+    expect(first).not.toContain(">閉じる</button>");
+    const keptFirst = renderToString(h(RecoveryPanel, { mode: "first", store, status: ready({ firstRun: true, recoveryAcknowledged: true }), onStatus: () => undefined, onClose: () => undefined }));
+    expect(keptFirst).toContain(">閉じる</button>");
+    expect(keptFirst).not.toContain("あとで保管する");
+    expect(keptFirst).not.toContain("data-recovery-later-hint");
+    for (const acknowledged of [false, true]) {
+      const manage = renderToString(h(RecoveryPanel, { mode: "manage", store, status: ready({ recoveryAcknowledged: acknowledged }), onStatus: () => undefined, onClose: () => undefined }));
+      expect(manage).toContain(acknowledged ? ">閉じる</button>" : ">あとで保管する</button>");
+      // 設定から開く画面は、すでにその道の先なので書かない
+      expect(manage).not.toContain("data-recovery-later-hint");
+    }
+    // 道の文は、世帯の一覧の下のボタンの名前（「復元キー」）と同じ
+    expect(LATER_HINT).toContain("世帯の一覧");
+    expect(LATER_HINT).toContain("「復元キー」");
+  });
+  it("「事務所の共有」の場所を書き、開くボタンを置く（PC の中だけのとき）", () => {
+    const html = rk({ onStorage: () => undefined, onOffice: () => undefined });
+    expect(html).toContain("上の帯の FP のメニュー〔かばんのアイコン〕の「事務所の設定」にあります");
+    expect(html).toContain("data-recovery-to-office");
+    expect(html).toContain(">事務所の共有を開く</button>");
+    expect(html).toContain("data-recovery-to-storage");
+    expect(rk({})).not.toContain("data-recovery-to-office");
+    // 共有の事務所・同期フォルダで使っているときは、この案内自体を出さない
+    expect(rk({ onOffice: () => undefined, shared: true })).not.toContain("data-recovery-to-office");
+  });
   it("同期フォルダの復元キーは、どの PC でも同じと説明する", () => {
     const html = renderToString(h(RecoveryPanel, { mode: "manage", store, status: ready(), onStatus: () => undefined, onClose: () => undefined, shared: true, personal: true }));
     expect(html).toContain("復元キー（同期フォルダ）");
@@ -204,6 +268,84 @@ describe("初回の案内（復元キー）", () => {
     const html = renderToString(h(RecoveryPanel, { mode: "manage", store, status: ready(), onStatus: () => undefined, onClose: () => undefined, onStorage: () => undefined }));
     expect(html).toContain("1人で2台のPCで使うときは");
     expect(html).toContain("data-recovery-to-storage");
+  });
+});
+
+describe("入れた中身が復元キーの形か（打ち間違いと、復元キーでない物を分ける）", () => {
+  // 形の合う見本（58文字・4文字ずつ区切りで72文字。確かめ用の照合は本体がする）
+  const KEY = Array.from({ length: 58 }, (_, i) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(i * 7 + 3) % 32]).join("").replace(/(.{4})(?=.)/g, "$1-");
+  it("ちょうどキーの形・1字違い・区切りや空白や改行の違い・小文字・全角は、復元キーとして本体に渡す（打ち間違いは本体が判定）", () => {
+    expect(KEY.length).toBe(72);
+    expect(recoveryKeyShape(KEY)).toBe("key");
+    expect(recoveryKeyShape(`${KEY.slice(0, 10)}${KEY[10] === "A" ? "B" : "A"}${KEY.slice(11)}`)).toBe("key");
+    expect(recoveryKeyShape(KEY.replace("A", "U"))).toBe("key");
+    expect(recoveryKeyShape(KEY.replaceAll("-", ""))).toBe("key");
+    expect(recoveryKeyShape(`  ${KEY.replaceAll("-", " ")}\n`)).toBe("key");
+    expect(recoveryKeyShape(KEY.replaceAll("-", "\r\n"))).toBe("key");
+    expect(recoveryKeyShape(KEY.toLowerCase())).toBe("key");
+    expect(recoveryKeyShape(KEY.replace(/[0-9A-Z]/g, (c) => String.fromCodePoint((c.codePointAt(0) ?? 0) + 0xfee0)))).toBe("key");
+    // 1組（4文字）が抜けた・重なったのは打ち間違い
+    expect(recoveryKeyShape(KEY.slice(0, 67))).toBe("key");
+    expect(recoveryKeyShape(`${KEY}-ABCD`)).toBe("key");
+  });
+  it("アドレス・短すぎ・長すぎ・使わない文字が多いものは、復元キーでない物として分ける", () => {
+    expect(recoveryKeyShape("https://github.com/fprise-inc/lifeplan")).toBe("notKey");
+    expect(recoveryKeyShape("github.com/fprise-inc/lifeplan/pull/1")).toBe("notKey");
+    expect(recoveryKeyShape("www.example.com")).toBe("notKey");
+    expect(recoveryKeyShape("someone@example.com")).toBe("notKey");
+    expect(recoveryKeyShape(KEY.slice(0, 40))).toBe("notKey");
+    expect(recoveryKeyShape(`${KEY}-${KEY}`)).toBe("notKey");
+    expect(recoveryKeyShape("ABCD")).toBe("notKey");
+    expect(recoveryKeyShape(KEY.replace(/^.{0,9}/, "UUUUUUUUU"))).toBe("notKey");
+    expect(recoveryKeyShape("復元キーはここに貼り付けてください。復元キーはここに貼り付けてください。復元キーはここに貼り付けてください。")).toBe("notKey");
+  });
+  it("知らせの文は、打ち間違いとは別で、形と文字数を書く", () => {
+    expect(NOT_A_KEY_TEXT).toContain("復元キーではない文字");
+    expect(NOT_A_KEY_TEXT).toContain("72文字");
+    expect(NOT_A_KEY_TEXT).not.toContain("打ち間違い");
+  });
+});
+
+describe("復元キーの「コピー」", () => {
+  const KEY = Array.from({ length: 58 }, (_, i) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(i * 11 + 5) % 32]).join("").replace(/(.{4})(?=.)/g, "$1-");
+  it("キーの枠の横に「コピー」と、クリップボードの履歴・同期に残る注意を出す", () => {
+    const html = renderToString(h(RecoveryKeyBox, { value: KEY }));
+    expect(html).toContain("data-recovery-key");
+    expect(html).toContain(">コピー</button>");
+    expect(html).toContain("data-recovery-copy-caution");
+    expect(html).toContain(COPY_CAUTION);
+    expect(COPY_CAUTION).toContain("クリップボードの履歴");
+    expect(COPY_CAUTION).toContain("アプリからは消せない");
+    // キーは5組ずつの行で出す（コピーする中身は区切りつきの72文字のまま）
+    expect(html).toContain(KEY.split("-").slice(0, 5).join("-"));
+  });
+  it("押すとキー（72文字のまま）をクリップボードに渡し、できたと知らせる", async () => {
+    const got: string[] = [];
+    const r = await copyRecoveryKey(KEY, async (t) => {
+      got.push(t);
+    });
+    expect(got).toEqual([KEY]);
+    expect(got[0]?.length).toBe(72);
+    expect(r).toEqual({ ok: true, text: COPY_OK });
+  });
+  it("写せないとき（許可が無い・クリップボードが使えない）は、できなかったと知らせ、ほかの保管の仕方を書く", async () => {
+    const r = await copyRecoveryKey(KEY, async () => Promise.reject(new Error("NotAllowedError")));
+    expect(r).toEqual({ ok: false, text: COPY_FAILED });
+    expect(COPY_FAILED).toContain("コピーできませんでした");
+    expect(COPY_FAILED).toContain("印刷");
+    // navigator.clipboard が無い環境（テストの node）でも、投げずに知らせを返す
+    const r2 = await copyRecoveryKey(KEY);
+    expect(r2.ok).toBe(false);
+  });
+});
+
+describe("WebView2 の一般の自動入力", () => {
+  it("main のウィンドウで切っている（入力欄の autocomplete=\"off\" を守らないことがあるため。0016 の追記）", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const conf = JSON.parse(await readFile(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8")) as { app: { windows: { label: string; generalAutofillEnabled?: boolean; incognito?: boolean }[] } };
+    const main = conf.app.windows.find((w) => w.label === "main");
+    expect(main?.generalAutofillEnabled).toBe(false);
+    expect(main?.incognito).toBe(true);
   });
 });
 

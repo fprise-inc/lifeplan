@@ -137,6 +137,20 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       s.lastOpened = a.id ?? null;
       return { ok: true, value: opened(a.id as string, h) };
+    // 開かずに、Web のヒアリングの依頼の確かめに要る欄だけを返す（本体の store_peek_hearing と同じ。前回開いた世帯を変えない。0192 の追記）
+    case "peekHearing": {
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      const web = (JSON.parse(h.body) as { hearing?: { web?: unknown } }).hearing?.web;
+      const str = (v: unknown) => (typeof v === "string" ? v : null);
+      const value = (Array.isArray(web) ? (web as Record<string, unknown>[]) : []).flatMap((e) => {
+        const r = (e.record ?? {}) as { requestId?: unknown; serverId?: unknown; secrets?: { pickupToken?: unknown }; expiresAt?: unknown };
+        const [requestId, serverId, pickupToken, expiresAt, state] = [str(r.requestId), str(r.serverId), str(r.secrets?.pickupToken), str(r.expiresAt), str(e.state)];
+        if (requestId === null || serverId === null || pickupToken === null || expiresAt === null || state === null || state === "cancelled" || (e.closedAt !== undefined && e.closedAt !== null)) return [];
+        const batchIds = Array.isArray(e.batches) ? (e.batches as { batchId?: unknown }[]).flatMap((b) => (typeof b.batchId === "string" ? [b.batchId] : [])) : [];
+        return [{ requestId, serverId, pickupToken, expiresAt, state, received: e.received !== undefined && e.received !== null, batchIds }];
+      });
+      return { ok: true, value };
+    }
     // 開発用のサーバーのメモリの中では世帯ファイルが壊れないので、直前の世代で開き直すことは無い（0011 の7）
     case "previousGeneration":
       return { ok: true, value: null };

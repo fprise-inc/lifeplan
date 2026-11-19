@@ -357,6 +357,59 @@ pub struct Opened {
     pub label: Label,
 }
 
+/// 開いていない世帯の、Web のヒアリングの依頼の1件（届いたかを確かめるのに要る欄だけ。0192 の追記 2026-11-18）。
+/// 答え・書類・選び方・お客さまの URL・問いの鍵は入れない
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct HearingPeek {
+    pub request_id: String,
+    /// サーバーの上の名前
+    pub server_id: String,
+    /// 受け取りの合言葉（状況を聞くのに使う。世帯を開いたときに画面が受け取るのと同じ値）
+    pub pickup_token: String,
+    pub expires_at: String,
+    /// 依頼の状況（issued・received・imported など）
+    pub state: String,
+    /// 答えをもう受け取ったか
+    pub received: bool,
+    /// 受け取った書類の送りの名前（新しく届いた送りを数えるため）
+    pub batch_ids: Vec<String>,
+}
+
+/// 世帯の本文から、受け付け中かもしれない Web の依頼（取り消し・受け付けを終えたものを除く）の、確かめるのに要る欄だけを抜き出す
+fn hearing_peeks(body: &Value) -> Vec<HearingPeek> {
+    let Some(list) = body.pointer("/hearing/web").and_then(Value::as_array) else {
+        return vec![];
+    };
+    let text = |v: &Value, p: &str| v.pointer(p).and_then(Value::as_str).map(str::to_owned);
+    list.iter()
+        .filter_map(|e| {
+            let state = text(e, "/state")?;
+            if state == "cancelled" || e.get("closedAt").is_some_and(|c| !c.is_null()) {
+                return None;
+            }
+            let batch_ids = e
+                .get("batches")
+                .and_then(Value::as_array)
+                .map(|b| {
+                    b.iter()
+                        .filter_map(|x| text(x, "/batchId"))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            Some(HearingPeek {
+                request_id: text(e, "/record/requestId")?,
+                server_id: text(e, "/record/serverId")?,
+                pickup_token: text(e, "/record/secrets/pickupToken")?,
+                expires_at: text(e, "/record/expiresAt")?,
+                received: e.get("received").is_some_and(|r| !r.is_null()),
+                state,
+                batch_ids,
+            })
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Saved {
@@ -1709,6 +1762,28 @@ impl Store {
         };
         g.opened.insert(id.to_owned(), state);
         Ok(opened)
+    }
+
+    /// 開かずに、Web のヒアリングの依頼の、届いたかを確かめるのに要る欄だけを読む（0192 の追記 2026-11-18）。
+    /// 世帯を開いた印（前回開いた世帯・事務所の共有の「開いている」）も、保存のための状態も変えない。世帯ファイルには書かない
+    pub fn peek_hearing(&self, id: &str) -> Result<Vec<HearingPeek>, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Self::usable(s)?;
+        self.refresh_shared(s)?;
+        Self::label_of(s, id)?;
+        let bytes = match fs::read(self.hh_path(s, id)) {
+            Ok(b) => b,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Err(StoreError::UNKNOWN_HOUSEHOLD)
+            }
+            Err(_) => return Err(StoreError::IO),
+        };
+        let (_, value, _) = self.decode_household(s, id, &bytes)?;
+        Ok(hearing_peeks(&value))
     }
 
     /// 世帯ファイルのバイト列を、この世帯のファイルとして開き、今の形式の版へ変換した本文を返す

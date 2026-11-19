@@ -4,6 +4,7 @@
 import type { SheetDefinition } from "../../../../hearing/src/definition.ts";
 import { OFFICIAL_SHEETS } from "../../../../hearing/src/sheets.ts";
 import { DOCUMENT_TEMPLATES, OWNER_LABEL, templateOf, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
+import { AGE_KEY, ageReplaced } from "../../../../hearing/src/web/flow.ts";
 import { CONSULT_KEY, CUSTOM_PREFIX, selectionFromSheet, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 
 /** ひな形（0192）: シンプル（basic）・詳細（full）・見直し（full で今の値を確かめてもらう）。自分で選んだ・保存した組み合わせは「カスタム」 */
@@ -34,12 +35,21 @@ export const SIMPLE_OFF_SECTIONS: ReadonlySet<string> = new Set(["parents"]);
 
 /**
  * 聞く項目の数（0192。FP の画面の見出し・ひな形の説明・依頼の一覧で同じ数）。金額の「だいたいの範囲」は元の金額の項目の答え方なので数えない。
- * 独自の質問は数える
+ * 独自の質問は数える。お客さまの画面に出さない年齢の問い（生年月の問いを選んでいるとき）も数えない（0192 の追記 2026-11-19）
  */
 export function selectedCount(sel: WebSelection): number {
   const def = sheetOf(sel);
   const range = new Set((def?.items ?? []).filter((i) => i.rangeOf !== undefined).map((i) => i.key));
-  return sel.sections.reduce((n, s) => n + s.items.filter((i) => !range.has(i.key)).length, 0);
+  const age = hiddenAge(sel);
+  return sel.sections.reduce((n, s) => n + s.items.filter((i) => !range.has(i.key) && i.key !== age).length, 0);
+}
+
+/**
+ * お客さまの画面に出さない年齢の問いのキー（生年月の問いを選んでいるとき。なければ null）。FP の画面の一覧に並べず、聞く項目の数にも数えない。
+ * 生年月の問いを外すと、年齢の問いが出て並ぶ（0192 の追記 2026-11-19）
+ */
+export function hiddenAge(sel: WebSelection): string | null {
+  return ageReplaced(sel.sections.flatMap((s) => s.items.map((i) => i.key))) ? AGE_KEY : null;
 }
 
 /** 独自の質問の新しいキー（ext.office.q + 8字の乱数） */

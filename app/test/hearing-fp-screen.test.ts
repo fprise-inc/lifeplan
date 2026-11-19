@@ -29,6 +29,7 @@ import {
   receivedDraft,
   receiveWeb,
   selectedCount,
+  hiddenAge,
   selectionName,
   splitSummary,
   templateForSave,
@@ -108,11 +109,22 @@ describe("ひな形の名前と中身（0192）", () => {
     const s = templateSelection("simple", blank());
     const all = s.sections.reduce((k, x) => k + x.items.length, 0);
     expect(selectedCount(s)).toBeLessThan(all);
-    expect(selectedCount(s)).toBe(all - s.sections.flatMap((x) => x.items).filter((i) => i.key.endsWith("Range")).length);
+    // 生年月の問いがあるときの年齢の問いも、お客さまの画面に出さないので数えない（0192 の追記 2026-11-19）
+    expect(selectedCount(s)).toBe(all - s.sections.flatMap((x) => x.items).filter((i) => i.key.endsWith("Range") || i.key === "hs.family.adult.age").length);
     const { name: _n, ...old } = s;
     void _n;
     expect(selectionName(old)).toBe("シンプル");
     expect(selectionName({ ...templateSelection("detail", blank()), name: "" })).toBe("詳細");
+  });
+
+  it("年齢の問いは、生年月の問いを選んでいる間は一覧に並べず数えない。生年月を外すと出る（お客さまの画面と同じ決め方）", () => {
+    const s = templateSelection("simple", blank());
+    const keys = (x: typeof s) => x.sections.flatMap((y) => y.items.map((i) => i.key));
+    expect(keys(s)).toContain("hs.family.adult.age");
+    expect(hiddenAge(s)).toBe("hs.family.adult.age");
+    const noBirth = { ...s, sections: s.sections.map((x) => ({ ...x, items: x.items.filter((i) => i.key !== "hs.family.adult.birthYearMonth") })) };
+    expect(hiddenAge(noBirth)).toBeNull();
+    expect(selectedCount(noBirth)).toBe(selectedCount(s));
   });
 });
 
@@ -342,7 +354,10 @@ describe("FP の画面（WebBuilder の描画）", () => {
     for (const id of ["customerNo", "officeName", "privacyContact", "aiConsent"]) expect(html).toContain(`data-web-help="${id}"`);
     expect(html).toContain("個人情報のお問い合わせ: ");
     expect(html).toMatch(/data-web-ai-consent-check[^>]*checked|checked[^>]*data-web-ai-consent-check/);
-    expect(html).toContain("AI接続口が使えません");
+    // AI の同意の言葉は FP が読んで分かる言葉で（2026-11-18）。「接続口」は画面に出さず、「聞かないと使えない」とも書かない
+    expect(html).toContain("お客さまが「同意しない」と答えた世帯では、AI を使った資料の読み取りや分析は使えません");
+    expect(html).not.toContain("接続口");
+    expect(html).not.toContain("聞いていない」のまま");
     expect(html).not.toContain("何のための問いか");
     // ひな形の時間は夫婦と子2人で数え、この世帯の数を添える
     expect(html).toMatch(/\d+項目・\d+分ほど（夫婦と子2人）・この世帯では\d+分ほど/);
