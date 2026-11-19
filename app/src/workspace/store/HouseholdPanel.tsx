@@ -97,6 +97,7 @@ export function shortDate(iso: string): string {
 }
 
 export const STORE_MESSAGES: Record<string, string> = {
+  E_STORE_OFFICE_DATA_TOO_NEW: "この PC の事務所データが、新しい版のアプリで保存されています。閲覧だけで開いています（保存しません）。アプリを更新してください",
   E_STORE_CUSTOMER_NO: "顧客番号は英数字・ハイフン・下線の16字までです（お名前は入れないでください）",
   E_STORE_CATEGORY: "区分の記号は英大文字1〜2字、名前は20字までで、記号は重ねられません",
   E_STORE_CATEGORY_IN_USE: "世帯が使っている区分は消せません（記号や名前を変えるのはできます）",
@@ -998,7 +999,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
         {p.onAiConnector !== undefined ? (
           <>
             <button type="button" class="link-btn" onClick={p.onAiConnector} data-open-ai-connector>
-              AI接続口
+              AI との接続
               <PopIcon />
             </button>
             <span class="pl-sub">{p.aiEnabled === true ? "オン" : "オフ（既定）"}</span>

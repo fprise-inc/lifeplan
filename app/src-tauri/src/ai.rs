@@ -2,8 +2,9 @@
 //!
 //! - **事務所全体の設定**: AI接続口を使うかどうか（既定はオフ。事務所データに暗号化して保存）。オンのときだけ、
 //!   アプリ本体の受け口（そのOSユーザー専用のソケット・`app.json`）を開ける。オフにすると、すべての共有を取り消して口を閉じる。
-//! - **世帯ごとの同意**: 外部AIへの提供の同意の記録（0014 の2）。同意が `given` の世帯だけを渡せる（共有の台帳の
-//!   `require_consent`。0014 の6 より保守的な側）。撤回すると、その世帯の共有をすぐに取り消す。
+//! - **世帯ごとの同意**: 外部AIへの提供の同意の記録（0014 の2）。同意が `given` の世帯と、事務所の設定で「事務所のプライバシーポリシーに
+//!   AI の利用を書いている」を確かめていてお客さまが「同意しない」と答えていない世帯だけを渡せる（共有の台帳の `require_consent`。
+//!   判定は ai-share の `basis` の1か所。0226）。撤回すると、その世帯の共有をすぐに取り消す。
 //! - **世帯を渡す**: FPが画面で「AIに渡す」を押したときだけ、期限つきの共有を作る（既定60分・最長8時間）。渡るのは縮約版だけ
 //!   （FPのメモなどの文章は渡さない）。世帯の中身は、保存した本文（本体が復号したもの）から作る。
 //! - **記録**: 世帯ファイルの `consents`・`consentExplanations`・`aiShares`・`candidates` は本体だけが書く。画面から届いた本文に
@@ -16,6 +17,11 @@
 //!   画面が「同意とAIの記録」で受け取り、読み口（番号を落とす決まり）を通して読み取りの記録（本文の区画 `documents`）にしてから、
 //!   `ai_documents_taken` で承認待ちから外す。
 //!
+//! - **Web のヒアリング**（0222）: 接続口の `issue_hearing_url` は、ここで発行の仕事（`HearingJobs`）として画面に頼み、画面の答えを待つ。
+//!   鍵の組・合言葉は画面が FP の画面と同じ部品で作り、世帯ファイルか事務所データ（`office_hearing_put`）にだけ置く（本体の受け口は鍵を持たない）。
+//!   画面は3秒ごとの読み直しで `hearingJobs` の数を見て、`ai_hearing_jobs` で仕事を受け取り、`ai_hearing_job_done` で答える。事務所のひな形の案は
+//!   メモリの中に承認待ちで置くだけ（`ai_hearing_template_candidates`・`ai_hearing_template_take`）。保存は画面が事務所の既定値に書く
+//!
 //! 画面（WebView）には、鍵・パス（データフォルダ・作業フォルダ・接続口の実行ファイル）を渡さない（0016 の1）。
 //! 接続の設定の文面は、場所を `<接続口の場所>` に伏せた形で見せ、本物の場所の入った文面は本体が OS のクリップボードに写す。
 
@@ -27,9 +33,9 @@ use std::time::{Duration, Instant};
 use ai_share::clock::{iso8601, Clock, SystemClock};
 use ai_share::registry::ShareStatus;
 use ai_share::{
-    AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError, GrantOptions,
-    HouseholdAiView, HouseholdBook, HouseholdCandidate, HouseholdDisplayPending, Scope,
-    ShareRegistry,
+    AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError, GrantOptions, HearingJob,
+    HearingTemplateCandidate, HouseholdAiView, HouseholdBook, HouseholdCandidate,
+    HouseholdDisplayPending, Scope, ShareRegistry,
 };
 use household_store::{CreateOptions, Opened, Store, StoreError};
 use serde::Serialize;
@@ -53,6 +59,81 @@ const TICK: Duration = Duration::from_secs(2);
 /// （読まれるたびに世帯ファイルの世代を進めない。終わるとき・ほかの記録が変わったときはすぐ書く）
 const READ_COUNTS_EVERY: Duration = Duration::from_secs(60);
 
+/// 画面に頼んでいる Web のヒアリングの発行（0222。アプリのメモリの中だけ。画面が答えるか、待つ長さを過ぎると外す）
+#[derive(Default)]
+pub(crate) struct HearingJobs {
+    next: Mutex<u64>,
+    list: Mutex<Vec<PendingJob>>,
+}
+
+struct PendingJob {
+    id: String,
+    job: HearingJob,
+    tx: std::sync::mpsc::SyncSender<Result<serde_json::Value, String>>,
+}
+
+/// 画面に渡す発行の仕事（世帯の依頼は、その世帯の内部ID・顧客番号と、見直しの前回の値を作るための世帯の本文）
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HearingJobView {
+    job_id: String,
+    issue: serde_json::Value,
+    household_id: Option<String>,
+    customer_number: Option<String>,
+    /// 見直しを含む世帯の依頼だけ: 本体の帳面の本文（画面がその世帯を開いていないとき、前回の値を作る）
+    body: Option<String>,
+    connector: Option<String>,
+    received_at: String,
+}
+
+/// 画面が答えないときの理由（AI に見せる）
+const HEARING_TIMEOUT_MESSAGE: &str = "アプリの画面が時間内に答えませんでした（アプリの窓が開いているか、事務所の鍵が使えるかを確かめてください）。発行されたかどうかは、アプリの上の帯と「URL の依頼」で確かめられます。";
+
+impl HearingJobs {
+    /// 画面に頼んで、答えを待つ（待つ長さを過ぎたら外して断る）
+    fn submit(&self, job: HearingJob) -> Result<serde_json::Value, String> {
+        self.submit_within(job, ai_share::hearing::ISSUE_WAIT)
+    }
+
+    fn submit_within(&self, job: HearingJob, wait: Duration) -> Result<serde_json::Value, String> {
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let id = {
+            let mut n = lock(&self.next);
+            *n += 1;
+            format!("j{}", *n)
+        };
+        lock(&self.list).push(PendingJob {
+            id: id.clone(),
+            job,
+            tx,
+        });
+        let out = rx.recv_timeout(wait);
+        lock(&self.list).retain(|j| j.id != id);
+        out.unwrap_or_else(|_| Err(HEARING_TIMEOUT_MESSAGE.to_owned()))
+    }
+
+    fn len(&self) -> usize {
+        lock(&self.list).len()
+    }
+
+    /// 画面の答え（届いた仕事を外す）。もう待っていなければ false
+    fn done(&self, id: &str, result: serde_json::Value) -> bool {
+        let mut list = lock(&self.list);
+        let Some(at) = list.iter().position(|j| j.id == id) else {
+            return false;
+        };
+        let j = list.remove(at);
+        j.tx.send(Ok(result)).is_ok()
+    }
+
+    /// AI接続口をオフにしたとき: 待っている仕事を全部断る
+    fn fail_all(&self, why: &str) {
+        for j in lock(&self.list).drain(..) {
+            let _ = j.tx.send(Err(why.to_owned()));
+        }
+    }
+}
+
 struct Entry {
     book: HouseholdBook,
     /// 世帯の一覧に出す構成の要約（保存のときに要る）
@@ -71,6 +152,8 @@ pub struct AiState {
     problem: Mutex<Option<String>>,
     runtime_dir: PathBuf,
     app_version: String,
+    /// 画面に頼んでいる Web のヒアリングの発行（0222）
+    hearing: Arc<HearingJobs>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -115,6 +198,18 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
             .unwrap_or_default();
         office_display_of(store, &active)
     })));
+    // Web のヒアリングの事務所のひな形（get_hearing_options・issue_hearing_url。0222。読むだけ）
+    let handle = app.clone();
+    registry.set_office_hearing(Some(Arc::new(move || {
+        let d = handle.try_state::<StoreState>()?.store.office_defaults().ok()?;
+        Some(serde_json::json!({
+            "templates": d.get("hearingTemplates").cloned().unwrap_or_else(|| serde_json::json!([])),
+        }))
+    })));
+    // Web のヒアリングの発行は画面に頼む（鍵は画面だけが作る。0222）
+    let hearing = Arc::new(HearingJobs::default());
+    let jobs = hearing.clone();
+    registry.set_hearing_issuer(Some(Arc::new(move |job| jobs.submit(job))));
     // 開発のときだけ（debug のビルド）: 製品と別の作業フォルダを使う（手元で動かしている製品・他の作業ツリーとぶつからないように）
     let runtime_dir = if cfg!(debug_assertions) {
         std::env::var_os("FINANCIA_DEV_RUNTIME_DIR")
@@ -132,6 +227,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
         problem: Mutex::new(None),
         runtime_dir,
         app_version: app.package_info().version.to_string(),
+        hearing,
     })
 }
 
@@ -405,6 +501,7 @@ impl AiState {
             problem: Mutex::new(None),
             runtime_dir: dir.join("run"),
             app_version: "0.1.0".into(),
+            hearing: Arc::new(HearingJobs::default()),
         }
     }
 }
@@ -579,6 +676,9 @@ pub struct ConnectorInfo {
 pub struct AiStatus {
     /// 事務所全体の設定（既定はオフ）
     enabled: bool,
+    /// 事務所の設定で FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめた日時（0226。確かめていなければ None）。
+    /// 確かめていると、外部AIへの提供の同意の答えが無い世帯も渡せる（「同意しない」と答えた世帯・撤回した世帯は渡せない）
+    privacy_policy_confirmed_at: Option<String>,
     /// アプリ本体の受け口が開いているか
     running: bool,
     problem: Option<String>,
@@ -599,6 +699,20 @@ pub struct AiStatus {
     display_candidates: usize,
     /// AIから世帯ごとの表示の設定の案が届いている世帯（顧客番号・呼び名・数。中身はその世帯の ai_household の displayProposals）
     household_display_candidates: Vec<HouseholdDisplayPending>,
+    /// AI接続口から頼まれた、Web のヒアリングの発行の仕事の数（画面が ai_hearing_jobs で受け取る。0222）
+    hearing_jobs: usize,
+    /// AIから届いた、Web のヒアリングの事務所のひな形の案の数（承認待ち。中身は ai_hearing_template_candidates で読む。0222）
+    hearing_template_candidates: usize,
+}
+
+/// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」の確かめを、共有の台帳に入れる（0226）。
+/// 確かめた日時を返す。事務所データを読めなければ確かめていない側（渡せない側）にする
+fn sync_office_policy(ai: &AiState, store: &Store) -> Option<String> {
+    let at = store.ai_privacy_policy_confirmed_at().ok().flatten();
+    if ai.registry.set_office_policy(at.is_some()) > 0 {
+        ai.persist_all(store);
+    }
+    at
 }
 
 fn status(ai: &AiState, store: &Store) -> AiStatus {
@@ -606,12 +720,14 @@ fn status(ai: &AiState, store: &Store) -> AiStatus {
     if store_ready {
         ai.ensure_endpoint(store);
     }
+    let privacy_policy_confirmed_at = sync_office_policy(ai, store);
     let enabled = store.ai_connector_enabled().unwrap_or(false);
     let path = connector_path();
     let version = path.as_deref().and_then(connector_version);
     let dev = cfg!(debug_assertions);
     AiStatus {
         enabled,
+        privacy_policy_confirmed_at,
         running: lock(&ai.endpoint).is_some(),
         problem: lock(&ai.problem).clone(),
         store_ready,
@@ -637,6 +753,8 @@ fn status(ai: &AiState, store: &Store) -> AiStatus {
         household_candidates: ai.registry.household_candidates().len(),
         display_candidates: ai.registry.display_candidates().len(),
         household_display_candidates: ai.registry.household_display_pending(),
+        hearing_jobs: ai.hearing.len(),
+        hearing_template_candidates: ai.registry.hearing_template_candidates().len(),
     }
 }
 
@@ -647,7 +765,9 @@ fn view(ai: &AiState, books: &HashMap<String, Entry>, id: &str) -> Result<Househ
         .active_shares()
         .into_iter()
         .find(|s| s.household_id == id);
-    let mut v = e.book.view(&ai.registry.records(id), share);
+    let mut v = e
+        .book
+        .view(&ai.registry.records(id), share, ai.registry.office_policy());
     v.document_proposals = ai.registry.document_proposals(id);
     v.display_proposals = ai.registry.household_display_candidates(id);
     Ok(v)
@@ -684,6 +804,9 @@ pub async fn ai_set_enabled(app: AppHandle, enabled: bool) -> Result<AiStatus, S
             ai.registry.clear_feature_code_candidates();
             ai.registry.clear_household_candidates();
             ai.registry.clear_display_candidates();
+            ai.registry.clear_hearing_templates();
+            ai.hearing
+                .fail_all("アプリの AI接続口がオフになりました（URL は発行していません）。");
             ai.persist_all(store);
             ai.close_endpoint();
         }
@@ -705,10 +828,27 @@ pub async fn ai_setup_copy(app: AppHandle, client: String) -> Result<bool, Strin
     .await
 }
 
+/// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」を確かめた・外した（FP が事務所の設定の画面で操作したときだけ。0226）。
+/// 外すと、それを理由に渡していた共有（同意の答えが無い世帯）を、その場で取り消す
+#[tauri::command]
+pub async fn ai_set_privacy_policy(app: AppHandle, confirmed: bool) -> Result<AiStatus, String> {
+    blocking(app, move |ai, store| {
+        store
+            .set_ai_privacy_policy_confirmed(confirmed)
+            .map_err(code)?;
+        Ok(status(ai, store))
+    })
+    .await
+}
+
 /// 世帯の「同意とAIの記録」
 #[tauri::command]
 pub async fn ai_household(app: AppHandle, id: String) -> Result<HouseholdAiView, String> {
-    blocking(app, move |ai, _| view(ai, &lock(&ai.books), &id)).await
+    blocking(app, move |ai, store| {
+        sync_office_policy(ai, store);
+        view(ai, &lock(&ai.books), &id)
+    })
+    .await
 }
 
 /// 外部AIへの提供の同意（同意しなかった・撤回）を記録する。すぐに世帯ファイルへ書く。撤回なら共有をすぐに取り消す
@@ -744,7 +884,8 @@ pub async fn ai_consent_record(
     .await
 }
 
-/// 世帯をAIに渡す（期限つきの共有を作る）。同意が `given` で、AI接続口がオンのときだけ
+/// 世帯をAIに渡す（期限つきの共有を作る）。AI接続口がオンで、渡す理由（同意がある・事務所のプライバシーポリシーを確かめていてお客さまが断っていない・
+/// 架空の世帯。0226）があるときだけ
 #[tauri::command]
 pub async fn ai_share_start(
     app: AppHandle,
@@ -776,6 +917,14 @@ pub async fn ai_share_start(
             return Err("E_AI_ALREADY_SHARED".into());
         }
         let source = e.book.source().ok_or("E_AI_BODY")?;
+        // 渡せるかは共有の台帳が basis の1か所で決める（同意・事務所のプライバシーポリシー・架空の世帯。0226）
+        ai.registry.set_office_policy(
+            store
+                .ai_privacy_policy_confirmed_at()
+                .ok()
+                .flatten()
+                .is_some(),
+        );
         ai.registry
             .grant(
                 source,
@@ -895,6 +1044,66 @@ pub async fn ai_display_change_take(
 
 /// 世帯ごとの表示の設定の案の1つの設定を、承認待ちから外す（FPがその世帯を開いて「反映する」を押し、画面がその世帯に書いた後か、「捨てる」を押したとき）。
 /// 本体は設定を変えない（反映は画面がその世帯の表示の設定に書き、自動保存で世帯ファイルに書く）
+/// Web のヒアリングの発行の仕事（AI 接続口から頼まれ、画面の答えを待っている物。0222）。見直しを含む世帯の依頼には、前回の値を作るための
+/// その世帯の本文を添える（画面がその世帯を開いていないとき使う。AI には渡さない）
+#[tauri::command]
+pub async fn ai_hearing_jobs(app: AppHandle) -> Result<Vec<HearingJobView>, String> {
+    blocking(app, |ai, _| {
+        let books = lock(&ai.books);
+        Ok(lock(&ai.hearing.list)
+            .iter()
+            .map(|j| {
+                let h = j.job.household.as_ref();
+                let review = ai_share::hearing::has_review(&j.job.issue["selection"]);
+                HearingJobView {
+                    job_id: j.id.clone(),
+                    issue: j.job.issue.clone(),
+                    household_id: h.map(|h| h.household_id.clone()),
+                    customer_number: h.and_then(|h| h.customer_number.clone()),
+                    body: h
+                        .filter(|_| review)
+                        .and_then(|h| books.get(&h.household_id))
+                        .map(|e| e.book.screen_body()),
+                    connector: j.job.connector.clone(),
+                    received_at: j.job.received_at.clone(),
+                }
+            })
+            .collect())
+    })
+    .await
+}
+
+/// Web のヒアリングの発行の仕事の答え（画面が発行して記録を書いた後か、断ったとき。`result` は `{ ok, … }`）。もう待っていなければ false
+#[tauri::command]
+pub async fn ai_hearing_job_done(
+    app: AppHandle,
+    job: String,
+    result: serde_json::Value,
+) -> Result<bool, String> {
+    blocking(app, move |ai, _| Ok(ai.hearing.done(&job, result))).await
+}
+
+/// AIからの Web のヒアリングの事務所のひな形の案（承認待ち。0222）
+#[tauri::command]
+pub async fn ai_hearing_template_candidates(
+    app: AppHandle,
+) -> Result<Vec<HearingTemplateCandidate>, String> {
+    blocking(app, |ai, _| Ok(ai.registry.hearing_template_candidates())).await
+}
+
+/// Web のヒアリングの事務所のひな形の案を承認待ちから外す（FP が画面で保存した後か、「捨てる」を押したとき。事務所の既定値は変えない）
+#[tauri::command]
+pub async fn ai_hearing_template_take(
+    app: AppHandle,
+    candidate: String,
+) -> Result<Vec<HearingTemplateCandidate>, String> {
+    blocking(app, move |ai, _| {
+        ai.registry.take_hearing_template(&candidate);
+        Ok(ai.registry.hearing_template_candidates())
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn ai_household_display_take(
     app: AppHandle,
@@ -1030,6 +1239,56 @@ pub(crate) fn create_from_candidate(
 
 #[cfg(test)]
 mod tests {
+    use super::HearingJobs;
+
+    fn hearing_job() -> ai_share::HearingJob {
+        ai_share::HearingJob {
+            issue: serde_json::json!({ "selection": {} }),
+            household: None,
+            connector: Some("test-ai 1.0".into()),
+            received_at: "2026-11-17T00:00:00Z".into(),
+        }
+    }
+
+    /// Web のヒアリングの発行の仕事（0222）: 画面が受け取って答えると、待っていた依頼に答えが届く。答えないと時間切れで外す。
+    /// AI接続口をオフにすると、待っている仕事を全部断る
+    #[test]
+    fn hearing_jobs_wait_for_the_screen() {
+        let jobs = std::sync::Arc::new(HearingJobs::default());
+        let j2 = jobs.clone();
+        let waiter = std::thread::spawn(move || {
+            j2.submit_within(hearing_job(), std::time::Duration::from_secs(10))
+        });
+        while jobs.len() == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let id = super::lock(&jobs.list)[0].id.clone();
+        assert!(!jobs.done("j-unknown", serde_json::json!({})));
+        assert!(jobs.done(
+            &id,
+            serde_json::json!({ "ok": true, "requestId": "R-TEST01" })
+        ));
+        let got = waiter.join().unwrap().unwrap();
+        assert_eq!(got["requestId"], "R-TEST01");
+        assert_eq!(jobs.len(), 0);
+        // 答えが無いと時間切れで外す（発行されたかはアプリで確かめるよう伝える）
+        let e = jobs
+            .submit_within(hearing_job(), std::time::Duration::from_millis(30))
+            .unwrap_err();
+        assert!(e.contains("時間内に答えませんでした"), "{e}");
+        assert_eq!(jobs.len(), 0);
+        // オフにしたら断る
+        let j3 = jobs.clone();
+        let waiter = std::thread::spawn(move || {
+            j3.submit_within(hearing_job(), std::time::Duration::from_secs(10))
+        });
+        while jobs.len() == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        jobs.fail_all("オフ");
+        assert_eq!(waiter.join().unwrap().unwrap_err(), "オフ");
+    }
+
     use super::*;
 
     /// 画面に見せる文面には、本物の場所が入らない
@@ -1577,12 +1836,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（明細の行の読み取りが不確かの印〔0221〕で 0.83 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（Web のヒアリングの依頼の出どころ〔0222〕で 0.84 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.83");
+        assert_eq!(file["meta"]["formatVersion"], "0.84");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());

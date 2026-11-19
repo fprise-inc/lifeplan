@@ -30,6 +30,7 @@ import {
   estimateOf,
   filledCount,
   HIDDEN_ITEMS,
+  hiddenAge,
   householdShape,
   invitationText,
   issueWeb,
@@ -78,6 +79,9 @@ interface Props {
 
 /** 事務所の文（アプリを開いている間だけ覚える。ヒアリングシートの書き出しと同じ。顧客番号は覚えない: 世帯ごとの番号を使う） */
 const remembered = { purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "" };
+
+/** 個人情報の窓口（FP がこの画面で入れた物。AI 接続口から発行するときも同じ文を使う。0222） */
+export const rememberedContact = (): string => remembered.privacyContact;
 
 /** 繰り返しの軸の言葉（項目選びで、誰の・何の問いかを見分ける） */
 const AXIS_HINT: Readonly<Record<string, string>> = { adult: "ご本人・配偶者の方ごと", child: "お子さまごと", parent: "ご両親ごと", loan: "ローンごと", policy: "保険ごと" };
@@ -234,7 +238,8 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
   const rangeOf = new Map(def.items.filter((i) => i.rangeOf !== undefined).map((i) => [i.rangeOf as string, i.key]));
   const isRange = (k: string) => items.get(k)?.rangeOf !== undefined;
   const order = orderOf(def, sel);
-  const baseKeys = (id: string) => (def.sections.find((s) => s.id === id)?.groups.flatMap((g) => g.items) ?? []).filter((k) => !HIDDEN_ITEMS.has(k) && choosable.some((i) => i.key === k));
+  const age = hiddenAge(sel);
+  const baseKeys = (id: string) => (def.sections.find((s) => s.id === id)?.groups.flatMap((g) => g.items) ?? []).filter((k) => !HIDDEN_ITEMS.has(k) && k !== age && choosable.some((i) => i.key === k));
   const secOf = (id: string): SelectedSection | undefined => sel.sections.find((s) => s.id === id);
   /** 区画を置き換える（選んでいた区画はその位置で。新しく選んだ区画は、今の並びの位置に差し込む） */
   const setSection = (id: string, next: SelectedSection | null) => {
@@ -438,7 +443,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
             {order.map((sid) => {
               const s = secOf(sid);
               const title = titleOf(sid);
-              const chosenKeys = (s?.items ?? []).map((i) => i.key).filter((k) => !isRange(k));
+              const chosenKeys = (s?.items ?? []).map((i) => i.key).filter((k) => !isRange(k) && k !== age);
               const keys = sid === FP_SECTION.id ? chosenKeys : displayKeys(baseKeys(sid).filter((k) => !isRange(k)), chosenKeys);
               const on = chosenKeys.length;
               const all = sid === FP_SECTION.id ? on : baseKeys(sid).filter((k) => !isRange(k)).length;

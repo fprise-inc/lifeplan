@@ -13,7 +13,7 @@ export interface DocumentStartProps {
   start: DocStart;
   /** AI の答えを貼り付ける画面を開く */
   onPaste: () => void;
-  /** AI に資料を渡す（同意と共有）を開く（保存した世帯だけ） */
+  /** 同意と共有の画面を開く（保存した世帯だけ） */
   onAiShare?: () => void;
   onClose: () => void;
 }
@@ -46,8 +46,8 @@ export function DocumentStart(p: DocumentStartProps) {
           </li>
           {p.onAiShare !== undefined ? (
             <li data-documents-start-ai>
-              <b>AI接続口で読む</b>
-              <span>AI接続口を使う AI に書類を渡すと、読んだ値が候補として届きます（同意と共有で、この世帯を渡してから。書類を AI に渡すことを含む同意の世帯だけ）。</span>
+              <b>AI で読み取る</b>
+              <span>ファイナンシアとつないだ AI に書類を渡すと、読んだ値が候補として届きます（同意と共有で、この世帯を渡してから。書類を AI に渡すことを含む同意の世帯だけ）。</span>
               <button type="button" class="btn" onClick={p.onAiShare} data-documents-start-ai-open>
                 同意と共有を開く
               </button>

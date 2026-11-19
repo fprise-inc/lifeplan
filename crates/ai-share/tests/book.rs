@@ -369,6 +369,7 @@ fn the_screen_view_has_no_paths() {
     let view = b.view(
         &reg.records(HOUSEHOLD_ID),
         reg.active_shares().into_iter().next(),
+        false,
     );
     let json = serde_json::to_string(&view).unwrap();
     assert!(
@@ -398,7 +399,7 @@ fn consents_on_the_first_explanation_need_renewal_for_documents() {
         HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NO.into()), 1, &file.to_string())
             .unwrap();
     let (reg, _) = registry();
-    let view = b.view(&[], None);
+    let view = b.view(&[], None, false);
     assert_eq!(view.consent_state, "given");
     assert!(!view.consent_documents);
     assert_eq!(view.explanation_version, 2);
@@ -431,7 +432,7 @@ fn consents_on_the_first_explanation_need_renewal_for_documents() {
         .record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
         .unwrap();
     assert!(r.documents);
-    assert!(b.view(&[], None).consent_documents);
+    assert!(b.view(&[], None, false).consent_documents);
     assert_eq!(b.explanations.len(), 2, "両方の版の説明文が1回ずつ");
     assert_eq!(b.explanations.get(&v1_ref).map(String::as_str), Some(v1));
     assert!(reg.update_source(&g.share_id, b.source().unwrap()));
