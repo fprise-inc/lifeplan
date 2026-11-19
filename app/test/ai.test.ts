@@ -109,7 +109,7 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     // AI接続口がオフなら、同意があっても渡せない
     const off = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status(), view: view({ consentState: "given" }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
     expect(off).not.toContain("data-ai-share-start");
-    expect(off).toContain("AI接続口はオフです（既定）");
+    expect(off).toContain("AI と接続していません（既定）");
   });
 
   it("世帯のパネル: 前の版の説明（書類を含まない）の同意は、渡せるまま、今の説明で記録し直す欄を出す（0157）", () => {
@@ -180,7 +180,7 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     expect(brief).not.toContain("A0001");
     expect(brief).not.toContain("共有中の世帯A");
     // 「AI接続口の設定」はパネルを開くので、小窓が開く印を付ける
-    for (const x of [html, brief]) expect(x.slice(x.indexOf("data-ai-band-open"))).toMatch(/^[^<]*AI接続口の設定<svg [^>]*data-pop-icon/);
+    for (const x of [html, brief]) expect(x.slice(x.indexOf("data-ai-band-open"))).toMatch(/^[^<]*AI との接続の設定<svg [^>]*data-pop-icon/);
   });
 
   it("保存していない入力の変更があるときだけ、共有中の帯に「保存するとAIにも反映されます」を出す（0184 の追記）", () => {
@@ -422,7 +422,7 @@ describe("画面にパスや鍵が渡らない（0016 の1）", () => {
   it("AI接続口の命令に渡すのは、内部ID・設定の入切・文面の種類・同意の入力・期限・申告・候補の判断（受け取った書類の候補の ID を含む）だけ", () => {
     const src = readFileSync(join(APP_DIR, "src", "engine", "host.ts"), "utf8");
     const calls = [...src.matchAll(/invoke<[^>]*>\("(ai_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
-    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_candidate_decide", "ai_consent_record", "ai_display_candidates", "ai_display_change_take", "ai_documents_taken", "ai_hearing_job_done", "ai_hearing_jobs", "ai_hearing_template_candidates", "ai_hearing_template_take", "ai_household", "ai_household_candidate_create", "ai_household_candidate_discard", "ai_household_candidates", "ai_household_display_take", "ai_set_enabled", "ai_set_privacy_policy", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
+    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_app_register", "ai_app_unregister", "ai_apps_status", "ai_candidate_decide", "ai_consent_record", "ai_display_candidates", "ai_display_change_take", "ai_documents_taken", "ai_hearing_job_done", "ai_hearing_jobs", "ai_hearing_template_candidates", "ai_hearing_template_take", "ai_household", "ai_household_candidate_create", "ai_household_candidate_discard", "ai_household_candidates", "ai_household_display_take", "ai_set_enabled", "ai_set_privacy_policy", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
     // 新しい世帯の候補から作るときは、FP が選んだ種類・画面が組み立てた本文・一覧の要約・区分（新しく作るときと同じ）も渡す。
     // 表示の設定の案（0215）は、承認待ちから外す設定の id（setting）だけ。世帯ごとの案（0213 の段B の後半）は、世帯の内部ID・案の ID・設定の id。
     // Web のヒアリングの発行の仕事（0222）は、仕事の ID（job）と画面の答え（result。依頼番号・数・URL と案内文。鍵は含まない）

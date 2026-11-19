@@ -523,7 +523,7 @@ pub fn start_watch<R: Runtime>(app: &AppHandle<R>) {
 // ------------------------------------------------------------------ 接続口の場所と、接続の設定の文面
 
 /// 接続口の実行ファイル（製品はアプリの実行ファイルと同じフォルダ。開発用のビルドはリポジトリの target も探す）
-fn connector_path() -> Option<PathBuf> {
+pub(crate) fn connector_path() -> Option<PathBuf> {
     let name = if cfg!(windows) {
         "lifeplan.exe"
     } else {

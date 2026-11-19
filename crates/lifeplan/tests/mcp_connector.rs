@@ -179,6 +179,8 @@ async fn standalone_tools_work_without_the_app() {
         "get_regulation_value",
         "search_coverage",
         "get_coverage",
+        "search_app_guide",
+        "get_app_guide",
         "list_custom_texts",
         "get_display_settings",
         "list_plan_items",
@@ -406,6 +408,7 @@ async fn prompts_list_and_expand() {
         "prepare_questions",
         "office_wording",
         "office_display",
+        "how_to_use",
         "hearing_url",
     ];
     for n in expected {
@@ -637,6 +640,23 @@ async fn prompts_list_and_expand() {
                 "list_custom_texts",
                 "入力が足りない",
             ],
+        ),
+        (
+            "how_to_use",
+            json!({ "want": "お客さまに URL でヒアリングを送りたい" }),
+            vec![
+                "お客さまに URL でヒアリングを送りたい",
+                "search_app_guide",
+                "get_app_guide",
+                "手引きに見当たらない",
+                "言い換えない",
+                "要望・不具合を送る",
+            ],
+        ),
+        (
+            "how_to_use",
+            json!({ "want": "" }),
+            vec!["get_app_guide を id なしで", "手引きに見当たらない"],
         ),
         (
             "hearing_url",
@@ -2943,6 +2963,79 @@ async fn coverage_tools_answer_from_the_bundled_list() {
     assert!(err);
     let (err, _) = call(&c, "search_coverage", json!({ "query": "  " })).await;
     assert!(err);
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 画面の操作の手引き（search_app_guide・get_app_guide。0227）: アプリが起動していなくても使え、よく聞かれる操作の節が見つかり、
+/// 本文に画面の名前が「」で入り、手引きに無い操作には推測で手順を作らない案内が付く
+#[tokio::test(flavor = "multi_thread")]
+async fn app_guide_tools_answer_from_the_bundled_guide() {
+    let dir = temp_dir("app-guide");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "search_app_guide");
+    check_schema_snapshot(&tools, "get_app_guide");
+    let instructions = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    assert!(
+        instructions.contains("search_app_guide")
+            && instructions.contains("get_app_guide")
+            && instructions.contains("手引きに見当たらない"),
+        "{instructions}"
+    );
+    for (q, id) in [
+        ("プランを保存するにはどこを押す？", "results.planSave"),
+        (
+            "お客さまに URL でヒアリングを送るには？",
+            "import.webCreate",
+        ),
+        ("AI に世帯を渡すには？", "ai.share"),
+        ("提案書を PDF にしたい", "export.report"),
+        ("必要保障額の計算方法を変えたい", "contingency.protection"),
+        ("Claude とつなぎたい", "ai.connect"),
+    ] {
+        let v = call_ok(&c, "search_app_guide", json!({ "query": q })).await;
+        assert_eq!(v["matches"][0]["id"], id, "{q}: {v}");
+        assert_eq!(v["appVersion"], VERSION);
+        let e = call_ok(&c, "get_app_guide", json!({ "id": id })).await;
+        assert!(
+            e["summary"].is_string() && e["screen"]["title"].is_string(),
+            "{e}"
+        );
+        assert!(e["body"].as_str().unwrap().contains('「'), "{e}");
+        assert!(
+            e["note"].as_str().unwrap().contains("推測で足さない"),
+            "{e}"
+        );
+    }
+    // 手引きに無い操作
+    let v = call_ok(
+        &c,
+        "search_app_guide",
+        json!({ "query": "量子コンピュータの保守契約" }),
+    )
+    .await;
+    assert_eq!(v["matches"], json!([]));
+    assert!(v["notInGuide"]
+        .as_str()
+        .unwrap()
+        .contains("推測で手順を作らず"));
+    // 目次
+    let toc = call_ok(&c, "get_app_guide", json!({})).await;
+    assert!(toc["count"].as_u64().unwrap() >= 40);
+    assert!(toc["screens"].as_array().unwrap().len() >= 8);
+    // 間違った問い（知らない引数は近い名前を添えて断る）
+    let (err, _) = call(&c, "get_app_guide", json!({ "id": "no.such" })).await;
+    assert!(err);
+    let (err, _) = call(&c, "search_app_guide", json!({ "query": "  " })).await;
+    assert!(err);
+    let (err, msg) = call(&c, "search_app_guide", json!({ "qeury": "保存" })).await;
+    assert!(err && msg.contains("query"), "{msg}");
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }

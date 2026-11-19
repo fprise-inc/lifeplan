@@ -2,11 +2,13 @@
 //   node scripts/bundle.ts [--plan] -- <tauri build の引数>
 // 秘密の値（CI の secrets）があれば署名・公証・更新のファイルの署名をし、無ければ署名せずに普通にビルドする。
 // 署名の名前（秘密でないもの）は config/distribution.toml の [signing] から読む。--plan は段取りを出すだけでビルドしない。
+// AI接続の本体（lifeplan）を先に作り、サイドカー（externalBin）としてアプリと同じフォルダに入れる（0015 の追記 2026-11-19。app/scripts/connector.ts）。
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "smol-toml";
+import { buildConnector, SIDECAR } from "./connector.ts";
 import { APP_DIR, REPO_DIR } from "./lib.ts";
 import { signingPlan, signingProblems, type Os, type Signing } from "./signing.ts";
 
@@ -26,12 +28,16 @@ if (problems.length > 0 || dist.signing === undefined) {
 }
 const os: Os = process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "linux";
 const plan = signingPlan(os, dist.signing, process.env, dist.product_name.en);
+// AI接続の本体を同梱する（Tauri がアプリと同じフォルダに置き、アプリと同じ名前で署名する）
+plan.config.bundle.externalBin = [SIDECAR];
+plan.notes.push("AI接続の本体: lifeplan をアプリと同じフォルダに入れる（externalBin）");
 for (const n of plan.notes) console.log(n);
 if (planOnly) {
   console.log(JSON.stringify(plan.config, null, 2));
   process.exit(0);
 }
 
+buildConnector(tauriArgs);
 const env: Record<string, string | undefined> = { ...process.env };
 for (const n of plan.unset) delete env[n];
 const work = mkdtempSync(join(tmpdir(), "financia-bundle-"));

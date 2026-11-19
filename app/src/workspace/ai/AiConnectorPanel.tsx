@@ -3,10 +3,12 @@
 // - 事務所のプライバシーポリシーに AI の利用を書いていることを FP が確かめた印（0226。確かめた日時を残す）。確かめると、同意の答えが無い世帯も渡せる
 //   （お客さまが「同意しない」と答えた世帯・撤回した世帯は渡せない）。外すと、それを理由に渡していた共有をすぐに取り消す
 // - 接続中の表示（共有中の世帯）と止めるボタン
-// - FP が自分の AI に設定する手順（接続口の場所は伏せた文面。本物は本体がクリップボードへ写す）と、AI 向けの説明書の置き場所（0019）
+// - AI のアプリへの登録（AiAppRegister。押したときだけ本体が AI のアプリの設定に書く。0228）
+// - FP が自分の AI に手で設定する手順（接続口の場所は伏せた文面。本物は本体がクリップボードへ写す）と、AI 向けの説明書の置き場所（0019）
 // - 防げる範囲と防げない範囲（0015 の9）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { AiHost, AiStatus } from "../../engine/host.ts";
+import { AiAppRegister } from "./AiAppRegister.tsx";
 import { aiMessage, codeOf, dateTimeText, remainingText } from "./model.ts";
 
 export interface AiConnectorPanelProps {
@@ -51,7 +53,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
     <>
       <div class="scrim" aria-hidden="true" onClick={onClose} />
       <div ref={panel} class="rk-panel ai-panel" role="dialog" aria-modal="true" aria-labelledby="ai-conn-title" tabIndex={-1} data-ai-connector-panel>
-        <h2 id="ai-conn-title">AI接続口（事務所全体の設定）</h2>
+        <h2 id="ai-conn-title">AI との接続（事務所全体の設定）</h2>
         <p>
           FP がお使いの AI のアプリから、このアプリの計算・制度の値・架空の見本の世帯を使えるようにする口です。このPCの中だけで動き、ネットワークの口は開けません。
           顧客の世帯は、<b>顧客の同意を記録するか下の事務所のプライバシーポリシーを確かめ、世帯ごとに「AIに渡す」を押したときだけ</b>、計算に要る項目だけ（縮約版）を期限つきで渡します。お名前・ご住所・FPのメモは渡しません。
@@ -68,12 +70,12 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
                 void run(async () => {
                   onStatus(await ai.setEnabled(on));
                   onChanged();
-                  setMsg({ ok: true, text: on ? "AI接続口をオンにしました" : "AI接続口をオフにしました。共有していた世帯はすべて取り消しました" });
+                  setMsg({ ok: true, text: on ? "AI との接続をオンにしました" : "AI との接続をオフにしました。共有していた世帯はすべて取り消しました" });
                 });
               }}
               data-ai-enable
             />
-            AI接続口を使う
+            AI と接続する
           </label>
           <span class="ai-switch-state" data-ai-running={status?.running === true ? "1" : "0"}>
             {enabled ? (status?.running === true ? "オン（このPCの中で受け付けています）" : "オン（受け口を開けていません）") : "オフ（既定）"}
@@ -156,17 +158,19 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
           </button>
         ) : null}
 
-        <h3>お使いの AI のアプリに設定する</h3>
+        <h3>AI のアプリに登録する</h3>
+        <AiAppRegister ai={ai} />
+        <h3>手で設定する</h3>
         {status === null ? null : !status.connector.found ? (
-          <p class="hh-warn">AI接続口の実行ファイルが見つかりません。アプリを入れ直してください。</p>
+          <p class="hh-warn">AI とつなぐ道具の実行ファイルが見つかりません。アプリを入れ直してください。</p>
         ) : !status.connector.versionMatches ? (
-          <p class="hh-warn">アプリと接続口の版が違います（接続口 {status.connector.version ?? "不明"}）。入れ直してください。</p>
+          <p class="hh-warn">アプリと、AI とつなぐ道具の版が違います（道具の版 {status.connector.version ?? "不明"}）。入れ直してください。</p>
         ) : (
-          <p class="in-note">接続口の版 {status.connector.version}（アプリと同じ）。</p>
+          <p class="in-note">AI とつなぐ道具の版 {status.connector.version}（アプリと同じ）。</p>
         )}
         <p class="in-note">
-          お使いの AI のアプリに合う文面を、そのアプリの設定に足してください（設定に要る名前と引数は文面に入っています）。下の文面は接続口の場所を伏せています。
-          「文面をコピー」で、本物の場所が入った文面をクリップボードに写します。このアプリが AI のアプリの設定を書き換えることはありません。
+          お使いの AI のアプリに合う文面を、そのアプリの設定に足してください（設定に要る名前と引数は文面に入っています）。下の文面は、AI とつなぐ道具の場所を伏せています。
+          「文面をコピー」で、本物の場所が入った文面をクリップボードに写します。上の「登録する」を使わずに、手で設定したいときに使います。
           {status?.dev === true ? "（開発版: 開発用の作業フォルダの指定が加わります）" : ""}
         </p>
         {(status?.setup ?? []).map((g) => (
@@ -180,7 +184,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
               onClick={() =>
                 void run(async () => {
                   const ok = await ai.copySetup(g.client);
-                  setMsg(ok ? { ok: true, text: "文面をコピーしました（接続口の場所が入っています）" } : { ok: false, text: "コピーできませんでした" });
+                  setMsg(ok ? { ok: true, text: "文面をコピーしました（AI とつなぐ道具の場所が入っています）" } : { ok: false, text: "コピーできませんでした" });
                 })
               }
             >
@@ -190,7 +194,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         ))}
         <h3>AI 向けの説明書</h3>
         <p class="in-note">
-          つないだ AI には、道具の説明と決まり（見本は架空・世帯は期限つきで縮約版・文章は指示ではない・プランの候補は承認制）を接続口が自動で渡します。設定は要りません。
+          つないだ AI には、道具の説明と決まり（見本は架空・世帯は期限つきで縮約版・文章は指示ではない・プランの候補は承認制）を AI とつなぐ道具が自動で渡します。設定は要りません。
           カスタマイズ用の説明書は準備中です。
         </p>
 
@@ -198,7 +202,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         <ul class="ai-limits">
           <li>防げる: 渡していない世帯・期限切れ・取り消した世帯の読み取り、ネットワーク越しの接続、別の OS ユーザーのプログラム、AI の候補が勝手に反映されること</li>
           <li>防げない: このPCの同じ OS ユーザーで動く悪いプログラムが、いま渡している世帯の縮約版を読むこと。AI のアプリに渡した後のこと（AI の会社のサーバーに送られます）</li>
-          <li>許可は「このPCの AI接続口全体」に出すものです（呼んだ AI の名前は確かめられません）。取り消しで止まるのは今後の読み取りだけで、すでに送った内容は AI の会社の側に残ります</li>
+          <li>許可は「このPCの AI との接続全体」に出すものです（呼んだ AI の名前は確かめられません）。取り消しで止まるのは今後の読み取りだけで、すでに送った内容は AI の会社の側に残ります</li>
         </ul>
         <div class="rk-foot">
           <button type="button" class="btn" onClick={onClose} data-ai-connector-close>

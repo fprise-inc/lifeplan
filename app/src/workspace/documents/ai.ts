@@ -72,7 +72,7 @@ export function pasteGate(o: { sample: boolean; saved: boolean; consentState: st
     return { ok: false, reason: "この世帯の同意は前の版の説明でいただいたもので、書類を AI に渡すことは含まれていません。書類を AI に渡す前に、お客さまに今の説明を見せて、同意を記録し直してください（「同意と共有を開く」）。計算に要る項目を AI に渡すことは、今の同意のまま続けられます。" };
   if (o.consentState === "refused") return { ok: false, reason: "お客さまは外部AIへの提供に同意しませんでした。書類は AI に渡さず、手で入れてください。" };
   if (o.consentState === "withdrawn") return { ok: false, reason: "お客さまは外部AIへの提供の同意を撤回しました。書類は AI に渡さず、手で入れてください。" };
-  return { ok: false, reason: "外部AIへの提供の同意が記録されていません。書類を AI に渡す前に、同意を記録してください（「AI に資料を渡す」の「同意と共有を開く」）。" };
+  return { ok: false, reason: "外部AIへの提供の同意が記録されていません。書類を AI に渡す前に、同意を記録してください（下の「同意と共有を開く」から）。" };
 }
 
 /** 貼り付けた AI の答えを読む（読み取りの記録にする前の形。reading が null なら取り込まない） */

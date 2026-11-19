@@ -60,6 +60,10 @@ const COMMANDS: &[&str] = &[
     // 0226: 事務所のプライバシーポリシーに AI の利用を書いていることを確かめた・外した（事務所データに日時だけを持つ）
     "ai_set_privacy_policy",
     "ai_setup_copy",
+    // 0228: AI のアプリへの登録（状態・登録する〔場所を直す〕・外す。FP が押したときだけ本体が書く。パスは受け取らない・返さない）
+    "ai_apps_status",
+    "ai_app_register",
+    "ai_app_unregister",
     "ai_household",
     "ai_consent_record",
     "ai_share_start",

@@ -999,7 +999,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
         {p.onAiConnector !== undefined ? (
           <>
             <button type="button" class="link-btn" onClick={p.onAiConnector} data-open-ai-connector>
-              AI接続口
+              AI との接続
               <PopIcon />
             </button>
             <span class="pl-sub">{p.aiEnabled === true ? "オン" : "オフ（既定）"}</span>

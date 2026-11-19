@@ -249,7 +249,7 @@ describe("入口と帯", () => {
     expect(failed).toContain("登録簿に無い入力項目の候補");
     expect(failed).toContain("data-documents-ai-band-dismiss");
     const review = renderToString(h(DocumentReview, { wh, calc: () => null, onChange: () => undefined, onClose: () => undefined, initial: CID }));
-    expect(review).toContain("AI が読んだ（AI接続口）");
+    expect(review).toContain("AI が読んだ（つないだ AI）");
     // 貼り付けた記録も同じ確かめの画面に出る
     const pasted = readPasted(wh0, JSON.stringify(answer()), "ウェブの AI", AT, newId).reading!;
     const wh2 = withDocumentLog(wh0, withReading(wh0.documents, pasted));
