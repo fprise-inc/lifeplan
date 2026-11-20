@@ -162,7 +162,11 @@ pub struct ShareRegistry {
     household_check: Mutex<Option<HouseholdCheck>>,
     hearing_issuer: Mutex<Option<HearingIssuer>>,
     office_hearing: Mutex<Option<OfficeHearingSource>>,
+    error_log: Mutex<Option<ErrorLogSource>>,
 }
+
+/// この PC のアプリのエラーの記録を読む所（読めなければ None）。アプリ本体が入れる（0234）
+pub type ErrorLogSource = Arc<dyn Fn() -> Option<Value> + Send + Sync>;
 
 /// 新しい世帯の候補の計算の入力を確かめる所（アプリ本体が入れる。計算エンジンのスキーマと同じ確かめ）。Err は AI に見せてよい理由
 pub type HouseholdCheck = Arc<dyn Fn(&Value) -> Result<(), String> + Send + Sync>;
@@ -196,6 +200,7 @@ impl ShareRegistry {
             household_check: Mutex::new(None),
             hearing_issuer: Mutex::new(None),
             office_hearing: Mutex::new(None),
+            error_log: Mutex::new(None),
         }
     }
 
@@ -226,6 +231,11 @@ impl ShareRegistry {
             .office_display
             .lock()
             .unwrap_or_else(|p| p.into_inner()) = source;
+    }
+
+    /// エラーの記録を読む所を入れる（アプリ本体が起動したときに入れる。0234）。入れなければ読む依頼を断る
+    pub fn set_error_log(&self, source: Option<ErrorLogSource>) {
+        *self.error_log.lock().unwrap_or_else(|p| p.into_inner()) = source;
     }
 
     /// 新しい世帯の候補の計算の入力を確かめる所を入れる（アプリ本体が起動したときに入れる）。入れなければ形の外側だけを確かめる
@@ -1204,6 +1214,23 @@ impl ShareRegistry {
             .clone();
         let office = source.and_then(|f| f()).unwrap_or(Value::Null);
         Ok(json!({ "office": office }).to_string())
+    }
+
+    /// この PC のアプリのエラーの記録（読むだけ。0234）。世帯を渡していなくてよく、世帯の中身ではないので AIに渡した記録には残さない
+    /// （読まれた回数と最後の日時は、アプリ本体が記録の中に残す）。読む所が無い・読めないときは断る
+    pub fn handle_error_log(&self) -> Result<String, Refusal> {
+        let source = self
+            .error_log
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        match source.and_then(|f| f()) {
+            Some(log) => Ok(json!({ "log": log }).to_string()),
+            None => Err((
+                ErrorCode::Invalid,
+                "アプリのエラーの記録を読めませんでした。".to_owned(),
+            )),
+        }
     }
 
     /// 渡された世帯の見せ方の設定（読むだけ。0213）。共有の決まりは世帯の読み取りと同じ（期限内・取り消されていない・同意がある）で、

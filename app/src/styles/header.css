@@ -143,6 +143,14 @@
 .fb-add { display: flex; gap: 8px; align-items: center; }
 .fb-add input { font-size: 1rem; padding: 5px 8px; width: 9em; border: 1.5px solid var(--field); border-radius: 6px; letter-spacing: 0.06em; }
 .fb-panel .rk-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+/* エラーの記録（0234） */
+.fb-errors { list-style: none; margin: 4px 0 0; padding: 0; max-height: 14em; overflow-y: auto; }
+.fb-errors li { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 5px 0; border-bottom: 1px solid var(--line-2); font-size: 0.86rem; }
+.fb-err-at, .fb-err-kind { color: var(--ink-2); }
+.fb-err-where { font-weight: 700; }
+.fb-err-msg { grid-column: 1 / -1; word-break: break-all; font-family: ui-monospace, monospace; font-size: 0.82rem; }
+.fb-confirm { font-size: 0.88rem; color: var(--short-ink); font-weight: 700; }
+.fb-err-text { width: 100%; margin-top: 6px; font-size: 0.82rem; font-family: ui-monospace, monospace; }
 
 /* 1: 右側の操作をアイコンだけにする（読み上げの名前は aria-label に残す）・世帯の要約を短く。文字の大きさの［中］［大］はそのまま */
 .top[data-fit]:not([data-fit="0"]) .lbl { display: none; }

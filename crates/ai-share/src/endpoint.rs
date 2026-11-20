@@ -201,6 +201,7 @@ async fn serve(
                 registry.handle_get_display(share_id, tool, &caller)
             }
             Request::GetOfficeHearing => registry.handle_office_hearing(),
+            Request::GetErrorLog => registry.handle_error_log(),
             Request::ProposeHearingTemplate { proposal } => {
                 registry.handle_propose_hearing_template(proposal, &caller)
             }

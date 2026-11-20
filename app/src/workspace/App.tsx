@@ -153,6 +153,7 @@ import { FEEDBACK_FORM } from "../generated/distribution.ts";
 import { EMPTY_LOCAL, feedKey, householdKey, localDate, markRead, parseFeed, readLocal, visibleFeed, type CenterItem, type LocalState } from "./notices/center.ts";
 import { FeedbackPanel } from "./notices/FeedbackPanel.tsx";
 import { addReceipt, osName } from "./notices/receipts.ts";
+import { PLACE_OF_TAB, recordError, setErrorPlace, setErrorSink, utcOffsetMinutes } from "./notices/errorLog.ts";
 import { TopBar } from "./header/TopBar.tsx";
 
 /** 機能を有効にするコードの状態を読み直す間隔（提供元が止めた・外したを、本体の裏の確かめのあとに画面へ出す） */
@@ -486,6 +487,8 @@ export function App() {
   const [scrollNonce, setScrollNonce] = useState(0);
   const [big, setBig] = useState(initial.big);
   const [tab, setTab] = useState<Tab>(initial.tab ?? "main");
+  // エラーの記録（0234）の画面の名前（上のタブ）
+  useEffect(() => setErrorPlace(PLACE_OF_TAB[tab] ?? "結果"), [tab]);
   const [chartMode, setChartMode] = useState<ChartMode>(initial.chart ?? "assets");
   /** 相場が下がった場合を重ねる（最初は出さない。保存しない）と、一時的に外した線 */
   const [stressOn, setStressOn] = useState(initial.stress === true);
@@ -858,6 +861,9 @@ export function App() {
           return at;
         }, setSaveState);
         setStoreChecked(true);
+        // エラーの記録（0234）: 起動の途中に覚えたエラーも、ここから本体に渡す
+        const errors = h.errors;
+        if (errors !== undefined) setErrorSink((r) => errors.add(r));
         setHost(h);
       } catch (e) {
         setFatal(e instanceof Error ? e.message : String(e));
@@ -2610,7 +2616,10 @@ export function App() {
       setEvidence({ status: "loading", title: `${year}年` });
       try {
         const full = await host.evidence(JSON.stringify(forEngine(req)));
-        if (isEngineError(full)) return setEvidence({ status: "error", title: `${year}年`, code: full.error.code });
+        if (isEngineError(full)) {
+          recordError({ kind: "calc", action: "数字の根拠", message: full.error.code });
+          return setEvidence({ status: "error", title: `${year}年`, code: full.error.code });
+        }
         const view = buildEvidence(full, req, rowKey, year, rowNames);
         setEvidence(view === null ? { status: "error", title: `${year}年`, code: "E_NO_EVIDENCE" } : { status: "ready", view });
       } catch (e) {
@@ -2680,6 +2689,12 @@ export function App() {
   const errView = selView?.error != null ? selView : (views.get(work.base) ?? null);
   const error = errView?.error != null ? engineErrorText(errView.error, errView.errorIds, opened?.wh.request.input.baseMonth ?? null) : null;
   const busyError = isHostBusy(errView?.error);
+  // エラーの記録（0234）: 計算できなかったときは、エラーの符号だけを残す（制度データに値が無いときは値の ID も。時期は世帯の生年月日などから決まるので残さない）
+  const errCode = errView?.error ?? null;
+  const errParam = errCode === "E_PARAM_NO_VALUE" ? (errView?.errorIds[0] ?? "") : "";
+  useEffect(() => {
+    if (errCode !== null) recordError({ kind: "calc", action: "計算", message: errParam === "" ? errCode : `${errCode} ${errParam}` });
+  }, [errCode, errParam]);
 
   // 対策の「変えたこと」と保存の名前の例
   const planInfo = useMemo(() => {
@@ -3856,6 +3871,11 @@ export function App() {
           onAdd={(code) => updateLocal((st) => ({ ...st, receipts: addReceipt(st.receipts, { code, on: localDate(), manual: true }) }))}
           onCopy={host !== null ? (code) => host.notices.copy(code) : undefined}
           onClose={() => setFeedbackOpen(false)}
+          errorLog={
+            host?.errors !== undefined
+              ? { load: () => host.errors!.get(utcOffsetMinutes()), clear: () => host.errors!.clear(), copy: host.kind === "tauri" ? () => host.errors!.copy() : undefined }
+              : undefined
+          }
         />
       ) : null}
       {officeSettingsOpen && officeLoaded && host !== null ? (

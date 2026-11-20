@@ -17,6 +17,8 @@
 //!   開いている印は裏で定期的に新しくし、閉じるときに消す。
 //! - お知らせの一覧（notices.rs。0087）: 配信元のお知らせを読む口は1か所（署名を確かめた中身だけを渡す。今は通信しない）。
 //!   既読の印と受付番号はこの PC のアプリのデータにだけ置き、何も送り返さない。要望・不具合のフォームは受付番号だけを受け取って本体が開く。
+//! - エラーの記録（errlog.rs。0234）: 画面と本体で起きたエラーを、この PC のアプリのデータにだけ残す（日時・版・OS・画面・操作・種類・削った文。
+//!   世帯の中身・ファイルの場所・世帯を識別する値は残さない）。FP は「要望・不具合を送る」で見て写せる。AI接続がオンのときだけ AI が読める（読むだけ）。
 //! - カスタム層（custom.rs。0016 の3・4・6）: 今は説明の文の差し替えだけ。読み書き・検査・指紋・承認は本体で行い、
 //!   承認の台帳はデータフォルダの中（カスタム層の外）。画面は承認した文を文字として当てるだけ。
 //! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
@@ -30,6 +32,8 @@ mod custom;
 #[cfg(debug_assertions)]
 mod dev_keystore;
 mod engine;
+/// エラーの記録（0234。この PC の中だけ。世帯の中身・ユーザー名を残さない）
+mod errlog;
 mod export;
 mod features;
 mod hearing_web;
@@ -441,6 +445,10 @@ pub fn run() {
             notices::notice_local_put,
             notices::feedback_form_open,
             notices::feedback_copy,
+            errlog::error_log_add,
+            errlog::error_log_get,
+            errlog::error_log_clear,
+            errlog::error_log_copy,
             app_close_ready,
             app_close_cancel,
             hearing_web::hearing_web_config,
@@ -452,6 +460,10 @@ pub fn run() {
         .setup(|app| {
             // エンジンのバイトコードを裏で用意する（最初の計算を待たせない）
             std::thread::spawn(engine::warm_up);
+            // 0234: 本体が想定外に止まったときも、エラーの記録に残す（文は削ってから。止まった所はファイルの名前と行だけ）
+            if let Some(path) = errlog::path_of(app.handle()) {
+                errlog::install_panic_hook(path, app.package_info().version.to_string());
+            }
             app.manage(store::init(app.handle())?);
             // 0016 の追記（2026-11-02）: カスタム層（承認の台帳はデータフォルダの中。ファイルは命令が呼ばれたときに読む）
             app.manage(custom::init(app.handle()));

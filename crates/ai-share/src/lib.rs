@@ -49,7 +49,7 @@ pub use proposal::PendingProposal;
 pub use record::{verify_append_only, AiShareRecord, EndReason};
 pub use reduce::Scope;
 pub use registry::{
-    FeatureCodeCandidate, GrantError, GrantOptions, Granted, HouseholdCheck, OfficeDisplaySource,
-    OfficeEstimatesSource, ShareRegistry, ShareStatus,
+    ErrorLogSource, FeatureCodeCandidate, GrantError, GrantOptions, Granted, HouseholdCheck,
+    OfficeDisplaySource, OfficeEstimatesSource, ShareRegistry, ShareStatus,
 };
 pub use source::{ConsentDecision, ConsentRef, SharedHouseholdSource, SourceText};

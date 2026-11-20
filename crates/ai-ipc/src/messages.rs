@@ -77,6 +77,9 @@ pub enum Request {
     /// Web のヒアリングの事務所のひな形（カスタム）の案を、アプリの画面に承認待ちの候補として出す（事務所の既定値は変えない。FPが画面で
     /// 「ひな形として保存する」を押したときだけ入る。0222）。`proposal` は `{ name, selection, note? }`。世帯を渡していなくてよい
     ProposeHearingTemplate { proposal: Value },
+    /// この PC のアプリのエラーの記録（日時・版・OS・画面・操作・種類・削った文。世帯の中身・ファイルの場所は入っていない）を返す
+    /// （読むだけ。0234）。世帯を渡していなくてよい。世帯の中身ではないので「AIに渡した記録」には残さず、アプリが読まれた回数を記録の中に残す
+    GetErrorLog,
 }
 
 /// 失敗のコード（0015 の4）
@@ -262,6 +265,15 @@ mod tests {
             })
             .unwrap(),
             r#"{"op":"proposeHearingTemplate","proposal":{"name":"初回"}}"#
+        );
+    }
+
+    #[test]
+    fn error_log_request_uses_camel_case() {
+        // エラーの記録（0234）
+        assert_eq!(
+            serde_json::to_string(&Request::GetErrorLog).unwrap(),
+            r#"{"op":"getErrorLog"}"#
         );
     }
 
