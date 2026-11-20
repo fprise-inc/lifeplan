@@ -1,7 +1,7 @@
 // AI のアプリへの登録（事務所の設定の AI の区画。0015 の10・0228）:
 // - AI のアプリごとに、状態（登録済み・未登録・場所が古い）と「登録する」「場所を直す」「登録を外す」を出す
 // - 書く場所（ホームを ~ にした表示）と書く中身（AI とつなぐ道具の場所を伏せた文面）を先に見せ、押したときだけ本体が書く
-// - 書けないとき（Claude Desktop が起動中・claude コマンドが無い・設定のファイルを読めない）は、下の「手で設定する」の文面のコピーに戻す
+// - 書けないとき（Claude Desktop が起動中・claude コマンドが無い・設定のファイルを読めない）は、下の「手動で登録する」の文面のコピーに戻す
 import { useCallback, useEffect, useState } from "preact/hooks";
 import type { AiAppsStatus, AiAppView, AiHost } from "../../engine/host.ts";
 import { codeOf } from "./model.ts";
@@ -32,16 +32,16 @@ const NOTE: Record<string, string> = {
 
 const ERRORS: Record<string, string> = {
   E_AI_APP_RUNNING: "Claude Desktop が起動しています。完全に終了してから「もう一度確かめる」を押してください。",
-  E_AI_APP_NO_COMMAND: "claude コマンドが見つかりません。下の「手で設定する」の文面をコピーして、ターミナルで実行してください。",
-  E_AI_APP_UNREADABLE: "設定のファイルを読めないため、書き込みませんでした（コメントが入っているなど）。下の「手で設定する」の文面をコピーして、手で足してください。",
-  E_AI_APP_COMMAND: "claude コマンドで登録できませんでした。下の「手で設定する」の文面をコピーして、ターミナルで実行してください。",
-  E_AI_APP_WRITE: "設定のファイルに書き込めませんでした。下の「手で設定する」の文面をコピーして、手で足してください。",
+  E_AI_APP_NO_COMMAND: "claude コマンドが見つかりません。下の「手動で登録する」の文面をコピーして、ターミナルで実行してください。",
+  E_AI_APP_UNREADABLE: "設定のファイルを読めないため、書き込みませんでした（コメントが入っているなど）。下の「手動で登録する」の文面をコピーして、手で足してください。",
+  E_AI_APP_COMMAND: "claude コマンドで登録できませんでした。下の「手動で登録する」の文面をコピーして、ターミナルで実行してください。",
+  E_AI_APP_WRITE: "設定のファイルに書き込めませんでした。下の「手動で登録する」の文面をコピーして、手で足してください。",
   E_AI_APP_BACKUP: "元の設定のファイルの控えを残せなかったため、書き込みませんでした。",
   E_AI_APP_MISSING: "この AI のアプリが、このPCに見つかりません。",
   E_AI_APP_LOCATION: "アプリを「アプリケーション」フォルダに入れてから、開き直してください。今の場所のまま登録すると、アプリを閉じたあとに AI のアプリから見つからなくなります。",
   E_AI_CONNECTOR_MISSING: "AI とつなぐ道具の実行ファイルが見つかりません。アプリを入れ直してください。",
 };
-const errorText = (code: string) => ERRORS[code] ?? `登録できませんでした（${code}）。下の「手で設定する」の文面をコピーして、手で足してください。`;
+const errorText = (code: string) => ERRORS[code] ?? `登録できませんでした（${code}）。下の「手動で登録する」の文面をコピーして、手で足してください。`;
 
 export function AiAppRegister({ ai, initial = null }: { ai: AiHost; /** 最初に見せる状態（テスト用。ふだんは開いたときに本体に聞く） */ initial?: AiAppsStatus | null }) {
   const [status, setStatus] = useState<AiAppsStatus | null>(initial);
