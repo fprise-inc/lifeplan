@@ -1,5 +1,6 @@
 // 万一の画面の要求を作る（作業の層）: 万一なし（現状）・必要保障額の推移（構成員ごと）・選んだ想定（死亡・障害）。
 // どれも現状の世帯（入力の値）に「層」を重ねる形で、世帯（現状）は変えない（0008 の5・7）
+import { withLandEstimates } from "../input/inheritanceLand.ts";
 import type { Contingency, EmploymentPeriod, EngineRequest, Household, Illness, Member, OldAgeChoice, ProtectionRequest, SurvivorAssumptions } from "../../engine/types.ts";
 import { confirmedBox, type WorkingHousehold } from "../input/household.ts";
 import { resolveTimepoint } from "../timepoint.ts";
@@ -256,7 +257,8 @@ export function chartRequests(wh: WorkingHousehold, plan: string, protMembers: r
     const req = scenarioRequest(wh, sc, year);
     // 死亡の想定の結果に、相続税の目安を1行だけ出す（表示だけで、お金の流れには入れない。0039）
     // 世帯に保存した相続税の目安の設定（不動産の評価の割合・FP が入れた額など。0060）はそのまま使う
-    if (sc.kind === "death") req.input.inheritanceTax = { ...storedSettings(wh.request), points: ["contingency"] };
+    // 相続税も試算する世帯は、建物の固定資産税評価額の推定を足す（0231）
+    if (sc.kind === "death") req.input.inheritanceTax = { ...withLandEstimates(storedSettings(wh.request), wh.request), points: ["contingency"] };
     r[planSlot(plan, "sc")] = req;
   }
   return r;

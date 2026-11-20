@@ -517,7 +517,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
     withAddress(plain({ key: `${kp}/tenure`, item: "account.property", label: "権利", level: "detail", kind: "select", options: TENURES, find: findP, path: ["tenure"], optional: true, help: TENURE_HELP }), onAccount(a.id, "account.property", ["tenure"])),
     // 区分マンション（1室）には戸数・土地の面積を出さない（入れてあれば出す）
     ...(!condo || p.units !== undefined ? [unitsField(a, kp, findP, whole)] : []),
-    ...(!condo || p.area?.land !== undefined ? [withAddress(plain({ key: `${kp}/landArea`, item: "account.property", label: "土地の面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "land"], optional: true, help: AREA_HELP }), onAccount(a.id, "account.property", ["area", "land"]))] : []),
+    ...(!condo || p.area?.land !== undefined ? [withAddress(plain({ key: `${kp}/landArea`, item: "account.property", label: "土地の面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "land"], optional: true, help: LAND_AREA_HELP }), onAccount(a.id, "account.property", ["area", "land"]))] : []),
     // 建物の無い種類は出さない（入れてあれば出す）
     ...(!noBuilding || p.area?.floor !== undefined ? [withAddress(plain({ key: `${kp}/floorArea`, item: "account.property", label: "建物の延べ床面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "floor"], optional: true, help: AREA_HELP }), onAccount(a.id, "account.property", ["area", "floor"]))] : []),
     withAddress(plain({ key: `${kp}/memo`, item: "account.property.memo", label: "メモ", level: "detail", kind: "text", find: findP, path: ["memo"], optional: true, help: "物件について FP が覚えておくこと（管理会社・修繕の予定など）。計算には使いません" }), onAccount(a.id, "account.property.memo")),
@@ -542,6 +542,8 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
 
 /** 面積の「?」（記録のための欄。計算部品は面積を読まない） */
 const AREA_HELP = "記録のための欄です（計算には使いません）";
+/** 土地の面積の「?」（相続税も試算する世帯だけ、小規模宅地等の特例の面積の省略に使う。0231） */
+const LAND_AREA_HELP = "記録のための欄です。相続・贈与の入力項目で「相続税も試算する」にチェックしたときだけ、相続税の試算の土地の面積を空欄にしておくと、この面積を使います（ほかの計算には使いません）";
 /** 権利の「?」（借地権を選ぶと地代の欄が出るだけ） */
 const TENURE_HELP = "借地権を選ぶと、経費の内訳に地代の欄が出ます。借地権の評価や更新料の計算はしません";
 /** 戸数が空の一棟の物件（事業的規模の目安を1室で数えている） */

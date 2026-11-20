@@ -8,6 +8,8 @@
 // - 区画C 遺したい額（表示だけ。表の最後の年の金融資産と比較する。input.legacy）
 // - 区画D 相続税の目安: 結果は計算の結果から読む（inheritanceLine.ts。表示だけで、お金の流れには入れない）。ここは目安の計算の前提の欄
 //   （不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口。input.inheritanceTax。0039・0060）
+// - 区画「相続税の試算」（0231）: 「相続税も試算する」にチェックした世帯だけ、不動産ごとの土地の評価・小規模宅地等の特例を入れる（inheritanceLand.ts）。
+//   チェックしない世帯は詳細の1つの欄だけ（入力を増やさない）
 // - 区画E 税理士などが出した相続税の額（目安の代わりに出す額。input.inheritanceTax.overrides）。使う世帯が少ないので、ふだんは閉じておき、
 //   説明と「＋ 税理士などが出した額を入れる」だけを出す。額が入っている世帯では初めから開く（0039 の追記 2026-11-10）
 import type { Household, InheritanceTaxRequest, Member, Timepoint } from "../../../engine/types.ts";
@@ -25,6 +27,7 @@ import { hasBirth } from "../fill.ts";
 import { ageAt } from "../../levers.ts";
 import { putRow } from "../rows.ts";
 import { scenarios } from "../../contingency/requests.ts";
+import { taxDetailSection } from "../inheritanceLand.ts";
 
 const purposeText = (p: string) => GIFT_PURPOSES.find((o) => o.value === p)?.label ?? "援助";
 const whenText = (h: Household, at: Parameters<typeof resolveTimepoint>[1]) => {
@@ -572,6 +575,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
       actions: [],
     },
     ...(override !== null ? [{ key: TAX_OVERRIDE_GROUP, title: TAX_OVERRIDE_TITLE, level: "detail" as const, groups: [override], actions: [] }] : []),
+    taxDetailSection(wh),
   ];
   return { id: "inheritance", label: "相続・贈与", lead: "世代をまたぐお金（受け取る予定の相続・贈与、あげる贈与、遺したい額）と、相続税の目安。", sections };
 }

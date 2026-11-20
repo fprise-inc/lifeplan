@@ -45,6 +45,13 @@ const NOT_MOVABLE: Record<string, string> = {
   "field:housing/res/{id}/valuation/land": "今住んでいる持ち家の土地の値段は、合計×土地の割合を見せる欄で、直すと土地の割合（片方だけ入れたときは合計も）を書く（1つの値をそのまま書かない。プランでは合計を動かす。0176）",
   "field:housing/res/{id}/valuation/building": "今住んでいる持ち家の建物の値段は、合計−土地を見せる欄で、直すと土地の割合か合計を書く（1つの値をそのまま書かない。0176）",
   "field:housing/res/{id}/purchase/landPrice": "購入の予定の土地の値段は、物件の価格×土地の割合を見せる欄で、直すと土地の割合を書く（1つの値をそのまま書かない。プランでは物件の価格を動かす。0176）",
+  "field:inherit/land/{id}/area": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
+  "field:inherit/land/{id}/routePrice": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
+  "field:inherit/land/{id}/fixedValue": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
+  "field:inherit/land/{id}/multiplier": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
+  "field:inherit/land/{id}/adjustment": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
+  "field:inherit/land/{id}/building": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
+  "field:inherit/land/{id}/rentalRatio": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
   "field:housing/res/{id}/purchase/building": "注文住宅の建物の代金は合計−土地の代金を見せる欄で、直すと合計を書き土地の代金の推定の印を外す（1つの値をそのまま書かない。プランでは合計か土地の代金を動かす。0115）",
 };
 /** 型が NOT_MOVABLE のどれかに当たるか（まだ無い費目の欄は、費目の名前によらず出さない） */

@@ -37,7 +37,7 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
   { shape: "rental:sav/*/property/location", why: "所在地（表示用）" },
   { shape: "rental:sav/*/property/memo", why: "メモ（表示用）" },
   { shape: "rental:sav/*/property/tenure", why: "権利（表示用）" },
-  { shape: "rental:sav/*/property/landArea", why: "土地の面積（表示用）" },
+  { shape: "rental:sav/*/property/landArea", why: "土地の面積（表示用。相続税も試算する世帯だけ、小規模宅地等の特例の面積の省略に使う。0231）" },
   { shape: "rental:sav/*/property/floorArea", why: "建物の延べ床面積（表示用）" },
   { shape: "rental:sav/*/property/repair/*/label", why: "修繕の中身（表示用）" },
   { shape: "rental:sav/*/property/equity", why: "自己資金（収益不動産のタブの分析の数字だけ。キャッシュフロー表には使わない）" },

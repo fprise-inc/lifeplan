@@ -2276,6 +2276,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: inheritanceTax.minorCredit.perYear
+    status: active
+    label: "未成年者控除の1年あたりの額（10万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.minorCredit.untilAge
+    status: active
+    label: "未成年者控除の年齢（満18歳になるまでの年数で数える）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: inheritanceTax.rateTable
     status: active
     label: "相続税の速算表（法定相続分に応ずる取得金額の段階、rate は税率、amount は控除額）"
@@ -2288,9 +2300,57 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: inheritanceTax.smallLand.business.areaLimit
+    status: active
+    label: "小規模宅地等の特例の特定事業用宅地等と特定同族会社事業用宅地等の限度面積（合わせて400㎡。㎡の数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.smallLand.business.reductionRate
+    status: active
+    label: "小規模宅地等の特例の特定事業用宅地等・特定同族会社事業用宅地等の減額の割合（80%）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.smallLand.rental.areaLimit
+    status: active
+    label: "小規模宅地等の特例の貸付事業用宅地等の限度面積（200㎡。㎡の数。ほかと組み合わせるときの換算の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.smallLand.rental.recentYears
+    status: active
+    label: "小規模宅地等の特例で、相続の開始の前に新たに貸付事業に使った宅地等を対象にしない年数（3年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.smallLand.rental.reductionRate
+    status: active
+    label: "小規模宅地等の特例の貸付事業用宅地等の減額の割合（50%）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.smallLand.residential.areaLimit
+    status: active
+    label: "小規模宅地等の特例の特定居住用宅地等の限度面積（330㎡。㎡の数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.smallLand.residential.reductionRate
+    status: active
+    label: "小規模宅地等の特例の特定居住用宅地等の減額の割合（80%）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: inheritanceTax.spouseReduction.floor
     status: active
     label: "配偶者に対する相続税額の軽減の、法定相続分の額と比べる下限（1億6,000万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.surcharge.rate
+    status: active
+    label: "相続税額の2割加算の割合（20%）"
     since: draft
     aliases: []
     replacedBy: null

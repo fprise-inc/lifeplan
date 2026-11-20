@@ -1,0 +1,20 @@
+id: inheritanceTax.minorCredit.perYear
+title: 未成年者控除の1年あたりの額（10万円）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 100000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4164.htm", "retrievedAt": "2026-11-19", "retrievedVia": "searchExcerpt", "locator": "No.4164 未成年者の税額控除（令和8年4月1日現在法令等）", "quote": "1年につき10万円で計算した額です", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
+    recordedIn: "2026.22.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "相続税法19条の3第1項。平成27年1月1日以後の相続（平成25年度の改正の後）の範囲だけを書く"}
