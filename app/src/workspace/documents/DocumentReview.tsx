@@ -73,24 +73,29 @@ export function AiDocumentBand({ wh, failed, onOpen, onDismiss }: { wh: WorkingH
   );
 }
 
-/** 入力のホームの「取り込む」の中の入口（書類の読み取り。保険証券・ご契約内容のお知らせ・設計書〔0159〕と、課税明細書・路線価図〔0235〕）。onPaste があれば AI の答えを貼り付ける入口（0151）も出す */
-export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: WorkingHousehold; sample: boolean; onOpen: () => void; onSamples: () => void; onPaste?: () => void }) {
+/**
+ * 入力のホームの「取り込む」の中の入口「AI で書類を読み取る」（保険証券・ご契約内容のお知らせ・設計書〔0159〕と、課税明細書・路線価図〔0235〕）。
+ * - ai があれば（保存した世帯だけ）、AI と接続する・この世帯を AI に渡すボタンを出す。保存していない世帯（アプリの見本の世帯を含む）は AI に渡せない
+ * - 読んだ書類があれば確かめの画面を開くボタン、見本の世帯でだけ架空の見本のボタン（AI に渡さずに確かめの画面を試せる）
+ * - AI の答えを貼り付ける入口は、利用者の判断（2026-11-20）でなくした（0151 の追記）。前に貼り付けで読んだ記録も、確かめの画面でそのまま読める
+ */
+export function DocumentEntry({ wh, sample, ai, onOpen, onSamples }: { wh: WorkingHousehold; sample: boolean; ai?: { connected: boolean; onOpen: () => void }; onOpen: () => void; onSamples: () => void }) {
   const readings = wh.documents?.readings ?? [];
   const pending = pendingTotal(wh);
   return (
-    <div class="hs-tools" role="group" aria-label="書類の読み取り" data-imports-documents>
-      <span class="hs-tools-h">書類の読み取り</span>
-      <span class="in-note" data-imports-documents-kinds>
+    <div class="hs-tools" role="group" aria-label="AI で書類を読み取る" data-imports-ai>
+      <span class="hs-tools-h">AI で書類を読み取る</span>
+      <span class="in-note" data-imports-ai-kinds>
         {readableDocsLine()}
       </span>
+      {ai !== undefined ? (
+        <button type="button" class="btn" onClick={ai.onOpen} data-imports-ai-open>
+          {ai.connected ? "この世帯を AI に渡す" : "AI と接続する"}
+        </button>
+      ) : null}
       {readings.length > 0 ? (
         <button type="button" class="btn" onClick={onOpen} data-documents-open>
           読んだ書類を確かめる{pending > 0 ? `（未決 ${pending}件）` : `（${readings.length}通）`}
-        </button>
-      ) : null}
-      {onPaste !== undefined ? (
-        <button type="button" class="btn" onClick={onPaste} data-documents-paste-open>
-          AI の答えを貼り付ける
         </button>
       ) : null}
       {sample ? (
@@ -98,7 +103,14 @@ export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: 
           架空の保険証券の見本で試す
         </button>
       ) : null}
-      <span class="in-note">書類を AI に読ませた答えを、候補として取り込みます。確かめて承認したものだけが現状に入ります。個人番号などの番号・土地の所在は読みません・残しません。AI で読み取った候補もここに届きます。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。</span>
+      <span class="in-note">
+        お使いの AI（Claude など）をファイナンシアと接続すると、AI が書類を読み、読んだ値（保険の契約の値、相続税の試算の土地・建物の値）が「候補」として届きます。確かめて承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。個人番号などの番号・土地の所在は読みません・残しません。面談の履歴とメモは AI に渡しません。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。
+      </span>
+      {ai === undefined ? (
+        <span class="in-note" data-imports-ai-unsaved>
+          {sample ? "見本の世帯は AI に渡せません。「架空の保険証券の見本で試す」で、AI が読んだ書類と同じ確かめの画面を試せます。" : "保存していない世帯は AI に渡せません。世帯を保存してから使ってください。"}
+        </span>
+      ) : null}
     </div>
   );
 }

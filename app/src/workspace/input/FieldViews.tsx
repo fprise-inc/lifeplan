@@ -181,7 +181,7 @@ export function StateMark({ status, basis, text, label, fieldKey, doc, docKey, e
       {est !== null && basis !== null ? <OfficeTextMark entry={est.office} official={estimateBasisLines(basis, source).join("\n")} /> : null}
       {status === "unknown" && readDoc !== null && readKey !== undefined && doc !== undefined && readableDoc(doc) ? (
         <p>
-          <button type="button" class="link-btn" onClick={() => readDoc(readKey)} data-state-read-doc={readKey} title="この書類の読み取り（AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入ります">
+          <button type="button" class="link-btn" onClick={() => readDoc(readKey)} data-state-read-doc={readKey} title="この書類の読み取り（AI で読み取る）へ進みます。読んだ値は確かめて承認したものだけが入ります">
             この書類を読む
           </button>
         </p>

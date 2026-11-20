@@ -253,7 +253,7 @@ fn book(consent: Option<ConsentDecision>) -> HouseholdBook {
     b
 }
 
-/// 画面に返す形（同意と共有の画面・上の帯・書類の貼り付けの入口が見る判定）も、同じ関数の4通り
+/// 画面に返す形（同意と共有の画面・上の帯が見る判定）も、同じ関数の4通り
 #[test]
 fn the_screen_gets_the_same_decision_for_the_four_cases() {
     let cases = [
