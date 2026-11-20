@@ -227,7 +227,7 @@ describe("当て先の決め方の足し（0152 の3）", () => {
   it("人も物も書かない候補で世帯で1つの欄が無ければ、その入力項目の欄から FP が選ぶ（1本でも選ぶ）", () => {
     const wh = open("salariedCoupleTwoKids");
     const row = docReview(wh, reading(wh, [{ item: "insurance.premium", at: ["amount"], value: 15000, period: "once" }])).groups[0]!.rows[0]!;
-    expect(row.problem).toBe("当てる欄を選んでください");
+    expect(row.problem).toBe("入れる欄を選んでください");
     expect(row.choices).toHaveLength(1);
   });
 

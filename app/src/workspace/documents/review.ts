@@ -187,7 +187,7 @@ function rowOf(wh: WorkingHousehold, places: readonly FieldPlace[], r: DocumentR
       current: null,
       incoming: { text: rawText(c.value), unreadable: c.unreadable === true },
       compare: null,
-      problem: res.kind === "choose" ? "当てる欄を選んでください" : res.reason,
+      problem: res.kind === "choose" ? "入れる欄を選んでください" : res.reason,
       correctable: false,
       structural: false,
       edit: null,
@@ -491,7 +491,7 @@ export function correctCandidate(wh: WorkingHousehold, r: DocumentReading, id: s
   if (c.target.newObject !== undefined && r.objects.find((o) => o.key === c.target.newObject)?.status !== "accepted") return { error: "先に「足す」を選んでください" };
   const places = fieldPlaces(wh);
   const res = resolve(wh, places, r, c, chosen);
-  if (res.kind !== "field") return { error: res.kind === "choose" ? "当てる欄を選んでください" : res.reason };
+  if (res.kind !== "field") return { error: res.kind === "choose" ? "入れる欄を選んでください" : res.reason };
   const f = res.place.field;
   const p = parseEdit(wh, r, f, text);
   if (!p.ok) return { error: p.reason };

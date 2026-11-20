@@ -16,7 +16,7 @@ import { pendingCount, pendingTotal, removable, withoutReading, withReading } fr
 import { readProposal } from "./proposal.ts";
 import { acceptCandidates, acceptObject, correctCandidate, docReview, linkObject, rejectCandidates, rejectObject, reopenCandidate, withHolder, type CalcOf, type Chosen } from "./review.ts";
 import { SAMPLE_DOCUMENTS } from "./samples.ts";
-import { docTypeLabel, isRetired, type DocumentLog, type DocumentReading } from "./types.ts";
+import { docTypeLabel, isRetired, readableDocsLine, type DocumentLog, type DocumentReading } from "./types.ts";
 
 export interface DocChange {
   /** 現状の値を変えたときだけ（元に戻せる変更として入れる） */
@@ -79,7 +79,10 @@ export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: 
   const pending = pendingTotal(wh);
   return (
     <div class="hs-tools" role="group" aria-label="書類の読み取り" data-imports-documents>
-      <span class="hs-tools-h">書類の読み取り（保険・不動産）</span>
+      <span class="hs-tools-h">書類の読み取り</span>
+      <span class="in-note" data-imports-documents-kinds>
+        {readableDocsLine()}
+      </span>
       {readings.length > 0 ? (
         <button type="button" class="btn" onClick={onOpen} data-documents-open>
           読んだ書類を確かめる{pending > 0 ? `（未決 ${pending}件）` : `（${readings.length}通）`}
@@ -95,7 +98,7 @@ export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: 
           架空の保険証券の見本で試す
         </button>
       ) : null}
-      <span class="in-note">保険証券・ご契約内容のお知らせ・設計書と、相続税の試算に使う固定資産税の課税明細書・路線価図を AI に読ませた答えを、候補として取り込みます。確かめて承認したものだけが現状に入ります。個人番号などの番号・土地の所在は読みません・残しません。AI で読み取った候補もここに届きます。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。</span>
+      <span class="in-note">書類を AI に読ませた答えを、候補として取り込みます。確かめて承認したものだけが現状に入ります。個人番号などの番号・土地の所在は読みません・残しません。AI で読み取った候補もここに届きます。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。</span>
     </div>
   );
 }
@@ -349,7 +352,7 @@ export function DocumentReview(p: DocumentReviewProps) {
                             : "入れないことにしました"
                           : g.object.status === "accepted"
                             ? g.object.linkedTo !== null
-                              ? `今の${g.object.noun}「${g.object.linkedTo}」に当てました`
+                              ? `今の${g.object.noun}「${g.object.linkedTo}」に入れます`
                               : "足しました"
                             : "足さないことにしました"}
                       </span>

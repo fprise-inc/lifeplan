@@ -14,7 +14,7 @@ import { guideText, GUIDE_DOC_TYPES } from "../src/workspace/documents/guides.ts
 import { LAND_OBJECT_KIND, LEASEHOLD_RATIOS, maskPlace, normalizeArea, normalizeYen, parseRouteMark } from "../src/workspace/documents/land.ts";
 import { readProposal, readProposalText, type ProposalContext } from "../src/workspace/documents/proposal.ts";
 import { acceptCandidates, acceptObject, correctCandidate, docReview, linkObject, type Chosen } from "../src/workspace/documents/review.ts";
-import { LAND_ITEM, PROPOSAL_CONTRACT, type DocCandidate, type DocumentReading } from "../src/workspace/documents/types.ts";
+import { DOC_TYPES, LAND_ITEM, PROPOSAL_CONTRACT, readableDocsLine, type DocCandidate, type DocumentReading } from "../src/workspace/documents/types.ts";
 import { bulkEligible } from "../src/workspace/review/rows.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { landTargets, setDetailed } from "../src/workspace/input/inheritanceLand.ts";
@@ -344,7 +344,7 @@ describe("確かめの画面: 書類の土地を今ある不動産に入れ、FP
   it("不動産を書かない候補（書類の土地の無い答え）は、どの不動産の欄かを FP が選ぶ（1つしか無くても選ぶ）", () => {
     const r = read(on, { contract: PROPOSAL_CONTRACT, docType: "propertyTaxStatement", values: [{ item: LAND_ITEM, at: ["lands", "area"], value: "120", confidence: "high" }] });
     const row = rowsOf(on, r)[0]!;
-    expect(row.problem).toBe("当てる欄を選んでください");
+    expect(row.problem).toBe("入れる欄を選んでください");
     expect(row.choices!.map((x) => x.id)).toEqual(landTargets(on.request.input.household).map((t) => `inherit/land/${t.object}/area`));
     const res = acceptCandidates(on, r, [r.candidates[0]!.id], { [r.candidates[0]!.id]: `inherit/land/${prop.id}/area` }, AT);
     expect(landOf(res.wh, prop.id)?.area).toBe("120");
@@ -436,8 +436,11 @@ describe("画面と世帯ファイルの記録", () => {
     expect(html).toContain("「持ち家」に入れる");
     expect(html).not.toContain("data-documents-object-accept");
     const entry = renderToString(h(DocumentEntry, { wh: w, sample: false, onOpen: () => undefined, onSamples: () => undefined }));
-    expect(entry).toContain("書類の読み取り（保険・不動産）");
-    expect(entry).toContain("固定資産税の課税明細書・路線価図");
+    // 入口の見出しには書類の種類を書かず、すぐ下に書類の種類の一覧から作った1行を出す（0235 の追記 2026-11-20）
+    expect(entry).toContain('<span class="hs-tools-h">書類の読み取り</span>');
+    expect(entry).toContain("読める書類: 保険の設計書・証券、固定資産税の課税明細書、路線価図");
+    expect(readableDocsLine()).toBe(`読める書類: ${DOC_TYPES.map((d) => d.short).join("、")}`);
+    expect(DOC_TYPES.every((d) => readableDocsLine().includes(d.short))).toBe(true);
   });
 
   it("読み取りの記録は世帯ファイルの区画に書いて読み戻しても変わらない（書類の種類・書類の土地・入れた不動産）", () => {

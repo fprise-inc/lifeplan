@@ -44,11 +44,18 @@ export type RetiredDocType =
 /** 読み取りの記録の書類の種類（今読める種類か、取り込みを外した種類） */
 export type RecordedDocType = DocType | RetiredDocType;
 
-export const DOC_TYPES: readonly { value: DocType; label: string }[] = [
-  { value: "insurancePolicy", label: "保険証券・ご契約内容のお知らせ・設計書" },
-  { value: "propertyTaxStatement", label: "固定資産税の課税明細書" },
-  { value: "routePriceMap", label: "路線価図（国税庁）" },
+/** 読める書類の種類（label は書類の種類を選ぶ欄の名前、short は入口の「読める書類: …」の1行に並べる短い名前） */
+export const DOC_TYPES: readonly { value: DocType; label: string; short: string }[] = [
+  { value: "insurancePolicy", label: "保険証券・ご契約内容のお知らせ・設計書", short: "保険の設計書・証券" },
+  { value: "propertyTaxStatement", label: "固定資産税の課税明細書", short: "固定資産税の課税明細書" },
+  { value: "routePriceMap", label: "路線価図（国税庁）", short: "路線価図" },
 ];
+
+/**
+ * 入口の見出しのすぐ下に添える、今読める書類の1行（書類の種類の一覧から作る。種類を足せば一緒に増える）。
+ * 入口の見出しには書類の種類を書かない（「AI で書類を読み取る」「書類の読み取り」。0235 の追記 2026-11-20）
+ */
+export const readableDocsLine = (): string => `読める書類: ${DOC_TYPES.map((d) => d.short).join("、")}`;
 
 /** 土地・建物の書類（0235。値の候補は相続税の試算の不動産ごとの欄だけ） */
 export const LAND_DOC_TYPES: readonly DocType[] = ["propertyTaxStatement", "routePriceMap"];
