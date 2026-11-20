@@ -48,6 +48,8 @@
 //     総収入金額に入れない部分と、課税部分の必要経費を cost に入れる（前は毎回の年金を1回ずつの贈与にしていた）
 //   ・変額・外貨建の積立金（前の入れ方）に、計算基準年の2年前より前の払込保険料も足す（前は数えなかった）。払込保険料の累計（paid・必要経費の基）も、
 //     その時より前の月の分を数える（前は0）
+// - 改訂7（0233）: 変額保険の円の目安の形の死亡保険金は、基本保険金額（主契約の死亡保障の額）を最低保証に、数表の死亡保障と、その時に解約した
+//   ときの解約返戻金の多い方（積立金は解約返戻金を下回らない。数表の解約返戻金が基本保険金額を超えた年に、死亡保険金が基本保険金額のままだった）
 // - 改訂4（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
 import {
   addMonths,
@@ -126,7 +128,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
   id: "insurance.policy",
   title: "保険契約（保険年度ごとの値と受け取り）",
   contract: "1.3",
-  revision: 6,
+  revision: 7,
   requires: { "insurance.term": ">=1 <2", "insurance.premiumPayment": ">=1 <2", "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -317,6 +319,13 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       if (s !== null) total = s;
       else for (const x of coverages) if (x.benefit === "death" && covInsured(x) === who && covActive(x, m)) total += schedCov(py, x.id) ?? x.amount;
       if (own && grows) total = Math.max(total, fund.get(py) ?? 0);
+      // 変額保険の円の目安の形（改訂7。0233）: 基本保険金額（主契約の死亡保障の額）を最低保証として、数表の死亡保障と、その時に解約したときの
+      // 解約返戻金（積立金は解約返戻金を下回らない）の多い方
+      if (own && c.template === "insurance.variable" && !grows) {
+        let basic = 0;
+        for (const x of coverages) if (x.role === "main" && x.benefit === "death" && covInsured(x) === who && covActive(x, m)) basic += x.amount;
+        total = Math.max(total, basic, surrenderAt(Math.floor((m - start) / 12)));
+      }
       // アカウント型: 払込の後に終身保険に移したなら終身保険の死亡保険金、ほかはその時の積立金を足す
       if (own && account !== undefined) total += payEndM !== null && m >= payEndM && account.after === "wholeLife" ? (account.deathBenefit ?? 0) : accountAt(m);
       return total;

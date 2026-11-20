@@ -40,16 +40,20 @@
 // - 入れていない決まり（notIncluded）: 2割加算・小規模宅地等の特例・土地の評価の細部・一次と二次の分け方の比べ・暦年課税の贈与の加算・
 //   相次相続控除・未成年者控除・障害者控除・受け取る側の目安（親の遺産の総額から）。当たりそうなとき（兄弟姉妹が相続人・持ち家がある・数えない
 //   養子がいる・相続人でない人への精算課税の贈与）は cautions に出す
-// - 改訂5・約束の版 1.2（0231）: 「相続税も試算する」（要求の detailed）の世帯だけ、不動産ごとの設定（lands）で土地と建物を評価し、小規模宅地等の
-//   特例・2割加算・未成年者控除を入れる。detailed の無い世帯の結果は改訂4と同じ（年ごとの計算は増やさない。時点ごとに1回）
+// - 改訂5（0232）: 収益不動産の建てる・買う予定の「土地ごと買う」は、買う月から持つ物として数える（持ち始める時点と同じ。予定の無い世帯の結果は同じ）
+// - 改訂6・約束の版 1.2（0231）: 「相続税も試算する」（要求の detailed）の世帯だけ、不動産ごとの設定（lands）で土地と建物を評価し、小規模宅地等の
+//   特例・2割加算・未成年者控除を入れる。detailed の無い世帯の結果は改訂5と同じ（年ごとの計算は増やさない。時点ごとに1回）
 //   - 土地（物件全体）: 路線価×面積・固定資産税評価額×倍率・固定資産税評価額×8/7（推定）・時価×評価の割合（省略）。補正の率を掛ける。入れた値は
 //     計算基準年（持ち始めが後ならその年）の値とみなし、ほかの年は評価額の推移（土地の行）と同じ割合で動かす
-//   - 建物: 固定資産税評価額（入れた値か、画面が固定資産税の目安から入れた推定 buildingEstimate。建物の行と同じ割合で動かす）。無ければ時価×評価の割合
-//   - 貸している物件: 建物は借家権割合（30%）×賃貸割合、土地は借地権割合×借家権割合×賃貸割合を引く（貸家・貸家建付地）。賃貸割合の省略は、亡くなる月に
-//     貸していれば 1−空室率（今の家賃で入れた物件は1）、貸していなければ0。民泊・宿は貸家にしない
+//   - 建物: 固定資産税評価額（入れた値か、画面が固定資産税の目安から入れた推定 buildingEstimate。建物の行と同じ割合で動かす）。建てる・買う予定の物件は、
+//     入れた値が無ければ asset.realEstate の評価の年の years[].assessed（予定の欄の額を評価替えごとに動かした額。0232）。無ければ時価×評価の割合
+//   - 貸している物件: 建物は借家権割合（30%）×賃貸割合、土地は借地権割合×借家権割合×賃貸割合を引く（貸家・貸家建付地）。貸しているか・賃貸割合の省略は、
+//     評価の年（valuationYear）の asset.realEstate の years[].rentedShare（年末の月に貸している割合。1−空室率、今の家賃で入れた物件は1、貸していなければ0。
+//     0232）。評価額と同じ年末の姿で見る。民泊・宿は貸家にしない（rentedShare も出ない）
 //   - 小規模宅地等の特例: 自宅（特定居住用 330㎡・80%）・事業（特定事業用と特定同族会社事業用 合わせて400㎡・80%）・貸付（200㎡・50%）。取得する人と
 //     要件は利用者が選ぶ（一次は primary、二次〔二人とも亡くなった後〕は secondary。自宅を配偶者が取得するときは要件なし。一次で選んでいない自宅は
-//     配偶者がいれば配偶者が取得するとみなす）。貸し始めて3年以内の貸付は対象にしない（事業的規模を3年を超えて続けている印があれば対象）。
+//     配偶者がいれば配偶者が取得するとみなす）。貸し始めて3年以内の貸付は対象にしない（事業的規模を3年を超えて続けている印があれば対象）。貸し始めは
+//     asset.realEstate と同じ読み方（省略は建てる・買う予定の月か取得の月。予定の月・持ち始める月より前なら、その月）で、亡くなる月から数える。
 //     面積の上限は、貸付を入れないとき自宅330㎡・事業400㎡を別に、入れるとき 自宅×200/330＋事業×200/400＋貸付≦200㎡。減る額の大きい土地から
 //     適用し、貸付を入れる・入れないの多く減る方を採る
 //   - 2割加算（兄弟姉妹・祖父母・代襲でない孫養子）と未成年者控除（法定相続人で18歳未満。引ききれない分は他の相続人〔配偶者から〕の税から引く）
@@ -62,6 +66,7 @@ import {
   formatYm,
   monthIndex,
   parseYm,
+  propertyHoldStart,
   yearOf,
   yen,
   type AccountInput,
@@ -291,7 +296,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
   id: "inheritance.estimate",
   title: "相続税の目安（基礎控除・法定相続人・非課税・速算表・配偶者の軽減・精算課税の足し戻し）",
   contract: "1.2",
-  revision: 5,
+  revision: 6,
   requires: {
     "plan.cashflow": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -511,11 +516,14 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       heldAtS.set(r.id, from === null || from < S);
     }
     for (const a of ctx.list<AccountInput>("account")) {
-      if (a.kind === "realEstate" && a.property?.holdFrom !== undefined) heldAtS.set(a.id, ctx.time.resolve(a.property.holdFrom) < S);
+      // 建てる・買う予定の「土地ごと買う」は買う月から持つ（sdk の propertyHoldStart。0232）
+      const from = a.kind === "realEstate" && a.property !== undefined ? propertyHoldStart(ctx, a.property) : null;
+      if (from !== null) heldAtS.set(a.id, from < S);
     }
     // 計算基準月から計算基準年の12月までに売る不動産（年末の評価額の行が無い）の、その年の評価額
     const soldLater: { object: string; owner: string | null; value: Yen }[] = [];
-    const valued = [...ctx.call<HousingValuationOutput>("housing.valuation", {}).properties, ...ctx.call<RealEstateOutput>("asset.realEstate", {}).properties];
+    const realEstateOut = ctx.call<RealEstateOutput>("asset.realEstate", {}).properties;
+    const valued = [...ctx.call<HousingValuationOutput>("housing.valuation", {}).properties, ...realEstateOut];
     for (const p of valued) {
       if (p.sale === null) continue;
       const m = parseYm(p.sale.ym);
@@ -579,6 +587,9 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     const rOf = (n: number): Rate => ctx.rate.of(String(n));
     const ZERO = ctx.rate.of("0");
     const valuedYears = new Map(valued.map((p) => [p.object, p.years]));
+    /** 住まい以外の不動産の、その年の年末の相続税の評価の材料（asset.realEstate の years[].assessed・rentedShare。0232） */
+    const realEstateYears = new Map(realEstateOut.map((p) => [p.object, p.years]));
+    const realEstateYear = (object: string, year: number) => realEstateYears.get(object)?.find((e) => e.year === year);
     /** 入れた値（路線価・固定資産税評価額）の時点の物件全体の時価: 計算基準年（持ち始めが後ならその年）の年末の評価額。中身の無い器は入力の時価 */
     const refOf = (object: string): { land: number; building: number } => {
       const ys = valuedYears.get(object);
@@ -590,22 +601,24 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       return { land: a === undefined ? 0 : (boxValue(a.marketValue) ?? 0), building: 0 };
     };
     const growth = (now: number, ref: number): Rate => (now > 0 && ref > 0 ? ctx.rate.div(rOf(now), rOf(ref)) : RATE_ONE);
-    /** 亡くなる月に貸しているか・賃貸割合の省略の値・貸し始め（asset.realEstate の貸している月と同じ読み方） */
-    const rentalAt = (object: string, D: MonthIndex): { rented: boolean; ratio: Rate; start: MonthIndex | null } => {
+    /**
+     * 貸しているか・賃貸割合の省略の値（評価の年 V の年末の月に貸している割合。asset.realEstate の rentedShare。0232）と、貸し始め（3年以内の貸付の判定。
+     * asset.realEstate の貸し始めと同じ読み方: 省略は建てる・買う予定の月か取得の月。予定の月〔無ければ持ち始める月〕より前なら、その月）
+     */
+    const rentalAt = (object: string, V: number): { rented: boolean; ratio: Rate; start: MonthIndex | null } => {
       const a = accounts.find((x) => x.id === object);
       const p = a?.property;
       const r = p?.rental;
-      // 民泊・宿は貸家（借家権）ではないので、貸家・貸家建付地と貸付の特例の省略の対象にしない（asset.realEstate の rentedShare も民泊・宿には出さない。0232）
+      // 民泊・宿は貸家（借家権）ではないので、貸家・貸家建付地と貸付の特例の省略の対象にしない（asset.realEstate の rentedShare も民泊・宿には出さない）
       if (a === undefined || p === undefined || r === undefined || p.lodging !== undefined) return { rented: false, ratio: ZERO, start: null };
+      const share = realEstateYear(object, V)?.rentedShare;
+      const ratio = share === undefined ? ZERO : ctx.rate.of(share);
+      const planAt = p.planned !== undefined ? ctx.time.resolve(p.planned.at) : null;
       const acq = p.acquisition?.at !== undefined ? parseYm(p.acquisition.at) : null;
-      const hold = p.holdFrom !== undefined ? ctx.time.resolve(p.holdFrom) : null;
-      let start = r.from !== undefined ? ctx.time.resolve(r.from) : acq;
-      if (start !== null && hold !== null && hold > start) start = hold;
-      const sale = a.sale !== undefined ? ctx.time.resolve(a.sale.at) : (p.sale?.at !== undefined ? ctx.time.resolve(p.sale.at) : null);
-      const to = r.to === undefined || r.to === null ? (sale !== null ? sale - 1 : null) : ctx.time.resolve(r.to);
-      const rented = (start === null || start <= D) && (to === null || to >= D) && (hold === null || hold <= D);
-      const full = r.rentBy === "actual";
-      return { rented, ratio: rented ? (full ? RATE_ONE : ctx.rate.sub(RATE_ONE, ctx.rate.of(r.vacancyRate ?? "0"))) : ZERO, start };
+      const opStart = planAt ?? propertyHoldStart(ctx, p);
+      let start = r.from !== undefined ? ctx.time.resolve(r.from) : (planAt ?? acq);
+      if (start !== null && opStart !== null && opStart > start) start = opStart;
+      return { rented: ctx.rate.compare(ratio, ZERO) > 0, ratio, start };
     };
     /** 亡くなる月に住んでいる持ち家か */
     const livedAt = (object: string, D: MonthIndex): boolean => {
@@ -661,11 +674,11 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     /** 不動産ごとの評価（亡くなる人の分）と特例の減額 */
     const evaluateLands = (
       parts: ReadonlyMap<string, { land: number; building: number; unsplit: number; fullLand: number; fullBuilding: number; fullUnsplit: number; share: string }>,
-      job: { point: Point; decedent: string; D: MonthIndex },
+      job: { point: Point; decedent: string; D: MonthIndex; V: number },
       at: MonthCtx,
       cautions: Set<string>,
     ): { value: Yen; reduction: Yen; lands: LandResult[] } => {
-      const { point, decedent: X, D } = job;
+      const { point, decedent: X, D, V } = job;
       const second = point === "bothAfter";
       const spouseAlive = !second && legalSpouseAt(X, D) !== null;
       const lands: LandResult[] = [];
@@ -694,11 +707,19 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           method = "market";
           landFull = ctx.money.mulRate(ctx.money.mulRate(yen(fullLand), realRatio, VAL), adj, VAL);
         }
-        // 建物（固定資産税評価額。無ければ時価×評価の割合。中身の無い器を時価で評価するときは土地に含めている）
+        // 建物（固定資産税評価額。無ければ時価×評価の割合。中身の無い器を時価で評価するときは土地に含めている）。建てる・買う予定の物件は、入れた値が
+        // 無ければ評価の年の asset.realEstate の assessed（予定の欄の額を評価替えごとに動かした額。0232）を使い、建物がまだ無い年は建物を数えない
+        const plan = accounts.find((x) => x.id === object)?.property?.planned;
+        const assessed = plan === undefined || st?.buildingValue !== undefined ? undefined : realEstateYear(object, V)?.assessed;
         const bv = st?.buildingValue ?? st?.buildingEstimate;
         let buildingFull: Yen = yen(0);
         let buildingSource: LandResult["buildingSource"] = "none";
-        if (pt.fullBuilding > 0 || (bv !== undefined && !(pt.fullUnsplit > 0 && method === "market"))) {
+        if (plan !== undefined && pt.fullBuilding === 0) {
+          // 建てる予定の建物がまだ無い（土地だけ）
+        } else if (assessed !== undefined) {
+          buildingFull = assessed;
+          buildingSource = plan?.assessed?.state === "estimated" ? "estimate" : "entered";
+        } else if (pt.fullBuilding > 0 || (bv !== undefined && !(pt.fullUnsplit > 0 && method === "market"))) {
           if (bv !== undefined) {
             buildingFull = ctx.money.mulRate(bv, gB, VAL);
             buildingSource = st?.buildingValue !== undefined ? "entered" : "estimate";
@@ -708,7 +729,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           }
         }
         // 貸家・貸家建付地（賃貸割合は亡くなる月に貸していなければ0）
-        const rent = isHome ? { rented: false, ratio: ZERO, start: null } : rentalAt(object, D);
+        const rent = isHome ? { rented: false, ratio: ZERO, start: null } : rentalAt(object, V);
         const rr = rent.rented ? (st?.rentalRatio !== undefined ? ctx.rate.of(st.rentalRatio) : rent.ratio) : ZERO;
         if (ctx.rate.compare(rr, ZERO) > 0) {
           const tenancy = ctx.rate.of(TENANCY_RIGHT_RATIO);

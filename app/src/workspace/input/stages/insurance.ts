@@ -46,6 +46,8 @@ import { monthsBetween } from "../loanMath.ts";
 import { formatYearMonth } from "../units.ts";
 import type { InsuranceAccountInput } from "../../../engine/types.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
+import { infoNote } from "../readLines.ts";
+import { SURRENDER_CAUTIONS, SURRENDER_RATE_NOTE } from "../../../../../report/src/variableSurrender.ts";
 
 /** 保険契約の区画の「?」に置く入れ漏れの気づき（0159。控除証明書の取り込みのかわり） */
 export const DEDUCTION_COUNT_NOTE = "生命保険料・地震保険料の控除証明書があれば、控除証明書の枚数と、入れた契約の数を比較してください（入れ漏れに気づけます。掛け捨ての医療保険・共済も控除の対象なら証明書が届きます）。";
@@ -744,8 +746,17 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         : []),
     ],
   });
+  // 変額保険に解約の月を入れたとき: 解約の月の近くに、利回りをそろえる一言と注意の4つ（説明の欄。折りたためる。0233）。外貨建て保険は対象にしない。
+  // 解約の月の欄と同じ出し方にする: 詳細の欄で、キーを契約のまとまりの下（`${k}/…`）に置き、標準で「▸ 詳しく」を開いたときもその契約の中に出す（groupUnits）
+  if (c.template === "insurance.variable" && c.surrender !== undefined) {
+    const note = infoNote("", "解約するときの注意", surrenderNoteText(), "insurance/variableSurrender");
+    groups.push({ ...note, key: `${k}/surrenderNote`, level: "detail", placeIn: { group: k, after: `${k}/surrender` } });
+  }
   return groups;
 }
+
+/** 変額保険の解約の月の近くの説明の文（提案書の注意書きと同じ文。report/src/variableSurrender.ts） */
+export const surrenderNoteText = (): string => [SURRENDER_RATE_NOTE, ...SURRENDER_CAUTIONS].join("。");
 
 /** 受取人（死亡保険金）。空は省略（死亡の当時の配偶者、いなければ子） */
 const EXTERNAL = [

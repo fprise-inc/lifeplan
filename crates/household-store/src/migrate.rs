@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.85";
+pub const CURRENT: &str = "0.86";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -300,10 +300,14 @@ pub const CURRENT: &str = "0.85";
 ///   `{kind: "ai", at, connector}`。0222）を足した（足すだけの MINOR）。前の版のアプリは欄を知らずに読み落とし、依頼の一覧で AI が発行した
 ///   依頼と分からなくなるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の依頼は欄が無い＝FP の画面で発行した依頼）。
 ///   0.83 の段の後に積む
-/// - 0.85: 相続税の目安の設定 `household.request.input.inheritanceTax` に、任意の欄 `detailed`（相続税も試算する）と `lands`（不動産ごとの
+/// - 0.85: 収益不動産の中身に、建てる・買う予定 `accounts[].property.planned`（予定の形 `type`・時期 `at`・購入代金と建築費の内訳 `parts`・
+///   建物附属設備の耐用年数 `equipmentLife`・取得の諸費用 `costs`・自己資金 `equity`・建物の固定資産税評価額 `assessed`〔値の箱〕。0232）を足した
+///   （足すだけの MINOR。計算に使う）。前の版のアプリは計算の入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は
+///   形式の版だけを書き換える（前の版の世帯は欄が無い＝予定の無い物件）。0.84 の段の後に積む
+/// - 0.86: 相続税の目安の設定 `household.request.input.inheritanceTax` に、任意の欄 `detailed`（相続税も試算する）と `lands`（不動産ごとの
 ///   土地の面積・評価の入れ方・建物の固定資産税評価額・賃貸割合・借地権割合・小規模宅地等の特例の種類と一次・二次の取得する人。0231）を足した
 ///   （足すだけの MINOR）。前の版のアプリは計算の要求の知らない欄を読み落として書き戻し、試算の設定が消えるので、版を上げて閲覧だけにする。
-///   変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝相続税も試算しない）。0.84 の段の後に積む
+///   変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝相続税も試算しない）。0.85 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -312,6 +316,7 @@ pub const KNOWN: &[&str] = &[
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
     "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85",
+    "0.86",
 ];
 
 /// 1段分の変換
@@ -742,6 +747,11 @@ pub const STEPS: &[Step] = &[
         from: "0.84",
         to: "0.85",
         apply: v0_84_to_0_85,
+    },
+    Step {
+        from: "0.85",
+        to: "0.86",
+        apply: v0_85_to_0_86,
     },
 ];
 
@@ -2690,12 +2700,22 @@ fn v0_83_to_0_84(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.84 → 0.85: 相続税の試算の設定 `inheritanceTax.detailed`・`inheritanceTax.lands`（0231）は任意の欄なので、形式の版だけを書き換える
-/// （前の版の世帯は欄が無い＝相続税も試算しない。欄を書き足さない）
+/// 0.84 → 0.85: 収益不動産の建てる・買う予定 `accounts[].property.planned`（0232）は任意の欄なので、形式の版だけを書き換える
+/// （前の版の世帯は欄が無い＝予定の無い物件。欄を書き足さない）
 fn v0_84_to_0_85(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.85".into());
+    }
+    Ok(body)
+}
+
+/// 0.85 → 0.86: 相続税の試算の設定 `inheritanceTax.detailed`・`inheritanceTax.lands`（0231）は任意の欄なので、形式の版だけを書き換える
+/// （前の版の世帯は欄が無い＝相続税も試算しない。欄を書き足さない）
+fn v0_85_to_0_86(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.86".into());
     }
     Ok(body)
 }
@@ -3692,7 +3712,8 @@ mod tests {
         assert_eq!(access("0.83").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.84").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.85").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.86").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.86").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.87").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3705,7 +3726,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.86", b.clone()).unwrap(),
+            upgrade("0.87", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4211,15 +4232,15 @@ mod tests {
     }
 
     #[test]
-    fn v0_84_to_0_85_only_bumps_version() {
+    fn v0_85_to_0_86_only_bumps_version() {
         // 相続税の試算の設定（inheritanceTax.detailed・lands。0231）は足さない（前の版の世帯は相続税も試算しない）。ほかの設定に触れない
         let b = serde_json::json!({
-            "meta": {"formatVersion": "0.84"},
+            "meta": {"formatVersion": "0.85"},
             "household": {"request": {"input": {"inheritanceTax": {"funeral": 2000000}}}},
             "proposals": []
         });
-        let u = upgrade("0.84", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.85");
+        let u = upgrade("0.85", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert!(u["household"]["request"]["input"]["inheritanceTax"]
             .get("detailed")
@@ -4238,6 +4259,24 @@ mod tests {
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["hearing"], b["hearing"]);
         assert!(u["hearing"]["web"][0].get("origin").is_none());
+    }
+
+    #[test]
+    fn v0_84_to_0_85_only_bumps_version() {
+        // 収益不動産の建てる・買う予定（property.planned。0232）は足さない（前の版の世帯は欄が無い＝予定の無い物件）
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.84"},
+            "household": {"request": {"input": {"household": {"accounts": [{"id": "a1", "kind": "realEstate", "property": {"kind": "apartment", "rental": {"monthly": {"value": 300000}}}}]}}}},
+            "proposals": []
+        });
+        let u = upgrade("0.84", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert!(
+            u["household"]["request"]["input"]["household"]["accounts"][0]["property"]
+                .get("planned")
+                .is_none()
+        );
     }
 
     #[test]

@@ -2,7 +2,8 @@
 // 貸している割合・小規模宅地等の特例の種類と取得する人（一次・二次）を入れる。値は相続税の目安の設定（input.inheritanceTax の detailed・lands）に置き、
 // 時点の無い設定なので毎回の計算には入らない（engine/moneyRows.ts の withoutStoredSettings）。チェックしない世帯の入力は増やさない（区画は詳細の1つの欄だけ）
 // - 建物の固定資産税評価額を入れていない不動産は、固定資産税の目安（0112・0181）と同じ式の建物の評価額を、計算の要求を作るときだけ
-//   buildingEstimate に入れる（世帯には保存しない。withLandEstimates）
+//   buildingEstimate に入れる（世帯には保存しない。withLandEstimates）。建てる・買う予定の物件は推定を作らず、計算エンジンが予定の欄の建物の
+//   固定資産税評価額を評価の年に動かした額（asset.realEstate の years[].assessed。0232）を使う
 import type { Account, EngineRequest, Household, InheritanceLandSetting, InheritanceTaxRequest, Residence, SmallLandChoice } from "../../engine/types.ts";
 import { field, resolveTimepoint, type FieldDef, type GroupDef, type Option, type SectionDef } from "./form.ts";
 import { mutate, type WorkingHousehold } from "./household.ts";
@@ -59,7 +60,8 @@ export function buildingEstimateOf(req: EngineRequest, object: string): number |
   const a = (h.accounts ?? []).find((x) => x.id === object);
   const p = a?.property;
   const value = a?.marketValue?.value ?? null;
-  if (a === undefined || p === undefined || value === null || !(value > 0)) return null;
+  // 建てる・買う予定の物件は、計算エンジンが予定の欄の建物の固定資産税評価額を使う（器の時価は予定の建物を含まない。0232）
+  if (a === undefined || p === undefined || p.planned !== undefined || value === null || !(value > 0)) return null;
   const share = Number(p.landShare ?? landShareSetting(req) ?? VALUATION_DEFAULTS.landShare);
   if (!(share < 1)) return null;
   const valueYear = Number((a.asOf ?? req.input.baseMonth).slice(0, 4));
@@ -130,8 +132,8 @@ export const setDetailed = (wh: WorkingHousehold, on: boolean): WorkingHousehold
 
 // ---- 欄 ----
 
-const DETAILED_HELP =
-  "チェックすると、不動産ごとに土地の面積・評価の入れ方（路線価・倍率など）・建物の固定資産税評価額・小規模宅地等の特例を入れて、相続税を試算します（2割加算・未成年者控除も入れます）。チェックしなければ、今までどおり不動産を時価の80%で見た目安を出します。どちらも表示だけで、お金の流れには入れません";
+export const DETAILED_HELP =
+  "チェックすると、不動産ごとに土地の面積・評価の入れ方（路線価・倍率など）・建物の固定資産税評価額・小規模宅地等の特例を入れて、相続税を試算します（2割加算・未成年者控除も入れます）。チェックしなければ、今までどおり不動産を時価の80%で見た目安を出します。どちらも表示だけで、お金の流れには入れません。チェックを外しても入れた値は残り、チェックし直せば同じ値で試算します";
 
 /** 「相続税も試算する」の欄 */
 export function detailedField(level: "simple" | "detail"): FieldDef {
@@ -194,10 +196,18 @@ function useOptions(h: Household, t: LandTarget, current: Use | undefined): Opti
 }
 const defaultUse = (t: LandTarget): Use => (t.kind === "home" ? "residence" : t.kind === "rental" ? "rental" : "none");
 
-/** 貸し始めが計算基準月の3年以内か（貸付の特例の3年の決まりの欄を出すか） */
+/**
+ * 貸し始めが計算基準月の3年以内か（貸付の特例の3年の決まりの欄を出すか）。貸し始めは計算エンジンと同じ読み方: 省略は建てる・買う予定の月か取得の月、
+ * 予定の月（無ければ持ち始める月）より前なら、その月（0232）
+ */
 function recentRental(h: Household, a: Account | undefined, baseMonth: string): boolean {
-  const from = a?.property?.rental?.from;
-  const ym = from === undefined ? (a?.property?.acquisition?.at ?? null) : resolveTimepoint(h, from);
+  const p = a?.property;
+  const from = p?.rental?.from;
+  const planned = p?.planned?.at !== undefined ? resolveTimepoint(h, p.planned.at) : null;
+  const hold = p?.holdFrom !== undefined ? resolveTimepoint(h, p.holdFrom) : null;
+  const op = planned ?? hold;
+  let ym = from === undefined ? (planned ?? p?.acquisition?.at ?? null) : resolveTimepoint(h, from);
+  if (ym !== null && op !== null && op > ym) ym = op;
   if (ym === null) return false;
   const idx = (s: string) => Number(s.slice(0, 4)) * 12 + Number(s.slice(5, 7)) - 1;
   return idx(ym) > idx(baseMonth) - 36;
@@ -258,6 +268,7 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
   // 建物（固定資産税評価額。入れなければ固定資産税の目安と同じ式の推定）
   if (t.kind !== "held" || account?.property !== undefined || l?.buildingValue !== undefined) {
     const est = buildingEstimateOf(wh.request, t.object);
+    const planned = account?.property?.planned !== undefined;
     fields.push(
       field({
         ...base,
@@ -266,8 +277,14 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
         level: "simple",
         kind: "yen",
         basis: "once",
-        blankMeans: est !== null ? `推定 約${(Math.round(est / 10000)).toLocaleString("ja-JP")}万円（固定資産税の目安と同じ式）` : "時価×評価の割合",
-        help: "固定資産税の課税明細書の家屋の「価格（評価額）」。相続税では建物はこの額で評価します。入れなければ、固定資産税の目安と同じ式（建物の価格×新築の評価額の割合、評価替えごとの経年減点補正率）で推定します",
+        blankMeans: planned
+          ? "建てる・買う予定の欄の建物の固定資産税評価額（評価替えごとに動かした額）"
+          : est !== null
+            ? `推定 約${(Math.round(est / 10000)).toLocaleString("ja-JP")}万円（固定資産税の目安と同じ式）`
+            : "時価×評価の割合",
+        help: planned
+          ? "固定資産税の課税明細書の家屋の「価格（評価額）」。相続税では建物はこの額で評価します。入れなければ、建てる・買う予定の欄の「建物の固定資産税評価額」（建てた・買った年の額）を、評価替えごとの経年減点補正率で動かした額にします。建てる前の年は建物を数えません"
+          : "固定資産税の課税明細書の家屋の「価格（評価額）」。相続税では建物はこの額で評価します。入れなければ、固定資産税の目安と同じ式（建物の価格×新築の評価額の割合、評価替えごとの経年減点補正率）で推定します",
         get: get((x) => x.buildingValue),
         set: put("buildingValue", Number),
       }),
@@ -277,7 +294,7 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
     const vac = account?.property?.rental?.vacancyRate;
     const full = account?.property?.rental?.rentBy === "actual";
     fields.push(
-      field({ ...base, key: `${k}/rentalRatio`, label: "賃貸割合", level: "detail", kind: "pct", min: 0, max: 100, blankMeans: full ? "100%" : `${String(Math.round((1 - Number(vac ?? "0")) * 1000) / 10)}%（1−空室率）`, help: "貸している床面積の割合。一時的な空室（すぐ次の人を募集し、空いていたのが1か月程度など）は貸しているとみなせます。入れなければ1−空室率（今の家賃で入れた物件は100%）。亡くなる月に貸していなければ0%として計算します", get: get((x) => x.rentalRatio), set: put("rentalRatio", (v) => String(v)) }),
+      field({ ...base, key: `${k}/rentalRatio`, label: "賃貸割合", level: "detail", kind: "pct", min: 0, max: 100, blankMeans: full ? "100%" : `${String(Math.round((1 - Number(vac ?? "0")) * 1000) / 10)}%（1−空室率）`, help: "貸している床面積の割合。一時的な空室（すぐ次の人を募集し、空いていたのが1か月程度など）は貸しているとみなせます。入れなければ1−空室率（今の家賃で入れた物件は100%）。評価する年の年末に貸していなければ0%として計算します（建てる・買う予定の物件は予定の月から貸します）", get: get((x) => x.rentalRatio), set: put("rentalRatio", (v) => String(v)) }),
       field({ ...base, key: `${k}/leasehold`, label: "借地権割合（路線価図の記号）", level: "detail", kind: "select", options: LEASEHOLD_OPTIONS, blankMeans: "D（60%）", help: "貸家建付地の減額（土地の評価×借地権割合×借家権割合30%×賃貸割合）に使います。路線価図の路線価の後ろの記号（A 90%〜G 30%）。入れなければ D（60%。住宅地で多い区分の低い方）", get: get((x) => x.leaseholdRatio), set: put("leaseholdRatio") }),
     );
   }

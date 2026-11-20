@@ -503,9 +503,12 @@ export interface RealEstateOutput {
     readonly owner: string;
     /**
      * 持っている年の年末の評価額（売った年は含めない。年の昇順）。約束の版 1.3: book は年末の帳簿価額（取得価額＋取得時の諸費用−その年の年末までの
-     * 建物と建物附属設備の減価償却の累計。取得の入力があるときだけ）
+     * 建物と建物附属設備の減価償却の累計。取得の入力があるときだけ）。約束の版 1.7（0232）: assessed は建てる・買う予定の物件の、建物（建物附属設備を
+     * 含む）の固定資産税評価額の目安（予定の assessed を、固定資産評価基準の経年減点補正率・再建築費評点補正率で評価替えの年ごとに動かした額。予定の
+     * 年から）。rentedShare は貸している物件の、年末の月に貸している割合（1−空室率。今の実際の家賃収入で入れた物件は 1。年末の月に貸していなければ 0。
+     * 民泊・宿は無い）。どちらも相続税の評価の材料で、評価額（時価）は変えない
      */
-    readonly years: readonly { readonly year: number; readonly land: Yen; readonly building: Yen; readonly value: Yen; readonly book?: Yen }[];
+    readonly years: readonly { readonly year: number; readonly land: Yen; readonly building: Yen; readonly value: Yen; readonly book?: Yen; readonly assessed?: Yen; readonly rentedShare?: string }[];
     /** 貸している年の不動産所得の内訳（計算基準年の2年前から。年の昇順）。income＝rent−expenses−depreciation−interest（マイナスは損失） */
     readonly income: readonly {
       readonly year: number;
@@ -569,6 +572,11 @@ export interface RealEstateOutput {
       readonly noBuilding?: true;
       readonly lodging?: { readonly nightly: Yen; readonly occupancy: string; readonly days: number };
       readonly rentBy?: "actual";
+      /**
+       * 約束の版 1.7（0232）: 建てる・買う予定（type は buy・build、ym は買う・建てる月、paid はその月に払う自己資金〔表に載る月なら表の
+       * cf.expense.lumpSum.realEstatePurchase と同じ額〕）
+       */
+      readonly planned?: { readonly type: "buy" | "build"; readonly ym: string; readonly paid: Yen };
     };
   }[];
 }

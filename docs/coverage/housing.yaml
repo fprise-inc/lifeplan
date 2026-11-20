@@ -25,7 +25,7 @@ entries:
       - "「住まい・ローン」の入力項目の「今の残高」"
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage]
     components:
-      debt.schedule: 11
+      debt.schedule: 12
     related: [housing.variableRate, housing.prepayment, housing.creditLife, tax.housingLoanCredit]
 
   - id: housing.variableRate
@@ -54,7 +54,7 @@ entries:
       - housing.statistics.mortgageRate.fixedPeriod10
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage, cf.balance.debt.unpaidInterest]
     components:
-      debt.schedule: 11
+      debt.schedule: 12
     related: [housing.mortgageRepayment]
 
   - id: housing.prepayment
@@ -75,7 +75,7 @@ entries:
       - "「住まい・ローン」の入力項目の「借り換えの費用」"
     rows: [cf.expense.housing.loan.prepayment, cf.expense.housing.loan.fees]
     components:
-      debt.schedule: 11
+      debt.schedule: 12
     related: [housing.mortgageRepayment, housing.saleAndMove]
 
   - id: housing.creditLife
@@ -97,7 +97,7 @@ entries:
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage]
     components:
       debt.creditLifeEvents: 1
-      debt.schedule: 11
+      debt.schedule: 12
     related: [contingency.livingAfterDeath]
 
   - id: housing.propertyTax
@@ -218,7 +218,7 @@ entries:
     rows: [cf.balance.account.realEstate, cf.income.lumpSum.realEstateSale, cf.expense.housing.loan.prepayment]
     components:
       housing.valuation: 4
-      debt.schedule: 11
+      debt.schedule: 12
     related: [housing.saleTax, housing.prepayment]
 
   - id: housing.saleTax

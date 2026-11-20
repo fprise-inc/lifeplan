@@ -1847,6 +1847,66 @@
                   }
                 }
               }
+            },
+            {
+              "asOf": "2026-10",
+              "contributions": [],
+              "id": "00000000-0000-4000-8000-000000023201",
+              "kind": "realEstate",
+              "marketValue": {
+                "origin": {
+                  "kind": "manual"
+                },
+                "state": "confirmed",
+                "value": 0
+              },
+              "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+              "property": {
+                "expenses": {
+                  "annual": {
+                    "origin": {
+                      "kind": "manual"
+                    },
+                    "state": "confirmed",
+                    "value": 500000
+                  }
+                },
+                "kind": "apartment",
+                "name": "見本の買う予定のアパート",
+                "planned": {
+                  "assessed": {
+                    "estimate": {
+                      "basis": "建物の固定資産税評価額の推定（見本）",
+                      "method": "derived"
+                    },
+                    "origin": {
+                      "kind": "auto"
+                    },
+                    "state": "estimated",
+                    "value": 12000000
+                  },
+                  "at": {
+                    "at": "2027-10"
+                  },
+                  "costs": 2500000,
+                  "parts": {
+                    "building": 30000000,
+                    "land": 20000000
+                  },
+                  "type": "buy"
+                },
+                "rental": {
+                  "monthly": {
+                    "origin": {
+                      "kind": "manual"
+                    },
+                    "state": "confirmed",
+                    "value": 350000
+                  },
+                  "vacancyRate": "0.1"
+                },
+                "structure": "wood"
+              }
             }
           ],
           "cars": [
@@ -4401,40 +4461,11 @@
           ]
         },
         "inheritanceTax": {
-          "detailed": true,
           "funeral": 2000000,
           "heirCounts": [
             {
               "count": 3,
               "decedent": "413cf152-c543-4cc1-b0b1-eeee2c08926e"
-            }
-          ],
-          "lands": [
-            {
-              "area": "165.5",
-              "method": "routePrice",
-              "object": "1e2f377d-eb18-4756-a043-a31d445c9c00",
-              "routePrice": 250000,
-              "secondary": {
-                "acquirer": "cohabiting",
-                "met": true
-              }
-            },
-            {
-              "adjustment": "0.95",
-              "area": "120",
-              "buildingValue": 9000000,
-              "fixedValue": 14000000,
-              "leaseholdRatio": "C",
-              "method": "multiplier",
-              "multiplier": "1.1",
-              "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781",
-              "primary": {
-                "acquirer": "successor",
-                "met": true
-              },
-              "rentalRatio": "0.9",
-              "use": "rental"
             }
           ],
           "overrides": [

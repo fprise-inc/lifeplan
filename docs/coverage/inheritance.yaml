@@ -40,7 +40,7 @@ entries:
       - inheritanceTax.total.rounding
       - inheritanceTax.tax.rounding
     components:
-      inheritance.estimate: 5
+      inheritance.estimate: 6
       gift.tax: 3
     related: [inheritance.heirs, inheritance.insuranceExemption, inheritance.spouseReduction, inheritance.smallLand, inheritance.otherRules]
 
@@ -57,7 +57,7 @@ entries:
     items: [plan.inheritanceTax, member.kind, member.outside, member.leaves, donor.relative, donor.leaves]
     regulation: [inheritanceTax.adoptedChildren.withNatural, inheritanceTax.adoptedChildren.withoutNatural]
     components:
-      inheritance.estimate: 5
+      inheritance.estimate: 6
     related: [inheritance.estimate]
 
   - id: inheritance.insuranceExemption
@@ -72,7 +72,7 @@ entries:
     items: [plan.inheritanceTax, insurance.policyholder, insurance.insured]
     regulation: [inheritanceTax.lifeInsurance.exemptionPerHeir, inheritanceTax.retirementAllowance.exemptionPerHeir]
     components:
-      inheritance.estimate: 5
+      inheritance.estimate: 6
     related: [insurance.benefitTax, inheritance.estimate]
 
   - id: inheritance.spouseReduction
@@ -87,7 +87,7 @@ entries:
       - 相続税法19条の2
     regulation: [inheritanceTax.spouseReduction.floor]
     components:
-      inheritance.estimate: 5
+      inheritance.estimate: 6
     related: [inheritance.estimate]
 
   - id: inheritance.smallLand
@@ -103,7 +103,9 @@ entries:
       チェックします。一次の相続（いま亡くなったら・万一の想定）と二次の相続（二人とも亡くなった後）で別に選べます。配偶者が自宅を取得するときは要件なしで、
       選んでいない自宅は配偶者がいれば配偶者が取得するとみなします。貸し始めて3年以内の貸付は対象にしません（事業的規模を3年を超えて続けている印があれば対象）。
       面積の上限は、貸付を入れないとき自宅330㎡・事業400㎡を別に、入れるとき「自宅×200/330＋事業×200/400＋貸付≦200㎡」で、減る額の大きい土地から適用します。
-      貸している物件は、建物から借家権割合30%×賃貸割合、土地から借地権割合（路線価図の記号。省略は60%）×30%×賃貸割合を引きます。賃貸割合の省略は1−空室率です。
+      貸している物件は、建物から借家権割合30%×賃貸割合、土地から借地権割合（路線価図の記号。省略は60%）×30%×賃貸割合を引きます。賃貸割合の省略は、評価する年の年末に
+      貸している割合（1−空室率）です。建てる・買う予定の物件は、買う年の年末の姿から財産に入れ、建物は予定の欄の固定資産税評価額を評価替えごとに動かした額で見て、
+      3年以内の貸付は予定の貸し始めから数えます。
     approximation: >-
       奥行・間口・不整形地などの補正は、補正の率を入れたときだけ掛けます。入れた路線価・固定資産税評価額は今の値とみなし、ほかの年は評価額の推移と同じ割合で
       動かします。要件は自動では判定しません（チェックした人を信じます）。分け方は法定相続分どおりとみなすので、特例で減った分は取得する人ではなく遺産の全体から引きます。
@@ -126,7 +128,7 @@ entries:
       - inheritanceTax.smallLand.rental.reductionRate
       - inheritanceTax.smallLand.rental.recentYears
     components:
-      inheritance.estimate: 5
+      inheritance.estimate: 6
     related: [inheritance.estimate]
 
   - id: inheritance.otherRules
@@ -145,7 +147,7 @@ entries:
     items: [plan.inheritanceTax]
     regulation: [inheritanceTax.surcharge.rate, inheritanceTax.minorCredit.perYear, inheritanceTax.minorCredit.untilAge]
     components:
-      inheritance.estimate: 5
+      inheritance.estimate: 6
     related: [inheritance.estimate, inheritance.giftTax]
 
   - id: inheritance.received
@@ -225,7 +227,7 @@ entries:
     rows: [cf.taxSi.giftTax]
     components:
       gift.tax: 3
-      inheritance.estimate: 5
+      inheritance.estimate: 6
     related: [inheritance.giftTax, inheritance.estimate]
 
   - id: inheritance.legacy

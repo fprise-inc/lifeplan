@@ -1,4 +1,4 @@
-// 相続税の試算（相続税も試算する世帯だけ）: 土地・建物の評価、貸家・貸家建付地、小規模宅地等の特例、2割加算・未成年者控除（inheritance.estimate 改訂5。0231）
+// 相続税の試算（相続税も試算する世帯だけ）: 土地・建物の評価、貸家・貸家建付地、小規模宅地等の特例、2割加算・未成年者控除（inheritance.estimate 改訂6。0231）
 import { describe, expect, it } from "vitest";
 import { runEngine } from "../src/engine/run.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
@@ -91,7 +91,7 @@ describe("相続税も試算しない世帯は今までと同じ（入力は増�
     expect(plain[0]?.cautions).toContain("smallLandSpecial");
   });
 
-  it("見本の世帯の相続税の目安は、改訂5でも同じ（detailed の無い要求）", () => {
+  it("見本の世帯の相続税の目安は、改訂6でも同じ（detailed の無い要求）", () => {
     for (const name of ["salariedCoupleTwoKids", "rentalSample"]) {
       const out = run(edit(modelHousehold(name), (_h, input) => (input.inheritanceTax = { points: ["now", "bothAfter"] })));
       const points = (out.inheritanceTax as { points: Point[]; notIncluded: string[] }).points;
@@ -328,5 +328,117 @@ describe("2割加算と未成年者控除（相続税も試算する世帯だけ
     expect(s1?.tax).toBe((s0?.tax ?? 0) + (s1?.surcharge ?? 0));
     expect(p.byHeir.find((b) => b.member === W)?.surcharge).toBeUndefined();
     expect(p.cautions).not.toContain("twentyPercentSurcharge");
+  });
+});
+
+describe("建てる・買う予定の不動産（asset.realEstate の years[].assessed・rentedShare を使う。0232）", () => {
+  const PLAN = uid("plan");
+  const estimatedBox = (value: number) => ({ value, state: "estimated" as const, origin: { kind: "auto" as const }, estimate: { method: "derived", basis: "見本" } });
+  /** 土地ごと買う予定（土地2,000万円・建物2,500万円。木造アパート。空室率10%）。from は貸し始め（省略は買う月） */
+  const withPlan = (req: Req, o: { at: string; from?: string; assessed?: Obj; type?: "buy" | "build" }): Req =>
+    edit(req, (h) =>
+      (h.accounts as Obj[]).push({
+        id: PLAN,
+        kind: "realEstate",
+        owner: H,
+        marketValue: box(o.type === "build" ? 30_000_000 : 0),
+        asOf: "2026-01",
+        contributions: [],
+        valueGrowth: "0",
+        property: {
+          kind: "apartment",
+          structure: "wood",
+          planned:
+            o.type === "build"
+              ? { type: "build", at: at(o.at), parts: { building: 25_000_000 }, ...(o.assessed !== undefined ? { assessed: o.assessed } : {}) }
+              : { type: "buy", at: at(o.at), parts: { land: 20_000_000, building: 25_000_000 }, ...(o.assessed !== undefined ? { assessed: o.assessed } : {}) },
+          rental: { monthly: box(300_000), vacancyRate: "0.1", ...(o.from !== undefined ? { from: at(o.from) } : {}) },
+        },
+      }),
+    );
+  /** 本人が D の月に亡くなる万一の想定（財産は亡くなる年の前の年末の姿） */
+  const death = (req: Req, D: string): Req => edit(req, (_h, input) => (input.contingencies = [{ id: uid("ct"), kind: "death", member: H, occurs: at(D) }]));
+  const contingencyOf = (req: Req, request: Obj = {}) => pointsOf(req, { points: ["contingency"], detailed: true, ...request })[0] as Point;
+  const yearsOf = (req: Req) => {
+    const r = runEngine(req, realPacks(), { checkInternal: true, entry: { component: "asset.realEstate", input: {} } }).entryOutput as { properties: { object: string; years: { year: number; assessed?: number; rentedShare?: string }[] }[] };
+    return r.properties.find((p) => p.object === PLAN)?.years ?? [];
+  };
+  const big = () => family({ endYear: 2040 });
+
+  it("いま亡くなったら: 買う月が計算基準月の前の月なら入り、計算基準月・その翌月なら入らない（2026-04 の要求で 2026-03・04・05）", () => {
+    const base = family({ baseMonth: "2026-04", endYear: 2040 });
+    const now = (ym: string) => nowOf(withPlan(base, { at: ym }), { detailed: true });
+    expect(landOf(now("2026-03"), PLAN)).toBeDefined();
+    expect(now("2026-04").lands?.some((l) => l.object === PLAN)).toBe(false);
+    expect(now("2026-05").lands?.some((l) => l.object === PLAN)).toBe(false);
+  });
+
+  it("万一の想定: 買う年より前の年末の姿では入らず、買う年の年末の姿から入る（2028-12 に買う予定で、2028-11・2028-12・2029-01 に亡くなる）", () => {
+    const req = withPlan(big(), { at: "2028-12" });
+    const before = contingencyOf(death(req, "2028-11"));
+    const same = contingencyOf(death(req, "2028-12"));
+    const after = contingencyOf(death(req, "2029-01"));
+    // 2028-11・2028-12 は 2027 年末の姿（まだ買っていない）、2029-01 は 2028 年末の姿（買った年）
+    expect([before, same, after].map((p) => (p as unknown as { valuationYear: number }).valuationYear)).toEqual([2027, 2027, 2028]);
+    expect(before.lands?.some((l) => l.object === PLAN)).toBe(false);
+    expect(same.lands?.some((l) => l.object === PLAN)).toBe(false);
+    const l = landOf(after, PLAN);
+    // 時価は代金の合計（土地2,000万円・建物2,500万円。土地の割合で分けた円未満の差がある）
+    expect(Math.abs(l.landMarket - 20_000_000)).toBeLessThanOrEqual(1);
+    expect(Math.abs(l.landMarket + l.buildingMarket - 45_000_000)).toBeLessThanOrEqual(1);
+  });
+
+  it("賃貸割合の省略は asset.realEstate の評価の年の rentedShare（1−空室率）。貸し始めがその年末より後なら貸していない（減額しない・貸付を選ばない）", () => {
+    const req = withPlan(big(), { at: "2028-07", from: "2030-04" });
+    const ys = yearsOf(req);
+    expect(ys.find((y) => y.year === 2029)?.rentedShare).toBe("0");
+    expect(ys.find((y) => y.year === 2030)?.rentedShare).toBe("0.9");
+    // 2030-06 に亡くなる: 2029 年末の姿で、まだ貸していない
+    const notYet = landOf(contingencyOf(death(req, "2030-06")), PLAN);
+    expect(notYet.rentalRatio).toBeUndefined();
+    expect(notYet.use).toBe("none");
+    // 2031-06 に亡くなる: 2030 年末の姿で、貸している（0.9）
+    const rented = landOf(contingencyOf(death(req, "2031-06")), PLAN);
+    expect(rented.rentalRatio).toBe("0.9");
+    expect(rented.use).toBe("rental");
+  });
+
+  it("建物は、入れた値が無ければ評価の年の assessed（推定の箱なら estimate・FP が入れた箱なら entered）。画面の推定 buildingEstimate より先に読み、入れた値 buildingValue があればそちら", () => {
+    const est = withPlan(big(), { at: "2028-07", assessed: estimatedBox(10_000_000) });
+    const ys = yearsOf(est);
+    const a2030 = ys.find((y) => y.year === 2030)?.assessed as number;
+    expect(a2030).toBeLessThan(10_000_000);
+    const p = contingencyOf(death(est, "2031-06"), { lands: [{ object: PLAN, buildingEstimate: 99_000_000 }] });
+    const l = landOf(p, PLAN);
+    expect(l.buildingSource).toBe("estimate");
+    // 貸家: assessed×(1−30%×0.9)
+    expect(l.building).toBe(Math.floor(a2030 * (1 - 0.3 * 0.9)));
+    const entered = landOf(contingencyOf(death(withPlan(big(), { at: "2028-07", assessed: box(10_000_000) }), "2031-06")), PLAN);
+    expect(entered.buildingSource).toBe("entered");
+    expect(entered.building).toBe(l.building);
+    const own = landOf(contingencyOf(death(est, "2031-06"), { lands: [{ object: PLAN, buildingValue: 8_000_000 }] }), PLAN);
+    expect(own.buildingSource).toBe("entered");
+    expect(own.building).not.toBe(l.building);
+  });
+
+  it("持っている土地に建てる予定: 建てる年の年末より前の姿では建物を数えない（土地だけ）。建てた年の姿から assessed の建物を足す", () => {
+    const req = withPlan(big(), { type: "build", at: "2028-07", assessed: box(10_000_000) });
+    const before = landOf(contingencyOf(death(req, "2028-06"), { lands: [{ object: PLAN, buildingValue: 5_000_000 }] }), PLAN);
+    expect(before).toMatchObject({ buildingSource: "none", building: 0 });
+    const after = landOf(contingencyOf(death(req, "2029-06")), PLAN);
+    expect(after.buildingSource).toBe("entered");
+    expect(after.building).toBe(Math.floor((yearsOf(req).find((y) => y.year === 2028)?.assessed as number) * (1 - 0.3 * 0.9)));
+  });
+
+  it("貸付の3年以内は予定の貸し始め（買う月。それより前の貸し始めを入れても買う月）から数える: 35か月後は対象外・ちょうど36か月後と37か月後は対象", () => {
+    const lands = [{ object: PLAN, area: "100", primary: { acquirer: "successor", met: true } }];
+    for (const from of [undefined, "2020-01"]) {
+      const req = withPlan(big(), { at: "2028-01", ...(from !== undefined ? { from } : {}) });
+      const at35 = contingencyOf(death(req, "2030-12"), { lands });
+      expect(landOf(at35, PLAN).special).toMatchObject({ status: "within3Years", recentRental: true });
+      expect(at35.cautions).toContain("smallLandRecentRental");
+      expect(landOf(contingencyOf(death(req, "2031-01"), { lands }), PLAN).special.status).toBe("applied");
+      expect(landOf(contingencyOf(death(req, "2031-02"), { lands }), PLAN).special.status).toBe("applied");
+    }
   });
 });

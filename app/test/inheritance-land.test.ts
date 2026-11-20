@@ -1,12 +1,13 @@
 // 相続税の試算（相続・贈与の入力項目の区画「相続税の試算」。0231）: チェックしない世帯は入力が増えない・チェックした世帯だけ不動産ごとの欄・
-// 建物の固定資産税評価額の推定を計算の要求にだけ足す・「詳しく試算しますか」の一言・内訳の不動産の行・物を外したら設定の行も消す
+// 建物の固定資産税評価額の推定を計算の要求にだけ足す・「詳しく試算しますか」の一言・内訳の不動産の行・物を外したら設定の行も消す・
+// チェックを外して入れ直すと同じ値で試算する・建てる・買う予定の物件（0232）は画面の推定を足さない
 import { describe, expect, it } from "vitest";
 import type { PreviewResult } from "../src/engine/types.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import { chartRequests, scenarios } from "../src/workspace/contingency/requests.ts";
 import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { buildingEstimateOf, isDetailed, landTargets, setDetailed, withLandEstimates } from "../src/workspace/input/inheritanceLand.ts";
+import { buildingEstimateOf, DETAILED_HELP, isDetailed, landTargets, setDetailed, withLandEstimates } from "../src/workspace/input/inheritanceLand.ts";
 import { detailPrompt, inheritanceRequest, inheritanceView } from "../src/workspace/input/inheritanceLine.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { refSites } from "../src/workspace/input/refs.ts";
@@ -126,5 +127,54 @@ describe("「詳しく試算しますか」の一言", () => {
     const none = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const noLand = { ...none, request: { ...none.request, input: { ...none.request.input, household: { ...none.request.input.household, residences: [], accounts: (none.request.input.household.accounts ?? []).filter((a) => a.kind !== "realEstate") } } } };
     expect(detailPrompt(noLand, fake)).toBeNull();
+  });
+});
+
+describe("チェックを外しても入れた値は残り、チェックし直せば同じ値で試算する", () => {
+  it("「?」の説明の最後の1文", () => {
+    expect(DETAILED_HELP.endsWith("チェックを外しても入れた値は残り、チェックし直せば同じ値で試算します")).toBe(true);
+    expect(fieldOf(rental, "inherit/tax/detailed").help).toBe(DETAILED_HELP);
+  });
+
+  it("入れた値（面積・路線価・取得する人）は外しても残り、入れ直すと同じ設定・同じ試算の結果", () => {
+    const on = setDetailed(rental, true);
+    const a = fieldOf(on, `inherit/land/${home.id}/area`).set(on, "180");
+    const b = fieldOf(a, `inherit/land/${home.id}/method`).set(a, "routePrice");
+    const c = fieldOf(b, `inherit/land/${home.id}/routePrice`).set(b, 220_000);
+    const filled = fieldOf(c, `inherit/land/${prop.id}/primary/acquirer`).set(c, "successor");
+    const off = setDetailed(filled, false);
+    expect(fieldOf(off, "inherit/tax/detailed").get(off).value).toBe(false);
+    expect(off.request.input.inheritanceTax?.lands).toEqual(filled.request.input.inheritanceTax?.lands);
+    // 外している間の試算は、設定が無い世帯と同じ（不動産ごとの評価を出さない）
+    const offPoints = estimate(off).inheritanceTax?.points ?? [];
+    expect(offPoints.every((p) => (p as { lands?: unknown }).lands === undefined)).toBe(true);
+    const again = setDetailed(off, true);
+    expect(again.request.input.inheritanceTax).toEqual(filled.request.input.inheritanceTax);
+    expect(estimate(again).inheritanceTax).toEqual(estimate(filled).inheritanceTax);
+    expect(fieldOf(again, `inherit/land/${home.id}/routePrice`).get(again).value).toBe(220_000);
+  });
+});
+
+describe("建てる・買う予定の物件（0232）", () => {
+  /** 物件に土地ごと買う予定を足す（建物の固定資産税評価額は推定の箱） */
+  const planned = (() => {
+    const on = setDetailed(rental, true);
+    const req = structuredClone(on.request);
+    const a = req.input.household.accounts!.find((x) => x.id === prop.id)!;
+    a.property = { ...a.property!, planned: { type: "buy", at: { at: "2028-07" }, parts: { land: 20_000_000, building: 25_000_000 }, assessed: { value: 10_000_000, state: "confirmed", origin: { kind: "manual" } } } as never };
+    return { ...on, request: req };
+  })();
+
+  it("画面の推定 buildingEstimate を足さない（計算エンジンが予定の欄の建物の固定資産税評価額を使う）。欄の空欄の意味も予定の欄", () => {
+    expect(buildingEstimateOf(planned.request, prop.id)).toBeNull();
+    const lands = inheritanceRequest(planned.request).input.inheritanceTax?.lands ?? [];
+    expect(lands.find((l) => l.object === prop.id)?.buildingEstimate).toBeUndefined();
+    expect(fieldOf(planned, `inherit/land/${prop.id}/building`).blankMeans).toContain("建てる・買う予定の欄");
+  });
+
+  it("予定の買う月が計算基準月の3年以内なら、貸付の3年の決まりの欄を出す（前からの貸し始めを入れていても、買う月から数える）", () => {
+    const w = fieldOf(planned, `inherit/land/${prop.id}/use`).set(planned, "rental");
+    expect(keys(w)).toContain(`inherit/land/${prop.id}/rentalContinued`);
+    expect(keys(fieldOf(setDetailed(rental, true), `inherit/land/${prop.id}/use`).set(setDetailed(rental, true), "rental"))).not.toContain(`inherit/land/${prop.id}/rentalContinued`);
   });
 });
