@@ -1932,7 +1932,7 @@ export function App() {
     saveNow,
     look: { name: branding.name ?? "", color: usesStandardColor(branding) || branding.color === undefined ? null : checkBase(branding.color).light },
   });
-  /** 「AI が発行した URL」を開く（上の帯の「確かめる」と、事前ヒアリングを取り込むの入口。まだ見ていない URL があれば見た印を付ける） */
+  /** 「AI が発行した URL」を開く（上の帯の「確かめる」と、「発行した URL」の表の下・表の行の入口。まだ見ていない URL があれば見た印を付ける） */
   const openHearingPanel = () => {
     setHearingPanel(true);
     if (unseenCount(aiHearing.store) > 0) void aiHearing.seen().catch(() => undefined);
@@ -3363,7 +3363,7 @@ export function App() {
                           sheets={host.sheets}
                           onSave={edit}
                           customerNo={storedInfo !== null && storedInfo.sample === undefined ? storedInfo.customerNo : null}
-                          aiIssued={{ store: aiHearing.store, aiOn: ai.status?.enabled === true, onOpen: openHearingPanel }}
+                          aiIssued={{ store: aiHearing.store, householdId: openedId, readOnly: storedInfo?.readOnly === true, onOpen: openHearingPanel }}
                           {...(host.hearingWeb !== undefined
                             ? {
                                 webProps: {
@@ -3778,7 +3778,7 @@ export function App() {
           onEntry={aiHearing.putEntry}
           onAssignOpened={async (rid) => (storedInfo === null ? false : aiHearing.assign(rid, storedInfo.id, storedInfo.customerNo))}
           onCreate={async (rid) => {
-            // 新しい世帯を作って開き、その世帯に結びつける（開いた世帯へ移る）。取り込みは、その世帯の「URL の依頼」で
+            // 新しい世帯を作って開き、その世帯に結びつける（開いた世帯へ移る）。取り込みは、その世帯の「発行した URL」で
             if (!(await open(BLANK))) return "新しい世帯を作るのをやめました";
             await persistCurrent();
             const sr = storedRef.current;
@@ -3786,7 +3786,7 @@ export function App() {
             const moved = await aiHearing.assign(rid, sr.id, sr.customerNo);
             setHearingPanel(false);
             setFpOpen("imports");
-            return moved ? null : "新しい世帯を作りました。依頼は、世帯を保存できたら「URL の依頼」に移ります";
+            return moved ? null : "新しい世帯を作りました。依頼は、世帯を保存できたら「発行した URL」に移ります";
           }}
           onOpenHousehold={(id) => {
             setHearingPanel(false);

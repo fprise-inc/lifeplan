@@ -75,7 +75,10 @@ describe("名前（0192 の追記）", () => {
   it("既定は Excel のシートを外す（2026-11-18）: URL生成と URL の回答の取り込みだけ。Excel に触れる言葉を出さない", () => {
     expect(HEARING_EXCEL_SHOWN).toBe(false);
     const html = renderToString(h(HearingTools, { wh: blank(), sheets, onSave: () => undefined, webProps }));
-    for (const t of ["事前ヒアリング内容を作る", "URL生成", "事前ヒアリングを取り込む", "URL生成で作った依頼に回答が届いたら"]) expect(html).toContain(t);
+    for (const t of ["事前ヒアリング内容を作る", "URL生成"]) expect(html).toContain(t);
+    // 「事前ヒアリングを取り込む」の段は、記入済みの Excel を取り込む（Excel を出すとき）と届いた件数の知らせだけ。どちらも無ければ段ごと出さない（0222 の追記 2026-11-20）。
+    // URL が0件なら「発行した URL」の枠も出さない
+    for (const t of ["事前ヒアリングを取り込む", "data-hearing-take", "data-web-requests", "URL の依頼"]) expect(html).not.toContain(t);
     for (const t of ["Excel", "記入済み", "ヒアリングシート", "data-hearing-export", "data-hearing-import"]) expect(html).not.toContain(t);
     // 本体に受け付けの命令が無い画面（Web も Excel も無い）では、入口の段を出さない
     expect(renderToString(h(HearingTools, { wh: blank(), sheets, onSave: () => undefined }))).not.toContain("data-hearing-ask");
@@ -111,24 +114,31 @@ describe("依頼の行の段階（0192 の追記）", () => {
     const { t, r } = await answered(blank());
     const got = (await receiveWeb(r.wh, r.entry, t, NOW))!;
     expect(rowMode(got.entry, NOW, undefined, got.wh)).toBe("toImport");
+    // 受け取って取り込んでいない: 「事前ヒアリングを取り込む」の段に取り込み待ちの数だけ（0222 の追記 2026-11-20）
+    const waitingTools = renderToString(h(HearingTools, { wh: got.wh, sheets, onSave: () => undefined, webProps }));
+    const take = waitingTools.slice(waitingTools.indexOf("data-hearing-take"), waitingTools.indexOf("data-web-requests"));
+    expect(take).toContain("取り込み待ち（1件）");
+    expect(take).toContain("下の「発行した URL」の「取り込む」から取り込みます");
+    expect(waitingTools).toContain("data-web-import");
     const view = importWeb(got.wh, got.entry, "0.1.0", seq);
     const out = applyImport(got.wh, view, new Set(view.candidates.map((c) => c.id)), approvalTime(NOW));
     const done = markImported(out.wh, r.entry.record.requestId, approvalTime(NOW));
     const e = webLog(done).find((x) => x.record.requestId === r.entry.record.requestId) as WebLogEntry;
     expect(rowMode(e, NOW, undefined, done)).toBe("done");
-    // 一覧から外す（記録は世帯に残す）。一覧が空なら「URL の依頼」の枠ごと出さない
+    // 表の行から外す（記録は世帯に残す）。送られた内容は、「発行した URL」の表の下の「取り込み済みの URL の回答」から（0222 の追記 2026-11-20）
     expect(listed(e, NOW, done)).toBe(false);
     expect(webLog(done)).toHaveLength(1);
-    expect(rows(done)).toBe("");
+    expect(rows(done)).not.toContain("data-web-request=");
+    expect(rows(done)).toContain("発行した URL（1）");
+    expect(rows(done)).toContain("data-web-imported");
     expect(importedEntries(done, NOW).map((x) => x.record.requestId)).toEqual([r.entry.record.requestId]);
     const imp = renderToString(h(ImportedAnswers, { wh: done }));
     expect(imp).toContain("取り込み済みの URL の回答（1）");
     expect(imp).toContain("data-web-answers-open");
-    // 入口の段の案内は、一覧が無いときの言葉
+    // 届いた知らせも取り込み待ちも無いので、「事前ヒアリングを取り込む」の段は出さない
     const tools = renderToString(h(HearingTools, { wh: done, sheets, onSave: () => undefined, webProps }));
     expect(tools).toContain("data-web-imported");
-    expect(tools).not.toContain("data-web-requests");
-    expect(tools).toContain("URL生成で作った依頼に回答が届いたら");
+    expect(tools).not.toContain("data-hearing-take");
     // 取り込みを元に戻した（世帯の取り込みの記録から消えた）依頼は、また一覧に出す（もう一度取り込める）
     const undone = markImported(got.wh, r.entry.record.requestId, approvalTime(NOW));
     const ue = webLog(undone)[0] as WebLogEntry;
@@ -160,7 +170,7 @@ describe("依頼の行の段階（0192 の追記）", () => {
     expect(waitingDocuments(more.entry, NOW)).toEqual([]);
     // 書類を受け取り終えたら一覧から外す（2026-11-18）
     expect(listed(more.entry, NOW, more.wh)).toBe(false);
-    expect(rows(more.wh)).toBe("");
+    expect(rows(more.wh)).not.toContain("data-web-request=");
     const imp = renderToString(h(ImportedAnswers, { wh: more.wh }));
     expect(imp).toContain("data-web-imported");
     expect(imp).toContain("受け取った書類");
