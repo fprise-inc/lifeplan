@@ -4,7 +4,7 @@
 AIのアプリ（Claude Code・Claude Desktop・Codex・Gemini CLI）が `lifeplan mcp` を起動し、**標準入出力だけ**で話します。ネットワークの口は開けません。
 
 > アプリの画面では、世帯の一覧のいちばん下の「AI との接続」（事務所全体の設定。既定はオフ）で使うかどうかを決め、**「AI のアプリに登録する」のボタンで、
-> AI のアプリの設定に登録します**（下の「0. ボタンで登録する」。設計記録 0228）。手で書きたいときは「手で設定する」の「文面をコピー」で、
+> AI のアプリの設定に登録します**（下の「0. ボタンで登録する」。設計記録 0228）。手で書きたいときは「手動で登録する」の「文面をコピー」で、
 > 本物の場所の入った文面をクリップボードに写し、下の2〜4のとおり書きます（接続口の場所は画面では伏せます）。
 
 ## 0. ボタンで登録する（アプリの画面。0228）
@@ -15,13 +15,13 @@ AIのアプリ（Claude Code・Claude Desktop・Codex・Gemini CLI）が `lifepl
 | AIのアプリ | 登録のしかた | 気をつけること |
 |---|---|---|
 | Claude Desktop | 設定のファイル（Mac `~/Library/Application Support/Claude/claude_desktop_config.json`、Windows `%APPDATA%\Claude\claude_desktop_config.json`）の `mcpServers` に `fprise-lifeplan` を足す | **Claude Desktop を完全に終了してから**押します。起動していると、アプリは書きません（「Claude Desktop が起動しています」と出ます。終了してから「もう一度確かめる」）。Linux には Claude Desktop がありません |
-| Claude Code | `claude mcp add --transport stdio --scope user fprise-lifeplan -- <接続口の絶対パス> mcp` を呼ぶ（設定のファイルは直接書かない） | `claude` コマンドが見つからないときは押せません（手で設定する手順に戻ります）。状態は `~/.claude.json` を読んで見ます |
+| Claude Code | `claude mcp add --transport stdio --scope user fprise-lifeplan -- <接続口の絶対パス> mcp` を呼ぶ（設定のファイルは直接書かない） | `claude` コマンドが見つからないときは押せません（手動で登録する手順に戻ります）。状態は `~/.claude.json` を読んで見ます |
 | Codex | `~/.codex/config.toml`（`CODEX_HOME` があればその下）に `[mcp_servers.fprise-lifeplan]` を足す | コメントやほかの行はそのまま残ります。Codex のアプリと CLI は同じファイルを使います |
 | Gemini CLI | `~/.gemini/settings.json` の `mcpServers` に `fprise-lifeplan` を足す | **提供元はまだ実物で試していません**（書く形は Gemini CLI の説明書のとおり。画面にも書いています） |
 
 - 書く前の設定のファイルは、アプリのデータの場所の `ai-app-backups/`（Mac `~/Library/Application Support/com.fprise.lifeplan/ai-app-backups/`）に、AI のアプリの名前と日時をつけて控えます。元に戻したいときは、その控えを元の場所に写します（アプリには「元に戻す」のボタンはありません。0228 の4）。
 - ほかのサーバーの設定・ほかの欄は変えません（JSON は元の文をそのまま写し、`fprise-lifeplan` の所だけを足す・直す・外します）。すでに登録があれば、場所（`command`）と引数だけを直し、自分で足した欄（`env` など）は残します。
-- 設定のファイルを読めないとき（コメントの入った JSON・`mcpServers` が表でない など）は書きません。「手で設定する」の文面で手で足してください。
+- 設定のファイルを読めないとき（コメントの入った JSON・`mcpServers` が表でない など）は書きません。「手動で登録する」の文面で手で足してください。
 - **場所が古い**: アプリを別の場所に入れ直した・動かしたときは、登録した場所と今の場所が違うので「場所が古い」と出ます。「場所を直す」で今の場所に書き直します。
 - Mac で dmg から直接開いた・ダウンロードのフォルダのまま開いたアプリ（一時的な場所で動いている）は登録できません。「アプリケーション」フォルダに入れてから開き直します。
 - 「登録を外す」で、`fprise-lifeplan` の所だけを外します。
