@@ -57,7 +57,7 @@ describe("収益不動産の入力項目", () => {
     const sec = stageOf(wh).sections[0]!;
     expect(sec.note).toBe(`まだありません。${RENTAL_HELP}`);
     expect(RENTAL_HELP).toContain("貸していない土地・別荘は『貯蓄・運用』のその他の資産に入れます");
-    expect(sec.actions.map((a) => a.label)).toEqual(["＋ 物件を足す"]);
+    expect(sec.actions.map((a) => a.label)).toEqual(["＋ 物件を足す", "＋ 建てる・買う予定"]);
   });
 
   it("「＋ 物件を足す」: 最初から中身の欄（土地と建物・家賃収入・経費・売却・ローン）が出る。評価額と家賃は未入力（0円で計算中）で始まる", () => {

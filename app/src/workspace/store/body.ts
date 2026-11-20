@@ -139,6 +139,8 @@
 //   0221）。足すだけ。本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝どの行も印なし。statement/ の readLog が読む）
 //   0.84 から: Web のヒアリングの依頼の記録 hearing.web の1件に、任意の欄 origin（AI から発行した依頼の出どころ。0222）。足すだけ。
 //   本体の変換の段は版だけを書き換える（前の版の依頼は欄が無い＝FP の画面で発行した依頼）
+//   0.85 から: 収益不動産の中身に、建てる・買う予定 accounts[].property.planned（予定の形・時期・購入代金と建築費の内訳・建物附属設備の耐用年数・
+//   取得の諸費用・自己資金・建物の固定資産税評価額。0232）。足すだけ。本体の変換の段は版だけを書き換える（前の版の世帯は欄が無い＝予定の無い物件）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -212,7 +214,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.84";
+export const BODY_FORMAT_VERSION = "0.85";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

@@ -240,6 +240,7 @@ const EXPENSE_OF: Record<string, keyof FlowYear> = {
   car: "expenseCar",
   realEstateExpense: "expenseRealEstate",
   realEstateLoan: "expenseRealEstate",
+  realEstatePurchase: "expenseRealEstate",
   expenseOther: "expenseOther",
 };
 

@@ -1,7 +1,7 @@
 // 部品が共通に使う小さな関数（公式SDK）。年齢の値（unit: years）の切り替えの月・年度・働き方の種類
 import { EngineError } from "../errors.ts";
 import type { Ctx } from "../registry/ctx.ts";
-import type { BuildingStructure, Flow, MemberInput, RealEstateValuationSetting, ReturnStageInput } from "../engine/types.ts";
+import type { BuildingStructure, Flow, MemberInput, RealEstatePropertyInput, RealEstateValuationSetting, ReturnStageInput } from "../engine/types.ts";
 import { numTable } from "../engine/numTable.ts";
 import { RATE_ONE, RATE_ZERO, type Rate } from "../money/rate.ts";
 import { addYen, yen, type Yen } from "../money/yen.ts";
@@ -701,6 +701,64 @@ export const RESIDUAL_FLOOR = "preset.realEstate.residualFloor";
 export const SALE_COST_RATE = "preset.realEstate.saleCostRate";
 
 const VALUATION_RULE = "conv.asset.valuation";
+
+// ---- 建物の固定資産税評価額の動き（0181 の式。画面の app/src/workspace/input/propertyTax.ts の buildingValueRatio と同じ値。0232）----
+// 法令の値（固定資産評価基準。令和6基準年度）: 木造は別表第9 1 の 95,820〜147,770点の区分（築25年で0.20）、非木造は別表第13 2（住宅・アパート用）で
+// 鉄筋コンクリート造60年・鉄骨造（肉厚4mm超）40年・鉄骨造（3mm超4mm以下）30年で0.20（築3年まで 0.80・0.75・0.70、その後は0.20までまっすぐ。
+// 小数4桁）。再建築費評点補正率は確かめた2024年度（木造1.11・非木造1.07）だけ。評価替えは2024年度から3年ごと
+
+const WOOD_KEINEN = ["0.80", "0.75", "0.70", "0.68", "0.65", "0.63", "0.61", "0.59", "0.56", "0.54", "0.52", "0.50", "0.47", "0.45", "0.43", "0.40", "0.38", "0.36", "0.34", "0.31", "0.29", "0.27", "0.25", "0.22", "0.20"] as const;
+const NONWOOD_KEINEN_YEARS: Readonly<Record<Exclude<BuildingStructure, "wood">, number>> = { rc: 60, steel: 40, lightSteel: 30 };
+const ASSESSED_REBUILD: Readonly<Record<number, { readonly wood: string; readonly nonWood: string }>> = { 2024: { wood: "1.11", nonWood: "1.07" } };
+const REASSESS_FROM = 2024;
+const REASSESS_EVERY = 3;
+
+/** その年に効いている評価替えの年（基準年度） */
+const reassessYearOf = (y: number): number => REASSESS_FROM + Math.floor((y - REASSESS_FROM) / REASSESS_EVERY) * REASSESS_EVERY;
+
+/** 経年減点補正率（経過年数。1年未満は1年の値。法令の値の10進の文字列） */
+export function keinenRateText(structure: BuildingStructure, age: number): string {
+  const a = Math.max(1, Math.floor(age));
+  if (structure === "wood") return WOOD_KEINEN[Math.min(a, WOOD_KEINEN.length) - 1] as string;
+  const n = NONWOOD_KEINEN_YEARS[structure];
+  if (a <= 3) return (["0.80", "0.75", "0.70"] as const)[a - 1] as string;
+  if (a >= n) return "0.20";
+  // 0.7 − 0.5×(a−3)÷(n−3) を小数4桁に四捨五入（1万分の1を単位にした整数の割り算で）
+  const num = 7000 * (n - 3) - 5000 * (a - 3);
+  const den = n - 3;
+  const k = Math.floor((2 * num + den) / (2 * den));
+  return `0.${String(k).padStart(4, "0")}`;
+}
+
+/**
+ * 建物の固定資産税評価額の、時点の年（refYear）に効いている額に対する、その年（year）に効いている額の比（0181 の式）。時点の年に効いている評価替えの
+ * 年の経過年数の補正率を元に、その後の評価替えの年ごとに、経過年数の補正率×再建築費評点補正率（累積）に置き換え、前の額より上がる年は前の額のまま
+ */
+export function assessedBuildingRatio(ctx: Ctx, structure: BuildingStructure, built: number, refYear: number, year: number): Rate {
+  const ageAt = (r: number): number => Math.max(1, r - built);
+  const keinen = (r: number): Rate => ctx.rate.of(keinenRateText(structure, ageAt(r)));
+  const rRef = reassessYearOf(refYear);
+  const d0 = keinen(rRef);
+  let v = d0;
+  let cum = RATE_ONE;
+  for (let r = rRef + REASSESS_EVERY; r <= reassessYearOf(year); r += REASSESS_EVERY) {
+    if (r <= built) continue;
+    const f = ASSESSED_REBUILD[r];
+    if (f !== undefined) cum = ctx.rate.mul(cum, ctx.rate.of(structure === "wood" ? f.wood : f.nonWood));
+    const c = ctx.rate.mul(keinen(r), cum);
+    if (ctx.rate.compare(c, v) < 0) v = c;
+  }
+  return ctx.rate.div(v, d0);
+}
+
+/**
+ * 住まい以外の不動産の中身の持ち始める月（0232）: 建てる・買う予定の「土地ごと買う」は買う月、ほかは持ち始める時点 holdFrom（0039）。
+ * 省略は前から持っている（null）。「持っている土地に建てる」は土地を前から持っているので holdFrom のまま
+ */
+export function propertyHoldStart(ctx: Ctx, p: Pick<RealEstatePropertyInput, "holdFrom" | "planned">): MonthIndex | null {
+  if (p.planned?.type === "buy") return ctx.time.resolve(p.planned.at);
+  return p.holdFrom === undefined ? null : ctx.time.resolve(p.holdFrom);
+}
 
 /** 築年数 a の年末の建物の残りの割合（下限つき） */
 function remainingShare(ctx: Ctx, age: number, life: number, floor: Rate): Rate {

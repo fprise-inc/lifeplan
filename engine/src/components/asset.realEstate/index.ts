@@ -81,6 +81,22 @@
 // - 改訂11（0028 の追記 2026-11-15）: 不動産所得の経費にする借入の利息は、その年の利息（debt.schedule の interest）を、その年にローンのある月
 //   （最初の返済の月〔計算基準月より前なら計算基準月〕から返し終わる月まで）のうち貸している月の割合で按分する。前は貸している月数÷12 を
 //   掛けていたので、年の途中で借りた・返した年（買った年・売った年）は、利息そのものが数か月分なのにさらに月割りされ、半分ほどになっていた
+// - 改訂12・約束の版 1.7（0232。建てる・買う予定）: 中身に任意の欄 planned（type・at・parts・equipmentLife・costs・equity・assessed）。入れていない物件の
+//   結果は同じ
+//   - 土地ごと買う（buy）: at の月から持つ（holdFrom の代わり）。評価額（時価）は代金の合計（parts）を at の年の額とし（器の marketValue は読まない）、
+//     土地の割合は入れた割合 → 代金の土地の割合。取得は planned の parts・costs・equipmentLife（property.acquisition は読まない）で、建った年の省略は
+//     at の年（中古で買うなら建った年を入れる）
+//   - 持っている土地に建てる（build）: 器の時価を土地の額とみなし（土地の割合 1）、at の月から、建物（parts の building と equipment）を at の年に
+//     新築の建物として足す（評価額は構造の耐用年数で減らす）。減価償却の基は建物と建物附属設備（＋諸費用を額の比で分けた分）、新築の法定耐用年数。
+//     property.acquisition は土地の取得（売ったときの取得費と所有期間。土地の取得価額が無ければ取得費の土地の分は0〔概算取得費のほうが大きければ
+//     それ〕、所有期間は土地の取得の年月で分け、無ければ長期とみなす）
+//   - どちらも: at の月に自己資金（equity。省略は代金＋諸費用−計算基準月以後に借りるこの物件のローンの借入額）を一時の支出
+//     cf.expense.lumpSum.realEstatePurchase（計算式ID asset.realEstate.purchase）に出す。家賃（貸し始めの省略も at の月）・経費・大きな修繕・
+//     減価償却は at の月から（at の月より前に貸し始めを入れても、at の月より前は貸していない）。減価償却の引き継ぎ（depreciationCarryover）は読まない。
+//     売る予定が at の月か、それより前なら売らない（知らせ N_ASSUMED realEstate.planSaleIgnored。debt.schedule も返さない）
+//   - 相続税の評価の材料（任意の出力。評価額〔時価〕・税は変えない）: years[].assessed（予定の物件の建物の固定資産税評価額の目安。planned.assessed を
+//     at の年の額とし、評価替えの年ごとに経年減点補正率・再建築費評点補正率で動かす。sdk の assessedBuildingRatio。0181 の式）、years[].rentedShare
+//     （貸している物件の年末の月に貸している割合。予定の無い物件にも出す）、facts.planned（type・ym・払う自己資金）
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   inheritanceOf,
@@ -88,6 +104,7 @@ import {
   splitEqually,
   addMonths,
   addYen,
+  assessedBuildingRatio,
   boxValue,
   defineComponent,
   formatYm,
@@ -95,6 +112,7 @@ import {
   LAND_SHARE,
   monthIndex,
   parseYm,
+  propertyHoldStart,
   RATE_ONE,
   RATE_ZERO,
   SALE_COST_RATE,
@@ -109,6 +127,7 @@ import {
   type MonthIndex,
   type Rate,
   type RealEstateOutput,
+  type RealEstatePropertyInput,
   type RealEstateValuationSetting,
   type Yen,
 } from "../../sdk/index.ts";
@@ -172,11 +191,11 @@ function monthsIn(y: number, lo: MonthIndex, hi: MonthIndex): number {
 export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
-  contract: "1.6",
-  revision: 11,
+  contract: "1.7",
+  revision: 12,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [HOLDING, ESTIMATED],
-  reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
+  reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "debt.start", "assumptions.inflation", "assumptions.realEstateValuation"],
   input: "empty.input",
   output: "asset.realEstate.output",
   compute(_input, ctx) {
@@ -187,7 +206,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
     const setting = ctx.setting<RealEstateValuationSetting>("realEstateValuation");
     const flows: Flow[] = [];
     const properties: RealEstateOutput["properties"][number][] = [];
-    const debts = ctx.list<Pick<DebtInput, "id" | "property" | "principal">>("debt");
+    const debts = ctx.list<Pick<DebtInput, "id" | "property" | "principal" | "start">>("debt");
     for (const a of ctx.list<AccountInput>("account")) {
       const p = a.property;
       if (a.kind !== "realEstate" || p === undefined) continue;
@@ -198,48 +217,73 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         if (amount <= 0 || m < base || m > end) return;
         flows.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), member: owner, object: a.id, formula });
       };
-      // 評価額（土地と建物）
-      const basis = boxValue(a.marketValue) ?? yen(0);
-      const y0 = yearOf(ctx.time.resolve({ at: a.asOf }));
-      const acqAt: MonthIndex | null = p.acquisition === undefined ? null : ctx.time.resolve({ at: p.acquisition.at });
+      // 建てる・買う予定（改訂12。0232）
+      const plan = p.planned;
+      const planAt: MonthIndex | null = plan === undefined ? null : ctx.time.resolve(plan.at);
+      const buying = plan?.type === "buy" && planAt !== null;
+      const builds = plan?.type === "build" && planAt !== null;
+      const planBuilding = yen((plan?.parts?.building ?? 0) + (plan?.parts?.equipment ?? 0));
+      // 取得（買う予定は予定の代金・諸費用・自己資金。建てる予定と予定の無い物件は入れた取得。建てる予定の取得は土地の取得）
+      const acqIn: RealEstatePropertyInput["acquisition"] =
+        buying && plan !== undefined && planAt !== null
+          ? { at: formatYm(planAt), ...(plan.parts !== undefined ? { parts: plan.parts } : {}), ...(plan.equipmentLife !== undefined ? { equipmentLife: plan.equipmentLife } : {}), ...(plan.costs !== undefined ? { costs: plan.costs } : {}) }
+          : p.acquisition;
+      const acqAt: MonthIndex | null = acqIn === undefined ? null : buying && planAt !== null ? planAt : ctx.time.resolve({ at: acqIn.at });
       // 取得価額の内訳（入れたら土地の割合より優先して取得価額を分ける。評価額の土地の割合の省略にも使う）
-      const parts = p.acquisition?.parts;
+      const parts = acqIn?.parts;
       // 取得価額のある取得（取得の年月だけの取得は、減価償却・帳簿価額・取得費に使わない。改訂9）
-      const priced = p.acquisition !== undefined && (p.acquisition.price !== undefined || parts !== undefined) ? p.acquisition : undefined;
+      const priced = acqIn !== undefined && (acqIn.price !== undefined || parts !== undefined) ? acqIn : undefined;
       const partLand = yen(parts?.land ?? 0);
       const partBuilding = yen(parts?.building ?? 0);
       const partEquipment = yen(parts?.equipment ?? 0);
       const partsTotal = partLand + partBuilding + partEquipment;
       const partsShare = parts !== undefined && partsTotal > 0 ? ctx.rate.toString(ctx.rate.div(ctx.rate.of(String(partLand)), ctx.rate.of(String(partsTotal)))) : undefined;
-      // 建物の無い種類（貸している土地・駐車場）は、土地の割合の省略を 1 にする（改訂7）
+      // 評価額（土地と建物）。買う予定は代金の合計を買う年の額にする（器の時価は読まない。改訂12）
+      const basis = buying && parts !== undefined ? yen(partsTotal) : (boxValue(a.marketValue) ?? yen(0));
+      const y0 = buying && planAt !== null ? yearOf(planAt) : yearOf(ctx.time.resolve({ at: a.asOf }));
+      // 建物の無い種類（貸している土地・駐車場）は、土地の割合の省略を 1 にする（改訂7）。建てる予定は、器の時価を全部土地とみなす（改訂12）
       const landOnly = isLandOnlyKind(p.kind);
-      const shareText = p.landShare ?? (landOnly ? "1" : (partsShare ?? setting?.landShare));
+      const shareText = builds ? "1" : (p.landShare ?? (landOnly ? "1" : (partsShare ?? setting?.landShare)));
       if (shareText === undefined) ctx.notice("N_DEFAULT_USED", [a.id, "account.property.landShare"]);
       const share = shareText ?? String(ctx.estimate(LAND_SHARE));
-      const noBuilding = landOnly && ctx.rate.compare(ctx.rate.of(share), RATE_ONE) >= 0 && partBuilding === 0;
+      const noBuilding = !builds && landOnly && ctx.rate.compare(ctx.rate.of(share), RATE_ONE) >= 0 && partBuilding === 0;
       const structure = p.structure ?? "wood";
-      const built = p.builtYear ?? (acqAt === null ? y0 : yearOf(acqAt));
+      // 建てる予定の建物は、建てる年に新築（入れた建った年は読まない）
+      const built = builds && planAt !== null ? yearOf(planAt) : (p.builtYear ?? (acqAt === null ? y0 : yearOf(acqAt)));
       const growthOf = (y: number): Rate => (a.valueGrowth !== undefined ? ctx.rate.of(a.valueGrowth) : (ctx.assumptionIn("realEstateValuation", "landGrowth", y) ?? ctx.assumption("inflation", y, RATE_ZERO)));
       const valuer = landBuildingValuer(ctx, { basis, y0, share, structure, builtYear: built, setting, growthOf });
-      const saleAt: MonthIndex | null = p.sale === undefined ? null : ctx.time.resolve(p.sale.at);
+      // 建てる予定の建物（建てる年に新築。建物の額は建物と建物附属設備の建築費。改訂12）
+      const newBuilding = builds && planAt !== null ? landBuildingValuer(ctx, { basis: planBuilding, y0: yearOf(planAt), share: "0", structure, builtYear: yearOf(planAt), setting, growthOf }) : null;
+      const valueAt = (y: number): { land: Yen; building: Yen } => {
+        const lb = valuer.at(y);
+        if (newBuilding === null || planAt === null || monthIndex(y, 12) < planAt) return lb;
+        return { land: lb.land, building: addYen(lb.building, newBuilding.at(y).building) };
+      };
+      // 持ち始める月（省略は前から持っている。買う予定は買う月。改訂12）
+      const holdStart: MonthIndex | null = propertyHoldStart(ctx, p);
+      // 家賃・経費・減価償却を始める月（予定があれば予定の月。無ければ持ち始める月）
+      const opStart: MonthIndex | null = planAt ?? holdStart;
+      const saleAt0: MonthIndex | null = p.sale === undefined ? null : ctx.time.resolve(p.sale.at);
+      // 予定の月か、それより前に売る予定は売らない（改訂12）
+      const saleBeforePlan = plan !== undefined && planAt !== null && saleAt0 !== null && saleAt0 <= planAt;
+      if (saleBeforePlan) ctx.notice("N_ASSUMED", [a.id, "realEstate.planSaleIgnored"]);
+      const saleAt: MonthIndex | null = saleBeforePlan ? null : saleAt0;
       const sold = saleAt !== null && saleAt <= end;
       // 持っている最後の月（売るならその前の月）
       const holdEnd: MonthIndex = sold && saleAt !== null ? addMonths(saleAt, -1) : end;
-      // 持ち始める月（省略は前から持っている）
-      const holdStart: MonthIndex | null = p.holdFrom === undefined ? null : ctx.time.resolve(p.holdFrom);
       const years: { year: number; land: Yen; building: Yen; value: Yen }[] = [];
       if (holdEnd >= base) {
         for (let y = baseYear; y <= endYear; y++) {
           if (monthIndex(y, 12) > holdEnd) break;
           if (holdStart !== null && monthIndex(y, 12) < holdStart) continue;
-          const { land, building } = valuer.at(y);
+          const { land, building } = valueAt(y);
           years.push({ year: y, land, building, value: addYen(land, building) });
         }
       }
       let sale: RealEstateOutput["properties"][number]["sale"] = null;
       if (sold && saleAt !== null && saleAt >= base) {
         const y = yearOf(saleAt);
-        const lb = valuer.at(y);
+        const lb = valueAt(y);
         const value = addYen(lb.land, lb.building);
         const price = p.sale?.price ?? value;
         const costs = ctx.money.mulRate(price, ctx.rate.of(p.sale?.costRate ?? setting?.saleCostRate ?? String(ctx.estimate(SALE_COST_RATE))), VAL);
@@ -248,11 +292,21 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         if (proceeds > 0) flows.push({ row: "cf.income.lumpSum.realEstateSale", ym: formatYm(saleAt), amount: proceeds, accrualYear: y, member: owner, object: a.id, formula: "asset.realEstate.sale" });
       }
 
+      // 建てる・買う予定の自己資金（予定の月の一時の支出。省略は代金＋諸費用−計算基準月以後に借りるこの物件のローンの借入額。改訂12）
+      let paid: Yen | null = null;
+      if (plan !== undefined && planAt !== null) {
+        const pp = plan.parts;
+        const price = buying ? (pp?.land ?? 0) + (pp?.building ?? 0) + (pp?.equipment ?? 0) : planBuilding;
+        const borrowed = debts.filter((d) => d.property === a.id && ctx.time.resolve(d.start) >= base).reduce((s0, d) => s0 + d.principal, 0);
+        paid = plan.equity !== undefined ? yen(plan.equity) : yen(Math.max(0, price + (plan.costs ?? 0) - borrowed));
+        if (paid > 0 && planAt >= base && planAt <= end) flows.push({ row: "cf.expense.lumpSum.realEstatePurchase", ym: formatYm(planAt), amount: paid, accrualYear: yearOf(planAt), member: owner, object: a.id, formula: "asset.realEstate.purchase" });
+      }
+
       // 貸している月（rFrom〜rTo。計算は計算基準年の2年前から）
       const r = p.rental;
       const lodging = p.lodging;
-      const rFrom0: MonthIndex | null = r === undefined ? null : r.from !== undefined ? ctx.time.resolve(r.from) : (acqAt ?? calcStart);
-      const rFrom: MonthIndex | null = rFrom0 !== null && holdStart !== null ? maxM(rFrom0, holdStart) : rFrom0;
+      const rFrom0: MonthIndex | null = r === undefined ? null : r.from !== undefined ? ctx.time.resolve(r.from) : (planAt ?? acqAt ?? calcStart);
+      const rFrom: MonthIndex | null = rFrom0 !== null && opStart !== null ? maxM(rFrom0, opStart) : rFrom0;
       const rTo: MonthIndex | null = r === undefined ? null : r.to === undefined || r.to === null ? holdEnd : minM(ctx.time.resolve(r.to), holdEnd);
       const rented = (y: number) => (rFrom === null || rTo === null ? 0 : monthsIn(y, maxM(rFrom, calcStart), rTo));
       // 民泊・宿は空室の割合を使わない（稼働率で入れる）
@@ -371,7 +425,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         for (let mo = 1; mo <= 12; mo++) {
           const m = monthIndex(y, mo);
           if (m > holdEnd) break;
-          if (m < calcStart || (holdStart !== null && m < holdStart)) continue;
+          if (m < calcStart || (opStart !== null && m < opStart)) continue;
           const isRented = rFrom !== null && rTo !== null && m >= rFrom && m <= rTo;
           const inTable = m >= base && m <= end;
           if (inTable) {
@@ -432,7 +486,18 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const depAll = new Map<number, Yen>();
       // 取得価額からの償却の基（建物・建物附属設備）。取得の入力があるときだけ（帳簿価額・取得費の土地の分を出す）
       let bases: { building: Yen; equipment: Yen } | null = null;
-      if (priced !== undefined) {
+      if (builds && plan !== undefined) {
+        // 建てる予定: 償却の基は建物と建物附属設備の建築費（＋諸費用を額の比で分けた分）。土地の取得（acquisition）は償却しない（改訂12）
+        const building = yen(plan.parts?.building ?? 0);
+        const equipment = yen(plan.parts?.equipment ?? 0);
+        const total = yen(building + equipment);
+        const costs = yen(plan.costs ?? 0);
+        const costOf = (x: Yen): Yen => (costs > 0 && total > 0 && x > 0 ? ctx.money.mulRatio(costs, x, total, VAL) : yen(0));
+        if (total > 0) {
+          bases = { building: addYen(building, costOf(building)), equipment: addYen(equipment, costOf(equipment)) };
+          buildingCost = addYen(bases.building, bases.equipment);
+        }
+      } else if (priced !== undefined) {
         const acq = priced;
         const price = yen(acq.price ?? 0);
         const building = parts !== undefined ? partBuilding : yen(price - ctx.money.mulRate(price, ctx.rate.of(share), VAL));
@@ -443,8 +508,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         bases = { building: addYen(building, costOf(building)), equipment: addYen(equipment, costOf(equipment)) };
         buildingCost = addYen(bases.building, bases.equipment);
       }
-      // 減価償却の引き継ぎ（確定申告の数字。改訂8）: 入れた部分だけ
-      const carry = p.depreciationCarryover;
+      // 減価償却の引き継ぎ（確定申告の数字。改訂8）: 入れた部分だけ。建てる・買う予定の物件は読まない（改訂12）
+      const carry = plan === undefined ? p.depreciationCarryover : undefined;
       // 未償却残高と年間の償却費の両方がそろった部分だけ（どれもそろっていなければ、取得価額からの計算のまま）
       const carryParts = carry === undefined ? [] : (["building", "equipment"] as const).flatMap((k) => {
         const x = carry[k];
@@ -512,7 +577,12 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           }
           depreciateFrom(x.book, x.annual, carry.year + 1, from, rTo, x.part, x.book <= 1 ? carry.year : null, carryAfter);
         }
-      } else if (r !== undefined && priced !== undefined && bases !== null && acqAt !== null && rFrom !== null && rTo !== null) {
+      } else if (r !== undefined && builds && plan !== undefined && planAt !== null && bases !== null && rFrom !== null && rTo !== null) {
+        // 建てる予定の建物（新築。建てる月か貸し始めの遅いほうから）
+        const start = maxM(planAt, rFrom);
+        if (bases.building > 0) depreciateFrom(bases.building, ctx.money.mulRate(bases.building, ctx.rate.of(straightLineRate(TAX_USEFUL_LIFE[structure])), DEP), yearOf(start), start, rTo, "building", null, null);
+        if (bases.equipment > 0) depreciateFrom(bases.equipment, ctx.money.mulRate(bases.equipment, ctx.rate.of(straightLineRate(plan.equipmentLife ?? EQUIPMENT_LIFE)), DEP), yearOf(start), start, rTo, "equipment", null, null);
+      } else if (r !== undefined && !builds && priced !== undefined && bases !== null && acqAt !== null && rFrom !== null && rTo !== null) {
         const acq = priced;
         const { building: buildingBase, equipment: equipmentBase } = bases;
         const elapsed = yearOf(acqAt) - built;
@@ -584,33 +654,52 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           inh.heirs.forEach((h, i) => holders.push({ year: y, member: h, income: incomes[i] as Yen, landInterest: lands[i] as Yen }));
         }
       }
+      // 取得価額の合計と取得時の諸費用（建てる予定は、土地の取得〔取得価額があれば〕＋建物と建物附属設備の建築費。改訂12）
+      const landPriced = priced === undefined ? 0 : parts !== undefined ? partsTotal : (priced.price ?? 0);
+      const acqSummary: { total: Yen; costs: Yen } | null = builds
+        ? planBuilding > 0 || priced !== undefined
+          ? { total: yen(landPriced + planBuilding), costs: yen((priced?.costs ?? 0) + (plan?.costs ?? 0)) }
+          : null
+        : priced === undefined
+          ? null
+          : { total: yen(landPriced), costs: yen(priced.costs ?? 0) };
       // 売却の譲渡所得の内訳（0081）
       if (sale !== null && saleAt !== null) {
         const y = yearOf(saleAt);
         const at0 = ctx.at(monthIndex(y, 1));
         const estRate = at0.paramRate(ESTIMATED);
         const estimatedCost = estRate === null ? yen(0) : ctx.money.mulRate(sale.price, estRate, VAL);
-        const acq = p.acquisition;
+        const acq = acqIn;
         let acquisitionCost = estimatedCost;
         let estimated = true;
         let term: "long" | "short" = "long";
+        if (builds && priced === undefined && acqSummary !== null) {
+          // 土地の取得価額の無い建てる予定（相続した土地など）: 土地の分は売却価格を評価額の土地と建物の比で分けた土地の分の概算取得費（5%）、
+          // 建物の分は建築費＋諸費用−償却の累計（改訂12）
+          const landOfPrice = sale.value > 0 ? ctx.money.mulRatio(sale.price, valueAt(y).land, sale.value, VAL) : yen(0);
+          const landEst = estRate === null ? yen(0) : ctx.money.mulRate(landOfPrice, estRate, VAL);
+          const buildingActual = Math.max(0, acqSummary.total + acqSummary.costs - accDep(y));
+          const actual = yen(landEst + buildingActual);
+          if (actual >= estimatedCost) acquisitionCost = actual;
+          ctx.notice("N_ASSUMED", [a.id, "realEstate.saleEstimatedCost"]);
+          if (acq === undefined || acqAt === null) ctx.notice("N_ASSUMED", [a.id, "realEstate.saleHoldingLong"]);
+        }
         if (acq !== undefined && acqAt !== null) {
-          if (priced !== undefined) {
-            const total = parts !== undefined ? yen(partsTotal) : yen(priced.price ?? 0);
+          if (priced !== undefined && acqSummary !== null) {
             // 償却の累計（売る前の月まで。売った年の年末までと同じ。引き継いだときは償却の基−売るときの未償却残高）
-            const actual = yen(Math.max(0, total + (priced.costs ?? 0) - accDep(y)));
+            const actual = yen(Math.max(0, acqSummary.total + acqSummary.costs - accDep(y)));
             if (actual >= estimatedCost) {
               acquisitionCost = actual;
               estimated = false;
             }
-          } else ctx.notice("N_ASSUMED", [a.id, "realEstate.saleEstimatedCost"]);
+          } else if (!builds) ctx.notice("N_ASSUMED", [a.id, "realEstate.saleEstimatedCost"]);
           const years0 = at0.paramCount(HOLDING);
           if (years0 === null) ctx.notice("N_PARAM_MISSING", [HOLDING]);
           term = yearOf(acqAt) <= y - (years0 ?? 5) - 1 ? "long" : "short";
-          // 貸していない期間が長い（非業務用の期間の償却は引いていない。0028 の未対応）
-          const idle = r === undefined || rFrom === null || rTo === null || rFrom - acqAt >= 12 || holdEnd - rTo >= 12;
+          // 貸していない期間が長い（非業務用の期間の償却は引いていない。0028 の未対応）。建てる予定は建物を建てた月から数える
+          const idle = r === undefined || rFrom === null || rTo === null || rFrom - (builds && planAt !== null ? planAt : acqAt) >= 12 || holdEnd - rTo >= 12;
           if (idle) ctx.notice("N_NOT_SUPPORTED", [a.id, "realEstate.saleNonBusinessPeriod"]);
-        } else {
+        } else if (!builds || acqSummary === null) {
           ctx.notice("N_ASSUMED", [a.id, "realEstate.saleEstimatedCost"]);
           ctx.notice("N_ASSUMED", [a.id, "realEstate.saleHoldingLong"]);
         }
@@ -620,9 +709,10 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       }
       const u = r !== undefined && incomeKind === "realEstate" ? scaleUnits(p.kind, p.units) : null;
       const units = u !== null && u.rooms + u.houses > 0 ? u : null;
-      const acqTotal = priced === undefined ? null : parts !== undefined ? yen(partsTotal) : yen(priced.price ?? 0);
+      // 自己資金: 予定の物件は払う額（paid）、ほかは入れた自己資金
+      const equityOf = paid !== null ? paid : priced?.equity !== undefined ? yen(priced.equity) : null;
       const facts: NonNullable<RealEstateOutput["properties"][number]["facts"]> = {
-        acquisition: priced === undefined || acqTotal === null ? null : { total: acqTotal, costs: yen(priced.costs ?? 0), ...(priced.equity !== undefined ? { equity: yen(priced.equity) } : {}) },
+        acquisition: acqSummary === null ? null : { ...acqSummary, ...(equityOf !== null ? { equity: equityOf } : {}) },
         builtYear: built,
         legalLife: TAX_USEFUL_LIFE[structure],
         depreciationEnd: depEnd,
@@ -630,15 +720,27 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         ...(noBuilding ? { noBuilding: true } : {}),
         ...(lodgingFacts !== null ? { lodging: lodgingFacts } : {}),
         ...(actualRent ? { rentBy: "actual" as const } : {}),
+        ...(plan !== undefined && planAt !== null && paid !== null ? { planned: { type: plan.type, ym: formatYm(planAt), paid } } : {}),
       };
       // 年末の帳簿価額（取得価額＋取得時の諸費用−その年の年末までの償却の累計。取得の入力があるときだけ。改訂7）
       const bookBase = facts.acquisition === null ? null : addYen(facts.acquisition.total, facts.acquisition.costs);
-      const booked =
-        bookBase === null
-          ? years
-          : years.map((v) => {
-              return { ...v, book: yen(Math.max(0, bookBase - accDep(v.year))) };
-            });
+      // 相続税の評価の材料（改訂12）: 予定の物件の建物の固定資産税評価額の目安と、年末の月に貸している割合
+      const assessed0 = plan === undefined ? null : boxValue(plan.assessed);
+      const assessedOf = (y: number): Yen | null => {
+        if (assessed0 === null || assessed0 === undefined || planAt === null || monthIndex(y, 12) < planAt) return null;
+        return ctx.money.mulRate(assessed0, assessedBuildingRatio(ctx, structure, built, yearOf(planAt), y), VAL);
+      };
+      const rentedShareOf = (y: number): string | null => {
+        if (r === undefined || lodging !== undefined) return null;
+        const dec = monthIndex(y, 12);
+        if (rFrom === null || rTo === null || dec < rFrom || dec > rTo) return "0";
+        return ctx.rate.toString(keep);
+      };
+      const booked = years.map((v) => {
+        const as = assessedOf(v.year);
+        const rs = rentedShareOf(v.year);
+        return { ...v, ...(bookBase !== null ? { book: yen(Math.max(0, bookBase - accDep(v.year))) } : {}), ...(as !== null ? { assessed: as } : {}), ...(rs !== null ? { rentedShare: rs } : {}) };
+      });
       properties.push({ object: a.id, owner, years: booked, income, ...(holders.length > 0 ? { holders } : {}), sale, ...(incomeKind !== "realEstate" ? { incomeKind } : {}), ...(units !== null ? { units } : {}), cash, facts });
     }
     return { flows: inheritFlows(ctx, flows), properties };

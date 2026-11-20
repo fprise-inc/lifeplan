@@ -1021,6 +1021,30 @@
             },
             "memo": { "title": "メモ（表示用。計算には使わない。0079）", "x-item": "account.property.memo", "type": "string", "maxLength": 400 },
             "holdFrom": { "description": "持ち始める時点（相続・贈与で受け取る不動産。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い。省略は前から持っている。0039）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "planned": {
+              "description": "建てる・買う予定（0232）。type が buy（土地ごと買う）なら、at の月から持ち、取得は parts・costs・equity（acquisition は読まない）。build（持っている土地に建物を建てる）なら、器の時価を土地とみなし、at の月から建物を足す（acquisition は土地の取得）。どちらも at の月に自己資金（equity。省略は代金＋諸費用−計算基準月以後に借りるこの物件のローンの借入額）を払い、家賃・経費・減価償却は at の月から",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "at"],
+              "properties": {
+                "type": { "description": "土地ごと買う buy・持っている土地に建てる build", "enum": ["buy", "build"] },
+                "at": { "description": "買う・建てる（引き渡し）の時点", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                "parts": {
+                  "description": "購入代金・建築費の内訳（土地 land・建物 building・建物附属設備 equipment。build は土地を読まない）",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "land": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "building": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "equipment": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                  }
+                },
+                "equipmentLife": { "description": "建物附属設備の耐用年数（定額法。省略は法定15年で、中古で買うなら簡便法）", "type": "integer", "minimum": 2, "maximum": 50 },
+                "costs": { "description": "取得の諸費用の合計（仲介手数料・登記・不動産取得税・設計の費用など。建物と建物附属設備の分を償却の基に足す）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "equity": { "description": "自己資金（at の月に手元のお金から払う額。省略は代金＋諸費用−計算基準月以後に借りるこの物件のローンの借入額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "assessed": { "description": "建物（建物附属設備を含む）の固定資産税評価額（at の年の額。画面が建築費・購入代金から推定で入れる。0181。相続税の評価の材料で、表の評価額〔時価〕には使わない）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+              }
+            },
             "structure": { "description": "建物の構造（省略は木造）", "enum": ["wood", "lightSteel", "steel", "rc"] },
             "builtYear": { "description": "建物が建った年（省略は取得の年。取得も無ければ時価の時点の年＝新築とみなす）", "$ref": "urn:financia:schema:common#/$defs/year" },
             "landShare": { "description": "土地の割合（0〜1。評価額と取得価額を土地と建物に分ける。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },

@@ -166,6 +166,9 @@ export function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const reLoan = propertyLoanCell(req);
   const isReLoanPay = (c: TableCell) => reLoan(c) && under(c.row, "cf.expense");
   const hasReLoan = (req.input.household.debts ?? []).some((d) => d.property !== undefined);
+  // 収益不動産の建てる・買う予定の自己資金は「不動産の取得」の行にする（予定のある物件があるときだけ。一時的支出から外す。0232）
+  const hasRePlan = props.some((a) => a.property?.planned !== undefined);
+  const isRePurchase = (c: TableCell) => hasRePlan && c.row === "cf.expense.lumpSum.realEstatePurchase";
   const car = carExpense(req);
   const notCar = (p: (c: TableCell) => boolean) => (c: TableCell) => p(c) && !car(c);
   // 世帯の外の家族（家計を1つにする期間のうち収入を世帯に入れる月の分だけ入る）は、呼び方と期間を見出しに出して世帯の人の行と分ける（0075）
@@ -200,10 +203,11 @@ export function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
     { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing") && !isReLoanPay(c), evidence: true },
     { key: "education", label: "教育費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.education"), evidence: true },
     { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")), evidence: true },
-    { key: "lumpSum", label: "一時的支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")), evidence: true },
+    { key: "lumpSum", label: "一時的支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum") && !isRePurchase(c)), evidence: true },
     ...(hasCar ? [{ key: "car", label: "車の費用", group: "expense" as const, kind: "value" as const, match: car, evidence: true }] : []),
     ...(hasReExp ? [{ key: "realEstateExpense", label: "不動産の経費", group: "expense" as const, kind: "value" as const, match: isReExp, evidence: true }] : []),
     ...(hasReLoan ? [{ key: "realEstateLoan", label: "不動産のローンの返済", group: "expense" as const, kind: "value" as const, match: isReLoanPay, evidence: true }] : []),
+    ...(hasRePlan ? [{ key: "realEstatePurchase", label: "不動産の取得", group: "expense" as const, kind: "value" as const, match: isRePurchase, evidence: true }] : []),
     {
       key: "expenseOther",
       label: "その他の支出",

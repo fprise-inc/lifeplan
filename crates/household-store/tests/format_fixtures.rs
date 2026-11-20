@@ -279,6 +279,26 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(origin.is_none(), "{v}: 出どころは変換で書き足さない");
         }
+        // 0.85 から: 収益不動産の建てる・買う予定 accounts[].property.planned（0232）。変換で書き足さない（前の版の世帯は予定の無い物件）。
+        // 0.85 の見本は土地ごと買う予定の物件を1件持つ
+        let planned: Vec<&Value> = now["household"]["request"]["input"]["household"]["accounts"]
+            .as_array()
+            .map(|xs| {
+                xs.iter()
+                    .filter_map(|a| a["property"].get("planned"))
+                    .collect()
+            })
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 85) {
+            assert_eq!(
+                planned.len(),
+                1,
+                "{v}: 0.85 からの見本は建てる・買う予定の物件を持つ"
+            );
+            assert_eq!(planned[0]["type"], "buy");
+        } else {
+            assert!(planned.is_empty(), "{v}: 予定は変換で書き足さない");
+        }
         // 0.76 から: 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利の段も要素の ID を持つ（0206）。前の版の見本は
         // 変換で、画面がその要素を指していた決まった ID（場所から作る）と同じ ID が付く。0.76 の見本は ID を書いた形で、借り換えも持つ
         let hh = &now["household"]["request"]["input"]["household"];

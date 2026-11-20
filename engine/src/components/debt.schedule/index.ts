@@ -44,6 +44,8 @@
 //     返済の方法・ボーナス返済）から1か月ずつ逆にたどって推定する（その間の繰上返済・借り換えは無いとみなす。前は無く、前年分の住宅ローン控除が
 //     0円になり、計算基準年度の住民税が高く出ていた）。年末残高の使い道（住宅ローン控除・計算基準年より前の年）だけで、返済の行は変えない
 //   - 債務者（保証人を除く）が万一の想定で亡くなる月の、その月の返済の後・団信で減らす前の残高（atDeath。任意の欄）を添える
+// - 改訂12（0232）: 建てる・買う予定（account.property.planned）のある物件で、売る予定が予定の月か、それより前なら、売ったときに返さない（asset.realEstate も
+//   その売却を入れない）。予定の無い物件の結果は同じ
 //     （亡くなった年の住宅ローン控除は、死亡の日の残高で計算する。租税特別措置法41条1項・2項。tax.housingLoanCredit）
 import {
   inheritFlows,
@@ -131,7 +133,7 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
   id: "debt.schedule",
   title: "負債の返済",
   contract: "1.6",
-  revision: 11,
+  revision: 12,
   requires: { "debt.creditLifeEvents": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -320,8 +322,11 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     const prepayments = (d.prepayments ?? []).map((p) => ({ ...p, m: ctx.time.resolve(p.at) }));
     const refinances = (d.refinance ?? []).map((p) => ({ ...p, m: ctx.time.resolve(p.at) }));
     // 売ったときに返す月（住まい以外の不動産のローン。0081）
-    const propSale = d.property === undefined ? undefined : ctx.list<AccountInput>("account").find((a) => a.id === d.property)?.property?.sale;
-    const payoffAt: MonthIndex | null = propSale !== undefined && propSale.repayLoan !== false ? ctx.time.resolve(propSale.at) : homeSaleMonth(ctx, d, start);
+    const prop = d.property === undefined ? undefined : ctx.list<AccountInput>("account").find((a) => a.id === d.property)?.property;
+    const propSale = prop?.sale;
+    // 建てる・買う予定の月か、それより前に売る予定は売らない（asset.realEstate と同じ。改訂12）
+    const saleBeforePlan = propSale !== undefined && prop?.planned !== undefined && ctx.time.resolve(propSale.at) <= ctx.time.resolve(prop.planned.at);
+    const payoffAt: MonthIndex | null = propSale !== undefined && propSale.repayLoan !== false && !saleBeforePlan ? ctx.time.resolve(propSale.at) : homeSaleMonth(ctx, d, start);
     const refinanced: { ym: string; before: Yen; principal: Yen; termMonths: number }[] = [];
     // 繰上返済ごとの、その後の最後の返済の見込みの月（約束の版 1.4）
     const prepaid: { ym: string; lastPayment: string }[] = [];

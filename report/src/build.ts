@@ -221,6 +221,9 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const reLoan = (c: TableCell) => reLoanIds.size > 0 && c.object !== undefined && reLoanIds.has(c.object);
   const isReLoanPay = (c: TableCell) => reLoan(c) && under(c.row, "cf.expense");
   const hasReLoan = reLoanIds.size > 0;
+  // 収益不動産の建てる・買う予定の自己資金は「不動産の取得」の行にする（予定のある物件があるときだけ。一時的支出から外す。アプリと同じ。0232）
+  const hasRePlan = props.some((a) => a.property?.planned !== undefined);
+  const isRePurchase = (c: TableCell) => hasRePlan && c.row === "cf.expense.lumpSum.realEstatePurchase";
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: rowName(names, "salary", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.salary", r) });
   // 事業所得（自営業・フリーランス）は人ごとに給与と並べる。値の無い世帯・人は行を出さない（アプリと同じ）
   for (const r of rs) defs.push({ key: `business:${r.key}`, label: rowName(names, "business", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.business", r) });
@@ -249,10 +252,11 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
     { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing") && !isReLoanPay(c) },
     { key: "education", label: "教育費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.education") },
     { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")) },
-    { key: "lumpSum", label: "一時的支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")) },
+    { key: "lumpSum", label: "一時的支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum") && !isRePurchase(c)) },
     ...(hasCar ? [{ key: "car", label: "車の費用", group: "expense" as const, kind: "value" as const, match: car }] : []),
     ...(hasReExp ? [{ key: "realEstateExpense", label: "不動産の経費", group: "expense" as const, kind: "value" as const, match: isReExp }] : []),
     ...(hasReLoan ? [{ key: "realEstateLoan", label: "不動産のローンの返済", group: "expense" as const, kind: "value" as const, match: isReLoanPay }] : []),
+    ...(hasRePlan ? [{ key: "realEstatePurchase", label: "不動産の取得", group: "expense" as const, kind: "value" as const, match: isRePurchase }] : []),
     { key: "advisoryFee", label: "FP顧問料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.advisoryFee") },
     { key: "expenseOther", label: "その他の支出", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense") && !known5.some((p) => under(c.row, p)) && !isReExp(c) && !isReLoanPay(c)) },
     { key: "taxSi", label: "税・社会保険料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.taxSi") },
@@ -590,9 +594,10 @@ function propertyEvents(run: Run): { year: number; text: string }[] {
   for (const a of accounts.values()) {
     const p = a.property;
     if (p === undefined) continue;
-    // これから持ち始める物件（持ち始める月・取得の月が計算基準月より後）
-    const from = monthOfTimepoint(h, p.holdFrom) ?? (p.acquisition !== undefined && p.acquisition.at > base ? p.acquisition.at : null);
-    if (from !== null && from > base) once(parseYm(from).y, `${nameOf(a.id)}を取得`);
+    // これから持ち始める物件（建てる・買う予定の月・持ち始める月・取得の月が計算基準月より後。建てる予定は「建てる」。0232）
+    const planned = monthOfTimepoint(h, p.planned?.at);
+    const from = planned ?? monthOfTimepoint(h, p.holdFrom) ?? (p.acquisition !== undefined && p.acquisition.at > base ? p.acquisition.at : null);
+    if (from !== null && from > base) once(parseYm(from).y, p.planned?.type === "build" ? `${nameOf(a.id)}に建物を建てる` : `${nameOf(a.id)}を取得`);
     const rows = analysis.get(a.id)?.years ?? [];
     for (const r of p.repairs ?? []) {
       const m = monthOfTimepoint(h, r.at);
