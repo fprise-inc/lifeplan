@@ -1,7 +1,7 @@
-# AI接続口（`lifeplan mcp`）のつなぎ方
+# AI接続口（`lifeplan mcp`）の接続のしかた
 
 ファイナンシアの AI接続口は、FPのPCの中だけで動く MCP サーバーです（設計記録 [0015](decisions/0015-ai-connector-mcp.md)）。
-AIのアプリ（Claude Code・Claude Desktop・Codex・Gemini CLI）が `lifeplan mcp` を起動し、**標準入出力だけ**で話します。ネットワークの口は開けません。
+AIのアプリ（Claude のアプリ〔Claude Desktop〕・Claude Code・Codex）が `lifeplan mcp` を起動し、**標準入出力だけ**で話します。ネットワークの口は開けません。
 
 > アプリの画面では、世帯の一覧のいちばん下の「AI との接続」（事務所全体の設定。既定はオフ）で使うかどうかを決め、**「AI のアプリに登録する」のボタンで、
 > AI のアプリの設定に登録します**（下の「0. ボタンで登録する」。設計記録 0228）。手で書きたいときは「手動で登録する」の「文面をコピー」で、
@@ -9,16 +9,21 @@ AIのアプリ（Claude Code・Claude Desktop・Codex・Gemini CLI）が `lifepl
 
 ## 0. ボタンで登録する（アプリの画面。0228）
 
-事務所の設定の AI の区画の「AI のアプリに登録する」に、AI のアプリごとの状態（登録済み・未登録・場所が古い・このPCに見つかりません）と
+事務所の設定の AI の区画の「AI のアプリに登録する」に、「Claude」と「Codex」の行の状態（登録済み・未登録・場所が古い・このPCに見つかりません）と
 ボタンが出ます。**「登録する」を押したときだけ**アプリが書き込みます（アプリの更新のときに勝手には書きません）。
 
-| AIのアプリ | 登録のしかた | 気をつけること |
-|---|---|---|
-| Claude Desktop | 設定のファイル（Mac `~/Library/Application Support/Claude/claude_desktop_config.json`、Windows `%APPDATA%\Claude\claude_desktop_config.json`）の `mcpServers` に `fprise-lifeplan` を足す | **Claude Desktop を完全に終了してから**押します。起動していると、アプリは書きません（「Claude Desktop が起動しています」と出ます。終了してから「もう一度確かめる」）。Linux には Claude Desktop がありません |
-| Claude Code | `claude mcp add --transport stdio --scope user fprise-lifeplan -- <接続口の絶対パス> mcp` を呼ぶ（設定のファイルは直接書かない） | `claude` コマンドが見つからないときは押せません（手動で登録する手順に戻ります）。状態は `~/.claude.json` を読んで見ます |
-| Codex | `~/.codex/config.toml`（`CODEX_HOME` があればその下）に `[mcp_servers.fprise-lifeplan]` を足す | コメントやほかの行はそのまま残ります。Codex のアプリと CLI は同じファイルを使います |
-| Gemini CLI | `~/.gemini/settings.json` の `mcpServers` に `fprise-lifeplan` を足す | **提供元はまだ実物で試していません**（書く形は Gemini CLI の説明書のとおり。画面にも書いています） |
+「Claude」の行は、チャットのアプリ（Claude Desktop）と Claude Code の2つの書く先をまとめた行です。**1回押すと両方に登録**し、行には
+「チャット（アプリ）: 登録済み／Claude Code: 登録済み」のように2つの状態が並びます。「登録を外す」も1回で両方を外します（0228 の追記 2026-11-20）。
 
+| 行 | 書く先 | 登録のしかた | 気をつけること |
+|---|---|---|---|
+| Claude | チャット（アプリ） | 設定のファイル（Mac `~/Library/Application Support/Claude/claude_desktop_config.json`、Windows `%APPDATA%\Claude\claude_desktop_config.json`）の `mcpServers` に `fprise-lifeplan` を足す | **Claude のアプリを完全に終了してから**押します。起動中は、このファイルには書きません（下の「Claude のアプリが起動中のとき」）。Linux には Claude のアプリがありません |
+| Claude | Claude Code | `claude mcp add --transport stdio --scope user fprise-lifeplan -- <接続口の絶対パス> mcp` を呼ぶ（設定のファイルは直接書かない） | `claude` コマンドが見つからないときは、この側は登録しません（手動で登録する手順に戻ります）。状態は `~/.claude.json` を読んで見ます |
+| Codex | Codex | `~/.codex/config.toml`（`CODEX_HOME` があればその下）に `[mcp_servers.fprise-lifeplan]` を足す | パソコン用の Codex（アプリ・ターミナル）です。アプリと CLI は同じファイルを使います。コメントやほかの行はそのまま残ります。ブラウザの ChatGPT は接続できません |
+
+- **Claude のアプリが起動中のとき**: 押すと Claude Code の側だけ登録し、行に「Claude のアプリが起動中のため、Claude Code の側だけ登録しました。」と出ます。Claude のアプリは終了するときに設定のファイルを書き直すので、起動中に書き込んだ登録は消えてしまうためです（0015 の追記）。チャットでも使うときは、Claude のアプリを完全に終了してから、もう一度押します。起動中かどうかは、押したときに確かめ直します（Mac は `Claude` という名前のプロセス、Windows は Claude のアプリの場所にある `claude.exe` があるか。確かめられないときは、起動していないものとして進めます）。
+- **片方しか無いとき**: `claude` コマンドが無ければチャット（アプリ）の側だけ、Claude のアプリが無ければ Claude Code の側だけ登録し、そのことを行に出します。どちらも無ければ「このPCに見つかりません」と出て、ボタンは出ません。
+- **Gemini**: 今は一覧に出していません。Gemini のアプリがパソコンの中の接続の道具（標準入出力で話す MCP サーバー）に対応したら足します。
 - 書く前の設定のファイルは、アプリのデータの場所の `ai-app-backups/`（Mac `~/Library/Application Support/com.fprise.lifeplan/ai-app-backups/`）に、AI のアプリの名前と日時をつけて控えます。元に戻したいときは、その控えを元の場所に写します（アプリには「元に戻す」のボタンはありません。0228 の4）。
 - ほかのサーバーの設定・ほかの欄は変えません（JSON は元の文をそのまま写し、`fprise-lifeplan` の所だけを足す・直す・外します）。すでに登録があれば、場所（`command`）と引数だけを直し、自分で足した欄（`env` など）は残します。
 - 設定のファイルを読めないとき（コメントの入った JSON・`mcpServers` が表でない など）は書きません。「手動で登録する」の文面で手で足してください。
@@ -77,7 +82,7 @@ Claude Desktop は終了するときに設定ファイルを書き直すので�
 使い方の例（下の「使い方の例（プロンプト）」）は、Claude Desktop の接続口のプロンプトとして選べます。
 ワンクリックで入る拡張（MCPB）は、今は用意していません（0228 の2）。
 
-## 4. 手で書く: Codex・Gemini CLI
+## 4. 手で書く: Codex
 
 Codex は `~/.codex/config.toml`（`CODEX_HOME` があればその下）に足します。
 
@@ -86,9 +91,6 @@ Codex は `~/.codex/config.toml`（`CODEX_HOME` があればその下）に足�
 command = "<接続口の絶対パス>"
 args = ["mcp"]
 ```
-
-Gemini CLI は `~/.gemini/settings.json` の `mcpServers` に、Claude Desktop と同じ形（`command` と `args`）で足すか、
-`gemini mcp add -s user fprise-lifeplan <接続口の絶対パス> mcp` を使います（提供元は実物で試していません）。
 
 ## 5. 道具
 

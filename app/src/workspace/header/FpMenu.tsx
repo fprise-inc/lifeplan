@@ -1,6 +1,7 @@
 // 上の帯の FP のメニュー（線のアイコン1つ）。顧客と一緒に見る画面に常に出す必要のない FP の操作を、ここにまとめる（0077 の追記）:
-// メモ・面談の履歴（メモは前は上の帯のボタン。面談の履歴は 0182。0016 の追記）／控え（この時点を残す・控えの一覧）／面談の準備（世帯の中身の一覧・次の1年に起きること・前回から変わったこと）／ヒアリング・取り込む（ヒアリングで聞く・取り込む〔0192〕と AI で書類を読み取る）／事務所の設定（今の保存先と事務所の共有の状態・既定値）／
+// 記録（メモ・面談の履歴。メモは前は上の帯のボタン。面談の履歴は 0182。0016 の追記）／控え（この時点を残す・控えの一覧）／面談の準備（世帯の中身の一覧・次の1年に起きること・前回から変わったこと）／情報を集める（事前ヒアリング〔0192〕と AI で書類を読み取る）／事務所の設定（今の保存先と事務所の共有の状態・既定値）／
 // ファイナンシアへ（要望・不具合を送る。0087。お知らせの一覧の下にも同じ入口がある）。
+// 見出しは小さめの灰色（太字にしない）、項目は見出しより一段右に下げ、まとまりの間に区切りの線を引く（見た目は styles/header.css の .fpm-*。0077 の追記）。
 // 開いた一覧は帯の下に重ねて出す（画面は動かさない）。Esc・外を押すと閉じる。1つを押すと閉じて、その中身を開く
 // （入力のホームの中身なら、親が入力のタブに切り替えて開く。どのタブでも帯は同じ）
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -27,14 +28,14 @@ export interface FpMenuGroup {
 
 export interface FpMenuInput {
   /**
-   * メモの行の数と面談の履歴の件数・前回の面談の日（文）。省くとメモ・面談の履歴の見出しを出さない（世帯を開いていないときなど）
+   * メモの行の数と面談の履歴の件数・前回の面談の日（文）。省くと「記録」のまとまりを出さない（世帯を開いていないときなど）
    */
   notes?: { memo: number; meetings: number; last: string | null };
   /** 控えの件数 */
   snapshots: number;
   /** 最後の控えと次の見直しの目安（前回から変わったことの横に添える）。控えが無ければ null */
   review: { last: string; next: string } | null;
-  /** 取り込むの選択肢（ヒアリング・AI で書類を読み取る）。本体につながっていないときは null（出さない）。hearing は Web のヒアリングの届いた知らせ（0192） */
+  /** 「情報を集める」の選択肢（事前ヒアリング・AI で書類を読み取る）。本体につながっていないときは null（出さない）。hearing は Web のヒアリングの届いた知らせ（0192） */
   imports: { ai: boolean; hearing?: string | null } | null;
   /** 事務所の設定（今の保存先と事務所の共有の状態）。本体につながっていないときは null（出さない） */
   office: { storage: string; share: string } | null;
@@ -46,7 +47,7 @@ export function fpMenuGroups(p: FpMenuInput): FpMenuGroup[] {
   if (p.notes !== undefined)
     out.push({
       id: "notes",
-      label: "メモ・面談の履歴",
+      label: "記録",
       items: [
         { action: "memo", label: "メモ", note: p.notes.memo > 0 ? `${p.notes.memo}件` : "まだありません" },
         { action: "meetings", label: `面談の履歴（${p.notes.meetings}件）`, ...(p.notes.last !== null ? { note: `前回 ${p.notes.last}` } : {}) },
@@ -74,8 +75,8 @@ export function fpMenuGroups(p: FpMenuInput): FpMenuGroup[] {
   if (p.imports !== null)
     out.push({
       id: "imports",
-      label: "事前ヒアリング・取り込む",
-      items: [{ action: "hearing", label: HEARING_EXCEL_SHOWN ? "事前ヒアリング（Excel・URL生成・取り込む）" : "事前ヒアリング（URL生成・取り込む）", ...(p.imports.hearing != null ? { note: p.imports.hearing } : {}) }, ...(p.imports.ai ? [{ action: "ai" as const, label: "AI で書類を読み取る", pop: true }] : [])],
+      label: "情報を集める",
+      items: [{ action: "hearing", label: HEARING_EXCEL_SHOWN ? "事前ヒアリング（Excel・URL生成・取り込み）" : "事前ヒアリング（URL生成・取り込み）", ...(p.imports.hearing != null ? { note: p.imports.hearing } : {}) }, ...(p.imports.ai ? [{ action: "ai" as const, label: "AI で書類を読み取る", pop: true }] : [])],
     });
   if (p.office !== null)
     out.push({
@@ -125,7 +126,7 @@ export function FpMenu({ groups, onPick, initialOpen = false }: { groups: readon
   }, [open]);
   return (
     <div class="fpm" ref={box}>
-      <button type="button" class="fpm-btn" ref={btn} aria-expanded={open} aria-haspopup="true" aria-label="FP のメニュー" title="FP のメニュー（メモ・面談の履歴・控え・面談の準備・取り込む・事務所の設定・要望を送る）" onClick={() => setOpen(!open)} data-fp-menu>
+      <button type="button" class="fpm-btn" ref={btn} aria-expanded={open} aria-haspopup="true" aria-label="FP のメニュー" title="FP のメニュー（記録・控え・面談の準備・情報を集める・事務所の設定・要望を送る）" onClick={() => setOpen(!open)} data-fp-menu>
         <svg class="fpm-ico" viewBox="0 0 20 20" aria-hidden="true">
           <rect x="2.5" y="6" width="15" height="10.5" rx="2" />
           <path d="M7 6V4.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 13 4.5V6" />

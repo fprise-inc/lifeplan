@@ -47,7 +47,7 @@ export function DocumentStart(p: DocumentStartProps) {
           {p.onAiShare !== undefined ? (
             <li data-documents-start-ai>
               <b>AI で読み取る</b>
-              <span>ファイナンシアとつないだ AI に書類を渡すと、読んだ値が候補として届きます（同意と共有で、この世帯を渡してから。書類を AI に渡すことを含む同意の世帯だけ）。</span>
+              <span>ファイナンシアと接続した AI に書類を渡すと、読んだ値が候補として届きます（同意と共有で、この世帯を渡してから。書類を AI に渡すことを含む同意の世帯だけ）。</span>
               <button type="button" class="btn" onClick={p.onAiShare} data-documents-start-ai-open>
                 同意と共有を開く
               </button>

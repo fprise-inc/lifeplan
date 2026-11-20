@@ -108,7 +108,7 @@ export type Via = "reader" | "ai" | "paste" | "sample";
 
 export const VIA_LABELS: Readonly<Record<Via, string>> = {
   reader: "アプリの中で読んだ",
-  ai: "AI が読んだ（つないだ AI）",
+  ai: "AI が読んだ（接続した AI）",
   paste: "AI が読んだ（貼り付け）",
   sample: "架空の見本",
 };

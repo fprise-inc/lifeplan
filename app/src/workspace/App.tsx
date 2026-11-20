@@ -2815,7 +2815,7 @@ export function App() {
     void ai.refresh();
     setAiPanel(storedInfo !== null ? "share" : "connector");
   };
-  /** 「取り込む」の「AI で書類を読み取る」（FP のメニューも同じ）: AI とつながっていれば同意と共有の画面、つながっていなければ事務所の AI の接続の設定を開く */
+  /** 「取り込む」の「AI で書類を読み取る」（FP のメニューも同じ）: AI と接続していれば同意と共有の画面、接続していなければ事務所の AI の接続の設定を開く */
   const openAiImport = () => {
     if (ai.status?.enabled === true) return openAiShare();
     void ai.refresh();
@@ -3400,7 +3400,7 @@ export function App() {
                             <button type="button" class="btn" onClick={openAiImport} data-imports-ai-open>
                               {ai.status?.enabled === true ? "この世帯を AI に渡す" : "AI と接続する"}
                             </button>
-                            <span class="in-note">お使いの AI（Claude など）をファイナンシアとつなぐと、AI が書類を読み、読んだ値（保険の契約の値、相続税の試算の土地・建物の値）が「候補」として届きます。承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。面談の履歴とメモは AI に渡しません。</span>
+                            <span class="in-note">お使いの AI（Claude など）をファイナンシアと接続すると、AI が書類を読み、読んだ値（保険の契約の値、相続税の試算の土地・建物の値）が「候補」として届きます。承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。面談の履歴とメモは AI に渡しません。</span>
                           </div>
                         ) : null}
                       </>

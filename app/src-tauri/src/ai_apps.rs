@@ -1,11 +1,16 @@
 //! AI のアプリへの登録（0015 の10・0228）。FP が事務所の設定の「AI のアプリに登録する」で押したときだけ、AI のアプリの設定に
 //! AI接続口（`lifeplan mcp`）を足す・場所を直す・外す。
 //!
-//! - **Claude Desktop**: `claude_desktop_config.json` の `mcpServers` に足す。起動中に書くと Claude Desktop が終了するときに書き直して
-//!   消えるので（0015 の追記 2026-10-08）、起動しているあいだは書かない（終了を頼む）。拡張（MCPB）は今回は作らない（0228 の2）
+//! 画面の行は「Claude」と「Codex」の2つ（0228 の追記 2026-11-20）。Claude の行は、書く先が2つある（1回押すと両方に登録する）:
+//!
+//! - **Claude のアプリ（チャット）**: `claude_desktop_config.json` の `mcpServers` に足す。起動中に書くと、アプリが終了するときに
+//!   書き直して消えるので（0015 の追記 2026-10-08）、起動しているあいだは書かない（Claude Code の側だけ登録し、終了を頼む）。
+//!   拡張（MCPB）は今回は作らない（0228 の2）
 //! - **Claude Code**: ファイルを直接書かず、`claude mcp add --scope user` を呼ぶ（0015 の10）。状態は `~/.claude.json` を読むだけ
+//!
 //! - **Codex**: `~/.codex/config.toml`（`CODEX_HOME`）の `[mcp_servers.<名前>]` だけを足す（コメント・ほかの行は toml_edit で残す）
-//! - **Gemini CLI**: `~/.gemini/settings.json` の `mcpServers` に足す（実物では試していない。画面と設計記録に書く）
+//!
+//! Gemini CLI は一覧に出していない（Gemini のアプリが、パソコンの中の接続の道具に対応したら足す。0228 の追記 2026-11-20）。
 //!
 //! 設定のファイルを書くときの決まり: ほかのサーバーの設定・ほかの欄は1文字も変えない（JSON は元の文をそのまま写し、足す・直すのは
 //! 自分の名前の所だけ）。書く前の元のファイルはアプリのデータの場所（`ai-app-backups/`）に控える。登録済みなら場所だけ直す。
@@ -22,7 +27,7 @@ use tauri::{AppHandle, Manager};
 use crate::ai::{connector_path, setup_text, AiState};
 
 /// 画面に見せる中身で、接続口の場所を伏せる印（画面の文には「接続口」と書かない）
-const EXE_PLACEHOLDER: &str = "<AI とつなぐ道具の場所>";
+const EXE_PLACEHOLDER: &str = "<AI と接続する道具の場所>";
 const RUNTIME_PLACEHOLDER: &str = "<開発用の作業フォルダ>";
 /// 控えを置くフォルダ（アプリのデータの場所の下）
 const BACKUP_DIR: &str = "ai-app-backups";
@@ -36,44 +41,63 @@ pub fn server_name() -> &'static str {
     }
 }
 
+/// 書く先（設定のファイルか、AI のアプリのコマンド）
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Client {
     ClaudeDesktop,
     ClaudeCode,
     Codex,
-    Gemini,
 }
 
-pub const CLIENTS: [Client; 4] = [
-    Client::ClaudeDesktop,
-    Client::ClaudeCode,
-    Client::Codex,
-    Client::Gemini,
-];
-
 impl Client {
+    /// 控えのファイルの名前にも使う（変えない）
     pub fn id(self) -> &'static str {
         match self {
             Client::ClaudeDesktop => "claudeDesktop",
             Client::ClaudeCode => "claudeCode",
             Client::Codex => "codex",
-            Client::Gemini => "gemini",
+        }
+    }
+    /// 行の中での呼び名（Claude の行は、この2つの状態を並べて出す）
+    fn label(self) -> &'static str {
+        match self {
+            Client::ClaudeDesktop => "チャット（アプリ）",
+            Client::ClaudeCode => "Claude Code",
+            Client::Codex => "Codex",
+        }
+    }
+}
+
+/// 画面の行（0228 の追記 2026-11-20）。Claude の行は、チャットのアプリと Claude Code の2つの書く先をまとめる
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Row {
+    Claude,
+    Codex,
+}
+
+pub const ROWS: [Row; 2] = [Row::Claude, Row::Codex];
+
+impl Row {
+    pub fn id(self) -> &'static str {
+        match self {
+            Row::Claude => "claude",
+            Row::Codex => "codex",
         }
     }
     fn title(self) -> &'static str {
         match self {
-            Client::ClaudeDesktop => "Claude Desktop",
-            Client::ClaudeCode => "Claude Code",
-            Client::Codex => "Codex",
-            Client::Gemini => "Gemini CLI",
+            Row::Claude => "Claude",
+            Row::Codex => "Codex",
         }
     }
-    fn from_id(s: &str) -> Option<Client> {
-        CLIENTS.into_iter().find(|c| c.id() == s)
+    fn parts(self) -> &'static [Client] {
+        match self {
+            Row::Claude => &[Client::ClaudeDesktop, Client::ClaudeCode],
+            Row::Codex => &[Client::Codex],
+        }
     }
-    /// 提供元が実物で登録を試したか（Gemini CLI は試せていない）
-    fn tested(self) -> bool {
-        !matches!(self, Client::Gemini)
+    fn from_id(s: &str) -> Option<Row> {
+        ROWS.into_iter().find(|r| r.id() == s)
     }
 }
 
@@ -97,6 +121,8 @@ pub struct Ctx {
     pub codex_home: PathBuf,
     /// `claude` を探すフォルダ（PATH と、よく入る場所）
     pub path_dirs: Vec<PathBuf>,
+    /// Mac で Claude のアプリ（Claude.app）を探すフォルダ
+    pub mac_app_dirs: Vec<PathBuf>,
 }
 
 impl Ctx {
@@ -147,6 +173,7 @@ impl Ctx {
             appdata: var("APPDATA"),
             local_appdata: var("LOCALAPPDATA"),
             codex_home,
+            mac_app_dirs: vec![PathBuf::from("/Applications"), home.join("Applications")],
             home,
             path_dirs,
         })
@@ -164,12 +191,11 @@ impl Ctx {
                     .as_ref()?
                     .join("Claude")
                     .join("claude_desktop_config.json"),
-                // Claude Desktop の Linux 版は無い
+                // Claude のアプリの Linux 版は無い
                 Os::Linux => return None,
             },
             Client::ClaudeCode => self.home.join(".claude.json"),
             Client::Codex => self.codex_home.join("config.toml"),
-            Client::Gemini => self.home.join(".gemini").join("settings.json"),
         })
     }
 
@@ -182,10 +208,10 @@ impl Ctx {
                     .and_then(|p| p.parent().map(Path::to_path_buf));
                 dir.is_some_and(|d| d.is_dir())
                     || match self.os {
-                        Os::Mac => {
-                            Path::new("/Applications/Claude.app").is_dir()
-                                || self.home.join("Applications/Claude.app").is_dir()
-                        }
+                        Os::Mac => self
+                            .mac_app_dirs
+                            .iter()
+                            .any(|d| d.join("Claude.app").is_dir()),
                         Os::Windows => self
                             .local_appdata
                             .as_ref()
@@ -197,7 +223,6 @@ impl Ctx {
                 self.find_claude().is_some() || self.home.join(".claude.json").is_file()
             }
             Client::Codex => self.codex_home.is_dir(),
-            Client::Gemini => self.home.join(".gemini").is_dir(),
         }
     }
 
@@ -537,11 +562,13 @@ pub fn toml_remove(text: &str, name: &str) -> Result<Option<String>, &'static st
 
 // ------------------------------------------------------------------ 状態・登録・外す
 
+/// 1つの書く先の状態
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct AiAppView {
-    client: &'static str,
-    title: &'static str,
+pub struct AiAppPart {
+    id: &'static str,
+    /// 行の中での呼び名（「チャット（アプリ）」「Claude Code」「Codex」）
+    label: &'static str,
     /// registered（登録済み）・unregistered（未登録）・stale（場所が古い）・unreadable（設定のファイルを読めない）・
     /// missing（この PC に見つからない）・unsupported（この OS では使えない）
     state: &'static str,
@@ -551,10 +578,19 @@ pub struct AiAppView {
     preview: String,
     /// file（設定のファイルを書く）か command（AI のアプリのコマンドを呼ぶ）
     how: &'static str,
-    /// 押せない理由（E_AI_APP_RUNNING: Claude Desktop が起動中・E_AI_APP_NO_COMMAND: claude が無い など）
+    /// 今は書けない理由（E_AI_APP_RUNNING: Claude のアプリが起動中・E_AI_APP_NO_COMMAND: claude が無い など）
     blocked: Option<&'static str>,
-    /// 提供元が実物で試したか
-    tested: bool,
+}
+
+/// 画面の1行（Claude は書く先が2つ、Codex は1つ）
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AiAppView {
+    client: &'static str,
+    title: &'static str,
+    /// 書く先をまとめた状態。1つの書く先の状態に加えて、partial（片方だけ登録済み）がある
+    state: &'static str,
+    parts: Vec<AiAppPart>,
 }
 
 #[derive(Serialize, Debug)]
@@ -606,7 +642,8 @@ fn found_in(c: Client, text: &str, name: &str) -> Result<Found, &'static str> {
     }
 }
 
-/// Claude Desktop が起動しているか（確かめられなければ false。画面は、いつも「終了してから」と書く）
+/// Claude のアプリが起動しているか（確かめられなければ false）。Mac はプロセスの名前（`pgrep -x Claude`）、
+/// Windows は claude.exe の実行ファイルの場所で見る
 fn claude_desktop_running(os: Os) -> bool {
     use std::process::{Command, Stdio};
     match os {
@@ -618,7 +655,7 @@ fn claude_desktop_running(os: Os) -> bool {
             .map(|s| s.success())
             .unwrap_or(false),
         Os::Windows => {
-            // Claude Code の claude.exe と見分けるため、実行ファイルの場所で見る（Claude Desktop は AnthropicClaude の下か、ストア版の Claude_ の下）
+            // Claude Code の claude.exe と見分けるため、実行ファイルの場所で見る（Claude のアプリは AnthropicClaude の下か、ストア版の Claude_ の下）
             let out = Command::new("powershell")
                 .args([
                     "-NoProfile",
@@ -639,14 +676,14 @@ fn claude_desktop_running(os: Os) -> bool {
     }
 }
 
-/// 1つの AI のアプリの状態（画面に返す形）
+/// 1つの書く先の状態（画面に返す形）
 pub fn view(
     ctx: &Ctx,
     c: Client,
     exe: Option<&Path>,
     dev: bool,
     running: impl Fn() -> bool,
-) -> AiAppView {
+) -> AiAppPart {
     let name = server_name();
     let runtime = dev.then_some(RUNTIME_PLACEHOLDER);
     let (how, preview) = match c {
@@ -655,9 +692,9 @@ pub fn view(
         _ => ("file", setup_text_named("json", name, runtime)),
     };
     let path = ctx.config_path(c);
-    let mut v = AiAppView {
-        client: c.id(),
-        title: c.title(),
+    let mut v = AiAppPart {
+        id: c.id(),
+        label: c.label(),
         state: "unregistered",
         target: match (c, &path) {
             (Client::ClaudeCode, _) => "claude mcp add --scope user".into(),
@@ -667,7 +704,6 @@ pub fn view(
         preview,
         how,
         blocked: None,
-        tested: c.tested(),
     };
     let Some(path) = path else {
         v.state = "unsupported";
@@ -692,6 +728,54 @@ pub fn view(
         _ => None,
     };
     v
+}
+
+/// 書く先をまとめた行の状態。見つからない・この OS で使えない書く先は数えない
+fn row_state(parts: &[AiAppPart]) -> &'static str {
+    let usable: Vec<&str> = parts
+        .iter()
+        .map(|p| p.state)
+        .filter(|s| !matches!(*s, "missing" | "unsupported"))
+        .collect();
+    if usable.is_empty() {
+        return if parts.iter().all(|p| p.state == "unsupported") {
+            "unsupported"
+        } else {
+            "missing"
+        };
+    }
+    if usable.contains(&"stale") {
+        "stale"
+    } else if usable.iter().all(|s| *s == "registered") {
+        "registered"
+    } else if usable.contains(&"registered") {
+        "partial"
+    } else if usable.contains(&"unregistered") {
+        "unregistered"
+    } else {
+        "unreadable"
+    }
+}
+
+/// 画面の1行の状態
+pub fn row_view(
+    ctx: &Ctx,
+    row: Row,
+    exe: Option<&Path>,
+    dev: bool,
+    running: impl Fn() -> bool,
+) -> AiAppView {
+    let parts: Vec<AiAppPart> = row
+        .parts()
+        .iter()
+        .map(|c| view(ctx, *c, exe, dev, &running))
+        .collect();
+    AiAppView {
+        client: row.id(),
+        title: row.title(),
+        state: row_state(&parts),
+        parts,
+    }
 }
 
 /// 名前を差し替えた接続の設定の文面（ai.rs の setup_text は製品の名前で作るので、開発用のビルドの名前に置き換える）
@@ -737,7 +821,8 @@ pub fn write_with_backup(
     })
 }
 
-/// 登録する（すでにあれば場所だけ直す）。ファイルを書いたか・コマンドを呼んだかにかかわらず、終わった後の状態を返す
+/// 1つの書く先に登録する（すでにあれば場所だけ直す）。Claude のアプリは、書く必要があるのに起動中なら書かずに止める
+/// （登録済みで直す所が無ければ、起動中でも止めない）
 pub fn register(
     ctx: &Ctx,
     c: Client,
@@ -756,11 +841,8 @@ pub fn register(
         return Err("E_AI_APP_MISSING");
     }
     match c {
-        Client::ClaudeCode => claude_code_register(ctx, name, &exe_s, runtime),
+        Client::ClaudeCode => claude_code_register(ctx, name, exe, runtime),
         _ => {
-            if c == Client::ClaudeDesktop && running() {
-                return Err("E_AI_APP_RUNNING");
-            }
             let path = ctx.config_path(c).ok_or("E_AI_APP_MISSING")?;
             let original = read_text(&path)?;
             let text = original.as_deref().unwrap_or("");
@@ -771,12 +853,88 @@ pub fn register(
             if original.as_deref() == Some(new_text.as_str()) {
                 return Ok(());
             }
+            if c == Client::ClaudeDesktop && running() {
+                return Err("E_AI_APP_RUNNING");
+            }
             write_with_backup(&path, original.as_deref(), &new_text, backups, c, stamp)
         }
     }
 }
 
-/// 登録を外す（自分の名前の所だけ。無ければ何もしない）
+/// 片方の書く先だけ登録できないときに、行の登録を止めない理由（見つからない・起動中・コマンドが無い・設定を読めない）。
+/// これ以外（書き込めない・コマンドが失敗した など）は失敗として返す
+fn can_skip(e: &str) -> bool {
+    matches!(
+        e,
+        "E_AI_APP_MISSING" | "E_AI_APP_RUNNING" | "E_AI_APP_NO_COMMAND" | E_UNREADABLE
+    )
+}
+
+/// 飛ばした理由のうち、画面に出す1つ（直せる順: 起動中 → 読めない → コマンドが無い → 見つからない）
+fn first_reason(skipped: &[&'static str]) -> Option<&'static str> {
+    [
+        "E_AI_APP_RUNNING",
+        E_UNREADABLE,
+        "E_AI_APP_NO_COMMAND",
+        "E_AI_APP_MISSING",
+    ]
+    .into_iter()
+    .find(|r| skipped.contains(r))
+}
+
+/// 行の登録（0228 の追記 2026-11-20）。Claude の行は、チャットのアプリと Claude Code の両方に登録する。
+/// 片方だけ登録できないとき（アプリが起動中・claude コマンドが無い・片方がこの PC に無い）は、できる側だけ登録して Ok を返す
+/// （画面は、返した状態から「片方だけ登録した」ことを出す）。どちらも登録できなければ、その理由を返す
+pub fn register_row(
+    ctx: &Ctx,
+    row: Row,
+    exe: &Path,
+    runtime: Option<&str>,
+    backups: &Path,
+    stamp: &str,
+    running: impl Fn() -> bool,
+) -> Result<(), &'static str> {
+    let mut done = false;
+    let mut failed = None;
+    let mut skipped = Vec::new();
+    for c in row.parts() {
+        match register(ctx, *c, exe, runtime, backups, stamp, &running) {
+            Ok(()) => done = true,
+            Err(e) if can_skip(e) => skipped.push(e),
+            Err(e) => failed = failed.or(Some(e)),
+        }
+    }
+    match (failed, done) {
+        (Some(e), _) => Err(e),
+        (None, true) => Ok(()),
+        (None, false) => Err(first_reason(&skipped).unwrap_or("E_AI_APP_MISSING")),
+    }
+}
+
+/// 行の登録を外す。Claude の行は両方から外す。片方を外せなくても（アプリが起動中 など）もう片方は外し、外せなかった理由を返す
+pub fn unregister_row(
+    ctx: &Ctx,
+    row: Row,
+    backups: &Path,
+    stamp: &str,
+    running: impl Fn() -> bool,
+) -> Result<(), &'static str> {
+    let mut failed = None;
+    let mut held = Vec::new();
+    for c in row.parts() {
+        match unregister(ctx, *c, backups, stamp, &running) {
+            Ok(()) => {}
+            Err(e) if can_skip(e) => held.push(e),
+            Err(e) => failed = failed.or(Some(e)),
+        }
+    }
+    match failed.or_else(|| first_reason(&held)) {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+/// 1つの書く先から登録を外す（自分の名前の所だけ。無ければ何もしない）
 pub fn unregister(
     ctx: &Ctx,
     c: Client,
@@ -788,10 +946,10 @@ pub fn unregister(
     match c {
         Client::ClaudeCode => claude_code_remove(ctx, name),
         _ => {
-            if c == Client::ClaudeDesktop && running() {
-                return Err("E_AI_APP_RUNNING");
-            }
-            let path = ctx.config_path(c).ok_or("E_AI_APP_MISSING")?;
+            // この OS に無い書く先（Linux の Claude のアプリ）には、外す物が無い
+            let Some(path) = ctx.config_path(c) else {
+                return Ok(());
+            };
             let Some(original) = read_text(&path)? else {
                 return Ok(());
             };
@@ -801,6 +959,7 @@ pub fn unregister(
             };
             match removed {
                 None => Ok(()),
+                Some(_) if c == Client::ClaudeDesktop && running() => Err("E_AI_APP_RUNNING"),
                 Some(t) => write_with_backup(&path, Some(&original), &t, backups, c, stamp),
             }
         }
@@ -863,17 +1022,22 @@ fn claude_code_found(ctx: &Ctx, name: &str) -> Found {
 fn claude_code_register(
     ctx: &Ctx,
     name: &str,
-    exe: &str,
+    exe: &Path,
     runtime: Option<&str>,
 ) -> Result<(), &'static str> {
-    // すでに登録があれば、外してから足す（claude mcp add は同じ名前があると断る）
-    if claude_code_found(ctx, name) != Found::None {
-        run_claude(
-            ctx,
-            &["mcp", "remove", "--scope", "user", name].map(String::from),
-        )?;
+    match claude_code_found(ctx, name) {
+        Found::None => {}
+        // 登録済みで場所も同じなら呼ばない（Claude の行は、片方だけ登録するときにも両方を通る）
+        Found::Points(p) if same_place(&p, exe) => return Ok(()),
+        // 場所が古い登録は、外してから足す（claude mcp add は同じ名前があると断る）
+        Found::Points(_) => {
+            run_claude(
+                ctx,
+                &["mcp", "remove", "--scope", "user", name].map(String::from),
+            )?;
+        }
     }
-    if !run_claude(ctx, &claude_add_args(name, exe, runtime))? {
+    if !run_claude(ctx, &claude_add_args(name, &exe.to_string_lossy(), runtime))? {
         return Err("E_AI_APP_COMMAND");
     }
     Ok(())
@@ -903,10 +1067,10 @@ fn status_of(ctx: &Ctx, exe: Option<&Path>) -> AiAppsStatus {
     let os = ctx.os;
     let running = std::sync::OnceLock::new();
     AiAppsStatus {
-        apps: CLIENTS
+        apps: ROWS
             .iter()
-            .map(|c| {
-                view(ctx, *c, exe, dev, || {
+            .map(|r| {
+                row_view(ctx, *r, exe, dev, || {
                     *running.get_or_init(|| claude_desktop_running(os))
                 })
             })
@@ -950,7 +1114,7 @@ fn runtime_of(app: &AppHandle) -> Option<String> {
     })
 }
 
-/// AI のアプリごとの登録の状態
+/// 行（Claude・Codex）ごとの登録の状態
 #[tauri::command]
 pub async fn ai_apps_status(app: AppHandle) -> Result<AiAppsStatus, String> {
     blocking(app, |_, ctx| {
@@ -959,17 +1123,17 @@ pub async fn ai_apps_status(app: AppHandle) -> Result<AiAppsStatus, String> {
     .await
 }
 
-/// AI のアプリに登録する（すでにあれば場所だけ直す）。FP が「登録する」「場所を直す」を押したときだけ呼ぶ
+/// 行の AI のアプリに登録する（すでにあれば場所だけ直す。Claude の行は両方に）。FP が「登録する」「場所を直す」を押したときだけ呼ぶ
 #[tauri::command]
 pub async fn ai_app_register(app: AppHandle, client: String) -> Result<AiAppsStatus, String> {
     blocking(app, move |app, ctx| {
-        let c = Client::from_id(&client).ok_or("E_AI_CLIENT")?;
+        let row = Row::from_id(&client).ok_or("E_AI_CLIENT")?;
         let exe = connector_path().ok_or("E_AI_CONNECTOR_MISSING")?;
         let backups = backups_dir(app)?;
         let os = ctx.os;
-        register(
+        register_row(
             ctx,
-            c,
+            row,
             &exe,
             runtime_of(app).as_deref(),
             &backups,
@@ -981,14 +1145,14 @@ pub async fn ai_app_register(app: AppHandle, client: String) -> Result<AiAppsSta
     .await
 }
 
-/// AI のアプリの登録を外す（自分の名前の所だけ）
+/// 行の AI のアプリの登録を外す（自分の名前の所だけ。Claude の行は両方から）
 #[tauri::command]
 pub async fn ai_app_unregister(app: AppHandle, client: String) -> Result<AiAppsStatus, String> {
     blocking(app, move |app, ctx| {
-        let c = Client::from_id(&client).ok_or("E_AI_CLIENT")?;
+        let row = Row::from_id(&client).ok_or("E_AI_CLIENT")?;
         let backups = backups_dir(app)?;
         let os = ctx.os;
-        unregister(ctx, c, &backups, &stamp(), || claude_desktop_running(os))?;
+        unregister_row(ctx, row, &backups, &stamp(), || claude_desktop_running(os))?;
         Ok(status_of(ctx, connector_path().as_deref()))
     })
     .await
@@ -1013,6 +1177,8 @@ mod tests {
             local_appdata: Some(home.join("AppData/Local")),
             codex_home: home.join(".codex"),
             path_dirs: vec![home.join("bin")],
+            // 本物の /Applications は見ない（Claude のアプリが入っている PC でも同じ答えになるように）
+            mac_app_dirs: vec![home.join("Applications")],
         }
     }
 
@@ -1329,36 +1495,27 @@ model = "o3"
         );
         assert_eq!(std::fs::read_to_string(&cfg).unwrap(), "// note\n{}");
 
-        // Codex・Gemini（設定のファイルがまだ無い: 控えは作らずに新しく書く）
+        // Codex（設定のファイルがまだ無い: 控えは作らずに新しく書く。行の登録は Codex の1つだけ）
         std::fs::create_dir_all(home.join(".codex")).unwrap();
-        std::fs::create_dir_all(home.join(".gemini")).unwrap();
-        register(&c, Client::Codex, &moved, None, &backups, "s6", not_running).unwrap();
-        register(
-            &c,
-            Client::Gemini,
-            &moved,
-            None,
-            &backups,
-            "s6",
-            not_running,
-        )
-        .unwrap();
+        register_row(&c, Row::Codex, &moved, None, &backups, "s6", not_running).unwrap();
+        let row = row_view(&c, Row::Codex, Some(&moved), false, not_running);
         assert_eq!(
-            view(&c, Client::Codex, Some(&moved), false, not_running).state,
-            "registered"
+            (row.client, row.title, row.state),
+            ("codex", "Codex", "registered")
         );
-        assert_eq!(
-            view(&c, Client::Gemini, Some(&moved), false, not_running).state,
-            "registered"
-        );
+        assert_eq!(row.parts.len(), 1);
         assert!(!backups.join("codex-s6-config.toml").exists());
-        unregister(&c, Client::Gemini, &backups, "s7", not_running).unwrap();
-        assert!(backups.join("gemini-s7-settings.json").exists());
-        let g: serde_json::Value = serde_json::from_str(
-            &std::fs::read_to_string(home.join(".gemini/settings.json")).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(g, serde_json::json!({ "mcpServers": {} }));
+        unregister_row(&c, Row::Codex, &backups, "s7", not_running).unwrap();
+        assert!(backups.join("codex-s7-config.toml").exists());
+        assert_eq!(
+            toml_found(
+                &std::fs::read_to_string(home.join(".codex/config.toml")).unwrap(),
+                server_name()
+            )
+            .unwrap(),
+            Found::None
+        );
+        register_row(&c, Row::Codex, &moved, None, &backups, "s8", not_running).unwrap();
 
         // 画面に見せる場所はホームを ~ にする。中身は接続口の場所を伏せる
         let v = view(&c, Client::Codex, Some(&moved), false, not_running);
@@ -1423,19 +1580,12 @@ model = "o3"
         );
     }
 
-    /// 本物の代わりの claude（受け取った引数を ~/.claude.json に写すだけ）で、登録・場所の直し・外すの呼び方を確かめる
+    /// 本物の代わりの claude（受け取った引数を、一時フォルダのホームの .claude.json に写すだけ）を一時フォルダの bin に置く。
+    /// 呼ばれた引数を1行ずつ書くファイルの場所を返す
     #[cfg(unix)]
-    #[test]
-    fn claude_code_through_command() {
-        let name = server_name();
+    fn fake_claude(home: &Path) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
-        let home = tmp("claude");
-        let c = ctx(&home, Os::Mac);
-        let exe = home.join("lifeplan");
-        std::fs::write(&exe, "").unwrap();
-        let backups = home.join("backups");
-        let v = view(&c, Client::ClaudeCode, Some(&exe), false, || false);
-        assert_eq!(v.state, "missing");
+        let name = server_name();
         std::fs::create_dir_all(home.join("bin")).unwrap();
         let fake = home.join("bin/claude");
         let log = home.join("calls.txt");
@@ -1448,6 +1598,339 @@ model = "o3"
         )
         .unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        log
+    }
+
+    /// Claude のアプリの設定のファイルを、一時フォルダのホームに置く（ほかのサーバーの設定が入っている）
+    fn desktop_config(home: &Path) -> PathBuf {
+        let cfg = home.join("Library/Application Support/Claude/claude_desktop_config.json");
+        std::fs::create_dir_all(cfg.parent().unwrap()).unwrap();
+        std::fs::write(&cfg, DESKTOP).unwrap();
+        cfg
+    }
+
+    fn connector(home: &Path) -> PathBuf {
+        let exe = home.join("Financia.app/Contents/MacOS/lifeplan");
+        std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
+        std::fs::write(&exe, "").unwrap();
+        exe
+    }
+
+    fn states(v: &AiAppView) -> Vec<(&'static str, &'static str, Option<&'static str>)> {
+        v.parts.iter().map(|p| (p.id, p.state, p.blocked)).collect()
+    }
+
+    #[cfg(unix)]
+    fn lines(log: &Path) -> Vec<String> {
+        std::fs::read_to_string(log)
+            .map(|t| t.lines().map(str::to_owned).collect())
+            .unwrap_or_default()
+    }
+
+    /// Claude の行・両方あり: 1回で、チャットのアプリの設定のファイルと Claude Code の両方に登録し、外すのも1回で両方
+    #[cfg(unix)]
+    #[test]
+    fn claude_row_registers_both() {
+        let name = server_name();
+        let home = tmp("row-both");
+        let c = ctx(&home, Os::Mac);
+        let exe = connector(&home);
+        let backups = home.join("backups");
+        let cfg = desktop_config(&home);
+        let log = fake_claude(&home);
+        let v = row_view(&c, Row::Claude, Some(&exe), false, || false);
+        assert_eq!(
+            (v.client, v.title, v.state),
+            ("claude", "Claude", "unregistered")
+        );
+        assert_eq!(
+            v.parts.iter().map(|p| p.label).collect::<Vec<_>>(),
+            ["チャット（アプリ）", "Claude Code"]
+        );
+        assert_eq!(
+            states(&v),
+            [
+                ("claudeDesktop", "unregistered", None),
+                ("claudeCode", "unregistered", None)
+            ]
+        );
+        register_row(&c, Row::Claude, &exe, None, &backups, "s1", || false).unwrap();
+        let v = row_view(&c, Row::Claude, Some(&exe), false, || false);
+        assert_eq!(v.state, "registered");
+        assert_eq!(
+            json_found(&std::fs::read_to_string(&cfg).unwrap(), name).unwrap(),
+            Found::Points(exe.to_string_lossy().into_owned())
+        );
+        assert_eq!(
+            json_found(
+                &std::fs::read_to_string(home.join(".claude.json")).unwrap(),
+                name
+            )
+            .unwrap(),
+            Found::Points(exe.to_string_lossy().into_owned())
+        );
+        assert_eq!(
+            std::fs::read_to_string(backups.join("claudeDesktop-s1-claude_desktop_config.json"))
+                .unwrap(),
+            DESKTOP
+        );
+        // もう一度押しても、書かない・呼ばない
+        register_row(&c, Row::Claude, &exe, None, &backups, "s2", || false).unwrap();
+        assert!(!backups
+            .join("claudeDesktop-s2-claude_desktop_config.json")
+            .exists());
+        assert_eq!(lines(&log).len(), 1);
+        // アプリを動かした: どちらも「場所が古い」→ 1回で両方を直す
+        let moved = home.join("Moved/lifeplan");
+        std::fs::create_dir_all(moved.parent().unwrap()).unwrap();
+        std::fs::write(&moved, "").unwrap();
+        assert_eq!(
+            row_view(&c, Row::Claude, Some(&moved), false, || false).state,
+            "stale"
+        );
+        register_row(&c, Row::Claude, &moved, None, &backups, "s3", || false).unwrap();
+        assert_eq!(
+            row_view(&c, Row::Claude, Some(&moved), false, || false).state,
+            "registered"
+        );
+        // 外すのも1回で両方（ほかのサーバーの設定は残る）
+        unregister_row(&c, Row::Claude, &backups, "s4", || false).unwrap();
+        let v = row_view(&c, Row::Claude, Some(&moved), false, || false);
+        assert_eq!(v.state, "unregistered");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(&cfg).unwrap())
+                .unwrap(),
+            serde_json::from_str::<serde_json::Value>(DESKTOP).unwrap()
+        );
+        assert_eq!(
+            lines(&log),
+            [
+                format!(
+                    "mcp add --transport stdio --scope user {name} -- {} mcp",
+                    exe.display()
+                ),
+                format!("mcp remove --scope user {name}"),
+                format!(
+                    "mcp add --transport stdio --scope user {name} -- {} mcp",
+                    moved.display()
+                ),
+                format!("mcp remove --scope user {name}"),
+            ]
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// Claude の行・アプリが起動中: Claude Code の側だけ登録し、設定のファイルには触らない。終了してからもう一度押すと両方になる
+    #[cfg(unix)]
+    #[test]
+    fn claude_row_while_the_app_is_running() {
+        let home = tmp("row-running");
+        let c = ctx(&home, Os::Mac);
+        let exe = connector(&home);
+        let backups = home.join("backups");
+        let cfg = desktop_config(&home);
+        let log = fake_claude(&home);
+        let v = row_view(&c, Row::Claude, Some(&exe), false, || true);
+        assert_eq!(
+            states(&v),
+            [
+                ("claudeDesktop", "unregistered", Some("E_AI_APP_RUNNING")),
+                ("claudeCode", "unregistered", None)
+            ]
+        );
+        register_row(&c, Row::Claude, &exe, None, &backups, "s1", || true).unwrap();
+        // 設定のファイルは元のまま（控えも一時ファイルも作らない）
+        assert_eq!(std::fs::read_to_string(&cfg).unwrap(), DESKTOP);
+        assert!(!backups.exists());
+        assert_eq!(
+            files(cfg.parent().unwrap()),
+            vec!["claude_desktop_config.json".to_owned()]
+        );
+        let v = row_view(&c, Row::Claude, Some(&exe), false, || true);
+        assert_eq!(v.state, "partial");
+        assert_eq!(
+            states(&v),
+            [
+                ("claudeDesktop", "unregistered", Some("E_AI_APP_RUNNING")),
+                ("claudeCode", "registered", None)
+            ]
+        );
+        // 起動中のままもう一度押しても同じ（claude も呼び直さない）
+        register_row(&c, Row::Claude, &exe, None, &backups, "s2", || true).unwrap();
+        assert_eq!(std::fs::read_to_string(&cfg).unwrap(), DESKTOP);
+        assert_eq!(lines(&log).len(), 1);
+        // 終了してからもう一度押すと、チャットのアプリの側にも登録する
+        register_row(&c, Row::Claude, &exe, None, &backups, "s3", || false).unwrap();
+        assert_eq!(
+            row_view(&c, Row::Claude, Some(&exe), false, || false).state,
+            "registered"
+        );
+        assert_eq!(lines(&log).len(), 1);
+        // 両方に登録済みなら、起動中に押しても止めない（書く物が無い）
+        register_row(&c, Row::Claude, &exe, None, &backups, "s4", || true).unwrap();
+        // 起動中に外す: Claude Code の側だけ外し、起動中だと返す（設定のファイルは変えない）
+        let before = std::fs::read_to_string(&cfg).unwrap();
+        assert_eq!(
+            unregister_row(&c, Row::Claude, &backups, "s5", || true),
+            Err("E_AI_APP_RUNNING")
+        );
+        assert_eq!(std::fs::read_to_string(&cfg).unwrap(), before);
+        assert_eq!(
+            states(&row_view(&c, Row::Claude, Some(&exe), false, || true)),
+            [
+                ("claudeDesktop", "registered", Some("E_AI_APP_RUNNING")),
+                ("claudeCode", "unregistered", None)
+            ]
+        );
+        // Claude Code の側も登録できないとき（claude コマンドが無い）に起動中なら、何も書かずに起動中だと返す
+        let home2 = tmp("row-running-only");
+        let c2 = ctx(&home2, Os::Mac);
+        let cfg2 = desktop_config(&home2);
+        assert_eq!(
+            register_row(&c2, Row::Claude, &exe, None, &backups, "s6", || true),
+            Err("E_AI_APP_RUNNING")
+        );
+        assert_eq!(std::fs::read_to_string(&cfg2).unwrap(), DESKTOP);
+        let _ = std::fs::remove_dir_all(&home);
+        let _ = std::fs::remove_dir_all(&home2);
+    }
+
+    /// Claude の行・claude コマンドが無い: チャットのアプリの側だけ登録する
+    #[test]
+    fn claude_row_without_the_claude_command() {
+        let name = server_name();
+        let home = tmp("row-no-command");
+        let c = ctx(&home, Os::Mac);
+        let exe = connector(&home);
+        let backups = home.join("backups");
+        let cfg = desktop_config(&home);
+        // Claude Code を使ったことが無い PC（claude コマンドも ~/.claude.json も無い）
+        assert_eq!(
+            states(&row_view(&c, Row::Claude, Some(&exe), false, || false)),
+            [
+                ("claudeDesktop", "unregistered", None),
+                ("claudeCode", "missing", None)
+            ]
+        );
+        register_row(&c, Row::Claude, &exe, None, &backups, "s1", || false).unwrap();
+        assert_eq!(
+            json_found(&std::fs::read_to_string(&cfg).unwrap(), name).unwrap(),
+            Found::Points(exe.to_string_lossy().into_owned())
+        );
+        assert!(!home.join(".claude.json").exists());
+        // 使える側がすべて登録済みなら、行は「登録済み」
+        assert_eq!(
+            row_view(&c, Row::Claude, Some(&exe), false, || false).state,
+            "registered"
+        );
+        unregister_row(&c, Row::Claude, &backups, "s2", || false).unwrap();
+        // Claude Code の設定はあるが claude コマンドが見つからない PC: 読むだけのファイルには書かない
+        std::fs::write(home.join(".claude.json"), "{\"numStartups\": 3}").unwrap();
+        assert_eq!(
+            states(&row_view(&c, Row::Claude, Some(&exe), false, || false)),
+            [
+                ("claudeDesktop", "unregistered", None),
+                ("claudeCode", "unregistered", Some("E_AI_APP_NO_COMMAND"))
+            ]
+        );
+        register_row(&c, Row::Claude, &exe, None, &backups, "s3", || false).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(home.join(".claude.json")).unwrap(),
+            "{\"numStartups\": 3}"
+        );
+        assert_eq!(
+            row_view(&c, Row::Claude, Some(&exe), false, || false).state,
+            "partial"
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// Claude の行・どちらも無い: 何も書かずに「見つかりません」。チャットのアプリが無い PC は Claude Code の側だけ登録する
+    #[test]
+    fn claude_row_with_neither() {
+        let home = tmp("row-neither");
+        let exe = connector(&home);
+        let backups = home.join("backups");
+        for os in [Os::Mac, Os::Windows, Os::Linux] {
+            let c = ctx(&home, os);
+            let v = row_view(&c, Row::Claude, Some(&exe), false, || false);
+            assert_eq!(v.state, "missing", "{os:?}");
+            assert_eq!(
+                register_row(&c, Row::Claude, &exe, None, &backups, "s", || false),
+                Err("E_AI_APP_MISSING"),
+                "{os:?}"
+            );
+            // 外す物も無い（エラーにしない）
+            assert_eq!(
+                unregister_row(&c, Row::Claude, &backups, "s", || false),
+                Ok(()),
+                "{os:?}"
+            );
+        }
+        assert_eq!(files(&home), vec!["Financia.app".to_owned()]);
+        // Windows: Claude のアプリのフォルダ（%APPDATA%\Claude）があれば、そこの設定のファイルに書く
+        let win = ctx(&home, Os::Windows);
+        std::fs::create_dir_all(home.join("AppData/Roaming/Claude")).unwrap();
+        register_row(&win, Row::Claude, &exe, None, &backups, "w", || false).unwrap();
+        assert_eq!(
+            json_found(
+                &std::fs::read_to_string(
+                    home.join("AppData/Roaming/Claude/claude_desktop_config.json")
+                )
+                .unwrap(),
+                server_name()
+            )
+            .unwrap(),
+            Found::Points(exe.to_string_lossy().into_owned())
+        );
+        assert_eq!(
+            row_view(&win, Row::Claude, Some(&exe), false, || false).state,
+            "registered"
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// チャットのアプリが無い PC（Linux など）: Claude Code の側だけ登録する
+    #[cfg(unix)]
+    #[test]
+    fn claude_row_without_the_desktop_app() {
+        let home = tmp("row-no-desktop");
+        let exe = connector(&home);
+        let backups = home.join("backups");
+        fake_claude(&home);
+        for (os, desktop) in [(Os::Mac, "missing"), (Os::Linux, "unsupported")] {
+            let c = ctx(&home, os);
+            assert_eq!(
+                states(&row_view(&c, Row::Claude, Some(&exe), false, || false)),
+                [
+                    ("claudeDesktop", desktop, None),
+                    ("claudeCode", "unregistered", None)
+                ]
+            );
+            register_row(&c, Row::Claude, &exe, None, &backups, "s", || false).unwrap();
+            assert_eq!(
+                row_view(&c, Row::Claude, Some(&exe), false, || false).state,
+                "registered"
+            );
+            unregister_row(&c, Row::Claude, &backups, "s", || false).unwrap();
+            assert!(!home.join("Library").exists());
+        }
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// 本物の代わりの claude で、登録・場所の直し・外すの呼び方を確かめる
+    #[cfg(unix)]
+    #[test]
+    fn claude_code_through_command() {
+        let name = server_name();
+        let home = tmp("claude");
+        let c = ctx(&home, Os::Mac);
+        let exe = home.join("lifeplan");
+        std::fs::write(&exe, "").unwrap();
+        let backups = home.join("backups");
+        let v = view(&c, Client::ClaudeCode, Some(&exe), false, || false);
+        assert_eq!(v.state, "missing");
+        let log = fake_claude(&home);
         assert_eq!(
             view(&c, Client::ClaudeCode, Some(&exe), false, || false).state,
             "unregistered"
