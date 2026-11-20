@@ -18,7 +18,7 @@ import type { RelayTransport } from "../../../../hearing/src/web/protocol.ts";
 import { cleanText } from "../documents/privacy.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { fromBody } from "../store/body.ts";
-import { accepting, estimateOf, invitationText, officeFace, prefillOf, removeOnServer, selectedCount, sheetOf, withWebEntry, type WebLogEntry, type WebOrigin } from "./web.ts";
+import { accepting, arrivalOf, estimateOf, invitationText, officeFace, prefillOf, removeOnServer, selectedCount, sheetOf, withWebEntry, type WebLogEntry, type WebOrigin } from "./web.ts";
 import { AI_NAME_MAX, AI_PURPOSE_MAX } from "./aiSelection.ts";
 
 /** 世帯の決まっていない、受け付け中の依頼の上限（本体の ai_share::hearing::UNASSIGNED_LIMIT と同じ） */
@@ -80,6 +80,22 @@ export function unassignedAccepting(s: OfficeHearing, now: Date): number {
 /** 帯に出す数（FP がまだ確かめていない、AI が発行した依頼） */
 export function unseenCount(s: OfficeHearing): number {
   return s.log.filter((l) => !l.seen).length;
+}
+
+/** 「AI が発行した URL」の一覧に並ぶ行の数（記録と、記録の無い依頼） */
+export function issuedCount(s: OfficeHearing): number {
+  return s.log.length + s.requests.filter((r) => !s.log.some((l) => l.requestId === r.entry.record.requestId)).length;
+}
+
+/** 受け付け中の依頼に、答えか書類が届いていると分かっているか（確かめた結果。一覧の「届いています」・URL の依頼の届いた数と同じ決め方） */
+export function arrivedNow(e: WebLogEntry, now: Date): boolean {
+  const a = arrivalOf(e.record.requestId);
+  return a !== undefined && (a.answers || a.batches > 0) && accepting(e, now);
+}
+
+/** 世帯の決まっていない依頼で、答えか書類が届いている数（その世帯の「URL の依頼」には並ばないので、取り込むの入口に添える） */
+export function unassignedArrived(s: OfficeHearing, now: Date): number {
+  return s.requests.filter((r) => r.householdId === null && arrivedNow(r.entry, now)).length;
 }
 
 export function markSeen(s: OfficeHearing): OfficeHearing {

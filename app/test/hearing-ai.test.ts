@@ -1,6 +1,6 @@
 // AI 接続口から Web のヒアリングを使う（0222）: 選び方の一覧と確かめ（aiSelection.ts。接続口の同梱の JS と同じ関数）・画面の発行（aiHearing.ts の
-// runIssueJob）・世帯ファイルにまだ入っていない依頼（事務所データ）・事務所のひな形の案・画面の帯と一覧
-import { h } from "preact";
+// runIssueJob）・世帯ファイルにまだ入っていない依頼（事務所データ）・事務所のひな形の案・画面の帯と一覧・「事前ヒアリングを取り込む」の入口（追記 2026-11-20）
+import { h, options as preactOptions, type VNode } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { handleApi } from "../../hearing/relay/handler.ts";
@@ -10,10 +10,12 @@ import { estimate } from "../../hearing/src/web/flow.ts";
 import { checkSelection, packetBody, type WebSelection } from "../../hearing/src/web/packet.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { hearingCheck, hearingOptions } from "../src/connector/hearing.ts";
-import { AiHearingBand, AiHearingPanel } from "../src/workspace/ai/AiHearingIssued.tsx";
-import { assignTo, EMPTY_OFFICE_HEARING, markSeen, moveInto, pendingFor, pruned, readOfficeHearing, readTemplateProposal, relayMessage, runIssueJob, scrubSelection, UNASSIGNED_LIMIT, unassignedAccepting, unseenCount, withIssued, withPending, type IssueJob, type OfficeHearing } from "../src/workspace/hearing/aiHearing.ts";
+import { AiHearingBand, AiHearingEntry, AiHearingPanel, staleArrival } from "../src/workspace/ai/AiHearingIssued.tsx";
+import { HearingTools } from "../src/workspace/hearing/HearingTools.tsx";
+import type { HearingWebHost, SheetHost } from "../src/engine/host.ts";
+import { arrivedNow, assignTo, EMPTY_OFFICE_HEARING, issuedCount, markSeen, unassignedArrived, moveInto, pendingFor, pruned, readOfficeHearing, readTemplateProposal, relayMessage, runIssueJob, scrubSelection, UNASSIGNED_LIMIT, unassignedAccepting, unseenCount, withIssued, withPending, type IssueJob, type OfficeHearing } from "../src/workspace/hearing/aiHearing.ts";
 import { aiSelection, hearingOptions as options, type AiSelectionArgs, type AiSelectionContext } from "../src/workspace/hearing/aiSelection.ts";
-import { enteredKeys, estimateOf, filledCount, prefillOf, receiveWeb, selectedCount, sheetOf, statusOf, templateSelection, webLog, withWebEntry, type WebLogEntry } from "../src/workspace/hearing/web.ts";
+import { checkAnswered, enteredKeys, estimateOf, filledCount, noteArrival, prefillOf, receiveWeb, selectedCount, sheetOf, statusOf, templateSelection, webLog, withWebEntry, type WebLogEntry } from "../src/workspace/hearing/web.ts";
 import { baseSheet } from "../src/workspace/hearing/selection.ts";
 import { WebRequests } from "../src/workspace/hearing/WebRequests.tsx";
 import { HearingTemplateProposals } from "../src/workspace/office/HearingTemplateProposals.tsx";
@@ -478,5 +480,148 @@ describe("FP の画面と同じ数（estimateOf と同じ）", () => {
     const out = await runIssueJob(job(s), { transport: r.t, config, office: { name: "", color: null }, privacyContact: "", opened: null, now: NOW }, EMPTY_OFFICE_HEARING);
     expect(out.answer.ok && out.answer.minutes).toBe(estimateOf(null, s)?.std.minutes);
     expect(out.answer.ok && out.answer.screens).toBe(estimateOf(null, s)?.std.screens);
+  });
+});
+
+describe("「事前ヒアリングを取り込む」の「AI が発行した URL」の入口（0222 の追記 2026-11-20）", () => {
+  type Props = Record<string, unknown>;
+  /** 描いた木の要素を集める（画面を描かずに、ボタンの操作を呼ぶため） */
+  const capture = (node: VNode<any>): VNode<Props>[] => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const out: VNode<Props>[] = [];
+    const prev = preactOptions.vnode;
+    preactOptions.vnode = (v) => {
+      if (typeof v.type === "string") out.push(v as VNode<Props>);
+      prev?.(v);
+    };
+    try {
+      renderToString(node);
+    } finally {
+      preactOptions.vnode = prev;
+    }
+    return out;
+  };
+  const sheets = { save: async () => ({ saved: false }), open: async () => null } as unknown as SheetHost;
+  const webOf = (t: RelayTransport) => ({ config, call: t, saveDocument: async () => ({ saved: false }), saveDocuments: async () => ({ picked: false, saved: [], failed: 0, syncFolder: false, via: "folder" as const }) }) as unknown as HearingWebHost;
+  const tools = (store: OfficeHearing, web: HearingWebHost, aiOn: boolean, onOpen: () => void = () => undefined) =>
+    h(HearingTools, { wh: withRefreshedEstimates(blankHousehold("2026-11")), sheets, onSave: () => undefined, webProps: { web, office: { name: "", color: null }, templates: [], onTemplates: async () => undefined, persisted: true, saveNow: async () => true }, aiIssued: { store, aiOn, onOpen } });
+  /** 世帯の決まっていない依頼1件と、渡された世帯（開いていない）の依頼1件 */
+  async function issued() {
+    const r = relayFor();
+    const s = sel({ template: "simple" });
+    const ctx = { transport: r.t, config, office: { name: "", color: null }, privacyContact: "", opened: null, now: NOW };
+    const a = await runIssueJob(job(s), ctx, EMPTY_OFFICE_HEARING);
+    const b = await runIssueJob(job(s, { householdId: "hh-2", customerNumber: "A0002" }), ctx, EMPTY_OFFICE_HEARING);
+    let store = withIssued(EMPTY_OFFICE_HEARING, a.entry, null, null, a.log);
+    store = withIssued(store, b.entry, "hh-2", "A0002", b.log);
+    return { r, store, a: a.entry!, b: b.entry! };
+  }
+  /** お客さまが答える */
+  async function answer(entry: WebLogEntry, t: RelayTransport) {
+    const o = await openRequest(new URL(entry.record.url).hash, t);
+    const d: Draft = { ...initialDraft(o.packet), gates: { spouse: 0, child: 0 }, answers: { [draftKey("hs.consent.purpose")]: { status: "value", raw: { kind: "text", text: "given" } }, [draftKey("hs.work.type", 1)]: { status: "value", raw: { kind: "text", text: "regular" } } } };
+    await submitAnswers(o, answersOf(o.packet, d, NOW), t);
+  }
+  /** 一覧の「届いたかを確かめる」と同じく、確かめた結果を覚える */
+  async function check(entry: WebLogEntry, t: RelayTransport) {
+    const a = await checkAnswered(entry, t);
+    noteArrival(entry.record.requestId, a === null ? null : { answers: a.newAnswers, batches: a.batches, submitted: a.answered, at: NOW.toISOString() });
+  }
+
+  it("帯の有無に関係なく出る: 見た後（帯が消えた後）も「事前ヒアリングを取り込む」にボタンがあり、まだ見ていない URL があれば数を添える", async () => {
+    const { r, store } = await issued();
+    const web = webOf(r.t);
+    // まだ見ていない: 帯も入口も出て、入口に数
+    expect(renderToString(h(AiHearingBand, { count: unseenCount(store), onOpen: () => undefined }))).toContain("AI が URL を発行しました（2件）");
+    const before = renderToString(tools(store, web, true));
+    const take = before.slice(before.indexOf("data-hearing-take"));
+    expect(take).toContain("data-ai-hearing-entry-open");
+    expect(before).toContain("まだ見ていない URL（2件）");
+    // 見た後: 帯は消えるが、入口は残る（数は添えない）
+    const seen = markSeen(store);
+    expect(renderToString(h(AiHearingBand, { count: unseenCount(seen), onOpen: () => undefined }))).toBe("");
+    const after = renderToString(tools(seen, web, true));
+    expect(after).toContain("data-ai-hearing-entry-open");
+    expect(after).toContain("AI が発行した URL");
+    expect(after).not.toContain("data-ai-hearing-entry-unseen");
+    // 顧客番号を出さない（お客さまと一緒に見る画面。数だけ）
+    expect(after).not.toContain("A0002");
+    expect(after).not.toContain("接続口");
+    // AI からの発行を受けない画面（aiIssued を渡さない）では出さない
+    expect(renderToString(h(HearingTools, { wh: withRefreshedEstimates(blankHousehold("2026-11")), sheets, onSave: () => undefined, webProps: { web, office: { name: "", color: null }, templates: [], onTemplates: async () => undefined, persisted: true, saveNow: async () => true } }))).not.toContain("data-ai-hearing-entry");
+  });
+
+  it("押すと一覧が開く（帯の「確かめる」と同じ操作を呼ぶ）。一覧の行の数は、入口が数える記録の数と同じ", async () => {
+    const { r, store } = await issued();
+    let opened = 0;
+    const btn = capture(tools(markSeen(store), webOf(r.t), true, () => opened++)).find((v) => "data-ai-hearing-entry-open" in v.props);
+    expect(btn).toBeDefined();
+    (btn!.props.onClick as () => void)();
+    expect(opened).toBe(1);
+    // 開いた一覧に並ぶ行の数（記録と、記録の無い依頼）
+    const extra = withIssued(store, { ...store.requests[0]!.entry, record: { ...store.requests[0]!.entry.record, requestId: "R-NOLOG1" } }, null, null, null);
+    expect(issuedCount(extra)).toBe(3);
+    const panel = renderToString(h(AiHearingPanel, { store: extra, web: webOf(r.t), officeName: "", opened: null, onEntry: async () => undefined, onAssignOpened: async () => true, onCreate: async () => null, onOpenHousehold: () => undefined, onClose: () => undefined }));
+    expect(panel.match(/data-ai-hearing-row=/g)).toHaveLength(issuedCount(extra));
+  });
+
+  it("世帯の決まっていない依頼に答えが届いたら、入口に数を出す（渡された世帯の依頼・取り消した依頼は数えない）", async () => {
+    const { r, store, a, b } = await issued();
+    const web = webOf(r.t);
+    try {
+      await check(a, r.t);
+      await check(b, r.t);
+      expect(unassignedArrived(store, NOW)).toBe(0);
+      expect(renderToString(tools(store, web, true))).not.toContain("data-ai-hearing-entry-arrived");
+      await answer(a, r.t);
+      await answer(b, r.t);
+      await check(a, r.t);
+      await check(b, r.t);
+      expect(arrivedNow(a, NOW)).toBe(true);
+      expect(arrivedNow(b, NOW)).toBe(true);
+      // 渡された世帯の依頼は、その世帯を開けば「URL の依頼」に並ぶので、ここでは数えない
+      expect(unassignedArrived(store, NOW)).toBe(1);
+      const html = renderToString(tools(markSeen(store), web, true));
+      expect(html).toContain("世帯の決まっていない依頼に届いています（1件）");
+      // 一覧の行の「届いています」と同じ決め方
+      const panel = renderToString(h(AiHearingPanel, { store, web, officeName: "", opened: null, onEntry: async () => undefined, onAssignOpened: async () => true, onCreate: async () => null, onOpenHousehold: () => undefined, onClose: () => undefined }));
+      expect(panel.match(/data-ai-hearing-arrived/g)).toHaveLength(2);
+      // 取り消した依頼・期限の過ぎた依頼は数えない
+      expect(unassignedArrived(withPending(store, { ...a, state: "cancelled" }), NOW)).toBe(0);
+      expect(unassignedArrived(store, new Date(Date.parse(a.record.expiresAt) + 1000))).toBe(0);
+      // 世帯に結びつけた依頼は数えない（その世帯の「URL の依頼」に移る）
+      expect(unassignedArrived(assignTo(store, a.record.requestId, "hh-9", "A0009"), NOW)).toBe(0);
+    } finally {
+      noteArrival(a.record.requestId, null);
+      noteArrival(b.record.requestId, null);
+    }
+  });
+
+  it("入口を出したときに確かめ直すのは、まだ確かめていない依頼と、「まだ届いていない」と確かめてから5分を過ぎた依頼だけ", () => {
+    const id = "R-STALE01";
+    try {
+      expect(staleArrival(id, NOW)).toBe(true);
+      noteArrival(id, { answers: false, batches: 0, submitted: false, at: NOW.toISOString() });
+      expect(staleArrival(id, new Date(NOW.getTime() + 60_000))).toBe(false);
+      expect(staleArrival(id, new Date(NOW.getTime() + 5 * 60_000))).toBe(true);
+      // 届いていると分かっている依頼は、確かめ直さない（一覧の「届いたかを確かめる」で確かめる）
+      noteArrival(id, { answers: true, batches: 0, submitted: true, at: NOW.toISOString() });
+      expect(staleArrival(id, new Date(NOW.getTime() + 60 * 60_000))).toBe(false);
+    } finally {
+      noteArrival(id, null);
+    }
+  });
+
+  it("AI との接続がオフでも、記録が残っていれば出す（確かめて取り込める）。記録が0件なら、オンのときだけ出す", async () => {
+    const { r, store } = await issued();
+    const web = webOf(r.t);
+    const off = renderToString(h(AiHearingEntry, { store: markSeen(store), web, aiOn: false, onOpen: () => undefined }));
+    expect(off).toContain("data-ai-hearing-entry-open");
+    expect(off).toContain("AI との接続はオフですが、発行済みの URL はここで確かめて取り込めます");
+    expect(renderToString(h(AiHearingEntry, { store: markSeen(store), web, aiOn: true, onOpen: () => undefined }))).not.toContain("data-ai-hearing-entry-off");
+    // 記録が0件: オフなら出さない、オンなら「まだありません」
+    expect(renderToString(h(AiHearingEntry, { store: EMPTY_OFFICE_HEARING, web, aiOn: false, onOpen: () => undefined }))).toBe("");
+    const none = renderToString(h(AiHearingEntry, { store: EMPTY_OFFICE_HEARING, web, aiOn: true, onOpen: () => undefined }));
+    expect(none).toContain("data-ai-hearing-entry-open");
+    expect(none).toContain("AI が発行した URL はまだありません");
   });
 });

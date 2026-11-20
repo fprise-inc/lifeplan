@@ -4,11 +4,14 @@
 //   （選んだ世帯の「URL の依頼」に移り、受け取り・取り込みは今までどおりそこで行う）。取り消し・案内文と URL のコピーもここで
 // - 渡された世帯の依頼で、その世帯を開いていなかった物は、その世帯を開くと「URL の依頼」に移る（ここでは開くボタンだけ）
 // - お客さまと一緒に見る画面では顧客番号を出さない（帯は件数だけ。0015 の8）
+// - 0222 の追記（2026-11-20）: 帯は見ると消えるので、「事前ヒアリング・取り込む」の「事前ヒアリングを取り込む」にも一覧を開くボタン（AiHearingEntry）を
+//   置く。帯の有無に関係なく出し、まだ見ていない数と、世帯の決まっていない依頼に届いた答えの数を添える。記録が残っていれば AI との接続がオフでも出す
+//   （鍵は事務所データにあり、受け取り・取り込みに AI は要らない）。記録が0件で接続もオフなら出さない
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { HearingWebHost } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
-import { UNASSIGNED_LIMIT, unassignedAccepting, type AiIssueLog, type OfficeHearing, type PendingWebRequest } from "../hearing/aiHearing.ts";
-import { accepting, arrivalOf, checkAnswered, invitationText, noteArrival, onArrivals, removeOnServer, selectionName, STATUS_TEXT, statusOf, type WebLogEntry } from "../hearing/web.ts";
+import { arrivedNow, issuedCount, UNASSIGNED_LIMIT, unassignedAccepting, unassignedArrived, unseenCount, type AiIssueLog, type OfficeHearing, type PendingWebRequest } from "../hearing/aiHearing.ts";
+import { accepting, ARRIVAL_INTERVAL_MS, arrivalOf, checkAnswered, invitationText, noteArrival, onArrivals, removeOnServer, selectionName, STATUS_TEXT, statusOf, type WebLogEntry } from "../hearing/web.ts";
 import { dateTimeText } from "./model.ts";
 
 /** 帯（FP がまだ確かめていない、AI が発行した URL の数と、確かめる画面を開くボタン） */
@@ -23,6 +26,82 @@ export function AiHearingBand({ count, onOpen }: { count: number; onOpen: () => 
         <PopIcon />
       </button>
     </div>
+  );
+}
+
+/** 届いたかを確かめた結果を覚える（一覧の「届いたかを確かめる」と入口の確かめで同じ形） */
+async function checkOne(entry: WebLogEntry, web: HearingWebHost): Promise<Awaited<ReturnType<typeof checkAnswered>>> {
+  const a = await checkAnswered(entry, web.call);
+  noteArrival(entry.record.requestId, a === null ? null : { answers: a.newAnswers, batches: a.batches, submitted: a.answered, at: new Date().toISOString() });
+  return a;
+}
+
+export interface AiHearingEntryProps {
+  store: OfficeHearing;
+  web: HearingWebHost | null;
+  /** AI との接続がオンか（オフで記録も無ければ出さない） */
+  aiOn: boolean;
+  /** 「AI が発行した URL」を開く */
+  onOpen: () => void;
+}
+
+/** 入口を出したときに確かめ直すか（まだ確かめていないか、「まだ届いていない」と確かめてから、開いている世帯の確かめの間隔〔5分〕が過ぎた） */
+export function staleArrival(requestId: string, now: Date): boolean {
+  const a = arrivalOf(requestId);
+  if (a === undefined) return true;
+  if (a.answers || a.batches > 0) return false;
+  return now.getTime() - Date.parse(a.at) >= ARRIVAL_INTERVAL_MS;
+}
+
+/**
+ * 「事前ヒアリングを取り込む」の中の入口（帯が消えた後も一覧を開けるように。0222 の追記 2026-11-20）。
+ * 出したとき、世帯の決まっていない受け付け中の依頼で、まだ確かめていない物（前の確かめから5分を過ぎた物も）を確かめる。
+ * 開いている世帯の依頼のように5分ごとには確かめない（世帯の決まっていない依頼は、取り込むを開いたときと一覧の「届いたかを確かめる」で）
+ */
+export function AiHearingEntry({ store, web, aiOn, onOpen }: AiHearingEntryProps) {
+  const [, setTick] = useState(0);
+  const checked = useRef(new Set<string>());
+  useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
+  useEffect(() => {
+    if (web === null) return;
+    const now = new Date();
+    for (const r of store.requests) {
+      const id = r.entry.record.requestId;
+      if (r.householdId !== null || !accepting(r.entry, now) || !staleArrival(id, now) || checked.current.has(id)) continue;
+      checked.current.add(id);
+      void checkOne(r.entry, web).catch(() => undefined);
+    }
+  }, [web, store]);
+  const total = issuedCount(store);
+  if (total === 0 && !aiOn) return null;
+  const unseen = unseenCount(store);
+  const arrived = unassignedArrived(store, new Date());
+  return (
+    <span class="hs-ai-issued" data-ai-hearing-entry>
+      <button type="button" class="btn" onClick={onOpen} data-ai-hearing-entry-open>
+        AI が発行した URL
+        <PopIcon />
+      </button>
+      {arrived > 0 ? (
+        <b class="hs-kind answered" data-ai-hearing-entry-arrived>
+          世帯の決まっていない依頼に届いています（{arrived}件）
+        </b>
+      ) : null}
+      {unseen > 0 ? (
+        <b class="hs-kind review" data-ai-hearing-entry-unseen>
+          まだ見ていない URL（{unseen}件）
+        </b>
+      ) : null}
+      {total === 0 ? (
+        <span class="rp-note" data-ai-hearing-entry-none>
+          AI が発行した URL はまだありません
+        </span>
+      ) : !aiOn ? (
+        <span class="rp-note" data-ai-hearing-entry-off>
+          AI との接続はオフですが、発行済みの URL はここで確かめて取り込めます
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -94,7 +173,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
         <div class="wr-h">
           <b>{id}</b>
           {st !== null ? <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span> : null}
-          {arrived !== undefined && (arrived.answers || arrived.batches > 0) && live ? (
+          {e !== undefined && arrivedNow(e, now) ? (
             <span class="hs-kind wr-st answered" data-ai-hearing-arrived>
               届いています
             </span>
@@ -118,8 +197,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
                 disabled={busy !== null}
                 onClick={() =>
                   void run(id, async () => {
-                    const a = await checkAnswered(r.entry, (p.web as HearingWebHost).call);
-                    noteArrival(id, a === null ? null : { answers: a.newAnswers, batches: a.batches, submitted: a.answered, at: new Date().toISOString() });
+                    const a = await checkOne(r.entry, p.web as HearingWebHost);
                     note(id, a === null ? "サーバーにありません（期限が過ぎたか、消しました）" : a.newAnswers || a.batches > 0 ? "届いています。取り込む世帯を選んでください" : "まだ届いていません");
                   })
                 }
