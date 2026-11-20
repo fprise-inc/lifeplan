@@ -9,6 +9,7 @@
 //   「受け取る」から、受け取りの画面を挟まず取り込みの候補の画面へ。ご相談したいことの話題（事務所の既定値）はやめた
 // - 0192 の追記（2026-11-18）: Excel のシート（書き出す・記入済みを取り込む）は画面から外した（excelSwitch.ts の1か所で戻せる。部品・テストは残す）。
 //   取り込み済みの URL の依頼は一覧から外し、送られた内容は「取り込み済みの URL の回答」から見る
+// - 0222 の追記（2026-11-20）: 「事前ヒアリングを取り込む」に「AI が発行した URL」を開くボタン（aiIssued。上の帯が消えた後の入口）
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
 import type { HearingWebHost, SaveOutcome, SheetHost } from "../../engine/host.ts";
@@ -18,6 +19,7 @@ import { docRequests, docRequestTitles } from "../input/docRequests.ts";
 import { WebBuilder, type OfficeLook } from "./WebBuilder.tsx";
 import { ImportedAnswers, WebRequests } from "./WebRequests.tsx";
 import { HEARING_EXCEL_SHOWN } from "./excelSwitch.ts";
+import { AiHearingEntry, type AiHearingEntryProps } from "../ai/AiHearingIssued.tsx";
 import { listed, markImported, onArrivals, pendingCount, sentAtText, webLog, type HearingTemplate } from "./web.ts";
 import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, defaultWorkModes, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, workChangeTexts, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind, type WorkChangeMode } from "./sheet.ts";
 
@@ -474,7 +476,20 @@ export function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt, receiv
 }
 
 /** 入力のホームの上部（進み具合の近く）に置くボタンと、開いたパネル */
-export function HearingTools({ wh, sheets, onSave, webProps, customerNo = null, excel = HEARING_EXCEL_SHOWN }: Props & { webProps?: WebProps; /** Excel のシートの入口を出すか（既定は excelSwitch.ts。テストで出すときだけ渡す） */ excel?: boolean }) {
+export function HearingTools({
+  wh,
+  sheets,
+  onSave,
+  webProps,
+  aiIssued,
+  customerNo = null,
+  excel = HEARING_EXCEL_SHOWN,
+}: Props & {
+  webProps?: WebProps;
+  /** 「AI が発行した URL」の入口（AI からの発行を受けられる画面だけ。Web のヒアリングを使える画面でだけ出す。0222 の追記 2026-11-20） */
+  aiIssued?: Omit<AiHearingEntryProps, "web">;
+  /** Excel のシートの入口を出すか（既定は excelSwitch.ts。テストで出すときだけ渡す） */ excel?: boolean;
+}) {
   // 届いた知らせ（アプリを開いている間に確かめた結果。0192）が変わったら描き直す
   const [, setTick] = useState(0);
   useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
@@ -534,6 +549,7 @@ export function HearingTools({ wh, sheets, onSave, webProps, customerNo = null, 
                 {pend.arrived > 0 ? <b class="hs-kind answered">（届いています {pend.arrived}件）</b> : pend.toImport > 0 ? <b class="hs-kind review">（取り込み待ち {pend.toImport}件）</b> : null}
               </span>
             ) : null}
+            {webProps !== undefined && aiIssued !== undefined ? <AiHearingEntry web={webProps.web} {...aiIssued} /> : null}
           </div>
         </>
       ) : null}

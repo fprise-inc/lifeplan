@@ -1925,6 +1925,11 @@ export function App() {
     saveNow,
     look: { name: branding.name ?? "", color: usesStandardColor(branding) || branding.color === undefined ? null : checkBase(branding.color).light },
   });
+  /** 「AI が発行した URL」を開く（上の帯の「確かめる」と、事前ヒアリングを取り込むの入口。まだ見ていない URL があれば見た印を付ける） */
+  const openHearingPanel = () => {
+    setHearingPanel(true);
+    if (unseenCount(aiHearing.store) > 0) void aiHearing.seen().catch(() => undefined);
+  };
   /** AIからの新しい世帯の候補を確かめる画面を開く（候補は本体から読む） */
   const openHouseholdCandidates = useCallback(async () => {
     if (host === null) return;
@@ -3025,13 +3030,7 @@ export function App() {
         onOpenHousehold={(id) => void guard(() => openStored(id), openMessage)}
       />
       <AiHouseholdCandidateBand count={hhCands !== null ? 0 : hhCandCount} onOpen={() => void openHouseholdCandidates()} />
-      <AiHearingBand
-        count={hearingPanel ? 0 : unseenCount(aiHearing.store)}
-        onOpen={() => {
-          setHearingPanel(true);
-          void aiHearing.seen().catch(() => undefined);
-        }}
-      />
+      <AiHearingBand count={hearingPanel ? 0 : unseenCount(aiHearing.store)} onOpen={openHearingPanel} />
       {opened !== null && !docsOpen ? (
         <AiDocumentBand
           wh={opened.wh}
@@ -3348,6 +3347,7 @@ export function App() {
                           sheets={host.sheets}
                           onSave={edit}
                           customerNo={storedInfo !== null && storedInfo.sample === undefined ? storedInfo.customerNo : null}
+                          aiIssued={{ store: aiHearing.store, aiOn: ai.status?.enabled === true, onOpen: openHearingPanel }}
                           {...(host.hearingWeb !== undefined
                             ? {
                                 webProps: {
