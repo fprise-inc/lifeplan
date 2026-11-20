@@ -265,6 +265,12 @@ interface FieldBase {
   boxed?: { read: (wh: WorkingHousehold) => unknown; write: (wh: WorkingHousehold, box: Record<string, unknown> | undefined) => WorkingHousehold };
   /** 欄の当て先（0036 の2）。省くと 0.16 の欄のキーから読み替え表で引く（valueState.ts の fieldAddress） */
   address?: (wh: WorkingHousehold) => Address | null;
+  /**
+   * 書類の候補の入れ先（同じ入れ先 address を何本もの欄で分ける欄だけが持つ。相続税の試算の不動産ごとの欄〔入れ先は lands の1つ〕。0235）。
+   * at は書類の候補の場所（例 ["lands", "area"]）、object はその欄の不動産の ID。書類の値を承認しても値の状態の行は書かない
+   * （行は入れ先ごとに1つで、不動産ごと・欄ごとに分けられないため。どの書類から入れたかは読み取りの記録に残る）
+   */
+  docPlace?: { at: readonly string[]; object: string };
 }
 
 export type FieldDef = FieldBase &

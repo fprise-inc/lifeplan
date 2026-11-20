@@ -2,10 +2,13 @@
 // 足すときは入力の画面の「＋」と同じボタンを押した形で作り（その種類の既定・推定の印も同じ）、その中の欄に値の候補を当てる。
 // 同じ種類の物がもうあれば、新しく足さずに「今ある物に当てる」も選べる（sameKind で今ある物を探す。0154 の3）。
 // - 保険の契約（保険証券・ご契約内容のお知らせ・設計書）: insurance:<保険の種類の細目>
+// - 書類の土地のまとまり（課税明細書・路線価図。0235）: land:site。今ある持ち家・住まい以外の不動産に入れるだけで、新しく足さない（linkOnly）
 // 住宅ローン・iDeCo・小規模企業共済は、取り込みを外した書類（控除証明書など）の物なので足せない（0159。前の記録の物は RETIRED_OBJECT_KINDS で残す）
 import { addKey } from "../input/stages/insurance.ts";
 import { KINDS } from "../input/insuranceKinds.ts";
 import type { StageId } from "../input/form.ts";
+import type { WorkingHousehold } from "../input/household.ts";
+import { LAND_OBJECT_KIND, landLinkTargets } from "./land.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -24,6 +27,11 @@ export interface NewObjectKind {
   sameKind: (x: Obj) => boolean;
   /** 今ある物の持ち主の構成員の ID（書類の名義の人の物を先に並べる） */
   ownerOf: (x: Obj) => readonly string[];
+  /**
+   * 今ある物に入れるだけで、新しく足さない種類の、入れられる今ある物（0235 の書類の土地。持ち家と住まい以外の不動産の2つの集まりにまたがるので、
+   * collection・sameKind の代わりにここから選ぶ）
+   */
+  linkOnly?: (wh: WorkingHousehold) => { id: string; label: string }[];
 }
 
 const str = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
@@ -41,7 +49,24 @@ const insuranceKinds = KINDS.map((k): [string, NewObjectKind] => [
   },
 ]);
 
-export const NEW_OBJECT_KINDS: Readonly<Record<string, NewObjectKind>> = Object.fromEntries(insuranceKinds);
+const landKind: [string, NewObjectKind] = [
+  LAND_OBJECT_KIND,
+  {
+    label: "書類の土地・建物",
+    noun: "不動産",
+    collection: "residences",
+    stage: "inheritance",
+    action: "",
+    sameKind: () => false,
+    ownerOf: () => [],
+    linkOnly: landLinkTargets,
+  },
+];
+
+export const NEW_OBJECT_KINDS: Readonly<Record<string, NewObjectKind>> = Object.fromEntries([...insuranceKinds, landKind]);
+
+/** 物の種類が書類の種類で受けられるか（保険の書類は保険の契約だけ、土地・建物の書類は書類の土地だけ。0235） */
+export const objectKindFits = (docType: string, kind: string): boolean => (docType === "insurancePolicy" ? kind.startsWith("insurance:") : kind === LAND_OBJECT_KIND);
 
 /**
  * 取り込みを外した書類（0159）で足せた物の種類。前の記録の物の候補を捨てずに残すためだけに持つ（読み口は受けない・足せない）。

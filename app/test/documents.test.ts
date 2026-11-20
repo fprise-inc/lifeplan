@@ -92,7 +92,7 @@ describe("読み口: 答えの形を確かめる", () => {
       ctx(wh),
     );
     expect(r.reading?.candidates).toHaveLength(1);
-    expect(r.issues).toEqual(expect.arrayContaining(["登録簿に無い入力項目の候補", "保険の契約の欄でない候補（読めるのは保険の書類だけです）", "場所の書き方が違う候補", "作れない種類の新しい物の候補"]));
+    expect(r.issues).toEqual(expect.arrayContaining(["登録簿に無い入力項目の候補", "保険の契約の欄でない候補（保険の書類で読めるのは保険の契約の欄だけです）", "場所の書き方が違う候補", "作れない種類の新しい物の候補"]));
     expect(r.issues.join("")).not.toContain("<script>");
   });
 

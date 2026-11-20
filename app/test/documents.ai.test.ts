@@ -173,8 +173,8 @@ describe("貼り付けの入口", () => {
       ['{"contract": "document-candidates@1", "values": [}', "AI", "答えの JSON を読めません（途中で切れていないか確かめてください）"],
       [JSON.stringify({ ...answer(), contract: "other@1" }), "AI", `答えの形の名前（contract）が「${PROPOSAL_CONTRACT}」ではありません`],
       [JSON.stringify({ contract: PROPOSAL_CONTRACT, docType: "insurancePolicy", values: [{ item: "no.such.item", value: 1 }] }), "AI", "読める候補がありませんでした"],
-      // 保険の書類のほかは読まない（0159）
-      [JSON.stringify({ ...answer(), docType: "withholdingSlip" }), "AI", "読めるのは保険証券・ご契約内容のお知らせ・設計書（docType は insurancePolicy）だけです。ほかの書類は、書類を見て入力の欄に打ってください（欄の「?」に書類のどこを見るかがあります）"],
+      // 保険の書類と土地・建物の書類（0235）のほかは読まない（0159）
+      [JSON.stringify({ ...answer(), docType: "withholdingSlip" }), "AI", "読めるのは保険証券・ご契約内容のお知らせ・設計書（docType は insurancePolicy）・固定資産税の課税明細書（propertyTaxStatement）・路線価図（routePriceMap）だけです。ほかの書類は、書類を見て入力の欄に打ってください（欄の「?」に書類のどこを見るかがあります）"],
     ];
     for (const [text, connector, why] of cases) {
       const r = readPasted(wh, text, connector, AT, newId);
@@ -203,16 +203,16 @@ describe("貼り付けの入口", () => {
     const withGuide = renderToString(h(PasteAnswer, { wh, gate: { ok: true, sample: true }, guide: { options: GUIDE_DOC_TYPES, text: guideText }, onRead: () => undefined, onClose: () => undefined }));
     expect(withGuide).toContain("data-documents-paste-guide");
     expect(withGuide).toContain("data-documents-paste-guide-type");
-    // 読めるのは保険の書類だけなので、書類の種類を選ぶ欄は出さない（0159）
-    expect(withGuide).not.toContain("<select");
-    expect(withGuide).toContain("読めるのは保険証券・ご契約内容のお知らせ・設計書だけです");
+    // 読める書類は保険の書類と、課税明細書・路線価図（0235）なので、書類の種類を選ぶ
+    expect(withGuide).toContain("<select");
+    for (const t of GUIDE_DOC_TYPES) expect(withGuide).toContain(t.label);
   });
 });
 
 describe("貼り付けで写す読み方の手引き（SDK フォルダの説明書・手引き・欄の一覧）", () => {
   const sdk = (...p: string[]) => readFileSync(join(REPO_DIR, "sdk", ...p), "utf8").trim();
-  it("説明書・保険の書類の手引き・欄の一覧をそのまま写す。世帯のデータは入らない。読める書類は保険だけ（0159）", () => {
-    expect(GUIDE_DOC_TYPES.map((t) => t.value)).toEqual(["insurancePolicy"]);
+  it("説明書・保険の書類の手引き・欄の一覧をそのまま写す。世帯のデータは入らない。読める書類は保険と、課税明細書・路線価図（0159・0235）", () => {
+    expect(GUIDE_DOC_TYPES.map((t) => t.value)).toEqual(["insurancePolicy", "propertyTaxStatement", "routePriceMap"]);
     const text = guideText("insurancePolicy");
     expect(text).toContain(sdk("docs", "document-reading.md"));
     expect(text).toContain(sdk("skills", "read-documents", "guides", "insurance-policy.md"));
@@ -223,7 +223,12 @@ describe("貼り付けで写す読み方の手引き（SDK フォルダの説明
     const skill = sdk("skills", "read-documents", "SKILL.md");
     for (const t of GUIDE_DOC_TYPES) expect(skill, t.value).toContain(`\`${t.value}\``);
     // 外した書類の手引きは無い
-    expect(readdirSync(join(REPO_DIR, "sdk", "skills", "read-documents", "guides"))).toEqual(["insurance-policy.md"]);
+    expect(readdirSync(join(REPO_DIR, "sdk", "skills", "read-documents", "guides")).sort()).toEqual(["insurance-policy.md", "property-tax-statement.md", "route-price-map.md"]);
+    for (const t of ["propertyTaxStatement", "routePriceMap"] as const) {
+      const land = guideText(t);
+      expect(land).toContain(sdk("docs", "document-reading.md"));
+      expect(hasTwelve(land)).toBe(false);
+    }
   });
 
   it("説明書の使い方の表に、AI接続口の道具の名前が書いてある", () => {

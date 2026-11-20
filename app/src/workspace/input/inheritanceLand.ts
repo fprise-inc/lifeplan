@@ -220,6 +220,8 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
   const l = landOf(wh, t.object);
   const at = onInput(["lands"]);
   const base = { item: "plan.inheritanceTax", optional: true, address: at };
+  // 書類の候補の入れ先（課税明細書・路線価図の読み取り。0235）。入れ先 at は lands の1つなので、不動産と欄の名前で分ける
+  const doc = (name: string) => ({ docPlace: { at: ["lands", name], object: t.object } });
   const get = <T>(read: (x: InheritanceLandSetting) => T | undefined) => (w: WorkingHousehold) => ({ value: (() => {
     const x = landOf(w, t.object);
     const v = x === undefined ? undefined : read(x);
@@ -235,6 +237,7 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
     field({
       ...base,
       key: `${k}/area`,
+      ...doc("area"),
       label: "土地の面積",
       level: "simple",
       kind: "decimal",
@@ -247,6 +250,7 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
     field({
       ...base,
       key: `${k}/method`,
+      ...doc("method"),
       label: "土地の評価の入れ方",
       level: "simple",
       kind: "select",
@@ -258,9 +262,9 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
     }),
   );
   if (method === "routePrice")
-    fields.push(field({ ...base, key: `${k}/routePrice`, label: "路線価（1㎡あたり）", level: "simple", kind: "yen", basis: "once", unit: "yen", help: "国税庁の路線価図の、正面の道路の価格（千円単位で書かれている値×1,000円）。計算基準年の値として入れ、ほかの年は土地の評価額の推移と同じ割合で動かします", get: get((x) => x.routePrice), set: put("routePrice", Number) }));
+    fields.push(field({ ...base, key: `${k}/routePrice`, ...doc("routePrice"), label: "路線価（1㎡あたり）", level: "simple", kind: "yen", basis: "once", unit: "yen", help: "国税庁の路線価図の、正面の道路の価格（千円単位で書かれている値×1,000円）。計算基準年の値として入れ、ほかの年は土地の評価額の推移と同じ割合で動かします", get: get((x) => x.routePrice), set: put("routePrice", Number) }));
   if (method === "multiplier" || method === "fixedEstimate")
-    fields.push(field({ ...base, key: `${k}/fixedValue`, label: "土地の固定資産税評価額", level: "simple", kind: "yen", basis: "once", help: "固定資産税の課税明細書の土地の「価格（評価額）」（課税標準額ではない値）。物件全体の額です", get: get((x) => x.fixedValue), set: put("fixedValue", Number) }));
+    fields.push(field({ ...base, key: `${k}/fixedValue`, ...doc("fixedValue"), label: "土地の固定資産税評価額", level: "simple", kind: "yen", basis: "once", help: "固定資産税の課税明細書の土地の「価格（評価額）」（課税標準額ではない値）。物件全体の額です", get: get((x) => x.fixedValue), set: put("fixedValue", Number) }));
   if (method === "multiplier")
     fields.push(field({ ...base, key: `${k}/multiplier`, label: "評価倍率", level: "simple", kind: "decimal", suffix: "倍", help: "国税庁の評価倍率表の、その地域の宅地の倍率", get: get((x) => x.multiplier), set: put("multiplier", (v) => String(v)) }));
   if (method !== "market" || l?.adjustment !== undefined)
@@ -273,6 +277,7 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
       field({
         ...base,
         key: `${k}/building`,
+        ...doc("buildingValue"),
         label: "建物の固定資産税評価額",
         level: "simple",
         kind: "yen",
@@ -295,7 +300,7 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
     const full = account?.property?.rental?.rentBy === "actual";
     fields.push(
       field({ ...base, key: `${k}/rentalRatio`, label: "賃貸割合", level: "detail", kind: "pct", min: 0, max: 100, blankMeans: full ? "100%" : `${String(Math.round((1 - Number(vac ?? "0")) * 1000) / 10)}%（1−空室率）`, help: "貸している床面積の割合。一時的な空室（すぐ次の人を募集し、空いていたのが1か月程度など）は貸しているとみなせます。入れなければ1−空室率（今の家賃で入れた物件は100%）。評価する年の年末に貸していなければ0%として計算します（建てる・買う予定の物件は予定の月から貸します）", get: get((x) => x.rentalRatio), set: put("rentalRatio", (v) => String(v)) }),
-      field({ ...base, key: `${k}/leasehold`, label: "借地権割合（路線価図の記号）", level: "detail", kind: "select", options: LEASEHOLD_OPTIONS, blankMeans: "D（60%）", help: "貸家建付地の減額（土地の評価×借地権割合×借家権割合30%×賃貸割合）に使います。路線価図の路線価の後ろの記号（A 90%〜G 30%）。入れなければ D（60%。住宅地で多い区分の低い方）", get: get((x) => x.leaseholdRatio), set: put("leaseholdRatio") }),
+      field({ ...base, key: `${k}/leasehold`, ...doc("leaseholdRatio"), label: "借地権割合（路線価図の記号）", level: "detail", kind: "select", options: LEASEHOLD_OPTIONS, blankMeans: "D（60%）", help: "貸家建付地の減額（土地の評価×借地権割合×借家権割合30%×賃貸割合）に使います。路線価図の路線価の後ろの記号（A 90%〜G 30%）。入れなければ D（60%。住宅地で多い区分の低い方）", get: get((x) => x.leaseholdRatio), set: put("leaseholdRatio") }),
     );
   }
   // 小規模宅地等の特例
@@ -356,7 +361,7 @@ export function taxDetailSection(wh: WorkingHousehold): SectionDef {
   const targets = on ? landTargets(h) : [];
   const note = on
     ? targets.length > 0
-      ? "不動産ごとに、土地の面積と評価の入れ方、小規模宅地等の特例の取得する人を入れます。空欄のままの不動産は時価×評価の割合で見ます。結果は下の「相続税の目安」の「内訳」に、不動産ごとの評価と特例で減った額を出します（表示だけで、お金の流れには入れません）"
+      ? "不動産ごとに、土地の面積と評価の入れ方、小規模宅地等の特例の取得する人を入れます。空欄のままの不動産は時価×評価の割合で見ます。結果は下の「相続税の目安」の「内訳」に、不動産ごとの評価と特例で減った額を出します（表示だけで、お金の流れには入れません）。固定資産税の課税明細書（地積・価格）と路線価図（路線価・借地権割合）は、AI に読ませた答えを「書類の読み取り」から候補として入れられます"
       : "持ち家・住まい以外の不動産がありません。不動産を入れると、ここで土地の評価と小規模宅地等の特例を入れられます（2割加算・未成年者控除は入れています）"
     : "相続税がかかりそうな世帯で、土地の評価と小規模宅地等の特例を入れて試算するときにチェックします。チェックしなければ入力は増えません";
   return {

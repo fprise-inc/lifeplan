@@ -1,6 +1,7 @@
 // 書類の読み取り（0148）の形: 書類から読んだ値を、現状にすぐ入れずに「候補」として持つ。
 // - 読み手（FP の AI・貼り付けた AI の答え・架空の見本）は、どれも同じ形の候補を出す（proposal.ts の読み口を通る）
-// - 読めるのは保険証券・ご契約内容のお知らせ・設計書だけ（0159）。前に読んだほかの書類の記録は捨てずに残し、見るだけにする
+// - 読めるのは保険証券・ご契約内容のお知らせ・設計書（0159）と、相続税の試算の土地・建物の評価のための固定資産税の課税明細書・路線価図（0235）。
+//   前に読んだほかの書類の記録は捨てずに残し、見るだけにする
 // - 候補は FP が承認するまで現状にもプランにも効かない。承認したら値の出どころ（取り込み・AI）と確かさ「書類で確認」、承認の記録を付けて現状へ（apply.ts）
 // - 世帯ファイルでは本文の区画 documents に置く（形式の版 0.68 から。読んでいない世帯は区画ごと無い。明細の statements・移行の migrations と同じ置き方）
 // - 持たないもの: 元のファイル・ファイル名・個人番号などの番号（読んだ時点で消す。privacy.ts）・名前・住所・伏せ字の前の文字
@@ -12,10 +13,12 @@ export const DOCUMENT_LOG_VERSION = 1;
 export const PROPOSAL_CONTRACT = "document-candidates@1";
 
 /**
- * 読める書類の種類（今の読み口が受ける種類。0159 で保険証券・ご契約内容のお知らせ・設計書だけに絞った）。
+ * 読める書類の種類（今の読み口が受ける種類。0159 で保険証券・ご契約内容のお知らせ・設計書だけに絞り、0235 で課税明細書と路線価図を足した）。
  * 打つ数が多い・読み方が難しい・行が多いデータのどれかに当たる書類だけを取り込む（ほかの書類は、欄の「?」の一言を見て打つ）
+ * - propertyTaxStatement: 固定資産税・都市計画税の課税明細書（土地の地積・価格、家屋の価格。複数の筆を土地のまとまりごとに足す）
+ * - routePriceMap: 国税庁の路線価図の画面（路線価の数字と借地権割合の記号。例「250C」）
  */
-export type DocType = "insurancePolicy";
+export type DocType = "insurancePolicy" | "propertyTaxStatement" | "routePriceMap";
 
 /**
  * 取り込みを外した書類の種類（0159）。前に読んだ記録の見出しに使うだけで、読み口は受けない。記録は捨てずに残し、確かめの画面では見るだけ
@@ -41,7 +44,22 @@ export type RetiredDocType =
 /** 読み取りの記録の書類の種類（今読める種類か、取り込みを外した種類） */
 export type RecordedDocType = DocType | RetiredDocType;
 
-export const DOC_TYPES: readonly { value: DocType; label: string }[] = [{ value: "insurancePolicy", label: "保険証券・ご契約内容のお知らせ・設計書" }];
+/** 読める書類の種類（label は書類の種類を選ぶ欄の名前、short は入口の「読める書類: …」の1行に並べる短い名前） */
+export const DOC_TYPES: readonly { value: DocType; label: string; short: string }[] = [
+  { value: "insurancePolicy", label: "保険証券・ご契約内容のお知らせ・設計書", short: "保険の設計書・証券" },
+  { value: "propertyTaxStatement", label: "固定資産税の課税明細書", short: "固定資産税の課税明細書" },
+  { value: "routePriceMap", label: "路線価図（国税庁）", short: "路線価図" },
+];
+
+/**
+ * 入口の見出しのすぐ下に添える、今読める書類の1行（書類の種類の一覧から作る。種類を足せば一緒に増える）。
+ * 入口の見出しには書類の種類を書かない（「AI で書類を読み取る」「書類の読み取り」。0235 の追記 2026-11-20）
+ */
+export const readableDocsLine = (): string => `読める書類: ${DOC_TYPES.map((d) => d.short).join("、")}`;
+
+/** 土地・建物の書類（0235。値の候補は相続税の試算の不動産ごとの欄だけ） */
+export const LAND_DOC_TYPES: readonly DocType[] = ["propertyTaxStatement", "routePriceMap"];
+export const isLandDoc = (t: string): boolean => (LAND_DOC_TYPES as readonly string[]).includes(t);
 
 export const RETIRED_DOC_TYPES: readonly { value: RetiredDocType; label: string }[] = [
   { value: "pensionStatement", label: "ねんきん定期便" },
@@ -61,8 +79,21 @@ export const RETIRED_DOC_TYPES: readonly { value: RetiredDocType; label: string 
   { value: "other", label: "そのほかの書類" },
 ];
 
-/** 読み口が受ける値の候補の入力項目の頭（保険の契約の欄だけ。0159） */
+/** 読み口が受ける値の候補の入力項目の頭（保険の書類は保険の契約の欄だけ。0159） */
 export const READABLE_ITEM_PREFIX = "insurance.";
+
+/** 相続税の試算の不動産ごとの欄の入力項目（0231 の input.inheritanceTax の lands[]。土地・建物の書類の候補の入れ先。0235） */
+export const LAND_ITEM = "plan.inheritanceTax";
+
+/**
+ * 土地・建物の書類から入る場所（候補の at は ["lands", <名前>]）。書類の種類ごとに受ける名前（0235）:
+ * - 課税明細書: area（地積の合計㎡）・fixedValue（土地の価格〔固定資産税評価額〕の合計）・buildingValue（家屋の価格）
+ * - 路線価図: routeMark（路線価図の記号のまま。例「250C」。読み口が routePrice〔円〕・leaseholdRatio〔A〜G〕・method〔routePrice〕に分ける）
+ */
+export const LAND_AT: Readonly<Record<"propertyTaxStatement" | "routePriceMap", readonly string[]>> = {
+  propertyTaxStatement: ["area", "fixedValue", "buildingValue"],
+  routePriceMap: ["routeMark"],
+};
 
 /** 取り込みを外した種類の記録か（確かめの画面で見るだけにする） */
 export const isRetired = (r: { docType: RecordedDocType }): boolean => !DOC_TYPES.some((d) => d.value === r.docType);
