@@ -1,7 +1,8 @@
 // 書類を読む AI 向けの説明書と書類ごとの手引き（0152）: SDK フォルダの文書の中の答えの見本が、1本目の読み口（readProposal）を
 // 理由なしで通り、番号を1つも落とさず（見本に番号を入れていない）、入力の欄の一覧（fields.md）にある入力項目・場所だけを使い、
 // 見本の世帯で FP が承認していくと、読めなかった欄のほかは全部が入力に入ること。欄の一覧が今の入力の画面の定義と同じであること。
-// 読めるのは保険証券・ご契約内容のお知らせ・設計書だけ（0159）なので、手引きは保険の1つだけ
+// 読めるのは保険証券・ご契約内容のお知らせ・設計書（0159）と、課税明細書・路線価図（0235）。土地・建物の書類の欄は手引きの表にあり（欄の一覧には載せない）、
+// 見本を FP が承認していく流れは test/documents-land.test.ts で確かめる
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -9,7 +10,7 @@ import { buildDocumentFields, DOCUMENT_FIELDS_PATH } from "../scripts/documentFi
 import { REPO_DIR } from "../scripts/lib.ts";
 import { readProposalText, type ProposalContext } from "../src/workspace/documents/proposal.ts";
 import { acceptCandidates, acceptObject, docReview, type Chosen } from "../src/workspace/documents/review.ts";
-import { DOC_TYPES, PROPOSAL_CONTRACT, type DocumentReading } from "../src/workspace/documents/types.ts";
+import { DOC_TYPES, LAND_AT, LAND_ITEM, PROPOSAL_CONTRACT, type DocumentReading } from "../src/workspace/documents/types.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold } from "./helpers.ts";
@@ -72,9 +73,9 @@ describe("欄の一覧（fields.md）", () => {
 });
 
 describe("説明書と手引きの答えの見本", () => {
-  it("手引きは保険の書類の1つだけで、読む欄・読まないもの・答えの見本を持つ。スキルの表の手引きはどれもある", () => {
+  it("手引きは保険の書類と、課税明細書・路線価図の3つで、読む欄・読まないもの・答えの見本を持つ。スキルの表の手引きはどれもある", () => {
     const files = guideFiles();
-    expect(files).toEqual(["insurance-policy.md"]);
+    expect(files).toEqual(["insurance-policy.md", "property-tax-statement.md", "route-price-map.md"]);
     for (const f of files) {
       const md = text(join(GUIDES, f));
       expect(md).toMatch(/## \d\. 読まないもの/u);
@@ -106,7 +107,16 @@ describe("説明書と手引きの答えの見本", () => {
     const rows = fieldRows();
     for (const { name, md } of DOCS()) {
       for (const a of answers(md)) {
-        const raw = JSON.parse(a) as { values?: { item: string; at?: string[]; period?: string; value: unknown }[] };
+        const raw = JSON.parse(a) as { docType: string; values?: { item: string; at?: string[]; period?: string; value: unknown }[] };
+        // 土地・建物の書類（0235）は、書類の種類ごとの場所の一覧（LAND_AT）にある場所だけ
+        if (raw.docType === "propertyTaxStatement" || raw.docType === "routePriceMap") {
+          for (const v of raw.values ?? []) {
+            expect(v.item, name).toBe(LAND_ITEM);
+            expect(v.at?.[0], name).toBe("lands");
+            expect(LAND_AT[raw.docType], name).toContain(v.at?.[1]);
+          }
+          continue;
+        }
         for (const v of raw.values ?? []) {
           const at = v.at ?? null;
           const hit = rows.filter((r) => r.item === v.item && JSON.stringify(r.at) === JSON.stringify(at));
@@ -217,7 +227,7 @@ describe("当て先の決め方の足し（0152 の3）", () => {
   it("人も物も書かない候補で世帯で1つの欄が無ければ、その入力項目の欄から FP が選ぶ（1本でも選ぶ）", () => {
     const wh = open("salariedCoupleTwoKids");
     const row = docReview(wh, reading(wh, [{ item: "insurance.premium", at: ["amount"], value: 15000, period: "once" }])).groups[0]!.rows[0]!;
-    expect(row.problem).toBe("当てる欄を選んでください");
+    expect(row.problem).toBe("入れる欄を選んでください");
     expect(row.choices).toHaveLength(1);
   });
 

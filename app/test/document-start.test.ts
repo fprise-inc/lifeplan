@@ -133,10 +133,12 @@ describe("画面の入口", () => {
     expect(renderToString(h(DocumentStart, { wh, start: policy, onPaste: noop, onAiShare: noop, onClose: noop }))).toMatch(/data-documents-start-ai[^-]/u);
   });
 
-  it("貼り付けの画面は、保険の書類の読み方の手引きを写せる形で開く（書類の種類を選ぶ欄は無い）", () => {
+  it("貼り付けの画面は、保険の書類の読み方の手引きを選んだ形で開く（書類の種類は保険・課税明細書・路線価図から選ぶ。0235）", () => {
     const wh = open("sampleSingle40s");
     const html = renderToString(h(PasteAnswer, { wh, gate: { ok: true, sample: true }, guide: { options: GUIDE_DOC_TYPES, text: guideText }, initialGuide: "insurancePolicy", onRead: noop, onClose: noop }));
-    expect(html).toContain('data-documents-paste-guide-type="insurancePolicy"');
+    expect(html).toContain('<option selected value="insurancePolicy">');
+    const route = renderToString(h(PasteAnswer, { wh, gate: { ok: true, sample: true }, guide: { options: GUIDE_DOC_TYPES, text: guideText }, initialGuide: "routePriceMap", onRead: noop, onClose: noop }));
+    expect(route).toContain('<option selected value="routePriceMap">');
     expect(html).toContain("data-documents-paste-guide");
   });
 });

@@ -34,7 +34,7 @@ export interface PasteAnswerProps {
 export const PASTE_WARNING = "書類の内容は、読み取りのために、お使いの AI サービスへ送られます。お名前・ご住所・番号などは伏せてからお渡しください。送った内容の扱いはサービスの規約によります（学習に使わない設定にしておくと安心です）。";
 
 /** 伏せるものの一覧（注意のすぐ下に小さく出す） */
-export const PASTE_MASK_ITEMS = "伏せるもの: お名前・ご住所・個人番号（マイナンバー）・基礎年金番号・証券番号・口座番号・健康の告知の欄。";
+export const PASTE_MASK_ITEMS = "伏せるもの: お名前・ご住所・個人番号（マイナンバー）・基礎年金番号・証券番号・口座番号・健康の告知の欄。課税明細書は納税義務者の番号と土地・家屋の所在（地番）、路線価図は住所の検索欄と図の番号も。";
 
 export function PasteAnswer(p: PasteAnswerProps) {
   const [text, setText] = useState("");

@@ -413,11 +413,13 @@ async fn prompts_list_and_expand() {
         "how_to_use",
         "hearing_url",
         "report_issue",
+        "read_property_tax_statement",
+        "read_route_price_map",
     ];
     for n in expected {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
     }
-    // 使い方の例は上の一覧のとおり（0210 で prepare_questions、0212 で office_wording、0213 で office_display、0222 で hearing_url、0234 で report_issue を足した。足したら一覧にも書く）
+    // 使い方の例は上の一覧のとおり（0210 で prepare_questions、0212 で office_wording、0213 で office_display、0222 で hearing_url、0234 で report_issue、0235 で read_property_tax_statement・read_route_price_map を足した。足したら一覧にも書く）
     assert_eq!(prompts.len(), expected.len(), "{names:?}");
     for p in &prompts {
         assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
@@ -701,6 +703,47 @@ async fn prompts_list_and_expand() {
             "report_issue",
             json!({ "household": "", "what": "" }),
             vec!["list_shared_households", "最初に FP に聞く"],
+        ),
+        (
+            "read_property_tax_statement",
+            json!({ "household": "", "property": "自宅" }),
+            vec![
+                "自宅",
+                "list_shared_households",
+                "propertyTaxStatement",
+                "land:site",
+                "[\"lands\", \"area\"]",
+                "[\"lands\", \"fixedValue\"]",
+                "[\"lands\", \"buildingValue\"]",
+                "課税標準額",
+                "倍率は 1.0",
+                "持分",
+                "unreadable",
+                "所在と地番",
+                "propose_inputs",
+                "値ごとに承認するまで世帯は変わらない",
+                "documents が false",
+                "相続税も試算する",
+            ],
+        ),
+        (
+            "read_route_price_map",
+            json!({ "household": "salariedCoupleTwoKids", "property": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "routePriceMap",
+                "[\"lands\", \"routeMark\"]",
+                "\"250C\"",
+                "千円単位のまま",
+                "A 90%・B 80%・C 70%・D 60%・E 50%・F 40%・G 30%",
+                "側方路線影響加算",
+                "補正の率",
+                "unreadable",
+                "図の番号",
+                "propose_inputs",
+                "土地の評価の入れ方の行を先に承認",
+                "FP がアプリで不動産を選ぶ",
+            ],
         ),
         (
             "check_coverage",
