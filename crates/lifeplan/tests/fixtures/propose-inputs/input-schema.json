@@ -22,7 +22,7 @@
           "type": "string"
         },
         "kind": {
-          "description": "種類（「集まり:種類」。保険の契約 insurance:<保険の種類>〔例 insurance:medical〕だけ）",
+          "description": "種類（「集まり:種類」。保険の書類は保険の契約 insurance:<保険の種類>〔例 insurance:medical〕、課税明細書・路線価図は書類の土地のまとまり land:site〔FPが世帯のどの不動産に入れるかを選ぶ。新しく足さない〕）",
           "pattern": "^[a-z][A-Za-z]*:[A-Za-z0-9]+$",
           "type": "string"
         },
@@ -172,7 +172,7 @@
           ]
         },
         "item": {
-          "description": "入力項目 ID（ファイナンシアの登録簿の ID。保険の契約の欄 insurance. だけ。例 insurance.premium・insurance.coverages）。ほかの ID の候補はアプリが読まない",
+          "description": "入力項目 ID（ファイナンシアの登録簿の ID。保険の書類は保険の契約の欄 insurance.〔例 insurance.premium・insurance.coverages〕、課税明細書・路線価図は plan.inheritanceTax〔相続税の試算の不動産ごとの欄。at は [\"lands\", \"area\"] など〕だけ）。ほかの ID の候補はアプリが読まない",
           "type": "string"
         },
         "member": {
@@ -271,7 +271,9 @@
         "docType": {
           "description": "書類の種類",
           "enum": [
-            "insurancePolicy"
+            "insurancePolicy",
+            "propertyTaxStatement",
+            "routePriceMap"
           ],
           "type": [
             "string",

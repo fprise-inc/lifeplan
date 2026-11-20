@@ -14,6 +14,7 @@ import { CERTAINTY_LABELS, valueMeta } from "../input/checkRows.ts";
 import { bulkEligible, type Compare, type ReviewRow, type RowEdit } from "../review/rows.ts";
 import { coerce, createObject, metaFor, periodMismatch, writeFromDocument } from "./apply.ts";
 import { NEW_OBJECT_KINDS, RETIRED_OBJECT_KINDS } from "./objects.ts";
+import { landMissingReason, landName } from "./land.ts";
 import { cleanValue, isPersonalNumberValue } from "./privacy.ts";
 import { fieldPlaces, memberIdOf, placeByKey, resolveTarget, type FieldPlace, type Resolution } from "./resolve.ts";
 import { readingScore, scoreTotals } from "./score.ts";
@@ -39,6 +40,8 @@ export interface ObjectView {
   noun: string;
   /** 今ある物に当てた（足していない）ときの、その物の名前 */
   linkedTo: string | null;
+  /** 今ある物に入れるだけで、新しく足せない物（書類の土地。0235） */
+  linkOnly: boolean;
 }
 
 export interface ReferenceView {
@@ -112,6 +115,12 @@ function byValueShape(wh: WorkingHousehold, res: Resolution, r: DocumentReading,
 
 function resolve(wh: WorkingHousehold, places: readonly FieldPlace[], r: DocumentReading, c: DocCandidate, chosen: Chosen, made: ReadonlyMap<string, string> = created(r)): Resolution {
   const res = byValueShape(wh, bySelectValue(resolveTarget(wh, places, r, c.target, made), c), r, c);
+  // 土地・建物の欄が無いときは、何をすれば入れられるかを出す（相続税も試算するか・評価の入れ方・不動産の種類で決まる欄。0235）
+  const land = landName(c.target);
+  if (res.kind === "missing" && land !== null && !(c.target.newObject !== undefined && !made.has(c.target.newObject))) {
+    const object = c.target.newObject !== undefined ? (made.get(c.target.newObject) ?? null) : (c.target.object ?? null);
+    return { kind: "missing", reason: landMissingReason(wh, land, object) };
+  }
   const pick = chosen[c.id] ?? null;
   if (res.kind === "choose" && pick !== null) {
     const p = res.places.find((x) => x.field.key === pick);
@@ -231,7 +240,7 @@ function groupLabel(wh: WorkingHousehold, p: FieldPlace): string {
 function objectLabel(r: DocumentReading, key: string): string | null {
   const o = r.objects.find((x) => x.key === key);
   if (o === undefined) return null;
-  const name = r.candidates.find((c) => c.target.newObject === key && c.target.item === "insurance.label" && typeof c.value === "string")?.value ?? (o.kind.startsWith("insurance:") ? undefined : o.source.text);
+  const name = r.candidates.find((c) => c.target.newObject === key && c.target.item === "insurance.label" && typeof c.value === "string")?.value ?? (o.kind.startsWith("insurance:") ? undefined : NEW_OBJECT_KINDS[o.kind]?.linkOnly !== undefined ? (o.source.where ?? o.source.text) : o.source.text);
   // 今ある物に当てた物は「書類の○○」（新しく足していない）
   const kind = o.linked === true ? `書類の${NEW_OBJECT_KINDS[o.kind]?.noun ?? "物"}` : (NEW_OBJECT_KINDS[o.kind]?.label ?? "新しい物");
   return typeof name === "string" && name !== "" ? `${kind}: ${name}` : kind;
@@ -259,6 +268,7 @@ export interface LinkTarget {
 export function linkTargets(wh: WorkingHousehold, r: DocumentReading, o: DocObject): LinkTarget[] {
   const k = NEW_OBJECT_KINDS[o.kind];
   if (k === undefined) return [];
+  if (k.linkOnly !== undefined) return k.linkOnly(wh);
   const list = (wh.request.input.household as unknown as Obj)[k.collection];
   if (!Array.isArray(list)) return [];
   const own = (x: Obj) => r.holder !== undefined && k.ownerOf(x).includes(r.holder);
@@ -271,7 +281,7 @@ export function linkTargets(wh: WorkingHousehold, r: DocumentReading, o: DocObje
 /** 同じ物かもしれない今ある物（同じ集まり・同じ種類で、名義の人の物。名義を選ぶ前は同じ種類の物の全部。保険は被保険者か契約者） */
 function similarOf(wh: WorkingHousehold, r: DocumentReading, o: DocObject): string[] {
   const k = NEW_OBJECT_KINDS[o.kind];
-  if (k === undefined || o.status === "accepted") return [];
+  if (k === undefined || k.linkOnly !== undefined || o.status === "accepted") return [];
   const list = (wh.request.input.household as unknown as Obj)[k.collection];
   if (!Array.isArray(list)) return [];
   return (list as Obj[]).filter((x) => k.sameKind(x) && (r.holder === undefined || k.ownerOf(x).includes(r.holder))).map((x) => existingLabel(wh, o.kind, x));
@@ -280,6 +290,7 @@ function similarOf(wh: WorkingHousehold, r: DocumentReading, o: DocObject): stri
 /** 当てた今ある物の名前（世帯から外れていれば null） */
 function linkedName(wh: WorkingHousehold, o: DocObject): string | null {
   const k = NEW_OBJECT_KINDS[o.kind];
+  if (k?.linkOnly !== undefined) return k.linkOnly(wh).find((t) => t.id === o.created)?.label ?? null;
   const list = k === undefined ? undefined : (wh.request.input.household as unknown as Obj)[k.collection];
   const x = Array.isArray(list) ? (list as Obj[]).find((y) => y.id === o.created) : undefined;
   return x === undefined ? null : existingLabel(wh, o.kind, x);
@@ -303,6 +314,7 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
       links: o.status === "pending" && !retired ? linkTargets(wh, r, o) : [],
       noun: NEW_OBJECT_KINDS[o.kind]?.noun ?? RETIRED_OBJECT_KINDS[o.kind] ?? "物",
       linkedTo: o.linked === true && o.created !== undefined ? (linkedName(wh, o) ?? "今ある物") : null,
+      linkOnly: NEW_OBJECT_KINDS[o.kind]?.linkOnly !== undefined,
     });
   }
   // まだ足していない新しい物の行は、足したときの形（その種類の既定）を写しの世帯に作って見せる（世帯は変えない）
@@ -320,7 +332,8 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
     // 足さないと決めた・まだ足していない新しい物の行は、物を足すまで承認できない
     const o = c.target.newObject !== undefined ? r.objects.find((x) => x.key === c.target.newObject) : undefined;
     if (o !== undefined && o.status !== "accepted" && row.status === "pending") {
-      row.problem = o.status === "rejected" ? "この物は足さないことにしました" : "先に「足す」を選んでください";
+      const only = NEW_OBJECT_KINDS[o.kind]?.linkOnly !== undefined;
+      row.problem = o.status === "rejected" ? (only ? "この書類の土地・建物は入れないことにしました" : "この物は足さないことにしました") : only ? "先に、どの不動産の書類かを選んでください" : "先に「足す」を選んでください";
       row.correctable = false;
     }
     if (retired && row.status === "pending") {
@@ -377,7 +390,13 @@ export interface Applied {
 
 const withCandidate = (r: DocumentReading, id: string, f: (c: DocCandidate) => DocCandidate): DocumentReading => ({ ...r, candidates: r.candidates.map((c) => (c.id === id ? f(c) : c)) });
 
-const appliedTo = (p: FieldPlace): NonNullable<DocCandidate["decided"]>["to"] => (p.address === null ? undefined : (structuredClone(p.address) as NonNullable<DocCandidate["decided"]>["to"]));
+/** 入れた所の記録。不動産ごとの欄（docPlace。0235）は、入れ先 lands の後に不動産の ID と欄の名前を足して書く（値の状態の行の鍵ではない） */
+const appliedTo = (p: FieldPlace): NonNullable<DocCandidate["decided"]>["to"] => {
+  if (p.address === null) return undefined;
+  const to = structuredClone(p.address) as NonNullable<NonNullable<DocCandidate["decided"]>["to"]>;
+  const d = p.field.docPlace;
+  return d === undefined ? to : { ...to, at: [...to.at, d.object, ...d.at.slice(1)] };
+};
 
 /**
  * 候補を書類の値のまま承認する（1つでも、まとめてでも）。承認できない候補（理由のある行）は飛ばして failed に入れる

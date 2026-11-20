@@ -5,7 +5,7 @@
 //   知らせる（黙ってまとめない。0154 の3）
 // - 照合だけの値（特約の額など）は入力にせず、書類の額とアプリの計算を並べる
 // - 世帯の値を変える操作は、読み取りの記録を先に入れてから、元に戻せる変更として現状に入れる（呼ぶ側の onChange）
-// - 読めるのは保険証券・ご契約内容のお知らせ・設計書だけ（0159）。取り込みを外した書類の前の記録は、見るだけで出す
+// - 読めるのは保険証券・ご契約内容のお知らせ・設計書（0159）と、課税明細書・路線価図（0235。書類の土地は今ある不動産に入れるだけで、足さない）。取り込みを外した書類の前の記録は、見るだけで出す
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { WorkingHousehold } from "../input/household.ts";
 import { formatYearMonth } from "../input/units.ts";
@@ -73,13 +73,13 @@ export function AiDocumentBand({ wh, failed, onOpen, onDismiss }: { wh: WorkingH
   );
 }
 
-/** 入力のホームの「取り込む」の中の入口（書類の読み取り。保険証券・ご契約内容のお知らせ・設計書だけ。0159）。onPaste があれば AI の答えを貼り付ける入口（0151）も出す */
+/** 入力のホームの「取り込む」の中の入口（書類の読み取り。保険証券・ご契約内容のお知らせ・設計書〔0159〕と、課税明細書・路線価図〔0235〕）。onPaste があれば AI の答えを貼り付ける入口（0151）も出す */
 export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: WorkingHousehold; sample: boolean; onOpen: () => void; onSamples: () => void; onPaste?: () => void }) {
   const readings = wh.documents?.readings ?? [];
   const pending = pendingTotal(wh);
   return (
     <div class="hs-tools" role="group" aria-label="書類の読み取り" data-imports-documents>
-      <span class="hs-tools-h">書類の読み取り（保険）</span>
+      <span class="hs-tools-h">書類の読み取り（保険・不動産）</span>
       {readings.length > 0 ? (
         <button type="button" class="btn" onClick={onOpen} data-documents-open>
           読んだ書類を確かめる{pending > 0 ? `（未決 ${pending}件）` : `（${readings.length}通）`}
@@ -95,7 +95,7 @@ export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: 
           架空の保険証券の見本で試す
         </button>
       ) : null}
-      <span class="in-note">保険証券・ご契約内容のお知らせ・設計書を AI に読ませた答えを、候補として取り込みます。確かめて承認したものだけが現状に入ります。個人番号などの番号は読みません・残しません。AI で読み取った候補もここに届きます。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。</span>
+      <span class="in-note">保険証券・ご契約内容のお知らせ・設計書と、相続税の試算に使う固定資産税の課税明細書・路線価図を AI に読ませた答えを、候補として取り込みます。確かめて承認したものだけが現状に入ります。個人番号などの番号・土地の所在は読みません・残しません。AI で読み取った候補もここに届きます。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。</span>
     </div>
   );
 }
@@ -269,6 +269,35 @@ export function DocumentReview(p: DocumentReviewProps) {
                   <div class={`dr-object s-${g.object.status}`} data-documents-object={g.object.key}>
                     {g.object.status === "pending" && view.retired ? (
                       <span>取り込みを外した書類の{g.object.noun}です（足せません）。入力の画面の「＋」で足して、書類を見て打ってください。</span>
+                    ) : g.object.status === "pending" && g.object.linkOnly ? (
+                      <>
+                        <span>
+                          この書類の土地・建物を、どの不動産の値として入れますか（確からしさ {g.object.confidence}）。選ぶと、下の値を承認できます。
+                          {g.object.links.length === 0 ? " 持ち家か住まい以外の不動産を入力してから選んでください。" : ""}
+                        </span>
+                        {g.object.links.map((t) => (
+                          <button
+                            type="button"
+                            key={t.id}
+                            class="btn small"
+                            title={`下の値を、「${t.label}」の相続税の試算の欄に入れます（値は1つずつ承認します）`}
+                            onClick={() => {
+                              const next = linkObject(p.wh, reading, g.object?.key ?? "", t.id, approvalTime());
+                              if (next === null) setMsg({ ok: false, text: "選べませんでした" });
+                              else {
+                                put(next);
+                                setMsg({ ok: true, text: `「${t.label}」の値として入れます。値を確かめて承認してください` });
+                              }
+                            }}
+                            data-documents-object-link={`${g.object?.key ?? ""}:${t.id}`}
+                          >
+                            「{t.label}」に入れる
+                          </button>
+                        ))}
+                        <button type="button" class="link-btn" onClick={() => put(rejectObject(reading, g.object?.key ?? "", approvalTime()))} data-documents-object-reject={g.object.key}>
+                          入れない
+                        </button>
+                      </>
                     ) : g.object.status === "pending" ? (
                       <>
                         <span>
@@ -313,7 +342,17 @@ export function DocumentReview(p: DocumentReviewProps) {
                         </button>
                       </>
                     ) : (
-                      <span>{g.object.status === "accepted" ? (g.object.linkedTo !== null ? `今の${g.object.noun}「${g.object.linkedTo}」に当てました` : "足しました") : "足さないことにしました"}</span>
+                      <span>
+                        {g.object.linkOnly
+                          ? g.object.status === "accepted"
+                            ? `「${g.object.linkedTo ?? "今ある不動産"}」の値として入れます`
+                            : "入れないことにしました"
+                          : g.object.status === "accepted"
+                            ? g.object.linkedTo !== null
+                              ? `今の${g.object.noun}「${g.object.linkedTo}」に当てました`
+                              : "足しました"
+                            : "足さないことにしました"}
+                      </span>
                     )}
                   </div>
                 ) : null}

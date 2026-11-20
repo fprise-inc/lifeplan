@@ -126,6 +126,8 @@ export function writeFromDocument(wh: WorkingHousehold, f: FieldDef, value: Val,
   const same = st.status === "confirmed" && sameVal(f.get(wh).value, value, f.kind);
   const w = same ? wh : (f.write ?? f.set)(wh, value);
   if (!same && !sameVal(f.get(w).value, value, f.kind)) return wh;
+  // 書類の候補の入れ先を持つ欄（相続税の試算の不動産ごとの欄。0235）は、値だけを書く（値の状態の行は入れ先ごとに1つで、欄ごとに分けられない）
+  if (f.docPlace !== undefined) return w;
   const prev = same ? metaOf(w, f) : undefined;
   const marks: Obj =
     same && prev !== undefined
@@ -166,7 +168,8 @@ export const hasValueAt = (wh: WorkingHousehold, f: FieldDef): boolean => {
  */
 export function createObject(wh: WorkingHousehold, kind: string): { wh: WorkingHousehold; id: string } | null {
   const k = NEW_OBJECT_KINDS[kind];
-  if (k === undefined) return null;
+  // 今ある物に入れるだけの種類（書類の土地。0235）は足せない
+  if (k === undefined || k.linkOnly !== undefined) return null;
   const stage = buildStage(k.stage, wh);
   const action = stage.sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => g.actions)]).find((a) => a.key === k.action);
   if (action === undefined) return null;

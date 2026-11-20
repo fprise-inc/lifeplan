@@ -41,7 +41,8 @@ export function fieldPlaces(wh: WorkingHousehold): FieldPlace[] {
         for (const f of group.fields) {
           if (f.readOnly !== undefined || f.item === null) continue;
           const address = fieldAddress(f, wh);
-          const id = address !== null ? JSON.stringify(address) : `key:${f.key}`;
+          // 同じ入れ先を何本もの欄で分ける欄（相続税の試算の不動産ごとの欄。0235）は、書類の候補の入れ先で分ける
+          const id = f.docPlace !== undefined ? `doc:${f.docPlace.object}:${f.docPlace.at.join("/")}` : address !== null ? JSON.stringify(address) : `key:${f.key}`;
           const where = group.title ?? section.title;
           const level: Level = section.level === "detail" || group.level === "detail" || f.level === "detail" ? "detail" : "simple";
           const place: FieldPlace = { field: f, card: stage.id, cardLabel: stage.label, label: where !== undefined && where !== f.label ? `${where}: ${f.label}` : f.label, level, address };
@@ -107,6 +108,9 @@ const withoutIds = (a: readonly string[]): string[] => a.filter((x) => !UUID.tes
 function placesOf(places: readonly FieldPlace[], target: CandidateTarget): FieldPlace[] {
   const all = places.filter((p) => p.field.item === target.item);
   const at = target.at;
+  // 書類の候補の入れ先を持つ欄（相続税の試算の不動産ごとの欄。0235）は、その場所が同じ欄だけ
+  const docs = all.filter((p) => p.field.docPlace !== undefined);
+  if (docs.length > 0) return at === undefined ? [] : docs.filter((p) => sameAt(p.field.docPlace?.at ?? [], at));
   if (at === undefined) {
     const plain = all.filter((p) => p.address === null || p.address.at.length === 0);
     return plain.length > 0 ? plain : all;
@@ -133,7 +137,7 @@ export function resolveTarget(wh: WorkingHousehold, places: readonly FieldPlace[
   let found: FieldPlace[];
   if (objectId !== null) {
     const id = objectId;
-    found = byItem.filter((p) => (p.address !== null && "object" in p.address.target && p.address.target.object === id) || keyHas(p.field, id));
+    found = byItem.filter((p) => (p.address !== null && "object" in p.address.target && p.address.target.object === id) || p.field.docPlace?.object === id || keyHas(p.field, id));
   } else if (target.member !== undefined) {
     const m = memberIdOf(wh, reading, target.member);
     if (m === null) return { kind: "missing", reason: target.member === "holder" ? "書類の名義（どなたの書類か）を選んでください" : "当てる人がこの世帯にいません" };
@@ -151,7 +155,8 @@ export function resolveTarget(wh: WorkingHousehold, places: readonly FieldPlace[
       if (now.length === 1) found = now;
     }
   } else {
-    found = byItem.filter((p) => p.address === null || "plan" in p.address.target);
+    // 不動産ごとの欄（docPlace）は世帯で1つの欄ではない（どの不動産かは FP が選ぶ。0235）
+    found = byItem.filter((p) => p.field.docPlace === undefined && (p.address === null || "plan" in p.address.target));
     // 人も物も書かない候補で、世帯で1つの欄が無い（ローンの残高のように物の欄だけの入力項目）ときは、その入力項目の欄の全部から FP が
     // 物を選ぶ（1本しか無くても選んでもらう。どの物の値かを書類からは決めない。0152 の3）
     if (found.length === 0) return { kind: "choose", places: byItem };
