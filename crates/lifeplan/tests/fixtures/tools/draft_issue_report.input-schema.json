@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actual": {
+      "description": "実際の値（見本の世帯の値か、言葉で）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "diagnosis": {
+      "description": "AI の見立て: input＝入力が原因（ここを直せば戻る）・calculation＝計算の仕組みの不具合の疑い・unknown＝まだ分からない",
+      "type": "string"
+    },
+    "error_log_lines": {
+      "description": "エラーの記録（get_error_log の line）のうち、関係する行。20件まで",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "evidence": {
+      "description": "見立ての根拠（道具の名前と、答えの要点。例「check_inputs: 住宅ローンの残高が空（確かめの一覧の行）」「explain_value: 2035年の所得税の式に…」）。1〜20件",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "expected": {
+      "description": "期待した値（見本の世帯の値か、言葉で。例「前の年と同じくらい」）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "fix": {
+      "description": "入力が原因のとき、どこを直せば戻るか（入力項目と欄の名前）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reproduce_changes": {
+      "description": "見本の世帯に足す変更（言葉で。例「本人の退職の年齢を 60歳にする」「住宅ローンを変動金利・残り25年にする」）。20件まで",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "reproduce_steps": {
+      "description": "アプリの画面で再現する手順（例「見本の棚から開く」「結果のタブでキャッシュフロー表を開く」）。20件まで",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "reproduced": {
+      "description": "見本の世帯に変更を足して、同じことが起きたか（calculate で確かめた結果）。省くと確かめていない",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "row": {
+      "description": "行・欄（例「キャッシュフロー表の 税・社会保険料」「金融資産残高」）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sample_household_id": {
+      "description": "再現に使った見本の世帯の id（list_sample_households）。見本で再現できなかったときは省く",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "screen": {
+      "description": "画面（例「結果」「入力」「資産と負債」）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "description": "何が起きたか（1〜2文。例「結果のタブで、65歳の時点の金融資産が前の版より大きく減った」「入力のタブで計算できませんでしたと出る」）",
+      "type": "string"
+    },
+    "when": {
+      "description": "何年目・何年・何歳の時点（例「2035年（10年目）」「本人65歳」）",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "summary",
+    "diagnosis",
+    "evidence"
+  ],
+  "type": "object"
+}

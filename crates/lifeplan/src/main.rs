@@ -20,6 +20,7 @@ mod engine;
 mod fold;
 mod guide;
 mod hearing;
+mod issue;
 mod plan;
 mod prompts;
 mod recipes;

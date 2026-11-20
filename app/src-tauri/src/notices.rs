@@ -199,7 +199,7 @@ pub fn notice_local_put(app: AppHandle, value: Value) -> Result<(), String> {
 }
 
 /// OS のおおまかな名前（画面の osName と同じ呼び方）
-fn os_name() -> &'static str {
+pub(crate) fn os_name() -> &'static str {
     match std::env::consts::OS {
         "macos" => "macOS",
         "windows" => "Windows",

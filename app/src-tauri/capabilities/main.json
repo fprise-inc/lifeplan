@@ -122,6 +122,10 @@
     "allow-notice-local-put",
     "allow-feedback-form-open",
     "allow-feedback-copy",
+    "allow-error-log-add",
+    "allow-error-log-get",
+    "allow-error-log-clear",
+    "allow-error-log-copy",
     "allow-app-close-ready",
     "allow-app-close-cancel"
   ]

@@ -199,6 +199,8 @@ async fn standalone_tools_work_without_the_app() {
         "propose_feature_code",
         "propose_household",
         "propose_display_settings",
+        "get_error_log",
+        "draft_issue_report",
     ] {
         assert!(names.contains(&n.to_owned()), "{n} がありません: {names:?}");
     }
@@ -410,11 +412,12 @@ async fn prompts_list_and_expand() {
         "office_display",
         "how_to_use",
         "hearing_url",
+        "report_issue",
     ];
     for n in expected {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
     }
-    // 使い方の例は上の一覧のとおり（0210 で prepare_questions、0212 で office_wording、0213 で office_display、0222 で hearing_url を足した。足したら一覧にも書く）
+    // 使い方の例は上の一覧のとおり（0210 で prepare_questions、0212 で office_wording、0213 で office_display、0222 で hearing_url、0234 で report_issue を足した。足したら一覧にも書く）
     assert_eq!(prompts.len(), expected.len(), "{names:?}");
     for p in &prompts {
         assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
@@ -674,6 +677,32 @@ async fn prompts_list_and_expand() {
             ],
         ),
         (
+            "report_issue",
+            json!({ "household": "salariedCoupleTwoKids", "what": "結果のタブで 2035年の税・社会保険料が急に増えた" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "2035年の税・社会保険料が急に増えた",
+                "get_error_log",
+                "check_inputs",
+                "explain_value",
+                "入力が原因（ここを直せば戻る）",
+                "計算の仕組みの不具合の疑い",
+                "推測で決めつけず",
+                "get_sample_household",
+                "お客さまの名前・生年月日・実際の金額・世帯を識別する値は使わない",
+                "FP の判断に任せる",
+                "draft_issue_report",
+                "「要望・不具合を送る」",
+                "「フォームを開く」",
+                "URL に載せない",
+            ],
+        ),
+        (
+            "report_issue",
+            json!({ "household": "", "what": "" }),
+            vec!["list_shared_households", "最初に FP に聞く"],
+        ),
+        (
             "check_coverage",
             json!({ "topic": "ふるさと納税" }),
             vec![
@@ -698,6 +727,8 @@ async fn prompts_list_and_expand() {
         "from_age",
         "to_age",
         "max_items",
+        "reproduce_changes",
+        "error_log_lines",
     ];
     for (name, args, wants) in cases {
         let Value::Object(m) = args else { panic!() };
@@ -6978,4 +7009,119 @@ async fn hearing_tools_check_the_selection_and_follow_the_share_rules() {
     ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// エラーの記録と不具合の報告文（get_error_log・draft_issue_report。0234）: エラーの記録は、アプリが起動していて AI接続がオン
+/// （受け口が開いている）ときだけ読める。読むだけで、世帯を渡していなくてよい。報告文は送らず、見本の世帯での再現と送り方を書く
+#[tokio::test(flavor = "multi_thread")]
+async fn error_log_and_issue_report() {
+    let dir = temp_dir("errlog");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "get_error_log");
+    check_schema_snapshot(&tools, "draft_issue_report");
+    for name in ["get_error_log", "draft_issue_report"] {
+        let t = tools.iter().find(|t| t.name == name).unwrap();
+        assert_eq!(
+            t.annotations.as_ref().unwrap().read_only_hint,
+            Some(true),
+            "{name}"
+        );
+        let d = t.description.as_deref().unwrap_or("");
+        assert!(!d.contains("接続口"), "{name}: {d}");
+    }
+    let d = tools
+        .iter()
+        .find(|t| t.name == "draft_issue_report")
+        .and_then(|t| t.description.clone())
+        .unwrap_or_default();
+    assert!(
+        d.contains("送らない・フォームを開かない・URL に載せない") && d.contains("見本の世帯"),
+        "{d}"
+    );
+
+    // アプリが起動していない（AI接続がオフのときも受け口が無いので同じ）: 読めず、FP に写して貼ってもらう案内
+    let (err, msg) = call(&c, "get_error_log", json!({})).await;
+    assert!(err, "{msg}");
+    assert!(
+        msg.contains("AI接続がオフ")
+            && msg.contains("「エラーの記録」")
+            && msg.contains("「記録を写す」"),
+        "{msg}"
+    );
+
+    // 起動していても、読む所が無ければ断る
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (err, msg) = call(&c, "get_error_log", json!({})).await;
+    assert!(
+        err && msg.contains("エラーの記録を読めませんでした"),
+        "{msg}"
+    );
+
+    // 起動していて読む所がある: アプリが返した記録を新しい順に、limit 件
+    let log = json!({
+        "entries": [
+            { "lastAt": "2026-11-20T01:03:00Z", "count": 2, "kind": "calc", "kindLabel": "計算できなかった", "place": "結果", "action": "計算", "message": "E_HOST_MEMORY", "line": "2026-11-20 10:03・版 0.1.0・macOS・結果・計算・計算できなかった: E_HOST_MEMORY（2回。最初は 2026-11-20 10:02）" },
+            { "lastAt": "2026-11-20T00:00:00Z", "count": 1, "kind": "command", "kindLabel": "本体の命令の失敗", "place": "入力", "action": "世帯の保存（store_save）", "message": "E_STORE_CONFLICT", "line": "x" },
+        ],
+        "max": 100,
+        "text": "…",
+    });
+    let reads = Arc::new(std::sync::atomic::AtomicU32::new(0));
+    let r2 = reads.clone();
+    reg.set_error_log(Some(Arc::new(move || {
+        r2.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Some(log.clone())
+    })));
+    let v = call_ok(&c, "get_error_log", json!({ "limit": 1 })).await;
+    assert_eq!(v["count"], 2);
+    assert_eq!(v["returned"], 1);
+    assert_eq!(v["entries"][0]["message"], "E_HOST_MEMORY");
+    assert!(v["note"].as_str().unwrap().contains("ファイルの場所"));
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 1);
+    // 知らない引数は断る（何もしない）
+    let (err, msg) = call(&c, "get_error_log", json!({ "clear": true })).await;
+    assert!(err && msg.contains("clear"), "{msg}");
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 1);
+    ep.shutdown();
+
+    // 報告文: アプリが起動していなくても組み立てられる（送らない）
+    let v = call_ok(
+        &c,
+        "draft_issue_report",
+        json!({
+            "summary": "結果のタブで、2035年の税・社会保険料が前の年の倍になった",
+            "screen": "結果",
+            "row": "税・社会保険料",
+            "when": "2035年（10年目）",
+            "diagnosis": "calculation",
+            "evidence": ["explain_value: 2035年の住民税の式で、前の年の所得に退職金が入っている"],
+            "sample_household_id": "salariedCoupleTwoKids",
+            "reproduce_changes": ["本人の退職の年齢を 60歳にする"],
+            "reproduced": true,
+            "error_log_lines": ["2026-11-20 10:03・版 0.1.0・macOS・結果・計算・計算できなかった: E_HOST_MEMORY"],
+        }),
+    )
+    .await;
+    let t = v["text"].as_str().unwrap();
+    for w in [
+        "【ファイナンシアの不具合の報告】",
+        &format!("アプリの版: {VERSION}"),
+        "AI の見立て: 計算の仕組みの不具合の疑い",
+        "（salariedCoupleTwoKids）を開く",
+        "見本での再現: できた",
+        "エラーの記録:\n- 2026-11-20 10:03",
+        "「要望・不具合を送る」",
+    ] {
+        assert!(t.contains(w), "{w}: {t}");
+    }
+    assert_eq!(v["cautions"], json!([]));
+    let (err, msg) = call(
+        &c,
+        "draft_issue_report",
+        json!({ "summary": "x", "diagnosis": "bug", "evidence": ["a"] }),
+    )
+    .await;
+    assert!(err && msg.contains("input・calculation・unknown"), "{msg}");
 }

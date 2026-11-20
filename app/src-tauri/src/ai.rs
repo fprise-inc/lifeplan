@@ -206,6 +206,12 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
             "templates": d.get("hearingTemplates").cloned().unwrap_or_else(|| serde_json::json!([])),
         }))
     })));
+    // エラーの記録（get_error_log。0234。読むだけ。世帯の中身ではないので「AIに渡した記録」には残さず、読んだ回数をエラーの記録の中に残す）
+    if let Some(path) = crate::errlog::path_of(app) {
+        registry.set_error_log(Some(Arc::new(move || {
+            crate::errlog::read_for_ai(&path, SystemClock.now_ms())
+        })));
+    }
     // Web のヒアリングの発行は画面に頼む（鍵は画面だけが作る。0222）
     let hearing = Arc::new(HearingJobs::default());
     let jobs = hearing.clone();
