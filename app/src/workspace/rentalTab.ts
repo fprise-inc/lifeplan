@@ -16,6 +16,7 @@ import { BUILDING_STRUCTURES } from "./input/labels.ts";
 import { carryoverActive, isLandOnlyKind, RENTAL_KINDS, rentalName, rentalProperties, rentWords } from "./input/stages/rental.ts";
 import { ageAxis, displayYears, familyText, personLabel, propertyEvents } from "./present.ts";
 import { roles } from "./roles.ts";
+import { resolveTimepoint } from "./timepoint.ts";
 import type { WorkingHousehold } from "./input/household.ts";
 import type { Catalog } from "./plans/items.ts";
 import { planView, recordPlanEdit } from "./plans/planEdit.ts";
@@ -321,7 +322,13 @@ function factsOf(req: EngineRequest, p: RealEstateAnalysisProperty): string[] {
   if (st !== undefined) out.push(st);
   if (p.builtYear !== null) out.push(`${p.builtYear}年築`);
   const acq = prop?.acquisition;
-  if (acq !== undefined && p.acquisition !== null) {
+  // 建てる・買う予定（0232）: 予定の月と、取得価額の合計（建てる予定は土地の取得価額＋建築費）・諸費用・自己資金
+  const plan = prop?.planned;
+  const planYm = plan === undefined ? null : resolveTimepoint(h, plan.at);
+  if (plan !== undefined && p.acquisition !== null) {
+    const extra = [...(p.acquisition.costs > 0 ? [`諸費用 ${manWhole(p.acquisition.costs)}`] : []), ...(p.acquisition.equity !== undefined ? [`自己資金 ${manWhole(p.acquisition.equity)}`] : [])];
+    out.push(`${planYm !== null ? ymText(planYm) : ""}に${plan.type === "buy" ? "買う予定" : "建てる予定"} ${manWhole(p.acquisition.total)}${extra.length > 0 ? `（${extra.join("・")}）` : ""}`);
+  } else if (acq !== undefined && p.acquisition !== null) {
     const extra = [...(p.acquisition.costs > 0 ? [`諸費用 ${manWhole(p.acquisition.costs)}`] : []), ...(p.acquisition.equity !== undefined ? [`自己資金 ${manWhole(p.acquisition.equity)}`] : [])];
     out.push(`${ymText(acq.at)}に取得 ${manWhole(p.acquisition.total)}${extra.length > 0 ? `（${extra.join("・")}）` : ""}`);
   }

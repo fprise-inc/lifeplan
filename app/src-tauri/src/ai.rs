@@ -1836,12 +1836,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（Web のヒアリングの依頼の出どころ〔0222〕で 0.84 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（収益不動産の取得の予定〔0232〕で 0.85 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.84");
+        assert_eq!(file["meta"]["formatVersion"], "0.85");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());

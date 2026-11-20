@@ -22,7 +22,7 @@ entries:
       - "「収益不動産」の入力項目の「貸し終わり」"
     rows: [cf.income.other.rental]
     components:
-      asset.realEstate: 11
+      asset.realEstate: 12
     related: [realEstate.expenses, realEstate.income]
 
   - id: realEstate.expenses
@@ -46,7 +46,7 @@ entries:
       - "「収益不動産」の入力項目の「＋ 大きな修繕」"
     rows: [cf.expense.other.realEstate]
     components:
-      asset.realEstate: 11
+      asset.realEstate: 12
     related: [realEstate.income]
 
   - id: realEstate.depreciation
@@ -70,7 +70,7 @@ entries:
     rules:
       - 減価償却資産の耐用年数等に関する省令 別表第一
     components:
-      asset.realEstate: 11
+      asset.realEstate: 12
     related: [realEstate.income, realEstate.analysis]
 
   - id: realEstate.income
@@ -97,10 +97,10 @@ entries:
       - 所得税基本通達26-9（事業的規模）
     rows: [cf.income.other.rental, cf.expense.other.realEstate]
     components:
-      asset.realEstate: 11
+      asset.realEstate: 12
       tax.totalIncomeBase: 3
       tax.lossCarryforward: 1
-      debt.schedule: 11
+      debt.schedule: 12
     related: [realEstate.depreciation, realEstate.sale]
 
   - id: realEstate.sale
@@ -130,10 +130,40 @@ entries:
       - 租税特別措置法31条・32条（土地建物等の譲渡所得）
     rows: [cf.income.lumpSum.realEstateSale, cf.taxSi.incomeTax.realEstateSale, cf.taxSi.residentTax.realEstateSale]
     components:
-      asset.realEstate: 11
+      asset.realEstate: 12
       tax.realEstateSale: 3
-      debt.schedule: 11
+      debt.schedule: 12
     related: [realEstate.income, realEstate.analysis]
+
+  - id: realEstate.plan
+    title: 収益不動産を建てる・買う予定
+    status: approximated
+    summary: >-
+      近似して入っています。これから土地ごと買う物件と、持っている土地に建てる建物を、予定の月から評価額・家賃・経費・減価償却・ローンに入れ、
+      予定の月に自己資金（購入代金・建築費と取得の諸費用から、これから借りるこの物件のローンを引いた額）を払います。建てる場合と建てない場合を
+      プランに分けて比較できます。
+    how: >-
+      土地ごと買う予定は、購入代金の合計をその年の評価額（時価）にし、土地は土地の評価額の増減率、建物は構造の耐用年数で動かします。持っている土地に
+      建てる予定は、今の評価額を土地とみなし、建てる年に建築費の建物を新築で足します。減価償却は予定の月から、新築は法定耐用年数（中古で買うなら
+      簡便法）、取得の諸費用の建物と建物附属設備の分を償却の基に足します。建物の固定資産税評価額の目安（建築費・購入代金の建物の分×新築の評価額の
+      割合）を、相続税の評価の材料として持ちます。
+    approximation: >-
+      不動産取得税・登録免許税は取得の諸費用に含めて入れます（別には計算しません）。建てる前の土地の貸付け（駐車場など）の収入は、同じ物件では入れられません。
+      建てた建物を売るときの所有期間は土地の取得の年月で分け、建物の分を短期として分けていません。
+    reason: 建てる前と後で物件の使い方が変わる入れ方と、土地と建物で所有期間を分ける譲渡の計算を、まだ入れていないためです。
+    instead: 建てる前の駐車場などの収入は、出るお金・入るお金の行で建てる前の年までの額を入れて足せます。
+    keywords: [アパート建築, 賃貸物件の建築, 収益不動産の購入, 不動産投資の計画, 相続税対策, 自己資金, 建築費]
+    items: [account.property, debt.principal]
+    fields:
+      - "「収益不動産」の入力項目の「予定の形」"
+      - "「収益不動産」の入力項目の「買う時期」"
+      - "「収益不動産」の入力項目の「取得の諸費用」"
+      - "「収益不動産」の入力項目の「自己資金」"
+    rows: [cf.expense.lumpSum.realEstatePurchase, cf.balance.account.realEstate.land, cf.balance.account.realEstate.building]
+    components:
+      asset.realEstate: 12
+      debt.schedule: 12
+    related: [realEstate.depreciation, realEstate.analysis, realEstate.sale]
 
   - id: realEstate.analysis
     title: 利回り・手残りなどの分析の数字
@@ -154,7 +184,7 @@ entries:
     items: [account.property]
     components:
       asset.realEstateAnalysis: 4
-      asset.realEstate: 11
+      asset.realEstate: 12
     related: [realEstate.depreciation, realEstate.sale]
 
   - id: realEstate.lodging
@@ -177,7 +207,7 @@ entries:
       - 住宅宿泊事業法2条3項（年180日）
     rows: [cf.income.other.rental, cf.expense.other.realEstate]
     components:
-      asset.realEstate: 11
+      asset.realEstate: 12
     related: [realEstate.businessTax]
 
   - id: realEstate.businessTax
@@ -194,5 +224,5 @@ entries:
     keywords: [個人事業税, 消費税, 不動産取得税, 課税事業者, インボイス]
     items: [account.property]
     components:
-      asset.realEstate: 11
+      asset.realEstate: 12
     related: [realEstate.income, realEstate.lodging]

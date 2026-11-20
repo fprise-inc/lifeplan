@@ -65,7 +65,8 @@ export function saleVariants(req: EngineRequest, object: string): SaleVariant[] 
   const base = req.input.baseMonth;
   const endYear = req.input.endYear;
   const h = req.input.household;
-  const holdFrom = monthOfTimepoint(h, p.holdFrom);
+  // 持ち始める月（建てる・買う予定のある物件は予定の月。予定の月か、それより前に売る案は作らない。0232）
+  const holdFrom = monthOfTimepoint(h, p.planned?.at) ?? monthOfTimepoint(h, p.holdFrom);
   const ok = (ym: string) => ym > base && ym <= ymOf(endYear, 12) && (holdFrom === null || ym > holdFrom);
   const planned = p.sale === undefined ? null : monthOfTimepoint(h, p.sale.at);
   if (p.sale !== undefined) {
