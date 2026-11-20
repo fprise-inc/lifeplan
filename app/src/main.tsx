@@ -15,11 +15,16 @@ import "./styles/review.css";
 import "./takeaway/takeaway.css";
 import { render } from "preact";
 import { App } from "./workspace/App.tsx";
-import { messageOf, recordError } from "./workspace/notices/errorLog.ts";
+import { isHarmlessRejection, isHarmlessWindowError, messageOf, recordError } from "./workspace/notices/errorLog.ts";
 
-// エラーの記録（0234）: 画面の想定外のエラーを、この PC のエラーの記録に残す（文は本体が削ってから残す。どこにも送らない）
-window.addEventListener("error", (e) => recordError({ kind: "screen", action: "画面の処理", message: messageOf(e.error ?? e.message) }));
-window.addEventListener("unhandledrejection", (e) => recordError({ kind: "screen", action: "画面の処理", message: messageOf(e.reason) }));
+// エラーの記録（0234）: 画面の想定外のエラーを、この PC のエラーの記録に残す（文は本体が削ってから残す。どこにも送らない）。
+// ブラウザが出す害のない決まった知らせ（ResizeObserver・出どころの分からない Script error.・拡張機能や WebView の内部・AbortError）は残さない
+window.addEventListener("error", (e) => {
+  if (!isHarmlessWindowError(e)) recordError({ kind: "screen", action: "画面の処理", message: messageOf(e.error ?? e.message) });
+});
+window.addEventListener("unhandledrejection", (e) => {
+  if (!isHarmlessRejection(e.reason)) recordError({ kind: "screen", action: "画面の処理", message: messageOf(e.reason) });
+});
 
 const root = document.getElementById("app");
 if (root !== null) render(<App />, root);

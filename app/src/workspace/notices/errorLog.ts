@@ -83,6 +83,43 @@ export function messageOf(e: unknown): string {
   return s.slice(0, 2000);
 }
 
+/** window の error の知らせのうち、見分けに使う所（ErrorEvent の形） */
+export interface WindowErrorLike {
+  message?: string | undefined;
+  filename?: string | undefined;
+  lineno?: number | undefined;
+  error?: unknown;
+}
+
+/** ブラウザが出す害のない ResizeObserver の知らせ（文がこのとおりのものだけ。前の「Uncaught 」と後ろの「.」は読み飛ばす） */
+const RESIZE_OBSERVER = ["ResizeObserver loop completed with undelivered notifications", "ResizeObserver loop limit exceeded"];
+/** 拡張機能・WebView の内部の出どころ（ファイナンシアの画面のコードではない） */
+const FOREIGN_SOURCES = ["chrome-extension://", "moz-extension://", "safari-extension://", "safari-web-extension://", "webkit-masked-url://"];
+
+const isResizeObserver = (m: string): boolean => RESIZE_OBSERVER.includes(m.trim().replace(/^Uncaught\s+/, "").replace(/^Error:\s*/, "").replace(/\.$/, ""));
+/** 操作を取り消しただけの知らせ（名前が AbortError のもの） */
+const isAbort = (e: unknown): boolean => e !== null && typeof e === "object" && "name" in e && (e as { name: unknown }).name === "AbortError";
+
+/**
+ * window の error で、残さない決まった形の知らせか（0234 の追記）: ResizeObserver の知らせ・出どころの分からない「Script error.」
+ * （filename が空で行が0）・拡張機能や WebView の内部から来たもの・AbortError。ほかは残す（除きすぎて本当のエラーを落とさない）
+ */
+export function isHarmlessWindowError(e: WindowErrorLike): boolean {
+  const message = e.message ?? "";
+  const filename = e.filename ?? "";
+  if (isResizeObserver(message) || (e.error instanceof Error && isResizeObserver(e.error.message))) return true;
+  if (message.trim() === "Script error." && filename === "" && (e.lineno ?? 0) === 0) return true;
+  if (FOREIGN_SOURCES.some((p) => filename.startsWith(p))) return true;
+  return isAbort(e.error);
+}
+
+/** unhandledrejection で、残さない決まった形の知らせか（AbortError と ResizeObserver の知らせだけ） */
+export function isHarmlessRejection(reason: unknown): boolean {
+  if (isAbort(reason)) return true;
+  if (typeof reason === "string") return isResizeObserver(reason);
+  return reason instanceof Error && isResizeObserver(reason.message);
+}
+
 type Sink = (r: ErrorRecord & { place: ErrorPlace }) => Promise<unknown>;
 
 let sink: Sink | null = null;

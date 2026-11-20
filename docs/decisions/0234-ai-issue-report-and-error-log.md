@@ -92,3 +92,12 @@
 - 報告の文の見出しを、フォームの欄（受付の側）に合わせて分けるか。受付の側で、届いた報告の再現の手順を自動で流すか。
 - 文の削り方で、引用符の外の ASCII の言葉も伏せるか（調べやすさとの釣り合い。β公開の前に、実際に残った文を見て決める）。
 - エラーの記録を開く所を、結果の帯の「計算できませんでした」の横にも置くか。
+
+## 追記
+
+- 2026-11-20（残さない決まった形の知らせ）: 開発中のアプリで開いただけで、ブラウザの害のない知らせ「ResizeObserver loop completed with undelivered notifications.」が「画面のエラー」として残った。どの FP の記録にも入り、報告の文に混ざるので、画面の想定外のエラーの口（`window` の `error`・`unhandledrejection`。`main.tsx`）で、次の決まった形の知らせだけを残さない（判定は `errorLog.ts` の `isHarmlessWindowError`・`isHarmlessRejection` の1か所）。除きすぎて本当のエラーを落とさないよう、文や出どころが決まった形のとおりのものだけにする:
+  1. ResizeObserver の知らせ: 文が「ResizeObserver loop completed with undelivered notifications」か「ResizeObserver loop limit exceeded」のとおりのもの（前の「Uncaught 」「Error: 」と後ろの「.」だけは読み飛ばす）。画面の大きさの変化を次の描画に回したというブラウザの知らせで、画面の動きには害が無い。名前を含むだけの別の文（「ResizeObserver is not defined」など）は残す。
+  2. 出どころの分からない「Script error.」: 文がそのとおりで、`filename` が空で行が0のもの。別の出どころのスクリプトのエラーをブラウザが中身を隠して知らせる形で、調べる手がかりが無い（ファイナンシアの画面のコードは同じ出どころなので、この形にならない）。場所か行の分かるものは残す。
+  3. 拡張機能・WebView の内部から来たもの: `filename` が `chrome-extension://`・`moz-extension://`・`safari-extension://`・`safari-web-extension://`・`webkit-masked-url://` で始まるもの（ファイナンシアの画面のコードではない。開発用のサーバーをブラウザで開いたときの拡張機能など）。
+  4. 操作を取り消しただけの知らせ: エラー（か断られた理由）の名前が `AbortError` のもの（`fetch` の取り消しなど）。文に AbortError と書いてあるだけのエラーは残す。
+  - 本体の命令の失敗・計算できなかったとき・本体の停止の記録は、今までどおり何も除かない。試験は `app/test/error-log.test.ts`（除く知らせが残らないことと、形の違うふつうのエラーは残ること）。

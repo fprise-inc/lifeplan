@@ -79,6 +79,41 @@ describe("エラーの記録（0234）", () => {
   });
 });
 
+describe("残さない決まった形の知らせ（0234 の追記）", () => {
+  const app = { filename: "http://tauri.localhost/assets/index-abc.js", lineno: 12 };
+  it("ResizeObserver の知らせ・出どころの分からない Script error.・拡張機能や WebView の内部・AbortError は残さない", () => {
+    expect(log.isHarmlessWindowError({ ...app, message: "ResizeObserver loop completed with undelivered notifications." })).toBe(true);
+    expect(log.isHarmlessWindowError({ ...app, message: "Uncaught ResizeObserver loop limit exceeded" })).toBe(true);
+    expect(log.isHarmlessWindowError({ ...app, message: "", error: new Error("ResizeObserver loop limit exceeded") })).toBe(true);
+    expect(log.isHarmlessWindowError({ message: "Script error.", filename: "", lineno: 0 })).toBe(true);
+    for (const f of ["chrome-extension://abc/content.js", "moz-extension://x/a.js", "safari-web-extension://x/a.js", "webkit-masked-url://hidden/"]) {
+      expect(log.isHarmlessWindowError({ message: "TypeError: x is undefined", filename: f, lineno: 3 })).toBe(true);
+    }
+    const abort = new DOMException("The operation was aborted.", "AbortError");
+    expect(log.isHarmlessWindowError({ ...app, message: "AbortError", error: abort })).toBe(true);
+    expect(log.isHarmlessRejection(abort)).toBe(true);
+    expect(log.isHarmlessRejection(Object.assign(new Error("aborted"), { name: "AbortError" }))).toBe(true);
+    expect(log.isHarmlessRejection("ResizeObserver loop completed with undelivered notifications.")).toBe(true);
+  });
+
+  it("ふつうのエラーは残す（形が少しでも違えば除かない）", () => {
+    expect(log.isHarmlessWindowError({ ...app, message: "TypeError: Cannot read properties of undefined (reading 'income')", error: new TypeError("x") })).toBe(false);
+    // 行や場所の分かる Script error. は残す
+    expect(log.isHarmlessWindowError({ message: "Script error.", filename: app.filename, lineno: 0 })).toBe(false);
+    expect(log.isHarmlessWindowError({ message: "Script error.", filename: "", lineno: 5 })).toBe(false);
+    // ResizeObserver の名前を含むだけの別のエラー
+    expect(log.isHarmlessWindowError({ ...app, message: "ResizeObserver is not defined" })).toBe(false);
+    expect(log.isHarmlessWindowError({ ...app, message: "ResizeObserver loop completed with undelivered notifications and more" })).toBe(false);
+    // 画面のコードの場所の名前に extension を含むだけ
+    expect(log.isHarmlessWindowError({ message: "x", filename: "http://tauri.localhost/chrome-extension.js", lineno: 1 })).toBe(false);
+    expect(log.isHarmlessRejection("E_STORE_CONFLICT")).toBe(false);
+    expect(log.isHarmlessRejection(new Error("AbortError"))).toBe(false);
+    expect(log.isHarmlessRejection(new DOMException("x", "NotAllowedError"))).toBe(false);
+    expect(log.isHarmlessRejection(null)).toBe(false);
+    expect(log.isHarmlessRejection(undefined)).toBe(false);
+  });
+});
+
 describe("「要望・不具合を送る」の中のエラーの記録", () => {
   const noop = () => undefined;
   const base = { receipts: [], template: "https://example.com/f?no={受付番号}", appVersion: "0.1.0", os: "macOS", onSend: async () => undefined, onAdd: noop, onClose: noop, initialCode: "R-7K2Q" };
