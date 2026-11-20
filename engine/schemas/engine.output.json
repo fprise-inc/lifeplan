@@ -142,6 +142,7 @@
                     "land": { "description": "土地の評価（貸家建付地の減額の後、特例の前）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                     "building": { "description": "建物の評価（貸家の減額の後）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                     "buildingSource": { "description": "建物の評価の元: entered は入れた固定資産税評価額（建てる・買う予定の物件は予定の欄に入れた額を asset.realEstate の years[].assessed で動かした額も）、estimate は固定資産税の目安の推定（予定の欄の推定の額も）、market は時価×評価の割合、none は建物なし", "enum": ["entered", "estimate", "market", "none"] },
+                    "buildingFloor": { "description": "建物の固定資産税評価額の経過年数の補正率が下限（20%）に届いていて、評価替えでも下がらない（入れた値・推定・予定の欄の額のときだけ。0181）", "const": true },
                     "rentalRatio": { "description": "賃貸割合（貸しているときだけ）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                     "area": { "description": "土地の面積のうち亡くなる人の分（㎡）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                     "use": { "enum": ["residence", "rental", "business", "familyCompany", "none"] },

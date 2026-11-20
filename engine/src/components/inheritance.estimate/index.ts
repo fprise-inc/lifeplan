@@ -45,7 +45,8 @@
 //   特例・2割加算・未成年者控除を入れる。detailed の無い世帯の結果は改訂5と同じ（年ごとの計算は増やさない。時点ごとに1回）
 //   - 土地（物件全体）: 路線価×面積・固定資産税評価額×倍率・固定資産税評価額×8/7（推定）・時価×評価の割合（省略）。補正の率を掛ける。入れた値は
 //     計算基準年（持ち始めが後ならその年）の値とみなし、ほかの年は評価額の推移（土地の行）と同じ割合で動かす
-//   - 建物: 固定資産税評価額（入れた値か、画面が固定資産税の目安から入れた推定 buildingEstimate。建物の行と同じ割合で動かす）。建てる・買う予定の物件は、
+//   - 建物: 固定資産税評価額（入れた値か、画面が固定資産税の目安から入れた推定 buildingEstimate。固定資産税の目安と同じ式〔0181。経過年数の補正率・
+//     再建築費評点補正率。下限に届いたら横ばいで、出力に buildingFloor〕で評価の年へ動かす。構造と建った年の無い器は建物の行と同じ割合）。建てる・買う予定の物件は、
 //     入れた値が無ければ asset.realEstate の評価の年の years[].assessed（予定の欄の額を評価替えごとに動かした額。0232）。無ければ時価×評価の割合
 //   - 貸している物件: 建物は借家権割合（30%）×賃貸割合、土地は借地権割合×借家権割合×賃貸割合を引く（貸家・貸家建付地）。貸しているか・賃貸割合の省略は、
 //     評価の年（valuationYear）の asset.realEstate の years[].rentedShare（年末の月に貸している割合。1−空室率、今の家賃で入れた物件は1、貸していなければ0。
@@ -60,6 +61,8 @@
 import {
   RATE_ONE,
   type Rate,
+  assessedAtFloor,
+  assessedBuildingRatio,
   bracketFor,
   boxValue,
   defineComponent,
@@ -71,6 +74,7 @@ import {
   yen,
   type AccountInput,
   type AnnualRow,
+  type BuildingStructure,
   type ContingencyEventOutput,
   type CarOutput,
   type DebtInput,
@@ -250,6 +254,8 @@ type LandResult = {
   land: Yen;
   building: Yen;
   buildingSource: "entered" | "estimate" | "market" | "none";
+  /** 建物の固定資産税評価額の経過年数の補正率が下限（20%）に届いていて、評価替えでも下がらない（入れた値・推定・予定の欄の額のとき） */
+  buildingFloor?: true;
   rentalRatio?: string;
   /** 土地の面積のうち亡くなる人の分（㎡） */
   area?: string;
@@ -348,6 +354,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     "residence.from",
     "residence.to",
     "residence.purchase",
+    "residence.valuation",
     "goal.kind",
     "goal.owner",
   ],
@@ -601,6 +608,28 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       return { land: a === undefined ? 0 : (boxValue(a.marketValue) ?? 0), building: 0 };
     };
     const growth = (now: number, ref: number): Rate => (now > 0 && ref > 0 ? ctx.rate.div(rOf(now), rOf(ref)) : RATE_ONE);
+    /** 入れた値の時点の年（計算基準年。持ち始めが後ならその年） */
+    const refYearOf = (object: string): number => valuedYears.get(object)?.find((e) => e.year >= baseYear)?.year ?? baseYear;
+    /**
+     * 建物の構造と建った年（固定資産税評価額を評価替えごとに動かす元）。持ち家は housing.valuation と同じ読み方（構造の省略は木造、建った年の省略は
+     * 評価の基にする額の時点の年）、住まい以外の不動産は asset.realEstate の建った年。中身の無い器は null（建物の行の推移と同じ割合で動かす）
+     */
+    const buildingFacts = new Map(realEstateOut.map((p) => [p.object, p.facts?.builtYear]));
+    const buildingOf = (object: string): { structure: BuildingStructure; built: number } | null => {
+      const r = residences.find((x) => x.id === object) as
+        | { from: unknown; purchase?: { at?: unknown }; valuation?: { asOf?: string; structure?: BuildingStructure; builtYear?: number } }
+        | undefined;
+      if (r !== undefined) {
+        const v = r.valuation;
+        const purchaseAt = r.purchase === undefined ? null : resolveTp(r.purchase.at ?? r.from);
+        const asOf = v?.asOf !== undefined ? parseYm(v.asOf) : (purchaseAt ?? S);
+        return { structure: v?.structure ?? "wood", built: v?.builtYear ?? yearOf(asOf) };
+      }
+      const p = accounts.find((x) => x.id === object)?.property;
+      const built = buildingFacts.get(object);
+      if (p === undefined || built === undefined) return null;
+      return { structure: (p.structure ?? "wood") as BuildingStructure, built };
+    };
     /**
      * 貸しているか・賃貸割合の省略の値（評価の年 V の年末の月に貸している割合。asset.realEstate の rentedShare。0232）と、貸し始め（3年以内の貸付の判定。
      * asset.realEstate の貸し始めと同じ読み方: 省略は建てる・買う予定の月か取得の月。予定の月〔無ければ持ち始める月〕より前なら、その月）
@@ -692,7 +721,10 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         const fullLand = pt.fullLand + pt.fullUnsplit;
         const ref = refOf(object);
         const gL = growth(fullLand, ref.land);
-        const gB = pt.fullUnsplit > 0 && pt.fullBuilding === 0 ? gL : growth(pt.fullBuilding, ref.building);
+        // 建物の入れた値・推定は、固定資産税の目安と同じ式（0181。経過年数の補正率・再建築費評点補正率で評価替えごとに動かし、下限に届いたら横ばい）で
+        // 入れた値の時点の年から評価の年へ動かす。構造と建った年が分からない器は、建物の行の推移と同じ割合
+        const bf = buildingOf(object);
+        const gB = bf !== null ? assessedBuildingRatio(ctx, bf.structure, bf.built, refYearOf(object), V) : pt.fullUnsplit > 0 && pt.fullBuilding === 0 ? gL : growth(pt.fullBuilding, ref.building);
         const adj = ctx.rate.of(st?.adjustment ?? "1");
         // 面積の省略は、住まい以外の不動産の中身の土地の面積（0079）
         const areaText = st?.area ?? (accounts.find((x) => x.id === object)?.property as { area?: { land?: string } } | undefined)?.area?.land;
@@ -779,6 +811,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           land,
           building,
           buildingSource,
+          ...((buildingSource === "entered" || buildingSource === "estimate") && bf !== null && assessedAtFloor(bf.structure, bf.built, V) ? { buildingFloor: true as const } : {}),
           ...(ctx.rate.compare(rr, ZERO) > 0 ? { rentalRatio: ctx.rate.toString(rr) } : {}),
           ...(areaMine !== null ? { area: ctx.rate.toString(areaMine) } : {}),
           use,

@@ -178,7 +178,7 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
         const special = sp.status === "applied" ? `特例 ${sp.appliedArea !== undefined ? `${String(Math.round(Number(sp.appliedArea) * 100) / 100)}㎡ ` : ""}−${man(sp.reduction)}${sp.defaulted === true ? "（配偶者が取得するとみなした）" : ""}` : sp.status === "none" ? null : `特例なし（${SPECIAL_TEXT[sp.status] ?? sp.status}）`;
         const bits = [
           `土地 ${man(l.land)}（${METHOD_TEXT[l.method] ?? l.method}${l.rentalRatio !== undefined ? `・貸家建付地（賃貸割合${String(Math.round(Number(l.rentalRatio) * 1000) / 10)}%）` : ""}）`,
-          ...(l.buildingSource !== "none" ? [`建物 ${man(l.building)}（${BUILDING_TEXT[l.buildingSource] ?? ""}${l.rentalRatio !== undefined ? "・貸家" : ""}）`] : []),
+          ...(l.buildingSource !== "none" ? [`建物 ${man(l.building)}（${BUILDING_TEXT[l.buildingSource] ?? ""}${l.buildingFloor === true ? "・築年数による下限で横ばい" : ""}${l.rentalRatio !== undefined ? "・貸家" : ""}）`] : []),
           ...(special !== null ? [special] : []),
         ];
         details.push(`${titles.get(l.object) ?? "不動産"}: ${bits.join("・")}`);

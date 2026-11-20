@@ -944,6 +944,8 @@ export interface InheritanceLandResult {
   land: number;
   building: number;
   buildingSource: "entered" | "estimate" | "market" | "none";
+  /** 建物の固定資産税評価額が経過年数の補正率の下限に届いていて、評価替えでも下がらない（0181） */
+  buildingFloor?: true;
   rentalRatio?: string;
   area?: string;
   use: "residence" | "rental" | "business" | "familyCompany" | "none";

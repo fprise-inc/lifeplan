@@ -178,3 +178,28 @@ describe("建てる・買う予定の物件（0232）", () => {
     expect(keys(fieldOf(setDetailed(rental, true), `inherit/land/${prop.id}/use`).set(setDetailed(rental, true), "rental"))).not.toContain(`inherit/land/${prop.id}/rentalContinued`);
   });
 });
+
+describe("建物の評価の年ごとの動き（固定資産税の目安と同じ式。0181）", () => {
+  const senior = setDetailed(fromRequest(modelHousehold("sampleSeniorRental")), true);
+  const h = senior.request.input.household;
+  const seniorHome = h.residences!.find((r) => r.kind === "own")!;
+  const condo = h.accounts!.find((a) => a.kind === "realEstate" && a.property !== undefined)!;
+  it("築年数で下限に届いた持ち家（1995年築の木造）は、いまも二人とも亡くなった後も同じ額で、内訳に「築年数による下限で横ばい」と書く。物件（2008年築の RC）は経過年数の補正率で下がる", () => {
+    const r = estimate(senior);
+    const pts = r.inheritanceTax?.points ?? [];
+    const now = pts.find((p) => p.point === "now" && (p.lands?.length ?? 0) > 0)!;
+    const both = pts.find((p) => p.point === "bothAfter")!;
+    const homeNow = now.lands!.find((l) => l.object === seniorHome.id)!;
+    const homeBoth = both.lands!.find((l) => l.object === seniorHome.id)!;
+    expect(homeBoth.building).toBe(homeNow.building);
+    expect(homeNow.buildingFloor).toBe(true);
+    const condoNow = now.lands!.find((l) => l.object === condo.id)!;
+    const condoBoth = both.lands!.find((l) => l.object === condo.id)!;
+    expect(condoBoth.building).toBeLessThan(condoNow.building);
+    expect(condoBoth.buildingFloor).toBeUndefined();
+    const v = inheritanceView(senior, r);
+    const lines = v.points.flatMap((p) => p.details);
+    expect(lines.some((d) => d.startsWith("持ち家: ") && d.includes("固定資産税評価額の推定・築年数による下限で横ばい"))).toBe(true);
+    expect(lines.some((d) => !d.startsWith("持ち家: ") && d.includes("築年数による下限"))).toBe(false);
+  });
+});

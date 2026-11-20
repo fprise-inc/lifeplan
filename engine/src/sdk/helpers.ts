@@ -752,6 +752,13 @@ export function assessedBuildingRatio(ctx: Ctx, structure: BuildingStructure, bu
 }
 
 /**
+ * その年（year）に効いている評価替えの年の経過年数の補正率が、下限（20%）に届いているか（0181 の式。届いた後は評価替えでも下がらない）
+ */
+export function assessedAtFloor(structure: BuildingStructure, built: number, year: number): boolean {
+  return keinenRateText(structure, Math.max(1, reassessYearOf(year) - built)) === "0.20";
+}
+
+/**
  * 住まい以外の不動産の中身の持ち始める月（0232）: 建てる・買う予定の「土地ごと買う」は買う月、ほかは持ち始める時点 holdFrom（0039）。
  * 省略は前から持っている（null）。「持っている土地に建てる」は土地を前から持っているので holdFrom のまま
  */

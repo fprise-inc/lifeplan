@@ -7,7 +7,7 @@ import { box, clone, household, member, modelHousehold, realPacks, uid } from ".
 type Obj = Record<string, unknown>;
 type Req = EngineRequest;
 type Special = { status: string; rate?: string; acquirer?: string; defaulted?: boolean; appliedArea?: string; reduction: number; recentRental?: boolean };
-type Land = { object: string; method: string; landMarket: number; buildingMarket: number; land: number; building: number; buildingSource: string; rentalRatio?: string; area?: string; use: string; special: Special };
+type Land = { object: string; method: string; landMarket: number; buildingMarket: number; land: number; building: number; buildingSource: string; buildingFloor?: true; rentalRatio?: string; area?: string; use: string; special: Special };
 type Point = {
   point: string;
   decedent: string;
@@ -440,5 +440,55 @@ describe("建てる・買う予定の不動産（asset.realEstate の years[].as
       expect(landOf(contingencyOf(death(req, "2031-01"), { lands }), PLAN).special.status).toBe("applied");
       expect(landOf(contingencyOf(death(req, "2031-02"), { lands }), PLAN).special.status).toBe("applied");
     }
+  });
+});
+
+describe("建物の入れた値・推定は、固定資産税の目安と同じ式で評価の年へ動かす（経過年数の補正率・下限。0181）", () => {
+  /** 木造の持ち家（建った年 built、土地の割合 0.6） */
+  const woodHome = (built: number): Req =>
+    edit(family({ endYear: 2040 }), (h) => {
+      h.residences = [{ id: HOME, kind: "own", from: at("2020-04"), to: null, ownership: [{ member: H, share: "1" }], valuation: { value: box(40_000_000), asOf: "2026-01", structure: "wood", builtYear: built, landShare: "0.6" } }];
+    });
+  const death = (req: Req, D: string): Req => edit(req, (_h, input) => (input.contingencies = [{ id: uid("ct"), kind: "death", member: H, occurs: at(D) }]));
+  /** 万一の想定で D に亡くなったときの持ち家の建物（評価の年は D の前の年。推定 est を入れる） */
+  const homeAt = (req: Req, D: string, est: number) => landOf(pointsOf(death(req, D), { points: ["contingency"], detailed: true, lands: [{ object: HOME, buildingEstimate: est, use: "none" }] })[0] as Point);
+
+  it("下限に届く年の前後: 2002年築の木造は、2024年度（築22年）の 0.27 から 2027年度（築25年）に下限 0.20 へ下がり、その後は横ばい（下限の印）", () => {
+    const req = woodHome(2002);
+    const y2026 = homeAt(req, "2027-06", 2_700_000);
+    expect(y2026).toMatchObject({ building: 2_700_000, buildingSource: "estimate" });
+    expect(y2026.buildingFloor).toBeUndefined();
+    const y2027 = homeAt(req, "2028-06", 2_700_000);
+    expect(y2027).toMatchObject({ building: 2_000_000, buildingFloor: true });
+    expect(homeAt(req, "2031-06", 2_700_000)).toMatchObject({ building: 2_000_000, buildingFloor: true });
+    expect(homeAt(req, "2040-06", 2_700_000)).toMatchObject({ building: 2_000_000, buildingFloor: true });
+    // 1年後に建った家（2003年築）は、2027年度は築24年の 0.22 で、まだ下限ではない
+    const later = homeAt(woodHome(2003), "2028-06", 2_900_000);
+    // 2,900,000 × 0.22 ÷ 0.29 ＝ 2,200,000（率の割り算の端数で1円少ないことがある）
+    expect(Math.abs(later.building - 2_200_000)).toBeLessThanOrEqual(1);
+    expect(later.buildingFloor).toBeUndefined();
+  });
+
+  it("もう下限に届いている家（1995年築の木造）は、今も先の年も同じ額（下限の印）", () => {
+    const req = woodHome(1995);
+    const now = landOf(nowOf(req, { detailed: true, lands: [{ object: HOME, buildingEstimate: 3_840_000, use: "none" }] }));
+    expect(now).toMatchObject({ building: 3_840_000, buildingFloor: true });
+    expect(homeAt(req, "2041-01", 3_840_000)).toMatchObject({ building: 3_840_000, buildingFloor: true });
+  });
+
+  it("建てた年の前後: 計算基準年（2026年）に建った木造は 2027年度も築1年の 0.80 のまま、2030年度は築4年の 0.68。前の年（2025年）に建った家は 2027年度に築2年の 0.75", () => {
+    const req = woodHome(2026);
+    expect(homeAt(req, "2027-06", 8_000_000).building).toBe(8_000_000);
+    expect(homeAt(req, "2028-06", 8_000_000).building).toBe(8_000_000);
+    expect(homeAt(req, "2031-06", 8_000_000).building).toBe(6_800_000);
+    expect(homeAt(woodHome(2025), "2028-06", 8_000_000).building).toBe(7_500_000);
+  });
+
+  it("住まい以外の不動産も同じ式（2010年築の RC は、時価の建物の下がり方でなく経過年数の補正率で動かす）", () => {
+    const req = death(withRental(family({ endYear: 2040 })), "2031-06");
+    const l = landOf(pointsOf(req, { points: ["contingency"], detailed: true, lands: [{ object: RENT, buildingValue: 10_000_000, rentalRatio: "0", use: "none" }] })[0] as Point, RENT);
+    // 2024年度 築14年 0.6035 → 2030年度 築20年 0.5509
+    expect(Math.abs(l.building - Math.floor((10_000_000 * 0.5509) / 0.6035))).toBeLessThanOrEqual(1);
+    expect(l.buildingFloor).toBeUndefined();
   });
 });
