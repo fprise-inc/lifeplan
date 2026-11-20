@@ -1,5 +1,5 @@
 // 本体（Rust）と画面側のエンジンへの入口
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as rawInvoke, type InvokeArgs, type InvokeOptions } from "@tauri-apps/api/core";
 import { OcrFailure, type DictionaryEntry, type LearnedFormat, type OcrPage } from "../../../statement/src/index.ts";
 import { forEngine } from "./moneyRows.ts";
 import { retryTimedOut } from "./retry.ts";
@@ -7,6 +7,20 @@ import { isEngineError, type EngineError, type EngineRequest, type FullResult, t
 import type { OfficeTextEntry, TextOp } from "../workspace/office/customTexts.ts";
 import { API_PREFIX, type RelayRequest, type RelayResponse } from "../../../hearing/src/web/protocol.ts";
 import { browserSaveAll, browserSaveOne } from "./browserSave.ts";
+import { commandAction, EMPTY_ERROR_LOG, messageOf, recordError, UNLOGGED_COMMANDS, type ErrorKind, type ErrorLogView } from "../workspace/notices/errorLog.ts";
+
+/**
+ * 本体の命令（0234）: 失敗した命令は、命令の名前とエラーの文をエラーの記録に残してから、そのまま投げ直す（扱いは呼んだ所のまま）。
+ * 記録の命令そのものは記録しない。文は本体が削ってから残す（世帯の中身・ファイルの場所は残さない）
+ */
+async function invoke<T>(cmd: string, args?: InvokeArgs, options?: InvokeOptions): Promise<T> {
+  try {
+    return await rawInvoke<T>(cmd, args, options);
+  } catch (e) {
+    if (!UNLOGGED_COMMANDS.has(cmd)) recordError({ kind: "command", action: commandAction(cmd), message: messageOf(e) });
+    throw e;
+  }
+}
 
 /** 画面側のエンジンのセッション（engine/src/engine/run.ts の Session。JSON の文字列で受け渡す） */
 export interface WebSession {
@@ -887,6 +901,18 @@ export interface NoticesHost {
   copy(code: string): Promise<boolean>;
 }
 
+/** エラーの記録（0234。この PC のアプリのデータだけ。本体が文を削ってから残す） */
+export interface ErrorLogHost {
+  /** 1件足す（種類・画面・操作・文だけ。日時・版・OS は本体が入れる） */
+  add(entry: { kind: ErrorKind; place: string; action: string; message: string }): Promise<void>;
+  /** 記録（utcOffsetMinutes はこの PC の時差。写す文の日時に使う） */
+  get(utcOffsetMinutes: number): Promise<ErrorLogView>;
+  /** すべて消す */
+  clear(): Promise<ErrorLogView>;
+  /** 報告に貼る文を写す（文は本体が記録から作る。写せたら true） */
+  copy(): Promise<boolean>;
+}
+
 /** カスタム層（0016 の3・4・6。2026-11-02 の追記）の説明の文の差し替え: 本体が確かめた状態。パスはホームを ~ にした表示だけ */
 export interface CustomIssue {
   /** 何行目か（0 から。ファイル全体のときは null） */
@@ -994,6 +1020,8 @@ export interface HostApi {
   office: OfficeHost;
   statements: StatementHost;
   notices: NoticesHost;
+  /** エラーの記録（0234。無い画面〔テストの代わりの本体など〕では残さない） */
+  errors?: ErrorLogHost;
   /** カスタム層（無い画面〔テストの代わりの本体など〕では、事務所の文を当てない） */
   custom?: CustomHost;
   /** Web のヒアリング（0125。無い画面では Web で聞く道具を出さない） */
@@ -1118,6 +1146,12 @@ export function tauriHost(): HostApi {
       putLocal: (value) => invoke<void>("notice_local_put", { value }),
       openForm: (code) => invoke<void>("feedback_form_open", { code }),
       copy: (code) => invoke<boolean>("feedback_copy", { code }),
+    },
+    errors: {
+      add: (entry) => invoke<void>("error_log_add", { entry }),
+      get: (utcOffsetMinutes) => invoke<ErrorLogView>("error_log_get", { utcOffsetMinutes }),
+      clear: () => invoke<ErrorLogView>("error_log_clear"),
+      copy: () => invoke<boolean>("error_log_copy"),
     },
     ai: {
       status: () => invoke<AiStatus>("ai_status"),
@@ -1383,6 +1417,8 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       // 開発用のサーバーでは本体で写さない（画面がブラウザの仕組みで写す）
       copy: async () => false,
     },
+    // エラーの記録: 開発用のサーバーではページのメモリの中だけ（文は削らない。画面の確かめ用）。写すのは画面がブラウザの仕組みで
+    errors: devErrorLog(),
     // AI接続口: 開発用のサーバーのメモリの中の代わり（本物の受け口は開けない。画面の確かめ用）
     ai: {
       status: async () => devJson<AiStatus>(await devAi("status")),
@@ -1463,4 +1499,29 @@ export function devBrowserHost(engine: WebEngine): HostApi {
 
 export function isTauri(): boolean {
   return typeof (globalThis as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ === "object";
+}
+
+/** 開発用のサーバーのエラーの記録（ページのメモリの中だけ。同じ文はまとめる） */
+function devErrorLog(): ErrorLogHost {
+  let view: ErrorLogView = { ...EMPTY_ERROR_LOG, entries: [] };
+  const text = (v: ErrorLogView) => (v.entries.length === 0 ? "ファイナンシアのエラーの記録: ありません（開発用のサーバー）" : v.entries.map((e) => `- ${e.line}`).join("\n"));
+  return {
+    add: async (e) => {
+      const now = new Date().toISOString();
+      const same = view.entries.find((x) => x.kind === e.kind && x.place === e.place && x.action === e.action && x.message === e.message);
+      const kindLabel = e.kind === "screen" ? "画面のエラー" : e.kind === "command" ? "本体の命令の失敗" : "計算できなかった";
+      const entry = same !== undefined ? { ...same, count: same.count + 1, lastAt: now } : { firstAt: now, lastAt: now, count: 1, appVersion: "dev", os: "dev", kind: e.kind, kindLabel, place: e.place, action: e.action, message: e.message.slice(0, 300), line: "" };
+      entry.line = `${entry.lastAt}・${entry.place}・${entry.action}・${entry.kindLabel}: ${entry.message}${entry.count > 1 ? `（${entry.count}回）` : ""}`;
+      const entries = [entry, ...view.entries.filter((x) => x !== same)].slice(0, view.max);
+      view = { ...view, entries };
+      view = { ...view, text: text(view) };
+    },
+    get: async () => view,
+    clear: async () => {
+      view = { ...EMPTY_ERROR_LOG, entries: [] };
+      view = { ...view, text: text(view) };
+      return view;
+    },
+    copy: async () => false,
+  };
 }

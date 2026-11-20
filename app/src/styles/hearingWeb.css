@@ -128,6 +128,8 @@ html.doc-side .scrim { right: var(--dv-w); }
   body.printing-answers .wr-answers .link-btn { display: none; }
 }
 .hs-kind.answered { border-color: var(--good); color: var(--good); }
+/* 0222 の追記（2026-11-20）: 「事前ヒアリングを取り込む」の「AI が発行した URL」の入口（ボタンと、まだ見ていない数・届いた数） */
+.hs-ai-issued { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; white-space: normal; }
 
 /* 0192 の追記（2026-11-17）: 依頼の行の段階・たたんだ行・書類待ち・取り消しの確かめ・外部 AI の同意を聞くか */
 .wr-fold { padding: 5px 10px; gap: 4px; background: var(--base-bg); }

@@ -1,8 +1,10 @@
 // 要望・不具合を送る（0087 の6）。受付番号を大きく出し、「フォームを開く」を押すと、その番号をこの PC に覚えて既定のブラウザで要望のフォームを開く。
 // フォームの URL に差し込むのは受付番号・アプリの版・OS だけ。アプリ自身は送らない。
-// フォームが番号の差し込みに対応していないときのために、番号は「写す」で写せる。別の PC で送った番号は手で入れて覚えられる
+// フォームが番号の差し込みに対応していないときのために、番号は「写す」で写せる。別の PC で送った番号は手で入れて覚えられる。
+// 下に、この PC のエラーの記録（0234）を出す: 見る・写す（文は本体が記録から作る）・消す。記録はどこにも送らない
 import { useEffect, useRef, useState } from "preact/hooks";
 import { dateText } from "./center.ts";
+import { localTime, type ErrorLogView } from "./errorLog.ts";
 import { feedbackFormUrl, newReceiptCode, readReceiptInput, type Receipt } from "./receipts.ts";
 
 export interface FeedbackPanelProps {
@@ -20,6 +22,18 @@ export interface FeedbackPanelProps {
   onClose: () => void;
   /** 最初に出す受付番号（画面の確かめ用。ふつうは作る） */
   initialCode?: string | undefined;
+  /** エラーの記録（0234。無い画面では出さない） */
+  errorLog?: ErrorLogActions | undefined;
+  /** 最初に出すエラーの記録（画面の確かめ用。ふつうは load で読む） */
+  initialErrorLog?: ErrorLogView | undefined;
+}
+
+/** エラーの記録の読み書き（本体） */
+export interface ErrorLogActions {
+  load: () => Promise<ErrorLogView>;
+  clear: () => Promise<ErrorLogView>;
+  /** 本体で写す（写せたら true。無いときや写せないときは、ブラウザの仕組みで写す） */
+  copy?: (() => Promise<boolean>) | undefined;
 }
 
 export function FeedbackPanel(p: FeedbackPanelProps) {
@@ -151,6 +165,7 @@ export function FeedbackPanel(p: FeedbackPanelProps) {
             </p>
           ) : null}
         </section>
+        {p.errorLog !== undefined ? <ErrorLogSection actions={p.errorLog} initial={p.initialErrorLog} /> : null}
         <div class="rk-actions">
           <button type="button" class="btn" onClick={p.onClose}>
             閉じる
@@ -158,5 +173,112 @@ export function FeedbackPanel(p: FeedbackPanelProps) {
         </div>
       </div>
     </>
+  );
+}
+
+/** エラーの記録（0234）: 新しい順の一覧・写す・消す（消す前に確かめる）・AI が読んだ回数 */
+function ErrorLogSection({ actions, initial }: { actions: ErrorLogActions; initial: ErrorLogView | undefined }) {
+  const [view, setView] = useState<ErrorLogView | null>(initial ?? null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [manual, setManual] = useState(false);
+  useEffect(() => {
+    if (initial !== undefined) return;
+    actions.load().then(setView, () => setProblem("エラーの記録を読めませんでした"));
+  }, []);
+  const n = view?.entries.length ?? 0;
+  const copy = async () => {
+    if (view === null) return;
+    try {
+      // 本体で写す（文は本体が記録から作る）。本体が無い・写せないときは、ブラウザの仕組みで写す
+      const fresh = await actions.load().catch(() => view);
+      setView(fresh);
+      if (!(await actions.copy?.().catch(() => false))) await navigator.clipboard.writeText(fresh.text);
+      setManual(false);
+      setMsg({ ok: true, text: "エラーの記録を写しました。フォームの不具合の説明の欄に貼り付けてください" });
+    } catch {
+      setManual(true);
+      setMsg({ ok: false, text: "写せませんでした。下の文を選んで写してください" });
+    }
+  };
+  const clear = async () => {
+    try {
+      setView(await actions.clear());
+      setConfirming(false);
+      setManual(false);
+      setMsg({ ok: true, text: "エラーの記録を消しました" });
+    } catch {
+      setMsg({ ok: false, text: "エラーの記録を消せませんでした" });
+    }
+  };
+  return (
+    <section class="fb-sec" aria-labelledby="fb-errors" data-error-log>
+      <h3 id="fb-errors">エラーの記録（{n}件）</h3>
+      <p class="pl-sub">
+        この PC のアプリで起きたエラーを、新しい順に{view?.max ?? 100}件まで残しています（同じエラーは1件にまとめて回数を数えます）。残すのは日時・アプリの版・OS・画面・操作・エラーの種類と文だけで、お客さまの名前・金額・生年月日・メモ・ファイルの場所は残しません（文の中の日本語・数字・場所は … や # に伏せます）。どこにも送りません。
+      </p>
+      {problem !== null ? (
+        <p class="fb-msg err" role="status">
+          {problem}
+        </p>
+      ) : view === null ? (
+        <p class="pl-sub">読んでいます…</p>
+      ) : n === 0 ? (
+        <p class="pl-sub" data-error-log-empty>
+          まだありません
+        </p>
+      ) : (
+        <ul class="fb-errors" data-error-log-list>
+          {view.entries.map((e, i) => (
+            <li key={`${e.lastAt}-${i}`} data-error-log-entry={e.kind}>
+              <span class="fb-err-at">{localTime(e.lastAt)}</span>
+              <span class="fb-err-where">
+                {e.place}・{e.action}
+              </span>
+              <span class="fb-err-kind">{e.kindLabel}</span>
+              <span class="fb-err-msg">
+                {e.message}
+                {e.count > 1 ? `（${e.count}回）` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p class="fb-note">
+        不具合を送るときは「記録を写す」を押して、フォームに貼ってください。AI と接続しているときは、AI もこの記録を読めます（読むだけ）。AI のアプリで使い方の例「不具合を調べて報告をまとめる」を選ぶと、AI が世帯を調べて、フォームに貼れる報告の文をまとめます。
+      </p>
+      {view !== null && view.aiReads.count > 0 ? (
+        <p class="fb-note" data-error-log-ai>
+          AI がこの記録を読んだのは {view.aiReads.count}回です{view.aiReads.lastAt !== null ? `（最後は ${localTime(view.aiReads.lastAt)}）` : ""}。
+        </p>
+      ) : null}
+      <div class="fb-actions">
+        <button type="button" class="btn" disabled={view === null} onClick={() => void copy()} data-error-log-copy>
+          記録を写す
+        </button>
+        {confirming ? (
+          <>
+            <span class="fb-confirm">エラーの記録をすべて消します。よろしいですか</span>
+            <button type="button" class="btn" onClick={() => void clear()} data-error-log-clear-yes>
+              すべて消す
+            </button>
+            <button type="button" class="link-btn" onClick={() => setConfirming(false)}>
+              やめる
+            </button>
+          </>
+        ) : (
+          <button type="button" class="link-btn" disabled={n === 0} onClick={() => setConfirming(true)} data-error-log-clear>
+            記録を消す
+          </button>
+        )}
+      </div>
+      {msg !== null ? (
+        <p class={msg.ok ? "fb-msg" : "fb-msg err"} role="status" data-error-log-msg>
+          {msg.text}
+        </p>
+      ) : null}
+      {manual && view !== null ? <textarea class="fb-err-text" readOnly rows={6} value={view.text} aria-label="写す文" data-error-log-text /> : null}
+    </section>
   );
 }

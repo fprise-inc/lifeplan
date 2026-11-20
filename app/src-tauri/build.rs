@@ -143,6 +143,11 @@ const COMMANDS: &[&str] = &[
     "notice_local_put",
     "feedback_form_open",
     "feedback_copy",
+    // 0234: エラーの記録（この PC の中だけ。画面からは種類・画面・操作・文だけを受け取り、本体が削ってから残す。写す文は本体が記録から作る）
+    "error_log_add",
+    "error_log_get",
+    "error_log_clear",
+    "error_log_copy",
     "app_close_ready",
     "app_close_cancel",
     // 0125: Web のヒアリング（受け付けのサーバーとのやりとり〔決まった道だけ・配布元の設定のホストだけ〕・お客さまのページの URL・
