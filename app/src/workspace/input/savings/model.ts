@@ -142,7 +142,10 @@ export function writeSteps(h: Household, base: string, a: Account, t: Tranche, s
     if (stop !== null && to !== null && to > stop) to = stop;
     return { from: { at: from } as Timepoint, to: to === null ? null : ({ at: to } as Timepoint), monthly: s.monthly, ...(a.kind === "nisa" && t === "growth" ? { tranche: "growth" } : {}), ...(payer !== undefined ? { payer } : {}) };
   });
-  a.contributions = [...keep, ...made.filter((c) => c.monthly > 0 || made.length === 1)];
+  // 0円の期間は、0円でない期間が1つでもあれば残す（今から始まらない積立・途中で休む期間・ある年齢でやめる期間。捨てると読み直したときに、後の期間が
+  // 今から始まる形や、やめたはずの期間が積立をやめる年齢まで続く形に変わる。0233）。全部が0円なら今までどおり1つだけ残すか空にする
+  const anyPaid = made.some((c) => c.monthly > 0);
+  a.contributions = [...keep, ...made.filter((c) => anyPaid || c.monthly > 0 || made.length === 1)];
   if (a.contributions.length === 1 && (a.contributions[0] as { monthly: number }).monthly === 0 && keep.length === 0) a.contributions = [];
 }
 
