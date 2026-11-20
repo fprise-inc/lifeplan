@@ -32,7 +32,7 @@ entries:
       入っています。万一の想定で被保険者が亡くなったら、死亡保険金を受取人の割合で、支払月の翌月に受け取ります。年ごとの死亡保障額も出し、
       必要保障額の推移と並べます。
     how: >-
-      死亡保険金は保障の明細の額（年次の数表に死亡保障の行があればその額。逓減定期の減り方なども表せます。変額は積立金と多い方）です。
+      死亡保険金は保障の明細の額（年次の数表に死亡保障の行があればその額。逓減定期の減り方なども表せます。変額は積立金と多い方。円の目安の形の変額は、基本保険金額を最低保証に、数表の死亡保障とその時の解約返戻金の多い方）です。
       保障の行ごとに被保険者を分けられ、家族特約のように契約の被保険者でない人の保障は、その人の万一で受け取ります。年ごとに年末と、その年の
       最初の月に亡くなったときの死亡保障額を出します。高度障害（障害1級の想定）の給付も受け取ります（非課税）。
     keywords: [死亡保険金, 死亡保障, 定期保険, 終身保険, 家族特約, 高度障害, 逓減定期, 受取人]
@@ -43,7 +43,7 @@ entries:
       - "「保険」の入力項目の「保障の終わり」"
     rows: [cf.income.lumpSum.insurance]
     components:
-      insurance.policy: 6
+      insurance.policy: 7
       insurance.term: 2
     related: [insurance.benefitTax, contingency.protectionNeed]
 
@@ -65,7 +65,7 @@ entries:
       - "「保険」の入力項目の「給付の種類」"
     rows: [cf.income.lumpSum.insurance]
     components:
-      insurance.policy: 6
+      insurance.policy: 7
     related: [contingency.scenarios, contingency.medical]
 
   - id: insurance.incomeProtection
@@ -82,7 +82,7 @@ entries:
     items: [insurance.coverages, insurance.template, contingency.recovery]
     rows: [cf.income.other.insuranceBenefit]
     components:
-      insurance.policy: 6
+      insurance.policy: 7
       insurance.income: 3
     related: [insurance.benefitTax, contingency.protectionNeed]
 
@@ -107,7 +107,7 @@ entries:
       - 相続税法24条（定期金に関する権利の評価）
     rows: [cf.income.corporatePension.privateAnnuity]
     components:
-      insurance.policy: 6
+      insurance.policy: 7
       insurance.income: 3
     related: [insurance.benefitTax]
 
@@ -153,7 +153,7 @@ entries:
       - "「保険」の入力項目の「払込が終わった後」"
     rows: [cf.balance.account.insurance, cf.income.lumpSum.surrender, cf.income.lumpSum.maturity]
     components:
-      insurance.policy: 6
+      insurance.policy: 7
       insurance.term: 2
     related: [insurance.benefitTax]
 
@@ -179,7 +179,7 @@ entries:
       - 相続税法5条・6条3項（保険金・年金の受給権の贈与）
     rows: [cf.taxSi.incomeTax, cf.taxSi.residentTax, cf.taxSi.giftTax]
     components:
-      insurance.policy: 6
+      insurance.policy: 7
       insurance.income: 3
       gift.received: 5
       gift.tax: 3
