@@ -6,7 +6,7 @@
 //   決まっていない依頼は、事務所データ（暗号化して保存。本体の office_hearing_*）に置く。開いていない世帯の依頼は、その世帯を開いたときに
 //   世帯ファイルへ移す（世帯ファイルの hearing.web を書くのは画面だけ: 開いている世帯の保存とぶつからないように）
 // - 世帯の決まっていない依頼は、答えを受け取る前に FP が「新しい世帯を作って取り込む」か「開いている世帯に取り込む」を選び、その世帯へ移してから、
-//   今までの受け取り・取り込みの手順（WebRequests）で扱う
+//   今までの受け取り・取り込みの手順（WebRequests。「発行した URL」）で扱う
 // - AI に返すのは数（聞く項目の数・お客さまの画面の数・所要時間）・期限・依頼番号と、見直しを含まない依頼だけ URL と案内文
 //   （見直しを含む依頼は、URL の # の後ろの鍵で今の値が読めるので返さない。利用者の判断 2026-11-17）。顧客番号・世帯の内部 ID・呼び名は返さない
 // - 上限: 世帯の決まっていない受け付け中の依頼は UNASSIGNED_LIMIT 件まで（本体の ai_share::hearing::UNASSIGNED_LIMIT と同じ）。
@@ -87,13 +87,13 @@ export function issuedCount(s: OfficeHearing): number {
   return s.log.length + s.requests.filter((r) => !s.log.some((l) => l.requestId === r.entry.record.requestId)).length;
 }
 
-/** 受け付け中の依頼に、答えか書類が届いていると分かっているか（確かめた結果。一覧の「届いています」・URL の依頼の届いた数と同じ決め方） */
+/** 受け付け中の依頼に、答えか書類が届いていると分かっているか（確かめた結果。一覧の「届いています」・「発行した URL」の届いた数と同じ決め方） */
 export function arrivedNow(e: WebLogEntry, now: Date): boolean {
   const a = arrivalOf(e.record.requestId);
   return a !== undefined && (a.answers || a.batches > 0) && accepting(e, now);
 }
 
-/** 世帯の決まっていない依頼で、答えか書類が届いている数（その世帯の「URL の依頼」には並ばないので、取り込むの入口に添える） */
+/** 世帯の決まっていない依頼で、答えか書類が届いている数（どの世帯の「発行した URL」にも並ばないので、表の下のリンクに添える） */
 export function unassignedArrived(s: OfficeHearing, now: Date): number {
   return s.requests.filter((r) => r.householdId === null && arrivedNow(r.entry, now)).length;
 }
@@ -285,10 +285,10 @@ export async function runIssueJob(job: IssueJob, ctx: IssueContext, office: Offi
   const est = estimateOf(wh, selection)?.shown ?? null;
   const count = selectedCount(selection);
   const log: AiIssueLog = { requestId: record.requestId, at: record.issuedAt, connector: job.connector, household: job.householdId === null ? "new" : "shared", customerNo: job.customerNumber, review, name: selection.name ?? "", selectedCount: count, seen: false };
-  const where = job.householdId === null ? "世帯の決まっていない依頼として、アプリの「AI が発行した URL」に置きました（答えが届いたら、FP が新しい世帯を作るか、開いている世帯に取り込むかを選びます）" : "その世帯の「URL の依頼」に置きました（その世帯を開いていなければ、開いたときに移ります）";
+  const where = job.householdId === null ? "世帯の決まっていない依頼として、アプリの「AI が発行した URL」に置きました（答えが届いたら、FP が新しい世帯を作るか、開いている世帯に取り込むかを選びます）" : "その世帯の「発行した URL」に置きました（その世帯を開いていなければ、開いたときに移ります）";
   const head = `URL を発行しました（依頼番号 ${record.requestId}・期限 ${record.expiresAt.slice(0, 10)}）。${where}。アプリの上の帯に「AI が URL を発行しました」と出て、FP は取り消せます。`;
   const answer: IssueAnswer = review
-    ? { ok: true, requestId: record.requestId, expiresAt: record.expiresAt, selectedCount: count, screens: est?.screens ?? null, minutes: est?.minutes ?? null, household: job.householdId === null ? "new" : "shared", review, masked, message: `${head}見直し（今の値を見せて確かめてもらう項目）を含むので、URL と案内文は返しません（URL の # の後ろの鍵で今の値を読めるため）。FP がアプリの「URL の依頼」で案内文をコピーして送ります。` }
+    ? { ok: true, requestId: record.requestId, expiresAt: record.expiresAt, selectedCount: count, screens: est?.screens ?? null, minutes: est?.minutes ?? null, household: job.householdId === null ? "new" : "shared", review, masked, message: `${head}見直し（今の値を見せて確かめてもらう項目）を含むので、URL と案内文は返しません（URL の # の後ろの鍵で今の値を読めるため）。FP がアプリの「発行した URL」で案内文をコピーして送ります。` }
     : {
         ok: true,
         requestId: record.requestId,

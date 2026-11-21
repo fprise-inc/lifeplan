@@ -12,6 +12,10 @@
 //   書類を「あとで送る」の書類待ちがあれば、期限まで書類待ちの段を出す
 // - 0192 の追記（2026-11-18）: 取り込み済みの依頼は一覧から外す（web.ts の listed。書類待ち・届いた書類があれば期限まで残す。一覧が空なら枠ごと
 //   出さない）。外した依頼の送られた内容は、取り込み済みの回答（ImportedAnswers。「事前ヒアリングを取り込む」の下）から見る・印刷する
+// - 0222 の追記（2026-11-20）: 利用者の判断で、名前を「発行した URL」に改め、FP が URL生成で作った URL と、AI が発行してこの世帯に結びついた URL を
+//   1つの表に並べる（行は issuedUrls.ts の issuedRows。新しい順）。行の作った側の印は「FP が作成」「AI が発行」。まだ世帯のファイルに移っていない AI の
+//   依頼（閲覧だけで開いた世帯など）は、状態と「AI が発行した URL で確かめる」だけの行。取り込み済みの回答と、まだ世帯の決まっていない AI の URL の
+//   リンクは、この表の下に置く（どれも無ければ枠ごと出さない）
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SentAnswers } from "../../hearingForm/Form.tsx";
@@ -19,8 +23,10 @@ import type { HearingWebHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { ImportView } from "./sheet.ts";
 import { useDocView } from "./ReceivedDocs.tsx";
+import { AiUnassignedLink } from "../ai/AiHearingIssued.tsx";
+import { issuedRows, unassignedLink, type IssuedAi, type IssuedRow } from "./issuedUrls.ts";
 import { takeFocus, wantedFocus } from "./bell.ts";
-import { accepting, answeredScreens, arrivalOf, checkAnswered, checkArrivals, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importedEntries, importWeb, invitationText, limitOf, listed, noteArrival, onArrivals, packetOf, receivedDraft, receiveWeb, removeOnServer, rowMode, selectedCount, selectionName, sentAtText, STATUS_TEXT, statusOf, waitingDocuments, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
+import { accepting, answeredScreens, arrivalOf, checkAnswered, checkArrivals, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importedEntries, importWeb, invitationText, limitOf, noteArrival, onArrivals, packetOf, receivedDraft, receiveWeb, removeOnServer, rowMode, selectedCount, selectionName, sentAtText, STATUS_TEXT, statusOf, waitingDocuments, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -31,6 +37,8 @@ interface Props {
   saveNow: () => Promise<boolean>;
   /** 取り込みの候補の画面を開く（received は「受け取る」から直に来たときの受け取りの知らせ） */
   onImport: (view: ImportView, requestId: string, submittedAt: string | null, received?: string) => void;
+  /** AI が発行した URL（AI からの発行を受けられる画面だけ。readOnly は閲覧だけで開いた世帯、onOpen は「AI が発行した URL」を開く） */
+  ai?: IssuedAi & { readOnly: boolean; onOpen: () => void };
 }
 
 const DOC_STATUS: Record<string, string> = { attached: "届いた", notAvailable: "手元にない", later: "あとで送る", blank: "まだ" };
@@ -100,8 +108,59 @@ function SentView({ e }: { e: WebLogEntry }) {
 const day = (iso: string) => new Date(iso).toLocaleDateString("ja-JP");
 const dayTime = (iso: string) => new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, onImport }: Props) {
-  const list = webLog(wh).filter((e) => listed(e, new Date(), wh)).sort((a, b) => (a.record.issuedAt < b.record.issuedAt ? 1 : -1));
+/** 作った側の印（FP が URL生成で作った依頼は「FP が作成」、AI が発行した依頼は「AI が発行」。発行の日時と AI のアプリの名乗りは添え書きに） */
+function byBadge(e: WebLogEntry) {
+  if (e.origin?.kind === "ai")
+    return (
+      <span class="hs-kind wr-origin ai" title={`AI が発行しました（${dayTime(e.origin.at)}${e.origin.connector !== null ? `・${e.origin.connector}` : ""}）`} data-web-origin="ai">
+        AI が発行
+      </span>
+    );
+  return (
+    <span class="hs-kind wr-origin" data-web-origin="fp">
+      FP が作成
+    </span>
+  );
+}
+
+/** まだ世帯のファイルに移っていない、AI が発行した依頼の行（事務所データ。状態と、「AI が発行した URL」で確かめるだけ） */
+function OfficeRow({ row, now, readOnly, onOpen }: { row: IssuedRow; now: Date; readOnly: boolean; onOpen: () => void }) {
+  const e = row.entry;
+  const st = statusOf(e, now, arrivalOf(row.requestId)?.submitted === true);
+  const arrived = accepting(e, now) && ((a) => a !== undefined && (a.answers || a.batches > 0))(arrivalOf(row.requestId));
+  return (
+    <li class={`wr-row st-${st}`} data-web-request={row.requestId} data-web-status={st} data-web-place="office">
+      <div class="wr-h">
+        <b>{row.requestId}</b>
+        <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span>
+        {byBadge(e)}
+        {arrived ? (
+          <span class="hs-kind wr-st answered" data-web-arrived>
+            届いています
+          </span>
+        ) : null}
+        <small>
+          発行 {day(e.record.issuedAt)}・期限 {day(e.record.expiresAt)}
+        </small>
+      </div>
+      <p class="rp-note wr-what">
+        {selectionName(e.record.selection)}（聞く項目 {selectedCount(e.record.selection)}）・
+        {readOnly ? "閲覧だけで開いているため、この世帯のファイルにはまだ移していません（編集できる状態で開くと移り、受け取り・取り込みができます）" : "この世帯のファイルに移す前の依頼です（世帯を保存できると移り、受け取り・取り込みができます）"}
+      </p>
+      <div class="rp-actions">
+        <button type="button" class="btn" onClick={onOpen} data-web-office-open>
+          AI が発行した URL で確かめる
+        </button>
+      </div>
+    </li>
+  );
+}
+
+export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, onImport, ai }: Props) {
+  const rows = issuedRows(wh, new Date(), ai);
+  const list = rows.filter((r) => r.place === "household").map((r) => r.entry);
+  const imported = importedEntries(wh);
+  const unassigned = ai !== undefined ? unassignedLink(ai.store, new Date()).count : 0;
   // 届いたかの確かめの結果は、アプリを開いている間覚える（web.ts の arrivals。画面を閉じても消えない。0192）
   const [, setTick] = useState(0);
   useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
@@ -141,7 +200,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
     const t = setTimeout(() => setFocused((f) => (f === id ? null : f)), 4000);
     return () => clearTimeout(t);
   });
-  if (list.length === 0) return null;
+  if (rows.length === 0 && imported.length === 0 && unassigned === 0) return null;
   const now = new Date();
   const note = (id: string, m: string) => setMsg((x) => ({ ...x, [id]: m }));
   const run = async (e: WebLogEntry, f: () => Promise<void>) => {
@@ -340,13 +399,21 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
   };
   const importNow = (e: WebLogEntry) => onImport(importWeb(wh, e, appVersion), e.record.requestId, e.received?.submittedAt ?? null);
   return (
-    <section ref={sectionRef} class="card hs-panel wr" aria-label="URL の依頼" data-web-requests>
+    <section ref={sectionRef} class="card hs-panel wr" aria-label="発行した URL" data-web-requests>
       <div class="card-h">
-        <h2>URL の依頼（{list.length}）</h2>
-        <span class="aside">「受け取る」を押すと、答えと書類をこの世帯のファイルの中に暗号化して置き（受け取った分はサーバーから消します）、そのまま取り込みの候補の画面に進みます。書類は期限まで何回でも届きます</span>
+        <h2>発行した URL（{rows.length + imported.length}）</h2>
+        <span class="aside">「URL生成」で作った URL と、AI が発行した URL を新しい順に並べます。回答が届いたら「受け取る」を押すと、答えと書類をこの世帯のファイルの中に暗号化して置き（受け取った分はサーバーから消します）、そのまま取り込みの候補の画面に進みます。書類は期限まで何回でも届きます</span>
       </div>
+      {rows.length === 0 && imported.length === 0 ? (
+        <p class="rp-note" data-web-requests-none>
+          この世帯の URL はまだありません。
+        </p>
+      ) : null}
+      {rows.length > 0 ? (
       <ul class="wr-list">
-        {list.map((e) => {
+        {rows.map((row) => {
+          if (row.place === "office") return <OfficeRow key={row.requestId} row={row} now={now} readOnly={ai?.readOnly === true} onOpen={ai?.onOpen ?? (() => undefined)} />;
+          const e = row.entry;
           const id = e.record.requestId;
           const arr = arrivalOf(id);
           const st = statusOf(e, now, answeredOf(id), wh);
@@ -390,11 +457,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                   <b>{id}</b>
                   <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span>
                   {e.closedAt !== undefined ? <span class="hs-kind wr-st cancelled">受け付け終了</span> : null}
-                  {e.origin?.kind === "ai" ? (
-                    <span class="hs-kind wr-origin" title={`AI が発行しました（${dayTime(e.origin.at)}${e.origin.connector !== null ? `・${e.origin.connector}` : ""}）`} data-web-origin="ai">
-                      出どころ AI
-                    </span>
-                  ) : null}
+                  {byBadge(e)}
                   {canTake ? (
                     <span class="hs-kind wr-st answered" data-web-arrived>
                       書類が届いています
@@ -437,11 +500,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 <b>{id}</b>
                 <span class={`hs-kind wr-st ${st}`}>{STATUS_TEXT[st]}</span>
                 {e.closedAt !== undefined ? <span class="hs-kind wr-st cancelled">受け付け終了</span> : null}
-                {e.origin?.kind === "ai" ? (
-                  <span class="hs-kind wr-origin" title={`AI が発行しました（${dayTime(e.origin.at)}${e.origin.connector !== null ? `・${e.origin.connector}` : ""}）`} data-web-origin="ai">
-                    出どころ AI
-                  </span>
-                ) : null}
+                {byBadge(e)}
                 {canTake ? (
 
                   <span class="hs-kind wr-st answered" data-web-arrived>
@@ -529,12 +588,15 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
           );
         })}
       </ul>
+      ) : null}
+      <ImportedAnswers wh={wh} />
+      {ai !== undefined ? <AiUnassignedLink store={ai.store} web={web} onOpen={ai.onOpen} /> : null}
     </section>
   );
 }
 
 /**
- * 取り込み済みの回答（0192 の追記 2026-11-18）: 「URL の依頼」の一覧から外した取り込み済みの依頼の、送られた内容を見る・印刷の入口。
+ * 取り込み済みの回答（0192 の追記 2026-11-18）: 「発行した URL」の一覧から外した取り込み済みの依頼の、送られた内容を見る・印刷の入口。
  * たたんだ1行で出し、開くと依頼ごとに「送られた内容を見る・印刷」（書類は入力のホームの「受け取った書類」から）
  */
 export function ImportedAnswers({ wh }: { wh: WorkingHousehold }) {
