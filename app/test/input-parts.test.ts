@@ -636,3 +636,42 @@ describe("介護の段階が2つ以上のときは、名前に「（1段階目�
     }
   });
 });
+
+describe("切り替えのボタンは、どれも同じ色（選んでいる方が藍の塗り）・同じ文字の大きさ", () => {
+  const styles = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "styles");
+  const css = readFileSync(join(styles, "app.css"), "utf8");
+  const invest = readFileSync(join(styles, "invest.css"), "utf8");
+  const rule = (text: string, selector: string): string => {
+    const line = text.split("\n").find((l) => l.trimStart().startsWith(`${selector} {`));
+    if (line === undefined) throw new Error(`決まりがありません: ${selector}`);
+    return line;
+  };
+
+  it("選んでいる方は藍の塗り（「標準／詳細」・切り替えのボタン・欄の区切りボタン）", () => {
+    for (const selector of [
+      ".level-switch button.on, .level-switch button.on:hover",
+      '.seg-g button[aria-pressed="true"], .seg-g button[aria-pressed="true"]:hover',
+      '.fld-c > .seg-g.fld-seg > button[aria-checked="true"], .fld-c > .seg-g.fld-seg > button[aria-checked="true"]:hover',
+    ]) {
+      const r = rule(css, selector);
+      expect(r, selector).toContain("background: var(--prop)");
+      expect(r, selector).toContain("color: var(--on-fill)");
+    }
+  });
+
+  it("選んでいない方は白地に藍の文字・枠も藍", () => {
+    for (const selector of [".level-switch button", ".seg-g button", ".fld-c > .seg-g.fld-seg > button"]) expect(rule(css, selector), selector).toContain("color: var(--prop-ink)");
+    for (const selector of [".level-switch", ".seg-g", ".fld-c > .seg-g.fld-seg"]) expect(rule(css, selector), selector).toMatch(/border: (2|1\.5)px solid var\(--prop\)/);
+  });
+
+  it("文字の大きさは1つ（0.9rem）。場所ごとの別の大きさは「入力項目を選ぶ」の小さい形だけ", () => {
+    for (const selector of [".level-switch button", ".seg-g button", ".fld-c > .seg-g.fld-seg > button"]) expect(rule(css, selector), selector).toContain("font-size: 0.9rem");
+    const sized = [...css.split("\n"), ...invest.split("\n")].filter((l) => /(\.seg-g|\.level-switch)[^{]*button[^{]*\{[^}]*font-size/.test(l)).map((l) => l.trim().split(" {")[0]);
+    expect(sized.sort()).toEqual([".fld-c > .seg-g.fld-seg > button", ".level-switch button", ".level-switch.mini button", ".seg-g button"]);
+  });
+
+  it("選んでいる印は塗りだけ（頭に「●」を付けない）", () => {
+    expect(css).not.toMatch(/\.seg-g[^{]*::before/);
+    expect(invest).not.toMatch(/\.seg-g[^{]*::before/);
+  });
+});

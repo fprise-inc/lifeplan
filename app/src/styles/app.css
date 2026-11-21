@@ -360,9 +360,11 @@ html.big .lever input[type="range"] { height: 36px; }
 .ev-note { font-size: 0.85rem; color: var(--ink-2); margin: 6px 0 0; }
 
 /* 入力の欄（入力のパネル・万一の画面の前提の欄） */
-.level-switch { display: flex; border: 2px solid var(--ink-2); border-radius: 8px; overflow: hidden; }
-.level-switch button { flex: 1; background: var(--card); border: 0; padding: 5px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
-.level-switch button.on { background: var(--ink); color: var(--on-fill); }
+.level-switch { display: flex; border: 2px solid var(--prop); border-radius: 8px; overflow: hidden; }
+.level-switch button { flex: 1; background: var(--card); border: 0; padding: 5px 12px; font-size: 0.9rem; font-weight: 700; cursor: pointer; color: var(--prop-ink); }
+.level-switch button:hover { background: var(--prop-bg); }
+.level-switch button.on, .level-switch button.on:hover { background: var(--prop); color: var(--on-fill); }
+.level-switch button:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; }
 .in-section { margin-top: 14px; }
 .in-section > h3, .in-section-h > h3 { font-size: 1rem; margin: 0 0 4px; border-left: 4px solid var(--prop); padding-left: 8px; }
 .in-section-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -480,10 +482,10 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-check-q { white-space: nowrap; }
 .fld-check-q > .help { margin-left: 5px; font-size: 1rem; }
 .fld-check-name:has(> .fld-check-q > .help > .help-btn:not(.help-mark)[aria-expanded="true"]) > label { background: var(--prop-bg); box-shadow: 0 0 0 2px var(--prop-bg); border-radius: 3px; }
-/* 短い2〜3択の選ぶ欄の区切りボタン（FieldViews.tsx の SegChoice。欄ごとに segmented で指定する）: 入力の欄と同じ高さ・同じ文字。選んでいる方が藍の塗り、ほかは白地に藍の文字。
+/* 短い2〜3択の選ぶ欄の区切りボタン（FieldViews.tsx の SegChoice。欄ごとに segmented で指定する）: 入力の欄と同じ高さ。選んでいる方が藍の塗り、ほかは白地に藍の文字（色と文字の大きさは、切り替えのボタン .seg-g・「標準／詳細」と同じ）。
    空欄のまま推定で計算している選択肢は点線（推定の欄の点線の枠と同じ意味）。フォーカスの線はボタンの内側に出す（外の枠で切れないように） */
 .fld-c > .seg-g.fld-seg { display: inline-flex; flex: none; flex-wrap: wrap; max-width: 100%; border: 1.5px solid var(--prop); border-radius: 8px; overflow: hidden; background: var(--card); }
-.fld-c > .seg-g.fld-seg > button { flex: 0 0 auto; margin: 0; border: 0; background: var(--card); color: var(--prop-ink); padding: 5px 8px; font-size: 0.86rem; line-height: 1.5; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.fld-c > .seg-g.fld-seg > button { flex: 0 0 auto; margin: 0; border: 0; background: var(--card); color: var(--prop-ink); padding: 5px 8px; font-size: 0.9rem; line-height: 1.5; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .fld-c > .seg-g.fld-seg > button + button { border-left: 1.5px solid var(--prop); }
 .fld-c > .seg-g.fld-seg > button:hover { background: var(--prop-bg); }
 .fld-c > .seg-g.fld-seg > button[aria-checked="true"], .fld-c > .seg-g.fld-seg > button[aria-checked="true"]:hover { background: var(--prop); color: var(--on-fill); cursor: default; }
@@ -944,8 +946,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 /* 前提と推定の一覧の区分の切り替え: どの幅でも、1行に入らなければ折り返す（最後のボタンがパネルの右にはみ出さない）。
    折り返しても各ボタンは文字の幅のまま左に寄せ、どの行のボタンも同じ枠と角の丸みにする（外の枠は付けず、ボタンごとに枠を付けて少し離す） */
 .ip-assume-list .seg-g { display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 4px 0 6px; border: 0; border-radius: 0; overflow: visible; background: none; }
-.ip-assume-list .seg-g button, .ip-assume-list .seg-g button + button { flex: 0 0 auto; margin: 0; border: 2px solid var(--ink-2); border-radius: 8px; }
-.ip-assume-list .seg-g button[aria-pressed="true"] { border-color: var(--ink); }
+.ip-assume-list .seg-g button, .ip-assume-list .seg-g button + button { flex: 0 0 auto; margin: 0; border: 2px solid var(--prop); border-radius: 8px; }
 /* 表: 見出しは1文字ずつ縦に折れない（折り返さない）。区分・項目・値・出典・根拠の長い文はセルの中で折り返し、列は狭くなりすぎない。
    「確かめた」の列は見出しの幅で止める（チェックと日付だけ） */
 .ip-assume-list th { white-space: nowrap; }
@@ -1191,17 +1192,20 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .verdict-line .ord { font-size: 0.82em; font-weight: 700; color: var(--ink-2); margin-right: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .verdict-line .v-sub { display: block; font-size: 0.82rem; color: var(--ink-2); margin-top: 1px; font-variant-numeric: tabular-nums; }
 .cc-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.seg-g { display: inline-flex; border: 2px solid var(--ink-2); border-radius: 8px; overflow: hidden; background: var(--card); }
-.seg-g button { border: 0; background: var(--card); padding: 3px 11px; font-weight: 700; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
-.seg-g button + button { border-left: 2px solid var(--ink-2); }
-.seg-g button[aria-pressed="true"] { background: var(--ink); color: var(--on-fill); }
-.seg-g button[aria-pressed="true"]::before { content: "● "; font-size: 0.7em; vertical-align: 0.15em; }
+/* 切り替えのボタン（グラフの切り替え・入れ方など）: 選んでいる方が藍の塗り、ほかは白地に藍の文字。塗りだけで見せる（頭の印は付けない）。
+   欄の区切りボタン（.fld-seg）・「標準／詳細」（.level-switch）と同じ色・同じ文字の大きさ。線の太さは隣の部品に合わせる（画面とパネルの頭は 2px、欄の中は 1.5px） */
+.seg-g { display: inline-flex; border: 2px solid var(--prop); border-radius: 8px; overflow: hidden; background: var(--card); }
+.seg-g button { border: 0; background: var(--card); color: var(--prop-ink); padding: 3px 11px; font-weight: 700; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
+.seg-g button + button { border-left: 2px solid var(--prop); }
+.seg-g button:hover:not(:disabled) { background: var(--prop-bg); }
+.seg-g button[aria-pressed="true"], .seg-g button[aria-pressed="true"]:hover { background: var(--prop); color: var(--on-fill); }
 .seg-g button:disabled { color: var(--muted-ink, #8a939d); cursor: not-allowed; }
+.seg-g button:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; }
 /* 狭い画面（640px 未満。presentation/narrow.ts と同じ幅）: 切り替えのボタンが1行に入らなければ折り返す（ページが横にはみ出さない・ボタンが切れない）。
    折り返した行どうし・ボタンどうしの境目の線は、各ボタンの左と上の線で描く（外の枠に重なる分は枠の内側で隠れる） */
 @media (max-width: 639.98px) {
   .seg-g { flex-wrap: wrap; max-width: 100%; }
-  .seg-g button { flex: 1 1 auto; border-left: 2px solid var(--ink-2); border-top: 2px solid var(--ink-2); margin: -2px 0 0 -2px; }
+  .seg-g button { flex: 1 1 auto; border-left: 2px solid var(--prop); border-top: 2px solid var(--prop); margin: -2px 0 0 -2px; }
 }
 .explain-btn, .set-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; padding: 3px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
 .explain-btn[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); }
