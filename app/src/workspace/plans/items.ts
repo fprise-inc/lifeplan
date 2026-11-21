@@ -892,7 +892,7 @@ function loanItems(wh: WorkingHousehold): MovableItem[] {
         if (zero(x) || zero(y)) return zero(x) && zero(y);
         return sameRate((x as RateShift).add, (y as RateShift).add) && (x as RateShift).from === (y as RateShift).from;
       },
-      note: () => "変動金利の段に、その年の1月から上乗せします（固定金利の段は変わりません）",
+      note: () => "変動金利の段階に、その年の1月から上乗せします（固定金利の段階は変わりません）",
     });
   }
   return out;
@@ -956,7 +956,7 @@ function outlookItem(wh: WorkingHousehold, d: Debt, name: string): MovableItem |
       const adds = addsOf(v);
       if (adds === null) return later.length > 0 ? `金利の段階: ${later.join("・")}` : null;
       const base = `今${ref > req.input.baseMonth ? "（借入の月）" : ""}の金利 ${pctText(current)}`;
-      return adds.length === 0 ? `${base}のまま` : `${base} → ${steps(adds).join("・")}（変動金利の段を5年ごとに置きます）`;
+      return adds.length === 0 ? `${base}のまま` : `${base} → ${steps(adds).join("・")}（変動金利の段階を5年ごとに置きます）`;
     },
   };
 }

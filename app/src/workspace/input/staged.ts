@@ -107,11 +107,11 @@ function nextStageAt(wh: WorkingHousehold, list: readonly Obj[]): Timepoint {
 /** 次に足す例外の年（いちばん後の例外の翌年。無ければ計算の基準の年の翌年） */
 const nextYear = (wh: WorkingHousehold, list: readonly Obj[]): number => Math.max(Number(wh.request.input.baseMonth.slice(0, 4)), ...list.map((e) => Number(e.year))) + 1;
 
-const RAMP_HELP = "段の時点から1年ごとに、次の段の額へ同じ幅で近づけます。届いた後は次の段の時点までその額のまま。入れなければ、この段のまま次の段の時点で変わります";
+const RAMP_HELP = "段階の時点から1年ごとに、次の段階の額へ同じ幅で近づけます。届いた後は次の段階の時点までその額のまま。入れなければ、この段階のまま次の段階の時点で変わります";
 
 /** 「ここから○年かけて次の段へ」の欄（次の段がある段だけ） */
 function rampField(key: string, item: string, find: Finder, address: Address): FieldDef {
-  return { ...plain({ key, item, label: "ここから次の段まで何年かけて移すか", level: LEVEL, kind: "int", suffix: "年", min: 1, max: 50, find, path: ["rampYears"], optional: true, help: RAMP_HELP }), address: () => address };
+  return { ...plain({ key, item, label: "ここから次の段階まで何年かけて移すか", level: LEVEL, kind: "int", suffix: "年", min: 1, max: 50, find, path: ["rampYears"], optional: true, help: RAMP_HELP }), address: () => address };
 }
 
 /** 段の「いつから」の欄 */
@@ -195,7 +195,7 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
     const ad = (tail: string[]) => addressOf(spec.target, spec.stages, id, tail);
     const byRatio = s.amount === undefined && s.ratio !== undefined;
     /** 額か割合の欄の元の名前（1件ずつの枠での名前） */
-    const name = byRatio ? `${spec.what}（今の額に対する割合）` : `${spec.what}（この段から）`;
+    const name = byRatio ? `${spec.what}（今の額に対する割合）` : `${spec.what}（この段階から）`;
     const fields: FieldDef[] = [
       atField(spec, `${k}/at`, spec.stages.item, find, ad(["at"])),
       {
@@ -224,7 +224,7 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
                 x.ratio ??= "1";
               } else if (v === "amount") {
                 delete x.ratio;
-                x.amount ??= standardBox(spec.base(hh) ?? 0, "元の額と同じ（この段の額を入れてください）");
+                x.amount ??= standardBox(spec.base(hh) ?? 0, "元の額と同じ（この段階の額を入れてください）");
               }
             }),
         }),
@@ -353,7 +353,7 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
           const w2 = { ...w, request: req };
           const t = spec.find(hh, w2);
           if (t === undefined) return;
-          pushTo(t, spec.stages.path, { id: newId(), at: nextStageAt(w2, listAt(t, spec.stages.path)), amount: standardBox(spec.base(hh) ?? 0, "元の額と同じ（この段の額を入れてください）") });
+          pushTo(t, spec.stages.path, { id: newId(), at: nextStageAt(w2, listAt(t, spec.stages.path)), amount: standardBox(spec.base(hh) ?? 0, "元の額と同じ（この段階の額を入れてください）") });
         }),
     },
   ];
@@ -518,13 +518,13 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
         address: () => ad([]),
       },
     ];
-    if (!byMix) fields.push({ ...plain({ key: `${k}/rate`, item: stagesPlace.item, label: "利回り（年・この段から）", level: LEVEL, kind: "pct", ...RETURN_RANGE, find, path: ["expectedReturn"] }), address: () => ad(["expectedReturn"]) });
+    if (!byMix) fields.push({ ...plain({ key: `${k}/rate`, item: stagesPlace.item, label: "利回り（年・この段階から）", level: LEVEL, kind: "pct", ...RETURN_RANGE, find, path: ["expectedReturn"] }), address: () => ad(["expectedReturn"]) });
     if (n < stages.length - 1) fields.push(rampField(`${k}/ramp`, stagesPlace.item, find, ad(["rampYears"])));
     groups.push({
       key: k,
       title: stageTitle(h, what, s.at, true),
       level: LEVEL,
-      ...(byMix ? { note: "資産の配分の段では、前提条件の資産の種類ごとの利回りで計算します（運用の費用はこの後に引きます）" } : {}),
+      ...(byMix ? { note: "資産の配分の段階では、前提条件の資産の種類ごとの利回りで計算します（運用の費用はこの後に引きます）" } : {}),
       fields,
       actions: [removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => dropFrom(o.find(hh, w), stagesPlace.path, id))],
     });
@@ -660,14 +660,14 @@ export function allocationStageGroups(wh: WorkingHousehold, o: { ageOf?: (h: Hou
       title: `資産配分の段階 ${n + 1}`,
       level: LEVEL,
       fields,
-      actions: [{ key: `${k}/remove`, label: "この段を外す", level: LEVEL, danger: true, run: (w) => mutate(w, (hh, req) => dropFrom(findAlloc(hh, { ...w, request: req }), place.path, id)) }],
+      actions: [{ key: `${k}/remove`, label: "この段階を外す", level: LEVEL, danger: true, run: (w) => mutate(w, (hh, req) => dropFrom(findAlloc(hh, { ...w, request: req }), place.path, id)) }],
     });
     groups.push(mixRowsGroup(`${k}/mix`, `資産配分の段階 ${n + 1} の割合`, place.item, find, ["mix"], ad(["mix"]), (s.mix as Mix).length));
   });
   groups.push({
     key: "sav/alloc/staged",
     level: LEVEL,
-    note: stages.length === 0 ? "年齢・時期で資産の割合を変えるとき（「55歳から株を減らす」など）は、資産配分の段階を足します。段の時点の年から、運用する口座すべてで使います" : `資産配分の段階 ${stages.length}段`,
+    note: stages.length === 0 ? "年齢・時期で資産の割合を変えるとき（「55歳から株を減らす」など）は、資産配分の段階を足します。段階の時点の年から、運用する口座すべてで使います" : `資産配分 ${stages.length}段階`,
     fields: [],
     actions: [
       {

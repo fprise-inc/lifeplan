@@ -321,7 +321,7 @@ export function anchoredAutoStages(h: Household, baseMonth: string, endYear: num
     if (w.ym <= a.ym) return w;
     const ratio = round2(Number(w.ratio) * a.scale);
     const rel = Number(w.ratio) / autoAtAnchor;
-    return { ...w, ratio, basis: `${AUTO_STAGE_BASIS}（入れた退職後の割合 ${pct(a.ratio)} × 退職後から見た目安の比 ${pct(rel)}。人数の変化と年齢の目安の比を、退職後の段に合わせて掛けました）` };
+    return { ...w, ratio, basis: `${AUTO_STAGE_BASIS}（入れた退職後の割合 ${pct(a.ratio)} × 退職後から見た目安の比 ${pct(rel)}。人数の変化と年齢の目安の比を、退職後の段階に合わせて掛けました）` };
   });
 }
 
