@@ -1004,7 +1004,7 @@ function dreamSection(wh: WorkingHousehold): SectionDef {
     note: `${ds.length === 0 ? "まだありません。" : ""}ご家族がかなえたいことを、上から順に並べます。${DREAM_NOTE}`,
     level: "simple",
     groups: [...ds.map((p, i) => dreamGroup(wh, p, i + 1, ds.length)), dreamTemplateGroup(wh)],
-    actions: [{ key: "ev/addDream", label: "＋ ほかの夢", help: "上の例に無い夢を、1回・1年後で足します（名前・額・時期を入れてください）", level: "simple", run: (w) => addDream(w) }],
+    actions: [{ key: "ev/addDream", label: "＋ 夢", help: "上の例に無い夢を、1回・1年後で足します（名前・額・時期を入れてください）", level: "simple", run: (w) => addDream(w) }],
   };
 }
 

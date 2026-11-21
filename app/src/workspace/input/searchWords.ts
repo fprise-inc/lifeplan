@@ -109,7 +109,7 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   { words: ["お墓", "仏壇", "墓じまい"], card: "events", to: ["お墓・仏壇"] },
   { words: ["法事", "法要", "一周忌"], card: "events", to: ["法事"] },
   { words: ["成人式", "振袖"], card: "events", to: ["成人式"] },
-  { words: ["夢", "やりたいこと", "趣味"], card: "events", to: ["夢プラン", "＋ ほかの夢"] },
+  { words: ["夢", "やりたいこと", "趣味"], card: "events", to: ["夢プラン", "＋ 夢"] },
   { words: ["起業", "開業"], card: "events", to: ["起業"] },
   { words: ["移住", "二拠点"], card: "events", to: ["移住", "二拠点"] },
   { words: ["祝い金", "お祝い", "香典", "見舞金"], card: "events", to: ["祝い金"] },
