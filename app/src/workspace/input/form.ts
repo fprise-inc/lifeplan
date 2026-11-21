@@ -403,6 +403,51 @@ export interface GroupDef {
    * （入れた欄は名前が消えるので、入れた所が推定でなくなるのが見て分かる。0041 の印・0143 の追記 2026-11-12）。見せ方だけで、欄の一覧（allFields）は今のまま
    */
   estimateLine?: string;
+  /**
+   * 推定から入った年ごとの変化を1つの表にまとめたまとまり（staged.ts の tableGroup。描くのは StageTable.tsx。0238）。閉じた形（要約の1行と開くボタン）から始め、
+   * 開くと1年1行。開け閉めは見せ方だけで、値は何も変えない。fields には行の欄と、行の「詳しく」の欄を入れる（欄の一覧〔allFields〕から探せるように）
+   */
+  table?: StageTableDef;
+}
+
+/** 推定から入った年ごとの変化の表の中身（GroupDef.table。0238） */
+export interface StageTableDef {
+  /** 要約の頭の名前（「固定資産税の推定の変化」） */
+  name: string;
+  /** 要約の中身（「新築の軽減の終わり・3年ごとの評価替え・2027〜2039年・5件」） */
+  what: string;
+  /** 最初と最後の年の額の目安（「2027年から 年約16.6万円 → 2039年から 年約11万円」。出せなければ null） */
+  ends: string | null;
+  /** 行の上の1行（何に対する割合か） */
+  lead: string;
+  /** 推定のままの行の数（0 なら「推定」の印を出さない） */
+  estimated: number;
+  /** 行（時期の順） */
+  rows: readonly StageTableRow[];
+  /** 推定のままの年をまとめて外すボタン（推定のままの年が無ければ null） */
+  removeAuto: ActionDef | null;
+}
+
+/** 表の1行（1年分の変化） */
+export interface StageTableRow {
+  /** 段階の ID（行の「詳しく」の開け閉めを覚えるキーに使う） */
+  id: string;
+  /** 行の名前（「2030年から」） */
+  label: string;
+  /** 行の欄（割合か額。名前は行の名前） */
+  value: FieldDef;
+  /** 行の欄の元の名前（1件ずつの枠での名前。「固定資産税（今の額に対する割合）」。説明の一覧に使う） */
+  name: string;
+  /** 推定のままの年か（確かめた年・直した年は false） */
+  estimated: boolean;
+  /** 行の「詳しく」の欄（元の名前のまま。推定のままの行は「入れ方」だけ、ほかの行は「いつから・入れ方・何年かけて移すか」） */
+  detail: readonly FieldDef[];
+  /** この年の変化を外すボタン */
+  remove: ActionDef;
+  /** 行の右に添える一言（「3年かけて移す」。無ければ null） */
+  ramp: string | null;
+  /** 行の「詳しく」の頭に出す一言（推定のままの行だけ。ほかは null） */
+  note: string | null;
 }
 
 /** まとまりをその入れ方で出すか（標準は標準のまとまりだけ、詳細は標準だけのまとまりを除く全部） */

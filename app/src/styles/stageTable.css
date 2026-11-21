@@ -1,0 +1,35 @@
+/* 推定から入った年ごとの変化の表（StageTable.tsx）。閉じた形は、要約の1行と「▸ 年ごとの割合を見る・直す」だけ。開くと1年1行 */
+.stage-table-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 0.86rem; line-height: 1.5; color: var(--ink-2); }
+.stage-table-line > .stage-table-name { margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--ink-2); }
+.stage-table-name > .help { margin-left: 4px; }
+.stage-table-est { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.stage-table-ends { color: var(--ink); font-variant-numeric: tabular-nums; }
+.in-group.stage-table > .grp-more { margin-top: 2px; }
+.stage-table-body { margin-top: 4px; }
+.stage-table-body[hidden], .stage-row-detail[hidden] { display: none; }
+.stage-table-body > .stage-table-lead { margin: 0 0 4px; font-size: 0.8rem; }
+/* 行: 左に年（その下に、その年からの額の目安）、右に割合の欄。行の高さは欄1つ分。幅があれば2列（列の幅は文字の大きさで決めるので、文字を大きくすると1列） */
+.stage-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(21.5em, 100%), 1fr)); gap: 0 14px; }
+.stage-row { min-width: 0; padding: 4px 0; border-bottom: 1px dotted var(--card-line); }
+.stage-row.is-open { grid-column: 1 / -1; }
+/* 額で入れた年（単位のボタンが付く）は幅を取るので、1行をまるごと使う */
+.stage-row:has(> .stage-row-main .units) { grid-column: 1 / -1; }
+/* 何年かけて移すかを入れた年（行の右に「3年かけて移す」が付く）も同じ */
+.stage-row:has(> .stage-row-main > .stage-row-ramp) { grid-column: 1 / -1; }
+.stage-row-main { display: flex; align-items: center; gap: 4px 6px; min-width: 0; }
+/* 欄は縮めない（縮むと、欄の中の「この値にする」と値が重なる）。欄の横の額の目安は、年の下へ置く（.fld-c の中身を .fld のマス目に直に並べる） */
+.stage-row-main > .fld { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: minmax(7em, auto) repeat(3, auto) 1fr; align-items: center; gap: 0 6px; }
+.stage-row-main > .fld > .fld-l { grid-column: 1; grid-row: 1; align-self: end; margin: 0; }
+.stage-row-main > .fld:not(:has(.fld-hint)) > .fld-l { grid-row: 1 / span 2; align-self: center; }
+.stage-row-main > .fld > .fld-c { display: contents; }
+.stage-row-main > .fld > .fld-c > * { grid-row: 1 / span 2; }
+.stage-row-main > .fld > .fld-c > .fld-hint { grid-column: 1; grid-row: 2; align-self: start; font-size: 0.76rem; line-height: 1.35; white-space: nowrap; }
+/* 欄の下の知らせ（入れられない理由・状態の操作など）は、行の下に幅いっぱいで */
+.stage-row-main > .fld > :not(.fld-l):not(.fld-c) { grid-column: 1 / -1; grid-row: 3; }
+.stage-row-ramp { flex: none; font-size: 0.78rem; color: var(--ink-2); white-space: nowrap; }
+.stage-row-main > .stage-row-more { flex: none; font-size: 0.76rem; white-space: nowrap; }
+/* 行の「詳しく」: その年だけの細かい欄（入れ方。確かめた年・直した年は「いつから」「何年かけて移すか」も）と「外す」 */
+.stage-row-detail { margin: 6px 0 6px 4px; padding: 6px 0 4px 12px; border-left: 3px solid var(--card-line); }
+.stage-row-detail > .stage-row-note { margin: 0 0 6px; font-size: 0.78rem; }
+.stage-row-actions { margin-top: 8px; text-align: right; }
+.stage-table-actions { margin-top: 8px; text-align: right; }

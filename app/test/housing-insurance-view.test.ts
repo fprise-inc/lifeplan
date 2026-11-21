@@ -199,20 +199,22 @@ describe("住まいの欄", () => {
     const sale = groups(wh).find((g) => g.key === `housing/res/${owned(wh).id}/sale`)!;
     expect(sale.placeIn).toEqual({ group: `housing/res/${owned(wh).id}`, after: `housing/res/${owned(wh).id}/to` });
   });
-  it("固定資産税の推定の段が3つを超えたら1つの表に畳む。割合を直した段は、ふつうの段の欄になる", () => {
+  it("固定資産税の推定の変化は1つの表にまとめる。割合を直した年も、表の行のまま残る（0238。くわしくは property-tax-stage-table.test.ts）", () => {
     let wh = action(blankHousehold(BASE), "housing/addPurchase");
     const r = owned(wh);
     const stages = r.propertyTax?.stages ?? [];
     expect(stages.length).toBeGreaterThan(3);
     const fold = groups(wh).find((g) => g.key.endsWith("/propertyTax/autoStages"))!;
     expect(fold.title).toMatch(/^固定資産税の推定の変化（新築の軽減の終わり・3年ごとの評価替え・\d{4}〜\d{4}年・\d+件）$/);
-    expect(fold.fields.length).toBe(stages.length);
-    expect(fold.fields.every((f) => f.kind === "pct" && /^\d{4}年から$/.test(f.label))).toBe(true);
+    expect(fold.table?.rows.length).toBe(stages.length);
+    expect(fold.table?.rows.every((row) => row.value.kind === "pct" && /^\d{4}年から$/.test(row.label))).toBe(true);
     expect(groups(wh).some((g) => g.key.includes("/propertyTax/stage/"))).toBe(false);
     const first = stages[0]!;
     wh = set(wh, `/propertyTax/stage/${first.id}/ratio`, "0.9");
-    expect(groups(wh).some((g) => g.key.endsWith(`/propertyTax/stage/${first.id}`))).toBe(true);
-    expect(groups(wh).find((g) => g.key.endsWith("/propertyTax/autoStages"))!.fields.length).toBe(stages.length - 1);
+    expect(groups(wh).some((g) => g.key.includes("/propertyTax/stage/"))).toBe(false);
+    const after = groups(wh).find((g) => g.key.endsWith("/propertyTax/autoStages"))!.table!;
+    expect(after.rows.length).toBe(stages.length);
+    expect(after.rows.map((row) => row.estimated)).toEqual(stages.map((_, i) => i !== 0));
   });
   it("相続する家の見出しは「相続する家・○年○月から」。家賃なしの注記に、住まずに持つ実家・土地の入れ場所", () => {
     let wh = action(blankHousehold(BASE), "housing/addFree");
