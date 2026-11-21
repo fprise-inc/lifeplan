@@ -9,6 +9,7 @@ import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
 import { InfoNote } from "./InfoNote.tsx";
 import { FoldClose, FoldedGroup, useFold } from "./FoldedGroup.tsx";
+import { StageTable } from "./StageTable.tsx";
 import { blankLineFor, estimateBasisLines, fitsIn, fittingPlaceholder, splitEstimateHint, textEm } from "./placeholder.ts";
 import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
@@ -648,10 +649,28 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   const texts = useContext(OfficeTextsContext);
   const arrange = (fs: readonly FieldDef[]) => arrangeFields(fs, (f) => fieldTextId(f, wh), (f) => hasFieldValue(f, wh), layout);
   // ふだんは閉じておくまとまり（folded。FoldedGroup.tsx）: 閉じている間は説明と開くボタンだけ
-  const fold = useFold(group, useGroupOpen());
+  const groupOpen = useGroupOpen();
+  const fold = useFold(group, groupOpen);
   if (fold?.open === false) return <FoldedGroup group={group} onOpen={fold.toggle} nested={nested} />;
   // 説明の欄（値ではなく説明の文）は、幅いっぱいの説明として描く（readLines.ts の infoNote）
   if (group.info !== undefined) return <InfoNote title={group.info.title} text={group.info.text} fold={group.info.fold} groupKey={group.key} />;
+  // 推定から入った年ごとの変化の表（StageTable.tsx。閉じた形から始め、開くと1年1行。0238）
+  if (group.table !== undefined) {
+    const th = splitNote(group.note).help;
+    return (
+      <StageTable
+        group={group}
+        table={group.table}
+        opened={groupOpen}
+        nested={nested}
+        moreOf={moreOf}
+        help={th !== null ? <Help label={group.table.name}>{helpBlocks(th)}</Help> : null}
+        tag={<PlanGroupTag group={group} wh={wh} />}
+        field={(f) => <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />}
+        run={(a) => onEdit(a.run(wh))}
+      />
+    );
+  }
   // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
   const detailShown = level === "detail" || more?.open === true;
   const fields = arrange(group.fields.filter((f) => visible(level, f.level) && !(detailShown && f.simpleOnly === true)));

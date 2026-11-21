@@ -12,6 +12,7 @@ import "./styles/rental.css";
 import "./styles/statement.css";
 import "./styles/hearingWeb.css";
 import "./styles/review.css";
+import "./styles/stageTable.css";
 import "./takeaway/takeaway.css";
 import { render } from "preact";
 import { App } from "./workspace/App.tsx";

@@ -6,7 +6,7 @@
 // 欄の当て先（0036 の2）は、物（向き先）・入力項目ID・その値の中の場所（並びの要素は ID）
 import type { Household, Member, Timepoint } from "../../engine/types.ts";
 import { resolveTimepoint } from "../timepoint.ts";
-import { field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level } from "./form.ts";
+import { field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type StageTableRow } from "./form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "./household.ts";
 import { ASSET_CLASSES, WORDS } from "./labels.ts";
 import { formatYen, type YenBasis } from "./units.ts";
@@ -52,12 +52,14 @@ export interface StagedSpec {
   place?: GroupDef["placeIn"];
   /** 段を外した後に呼ぶ（推定の段を外したことを覚えるなど。0112） */
   onRemoveStage?: (h: Household, id: string) => void;
-  /** 推定の段（今の額に対する割合が推定のままの段）を1つの表に畳むときの、見出しに添える中身（例: 「新築の軽減の終わり・3年ごとの評価替え」） */
+  /** 推定から入った変化を1つの表にまとめるときの、要約に添える中身（例: 「新築の軽減の終わり・3年ごとの評価替え」） */
   autoWhat?: string;
+  /**
+   * 推定から入った段階か（段階の ID で見分ける。0238）。推定のままの段階（今の額に対する割合が推定のまま）に加えて、これが true を返す段階も
+   * 推定の変化の表の行にする（割合を確かめた後・手で直した後も、1件ずつの枠に開かない）。渡さなければ、表の行は推定のままの段階だけ
+   */
+  estimateStage?: (id: string) => boolean;
 }
-
-/** 推定の段がこの数を超えたら、1つの表に畳む（1段ごとに4つの欄と見出しを並べると、詳細の欄が長い壁になるため） */
-export const FOLD_AUTO_STAGES = 3;
 
 const listAt = (o: Obj | undefined, path: readonly string[]): Obj[] => (getPath(o, path) as Obj[] | undefined) ?? [];
 const elementFinder = (find: Finder, path: readonly string[], id: string): Finder => (h, w) => listAt(find(h, w), path).find((x) => x.id === id);
@@ -185,12 +187,15 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
   const exceptions = [...listAt(obj, spec.exceptions.path)].sort((a, b) => Number(a.year) - Number(b.year));
   const placeIn = spec.place !== undefined ? { placeIn: spec.place } : {};
   const groups: GroupDef[] = [];
-  const stageGroup = (s: Obj, n: number): GroupDef => {
+  /** 段階1つの欄とボタン（1件ずつの枠と、推定の変化の表の行で同じ物を使う。row は表の行の名前「2030年から」） */
+  const stageParts = (s: Obj, n: number, row?: string): StageParts => {
     const id = String(s.id);
     const k = `${spec.key}/stage/${id}`;
     const find = elementFinder(spec.find, spec.stages.path, id);
     const ad = (tail: string[]) => addressOf(spec.target, spec.stages, id, tail);
     const byRatio = s.amount === undefined && s.ratio !== undefined;
+    /** 額か割合の欄の元の名前（1件ずつの枠での名前） */
+    const name = byRatio ? `${spec.what}（今の額に対する割合）` : `${spec.what}（この段から）`;
     const fields: FieldDef[] = [
       atField(spec, `${k}/at`, spec.stages.item, find, ad(["at"])),
       {
@@ -225,23 +230,47 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
         address: () => ad([]),
       },
       byRatio
-        ? { ...plain({ key: `${k}/ratio`, item: spec.stages.item, label: `${spec.what}（今の額に対する割合）`, level: LEVEL, kind: "pct", ...STAGE_RATIO_RANGE, find, path: ["ratio"] }), address: () => ad(["ratio"]) }
-        : { ...yenBox({ key: `${k}/amount`, item: spec.stages.item, label: `${spec.what}（この段から）`, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: "今の価格で入れます（変動率はこの額にもそのまま掛けます）" }), address: () => ad(["amount"]) },
+        ? {
+            ...plain({
+              key: `${k}/ratio`,
+              item: spec.stages.item,
+              label: row ?? name,
+              level: LEVEL,
+              kind: "pct",
+              ...STAGE_RATIO_RANGE,
+              find,
+              path: ["ratio"],
+              // 表の行は、年の下にその年からの額の目安（今の額に割合をかけた額）
+              ...(row !== undefined
+                ? {
+                    hint: (v: unknown, w: WorkingHousehold) => {
+                      const base = spec.base(w.request.input.household);
+                      return base === null || typeof v !== "string" ? null : yenAbout(spec.basis, base * Number(v));
+                    },
+                  }
+                : {}),
+            }),
+            address: () => ad(["ratio"]),
+          }
+        : { ...yenBox({ key: `${k}/amount`, item: spec.stages.item, label: row ?? name, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: "今の価格で入れます（変動率はこの額にもそのまま掛けます）" }), address: () => ad(["amount"]) },
     ];
-    if (n < stages.length - 1) fields.push(rampField(`${k}/ramp`, spec.stages.item, find, ad(["rampYears"])));
     return {
       key: k,
-      title: stageTitle(h, spec.what, s.at, yearly),
-      level: LEVEL,
-      ...placeIn,
-      fields,
-      actions: [
-        removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => {
-          dropFrom(spec.find(hh, w), spec.stages.path, id);
-          spec.onRemoveStage?.(hh, id);
-        }),
-      ],
+      id,
+      name,
+      at: fields[0] as FieldDef,
+      mode: fields[1] as FieldDef,
+      value: fields[2] as FieldDef,
+      ramp: n < stages.length - 1 ? rampField(`${k}/ramp`, spec.stages.item, find, ad(["rampYears"])) : null,
+      remove: removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => {
+        dropFrom(spec.find(hh, w), spec.stages.path, id);
+        spec.onRemoveStage?.(hh, id);
+      }),
     };
+  };
+  const stageGroup = (s: Obj, n: number): GroupDef => {
+    const p = stageParts(s, n);
+    return { key: p.key, title: stageTitle(h, spec.what, s.at, yearly), level: LEVEL, ...placeIn, fields: [p.at, p.mode, p.value, ...(p.ramp !== null ? [p.ramp] : [])], actions: [p.remove] };
   };
   const exceptGroup = (e: Obj): GroupDef => {
     const id = String(e.id);
@@ -260,19 +289,34 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
       actions: [removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => dropFrom(spec.find(hh, w), spec.exceptions.path, id))],
     };
   };
-  // 推定の段（割合が推定のまま）が多いときは、1つの表に畳む: 1段1行の「○年から（今の額に対する割合）」の欄だけにする。
-  // 行の割合を直すと推定でなくなり、ふつうの段（いつから・入れ方・割合・移す年数）として並ぶ（直したい行だけ欄が開く）
+  // 推定から入った変化は、1つの表にまとめる（何件でも。0238）: 閉じた形（要約の1行と開くボタン）から始め、開くと1年1行。
+  // 割合が推定のままの年も、「この値にする」で確かめた年も、手で直した年も、同じ表の行のまま（前は確かめる・直すたびに1件ずつの枠に開いて、縦にとても長くなった）。
+  // 自分で足した変化・例外の年は、今までどおり1件ずつの枠
   const input = wh.request.input as unknown as Obj;
+  /** 推定のままの段階（今の額に対する割合が推定のまま） */
   const isAuto = (el: Obj): boolean => {
     if (el.amount !== undefined || el.ratio === undefined) return false;
     const row = rowAt(input, addressOf(spec.target, spec.stages, String(el.id), ["ratio"]));
     return row?.state === "estimated" && row.origin.kind === "auto";
   };
-  const autos = stages.filter(isAuto);
-  const fold = autos.length > FOLD_AUTO_STAGES;
-  if (fold) groups.push(foldedGroup(wh, spec, autos, placeIn));
+  /** 推定から入った段階（推定のままか、ID で見分けられる段階） */
+  const fromEstimate = (el: Obj): boolean => isAuto(el) || spec.estimateStage?.(String(el.id)) === true;
+  const inTable = stages.map((el, n) => ({ el, n })).filter((x) => fromEstimate(x.el));
+  if (inTable.length > 0) {
+    groups.push(
+      tableGroup(
+        wh,
+        spec,
+        inTable.map((x) => {
+          const when = stageWhen(h, x.el.at, yearly);
+          return { el: x.el, auto: isAuto(x.el), parts: stageParts(x.el, x.n, when !== null ? `${when}から` : fromNowOn(yearly)) };
+        }),
+        placeIn,
+      ),
+    );
+  }
   for (const c of changeOrder(h, stages, exceptions)) {
-    if (fold && c.kind === "stage" && isAuto(c.el)) continue;
+    if (c.kind === "stage" && fromEstimate(c.el)) continue;
     groups.push(c.kind === "stage" ? stageGroup(c.el, c.n) : exceptGroup(c.el));
   }
   const choice = {
@@ -316,53 +360,97 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
   return groups;
 }
 
-/** 推定の段を畳んだ表（1段1行。行は「2033年から（今の額に対する割合）」の欄で、横にその年の額の目安） */
-function foldedGroup(wh: WorkingHousehold, spec: StagedSpec, autos: readonly Obj[], placeIn: { placeIn?: GroupDef["placeIn"] }): GroupDef {
+/** 額の目安の書き方（「年約16.6万円」。千円に丸める） */
+function yenAbout(basis: YenBasis, value: number): string {
+  const yen = Math.round(value / 1000) * 1000;
+  return `${basis === "monthly" ? "月" : basis === "annual" ? "年" : ""}約${formatYen(yen, yen >= 10000 ? "man" : "yen")}${yen >= 10000 ? "万円" : "円"}`;
+}
+
+/** 段階1つの欄とボタン（stagedGroups の stageParts） */
+interface StageParts {
+  key: string;
+  id: string;
+  /** 額か割合の欄の元の名前 */
+  name: string;
+  at: FieldDef;
+  mode: FieldDef;
+  value: FieldDef;
+  /** 「何年かけて移すか」の欄（後に段階が続くときだけ） */
+  ramp: FieldDef | null;
+  remove: ActionDef;
+}
+
+/** 推定のままの行の「詳しく」に出す一言（「いつから」「何年かけて移すか」を出さない訳と、直すときの道筋） */
+export const AUTO_ROW_NOTE = "推定のままの年は、「いつから」と「何年かけて移すか」を出しません（推定し直すと元に戻るため）。直すときは、先にこの年の割合を直すか「この値にする」で確かめます";
+
+/**
+ * 推定から入った変化の表（GroupDef.table。描くのは StageTable.tsx。0238）。行は1年1行で、行の欄は「2033年から」の割合（額に切り替えた年は額）。
+ * 行の「詳しく」の欄は、推定のままの年は「入れ方」だけ（「いつから」「何年かけて移すか」は、推定し直すと元に戻るので出さない）、
+ * 確かめた年・直した年は「いつから・入れ方・何年かけて移すか」。欄のキー・書く先は1件ずつの枠のときと同じ（見せ方だけで、世帯の値は変えない）
+ */
+function tableGroup(wh: WorkingHousehold, spec: StagedSpec, stageRows: readonly { el: Obj; auto: boolean; parts: StageParts }[], placeIn: { placeIn?: GroupDef["placeIn"] }): GroupDef {
   const h = wh.request.input.household;
   const yearly = spec.yearly === true;
-  const years = autos.map((s) => resolveTimepoint(h, s.at as Timepoint)?.slice(0, 4)).filter((y): y is string => y !== undefined);
-  const span = years.length > 0 ? `${years[0]!}〜${years[years.length - 1]!}年・` : "";
+  const years = stageRows.map((r) => resolveTimepoint(h, r.el.at as Timepoint)?.slice(0, 4)).filter((y): y is string => y !== undefined);
+  const firstYear = years[0];
+  const lastYear = years[years.length - 1];
+  const span = firstYear === undefined || lastYear === undefined ? "" : firstYear === lastYear ? `${firstYear}年・` : `${firstYear}〜${lastYear}年・`;
   const k = `${spec.key}/autoStages`;
-  const fields: FieldDef[] = autos.map((s) => {
-    const id = String(s.id);
-    const find = elementFinder(spec.find, spec.stages.path, id);
-    const when = stageWhen(h, s.at, yearly);
-    return {
-      ...plain({
-        key: `${spec.key}/stage/${id}/ratio`,
-        item: spec.stages.item,
-        label: `${when ?? fromNowOn(yearly)}から`,
-        level: LEVEL,
-        kind: "pct",
-        ...STAGE_RATIO_RANGE,
-        find,
-        path: ["ratio"],
-        help: "今の額に対する割合（推定の変化）。割合を直すと、この段だけ「いつから」「次の段まで何年かけて移すか」も入れられる欄になります",
-        hint: (v, w) => {
-          const base = spec.base(w.request.input.household);
-          if (base === null || typeof v !== "string") return null;
-          const yen = Math.round((base * Number(v)) / 1000) * 1000;
-          return `${spec.basis === "monthly" ? "月" : spec.basis === "annual" ? "年" : ""}約${formatYen(yen, yen >= 10000 ? "man" : "yen")}${yen >= 10000 ? "万円" : "円"}（今の額から）`;
-        },
-      }),
-      address: () => addressOf(spec.target, spec.stages, id, ["ratio"]),
-    };
-  });
+  const what = `${spec.autoWhat !== undefined ? `${spec.autoWhat}・` : ""}${span}${String(stageRows.length)}件`;
+  const base = spec.base(h);
+  /** その年からの額の目安（額で入れた年は、入れた額そのまま） */
+  const endOf = (el: Obj | undefined): string | null => {
+    if (el === undefined) return null;
+    const when = stageWhen(h, el.at, yearly);
+    if (when === null) return null;
+    if (el.amount !== undefined) {
+      const v = (el.amount as { value?: unknown }).value;
+      return typeof v === "number" ? `${when}から ${yenAbout(spec.basis, v).replace("約", "")}` : null;
+    }
+    return base === null || typeof el.ratio !== "string" ? null : `${when}から ${yenAbout(spec.basis, base * Number(el.ratio))}`;
+  };
+  const first = endOf(stageRows[0]?.el);
+  const last = stageRows.length > 1 ? endOf(stageRows[stageRows.length - 1]?.el) : null;
+  const autos = stageRows.filter((r) => r.auto);
+  const removeAuto =
+    autos.length > 0
+      ? removeAction(`${k}/remove`, `推定のままの${String(autos.length)}件を外す`, LEVEL, (hh, w) => {
+          for (const r of autos) {
+            dropFrom(spec.find(hh, w), spec.stages.path, r.parts.id);
+            spec.onRemoveStage?.(hh, r.parts.id);
+          }
+        })
+      : null;
+  const rows: StageTableRow[] = stageRows.map((r) => ({
+    id: r.parts.id,
+    label: r.parts.value.label,
+    value: r.parts.value,
+    name: r.parts.name,
+    estimated: r.auto,
+    // 推定のままの年は、推定し直すたびに年と移し方が推定の形に戻るので、「いつから」「何年かけて移すか」を出さない（値はそのまま持つ）
+    detail: r.auto ? [r.parts.mode] : [r.parts.at, r.parts.mode, ...(r.parts.ramp !== null ? [r.parts.ramp] : [])],
+    remove: r.parts.remove,
+    ramp: !r.auto && typeof r.el.rampYears === "number" ? `${String(r.el.rampYears)}年かけて移す` : null,
+    note: r.auto ? AUTO_ROW_NOTE : null,
+  }));
   return {
     key: k,
-    title: `${spec.what}の推定の変化（${spec.autoWhat !== undefined ? `${spec.autoWhat}・` : ""}${span}${String(autos.length)}件）`,
-    note: "推定の変化を、年ごとの今の額に対する割合の表にしています。直したい年の割合を直すと、その段だけふつうの変化の欄になります",
+    title: `${spec.what}の推定の変化（${what}）`,
+    note: "推定から入った変化を、年ごとの1つの表にまとめています。割合を直した後・「この値にする」で確かめた後も、表の行のまま残ります。\n行の「詳しく」を開くと、その年の入れ方を変える・その年の変化を外すことができます。確かめた年・直した年は「いつから」「何年かけて移すか」も直せます（推定のままの年は、推定し直すと元に戻るので出しません）",
     level: LEVEL,
     ...placeIn,
-    fields,
-    actions: [
-      removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => {
-        for (const s of autos) {
-          dropFrom(spec.find(hh, w), spec.stages.path, String(s.id));
-          spec.onRemoveStage?.(hh, String(s.id));
-        }
-      }),
-    ],
+    // 欄の一覧（allFields）: 行の欄と、行の「詳しく」の欄（どの年の欄か分かるように、名前の頭に行の名前を添える）
+    fields: rows.flatMap((r) => [r.value, ...r.detail.map((f) => ({ ...f, label: `${r.label}・${f.label}` }))]),
+    actions: [...(removeAuto !== null ? [removeAuto] : []), ...rows.map((r) => r.remove)],
+    table: {
+      name: `${spec.what}の推定の変化`,
+      what,
+      ends: first === null ? null : last === null ? first : `${first} → ${last}`,
+      lead: `今の${spec.what}に対する割合です（年の下は、その年からの額の目安）。直したい年だけ直します`,
+      estimated: autos.length,
+      rows,
+      removeAuto,
+    },
   };
 }
 

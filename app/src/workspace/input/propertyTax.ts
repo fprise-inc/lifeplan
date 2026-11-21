@@ -325,6 +325,25 @@ export function rememberDroppedTaxStage(h: Household, rid: string, sid: string):
 /** 推定の段の ID（家と年から決める。入れ直しで同じ年の段は同じ ID） */
 export const taxStageId = (rid: string, year: number): string => derivedId(rid, `propertyTax/${String(year)}`);
 
+/** 推定の段階の ID を作りうる年の幅（年の欄に入れられる年と同じ） */
+const ESTIMATE_YEARS = { from: 1900, to: 2200 };
+/** 家ごとの、推定の段階の ID の集まり（何度も作らないように覚える。覚える家の数には上限を置く） */
+const estimateIds = new Map<string, ReadonlySet<string>>();
+
+/**
+ * 推定から入った段階か（段階の ID で見分ける。ID は家と年で決まり、割合を確かめた後・手で直した後・「いつから」を直した後も同じ ID のまま）。
+ * 入力の画面で、推定から入った段階を1つの表にまとめて見せるのに使う（見せ方だけ。推定のままかどうかは isAutoTaxStage）
+ */
+export function isTaxEstimateStageId(rid: string, sid: string): boolean {
+  let ids = estimateIds.get(rid);
+  if (ids === undefined) {
+    if (estimateIds.size >= 64) estimateIds.clear();
+    ids = new Set(Array.from({ length: ESTIMATE_YEARS.to - ESTIMATE_YEARS.from + 1 }, (_, i) => taxStageId(rid, ESTIMATE_YEARS.from + i)));
+    estimateIds.set(rid, ids);
+  }
+  return ids.has(sid);
+}
+
 /**
  * 推定を入れる・入れ直す（h をそのまま書き換える）。start が true なら、固定資産税の欄が推定のまま（目安のボタンの値を含む）のときに入れる
  * （住宅の購入を足した・購入の種類を選んだとき）。start でなければ、この推定のままの欄と推定の段だけを入れ直す。変われば true

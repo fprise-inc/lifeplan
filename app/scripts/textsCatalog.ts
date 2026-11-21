@@ -29,7 +29,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { noticeTextTable } from "../src/workspace/engineNotices.ts";
-import type { FieldDef, StageId } from "../src/workspace/input/form.ts";
+import type { FieldDef, GroupDef, StageId } from "../src/workspace/input/form.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { buildStage, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { LIKELIHOOD_HELP, likelihoodHelp, NOTE_PARTS, type LikelihoodOf } from "../src/workspace/input/moneyRows.ts";
@@ -82,6 +82,12 @@ function models(): EngineRequest[] {
     .map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")) as EngineRequest);
 }
 
+/**
+ * まとまりの欄。推定の変化の表（GroupDef.table。0238）は、行の欄を1件ずつの枠のときの名前で数える（表の中だけの名前「2030年から」は年ごとに
+ * 変わるので、一覧には載せない）
+ */
+const groupFields = (g: GroupDef): FieldDef[] => (g.table !== undefined ? g.table.rows.flatMap((r) => [{ ...r.value, label: r.name }, ...r.detail]) : [...g.fields, ...(g.openFields ?? [])]);
+
 /** 見本の世帯すべての、入力の画面の欄（入力項目・世帯・欄） */
 function* allModelFields(): Generator<{ st: { id: StageId; label: string }; wh: ReturnType<typeof fromRequest>; f: FieldDef }> {
   for (const req of models()) {
@@ -89,7 +95,7 @@ function* allModelFields(): Generator<{ st: { id: StageId; label: string }; wh: 
     for (const st of STAGES) {
       for (const sec of buildStage(st.id, wh).sections) {
         for (const g of sec.groups) {
-          for (const f of [...g.fields, ...(g.openFields ?? [])]) yield { st, wh, f };
+          for (const f of groupFields(g)) yield { st, wh, f };
         }
       }
     }
