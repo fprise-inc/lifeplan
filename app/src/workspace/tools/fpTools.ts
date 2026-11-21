@@ -6,7 +6,7 @@ import { resolveTimepoint } from "../timepoint.ts";
 import { displayYears, financialOf } from "../present.ts";
 import { fromRequest, type WorkingHousehold } from "../input/household.ts";
 import { inputItems } from "../input/items.ts";
-import { memberLabel, memberLabels } from "../input/labels.ts";
+import { careLabel, memberLabel, memberLabels } from "../input/labels.ts";
 import { INCOME_KINDS, OUT_KINDS } from "../input/moneyRows.ts";
 import { creditActive } from "../input/stages/housingLoans.ts";
 import { amountText as yenText, formatYearMonth, wareki } from "../input/units.ts";
@@ -157,7 +157,7 @@ export function nextYearEvents(wh: WorkingHousehold, result: PreviewResult | nul
   }
   for (const c of h.careExpenses ?? []) {
     const ym = at(c.from);
-    if (inWindow(ym, base, end)) push(ym, `${memberLabel(wh, c.member)}の介護が始まる見込み`, "care");
+    if (inWindow(ym, base, end)) push(ym, `${careLabel(wh, c)}が始まる見込み`, "care");
   }
   for (const f of h.incomeFlows ?? []) {
     const ym = at(f.from);

@@ -475,6 +475,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         level: "simple",
         kind: "select",
         options: PREMIUM_FREQUENCY,
+        segmented: true,
         find,
         path: ["premium", "frequency"],
         after: (_h, target, v) => {

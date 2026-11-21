@@ -1159,7 +1159,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       smrField(wh, find, prefix, "pension"),
       { ...yenBox({ key: `${prefix}/commuting`, item: "employment.salary.commutingMonthly", label: "通勤手当（非課税・月額）", level: d, basis: "monthly", unit: "yen", find, path: ["salary", "commutingMonthly"], optional: true, help: "所得税・住民税はかかりませんが、社会保険料の報酬には入ります。入れなければ0円" }), address: () => ({ target: { object: p.id }, item: "employment.salary.commutingMonthly", at: [] }) },
       { ...plain({ key: `${prefix}/student`, item: "employment.student", label: "学生", level: d, kind: "bool", find, path: ["student"], optional: true, fallback: false, help: "学生は短時間の勤めの社会保険・雇用保険の対象から外れます" }), address: () => ({ target: { object: p.id }, item: "employment.student", at: [] }) },
-      { ...plain({ key: `${prefix}/corpDb`, item: "employment.corporatePension", label: "勤め先に確定給付企業年金・共済などがある", level: d, kind: "bool", find, path: ["corporatePension", "db"], optional: true, fallback: false, help: "iDeCo の掛金の上限の判定に使います" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["db"] }) },
+      { ...plain({ key: `${prefix}/corpDb`, item: "employment.corporatePension", label: "勤め先に確定給付企業年金・共済などがある", level: d, kind: "bool", find, path: ["corporatePension", "db"], optional: true, fallback: false, help: "iDeCo の掛金の上限の判定に使います" }), opens: [`${prefix}/corpDbMonthly`], address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["db"] }) },
     );
     if (p.corporatePension !== undefined && (p.corporatePension as { db?: boolean }).db === true)
       fields.push({ ...plain({ key: `${prefix}/corpDbMonthly`, item: "employment.corporatePension", label: "他制度掛金相当額（月額）", level: d, kind: "yen", basis: "monthly", find, path: ["corporatePension", "dbEquivalentMonthly"], optional: true, help: "勤め先から知らされる額。入れなければ、iDeCo の上限を他制度ありの決まりで見ます" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["dbEquivalentMonthly"] }) });
@@ -1804,6 +1804,7 @@ function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
         level: "detail",
         kind: "select",
         options: [{ value: "none", label: "使わない" }, ...(employment !== null ? [{ value: "use", label: "統計の年齢カーブで増やす" }] : []), ...other],
+        onOff: { on: "use", off: "none" },
         structural: true,
         help: "使わないときは、前提条件の賃金上昇率（か「増減率（年）」）で伸ばします。使うと、賃金構造基本統計調査（厚生労働省 令和7年）の年齢ごとの年収の比で、今の年収から毎年の年収を伸ばします（30〜34歳から40〜44歳へ、のように年齢の係数の比を掛けます）。前提条件の賃金上昇率の分も別に伸ばします。「増減率（年）」を入れていれば、その代わりに使います。表は性別・学歴で分けない全体の表です。60歳以後は伸ばしません（定年後の下がり方は定年後の予定で入れます）",
         get: (w) => {

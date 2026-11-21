@@ -15,7 +15,7 @@ import { sameWhen } from "../when.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
-import { DONOR_KINDS, donorUses, memberLabel, SEX_OPTIONS, WORDS } from "../labels.ts";
+import { careLabel, DONOR_KINDS, donorUses, memberLabel, SEX_OPTIONS, WORDS } from "../labels.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import { roles } from "../../roles.ts";
 import { formatYearMonth, wareki } from "../units.ts";
@@ -243,7 +243,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
           return age < 0 ? expectedBirthHint(w, v) : `${String(age)}歳（${wareki(v)}）`;
         },
       }), (_before, after) => (after.assumed[`${k}/leaves`] !== undefined ? withDeathEstimate(after, m.id) : after)), ["birthYearMonth"]),
-      onMember(m.id, plain({ key: `${k}/sex`, item: "member.sex", label: "性別", level: "detail", kind: "select", options: SEX_OPTIONS, find, path: ["sex"], help: "亡くなる見込み（平均余命）の目安と、父・母の呼び方に使います" })),
+      onMember(m.id, plain({ key: `${k}/sex`, item: "member.sex", label: "性別", level: "detail", kind: "select", options: SEX_OPTIONS, segmented: true, find, path: ["sex"], help: "亡くなる見込み（平均余命）の目安と、父・母の呼び方に使います" })),
     );
   // 同居の印は扶養の判定に使うだけで、家計は別のまま（家計を1つにするのは期間。印を付けたら欄の下に1行と「＋ 家計を1つにする」）
   const periods = m.outside?.periods ?? [];
@@ -500,7 +500,8 @@ const placeOf = (c: CareExpense): "home" | "facility" => (c.place === "facility"
  * 見出しに在宅か施設かを入れない: プランで施設に変えても、違いの一覧・要約の名前が前の値のまま残るため（通しの確かめ。0150）
  */
 function careTitle(wh: WorkingHousehold, c: CareExpense): string {
-  return `${memberLabel(wh, c.member)}の介護`;
+  // 同じ人の段階が2つ以上なら「母の介護（1段階目）」「母の介護（2段階目）」（どちらの段階か、見出しと一覧の名前で分かるように。labels.ts の careLabel）
+  return careLabel(wh, c);
 }
 
 /**
@@ -771,7 +772,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
     {
       key: "care/costs",
       title: "介護の費用",
-      note: note ?? "親・ご本人・配偶者の介護を、介護を受ける人ごとに入れます。在宅から施設に移るなどは「＋ 次の段階を足す」で段を並べます",
+      note: note ?? "親・ご本人・配偶者の介護を、介護を受ける人ごとに入れます。在宅から施設に移るなどは「＋ 次の段階を足す」で段階を並べます",
       level: "simple",
       groups: (h.careExpenses ?? []).map((c) => careCostGroup(wh, c)),
       actions: [

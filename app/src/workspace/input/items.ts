@@ -16,7 +16,7 @@ import { allFields, type FieldDef, type SectionDef, type StageDef, type StageId 
 import { ADULT_CARE_NONE, educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
 import { defaultEndAge, endYearRuleOf, newId, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { premiseCounts, premiseOfId, premiseState } from "./premiseDefaults.ts";
-import { earners, memberLabel } from "./labels.ts";
+import { careLabel, earners, memberLabel } from "./labels.ts";
 import { isRow, rowAt } from "./rows.ts";
 import { carDebts, leaseAnnual, upkeepAnnual } from "./stages/cars.ts";
 import { outsideMembers } from "./stages/care.ts";
@@ -804,8 +804,8 @@ function addedLabel(wh: WorkingHousehold, o: AddedObject): string {
     case "periodic":
       return o.obj.label !== undefined && o.obj.label !== "" ? o.obj.label : "名前のない支出";
     case "care":
-      // パネルの見出し（「母の介護」）と同じ呼び方（0041 の追記 2026-11-06）
-      return `${memberLabel(wh, o.obj.member)}の介護`;
+      // パネルの見出し（「母の介護」。段階が2つ以上なら「母の介護（2段階目）」）と同じ呼び方（0041 の追記 2026-11-06・0236 の追記）
+      return careLabel(wh, o.obj);
     case "car":
       return `車（${memberLabel(wh, o.obj.owner)}）`;
     case "fee":

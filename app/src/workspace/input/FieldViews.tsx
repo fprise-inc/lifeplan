@@ -485,8 +485,8 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
           <div class="in-section-h">
             <h3>
               {section.title}
-              {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
               {sHelp}
+              {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
             </h3>
             {/* 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため） */}
             <button type="button" class="link-btn in-section-link" onMouseDown={(e) => e.preventDefault()} onClick={link.onClick} {...(link.title !== undefined ? { title: link.title } : {})} data-section-link={section.key}>
@@ -497,8 +497,8 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
         ) : (
           <h3>
             {section.title}
-            {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
             {sHelp}
+            {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
           </h3>
         )}
         {sn.state !== null ? <p class="in-note in-empty">{sn.state}</p> : null}
@@ -516,36 +516,107 @@ interface InnerGroup {
   node: ComponentChildren;
 }
 
+/** 欄の並びの1つ: ふつうの欄か、チェックとそれで出てきた欄のひとまとまり */
+export type FieldUnit = { kind: "one"; f: FieldDef } | { kind: "opened"; head: FieldDef; body: FieldDef[] };
+
 /**
- * 欄の並びに、中に描くまとまりを差し込む（欄の並びを切って、その間に置く）。差し込めなかった物を返す
+ * 欄の並びを、チェックと「チェックで出てきた欄」（欄の定義の opens にキーの並びを書いた物）のひとまとまりに分ける（0236）。
+ * 出てくる欄を持つチェックは、外しているときも1つのまとまり（中身なし）にする（入れた・外したで欄の置き場が変わらず、フォーカスが外れない）。
+ * 「後ろの欄すべて」（"rest"）のチェックは、間に入るまとまり（「＋ 家賃の変化」など）も含むので、fieldsWithInner の側でまとめる
  */
-function fieldsWithInner(list: readonly FieldDef[], inner: readonly InnerGroup[], wh: WorkingHousehold, onEdit: (w: WorkingHousehold) => void, keyHead: string): { nodes: ComponentChildren[]; rest: InnerGroup[] } {
-  const used = new Set<InnerGroup>();
+export function fieldUnits(fields: readonly FieldDef[], wh: WorkingHousehold): FieldUnit[] {
+  const out: FieldUnit[] = [];
+  let open = null as { body: FieldDef[]; keys: readonly string[] } | null;
+  for (const f of fields) {
+    if (open !== null && open.keys.includes(f.key)) {
+      open.body.push(f);
+      continue;
+    }
+    open = null;
+    const opens = f.kind === "bool" ? f.opens : undefined;
+    if (opens === undefined || opens === "rest") {
+      out.push({ kind: "one", f });
+      continue;
+    }
+    const body: FieldDef[] = [];
+    out.push({ kind: "opened", head: f, body });
+    if (f.get(wh).value === true) open = { body, keys: opens };
+  }
+  return out;
+}
+
+/** チェックと、それで出てきた物（欄・間に入るまとまり）のひとまとまり。出てきた物はチェックのすぐ下に「左の線＋字下げ」で描く */
+function Opened({ head, wh, onEdit, grid, children }: { head: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; grid: boolean; children: ComponentChildren[] }) {
+  return (
+    <div class="fld-opened" data-opened-by={head.key}>
+      <Field key={head.key} f={head} wh={wh} onEdit={onEdit} />
+      {children.length > 0 ? (
+        <div class={`${grid ? "fields " : ""}fld-opened-body`} role="group" aria-label={`${head.label}で出てきた欄`}>
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** 欄の並び（格子）。チェックで出てきた欄は、チェックのすぐ下に「左の線＋字下げ」でまとめる */
+function FieldGrid({ fields, wh, onEdit }: { fields: readonly FieldDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+  return (
+    <div class="fields">
+      {fieldUnits(fields, wh).map((u) =>
+        u.kind === "one" ? (
+          <Field key={u.f.key} f={u.f} wh={wh} onEdit={onEdit} />
+        ) : (
+          <Opened key={`opened/${u.head.key}`} head={u.head} wh={wh} onEdit={onEdit} grid>
+            {u.body.map((f) => (
+              <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
+            ))}
+          </Opened>
+        ),
+      )}
+    </div>
+  );
+}
+
+/**
+ * 欄の並びに、中に描くまとまりを差し込む（欄の並びを切って、その間に置く）。差し込めなかった物を返す。
+ * 「後ろの欄すべてが出てくる」チェック（欄の定義の opens が "rest"）は、行に1つで置き、入れているときは後ろの欄と間に入るまとまりを、そのすぐ下にまとめる
+ */
+function fieldsWithInner(list: readonly FieldDef[], inner: readonly InnerGroup[], wh: WorkingHousehold, onEdit: (w: WorkingHousehold) => void, keyHead: string, used = new Set<InnerGroup>()): { nodes: ComponentChildren[]; rest: InnerGroup[] } {
   const nodes: ComponentChildren[] = [];
   let run: FieldDef[] = [];
   const flush = () => {
     if (run.length === 0) return;
     const fs = run;
     run = [];
-    nodes.push(
-      <div class="fields" key={`${keyHead}/f/${fs[0]!.key}`}>
-        {fs.map((f) => (
-          <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
-        ))}
-      </div>,
-    );
+    nodes.push(<FieldGrid key={`${keyHead}/f/${fs[0]!.key}`} fields={fs} wh={wh} onEdit={onEdit} />);
+  };
+  const take = (pred: (x: InnerGroup) => boolean): ComponentChildren[] => {
+    const hit = inner.filter((x) => !used.has(x) && pred(x));
+    for (const x of hit) used.add(x);
+    return hit.map((x) => x.node);
   };
   const put = (pred: (x: InnerGroup) => boolean) => {
-    const hit = inner.filter((x) => !used.has(x) && pred(x));
+    const hit = take(pred);
     if (hit.length === 0) return;
     flush();
-    for (const x of hit) {
-      used.add(x);
-      nodes.push(x.node);
-    }
+    nodes.push(...hit);
   };
-  for (const f of list) {
+  for (const [i, f] of list.entries()) {
     put((x) => x.before === f.key);
+    if (f.kind === "bool" && f.opens === "rest") {
+      flush();
+      const on = f.get(wh).value === true;
+      const body = on ? [...take((x) => x.after === f.key), ...fieldsWithInner(list.slice(i + 1), inner, wh, onEdit, `${keyHead}/opened/${f.key}`, used).nodes] : [];
+      nodes.push(
+        <Opened key={`${keyHead}/opened/${f.key}`} head={f} wh={wh} onEdit={onEdit} grid={false}>
+          {body}
+        </Opened>,
+      );
+      if (on) break;
+      put((x) => x.after === f.key);
+      continue;
+    }
     run.push(f);
     put((x) => x.after === f.key);
   }
@@ -671,22 +742,26 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   const gnote = gn.help !== null ? applyNoteParts(texts, gn.help) : null;
   const noteHelp =
     gnote !== null ? (
-      <Help label={group.title ?? "このまとまり"}>
+      <Help label={group.headName ?? group.title ?? "このまとまり"}>
         {helpBlocks(gnote.text)}
         {gnote.office.map((o) => (
           <OfficeTextMark key={o.entry.id} entry={o.entry} official={o.official} />
         ))}
       </Help>
     ) : null;
-  const compact = group.band !== true && group.wideHead !== true && more?.open !== true && inner.length === 0 && sub.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
+  // どのまとまりも、見出しは幅いっぱいの1行・欄は次の行から（同じ並び）。前は、選ぶ欄が1〜3個だけの小さなまとまりで、見出しを左の狭い列に
+  // 寄せる詰めた形があったが、名前が長いと左の列で何行にも折れ（「払う人・伸び方・万一のときの扱い」）、まとまりごとに並びが変わるので無くした（0236 の追記）
+  // 見出しに太字で出す名前（headName があればそれ。title に額や時期まで入っているお金の行・夢は、名前だけを太字にして、額と時期は要約に分ける）
+  const head = group.headName ?? group.title;
   return (
-    <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}${compact ? " compact" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
+    <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
       {group.title !== undefined ? (
         <div class="in-group-h">
+          {/* 「?」は名前のすぐ後ろ（名前の説明なので。要約が長くて折り返しても、「?」が要約の終わりに流れない）。要約はその後ろに続ける（0236） */}
           <h4>
-            {group.title}
-            {group.summary !== undefined ? <small class="in-sum">{group.summary}</small> : null}
+            {head}
             {noteHelp}
+            {group.summary !== undefined ? <small class="in-sum">{group.summary}</small> : null}
           </h4>
           <PlanGroupTag group={group} wh={wh} />
           <PinButton group={group} />
@@ -702,15 +777,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       {group.title === undefined ? <PlanGroupTag group={group} wh={wh} /> : null}
       {group.title === undefined && noteHelp !== null ? <div class="in-group-help">{noteHelp}</div> : null}
       {gn.state !== null ? <p class="in-note in-empty">{gn.state}</p> : null}
-      {inner.length === 0 ? (
-        <div class="fields">
-          {fields.map((f) => (
-            <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
-          ))}
-        </div>
-      ) : (
-        mainNodes
-      )}
+      {inner.length === 0 && fields.length === 0 ? <FieldGrid fields={fields} wh={wh} onEdit={onEdit} /> : mainNodes}
       {/* 中枠（band）は、中のまとまり（金利の段階など）を「＋」のボタンの前に（足した物の並びの後ろに、足すボタン） */}
       {group.band === true ? sub : null}
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
@@ -720,17 +787,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} text={group.moreLabel} swapNotes={swapNotesOf(group, more.open)} /> : null}
       {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
         <div class="grp-more-body" data-more-of={group.key}>
-          {extraFields.length > 0 ? (
-            inner.length === 0 ? (
-              <div class="fields">
-                {extraFields.map((f) => (
-                  <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
-                ))}
-              </div>
-            ) : (
-              opened.nodes
-            )
-          ) : null}
+          {extraFields.length > 0 ? opened.nodes : null}
           {extraActions.length > 0 ? <Actions actions={extraActions} wh={wh} onEdit={onEdit} /> : null}
         </div>
       ) : null}
@@ -804,6 +861,16 @@ function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: Work
     ) : null;
   const buttons = units.map((u) => (u.kind === "choice" ? <ChoiceAction key={u.head.key} head={u.head} items={u.list} wh={wh} onEdit={onEdit} /> : oneButton(u.a)));
   function oneButton(a: ActionDef) {
+    // オン・オフを切り替えるボタン（ActionDef の check）は、チェックの欄と同じ見た目（押すと名前が変わるボタンの代わり。0236）
+    if (a.check !== undefined)
+      return (
+        <HelpOf key={a.key} help={actionHelp(a)}>
+          <label class="act-check" {...(a.title !== undefined ? { title: a.title } : {})}>
+            <input type="checkbox" checked={a.check.on} onChange={() => onEdit(a.run(wh))} data-action={a.key} />
+            {a.check.label}
+          </label>
+        </HelpOf>
+      );
     return (
       <HelpOf key={a.key} help={actionHelp(a)}>
         <button
@@ -1173,6 +1240,69 @@ export function readField(f: FieldDef, text: string, o: { unit: YenUnit; period:
   }
 }
 
+/**
+ * オン・オフだけの2択の選ぶ欄（欄の定義の onOff）を、チェックの欄と同じ見た目で描くか（同じオン・オフは同じ部品で。0236）。
+ * 描くのは、選択肢が onOff の2つだけで、値がそのどちらかのとき。ほかの選択肢がある間（前の値が残っている・3つ目の選択肢がある）と、
+ * 値が入っていない間は選ぶ欄のまま。保存する値は選択肢の値のまま
+ */
+export function onOffOf(f: FieldDef, value: Val): { on: Option; off: Option } | null {
+  if (f.kind !== "select" || f.onOff === undefined || f.readOnly !== undefined || f.search !== undefined || f.options.length !== 2) return null;
+  const on = f.options.find((o) => o.value === f.onOff?.on);
+  const off = f.options.find((o) => o.value === f.onOff?.off);
+  if (on === undefined || off === undefined || on === off || (value !== on.value && value !== off.value)) return null;
+  return { on, off };
+}
+
+/**
+ * 選ぶ欄を区切りボタン（全部の選択肢が並び、選んでいる方が藍の塗り）で描くか（0236）。
+ * 欄の定義の segmented で決める（選択肢の数や言葉の長さで自動に切り替えない。同じ欄がいつも同じ形になるように）。
+ * 読むだけの欄・打って選ぶ欄・見出し（group）のある選択肢・選択肢が1つ以下の欄は、指定があっても選ぶ欄のまま
+ */
+export function isSegmented(f: FieldDef): boolean {
+  return f.kind === "select" && f.segmented === true && f.readOnly === undefined && f.search === undefined && f.options.length >= 2 && f.options.every((o) => o.group === undefined);
+}
+
+/**
+ * 区切りボタン（1つを選ぶ。ラジオの並びとして読み上げる）: Tab で選んでいるボタンに入り、矢印（←→↑↓）・Home・End で移って選ぶ。
+ * est は、空欄のまま推定で計算している選択肢（点線で見せる。押すと確定になる）
+ */
+function SegChoice({ id, labelId, options, value, est, onPick }: { id: string; labelId: string; options: readonly Option[]; value: Val; est: string | undefined; onPick: (v: string) => void }) {
+  const cur = options.findIndex((o) => o.value === value);
+  const estAt = cur < 0 && est !== undefined ? options.findIndex((o) => o.value === est) : -1;
+  const tab = cur >= 0 ? cur : estAt >= 0 ? estAt : 0;
+  const onKey = (e: KeyboardEvent, i: number) => {
+    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    const to = e.key === "Home" ? 0 : e.key === "End" ? options.length - 1 : step !== 0 ? (i + step + options.length) % options.length : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    ((e.currentTarget as HTMLElement).parentElement?.children[to] as HTMLElement | undefined)?.focus();
+    if (to !== cur) onPick((options[to] as Option).value);
+  };
+  return (
+    <span class="seg-g fld-seg" role="radiogroup" aria-labelledby={labelId} data-seg>
+      {options.map((o, i) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          {...(i === tab ? { id } : {})}
+          class={i === estAt ? "is-est-opt" : undefined}
+          aria-checked={i === cur}
+          tabIndex={i === tab ? 0 : -1}
+          data-value={o.value}
+          {...(i === estAt ? { title: "空欄のまま、この選択肢で推定して計算しています（押すと確定します）" } : {})}
+          onClick={() => {
+            if (i !== cur) onPick(o.value);
+          }}
+          onKeyDown={(e) => onKey(e, i)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 /** 選ぶ欄の選択肢。見出し（group）のある選択肢は、同じ見出しが続く所を optgroup にまとめる */
 export function optionNodes(options: readonly Option[]): ComponentChildren[] {
   const out: ComponentChildren[] = [];
@@ -1358,6 +1488,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const [unit, setUnit] = useState<YenUnit>(f.kind === "yen" ? (f.unit ?? "man") : "man");
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
   const id = fieldDomId(f.key);
+  /** 選ぶ欄を区切りボタンで描くか（欄の定義の segmented。オン・オフだけの2択はチェックを優先） */
+  const isSeg = isSegmented(f) && onOffOf(f, state.value) === null;
   // 打って選ぶ欄（学校名など）の一覧を遅れて読む。読めたら描き直す（欄の横の名前・知らせも一覧から作るので、欄ごと描き直す）
   const [, searchLoaded] = useState(0);
   useEffect(() => {
@@ -1445,7 +1577,14 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     // 空欄のまま推定で計算する選ぶ欄で推定の値を書ける欄（blankEstimate）は、空の選択肢の名前を推定の選択肢にする（「（推定: 一時金）」。
     // 「（選ぶ）」では空欄でどう計算するか分からない。0041 の追記 2026-11-11）
     const estOpt = state.value === null && shownStatus === "estimated" && f.blankEstimate !== undefined ? f.options.find((o) => o.value === f.blankEstimate?.(wh)) : undefined;
-    control = (
+    const onOff = onOffOf(f, state.value);
+    control = onOff !== null ? (
+      // オン・オフだけの2択は、チェックの欄と同じ見た目。書く値は選択肢の値のまま
+      <input id={id} type="checkbox" checked={state.value === onOff.on.value} onChange={(e) => commit((e.currentTarget as HTMLInputElement).checked ? onOff.on.value : onOff.off.value)} data-on-off />
+    ) : isSeg ? (
+      // 区切りボタン（全部の選択肢が見えて、1回押せば選べる）
+      <SegChoice id={id} labelId={`${id}-l`} options={f.options} value={state.value} est={estOpt?.value} onPick={commit} />
+    ) : (
       <select id={id} value={state.value === null ? "" : String(state.value)} onChange={(e) => commit((e.currentTarget as HTMLSelectElement).value)}>
         {state.value === null || !f.options.some((o) => o.value === state.value) ? <option value="">{estOpt !== undefined ? `（推定: ${estOpt.label}）` : "（選ぶ）"}</option> : null}
         {optionNodes(f.options)}
@@ -1595,20 +1734,52 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const hint = basisHint !== null ? null : rawHint;
   const markOwnsBasis = basisHint !== null && shownStatus === "estimated" && basisText !== null;
   const badge = badgeWith(ghostHint?.source ?? state.estimateSource ?? (markOwnsBasis && !(basisText ?? "").includes(basisHint) ? basisHint : null));
+  /** チェックの欄（四角を左、名前を右の1行で描く。読むだけの欄はふつうの形のまま） */
+  const isCheck = (f.kind === "bool" && f.readOnly === undefined && f.search === undefined) || onOffOf(f, state.value) !== null;
+  const nameLabel = (
+    // 区切りボタンの欄は、名前を押しても選択が変わらないように for を付けない（並びの名前として aria-labelledby で結ぶ）
+    <label {...(isSeg ? { id: `${id}-l` } : { for: id })}>
+      {f.icon !== undefined ? <FieldIcon name={f.icon} /> : null}
+      {f.label}
+    </label>
+  );
+  const nameMarks = (
+    <>
+      {badge}
+      {state.premise !== undefined ? <PremiseTag mark={state.premise} /> : null}
+    </>
+  );
   return (
-    <div class={`fld${shownStatus === "estimated" ? " is-est" : shownStatus !== null && shownStatus !== "confirmed" ? ` is-${STATUS_CLASS[shownStatus]}` : ""}`} data-field={f.key}>
-      <div class="fld-l">
-        <label for={id}>
-          {f.icon !== undefined ? <FieldIcon name={f.icon} /> : null}
-          {f.label}
-        </label>
-        {/* 欄の説明の「?」は欄の名前のすぐ右（状態の印はその後ろ。0077 の 2026-10-29 の追記） */}
-        <FieldHelp f={f} wh={wh} />
-        {badge}
-        {state.premise !== undefined ? <PremiseTag mark={state.premise} /> : null}
-      </div>
-      <div class="fld-c">
-        {control}
+    <div class={`fld${isCheck ? " is-check" : ""}${shownStatus === "estimated" ? " is-est" : shownStatus !== null && shownStatus !== "confirmed" ? ` is-${STATUS_CLASS[shownStatus]}` : ""}`} data-field={f.key}>
+      {isCheck ? null : (
+        <div class="fld-l">
+          {nameLabel}
+          {/* 欄の説明の「?」は欄の名前のすぐ右（状態の印はその後ろ。0077 の 2026-10-29 の追記） */}
+          <FieldHelp f={f} wh={wh} />
+          {nameMarks}
+        </div>
+      )}
+      <div class={`fld-c${isCheck ? " fld-check" : ""}`}>
+        {isCheck ? (
+          // チェックの欄: 四角を左、名前を右の1行（名前を押しても切り替わる）。名前が長くて折れても、四角は1行目の高さのまま、
+          // 「?」は名前の最後の字のすぐ後ろに続く（名前と「?」を1つの文の流れにする）
+          <>
+            <span class="fld-check-main">
+              {control}
+              <span class="fld-check-name">
+                {nameLabel}
+                {/* 「?」だけが次の行に落ちないように、名前の最後の字と離れない形にする（改行を禁じる見えない字 U+2060 を前に置く） */}
+                <span class="fld-check-q">
+                  {"\u2060"}
+                  <FieldHelp f={f} wh={wh} />
+                </span>
+              </span>
+            </span>
+            {nameMarks}
+          </>
+        ) : (
+          control
+        )}
         {unitControls}
         {filledInside ? null : fill(false)}
         {basisHint !== null && !markOwnsBasis ? (
