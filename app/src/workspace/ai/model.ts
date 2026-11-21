@@ -31,7 +31,7 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_KIND: "架空の世帯かお客さまの世帯かを選んでください",
   E_AI_PERSIST: "記録を世帯ファイルに書けませんでした。もう一度試してください",
   E_AI_RECORDS: "同意とAIの記録が書き換えられていたため、保存を止めました",
-  E_AI_CONNECTOR_MISSING: "AI とつなぐ道具の実行ファイルが見つかりません",
+  E_AI_CONNECTOR_MISSING: "AI と接続する道具の実行ファイルが見つかりません",
   E_AI_DEV_BROWSER: "開発用のブラウザでは AI との接続を使えません（アプリで確かめてください）",
   E_STORE_NOT_OPEN: "世帯を開き直してください",
 };

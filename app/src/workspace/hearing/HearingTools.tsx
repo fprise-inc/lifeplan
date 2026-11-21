@@ -9,7 +9,9 @@
 //   「受け取る」から、受け取りの画面を挟まず取り込みの候補の画面へ。ご相談したいことの話題（事務所の既定値）はやめた
 // - 0192 の追記（2026-11-18）: Excel のシート（書き出す・記入済みを取り込む）は画面から外した（excelSwitch.ts の1か所で戻せる。部品・テストは残す）。
 //   取り込み済みの URL の依頼は一覧から外し、送られた内容は「取り込み済みの URL の回答」から見る
-// - 0222 の追記（2026-11-20）: 「事前ヒアリングを取り込む」に「AI が発行した URL」を開くボタン（aiIssued。上の帯が消えた後の入口）
+// - 0222 の追記（2026-11-20）: 利用者の判断で、FP が作った URL と AI が発行した URL を「発行した URL」の1つの表に（WebRequests.tsx・issuedUrls.ts）。
+//   まだ世帯の決まっていない AI の URL は、表の下のリンクから開く（aiIssued。上の帯が消えた後の入口）。「事前ヒアリングを取り込む」の段は、記入済みの
+//   Excel を取り込む（Excel の切り替えがオンのとき）と、届いた件数の知らせだけ（どちらも無ければ段ごと出さない）
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
 import type { HearingWebHost, SaveOutcome, SheetHost } from "../../engine/host.ts";
@@ -17,10 +19,10 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { today } from "../report/assemble.ts";
 import { docRequests, docRequestTitles } from "../input/docRequests.ts";
 import { WebBuilder, type OfficeLook } from "./WebBuilder.tsx";
-import { ImportedAnswers, WebRequests } from "./WebRequests.tsx";
+import { WebRequests } from "./WebRequests.tsx";
 import { HEARING_EXCEL_SHOWN } from "./excelSwitch.ts";
-import { AiHearingEntry, type AiHearingEntryProps } from "../ai/AiHearingIssued.tsx";
-import { listed, markImported, onArrivals, pendingCount, sentAtText, webLog, type HearingTemplate } from "./web.ts";
+import type { OfficeHearing } from "./aiHearing.ts";
+import { markImported, onArrivals, pendingCount, sentAtText, type HearingTemplate } from "./web.ts";
 import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, defaultWorkModes, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, workChangeTexts, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind, type WorkChangeMode } from "./sheet.ts";
 
 interface Props {
@@ -486,8 +488,11 @@ export function HearingTools({
   excel = HEARING_EXCEL_SHOWN,
 }: Props & {
   webProps?: WebProps;
-  /** 「AI が発行した URL」の入口（AI からの発行を受けられる画面だけ。Web のヒアリングを使える画面でだけ出す。0222 の追記 2026-11-20） */
-  aiIssued?: Omit<AiHearingEntryProps, "web">;
+  /**
+   * AI が発行した URL（AI からの発行を受けられる画面だけ。Web のヒアリングを使える画面でだけ使う。0222 の追記 2026-11-20）: 事務所データ・
+   * 開いている保存した世帯の内部 ID（見本・保存していない世帯は null）・閲覧だけで開いたか・「AI が発行した URL」を開く
+   */
+  aiIssued?: { store: OfficeHearing; householdId: string | null; readOnly: boolean; onOpen: () => void };
   /** Excel のシートの入口を出すか（既定は excelSwitch.ts。テストで出すときだけ渡す） */ excel?: boolean;
 }) {
   // 届いた知らせ（アプリを開いている間に確かめた結果。0192）が変わったら描き直す
@@ -536,24 +541,25 @@ export function HearingTools({
               </button>
             ) : null}
           </div>
-          <div class="hs-tools" role="group" aria-label="事前ヒアリングを取り込む" data-hearing-take>
-            <span class="hs-tools-h">事前ヒアリングを取り込む</span>
-            {excel ? (
-              <button type="button" class="btn" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
-                {mode === "busy" ? "読んでいます…" : "記入済みの Excel を取り込む"}
-              </button>
-            ) : null}
-            {webProps !== undefined ? (
-              <span class="rp-note" data-hearing-web-pending>
-                {webLog(wh).some((e) => listed(e, new Date(), wh)) ? "URL の回答は、下の「URL の依頼」の「受け取る」から取り込みます" : "URL生成で作った依頼に回答が届いたら、ここに出る「URL の依頼」の「受け取る」から取り込みます"}
-                {pend.arrived > 0 ? <b class="hs-kind answered">（届いています {pend.arrived}件）</b> : pend.toImport > 0 ? <b class="hs-kind review">（取り込み待ち {pend.toImport}件）</b> : null}
-              </span>
-            ) : null}
-            {webProps !== undefined && aiIssued !== undefined ? <AiHearingEntry web={webProps.web} {...aiIssued} /> : null}
-          </div>
+          {excel || (webProps !== undefined && (pend.arrived > 0 || pend.toImport > 0)) ? (
+            <div class="hs-tools" role="group" aria-label="事前ヒアリングを取り込む" data-hearing-take>
+              <span class="hs-tools-h">事前ヒアリングを取り込む</span>
+              {excel ? (
+                <button type="button" class="btn" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
+                  {mode === "busy" ? "読んでいます…" : "記入済みの Excel を取り込む"}
+                </button>
+              ) : null}
+              {webProps !== undefined && (pend.arrived > 0 || pend.toImport > 0) ? (
+                <span class="rp-note" data-hearing-web-pending>
+                  {pend.arrived > 0 ? <b class="hs-kind answered">URL の回答が届いています（{pend.arrived}件）</b> : null}
+                  {pend.toImport > 0 ? <b class="hs-kind review">取り込み待ち（{pend.toImport}件）</b> : null}
+                  {` 下の「発行した URL」の${pend.arrived > 0 && pend.toImport > 0 ? "「受け取る」「取り込む」" : pend.arrived > 0 ? "「受け取る」" : "「取り込む」"}から取り込みます`}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </>
       ) : null}
-      {webProps !== undefined && view === null ? <ImportedAnswers wh={wh} /> : null}
       {msg !== null ? (
         <p class="hs-msg" role="status" data-hearing-msg>
           {msg}
@@ -582,6 +588,7 @@ export function HearingTools({
           appVersion={APP_VERSION}
           onSave={onSave}
           saveNow={webProps.saveNow}
+          {...(aiIssued !== undefined ? { ai: aiIssued } : {})}
           onImport={(v, id, sentAt, received) => {
             setMsg(null);
             setMode(null);

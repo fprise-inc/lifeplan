@@ -52,8 +52,9 @@
 .fpm-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: grid; gap: 4px; margin: 0; padding: 8px; width: max-content; min-width: 20em; max-width: min(30em, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); }
 .fpm-group { display: grid; padding: 2px 0 6px; }
 .fpm-group + .fpm-group { border-top: 1px solid var(--card-line); padding-top: 8px; }
-.fpm-h { font-size: 0.78rem; font-weight: 700; color: var(--ink-2); padding: 0 10px 2px; }
-.fpm-item { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 14px; background: none; border: 0; border-radius: 7px; padding: 6px 10px; text-align: left; cursor: pointer; font-size: 0.9rem; color: var(--ink); }
+/* 見出しは小さめの灰色（太字にしない）。項目は見出しより一段右に下げる（0077 の追記） */
+.fpm-h { font-size: 0.74rem; font-weight: 400; color: var(--base-ink); padding: 0 10px 2px; }
+.fpm-item { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 14px; background: none; border: 0; border-radius: 7px; padding: 6px 10px 6px 22px; text-align: left; cursor: pointer; font-size: 0.9rem; color: var(--ink); }
 .fpm-item:hover, .fpm-item:focus-visible { background: var(--prop-bg); }
 .fpm-label { font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
 .fpm-note { color: var(--ink-2); font-size: 0.8rem; white-space: nowrap; }

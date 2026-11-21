@@ -680,7 +680,7 @@ pub struct DocReferenceArg {
     pub source: Option<DocSourceArg>,
 }
 
-/// 書類1通から読んだ値の候補（答えの形 document-candidates@1。ウェブのチャット AI の答えを貼り付けるときと同じ形）
+/// 書類1通から読んだ値の候補（答えの形 document-candidates@1）
 #[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentAnswerArg {
