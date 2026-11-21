@@ -20,6 +20,7 @@ import { materializeEvent } from "../namedEvents.ts";
 import { manYen } from "../readLines.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { amountText, oneMinus, rateText } from "../units.ts";
+import { bandKey, splitBands, type BandSpec } from "./bands.ts";
 import { carLoanGroups, newCarLoan } from "./housing.ts";
 import { fixGrowth } from "./living.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
@@ -469,7 +470,7 @@ const laterText = (months: number): string => {
   return months === 0 ? "今月" : months > 0 ? `${t}後` : `${t}前`;
 };
 
-export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly Car[]): GroupDef[] {
+export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly Car[], o: { loans?: readonly GroupDef[]; addLoan?: ActionDef } = {}): GroupDef[] {
   const find = byId(cars, c.id);
   const k = `ev/car/${c.id}`;
   const car = (h: Household, w: WorkingHousehold) => find(h, w) as Car | undefined;
@@ -695,10 +696,10 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   const firstYm = c.purchase === undefined ? null : resolveTimepoint(h0, c.purchase.first);
   const untilYm = c.until == null ? null : resolveTimepoint(h0, c.until);
   const lastCar = all.filter((x) => x.owner === c.owner).at(-1)?.id === c.id;
-  if (c.until != null && lastCar) actions.push({ key: `${k}/next`, label: "＋ この車の続きを足す", help: "手放した翌月から次の車を持つ形で足します", level: "detail", run: (w) => addNextCar(w, c.id) });
+  if (c.until != null && lastCar) actions.push({ key: `${k}/next`, label: "＋ この車の続き", help: "手放した翌月から次の車を持つ形で足します", level: "detail", run: (w) => addNextCar(w, c.id) });
   if (c.purchase !== undefined) {
     const neverReplaced = kind === "none" || (untilYm !== null && firstYm !== null && (owned ? untilYm < firstYm : untilYm < addMonths(firstYm, 12 * c.purchase.everyYears)));
-    if (c.purchase.everyYears >= 10 || neverReplaced) actions.push({ key: `${k}/repair`, label: "＋ 古くなってからの修理費を足す", help: "買ってから10年たった頃からの修理費を、よくある額の目安で毎年足します（足した後に直せます）", level: "detail", run: (w) => addRepair(w, c.id) });
+    if (c.purchase.everyYears >= 10 || neverReplaced) actions.push({ key: `${k}/repair`, label: "＋ 古くなってからの修理費", help: "買ってから10年たった頃からの修理費を、よくある額の目安で毎年足します（足した後に直せます）", level: "detail", run: (w) => addRepair(w, c.id) });
   }
   actions.push({
     key: `${k}/remove`,
@@ -713,22 +714,50 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       return { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !key.startsWith(`${k}/`))) };
     },
   });
-  const head: GroupDef = { key: k, title: `車 ${i + 1}（${memberLabel(wh, c.owner)}・${lease ? (c.lease?.type === "longRental" ? "長期レンタル" : "カーリース") : owned ? "今の車" : "これから買う車"}）`, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", moreLabel: lease ? "契約の年数・月額の中身を入れる" : "維持費の内訳・ローンを入れる", fields, actions };
+  // 車1台の枠の中を中枠に分ける（住宅ローンと同じ形。欄とボタンのキー・中身は今のまま。0237）。頭のまとまりは見出しと「外す」だけで、「▸」は車に1つ（枠の最後）
+  const title = `車 ${i + 1}（${memberLabel(wh, c.owner)}・${lease ? (c.lease?.type === "longRental" ? "長期レンタル" : "カーリース") : owned ? "今の車" : "これから買う車"}）`;
+  const head: GroupDef = { key: k, title, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", moreLabel: lease ? "契約の年数・月額の中身を入れる" : "維持費の内訳・ローンの条件を入れる", fields: [], actions: actions.filter((a) => a.danger === true) };
+  // 内訳の名前つきの行は「維持費」の中枠の中に、行を足すボタンは中枠の最後に
+  const otherAdd = detailGroups.filter((g) => g.key === `${k}/other/add`).flatMap((g) => g.actions);
+  const otherRows = detailGroups.filter((g) => g.key !== `${k}/other/add`);
   // 世帯が最後に手放す車にだけ、手放した後の移動の費用（0101。各名義の最後の車ではない）
   const after: GroupDef[] =
     lastCarOfHousehold(h0, c.id) && !afterCarAdded(h0, c.id)
       ? [
           {
             key: `${k}/afterCar`,
-            title: "この後、世帯に車がありません",
+            title: "手放した後（この後、世帯に車がありません）",
+            where: title,
+            band: true,
             level: "simple",
             fields: [],
-            actions: [{ key: `${k}/afterCar`, label: "＋ 手放した後の移動の費用を足す", help: "タクシー・バスなど、世帯の最後の車を手放した翌月からの移動の費用を、よくある額の目安で足します（足した後に直せます）", level: "simple", run: (w) => addAfterCar(w, c.id) }],
+            actions: [{ key: `${k}/afterCar`, label: "＋ 手放した後の移動の費用", help: "タクシー・バスなど、世帯の最後の車を手放した翌月からの移動の費用を、よくある額の目安で足します（足した後に直せます）", level: "simple", run: (w) => addAfterCar(w, c.id) }],
           },
         ]
       : [];
-  return [head, ...detailGroups, ...after];
+  const bands = splitBands(k, lease ? LEASE_BANDS : CAR_BANDS, fields, [...actions.filter((a) => a.danger !== true), ...otherAdd], { inner: { upkeep: otherRows }, where: title });
+  // 今返しているローン（この車の枠の中の中枠。1本 = 中枠1つ）と、足すボタン（ローンの並びの最後）。「価格・買い方」の後、「維持費」の前に置く
+  const nowLoans: GroupDef[] = [...(o.loans ?? []), ...(o.addLoan !== undefined ? [{ key: `${k}/addNowLoan`, where: title, level: "simple" as const, fields: [], actions: [o.addLoan] }] : [])];
+  const at = bands.findIndex((g) => g.key === bandKey(k, "upkeep"));
+  const withLoan = at < 0 ? [...bands, ...nowLoans] : [...bands.slice(0, at), ...nowLoans, ...bands.slice(at)];
+  return [head, ...withLoan, ...after];
 }
+
+/**
+ * 車1台の中枠（0237）。欄のキーの末尾 → 中枠。順番は 持ち主・買い替えと時期 → 価格・買い方 →（今返しているローン。carStage が渡す）→ 維持費 → 伸び方・万一のとき
+ */
+const CAR_BANDS: readonly BandSpec[] = [
+  { id: "car", title: "車と買い替え", keys: ["owner", "owned", "replace", "replaceAll", "replaceUntil", "first", "every", "untilAge"], actions: ["next"] },
+  { id: "price", title: "価格・買い方", keys: ["price", "tradeIn", "pay", "down", "term", "rate"] },
+  { id: "upkeep", title: "維持費", keys: ["upkeepMode", "upkeep", "upkeepSum", "tax", "insurance", "inspection", "inspFirst", "inspEvery", "parking", "fuel"], actions: ["other/add", "repair"] },
+  { id: "future", title: "伸び方・万一のとき", keys: ["growth", "growthRate", "on"] },
+];
+/** リース・長期レンタルの車の中枠 */
+const LEASE_BANDS: readonly BandSpec[] = [
+  { id: "car", title: "契約の内容", keys: ["owner", "lease", "untilAge"], actions: ["next"] },
+  { id: "upkeep", title: "維持費", keys: ["upkeepMode", "upkeep", "upkeepSum", "tax", "insurance", "inspection", "inspFirst", "inspEvery", "parking", "fuel"], actions: ["other/add", "repair"] },
+  { id: "future", title: "伸び方・万一のとき", keys: ["growth", "growthRate", "on"] },
+];
 
 /** 買い替えの選び方（0101）。標準は「買い替え続ける」「この1台だけ」（「○歳まで」はこの車がその形のときだけ）、詳細は3つとも */
 function replaceFields(c: Car, i: number, k: string): FieldDef[] {
@@ -1370,19 +1399,75 @@ function moveSection(wh: WorkingHousehold): SectionDef | null {
 /** 今の自動車ローン（今返している分。kind car の負債） */
 export const carDebts = (h: Household): Debt[] => (h.debts ?? []).filter((d) => d.kind === "car" && d.property === undefined && d.inheritedFrom === undefined);
 
-/** 今返している自動車ローン（住まい・ローンのカードから移した。0069）。返済の欄は、ほかのローンと同じ部品 */
-function carLoanSection(wh: WorkingHousehold): SectionDef {
-  const debts = carDebts(wh.request.input.household);
-  // 今の車があれば、標準にも足すボタン（今の車のローンが残っているかは面談で毎回聞く）
-  const ownedCar = (wh.request.input.household.cars ?? []).some((c) => c.purchase?.owned === true);
-  const level = debts.length > 0 || ownedCar ? "simple" : "detail";
+/**
+ * 今返している自動車ローンを、どの車の枠の中に出すか（0237。見せ方だけで、ローンのデータの持ち方と計算は変えない）。ローンには車との結び付きが無いので、
+ * ローンの名義（主な借り手）と同じ名義の今の車（何台かあれば、ローンの少ない車）に、無ければ今の車が1台だけのときその車に出す。
+ * 合う車の無いローンは rest（車の区画のすぐ下の区画に出す）
+ */
+function loansByCar(h: Household): { of: Map<string, Debt[]>; rest: Debt[] } {
+  const owned = (h.cars ?? []).filter((c) => !isLeaseCar(c) && c.purchase?.owned === true);
+  const of = new Map<string, Debt[]>();
+  const rest: Debt[] = [];
+  for (const d of carDebts(h)) {
+    const who = (d.debtors.find((x) => x.role === "primary") ?? d.debtors[0])?.member;
+    const same = owned.filter((c) => c.owner === who).sort((x, y) => (of.get(x.id) ?? []).length - (of.get(y.id) ?? []).length)[0];
+    const car = same ?? (owned.length === 1 ? owned[0] : undefined);
+    if (car === undefined) rest.push(d);
+    else of.set(car.id, [...(of.get(car.id) ?? []), d]);
+  }
+  return { of, rest };
+}
+
+/**
+ * 車の枠の中に出す、今返しているローンのまとまり（1本 = 中枠1つ。欄はほかのローンと同じ部品のまま。「▸」は車の頭の1つで開く）。
+ * 入力項目の画面の外で言う名前（where）は、前と同じ「自動車ローン（名義）」のまま
+ */
+function nowLoanBands(wh: WorkingHousehold, carKey: string, debts: readonly Debt[]): GroupDef[] {
+  return debts.flatMap((d, i) => {
+    const gs = carLoanGroups(wh, d, i);
+    // 見出しの無い続きのまとまり（「＋ 繰上返済」など）も、入力の検索ではどのローンのボタンかを言う
+    const head = gs[0]?.title;
+    return gs.map((g, j): GroupDef => {
+      const { moreLabel: _m, ...x } = g;
+      const who = (d.debtors.find((y) => y.role === "primary") ?? d.debtors[0])?.member;
+      return j === 0 ? { ...x, title: `今返しているローン${debts.length > 1 ? ` ${i + 1}` : ""}（${memberLabel(wh, who)}）`, ...(g.title !== undefined ? { where: g.title } : {}), band: true, partOf: carKey, unitOf: carKey } : { ...g, ...(g.title === undefined && head !== undefined ? { where: head } : {}), unitOf: carKey };
+    });
+  });
+}
+
+/** 車の枠の中の「＋ 今返しているローン」（足したローンの名義を、この車の名義の人に合わせる。名義の欄と同じ書き方で書く） */
+function addNowLoan(c: Car, k: string): ActionDef {
+  return {
+    key: `${k}/addNowLoan`,
+    label: "＋ 今返しているローン",
+    help: "今の車のローンを返しているときに入れます（これから買う車のローンは、上の「買い方」で入れます）",
+    level: "simple",
+    run: (w) => {
+      const before = new Set((w.request.input.household.debts ?? []).map((d) => d.id));
+      const next = newCarLoan(w);
+      const h = next.request.input.household;
+      const d = (h.debts ?? []).find((x) => !before.has(x.id));
+      const owner = h.members.find((m) => m.id === c.owner);
+      if (d === undefined || owner === undefined || owner.kind === "self") return next;
+      const debtor = carLoanGroups(next, d, 0)[0]?.fields.find((f) => f.key.endsWith("/debtors"));
+      return debtor === undefined ? next : debtor.set(next, owner.kind === "spouse" ? "spouse" : owner.id);
+    },
+  };
+}
+
+/** 今返している自動車ローンのうち、どの車の枠にも出せない分（今の車が無い・名義の合う車が無い）。返済の欄は、ほかのローンと同じ部品 */
+function carLoanSection(wh: WorkingHousehold, debts: readonly Debt[]): SectionDef | null {
+  // 今の車があれば、足すボタンは車の枠の中（ここには、出せなかったローンだけ）
+  const ownedCar = (wh.request.input.household.cars ?? []).some((c) => !isLeaseCar(c) && c.purchase?.owned === true);
+  if (ownedCar && debts.length === 0) return null;
+  const level = debts.length > 0 ? "simple" : "detail";
   return {
     key: "car/loans",
-    title: "今返している自動車ローン",
+    title: ownedCar ? "ほかの自動車ローン（名義の合う今の車がありません）" : "今返している自動車ローン",
     ...(debts.length === 0 ? { note: "今の車のローンを返しているときに入れます（これから買う車のローンは、車の「買い方」で入れます）" } : {}),
     level,
     groups: debts.flatMap((d, i) => carLoanGroups(wh, d, i)),
-    actions: [{ key: "car/addCarLoan", label: ownedCar ? "＋ 今返している自動車ローン" : "＋ 自動車ローン", level, run: (w) => newCarLoan(w) }],
+    actions: ownedCar ? [] : [{ key: "car/addCarLoan", label: "＋ 自動車ローン", level, run: (w) => newCarLoan(w) }],
   };
 }
 
@@ -1390,6 +1475,9 @@ function carLoanSection(wh: WorkingHousehold): SectionDef {
 export function carStage(wh: WorkingHousehold): StageDef {
   const list = wh.request.input.household.cars ?? [];
   const move = moveSection(wh);
+  // 今返している自動車ローンは、その車の枠の中に出す（0237）。出せない分だけ、車の区画のすぐ下の区画に
+  const loans = loansByCar(wh.request.input.household);
+  const loanSection = carLoanSection(wh, loans.rest);
   return {
     id: "car",
     label: "車",
@@ -1400,7 +1488,11 @@ export function carStage(wh: WorkingHousehold): StageDef {
         title: "車",
         note: "買い替え（下取り・ローン）・リースの月額と維持費を、車ごとに入れます。2台目からは「＋ もう1台」で足します。基本生活費の「交通費」には車の費用を入れないでください（二重になります）",
         level: "simple",
-        groups: list.flatMap((c, i) => carGroups(wh, c, i, list)),
+        groups: list.flatMap((c, i) => {
+          const k = `ev/car/${c.id}`;
+          const ownedNow = !isLeaseCar(c) && c.purchase?.owned === true;
+          return carGroups(wh, c, i, list, { loans: nowLoanBands(wh, k, loans.of.get(c.id) ?? []), ...(ownedNow ? { addLoan: addNowLoan(c, k) } : {}) });
+        }),
         actions: [
           ...(list.length === 0
             ? [
@@ -1420,8 +1512,8 @@ export function carStage(wh: WorkingHousehold): StageDef {
           },
         ],
       },
+      ...(loanSection !== null ? [loanSection] : []),
       ...(move !== null ? [move] : []),
-      carLoanSection(wh),
     ],
   };
 }

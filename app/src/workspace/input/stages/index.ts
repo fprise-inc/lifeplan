@@ -8,6 +8,7 @@ import { afterWrite, allFields } from "../form.ts";
 import { keepRefs } from "../refs.ts";
 import type { WorkingHousehold } from "../household.ts";
 import { assumptionsStage } from "./assumptions.ts";
+import type { StageOptions } from "./bands.ts";
 import { carStage } from "./cars.ts";
 import { careStage, followCareStarts } from "./care.ts";
 import { educationStage } from "./education.ts";
@@ -29,7 +30,7 @@ import { STAGE_ORDER } from "../stageOrder.ts";
 // 15項目の標準の順番と名前は stageOrder.ts（画面の部品を読まない所〔AI接続口の計算のお知らせ。0210〕からも読むので、段階の定義と分けた）
 export { STAGE_ORDER };
 
-const BUILDERS: Record<StageId, (wh: WorkingHousehold) => StageDef> = {
+const BUILDERS: Record<StageId, (wh: WorkingHousehold, o?: StageOptions) => StageDef> = {
   family: familyStage,
   work: workStage,
   retirement: retirementStage,
@@ -56,8 +57,9 @@ const MONEY_CARDS: ReadonlySet<StageId> = new Set(["work", "housing", "insurance
 const RENTAL_MONEY_NOTE =
   "物件ごとに分けない、不動産にかかる一時的支出です。家計の支出として出ますが、不動産所得の経費には入れません。物件の大規模修繕・原状回復は、物件の「売却・大きな修繕の予定」で入れると、貸している間なら全額をその年の経費にします。毎年かかる経費は物件の「経費」の年額で入れます";
 
-export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
-  return withRefsKept(withCareStartsFollowed(buildRaw(id, wh)));
+/** o は定義の形の選択肢（bands.ts の StageOptions。入力項目の画面が詳細で開くときだけ渡す。既定は今までの形） */
+export function buildStage(id: StageId, wh: WorkingHousehold, o: StageOptions = {}): StageDef {
+  return withRefsKept(withCareStartsFollowed(buildRaw(id, wh, o)));
 }
 
 /**
@@ -80,8 +82,8 @@ function withRefsKept(stage: StageDef): StageDef {
   return { ...stage, sections: stage.sections.map((s) => ({ ...s, actions: s.actions.map(wrap), groups: s.groups.map((g) => ({ ...g, actions: g.actions.map(wrap) })) })) };
 }
 
-function buildRaw(id: StageId, wh: WorkingHousehold): StageDef {
-  const stage = BUILDERS[id](wh);
+function buildRaw(id: StageId, wh: WorkingHousehold, o: StageOptions): StageDef {
+  const stage = BUILDERS[id](wh, o);
   if (!MONEY_CARDS.has(id)) return stage;
   // ピンにした物も属するカードに出す（ピンは見せ方だけ。0045）
   const money = moneySections(wh, id as MoneyCard, {

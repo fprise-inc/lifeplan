@@ -25,6 +25,7 @@ import { expenseCard, incomeCard, type MoneyCard } from "./moneyRows.ts";
 import { childOfPeriodic, eventExpenses } from "./stages/events.ts";
 import { dreamRows } from "./dreams.ts";
 import { buildStage, STAGE_ORDER } from "./stages/index.ts";
+import type { StageOptions } from "./stages/bands.ts";
 import { giftLines } from "./stages/inheritance.ts";
 import { statementMonthsMissing } from "./stages/pension.ts";
 import { educationFinished } from "./stages/education.ts";
@@ -892,13 +893,16 @@ export function pinItems(wh: WorkingHousehold, base?: WorkingHousehold): PinItem
 
 // ---- カードの一覧 ----
 
-/** カードの中身（パネルで開く欄の定義）。ピンはその物のまとまりだけ */
-export function itemStage(wh: WorkingHousehold, id: string): StageDef | null {
+/**
+ * 入力項目の中身（パネルで開く欄の定義）。ピンはその物のまとまりだけ。
+ * o は定義の形の選択肢（stages/bands.ts の StageOptions）: 入力項目の画面が詳細で開くときだけ渡す。確かめの一覧・検索・プランの違いなどは既定（今までの形）
+ */
+export function itemStage(wh: WorkingHousehold, id: string, o: StageOptions = {}): StageDef | null {
   if (id.startsWith("added:")) {
     const a = wh.addedItems.find((x) => x.id === id);
     return a === undefined ? null : pinStage(wh, a);
   }
-  return STAGE_ORDER.some((s) => s.id === id) ? buildStage(id as StageId, wh) : null;
+  return STAGE_ORDER.some((s) => s.id === id) ? buildStage(id as StageId, wh, o) : null;
 }
 
 export interface ItemOptions {

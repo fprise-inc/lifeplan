@@ -45,10 +45,10 @@ describe("下取りの残価の目安（ひな形）", () => {
     expect(fieldStatus(fieldOf(wh, "/tradeIn"), wh).status).toBe("confirmed");
   });
 
-  it("簡易は名義・買い替え・次の買い替えの時期・周期・価格・買い方・維持費の合計・手放す時期。下取り・今の車か・入れ方・万一・「○歳まで」を選べる買い替えは詳細", () => {
+  it("簡易は名義・買い替え・次の買い替えの時期・周期・手放す時期・価格・買い方・維持費の合計（中枠の順）。下取り・今の車か・入れ方・万一・「○歳まで」を選べる買い替えは詳細", () => {
     const wh = addCar(open("salariedCoupleTwoKids"), ids());
     const simple = allFields(buildStage("car", wh)).filter((f) => f.level === "simple" && f.key.startsWith("ev/car/")).map((f) => f.key.split("/").at(-1));
-    expect(simple).toEqual(["owner", "replace", "first", "every", "price", "pay", "upkeep", "untilAge"]);
+    expect(simple).toEqual(["owner", "replace", "first", "every", "untilAge", "price", "pay", "upkeep"]);
     const detail = allFields(buildStage("car", wh)).filter((f) => f.level === "detail" && f.key.startsWith("ev/car/")).map((f) => f.key.split("/").slice(3).join("/"));
     expect(detail).toEqual(expect.arrayContaining(["replaceAll", "tradeIn", "owned", "upkeepMode", "growth", "on/mode"]));
   });
@@ -115,7 +115,7 @@ describe("車のひな形のボタン（出来事に結ぶ）", () => {
     const c = car0(wh);
     const act = buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).find((a) => a.key.endsWith("/afterCar"));
     expect(act?.level).toBe("simple");
-    expect(act?.label).toBe("＋ 手放した後の移動の費用を足す");
+    expect(act?.label).toBe("＋ 手放した後の移動の費用");
     wh = addAfterCar(wh, c.id);
     const h = wh.request.input.household;
     const ev = h.events!.find((e) => e.kind === "carRelease")!;
@@ -139,7 +139,7 @@ describe("車のひな形のボタン（出来事に結ぶ）", () => {
     const id = car0(wh).id;
     expect(buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).some((a) => a.key.endsWith("/repair"))).toBe(false);
     wh = fieldOf(wh, "/every").set(wh, 12);
-    expect(buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).find((a) => a.key.endsWith("/repair"))?.label).toBe("＋ 古くなってからの修理費を足す");
+    expect(buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).find((a) => a.key.endsWith("/repair"))?.label).toBe("＋ 古くなってからの修理費");
     wh = addRepair(wh, id);
     const h = wh.request.input.household;
     const row = h.periodicExpenses!.find((p) => p.label === "古くなってからの修理費")!;

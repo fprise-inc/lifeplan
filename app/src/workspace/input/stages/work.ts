@@ -20,6 +20,7 @@ import { executiveMembers } from "../officer.ts";
 import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 import { hasBusinessIncome, taxReturnFields } from "../taxReturn.ts";
 import { declaredDependentWarn } from "../dependentLimit.ts";
+import { keyTail, splitBands, type BandSpec } from "./bands.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・「5年後」のように入れても、その年月にします）";
@@ -842,7 +843,8 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   );
   return {
     key: `work/${m.id}/retirement`,
-    title: `${who}の定年後の予定`,
+    title: "定年後の予定",
+    where: `${who}の定年後の予定`,
     note: "結果の画面の「働く最後の年齢」でも試せます。そこで動かしても、ここに入れた今の予定は変わりません",
     level: "simple",
     fields,
@@ -851,7 +853,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
         ? [
             {
               key: `work/${m.id}/addPost`,
-              label: "定年後の予定を入れる",
+              label: "＋ 定年後の予定",
               level: "simple",
               run: (w) => {
                 const last = periodsOf(w.request.input.household, m.id).filter((p) => p.to?.at !== undefined).at(-1) as EmploymentPeriod;
@@ -864,7 +866,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   };
 }
 
-/** 働き方の入口の選択肢（「働き方を入れる」の1つのボタンの中。選んだ種類で推定を入れて期間を作る） */
+/** 働き方の入口の選択肢（「＋ 働き方」の1つのボタンの中。選んだ種類で推定を入れて期間を作る） */
 const ENTRY_TYPES: readonly { type: string; label: string }[] = [
   { type: "regular", label: "正社員" },
   { type: "partTime", label: "パート・アルバイト" },
@@ -988,11 +990,13 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
   const cur = currentPeriod(h, m.id, base);
+  // 見出しに人の名前は付けない（区画の見出しがその人。同じ名前を2段に重ねない）。入力項目の画面の外で言う名前（where）には、前と同じく名前を付ける（0237）
   const who = memberLabel(wh, m.id);
   if (cur === undefined)
     return {
       key: `work/${m.id}/now`,
-      title: `${who}の働き方`,
+      title: "働き方",
+      where: `${who}の働き方`,
       note: "働き方が入っていません（収入なしで計算しています）",
       level: "simple",
       fields: [],
@@ -1001,7 +1005,7 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
         key: e.type === "regular" ? `work/${m.id}/start` : e.type === "selfEmployed" ? `work/${m.id}/startSelf` : `work/${m.id}/start/${e.type}`,
         label: e.label,
         level: "simple" as const,
-        choice: { key: `work/${m.id}/entry`, label: "働き方を入れる", help: ENTRY_HELP },
+        choice: { key: `work/${m.id}/entry`, label: "＋ 働き方", help: ENTRY_HELP },
         run: (w: WorkingHousehold) => startWork(w, m, e.type),
       })),
     };
@@ -1015,7 +1019,7 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
   // 標準の「▸ 詳しく」: 住民税と、この期間の詳しい欄（詳細の「働き方 1・2…」と同じ欄。期間の始まり・終わりと、年収・賞与の分け方は詳細で直す。0078 の追記）
   const shownItems = new Set(fields.map((f) => f.item));
   const openFields = [residentTaxField(wh, m), ...periodFields(wh, m, cur, find, "detail", `work/period/${cur.id}`).filter((f) => f.item !== null && !NOT_IN_NOW.has(f.item) && !shownItems.has(f.item))];
-  return { key: `work/${m.id}/now`, title: `${who}の今の働き方`, ...(past ? { note: "今は働いていません。次に始まる働き方を出しています" } : {}), level: "simple", moreLabel: "住民税・社会保険などを入れる", fields, actions: [], openFields, simpleOnly: true };
+  return { key: `work/${m.id}/now`, title: "今の働き方", where: `${who}の今の働き方`, ...(past ? { note: "今は働いていません。次に始まる働き方を出しています" } : {}), level: "simple", moreLabel: "住民税・社会保険などを入れる", fields, actions: [], openFields, simpleOnly: true };
 }
 
 /** 住民税（今年度の年税額）の欄。詳細では今の働き方の期間のまとまり、標準では今の働き方の「▸ 詳しく」に出す（欄の一覧には1回だけ） */
@@ -1641,12 +1645,12 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
           level: "detail",
           kind: "select",
           optional: true,
-          options: [{ value: "", label: `自動: ${endsWithLabel(auto.value)}（${auto.why}）` }, ...ENDS_WITH],
-          help: "この期間の終わり方です（失業給付と退職金の推定に使います）。自動は、辞める月が60歳以後（か定年の出来事に合わせた期間）なら定年、それより前は自己都合です。「休業のまま辞める」は働けないまま辞める形で、失業給付は受けません",
+          options: [{ value: "", label: `おまかせ（推定: ${endsWithLabel(auto.value)}・${auto.why}）` }, ...ENDS_WITH],
+          help: "この期間の終わり方です（失業給付と退職金の推定に使います）。おまかせは、辞める月が60歳以後（か定年の出来事に合わせた期間）なら定年、それより前は自己都合です。「休業のまま辞める」は働けないまま辞める形で、失業給付は受けません",
           get: (w) => {
             const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
             if (x?.endsWith !== undefined) return { value: x.endsWith };
-            const warn = atRetirement && auto.value === "voluntary" ? `定年後の予定では、この期間の終わりが定年（${post.fromAge}歳）です。自動のままだと、60歳になる前に辞めるので自己都合で計算します（退職金の目安・失業給付も自己都合）` : null;
+            const warn = atRetirement && auto.value === "voluntary" ? `定年後の予定では、この期間の終わりが定年（${post.fromAge}歳）です。おまかせのままだと、60歳になる前に辞めるので自己都合で計算します（退職金の目安・失業給付も自己都合）` : null;
             return { value: "", implicit: true, ...(warn !== null ? { warn, warnFix: { label: "辞め方を定年にする", run: (ww: WorkingHousehold) => setEnding(ww, find, "retirement") } } : {}) };
           },
           set: (w, v) => (retireAuto && (v === null || v === "") ? setRetirementEstimate(w, find) : setEnding(w, find, v === null || v === "" ? null : String(v))),
@@ -1856,22 +1860,36 @@ function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
  * 詳細の働き方の期間のまとまり（その人の区画の中。「働き方 1」「働き方 2」…の順に、その下に足すボタン。0047 の追記）。
  * 今の働き方の期間（計算基準月にしている期間。無ければ次に始まる期間）には住民税の欄も置く（標準の「今の働き方」の詳しい欄と同じ欄）
  */
+const PERIOD_BANDS: readonly BandSpec[] = [
+  { id: "term", title: "期間と種類", keys: ["from", "to", "type", "leaveKind", "leaveEnd"] },
+  { id: "income", title: "収入", keys: ["total", "annual", "bonus", "salaryGrowth", "salaryCurve", "salaryCurveSize", "business", "businessTax", "businessGrowth"] },
+  { id: "social", title: "税・社会保険", keys: ["residentTax", "si", "hi", "branch", "hiRate", "pc", "size", "hours", "smrH", "smrP", "commuting", "student", "corpDb", "corpDbMonthly"] },
+  { id: "leaving", title: "辞めるとき", keys: ["endsWith", "unemploymentClaim", "continuationClaim"] },
+];
+
 function periodListGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
   const who = memberLabel(wh, m.id);
   const cur = currentPeriod(h, m.id, base);
   const ps = periodsOf(h, m.id);
-  const groups: GroupDef[] = ps.map((p, i) => {
+  const groups: GroupDef[] = ps.flatMap((p, i) => {
     const now = p.id === cur?.id && (p.from.at ?? "") <= base && (p.to === null || (p.to.at ?? "9999-12") >= base);
-    const fields = periodFields(wh, m, p, byId(periods, p.id), "detail", `work/period/${p.id}`);
-    return {
-      key: `work/period/${p.id}`,
-      title: `${who}の働き方 ${i + 1}${now ? "（今の働き方）" : ""}`,
+    const k = `work/period/${p.id}`;
+    const fields = periodFields(wh, m, p, byId(periods, p.id), "detail", k);
+    // 頭は見出しと「外す」だけ。欄は中枠に分ける（期間と種類 → 収入 → 税・社会保険 → 辞めるとき）。住民税の欄はキーの形が別（人ごと）なので名指しで読む
+    const tax = `work/${m.id}/residentTax`;
+    const title = `働き方 ${i + 1}${now ? "（今の働き方）" : ""}`;
+    const where = `${who}の${title}`;
+    const head: GroupDef = {
+      key: k,
+      title,
+      where,
       level: "detail",
-      fields: p.id === cur?.id ? [...fields, residentTaxField(wh, m)] : fields,
-      actions: [removeAction(`work/period/${p.id}/remove`, WORDS.remove, "detail", (hh) => void (hh.employmentPeriods = (hh.employmentPeriods ?? []).filter((x) => x.id !== p.id)))],
+      fields: [],
+      actions: [removeAction(`${k}/remove`, WORDS.remove, "detail", (hh) => void (hh.employmentPeriods = (hh.employmentPeriods ?? []).filter((x) => x.id !== p.id)))],
     };
+    return [head, ...splitBands(k, PERIOD_BANDS, p.id === cur?.id ? [...fields, residentTaxField(wh, m)] : fields, [], { where, tail: (key) => (key === tax ? "residentTax" : keyTail(k, key)) })];
   });
   // 期間が無い人は、今の働き方のまとまりの「会社員として入れる」などで始める（足すボタンも出す）
   groups.push({ key: `work/${m.id}/periods`, level: "detail", fields: [], actions: [addPeriodAction(wh, m, ps.length + 1)] });
@@ -1881,7 +1899,7 @@ function periodListGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
 function addPeriodAction(wh: WorkingHousehold, m: Member, n: number): ActionDef {
   return {
     key: `work/${m.id}/addPeriod`,
-    label: `＋ ${memberLabel(wh, m.id)}の働き方 ${n}`,
+    label: `＋ 働き方 ${n}`,
     level: "detail",
     help: "正社員→育休→時短→退職→パート、定年→再雇用のように、働き方を期間に分けて並べます。期間は重ならないようにします。足した期間は、前の期間の次の月からパート・アルバイトで5年間です（種類・始まり・終わりは足した後に直せます）",
     run: (w) => {
@@ -1917,7 +1935,8 @@ function officerGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   const guarantee = yenBox({ key: `${k}/guarantee`, item: "member.companyGuarantee", label: "会社の借入の連帯保証の額", level: "simple", basis: "once", find, path: ["companyGuarantee"], optional: true, help: "役員を務める会社の借入のうち、連帯保証している額（今の額）。負債の合計には入れず、資産と負債のタブで「保証を含めると純資産は○円」と別に見せます。計算には使いません" });
   return {
     key: k,
-    title: `${memberLabel(wh, m.id)}の会社とのお金（役員）`,
+    title: "会社とのお金（役員）",
+    where: `${memberLabel(wh, m.id)}の会社とのお金（役員）`,
     note: `自社株（出資額）と会社への貸付金は「貯蓄・運用」のその他の資産${owned > 0 ? `（${owned}件）` : ""}、会社からの借入金は「住まい・ローン」のほかのローン${borrowed > 0 ? `（${borrowed}件）` : ""}で入れます。会社の側の数字（会社の決算・会社の資産と負債）は入れません`,
     level: "simple",
     fields: [{ ...guarantee, address: () => ({ target: { member: m.id }, item: "member.companyGuarantee", at: [] }) }],
@@ -1933,7 +1952,7 @@ function officerGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
 function taxReturnGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   if (!hasBusinessIncome(wh.request.input.household, m.id)) return null;
   const k = `work/${m.id}/taxReturn`;
-  return { key: k, title: `${memberLabel(wh, m.id)}の確定申告`, level: "simple", fields: taxReturnFields(wh, m.id, k, "simple", false), actions: [] };
+  return { key: k, title: "確定申告", where: `${memberLabel(wh, m.id)}の確定申告`, level: "simple", fields: taxReturnFields(wh, m.id, k, "simple", false), actions: [] };
 }
 
 export function workStage(wh: WorkingHousehold): StageDef {

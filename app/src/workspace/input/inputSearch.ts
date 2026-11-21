@@ -104,8 +104,10 @@ function entriesOfSection(s: SectionDef, push: (label: string, where: string | n
   for (const g of s.groups) {
     const simpleOnly = g.simpleOnly === true;
     // どの物の欄か: まとまりの題（区画の題を含まないとき〔「奨学金・教育ローン」など〕は、区画の題〔「第1子」〕を前に付けて、どの子の物か分かるように）
-    const where = g.title === undefined ? s.title : g.title.includes(s.title) ? g.title : `${s.title} › ${g.title}`;
-    if (g.title !== undefined) push(g.title, s.title, g.note ?? g.info?.text, { kind: "group", key: g.key, ...sec }, simpleOnly ? "simple" : levelOf(s.level, g.level));
+    // 見出しを短くしたまとまり・中枠は、画面の外で言う名前（where）で言う（0237）
+    const name = g.where ?? g.title;
+    const where = name === undefined ? s.title : name.includes(s.title) ? name : `${s.title} › ${name}`;
+    if (g.title !== undefined) push(g.title, g.band === true && g.where !== undefined ? where : s.title, g.note ?? g.info?.text, { kind: "group", key: g.key, ...sec }, simpleOnly ? "simple" : levelOf(s.level, g.level));
     else if (g.info !== undefined) push(g.info.title, s.title, g.info.text, { kind: "group", key: g.key, ...sec }, levelOf(s.level, g.level));
     for (const f of g.fields) push(f.label, where, f.help, { kind: "field", key: f.key, ...sec }, simpleOnly || f.simpleOnly === true ? "simple" : levelOf(s.level, g.level, f.level));
     actions(g.actions, where, [s.level, g.level], simpleOnly);

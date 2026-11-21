@@ -73,7 +73,7 @@ describe("夢プランの区画（ライフイベントの入力項目のいち�
     expect(tpl("hobby").help).toContain("1回50万円ほどが目安");
     expect(tpl("study").help).toContain("1回30万円ほどが目安");
     expect([tpl("hobby").years, tpl("study").years, tpl("trip").age]).toEqual([1, 1, 65]);
-    expect(d.actions.map((a) => a.label)).toEqual(["＋ 夢を足す"]);
+    expect(d.actions.map((a) => a.label)).toEqual(["＋ 夢"]);
   });
 
   it("ひな形は名前と時期だけ（額は未入力の警告）。時期はご本人の年齢か今から○年後で、仮の印。順位はいちばん下", () => {

@@ -176,11 +176,12 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
    */
   const raised = useRef(new Set<string>());
   const stage = useMemo(() => {
-    const st = itemStage(shown, itemId);
+    // 詳細の画面だけ、契約1件の欄を中枠に分けた形で開く（保険。標準は今までの形。0237）
+    const st = itemStage(shown, itemId, { bands: level === "detail" });
     if (st === null) return null;
     for (const f of allFields(st)) if (f.level === "detail" && f.readOnly === undefined && f.missingShownBy === undefined && fieldStatus(f, shown).status === "missing") raised.current.add(f.key);
     return raiseFields(st, raised.current);
-  }, [shown, itemId]);
+  }, [shown, itemId, level]);
   const surplusSug = useSurplusSuggestion(shown, itemId === "living", computeOne);
   /** 答え合わせの「実際の年間の貯蓄額」の欄の下の1行（計算の年間収支・実際の額・差。計算の結果を読むだけ。0106 の追記） */
   const checkLine = useSavingsCheckLine(shown, itemId === "living", computeOne);

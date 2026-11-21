@@ -286,7 +286,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
   if (changes.length < MAX_CHANGES)
     actions.push({
       key: "living/surplus/addChange",
-      label: "＋ ご本人の年齢で期間を足す",
+      label: "＋ 期間（ご本人の年齢で区切る）",
       level: "simple",
       run: (w) => {
         const next = nextChange(w);

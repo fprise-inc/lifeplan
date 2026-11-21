@@ -57,16 +57,17 @@ describe("収益不動産の入力項目", () => {
     const sec = stageOf(wh).sections[0]!;
     expect(sec.note).toBe(`まだありません。${RENTAL_HELP}`);
     expect(RENTAL_HELP).toContain("貸していない土地・別荘は『貯蓄・運用』のその他の資産に入れます");
-    expect(sec.actions.map((a) => a.label)).toEqual(["＋ 物件を足す", "＋ 建てる・買う予定"]);
+    expect(sec.actions.map((a) => a.label)).toEqual(["＋ 物件", "＋ 建てる・買う予定"]);
   });
 
-  it("「＋ 物件を足す」: 最初から中身の欄（土地と建物・家賃収入・経費・売却・ローン）が出る。評価額と家賃は未入力（0円で計算中）で始まる", () => {
+  it("「＋ 物件」: 最初から中身の欄（土地と建物・家賃収入・経費・売却・ローン）が出る。評価額と家賃は未入力（0円で計算中）で始まる", () => {
     const wh = addRentalProperty(blankHousehold("2026-10", seq()));
     const a = rentalProperties(wh.request.input.household)[0]!;
     const k = `sav/${a.id}`;
     const titles = stageOf(wh).sections[0]!.groups.map((g) => g.title).filter((t) => t !== undefined);
-    // 評価額がまだ入っていない物件は、見出しで未入力と分かる。売却・大きな修繕の予定は、標準では別の「▸」の入口（売却・大きな修繕の予定）から開く
-    expect(titles).toEqual(["物件1（評価額は未入力）", "土地と建物", "減価償却を確定申告の数字から引き継ぐ", "家賃収入", "経費", "売却・大きな修繕の予定", "売却", "申告（ご本人）: 持ち主ごと・その人の物件をまとめて"]);
+    // 評価額がまだ入っていない物件は、見出しで未入力と分かる。物件の中は中枠（物件と評価額・土地と建物・家賃収入・経費・売却・大きな修繕の予定）に分ける（0237）。
+    // 売却・大きな修繕の予定は、標準では中枠の「▸」から開く
+    expect(titles).toEqual(["物件1（評価額は未入力）", "物件と評価額", "土地と建物", "減価償却を確定申告の数字から引き継ぐ", "家賃収入", "経費", "売却・大きな修繕の予定", "売却", "申告（ご本人）: 持ち主ごと・その人の物件をまとめて"]);
     expect(stageOf(wh).sections[0]!.groups.flatMap((g) => g.actions).map((x) => x.key)).toContain(`${k}/property/addLoan`);
     expect(fieldStatus(fieldOf(wh, `${k}/value`), wh).status).toBe("missing");
     expect(fieldStatus(fieldOf(wh, `${k}/property/rent`), wh).status).toBe("missing");

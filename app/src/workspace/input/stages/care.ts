@@ -308,7 +308,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const allowance = elder ? (m.support?.allowance ?? 0) : 0;
   const hasRow = (h.periodicExpenses ?? []).some((p) => p.kind === "allowance" && p.counterparty === m.id);
   if (allowance > 0 && !hasRow) actions.push({ key: `${k}/allowanceRow`, label: "＋ 仕送りを出るお金の行にする", level: "simple", run: (w) => allowanceRow(w, m.id, allowance) });
-  if (hasBirth(m) && !(h.careExpenses ?? []).some((c) => c.member === m.id)) actions.push({ key: `${k}/care/estimate`, label: `＋ ${memberLabel(wh, m.id)}の介護を入れる`, level: "simple", run: (w) => fillCareFor(w, m.id) });
+  if (hasBirth(m) && !(h.careExpenses ?? []).some((c) => c.member === m.id)) actions.push({ key: `${k}/care/estimate`, label: `＋ ${memberLabel(wh, m.id)}の介護`, level: "simple", run: (w) => fillCareFor(w, m.id) });
   // 「＋ 仕送り（毎月）」は詳細だけのボタンなので、標準にも出るボタンの後ろに置く（詳細に切り替えても標準のボタンの位置が動かない）
   if (elder && !hasRow && !(allowance > 0))
     actions.push({ key: `${k}/allowanceAdd`, label: "＋ 仕送り（毎月）", help: "この人への仕送りを、親への仕送りの行（毎月）で足します。別居の親の健康保険の扶養の判定にも、この行の額を使います", level: "detail", run: (w) => addAllowanceRow(w, m.id) });
@@ -363,7 +363,7 @@ function periodFields(m: Member, fields: FieldDef[], actions: ActionDef[], cohab
     }
     actions.push({
       key: `family/${m.id}/outside/addPeriod`,
-      label: "＋ 家計を1つにする期間を足す",
+      label: "＋ 家計を1つにする期間",
       level: "detail",
       run: (w) =>
         mutate(w, (h) => {
@@ -387,6 +387,7 @@ function periodFields(m: Member, fields: FieldDef[], actions: ActionDef[], cohab
     key: `family/${m.id}/outside/removePeriod`,
     label: "家計を1つにする期間を外す",
     level: "detail",
+    danger: true,
     run: (w) =>
       mutate(w, (h) => {
         const x = h.members.find((y) => y.id === m.id);
@@ -455,7 +456,7 @@ export function addParentsOf(wh: WorkingHousehold, sideId: string): WorkingHouse
 }
 
 /**
- * 親を足すボタン（介護・親と相続・贈与で同じ形）: 「＋ ご本人の親を足す」「＋ 配偶者の親を足す」（配偶者がいなければ「＋ 親を足す」）を押すと、
+ * 親を足すボタン（介護・親と相続・贈与で同じ形）: 「＋ ご本人の親」「＋ 配偶者の親」（配偶者がいなければ「＋ 親」）を押すと、
  * その場で「父」「母」「父母」から選ぶ（1つの「＋」の選択肢。0040 の追記）。いる方は選択肢に出さず、両方いればボタンを出さない。
  * 足した人は世帯の外の家族（亡くなる見込みは平均余命の推定）で、受け取る相続の相手にも、援助の贈与する人にも選べる。
  * keyHead は入力項目ごとの頭（介護・親は今までのキー〔ご本人の父・母は family/add/father・mother〕のまま）
@@ -471,7 +472,7 @@ export function parentAddActions(wh: WorkingHousehold, keyHead: "care" | "inheri
     if (missing.length === 0) return [];
     const key = (what: "father" | "mother" | "both") =>
       keyHead === "care" && isSelf ? (what === "both" ? "care/add/selfParents" : `family/add/${what}`) : `${keyHead}/add/${isSelf ? "self" : "spouse"}${what === "father" ? "Father" : what === "mother" ? "Mother" : "Parents"}`;
-    const choice = { key: `${keyHead}/add/parents/${isSelf ? "self" : "spouse"}`, label: spouse === undefined ? "＋ 親を足す" : `＋ ${isSelf ? "ご本人" : "配偶者"}の親を足す`, help };
+    const choice = { key: `${keyHead}/add/parents/${isSelf ? "self" : "spouse"}`, label: spouse === undefined ? "＋ 親" : `＋ ${isSelf ? "ご本人" : "配偶者"}の親`, help };
     const one = (sex: "male" | "female") => (w: WorkingHousehold) => addOutside(w, "parent", { of: side.id, sex, birthYear: Number(side.birth.birthYearMonth.slice(0, 4)) - 30 });
     return [
       ...missing.map((sex): ActionDef => ({ key: key(sex === "male" ? "father" : "mother"), label: sex === "male" ? "父" : "母", level: "simple", choice, run: one(sex) })),
@@ -484,10 +485,10 @@ export function parentAddActions(wh: WorkingHousehold, keyHead: "care" | "inheri
 const addOutsideActions = (wh: WorkingHousehold): ActionDef[] => {
   return [
     ...parentAddActions(wh, "care"),
-    { key: "family/add/grandparent", label: "＋ 祖父母を足す", level: "detail", run: (w) => addOutside(w, "grandparent") },
-    { key: "care/add/sibling", label: "＋ 兄弟姉妹を足す", level: "detail", run: (w) => addOutside(w, "sibling") },
-    { key: "care/add/child", label: "＋ 離れて暮らす子・前の結婚の子を足す", level: "detail", run: (w) => addOutside(w, "child") },
-    // 孫は、あげる贈与の相手として相続・贈与の項目の「＋ 孫を足す」で足す（足した孫はそこに並ぶ。ここに足すボタンを置くと、相続・贈与の側から見えない孫が増えた）
+    { key: "family/add/grandparent", label: "＋ 祖父母", level: "detail", run: (w) => addOutside(w, "grandparent") },
+    { key: "care/add/sibling", label: "＋ 兄弟姉妹", level: "detail", run: (w) => addOutside(w, "sibling") },
+    { key: "care/add/child", label: "＋ 離れて暮らす子・前の結婚の子", level: "detail", run: (w) => addOutside(w, "child") },
+    // 孫は、あげる贈与の相手として相続・贈与の項目の「＋ 孫」で足す（足した孫はそこに並ぶ。ここに足すボタンを置くと、相続・贈与の側から見えない孫が増えた）
   ];
 };
 
@@ -554,7 +555,7 @@ export function addNextCareStage(wh: WorkingHousehold, id: string, newStage: str
 }
 
 /**
- * 「＋ 次の段階を足す」の始まりと、その推定の根拠: 前の段（cur）の始まりの形のまま、前の段の期間（空なら統計の平均の期間）だけずらす。
+ * 「＋ 次の段階」の始まりと、その推定の根拠: 前の段（cur）の始まりの形のまま、前の段の期間（空なら統計の平均の期間）だけずらす。
  * 推定のままの始まりを前の段についてこさせるときも、同じ置き方で作り直す（followCareStarts）
  */
 export function nextCareStart(h: Household, cur: CareExpense, baseMonth: string): { from: Timepoint; basis: string } {
@@ -634,11 +635,11 @@ export function followCareStarts(before: WorkingHousehold, after: WorkingHouseho
 /** 介護の物の下の1行（後ろに「推定」の印と、推定のままの欄の名前が並ぶ。入れた欄は名前が消える） */
 export const CARE_ESTIMATE_LINE = "詳細の項目を入れない所は、この条件で推定した数字を使います。";
 
-/** 介護の物1件（events.ts の欄に、見出しの1行・推定のままの欄の1行と「＋ 次の段階を足す」を足す） */
+/** 介護の物1件（events.ts の欄に、見出しの1行・推定のままの欄の1行と「＋ 次の段階」を足す） */
 function careCostGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const g = careGroup(wh, c);
   const est = careEstimate(placeOf(c));
-  const next: ActionDef = { key: `ev/care/${c.id}/nextStage`, label: "＋ 次の段階を足す", help: "在宅から施設へなど、次の段階の介護を足します", level: "simple", run: (w) => addNextCareStage(w, c.id) };
+  const next: ActionDef = { key: `ev/care/${c.id}/nextStage`, label: "＋ 次の段階", help: "在宅から施設へなど、次の段階の介護を足します", level: "simple", run: (w) => addNextCareStage(w, c.id) };
   // 推定のままの欄の1行（標準では介護を受ける人と在宅か施設かだけが見えるので、ほかの詳細の欄は推定で計算していることを欄の下に。0143 の追記 2026-11-12）
   return { ...g, title: careTitle(wh, c), summary: careSpan(wh, c), moreLabel: "期間・一時費用などを入れる", estimateLine: CARE_ESTIMATE_LINE, note: `${carePayerLine(wh, c)}。入れていない額・期間は、統計の平均で推定します（${est?.basis ?? "生命保険文化センターの調査"}）`, actions: [next, ...g.actions] };
 }
@@ -654,7 +655,7 @@ function adultsNote(wh: WorkingHousehold): string | null {
   const est = careEstimate("home");
   const total = est === null ? "" : `推定は1人 約${manYen(est.monthly * est.months + est.initial)}（在宅の平均の月額×期間＋一時費用）。`;
   const names = missing.map((m) => memberLabel(wh, m.id)).join("・");
-  return `${names}の介護の費用が入っていないので、0円で計算しています。${total}「${names}の介護を入れる」で統計の平均の推定を入れます（後から詳細の項目を入れた所は、その値で計算します）。入れないと決めたら、帯の「該当なし（介護の費用を入れない）」を押してください（項目を保存しただけでは決めません）`;
+  return `${names}の介護の費用が入っていないので、0円で計算しています。${total}「＋ ${names}の介護」で統計の平均の推定を入れます（後から詳細の項目を入れた所は、その値で計算します）。入れないと決めたら、帯の「該当なし（介護の費用を入れない）」を押してください（項目を保存しただけでは決めません）`;
 }
 
 // ---- 区画D 親のお金（0042） ----
@@ -699,7 +700,7 @@ function walletGroup(wh: WorkingHousehold, m: Member): GroupDef {
   actions.push(
     {
       key: `family/${m.id}/wallet/addLump`,
-      label: "＋ 一時の入金を足す",
+      label: "＋ 一時の入金",
       level: "detail",
       run: (w) =>
         mutate(w, (h, req) => {
@@ -772,7 +773,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
     {
       key: "care/costs",
       title: "介護の費用",
-      note: note ?? "親・ご本人・配偶者の介護を、介護を受ける人ごとに入れます。在宅から施設に移るなどは「＋ 次の段階を足す」で段階を並べます",
+      note: note ?? "親・ご本人・配偶者の介護を、介護を受ける人ごとに入れます。在宅から施設に移るなどは「＋ 次の段階」で段階を並べます",
       level: "simple",
       groups: (h.careExpenses ?? []).map((c) => careCostGroup(wh, c)),
       actions: [
@@ -780,7 +781,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
           ? [
               // 押した後に詳細の項目を入れると推定でなくなるので、言葉は「推定で入れる」でなく「介護を入れる」（推定のままの所は物の下の1行に出る。0143 の追記 2026-11-12）。
               // 入れないと決めるのは帯・確かめの一覧の「該当なし」と入力項目の「当てはまらない」（区画には「入れない」のボタンを置かない。入れた物は「外す」で外す）
-              { key: "care/fillAdults", label: `${adults.map((m) => memberLabel(wh, m.id)).join("・")}の介護を入れる`, level: "simple" as const, run: fillAdultsCare },
+              { key: "care/fillAdults", label: `＋ ${adults.map((m) => memberLabel(wh, m.id)).join("・")}の介護`, level: "simple" as const, run: fillAdultsCare },
             ]
           : []),
         {

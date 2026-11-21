@@ -186,7 +186,7 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     expect(future.docCheck).toBeUndefined();
     expect(applyStateOp(wh, future, "unknown")).toBe(wh);
     // 書類で確かめる（今返している自動車ローンの金利。返済予定表）: 値はそのまま、向き先の負債の行に代わりの値の根拠
-    const withLoan = runAction(wh, "car", "car/addCarLoan");
+    const withLoan = runAction(wh, "car", "/addNowLoan");
     const debt = withLoan.request.input.household.debts!.find((d) => d.kind === "car")!;
     const rate = fieldOf(withLoan, "car", `housing/debt/${debt.id}/rate`);
     expect(rate.docCheck).toBe("返済予定表");

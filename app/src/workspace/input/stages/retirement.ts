@@ -565,7 +565,7 @@ export function benefitMoreLabel(b: Pick<RetirementBenefit, "kind" | "receipt">)
 }
 
 /**
- * 「＋ 退職金・企業年金を足す」（何件でも）: 種類を選んでから足す（1つのボタンの中の選択肢。0040 の追記の choice）。種類は今の働き方で並べる
+ * 「＋ 退職金・企業年金」（何件でも）: 種類を選んでから足す（1つのボタンの中の選択肢。0040 の追記の choice）。種類は今の働き方で並べる
  * （会社員は退職一時金・確定給付企業年金、公務員は退職手当・年金払い退職給付、役員は役員退職慰労金・退職一時金、自営業は国民年金基金）。
  * 最初の1件で、今の働き方が正社員・公務員の目安の種類を選んだら目安で入れる。該当なしにしてあれば外して足す。
  * 先頭の選択肢の鍵は前のボタンと同じ（retirement/<人>/add）、ほかは retirement/<人>/add/<種類>
@@ -582,12 +582,12 @@ export function addBenefitActions(wh: WorkingHousehold, m: Member): ActionDef[] 
     key: i === 0 ? `retirement/${m.id}/add` : `retirement/${m.id}/add/${kind}`,
     label: label(kind),
     level: "simple" as const,
-    choice: { key: `retirement/${m.id}/addKind`, label: "＋ 退職金・企業年金を足す", help: "種類を選んで足します。iDeCo・企業型DC・小規模企業共済は貯蓄・運用の入力項目で入れます" },
+    choice: { key: `retirement/${m.id}/addKind`, label: "＋ 退職金・企業年金", help: "種類を選んで足します。iDeCo・企業型DC・小規模企業共済は貯蓄・運用の入力項目で入れます" },
     run: (w: WorkingHousehold) => addBenefit(w, m, kind),
   }));
 }
 
-/** 「＋ 退職金・企業年金を足す」の先頭の選択肢（今の働き方の既定の種類。前の1つのボタンと同じ動き） */
+/** 「＋ 退職金・企業年金」の先頭の選択肢（今の働き方の既定の種類。前の1つのボタンと同じ動き） */
 export function addBenefitAction(wh: WorkingHousehold, m: Member): ActionDef {
   return addBenefitActions(wh, m)[0] as ActionDef;
 }
@@ -643,7 +643,7 @@ function deathNote(wh: WorkingHousehold, m: Member): string | null {
 
 
 /** 該当なしにしてある人の区画の説明（頭の「該当なし」は見出しの下に、残りは「?」の中に出る。FieldViews.tsx の splitNote） */
-export const NONE_NOTE = "該当なし。退職金・企業年金は無いとしています（働き方を選び直しても、推定で足しません）。「＋ 退職金・企業年金を足す」で足すと、該当なしを外します";
+export const NONE_NOTE = "該当なし。退職金・企業年金は無いとしています（働き方を選び直しても、推定で足しません）。「＋ 退職金・企業年金」で足すと、該当なしを外します";
 
 export function retirementStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;

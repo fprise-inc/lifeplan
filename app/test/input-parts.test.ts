@@ -440,7 +440,8 @@ describe("どのまとまりも、見出しは幅いっぱいの1行（左の列
     for (const model of MODELS) {
       const wh = open(model);
       for (const g of allGroups(wh)) {
-        const name = g.title ?? "";
+        // 人の区画の中の見出しは名前の繰り返しを外している（「確定申告」）。画面の外で言う名前（where）で見分ける（0237）
+        const name = g.where ?? g.title ?? "";
         const kind = ["払う人・", "児童手当・就学支援金", "の確定申告"].find((k) => name.includes(k));
         if (kind === undefined || g.fields.length === 0) continue;
         const html = renderToString(h(Group, { group: g, wh, level: "detail", onEdit: noop, nested: true }));

@@ -489,7 +489,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
               ? {}
               : {
                   estimate: (_h: Household, w: WorkingHousehold) => ownedHomeTaxEstimate(w, r.id) ?? { value: presetNum("preset.housing.propertyTax"), basis: TAX_PRESET().estimate.basis },
-                  help: "納税通知書の額（固定資産税と都市計画税の合計）を入れます。入れなければ、持ち家の評価の元（買った値段と買った年月・土地の値段・建物の構造・建った年。今の時価で入れた家は評価額）から、住宅用地の特例・新築の軽減・税率（固定資産税1.4%・都市計画税0.3%）を当てた目安を出します（推定）。評価替え（3年ごと）で建物の分が下がる段も入れます",
+                  help: "納税通知書の額（固定資産税と都市計画税の合計）を入れます。入れなければ、持ち家の評価の元（買った値段と買った年月・土地の値段・建物の構造・建った年。今の時価で入れた家は評価額）から、住宅用地の特例・新築の軽減・税率（固定資産税1.4%・都市計画税0.3%）を当てた目安を出します（推定）。評価替え（3年ごと）で建物の分が下がる段階も入れます",
                 }),
           }),
           {
@@ -506,11 +506,11 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
               fallback: "0",
               // 推定の段（新築の軽減の終わり・評価替え）があるときは、段と率の関係を書く。計算は段の額に、計算の基準の年からの年数分この率を掛ける（housing.residence）
               help: hasAutoTaxStages(h0, r)
-                ? "固定資産税の推定の段（新築の軽減の終わり・評価替え）で額を動かしています。伸び率を入れると、段の額にさらに毎年この率を掛けます（評価替えの下がり方は段に入っているので、ふつうは入れません）"
+                ? "固定資産税の推定の段階（新築の軽減の終わり・評価替え）で額を動かしています。伸び率を入れると、段階の額にさらに毎年この率を掛けます（評価替えの下がり方は段階に入っているので、ふつうは入れません）"
                 : "入れなければ変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます",
               hint: (_v, w) => {
                 const x = find(w.request.input.household, w) as Residence | undefined;
-                return x !== undefined && x.propertyTax?.growth === undefined && hasAutoTaxStages(w.request.input.household, x) ? "下の推定の段で動かしています（伸び率は入れなくて構いません）" : null;
+                return x !== undefined && x.propertyTax?.growth === undefined && hasAutoTaxStages(w.request.input.household, x) ? "下の推定の段階で動かしています（伸び率は入れなくて構いません）" : null;
               },
             }),
             address: () => at(r.id, "residence.propertyTax", ["growth"]),
@@ -666,7 +666,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         key: `${k}/taxes`,
         title: "固定資産税・都市計画税",
         summary: "納税通知書の額。入れなければ持ち家の評価の元から目安（推定）",
-        note: `毎年の固定資産税と都市計画税の合計です。納税通知書の額が分かれば入れます。入れなければ、買った値段（土地と建物）・買った年月・建物の構造・建った年から、固定資産税の評価額の目安（土地は価格の${pctOf(taxGuide.landRatio)}・建物は新築のとき価格の${pctOf(taxGuide.buildingRatio)}で、固定資産評価基準の経年減点補正率で下げる）に住宅用地の特例・新築の軽減・税率を当てた目安を出し、3年ごとの評価替えで建物の分が下がる段も入れます`,
+        note: `毎年の固定資産税と都市計画税の合計です。納税通知書の額が分かれば入れます。入れなければ、買った値段（土地と建物）・買った年月・建物の構造・建った年から、固定資産税の評価額の目安（土地は価格の${pctOf(taxGuide.landRatio)}・建物は新築のとき価格の${pctOf(taxGuide.buildingRatio)}で、固定資産評価基準の経年減点補正率で下げる）に住宅用地の特例・新築の軽減・税率を当てた目安を出し、3年ごとの評価替えで建物の分が下がる段階も入れます`,
         level: "detail",
         band: true,
         fields: taxFields,
@@ -1143,7 +1143,7 @@ function purchaseAtField(wh: WorkingHousehold, r: Residence, kp: string, custom:
   const follow = afterWrite(
     field({
       ...inner,
-      sideEffects: "前の住まいの住み終わり・この家の住宅ローンの借入の年月と金利の段・控除の入居も一緒に動かします",
+      sideEffects: "前の住まいの住み終わり・この家の住宅ローンの借入の年月と金利の段階・控除の入居も一緒に動かします",
       get: (w) => {
         const st = inner.get(w);
         const x = find(w.request.input.household, w) as Residence | undefined;
@@ -1434,7 +1434,7 @@ function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
           path: ["donor"],
           optional: true,
           fallback: "",
-          help: "介護・親の項目で足した親・祖父母（世帯の外の家族）から選びます。いなければ下の「＋ 親を足す」「＋ 祖父母を足す」で、ここから足せます（生年月・亡くなる見込みは介護・親の項目で直します）",
+          help: "介護・親の項目で足した親・祖父母（世帯の外の家族）から選びます。いなければ下の「＋ 親」「＋ 祖父母」で、ここから足せます（生年月・亡くなる見込みは介護・親の項目で直します）",
         }),
         gid === undefined ? amount : { ...amount, address: () => at(r.id, "residence.purchase", ["gifts", gid, "amount"]) },
         plain({ key: `${kg}/recipient`, item: "residence.purchase", label: "受け取る人", level: "detail", kind: "select", options: memberOptions(wh, (m) => m.kind === "self" || m.kind === "spouse"), find: findG, path: ["recipient"] }),
@@ -1447,7 +1447,7 @@ function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
           ? (["parent", "grandparent"] as const).map(
               (kind): ActionDef => ({
                 key: `${kg}/addDonor/${kind}`,
-                label: kind === "parent" ? "＋ 親を足す" : "＋ 祖父母を足す",
+                label: kind === "parent" ? "＋ 親" : "＋ 祖父母",
                 help: "世帯の外の家族として足し、この援助の援助する人にします。生年月・亡くなる見込みは介護・親の項目で直します",
                 level: "simple",
                 run: (w) => donorHere(w, r.id, j, kind),

@@ -713,7 +713,7 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
     return {
       key,
       title: `${name}${when}`,
-      ...(auto ? { note: "家族の人数と年齢から、推定で作った段階です。家族・進路・働き方を変えると作り直します。直した段は、作り直しても変わりません" } : {}),
+      ...(auto ? { note: "家族の人数と年齢から、推定で作った段階です。家族・進路・働き方を変えると作り直します。直した段階は、作り直しても変わりません" } : {}),
       level: valueLevel,
       moreLabel: "節目・入れ方を変える",
       fields,
@@ -760,7 +760,7 @@ function stageActions(l: LivingExpense, find: Finder): { simple: ActionDef[]; de
     const fill: ActionDef = {
       key: `living/${l.id}/autoStages`,
       label: none ? "子の誕生・独立・退職などで、生活費の段階を推定で入れる" : "推定の段階に入れ替える",
-      ...(none ? {} : { help: `今の段階（${(l.stages ?? []).length}段）を外して、目安の段階に作り直します` }),
+      ...(none ? {} : { help: `今の段階（${(l.stages ?? []).length}段階）を外して、目安の段階に作り直します` }),
       level: none ? "simple" : "detail",
       ...(none ? {} : { danger: true }),
       title: "国の家計の調査をもとに、家族の人数が変わる時期と、退職後（80%）・70歳から（75%）・80歳から（70%）の目安で生活費の段階を作ります",
@@ -793,8 +793,8 @@ export function stagesMoreLabel(wh: WorkingHousehold, l: LivingExpense): string 
   if (others.length === 0) return "退職後などの段階を入れる";
   const names = [...new Set(others.map((s) => STAGE_SHORT[s.label] ?? "節目"))];
   const auto = others.filter((s) => s.id !== undefined && isAutoStage(l, s.id)).length;
-  const count = auto === others.length ? `推定 ${auto}段` : auto > 0 ? `${others.length}段・推定 ${auto}段` : `${others.length}段`;
-  return `${names.join("・")}の段（${count}）を見る`;
+  const count = auto === others.length ? `推定 ${auto}段階` : auto > 0 ? `${others.length}段階・推定 ${auto}段階` : `${others.length}段階`;
+  return `${names.join("・")}の段階（${count}）を見る`;
 }
 
 /** 生活費の万一のときの扱いの「指定しない」は、死亡のとき遺族の生活費の割合（万一のタブ）が効く */
@@ -915,7 +915,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
   );
   const stages = l.stages ?? [];
   const autoCount = stages.filter((s) => s.id !== undefined && isAutoStage(l, s.id)).length;
-  const badge = stages.length === 0 ? null : `この後 ${stages.length}段${autoCount > 0 ? `（推定 ${autoCount}段）` : ""}。「詳細」で直せます`;
+  const badge = stages.length === 0 ? null : `この後 ${stages.length}段階${autoCount > 0 ? `（推定 ${autoCount}段階）` : ""}。「詳細」で直せます`;
   const groups: GroupDef[] = [
     {
       key,
@@ -932,7 +932,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
   groups.push(...stageGroups(wh, l, find).map((g) => ({ ...g, ownBox: true })));
   const acts = stageActions(l, find);
   if (acts.simple.length > 0) groups.push({ key: `${key}/stages/auto`, level: "simple", note: "子の誕生・独立、退職、70歳・80歳などで生活費が変わる段階がまだありません", fields: [], actions: acts.simple, ownBox: true });
-  groups.push({ key: `${key}/stages/add`, title: "段階を足す", level: "detail", note: "段階は、その時点から「今の額に対する割合」か「月額（今の値段）」に変えます。何段でも足せます", fields: [], actions: acts.detail, ownBox: true });
+  groups.push({ key: `${key}/stages/add`, title: "段階を足す", level: "detail", note: "段階は、その時点から「今の額に対する割合」か「月額（今の値段）」に変えます。何段階でも足せます", fields: [], actions: acts.detail, ownBox: true });
   return groups;
 }
 

@@ -196,12 +196,12 @@ describe("辞め方・失業給付・高年齢雇用継続給付の欄", () => {
     expect(fieldStatus(f, wh).status).toBe("estimated");
     const g = fieldOf(wh, `work/period/${post.id}/endsWith`);
     expect(g.get(wh)).toMatchObject({ value: "", implicit: true });
-    expect(g.kind === "select" && g.options[0]!.label).toBe("自動: 定年（60歳以後に辞めるので）");
+    expect(g.kind === "select" && g.options[0]!.label).toBe("おまかせ（推定: 定年・60歳以後に辞めるので）");
     const w1 = edit(wh, `work/period/${main.id}/endsWith`, "involuntary");
     expect(periods(w1, self)[0]!.endsWith).toBe("involuntary");
     expect(() => preview(w1.request)).not.toThrow();
     // 定年後の予定の定年で辞める期間の先頭の「自動」は推定の定年（選択肢の先頭と、推定の「定年」がそろう）。選ぶと推定の定年に戻す
-    expect(f.kind === "select" && f.options[0]!.label).toBe("自動: 定年（定年後の予定の定年で辞めるので）");
+    expect(f.kind === "select" && f.options[0]!.label).toBe("おまかせ（推定: 定年・定年後の予定の定年で辞めるので）");
     const back = edit(w1, `work/period/${main.id}/endsWith`, "");
     expect(back.request.input.household.employmentPeriods!.find((p) => p.id === main.id)!.endsWith).toBe("retirement");
     expect(fieldStatus(fieldOf(back, `work/period/${main.id}/endsWith`), back).status).toBe("estimated");

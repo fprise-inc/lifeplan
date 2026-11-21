@@ -284,8 +284,8 @@ describe("該当なしは区画の見出しの下に出す（ボタンの名前�
     const sec = buildStage("retirement", w).sections.find((s) => s.key === `retirement/${self}`)!;
     expect(splitNote(sec.note)).toMatchObject({ state: "該当なし" });
     expect(splitNote(sec.note).help).toMatch(/足すと、該当なしを外します/);
-    // 足すボタンは種類を選ぶ1つのボタン（choice）。名前は「＋ 退職金・企業年金を足す」、選択肢は会社員の種類が先頭
-    expect([...new Set(sec.actions.map((a) => a.choice?.label))]).toEqual(["＋ 退職金・企業年金を足す"]);
+    // 足すボタンは種類を選ぶ1つのボタン（choice）。名前は「＋ 退職金・企業年金」、選択肢は会社員の種類が先頭
+    expect([...new Set(sec.actions.map((a) => a.choice?.label))]).toEqual(["＋ 退職金・企業年金"]);
     expect(sec.actions.slice(0, 2).map((a) => a.label)).toEqual(["退職一時金（中退共・特退共を含む）", "確定給付企業年金（企業年金基金・企業年金連合会を含む）"]);
     // 足すと該当なしの説明は消える（万一のときの扱いの説明だけ「?」に残る）
     const added = runAction(w, "retirement", `retirement/${self}/add`);

@@ -53,21 +53,27 @@ describe("詳細の並び: 働き方 1・2… → ＋ 働き方を足す → 定
     expect(s).not.toContain(`work/${self.id}/periods`);
   });
 
-  it("画面: 詳細では「働き方 1（今の働き方）」が定年後の予定より上、今の働き方の見出しは出さない。足すボタンは「＋ （人の呼び名）の働き方 2」の形", () => {
+  it("画面: 詳細では「働き方 1（今の働き方）」が定年後の予定より上、今の働き方の見出しは出さない。足すボタンは「＋ 働き方 2」の形。見出しに人の名前は繰り返さない（区画の見出しにある。0237）", () => {
     const html = panel(wh, "detail");
     const who = stage(wh).sections.find((s) => s.key === `work/${self.id}`)!.title;
-    expect(html).toContain(`${who}の働き方 1（今の働き方）`);
-    expect(html).not.toContain(`${who}の今の働き方<`);
-    expect(html.indexOf(`${who}の働き方 1（今の働き方）`)).toBeLessThan(html.indexOf(`${who}の定年後の予定`));
-    expect(html).toContain(`＋ ${who}の働き方 ${mine(wh).length + 1}`);
+    expect(html).toContain(">働き方 1（今の働き方）");
+    expect(html).not.toContain(`${who}の働き方 1`);
+    expect(html).not.toContain(">今の働き方<");
+    expect(html.indexOf(">働き方 1（今の働き方）")).toBeLessThan(html.indexOf(">定年後の予定"));
+    expect(html).toContain(`＋ 働き方 ${mine(wh).length + 1}`);
+    // 入力項目の画面の外（確かめの一覧・プランの違い・検索）では、前と同じく名前つきで言う
+    const groups = stage(wh).sections.flatMap((s) => s.groups);
+    expect(groups.find((x) => x.key === `work/period/${main.id}`)?.where).toBe(`${who}の働き方 1（今の働き方）`);
+    expect(groups.find((x) => x.key === `work/${self.id}/retirement`)?.where).toBe(`${who}の定年後の予定`);
     expect(html).not.toContain("働き方の期間（詳しく）");
     // 同じ欄を2か所に出さない
     const growth = `id="${fieldDomId(`work/period/${main.id}/salaryGrowth`)}"`;
     expect(html.split(growth).length - 1).toBe(1);
   });
 
-  it("住民税は詳細では今の働き方の期間のまとまり、標準では今の働き方の「▸ 続きを見る」（欄の一覧には1回）", () => {
-    const g = stage(wh).sections.flatMap((s) => s.groups).find((x) => x.key === `work/period/${main.id}`)!;
+  it("住民税は詳細では今の働き方の期間の中枠「税・社会保険」、標準では今の働き方の「▸ 続きを見る」（欄の一覧には1回）", () => {
+    const g = stage(wh).sections.flatMap((s) => s.groups).find((x) => x.key === `work/period/${main.id}/band/social`)!;
+    expect(g).toMatchObject({ title: "税・社会保険", band: true });
     expect(g.fields.some((f) => f.key === `work/${self.id}/residentTax`)).toBe(true);
     const now = stage(wh).sections.flatMap((s) => s.groups).find((x) => x.key === `work/${self.id}/now`)!;
     expect(now.fields.some((f) => f.key === `work/${self.id}/residentTax`)).toBe(false);
@@ -193,9 +199,9 @@ describe("標準報酬月額: 空欄は給与から計算（目安を推定の�
 
 describe("辞め方の「自動」: 何で決まるかを選択肢に書く。定年後の予定の定年で終わる期間が自己都合になるときは知らせる", () => {
   const f = (w: WorkingHousehold) => fieldOf(w, `work/period/${main.id}/endsWith`);
-  it("60歳になる前の月に終わる期間は「自動: 自己都合（60歳前に辞めるので）」", () => {
+  it("60歳になる前の月に終わる期間は「おまかせ（推定: 自己都合・60歳前に辞めるので）」", () => {
     const x = f(wh);
-    expect(x.kind === "select" && x.options[0]!.label).toBe("自動: 自己都合（60歳前に辞めるので）");
+    expect(x.kind === "select" && x.options[0]!.label).toBe("おまかせ（推定: 自己都合・60歳前に辞めるので）");
   });
   it("定年後の予定があり、自動のままなら知らせと「辞め方を定年にする」。押すと定年を書く", () => {
     expect(wh.postRetirement[self.id]).toBeDefined();

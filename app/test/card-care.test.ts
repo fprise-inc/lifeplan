@@ -153,7 +153,7 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     const child = out.find((m) => m.kind === "child")!;
     expect(wh.request.input.household.relations).toContainEqual({ type: "parentOf", parent: wh.request.input.household.members[0]!.id, child: child.id });
     expect(memberLabel(wh, out[0]!.id)).toBe("兄弟姉妹");
-    // 孫は相続・贈与のカード（あげる贈与）に置き、ここは読むだけの1行。介護・親に「＋ 孫を足す」は置かない
+    // 孫は相続・贈与の入力項目（あげる贈与）に置き、ここは読むだけの1行。介護・親に「＋ 贈与の相手の孫」は置かない
     const groups = stage(wh).sections.find((s) => s.key === "care/outside")!.groups;
     expect(groups.map((g) => g.key).slice(0, 2).sort()).toEqual([`family/${out[0]!.id}`, `family/${out[1]!.id}`].sort());
     expect(groups.map((g) => g.key)).toHaveLength(3);
@@ -318,7 +318,7 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     expect(t.from).toEqual({ at: "2026-11" });
   });
 
-  it("「＋ 次の段階を足す」: 前の段の始まりの形のまま期間だけずらした施設の段", () => {
+  it("「＋ 次の段階」: 前の段の始まりの形のまま期間だけずらした施設の段", () => {
     let wh = addOutside(blankHousehold(BASE, seq()), "parent");
     const p = parents(wh)[0]!;
     wh = actionOf(wh, `family/${p.id}/care/estimate`).run(wh);

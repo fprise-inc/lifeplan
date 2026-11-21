@@ -85,7 +85,8 @@ describe("書類で確かめる・該当なしは、意味のある欄にだけ�
       expect(availableOps(f, wh), f.label).not.toContain("unknown");
     }
     // 今返している自動車ローン: 借入額・金利・返済期間・残高は返済予定表で確かめる（金利の種類には出さない）
-    const add = buildStages(wh).find((s) => s.id === "car")!.sections.flatMap((s) => s.actions).find((a) => a.key === "car/addCarLoan")!;
+    // 今の車があれば、足すボタンはその車の枠の中の「＋ 今返しているローン」（0237）
+    const add = buildStages(wh).find((s) => s.id === "car")!.sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((a) => a.key.endsWith("/addNowLoan"))!;
     wh = add.run(wh);
     const debt = wh.request.input.household.debts!.find((d) => d.kind === "car")!;
     const loan = carFields(wh).filter((x) => x.key.startsWith(`housing/debt/${debt.id}/`));

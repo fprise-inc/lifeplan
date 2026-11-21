@@ -134,7 +134,7 @@ describe("相続・贈与のカード: 足した人をその場で見せる（�
   const section = (wh: WorkingHousehold, key: string) => stage(wh).sections.find((s) => s.key === key)!;
   const value = (wh: WorkingHousehold, f: FieldDef) => f.get(wh).value;
 
-  it("「＋ ご本人の親を足す」の「父」: 区画に父の行（使っているところ・外す）が出る。相手に選ぶと使っているところに出て、外すと介護・親からも消える", () => {
+  it("「＋ ご本人の親」の「父」: 区画に父の行（使っているところ・外す）が出る。相手に選ぶと使っているところに出て、外すと介護・親からも消える", () => {
     const w0 = blankHousehold(BASE, seq());
     const wh = actionOf(w0, "inherit/add/selfFather").run(w0);
     const father = wh.request.input.household.members.find((m) => m.kind === "parent")!;
@@ -174,7 +174,7 @@ describe("相続・贈与のカード: 足した人をその場で見せる（�
     expect(none.request.input.household.donors).toBeUndefined();
   });
 
-  it("「＋ 孫を足す」: あげる贈与の区画に孫のまとまり（呼び名・生年月〔仮の値〕・外す）が出る。押した数だけ並び、呼び名で相手を見分けられ、外せる", () => {
+  it("「＋ 贈与の相手の孫」: あげる贈与の区画に孫のまとまり（呼び名・生年月〔仮の値〕・外す）が出る。押した数だけ並び、呼び名で相手を見分けられ、外せる", () => {
     const w0 = addMember(blankHousehold(BASE, seq()), "child");
     const w1 = actionOf(w0, "money/inherit/addGrandchild").run(w0);
     const wh = actionOf(w1, "money/inherit/addGrandchild").run(w1);
@@ -344,7 +344,7 @@ describe("相続・贈与のカード: 足す孫の仮の生年月・孫の呼�
     expect(grandchildBirthYear(hh(person("s", "self", "1985-01")), 2026)).toBe(2026);
   });
 
-  it("「＋ 孫を足す」は子の年齢から仮の生年月を入れる（sampleSeniorRental: 第1子 1992年生まれ → 孫は 2022年4月生まれ・仮の値）", () => {
+  it("「＋ 贈与の相手の孫」は子の年齢から仮の生年月を入れる（sampleSeniorRental: 第1子 1992年生まれ → 孫は 2022年4月生まれ・仮の値）", () => {
     const wh = addOutsideGrandchild(fromRequest(modelHousehold("sampleSeniorRental")), "00000000-0000-4000-8000-00000000aaaa");
     const g = wh.request.input.household.members.find((m) => m.id === "00000000-0000-4000-8000-00000000aaaa")!;
     expect(g.birth.birthYearMonth).toBe("2022-04");

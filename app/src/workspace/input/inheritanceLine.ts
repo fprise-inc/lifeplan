@@ -139,7 +139,7 @@ type PointFull = InheritancePoint & {
 const man = (yen: number) => `${manText(yen)}万円`;
 
 /** 相続人がいない時点に添える1行 */
-export const NO_HEIRS_HINT = "兄弟姉妹（亡くなっていれば甥・姪）がいれば、介護・親の項目の「＋ 兄弟姉妹を足す」（詳細）で足すと、相続人に数えます";
+export const NO_HEIRS_HINT = "兄弟姉妹（亡くなっていれば甥・姪）がいれば、介護・親の項目の「＋ 兄弟姉妹」（詳細）で足すと、相続人に数えます";
 /** 相続税の目安の不動産の評価の割合の既定（計算エンジンの inheritance.estimate の REAL_ESTATE_RATIO と同じ。時価の80%） */
 const REAL_ESTATE_RATIO_DEFAULT = "0.8";
 

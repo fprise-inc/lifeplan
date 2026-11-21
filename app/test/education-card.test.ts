@@ -133,9 +133,9 @@ describe("学校外の費用の入れ方（統計の平均で／行で入れる�
     const block = groups(rows).find((x) => x.key === `edu/${g.id}/out`)!;
     expect([block.title, block.level]).toEqual(["塾・習い事", "simple"]);
     expect(block.note).toContain("0円で計算中");
-    // 「＋ 塾・習い事を足す」（1つのボタンで種類を選ぶ）は標準。行の欄も標準で入れられる
+    // 「＋ 塾・習い事」（1つのボタンで種類を選ぶ）は標準。行の欄も標準で入れられる
     const add = actionOf(rows, `edu/${g.id}/addLesson/cram`);
-    expect([add.level, add.choice?.label]).toEqual(["simple", "＋ 塾・習い事を足す"]);
+    expect([add.level, add.choice?.label]).toEqual(["simple", "＋ 塾・習い事"]);
     const cramRow = add.run(rows);
     const lessonFields = allFields(stage(cramRow)).filter((f) => f.key.startsWith(`edu/${g.id}/lesson/0/`));
     expect(lessonFields.map((f) => [f.label, f.level])).toEqual([["名前", "simple"], ["種類", "simple"], ["月額", "simple"], ["始まり", "simple"], ["終わり", "simple"]]);
