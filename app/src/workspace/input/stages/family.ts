@@ -245,6 +245,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           level: m.kind === "self" ? "simple" : "detail",
           kind: "select",
           options: SEX_OPTIONS,
+          segmented: true,
           find,
           path: ["sex"],
           help: m.kind === "spouse" ? SPOUSE_SEX_HELP : "遺族年金・寡婦控除・年収の目安・平均余命の計算に使います",

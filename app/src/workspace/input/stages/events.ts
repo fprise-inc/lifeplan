@@ -197,7 +197,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
       ),
       c.id,
     ),
-    plain({ key: `${k}/place`, item: "care.place", label: "在宅か施設か", level: "simple", kind: "select", options: CARE_PLACE, find, path: ["place"], optional: true, fallback: "home" }),
+    plain({ key: `${k}/place`, item: "care.place", label: "在宅か施設か", level: "simple", kind: "select", options: CARE_PLACE, segmented: true, find, path: ["place"], optional: true, fallback: "home" }),
     other,
     yenBox({ key: `${k}/service`, item: "care.serviceMonthly", label: "介護保険のサービスの額（1割負担の前・月額）", level: "detail", basis: "monthly", find, path: ["serviceMonthly"], optional: true, help: "入れると、所得に応じた自己負担の割合（1〜3割）と高額介護サービス費の上限で計算し、上の欄（保険の対象外の費用）に足します。入れなければ、上の月々の費用だけで計算します" }),
     careEstimateField(

@@ -148,6 +148,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       label: "払い方",
       level: "detail",
       kind: "select",
+      segmented: true,
       structural: true,
       options: [
         { value: "annual", label: "年額" },

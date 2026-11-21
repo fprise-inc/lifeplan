@@ -277,6 +277,7 @@ function saleGroup(wh: WorkingHousehold, a: Account): GroupDef {
       label: "売る予定がある",
       level: "simple",
       kind: "bool",
+      opens: "rest",
       structural: true,
       help,
       get: (w) => ({ value: (find(w.request.input.household, w) as Account | undefined)?.sale !== undefined }),
@@ -724,6 +725,7 @@ function payoutDetailFields(a: Account, k: string, o: { years: string; share: st
               level: "detail",
               kind: "select",
               options: o.options,
+              segmented: true,
               get: (w) => {
                 const y = (find(w.request.input.household, w) as Account | undefined)?.payout?.annuityYears;
                 return { value: String(y ?? 10), ...(y === undefined ? { implicit: true } : {}) };

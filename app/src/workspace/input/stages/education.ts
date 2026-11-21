@@ -793,6 +793,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
         label: "高校・高専",
         level: "detail",
         kind: "select",
+        segmented: true,
         options: [
           { value: "highSchool", label: "高校（3年）" },
           { value: "kosen", label: "高専（5年）" },
@@ -1908,13 +1909,13 @@ function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string
         plain({ key: `${k}/amount`, item: "goal.education", label: "額", level: "simple", kind: "yen", basis: "once", find: findG, path: ["amount"] }),
         timepointField({ key: `${k}/at`, item: "goal.education", label: "時期", level: "simple", find: findG, path: ["at"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
         // 見込み（値は priority。0103）: ふつうの出るお金の行と同じ「確実」「不確実」。「不確実」の援助はふだんの計算に入れない。省略は確実
-        { ...plain({ key: `${k}/priority`, item: "goal.education", label: "見込み", level: "simple", kind: "select", options: GIFT_PRIORITIES, find: findG, path: ["priority"], optional: true, fallback: "need", help: likelihoodHelp("gift") }), helpId: LIKELIHOOD_HELP.gift.id },
+        { ...plain({ key: `${k}/priority`, item: "goal.education", label: "見込み", level: "simple", kind: "select", options: GIFT_PRIORITIES, segmented: true, find: findG, path: ["priority"], optional: true, fallback: "need", help: likelihoodHelp("gift") }), helpId: LIKELIHOOD_HELP.gift.id },
         // 出す人: 世帯の外の贈与する人がいなければ欄を出さない（世帯から出す。見出しの下の1行で読む）。いれば「世帯から出す」「（名前）から出す」
         ...(donors.length > 0 || gift.donor !== undefined
           ? [plain({ key: `${k}/donor`, item: "goal.education", label: "出す人", level: "simple", kind: "select", options: donors, find: findG, path: ["donor"], optional: true, fallback: "", help: "世帯のお金から出すか、家族の入力項目で登録した親・祖父母から出すか（贈与する人から出すと、援助の額を世帯から出しません）" })]
           : []),
         plain({ key: `${k}/payer`, item: "goal.education", label: "世帯の中で出す人", level: "detail", kind: "select", options: [{ value: "", label: "指定しない" }, ...memberOptions(wh, (m) => m.kind === "self" || m.kind === "spouse")], find: findG, path: ["payer"], optional: true, fallback: "" }),
-        plain({ key: `${k}/tax`, item: "goal.education", label: "贈与税の課税方法", level: "detail", kind: "select", options: TAX_METHODS, find: findG, path: ["taxMethod"], optional: true, fallback: "calendar" }),
+        plain({ key: `${k}/tax`, item: "goal.education", label: "贈与税の課税方法", level: "detail", kind: "select", options: TAX_METHODS, segmented: true, find: findG, path: ["taxMethod"], optional: true, fallback: "calendar" }),
         plain({ key: `${k}/exempt`, item: "goal.education", label: "住宅資金の非課税", level: "detail", kind: "select", options: HOUSING_EXEMPTION, find: findG, path: ["housingExemption"], optional: true, fallback: "none" }),
       ],
       actions: [

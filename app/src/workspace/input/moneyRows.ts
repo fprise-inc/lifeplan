@@ -914,6 +914,8 @@ export function cadenceField(key: string, item: string, find: Finder, id: string
       level: "simple",
       kind: "select",
       options,
+      // 区切りボタン。前の版の「毎月（前の版の入れ方）」が残る行だけは、名前が長いのでプルダウンのまま
+      segmented: nm?.monthlyNow !== true,
       structural: true,
       ...(nm !== undefined ? { help: nm.help } : {}),
       get: (wh) => {
@@ -969,7 +971,7 @@ const badgeLevel = (_card: MoneyCard): Level => "simple";
 /** 行の名前の欄。相続・贈与のカードの行は詳細（名前が空なら種類の名前を見出しに出し、相手は標準の欄で選ぶ。0078） */
 const nameLevel = (card: MoneyCard): Level => (card === "inherit" ? "detail" : "simple");
 function badgeField(key: string, item: string, label: string, options: Option[], fallback: string, find: Finder, path: string, id: string, help: string, level: Level): FieldDef {
-  return withAddress(aliasBadge(plain({ key, item, label, level, kind: "select", options, find, path: [path], optional: true, fallback, help })), address(id, item));
+  return withAddress(aliasBadge(plain({ key, item, label, level, kind: "select", options, segmented: true, find, path: [path], optional: true, fallback, help })), address(id, item));
 }
 
 /**
@@ -1281,7 +1283,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   if (tax === "temporary" || tax === "miscBusiness" || tax === "miscOther" || tax === "business" || tax === "capitalGains")
     taxFields.push(withAddress(yenBox({ key: `${k}/cost`, item: "incomeFlow.cost", label: costLabel(tax, c, f.everyYears), level: "detail", basis: c === "monthly" ? "monthly" : "once", find, path: ["cost"], optional: true, help: costHelp(tax, c, f.everyYears, onceAmount) }), address(f.id, "incomeFlow.cost")));
   if (tax === "gift")
-    taxFields.push(withAddress(plain({ key: `${k}/giftMethod`, item: "incomeFlow.giftMethod", label: "贈与税の課税の方法", level: "detail", kind: "select", options: [{ value: "calendar", label: "暦年課税" }, { value: "settlement", label: "相続時精算課税" }], find, path: ["giftMethod"], optional: true, fallback: "calendar" }), address(f.id, "incomeFlow.giftMethod")));
+    taxFields.push(withAddress(plain({ key: `${k}/giftMethod`, item: "incomeFlow.giftMethod", label: "贈与税の課税の方法", level: "detail", kind: "select", options: [{ value: "calendar", label: "暦年課税" }, { value: "settlement", label: "相続時精算課税" }], segmented: true, find, path: ["giftMethod"], optional: true, fallback: "calendar" }), address(f.id, "incomeFlow.giftMethod")));
   // 詳細2: 受け取る人・相手・伸び方・万一のときの扱い・表の行
   const whoFields: FieldDef[] = [
     withAddress(plain({ key: `${k}/recipient`, item: "incomeFlow.recipient", label: "受け取る人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["recipient"], optional: true, fallback: "", help: "「世帯」のときは、税はご本人の所得として計算し、万一のときの扱いは世帯のだれかに万一が起きたとき（万一のタブで想定した人）に当てます。人を選ぶと、税はその人の所得として計算し、万一のときの扱いもその人に起きたときだけにします" }), address(f.id, "incomeFlow.recipient")),
@@ -1408,7 +1410,7 @@ export function expenseDetailGroups(wh: WorkingHousehold, p: PeriodicExpense, ca
       level: "detail",
       fields: [
         withAddress(plain({ key: `${k}/gift/purpose`, item: "periodicExpense.gift", label: "使い道", level: "detail", kind: "select", options: [{ value: "general", label: "ふつうの贈与" }, { value: "housing", label: "住宅資金（住宅取得等資金の非課税を使う）" }, { value: "asNeeded", label: "生活費・教育費をその都度払う（非課税）" }], find: gfind, ensure, path: ["purpose"], optional: true, fallback: "general" }), address(p.id, "periodicExpense.gift", ["purpose"])),
-        withAddress(plain({ key: `${k}/gift/method`, item: "periodicExpense.gift", label: "課税の方法", level: "detail", kind: "select", options: [{ value: "calendar", label: "暦年課税" }, { value: "settlement", label: "相続時精算課税" }], find: gfind, ensure, path: ["method"], optional: true, fallback: "calendar" }), address(p.id, "periodicExpense.gift", ["method"])),
+        withAddress(plain({ key: `${k}/gift/method`, item: "periodicExpense.gift", label: "課税の方法", level: "detail", kind: "select", options: [{ value: "calendar", label: "暦年課税" }, { value: "settlement", label: "相続時精算課税" }], segmented: true, find: gfind, ensure, path: ["method"], optional: true, fallback: "calendar" }), address(p.id, "periodicExpense.gift", ["method"])),
       ],
       actions: [],
     });
@@ -1634,7 +1636,7 @@ export function inheritedDebtGroups(wh: WorkingHousehold): GroupDef[] {
       level: "simple",
       fields: [
         withAddress(plain({ key: `${k}/from`, item: "debt.inheritedFrom", label: "元の借り手", level: "simple", kind: "select", options: counterpartyOptions(wh).slice(1), find, path: ["inheritedFrom"] }), address(d.id, "debt.inheritedFrom")),
-        { ...withAddress(includeAlias(aliasBadge(plain({ key: `${k}/likelihood`, item: "debt.likelihood", label: "見込み", level: "simple", kind: "select", options: LIKELIHOODS, find, path: ["likelihood"], optional: true, fallback: "likely", help: likelihoodHelp("debt") })), find), address(d.id, "debt.likelihood")), helpId: LIKELIHOOD_HELP.debt.id },
+        { ...withAddress(includeAlias(aliasBadge(plain({ key: `${k}/likelihood`, item: "debt.likelihood", label: "見込み", level: "simple", kind: "select", options: LIKELIHOODS, segmented: true, find, path: ["likelihood"], optional: true, fallback: "likely", help: likelihoodHelp("debt") })), find), address(d.id, "debt.likelihood")), helpId: LIKELIHOOD_HELP.debt.id },
       ],
       actions: [removeAction(`${k}/remove`, "外す", "simple", (hh) => void (hh.debts = (hh.debts ?? []).filter((x) => x.id !== d.id)))],
     };

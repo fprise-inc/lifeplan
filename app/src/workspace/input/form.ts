@@ -209,6 +209,11 @@ interface FieldBase {
   optional?: boolean;
   /** 物の形が変わる選択（年金の入れ方・働き方の種類など）。往復のテストでは別に確かめる */
   structural?: boolean;
+  /**
+   * この欄（チェック）を入れると出てくる欄: "rest" は同じ並びの後ろの欄すべて、キーの並びはその欄だけ（この欄のすぐ後ろに続く物）。
+   * 出てきた欄は、この欄のすぐ下に「左の線＋字下げ」でひとまとまりに描く（FieldViews.tsx の fieldUnits）。見せ方だけで、値と計算は変えない（0236）
+   */
+  opens?: "rest" | readonly string[];
   /** 空にすると推定の値に戻る（空は「入れない」ではない） */
   blankIsEstimate?: boolean;
   /**
@@ -280,7 +285,12 @@ export type FieldDef = FieldBase &
     // min・max はパーセントの値（0〜100% の割合の欄など。外の値は欄の下に理由を出して書かない）
     | { kind: "pct"; min?: number; max?: number }
     | { kind: "decimal"; suffix?: string }
-    | { kind: "select"; options: Option[] }
+    // segmented: 区切りボタン（全部の選択肢が並び、選んでいる方が塗り）で描く。選択肢の数では決めず、欄ごとに指定する。
+    //   指定するのは、選択肢が決まった2〜3個で言葉が短い欄だけ（人・口座など世帯で変わる選択肢の欄には付けない）。
+    //   同じ名前・同じ選択肢の欄は、入力項目をまたいで同じ形にする（test/input-parts.test.ts が確かめる。0236）
+    // onOff: オン・オフだけの2択を、チェックの欄と同じ見た目で描く（on・off は選択肢の値。保存する値は選択肢の値のまま）。
+    //   選択肢がこの2つだけで、値がどちらかのときだけチェックで描く（ほかの値が残っている間は選ぶ欄のまま）
+    | { kind: "select"; options: Option[]; segmented?: boolean; onOff?: { on: string; off: string } }
     // ageInput: 生年月の欄。「38歳」「38」と打てば、生まれた年月を推定して仮の値（仮の印）で入れる（when.ts の birthFromAge）
     // earliest・latest: 入れられる年月の範囲（その月を含む。外の年月は欄の下に理由を出して書かない。生年月は今月まで・120歳まで。0162）
     | { kind: "ym"; ageInput?: boolean; earliest?: string; latest?: string }
@@ -297,6 +307,11 @@ export interface ActionDef {
   danger?: boolean;
   /** 選んでいる状態を見せるボタン（目安の選択など。aria-pressed） */
   pressed?: boolean;
+  /**
+   * オン・オフを切り替えるボタンを、チェックの欄と同じ見た目で描く（押すと名前が変わるボタンの代わり。0236）: label はチェックの横の名前、on は今入っているか。
+   * 押したときの処理は run のまま（値と計算は変えない）
+   */
+  check?: { label: string; on: boolean };
   /** ボタンに添える補足（ツールチップ） */
   title?: string;
   /** ボタンの横の「?」の中の説明（何が足されるか・どう計算するか。ボタンの名前には書かない。0077 の追記） */
@@ -630,6 +645,8 @@ export function plain(o: {
   /** 円の欄の既定の単位（省略は万円。保険料・入院日額など小さい額は円） */
   unit?: YenUnit;
   options?: Option[];
+  /** 選ぶ欄を区切りボタンで描く（FieldDef の select の segmented） */
+  segmented?: boolean;
   suffix?: string;
   min?: number;
   max?: number;
@@ -663,6 +680,7 @@ export function plain(o: {
   if (o.kind === "yen") kindPart.basis = o.basis ?? "once";
   if (o.kind === "yen" && o.unit !== undefined) kindPart.unit = o.unit;
   if (o.kind === "select") kindPart.options = o.options ?? [];
+  if (o.kind === "select" && o.segmented === true) kindPart.segmented = true;
   if (o.suffix !== undefined) kindPart.suffix = o.suffix;
   if (o.min !== undefined) kindPart.min = o.min;
   if (o.max !== undefined) kindPart.max = o.max;

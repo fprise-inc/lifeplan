@@ -243,7 +243,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
           return age < 0 ? expectedBirthHint(w, v) : `${String(age)}歳（${wareki(v)}）`;
         },
       }), (_before, after) => (after.assumed[`${k}/leaves`] !== undefined ? withDeathEstimate(after, m.id) : after)), ["birthYearMonth"]),
-      onMember(m.id, plain({ key: `${k}/sex`, item: "member.sex", label: "性別", level: "detail", kind: "select", options: SEX_OPTIONS, find, path: ["sex"], help: "亡くなる見込み（平均余命）の目安と、父・母の呼び方に使います" })),
+      onMember(m.id, plain({ key: `${k}/sex`, item: "member.sex", label: "性別", level: "detail", kind: "select", options: SEX_OPTIONS, segmented: true, find, path: ["sex"], help: "亡くなる見込み（平均余命）の目安と、父・母の呼び方に使います" })),
     );
   // 同居の印は扶養の判定に使うだけで、家計は別のまま（家計を1つにするのは期間。印を付けたら欄の下に1行と「＋ 家計を1つにする」）
   const periods = m.outside?.periods ?? [];

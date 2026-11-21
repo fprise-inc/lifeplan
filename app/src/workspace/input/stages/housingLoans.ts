@@ -611,10 +611,16 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
       label: "就業不能の特約",
       level: "detail",
       kind: "bool",
+      opens: [`${k}/clMonths`],
       help: "働けない状態が決まった月数続くと残高が消えます（障害・就業不能の想定で使います）",
       get: (w) => ({ value: events(w.request.input.household, w).includes("incapacity"), ...(implicitEvents(w) ? { implicit: true } : {}) }),
       set: (w, v) => setEvent(w, "incapacity", v === true),
     }),
+  );
+  // 就業不能の特約を入れると出てくる月数は、そのチェックのすぐ下に置く（opens。0236）
+  if (events(wh.request.input.household, wh).includes("incapacity"))
+    fields.push(plain({ key: `${k}/clMonths`, item: "debt.creditLife", label: "就業不能の特約: 残高が消えるまでの月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 120, find, path: ["creditLife", "incapacityMonths"], optional: true, fallback: 12 }));
+  fields.push(
     field({
       key: `${k}/clDisease`,
       item: "debt.creditLife",
@@ -633,10 +639,6 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
           c.events = CL_EVENTS.filter((e) => cur.has(e));
         }),
     }),
-  );
-  if (events(wh.request.input.household, wh).includes("incapacity"))
-    fields.push(plain({ key: `${k}/clMonths`, item: "debt.creditLife", label: "就業不能の特約: 残高が消えるまでの月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 120, find, path: ["creditLife", "incapacityMonths"], optional: true, fallback: 12 }));
-  fields.push(
     plain({ key: `${k}/clRatio`, item: "debt.creditLife", label: "保障割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["creditLife", "ratio"], optional: true, fallback: "1", help: "連帯債務などで、残高のうち保障される割合" }),
     plain({ key: `${k}/clJoint`, item: "debt.creditLife", label: "夫婦連生", help: "どちらかの万一で、残りの全額がなくなります", level: "detail", kind: "bool", find, path: ["creditLife", "spouseJoint"], optional: true, fallback: false }),
   );
@@ -928,6 +930,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         label: "新築か中古か（控除）",
         level: "detail",
         kind: "select",
+        segmented: true,
         options: [
           { value: "new", label: "新築・買取再販" },
           { value: "used", label: "中古" },
@@ -1130,6 +1133,7 @@ function rateCutFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
       level: "detail",
       kind: "select",
       options: CUT_PERIODS,
+      segmented: true,
       structural: true,
       sideEffects: note,
       help: "フラット35S などで、借りてから決まった期間だけ金利が下がるときに選びます",
@@ -1469,7 +1473,7 @@ function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
 }
 
 const methodField = (wh: WorkingHousehold, d: Debt, k: string): FieldDef => {
-  const inner = plain({ key: `${k}/method`, item: "debt.repayment", label: "返済方法", level: "detail", kind: "select", options: REPAYMENT_METHODS, find: byId(debts, d.id), path: ["repayment", "method"] });
+  const inner = plain({ key: `${k}/method`, item: "debt.repayment", label: "返済方法", level: "detail", kind: "select", options: REPAYMENT_METHODS, segmented: true, find: byId(debts, d.id), path: ["repayment", "method"] });
   return field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, inner.write?.(w, v) ?? inner.set(w, v), d.id, "method") });
 };
 
@@ -2065,11 +2069,12 @@ export function loanMoreActions(wh: WorkingHousehold, d: Debt, k: string): Actio
   if (d.kind === "mortgage" && d.property === undefined && d.pairWith === undefined && spouse !== undefined && d.debtors.length === 1)
     out.unshift({ key: `${k}/addPair`, label: "＋ ペアローン（配偶者の2本目）", level: "simple", run: (w) => newMortgage(w, d.id) });
   // 今の残高から入れた住宅ローンで控除の条件が無い: 当てはまらない（入居から13年を過ぎた・要件を満たさないなど）なら「該当なし」で警告を消す
+  // 見た目は、控除の条件があるときのチェック「住宅ローン控除を受ける」と同じ形（ActionDef の check。押したときの処理と名前はそのまま）
   if (isHomeLoan(d) && d.housing === undefined && fromBalance(wh, d.id))
     out.unshift(
       creditNotApplicable(wh, d.id)
-        ? { key: `${k}/creditNa`, label: "住宅ローン控除の「該当なし」を外す", level: "simple", run: (w) => setCreditNotApplicable(w, d.id, false) }
-        : { key: `${k}/creditNa`, label: "住宅ローン控除は該当なし", level: "simple", title: "入居から13年を過ぎた・要件を満たさないなどで控除を受けないとき", run: (w) => setCreditNotApplicable(w, d.id, true) },
+        ? { key: `${k}/creditNa`, label: "住宅ローン控除の「該当なし」を外す", level: "simple", check: { label: "住宅ローン控除を受ける", on: false }, title: "入居から13年を過ぎた・要件を満たさないなどで控除を受けないときは、外したままにする", run: (w) => setCreditNotApplicable(w, d.id, false) }
+        : { key: `${k}/creditNa`, label: "住宅ローン控除は該当なし", level: "simple", check: { label: "住宅ローン控除を受ける", on: true }, title: "入居から13年を過ぎた・要件を満たさないなどで控除を受けないときは、外す", run: (w) => setCreditNotApplicable(w, d.id, true) },
     );
   return out;
 }

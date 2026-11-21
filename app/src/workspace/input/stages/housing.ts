@@ -162,6 +162,7 @@ function styleField(r: Residence, k: string): FieldDef {
       level: "detail",
       kind: "select",
       options: STYLES,
+      segmented: true,
       sideEffects: "建物の構造が空か推定なら、建て方に合わせます",
       help: "修繕費の目安と建物の構造（評価の耐用年数）の目安に使います",
       get: (w) => {
@@ -1437,7 +1438,7 @@ function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
         }),
         gid === undefined ? amount : { ...amount, address: () => at(r.id, "residence.purchase", ["gifts", gid, "amount"]) },
         plain({ key: `${kg}/recipient`, item: "residence.purchase", label: "受け取る人", level: "detail", kind: "select", options: memberOptions(wh, (m) => m.kind === "self" || m.kind === "spouse"), find: findG, path: ["recipient"] }),
-        plain({ key: `${kg}/tax`, item: "residence.purchase", label: "贈与税の課税方法", level: "detail", kind: "select", options: TAX_METHODS, find: findG, path: ["taxMethod"], optional: true, fallback: "calendar" }),
+        plain({ key: `${kg}/tax`, item: "residence.purchase", label: "贈与税の課税方法", level: "detail", kind: "select", options: TAX_METHODS, segmented: true, find: findG, path: ["taxMethod"], optional: true, fallback: "calendar" }),
         { ...exempt, get: (w: WorkingHousehold) => ({ ...exempt.get(w), warn: exemptionWarn((getPath(findG(w.request.input.household, w), ["housingExemption"]) as string | undefined) ?? "other", purchaseMonth(w.request.input.household, find(w.request.input.household, w) as unknown as Residence)) }) },
       ],
       actions: [
@@ -1612,6 +1613,7 @@ function valueBasisField(wh: WorkingHousehold, r: Residence, kv: string): FieldD
       level: "detail",
       kind: "select",
       options: VALUE_BASES,
+      segmented: true,
       structural: true,
       help: "ふつうは「買った値段で」のまま、標準の買った値段と買った年月から今と先の年の評価額を推計します（土地は上昇率で動かし、建物は古くなった分を減らす）。査定などで今の時価が分かるときは「今の時価で」にして評価額を入れます",
       get: (w) => {
@@ -2114,6 +2116,7 @@ export function loanStepGroups(d: Debt, k: string, o: { refinance?: boolean; rat
           label: "方法",
           level: "detail",
           kind: "select",
+          segmented: true,
           options: [
             { value: "shortenTerm", label: "期間短縮型" },
             { value: "reducePayment", label: "返済額軽減型" },
@@ -2155,7 +2158,7 @@ function refinanceGroups(d: Debt, k: string): GroupDef[] {
         withA(plain({ key: `${kr}/rate`, item: "debt.refinance", label: "新しい金利（年）", level: "detail", kind: "pct", find: findRate, path: ["rate"] })),
         withA(plain({ key: `${kr}/rateType`, item: "debt.refinance", label: "新しい金利の種類", level: "detail", kind: "select", options: RATE_TYPES, find: findRate, path: ["type"] })),
         withA(plain({ key: `${kr}/term`, item: "debt.refinance", label: "新しい返済期間", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, find: findR, path: ["termMonths"] })),
-        withA(plain({ key: `${kr}/method`, item: "debt.refinance", label: "新しい返済の方法", level: "detail", kind: "select", options: REPAYMENT_METHODS, find: findR, path: ["method"], optional: true, fallback: d.repayment.method })),
+        withA(plain({ key: `${kr}/method`, item: "debt.refinance", label: "新しい返済の方法", level: "detail", kind: "select", options: REPAYMENT_METHODS, segmented: true, find: findR, path: ["method"], optional: true, fallback: d.repayment.method })),
         withA(plain({ key: `${kr}/costs`, item: "debt.refinance", label: "借り換えの費用", level: "detail", kind: "yen", basis: "once", find: findR, path: ["costs"], optional: true, help: "保証料・事務手数料・登記の費用などの合計です" })),
         withA(plain({ key: `${kr}/financed`, item: "debt.refinance", label: "費用を新しいローンに含める", level: "detail", kind: "bool", find: findR, path: ["costsFinanced"], optional: true, fallback: false, help: "含めないときは、借り換えの月に費用を払います" })),
       ],
