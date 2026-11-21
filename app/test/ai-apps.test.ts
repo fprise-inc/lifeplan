@@ -71,7 +71,7 @@ describe("AI のアプリへの登録の画面（0228）", () => {
     expect(part("gemini")).not.toContain("<button");
   });
 
-  it("押せない理由と、手で設定する手順への戻り方を出す", () => {
+  it("押せない理由と、手動で登録する手順への戻り方を出す", () => {
     const html = render(
       status([
         app("claudeDesktop", "Claude Desktop", "unregistered", { blocked: "E_AI_APP_RUNNING" }),
@@ -82,7 +82,7 @@ describe("AI のアプリへの登録の画面（0228）", () => {
     expect(html).toContain("Claude Desktop が起動しています");
     expect(html).toContain("claude コマンドが見つかりません");
     expect(html).toContain("設定のファイルを読めないため、書き込みませんでした");
-    expect(html).toContain("手で設定する");
+    expect(html).toContain("手動で登録する");
     // 押せない行の「登録する」は押せない
     expect(html.match(/<button[^>]*disabled[^>]*data-ai-app-register/g)?.length).toBe(2);
   });
