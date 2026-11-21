@@ -717,7 +717,6 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   // 事務所の欄の見せ方（カスタム層の隠す・並べ替え。見せ方だけで、世帯の値と計算は変えない。値の入った欄は隠さない）
   const layout = useContext(OfficeFieldsContext);
   const texts = useContext(OfficeTextsContext);
-  const pins = useContext(PinControls);
   const arrange = (fs: readonly FieldDef[]) => arrangeFields(fs, (f) => fieldTextId(f, wh), (f) => hasFieldValue(f, wh), layout);
   // ふだんは閉じておくまとまり（folded。FoldedGroup.tsx）: 閉じている間は説明と開くボタンだけ
   const fold = useFold(group, useGroupOpen());
@@ -743,27 +742,24 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   const gnote = gn.help !== null ? applyNoteParts(texts, gn.help) : null;
   const noteHelp =
     gnote !== null ? (
-      <Help label={group.title ?? "このまとまり"}>
+      <Help label={group.headName ?? group.title ?? "このまとまり"}>
         {helpBlocks(gnote.text)}
         {gnote.office.map((o) => (
           <OfficeTextMark key={o.entry.id} entry={o.entry} official={o.official} />
         ))}
       </Help>
     ) : null;
-  // 見出しを左の狭い列に寄せる詰めた形（compact）は、見出しが名前と「?」だけで、欄の下に何も続かない小さなまとまりだけ。
-  // 見出しに要約・「ホームに出す」・「外す」が載る物や、欄の下に足すボタン・推定のままの1行が続く物（介護の費用の1件など。欄が選ぶ欄2つだけでも）は、
-  // ほかの物の枠と同じ形（見出しは幅いっぱいの1行・欄は次の行から）にする。左の列に押し込むと、要約が何行にも折れ、ボタンがばらばらの位置に落ちる。
-  // チェックで欄が出てくる物（opens）も、出てきた欄の置き場が要るので詰めた形にしない（0236）
-  // 「▸」のあるまとまり（more）も詰めた形にしない: 開くと欄が増えて詰めた形でなくなり、見出しが左の列から上の行へ動くため（開いても閉じても同じ形にする）
-  const plainHead = group.summary === undefined && actions.length === 0 && group.estimateLine === undefined && (pins?.refOf(group.key) ?? null) === null;
-  const compact = plainHead && group.band !== true && group.wideHead !== true && more === undefined && inner.length === 0 && sub.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool") && !fields.some((f) => f.opens !== undefined);
+  // どのまとまりも、見出しは幅いっぱいの1行・欄は次の行から（同じ並び）。前は、選ぶ欄が1〜3個だけの小さなまとまりで、見出しを左の狭い列に
+  // 寄せる詰めた形があったが、名前が長いと左の列で何行にも折れ（「払う人・伸び方・万一のときの扱い」）、まとまりごとに並びが変わるので無くした（0236 の追記）
+  // 見出しに太字で出す名前（headName があればそれ。title に額や時期まで入っているお金の行・夢は、名前だけを太字にして、額と時期は要約に分ける）
+  const head = group.headName ?? group.title;
   return (
-    <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}${compact ? " compact" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
+    <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
       {group.title !== undefined ? (
         <div class="in-group-h">
           {/* 「?」は名前のすぐ後ろ（名前の説明なので。要約が長くて折り返しても、「?」が要約の終わりに流れない）。要約はその後ろに続ける（0236） */}
           <h4>
-            {group.title}
+            {head}
             {noteHelp}
             {group.summary !== undefined ? <small class="in-sum">{group.summary}</small> : null}
           </h4>

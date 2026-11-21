@@ -58,6 +58,23 @@ export function bothAfterLabel(h: Household): string {
   return h.members.some((m) => m.kind === "spouse" && m.outside === undefined) ? "二人とも亡くなった後" : "表の最後の年";
 }
 
+/**
+ * 介護の段階の印（「（1段階目）」「（2段階目）」）: 同じ人の介護が2つ以上あるときだけ付ける（1つだけなら空）。
+ * 数え方は世帯の中の並びの順（入力の画面で上から並ぶ順。「＋ 次の段階を足す」は末尾に足す）。始まりの月では数えない
+ * （始まりを直している途中で、名前が入れ替わらないように）。入力の画面の見出し・確かめの一覧・検索・プランの違い・ホームに出した項目・
+ * 計算のお知らせで同じ名前にするため、名前を作る所はどこもこの関数を使う（0236 の追記）
+ */
+export function careStageMark(list: readonly { id: string; member?: string }[] | undefined, c: { id: string; member?: string }): string {
+  const same = (list ?? []).filter((x) => x.member === c.member);
+  const at = same.findIndex((x) => x.id === c.id);
+  return same.length < 2 || at < 0 ? "" : `（${String(at + 1)}段階目）`;
+}
+
+/** 介護の物の名前: 「母の介護」。同じ人の介護が2つ以上なら「母の介護（1段階目）」「母の介護（2段階目）」 */
+export function careLabel(wh: WorkingHousehold, c: { id: string; member?: string }): string {
+  return `${memberLabel(wh, c.member)}の介護${careStageMark(wh.request.input.household.careExpenses, c)}`;
+}
+
 export function memberLabel(wh: WorkingHousehold, id: string | undefined, o: { nicknames?: boolean } = {}): string {
   if (id === undefined) return "（未選択）";
   return memberLabels(wh, o).get(id) ?? "（いない家族）";

@@ -397,14 +397,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c input.when-in { width: 10.5em; max-width: 100%; font-variant-numeric: tabular-nums; }
 .fld-c select.when-mode, .fld-c select.when-who, .fld-c select.when-event { font-size: 0.85rem; padding: 4px 6px; }
 .fld-help.when-read { color: var(--ink); }
-.in-group.compact { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 8px 12px; }
-.in-group.compact .in-group-h { margin: 0; flex-direction: column; align-items: flex-start; gap: 0; }
-/* 要約・「ホームに出す」・「外す」・足すボタン・推定のままの1行がある物は、詰めた形にしない（FieldViews.tsx の Group の plainHead） */
-.in-group.compact .fields { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-/* 区切りボタンのある並びは、ふつうの並びと同じ列の幅にする（狭い列ではボタンがはみ出す） */
-.in-group.compact .fields:has(.fld-seg) { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-/* 欄が1つだけのまとまりは、その欄を行の幅いっぱいに置く（選ぶ欄の選択肢が長いとき、1列の幅で切れないように。例: 学校外の費用の入れ方） */
-.in-group.compact .fields > .fld:only-child { grid-column: 1 / -1; }
+/* 見出しを左の狭い列に寄せる詰めた形（.in-group.compact）は無くした: どのまとまりも、見出しは幅いっぱいの1行・欄は次の行から（0236 の追記） */
 /* まとまりの「▸ 詳しく」（標準のときだけ。控えめな文字のリンク。開いた中身はリンクの下に出す。0078 の追記） */
 .grp-more { margin-top: 6px; }
 /* 文は場所ごと（「▸ 呼び名・性別などを入れる」。0078 の 2026-11-01 の追記）。幅が狭い所（表の行の中など）で折り返すときも、
@@ -414,7 +407,6 @@ html.big .lever input[type="range"] { height: 36px; }
 .grp-more .grp-more-text { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
 .grp-more .grp-more-btn:hover .grp-more-text, .grp-more .grp-more-btn:focus-visible .grp-more-text { text-decoration: underline; }
 .grp-more-body { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--card-line); }
-.in-group.compact .grp-more, .in-group.compact .grp-more-body { grid-column: 1 / -1; }
 /* 推定のままの欄の1行（GroupDef の estimateLine。介護の物など）: 欄とボタンの下に小さく。「推定」の印は欄の印と同じ（.badge.est） */
 .in-est-line { margin: 6px 0 0; font-size: 0.8rem; line-height: 1.5; color: var(--ink-2); word-break: keep-all; overflow-wrap: anywhere; }
 .in-est-line .in-est-names { margin-left: 0.5em; }
@@ -437,7 +429,6 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group .in-group, .in-group.in-sub { border: 0; border-top: 1px dashed var(--card-line); border-radius: 0; background: transparent; margin: 16px 0 0; padding: 12px 0 4px; }
 .in-group .in-group > .in-group-h, .in-group.in-sub > .in-group-h { margin-bottom: 8px; }
 .in-group .in-group .in-group-h h4, .in-group.in-sub .in-group-h h4 { font-size: 0.9rem; color: var(--ink-2); }
-.in-group.in-sub.compact { padding: 12px 0 4px; }
 .sv-more-row .in-group.in-sub:first-child { border-top: 0; margin-top: 4px; padding-top: 0; }
 /*
  * 物1件の中の中枠（band。欄の多い物を、題名のある区切りに分ける。例: 住宅ローンの借入の内容・金利・返済…。0077 の追記）:

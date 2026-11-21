@@ -942,6 +942,9 @@ function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, coun
   return {
     key: k,
     title: `夢${String(rank)}｜${name} ${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? DREAM_EXCLUDED : ""}`,
+    // 見出しは 名前 →「?」→ 要約（額・時期）の並び（title は一覧の名前としてそのまま。0236 の追記）
+    headName: `夢${String(rank)}｜${name}`,
+    summary: `${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? DREAM_EXCLUDED : ""}`,
     ...(p.monthly === true ? { note: MONTHLY_NOTE } : {}),
     level: "simple",
     // 「▸ …」で開く欄は額の入れ方（年ごとの夢は伸び方）だけ

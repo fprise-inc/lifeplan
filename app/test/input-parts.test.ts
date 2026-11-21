@@ -1,6 +1,6 @@
 // 入力画面の部品の見た目をそろえる（0236）: 区切りボタン（欄ごとの指定）・チェックで出てきた欄のまとまり・オン／オフのチェック。
 // 見せ方だけの変更なので、どの部品でも書かれる値は選択肢の値のままで、欄の読み書き（get・set）は変えていないことを確かめる
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -8,14 +8,22 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { fieldDomId, fieldUnits, Group, isSegmented, onOffOf, type GroupOpenState } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef, type GroupDef } from "../src/workspace/input/form.ts";
+import { checkList } from "../src/workspace/input/checkRows.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
+import { findEntries } from "../src/workspace/input/inputSearch.ts";
+import { inputItems, pinItems, pinOfGroup, togglePin } from "../src/workspace/input/items.ts";
+import { careLabel, careStageMark, memberLabel } from "../src/workspace/input/labels.ts";
+import { addNextCareStage } from "../src/workspace/input/stages/care.ts";
 import { buildStage, buildStages } from "../src/workspace/input/stages/index.ts";
 import { fieldTextId } from "../src/workspace/input/textIds.ts";
 import { hasFieldValue } from "../src/workspace/input/valueState.ts";
 import { officeFieldsFrom, type OfficeTextEntry } from "../src/workspace/office/customTexts.ts";
 import { OfficeFieldsContext } from "../src/workspace/office/customTextsContext.ts";
-import { modelHousehold } from "./helpers.ts";
+import { fieldPlaces } from "../src/workspace/documents/resolve.ts";
+import { nameResolver } from "../src/workspace/engineNotices.ts";
+import { planIndex } from "../src/workspace/plans/planEdit.ts";
+import { modelHousehold, preview } from "./helpers.ts";
 
 const noop = () => undefined;
 const open = (m: string): WorkingHousehold => fromRequest(modelHousehold(m), {});
@@ -403,5 +411,227 @@ describe("事務所のカスタマイズ（欄を隠す・並べ替える）は�
     const offPlain = order(render(offGroup.g, off, []));
     const shown = order(render(offGroup.g, off, [entry(fieldTextId(offGroup.f, off) as string, "hide")]));
     expect(shown).toEqual(hasFieldValue(offGroup.f, off) ? offPlain : offPlain.filter((k) => k !== head.key));
+  });
+});
+
+// ---- 枠の見出しの残り（0236 の追記）: 詰めた形を無くす・名前と要約を分ける・介護の段階の名前 ----
+
+const panelAt = (wh: WorkingHousehold, card: string, level: "simple" | "detail") => renderToString(h(InputPanel, { wh, itemId: card, level, onLevel: noop, onSave: noop, onClose: noop, groupOpen: allOpen }));
+const allGroups = (wh: WorkingHousehold): GroupDef[] => buildStages(wh).flatMap((s) => s.sections.flatMap((sec) => sec.groups));
+const tagless = (html: string) => html.replace(/<[^>]*>/g, "");
+
+describe("どのまとまりも、見出しは幅いっぱいの1行（左の列に名前を寄せる詰めた形は無い）", () => {
+  it("見本の世帯すべて・全部の入力項目・標準と詳細: 詰めた形のまとまりが1つも無い", () => {
+    let n = 0;
+    for (const model of MODELS) {
+      const wh = open(model);
+      for (const s of buildStages(wh))
+        for (const level of ["simple", "detail"] as const) {
+          const html = panelAt(wh, s.id, level);
+          expect(/class="in-group[^"]* compact/.test(html), `${model} ${s.id} ${level}`).toBe(false);
+          n += html.match(/class="in-group/g)?.length ?? 0;
+        }
+    }
+    expect(n).toBeGreaterThan(1000);
+  });
+
+  it("前に詰めた形だったまとまり（払う人・伸び方・万一のときの扱い、児童手当・就学支援金、確定申告、あげる贈与）も、見出しの行の次に欄が続く", () => {
+    const seen = new Set<string>();
+    for (const model of MODELS) {
+      const wh = open(model);
+      for (const g of allGroups(wh)) {
+        const name = g.title ?? "";
+        const kind = ["払う人・", "児童手当・就学支援金", "の確定申告"].find((k) => name.includes(k));
+        if (kind === undefined || g.fields.length === 0) continue;
+        const html = renderToString(h(Group, { group: g, wh, level: "detail", onEdit: noop, nested: true }));
+        // まとまりの直下は、見出しの行（in-group-h）→ 欄の並び の順（左右に並べる入れ物は無い）
+        expect(html, `${model} ${g.key}`).toMatch(/^<div class="in-group in-sub" data-group="[^"]*"><div class="in-group-h"><h4>/);
+        seen.add(kind);
+      }
+    }
+    expect([...seen].sort()).toEqual(["の確定申告", "児童手当・就学支援金", "払う人・"].sort());
+  });
+
+  it("スタイルにも、詰めた形の決まりが残っていない", () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "styles", "app.css"), "utf8");
+    expect(css).not.toMatch(/\.in-group(\.in-sub)?\.compact\s*[.{,]/);
+  });
+});
+
+describe("お金の行・夢の見出しは、名前 →「?」→ 要約（太字の名前の中に額と時期を入れない）", () => {
+  const headed = MODELS.flatMap((model) => {
+    const wh = open(model);
+    return allGroups(wh)
+      .filter((g) => g.headName !== undefined)
+      .map((g) => ({ model, wh, g }));
+  });
+
+  it("見本の世帯に、名前と要約を分けたまとまりがある（ライフイベントの出るお金・入るお金・夢、相続・贈与、仕送り）", () => {
+    expect(headed.length).toBeGreaterThan(20);
+    const heads = new Set(headed.map((e) => e.g.headName));
+    for (const name of ["家族旅行", "家電の買い替え", "相続・遺贈", "あげる贈与", "仕送り"]) expect(heads, name).toContain(name);
+    expect([...heads].some((x) => /^夢\d+｜/.test(x ?? ""))).toBe(true);
+  });
+
+  it("一覧の名前（title）は前のまま「名前 額 時期」。見出しの名前と要約は、それを2つに分けただけ", () => {
+    for (const { model, g } of headed) {
+      expect(g.summary, `${model} ${g.key}`).toBeDefined();
+      expect(g.title, `${model} ${g.key}`).toBe(`${g.headName ?? ""} ${g.summary ?? ""}`);
+      // 太字の名前には、額（万円・円）も時期（年・月）も入らない（名前を付けた人がそう書いた場合を除くので、見本では要約の言葉で確かめる）
+      expect(g.headName?.includes(g.summary ?? "\u0000"), `${model} ${g.key}`).toBe(false);
+    }
+  });
+
+  it("画面: 太字は名前だけで、「?」があれば名前のすぐ後ろ、要約はその後ろの小さな字", () => {
+    let withHelp = 0;
+    for (const { model, wh, g } of headed) {
+      const html = renderToString(h(Group, { group: g, wh, level: "simple", onEdit: noop }));
+      const h4 = /<h4>(.*?)<\/h4>/s.exec(html)?.[1] ?? "";
+      const at = `${model} ${g.key}`;
+      expect(h4.startsWith(g.headName ?? "\u0000"), at).toBe(true);
+      const sum = h4.indexOf('<small class="in-sum">');
+      expect(sum, at).toBeGreaterThan(0);
+      expect(tagless(h4.slice(sum)), at).toBe(g.summary);
+      // 名前と要約の間には「?」のボタンだけ（額・時期の文字は無い）
+      const between = h4.slice((g.headName ?? "").length, sum);
+      if (between !== "") withHelp += 1;
+      expect(/[0-9]/.test(tagless(between).replace(/[?？]/g, "")), `${at}: ${tagless(between)}`).toBe(false);
+    }
+    expect(withHelp).toBeGreaterThan(0);
+  });
+
+  it("確かめの一覧・検索・書類の読み取りに出る名前は、前と同じ「名前 額 時期」", () => {
+    const wh = open("sampleParentsCare");
+    const rows = allGroups(wh).filter((g) => g.headName !== undefined);
+    expect(rows.length).toBeGreaterThan(0);
+    const found = findEntries(wh, inputItems(wh));
+    const places = fieldPlaces(wh);
+    for (const g of rows) {
+      expect(found.some((e) => e.label === g.title), g.key).toBe(true);
+      for (const f of g.fields) {
+        const place = places.find((p) => p.field.key === f.key);
+        if (place !== undefined && f.label !== g.title) expect(place.label, f.key).toBe(`${g.title ?? ""}: ${f.label}`);
+      }
+    }
+  });
+});
+
+describe("介護の段階が2つ以上のときは、名前に「（1段階目）」「（2段階目）」を付ける", () => {
+  const base = open("parentCare");
+  const cares = base.request.input.household.careExpenses ?? [];
+  const first = cares[0];
+  if (first === undefined) throw new Error("見本の世帯 parentCare に介護の費用が無い");
+  const who = memberLabel(base, first.member);
+  const two = addNextCareStage(base, first.id, "11111111-1111-4111-8111-111111111111");
+  const three = addNextCareStage(two, "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222");
+  const careTitles = (wh: WorkingHousehold) =>
+    buildStage("care", wh)
+      .sections.flatMap((s) => s.groups)
+      .filter((g) => /^ev\/care\/[^/]+$/.test(g.key))
+      .map((g) => g.title);
+
+  it("段階が1つだけのときは今のまま「母の介護」", () => {
+    expect(cares.filter((c) => c.member === first.member)).toHaveLength(1);
+    expect(careLabel(base, first)).toBe(`${who}の介護`);
+    expect(careTitles(base)).toContain(`${who}の介護`);
+    expect(careStageMark(cares, first)).toBe("");
+    for (const model of MODELS) for (const t of careTitles(open(model))) expect(t, model).not.toMatch(/段階目/);
+  });
+
+  it("段階を足すと、どちらの段階か名前で分かる（3つ目も同じ）。ほかの人の介護は変わらない", () => {
+    expect(careTitles(two).filter((t) => t?.startsWith(`${who}の介護`))).toEqual([`${who}の介護（1段階目）`, `${who}の介護（2段階目）`]);
+    expect(careTitles(three).filter((t) => t?.startsWith(`${who}の介護`))).toEqual([`${who}の介護（1段階目）`, `${who}の介護（2段階目）`, `${who}の介護（3段階目）`]);
+    // 父・配偶者の親など、ほかの人でも同じ決まり（人ごとに数える）
+    const list = [
+      { id: "a", member: "m1" },
+      { id: "b", member: "m2" },
+      { id: "c", member: "m1" },
+      { id: "d", member: "m3" },
+      { id: "e", member: "m3" },
+    ];
+    expect(list.map((c) => careStageMark(list, c))).toEqual(["（1段階目）", "", "（2段階目）", "（1段階目）", "（2段階目）"]);
+    // ほかの人の介護（段階が1つ）の名前は、足す前と同じ
+    const others = (wh: WorkingHousehold) => careTitles(wh).filter((t) => !(t ?? "").startsWith(`${who}の介護`));
+    expect(others(two)).toEqual(others(base));
+  });
+
+  it("画面の見出しは 名前 →「?」→ 要約（在宅か施設か・期間）。名前に「段」だけの言葉は出ない", () => {
+    const html = panelAt(two, "care", "simple");
+    expect(html).toContain(`<h4>${who}の介護（1段階目）`);
+    expect(html).toContain(`<h4>${who}の介護（2段階目）`);
+    expect(tagless(html)).not.toMatch(/[0-9]段目/);
+    expect(tagless(html)).not.toContain("段を並べ");
+  });
+
+  it("確かめの一覧・検索・プランの違い・書類の読み取り・ホームに出した項目・計算のお知らせの名前が、見出しと同じ", () => {
+    const second = "11111111-1111-4111-8111-111111111111";
+    const name1 = `${who}の介護（1段階目）`;
+    const name2 = `${who}の介護（2段階目）`;
+    const group2 = buildStage("care", two)
+      .sections.flatMap((s) => s.groups)
+      .find((g) => g.key === `ev/care/${second}`);
+    expect(group2?.title).toBe(name2);
+    const keys = new Set((group2?.fields ?? []).map((f) => f.key));
+    // 確かめの一覧
+    const rows = checkList(two).filter((r) => r.fieldKey !== null && keys.has(r.fieldKey));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) expect(r.label.startsWith(name2), r.label).toBe(true);
+    // 検索
+    const found = findEntries(two, inputItems(two));
+    expect(found.some((e) => e.label === name1)).toBe(true);
+    expect(found.some((e) => e.label === name2)).toBe(true);
+    expect(found.filter((e) => e.label === `${who}の介護`)).toHaveLength(0);
+    // 書類の読み取りの入れ先の名前
+    const places = fieldPlaces(two).filter((p) => keys.has(p.field.key));
+    expect(places.length).toBeGreaterThan(0);
+    for (const p of places) expect(p.label.startsWith(`${name2}: `), p.label).toBe(true);
+    // プランの違い（現状もプランも2段階のとき）
+    const index = planIndex([two]);
+    const wheres = new Set([...index.fields.values()].filter((x) => keys.has(x.field.key)).map((x) => x.where));
+    expect([...wheres]).toEqual([name2]);
+    // ホームに出した項目
+    const pin = pinOfGroup(`ev/care/${second}`);
+    expect(pin).not.toBeNull();
+    if (pin === null) return;
+    const pinned = togglePin(two, pin, () => "33333333-3333-4333-8333-333333333333");
+    expect(pinItems(pinned).map((i) => i.label)).toEqual([name2]);
+    const pinOne = pinOfGroup(`ev/care/${first.id}`);
+    expect(pinOne).not.toBeNull();
+    if (pinOne === null) return;
+    expect(pinItems(togglePin(base, pinOne, () => "33333333-3333-4333-8333-333333333333")).map((i) => i.label)).toEqual([`${who}の介護`]);
+    // 計算のお知らせの物の名前
+    const names = nameResolver(two);
+    expect(names(first.id)?.endsWith("の介護（1段階目）")).toBe(true);
+    expect(names(second)?.endsWith("の介護（2段階目）")).toBe(true);
+    expect(nameResolver(base)(first.id)?.endsWith("の介護")).toBe(true);
+  });
+
+  it("現状は1段階・プランで段階を足したとき: 現状からある段階は現状の名前のまま、足した段階は「（2段階目）」（先に見つけた名前を使う決まりのまま）", () => {
+    const second = "11111111-1111-4111-8111-111111111111";
+    const index = planIndex([base, two]);
+    const whereOf = (id: string) => [...new Set([...index.fields.values()].filter((x) => x.field.key.startsWith(`ev/care/${id}/`)).map((x) => x.where))];
+    expect(whereOf(first.id)).toEqual([`${who}の介護`]);
+    expect(whereOf(second)).toEqual([`${who}の介護（2段階目）`]);
+  });
+
+  it("名前を変えただけで、世帯のデータも計算の結果も変わらない（基準月1〜3月を含む）", () => {
+    const req = modelHousehold("parentCare");
+    for (const baseMonth of [req.input.baseMonth, "2027-01", "2027-02", "2027-03"]) {
+      const start = fromRequest({ ...req, input: { ...req.input, baseMonth } }, {});
+      const wh = addNextCareStage(start, first.id, "11111111-1111-4111-8111-111111111111");
+      const before = JSON.stringify(wh.request);
+      const result = JSON.stringify(preview(wh.request));
+      // 入力項目を全部描き、名前を読む所（一覧・検索・書類・プラン）を全部通す
+      for (const s of buildStages(wh)) for (const level of ["simple", "detail"] as const) expect(panelAt(wh, s.id, level).length).toBeGreaterThan(0);
+      checkList(wh);
+      findEntries(wh, inputItems(wh));
+      fieldPlaces(wh);
+      planIndex([start, wh]);
+      expect(JSON.stringify(wh.request), baseMonth).toBe(before);
+      expect(JSON.stringify(preview(wh.request)), baseMonth).toBe(result);
+      // 足した段階は、世帯のデータでは介護の費用が1件増えるだけ（名前は世帯に書かない）
+      expect((wh.request.input.household.careExpenses ?? []).length).toBe((start.request.input.household.careExpenses ?? []).length + 1);
+      expect(before).not.toContain("段階目");
+    }
   });
 });

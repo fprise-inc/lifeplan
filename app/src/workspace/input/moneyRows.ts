@@ -1123,10 +1123,15 @@ export function rowParts(h: Household, r: RowShape): { amount: string; when: str
   return { amount, when: c === "once" ? from : `${from}〜${to}` };
 }
 
-/** 閉じた行の見出し: 「父からの相続 2,000万円・1回 2041年7月」（入る・出るはカードの区画で分かるので書かない） */
-export function rowTitle(h: Household, name: string, r: RowShape): string {
+/**
+ * 行の見出しの3つ: 一覧の名前（title。「父からの相続 2,000万円・1回 2041年7月」。額と時期まで入れて、同じ名前の行を見分ける。
+ * 入る・出るは入力項目の区画で分かるので書かない）、見出しに太字で出す名前（headName）、名前の後ろに小さく出す要約（summary。額と時期）。
+ * 見出しは 名前 →「?」→ 要約 の並び（太字の名前の中に要約を入れない。0236 の追記）
+ */
+export function rowHead(h: Household, name: string, r: RowShape): { title: string; headName: string; summary: string } {
   const p = rowParts(h, r);
-  return `${name} ${p.amount} ${p.when}`;
+  const summary = `${p.amount} ${p.when}`;
+  return { title: `${name} ${summary}`, headName: name, summary };
 }
 
 /** 入るお金の行の名前（名前が空なら種類の名前） */
@@ -1218,7 +1223,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   ];
   const main: GroupDef = {
     key: k,
-    title: rowTitle(h, f.label !== undefined && f.label !== "" ? f.label : def.label, f),
+    ...rowHead(h, f.label !== undefined && f.label !== "" ? f.label : def.label, f),
     ...(excluded || detailNotes.length > 0
       ? { note: [...(excluded ? [UNCERTAIN_NOTE] : []), ...(detailNotes.length > 0 ? [`詳細あり: ${detailNotes.join("・")}`] : [])].join("。") }
       : {}),
@@ -1518,7 +1523,7 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   const details = [...(p.payer !== undefined ? ["払う人"] : []), ...(growthNoted(p.growth, onceAmount, growthDefault(card, flatOut, c)) ? [growthLabel(onceAmount)] : []), ...(badge !== null ? [badge] : [])];
   return {
     key: k,
-    title: rowTitle(h0, name, p),
+    ...rowHead(h0, name, p),
     ...(details.length > 0 || notNeededExpense(p) ? { note: [...(notNeededExpense(p) ? [UNCERTAIN_NOTE] : []), ...(details.length > 0 ? [`詳細あり: ${details.join("・")}（「詳細」で直せます）`] : [])].join("。") } : {}),
     level: "simple",
     // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: あげる贈与は使い道と課税の方法、ほかは払う人と伸び方（expenseDetailGroups）

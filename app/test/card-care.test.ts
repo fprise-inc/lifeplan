@@ -332,10 +332,12 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     // 前の段の期間は空欄（推定）なので、統計の平均の期間だけずらす
     expect(first.months).toBeUndefined();
     expect((Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5)) - Number(a.slice(5)))).toBe(careEstimate("home")!.months);
-    // 見出しは「父の介護」、その下の1行に「在宅・2027年5月から55か月（推定）・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける。
+    // 見出しは、段階が2つになったので「父の介護（1段階目）」「父の介護（2段階目）」（段階が1つの間は「父の介護」。0236 の追記）、その後ろに「在宅・2027年5月から55か月（推定）・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける。
     // 在宅か施設かは見出しに入れず要約の頭に。0150。推定の物のすぐ後ろに「（推定）」。0041 の追記 2026-11-10）
     const g0 = stage(next).sections.find((s) => s.key === "care/costs")!.groups[0]!;
-    expect(g0.title).toMatch(/^父の介護$/);
+    expect(stage(wh).sections.find((s) => s.key === "care/costs")!.groups[0]!.title).toBe("父の介護");
+    expect(g0.title).toBe("父の介護（1段階目）");
+    expect(stage(next).sections.find((s) => s.key === "care/costs")!.groups[1]!.title).toBe("父の介護（2段階目）");
     expect(g0.summary).toMatch(/^在宅・\d{4}年\d{1,2}月から55か月（推定）・月5\.2万円（推定）$/);
   });
 
