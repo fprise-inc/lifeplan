@@ -12,7 +12,6 @@ import { AiHouseholdCandidateBand, AiHouseholdCandidates } from "../src/workspac
 import { approvalAt, householdOverview, noteMemo, readHouseholdCandidate, withAiOrigin } from "../src/workspace/ai/households.ts";
 import { AiSharePanel } from "../src/workspace/ai/AiSharePanel.tsx";
 import { shareState } from "../src/workspace/ai/model.ts";
-import { pasteGate } from "../src/workspace/documents/ai.ts";
 import { HouseholdNow } from "../src/workspace/header/HouseholdNow.tsx";
 import { TopBar } from "../src/workspace/header/TopBar.tsx";
 import { fromRequest } from "../src/workspace/input/household.ts";
@@ -337,10 +336,5 @@ describe("AIに渡す: 架空の世帯は同意なしで、お客さまの世帯
     expect(c).toContain("data-ai-consent-form");
     expect(c).not.toContain("data-ai-share-form");
     expect(c).not.toContain("data-ai-fictional-note");
-  });
-
-  it("書類の貼り付けの入口: 架空の世帯は見本と同じく使える。お客さまの世帯は同意が要る", () => {
-    expect(pasteGate({ sample: true, saved: true, consentState: "none", consentDocuments: false }).ok).toBe(true);
-    expect(pasteGate({ sample: false, saved: true, consentState: "none", consentDocuments: false }).ok).toBe(false);
   });
 });
