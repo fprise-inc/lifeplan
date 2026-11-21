@@ -2809,7 +2809,7 @@ export function App() {
     void ai.refresh();
     setAiPanel(storedInfo !== null ? "share" : "connector");
   };
-  /** 「取り込む」の「AI で書類を読み取る」（FP のメニューも同じ）: AI とつながっていれば同意と共有の画面、つながっていなければ事務所の AI の接続の設定を開く */
+  /** 「取り込む」の「AI で書類を読み取る」（FP のメニューも同じ）: AI と接続していれば同意と共有の画面、接続していなければ事務所の AI の接続の設定を開く */
   const openAiImport = () => {
     if (ai.status?.enabled === true) return openAiShare();
     void ai.refresh();

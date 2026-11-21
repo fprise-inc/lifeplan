@@ -176,7 +176,7 @@ describe("入口と帯", () => {
     expect(failed).toContain("登録簿に無い入力項目の候補");
     expect(failed).toContain("data-documents-ai-band-dismiss");
     const review = renderToString(h(DocumentReview, { wh, calc: () => null, onChange: () => undefined, onClose: () => undefined, initial: CID }));
-    expect(review).toContain("AI が読んだ（つないだ AI）");
+    expect(review).toContain("AI が読んだ（接続した AI）");
   });
 
   it("前に貼り付けで読んだ記録（via: paste）は、世帯ファイルに書いて読み戻しても残り、確かめの画面に出て承認できる（入口をなくしても読めるまま）", () => {

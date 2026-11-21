@@ -315,7 +315,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 class="ai-form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void run(() => p.ai.startShare(p.householdId, minutes, destination), "AIに渡しました。期限が来るか取り消すまで、つないだ AI から読めます");
+                  void run(() => p.ai.startShare(p.householdId, minutes, destination), "AIに渡しました。期限が来るか取り消すまで、接続した AI から読めます");
                 }}
                 data-ai-share-form
               >
@@ -414,7 +414,7 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
                     <td>{x.tool}</td>
                     <td class="num">{x.count}</td>
                     <td>
-                      {[x.caller.mcpClientDeclared !== null ? `名乗り: ${x.caller.mcpClientDeclared}` : null, x.caller.parentExe !== null ? `起動したアプリ: ${x.caller.parentExe}` : null, x.caller.connectorExe !== null ? `つなぐ道具: ${x.caller.connectorExe}${x.caller.connectorPid !== null ? `（${x.caller.connectorPid}）` : ""}` : null]
+                      {[x.caller.mcpClientDeclared !== null ? `名乗り: ${x.caller.mcpClientDeclared}` : null, x.caller.parentExe !== null ? `起動したアプリ: ${x.caller.parentExe}` : null, x.caller.connectorExe !== null ? `接続する道具: ${x.caller.connectorExe}${x.caller.connectorPid !== null ? `（${x.caller.connectorPid}）` : ""}` : null]
                         .filter((s) => s !== null)
                         .join("・") || "—"}
                     </td>
