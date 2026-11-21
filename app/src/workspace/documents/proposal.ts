@@ -1,4 +1,4 @@
-// 書類の候補の読み口（0148 の4）: AI接続口の道具・貼り付けた AI の答え・架空の見本は、どれもここを通して
+// 書類の候補の読み口（0148 の4）: AI接続口の道具の答え・架空の見本は、どれもここを通して
 // 読み取りの記録（候補の受け皿）にする。届いた答えは信用しない（0015・0016）:
 // - 読めるのは保険証券・ご契約内容のお知らせ・設計書（docType insurancePolicy）の、保険の契約の欄（insurance.）の候補（0159）と、
 //   固定資産税の課税明細書（propertyTaxStatement）・路線価図（routePriceMap）の、相続税の試算の不動産ごとの欄（plan.inheritanceTax の lands）の候補（0235）。
@@ -30,7 +30,7 @@ export interface ProposalContext {
   /** 乱数の ID を作る（記録・候補・照合の値に振る） */
   newId: () => string;
   reader?: { id: string; version: number };
-  /** AI の名乗り（自己申告。AI接続口なら接続口が受けた名前、貼り付けなら FP が入れた名前） */
+  /** AI の名乗り（自己申告。AI接続口が受けた名前） */
   connector?: string;
   /** 続柄の鍵 → 構成員の ID（答えの holder〔書類の名義の続柄〕を記録の名義の人の初めの値にする。無ければ名義は FP が選ぶ） */
   members?: readonly { key: string; id: string }[];
@@ -325,25 +325,4 @@ export function readProposal(raw: unknown, ctx: ProposalContext): ProposalResult
   const holder = typeof raw.holder === "string" ? ctx.members?.find((m) => m.key === raw.holder || m.id === raw.holder)?.id : undefined;
   if (holder !== undefined) reading.holder = holder;
   return { reading, issues: [...new Set(issues)] };
-}
-
-/**
- * 貼り付けた文字（ウェブのチャット AI の答え）から答えの JSON を取り出して読む。前後の文や ```json の囲みがあってもよい。
- * 大きすぎる文字は読まない
- */
-export function readProposalText(text: string, ctx: ProposalContext): ProposalResult {
-  if (text.length > LIMITS.pasteChars) return { reading: null, issues: ["貼り付けた文が大きすぎます"] };
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/u.exec(text);
-  const body = fenced?.[1] ?? text;
-  const start = body.indexOf("{");
-  const end = body.lastIndexOf("}");
-  if (start < 0) return { reading: null, issues: ["答えの JSON が見つかりません"] };
-  if (end <= start) return { reading: null, issues: ["答えの JSON を読めません（途中で切れていないか確かめてください）"] };
-  let raw: unknown;
-  try {
-    raw = JSON.parse(body.slice(start, end + 1));
-  } catch {
-    return { reading: null, issues: ["答えの JSON を読めません（途中で切れていないか確かめてください）"] };
-  }
-  return readProposal(raw, ctx);
 }

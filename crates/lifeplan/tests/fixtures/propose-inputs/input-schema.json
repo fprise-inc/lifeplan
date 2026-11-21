@@ -253,7 +253,7 @@
       "type": "object"
     },
     "DocumentAnswerArg": {
-      "description": "書類1通から読んだ値の候補（答えの形 document-candidates@1。ウェブのチャット AI の答えを貼り付けるときと同じ形）",
+      "description": "書類1通から読んだ値の候補（答えの形 document-candidates@1）",
       "properties": {
         "asOf": {
           "description": "書類の時点（作成・証明の年月。YYYY-MM）",

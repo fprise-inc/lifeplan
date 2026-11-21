@@ -129,13 +129,10 @@ import { StoragePanel } from "./store/StoragePanel.tsx";
 import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
 import { keepStatements, withLog } from "./statement/model.ts";
 import { AiDocumentBand, DocumentEntry, DocumentReview, withSamples, type DocChange } from "./documents/DocumentReview.tsx";
-import { keepDocuments, withDocumentLog, withReading } from "./documents/log.ts";
-import { ingestAiProposals, pasteGate } from "./documents/ai.ts";
-import { PasteAnswer } from "./documents/PasteAnswer.tsx";
+import { keepDocuments, withDocumentLog } from "./documents/log.ts";
+import { ingestAiProposals } from "./documents/ai.ts";
 import { DocumentStart } from "./documents/DocumentStart.tsx";
-import { withStart, type DocStart } from "./documents/start.ts";
-import { GUIDE_DOC_TYPES, guideText } from "./documents/guides.ts";
-import { readableDocsLine } from "./documents/types.ts";
+import type { DocStart } from "./documents/start.ts";
 import { StatementPanel } from "./statement/StatementPanel.tsx";
 import type { StatementLog } from "../../../statement/src/index.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
@@ -620,13 +617,10 @@ export function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
   /** 書類の読み取りの確かめの画面（0148） */
   const [docsOpen, setDocsOpen] = useState(initial.documents !== undefined);
-  /** 確かめの画面で初めに開く読み取りの記録（読んだばかりの書類〔XML の読み手。0153〕・AI から届いた帯・貼り付けから開くとき〔0151〕） */
+  /** 確かめの画面で初めに開く読み取りの記録（読んだばかりの書類〔XML の読み手。0153〕・AI から届いた帯から開くとき〔0151〕） */
   const [docsInitial, setDocsInitial] = useState<string | undefined>(undefined);
-  /** AI の答えを貼り付ける入口（0151） */
-  const [pasteOpen, setPasteOpen] = useState(false);
-  /** 「この書類を読む」の入口（書類のお願いの1通・書類待ちの欄・入力項目の見出しから。0154 の3）と、そこから開いた貼り付けの初めの値 */
+  /** 「この書類を読む」の入口（書類のお願いの1通・書類待ちの欄・入力項目の見出しから。0154 の3） */
   const [docStart, setDocStart] = useState<DocStart | null>(null);
-  const [pasteStart, setPasteStart] = useState<DocStart | null>(null);
   /** AI接続口から届いたが、読める候補が無いため取り込まなかった書類の候補の理由（帯に出す。0151） */
   const [aiDocFailed, setAiDocFailed] = useState<{ count: number; issues: string[] }>({ count: 0, issues: [] });
   const docsSeeded = useRef(false);
@@ -3384,25 +3378,13 @@ export function App() {
                         <DocumentEntry
                           wh={opened.wh}
                           sample={sampleHousehold}
+                          {...(storedInfo !== null ? { ai: { connected: ai.status?.enabled === true, onOpen: openAiImport } } : {})}
                           onOpen={() => {
                             setDocsInitial(undefined);
                             setDocsOpen(true);
                           }}
                           onSamples={loadDocSamples}
-                          onPaste={() => setPasteOpen(true)}
                         />
-                        {storedInfo !== null ? (
-                          <div class="hs-tools" role="group" aria-label="AI で書類を読み取る" data-imports-ai>
-                            <span class="hs-tools-h">AI で書類を読み取る</span>
-                            <span class="in-note" data-imports-ai-kinds>
-                              {readableDocsLine()}
-                            </span>
-                            <button type="button" class="btn" onClick={openAiImport} data-imports-ai-open>
-                              {ai.status?.enabled === true ? "この世帯を AI に渡す" : "AI と接続する"}
-                            </button>
-                            <span class="in-note">お使いの AI（Claude など）をファイナンシアとつなぐと、AI が書類を読み、読んだ値（保険の契約の値、相続税の試算の土地・建物の値）が「候補」として届きます。承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。面談の履歴とメモは AI に渡しません。</span>
-                          </div>
-                        ) : null}
                       </>
                     ),
                   }
@@ -3813,48 +3795,26 @@ export function App() {
         />
       ) : null}
       {docsOpen && opened !== null ? <DocumentReview wh={opened.wh} calc={docCalc} onChange={onDocChange} onClose={() => setDocsOpen(false)} {...(docsInitial !== undefined ? { initial: docsInitial } : {})} /> : null}
-      {pasteOpen && opened !== null ? (
-        <PasteAnswer
-          wh={opened.wh}
-          gate={pasteGate({ sample: sampleHousehold || currentFictional, saved: storedInfo !== null, consentState: ai.view?.consentState ?? null, consentDocuments: ai.view?.consentDocuments === true, ...(ai.view?.aiDocumentsUse !== undefined ? { documentsUse: ai.view.aiDocumentsUse } : {}) })}
-          guide={{ options: GUIDE_DOC_TYPES, text: guideText }}
-          {...(storedInfo !== null
-            ? {
-                onOpenConsent: () => {
-                  setPasteOpen(false);
-                  openAiShare();
-                },
-              }
-            : {})}
-          {...(pasteStart !== null ? { initialGuide: pasteStart.docType } : {})}
-          onRead={(reading) => {
-            const o = openedRef.current;
-            putDocuments(withReading(o?.wh.documents, o === null ? reading : withStart(o.wh, reading, pasteStart)));
-            setPasteOpen(false);
-            setPasteStart(null);
-            setDocsInitial(reading.id);
-            setDocsOpen(true);
-          }}
-          onClose={() => {
-            setPasteOpen(false);
-            setPasteStart(null);
-          }}
-        />
-      ) : null}
       {docStart !== null && opened !== null ? (
         <DocumentStart
           wh={opened.wh}
           start={docStart}
-          onPaste={() => {
-            setPasteStart(docStart);
-            setDocStart(null);
-            setPasteOpen(true);
-          }}
           {...(storedInfo !== null
             ? {
-                onAiShare: () => {
+                ai: {
+                  connected: ai.status?.enabled === true,
+                  onOpen: () => {
+                    setDocStart(null);
+                    openAiImport();
+                  },
+                },
+              }
+            : {})}
+          {...(sampleHousehold
+            ? {
+                onSamples: () => {
                   setDocStart(null);
-                  openAiShare();
+                  loadDocSamples();
                 },
               }
             : {})}

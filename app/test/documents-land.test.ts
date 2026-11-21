@@ -1,18 +1,16 @@
 // 土地・建物の書類の読み取り（0235）: 固定資産税の課税明細書と路線価図（国税庁）を AI に読ませた答えを、相続税の試算の不動産ごとの欄（0231 の lands[]）の
 // 候補にする。読み口の決まり（読む場所・伏せる情報・課税標準額を読まない・地積と価格の整え方・路線価図の記号の読み方）、書類の土地を今ある不動産に入れる、
-// FP の承認が無いと入らない、承認しても値の状態の行を書かない、欄が無いときの理由、手引きと見本の答え、AI に渡す条件（貼り付けの入口の同意の決まりは同じ）
+// FP の承認が無いと入らない、承認しても値の状態の行を書かない、欄が無いときの理由、手引きと見本の答え
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { REPO_DIR } from "../scripts/lib.ts";
-import { pasteGate } from "../src/workspace/documents/ai.ts";
 import { DocumentEntry, DocumentReview } from "../src/workspace/documents/DocumentReview.tsx";
 import { pendingTotal, readDocumentLog, withDocumentLog, withReading } from "../src/workspace/documents/log.ts";
-import { guideText, GUIDE_DOC_TYPES } from "../src/workspace/documents/guides.ts";
 import { LAND_OBJECT_KIND, LEASEHOLD_RATIOS, maskPlace, normalizeArea, normalizeYen, parseRouteMark } from "../src/workspace/documents/land.ts";
-import { readProposal, readProposalText, type ProposalContext } from "../src/workspace/documents/proposal.ts";
+import { readProposal, type ProposalContext } from "../src/workspace/documents/proposal.ts";
 import { acceptCandidates, acceptObject, correctCandidate, docReview, linkObject, type Chosen } from "../src/workspace/documents/review.ts";
 import { DOC_TYPES, LAND_ITEM, PROPOSAL_CONTRACT, readableDocsLine, type DocCandidate, type DocumentReading } from "../src/workspace/documents/types.ts";
 import { bulkEligible } from "../src/workspace/review/rows.ts";
@@ -20,12 +18,12 @@ import { fromRequest, type WorkingHousehold } from "../src/workspace/input/house
 import { landTargets, setDetailed } from "../src/workspace/input/inheritanceLand.ts";
 import { roles } from "../src/workspace/roles.ts";
 import type { InheritanceLandSetting } from "../src/engine/types.ts";
-import { modelHousehold } from "./helpers.ts";
+import { modelHousehold, readAnswerText } from "./helpers.ts";
 
 const AT = "2026-11-20T10:00:00+09:00";
 let n = 0;
 const newId = () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
-const ctx = (wh: WorkingHousehold, o: Partial<ProposalContext> = {}): ProposalContext => ({ via: "paste", at: AT, newId, connector: "テストの AI", members: roles(wh.request).map((r) => ({ key: r.key, id: r.member.id })), ...o });
+const ctx = (wh: WorkingHousehold, o: Partial<ProposalContext> = {}): ProposalContext => ({ via: "ai", at: AT, newId, connector: "テストの AI", members: roles(wh.request).map((r) => ({ key: r.key, id: r.member.id })), ...o });
 
 const base = fromRequest(modelHousehold("rentalSample"));
 const on = setDetailed(base, true);
@@ -104,7 +102,7 @@ describe("課税明細書の地積・価格の整え方", () => {
 
 describe("読み口: 課税明細書", () => {
   it("手引きの見本は理由なしで通り、地積・価格・家屋の価格が候補になる（複数筆の合計・筆ごとの価格は照合だけ）", () => {
-    const r = readProposalText(answerIn("property-tax-statement.md"), ctx(on));
+    const r = readAnswerText(answerIn("property-tax-statement.md"), ctx(on));
     expect(r.issues).toEqual([]);
     const reading = r.reading!;
     expect(reading.docType).toBe("propertyTaxStatement");
@@ -208,7 +206,7 @@ describe("読み口: 課税明細書", () => {
 
 describe("読み口: 路線価図", () => {
   it("手引きの見本（250C）は、土地の評価の入れ方・路線価 250,000円・借地権割合 C の3つの候補になる", () => {
-    const r = readProposalText(answerIn("route-price-map.md"), ctx(on));
+    const r = readAnswerText(answerIn("route-price-map.md"), ctx(on));
     expect(r.issues).toEqual([]);
     const reading = r.reading!;
     expect(reading.candidates.map((c) => [c.target.at?.[1], c.value])).toEqual([
@@ -396,31 +394,12 @@ function setMethod(wh: WorkingHousehold, object: string, method: InheritanceLand
   return { ...wh, request: req };
 }
 
-describe("読み方の手引きと AI に渡す条件", () => {
-  it("写せる手引きは3つの書類。土地・建物の書類の手引きは、説明書とその書類の手引き（欄の一覧は写さない）", () => {
-    expect(GUIDE_DOC_TYPES.map((t) => t.value)).toEqual(["insurancePolicy", "propertyTaxStatement", "routePriceMap"]);
-    const tax = guideText("propertyTaxStatement");
-    expect(tax).toContain("# ファイナンシアの書類の読み方（固定資産税の課税明細書）");
-    expect(tax).toContain("課税標準額");
-    expect(tax).not.toContain("## 入力の欄の一覧");
-    const route = guideText("routePriceMap");
-    expect(route).toContain("A | B | C | D | E | F | G");
-    expect(route).toContain("90% | 80% | 70% | 60% | 50% | 40% | 30%");
-    expect(guideText("insurancePolicy")).toContain("## 入力の欄の一覧");
-  });
-
+describe("手引きの言葉", () => {
   it("手引きの言葉の決まり（画面と新しく書く AI への説明に使わない言葉）", () => {
     for (const f of ["property-tax-statement.md", "route-price-map.md"]) {
       const md = readFileSync(join(GUIDES, f), "utf8");
       for (const w of ["接続口", "当て", "比べ", "札", "カード", "窓"]) expect(md, `${f}: ${w}`).not.toContain(w);
     }
-  });
-
-  it("貼り付けの入口の条件は保険の書類と同じ（書類を AI に渡すことを含む同意か事務所のプライバシーポリシー。路線価図も同じ）", () => {
-    expect(pasteGate({ sample: false, saved: true, consentState: "given", consentDocuments: false }).ok).toBe(false);
-    expect(pasteGate({ sample: false, saved: true, consentState: "given", consentDocuments: true }).ok).toBe(true);
-    expect(pasteGate({ sample: false, saved: true, consentState: "none", consentDocuments: false, documentsUse: "officePolicy" }).ok).toBe(true);
-    expect(pasteGate({ sample: false, saved: false, consentState: "given", consentDocuments: true }).ok).toBe(false);
   });
 });
 
@@ -436,9 +415,10 @@ describe("画面と世帯ファイルの記録", () => {
     expect(html).toContain("「持ち家」に入れる");
     expect(html).not.toContain("data-documents-object-accept");
     const entry = renderToString(h(DocumentEntry, { wh: w, sample: false, onOpen: () => undefined, onSamples: () => undefined }));
-    // 入口の見出しには書類の種類を書かず、すぐ下に書類の種類の一覧から作った1行を出す（0235 の追記 2026-11-20）
-    expect(entry).toContain('<span class="hs-tools-h">書類の読み取り</span>');
+    // 入口の見出しには書類の種類を書かず、すぐ下に書類の種類の一覧から作った1行を出す（0235 の追記 2026-11-20）。入口は「AI で書類を読み取る」の1つで、1行も1回だけ（0151 の追記 2026-11-20）
+    expect(entry).toContain('<span class="hs-tools-h">AI で書類を読み取る</span>');
     expect(entry).toContain("読める書類: 保険の設計書・証券、固定資産税の課税明細書、路線価図");
+    expect(entry.split("読める書類: ").length - 1).toBe(1);
     expect(readableDocsLine()).toBe(`読める書類: ${DOC_TYPES.map((d) => d.short).join("、")}`);
     expect(DOC_TYPES.every((d) => readableDocsLine().includes(d.short))).toBe(true);
   });
