@@ -163,11 +163,11 @@ describe("世帯ファイルの本文の区画 meetings（形式 0.74）", () =>
   });
 });
 
-describe("FP のメニューのメモ・面談の履歴（0016・0077 の追記・0182）", () => {
+describe("FP のメニューの「記録」（メモ・面談の履歴。0016・0077 の追記・0182）", () => {
   it("メモは上の帯のボタンをやめ、FP のメニューの最初の見出しに。件数は行の横に。面談の履歴の件数と前回の日", () => {
     const g = fpMenuGroups({ notes: { memo: 3, meetings: 2, last: "2026年11月9日" }, snapshots: 1, review: null, imports: null, office: null });
     expect(g[0]!.id).toBe("notes");
-    expect(g[0]!.label).toBe("メモ・面談の履歴");
+    expect(g[0]!.label).toBe("記録");
     expect(g[0]!.items.map((i) => [i.action, i.label, i.note])).toEqual([
       ["memo", "メモ", "3件"],
       ["meetings", "面談の履歴（2件）", "前回 2026年11月9日"],

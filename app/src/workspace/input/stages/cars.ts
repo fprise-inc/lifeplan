@@ -889,6 +889,7 @@ function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) =
       label: "買い方",
       level: "simple",
       kind: "select",
+      segmented: true,
       structural: true,
       options: [
         { value: "cash", label: "現金" },

@@ -89,7 +89,28 @@ export const PAGE_HELPERS = String.raw`
     }
     return still >= 3;
   }
+  /** 区切りボタンの欄（.fld の中の role=radiogroup）を、欄の名前で探す（無ければ null） */
+  function segOf(label, nth, group) {
+    let root = panel() ?? document;
+    if (group !== null) {
+      const g = all(".in-group, .in-entry, fieldset, section", root).filter((x) => txt(x).startsWith(group));
+      if (g.length === 0) return null;
+      root = g.at(-1);
+    }
+    return all(".fld", root).filter((l) => txt(l).startsWith(label) && l.querySelector("[data-seg]") !== null)[nth]?.querySelector("[data-seg]") ?? null;
+  }
   function choose(label, option, nth, group) {
+    // 区切りボタンの欄（2〜3択）は、選択肢の名前のボタンを押す（プルダウンと同じ値が入る）
+    const seg = segOf(label, nth, group);
+    if (seg !== null) {
+      const btns = [...seg.querySelectorAll("button[role=radio]")];
+      const btn = btns.find((b) => txt(b) === option) ?? btns.find((b) => txt(b).startsWith(option));
+      if (!btn) return "選択肢がありません: " + option + "（" + btns.map(txt).join(" / ") + "）";
+      btn.scrollIntoView({ block: "center" });
+      btn.focus();
+      if (btn.getAttribute("aria-checked") !== "true") btn.click();
+      return "ok";
+    }
     const el = inputOf(label, nth, group);
     if (typeof el === "string") return el;
     // 1つの欄に選ぶ物がいくつかある（時点の欄の「年齢／年月」と人など）ときは、その選択肢を持つ物

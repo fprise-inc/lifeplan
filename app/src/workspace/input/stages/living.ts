@@ -644,6 +644,7 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
             label: "入れ方",
             level: "detail",
             kind: "select",
+            segmented: true,
             options: [
               { value: "ratio", label: "今の額に対する割合で" },
               { value: "monthly", label: "月額で" },
@@ -817,6 +818,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
         label: "入れ方",
         level: "simple",
         kind: "select",
+        segmented: true,
         options: [
           { value: "total", label: "総額で" },
           { value: "byCategory", label: "内訳で" },

@@ -56,7 +56,7 @@ export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
           <Help label="書類のお願い" id="docRequests">
             <p>欄で「書類で確かめる」にした所（書類待ち）から、お客さまに送ってもらう書類を、人・契約・ローンごとに1通ずつまとめます。</p>
             <p>書類ごとに、その書類から写す欄と今の代わりの値を並べます。「開く」でその欄に移り、書類の値を打つと書類待ちが消え、この一覧からも消えます。</p>
-            <p>「この書類を読む」は、届いた書類の読み取り（電子データ〔XML〕・AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入り、書類待ちが消えます。</p>
+            <p>「この書類を読む」は、届いた書類の読み取り（AI で読み取る）へ進みます。読んだ値は確かめて承認したものだけが入り、書類待ちが消えます。</p>
             <p>「文をコピー」は、メール・メッセージに貼るお願いの文を写します。書類の名前と見たい所だけで、金額・番号・顧客番号は入りません。お名前・事務所名は文に入れるだけで、保存しません。</p>
             <p>{HEARING_EXCEL_SHOWN ? "同じ一覧は、ヒアリングシートを書き出すときに1枚目の「今回お願いしたい書類」にも載ります。" : "同じ一覧から、事前ヒアリングの URL生成で、お客さまに頼む書類を足せます。"}</p>
           </Help>
@@ -71,7 +71,7 @@ export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
             <li key={r.id} data-dr-doc={r.id}>
               <span class="dr-title">{r.title}</span>
               {onRead !== undefined && readableDoc(r.doc) ? (
-                <button type="button" class="link-btn dr-read" onClick={() => onRead(r)} data-dr-read={r.id} title="この書類の読み取り（AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入ります">
+                <button type="button" class="link-btn dr-read" onClick={() => onRead(r)} data-dr-read={r.id} title="この書類の読み取り（AI で読み取る）へ進みます。読んだ値は確かめて承認したものだけが入ります">
                   この書類を読む
                 </button>
               ) : null}

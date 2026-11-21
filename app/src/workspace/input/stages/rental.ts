@@ -514,7 +514,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef[] {
         return v !== null && v < 1 ? { ...s, warn: "計算はまだ全部を名義の人の分として扱います（評価額・家賃・経費・ローンは物件全体の額で入れてください）" } : s;
       },
     },
-    withAddress(plain({ key: `${kp}/tenure`, item: "account.property", label: "権利", level: "detail", kind: "select", options: TENURES, find: findP, path: ["tenure"], optional: true, help: TENURE_HELP }), onAccount(a.id, "account.property", ["tenure"])),
+    withAddress(plain({ key: `${kp}/tenure`, item: "account.property", label: "権利", level: "detail", kind: "select", options: TENURES, segmented: true, find: findP, path: ["tenure"], optional: true, help: TENURE_HELP }), onAccount(a.id, "account.property", ["tenure"])),
     // 区分マンション（1室）には戸数・土地の面積を出さない（入れてあれば出す）
     ...(!condo || p.units !== undefined ? [unitsField(a, kp, findP, whole)] : []),
     ...(!condo || p.area?.land !== undefined ? [withAddress(plain({ key: `${kp}/landArea`, item: "account.property", label: "土地の面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "land"], optional: true, help: LAND_AREA_HELP }), onAccount(a.id, "account.property", ["area", "land"]))] : []),
@@ -1037,6 +1037,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       help: lodging !== undefined ? "宿泊の売上を受け取っているときに入れます（これから始めるときも）" : "家賃・地代を受け取っているときに入れます（今は空いていて、これから貸すときも）",
       level: "simple",
       kind: "bool",
+      opens: "rest",
       structural: true,
       get: (w) => ({ value: (find(w.request.input.household, w) as Account | undefined)?.property?.rental !== undefined }),
       set: (w, v) =>
@@ -1167,6 +1168,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       label: "売る予定がある",
       level: "simple",
       kind: "bool",
+      opens: "rest",
       structural: true,
       help: `売ると、売却価格から売却の費用を引いた手取りが預金に入り、その年から不動産は無くなります。譲渡所得の税（売った年の1月1日に所有期間が5年を超えれば長期で所得税15%・住民税5%、5年以下は短期で30%・9%。復興特別所得税などを含む）を、翌年3月の所得税と翌年度の住民税として計算します。取得費は取得価額と取得時の諸費用${withBuilding ? "から建物の減価償却の累計を引いた額" : p.kind === "parking" ? "から設備の減価償却の累計を引いた額" : "の合計"}（入っていなければ売却価格の5%）です`,
       get: (w) => ({ value: (find(w.request.input.household, w) as Account | undefined)?.property?.sale !== undefined }),

@@ -197,7 +197,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
       ),
       c.id,
     ),
-    plain({ key: `${k}/place`, item: "care.place", label: "在宅か施設か", level: "simple", kind: "select", options: CARE_PLACE, find, path: ["place"], optional: true, fallback: "home" }),
+    plain({ key: `${k}/place`, item: "care.place", label: "在宅か施設か", level: "simple", kind: "select", options: CARE_PLACE, segmented: true, find, path: ["place"], optional: true, fallback: "home" }),
     other,
     yenBox({ key: `${k}/service`, item: "care.serviceMonthly", label: "介護保険のサービスの額（1割負担の前・月額）", level: "detail", basis: "monthly", find, path: ["serviceMonthly"], optional: true, help: "入れると、所得に応じた自己負担の割合（1〜3割）と高額介護サービス費の上限で計算し、上の欄（保険の対象外の費用）に足します。入れなければ、上の月々の費用だけで計算します" }),
     careEstimateField(
@@ -942,6 +942,9 @@ function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, coun
   return {
     key: k,
     title: `夢${String(rank)}｜${name} ${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? DREAM_EXCLUDED : ""}`,
+    // 見出しは 名前 →「?」→ 要約（額・時期）の並び（title は一覧の名前としてそのまま。0236 の追記）
+    headName: `夢${String(rank)}｜${name}`,
+    summary: `${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? DREAM_EXCLUDED : ""}`,
     ...(p.monthly === true ? { note: MONTHLY_NOTE } : {}),
     level: "simple",
     // 「▸ …」で開く欄は額の入れ方（年ごとの夢は伸び方）だけ
