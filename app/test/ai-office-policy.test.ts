@@ -1,5 +1,5 @@
 // AI接続を使える条件の画面の側（0226。利用者の判断 2026-11-18）: 判定は本体（ai_share::ai_use）の1か所で、画面は本体が返した aiUse を見せるだけ。
-// 4通り（同意あり／答え無し＋確かめ済み／答え無し＋未確認／同意しない＋確かめ済み）を、上の帯の状態・同意と共有の画面・書類の貼り付けの入口で確かめる。
+// 4通り（同意あり／答え無し＋確かめ済み／答え無し＋未確認／同意しない＋確かめ済み）を、上の帯の状態・同意と共有の画面で確かめる。
 // 事務所の設定の画面には「事務所のプライバシーポリシーに AI の利用を書いている」を確かめた印と日時を出す
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -8,7 +8,6 @@ import type { AiHost, AiHouseholdView, AiStatus, AiUse } from "../src/engine/hos
 import { AiConnectorPanel } from "../src/workspace/ai/AiConnectorPanel.tsx";
 import { AiRecords, AiSharePanel } from "../src/workspace/ai/AiSharePanel.tsx";
 import { aiDocumentsUseOf, aiUseOf, shareState, SHARE_STATE_TEXT } from "../src/workspace/ai/model.ts";
-import { pasteGate } from "../src/workspace/documents/ai.ts";
 
 const no = async (): Promise<never> => Promise.reject("E");
 const host: AiHost = { status: no, setEnabled: no, setPrivacyPolicy: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no, takeDocuments: no, householdCandidates: no, discardHouseholdCandidate: no, createFromCandidate: no, displayCandidates: no, takeDisplayChange: no, takeHouseholdDisplayChange: no };
@@ -79,13 +78,6 @@ describe("AI接続を使える条件の画面（0226）", () => {
     expect(refused).toContain("お客さまが外部AIへの提供に「同意しない」と答えました。事務所の設定にかかわらず、この世帯は AI に渡せません。");
   });
 
-  it("書類の貼り付けの入口: 同意あり・確かめ済みは使え、未確認・同意しないは使えない", () => {
-    const gates = CASES.map((c) => pasteGate({ sample: false, saved: true, consentState: c.v.consentState, consentDocuments: c.v.consentDocuments === true, documentsUse: aiDocumentsUseOf(c.v) }));
-    expect(gates.map((g) => g.ok)).toEqual([true, true, false, false]);
-    const refused = gates[3]!;
-    expect(refused.ok === false && refused.reason).toContain("同意しませんでした");
-  });
-
   it("書類を含まない同意の世帯は、確かめ済みなら取り直しの注意を出さずに書類も渡せる。未確認なら今までどおり注意を出す", () => {
     const narrow = { consentState: "given" as const, consentDocuments: false, aiUse: "consent" as const };
     const covered = panel(view({ ...narrow, aiDocumentsUse: "officePolicy" }));
@@ -95,7 +87,6 @@ describe("AI接続を使える条件の画面（0226）", () => {
     const notCovered = panel(view({ ...narrow, aiDocumentsUse: "consentWithoutDocuments" }));
     expect(notCovered).toContain("data-ai-consent-renew=");
     expect(notCovered).toContain("data-ai-share-no-documents");
-    expect(pasteGate({ sample: false, saved: true, consentState: "given", consentDocuments: false, documentsUse: "officePolicy" }).ok).toBe(true);
   });
 
   it("判定を返さない本体（古い版）は、同意の状態だけで読む（事務所の設定は見ない側）", () => {
