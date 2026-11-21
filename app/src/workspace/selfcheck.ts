@@ -210,7 +210,7 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
     await sleep(200);
     await savePanel();
     await openCard("work");
-    // 働き方の入口は「働き方を入れる」の1つのボタンの中の選択肢（正社員）
+    // 働き方の入口は「＋ 働き方」の1つのボタンの中の選択肢（正社員）
     document.querySelector<HTMLButtonElement>('.ipanel [data-action$="/entry"]')?.click();
     await sleep(100);
     document.querySelector<HTMLButtonElement>('.ipanel [data-action$="/start"]')?.click();

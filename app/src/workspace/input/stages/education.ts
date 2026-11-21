@@ -347,7 +347,7 @@ const statRow = (basis: string): StateRow => ({ state: "estimated", origin: { ki
 
 /**
  * 塾・習い事のまとまり（学校の行の後ろ。2026-11-14）: 入れ方が「塾・習い事を別に入れる」（前の形を含む）のときは、標準で行の欄（名前・種類・月額・
- * 始まり・終わり）と「＋ 塾・習い事を足す」を出す。統計の平均で入れていて使っていない行があるときは、詳細にだけ見出しと説明を出す
+ * 始まり・終わり）と「＋ 塾・習い事」を出す。統計の平均で入れていて使っていない行があるときは、詳細にだけ見出しと説明を出す
  */
 function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): GroupDef[] {
   const find = byId(goals, goal.id);
@@ -362,7 +362,7 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
     mode === "rows"
       ? lessons.length > 0
         ? `学校外の費用は、ここに入れた塾・習い事 ${lessons.length}件で計算しています（統計の平均は足しません）`
-        : "学校外の費用は、ここに入れた塾・習い事だけで計算します（統計の平均は足しません）。まだ入っていません（0円で計算中）。「＋ 塾・習い事を足す」で足します"
+        : "学校外の費用は、ここに入れた塾・習い事だけで計算します（統計の平均は足しません）。まだ入っていません（0円で計算中）。「＋ 塾・習い事」で足します"
       : `前の形: 統計の平均（塾・習い事を含む）に行 ${lessons.length}件を足しています。二重になっていないか確かめ、「学校外の費用」を「すべて統計の平均」か「塾・習い事を別に入れる」に切り替えてください`;
   const out: GroupDef[] = [{ key: blockKey, title: "塾・習い事", note, level: "simple", fields: [], actions: [] }];
   const ageOf = (hh: Household) => hh.members.find((m) => m.id === child.id);
@@ -397,7 +397,7 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
       ],
     });
   });
-  const choice = { key: `edu/${goal.id}/addLesson`, label: "＋ 塾・習い事を足す", help: `塾・習い事・その他から選んで、1つずつ足します（期間は今から3年。月額・期間を直します）。${mode === "legacy" ? LESSONS_HELP : ROWS_HELP}` };
+  const choice = { key: `edu/${goal.id}/addLesson`, label: "＋ 塾・習い事", help: `塾・習い事・その他から選んで、1つずつ足します（期間は今から3年。月額・期間を直します）。${mode === "legacy" ? LESSONS_HELP : ROWS_HELP}` };
   const addLesson = (kind: "cram" | "lesson" | "other", label: string, monthly: number): ActionDef => ({
     key: `edu/${goal.id}/addLesson/${kind}`,
     label,
@@ -1841,7 +1841,7 @@ function childMoneyGroups(wh: WorkingHousehold, child: Member, goal?: Goal): { g
 }
 
 /** この子の受け取るお金の「＋」（種類を選んで足す） */
-const aidChoice = (k: string) => ({ key: `${k}/in`, label: "＋ 援助・給付型の奨学金を受ける", help: "祖父母などの援助・給付型の奨学金・子が払う分から選んで足します（貸与の奨学金・教育ローンは「▸」の中で足します）" });
+const aidChoice = (k: string) => ({ key: `${k}/in`, label: "＋ 援助・給付型の奨学金", help: "祖父母などの援助・給付型の奨学金・子が払う分から選んで足します（貸与の奨学金・教育ローンは「▸」の中で足します）" });
 
 /** この子の教育費を入れない（段の無い進路と、該当なしの行。前の進路の段は外す） */
 export function educationNotApplicable(wh: WorkingHousehold, childId: string): WorkingHousehold {
@@ -2134,7 +2134,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   const loans = loanGroups(wh, goal);
   groups.push(...scholar, ...loans, {
     key: `edu/${goal.id}/finance`,
-    ...(scholar.length + loans.length === 0 ? { title: "奨学金・教育ローン（まだありません）" } : {}),
+    ...(scholar.length + loans.length === 0 ? { title: "奨学金・教育ローン", note: "まだありません" } : {}),
     level: "detail",
     fields: [],
     actions: [

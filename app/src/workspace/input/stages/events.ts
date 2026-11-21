@@ -238,7 +238,7 @@ function withoutStartMark(a: ActionDef, careId: string): ActionDef {
 }
 
 /**
- * 介護の始まりの欄: 推定で置いた始まり（介護の目安の物・「＋ 次の段階を足す」の仮の印）は、欄の中の灰色の推定の時点・「推定」の印に、
+ * 介護の始まりの欄: 推定で置いた始まり（介護の目安の物・「＋ 次の段階」の仮の印）は、欄の中の灰色の推定の時点・「推定」の印に、
  * 欄の横の根拠の短い文（「亡くなる見込みから統計の平均の期間を逆算」など。fill.ts の careStartShort）を添える。FP が直したら印を外す（0041 の追記 2026-11-11）
  */
 function careStartField(f: FieldDef): FieldDef {
@@ -850,7 +850,7 @@ function scheduleSection(wh: WorkingHousehold): SectionDef {
 export const OUT_NOTE =
   "ご家族に起きること（結婚・成人式・葬儀・法事など）と備えを入れます。やりたいこと（旅行・趣味など）は上の夢プラン、ふだんの旅行・家電の買い替えは基本生活費、住まい・車・教育・介護・贈与はそれぞれの入力項目へ。見込みを「不確実」にした支出は、ふだんの計算に入りません（結果の画面の「夢と予定」でチェックを入れると比較できます）";
 
-/** 「＋ ほかの支出を足す」: ひな形に無い支出（1回・1年後。額は目安＝推定。名前は FP が書く） */
+/** 「＋ ほかの支出」: ひな形に無い支出（1回・1年後。額は目安＝推定。名前は FP が書く） */
 export function addOtherExpense(wh: WorkingHousehold, id: string = newId()): WorkingHousehold {
   return mutate(addExpense(wh, "general", id), (h) => {
     const p = (h.periodicExpenses ?? []).find((x) => x.id === id);
@@ -1004,7 +1004,7 @@ function dreamSection(wh: WorkingHousehold): SectionDef {
     note: `${ds.length === 0 ? "まだありません。" : ""}ご家族がかなえたいことを、上から順に並べます。${DREAM_NOTE}`,
     level: "simple",
     groups: [...ds.map((p, i) => dreamGroup(wh, p, i + 1, ds.length)), dreamTemplateGroup(wh)],
-    actions: [{ key: "ev/addDream", label: "＋ 夢を足す", help: "上の例に無い夢を、1回・1年後で足します（名前・額・時期を入れてください）", level: "simple", run: (w) => addDream(w) }],
+    actions: [{ key: "ev/addDream", label: "＋ ほかの夢", help: "上の例に無い夢を、1回・1年後で足します（名前・額・時期を入れてください）", level: "simple", run: (w) => addDream(w) }],
   };
 }
 
@@ -1019,7 +1019,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
     note: `${empty && gifts === null ? "まだありません。" : ""}${OUT_NOTE}`,
     level: "simple",
     groups: [...rows.flatMap((p) => eventRowGroups(wh, p)), ...(gifts !== null ? [gifts] : []), outTemplateGroup(wh)],
-    actions: [{ key: "ev/addOther", label: "＋ ほかの支出を足す", help: "よくあるライフイベントに無い支出を、1回・1年後で足します（名前・額・時期を直してください）", level: "simple", run: (w) => addOtherExpense(w) }],
+    actions: [{ key: "ev/addOther", label: "＋ ほかの支出", help: "よくあるライフイベントに無い支出を、1回・1年後で足します（名前・額・時期を直してください）", level: "simple", run: (w) => addOtherExpense(w) }],
   };
   // 入るお金（祝い金・一時所得・動産の売却・その他の入金。0044）。行に「出るお金にする」。ひな形は行を足した後も出す
   const inSec = moneySections(wh, "events", { claimed: NONE_CLAIMED, level: "simple", inTitle: "入るお金" }).find((x) => x.key.endsWith("/in"));

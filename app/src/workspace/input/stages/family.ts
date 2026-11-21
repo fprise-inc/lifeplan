@@ -567,11 +567,11 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
       },
     ];
     const actions: ActionDef[] = [];
-    if (last) actions.push({ key: `${k}/addStage`, label: "＋ 関係の段階を足す", help: "事実婚から入籍するなど、関係が変わるときに足します", level: "detail", run: (w) => addRelationStage(w, m.id) });
+    if (last) actions.push({ key: `${k}/addStage`, label: "＋ 関係の段階", help: "事実婚から入籍するなど、関係が変わるときに足します", level: "detail", run: (w) => addRelationStage(w, m.id) });
     if (i > 0) actions.push(removeAction(`${k}/remove`, "この段階を外す", "detail", (hh) => removeRelationStage(hh, m.id, rid)));
     if (ended) {
       actions.push(
-        { key: `${k}/division`, label: "＋ 財産分与（入るお金）を足す", level: "detail", run: (w) => afterDivorceRow(w, m.id, rid, "propertyDivision") },
+        { key: `${k}/division`, label: "＋ 財産分与（入るお金）", level: "detail", run: (w) => afterDivorceRow(w, m.id, rid, "propertyDivision") },
         { key: `${k}/childSupportIn`, label: "＋ 養育費を受け取る", level: "detail", run: (w) => afterDivorceRow(w, m.id, rid, "childSupport") },
         { key: `${k}/childSupportOut`, label: "＋ 養育費を払う", level: "detail", run: (w) => afterDivorceRow(w, m.id, rid, "childSupportOut") },
       );
@@ -851,13 +851,13 @@ export function addDonorActions(wh: WorkingHousehold): ActionDef[] {
   return [
     {
       key: "family/add/donor-parent",
-      label: "＋ 親を足す",
+      label: "＋ 親",
       level: "simple",
       run: (w) => mutate(w, (hh) => void (hh.donors ??= []).push({ id: newId(), kind: "parent", ...(selfId !== undefined ? { of: selfId } : {}) })),
     },
     {
       key: "family/add/donor-grandparent",
-      label: "＋ 祖父母を足す",
+      label: "＋ 祖父母",
       level: "simple",
       run: (w) => mutate(w, (hh) => void (hh.donors ??= []).push({ id: newId(), kind: "grandparent", ...(selfId !== undefined ? { of: selfId } : {}) })),
     },
@@ -944,7 +944,7 @@ export function familyStage(wh: WorkingHousehold): StageDef {
       actions: [
         {
           key: "family/add/event",
-          label: "＋ 出来事を足す",
+          label: "＋ 出来事",
           level: "detail",
           run: (w) => mutate(w, (hh, req) => void (hh.events ??= []).push({ id: newId(), kind: "other", at: { at: addMonths(req.input.baseMonth, 12) } })),
         },

@@ -54,10 +54,10 @@ describe("言い換えと欄の名前で当たる", () => {
     expect(hits[0]!.target).toEqual({ kind: "action", key: `edu/${child.id}/money/out/abroad`, section: `edu/${child.id}` });
     // まとまりの題に人の名前が無い欄（奨学金・教育ローン）は、区画の題（人の名前）を前に付けて、子ごとに出す
     const loans = find(wh, "貸与の奨学金").filter((x) => x.label === "＋ 貸与の奨学金");
-    expect(loans.map((x) => x.where)).toEqual(["第1子 › 奨学金・教育ローン（まだありません）", "第2子 › 奨学金・教育ローン（まだありません）"]);
+    expect(loans.map((x) => x.where)).toEqual(["第1子 › 奨学金・教育ローン", "第2子 › 奨学金・教育ローン"]);
   });
 
-  it("学資保険 → 保険（「＋ 保険契約を足す」の中の選択肢。開くのはそのボタン）", () => {
+  it("学資保険 → 保険（「＋ 保険契約」の中の選択肢。開くのはそのボタン）", () => {
     expect(top(wh, "学資保険")).toMatchObject({ card: "insurance", label: "学資保険", target: { kind: "action", key: "ins/new" } });
     expect(top(wh, "こども保険")).toMatchObject({ card: "insurance", label: "学資保険" });
   });

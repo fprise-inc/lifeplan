@@ -964,7 +964,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         level: "detail",
         kind: "select",
         options: [
-          { value: "auto", label: "自動（家族から判定）" },
+          { value: "auto", label: "おまかせ（家族から判定）" },
           { value: "yes", label: "対象" },
           { value: "no", label: "対象外" },
         ],
@@ -1121,7 +1121,7 @@ function rateCutFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
     const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
     return x === undefined ? null : rateCutOf(w.request.input.household, x);
   };
-  const note = "金利の段に直して計算します（借入の月から期間の間は「金利−引き下げ幅」、その後は入れた金利）";
+  const note = "金利の段階に直して計算します（借入の月から期間の間は「金利−引き下げ幅」、その後は入れた金利）";
   const fields: FieldDef[] = [
     {
       key: `${k}/rateCutPeriod`,
@@ -1196,7 +1196,7 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
   const cut = rateCutOf(wh.request.input.household, d);
   const notes = [
     ...(isRateEstimate(rowOf(wh, addrRate(d))) ? [currentHomeLoan(wh, d) ? "金利が推定のままなら、今返している住宅ローンの推定の金利（選んだ種類の分）に入れ直します" : "金利が推定のままなら、選んだ種類の推定の金利に入れ直します"] : []),
-    ...(hasOutlookSteps(wh.request.input.household, d, wh.request.input.baseMonth) ? ["変動金利以外にすると、変動金利の見込みの段（5年後・10年後）を外します"] : []),
+    ...(hasOutlookSteps(wh.request.input.household, d, wh.request.input.baseMonth) ? ["変動金利以外にすると、変動金利の見込みの段階（5年後・10年後）を外します"] : []),
     ...(cut != null && cut.months > 0 ? ["全期間固定以外にすると、当初の金利の引き下げを外します（金利は引き下げ前の金利にします）"] : []),
   ];
   return field({
@@ -1658,7 +1658,7 @@ function rateOutlookField(d: Debt, k: string): FieldDef {
       kind: "select",
       structural: true,
       options: [...rateOutlooks().map((o) => ({ value: o.value, label: o.label })), OUTLOOK_CUSTOM],
-      help: "変動金利は、今の金利のままだと楽観の見込みになります。上がる見込みを選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段を置きます。「金利の段階で入れる」を選ぶと、金利が変わる年月と金利を段ごとに入れられます",
+      help: "変動金利は、今の金利のままだと楽観の見込みになります。上がる見込みを選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段階を置きます。「金利の段階で入れる」を選ぶと、金利が変わる年月と金利を段階ごとに入れられます",
       get: (w) => {
         const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
         return { value: x === undefined ? null : rateOutlookOf(w.request.input.household, x, w.request.input.baseMonth) };

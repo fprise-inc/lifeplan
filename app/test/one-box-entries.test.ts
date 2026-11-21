@@ -134,14 +134,14 @@ describe("「＋」で1件足すと、外の枠は1つだけ増える", () => {
   });
 
   it("収益不動産の「申告」は物件の枠の外で、持ち主ごとの欄だと見出しで分かる", () => {
-    const html = panel(actionOf(wh, "rental", "＋ 物件を足す").run(wh), "rental", "detail");
+    const html = panel(actionOf(wh, "rental", "＋ 物件").run(wh), "rental", "detail");
     const tax = boxes(html).find((b) => b.key.startsWith("rental/taxReturn/"));
     expect(tax).toMatchObject({ inside: false, sub: false });
     expect(html).toContain("<h4>申告（ご本人）: 持ち主ごと・その人の物件をまとめて");
   });
 
   it("収益不動産の物件1件: 土地と建物・家賃収入・経費・売却は物件の枠の中", () => {
-    const html = panel(actionOf(wh, "rental", "＋ 物件を足す").run(wh), "rental", "detail");
+    const html = panel(actionOf(wh, "rental", "＋ 物件").run(wh), "rental", "detail");
     const bs = boxes(html);
     const head = bs.find((b) => /^sav\/[^/]+$/.test(b.key) && !b.inside);
     expect(head).toBeDefined();

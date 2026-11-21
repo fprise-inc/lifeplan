@@ -104,10 +104,10 @@ export async function household1(p: Page): Promise<Notes> {
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入");
-  // 働き方の入口は「働き方を入れる」の1つのボタンの中の選択肢
-  await p.click("働き方を入れる", { within: "panel", exact: true });
+  // 働き方の入口は「＋ 働き方」の1つのボタンの中の選択肢
+  await p.click("＋ 働き方", { within: "panel", exact: true });
   await p.click("正社員", { within: "panel", exact: true });
-  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("＋ 働き方", { within: "panel", exact: true });
   await p.click("正社員", { within: "panel", exact: true });
   await p.type("年収（税込み・賞与込み）", "550");
   await p.type("年収（税込み・賞与込み）", "400", { nth: 1 });
@@ -137,7 +137,7 @@ export async function household1(p: Page): Promise<Notes> {
   await save(p, n, "住まい・ローン");
 
   await open(p, n, "保険");
-  await p.click("＋ 保険契約を足す", { within: "panel", exact: true });
+  await p.click("＋ 保険契約", { within: "panel", exact: true });
   await p.click("収入保障保険", { within: "panel", exact: true });
   await p.type("保険料（月額）", "4500");
   // 円の欄に「15万」と打つ（ざっくり派がよく打つ形）
@@ -177,7 +177,7 @@ export async function household2(p: Page): Promise<Notes> {
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入", "詳細");
-  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("＋ 働き方", { within: "panel", exact: true });
   await p.click("自営業", { within: "panel", exact: true });
   await p.type("事業所得（年額）", "350");
   // 確定申告（事業所得のある人の申告の仕方と青色申告特別控除。収益不動産の「申告」と同じ値。0155）
@@ -209,7 +209,7 @@ export async function household2(p: Page): Promise<Notes> {
   await save(p, n, "住まい・ローン");
 
   await open(p, n, "保険", "詳細");
-  await p.click("＋ 保険契約を足す", { within: "panel", exact: true });
+  await p.click("＋ 保険契約", { within: "panel", exact: true });
   await p.click("定期保険", { within: "panel", exact: true });
   await p.type("保険料（月額）", "3200");
   await p.type("死亡保険金", "1000");
@@ -246,9 +246,9 @@ export async function household3(p: Page): Promise<Notes> {
 
   await open(p, n, "働き方と収入");
   // ご本人（63歳）は今の働き方の再雇用から（定年の前の正社員も作る）。配偶者は正社員で入れてからパートに変える
-  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("＋ 働き方", { within: "panel", exact: true });
   await p.click("契約社員・嘱託（再雇用など）", { within: "panel", exact: true });
-  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("＋ 働き方", { within: "panel", exact: true });
   await p.click("正社員", { within: "panel", exact: true });
   n.seen.spouseAnnualBefore = await fieldValue(p, "年収（税込み・賞与込み）", 1);
   await p.choose("働き方", "パート・アルバイト", { nth: 1 });
@@ -260,8 +260,8 @@ export async function household3(p: Page): Promise<Notes> {
   // 定年の後の再雇用の人・パートに変えた人には、目安の退職一時金は足されない（受け取りが過去・パートの勤め先）。企業年金を足す
   await open(p, n, "退職金・企業年金", "詳細");
   n.seen.retirementCard = await cardText(p, "退職金・企業年金");
-  // 「＋ 退職金・企業年金を足す」は種類を選んでから足す（0141）
-  await p.click("＋ 退職金・企業年金を足す", { within: "panel", exact: true });
+  // 「＋ 退職金・企業年金」は種類を選んでから足す（0141）
+  await p.click("＋ 退職金・企業年金", { within: "panel", exact: true });
   await p.click("確定給付企業年金（企業年金基金・企業年金連合会を含む）", { within: "panel", exact: true });
   await p.choose("受け取り方", "年金");
   await p.choose("勤め先", "正社員");
@@ -296,7 +296,7 @@ export async function household3(p: Page): Promise<Notes> {
   await save(p, n, "住まい・ローン");
 
   await open(p, n, "収益不動産", "詳細");
-  await p.click("＋ 物件を足す", { within: "panel", exact: true });
+  await p.click("＋ 物件", { within: "panel", exact: true });
   await p.choose("種類", "区分マンション");
   await p.type("今の評価額（土地と建物の合計）", "1500");
   await p.choose("建物の構造", "鉄筋コンクリート造");
@@ -316,11 +316,11 @@ export async function household3(p: Page): Promise<Notes> {
   await save(p, n, "収益不動産");
 
   await open(p, n, "介護・親", "詳細");
-  // 配偶者のいる世帯: 「＋ ご本人の親を足す」を押して「母」を選ぶ（父・母・父母から選ぶ）
-  await p.click("＋ ご本人の親を足す", { within: "panel", exact: true });
+  // 配偶者のいる世帯: 「＋ ご本人の親」を押して「母」を選ぶ（父・母・父母から選ぶ）
+  await p.click("＋ ご本人の親", { within: "panel", exact: true });
   await p.click("母", { within: "panel", exact: true });
   await p.type("生年月", "1937-06");
-  await p.click("＋ 母の介護を入れる", { within: "panel", exact: true });
+  await p.click("＋ 母の介護", { within: "panel", exact: true });
   await p.choose("払う人", "世帯が払う（ご本人の支出にする）");
   await p.type("月々の費用（自己負担の合計）", "8");
   await save(p, n, "介護・親");

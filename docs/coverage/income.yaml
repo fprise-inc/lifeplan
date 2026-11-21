@@ -52,7 +52,7 @@ entries:
     keywords: [定年, 再雇用, 嘱託, 継続雇用, 定年後, 60歳, 65歳, 働く最後, 退職の年齢]
     items: [employment.endsWith, employment.to, employment.type, employment.salary.annual]
     fields:
-      - 「働き方と収入」の入力項目の「定年後の予定を入れる」
+      - 「働き方と収入」の入力項目の「＋ 定年後の予定」
       - 「働き方と収入」の入力項目の「定年後の働き方」
       - 「働き方と収入」の入力項目の「働く最後の年齢」
     rules:

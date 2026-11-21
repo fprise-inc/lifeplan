@@ -61,7 +61,7 @@ describe("ご本人・配偶者の介護を「入れない」と決めるのは�
 
   it("帯の「該当なし（介護の費用を入れない）」・入力項目の「当てはまらない」で決めると消え、もう一度保存しても戻らない（区画には「入れない」のボタンを置かない）", () => {
     const wh = couple();
-    // 区画のボタンは「…の介護を入れる」と「＋ 介護の費用」だけ（入れた物を外すのは、その物の「外す」。0143 の追記 2026-11-12）
+    // 区画のボタンは「＋ …の介護」と「＋ 介護の費用」だけ（入れた物を外すのは、その物の「外す」。0143 の追記 2026-11-12）
     expect(actionsOf("care", wh).map((a) => a.key)).not.toContain("care/declineAdults");
     const band = gapsOf(wh).find((g) => g.card === "care")!;
     const byBand = band.none!(wh);
@@ -71,11 +71,11 @@ describe("ご本人・配偶者の介護を「入れない」と決めるのは�
     const byCard = notApplicableCard(wh, "care");
     expect(byCard.confirmed).toContain(ADULT_CARE_NONE);
     expect(gapsOf(byCard).filter((g) => g.card === "care")).toEqual([]);
-    // 決めた後も「…の介護を入れる」は残す（後から入れられる）
+    // 決めた後も「＋ …の介護」は残す（後から入れられる）
     expect(actionsOf("care", byBand).map((a) => a.key)).toContain("care/fillAdults");
     // 区画の説明（「?」）は、新しいボタンの名前と帯の「該当なし」を案内し、消したボタンを案内しない
     const note = stage("care", wh).sections.find((s) => s.key === "care/costs")!.note!;
-    expect(note).toContain("「ご本人・配偶者の介護を入れる」");
+    expect(note).toContain("「＋ ご本人・配偶者の介護」");
     expect(note).toContain("「該当なし（介護の費用を入れない）」");
     expect(note).not.toContain("推定で入れる");
     expect(note).not.toContain("介護は入れない");
@@ -92,12 +92,12 @@ describe("ご本人・配偶者の介護を「入れない」と決めるのは�
     expect(gapsOf(wh).filter((g) => g.card === "care")).toHaveLength(2);
   });
 
-  it("介護を入れる操作の言葉は「…の介護を入れる」（人の名前を入れる。入れた後に詳細を入れると推定でなくなるので「推定で」は付けない。0143 の追記 2026-11-12）", () => {
+  it("介護を入れる操作の言葉は「＋ …の介護」（人の名前を入れる。入れた後に詳細を入れると推定でなくなるので「推定で」は付けない。0143 の追記 2026-11-12）", () => {
     let wh = couple();
-    expect(actionOf("care", wh, "care/fillAdults").label).toBe("ご本人・配偶者の介護を入れる");
+    expect(actionOf("care", wh, "care/fillAdults").label).toBe("＋ ご本人・配偶者の介護");
     wh = addOutside(wh, "parent", { sex: "male" });
     const father = parents(wh)[0]!;
-    expect(actionOf("care", wh, `family/${father.id}/care/estimate`).label).toBe("＋ 父の介護を入れる");
+    expect(actionOf("care", wh, `family/${father.id}/care/estimate`).label).toBe("＋ 父の介護");
   });
 
   it("入れた介護の物の下に「詳細の項目を入れない所は、この条件で推定した数字を使います」と、推定のままの欄の名前。入れた欄は名前が消える", () => {
@@ -206,13 +206,13 @@ describe("世帯の外の家族の欄", () => {
     expect(actionsOf("care", joined).map((a) => a.key)).not.toContain(`family/${p.id}/outside/join`);
   });
 
-  it("親を足すのは「＋ ご本人の親を足す」「＋ 配偶者の親を足す」（配偶者がいなければ「＋ 親を足す」）。押すと「父」「母」「父母」から選ぶ。いる方は出さない", () => {
+  it("親を足すのは「＋ ご本人の親」「＋ 配偶者の親」（配偶者がいなければ「＋ 親」）。押すと「父」「母」「父母」から選ぶ。いる方は出さない", () => {
     const wh = couple();
     const self = hh(wh).members.find((m) => m.kind === "self")!;
     const spouse = hh(wh).members.find((m) => m.kind === "spouse")!;
     const adds = actionsOf("care", wh).filter((a) => a.choice?.key.startsWith("care/add/parents/") === true);
     // 1つの「＋」の選択肢（0040 の追記）。ボタンの名前は choice の label、選択肢はそれぞれの label
-    expect([...new Set(adds.map((a) => a.choice!.label))]).toEqual(["＋ ご本人の親を足す", "＋ 配偶者の親を足す"]);
+    expect([...new Set(adds.map((a) => a.choice!.label))]).toEqual(["＋ ご本人の親", "＋ 配偶者の親"]);
     expect(adds.filter((a) => a.choice!.key === "care/add/parents/self").map((a) => a.label)).toEqual(["父", "母", "父母"]);
     expect(actionsOf("care", wh).map((a) => a.key)).not.toContain("care/add/bothParents");
     // 母だけを1押しで（足してから外す手数が無い）
@@ -230,8 +230,8 @@ describe("世帯の外の家族の欄", () => {
     expect(actionsOf("care", both).some((a) => a.choice?.key === "care/add/parents/self")).toBe(false);
     // 父母は2人まとめて
     expect(parents(actionOf("care", wh, "care/add/selfParents").run(wh))).toHaveLength(2);
-    // 配偶者がいなければ「＋ 親を足す」
-    expect([...new Set(actionsOf("care", blankHousehold(BASE, seq())).filter((a) => a.choice?.key.startsWith("care/add/parents/") === true).map((a) => a.choice!.label))]).toEqual(["＋ 親を足す"]);
+    // 配偶者がいなければ「＋ 親」
+    expect([...new Set(actionsOf("care", blankHousehold(BASE, seq())).filter((a) => a.choice?.key.startsWith("care/add/parents/") === true).map((a) => a.choice!.label))]).toEqual(["＋ 親"]);
   });
 
   it("親への仕送り・親からの援助は、世帯の外の家族が1人以上いれば標準（いなければ詳細）", () => {
@@ -283,11 +283,11 @@ describe("介護の物の見出し", () => {
 });
 
 describe("相続・贈与", () => {
-  it("親を足すのは1つ（区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」。介護・親と同じ選び方）。足した親は相続の相手にも援助の贈与する人にも選べる。生年月を入れない贈与する人は詳細", () => {
+  it("親を足すのは1つ（区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親」。介護・親と同じ選び方）。足した親は相続の相手にも援助の贈与する人にも選べる。生年月を入れない贈与する人は詳細", () => {
     const wh = couple();
     const acts = actionsOf("inheritance", wh);
-    const simple = acts.filter((a) => a.level === "simple" && (a.choice?.key.startsWith("inherit/add/parents/") === true || a.label.includes("親を足す") || a.label.includes("父を足す")));
-    expect([...new Set(simple.map((a) => a.choice?.label ?? a.label))]).toEqual(["＋ ご本人の親を足す", "＋ 配偶者の親を足す"]);
+    const simple = acts.filter((a) => a.level === "simple" && (a.choice?.key.startsWith("inherit/add/parents/") === true || /^＋ (.*の)?(親|父)$/u.test(a.label)));
+    expect([...new Set(simple.map((a) => a.choice?.label ?? a.label))]).toEqual(["＋ ご本人の親", "＋ 配偶者の親"]);
     expect(acts.find((a) => a.key === "family/add/donor-parent")).toMatchObject({ level: "detail", label: "＋ 生年月を入れない贈与する人（親）" });
     expect(acts.some((a) => a.key === "inherit/addFather")).toBe(false);
     const sec = stage("inheritance", wh).sections.find((s) => s.key === "family/donors")!;

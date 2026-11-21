@@ -76,7 +76,7 @@ describe("変動金利の上昇を動かしたプランを入力の画面で開�
     const view = planView(b.wh, cat, b.id);
     const f = shiftField(view, "assumptions.loanRateShifts");
     expect(f?.readOnly).toBeDefined();
-    expect(f?.get(view).value).toBe("2030年1月から、変動金利の段の金利に +1%");
+    expect(f?.get(view).value).toBe("2030年1月から、変動金利の段階の金利に +1%");
     expect(shiftField(b.wh, "assumptions.loanRateShifts")).toBeUndefined();
   });
 });

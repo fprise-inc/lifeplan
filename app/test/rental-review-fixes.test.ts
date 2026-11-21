@@ -105,7 +105,7 @@ describe("標準の画面: 不動産の一時の経費と、売却・大きな�
     expect(panel(wh, "simple")).toContain(`data-group="ev/${row.id}"`);
   });
 
-  it("売却・大きな修繕の予定は、標準では専用の「▸ 売る予定・大きな修繕を入れる」で開く。物件の頭の「▸」は所在地・持分・メモなど", () => {
+  it("売却・大きな修繕の予定は、標準では専用の「▸ 売る予定・大きな修繕を入れる」で開く。中枠「物件と評価額」の「▸」は所在地・持分・メモなど", () => {
     const wh = open();
     const a = first(wh);
     const kp = `sav/${a.id}/property`;
@@ -114,7 +114,9 @@ describe("標準の画面: 不動産の一時の経費と、売却・大きな�
     expect(units.get(`${kp}/sale`)).toBe(`${kp}/plans`);
     expect(units.get(`${kp}/repairs`)).toBe(`${kp}/plans`);
     expect(headsWithMore(groups).has(`${kp}/plans`)).toBe(true);
-    expect(groups.find((g) => g.key === `sav/${a.id}`)?.moreLabel).toBe("所在地・持分・メモなどを入れる");
+    // 物件の頭は見出しと「外す」だけ。所在地・持分・メモは中枠「物件と評価額」の「▸」（0237）
+    expect(groups.find((g) => g.key === `sav/${a.id}`)?.moreLabel).toBeUndefined();
+    expect(groups.find((g) => g.key === `sav/${a.id}/about`)).toMatchObject({ title: "物件と評価額", band: true, moreLabel: "所在地・持分・メモなどを入れる" });
     const closed = panel(wh, "simple").replace(/<wbr\/?>/g, "");
     expect(closed).toContain("売る予定・大きな修繕を入れる");
     expect(closed).not.toContain(`id="${fieldDomId(`${kp}/sell`)}"`);
@@ -123,9 +125,11 @@ describe("標準の画面: 不動産の一時の経費と、売却・大きな�
     expect(html).toContain(`id="${fieldDomId(`${kp}/sell`)}"`);
     expect(html).toContain(`data-action="${kp}/addRepair"`);
     expect(html).not.toContain(`id="${fieldDomId(`${kp}/location`)}"`);
-    // 詳細では入口を出さず、売却・大きな修繕をそのまま出す
+    // 詳細では「▸」を出さず、中枠「売却・大きな修繕の予定」の中に売却・大きな修繕をそのまま出す
     const detail = panel(wh, "detail");
-    expect(detail).not.toContain(`data-group="${kp}/plans"`);
+    expect(detail).toContain(`data-group="${kp}/plans"`);
+    expect(detail).not.toContain("売る予定・大きな修繕を入れる");
+    expect(detail).toContain(`data-action="${kp}/addRepair"`);
     expect(detail).toContain(`id="${fieldDomId(`${kp}/sell`)}"`);
   });
 
@@ -146,11 +150,11 @@ describe("細かい所", () => {
     expect(stageOf(wh).sections[0]!.groups[0]!.title).toBe("物件1（評価額は未入力）");
   });
 
-  it("持ち始める時点は物件の見出しのまとまり（評価額の時点の後）。貸し始め・貸し終わりの初めの入れ方はどちらも年月", () => {
+  it("持ち始める時点は中枠「物件と評価額」（評価額の時点の後）。貸し始め・貸し終わりの初めの入れ方はどちらも年月", () => {
     const wh = open();
     const a = first(wh);
     const groups = stageOf(wh).sections[0]!.groups;
-    const head = groups.find((g) => g.key === `sav/${a.id}`)!;
+    const head = groups.find((g) => g.key === `sav/${a.id}/about`)!;
     const keys = head.fields.map((f) => f.key);
     expect(keys.indexOf(`sav/${a.id}/property/holdFrom`)).toBe(keys.indexOf(`sav/${a.id}/asOf`) + 1);
     expect(groups.find((g) => g.key === `sav/${a.id}/property/building`)!.fields.some((f) => f.key.endsWith("/holdFrom"))).toBe(false);

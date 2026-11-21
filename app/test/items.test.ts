@@ -136,7 +136,7 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     expect(dc).toBeDefined();
     expect(dc!.groups[0]!.fields.every((f) => f.readOnly === "この欄はここでは変えられません。「貯蓄・運用」の項目で入れます")).toBe(true);
     expect(dc!.groups[0]!.fields[0]!.get(ideco).value).toMatch(/から$/);
-    // 「＋ 退職金・企業年金を足す」も退職金・企業年金のカード
+    // 「＋ 退職金・企業年金」も退職金・企業年金の入力項目
     const civil = open("civilServant");
     const acts = (itemStage(civil, "retirement") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key));
     expect(acts.some((k) => k.endsWith("/add") && k.startsWith("retirement/"))).toBe(true);
@@ -666,7 +666,9 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
     // 車ごとの見出しのまとまり（内訳で入れている車は、詳細に内訳の行のまとまりが続く）
     const groups = (itemStage(two, "car") as StageDef).sections[0]!.groups.filter((g) => g.title?.startsWith("車 ") === true);
     expect(groups.map((g) => g.title)).toEqual([expect.stringMatching(/^車 1（/), expect.stringMatching(/^車 2（/)]);
-    const labels = (g: (typeof groups)[number]) => g.fields.filter((f) => f.level === "simple").map((f) => f.label);
+    // 欄は車の枠の中の中枠（車と買い替え・価格・買い方・維持費）に分かれる（0237）
+    const all = (itemStage(two, "car") as StageDef).sections[0]!.groups;
+    const labels = (g: (typeof groups)[number]) => all.filter((x) => x.key.startsWith(`${g.key}/band/`)).flatMap((x) => x.fields).filter((f) => f.level === "simple").map((f) => f.label);
     for (const l of ["買い替えの周期", "車両の価格", "買い方", "手放す時期", "次の買い替えの時期", "維持費（年額の合計）"]) expect(labels(groups[1]!), l).toContain(l);
     // 下取りは詳細（0069）。目安は価格×周期の残価の目安（8年で15%）
     expect(labels(groups[1]!)).not.toContain("下取り");

@@ -37,7 +37,7 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   { words: ["副業", "副収入"], card: "work", to: ["副業"] },
   { words: ["住民税", "決定通知書"], card: "work", to: ["住民税"] },
   // 退職金・企業年金
-  { words: ["退職一時金", "退職金", "役員退職慰労金", "たいしょくきん"], card: "retirement", to: ["退職一時金", "見込み額", "退職金・企業年金を足す"] },
+  { words: ["退職一時金", "退職金", "役員退職慰労金", "たいしょくきん"], card: "retirement", to: ["退職一時金", "見込み額", "＋ 退職金・企業年金"] },
   { words: ["企業年金", "確定給付", "DB", "厚生年金基金", "企業年金基金"], card: "retirement", to: ["企業年金"] },
   // 年金
   { words: ["ねんきん定期便", "定期便", "年金定期便", "ねんきんネット"], card: "pension", to: ["書類の種類", "年金の入れ方"] },
@@ -52,7 +52,7 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   { words: ["ペット", "動物病院"], card: "living", to: ["ペットの病気・けが"] },
   // 子ども・教育
   { words: ["学費", "教育費", "授業料", "進学", "大学", "高校", "私立", "受験", "きょういくひ", "がくひ"], card: "education", to: ["大学・短大・専門学校", "公立・私立"] },
-  { words: ["塾", "習い事", "家庭教師", "通信教育", "じゅく", "ならいごと"], card: "education", to: ["学校外の費用", "＋ 塾・習い事を足す"] },
+  { words: ["塾", "習い事", "家庭教師", "通信教育", "じゅく", "ならいごと"], card: "education", to: ["学校外の費用", "＋ 塾・習い事"] },
   { words: ["下宿", "一人暮らし"], card: "education", to: ["自宅外の仕送り", "通い方"] },
   { words: ["留学", "海外留学", "交換留学", "りゅうがく"], card: "education", to: ["留学"] },
   { words: ["奨学金", "しょうがくきん"], card: "education", to: ["奨学金"] },
@@ -109,7 +109,7 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   { words: ["お墓", "仏壇", "墓じまい"], card: "events", to: ["お墓・仏壇"] },
   { words: ["法事", "法要", "一周忌"], card: "events", to: ["法事"] },
   { words: ["成人式", "振袖"], card: "events", to: ["成人式"] },
-  { words: ["夢", "やりたいこと", "趣味"], card: "events", to: ["夢プラン", "夢を足す"] },
+  { words: ["夢", "やりたいこと", "趣味"], card: "events", to: ["夢プラン", "＋ ほかの夢"] },
   { words: ["起業", "開業"], card: "events", to: ["起業"] },
   { words: ["移住", "二拠点"], card: "events", to: ["移住", "二拠点"] },
   { words: ["祝い金", "お祝い", "香典", "見舞金"], card: "events", to: ["祝い金"] },
