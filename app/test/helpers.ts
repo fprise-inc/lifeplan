@@ -5,6 +5,7 @@ import vm from "node:vm";
 import type { WebEngine } from "../src/engine/host.ts";
 import type { EngineRequest, FullResult, PreviewResult } from "../src/engine/types.ts";
 import { displayYears } from "../src/workspace/present.ts";
+import { readProposal, type ProposalContext, type ProposalResult } from "../src/workspace/documents/proposal.ts";
 import { ENGINE_DIST, REPO_DIR } from "../scripts/lib.ts";
 
 let cached: { engine: WebEngine; packs: string } | null = null;
@@ -98,4 +99,17 @@ export function screenTotals(r: PreviewResult, req: EngineRequest): { income: nu
     else if (c.row === "cf.net") t.net += c.amount;
   }
   return t;
+}
+
+/**
+ * 文の中の答えの JSON（```json の囲みか、最初の { から最後の } まで）を取り出して、書類の読み口（readProposal）に通す。
+ * SDK フォルダの手引きの見本の答え・AI接続口の見本の答えを読むテストの道具（アプリの画面には、文から読む入口は無い）
+ */
+export function readAnswerText(text: string, ctx: ProposalContext): ProposalResult {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/u.exec(text);
+  const body = fenced?.[1] ?? text;
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start < 0 || end <= start) return { reading: null, issues: ["答えの JSON が見つかりません"] };
+  return readProposal(JSON.parse(body.slice(start, end + 1)) as unknown, ctx);
 }

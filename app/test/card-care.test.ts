@@ -153,7 +153,7 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     const child = out.find((m) => m.kind === "child")!;
     expect(wh.request.input.household.relations).toContainEqual({ type: "parentOf", parent: wh.request.input.household.members[0]!.id, child: child.id });
     expect(memberLabel(wh, out[0]!.id)).toBe("兄弟姉妹");
-    // 孫は相続・贈与のカード（あげる贈与）に置き、ここは読むだけの1行。介護・親に「＋ 孫を足す」は置かない
+    // 孫は相続・贈与の入力項目（あげる贈与）に置き、ここは読むだけの1行。介護・親に「＋ 贈与の相手の孫」は置かない
     const groups = stage(wh).sections.find((s) => s.key === "care/outside")!.groups;
     expect(groups.map((g) => g.key).slice(0, 2).sort()).toEqual([`family/${out[0]!.id}`, `family/${out[1]!.id}`].sort());
     expect(groups.map((g) => g.key)).toHaveLength(3);
@@ -318,7 +318,7 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     expect(t.from).toEqual({ at: "2026-11" });
   });
 
-  it("「＋ 次の段階を足す」: 前の段の始まりの形のまま期間だけずらした施設の段", () => {
+  it("「＋ 次の段階」: 前の段の始まりの形のまま期間だけずらした施設の段", () => {
     let wh = addOutside(blankHousehold(BASE, seq()), "parent");
     const p = parents(wh)[0]!;
     wh = actionOf(wh, `family/${p.id}/care/estimate`).run(wh);
@@ -332,10 +332,12 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     // 前の段の期間は空欄（推定）なので、統計の平均の期間だけずらす
     expect(first.months).toBeUndefined();
     expect((Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5)) - Number(a.slice(5)))).toBe(careEstimate("home")!.months);
-    // 見出しは「父の介護」、その下の1行に「在宅・2027年5月から55か月（推定）・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける。
+    // 見出しは、段階が2つになったので「父の介護（1段階目）」「父の介護（2段階目）」（段階が1つの間は「父の介護」。0236 の追記）、その後ろに「在宅・2027年5月から55か月（推定）・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける。
     // 在宅か施設かは見出しに入れず要約の頭に。0150。推定の物のすぐ後ろに「（推定）」。0041 の追記 2026-11-10）
     const g0 = stage(next).sections.find((s) => s.key === "care/costs")!.groups[0]!;
-    expect(g0.title).toMatch(/^父の介護$/);
+    expect(stage(wh).sections.find((s) => s.key === "care/costs")!.groups[0]!.title).toBe("父の介護");
+    expect(g0.title).toBe("父の介護（1段階目）");
+    expect(stage(next).sections.find((s) => s.key === "care/costs")!.groups[1]!.title).toBe("父の介護（2段階目）");
     expect(g0.summary).toMatch(/^在宅・\d{4}年\d{1,2}月から55か月（推定）・月5\.2万円（推定）$/);
   });
 

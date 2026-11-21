@@ -7,7 +7,7 @@ import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { PARAM_LABELS } from "../generated/labels.ts";
 import type { StageId } from "./input/form.ts";
 import type { WorkingHousehold } from "./input/household.ts";
-import { accountLabelOf, memberLabels } from "./input/labels.ts";
+import { accountLabelOf, careStageMark, memberLabels } from "./input/labels.ts";
 import { applyOfficeText, NO_OFFICE_TEXTS, noticeTextId, type OfficeTextEntry, type OfficeTexts } from "./office/customTexts.ts";
 
 export type NoticeKind = "input" | "missing" | "outside" | "assumed" | "data";
@@ -335,7 +335,8 @@ export function nameResolver(wh: WorkingHousehold, requests: readonly EngineRequ
     // 口座の名前（0223）は前後の空白を除き、空白だけの名前は名前なしと同じ
     for (const a of h.accounts ?? []) put(a.id, accountLabelOf(a) ?? `${who(a.owner) ?? ""}の口座・資産`);
     for (const r of h.residences ?? []) put(r.id, r.kind === "rent" ? "賃貸の住まい" : "持ち家");
-    for (const c of h.careExpenses ?? []) put(c.id, `${who(c.member) ?? ""}の介護`);
+    // 同じ人の段階が2つ以上なら「母の介護（2段階目）」（入力の画面の見出しと同じ名前。labels.ts の careStageMark）
+    for (const c of h.careExpenses ?? []) put(c.id, `${who(c.member) ?? ""}の介護${careStageMark(h.careExpenses, c)}`);
     for (const p of h.employmentPeriods ?? []) put(p.id, `${who(p.member) ?? ""}の働き方の期間`);
     for (const l of h.livingExpenses ?? []) put(l.id, "基本生活費");
   }

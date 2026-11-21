@@ -934,7 +934,7 @@ export function planIndex(whs: readonly WorkingHousehold[]): PlanIndex {
             const a = safeAddress(f, wh);
             if (a === null) continue;
             const k = addressKey(a);
-            if (!out.fields.has(k)) out.fields.set(k, { card: card.id, field: f, where: g.title ?? s.title });
+            if (!out.fields.has(k)) out.fields.set(k, { card: card.id, field: f, where: g.where ?? g.title ?? s.title });
             const ik = `${targetKey(a.target)}|${a.item}`;
             if (!out.items.has(ik)) out.items.set(ik, card.id);
             const tk = targetKey(a.target);

@@ -818,25 +818,33 @@ export interface AiConsentInput {
   fpConfirmed: boolean;
 }
 
-/** AI のアプリへの登録の状態（0228）。書く場所はホームを ~ にした表示、書く中身は AI とつなぐ道具の場所を伏せた文面 */
-export interface AiAppView {
-  client: "claudeDesktop" | "claudeCode" | "codex" | "gemini";
-  title: string;
+/** AI のアプリへの登録の、1つの書く先の状態（0228）。書く場所はホームを ~ にした表示、書く中身は AI と接続する道具の場所を伏せた文面 */
+export interface AiAppPart {
+  id: "claudeDesktop" | "claudeCode" | "codex";
+  /** 行の中での呼び名（「チャット（アプリ）」「Claude Code」「Codex」） */
+  label: string;
   state: "registered" | "unregistered" | "stale" | "unreadable" | "missing" | "unsupported";
   target: string;
   preview: string;
   how: "file" | "command";
-  /** 押せない理由（E_AI_APP_RUNNING など）。null なら押せる */
+  /** 今は書けない理由（E_AI_APP_RUNNING: Claude のアプリが起動中・E_AI_APP_NO_COMMAND: claude コマンドが無い など）。null なら書ける */
   blocked: string | null;
-  /** 提供元が実物で試したか */
-  tested: boolean;
+}
+
+/** AI のアプリへの登録の画面の1行（0228 の追記 2026-11-20）。Claude の行は、チャットのアプリと Claude Code の2つの書く先をまとめる */
+export interface AiAppView {
+  client: "claude" | "codex";
+  title: string;
+  /** 書く先をまとめた状態。partial は片方だけ登録済み */
+  state: AiAppPart["state"] | "partial";
+  parts: AiAppPart[];
 }
 
 export interface AiAppsStatus {
   apps: AiAppView[];
   /** 登録の名前（開発用のビルドは別の名前） */
   serverName: string;
-  /** AI とつなぐ道具の場所の問題（あればどれも登録できない） */
+  /** AI と接続する道具の場所の問題（あればどれも登録できない） */
   locationProblem: string | null;
 }
 
@@ -848,11 +856,11 @@ export interface AiHost {
   setPrivacyPolicy?(confirmed: boolean): Promise<AiStatus>;
   /** 接続の設定の文面（本物の場所入り）を本体が OS のクリップボードへ写す */
   copySetup(client: string): Promise<boolean>;
-  /** AI のアプリごとの登録の状態（0228。無い本体〔開発用のブラウザ〕は undefined） */
+  /** 行（Claude・Codex）ごとの登録の状態（0228。無い本体〔開発用のブラウザ〕は undefined） */
   apps?(): Promise<AiAppsStatus>;
-  /** AI のアプリに登録する（すでにあれば場所だけ直す）。FP が押したときだけ本体が書く */
+  /** 行の AI のアプリに登録する（すでにあれば場所だけ直す。Claude の行は両方に）。FP が押したときだけ本体が書く */
   registerApp?(client: string): Promise<AiAppsStatus>;
-  /** AI のアプリの登録を外す（自分の名前の所だけ） */
+  /** 行の AI のアプリの登録を外す（自分の名前の所だけ。Claude の行は両方から） */
   unregisterApp?(client: string): Promise<AiAppsStatus>;
   household(id: string): Promise<AiHouseholdView>;
   recordConsent(id: string, input: AiConsentInput): Promise<AiHouseholdView>;

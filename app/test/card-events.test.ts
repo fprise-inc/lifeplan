@@ -76,8 +76,8 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     expect(OUT_TEMPLATES.some((t) => /家族旅行|長寿|孫/u.test(t.label))).toBe(false);
     // 楽しみ・学び（特別な旅行・大きな買い物・資格・学び直し）は夢プランのひな形へまとめた
     expect(OUT_TEMPLATES.some((t) => /旅行|買い物|資格|学び直し/u.test(t.label))).toBe(false);
-    // 区画のボタンは「＋ ほかの支出を足す」の1つ（1回・何年ごと・その他のボタンはやめた）
-    expect(outSection(wh).actions.map((a) => [a.key, a.label, a.level])).toEqual([["ev/addOther", "＋ ほかの支出を足す", "simple"]]);
+    // 区画のボタンは「＋ ほかの支出」の1つ（1回・何年ごと・その他のボタンはやめた）
+    expect(outSection(wh).actions.map((a) => [a.key, a.label, a.level])).toEqual([["ev/addOther", "＋ ほかの支出", "simple"]]);
     // 区画の説明: 起きること・備えを入れ、やりたいことはすぐ上の夢プラン。ふだんの旅行・帰省は基本生活費、ほかの物はそれぞれの入力項目
     expect(outSection(wh).note).toContain("ご家族に起きること（結婚・成人式・葬儀・法事など）と備えを入れます。やりたいこと（旅行・趣味など）は上の夢プラン");
     expect(outSection(wh).note).toContain("ふだんの旅行・家電の買い替えは基本生活費");

@@ -95,10 +95,10 @@ describe("段の見出し・割合の名前・欄の下の読み", () => {
     expect(titles.some(([t]) => /段階 \d/.test(t as string))).toBe(false);
   });
 
-  it("毎月の生活費の「▸」は、標準に出ていない段を名前と数で（推定 4段）。段が無ければ「退職後などの段階を入れる」", () => {
+  it("毎月の生活費の「▸」は、標準に出ていない段階を名前と数で（推定 4段階）。段が無ければ「退職後などの段階を入れる」", () => {
     const wh = family();
     const main = groups(wh).find((g) => g.key === `living/${living(wh).id}`)!;
-    expect(main.moreLabel).toBe("子の独立・70歳・80歳の段（推定 4段）を見る");
+    expect(main.moreLabel).toBe("子の独立・70歳・80歳の段階（推定 4段階）を見る");
     const none = mutate(wh, (h) => void delete h.livingExpenses![0]!.stages);
     expect(groups(none).find((g) => g.key === `living/${living(none).id}`)!.moreLabel).toBe("退職後などの段階を入れる");
   });

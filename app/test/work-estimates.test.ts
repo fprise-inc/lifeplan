@@ -57,7 +57,7 @@ function newCustomer(birth: string): { wh: WorkingHousehold; self: string } {
 
 afterEach(() => setOfficeEstimates({}));
 
-describe("働き方の入口（「働き方を入れる」の1つのボタンの中の選択肢）", () => {
+describe("働き方の入口（「＋ 働き方」の1つのボタンの中の選択肢）", () => {
   it("選択肢は正社員・パート・契約・公務員・役員・自営業・休業中・働いていない。60歳からは再雇用・嘱託が先頭", () => {
     const { wh, self } = newCustomer("1980-06");
     const entry = actionsOf(wh).filter((a) => a.choice?.key === `work/${self}/entry`);

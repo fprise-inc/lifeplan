@@ -347,7 +347,7 @@ const statRow = (basis: string): StateRow => ({ state: "estimated", origin: { ki
 
 /**
  * 塾・習い事のまとまり（学校の行の後ろ。2026-11-14）: 入れ方が「塾・習い事を別に入れる」（前の形を含む）のときは、標準で行の欄（名前・種類・月額・
- * 始まり・終わり）と「＋ 塾・習い事を足す」を出す。統計の平均で入れていて使っていない行があるときは、詳細にだけ見出しと説明を出す
+ * 始まり・終わり）と「＋ 塾・習い事」を出す。統計の平均で入れていて使っていない行があるときは、詳細にだけ見出しと説明を出す
  */
 function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): GroupDef[] {
   const find = byId(goals, goal.id);
@@ -362,7 +362,7 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
     mode === "rows"
       ? lessons.length > 0
         ? `学校外の費用は、ここに入れた塾・習い事 ${lessons.length}件で計算しています（統計の平均は足しません）`
-        : "学校外の費用は、ここに入れた塾・習い事だけで計算します（統計の平均は足しません）。まだ入っていません（0円で計算中）。「＋ 塾・習い事を足す」で足します"
+        : "学校外の費用は、ここに入れた塾・習い事だけで計算します（統計の平均は足しません）。まだ入っていません（0円で計算中）。「＋ 塾・習い事」で足します"
       : `前の形: 統計の平均（塾・習い事を含む）に行 ${lessons.length}件を足しています。二重になっていないか確かめ、「学校外の費用」を「すべて統計の平均」か「塾・習い事を別に入れる」に切り替えてください`;
   const out: GroupDef[] = [{ key: blockKey, title: "塾・習い事", note, level: "simple", fields: [], actions: [] }];
   const ageOf = (hh: Household) => hh.members.find((m) => m.id === child.id);
@@ -397,7 +397,7 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
       ],
     });
   });
-  const choice = { key: `edu/${goal.id}/addLesson`, label: "＋ 塾・習い事を足す", help: `塾・習い事・その他から選んで、1つずつ足します（期間は今から3年。月額・期間を直します）。${mode === "legacy" ? LESSONS_HELP : ROWS_HELP}` };
+  const choice = { key: `edu/${goal.id}/addLesson`, label: "＋ 塾・習い事", help: `塾・習い事・その他から選んで、1つずつ足します（期間は今から3年。月額・期間を直します）。${mode === "legacy" ? LESSONS_HELP : ROWS_HELP}` };
   const addLesson = (kind: "cram" | "lesson" | "other", label: string, monthly: number): ActionDef => ({
     key: `edu/${goal.id}/addLesson/${kind}`,
     label,
@@ -793,6 +793,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
         label: "高校・高専",
         level: "detail",
         kind: "select",
+        segmented: true,
         options: [
           { value: "highSchool", label: "高校（3年）" },
           { value: "kosen", label: "高専（5年）" },
@@ -1841,7 +1842,7 @@ function childMoneyGroups(wh: WorkingHousehold, child: Member, goal?: Goal): { g
 }
 
 /** この子の受け取るお金の「＋」（種類を選んで足す） */
-const aidChoice = (k: string) => ({ key: `${k}/in`, label: "＋ 援助・給付型の奨学金を受ける", help: "祖父母などの援助・給付型の奨学金・子が払う分から選んで足します（貸与の奨学金・教育ローンは「▸」の中で足します）" });
+const aidChoice = (k: string) => ({ key: `${k}/in`, label: "＋ 援助・給付型の奨学金", help: "祖父母などの援助・給付型の奨学金・子が払う分から選んで足します（貸与の奨学金・教育ローンは「▸」の中で足します）" });
 
 /** この子の教育費を入れない（段の無い進路と、該当なしの行。前の進路の段は外す） */
 export function educationNotApplicable(wh: WorkingHousehold, childId: string): WorkingHousehold {
@@ -1908,13 +1909,13 @@ function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string
         plain({ key: `${k}/amount`, item: "goal.education", label: "額", level: "simple", kind: "yen", basis: "once", find: findG, path: ["amount"] }),
         timepointField({ key: `${k}/at`, item: "goal.education", label: "時期", level: "simple", find: findG, path: ["at"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
         // 見込み（値は priority。0103）: ふつうの出るお金の行と同じ「確実」「不確実」。「不確実」の援助はふだんの計算に入れない。省略は確実
-        { ...plain({ key: `${k}/priority`, item: "goal.education", label: "見込み", level: "simple", kind: "select", options: GIFT_PRIORITIES, find: findG, path: ["priority"], optional: true, fallback: "need", help: likelihoodHelp("gift") }), helpId: LIKELIHOOD_HELP.gift.id },
+        { ...plain({ key: `${k}/priority`, item: "goal.education", label: "見込み", level: "simple", kind: "select", options: GIFT_PRIORITIES, segmented: true, find: findG, path: ["priority"], optional: true, fallback: "need", help: likelihoodHelp("gift") }), helpId: LIKELIHOOD_HELP.gift.id },
         // 出す人: 世帯の外の贈与する人がいなければ欄を出さない（世帯から出す。見出しの下の1行で読む）。いれば「世帯から出す」「（名前）から出す」
         ...(donors.length > 0 || gift.donor !== undefined
           ? [plain({ key: `${k}/donor`, item: "goal.education", label: "出す人", level: "simple", kind: "select", options: donors, find: findG, path: ["donor"], optional: true, fallback: "", help: "世帯のお金から出すか、家族の入力項目で登録した親・祖父母から出すか（贈与する人から出すと、援助の額を世帯から出しません）" })]
           : []),
         plain({ key: `${k}/payer`, item: "goal.education", label: "世帯の中で出す人", level: "detail", kind: "select", options: [{ value: "", label: "指定しない" }, ...memberOptions(wh, (m) => m.kind === "self" || m.kind === "spouse")], find: findG, path: ["payer"], optional: true, fallback: "" }),
-        plain({ key: `${k}/tax`, item: "goal.education", label: "贈与税の課税方法", level: "detail", kind: "select", options: TAX_METHODS, find: findG, path: ["taxMethod"], optional: true, fallback: "calendar" }),
+        plain({ key: `${k}/tax`, item: "goal.education", label: "贈与税の課税方法", level: "detail", kind: "select", options: TAX_METHODS, segmented: true, find: findG, path: ["taxMethod"], optional: true, fallback: "calendar" }),
         plain({ key: `${k}/exempt`, item: "goal.education", label: "住宅資金の非課税", level: "detail", kind: "select", options: HOUSING_EXEMPTION, find: findG, path: ["housingExemption"], optional: true, fallback: "none" }),
       ],
       actions: [
@@ -2134,7 +2135,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   const loans = loanGroups(wh, goal);
   groups.push(...scholar, ...loans, {
     key: `edu/${goal.id}/finance`,
-    ...(scholar.length + loans.length === 0 ? { title: "奨学金・教育ローン（まだありません）" } : {}),
+    ...(scholar.length + loans.length === 0 ? { title: "奨学金・教育ローン", note: "まだありません" } : {}),
     level: "detail",
     fields: [],
     actions: [

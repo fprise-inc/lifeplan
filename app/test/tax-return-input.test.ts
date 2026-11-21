@@ -34,7 +34,8 @@ describe("働き方と収入の「確定申告」", () => {
     const wh = open("sampleSelfEmployedFamily");
     const id = selfOf(wh).id;
     const g = buildStage("work", wh).sections.flatMap((s) => s.groups).find((x) => x.key === `work/${id}/taxReturn`);
-    expect(g).toMatchObject({ level: "simple", title: "ご本人の確定申告" });
+    // 見出しは短く。入力項目の画面の外（確かめの一覧など）では名前つきで言う（0237）
+    expect(g).toMatchObject({ level: "simple", title: "確定申告", where: "ご本人の確定申告" });
     const method = fieldOf(wh, "work", `work/${id}/taxReturn/method`);
     expect(method.level).toBe("simple");
     expect(method.get(wh)).toMatchObject({ value: "white", estimated: TAX_RETURN_BLANK });

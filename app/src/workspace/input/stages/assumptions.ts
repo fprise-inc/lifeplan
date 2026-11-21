@@ -381,9 +381,9 @@ function shiftFields(wh: WorkingHousehold): FieldDef[] {
     }),
   );
   const loans = ((a?.loanRateShifts as LoanRateShift[] | undefined) ?? []).map((_s, i) =>
-    ro(`assume/loanRateShifts/${i}`, "assumptions.loanRateShifts", "変動金利の上乗せ", "結果のタブの「変動金利の上昇」で動かします。ローンの金利の欄の値はそのままで、変動金利の段の金利にこの幅を足して計算します（固定金利の段は変わりません）", (w) => {
+    ro(`assume/loanRateShifts/${i}`, "assumptions.loanRateShifts", "変動金利の上乗せ", "結果のタブの「変動金利の上昇」で動かします。ローンの金利の欄の値はそのままで、変動金利の段階の金利にこの幅を足して計算します（固定金利の段階は変わりません）", (w) => {
       const x = (w.request.input.assumptions?.loanRateShifts as LoanRateShift[] | undefined)?.[i];
-      return x === undefined ? null : `${Number(x.from.slice(0, 4))}年${Number(x.from.slice(5, 7))}月から、変動金利の段の金利に ${signedPct(x.add)}`;
+      return x === undefined ? null : `${Number(x.from.slice(0, 4))}年${Number(x.from.slice(5, 7))}月から、変動金利の段階の金利に ${signedPct(x.add)}`;
     }),
   );
   return [...returns, ...loans];

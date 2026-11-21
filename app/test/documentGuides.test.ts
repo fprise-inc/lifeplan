@@ -8,12 +8,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildDocumentFields, DOCUMENT_FIELDS_PATH } from "../scripts/documentFields.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
-import { readProposalText, type ProposalContext } from "../src/workspace/documents/proposal.ts";
+import type { ProposalContext } from "../src/workspace/documents/proposal.ts";
 import { acceptCandidates, acceptObject, docReview, type Chosen } from "../src/workspace/documents/review.ts";
 import { DOC_TYPES, LAND_AT, LAND_ITEM, PROPOSAL_CONTRACT, type DocumentReading } from "../src/workspace/documents/types.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { modelHousehold } from "./helpers.ts";
+import { modelHousehold, readAnswerText } from "./helpers.ts";
 
 const SDK = join(REPO_DIR, "sdk");
 const SKILL = join(SDK, "skills", "read-documents");
@@ -42,7 +42,7 @@ const DOCS = (): { name: string; md: string }[] => [
 ];
 
 const open = (id: string): WorkingHousehold => fromRequest(modelHousehold(id));
-const ctx = (wh: WorkingHousehold): ProposalContext => ({ via: "paste", at: AT, newId, connector: "テストの AI", members: roles(wh.request).map((r) => ({ key: r.key, id: r.member.id })) });
+const ctx = (wh: WorkingHousehold): ProposalContext => ({ via: "ai", at: AT, newId, connector: "テストの AI", members: roles(wh.request).map((r) => ({ key: r.key, id: r.member.id })) });
 
 /** 欄の一覧の表の行（入力項目ID・場所・額の期間） */
 function fieldRows(): { item: string; at: string[] | null; period: string }[] {
@@ -92,7 +92,7 @@ describe("説明書と手引きの答えの見本", () => {
     let count = 0;
     for (const { name, md } of DOCS()) {
       for (const a of answers(md)) {
-        const r = readProposalText(`読みました。\n\`\`\`json\n${a}\`\`\``, ctx(wh));
+        const r = readAnswerText(`読みました。\n\`\`\`json\n${a}\`\`\``, ctx(wh));
         expect(r.issues, name).toEqual([]);
         expect(r.reading, name).not.toBeNull();
         expect(r.reading!.dropped, name).toBe(0);
@@ -175,7 +175,7 @@ describe("見本の世帯で FP が承認していくと、読めなかった欄
     it(`${w.file} の見本 ${w.index + 1}（${w.household}）${w.missing !== undefined ? `。欄の無い候補: ${w.missing.join("・")}` : ""}`, () => {
       const wh = open(w.household);
       const a = answers(text(join(GUIDES, w.file)))[w.index] as string;
-      const read = readProposalText(a, ctx(wh));
+      const read = readAnswerText(a, ctx(wh));
       const res = walk(wh, read.reading!, w.choose);
       const left = res.reading.candidates.filter((c) => c.status === "pending" && c.unreadable !== true);
       expect(left.map((c) => `${c.target.item} ${JSON.stringify(c.target.at ?? [])}`), JSON.stringify(res.failed)).toEqual(w.missing ?? []);
@@ -190,7 +190,7 @@ describe("見本の世帯で FP が承認していくと、読めなかった欄
   it("保険証券: 新しい終身保険が1件足され、主契約の死亡保険金・払い方・保険料・払込免除が入る（特約は照合だけ）", () => {
     const wh = open("salariedCoupleTwoKids");
     const a = answers(text(join(GUIDES, "insurance-policy.md")))[0] as string;
-    const res = walk(wh, readProposalText(a, ctx(wh)).reading!);
+    const res = walk(wh, readAnswerText(a, ctx(wh)).reading!);
     const before = new Set((wh.request.input.household.insuranceContracts ?? []).map((c) => c.id));
     const added = (res.wh.request.input.household.insuranceContracts ?? []).filter((c) => !before.has(c.id));
     expect(added).toHaveLength(1);
@@ -204,14 +204,14 @@ describe("見本の世帯で FP が承認していくと、読めなかった欄
   it("AI接続口の道具の見本の答え（医療保険・読めなかった欄つき）も、読めなかった欄のほかは全部が入る", () => {
     const wh = open("salariedCoupleTwoKids");
     const a = text(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-inputs", "answer.json"));
-    const res = walk(wh, readProposalText(a, ctx(wh)).reading!);
+    const res = walk(wh, readAnswerText(a, ctx(wh)).reading!);
     expect(res.reading.candidates.filter((c) => c.status === "pending").map((c) => c.unreadable)).toEqual([true]);
   });
 });
 
 describe("当て先の決め方の足し（0152 の3）", () => {
   const reading = (wh: WorkingHousehold, values: unknown[], objects: unknown[] = []): DocumentReading =>
-    readProposalText(JSON.stringify({ contract: PROPOSAL_CONTRACT, docType: "insurancePolicy", holder: "self", objects, values }), ctx(wh)).reading!;
+    readAnswerText(JSON.stringify({ contract: PROPOSAL_CONTRACT, docType: "insurancePolicy", holder: "self", objects, values }), ctx(wh)).reading!;
 
   it("場所を書かない候補は場所の無い欄を先にする（保険の払い方）。明細の ID を除いた場所でも当たる（主契約の保障の額）", () => {
     const wh = open("salariedCoupleTwoKids");

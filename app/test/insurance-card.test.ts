@@ -438,7 +438,7 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
   });
 });
 
-describe("追加のボタンは「＋ 保険契約を足す」の1つ（0055 の追記 2026-11-02）", () => {
+describe("追加のボタンは「＋ 保険契約」の1つ（0055 の追記 2026-11-02）", () => {
   const addActions = (wh: WorkingHousehold) => stage(wh).sections.flatMap((x) => x.actions).filter((a) => a.choice?.key === ADD_CHOICE.key);
   const panel = (wh: WorkingHousehold, level: "simple" | "detail") => {
     const groupOpen: GroupOpenState = { isOpen: () => false, toggle: () => undefined };
@@ -452,12 +452,12 @@ describe("追加のボタンは「＋ 保険契約を足す」の1つ（0055 の
     const u = units[0]!;
     expect(u.kind).toBe("choice");
     if (u.kind !== "choice") return;
-    expect(u.head.label).toBe("＋ 保険契約を足す");
+    expect(u.head.label).toBe("＋ 保険契約");
     expect(u.list.map((a) => a.label)).not.toContain("＋ 保険契約（定期保険）");
     for (const level of ["simple", "detail"] as const) {
       const html = panel(wh, level);
       expect(html).toContain(`data-choice="${ADD_CHOICE.key}"`);
-      expect(html).toContain("＋ 保険契約を足す");
+      expect(html).toContain("＋ 保険契約");
       expect(html).not.toContain("＋ 保険契約（定期保険）");
       expect(html).not.toContain("＋ 医療保険");
       // 押す前は種類の一覧を出さない

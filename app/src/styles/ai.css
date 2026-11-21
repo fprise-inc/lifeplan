@@ -30,7 +30,10 @@
 .ai-app-head .btn { padding: 4px 12px; }
 .ai-app-state { font-size: 0.85rem; font-weight: 700; border-radius: 4px; padding: 0 6px; border: 1.5px solid var(--line); color: var(--ink-2); }
 .ai-app-state.s-registered { border-color: var(--prop); background: var(--prop-bg); color: var(--ink); }
-.ai-app-state.s-stale, .ai-app-state.s-unreadable { border-color: var(--short); background: var(--short-bg); color: var(--ink); }
+/* partial: 書く先の片方だけ登録済み（Claude の行）。残りがあるので、場所が古いときと同じ色で知らせる */
+.ai-app-state.s-stale, .ai-app-state.s-unreadable, .ai-app-state.s-partial { border-color: var(--short); background: var(--short-bg); color: var(--ink); }
+/* 「書き込む場所と中身」の中の、書く先の名前（Claude の行だけ） */
+.ai-app-part { font-size: 0.85rem; font-weight: 700; margin: 8px 0 0; }
 .ai-limits { margin: 4px 0; padding-left: 1.3em; font-size: 0.88rem; color: var(--ink-2); }
 .ai-limits li { margin: 2px 0; }
 .ai-state { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; border-radius: 10px; padding: 10px 14px; margin: 8px 0; border: 2px solid var(--line); background: var(--base-bg); }

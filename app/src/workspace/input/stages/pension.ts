@@ -504,6 +504,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
   const rec = recordOf(h, m.id);
+  // 見出しに人の名前は付けない（区画の見出しがその人。同じ名前を2段に重ねない）。入力項目の画面の外で言う名前（where）には、前と同じく名前を付ける（0237）
   const who = memberLabel(wh, m.id);
   const kept = keptOf(wh, m.id);
   const modeField = field({
@@ -531,7 +532,8 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     return [
       {
         key: `pension/${m.id}`,
-        title: `${who}の公的年金`,
+        title: "公的年金",
+        where: `${who}の公的年金`,
         // 推計のしかたは入れ方の欄の「?」（ESTIMATE_HOW）と横の1行。ここは前に入れた記録を残しているときの説明だけ
         ...(back.length > 0 ? { note: `前に入れた記録（${back.join("・")}）を残しています。入れ方を戻すと戻ります` } : {}),
         level: "simple",
@@ -608,13 +610,14 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const missing = statementMonthsMissing(rec);
   const actions: ActionDef[] = missing ? [{ key: `${prefix}/months/unknown`, label: "加入月数を書類で確かめる（それまで代わりの値で計算する）", level: "simple", run: (w) => fillMonths(w, m.id, "unknown") }] : [];
   const notes = [...(missing ? [monthsMissingText(rec.kind)] : []), ...(kept.length > 0 ? ["前の入れ方の記録を残しています（入れ方を戻すと戻ります）"] : [])];
-  const groups: GroupDef[] = [{ key: `pension/${m.id}`, title: `${who}の公的年金`, ...(notes.length > 0 ? { note: notes.join("。") } : {}), level: "simple", moreLabel: PENSION_MORE, fields, actions }];
+  const groups: GroupDef[] = [{ key: `pension/${m.id}`, title: "公的年金", where: `${who}の公的年金`, ...(notes.length > 0 ? { note: notes.join("。") } : {}), level: "simple", moreLabel: PENSION_MORE, fields, actions }];
 
   if (STATEMENTS.has(rec.kind)) {
     const c1 = rec.months?.category1;
     groups.push({
       key: `${prefix}/exempt`,
-      title: `${who}の国民年金の免除・猶予（これまで）`,
+      title: "国民年金の免除・猶予（これまで）",
+      where: `${who}の国民年金の免除・猶予（これまで）`,
       note: "定期便の加入期間の欄（第1号被保険者の月数と、免除・猶予の月数）を写します。追納した月は納付済みに数えます",
       level: c1 !== undefined ? "simple" : "detail",
       fields:
@@ -628,7 +631,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
           ? [
               {
                 key: `${prefix}/c1/add`,
-                label: "＋ 免除・猶予の月を入れる",
+                label: "＋ 免除・猶予の月",
                 level: "simple",
                 run: (w) =>
                   mutate(w, (hh) => {
@@ -652,7 +655,8 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
       const rp = `${prefix}/history/${i}`;
       groups.push({
         key: rp,
-        title: `${who}の加入歴 ${i + 1}`,
+        title: `加入歴 ${i + 1}`,
+        where: `${who}の加入歴 ${i + 1}`,
         level: "detail",
         fields: [
           plain({ key: `${rp}/from`, item: "pensionRecord.history", label: "始まり", level: "detail", kind: "ym", find: findRow, path: ["from"] }),
@@ -677,7 +681,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
       actions: [
         {
           key: `${prefix}/history/addRow`,
-          label: "＋ 加入歴の行を足す",
+          label: "＋ 加入歴の行",
           level: "detail",
           run: (w) =>
             mutate(w, (hh) => {

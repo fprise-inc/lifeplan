@@ -148,6 +148,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       label: "払い方",
       level: "detail",
       kind: "select",
+      segmented: true,
       structural: true,
       options: [
         { value: "annual", label: "年額" },
@@ -230,6 +231,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
               key: `${k}/removeRate`,
               label: "値上げの率を外す", help: "外すと、料金を上げずに計算します",
               level: "detail" as const,
+              danger: true,
               run: (w: WorkingHousehold) =>
                 mutate(w, (h) => {
                   const rev = fee(h, w)?.terms?.recurring?.revision;

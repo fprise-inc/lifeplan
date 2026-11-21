@@ -94,7 +94,7 @@ function ageText(wh: WorkingHousehold, m: Member): string {
 }
 
 /**
- * 区画「親・祖父母（相続の相手・贈与する人）」に並べる人: 介護・親の親・祖父母（世帯の外の家族。ここの「＋ ご本人の親を足す」で足した人も）と、
+ * 区画「親・祖父母（相続の相手・贈与する人）」に並べる人: 介護・親の親・祖父母（世帯の外の家族。ここの「＋ ご本人の親」で足した人も）と、
  * 前に援助で選んだほかの世帯の外の家族、生年月を入れない贈与する人。物と欄は介護・親の項目のまま（1つの物は1つの入力項目。0045）で、
  * ここは人ごとに「使っているところ」の1行と「外す」（足した人がその場で見え、要らなければここで外せるように）
  */
@@ -448,7 +448,7 @@ function overrideFields(wh: WorkingHousehold): FieldDef[] {
     if (p.orphan !== true) return f;
     // 想定が無い（遺族がいない）のに額が残っている: 使っていないことを知らせ、消す1押しを添える
     const warn = `万一のタブに、${memberLabel(wh, p.decedent)}の死亡の想定が今はありません（遺族〔配偶者・子〕がいないため）。この額は使っていないので、消してください`;
-    return { ...f, get: (w: WorkingHousehold) => ({ ...f.get(w), warn, warnFix: { label: "この額を消す", run: (x: WorkingHousehold) => f.set(x, null) } }) };
+    return { ...f, get: (w: WorkingHousehold) => ({ ...f.get(w), warn, warnFix: { label: "この額を外す", run: (x: WorkingHousehold) => f.set(x, null) } }) };
   });
 }
 
@@ -523,7 +523,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "受け取れるかどうかの見込み（確実・不確実）を行ごとに選びます。「確実」の行は計算に入れ、「不確実」にした行は計算に入れません（結果の画面の「夢と予定」でチェックを入れると比較できます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ、区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」で足してから相手に選びます",
+      note: "受け取れるかどうかの見込み（確実・不確実）を行ごとに選びます。「確実」の行は計算に入れ、「不確実」にした行は計算に入れません（結果の画面の「夢と予定」でチェックを入れると比較できます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ、区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親」で足してから相手に選びます",
       level: "simple",
       groups: [...(moneyIn?.groups ?? []).map((g) => withCounterpartyFollow(g)), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [
@@ -536,23 +536,23 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
       title: moneyOut?.title ?? "あげる贈与",
       ...(moneyOut?.note !== undefined ? { note: moneyOut.note } : {}),
       level: "simple",
-      // 足した孫は、あげる贈与の行の後ろに並べる（「＋ 孫を足す」を押すと、その場に出て呼び名の欄に移る）
+      // 足した孫は、あげる贈与の行の後ろに並べる（「＋ 贈与の相手の孫」を押すと、その場に出て呼び名の欄に移る）
       groups: [...(moneyOut?.groups ?? []), ...groupsOf(readGroup("inherit/give", undefined, lines.give)), ...outsideGrandchildren(wh.request.input.household).map((m) => grandchildGroup(wh, m))],
-      actions: [...(moneyOut?.actions ?? []), { key: "money/inherit/addGrandchild", label: "＋ 孫を足す", help: "あげる贈与の相手にする孫を、世帯の外の家族（家計が別）として足します。足した孫はこの区画に並び、呼び名と生年月を入れます", level: "detail", run: (w: WorkingHousehold) => addOutsideGrandchild(w) }],
+      actions: [...(moneyOut?.actions ?? []), { key: "money/inherit/addGrandchild", label: "＋ 贈与の相手の孫", help: "あげる贈与の相手にする孫を、世帯の外の家族（家計が別）として足します。足した孫はこの区画に並び、呼び名と生年月を入れます", level: "detail", run: (w: WorkingHousehold) => addOutsideGrandchild(w) }],
     },
     {
       key: "family/donors",
       title: "親・祖父母（相続の相手・贈与する人）",
       note: [
         "相続で財産を受け取る相手や、住宅資金・教育資金を援助してくれる人（親・祖父母）です。ここで足した人も、介護・親の項目で足した人も、ここに並びます。",
-        "・「＋ ご本人の親を足す」などで足した親は、亡くなる見込みを平均余命で推定します。生年月・亡くなる見込みは「介護・親」の項目で直します（同じ人です）",
+        "・「＋ ご本人の親」などで足した親は、亡くなる見込みを平均余命で推定します。生年月・亡くなる見込みは「介護・親」の項目で直します（同じ人です）",
         "・並んだ人は、受け取る相続・贈与の行の「相手（誰から）」や、援助の「贈与する人」に選んで使います。行ごとの「使っているところ」に、何に選ばれているかが出ます",
         "・生年月が分からず、贈与する人としてだけ置くときは、「詳細」の「＋ 生年月を入れない贈与する人」で足します（祖父母が何人もいれば、その数だけ足せます）",
         "・同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます",
       ].join("\n"),
       level: "simple",
       groups: personGroups(wh),
-      // 標準は介護・親の家族として足す「＋ 親を足す」（父・母・父母から選ぶ）だけ。生年月を入れない贈与する人は詳細（同じ親が2人並ぶのを防ぐ）
+      // 標準は介護・親の家族として足す「＋ 親」（父・母・父母から選ぶ）だけ。生年月を入れない贈与する人は詳細（同じ親が2人並ぶのを防ぐ）
       actions: [
         ...parentAddActions(wh, "inherit"),
         ...addDonorActions(wh).map((a): ActionDef => ({ ...a, level: "detail", label: a.key === "family/add/donor-parent" ? "＋ 生年月を入れない贈与する人（親）" : a.key === "family/add/donor-grandparent" ? "＋ 生年月を入れない贈与する人（祖父母）" : a.label })),

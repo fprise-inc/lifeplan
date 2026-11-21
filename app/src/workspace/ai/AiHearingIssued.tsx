@@ -1,17 +1,18 @@
 // AI 接続口から発行した Web のヒアリングの URL（0222）: 上の帯「AI が URL を発行しました」と、確かめる画面（事務所の側の記録と、世帯ファイルに
 // まだ入っていない依頼）。
 // - 世帯の決まっていない依頼（新しいお客さま向け）は、届いたかを確かめ、「新しい世帯を作って取り込む」か「開いている世帯に取り込む」を選ぶ
-//   （選んだ世帯の「URL の依頼」に移り、受け取り・取り込みは今までどおりそこで行う）。取り消し・案内文と URL のコピーもここで
-// - 渡された世帯の依頼で、その世帯を開いていなかった物は、その世帯を開くと「URL の依頼」に移る（ここでは開くボタンだけ）
+//   （選んだ世帯の「発行した URL」に移り、受け取り・取り込みは今までどおりそこで行う）。取り消し・案内文と URL のコピーもここで
+// - 渡された世帯の依頼で、その世帯を開いていなかった物は、その世帯を開くと世帯のファイルに移る（ここでは開くボタンだけ）
 // - お客さまと一緒に見る画面では顧客番号を出さない（帯は件数だけ。0015 の8）
-// - 0222 の追記（2026-11-20）: 帯は見ると消えるので、「事前ヒアリング・取り込む」の「事前ヒアリングを取り込む」にも一覧を開くボタン（AiHearingEntry）を
-//   置く。帯の有無に関係なく出し、まだ見ていない数と、世帯の決まっていない依頼に届いた答えの数を添える。記録が残っていれば AI との接続がオフでも出す
-//   （鍵は事務所データにあり、受け取り・取り込みに AI は要らない）。記録が0件で接続もオフなら出さない
+// - 0222 の追記（2026-11-20）: 利用者の判断で、世帯に結びついた AI の URL は、その世帯の「発行した URL」の表に FP が作った URL と一緒に並べる
+//   （hearing/issuedUrls.ts）。帯が消えた後の入口は、表の下の「まだ世帯の決まっていない、AI が発行した URL（N件）」のリンク（AiUnassignedLink。
+//   世帯の決まっていない受け付け中の依頼が1件以上のときだけ。AI との接続がオフでも出す。鍵は事務所データにあり、受け取り・取り込みに AI は要らない）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { HearingWebHost } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
-import { arrivedNow, issuedCount, UNASSIGNED_LIMIT, unassignedAccepting, unassignedArrived, unseenCount, type AiIssueLog, type OfficeHearing, type PendingWebRequest } from "../hearing/aiHearing.ts";
+import { arrivedNow, UNASSIGNED_LIMIT, unassignedAccepting, type AiIssueLog, type OfficeHearing, type PendingWebRequest } from "../hearing/aiHearing.ts";
 import { accepting, ARRIVAL_INTERVAL_MS, arrivalOf, checkAnswered, invitationText, noteArrival, onArrivals, removeOnServer, selectionName, STATUS_TEXT, statusOf, type WebLogEntry } from "../hearing/web.ts";
+import { unassignedLink } from "../hearing/issuedUrls.ts";
 import { dateTimeText } from "./model.ts";
 
 /** 帯（FP がまだ確かめていない、AI が発行した URL の数と、確かめる画面を開くボタン） */
@@ -36,12 +37,10 @@ async function checkOne(entry: WebLogEntry, web: HearingWebHost): Promise<Awaite
   return a;
 }
 
-export interface AiHearingEntryProps {
+export interface AiUnassignedLinkProps {
   store: OfficeHearing;
   web: HearingWebHost | null;
-  /** AI との接続がオンか（オフで記録も無ければ出さない） */
-  aiOn: boolean;
-  /** 「AI が発行した URL」を開く */
+  /** 「AI が発行した URL」を開く（上の帯の「確かめる」と同じ操作） */
   onOpen: () => void;
 }
 
@@ -54,11 +53,12 @@ export function staleArrival(requestId: string, now: Date): boolean {
 }
 
 /**
- * 「事前ヒアリングを取り込む」の中の入口（帯が消えた後も一覧を開けるように。0222 の追記 2026-11-20）。
+ * 「発行した URL」の表の下の「まだ世帯の決まっていない、AI が発行した URL（N件）」のリンク（帯が消えた後の入口。0222 の追記 2026-11-20）。
+ * 世帯の決まっていない受け付け中の依頼が1件以上のときだけ出す（AI との接続がオフでも。受け取り・取り込みに AI は要らない）。
  * 出したとき、世帯の決まっていない受け付け中の依頼で、まだ確かめていない物（前の確かめから5分を過ぎた物も）を確かめる。
  * 開いている世帯の依頼のように5分ごとには確かめない（世帯の決まっていない依頼は、取り込むを開いたときと一覧の「届いたかを確かめる」で）
  */
-export function AiHearingEntry({ store, web, aiOn, onOpen }: AiHearingEntryProps) {
+export function AiUnassignedLink({ store, web, onOpen }: AiUnassignedLinkProps) {
   const [, setTick] = useState(0);
   const checked = useRef(new Set<string>());
   useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
@@ -72,36 +72,20 @@ export function AiHearingEntry({ store, web, aiOn, onOpen }: AiHearingEntryProps
       void checkOne(r.entry, web).catch(() => undefined);
     }
   }, [web, store]);
-  const total = issuedCount(store);
-  if (total === 0 && !aiOn) return null;
-  const unseen = unseenCount(store);
-  const arrived = unassignedArrived(store, new Date());
+  const { count, arrived } = unassignedLink(store, new Date());
+  if (count === 0) return null;
   return (
-    <span class="hs-ai-issued" data-ai-hearing-entry>
-      <button type="button" class="btn" onClick={onOpen} data-ai-hearing-entry-open>
-        AI が発行した URL
+    <p class="hs-ai-issued" data-ai-hearing-entry>
+      <button type="button" class="link-btn" onClick={onOpen} data-ai-hearing-entry-open>
+        まだ世帯の決まっていない、AI が発行した URL（{count}件）
         <PopIcon />
       </button>
       {arrived > 0 ? (
         <b class="hs-kind answered" data-ai-hearing-entry-arrived>
-          世帯の決まっていない依頼に届いています（{arrived}件）
+          届いています（{arrived}件）
         </b>
       ) : null}
-      {unseen > 0 ? (
-        <b class="hs-kind review" data-ai-hearing-entry-unseen>
-          まだ見ていない URL（{unseen}件）
-        </b>
-      ) : null}
-      {total === 0 ? (
-        <span class="rp-note" data-ai-hearing-entry-none>
-          AI が発行した URL はまだありません
-        </span>
-      ) : !aiOn ? (
-        <span class="rp-note" data-ai-hearing-entry-off>
-          AI との接続はオフですが、発行済みの URL はここで確かめて取り込めます
-        </span>
-      ) : null}
-    </span>
+    </p>
   );
 }
 
@@ -164,10 +148,10 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
     const live = e !== undefined && accepting(e, now);
     const where =
       r === undefined
-        ? `顧客番号 ${l?.customerNo ?? "—"} の世帯の「URL の依頼」にあります`
+        ? `顧客番号 ${l?.customerNo ?? "—"} の世帯の「発行した URL」にあります`
         : r.householdId === null
           ? "世帯の決まっていない依頼（新しいお客さま向け）"
-          : `顧客番号 ${r.customerNo ?? "—"} の世帯の依頼（その世帯を開くと「URL の依頼」に移ります）`;
+          : `顧客番号 ${r.customerNo ?? "—"} の世帯の依頼（その世帯を開くと「発行した URL」に並びます）`;
     return (
       <li key={id} class={`wr-row${st !== null ? ` st-${st}` : ""}`} data-ai-hearing-row={id} data-ai-hearing-place={r === undefined ? "household" : r.householdId === null ? "new" : "waiting"}>
         <div class="wr-h">
@@ -178,7 +162,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
               届いています
             </span>
           ) : null}
-          <span class="hs-kind wr-origin">出どころ AI</span>
+          <span class="hs-kind wr-origin">AI が発行</span>
           <small>
             発行 {dateTimeText(l?.at ?? e?.record.issuedAt ?? "")}
             {e !== undefined ? `・期限 ${day(e.record.expiresAt)}` : ""}
@@ -207,11 +191,11 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
               </button>
               {r.householdId === null ? (
                 <>
-                  <button type="button" class="btn primary" disabled={busy !== null} onClick={() => void run(id, async () => note(id, (await p.onCreate(id)) ?? "新しい世帯を作り、その世帯の「URL の依頼」に移しました"))} data-ai-hearing-create>
+                  <button type="button" class="btn primary" disabled={busy !== null} onClick={() => void run(id, async () => note(id, (await p.onCreate(id)) ?? "新しい世帯を作り、その世帯の「発行した URL」に移しました"))} data-ai-hearing-create>
                     新しい世帯を作って取り込む
                   </button>
                   {p.opened !== null && !p.opened.readOnly ? (
-                    <button type="button" class="btn" disabled={busy !== null} onClick={() => void run(id, async () => note(id, (await p.onAssignOpened(id)) ? `顧客番号 ${p.opened?.customerNo ?? ""} の世帯の「URL の依頼」に移しました` : "移せませんでした（世帯を保存できませんでした）"))} data-ai-hearing-assign>
+                    <button type="button" class="btn" disabled={busy !== null} onClick={() => void run(id, async () => note(id, (await p.onAssignOpened(id)) ? `顧客番号 ${p.opened?.customerNo ?? ""} の世帯の「発行した URL」に移しました` : "移せませんでした（世帯を保存できませんでした）"))} data-ai-hearing-assign>
                       開いている世帯（顧客番号 {p.opened.customerNo}）に取り込む
                     </button>
                   ) : null}

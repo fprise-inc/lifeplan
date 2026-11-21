@@ -11,7 +11,7 @@ import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/
 import { docRequests } from "../src/workspace/input/docRequests.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { bodyObject, BODY_FORMAT_VERSION, fromBody, type BodyState } from "../src/workspace/store/body.ts";
-import { readProposal, readProposalText, type ProposalContext } from "../src/workspace/documents/proposal.ts";
+import { readProposal, type ProposalContext } from "../src/workspace/documents/proposal.ts";
 import { cleanText, hasPersonalNumber, isPersonalNumberValue } from "../src/workspace/documents/privacy.ts";
 import { hasDocuments, keepDocuments, pendingCount, pendingTotal, readDocumentLog, removable, withDocumentLog, withoutReading, withReading } from "../src/workspace/documents/log.ts";
 import { fieldPlaces, resolveTarget, type FieldPlace } from "../src/workspace/documents/resolve.ts";
@@ -102,16 +102,6 @@ describe("読み口: 答えの形を確かめる", () => {
     expect(r.holder).toBe(selfId(wh));
     expect(r.candidates[0]?.target).toEqual({ item: "insurance.premium", at: ["amount"], member: "holder" });
     expect(r).toMatchObject({ kind: "document", docType: "insurancePolicy", via: "sample", reader: { id: "test.reader", version: 1 }, dropped: 0 });
-  });
-
-  it("貼り付けた文から答えの JSON を取り出す（前後の文・```json の囲みがあってもよい）。大きすぎる文は読まない", () => {
-    const wh = open();
-    const text = `読み取りました。\n\`\`\`json\n${JSON.stringify(proposal([premium(16200)]))}\n\`\`\`\nご確認ください。`;
-    const r = readProposalText(text, ctx(wh, { via: "paste", connector: "テストの AI" }));
-    expect(r.reading?.candidates).toHaveLength(1);
-    expect(r.reading?.ai).toEqual({ connector: "テストの AI" });
-    expect(readProposalText("x".repeat(200_001), ctx(wh)).reading).toBeNull();
-    expect(readProposalText("{ 途中で", ctx(wh)).issues[0]).toContain("JSON");
   });
 
   it("候補の数の上限を超えた分は読まない", () => {
@@ -557,14 +547,28 @@ describe("確かめの画面", () => {
     expect(v.references[0]).toMatchObject({ label: "保険料の年額", amount: 194400, calc: 160000 });
   });
 
-  it("入口: 読んだ書類があれば確かめを開くボタン、見本の世帯でだけ架空の見本のボタン。電子データ（XML）の入口は無い", () => {
+  it("入口「AI で書類を読み取る」: 読んだ書類があれば確かめを開くボタン、見本の世帯でだけ架空の見本のボタン。電子データ（XML）・貼り付けの入口は無い", () => {
     const wh = open();
-    expect(renderToString(h(DocumentEntry, { wh, sample: false, onOpen: () => undefined, onSamples: () => undefined }))).not.toContain("data-documents-samples");
-    const sample = renderToString(h(DocumentEntry, { wh, sample: true, onOpen: () => undefined, onSamples: () => undefined }));
+    const noop = () => undefined;
+    const ai = { connected: false, onOpen: noop };
+    expect(renderToString(h(DocumentEntry, { wh, sample: false, ai, onOpen: noop, onSamples: noop }))).not.toContain("data-documents-samples");
+    // 見本の世帯（保存していない世帯。AI に渡せない）でも、見本で試すボタンと、読んだ書類を確かめるボタンが出る
+    const sample = renderToString(h(DocumentEntry, { wh, sample: true, onOpen: noop, onSamples: noop }));
     expect(sample).toContain("架空の保険証券の見本で試す");
+    expect(sample).not.toContain("data-imports-ai-open");
+    expect(sample).toContain("見本の世帯は AI に渡せません");
     expect(sample).not.toContain("XML");
+    expect(sample).not.toContain("貼り付け");
     const w = withDocumentLog(wh, withSamples(wh, AT, newId).log);
-    expect(renderToString(h(DocumentEntry, { wh: w, sample: false, onOpen: () => undefined, onSamples: () => undefined }))).toMatch(/読んだ書類を確かめる（未決 \d+件）/u);
+    expect(renderToString(h(DocumentEntry, { wh: w, sample: true, onOpen: noop, onSamples: noop }))).toMatch(/読んだ書類を確かめる（未決 \d+件）/u);
+    expect(renderToString(h(DocumentEntry, { wh: w, sample: false, ai, onOpen: noop, onSamples: noop }))).toMatch(/読んだ書類を確かめる（未決 \d+件）/u);
+    // 保存した世帯: AI と接続していなければ「AI と接続する」、接続していれば「この世帯を AI に渡す」
+    expect(renderToString(h(DocumentEntry, { wh, sample: false, ai, onOpen: noop, onSamples: noop }))).toContain("AI と接続する");
+    expect(renderToString(h(DocumentEntry, { wh, sample: false, ai: { connected: true, onOpen: noop }, onOpen: noop, onSamples: noop }))).toContain("この世帯を AI に渡す");
+    // 保存していない新しい世帯: AI のボタンを出さず、保存してから使うことを書く
+    const unsaved = renderToString(h(DocumentEntry, { wh, sample: false, onOpen: noop, onSamples: noop }));
+    expect(unsaved).not.toContain("data-imports-ai-open");
+    expect(unsaved).toContain("保存していない世帯は AI に渡せません");
   });
 
   it("共通の部品は、移行の画面の列（見出し・読んだ値・対応先・どこから決まったか）でも描ける。読んだ文字は文字のまま出す", () => {

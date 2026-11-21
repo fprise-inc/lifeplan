@@ -1,6 +1,7 @@
-// AI接続口の書類の候補の道具（propose_inputs）と、ウェブのチャット AI の答えを貼り付ける入口（0151）:
-// 道具の入力の形と読み口の上限・種類の一覧がそろっていること、接続口のテストと同じ見本が読み口を通ること、届いた候補・貼り付けた答えが
-// 読み取りの記録になるだけで現状を変えないこと、個人番号などの番号が残らないこと、同意の無い世帯では貼り付けられないこと
+// AI接続口の書類の候補の道具（propose_inputs。0151）:
+// 道具の入力の形と読み口の上限・種類の一覧がそろっていること、接続口のテストと同じ見本が読み口を通ること、届いた候補が
+// 読み取りの記録になるだけで現状を変えないこと、個人番号などの番号が残らないこと。
+// AI の答えを貼り付ける入口は、利用者の判断（2026-11-20）でなくした（0151 の追記）。前に貼り付けで読んだ記録（via: "paste"）は、確かめの画面で今までどおり読めて承認できること
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { h } from "preact";
@@ -12,13 +13,12 @@ import { fromRequest, type WorkingHousehold } from "../src/workspace/input/house
 import { roles } from "../src/workspace/roles.ts";
 import { bodyObject, fromBody, type BodyState } from "../src/workspace/store/body.ts";
 import { readProposal } from "../src/workspace/documents/proposal.ts";
-import { ingestAiProposals, pasteGate, readPasted } from "../src/workspace/documents/ai.ts";
+import { ingestAiProposals } from "../src/workspace/documents/ai.ts";
 import { withDocumentLog, withReading } from "../src/workspace/documents/log.ts";
 import { NEW_OBJECT_KINDS } from "../src/workspace/documents/objects.ts";
+import { acceptCandidates, acceptObject } from "../src/workspace/documents/review.ts";
 import { AiDocumentBand, DocumentEntry, DocumentReview } from "../src/workspace/documents/DocumentReview.tsx";
-import { PASTE_WARNING, PasteAnswer } from "../src/workspace/documents/PasteAnswer.tsx";
 import { DOC_TYPES, LIMITS, PROPOSAL_CONTRACT } from "../src/workspace/documents/types.ts";
-import { GUIDE_DOC_TYPES, guideText } from "../src/workspace/documents/guides.ts";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -132,102 +132,19 @@ describe("AI接続口から届いた候補を、読み取りの記録にする",
   });
 });
 
-describe("貼り付けの入口", () => {
-  it("同意のある世帯と見本の世帯だけで使える", () => {
-    expect(pasteGate({ sample: true, saved: false, consentState: null, consentDocuments: false })).toEqual({ ok: true, sample: true });
-    expect(pasteGate({ sample: false, saved: true, consentState: "given", consentDocuments: true })).toEqual({ ok: true, sample: false });
-    for (const consentState of [null, "none", "refused", "withdrawn"]) {
-      const g = pasteGate({ sample: false, saved: true, consentState, consentDocuments: false });
-      expect(g.ok, String(consentState)).toBe(false);
-    }
-    expect(pasteGate({ sample: false, saved: false, consentState: "given", consentDocuments: true }).ok).toBe(false);
-  });
-
-  it("前の版の説明（書類を含まない）の同意では使えず、取り直すように理由を出す（0157）", () => {
-    const g = pasteGate({ sample: false, saved: true, consentState: "given", consentDocuments: false });
-    expect(g.ok).toBe(false);
-    expect(g.ok ? "" : g.reason).toContain("前の版の説明");
-    expect(g.ok ? "" : g.reason).toContain("同意を記録し直してください");
-    // 見本の世帯は同意が要らない
-    expect(pasteGate({ sample: true, saved: true, consentState: "given", consentDocuments: false }).ok).toBe(true);
-  });
-
-  it("前後の文や ```json の囲みがあっても読み、貼り付けた AI の記録になる。番号は残らない", () => {
-    const wh = open();
-    const text = `読み取りました。\n\`\`\`json\n${JSON.stringify(withNumbers(), null, 2)}\n\`\`\`\n確かめてください。`;
-    const r = readPasted(wh, text, "  ウェブの AI  ", AT, newId);
-    expect(r.reading).not.toBeNull();
-    expect(r.reading!.via).toBe("paste");
-    expect(r.reading!.ai).toEqual({ connector: "ウェブの AI" });
-    expect(hasTwelve(JSON.stringify(r.reading))).toBe(false);
-    expect(JSON.stringify(r.reading)).not.toContain("AB-0012345678");
-  });
-
-  it("読めない答え・形の違う答えは、理由を出して取り込まない", () => {
-    const wh = open();
-    const cases: [string, string, string][] = [
-      ["", "AI", "AI の答えを貼り付けてください"],
-      [JSON.stringify(answer()), "", "使った AI の名前を入れてください（60文字まで）"],
-      ["すみません、読めませんでした。", "AI", "答えの JSON が見つかりません"],
-      ['{"contract": "document-candidates@1", "values": [', "AI", "答えの JSON を読めません（途中で切れていないか確かめてください）"],
-      ['{"contract": "document-candidates@1", "values": [}', "AI", "答えの JSON を読めません（途中で切れていないか確かめてください）"],
-      [JSON.stringify({ ...answer(), contract: "other@1" }), "AI", `答えの形の名前（contract）が「${PROPOSAL_CONTRACT}」ではありません`],
-      [JSON.stringify({ contract: PROPOSAL_CONTRACT, docType: "insurancePolicy", values: [{ item: "no.such.item", value: 1 }] }), "AI", "読める候補がありませんでした"],
-      // 保険の書類と土地・建物の書類（0235）のほかは読まない（0159）
-      [JSON.stringify({ ...answer(), docType: "withholdingSlip" }), "AI", "読めるのは保険証券・ご契約内容のお知らせ・設計書（docType は insurancePolicy）・固定資産税の課税明細書（propertyTaxStatement）・路線価図（routePriceMap）だけです。ほかの書類は、書類を見て入力の欄に打ってください（欄の「?」に書類のどこを見るかがあります）"],
-    ];
-    for (const [text, connector, why] of cases) {
-      const r = readPasted(wh, text, connector, AT, newId);
-      expect(r.reading, why).toBeNull();
-      expect(r.issues, why).toContain(why);
-    }
-  });
-
-  it("画面: 注意を出し、同意の無い世帯では理由を出して止める。読む前に伏せたことの確かめを求める", () => {
-    const wh = open();
-    const blocked = renderToString(h(PasteAnswer, { wh, gate: pasteGate({ sample: false, saved: true, consentState: "none", consentDocuments: false }), onOpenConsent: () => undefined, onRead: () => undefined, onClose: () => undefined }));
-    expect(PASTE_WARNING).toBe("書類の内容は、読み取りのために、お使いの AI サービスへ送られます。お名前・ご住所・番号などは伏せてからお渡しください。送った内容の扱いはサービスの規約によります（学習に使わない設定にしておくと安心です）。");
-    expect(blocked).toContain(PASTE_WARNING);
-    expect(blocked).toContain("data-documents-paste-mask");
-    // SDK フォルダの説明書・スキルの FP への注意も同じ文（0157）
-    for (const f of ["sdk/docs/document-reading.md", "sdk/skills/read-documents/SKILL.md"]) expect(readFileSync(join(REPO_DIR, f), "utf8"), f).toContain(PASTE_WARNING);
-    expect(blocked).toContain("data-documents-paste-blocked");
-    expect(blocked).toContain("外部AIへの提供の同意が記録されていません");
-    expect(blocked).toContain("data-documents-paste-consent");
-    expect(blocked).not.toContain("data-documents-paste-text");
-    const ok = renderToString(h(PasteAnswer, { wh, gate: { ok: true, sample: false }, onRead: () => undefined, onClose: () => undefined }));
-    expect(ok).toContain("data-documents-paste-text");
-    expect(ok).toContain("data-documents-paste-masked");
-    expect(ok).toMatch(/data-documents-paste-read[^>]*disabled|disabled[^>]*data-documents-paste-read/u);
-    expect(ok).not.toContain("data-documents-paste-guide");
-    const withGuide = renderToString(h(PasteAnswer, { wh, gate: { ok: true, sample: true }, guide: { options: GUIDE_DOC_TYPES, text: guideText }, onRead: () => undefined, onClose: () => undefined }));
-    expect(withGuide).toContain("data-documents-paste-guide");
-    expect(withGuide).toContain("data-documents-paste-guide-type");
-    // 読める書類は保険の書類と、課税明細書・路線価図（0235）なので、書類の種類を選ぶ
-    expect(withGuide).toContain("<select");
-    for (const t of GUIDE_DOC_TYPES) expect(withGuide).toContain(t.label);
-  });
-});
-
-describe("貼り付けで写す読み方の手引き（SDK フォルダの説明書・手引き・欄の一覧）", () => {
+describe("SDK フォルダの説明書と手引き", () => {
   const sdk = (...p: string[]) => readFileSync(join(REPO_DIR, "sdk", ...p), "utf8").trim();
-  it("説明書・保険の書類の手引き・欄の一覧をそのまま写す。世帯のデータは入らない。読める書類は保険と、課税明細書・路線価図（0159・0235）", () => {
-    expect(GUIDE_DOC_TYPES.map((t) => t.value)).toEqual(["insurancePolicy", "propertyTaxStatement", "routePriceMap"]);
-    const text = guideText("insurancePolicy");
-    expect(text).toContain(sdk("docs", "document-reading.md"));
-    expect(text).toContain(sdk("skills", "read-documents", "guides", "insurance-policy.md"));
-    expect(text).toContain(sdk("skills", "read-documents", "fields.md"));
-    expect(hasTwelve(text)).toBe(false);
-    for (const t of GUIDE_DOC_TYPES) expect(DOC_TYPES.some((d) => d.value === t.value)).toBe(true);
-    // 手引きのある書類の種類は、スキルの表の種類とそろう
+  it("手引きのある書類の種類は、読める書類の種類とスキルの表の種類とそろう（0159・0235）。外した書類の手引きは無い", () => {
     const skill = sdk("skills", "read-documents", "SKILL.md");
-    for (const t of GUIDE_DOC_TYPES) expect(skill, t.value).toContain(`\`${t.value}\``);
-    // 外した書類の手引きは無い
+    for (const t of DOC_TYPES) expect(skill, t.value).toContain(`\`${t.value}\``);
     expect(readdirSync(join(REPO_DIR, "sdk", "skills", "read-documents", "guides")).sort()).toEqual(["insurance-policy.md", "property-tax-statement.md", "route-price-map.md"]);
-    for (const t of ["propertyTaxStatement", "routePriceMap"] as const) {
-      const land = guideText(t);
-      expect(land).toContain(sdk("docs", "document-reading.md"));
-      expect(hasTwelve(land)).toBe(false);
+  });
+
+  it("説明書・スキルに、なくした貼り付けの入口が残っていない（2026-11-20）", () => {
+    for (const f of [["docs", "document-reading.md"], ["skills", "read-documents", "SKILL.md"]]) {
+      const md = sdk(...f);
+      expect(md, f.join("/")).not.toContain("貼り付");
+      expect(md, f.join("/")).not.toContain("ウェブのチャット");
     }
   });
 
@@ -237,10 +154,15 @@ describe("貼り付けで写す読み方の手引き（SDK フォルダの説明
 });
 
 describe("入口と帯", () => {
-  it("「書類の読み取り」の1行に貼り付けの入口が出る", () => {
+  it("入口は「AI で書類を読み取る」の1つ。貼り付けの入口は出ない（2026-11-20）", () => {
     const wh = open();
-    expect(renderToString(h(DocumentEntry, { wh, sample: false, onOpen: () => undefined, onSamples: () => undefined, onPaste: () => undefined }))).toContain("AI の答えを貼り付ける");
-    expect(renderToString(h(DocumentEntry, { wh, sample: false, onOpen: () => undefined, onSamples: () => undefined }))).not.toContain("data-documents-paste-open");
+    for (const ai of [undefined, { connected: true, onOpen: () => undefined }]) {
+      const html = renderToString(h(DocumentEntry, { wh, sample: true, ...(ai !== undefined ? { ai } : {}), onOpen: () => undefined, onSamples: () => undefined }));
+      expect(html).toContain("AI で書類を読み取る");
+      expect(html).not.toContain("貼り付け");
+      expect(html).not.toContain("data-documents-paste");
+      expect(html).not.toContain("data-imports-documents");
+    }
   });
 
   it("AI から届いた未決の書類があれば帯を出し、確かめの画面で AI が読んだことを知らせる", () => {
@@ -254,10 +176,32 @@ describe("入口と帯", () => {
     expect(failed).toContain("登録簿に無い入力項目の候補");
     expect(failed).toContain("data-documents-ai-band-dismiss");
     const review = renderToString(h(DocumentReview, { wh, calc: () => null, onChange: () => undefined, onClose: () => undefined, initial: CID }));
-    expect(review).toContain("AI が読んだ（つないだ AI）");
-    // 貼り付けた記録も同じ確かめの画面に出る
-    const pasted = readPasted(wh0, JSON.stringify(answer()), "ウェブの AI", AT, newId).reading!;
-    const wh2 = withDocumentLog(wh0, withReading(wh0.documents, pasted));
-    expect(renderToString(h(DocumentReview, { wh: wh2, calc: () => null, onChange: () => undefined, onClose: () => undefined, initial: pasted.id }))).toContain("AI が読んだ（貼り付け）");
+    expect(review).toContain("AI が読んだ（接続した AI）");
+  });
+
+  it("前に貼り付けで読んだ記録（via: paste）は、世帯ファイルに書いて読み戻しても残り、確かめの画面に出て承認できる（入口をなくしても読めるまま）", () => {
+    const wh0 = open();
+    const pasted = readProposal(answer(), { via: "paste", at: AT, newId, connector: "ウェブの AI", members: members(wh0) }).reading!;
+    const saved = JSON.stringify(bodyObject(body(withDocumentLog(wh0, withReading(wh0.documents, pasted)))));
+    const back = fromBody(saved).wh;
+    const r = back.documents!.readings.find((x) => x.id === pasted.id)!;
+    expect(r.via).toBe("paste");
+    expect(r.ai).toEqual({ connector: "ウェブの AI" });
+    const review = renderToString(h(DocumentReview, { wh: back, calc: () => null, onChange: () => undefined, onClose: () => undefined, initial: pasted.id }));
+    expect(review).toContain("AI が読んだ（貼り付け）");
+    expect(review).toContain("AI が読んだ値です。値ごとに書類と比較してから承認してください");
+    // 新しい物を足し、読めた値を承認すると、出どころ AI・確かさ「書類で確認」の値として現状に入る（貼り付けの記録も AI が読んだ記録と同じ扱い）
+    let w = back;
+    let rd = r;
+    for (const o of rd.objects) {
+      const res = acceptObject(w, rd, o.key, AT)!;
+      w = res.wh;
+      rd = res.reading;
+    }
+    const ids = rd.candidates.filter((c) => c.status === "pending" && c.unreadable !== true).map((c) => c.id);
+    const done = acceptCandidates(w, rd, ids, {}, AT);
+    expect(done.count).toBeGreaterThan(0);
+    expect(done.reading.candidates.some((c) => c.status === "accepted")).toBe(true);
+    expect(JSON.stringify(done.wh.request.input)).toContain('"certainty":"document"');
   });
 });

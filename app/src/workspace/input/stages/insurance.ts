@@ -47,6 +47,7 @@ import { formatYearMonth } from "../units.ts";
 import type { InsuranceAccountInput } from "../../../engine/types.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { infoNote } from "../readLines.ts";
+import { bandKey, keyTail, splitBands, type BandSpec, type StageOptions } from "./bands.ts";
 import { SURRENDER_CAUTIONS, SURRENDER_RATE_NOTE } from "../../../../../report/src/variableSurrender.ts";
 
 /** 保険契約の区画の「?」に置く入れ漏れの気づき（0159。控除証明書の取り込みのかわり） */
@@ -364,7 +365,7 @@ export function premiumLabel(what: string, frequency: InsuranceContract["premium
   return frequency === "monthly" ? `${what}（月額）` : frequency === "annual" ? `${what}（年額）` : what;
 }
 
-function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): GroupDef[] {
+function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number, o: StageOptions = {}): GroupDef[] {
   const find = byId(contracts, c.id);
   const k = `ins/${c.id}`;
   const kind = kindOf(c);
@@ -378,7 +379,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     });
 
   const fields: FieldDef[] = [];
-  // 種類（ひな形）。選択肢は「＋ 保険契約を足す」の一覧と同じ見出しで分け、学資保険は子のいる世帯だけ（今の契約の種類はいつも出す）。
+  // 種類（ひな形）。選択肢は「＋ 保険契約」の一覧と同じ見出しで分け、学資保険は子のいる世帯だけ（今の契約の種類はいつも出す）。
   // 標準では損害保険を出さない（足す一覧と同じ。今の契約が損害保険なら出す）: 標準だけの欄と、詳細の欄（損害保険も出す）の2つにする
   const hasChild = wh.request.input.household.members.some((m) => m.kind === "child");
   const kindOptions = (withNonLife: boolean) => KIND_OPTIONS.filter((o) => o.value === kind.kind || ((o.value !== "education" || hasChild) && (o.value !== "nonLife" || withNonLife)));
@@ -475,6 +476,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         level: "simple",
         kind: "select",
         options: PREMIUM_FREQUENCY,
+        segmented: true,
         find,
         path: ["premium", "frequency"],
         after: (_h, target, v) => {
@@ -752,7 +754,41 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     const note = infoNote("", "解約するときの注意", surrenderNoteText(), "insurance/variableSurrender");
     groups.push({ ...note, key: `${k}/surrenderNote`, level: "detail", placeIn: { group: k, after: `${k}/surrender` } });
   }
-  return groups;
+  // 詳細の画面で開く形だけ、契約1件の欄を中枠に分ける（標準の画面と、画面の外の一覧・検索は今までの形のまま。0237）
+  return o.bands === true ? bandedContract(k, kind.main === null, groups) : groups;
+}
+
+/**
+ * 契約1件の枠の中を中枠（band）に分ける（詳細の画面だけ。住宅ローン・車・収益不動産と同じ形。0237）。欄とボタンのキー・中身は変えず、まとまりだけを分ける。
+ * 頭は見出しと「外す」だけ。保障の明細・更新・年齢ごとの返戻率の並びは、それぞれの中枠の中に置き、足すボタンは並びの後ろ
+ */
+function bandedContract(k: string, noMain: boolean, groups: readonly GroupDef[]): GroupDef[] {
+  const head = groups[0];
+  if (head === undefined) return [];
+  const rest = groups.slice(1);
+  const under = (part: string) => rest.filter((g) => g.key.startsWith(`${k}/${part}/`));
+  const account = head.fields.some((f) => f.key.startsWith(`${k}/acct/`));
+  const specs: BandSpec[] = [
+    // 主契約の保障の無い種類（保険期間の終わりだけ入れる）は、保険期間の終わりを契約の側に置く
+    { id: "contract", title: "契約と保障", keys: ["template", "templateAll", "insured", "main", "end", ...(noMain ? ["payUntil"] : []), "label", "holder", "date", "benef", "tax", "annuitant"] },
+    { id: "coverage", title: "保障の明細", keys: [], actions: ["addCoverage"] },
+    { id: "premium", title: "保険料", keys: ["premium", "freq", "payUntil", "waiver", "deduction", "regime"], actions: ["addRenewal"] },
+    // 解約の中枠の欄は元の順のまま（解約の月 → 率・積立金 → 解約の月の解約返戻金。下の tail で1つの末尾にそろえる）
+    { id: "surrender", title: account ? "積立金・解約" : "解約・解約返戻金", keys: ["surrender"], actions: ["toEstimate", "addRatePoint"] },
+  ];
+  const actions = [...head.actions.filter((a) => a.danger !== true), ...rest.filter((g) => g.key === `${k}/addCov`).flatMap((g) => g.actions)];
+  const bands = splitBands(k, specs, head.fields, actions, {
+    ...(head.title !== undefined ? { where: head.title } : {}),
+    rest: "contract",
+    inner: { coverage: under("cov"), premium: under("renew"), surrender: under("sv") },
+    tail: (key) => {
+      const t = keyTail(k, key);
+      return t === "acct" || t === "sv" ? "surrender" : t;
+    },
+  });
+  // 解約の月の近くの説明は、解約の中枠の中（解約の月の欄の後）に置く
+  const notes = rest.filter((g) => g.key === `${k}/surrenderNote`).map((g) => ({ ...g, placeIn: { group: bandKey(k, "surrender"), after: `${k}/surrender` } }));
+  return [{ ...head, fields: [], actions: head.actions.filter((a) => a.danger === true) }, ...bands, ...notes];
 }
 
 /** 変額保険の解約の月の近くの説明の文（提案書の注意書きと同じ文。report/src/variableSurrender.ts） */
@@ -1287,16 +1323,16 @@ function amountLabel(benefit: string): string {
 }
 
 /**
- * 新しい契約のボタン（0055 の追記 2026-11-02）: 「＋ 保険契約を足す」の1つにまとめ、押すと種類を分類の見出しごとに並べた一覧を開く
+ * 新しい契約のボタン（0055 の追記 2026-11-02）: 「＋ 保険契約」の1つにまとめ、押すと種類を分類の見出しごとに並べた一覧を開く
  * （よく使う物は一覧の上にも出す）。選ぶとその種類の既定で契約を足す。学資保険は子がいるときだけ、損害保険は「詳細」のときだけ出す。
  * キーは前のボタンのまま（定期保険 ins/add・医療保険 ins/addMedical・学資保険 ins/addEducation・損害保険 ins/addNonLife）、ほかは ins/add:種類
  */
-export const ADD_CHOICE = { key: "ins/new", label: "＋ 保険契約を足す", help: "種類を選ぶと、その種類の既定の値で契約を1件足します（保険料と保障の額は入れてください）。法人の契約の保険は入れません" } as const;
+export const ADD_CHOICE = { key: "ins/new", label: "＋ 保険契約", help: "種類を選ぶと、その種類の既定の値で契約を1件足します（保険料と保障の額は入れてください）。法人の契約の保険は入れません" } as const;
 const OLD_KEYS: Readonly<Record<string, string>> = { term: "ins/add", medical: "ins/addMedical", education: "ins/addEducation", nonLife: "ins/addNonLife" };
 export const addKey = (kind: string): string => OLD_KEYS[kind] ?? `ins/add:${kind}`;
 const groupLabel = new Map(KIND_GROUPS.map((g) => [g.group, g.label]));
 
-export function insuranceStage(wh: WorkingHousehold): StageDef {
+export function insuranceStage(wh: WorkingHousehold, o: StageOptions = {}): StageDef {
   const h = wh.request.input.household;
   const list = h.insuranceContracts ?? [];
   const hasChild = h.members.some((m) => m.kind === "child");
@@ -1317,7 +1353,7 @@ export function insuranceStage(wh: WorkingHousehold): StageDef {
     // 入れ漏れの気づき（0159）: 控除証明書の取り込みを外したかわりに、証明書の枚数と入れた契約の数を比較してもらう一言を「?」に置く
     note: `${list.length === 0 ? "保険に入っていなければ、何も入れなくても計算できます（保障は無しで計算します）。\n" : ""}${DEDUCTION_COUNT_NOTE}`,
     level: "simple",
-    groups: list.flatMap((c, i) => contractGroups(wh, c, i)),
+    groups: list.flatMap((c, i) => contractGroups(wh, c, i, o)),
     actions,
   };
   return {

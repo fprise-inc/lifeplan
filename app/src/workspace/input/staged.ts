@@ -205,6 +205,7 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
           label: "入れ方",
           level: LEVEL,
           kind: "select",
+          segmented: true,
           options: [
             { value: "amount", label: "額で" },
             { value: "ratio", label: "今の額に対する割合で" },
@@ -491,6 +492,7 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
           label: "入れ方",
           level: LEVEL,
           kind: "select",
+          segmented: true,
           options: [
             { value: "rate", label: "利回りで" },
             { value: "mix", label: "資産の配分で" },

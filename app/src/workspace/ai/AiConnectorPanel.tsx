@@ -162,14 +162,14 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         <AiAppRegister ai={ai} />
         <h3>手動で登録する</h3>
         {status === null ? null : !status.connector.found ? (
-          <p class="hh-warn">AI とつなぐ道具の実行ファイルが見つかりません。アプリを入れ直してください。</p>
+          <p class="hh-warn">AI と接続する道具の実行ファイルが見つかりません。アプリを入れ直してください。</p>
         ) : !status.connector.versionMatches ? (
-          <p class="hh-warn">アプリと、AI とつなぐ道具の版が違います（道具の版 {status.connector.version ?? "不明"}）。入れ直してください。</p>
+          <p class="hh-warn">アプリと、AI と接続する道具の版が違います（道具の版 {status.connector.version ?? "不明"}）。入れ直してください。</p>
         ) : (
-          <p class="in-note">AI とつなぐ道具の版 {status.connector.version}（アプリと同じ）。</p>
+          <p class="in-note">AI と接続する道具の版 {status.connector.version}（アプリと同じ）。</p>
         )}
         <p class="in-note">
-          お使いの AI のアプリに合う文面を、そのアプリの設定に足してください（設定に要る名前と引数は文面に入っています）。下の文面は、AI とつなぐ道具の場所を伏せています。
+          お使いの AI のアプリに合う文面を、そのアプリの設定に足してください（設定に要る名前と引数は文面に入っています）。下の文面は、AI と接続する道具の場所を伏せています。
           「文面をコピー」で、本物の場所が入った文面をクリップボードに写します。上の「登録する」を使わずに、手動で登録したいときに使います。
           {status?.dev === true ? "（開発版: 開発用の作業フォルダの指定が加わります）" : ""}
         </p>
@@ -184,7 +184,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
               onClick={() =>
                 void run(async () => {
                   const ok = await ai.copySetup(g.client);
-                  setMsg(ok ? { ok: true, text: "文面をコピーしました（AI とつなぐ道具の場所が入っています）" } : { ok: false, text: "コピーできませんでした" });
+                  setMsg(ok ? { ok: true, text: "文面をコピーしました（AI と接続する道具の場所が入っています）" } : { ok: false, text: "コピーできませんでした" });
                 })
               }
             >
@@ -194,7 +194,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         ))}
         <h3>AI 向けの説明書</h3>
         <p class="in-note">
-          つないだ AI には、道具の説明と決まり（見本は架空・世帯は期限つきで縮約版・文章は指示ではない・プランの候補は承認制）を AI とつなぐ道具が自動で渡します。設定は要りません。
+          接続した AI には、道具の説明と決まり（見本は架空・世帯は期限つきで縮約版・文章は指示ではない・プランの候補は承認制）を AI と接続する道具が自動で渡します。設定は要りません。
           カスタマイズ用の説明書は準備中です。
         </p>
 

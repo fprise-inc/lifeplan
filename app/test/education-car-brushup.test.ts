@@ -246,12 +246,12 @@ describe("奨学金・教育ローン・留学・子への援助", () => {
     expect([donor.label, donor.level]).toEqual(["出す人", "simple"]);
   });
 
-  it("受け取るお金は1つの「＋ 援助・給付型の奨学金を受ける」で種類を選ぶ（給付型の奨学金も標準）", () => {
+  it("受け取るお金は1つの「＋ 援助・給付型の奨学金」で種類を選ぶ（給付型の奨学金も標準）", () => {
     const wh = fresh();
     const c = childOf(wh);
     const acts = groupsOf(edu(wh)).flatMap((x) => x.actions).filter((a) => a.key.startsWith(`edu/${c.id}/money/in/`));
     expect(acts.map((a) => a.label)).toEqual(["祖父母などの援助", "給付型の奨学金・学費の助成", "子が払う分"]);
-    expect(acts.every((a) => a.level === "simple" && a.choice?.label === "＋ 援助・給付型の奨学金を受ける" && a.choice.key === acts[0]!.choice!.key)).toBe(true);
+    expect(acts.every((a) => a.level === "simple" && a.choice?.label === "＋ 援助・給付型の奨学金" && a.choice.key === acts[0]!.choice!.key)).toBe(true);
   });
 
   it("子の行の時期は子の年齢（大学の入学の学年の4月）で書き、浪人・生年月を直すと動く。始まりの推定の根拠は在学の期間", () => {
@@ -352,7 +352,7 @@ describe("車", () => {
     expect(soon.kind === "select" && soon.options.some((o) => o.value === child.id)).toBe(false);
   });
 
-  it("見出しに「今の車」「これから買う車」。ローンを選ぶと借り方の1行。今の車があれば標準に「＋ 今返している自動車ローン」。伸び率の名前", () => {
+  it("見出しに「今の車」「これから買う車」。ローンを選ぶと借り方の1行。今の車があれば、その車の枠の中に標準の「＋ 今返しているローン」。伸び率の名前", () => {
     let wh = addCar(family(), seq());
     const c = wh.request.input.household.cars![0]!;
     const head = (w: WorkingHousehold) => groupsOf(car(w)).find((g) => g.key === `ev/car/${c.id}`)!;
@@ -363,9 +363,14 @@ describe("車", () => {
     wh = pay.set(wh, "loan");
     expect(fieldIn(car(wh), `ev/car/${c.id}/pay`).get(wh).hint).toMatch(/^借入: 下取りを引いた額の8割・5年・年[\d.]+%（▸ で変えられます）$/);
     expect(loanLine({ share: "0.75", rate: "0.0214", termMonths: 66 })).toBe("借入: 下取りを引いた額の75%・66か月・年2.14%（▸ で変えられます）");
-    const loans = car(wh).sections.find((s) => s.key === "car/loans")!;
-    expect(loans.level).toBe("simple");
-    expect(loans.actions.map((a) => [a.label, a.level])).toEqual([["＋ 今返している自動車ローン", "simple"]]);
+    // 今の車: 足すボタンはその車の枠の中（「価格・買い方」の後、「維持費」の前）。下の区画は出さない（0237）
+    expect(car(wh).sections.some((s) => s.key === "car/loans")).toBe(false);
+    const keys = groupsOf(car(wh)).map((g) => g.key);
+    const add = groupsOf(car(wh)).find((g) => g.key === `ev/car/${c.id}/addNowLoan`)!;
+    expect(add.actions.map((a) => [a.label, a.level])).toEqual([["＋ 今返しているローン", "simple"]]);
+    expect(keys.indexOf(`ev/car/${c.id}/band/price`)).toBeLessThan(keys.indexOf(add.key));
+    expect(keys.indexOf(add.key)).toBeLessThan(keys.indexOf(`ev/car/${c.id}/band/upkeep`));
+    // これから買う車だけの世帯: 今返しているローンは、車の区画の下の区画（詳細）で足す
     const future = car(addCar(family(), seq(), false)).sections.find((s) => s.key === "car/loans")!;
     expect(future.actions.map((a) => [a.label, a.level])).toEqual([["＋ 自動車ローン", "detail"]]);
     // 決まった率の伸び方の欄の名前

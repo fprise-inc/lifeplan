@@ -281,7 +281,7 @@ describe("介護の始まりの推定の印", () => {
     expect(w3.assumed[`ev/care/${id}/from`]).toBeUndefined();
   });
 
-  it("「＋ 次の段階を足す」で足した段階の始まりも推定（前の段階の終わりの翌月）。「＋ 介護の費用」も同じ", () => {
+  it("「＋ 次の段階」で足した段階の始まりも推定（前の段階の終わりの翌月）。「＋ 介護の費用」も同じ", () => {
     const { wh, id } = withCare();
     const w1 = actionOf(wh, "care", `ev/care/${id}/nextStage`).run(wh);
     const next = w1.request.input.household.careExpenses!.find((x) => x.id !== id)!;

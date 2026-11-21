@@ -37,7 +37,7 @@ export type InsuranceKind =
 /** 終わりの既定（被保険者の年齢・終身・出来事から） */
 type EndRule = { age: number } | "lifetime" | "mortgagePayoff" | "retirement" | { childAge: number };
 
-/** 種類を選ぶ一覧の分類（「＋ 保険契約を足す」の見出し。2026-11-02） */
+/** 種類を選ぶ一覧の分類（「＋ 保険契約」の見出し。2026-11-02） */
 export type KindGroup = "death" | "illness" | "savings" | "other";
 
 export const KIND_GROUPS: readonly { group: KindGroup; label: string }[] = [
@@ -155,7 +155,7 @@ export const KINDS: readonly KindDef[] = [
   { kind: "nonLife", label: "損害保険", group: "other", template: "insurance.nonLife", main: null, end: "lifetime", payUntil: "lifetime", deduction: "none", note: "保険料だけを計算します。保険金は計算しません（受け取る見込みは入るお金の行で）" },
 ];
 
-/** 種類の選択肢（「＋ 保険契約を足す」の一覧と同じ見出しで分ける） */
+/** 種類の選択肢（「＋ 保険契約」の一覧と同じ見出しで分ける） */
 export const KIND_OPTIONS = KINDS.map((k) => ({ value: k.kind, label: k.label, group: KIND_GROUPS.find((g) => g.group === k.group)?.label ?? "そのほか" }));
 
 const BY_KIND = new Map(KINDS.map((k) => [k.kind, k]));

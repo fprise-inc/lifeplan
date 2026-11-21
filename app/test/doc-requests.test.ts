@@ -91,7 +91,8 @@ describe("送ってほしい書類の一覧", () => {
     wh = applyStateOp(wh, surgery, "unknown");
     // これから買う車のローン（車の買い方）には書類で確かめるが無い
     expect(allFields(buildStage("car", wh)).filter((f) => f.item === "car.loan" && f.docCheck !== undefined)).toEqual([]);
-    const addLoan = buildStage("car", wh).sections.flatMap((s) => s.actions).find((a) => a.key === "car/addCarLoan")!;
+    // 今の車があれば、足すボタンはその車の枠の中の「＋ 今返しているローン」（0237）
+    const addLoan = buildStage("car", wh).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((a) => a.key.endsWith("/addNowLoan"))!;
     wh = addLoan.run(wh);
     const debt = wh.request.input.household.debts!.find((d) => d.kind === "car")!;
     for (const k of ["rate", "term"]) wh = applyStateOp(wh, allFields(buildStage("car", wh)).find((f) => f.key === `housing/debt/${debt.id}/${k}`)!, "unknown");

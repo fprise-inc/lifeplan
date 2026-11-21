@@ -82,12 +82,16 @@ describe("欄が入れ替わる所は1行で知らせる", () => {
 
   it("車: 開くと「買い替えに、「○歳まで買い替える」を足して出しています（閉じると元に戻ります）」。「○歳まで」を選んでいる車は、標準でも3つとも出すので知らせない", () => {
     const cw = open("dualAssetsTwoKids");
-    const carHead = groupsOf(cw, "car").find((g) => g.fields.some((f) => f.simpleOnly === true && f.key.endsWith("/replace")));
+    // 買い替えの欄は中枠「車と買い替え」の中。「▸」は車の枠に1つ（頭のまとまり）で、中枠の欄の入れ替わりも頭の「▸」の知らせに出す（0237）
+    const bandsOf = (w: WorkingHousehold, k: string) => groupsOf(w, "car").filter((g) => g.band === true && g.key.startsWith(`${k}/band/`));
+    const band = groupsOf(cw, "car").find((g) => g.fields.some((f) => f.simpleOnly === true && f.key.endsWith("/replace")));
+    expect(band).toMatchObject({ band: true, title: "車と買い替え" });
+    const key = band!.key.split("/band/")[0]!;
+    const carHead = groupsOf(cw, "car").find((g) => g.key === key);
     expect(carHead).toBeDefined();
-    const key = carHead!.key;
     expect(headsOf(cw, "car").has(key)).toBe(true);
-    expect(swapNotesOf(carHead!, true)).toEqual(["買い替えに、「○歳まで買い替える」を足して出しています"]);
-    expect(swapNotesOf(carHead!, false)).toEqual([]);
+    expect(swapNotesOf(carHead!, true, bandsOf(cw, key))).toEqual(["買い替えに、「○歳まで買い替える」を足して出しています"]);
+    expect(swapNotesOf(carHead!, false, bandsOf(cw, key))).toEqual([]);
     const opened = panel(cw, "car", "simple", [key]);
     expect(opened).toContain(`<p class="grp-more-swap" data-more-of="${key}" data-more-swap="true">買い替えに、「○歳まで買い替える」を足して出しています（閉じると元に戻ります）</p>`);
     expect(panel(cw, "car", "simple")).not.toContain("data-more-swap");
@@ -95,7 +99,7 @@ describe("欄が入れ替わる所は1行で知らせる", () => {
     // 「○歳まで買い替える」にした車
     const until = allFields(buildStage("car", cw)).find((f) => f.key === `${key}/replace`)!.set(cw, "until");
     const untilHead = groupsOf(until, "car").find((g) => g.key === key)!;
-    expect(swapNotesOf(untilHead, true)).toEqual([]);
+    expect(swapNotesOf(untilHead, true, bandsOf(until, key))).toEqual([]);
   });
 
   it("入れ替えの無い「▸ 続きを見る」（住宅ローンなど）は知らせを出さない", () => {

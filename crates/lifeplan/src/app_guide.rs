@@ -396,6 +396,11 @@ mod tests {
         assert_eq!(top("提案書を PDF にしたい"), "export.report");
         assert_eq!(top("同意を記録する"), "ai.consent");
         assert_eq!(top("ロゴを入れたい"), "office.branding");
+        // AI との接続は「接続する」「つなぐ」のどちらで聞かれても事務所全体の設定の節、登録は登録の節
+        assert_eq!(top("Claude と接続したい"), "ai.connect");
+        assert_eq!(top("Claude とつなぎたい"), "ai.connect");
+        assert_eq!(top("Claude に登録するには"), "ai.register");
+        assert_eq!(top("ChatGPT は接続できる？"), "ai.register");
     }
 
     #[test]

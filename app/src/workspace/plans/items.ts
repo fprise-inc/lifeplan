@@ -1116,7 +1116,7 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
           readings.set(`field:${f.key}`, reading);
           const id = UUID.exec(f.key)?.[0];
           const target: DiffTarget = id === undefined ? { plan: "assumptions" } : members.has(id) ? { member: id } : { object: id };
-          const where = g.title ?? section.title;
+          const where = g.where ?? g.title ?? section.title;
           out.push({
             key: `field:${f.key}`,
             item: f.item ?? "screen",

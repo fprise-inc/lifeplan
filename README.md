@@ -11,7 +11,7 @@ FP（ファイナンシャルプランナー）向けの無料ライフプラン
 - **リリースの前に**、推定の目安（市場の金利・値段・調査の年がある統計・よくある額のひな形）を [`docs/estimates-review.md`](docs/estimates-review.md) の一覧で見直す（「毎リリース」の行は必ず）。
 - `engine/` … 計算エンジン（TypeScript）。`npm ci` の後、`npm run typecheck`・`npm run lint`・`npm test`・`npm run build`
 - `crates/engine-host/` … エンジンを quickjs-ng で動かす Rust のホストと、JSON を受けて JSON を返すコマンド `engine-host`
-- `crates/lifeplan/` … AI接続口（MCP サーバー。`lifeplan mcp`、標準入出力だけ。0015）。`crates/ai-share/` はアプリ本体に組み込む側（共有の台帳・縮約版・文章の包み方・AIに渡した記録・受け口。0014・0015）、`crates/ai-ipc/` は両者の間の取り決め。つなぎ方は [`docs/ai-connector.md`](docs/ai-connector.md)。テストは `cargo test --release -p lifeplan -p ai-share -p ai-ipc`（`engine/dist` が要る）
+- `crates/lifeplan/` … AI接続口（MCP サーバー。`lifeplan mcp`、標準入出力だけ。0015）。`crates/ai-share/` はアプリ本体に組み込む側（共有の台帳・縮約版・文章の包み方・AIに渡した記録・受け口。0014・0015）、`crates/ai-ipc/` は両者の間の取り決め。接続のしかたは [`docs/ai-connector.md`](docs/ai-connector.md)。テストは `cargo test --release -p lifeplan -p ai-share -p ai-ipc`（`engine/dist` が要る）
 - `data/regulation/` … 制度データの正本（YAML。いまは所得税・住民税（`tax`）、社会保険（`socialInsurance`。被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険の第1号・雇用保険の給付など）、公的年金（`pension`）。すべての行が原本での確認待ち）。`npm run build` で `engine/dist/regulation/` に正規化した JSON を作る
 - `data/modelHouseholds/` … 架空のモデル世帯（CC0）。`engine/` で `npm run models` を流すと制度改正の差分を表にする
 - `app/` … アプリ本体（Tauri 2）。画面は Preact＋TypeScript（`app/src/`）、本体は Rust（`app/src-tauri/`）。`engine/` で `npm run build` の後、`app/` で `npm ci`・`npm run typecheck`・`npm run lint`・`npm test`。起動は `npx tauri dev`（ブラウザだけで画面を見るなら `npm run dev` で http://localhost:1420/ ）。本体のテストは `app/src-tauri/` で `cargo test`。3つの OS でのビルド（バンドル）は GitHub Actions の `app-bundle`（手で起動するかリリースのときだけ）

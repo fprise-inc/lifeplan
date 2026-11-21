@@ -270,8 +270,8 @@ describe("固定資産税の推定（0112）", () => {
     const k = `housing/res/${bought(wh).id}/taxGrowth`;
     expect(bought(wh).propertyTax?.growth).toBeUndefined();
     const f = fieldOf(wh, k);
-    expect(f.help).toContain("段の額にさらに毎年この率を掛けます");
-    expect(f.get(wh).hint).toContain("推定の段で動かしています");
+    expect(f.help).toContain("段階の額にさらに毎年この率を掛けます");
+    expect(f.get(wh).hint).toContain("推定の段階で動かしています");
     // 変動率を入れると、段の額に計算の基準の年からの年数分を掛ける（今の計算の決まり）
     const before = preview(wh.request);
     wh = set(wh, k, "0.01");

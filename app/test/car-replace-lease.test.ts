@@ -229,8 +229,8 @@ describe("手放した後の移動の費用は世帯が最後に手放す車だ�
     expect(lastCarOfHousehold(wh.request.input.household, b.id)).toBe(false);
     const g = groups(wh).find((x) => x.key.endsWith("/afterCar"))!;
     expect(g.key).toBe(`ev/car/${a.id}/afterCar`);
-    expect(g.title).toBe("この後、世帯に車がありません");
-    expect(g.actions[0]!.label).toBe("＋ 手放した後の移動の費用を足す");
+    expect(g.title).toBe("手放した後（この後、世帯に車がありません）");
+    expect(g.actions[0]!.label).toBe("＋ 手放した後の移動の費用");
     // 手放す時期の説明に、75歳ごろを目安にする FP が多いこと。足した車の既定は名義の人の75歳（推定）
     expect(fieldOf(wh, `${a.id}/untilAge`).help).toContain("75歳ごろ");
     const fresh = addCar(open("salariedCoupleTwoKids"), ids());
@@ -256,7 +256,7 @@ describe("リース・長期レンタル（0101）", () => {
     // 買い替えの欄は出さない
     const shown = fieldsOf(wh, c.id);
     for (const k of ["replace", "first", "every", "price", "tradeIn", "owned", "pay"]) expect(shown, k).not.toContain(k);
-    expect(fieldsOf(wh, c.id, "simple")).toEqual(["owner", "lease/type", "lease/monthly", "lease/from", "upkeep", "untilAge"]);
+    expect(fieldsOf(wh, c.id, "simple")).toEqual(["owner", "lease/type", "lease/monthly", "lease/from", "untilAge", "upkeep"]);
     expect(fieldOf(wh, `${c.id}/upkeep`).help).toContain("月額に含まれない分（駐車場・燃料など）を入れます");
     expect(fieldOf(wh, `${c.id}/lease/inc/taxAndCompulsory`).help).toContain("自賠責保険は車検");
     wh = monthly.set(wh, 40000);

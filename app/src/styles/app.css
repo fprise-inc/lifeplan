@@ -369,7 +369,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-note { font-size: 0.85rem; color: var(--ink-2); margin: 2px 0 8px; }
 .in-group { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px 12px; margin: 8px 0; background: var(--wash, #fcfcfb); }
 .in-group-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-.in-group-h h4 { margin: 0; font-size: 0.98rem; }
+.in-group-h h4 { margin: 0; font-size: 0.98rem; min-width: 0; }
+/* 見出しの右のボタン（「ホームに出す」「外す」）は、要約が長くても折れない・縮まない（要約の方が幅いっぱいで折り返す） */
+.in-group-h > .link-btn, .in-group-h > .help-of, .in-group-h > .plan-tag { flex: none; white-space: nowrap; }
 .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px 18px; }
 .fld { min-width: 0; }
 .fld-l { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 6px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); margin-bottom: 3px; }
@@ -395,13 +397,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c input.when-in { width: 10.5em; max-width: 100%; font-variant-numeric: tabular-nums; }
 .fld-c select.when-mode, .fld-c select.when-who, .fld-c select.when-event { font-size: 0.85rem; padding: 4px 6px; }
 .fld-help.when-read { color: var(--ink); }
-.in-group.compact { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 8px 12px; }
-.in-group.compact .in-group-h { margin: 0; flex-direction: column; align-items: flex-start; gap: 0; }
-/* 左の狭い列の見出しでは、要約（介護の「2036年9月から55か月・月5.2万円」など）を見出しの下の行に（見出しの途中で折り返さない） */
-.in-group.compact .in-group-h h4 .in-sum { display: block; margin-left: 0; }
-.in-group.compact .fields { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-/* 欄が1つだけのまとまりは、その欄を行の幅いっぱいに置く（選ぶ欄の選択肢が長いとき、1列の幅で切れないように。例: 学校外の費用の入れ方） */
-.in-group.compact .fields > .fld:only-child { grid-column: 1 / -1; }
+/* 見出しを左の狭い列に寄せる詰めた形（.in-group.compact）は無くした: どのまとまりも、見出しは幅いっぱいの1行・欄は次の行から（0236 の追記） */
 /* まとまりの「▸ 詳しく」（標準のときだけ。控えめな文字のリンク。開いた中身はリンクの下に出す。0078 の追記） */
 .grp-more { margin-top: 6px; }
 /* 文は場所ごと（「▸ 呼び名・性別などを入れる」。0078 の 2026-11-01 の追記）。幅が狭い所（表の行の中など）で折り返すときも、
@@ -411,11 +407,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .grp-more .grp-more-text { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
 .grp-more .grp-more-btn:hover .grp-more-text, .grp-more .grp-more-btn:focus-visible .grp-more-text { text-decoration: underline; }
 .grp-more-body { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--card-line); }
-.in-group.compact .grp-more, .in-group.compact .grp-more-body { grid-column: 1 / -1; }
 /* 推定のままの欄の1行（GroupDef の estimateLine。介護の物など）: 欄とボタンの下に小さく。「推定」の印は欄の印と同じ（.badge.est） */
 .in-est-line { margin: 6px 0 0; font-size: 0.8rem; line-height: 1.5; color: var(--ink-2); word-break: keep-all; overflow-wrap: anywhere; }
 .in-est-line .in-est-names { margin-left: 0.5em; }
-.in-group.compact .in-est-line { grid-column: 1 / -1; }
 /* 「▸ 詳しく」で欄を入れ替えた所の知らせ（例: 受け取り開始を基礎と厚生に分けた。0078 の 2026-10-29 の追記） */
 .grp-more-swap { margin: 4px 0 0; font-size: 0.8rem; color: var(--ink-2); }
 /* 説明の欄（値ではなく説明の文。幅いっぱい・見出しの左に ⓘ・見出しを押して折りたたむ。InfoNote.tsx） */
@@ -435,7 +429,6 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group .in-group, .in-group.in-sub { border: 0; border-top: 1px dashed var(--card-line); border-radius: 0; background: transparent; margin: 16px 0 0; padding: 12px 0 4px; }
 .in-group .in-group > .in-group-h, .in-group.in-sub > .in-group-h { margin-bottom: 8px; }
 .in-group .in-group .in-group-h h4, .in-group.in-sub .in-group-h h4 { font-size: 0.9rem; color: var(--ink-2); }
-.in-group.in-sub.compact { padding: 12px 0 4px; }
 .sv-more-row .in-group.in-sub:first-child { border-top: 0; margin-top: 4px; padding-top: 0; }
 /*
  * 物1件の中の中枠（band。欄の多い物を、題名のある区切りに分ける。例: 住宅ローンの借入の内容・金利・返済…。0077 の追記）:
@@ -473,6 +466,49 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c select { max-width: 100%; }
 .fld-c input.bad { border-color: var(--short); background: var(--short-bg); }
 .fld-c input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--prop); }
+/* チェックの欄: 四角を左、名前を右の1行。名前を押しても切り替わる。
+   ほかの欄と並んだときは、名前の行の分だけ下げて、四角の行を隣の入力の行と同じ高さにする（下端がそろう）。
+   チェックだけの並び・1つだけの並びでは下げない */
+/* プルダウン・区切りボタンの欄も、数字の欄と同じ高さの行の中央に置く（隣のチェック・数字の欄と縦の位置がそろう） */
+.fld-c:has(> select:first-child), .fld-c:has(> .seg-g.fld-seg) { min-height: calc(1.55rem + 13px); }
+.fld-c.fld-check { min-height: calc(1.55rem + 13px); gap: 2px 8px; }
+.fld-check-main { display: inline-flex; align-items: flex-start; gap: 8px; min-width: 0; }
+/* 名前が折れても崩れないように: 四角は1行目の高さにそろえ、「?」は名前の最後の字のすぐ後ろに続ける */
+.fld-check-main > input[type="checkbox"] { flex: none; margin: calc((0.92rem * 1.55 - 20px) / 2) 0 0; cursor: pointer; }
+.fld-check-name { min-width: 0; font-size: 0.92rem; line-height: 1.55; }
+.fld-check-name > label { font-weight: 700; color: var(--ink); cursor: pointer; }
+.fld-check-q { white-space: nowrap; }
+.fld-check-q > .help { margin-left: 5px; font-size: 1rem; }
+.fld-check-name:has(> .fld-check-q > .help > .help-btn:not(.help-mark)[aria-expanded="true"]) > label { background: var(--prop-bg); box-shadow: 0 0 0 2px var(--prop-bg); border-radius: 3px; }
+/* 短い2〜3択の選ぶ欄の区切りボタン（FieldViews.tsx の SegChoice。欄ごとに segmented で指定する）: 入力の欄と同じ高さ・同じ文字。選んでいる方が藍の塗り、ほかは白地に藍の文字。
+   空欄のまま推定で計算している選択肢は点線（推定の欄の点線の枠と同じ意味）。フォーカスの線はボタンの内側に出す（外の枠で切れないように） */
+.fld-c > .seg-g.fld-seg { display: inline-flex; flex: none; flex-wrap: wrap; max-width: 100%; border: 1.5px solid var(--prop); border-radius: 8px; overflow: hidden; background: var(--card); }
+.fld-c > .seg-g.fld-seg > button { flex: 0 0 auto; margin: 0; border: 0; background: var(--card); color: var(--prop-ink); padding: 5px 8px; font-size: 0.86rem; line-height: 1.5; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.fld-c > .seg-g.fld-seg > button + button { border-left: 1.5px solid var(--prop); }
+.fld-c > .seg-g.fld-seg > button:hover { background: var(--prop-bg); }
+.fld-c > .seg-g.fld-seg > button[aria-checked="true"], .fld-c > .seg-g.fld-seg > button[aria-checked="true"]:hover { background: var(--prop); color: var(--on-fill); cursor: default; }
+.fld-c > .seg-g.fld-seg > button.is-est-opt { background: var(--wash, #f7f8fa); color: var(--base-ink); outline: 1.5px dashed var(--base); outline-offset: -4px; }
+.fld-c > .seg-g.fld-seg > button:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; }
+/* オン・オフを切り替えるボタンをチェックの見た目で（「＋ 〜」のボタンの並びの中。チェックの欄と同じ四角と文字） */
+.act-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.92rem; font-weight: 700; color: var(--ink); cursor: pointer; }
+.act-check > input[type="checkbox"] { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--prop); cursor: pointer; }
+.fields > .fld.is-check { padding-top: calc(0.86rem * 1.55 + 3px); }
+.fields:not(:has(> .fld:not(.is-check))) > .fld.is-check { padding-top: 0; }
+/* 並びにチェックが1つだけなら、行の幅いっぱいに置く（名前が長くても折れにくい） */
+.fields > .fld.is-check:only-child { grid-column: 1 / -1; }
+/* 行にチェックしか無いのに、名前の行のぶんの空きが上に残らないように: 並びの最後に続くチェック（後ろにチェックでない欄が無い）と、
+   出てくる欄を持つチェック（幅いっぱい）のすぐ前のチェックは、行に1つで置く（名前が長くても折れにくい） */
+.fields:has(> .fld:not(.is-check)) > .fld.is-check:not(:has(~ .fld:not(.is-check))),
+.fields > .fld.is-check:has(+ .fld-opened) { grid-column: 1 / -1; padding-top: 0; }
+/* チェックを入れると出てくる欄（欄の opens）: チェックは行に1つで置き、出てきた欄（と間に入る「＋ 〜」など）はそのすぐ下に
+   「左の線＋字下げ」でひとまとまりにする（中枠 .in-band と同じ線。線は四角の中央から下ろす） */
+.fields > .fld-opened { grid-column: 1 / -1; min-width: 0; }
+.fld-opened > .fld.is-check { padding-top: 0; }
+.fld-opened-body { margin: 4px 0 2px 8.5px; padding: 6px 0 4px 16px; border-left: 3px solid var(--card-line); }
+.fld-opened-body > .fields + .fields { margin-top: 16px; }
+.fld-opened-body > .in-actions { margin-top: 10px; }
+.fld-opened-body > .in-actions:has(+ .fields, + .in-group, + .in-note) { margin-bottom: 20px; }
+.in-group > .fields + .fld-opened, .in-group > .fld-opened + .fields, .fld-opened-body > .fields + .fld-opened { margin-top: 16px; }
 .fld.is-est .fld-c input[type="text"] { border-style: dashed; border-color: var(--base); background: var(--wash, #f7f8fa); color: var(--base-ink); }
 /* 空欄の推定の値を欄の中に灰色で見せる（入っている推定の値と同じ文字の色。打ち始めると消える。0041 の追記 2026-11-10） */
 .fld-c input.est-ghost::placeholder { color: var(--base-ink); opacity: 1; }
@@ -521,8 +557,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-ops .link-btn { font-size: 0.78rem; }
 /* 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。推定の欄にだけ出す小さなボタン。
    数の欄は欄の中の左（値は右寄せ）に置き、欄に入って打ち始めると隠す（Tab で移れるよう、隠すのは見た目だけ） */
-.fld-fill { border: 1.5px solid var(--prop); background: var(--card); color: var(--prop); border-radius: 999px; padding: 0 8px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; cursor: pointer; }
-.fld-fill:hover, .fld-fill:focus-visible { background: var(--prop); color: var(--on-fill); }
+.fld-fill { border: 1.5px solid var(--prop); background: var(--card); color: var(--prop-ink); border-radius: 999px; padding: 0 8px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; cursor: pointer; }
+.fld-fill:hover, .fld-fill:focus-visible { background: var(--prop-bg); }
 .fld-box { position: relative; display: inline-flex; min-width: 0; }
 .fld-box .fld-fill.inside { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 0.68rem; padding: 0 5px; }
 .fld-c input.num.has-fill { padding-left: 5.4em; padding-right: 6px; }
@@ -562,11 +598,13 @@ html.big .lever input[type="range"] { height: 36px; }
 @media (max-width: 640px) { .ck-detail { padding-left: 0; } .ck-acts { margin-left: 0; } }
 /* ボタンの間は、ボタンのすぐ右の「?」（.help-of の 4px）より広く空ける（どのボタンの「?」か分かるように。0077 の 2026-10-29 の追記） */
 .in-actions { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; align-items: center; }
-.add-btn { border: 1.5px solid var(--prop); color: var(--prop); background: var(--card); border-radius: 7px; padding: 4px 10px; font-weight: 700; font-size: 0.86rem; cursor: pointer; }
+/* 欄のまわりのボタンは4段にそろえる: ふつう＝藍の枠（.add-btn・小さい物は .fld-fill）／控えめ＝下線のリンク（.link-btn）／危ない＝赤い文字（.link-btn.danger）。
+   主（藍の塗り）は足元の「保存」だけ。角・文字の色・押せない見た目は .btn と同じにする */
+.add-btn { border: 1.5px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.86rem; cursor: pointer; }
 .add-btn:hover { background: var(--prop-bg); }
+.add-btn:disabled, .add-btn:disabled:hover { background: var(--base-bg); border-color: var(--line); color: var(--base); cursor: not-allowed; }
 /* 選んでいる状態を見せるボタン（黒字のうち貯金に回る割合の目安など） */
-.add-btn[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); }
-.add-btn[aria-pressed="true"]::before { content: "● "; font-size: 0.7em; vertical-align: 0.15em; }
+.add-btn[aria-pressed="true"], .add-btn[aria-pressed="true"]:hover { background: var(--prop); color: var(--on-fill); }
 /* ひな形の小さなボタンの並び（ライフイベント。0068 の追記 2026-10-31）: 上に案内の1行、まとまりごとに1行（小さな見出しの後にボタン） */
 .in-chips { display: flex; flex-direction: column; gap: 4px; }
 .in-chips-lead { font-size: 0.85rem; color: var(--ink-2); margin: 0 0 2px; }

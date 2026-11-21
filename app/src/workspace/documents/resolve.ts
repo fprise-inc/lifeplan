@@ -43,7 +43,7 @@ export function fieldPlaces(wh: WorkingHousehold): FieldPlace[] {
           const address = fieldAddress(f, wh);
           // 同じ入れ先を何本もの欄で分ける欄（相続税の試算の不動産ごとの欄。0235）は、書類の候補の入れ先で分ける
           const id = f.docPlace !== undefined ? `doc:${f.docPlace.object}:${f.docPlace.at.join("/")}` : address !== null ? JSON.stringify(address) : `key:${f.key}`;
-          const where = group.title ?? section.title;
+          const where = group.where ?? group.title ?? section.title;
           const level: Level = section.level === "detail" || group.level === "detail" || f.level === "detail" ? "detail" : "simple";
           const place: FieldPlace = { field: f, card: stage.id, cardLabel: stage.label, label: where !== undefined && where !== f.label ? `${where}: ${f.label}` : f.label, level, address };
           const list = byAddress.get(id);
