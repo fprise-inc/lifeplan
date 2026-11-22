@@ -6,7 +6,6 @@
 /* 共有中の帯 */
 .ai-band { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 7px 20px; background: var(--est-bg); border-bottom: 2px solid var(--est-band); color: var(--est-ink); font-size: 0.9rem; }
 .ai-band-item { display: inline-flex; align-items: center; gap: 8px; }
-.ai-band .btn { padding: 2px 10px; font-size: 0.82rem; }
 .ai-band-note { font-weight: 700; }
 
 /* 中央のパネル */
@@ -19,7 +18,6 @@
 .ai-switch-state { color: var(--ink-2); font-size: 0.9rem; }
 .ai-share-list { list-style: none; padding: 0; margin: 4px 0 8px; }
 .ai-share-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 0; border-bottom: 1px solid var(--line-2); }
-.ai-share-list .btn, .ai-sharing .btn { padding: 4px 12px; }
 .ai-setup { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 12px; margin: 6px 0; }
 .ai-setup summary { cursor: pointer; font-weight: 700; }
 .ai-setup pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; background: var(--base-bg); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font-size: 0.82rem; white-space: pre-wrap; word-break: break-all; }
@@ -27,7 +25,6 @@
 .ai-apps-list { list-style: none; padding: 0; margin: 6px 0; }
 .ai-apps-list > li { border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
 .ai-app-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-.ai-app-head .btn { padding: 4px 12px; }
 .ai-app-state { font-size: 0.85rem; font-weight: 700; border-radius: 4px; padding: 0 6px; border: 1.5px solid var(--line); color: var(--ink-2); }
 .ai-app-state.s-registered { border-color: var(--prop); background: var(--prop-bg); color: var(--ink); }
 /* partial: 書く先の片方だけ登録済み（Claude の行）。残りがあるので、場所が古いときと同じ色で知らせる */
@@ -58,7 +55,6 @@
 .ai-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.92rem; }
 .ai-check input { width: 18px; height: 18px; margin-top: 2px; flex: none; }
 .ai-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-.ai-actions .btn:disabled, .ai-panel .btn:disabled, .ai-cand-foot .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .ai-latest { margin: 4px 0; }
 .ai-withdraw { border: 1.5px solid var(--short); background: var(--short-bg); border-radius: 8px; padding: 8px 12px; }
 .ai-sharing { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; border: 2px solid var(--est); background: var(--est-bg); border-radius: 8px; padding: 6px 12px; }

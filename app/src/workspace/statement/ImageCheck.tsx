@@ -116,7 +116,7 @@ export function ImageCheck({ items, index, kind, busy, onIndex, onRows }: { item
                       {r.uncertain ? (
                         <span class="st-unsure">
                           読み取りが不確か
-                          <button type="button" class="btn sm" disabled={busy} onClick={() => set(r.key, { uncertain: false })} data-statement-edit-ok>
+                          <button type="button" class="btn small" disabled={busy} onClick={() => set(r.key, { uncertain: false })} data-statement-edit-ok>
                             確かめた
                           </button>
                           {r.why !== undefined ? (
@@ -132,7 +132,7 @@ export function ImageCheck({ items, index, kind, busy, onIndex, onRows }: { item
                       <input type="text" inputMode="numeric" value={r.amount} disabled={busy} aria-label="金額" onInput={(e) => set(r.key, { amount: (e.currentTarget as HTMLInputElement).value })} size={9} />
                     </td>
                     <td>
-                      <button type="button" class="btn sm" disabled={busy} aria-label="この行を消す" onClick={() => onRows(index, rows.filter((x) => x.key !== r.key))} data-statement-edit-remove>
+                      <button type="button" class="btn small" disabled={busy} aria-label="この行を消す" onClick={() => onRows(index, rows.filter((x) => x.key !== r.key))} data-statement-edit-remove>
                         消す
                       </button>
                     </td>
@@ -142,7 +142,7 @@ export function ImageCheck({ items, index, kind, busy, onIndex, onRows }: { item
             </tbody>
           </table>
           <div class="rp-actions">
-            <button type="button" class="btn sm" disabled={busy} onClick={() => onRows(index, [...rows, newEditRow(rows, lastDate)])} data-statement-edit-add>
+            <button type="button" class="btn small" disabled={busy} onClick={() => onRows(index, [...rows, newEditRow(rows, lastDate)])} data-statement-edit-add>
               行を足す
             </button>
           </div>

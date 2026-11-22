@@ -159,7 +159,7 @@ export function DrawdownCalc(p: DrawdownCalcProps) {
       <span class="dd-use">
         <button
           type="button"
-          class="btn primary sm"
+          class="btn primary small"
           disabled={p.locked}
           onClick={(e) => {
             revealChanged(e.currentTarget, useTargetKeys(arg.method).map((k) => `[data-added="${k}"]`).join(", "));

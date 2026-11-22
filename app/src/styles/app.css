@@ -607,11 +607,11 @@ html.big .lever input[type="range"] { height: 36px; }
 @media (max-width: 640px) { .ck-detail { padding-left: 0; } .ck-acts { margin-left: 0; } }
 /* ボタンの間は、ボタンのすぐ右の「?」（.help-of の 4px）より広く空ける（どのボタンの「?」か分かるように。0077 の 2026-10-29 の追記） */
 .in-actions { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; align-items: center; }
-/* 欄のまわりのボタンは4段にそろえる: ふつう＝藍の枠（.add-btn・小さい物は .fld-fill）／控えめ＝下線のリンク（.link-btn）／危ない＝赤い文字（.link-btn.danger）。
-   主（藍の塗り）は足元の「保存」だけ。角・文字の色・押せない見た目は .btn と同じにする */
+/* 欄のまわりのボタンも、ボタンの4段（.btn の所の決まり。0240）の言葉で決める: ふつう＝藍の枠（.add-btn。大きさは .btn.small と同じ。小さい物は .fld-fill）／
+   控えめ＝下線のリンク（.link-btn）／危ない＝赤い文字（.link-btn.danger）。主（藍の塗り）は足元の「保存」だけ。角・文字の色・押せない見た目は .btn と同じ */
 .add-btn { border: 1.5px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.86rem; cursor: pointer; }
 .add-btn:hover { background: var(--prop-bg); }
-.add-btn:disabled, .add-btn:disabled:hover { background: var(--base-bg); border-color: var(--line); color: var(--base); cursor: not-allowed; }
+.add-btn:disabled, .add-btn:disabled:hover { background: var(--base-bg); border-color: var(--line); color: var(--field); cursor: not-allowed; }
 /* 選んでいる状態を見せるボタン（黒字のうち貯金に回る割合の目安など） */
 .add-btn[aria-pressed="true"], .add-btn[aria-pressed="true"]:hover { background: var(--prop); color: var(--on-fill); }
 /* ひな形の小さなボタンの並び（ライフイベント。0068 の追記 2026-10-31）: 上に案内の1行、まとまりごとに1行（小さな見出しの後にボタン） */
@@ -627,8 +627,6 @@ html.big .lever input[type="range"] { height: 36px; }
 /* ほかの「＋」のボタンと同じ大きさのひな形（夢プラン。0103 の追記）: ボタンの間を少し広く */
 .in-chips.full .in-chips-list { gap: 8px 12px; }
 @media (max-width: 640px) { .in-chips-h { min-width: 0; flex-basis: 100%; } }
-.link-btn { background: none; border: 0; padding: 2px 4px; font-size: 0.82rem; cursor: pointer; text-decoration: underline; color: var(--ink-2); }
-.link-btn.danger { color: var(--short-ink); }
 
 /* 入力のホーム: 15枚のカードを同じ大きさのグリッドで（広い画面で4列。狭いとき・文字を大きくしたときは列を減らす。0077 で前の大きさに戻した） */
 .ih { max-width: 1520px; margin: 0 auto; }
@@ -692,7 +690,6 @@ html.big .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ih-hint { padding: 0 16px 16px; font-size: 0.82rem; color: var(--ink-2); display: grid; gap: 6px; }
 .ih-hint p { margin: 0; }
 .ih-hint-acts { display: flex; flex-wrap: wrap; gap: 6px; }
-.btn.small { padding: 2px 10px; font-size: 0.8rem; border-width: 1.5px; }
 .ih-card:hover { box-shadow: 0 6px 18px rgba(20, 30, 50, 0.1); transform: translateY(-2px); border-color: var(--line-3, #c4cad2); }
 .ih-ill { position: relative; display: block; background: var(--card); aspect-ratio: 16 / 9; overflow: hidden; flex: none; transition: background 0.3s; }
 html.big .ih-ill { aspect-ratio: 2 / 1; }
@@ -804,7 +801,7 @@ h2 .ih-st { font-size: 0.8rem; }
 .ih-pin-name { font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
 .ih-pin-sum { font-variant-numeric: tabular-nums; }
 .ih-pin-sum small { color: var(--ink-2); margin-left: 4px; }
-.pin-btn { font-size: 0.78rem; font-weight: 400; margin-left: auto; }
+.link-btn.pin-btn { font-size: 0.78rem; margin-left: auto; }
 .ip-inherit { grid-column: 1 / -1; margin-top: 6px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--base-bg); font-size: 0.86rem; }
 .ip-inherit p { margin: 0 0 2px; }
 /* 相続・贈与のパネルでは入れる区画の下に置く（0060 の追記） */
@@ -851,9 +848,26 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .ip-foot { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--card); box-shadow: 0 -6px 16px rgba(20, 30, 50, 0.06); }
 .ip-note { flex: 1 1 260px; font-size: 0.86rem; color: var(--ink-2); margin: 0; }
 .ip-note.warn { color: var(--short-ink); font-weight: 700; }
-.btn { border-radius: 8px; padding: 8px 18px; font-weight: 700; cursor: pointer; border: 2px solid var(--ink-2); background: var(--card); white-space: nowrap; }
+/* ボタンは4段 × 大きさ2つ（0240）。重み（段）は色と形で、大きさは .small の有無だけで決める。場所ごとの余白・押せないときの見た目の上書きは書かない。
+   - 主（.btn.primary）＝藍の塗り。その画面・パネルでいちばん押す1つ（「保存」など）
+   - ふつう（.btn）＝白地に藍の枠・藍の文字
+   - 控えめ（.link-btn）＝下線のリンク（文や行の中に置く。枠は無く、大きさは1つ）
+   - 危ない（.btn.danger・.link-btn.danger）＝赤い文字（枠があれば赤い枠）
+   大きさは、ふつう（指定なし。パネルの足元の「キャンセル／保存」の大きさ）と、小（.small。帯・道具の列・表や一覧の行・入力のホームの入力項目の中に並ぶボタン。
+   欄のまわりの「＋ 〜」〔.add-btn〕と同じ大きさ）の2つ。選んでいる・押し込んでいるボタン（.on・aria-pressed）は藍の塗りだけで見せる。
+   押せないときは、どの段・どの画面でも同じ灰色の平らな見た目（色みでなく濃さの差で分かるように、地・枠・文字を灰にする） */
+.btn { border-radius: 8px; padding: 8px 18px; font-weight: 700; cursor: pointer; border: 2px solid var(--prop); background: var(--card); color: var(--prop-ink); white-space: nowrap; }
+.btn:hover { background: var(--prop-bg); }
 .btn.primary { background: var(--prop); border-color: var(--prop); color: var(--on-fill); padding: 8px 28px; }
+.btn.primary:hover { background: var(--prop-ink); border-color: var(--prop-ink); }
 .btn.danger { border-color: var(--short-ink); color: var(--short-ink); }
+.btn.danger:hover { background: var(--short-bg); }
+.btn.small { padding: 4px 10px; font-size: 0.86rem; border-width: 1.5px; }
+.btn.on, .btn.on:hover, .btn[aria-pressed="true"], .btn[aria-pressed="true"]:hover { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
+.btn:disabled, .btn:disabled:hover { background: var(--base-bg); border-color: var(--line); color: var(--field); cursor: not-allowed; }
+.link-btn { background: none; border: 0; padding: 0; font-size: 0.82rem; font-weight: 700; color: var(--prop); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.link-btn.danger { color: var(--short-ink); }
+.link-btn:disabled { color: var(--field); text-decoration: none; cursor: not-allowed; }
 @media (max-width: 640px) { .ip-head { grid-template-columns: minmax(0, 1fr) auto; } .ip-thumb { display: none; } .ip-lead { grid-column: 1 / -1; } }
 
 /* お知らせ（保存した直後） */
@@ -992,9 +1006,6 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .pb-review { border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 99px; padding: 2px 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .pb-review.sm { font-size: 0.78rem; padding: 0 8px; margin-left: 6px; cursor: default; }
 .pb-gap { flex: 1; }
-.plan-bar .btn { padding: 6px 12px; }
-.plan-bar .btn.primary { padding: 6px 16px; }
-.plan-bar .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .pb-list { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line-2); display: grid; gap: 4px; }
 .pb-list li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 0.92rem; }
 .pb-list li.pb-guide { display: block; margin: 0 0 2px; line-height: 1.6; }
@@ -1015,10 +1026,8 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .hh-list td, .hh-list th { white-space: nowrap; }
 .hh-list td:last-child { white-space: normal; }
 .pb-note { flex-basis: 100%; font-size: 0.86rem; color: var(--est-ink); display: flex; flex-wrap: wrap; gap: 4px 12px; }
-.link-btn { background: none; border: 0; padding: 0; color: var(--prop); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 /* 小窓・パネルが開く印（icons.tsx の PopIcon）: 文字の右に、文字の大きさに合わせて */
 .pop-i { display: inline-block; flex: none; width: 1.1em; height: 1.1em; margin-left: 0.25em; vertical-align: -0.16em; }
-.link-btn.danger { color: var(--short-ink); }
 /* 区画の見出しの横の控えめなリンク（基本生活費の「明細から出す」。0034） */
 .in-section-link { font-size: 0.82rem; font-weight: 400; color: var(--ink-2); white-space: nowrap; }
 .in-section-link:hover { color: var(--prop); }
@@ -1083,7 +1092,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 /* 案の一覧・比較の表 */
 .tag-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .tag-filter button { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 2px 10px; cursor: pointer; font-size: 0.85rem; }
-.tag-filter button.on { background: var(--ink); color: var(--on-fill); border-color: var(--ink); }
+.tag-filter button.on { background: var(--prop); color: var(--on-fill); border-color: var(--prop); }
 .plan-list-wrap { overflow-x: auto; }
 .plan-list { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 .plan-list th, .plan-list td { border-bottom: 1px solid var(--line-2); padding: 6px 8px; text-align: left; vertical-align: top; }
@@ -1113,9 +1122,6 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .main-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; max-width: 1680px; margin: 0 auto; }
 .main-stack > * { min-width: 0; }
 .main-stack .card { box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05); }
-.main-stack .btn { padding: 6px 16px; }
-.main-stack .btn.primary { padding: 6px 18px; }
-.main-stack .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ① 案の帯 */
 /* カードは決まった幅で左から並べ、「＋ このプランを元に作る」はそのすぐ右に置く（余った右側は空ける）。
@@ -1217,7 +1223,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .explain-btn, .set-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; padding: 3px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
 .explain-btn[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); }
 .set-btn { border-color: var(--ink-2); color: var(--ink); }
-.set-btn[aria-expanded="true"] { background: var(--ink); color: var(--on-fill); border-color: var(--ink); }
+.set-btn[aria-expanded="true"] { background: var(--prop); color: var(--on-fill); border-color: var(--prop); }
 .main-legend { gap: 4px 18px; font-size: 0.88rem; margin: 6px 0 0; }
 .main-legend .hint { margin-left: auto; font-weight: 400; color: var(--ink-2); font-size: 0.82rem; }
 .main-legend .lg.net i { border-top-color: var(--prop-ink); }
@@ -1412,10 +1418,11 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .lv-grid .age-ticks .tick { min-width: 0; padding: 1px 4px; }
 .age-ticks .age-base { position: absolute; top: -3px; width: 2px; height: 6px; margin-left: -1px; background: var(--base-ink); border-radius: 1px; }
 .lv-grid .lever.added .lever-head { align-items: center; }
-.tg { display: inline-flex; border: 2px solid var(--ink-2); border-radius: 8px; overflow: hidden; margin-top: 8px; }
-.tg button { border: 0; background: var(--card); padding: 3px 16px; font-weight: 700; cursor: pointer; }
-.tg button + button { border-left: 2px solid var(--ink-2); }
-.tg button[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); }
+.tg { display: inline-flex; border: 2px solid var(--prop); border-radius: 8px; overflow: hidden; margin-top: 8px; }
+.tg button { border: 0; background: var(--card); color: var(--prop-ink); padding: 3px 16px; font-weight: 700; cursor: pointer; }
+.tg button + button { border-left: 2px solid var(--prop); }
+.tg button:hover { background: var(--prop-bg); }
+.tg button[aria-pressed="true"], .tg button[aria-pressed="true"]:hover { background: var(--prop); color: var(--on-fill); }
 .add-row { margin-top: 10px; }
 .add-row .add-item-btn { width: auto; margin: 0; padding: 5px 14px; }
 /* 1行の数は 4 → 2 → 1（大きな文字は 2 → 1）。3列の途中を作らない（既定の4項目が2行目に1つだけ残らないように。0084） */
@@ -1473,7 +1480,7 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pip-btn { flex: none; box-sizing: border-box; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--ink-2); color: var(--ink); background: var(--card); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .pip-btn:hover { border-color: var(--ink); }
 .pip-btn:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
-.pip-btn[aria-pressed="true"] { background: var(--ink); color: var(--on-fill); border-color: var(--ink); }
+.pip-btn[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); border-color: var(--prop); }
 .pip-i, .pip-btn .pop-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; margin: 0; }
 .pip .pip-btn { width: 1.75rem; height: 1.75rem; border-width: 1.5px; }
 /* グラフの右上: 凡例の行（凡例・使い方の文）の右端に小窓のボタン。凡例は折り返して残りの幅に収め、ボタンが入らない幅ではボタンだけ凡例の下の右端に回る（重ならない）。
@@ -1541,7 +1548,7 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ys-play { display: inline-flex; gap: 6px; flex: none; }
 .ys-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; padding: 2px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.88rem; }
 .ys-btn.on { background: var(--prop); color: var(--on-fill); }
-.ys-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ys-btn:disabled { background: var(--base-bg); border-color: var(--line); color: var(--field); cursor: not-allowed; }
 .ys-row { display: flex; gap: 4px; overflow-x: auto; padding: 6px 2px 4px; scroll-behavior: auto; scrollbar-width: thin; }
 .yc { all: unset; box-sizing: border-box; flex: 1 0 3.5rem; min-width: 3.5rem; display: grid; justify-items: center; gap: 0; padding: 3px 2px 4px; border-radius: 7px; border: 1.5px solid transparent; cursor: pointer; font-variant-numeric: tabular-nums; line-height: 1.25; text-align: center; }
 .yc:focus-visible { outline: 3px solid #f0b400; outline-offset: 1px; }
@@ -1812,7 +1819,6 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-est-nofill small { display: block; margin-left: 1.7em; color: var(--ink-2); font-size: 0.76rem; }
 .os-custom-issues { margin: 4px 0; padding-left: 1.2em; }
 .os-custom-stop { display: block; font-weight: 400; }
-.os-custom-box .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 /* AIからのコードの候補が届いている帯（画面の上） */
 .ai-code-band { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--card); font-size: 0.86rem; }
 /* 資産と負債のタブ: コードの期限が切れて見られなくなった見るものの知らせ（0110） */

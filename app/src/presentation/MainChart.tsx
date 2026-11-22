@@ -1153,21 +1153,21 @@ export function ExplainBar({ model, step, onStep, onClose }: { model: ExplainMod
       <span class="ex-pos">
         {cur + 1} / {model.steps.length}
       </span>
-      <button type="button" class="btn" disabled={cur === 0} onClick={() => onStep(cur - 1)} data-explain-prev>
+      <button type="button" class="btn small" disabled={cur === 0} onClick={() => onStep(cur - 1)} data-explain-prev>
         ← 戻る
       </button>
       {/* 「次へ」と「終わる」は同じ幅（見えない方の文字で幅を取る）。最後の段でも「戻る」の位置が動かない */}
       <span class="ex-go">
         {cur < last ? (
-          <button type="button" class="btn primary" onClick={() => onStep(cur + 1)} data-explain-next>
+          <button type="button" class="btn small primary" onClick={() => onStep(cur + 1)} data-explain-next>
             次へ →
           </button>
         ) : (
-          <button type="button" class="btn primary" onClick={onClose} data-explain-close>
+          <button type="button" class="btn small primary" onClick={onClose} data-explain-close>
             終わる
           </button>
         )}
-        <span class="btn primary ex-sizer" aria-hidden="true">
+        <span class="btn small primary ex-sizer" aria-hidden="true">
           {cur < last ? "終わる" : "次へ →"}
         </span>
       </span>

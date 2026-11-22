@@ -122,7 +122,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
                 <b>{s.customerNumber ?? "—"}</b>（AIには「{s.alias}」と見えます）・{remainingText(s.expiresInSec)}
                 <button
                   type="button"
-                  class="btn danger"
+                  class="btn small danger"
                   disabled={busy}
                   onClick={() =>
                     void run(async () => {

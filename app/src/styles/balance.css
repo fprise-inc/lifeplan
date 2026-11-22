@@ -94,8 +94,9 @@ html.dark {
 /* 見るもの（家計のバランスシート／カスタマイズで足した見るもの。足したものがあるときだけ出す） */
 .bs-views { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bs-views .k { font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
-.bs-vbtn { border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; padding: 5px 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
-.bs-vbtn[aria-pressed="true"] { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
+.bs-vbtn { border: 1.5px solid var(--prop); background: var(--card); color: var(--prop-ink); border-radius: 8px; padding: 5px 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.bs-vbtn:hover { background: var(--prop-bg); }
+.bs-vbtn[aria-pressed="true"], .bs-vbtn[aria-pressed="true"]:hover { background: var(--prop); color: var(--on-fill); }
 
 /* 図の枠 */
 .bs-card { padding: 16px 20px 12px; }
@@ -221,9 +222,11 @@ html.dark {
 .yb-key .bs-kind.e { margin-left: 10px; }
 .yb-r .k { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
 .yb-jumps { display: flex; gap: 6px; flex-wrap: wrap; }
-.jb { border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; padding: 3px 10px; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; line-height: 1.3; }
+.jb { border: 1.5px solid var(--prop); background: var(--card); color: var(--prop-ink); border-radius: 8px; padding: 3px 10px; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; line-height: 1.3; }
 .jb small { font-weight: 400; font-size: 0.7rem; color: var(--ink-2); }
-.jb[aria-pressed="true"] { border-color: var(--prop); background: var(--prop-bg); color: var(--prop-ink); }
+.jb:hover { background: var(--prop-bg); }
+.jb[aria-pressed="true"], .jb[aria-pressed="true"]:hover { background: var(--prop); color: var(--on-fill); }
+.jb[aria-pressed="true"] small { color: inherit; }
 
 /* 3時点・プラン・前回 */
 .bs-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; }

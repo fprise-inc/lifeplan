@@ -22,11 +22,7 @@
 .tk-band .p-top { flex-wrap: wrap; row-gap: 3px; }
 .tk-band .p-name { flex: 1 1 calc(100% - 2.4rem); }
 .tk-band .p-tag.tk-prop { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
-.tk-levers .lv-head .btn { padding: 6px 14px; }
 .tk-levers .lv-grid { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
-.tk .btn:disabled, .tk-gate .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.tk .btn.small { padding: 3px 10px; font-size: 0.82rem; border-width: 1.5px; }
-.tk .btn.small.on { background: var(--prop-bg); border-color: var(--prop); color: var(--prop-ink); }
 .tk-bs-year { display: grid; gap: 6px; margin-top: 8px; }
 .tk-bs-year input[type="range"] { width: 100%; accent-color: var(--prop); height: 28px; }
 .tk-jumps { display: flex; flex-wrap: wrap; gap: 6px; }

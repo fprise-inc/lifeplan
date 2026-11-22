@@ -64,11 +64,11 @@ describe("説明モードの位置を動かさない", () => {
     const bar = (step: number) => renderToString(h(ExplainBar, { model: ex, step, onStep: noop, onClose: noop }));
     const mid = bar(0);
     expect(mid).toContain("data-explain-next");
-    expect(mid).toMatch(/<span class="btn primary ex-sizer" aria-hidden="true">終わる<\/span>/);
+    expect(mid).toMatch(/<span class="btn small primary ex-sizer" aria-hidden="true">終わる<\/span>/);
     const last = bar(ex.steps.length - 1);
     expect(last).toContain("data-explain-close");
     expect(last).not.toContain("data-explain-next");
-    expect(last).toMatch(/<span class="btn primary ex-sizer" aria-hidden="true">次へ →<\/span>/);
+    expect(last).toMatch(/<span class="btn small primary ex-sizer" aria-hidden="true">次へ →<\/span>/);
   });
 
   it("グラフ: 収入〜住宅の段では目盛り（0の線の位置・数字）が動かない。資産の推移の段だけ金融資産に合わせる", () => {

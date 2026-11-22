@@ -52,7 +52,6 @@
 .rv-conf { text-align: center; }
 .rv-ops { min-width: 13em; }
 .rv-btns { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
-.rv-btns .btn:disabled, .rv-edit .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .rv-problem { display: block; margin-top: 3px; font-size: 0.78rem; color: var(--est-ink); }
 .rv-done { font-weight: 700; margin-right: 6px; }
 .rv-done.s-accepted, .rv-done.s-corrected { color: var(--good); }

@@ -306,7 +306,7 @@ export function ReportViewer({ host, info, version, stale, firstSvg }: Props) {
     <div class="rp-viewer">
       <div class="rp-tools" role="toolbar" aria-label="見本の操作">
         <div class="rp-nav">
-          <button type="button" class="btn" disabled={page === 0} onClick={() => go(page - 1)} aria-label="前のページ">
+          <button type="button" class="btn small" disabled={page === 0} onClick={() => go(page - 1)} aria-label="前のページ">
             ← 前へ
           </button>
           <label class="rp-pageno">
@@ -325,24 +325,24 @@ export function ReportViewer({ host, info, version, stale, firstSvg }: Props) {
               / {n}ページ
             </span>
           </label>
-          <button type="button" class="btn" disabled={page >= n - 1} onClick={() => go(page + 1)} aria-label="次のページ">
+          <button type="button" class="btn small" disabled={page >= n - 1} onClick={() => go(page + 1)} aria-label="次のページ">
             次へ →
           </button>
         </div>
         <div class="rp-zoom">
-          <button type="button" class="btn" onClick={() => setZoom({ mode: "custom", scale: stepZoom(scale, -1) })} aria-label="縮小" title="縮小（⌘−）">
+          <button type="button" class="btn small" onClick={() => setZoom({ mode: "custom", scale: stepZoom(scale, -1) })} aria-label="縮小" title="縮小（⌘−）">
             −
           </button>
           <span class="rp-pct" aria-live="polite" data-report-zoom>
             {percentOf(scale)}%
           </span>
-          <button type="button" class="btn" onClick={() => setZoom({ mode: "custom", scale: stepZoom(scale, 1) })} aria-label="拡大" title="拡大（⌘＋）">
+          <button type="button" class="btn small" onClick={() => setZoom({ mode: "custom", scale: stepZoom(scale, 1) })} aria-label="拡大" title="拡大（⌘＋）">
             ＋
           </button>
-          <button type="button" class={`btn${zoom.mode === "page" ? " on" : ""}`} aria-pressed={zoom.mode === "page"} onClick={() => setZoom({ mode: "page" })} title="ページ全体（⌘0）">
+          <button type="button" class={`btn small${zoom.mode === "page" ? " on" : ""}`} aria-pressed={zoom.mode === "page"} onClick={() => setZoom({ mode: "page" })} title="ページ全体（⌘0）">
             ページ全体
           </button>
-          <button type="button" class={`btn${zoom.mode === "width" ? " on" : ""}`} aria-pressed={zoom.mode === "width"} onClick={() => setZoom({ mode: "width" })}>
+          <button type="button" class={`btn small${zoom.mode === "width" ? " on" : ""}`} aria-pressed={zoom.mode === "width"} onClick={() => setZoom({ mode: "width" })}>
             幅に合わせる
           </button>
         </div>
