@@ -7,7 +7,7 @@ import { afterWrite, byId, field, getPath, plain, removeAction, resolveTimepoint
 import { confirmedBox, mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { rentBasis, rentStandard } from "../fill.ts";
 import { debtorsWithoutShare, dropProvisionalEvent, PRINCIPAL_ESTIMATE, principalKey, purchaseMonth, sharesByLoans, withProvisionalHousing } from "../housingCredit.ts";
-import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, pctOf, purchaseLoans, rememberDroppedTaxStage, taxGuide } from "../propertyTax.ts";
+import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, isTaxEstimateStageId, pctOf, purchaseLoans, rememberDroppedTaxStage, taxGuide } from "../propertyTax.ts";
 import { buildingPriceOf, CUSTOM_KEYS, customBuildNotes, isCustomBuild, landLoansOf, landMonthOf, startCustomBuild, stopCustomBuild } from "../customBuild.ts";
 import { applyOwnedHomeTax, ownedHomeTaxEstimate, startsOwnedHomeTax } from "../ownedHomeTax.ts";
 import { AS_OF_FOLLOWS, clearLand, clearPurchaseBasis, landOfShare, shareOfLand, dropAsOfFollow, followFromMonth, isCurrentOwned, landAmount, landEntered, markPurchaseBasis, ownedValueMode, putLand, totalOf } from "../ownedHomeValue.ts";
@@ -597,7 +597,10 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       ...ageOf,
       ...(yearly ? { yearly: true } : {}),
       // 固定資産税の推定の段を外したら覚える（入れ直しで足し直さない。0112）
-      ...(part === "propertyTax" ? { onRemoveStage: (h: Household, sid: string) => rememberDroppedTaxStage(h, r.id, sid), autoWhat: r.purchase?.newBuild === false ? "3年ごとの評価替え" : "新築の軽減の終わり・3年ごとの評価替え" } : {}),
+      // 推定から入った年は、割合を確かめた後・直した後も推定の変化の表の行のまま（段階の ID が家と年で決まるので、ID で見分ける。0238）
+      ...(part === "propertyTax"
+        ? { onRemoveStage: (h: Household, sid: string) => rememberDroppedTaxStage(h, r.id, sid), autoWhat: r.purchase?.newBuild === false ? "3年ごとの評価替え" : "新築の軽減の終わり・3年ごとの評価替え", estimateStage: (sid: string) => isTaxEstimateStageId(r.id, sid) }
+        : {}),
       flow: "out",
       // 額の変化は、その額の欄（と変動率の欄）のすぐ後に並べる
       // 今住んでいる持ち家の固定資産税の変化は「固定資産税・都市計画税」の中枠の中に（0176）

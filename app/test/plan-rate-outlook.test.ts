@@ -80,7 +80,7 @@ describe("金利の見込み（変動金利）の動かす項目", () => {
     ]);
     expect(it.same(it.read(fromRequest(req)), v)).toBe(true);
     expect(it.text(v)).toBe("5年後に＋0.25%・10年後に＋0.5%・15年後に＋0.75%");
-    expect(it.note?.(v)).toBe("今の金利 0.65% → 2031年10月から0.9%・2036年10月から1.15%・2041年10月から1.4%（変動金利の段を5年ごとに置きます）");
+    expect(it.note?.(v)).toBe("今の金利 0.65% → 2031年10月から0.9%・2036年10月から1.15%・2041年10月から1.4%（変動金利の段階を5年ごとに置きます）");
     // 今の金利のまま: 後の段を外す
     expect(schedule(applyValues(s.wh, { [it.key]: { adds: [] } }, s.cat), d.id)).toHaveLength(1);
   });

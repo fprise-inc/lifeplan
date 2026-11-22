@@ -43,7 +43,7 @@ const BY_LABEL: Readonly<Record<string, PctRange>> = {
   "平均の利回り（年）": RETURN_RANGE,
   "評価額の増減率（年）": RETURN_RANGE,
   "運用の費用（年）": FEE_RANGE,
-  "利回り（年・この段から）": RETURN_RANGE,
+  "利回り（年・この段階から）": RETURN_RANGE,
   "その年の利回り（年）": RETURN_RANGE,
   // 入力項目をまたぐ言葉の決まりの率の欄の名前（決まった率の伸び方）。前の名前は、まだ当てはめていない入力項目のために残す
   "伸び率（年）": GROWTH_RANGE,
