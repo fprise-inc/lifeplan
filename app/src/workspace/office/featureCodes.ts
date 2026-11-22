@@ -8,7 +8,7 @@
 // - 切れた・止めたの知らせ（事務所の既定値の画面と資産と負債のタブの一文）は、分かった日から7日だけ出す。FP が閉じたら、その前でも出さない。
 //   出すかは本体が決め（FeatureCodeView.notice）、画面はそれに従うだけ。知らせが消えてもコードは残り、データも消さない
 import type { FeatureCandidateView, FeatureCheckView, FeatureCodeView, FeatureStatus } from "../../engine/host.ts";
-import { proseDateWritten } from "../../dates.ts";
+import { isDateTimeText, proseDateTime, proseDateTimeWritten, proseDateWritten } from "../../dates.ts";
 
 export type { FeatureCandidateView, FeatureCheckView, FeatureCodeView, FeatureStatus } from "../../engine/host.ts";
 
@@ -96,6 +96,12 @@ export function checkText(ch: FeatureCheckView | undefined): string | null {
   const basis = ch.okAt === null ? "まだ一度も一覧を取れていないので、どのコードも止めていません（今のまま使えます）。" : `${jstDate(ch.okAt)} に取れた一覧で判断しています（次に取れるまで、今の状態のままです）。`;
   return ch.result === "offline" ? `提供元が止めたコードの一覧を ${at} に確かめに行きましたが、つながりませんでした。${basis}` : `${at} に取れた一覧は、正しい形・署名ではなかったので使っていません。${basis}`;
 }
+
+/**
+ * AIからの候補の届いた日時の文（文の中の形。端末の時刻で。「2026年11月21日 14:05」）。届いた日時は UTC の文字で届くので、時差を直して出す
+ * （同じ画面のほかの AI の候補と同じ。0241 の追記）。日時として読めない文字は、今までと同じく書いてある文字のまま
+ */
+export const receivedAtText = (at: string): string => (isDateTimeText(at) ? proseDateTime(at) : proseDateTimeWritten(at));
 
 /** AIからの候補の、入れる前と後の1行（「合算BS: 使えない → 使える」） */
 export function candidateChange(c: FeatureCandidateView): { feature: string; before: boolean; after: boolean }[] {
