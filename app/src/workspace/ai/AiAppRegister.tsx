@@ -163,14 +163,14 @@ export function AiAppRegister({ ai, initial = null }: { ai: AiHost; /** 最初�
                     {rowStateText(a)}
                   </span>
                   {b.register !== null ? (
-                    <button type="button" class="btn primary" disabled={!b.canRegister || problem !== null || busy} onClick={() => void run(a, () => register(a.client), afterRegister, errorText)} data-ai-app-register>
+                    <button type="button" class="btn small primary" disabled={!b.canRegister || problem !== null || busy} onClick={() => void run(a, () => register(a.client), afterRegister, errorText)} data-ai-app-register>
                       {b.register}
                     </button>
                   ) : null}
                   {b.unregister ? (
                     <button
                       type="button"
-                      class="btn"
+                      class="btn small"
                       disabled={busy}
                       onClick={() =>
                         void run(

@@ -6,14 +6,11 @@
 .hh-h { font-size: 0.95rem; margin: 14px 0 6px; }
 .hh-list td { vertical-align: middle; }
 .hh-new { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
-.hh-new .btn { padding: 6px 14px; }
 .hh-warn { color: var(--short-ink); font-weight: 700; margin: 4px 0 8px; }
 .hh-err { display: block; color: var(--short-ink); font-weight: 700; font-size: 0.85rem; }
 .hh-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 12px; margin: 4px 0 6px; }
-.hh-unsaved .btn.primary { padding: 6px 16px; }
 .hh-delete { max-width: 46em; align-items: center; }
 .hh-delete input { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; width: 9em; }
-.hh-delete .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 /* 顧客と見本の切り替え・探す・絞り込み・区分の設定・見本の棚（0033） */
 .hh-tabs { margin: 2px 0 6px; border-bottom: 1px solid var(--line-2); }
 .hh-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 4px 0 8px; font-size: 0.88rem; }
@@ -31,13 +28,11 @@
 .hh-make-sample { max-width: 52em; align-items: center; }
 .hh-fictional { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
 .hh-fictional input { width: 16px; height: 16px; }
-.hh-make-sample .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .hh-cats { max-width: 40em; }
 .hh-cat-list input { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; }
 .hh-shelf-note { margin: 4px 0 8px; }
 /* 見本を開いているときの帯（動かしても見本は変わらない） */
 .sample-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px dashed var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
-.sample-band .btn { padding: 4px 14px; }
 .hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }
 
 /* 復元キーの中央のパネル */
@@ -57,7 +52,6 @@ html.big .rk-key { font-size: 1.45rem; }
 .rk-ack { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 8px 0; }
 .rk-ack label { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
 .rk-ack input { width: 18px; height: 18px; }
-.rk-ack .btn:disabled, .rk-test .btn:disabled, .rk-later .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .rk-test { border-top: 1px solid var(--line-2); margin-top: 12px; }
 .rk-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .rk-row input { flex: 1 1 320px; border: 1.5px solid var(--field); border-radius: 6px; padding: 6px 8px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
@@ -72,7 +66,6 @@ html.big .rk-key { font-size: 1.45rem; }
 .of-panel { width: min(860px, calc(100vw - 32px)); }
 .of-name { display: grid; gap: 4px; margin: 10px 0; font-weight: 700; }
 .of-name input { max-width: 16em; border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; font-weight: 400; }
-.of-panel .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .of-fp { font-size: 1.6rem; letter-spacing: 0.12em; }
 .of-code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; background: var(--prop-bg); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
 .of-requests { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
@@ -88,21 +81,18 @@ html.big .rk-key { font-size: 1.45rem; }
 .of-recover { margin: 14px 0 4px; }
 .of-recover summary { cursor: pointer; font-weight: 700; }
 .of-key-input { max-width: 34em !important; width: 100%; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
-.link-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .of-notes { margin: 4px 0; padding-left: 1.2em; font-size: 0.86rem; color: var(--ink-2); }
 .of-notes li { margin: 3px 0; }
 
 /* 開いている人の帯（世帯を開いたとき） */
 .presence-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
 .presence-band b { color: var(--est-ink); }
-.presence-band .btn { padding: 4px 14px; }
 
-/* 分岐を選ぶ画面 */
+/* 分岐を選ぶ画面。選ぶための大きなボタンは中身が2行（名前と説明）なので、余白だけ別にする（ボタンの大きさ2つの外に置くのはここだけ。0240） */
 .fork-choices { display: grid; gap: 8px; margin: 10px 0; }
 .fork-choices .btn { display: grid; justify-items: start; gap: 2px; text-align: left; padding: 10px 14px; }
 .fork-choices .btn span { font-size: 0.82rem; color: var(--ink-2); font-weight: 400; }
 .fork-choices .btn.primary span { color: inherit; opacity: 0.9; }
-.fork-panel .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* メモの書いた人 */
 .memo-authors { list-style: none; padding: 0; margin: 8px 0 0; font-size: 0.8rem; color: var(--ink-2); display: grid; gap: 2px; }
@@ -138,4 +128,3 @@ html.big .rk-key { font-size: 1.45rem; }
 .os-brand-notes { margin: 6px 0; padding: 6px 10px 6px 26px; border-radius: 8px; background: var(--est-bg); color: var(--est-ink); font-size: 0.86rem; }
 .os-brand-notes.bad { background: var(--short-bg); color: var(--short-ink); font-weight: 700; }
 .os-in .os-brand-name { width: 16em; max-width: 100%; text-align: left; }
-[data-office-branding] .btn:disabled { opacity: 0.45; cursor: not-allowed; }

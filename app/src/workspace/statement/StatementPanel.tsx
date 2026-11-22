@@ -230,19 +230,19 @@ function AccountsStep({ wh, log, onLog, onNext }: { wh: WorkingHousehold; log: S
                       {removing === a.id ? (
                         <>
                           <small>{n > 0 ? `取り込んだ明細 ${n}件もいっしょに外します。` : ""}</small>
-                          <button type="button" class="btn sm danger" onClick={() => onLog(removeAccount(log, a.id))}>
+                          <button type="button" class="btn small danger" onClick={() => onLog(removeAccount(log, a.id))}>
                             外す
                           </button>
-                          <button type="button" class="btn sm" onClick={() => setRemoving(null)}>
+                          <button type="button" class="btn small" onClick={() => setRemoving(null)}>
                             やめる
                           </button>
                         </>
                       ) : (
                         <>
-                          <button type="button" class="btn sm" onClick={() => setEditing(a.id)}>
+                          <button type="button" class="btn small" onClick={() => setEditing(a.id)}>
                             直す
                           </button>
-                          <button type="button" class="btn sm" onClick={() => setRemoving(a.id)}>
+                          <button type="button" class="btn small" onClick={() => setRemoving(a.id)}>
                             外す
                           </button>
                         </>
@@ -626,7 +626,7 @@ function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, o
           {showMap ? (
             <MappingEditor out={out} busy={busy} onMapping={(m) => void remap(m)} />
           ) : (
-            <button type="button" class="btn sm" onClick={() => setShowMap(true)} data-statement-show-mapping>
+            <button type="button" class="btn small" onClick={() => setShowMap(true)} data-statement-show-mapping>
               列の対応付けを見る・選び直す
             </button>
           )}
@@ -636,7 +636,7 @@ function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, o
               <ImageCheck items={reading.items.map((it) => ({ bytes: it.bytes, out: it.out, rows: it.rows ?? [], ...(it.totalMarked === true ? { totalMarked: true } : {}) }))} index={reading.index} kind={reading.kind} busy={busy} onIndex={(i) => setReading({ ...reading, index: i })} onRows={setRows} />
               {reading.items.length > 1 ? (
                 <div class="rp-actions">
-                  <button type="button" class="btn sm" disabled={busy} onClick={() => dropItem(reading.index)} data-statement-image-drop>
+                  <button type="button" class="btn small" disabled={busy} onClick={() => dropItem(reading.index)} data-statement-image-drop>
                     この画像（{reading.index + 1}枚目）を外す
                   </button>
                 </div>
@@ -718,15 +718,15 @@ function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, o
                   <td>
                     {removing === i.id ? (
                       <>
-                        <button type="button" class="btn sm danger" onClick={() => onLog(removeImport(log, i.id))}>
+                        <button type="button" class="btn small danger" onClick={() => onLog(removeImport(log, i.id))}>
                           外す
                         </button>
-                        <button type="button" class="btn sm" onClick={() => setRemoving(null)}>
+                        <button type="button" class="btn small" onClick={() => setRemoving(null)}>
                           やめる
                         </button>
                       </>
                     ) : (
-                      <button type="button" class="btn sm" onClick={() => setRemoving(i.id)}>
+                      <button type="button" class="btn small" onClick={() => setRemoving(i.id)}>
                         外す
                       </button>
                     )}
@@ -842,7 +842,7 @@ function ReviewCard({ item, label, owners, onDecide }: { item: ReviewItem; label
           <label>
             <input type="number" min={1} max={100} value={custom} onInput={(e) => setCustom((e.currentTarget as HTMLInputElement).value)} aria-label="割合（％）" />%
           </label>
-          <button type="button" class="btn sm" disabled={cs === null} onClick={() => cs !== null && onDecide({ bucket: "business", share: cs })}>
+          <button type="button" class="btn small" disabled={cs === null} onClick={() => cs !== null && onDecide({ bucket: "business", share: cs })}>
             決める
           </button>
         </div>
@@ -1186,7 +1186,7 @@ function ReviewStep({ wh, log, an, office, host, customerNo, onLog, onLearn, onN
                 {"key" in r.match ? `店「${r.match.key}」` : `項目「${categoryShort(r.match.category)}」`} → {BUCKET_BUTTONS[r.bucket]}
                 {r.bucket === "business" && r.share !== undefined ? ` ${percentText(r.share)}` : ""}
                 {r.owner !== undefined ? `（${ownerName.get(r.owner) ?? ""}の行）` : ""}
-                <button type="button" class="btn sm" onClick={() => onLog(removeRule(log, r.id))}>
+                <button type="button" class="btn small" onClick={() => onLog(removeRule(log, r.id))}>
                   外す
                 </button>
               </li>
@@ -1224,7 +1224,7 @@ function ReviewStep({ wh, log, an, office, host, customerNo, onLog, onLearn, onN
           ) : null}
           <button
             type="button"
-            class="btn sm"
+            class="btn small"
             disabled={rule.bucket === "business" && ruleShare === null}
             onClick={() => onLog(putRule(log, { match: { category: rule.category }, ...(rule.owner !== "" ? { owner: rule.owner } : {}), bucket: rule.bucket, ...(rule.bucket === "business" && ruleShare !== null ? { share: ruleShare } : {}) }, newId(), approvalTime()))}
             data-statement-rule-add
@@ -1254,7 +1254,7 @@ function ReviewStep({ wh, log, an, office, host, customerNo, onLog, onLearn, onN
                       {r.share !== undefined ? ` ${percentText(r.share)}` : ""}
                     </td>
                     <td>
-                      <button type="button" class="btn sm" onClick={() => apply([{ importId: r.importId, rowId: r.row.id, category: null, bucket: null, share: null, owner: null }])}>
+                      <button type="button" class="btn small" onClick={() => apply([{ importId: r.importId, rowId: r.row.id, category: null, bucket: null, share: null, owner: null }])}>
                         取り消す
                       </button>
                     </td>

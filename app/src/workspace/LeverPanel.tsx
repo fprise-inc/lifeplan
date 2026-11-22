@@ -173,15 +173,15 @@ export function LeverCard(p: LeverCardProps) {
           </button>
         ) : null}
         <span class="lv-gap" />
-        <button type="button" class="btn" disabled={!p.modified} onClick={p.onReset} title="保存していない変更を全部取り消し、保存した状態に戻します（1つずつ戻すのは上部の ↶）" data-plan-reset>
+        <button type="button" class="btn small" disabled={!p.modified} onClick={p.onReset} title="保存していない変更を全部取り消し、保存した状態に戻します（1つずつ戻すのは上部の ↶）" data-plan-reset>
           変更を取り消す
         </button>
-        <button type="button" class="btn" disabled={!p.modified || p.onOverwrite === null} onClick={() => p.onOverwrite?.()} data-plan-overwrite>
+        <button type="button" class="btn small" disabled={!p.modified || p.onOverwrite === null} onClick={() => p.onOverwrite?.()} data-plan-overwrite>
           上書き保存
         </button>
         <button
           type="button"
-          class="btn primary"
+          class="btn small primary"
           disabled={!p.modified || locked}
           onClick={() => {
             setName(p.suggested);
@@ -241,10 +241,10 @@ export function LeverCard(p: LeverCardProps) {
             <input type="text" value={name} onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)} />
           </label>
           <span class="sf-note">元の{p.selected}は保存した内容のまま残します</span>
-          <button type="submit" class="btn primary">
+          <button type="submit" class="btn small primary">
             保存
           </button>
-          <button type="button" class="btn" onClick={() => setSaving(false)}>
+          <button type="button" class="btn small" onClick={() => setSaving(false)}>
             キャンセル
           </button>
         </form>

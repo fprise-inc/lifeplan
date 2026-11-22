@@ -3063,7 +3063,7 @@ export function App() {
             <span>
               <b>{presenceText(presence, undefined, officeStatus?.usage === "personal")}</b>。見ることはできます。同時に直すと分岐になり、どちらを残すか選ぶことになります。
             </span>
-            <button type="button" class="btn" onClick={startEditing} data-start-editing>
+            <button type="button" class="btn small" onClick={startEditing} data-start-editing>
               編集を始める
             </button>
             <span class="pl-sub">編集を始めるまで、この画面の変更は保存しません</span>
@@ -3079,7 +3079,7 @@ export function App() {
             </span>
             {storeStatus?.state === "ready" && storeUnavailable === null ? (
               <>
-                <button type="button" class="btn" onClick={() => void guard(() => persistCurrent(defaultCategory(categories)))} {...(sampleItem.kind === "app" ? { title: APP_SAMPLE_MEMO_TEXT } : {})} data-band-customer>
+                <button type="button" class="btn small" onClick={() => void guard(() => persistCurrent(defaultCategory(categories)))} {...(sampleItem.kind === "app" ? { title: APP_SAMPLE_MEMO_TEXT } : {})} data-band-customer>
                   この見本をもとに顧客を作る
                 </button>
                 {sampleMode !== "edit" ? (
