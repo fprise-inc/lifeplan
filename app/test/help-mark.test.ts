@@ -215,7 +215,8 @@ describe("状態の印は文字だけ（枠・地の色なし。0077 の追記�
     expect(rule(".ih-st")).toMatch(/border: 0;/);
     expect(rule(".ih-st")).toMatch(/background: none;/);
     expect(rule(".ih-st")).toMatch(/padding: 0;/);
-    expect(rule(".ih-st.done")).toBe(" color: var(--prop); ");
+    // 入力済みは緑（藍は主の操作・選んでいる状態の色。0242）
+    expect(rule(".ih-st.done")).toBe(" color: var(--good); ");
     expect(rule(".ih-st.est")).toBe(" color: var(--est-ink); ");
     expect(rule(".ih-st.missing")).toBe(" color: var(--short-ink); ");
     expect(rule(".ih-st.na")).toBe(" color: var(--base-ink); ");

@@ -657,10 +657,11 @@ html.big .lever input[type="range"] { height: 36px; }
 .level-switch.mini { border-width: 1.5px; border-radius: 6px; flex: none; }
 .level-switch.mini button { padding: 1px 9px; font-size: 0.78rem; flex: none; }
 .ih-prog-bar i { flex: 1; border-radius: 3px; border: 1.5px solid var(--prop); background: var(--card); }
-.ih-prog-bar i.done { background: var(--prop); }
+/* 入力済みは緑（ほかの画面の「済」と同じ。藍は主の操作・選んでいる状態の色。0242） */
+.ih-prog-bar i.done { background: var(--good); border-color: var(--good); }
 .ih-prog-bar i.est { background: var(--est-band); border-color: var(--est); }
 .ih-prog-bar i.missing { border: 2px solid var(--short); background: var(--short-bg); }
-.ih-prog-bar i.empty { border: 2px dashed var(--field); background: var(--card); }
+.ih-prog-bar i.empty { border: 1.5px solid var(--line); background: var(--card); }
 .ih-prog-bar i.na { border-color: var(--base); background: var(--base-bg); }
 .ih-prog-bar i.std { border-color: var(--line-2); background: var(--line-2); }
 .ih-group + .ih-group { margin-top: 22px; }
@@ -704,7 +705,8 @@ html.big .ih-ill { aspect-ratio: 2 / 1; }
 .ih-body > .ih-st { justify-self: start; margin-top: 4px; white-space: normal; }
 /* 推定で計算中の札（吹き出しつき）: 開くボタンの外だが、ボタンの中の札と同じ所・同じ大きさに見せる */
 .ih-est-tip { position: relative; padding: 0 16px 20px; margin-top: -16px; }
-@media (min-width: 1340px) { html:not(.big) .ih-est-tip { padding-left: 14px; padding-right: 14px; } }
+/* 広い画面（5列）では、印と案内の文の左端を名前・数字と同じ位置に */
+@media (min-width: 1340px) { html:not(.big) .ih-est-tip, html:not(.big) .ih-hint { padding-left: 14px; padding-right: 14px; } }
 .ih-est-tip .help-btn.help-mark.ih-st { font-size: 0.8rem; padding: 0; white-space: normal; }
 .ih-est-list { margin: 0; padding-left: 1.1em; }
 .ih-band { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; }
@@ -715,21 +717,43 @@ html.big .ih-ill { aspect-ratio: 2 / 1; }
 /* 推定あり: 薄いオレンジの帯（斜線は使わない）＋イラストにごく薄く色 */
 .ih-card.s-est .ih-ill { background: color-mix(in srgb, var(--c) 6%, var(--card)); }
 .ih-card.s-est .ih-band { background: var(--est-band); }
-/* 未入力（0円の所あり）: 赤の点線の枠。イラストは色を抜く（名前の文字は濃いまま） */
-.ih-card.s-missing { border: 2px dashed var(--short); box-shadow: none; background: var(--wash, #fcfcfd); }
-.ih-card.s-missing .ih-ill { background: transparent; }
-.ih-card.s-missing .ih-ill img { filter: grayscale(1); opacity: 0.5; }
-.ih-card.s-missing .ih-band { display: none; }
-/* まだ入れていない: 点線の枠と灰色の絵は未入力と同じ、色は赤でなく灰色 */
-.ih-card.s-empty { border: 2px dashed var(--field); box-shadow: none; background: var(--wash, #fcfcfd); }
-.ih-card.s-empty .ih-ill { background: transparent; }
-.ih-card.s-empty .ih-ill img { filter: grayscale(1); opacity: 0.5; }
-.ih-card.s-empty .ih-band { display: none; }
+/* 未入力（0円の所あり）・まだ入れていない: 枠・地・影はほかの入力項目と同じ（点線の枠はやめた。0242）。絵の所を灰色の地にして、絵は色を抜いて薄く
+   （名前の文字は濃いまま）。下の帯は出さない */
+.ih-card.s-missing .ih-ill, .ih-card.s-empty .ih-ill { background: var(--base-bg); }
+.ih-card.s-missing .ih-ill img, .ih-card.s-empty .ih-ill img { filter: grayscale(1); opacity: 0.45; }
+.ih-card.s-missing .ih-band, .ih-card.s-empty .ih-band { display: none; }
+/* 未入力（0円の所あり）だけ、絵の左上に小さな印「未入力」（状態の行の代わり。右上はプランで直した所の数 .plan-count.on-card の場所なので左に置く）。
+   まだ入れていない入力項目には付けない（灰色の絵と「まだ入っていません」の文だけ） */
+.ih-miss { position: absolute; top: 10px; left: 10px; z-index: 2; padding: 1px 10px; border: 1.5px solid var(--short); border-radius: 6px; background: var(--short-bg); color: var(--short-ink); font-size: 0.8rem; font-weight: 700; line-height: 1.5; white-space: nowrap; }
 /* 当てはまらない: 灰の実線の枠と灰の帯。イラストは薄く */
 .ih-card.s-na { border: 1.5px solid var(--line); box-shadow: none; background: var(--base-bg); }
 .ih-card.s-na .ih-ill { background: transparent; }
 .ih-card.s-na .ih-ill img { filter: grayscale(1); opacity: 0.35; }
 .ih-card.s-na .ih-band { background: var(--base); height: 4px; }
+/* 状態の行を、横に並んだ入力項目どうしで同じ高さに（0242）: 入力項目を2段（1段目＝絵・名前・数字・状態の行、2段目＝案内の文と1押し）にして、
+   段の高さを横の並びで共有する（subgrid）。状態の行は1段目の下端に置くので、数字と状態の行の間が空く入力項目がある。段の高さは中身で決まる
+   （ボタンや文の高さを数字で持たない）。案内の無い並びでは2段目の高さは 0。subgrid か :has() を知らない環境では、上の今までの並び（そろえないだけ）のまま */
+@supports (grid-template-rows: subgrid) and selector(:has(*)) {
+  .ih-cards > .ih-card { grid-row: span 2; }
+  .ih-cards > .ih-card:not(.ih-find) { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: subgrid; row-gap: 0; min-height: 0; }
+  /* 開くボタンは1段目だけなので、押せる所を入力項目の全体に広げる（案内の無い入力項目の2段目の空きや下の帯を押しても開く）。
+     広げた所は入力項目の枠に合わせるので、ボタンは position を持たない（絵の上の印の位置は、枠の内側の左上・右上で今までと同じ） */
+  .ih-card > .ih-open { grid-area: 1 / 1; position: static; }
+  .ih-card > .ih-open::after { content: ""; position: absolute; inset: 0; }
+  .ih-card > .ih-band { pointer-events: none; }
+  .ih-card .ih-body { display: flex; flex-direction: column; padding-bottom: 11px; }
+  .ih-card .ih-body > .ih-st { align-self: flex-start; margin-top: auto; padding-top: 4px; }
+  /* 推定で計算中の印（開くボタンの外）: 1段目の下端に重ねて、ボタンの中の状態の行と同じ位置に置く。印のほかの所は押すと入力項目が開く。
+     印の分の高さ（文字1行＝0.8rem×1.3、上の間 2px＋4px）は、ボタンの中に空けておく */
+  .ih-card > .ih-est-tip { grid-area: 1 / 1; align-self: end; z-index: 1; display: flex; margin-top: 0; padding-bottom: 11px; pointer-events: none; }
+  .ih-card > .ih-est-tip > * { pointer-events: auto; }
+  .ih-card > .ih-est-tip .help-btn.help-mark.ih-st { line-height: 1.3; }
+  .ih-card:has(> .ih-est-tip) .ih-body { padding-bottom: calc(11px + 6px + 1.04rem); }
+  .ih-card > .ih-hint { grid-area: 2 / 1; align-self: start; position: relative; z-index: 1; margin-top: -5px; padding-bottom: 14px; }
+  /* フォーカスの枠: 開くボタンは1段目だけなので、枠は入力項目の側に描いて全体を囲む（絵や下の帯に隠れない） */
+  .ih-card > .ih-open:focus-visible { outline: none; }
+  .ih-card:has(> .ih-open:focus-visible)::after { content: ""; position: absolute; inset: 0; z-index: 3; border-radius: 12px; outline: 3px solid #f0b400; outline-offset: -3px; pointer-events: none; }
+}
 .ih-card.flash { animation: ih-flash 1.4s ease-out; }
 @keyframes ih-flash { 0% { box-shadow: 0 0 0 6px rgba(240, 180, 0, 0.8); } 100% { box-shadow: 0 0 0 0 rgba(240, 180, 0, 0); } }
 @media (prefers-reduced-motion: reduce) { .ih-card, .ih-ill, .ih-ill img { transition: none; } .ih-card.flash { animation: none; } }
@@ -746,11 +770,11 @@ tr.just-added.still > td, tr.just-added.still > th { background-color: rgba(255,
 @media (prefers-reduced-motion: reduce) { .just-added, tr.just-added > td, tr.just-added > th { animation: none; } }
 
 /* 状態の印（✓／!／0／− と文字）。枠も地の色も付けず、丸の印と色の付いた文字だけで見せる（値の状態の印と同じ。0077 の追記）。
-   押せる所の中の印（進み具合の未入力の数）は、カーソルを合わせると文字に下線 */
+   入力済みは緑（0242）。押せる所の中の印（進み具合の未入力の数）は、カーソルを合わせると文字に下線 */
 .ih-st { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 0.82rem; border: 0; border-radius: 0; background: none; padding: 0; white-space: nowrap; line-height: 1.3; text-underline-offset: 2px; }
 .ih-st::before { display: inline-grid; place-items: center; width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.85em; flex: none; box-sizing: border-box; }
-.ih-st.done { color: var(--prop); }
-.ih-st.done::before { content: "✓"; background: var(--prop); color: var(--on-fill); }
+.ih-st.done { color: var(--good); }
+.ih-st.done::before { content: "✓"; background: var(--good); color: var(--on-fill); }
 .ih-st.est { color: var(--est-ink); }
 .ih-st.est::before { content: "!"; background: var(--est); color: var(--on-fill); }
 .ih-st.missing { color: var(--short-ink); }

@@ -26,7 +26,7 @@ import type { FindHit, FindTarget } from "./inputSearch.ts";
 import { inheritanceTaxNote, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
-import { STATUS_TEXT, StatusBadge, statusText } from "./StatusBadge.tsx";
+import { MISSING_MARK, STATUS_TEXT, StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkButtonText, checkSummary } from "./CheckList.tsx";
 import { DocRequests } from "./DocRequests.tsx";
 import { docRequests, type DocRequest } from "./docRequests.ts";
@@ -172,6 +172,8 @@ function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (
         <span class="ih-ill" aria-hidden="true">
           <img src={ILLUSTRATIONS[item.art]} alt="" />
         </span>
+        {/* 未入力（0円の所あり）の印: 絵の左上に重ねる（状態の行の代わり。読み上げは開くボタンの名前の状態の言葉。0242） */}
+        {item.status === "missing" ? <span class="ih-miss">{MISSING_MARK}</span> : null}
         {/* プランで直した所の数: 絵の上に重ねる（カードの高さを変えない） */}
         {diffs !== undefined && diffs.n > 0 ? (
           <span class="plan-count on-card" data-plan-count={diffs.n}>
@@ -194,7 +196,7 @@ function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (
               {s.note}
             </span>
           ) : null}
-          {tip === null ? <StatusBadge item={item} mini /> : null}
+          {tip === null && item.status !== "missing" ? <StatusBadge item={item} mini /> : null}
         </span>
       </button>
       {/* 推定で計算中の札: カーソルを合わせる・キーボードでフォーカスする・押すと、何が推定かの短い一覧（「?」と同じ吹き出しの部品。札の文字と大きさは変えない。

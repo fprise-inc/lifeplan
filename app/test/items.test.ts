@@ -468,10 +468,11 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     expect(html).toContain("入れなくても計算できます（保障は無しで計算中）");
     // 状態は色だけでなく文字でも
     for (const t of ["入力済み", "推定で計算中（1か所）", "該当なし", "まだ入っていません"]) expect(html).toContain(t);
-    // まだ入れていない項目のカードには赤い札を出さない（点線の枠は灰色。s-empty）
+    // まだ入れていない項目のカードには赤い札も印「未入力」も出さない（絵の所が灰色。s-empty。0242）
     expect(html).not.toContain("ih-st missing mini\">未入力（0円の所あり）</span></span></button>");
     expect((html.match(/ih-card s-empty/g) ?? []).length).toBe(10);
     expect(html).not.toContain("ih-card s-missing");
+    expect(html).not.toContain("ih-miss");
   });
 
   it("描画: FP用のメモは画面に出さない", () => {
