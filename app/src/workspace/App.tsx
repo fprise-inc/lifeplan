@@ -3001,7 +3001,7 @@ export function App() {
             : null
         }
         alerts={[...barAlertList.map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] })), ...criticalAlerts]}
-        notices={{ items: centerItems, onRead: readNotices, onFeedback: () => setFeedbackOpen(true), focus: noticeFocus }}
+        notices={{ items: centerItems, onRead: readNotices, focus: noticeFocus, ...(opened === null ? { onFeedback: () => setFeedbackOpen(true) } : {}) }}
         tools={
           opened !== null ? (
             <>

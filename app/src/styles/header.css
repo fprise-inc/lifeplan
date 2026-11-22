@@ -34,19 +34,19 @@
 .tabs button { background: none; border: 0; padding: 6px 10px; font-weight: 700; font-size: 0.92rem; border-bottom: 3px solid transparent; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .tabs button.on { color: var(--ink); border-bottom-color: var(--prop); }
 
-/* 元に戻す・やり直す（↶ ↷）。控えめに、メモのボタンの左に置く */
+/* 元に戻す・やり直す（↶ ↷）。控えめに、メモのボタンの左に置く。色はふつうのボタンと同じ藍の枠・押せないときは灰（0240・0245。大きさは変えない） */
 .undo-btns { display: inline-flex; gap: 4px; flex: none; }
-.undo-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
-.undo-btn:hover:not(:disabled) { border-color: var(--ink); }
-.undo-btn:disabled { color: #b4bbc3; cursor: default; }
+.undo-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--prop); background: var(--card); color: var(--prop-ink); border-radius: 8px; font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
+.undo-btn:hover:not(:disabled) { background: var(--prop-bg); }
+.undo-btn:disabled { background: var(--base-bg); border-color: var(--line); color: var(--field); cursor: not-allowed; }
 
 /* メモの引き出し */
 .memo-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: var(--card); color: var(--ink); border: 1.5px solid currentColor; font-size: 0.78em; padding: 0 0.3em; }
 
 /* FP のメニュー（線のアイコン。↶↷ と同じ大きさ・見た目）。一覧は帯の下に重ねて出す（画面は動かさない） */
 .fpm { position: relative; flex: none; }
-.fpm-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; cursor: pointer; padding: 0; }
-.fpm-btn:hover { border-color: var(--ink); }
+.fpm-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--prop); background: var(--card); color: var(--prop-ink); border-radius: 8px; cursor: pointer; padding: 0; }
+.fpm-btn:hover { background: var(--prop-bg); }
 .fpm-btn[aria-expanded="true"] { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 .fpm-ico { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
 .fpm-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: grid; gap: 4px; margin: 0; padding: 8px; width: max-content; min-width: 20em; max-width: min(30em, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); }
@@ -69,13 +69,15 @@
 
 /* 通知の印（件数つき）と一覧。行動を求める通知（復元キーの保管など）をここにまとめる */
 .bell { position: relative; flex: none; }
-/* ボタンはベルの印だけ（文字は出さない。0087）。FP のメニュー・↶↷ と同じ 34×32。未読の数の丸がつくと横に伸びる */
-.bell-btn { min-width: 34px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 8px; padding: 0 6px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+/* ボタンはベルの印だけ（文字は出さない。0087）。FP のメニュー・↶↷ と同じ 34×32・同じ線の太さ（1.5px。0245）。未読の数の丸がつくと横に伸びる
+   （線を細くしたぶん左右の余白を 0.5px 足し、数の丸つきの幅も前と同じ） */
+.bell-btn { min-width: 34px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1.5px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 8px; padding: 0 6.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .bell-btn[aria-expanded="true"] { background: var(--est-ink); border-color: var(--est-ink); color: var(--on-fill); }
 .bell-ico { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; flex: none; }
 .bell-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: var(--est); color: var(--on-fill); font-size: 0.78em; padding: 0 0.3em; }
-/* お知らせの一覧（workspace/notices/NoticeCenter.tsx。0087）。未読が0件のときのベルは落ち着いた色（数字なし） */
-.bell-btn.quiet { border-color: var(--line); background: var(--card); color: var(--ink-2); }
+/* お知らせの一覧（workspace/notices/NoticeCenter.tsx。0087）。未読が0件のときのベルは、隣の ↶↷・FP のメニューと同じ藍の枠（数字なし。0245） */
+.bell-btn.quiet { border-color: var(--prop); background: var(--card); color: var(--prop-ink); }
+.bell-btn.quiet:hover:not([aria-expanded="true"]) { background: var(--prop-bg); }
 .bell-btn.quiet[aria-expanded="true"] { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 .nc { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(34em, calc(100vw - 32px)); max-height: min(70vh, 640px); overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); padding: 10px 12px 8px; font-size: 0.9rem; }
 .nc .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -89,8 +91,9 @@
 .nc-tabs button:hover { background: var(--prop-bg); }
 .nc-tabs button.on, .nc-tabs button.on:hover { background: var(--prop); color: var(--on-fill); }
 .nc-cats { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 6px; }
+/* 種類の絞り込み（1つ選ぶ）: 選んでいる方は藍の塗り（プランの一覧の印の絞り込みと同じ。0240・0245）。種類に色は付けない */
 .nc-cat-pick { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 1px 10px; font-size: 0.8rem; cursor: pointer; color: var(--ink-2); }
-.nc-cat-pick.on { border-color: var(--ink); color: var(--ink); font-weight: 700; background: var(--base-bg); }
+.nc-cat-pick.on { background: var(--prop); border-color: var(--prop); color: var(--on-fill); font-weight: 700; }
 .nc-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-2); }
 .nc-list li { border-bottom: 1px solid var(--line-2); }
 .nc-item { display: flex; width: 100%; align-items: center; gap: 8px; background: none; border: 0; padding: 8px 6px; text-align: left; cursor: pointer; }
@@ -104,22 +107,18 @@
 .nc-item.read .nc-item-title { font-weight: 400; color: var(--ink-2); }
 .nc-hh { font-size: 0.8rem; color: var(--ink-2); }
 .nc-more { color: var(--ink-2); flex: none; }
-.nc-marks { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-.nc-cat, .nc-urg, .nc-rcpt { display: inline-block; border-radius: 4px; padding: 0 6px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; }
-.c-app.nc-cat { background: var(--prop-bg); color: var(--prop-ink); }
-.c-data.nc-cat { background: var(--good-bg); color: var(--good); }
-.c-household.nc-cat { background: var(--est-bg); color: var(--est-ink); }
-.c-office.nc-cat { background: var(--base-bg); color: var(--base-ink); }
-.nc-cat-pick.c-app::before, .nc-cat-pick.c-data::before, .nc-cat-pick.c-household::before, .nc-cat-pick.c-office::before { content: ""; display: inline-block; width: 0.6em; height: 0.6em; border-radius: 2px; margin-right: 5px; vertical-align: 0.05em; }
-.nc-cat-pick.c-app::before { background: var(--prop); }
-.nc-cat-pick.c-data::before { background: var(--good); }
-.nc-cat-pick.c-household::before { background: var(--est); }
-.nc-cat-pick.c-office::before { background: var(--base); }
+/* 印（0245）: 色は状態にだけ使う。重大＝赤の塗り・要対応＝黄土・参考＝灰の枠・要望に対応＝緑。どれも言葉で書くので、色の差が分かりにくくても読める。
+   種類（ファイナンシア・制度・データ・世帯・事務所）は枠も地も無い灰色の文字で、状態の印の後ろに置く */
+.nc-marks { display: inline-flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; }
+.nc-urg, .nc-rcpt, .nc-todo { display: inline-block; border: 1px solid transparent; border-radius: 4px; padding: 0 6px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+.nc-cat { font-size: 0.78rem; color: var(--ink-2); white-space: nowrap; }
 .u-critical.nc-urg { background: var(--short); color: var(--on-fill); }
-.u-info.nc-urg { background: var(--card); color: var(--ink-2); border: 1px solid var(--line); }
+.nc-todo { background: var(--est-bg); color: var(--est-ink); border-color: var(--est); }
+.u-info.nc-urg { background: var(--card); color: var(--ink-2); border-color: var(--line); }
 .nc-rcpt { background: var(--good); color: var(--on-fill); }
 .nc-date { font-size: 0.78rem; color: var(--ink-2); }
 .nc-empty { color: var(--ink-2); margin: 14px 4px; }
+/* 足元の「要望・不具合を送る」: FP のメニューが出ていないとき（世帯を開いていないとき）だけ（0245） */
 .nc-foot { border-top: 1px solid var(--line-2); margin-top: 6px; padding-top: 6px; text-align: right; }
 .nc-detail { padding: 2px 2px 6px; }
 .nc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

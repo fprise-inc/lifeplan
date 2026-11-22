@@ -1222,7 +1222,6 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 }
 .explain-btn, .set-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; padding: 3px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
 .explain-btn[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); }
-.set-btn { border-color: var(--ink-2); color: var(--ink); }
 .set-btn[aria-expanded="true"] { background: var(--prop); color: var(--on-fill); border-color: var(--prop); }
 .main-legend { gap: 4px 18px; font-size: 0.88rem; margin: 6px 0 0; }
 .main-legend .hint { margin-left: auto; font-weight: 400; color: var(--ink-2); font-size: 0.82rem; }
@@ -1477,8 +1476,8 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .lever.added .fld.is-est .fld-c input[type="text"] { border-style: solid; }
 
 /* ---- グラフを小窓で表示（ChartPip.tsx）: グラフの右上（凡例の行の右端）の小窓のボタンと、アプリの窓の中に固定した小窓（別の窓にはしない） ---- */
-.pip-btn { flex: none; box-sizing: border-box; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--ink-2); color: var(--ink); background: var(--card); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-.pip-btn:hover { border-color: var(--ink); }
+.pip-btn { flex: none; box-sizing: border-box; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.pip-btn:hover { background: var(--prop-bg); }
 .pip-btn:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
 .pip-btn[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); border-color: var(--prop); }
 .pip-i, .pip-btn .pop-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; margin: 0; }

@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { FEEDBACK_FORM } from "../src/generated/distribution.ts";
 import type { StorageNotice } from "../src/engine/host.ts";
 import { barNotices, type BarInputs } from "../src/workspace/header/status.ts";
-import { CATEGORIES, compareVersions, EMPTY_LOCAL, FEED_SCREENS, feedKey, filterItems, householdKey, markRead, parseFeed, readLocal, sortItems, unreadCount, visibleFeed, type CenterItem } from "../src/workspace/notices/center.ts";
+import { CATEGORIES, compareVersions, EMPTY_LOCAL, FEED_SCREENS, feedKey, filterItems, householdKey, markRead, needsAction, parseFeed, readLocal, sortItems, unreadCount, visibleFeed, type CenterItem } from "../src/workspace/notices/center.ts";
+import { fpMenuGroups } from "../src/workspace/header/FpMenu.tsx";
 import { FeedbackPanel } from "../src/workspace/notices/FeedbackPanel.tsx";
 import { NoticeCenter } from "../src/workspace/notices/NoticeCenter.tsx";
 import { addReceipt, feedbackFormUrl, newReceiptCode, osName, RECEIPT_CHARS, RECEIPT_PATTERN, readReceiptInput } from "../src/workspace/notices/receipts.ts";
@@ -196,5 +197,101 @@ describe("画面", () => {
     expect(html).toContain('data-feedback-receipt="R-9MXT"');
     expect(html).toContain("2026/10/29");
     expect(html).toContain("data-feedback-input");
+  });
+});
+
+describe("印は状態にだけ色を使い、要対応と参考を見分ける（0245）", () => {
+  const noop = () => undefined;
+  const action = { label: "保存先", run: noop };
+  const css = readFileSync(join(APP, "src", "styles", "header.css"), "utf8");
+  /** 1行に1つの決まり（セレクタ → 中身） */
+  const rules = css.split("\n").flatMap((l) => {
+    const m = /^\s*([^{}@/][^{}]*?)\s*\{([^{}]*)\}\s*$/.exec(l);
+    return m === null ? [] : [{ selector: m[1] ?? "", body: m[2] ?? "" }];
+  });
+  const body = (selector: string) => rules.filter((r) => r.selector === selector).map((r) => r.body).join(" ");
+  /** 一覧の1行（押すボタンの中身） */
+  const row = (html: string, key: string) => new RegExp(`<button[^>]*data-notice="${key}"[^>]*>([\\s\\S]*?)</button>`).exec(html)?.[1] ?? "";
+
+  it("要対応: 今の状態の知らせ（日付なし）で、開く画面があり、参考でないもの。既読でも付けたまま。配信元のお知らせ（日付つき）には付けない", () => {
+    expect(needsAction(item({ date: null, action }))).toBe(true);
+    expect(needsAction(item({ date: null, action, urgency: "critical" }))).toBe(true);
+    expect(needsAction(item({ date: null, action, read: true }))).toBe(true);
+    expect(needsAction(item({ date: null, action, urgency: "info" }))).toBe(false);
+    expect(needsAction(item({ date: null, action: null }))).toBe(false);
+    expect(needsAction(item({ date: "2026-10-30", action }))).toBe(false);
+  });
+
+  it("一覧: 状態の印（重大・要対応・参考・要望に対応）を言葉で先に、種類は色の無い言葉で後ろに。並びは重大 → 要対応 → 参考 → 配信元のお知らせ", () => {
+    const items = [
+      item({ key: "feed", date: "2026-10-30" }),
+      item({ key: "info", category: "office", urgency: "info", date: null, action }),
+      item({ key: "todo", category: "household", date: null, action }),
+      item({ key: "crit", category: "data", urgency: "critical", date: "2026-10-01" }),
+      item({ key: "rcpt", date: "2026-10-29", receipts: ["R-7K2Q"] }),
+    ];
+    const html = renderToString(h(NoticeCenter, { items, onRead: noop, initialOpen: true }));
+    expect([...html.matchAll(/data-notice="([^"]+)"/g)].map((m) => m[1])).toEqual(["crit", "todo", "info", "feed", "rcpt"]);
+    const todo = row(html, "todo");
+    expect(todo).toContain("data-notice-todo");
+    expect(todo).toContain("要対応");
+    expect(todo.indexOf("data-notice-todo")).toBeLessThan(todo.indexOf('data-notice-category="household"'));
+    expect(row(html, "info")).toContain('data-notice-urgency="info"');
+    expect(row(html, "info")).not.toContain("data-notice-todo");
+    expect(row(html, "crit")).toContain('data-notice-urgency="critical"');
+    expect(row(html, "crit")).not.toContain("data-notice-todo");
+    // 知らせるだけのお知らせ（配信元・ふつう）は状態の印なし（種類と日付だけ）
+    expect(row(html, "feed")).not.toMatch(/data-notice-(todo|urgency)/);
+    expect(row(html, "rcpt")).toContain("あなたの要望に対応しました");
+    // 種類の印に色の名前（c-app など）を付けない
+    expect(html).not.toMatch(/\bc-(app|data|household|office)\b/);
+  });
+
+  it("種類には色を使わない（地・枠・色つきの四角なし。灰色の文字だけ）。色は状態の印だけ", () => {
+    expect(rules.filter((r) => /\.c-(app|data|household|office)\b/.test(r.selector)).map((r) => r.selector)).toEqual([]);
+    expect(rules.filter((r) => /\.nc-cat-pick[^,]*::before/.test(r.selector)).map((r) => r.selector)).toEqual([]);
+    const cat = body(".nc-cat");
+    expect(cat).toContain("color: var(--ink-2)");
+    expect(cat).not.toMatch(/background|border/);
+    // 状態の色: 重大＝赤・要対応＝黄土・参考＝灰・要望に対応＝緑（0240 の色の意味）
+    expect(body(".u-critical.nc-urg")).toContain("background: var(--short)");
+    expect(body(".nc-todo")).toContain("var(--est-bg)");
+    expect(body(".nc-todo")).toContain("border-color: var(--est)");
+    expect(body(".u-info.nc-urg")).toContain("border-color: var(--line)");
+    expect(body(".nc-rcpt")).toContain("background: var(--good)");
+  });
+
+  it("種類の絞り込みで選んでいる方は藍の塗り（1つ選ぶ切り替えの決まり。0240）", () => {
+    const html = renderToString(h(NoticeCenter, { items: [item()], onRead: noop, initialOpen: true }));
+    expect(html).toMatch(/<button[^>]*aria-checked="true"[^>]*class="nc-cat-pick on"[^>]*data-notice-filter="all"/);
+    expect(body(".nc-cat-pick.on")).toContain("background: var(--prop)");
+    expect(body(".nc-cat-pick.on")).toContain("color: var(--on-fill)");
+  });
+
+  it("詳しい中身の「〜を開く」は主のボタン", () => {
+    const src = readFileSync(join(APP, "src", "workspace", "notices", "NoticeCenter.tsx"), "utf8");
+    expect(src).toContain('class="btn primary nc-go"');
+  });
+
+  it("「要望・不具合を送る」は FP のメニューに一本化。一覧の足元には、FP のメニューが出ていないとき（世帯を開いていないとき）だけ出す", () => {
+    const withoutEntry = renderToString(h(NoticeCenter, { items: [item()], onRead: noop, initialOpen: true }));
+    expect(withoutEntry).not.toContain("data-notice-feedback");
+    expect(withoutEntry).not.toContain("要望・不具合を送る");
+    expect(renderToString(h(NoticeCenter, { items: [], onRead: noop, onFeedback: noop, initialOpen: true }))).toContain("data-notice-feedback");
+    // FP のメニューには、いつも「ファイナンシアへ」の「要望・不具合を送る」がある
+    const groups = fpMenuGroups({ snapshots: 0, review: null, imports: null, office: null });
+    expect(groups.find((g) => g.id === "feedback")?.items.map((i) => [i.action, i.label])).toEqual([["feedback", "要望・不具合を送る"]]);
+    // 画面は、FP のメニューを出していない（世帯を開いていない）ときだけ足元の入口を渡す
+    const app = readFileSync(join(APP, "src", "workspace", "App.tsx"), "utf8");
+    expect(app.match(/onFeedback:/g)?.length).toBe(1);
+    expect(app).toContain("...(opened === null ? { onFeedback: () => setFeedbackOpen(true) } : {})");
+    expect(app).toMatch(/tools=\{\s*opened !== null \? \(\s*<>\s*<UndoButtons \/>\s*<FpMenu/);
+  });
+
+  it("ベルの線の太さは、隣の ↶↷・FP のメニューと同じ 1.5px。左右の余白で、数の丸つきの幅を前と同じに", () => {
+    const bell = body(".bell-btn");
+    expect(bell).toContain("border: 1.5px solid var(--est)");
+    expect(bell).toContain("padding: 0 6.5px");
+    for (const selector of [".fpm-btn", ".undo-btn"]) expect(body(selector), selector).toMatch(/border: 1\.5px solid/);
   });
 });

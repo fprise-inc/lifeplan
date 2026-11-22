@@ -1,16 +1,19 @@
 // お知らせの一覧（上の帯のベル。0087）。ボタンはベルの印だけ（名前は aria-label と title）。ベルは常に出し、未読の件数（参考を除く）だけを数字で出す（0件なら数字なし）。
 // 押すと帯の下に一覧を重ねて出す: 「未読」「すべて」の切り替えと種類の絞り込み・「すべて既読にする」。
-// 1件を押すと詳しい中身（何があったか → 何が変わったか → 関係する世帯 → その画面を開くボタン）。開いたものは既読にして一覧に残す
+// 1件を押すと詳しい中身（何があったか → 何が変わったか → 関係する世帯 → その画面を開く主のボタン）。開いたものは既読にして一覧に残す。
+// 印（0245）: 色は状態（重大・要対応・参考・要望に対応）にだけ使い、種類は色の無い言葉で後ろに置く。
+// 「要望・不具合を送る」の入口は、FP のメニューの「ファイナンシアへ」に一本化する。FP のメニューが出ていないとき（世帯を開いていないとき）だけ、
+// 一覧の足元に同じ入口を出す（どの画面でも入口はちょうど1つ。0245）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { listDateWritten, proseDateWritten } from "../../dates.ts";
-import { CATEGORIES, countsAsUnread, filterItems, RECEIPT_MATCH_TEXT, sortItems, unreadCount, URGENCY_LABEL, type CenterItem, type NoticeCategory } from "./center.ts";
+import { CATEGORIES, countsAsUnread, filterItems, NEEDS_ACTION_LABEL, needsAction, RECEIPT_MATCH_TEXT, sortItems, unreadCount, URGENCY_LABEL, type CenterItem, type NoticeCategory } from "./center.ts";
 
 export interface NoticeCenterProps {
   items: readonly CenterItem[];
   /** 既読にする（鍵の並び） */
   onRead: (keys: string[]) => void;
-  /** 「要望・不具合を送る」を開く（無ければ出さない） */
+  /** 「要望・不具合を送る」を開く。FP のメニューが出ていないとき（世帯を開いていないとき）だけ渡す（無ければ足元に出さない。0245） */
   onFeedback?: (() => void) | undefined;
   /** 外から1件を開く（帯の札を押した・画面の確かめ）。n が変わるたびに開き直す */
   focus?: { key: string | null; n: number } | null | undefined;
@@ -20,18 +23,29 @@ export interface NoticeCenterProps {
 
 const catLabel = (c: NoticeCategory) => CATEGORIES.find((x) => x.id === c)?.short ?? c;
 
+/** 印の並び: 状態（重大・要対応・参考・要望に対応。色つきの言葉の印）を先に、種類（色の無い言葉）を後ろに */
 function Marks({ i }: { i: CenterItem }) {
   return (
     <span class="nc-marks">
-      <span class={`nc-cat c-${i.category}`} data-notice-category={i.category}>
-        {catLabel(i.category)}
-      </span>
-      {i.urgency !== "normal" ? (
-        <span class={`nc-urg u-${i.urgency}`} data-notice-urgency={i.urgency}>
-          {URGENCY_LABEL[i.urgency]}
+      {i.urgency === "critical" ? (
+        <span class="nc-urg u-critical" data-notice-urgency="critical">
+          {URGENCY_LABEL.critical}
+        </span>
+      ) : null}
+      {needsAction(i) ? (
+        <span class="nc-todo" data-notice-todo>
+          {NEEDS_ACTION_LABEL}
+        </span>
+      ) : null}
+      {i.urgency === "info" ? (
+        <span class="nc-urg u-info" data-notice-urgency="info">
+          {URGENCY_LABEL.info}
         </span>
       ) : null}
       {i.receipts.length > 0 ? <span class="nc-rcpt">{RECEIPT_MATCH_TEXT}</span> : null}
+      <span class="nc-cat" data-notice-category={i.category}>
+        {catLabel(i.category)}
+      </span>
     </span>
   );
 }
@@ -134,7 +148,7 @@ export function NoticeCenter({ items, onRead, onFeedback, focus, initialOpen = f
               {current.action !== null ? (
                 <button
                   type="button"
-                  class="btn nc-go"
+                  class="btn primary nc-go"
                   onClick={() => {
                     setOpen(false);
                     current.action?.run();
@@ -166,7 +180,7 @@ export function NoticeCenter({ items, onRead, onFeedback, focus, initialOpen = f
               </div>
               <div class="nc-cats" role="radiogroup" aria-label="種類">
                 {[{ id: null, label: "すべての種類" }, ...CATEGORIES.map((c) => ({ id: c.id, label: c.label }))].map((c) => (
-                  <button type="button" key={c.label} role="radio" aria-checked={cat === c.id} class={`nc-cat-pick${cat === c.id ? " on" : ""}${c.id !== null ? ` c-${c.id}` : ""}`} onClick={() => setCat(c.id)} data-notice-filter={c.id ?? "all"}>
+                  <button type="button" key={c.label} role="radio" aria-checked={cat === c.id} class={`nc-cat-pick${cat === c.id ? " on" : ""}`} onClick={() => setCat(c.id)} data-notice-filter={c.id ?? "all"}>
                     {c.label}
                   </button>
                 ))}

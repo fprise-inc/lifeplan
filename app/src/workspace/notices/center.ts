@@ -41,13 +41,20 @@ export interface CenterItem {
 export const countsAsUnread = (i: Pick<CenterItem, "read" | "urgency">) => !i.read && i.urgency !== "info";
 export const unreadCount = (items: readonly Pick<CenterItem, "read" | "urgency">[]) => items.filter(countsAsUnread).length;
 
+/**
+ * 行動が要る知らせ（印「要対応」。0245）: 今の状態の知らせ（日付なし。直すまで一覧に残る）で、開く画面があり、参考でないもの。
+ * 配信元のお知らせ（日付つき）は読むだけなので、開く画面があっても付けない。既読にしても、直すまでは付けたまま
+ */
+export const needsAction = (i: Pick<CenterItem, "date" | "action" | "urgency">) => i.date === null && i.action !== null && i.urgency !== "info";
+export const NEEDS_ACTION_LABEL = "要対応";
+
 /** 一覧の絞り込み: 未読だけ（参考の未読も見せる）／すべて、と種類 */
 export function filterItems<T extends Pick<CenterItem, "read" | "category">>(items: readonly T[], f: { unreadOnly: boolean; category: NoticeCategory | null }): T[] {
   return items.filter((i) => (!f.unreadOnly || !i.read) && (f.category === null || i.category === f.category));
 }
 
 const URGENCY_ORDER: Record<NoticeUrgency, number> = { critical: 0, normal: 1, info: 2 };
-/** 並び: 重大を先に、次に今の状態の知らせ（日付なし）、配信元のお知らせは新しい順。同じなら元の順 */
+/** 並び: 重大を先に、次に今の状態の知らせ（日付なし。要対応が参考より先）、配信元のお知らせは新しい順。同じなら元の順 */
 export function sortItems<T extends Pick<CenterItem, "urgency" | "date">>(items: readonly T[]): T[] {
   return items
     .map((x, k) => ({ x, k }))
