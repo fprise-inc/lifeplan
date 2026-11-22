@@ -67,10 +67,14 @@
 .rd-table th { font-size: 0.8rem; color: var(--ink-2); font-weight: 700; }
 .rd-table td small { color: var(--ink-2); }
 .rd-table td.num { text-align: right; white-space: nowrap; }
-.rd-table td.rd-when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* 短い欄（誰の・受け取った日・大きさ・見た・保存・操作）と見出しは折り返さない。幅が足りないときは書類の名前の欄で吸収する（名前と添え書きは折れてよい。0241） */
+.rd-table th, .rd-table td:not(:first-child) { white-space: nowrap; }
+.rd-table td.rd-when { font-variant-numeric: tabular-nums; }
 .rd-table tr.on td { background: var(--prop-bg); }
 .rd-table .rd-yet { color: var(--ink-2); }
-.rd-table .rd-acts { white-space: nowrap; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.rd-table .rd-acts { white-space: nowrap; display: flex; flex-wrap: nowrap; gap: 4px 10px; align-items: baseline; }
+/* 消す前の確かめの文が出ている間だけ、前と同じく折り返す */
+.rd-table .rd-acts:has(.wr-confirm) { flex-wrap: wrap; }
 .rd-table .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ip-docs { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 6px 18px; border-bottom: 1px solid var(--line-2); background: color-mix(in srgb, var(--c) 6%, var(--card)); flex: none; }
 .ip-docs-h { font-size: 0.82rem; font-weight: 700; color: var(--ink-2); }

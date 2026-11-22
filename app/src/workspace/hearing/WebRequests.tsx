@@ -302,7 +302,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
             <ol>
               {batches.map((b) => (
                 <li key={b.batchId} data-web-batch>
-                  {proseDateTime(b.sentAt)} に送られ、{proseDateTime(b.receivedAt)} に受け取り:{" "}
+                  {listDateTime(b.sentAt)} に送られ、{listDateTime(b.receivedAt)} に受け取り:{" "}
                   {b.documents.map((x) => `${docs.find((d) => d.id === x.id)?.title ?? x.id} ${x.files}`).join("・") || "（受け取れたファイルなし）"}
                   {b.missingFiles > 0 ? `（受け取れなかったファイル ${b.missingFiles}）` : ""}
                 </li>
@@ -326,7 +326,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 return (
                   <div class="wr-file" key={f.fileId}>
                     <span>
-                      {f.mime === "application/pdf" ? "PDF" : "写真"} {n + 1}（{Math.ceil(f.bytes / 1024)}KB{b !== undefined ? `・${proseDateTime(b.receivedAt)} に受け取り` : ""}）
+                      {f.mime === "application/pdf" ? "PDF" : "写真"} {n + 1}（{Math.ceil(f.bytes / 1024)}KB{b !== undefined ? `・${listDateTime(b.receivedAt)} に受け取り` : ""}）
                     </span>
                     {f.viewedAt !== undefined ? <small data-web-doc-viewed>見た</small> : null}
                     {f.savedAt !== undefined ? <small data-web-doc-saved>保存した</small> : null}
@@ -522,8 +522,8 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
               </p>
               {e.received !== undefined || (e.batches ?? []).length > 0 ? (
                 <p class="rp-note wr-got" data-web-got>
-                  {e.received !== undefined ? `答え: ${proseDateTime(e.received.at)} に受け取り（${((n) => (n === null ? "" : `問いの画面 ${n.total}のうち ${n.answered}画面に答えあり`))(answeredScreens(e))}）` : "答え: まだ"}
-                  {docs.length > 0 ? `・書類: ${(e.batches ?? []).length > 0 ? `${(e.batches ?? []).length}回受け取り（最後 ${proseDateTime((e.batches ?? [])[(e.batches ?? []).length - 1]?.receivedAt ?? "")}）` : "まだ"}` : ""}
+                  {e.received !== undefined ? `答え: ${listDateTime(e.received.at)} に受け取り（${((n) => (n === null ? "" : `問いの画面 ${n.total}のうち ${n.answered}画面に答えあり`))(answeredScreens(e))}）` : "答え: まだ"}
+                  {docs.length > 0 ? `・書類: ${(e.batches ?? []).length > 0 ? `${(e.batches ?? []).length}回受け取り（最後 ${listDateTime((e.batches ?? [])[(e.batches ?? []).length - 1]?.receivedAt ?? "")}）` : "まだ"}` : ""}
                   {waitingDocs.length > 0 ? `・書類待ち: ${waitingDocs.map((d) => d.title).join("・")}` : ""}
                 </p>
               ) : null}

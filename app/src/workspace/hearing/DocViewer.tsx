@@ -4,7 +4,7 @@
 // - 開いたファイルに「見た」の印を付ける（世帯ファイルの依頼の記録。0191）
 // - Esc はこの枠だけを閉じる（入力のパネルは閉じない）
 import { useEffect, useRef, useState } from "preact/hooks";
-import { listDate, proseDateTime } from "../../dates.ts";
+import { listDate, listDateTime } from "../../dates.ts";
 import { byDocument, docLabel, sizeText, type ReceivedFile } from "./receivedDocs.ts";
 import type { ReceivedDocsState } from "./ReceivedDocs.tsx";
 import { openPdf, type PdfDoc } from "./pdfPages.ts";
@@ -257,7 +257,7 @@ export function DocViewer({ rd, beside }: { rd: ReceivedDocsState; beside: boole
         ) : null}
       </div>
       <p class="dv-meta" data-dv-meta>
-        {cur.file.mime === "application/pdf" ? "PDF" : "写真"}・{sizeText(cur.file.bytes)}・{proseDateTime(cur.receivedAt)} に受け取り・{cur.file.savedAt !== undefined ? "自分のフォルダに保存済み" : "まだ保存していません"}
+        {cur.file.mime === "application/pdf" ? "PDF" : "写真"}・{sizeText(cur.file.bytes)}・{listDateTime(cur.receivedAt)} に受け取り・{cur.file.savedAt !== undefined ? "自分のフォルダに保存済み" : "まだ保存していません"}
       </p>
       {rd.note !== null ? (
         <p class="dv-meta" role="status">
