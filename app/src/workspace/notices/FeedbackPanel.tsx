@@ -3,6 +3,7 @@
 // フォームが番号の差し込みに対応していないときのために、番号は「写す」で写せる。別の PC で送った番号は手で入れて覚えられる。
 // 下に、この PC のエラーの記録（0234）を出す: 見る・写す（文は本体が記録から作る）・消す。記録はどこにも送らない
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { dateText } from "./center.ts";
 import { localTime, type ErrorLogView } from "./errorLog.ts";
 import { feedbackFormUrl, newReceiptCode, readReceiptInput, type Receipt } from "./receipts.ts";
@@ -46,10 +47,8 @@ export function FeedbackPanel(p: FeedbackPanelProps) {
   const codeEl = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     panel.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  }, []);
+  useEscClose(p.onClose);
   const sent = p.receipts.find((r) => r.code === code);
   const url = feedbackFormUrl(p.template, { code, appVersion: p.appVersion, os: p.os });
   const copy = async () => {
@@ -91,6 +90,7 @@ export function FeedbackPanel(p: FeedbackPanelProps) {
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel fb-panel" role="dialog" aria-modal="true" aria-labelledby="fb-title" tabIndex={-1} data-feedback-panel>
+        <CloseX onClose={p.onClose} what="要望・不具合を送る" />
         <h2 id="fb-title">要望・不具合を送る</h2>
         <p class="pl-sub">
           ファイナンシアへの要望や、不具合の知らせを、ブラウザのフォームから送っていただけます。「フォームを開く」を押すと、下の受付番号をこの PC に覚えて、既定のブラウザでフォームを開きます。このアプリ自身は何も送りません。

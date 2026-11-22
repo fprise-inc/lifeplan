@@ -7,6 +7,7 @@
 // - 30日より長くこの PC を使わなかった間に PC を外していて、同期フォルダの鍵をたどれないとき: 今の復元キーを入れると、合ったときだけ戻る
 // 複数の FP の事務所での共有は「事務所の共有」のパネル（OfficePanel）。こちらは PC の言葉（呼び名）だけを使い、人の名前・指紋・承認は出さない
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { OfficeHost, OfficeStatus, StorageNotice, StoreStatus } from "../../engine/host.ts";
 import { shortDate } from "./HouseholdPanel.tsx";
 import { storageNoticeText, syncMessage } from "./storage.ts";
@@ -45,11 +46,7 @@ export function StoragePanel(p: StoragePanelProps) {
   const st = p.status;
 
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  useEscClose(p.onClose);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -151,6 +148,7 @@ export function StoragePanel(p: StoragePanelProps) {
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel of-panel" role="dialog" aria-modal="true" aria-labelledby="sp-title" tabIndex={-1} data-storage-panel={st === null ? "loading" : st.state === "off" ? "local" : personal ? `sync-${st.state}` : "office"}>
+        <CloseX onClose={p.onClose} what="保存先" />
         <h2 id="sp-title">保存先</h2>
         {st === null ? <p>読み込んでいます…</p> : null}
         {notices.length > 0 && st !== null && st.state !== "off" ? (

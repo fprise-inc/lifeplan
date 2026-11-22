@@ -2,6 +2,7 @@
 // 保存できるプランの数に上限は無い。帯に並べるプランを最大5つ選ぶ。印で絞る・名前と印・現状に反映（確認つき）・外す（確認つき）。
 // プランは世帯ファイルに保存する（保存していない世帯のプランは、アプリを閉じると消える。控えの一覧と同じ言い方で出し分ける）
 import { useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { WorkingHousehold } from "../input/household.ts";
 import { MAX_BAND } from "./band.ts";
 import type { Catalog } from "./items.ts";
@@ -39,6 +40,7 @@ export function PlanList(p: PlanListProps) {
   const allTags = [...new Set(plans.flatMap((x) => x.tags))];
   const rows = plans.filter((x) => tag === null || x.tags.includes(tag));
   const full = p.band.length >= MAX_BAND;
+  useEscClose(p.onClose);
   return (
     <section class="card plan-list-card" aria-labelledby="h-plans" data-plan-list>
       <div class="card-h">
@@ -46,9 +48,7 @@ export function PlanList(p: PlanListProps) {
         <span class="aside">
           帯に並べるプランを {MAX_BAND}つまで選べます（{p.band.length}/{MAX_BAND}）。保存できるプランの数に上限はありません。{p.stored ? "世帯ファイルに保存しています" : "保存していない世帯です。アプリを閉じると消えます"}
         </span>
-        <button type="button" class="btn" onClick={p.onClose}>
-          閉じる
-        </button>
+        <CloseX onClose={p.onClose} what="プランの一覧" />
       </div>
       {allTags.length > 0 ? (
         <div class="tag-filter" role="group" aria-label="印で絞る">

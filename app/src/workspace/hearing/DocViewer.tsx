@@ -4,6 +4,7 @@
 // - 開いたファイルに「見た」の印を付ける（世帯ファイルの依頼の記録。0191）
 // - Esc はこの枠だけを閉じる（入力のパネルは閉じない）
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { byDocument, docLabel, sizeText, type ReceivedFile } from "./receivedDocs.ts";
 import type { ReceivedDocsState } from "./ReceivedDocs.tsx";
 import { openPdf, type PdfDoc } from "./pdfPages.ts";
@@ -153,6 +154,8 @@ export function DocViewer({ rd, beside }: { rd: ReceivedDocsState; beside: boole
   useEffect(() => {
     root.current?.focus({ preventScroll: true });
   }, [id]);
+  // 枠の外にいるときの Esc でも閉じる（横に並ぶ物なので、入力項目のパネルなどが先。枠の中にいるときは、下の onKeyDown がこの枠だけを閉じる）
+  useEscClose(() => rd.view(null), cur !== null, { side: true });
 
   if (cur === null) return null;
   const pages = src?.id === id && src.s.kind === "pdf" ? src.s.pdf.pages : 1;
@@ -217,9 +220,7 @@ export function DocViewer({ rd, beside }: { rd: ReceivedDocsState; beside: boole
         <button type="button" class="btn small" disabled={at < 0 || at >= others.length - 1} onClick={() => step(1)} aria-label="次のファイル" data-dv-next-file>
           ›
         </button>
-        <button type="button" class="dv-close" onClick={() => rd.view(null)} aria-label="書類を閉じる" data-dv-close>
-          ×
-        </button>
+        <CloseX onClose={() => rd.view(null)} what="書類" data-dv-close />
       </div>
       <div class="dv-tools" role="toolbar" aria-label="書類の見え方">
         <button type="button" class="btn small" onClick={() => zoomBy(-1)} aria-label="縮小" data-dv-zoom-out>

@@ -8,6 +8,7 @@
 //   （hearing/issuedUrls.ts）。帯が消えた後の入口は、表の下の「まだ世帯の決まっていない、AI が発行した URL（N件）」のリンク（AiUnassignedLink。
 //   世帯の決まっていない受け付け中の依頼が1件以上のときだけ。AI との接続がオフでも出す。鍵は事務所データにあり、受け取り・取り込みに AI は要らない）
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { HearingWebHost } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { arrivedNow, UNASSIGNED_LIMIT, unassignedAccepting, type AiIssueLog, type OfficeHearing, type PendingWebRequest } from "../hearing/aiHearing.ts";
@@ -115,11 +116,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
   const [, setTick] = useState(0);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
   useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  useEscClose(p.onClose);
   const now = new Date();
   const note = (id: string, text: string) => setMsg((m) => ({ ...m, [id]: text }));
   const run = async (id: string, f: () => Promise<void>) => {
@@ -255,6 +252,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel ai-panel" role="dialog" aria-modal="true" aria-labelledby="ai-hearing-title" tabIndex={-1} data-ai-hearing-panel>
+        <CloseX onClose={p.onClose} what="AI が発行した URL" />
         <h2 id="ai-hearing-title">AI が発行した URL</h2>
         <p class="in-note">
           AI から発行した、Web のヒアリングの URL です。アプリはメールを送りません（URL を送るのは FP です）。要らない URL は「取り消す」でお客さまが開けなくなります。世帯の決まっていない依頼は、答えが届いたら取り込む世帯を選んでください（受け付け中は{UNASSIGNED_LIMIT}件まで。今 {unassigned}件）。

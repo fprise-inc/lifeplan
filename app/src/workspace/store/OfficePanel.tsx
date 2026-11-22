@@ -11,6 +11,7 @@
 // - 名簿の自分の役割が、この版の知らない役割（新しい版のアプリが決めた閲覧だけなど）のときは閲覧だけ。理由を出し、承認・外す・やめるを止める
 // - 1人で2台の PC で使う同期フォルダ（0024）は「保存先」のパネル（StoragePanel）。同期フォルダで使っている間は、ここではその案内だけを出す
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { OfficeHost, OfficeStatus } from "../../engine/host.ts";
 import { shortDate } from "./HouseholdPanel.tsx";
 import { normalizeFingerprint, normalizeOfficeCode, officeMessage, syncShareNotice } from "./office.ts";
@@ -48,11 +49,7 @@ export function OfficePanel(p: OfficePanelProps) {
   const personal = st !== null && st.state !== "off" && st.usage === "personal";
 
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  useEscClose(p.onClose);
   // 承認待ちの間は、名簿に入ったかを時々確かめる
   useEffect(() => {
     if (st?.state !== "pending") return;
@@ -85,6 +82,7 @@ export function OfficePanel(p: OfficePanelProps) {
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel of-panel" role="dialog" aria-modal="true" aria-labelledby="of-title" tabIndex={-1} data-office-panel={st?.state ?? "loading"}>
+        <CloseX onClose={p.onClose} what="事務所の共有" />
         <h2 id="of-title">事務所の共有</h2>
         {st === null ? <p>読み込んでいます…</p> : null}
         {personal ? (
