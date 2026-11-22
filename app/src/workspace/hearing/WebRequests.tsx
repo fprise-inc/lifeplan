@@ -369,11 +369,11 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
             : "お客さまはこの URL を開けなくなります（途中の回答も送れません）。取り消しますか。"}
       </span>
       <span class="wr-ask-acts">
-        <button type="button" class="btn" onClick={() => setClosing(null)} data-web-cancel-no>
-          やめる
-        </button>
         <button type="button" class="btn danger" disabled={busy !== null} onClick={() => void cancel(e)} data-web-cancel-yes>
           {e.received === undefined ? "はい、取り消す" : "はい、受け付けを終える"}
+        </button>
+        <button type="button" class="btn" onClick={() => setClosing(null)} data-web-cancel-no>
+          やめる
         </button>
       </span>
     </div>

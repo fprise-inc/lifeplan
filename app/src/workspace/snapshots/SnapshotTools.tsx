@@ -51,6 +51,10 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mod
     const t = setTimeout(() => setMsg(null), 2600);
     return () => clearTimeout(t);
   }, [msg]);
+  // 一覧を閉じたら、外すかの確かめも閉じる（開き直したときに残さない）
+  useEffect(() => {
+    if (mode !== "list") setRemoving(null);
+  }, [mode]);
 
   const take = async () => {
     setBusy(true);
@@ -152,7 +156,8 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mod
                     <td>{s.plan !== null ? `プラン${s.plan.letter}${s.plan.name !== "" && s.plan.name !== "現状" ? ` ${s.plan.name}` : ""}` : "—"}</td>
                     <td class="snap-ops">
                       {removing === s.id ? (
-                        <>
+                        <span class="snap-confirm" data-snapshot-remove-ask>
+                          この控えを外しますか（元に戻せません）
                           <button
                             type="button"
                             class="link-btn danger"
@@ -164,10 +169,10 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mod
                           >
                             外す
                           </button>
-                          <button type="button" class="link-btn" onClick={() => setRemoving(null)}>
+                          <button type="button" class="link-btn" onClick={() => setRemoving(null)} data-snapshot-remove-cancel>
                             キャンセル
                           </button>
-                        </>
+                        </span>
                       ) : (
                         <button type="button" class="link-btn" onClick={() => setRemoving(s.id)} data-snapshot-remove>
                           外す

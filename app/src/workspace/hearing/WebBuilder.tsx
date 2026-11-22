@@ -412,15 +412,19 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
             ) : null}
             {asking !== null ? (
               <p class="wr-confirm" role="alert" data-web-template-ask>
-                {edited ? "直した項目は、選んだひな形の項目に戻ります。" : ""}
-                {asking.startsWith("t:") ? "書類・独自の質問も、保存した組み合わせのものになります。" : "書類・独自の質問はそのまま残します。"}
-                よろしいですか。
-                <button type="button" class="btn" onClick={() => pickTemplate(asking, true)} data-web-template-yes>
-                  選ぶ
-                </button>
-                <button type="button" class="btn" onClick={() => setAsking(null)}>
-                  やめる
-                </button>
+                <span>
+                  {edited ? "直した項目は、選んだひな形の項目に戻ります。" : ""}
+                  {asking.startsWith("t:") ? "書類・独自の質問も、保存した組み合わせのものになります。" : "書類・独自の質問はそのまま残します。"}
+                  よろしいですか。
+                </span>
+                <span class="wr-confirm-acts">
+                  <button type="button" class="btn small" onClick={() => pickTemplate(asking, true)} data-web-template-yes>
+                    選んだひな形にする
+                  </button>
+                  <button type="button" class="btn small" onClick={() => setAsking(null)} data-web-template-no>
+                    やめる
+                  </button>
+                </span>
               </p>
             ) : null}
             {!confirmAny && filled > 0 && def.sheetId !== "full" ? (

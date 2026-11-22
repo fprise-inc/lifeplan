@@ -441,7 +441,7 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
                       </button>
                     ) : null}
                     <button type="button" class="link-btn" onClick={close} data-office-estimate-cancel>
-                      やめる
+                      キャンセル
                     </button>
                   </p>
                 </div>

@@ -868,14 +868,16 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
             </p>
           ) : null}
           {combinedCode !== null && removing === combinedCode.ref ? (
-            <p class="rp-note" data-feature-remove-confirm>
-              外すと、この区画と合算BS の画面・提案書の章は出なくなります（世帯に入れた会社の数字は消しません。コードを入れ直すと戻ります）。
-              <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void removeCode(combinedCode.ref)}>
-                外す
-              </button>
-              <button type="button" class="link-btn" onClick={() => setRemoving(null)}>
-                やめる
-              </button>
+            <p class="rp-note os-ask" data-feature-remove-confirm>
+              <span>外すと、この区画と合算BS の画面・提案書の章は出なくなります（世帯に入れた会社の数字は消しません。コードを入れ直すと戻ります）。</span>
+              <span class="os-ask-acts">
+                <button type="button" class="link-btn danger" disabled={codeBusy} onClick={() => void removeCode(combinedCode.ref)} data-feature-remove-go>
+                  外す
+                </button>
+                <button type="button" class="link-btn" onClick={() => setRemoving(null)} data-feature-remove-cancel>
+                  やめる
+                </button>
+              </span>
             </p>
           ) : null}
           {combinedCode !== null && renewText(combinedCode) !== null ? (
@@ -1038,8 +1040,9 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
                     setCodeOpen(false);
                     setCodeText("");
                   }}
+                  data-feature-code-cancel
                 >
-                  やめる
+                  キャンセル
                 </button>
               </div>
             </div>
