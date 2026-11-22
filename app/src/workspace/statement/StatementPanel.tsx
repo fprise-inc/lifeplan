@@ -13,6 +13,7 @@ import type { SaveOutcome, StatementHost, StatementOfficeData } from "../../engi
 import { ImageCheck, ShootingTips } from "./ImageCheck.tsx";
 import { prepareImage, rasterizePdf } from "./rasterize.ts";
 import { approvalTime, randomBytes } from "../hearing/sheet.ts";
+import { listDateTimeWritten, listDateWritten } from "../../dates.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
 import {
   accountLabelProblem,
@@ -87,7 +88,7 @@ const STEPS: readonly { id: Step; label: string }[] = [
 
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-const dateText = (d: string) => d.replace(/-/gu, "/");
+const dateText = (d: string) => listDateWritten(d);
 
 interface PanelProps {
   wh: WorkingHousehold;
@@ -968,8 +969,8 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
         <ul class="hs-list st-requests">
           {[...requests].reverse().map((r) => (
             <li key={r.id}>
-              {r.id}: {dateText(r.at.slice(0, 10))} に {requestSize(r).lines}行{requestSize(r).rows !== requestSize(r).lines ? `（明細の ${requestSize(r).rows}行）` : ""}を書き出し
-              {r.received.length > 0 ? `・${dateText((r.received.at(-1)?.at ?? "").slice(0, 10))} に取り込み（${r.received.at(-1)?.decided ?? 0}行）` : "・まだ返っていません"}
+              {r.id}: {dateText(r.at)} に {requestSize(r).lines}行{requestSize(r).rows !== requestSize(r).lines ? `（明細の ${requestSize(r).rows}行）` : ""}を書き出し
+              {r.received.length > 0 ? `・${dateText(r.received.at(-1)?.at ?? "")} に取り込み（${r.received.at(-1)?.decided ?? 0}行）` : "・まだ返っていません"}
             </li>
           ))}
         </ul>
@@ -1404,7 +1405,7 @@ function ResultStep({ wh, log, an, onApprove }: { wh: WorkingHousehold; log: Sta
           <ul class="hs-list">
             {log.applied.map((a) => (
               <li key={a.id}>
-                {a.at.slice(0, 16).replace("T", " ")} に {a.items.length}件を入れました（{dateText(a.basis.from)}〜{dateText(a.basis.to)}、{a.basis.months}か月の明細から）
+                {listDateTimeWritten(a.at)} に {a.items.length}件を入れました（{dateText(a.basis.from)}〜{dateText(a.basis.to)}、{a.basis.months}か月の明細から）
               </li>
             ))}
           </ul>

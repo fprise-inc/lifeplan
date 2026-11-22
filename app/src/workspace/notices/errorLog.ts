@@ -162,11 +162,3 @@ export const PLACE_OF_TAB: Record<string, ErrorPlace> = { input: "入力", main:
 
 /** この PC の時差（分。UTC より進んでいれば正） */
 export const utcOffsetMinutes = (d: Date = new Date()): number => -d.getTimezoneOffset();
-
-/** 画面に出す日時（この PC の時刻。YYYY-MM-DD HH:MM） */
-export function localTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}

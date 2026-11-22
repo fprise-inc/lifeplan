@@ -46,6 +46,7 @@ import {
 } from "../housingFollow.ts";
 import { balanceAtMonth } from "./housingLoans.ts";
 import { addOutside } from "./care.ts";
+import { proseDateWritten } from "../../../dates.ts";
 
 export { creditLifeFields, creditLifeGroups, loanFields };
 
@@ -1361,8 +1362,7 @@ export function exemptionOpen(kind: ExemptionKind, ym: string): boolean {
 export function exemptionDeadline(kind: ExemptionKind): string | null {
   const to = regulationEntries(EXEMPTION_IDS[kind]).filter((r) => typeof r.value === "number" && r.value > 0).at(-1)?.to ?? null;
   if (to === null) return null;
-  const [y, m, d] = to.split("-").map(Number) as [number, number, number];
-  return `${String(y)}年${String(m)}月${String(d)}日`;
+  return proseDateWritten(to);
 }
 
 /** 援助の非課税の選択が、受け取る月（購入の月）に使えないときの知らせ（使えれば null） */

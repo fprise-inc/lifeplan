@@ -8,6 +8,7 @@
 // - 切れた・止めたの知らせ（事務所の既定値の画面と資産と負債のタブの一文）は、分かった日から7日だけ出す。FP が閉じたら、その前でも出さない。
 //   出すかは本体が決め（FeatureCodeView.notice）、画面はそれに従うだけ。知らせが消えてもコードは残り、データも消さない
 import type { FeatureCandidateView, FeatureCheckView, FeatureCodeView, FeatureStatus } from "../../engine/host.ts";
+import { proseDateWritten } from "../../dates.ts";
 
 export type { FeatureCandidateView, FeatureCheckView, FeatureCodeView, FeatureStatus } from "../../engine/host.ts";
 
@@ -44,16 +45,16 @@ export function expiredFor(st: FeatureStatus, f: FeatureId): FeatureCodeView | n
   return gone.filter((c) => c.state === "revoked").sort(laterFirst)[0] ?? gone.sort(laterFirst)[0] ?? null;
 }
 
-/** 期限の書き方（「期限 2027-05-31」「期限なし」） */
-export const expiresLabel = (expires: string | null): string => (expires === null ? "期限なし" : `期限 ${expires}`);
+/** 期限の書き方（「期限 2027年5月31日」「期限なし」） */
+export const expiresLabel = (expires: string | null): string => (expires === null ? "期限なし" : `期限 ${proseDateWritten(expires)}`);
 
-/** 区画に出す1行（「○○さん向けに有効（期限 2027-05-31）」「○○さん向けに有効（期限なし）」） */
+/** 区画に出す1行（「○○さん向けに有効（期限 2027年5月31日）」「○○さん向けに有効（期限なし）」） */
 export const enabledLine = (c: FeatureCodeView): string => `${c.name}さん向けに有効（${expiresLabel(c.expires)}）`;
 
 /** 期限の30日前からの更新の知らせ */
 export function renewText(c: FeatureCodeView): string | null {
   if (c.state !== "expiring" || c.daysLeft === null) return null;
-  const when = c.daysLeft <= 0 ? `期限は今日（${c.expires}）までです。` : `期限まであと${c.daysLeft}日です（${c.expires} まで）。`;
+  const when = c.daysLeft <= 0 ? `期限は今日（${proseDateWritten(c.expires)}）までです。` : `期限まであと${c.daysLeft}日です（${proseDateWritten(c.expires)} まで）。`;
   return `${when}続けて使うときは、提供元から新しいコードを受け取り、この画面のいちばん下の「機能を有効にするコードを入れる」から入れてください（入れ直すまでは今のまま使えます）。`;
 }
 
@@ -63,7 +64,7 @@ const featureNames = (c: { features: readonly string[] }): string => c.features.
 export const expiredText = (c: FeatureCodeView): string =>
   c.state === "revoked"
     ? `${featureNames(c)}のコード（${c.name}さん向け）は、提供元が止めました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。提供元が止めるのをやめると、次に確かめたときに自動で戻ります（コードを入れ直す必要はありません）。分からないときは、コードを受け取った所に問い合わせてください。`
-    : `${featureNames(c)}のコード（${c.name}さん向け）は ${c.expires} で期限が切れました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。新しいコードを入れると、また見られます。`;
+    : `${featureNames(c)}のコード（${c.name}さん向け）は ${proseDateWritten(c.expires)} で期限が切れました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。新しいコードを入れると、また見られます。`;
 
 /** 事務所の既定値の画面で、切れた・止めたの知らせに添える一言 */
 export const NOTICE_FADE_TEXT = "この知らせは7日たつと消えます。";
@@ -75,17 +76,17 @@ export const noticeCodes = (st: FeatureStatus): FeatureCodeView[] => st.codes.fi
 export const combinedHiddenText = (c: FeatureCodeView): string =>
   c.state === "revoked"
     ? "この世帯には会社の数字（合算BS）が入っています。合算BS のコードを提供元が止めたため、今は見られません。データは消していません。提供元が止めるのをやめると、自動で戻ります（世帯の一覧の「事務所の既定値」のいちばん下に知らせが出ています）。"
-    : `この世帯には会社の数字（合算BS）が入っています。合算BS のコードの期限（${c.expires}）が切れたため、今は見られません。データは消していません。新しいコードを入れると、また見られます（世帯の一覧の「事務所の既定値」のいちばん下から）。`;
+    : `この世帯には会社の数字（合算BS）が入っています。合算BS のコードの期限（${proseDateWritten(c.expires)}）が切れたため、今は見られません。データは消していません。新しいコードを入れると、また見られます（世帯の一覧の「事務所の既定値」のいちばん下から）。`;
 
-/** 日時（UTC の ISO）を日本の日付にする */
+/** 日時（UTC の ISO）を日本の日付の文にする（端末の時刻ではなく、日本の日付で） */
 const jstDate = (iso: string): string => {
   const t = Date.parse(iso);
-  return Number.isNaN(t) ? iso.slice(0, 10) : new Date(t + 9 * 3600_000).toISOString().slice(0, 10);
+  return proseDateWritten(Number.isNaN(t) ? iso.slice(0, 10) : new Date(t + 9 * 3600_000).toISOString().slice(0, 10));
 };
 
 /**
  * 止めた一覧の確かめの様子（事務所の既定値のいちばん下。コードを入れている FP にだけ出す）。
- * 例: 「提供元が止めたコードの一覧は 2026-11-01 に確かめました。」「…つながらなかったので、2026-10-30 に取れた一覧で判断しています。」
+ * 例: 「提供元が止めたコードの一覧は 2026年11月1日 に確かめました。」「…つながらなかったので、2026年10月30日 に取れた一覧で判断しています。」
  */
 export function checkText(ch: FeatureCheckView | undefined): string | null {
   if (ch === undefined) return null;

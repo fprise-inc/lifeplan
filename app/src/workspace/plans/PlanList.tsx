@@ -3,6 +3,7 @@
 // プランは世帯ファイルに保存する（保存していない世帯のプランは、アプリを閉じると消える。控えの一覧と同じ言い方で出し分ける）
 import { useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
+import { listDateTimeWritten } from "../../dates.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { MAX_BAND } from "./band.ts";
 import type { Catalog } from "./items.ts";
@@ -25,11 +26,6 @@ export interface PlanListProps {
   /** 保存している世帯か（見本・保存していない世帯のプランは、アプリを閉じると消える） */
   stored: boolean;
 }
-
-const dateText = (iso: string) => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
-  return m === null ? iso : `${Number(m[1])}/${Number(m[2])}/${Number(m[3])} ${m[4]}:${m[5]}`;
-};
 
 export function PlanList(p: PlanListProps) {
   const { wh, catalog: cat } = p;
@@ -122,7 +118,7 @@ export function PlanList(p: PlanListProps) {
                         </>
                       )}
                     </td>
-                    <td class="num">{dateText(x.createdAt)}</td>
+                    <td class="num">{listDateTimeWritten(x.createdAt)}</td>
                     <td class="pl-ops">
                       {confirm?.id === x.id ? (
                         <span class="pl-confirm">

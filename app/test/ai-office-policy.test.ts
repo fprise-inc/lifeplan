@@ -113,7 +113,7 @@ describe("事務所の設定のプライバシーポリシーの確かめ（0226
     expect(off).toContain("まだ確かめていません。");
     expect(off).toContain("お客さまが「同意しない」と答えた世帯と、同意を撤回した世帯は、確かめた後も渡せません。");
     const on = connector(status({ privacyPolicyConfirmedAt: "2026-11-18T01:00:00Z" }));
-    expect(on).toMatch(/確かめた日時: 2026\/11\/18 \d\d:00/);
+    expect(on).toMatch(/確かめた日時: 2026年11月18日 \d\d:00/);
     // 新しく足した区画（見出しから共有中の世帯の前まで）の言葉
     const section = on.slice(on.indexOf("<h3>事務所のプライバシーポリシー</h3>"), on.indexOf("<h3>共有中の世帯</h3>"));
     expect(section).not.toContain("接続口");

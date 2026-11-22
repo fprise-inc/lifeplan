@@ -96,7 +96,8 @@ describe("控え（0009 の2）", () => {
     const html = renderToString(h(SnapshotTools, { list: [a, b], stored: true, onTake: async () => undefined, onRemove: noop, initialOpen: true }));
     expect(html).toContain("この時点を残す");
     expect(html).toContain("控えの一覧（2件）");
-    expect(html).toContain("2026年10月19日 14:03");
+    expect(html).toContain("2026/10/19 14:03");
+    expect(html).toContain("2026/11/02 09:30");
     expect(html).toContain("PDF書き出し");
     expect(html).toContain("手動");
     expect(html).toContain("2回目の面談");

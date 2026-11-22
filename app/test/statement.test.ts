@@ -50,6 +50,7 @@ import {
 import { bodyOf, EMPTY_CARRY, fromBody } from "../src/workspace/store/body.ts";
 import { editXlsx, setCell, text as utf8, unzip } from "../../xlsx/test/helpers.ts";
 import { APP_DIR, REPO_DIR } from "../scripts/lib.ts";
+import { proseDateWritten } from "../src/dates.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const FIX = join(REPO_DIR, "statement", "test", "fixtures");
@@ -173,7 +174,7 @@ describe("明細を読んで取り込む", () => {
     const span = { from: dates[0]!, to: dates.at(-1)! };
     const next = (d: string, k: number) => new Date(Date.parse(`${d}T00:00:00Z`) + k * 86400000).toISOString().slice(0, 10);
     const narrow = { from: next(span.from, 1), to: span.to };
-    expect(periodProblem(narrow, span)).toContain(`${span.from.replace(/-/g, "/")}`);
+    expect(periodProblem(narrow, span)).toContain(`最初（${proseDateWritten(span.from)}）から最後（${proseDateWritten(span.to)}）まで`);
     expect(periodProblem({ from: span.from, to: next(span.to, -1) }, span)).not.toBeNull();
     expect(periodProblem({ from: next(span.from, -10), to: next(span.to, 10) }, span)).toBeNull();
     expect(importPeriodProblem(log, imp.id, narrow)).not.toBeNull();

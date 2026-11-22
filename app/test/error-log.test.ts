@@ -74,7 +74,6 @@ describe("エラーの記録（0234）", () => {
     expect(log.messageOf("x".repeat(5000))).toHaveLength(2000);
     expect(log.commandAction("store_open")).toBe("世帯を開く（store_open）");
     expect(log.commandAction("office_join")).toBe("本体の命令（office_join）");
-    expect(log.localTime("2026-11-20T01:03:00Z")).toMatch(/^2026-11-2\d \d\d:03$/);
     expect(log.utcOffsetMinutes(new Date())).toBe(-new Date().getTimezoneOffset());
   });
 });

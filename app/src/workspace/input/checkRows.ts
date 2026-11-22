@@ -31,6 +31,7 @@ import { nameWithAge } from "../roles.ts";
 import { memberLabel } from "./labels.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { Household } from "../../engine/types.ts";
+import { proseDateWritten } from "../../dates.ts";
 
 export { endedLongAgo, holderOfField, isPremiseField };
 
@@ -523,7 +524,7 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
       card: "insurance",
       cardLabel: label,
       label: n.label,
-      detail: `${a.on} に確認しました（${n.detail}）`,
+      detail: `${proseDateWritten(a.on)} に確認しました（${n.detail}）`,
       fieldKey: null,
       level: "simple",
       impact: 0,
@@ -542,7 +543,7 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
       card: "housing",
       cardLabel: inputItems(wh).find((i) => i.id === "housing")?.label ?? "住まい・ローン",
       label: "住宅の購入: 火災保険・地震保険",
-      detail: `${a.on} に確認しました（${overlapText(wh.request.input.household, r) ?? ""}）`,
+      detail: `${proseDateWritten(a.on)} に確認しました（${overlapText(wh.request.input.household, r) ?? ""}）`,
       fieldKey: null,
       level: "simple",
       impact: 0,

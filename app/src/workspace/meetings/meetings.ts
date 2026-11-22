@@ -183,12 +183,6 @@ export function withMeetings(wh: WorkingHousehold, list: readonly Meeting[]): Wo
   return list.length > 0 ? { ...rest, meetings: [...list] } : rest;
 }
 
-/** 日の文（例: 2026年11月9日） */
-export function meetingDateText(on: string): string {
-  const m = DATE.exec(on);
-  return m === null ? on : `${Number(m[1])}年${Number(m[2])}月${Number(m[3])}日`;
-}
-
 /** 端末の今日（YYYY-MM-DD） */
 export function todayText(d: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");

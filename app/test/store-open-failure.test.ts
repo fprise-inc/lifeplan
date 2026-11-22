@@ -37,7 +37,7 @@ describe("直前の世代で開き直す画面", () => {
       h(PreviousPanel, { customerNo: "A0001", reason: openMessage("E_STORE_CORRUPT"), info: { generation: 12, savedAt: "2026-11-06T05:03:00Z", savedBy: "山田" }, busy: false, error: null, onOpen: () => undefined, onClose: () => undefined }),
     );
     expect(html).toContain("A0001");
-    expect(html).toContain("2026/11/06");
+    expect(html).toMatch(/2026年11月6日 \d\d:03 の保存/);
     expect(html).toContain("12");
     expect(html).toContain("山田");
     expect(html).toContain("直前の保存で開く");

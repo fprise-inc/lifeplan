@@ -5,7 +5,7 @@
 import { useEffect, useRef } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { ForkInfo } from "../../engine/host.ts";
-import { shortDate } from "./HouseholdPanel.tsx";
+import { proseDateTime } from "../../dates.ts";
 
 export type ForkChoiceUi = "theirs" | "ours" | "both";
 
@@ -27,7 +27,7 @@ export function ForkPanel(p: ForkPanelProps) {
   useEscClose(closable ? p.onClose : null);
   // 1人で2台の PC の同期フォルダでは、相手は人ではなく、もう1台の PC（0024）
   const who = p.info?.theirsBy != null ? (p.info.personal ? `もう1台のPC「${p.info.theirsBy}」` : `${p.info.theirsBy}さん`) : "ほかのPC";
-  const when = p.info?.theirsSavedAt != null ? shortDate(p.info.theirsSavedAt) : "";
+  const when = p.info?.theirsSavedAt != null ? proseDateTime(p.info.theirsSavedAt, "") : "";
   return (
     <>
       <div class="scrim" aria-hidden="true" />

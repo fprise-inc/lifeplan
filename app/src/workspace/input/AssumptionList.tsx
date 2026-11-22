@@ -5,6 +5,7 @@ import { useState } from "preact/hooks";
 import { fieldDomId } from "./FieldViews.tsx";
 import type { WorkingHousehold } from "./household.ts";
 import { agreedKey, assumptionRows, LIST_GROUP_LABELS, setAgreed, type ListGroup } from "./assumptionList.ts";
+import { listDateWritten } from "../../dates.ts";
 
 const today = () => {
   const d = new Date();
@@ -83,7 +84,7 @@ export function AssumptionList({ wh, planId, onAgree, onLevel, onReveal }: { wh:
                       {r.agreeable || agreed[r.id] !== undefined ? (
                         <label>
                           <input type="checkbox" checked={agreed[r.id] !== undefined} onChange={(e) => onAgree((w) => setAgreed(w, planId, r.id, (e.currentTarget as HTMLInputElement).checked ? today() : null))} />
-                          {agreed[r.id]?.on ?? ""}
+                          {listDateWritten(agreed[r.id]?.on)}
                         </label>
                       ) : (
                         "—"
