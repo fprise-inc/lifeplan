@@ -285,9 +285,9 @@ export function DocViewer({ rd, beside }: { rd: ReceivedDocsState; beside: boole
   );
 }
 
-/** 書類の選び方の1行（書類の名前・持ち主・何枚目・受け取った日） */
+/** 書類の選び方の1行（書類の名前・持ち主・何枚目・受け取った日）。受け取った日時は下の説明の行に出すので、ここは日だけ（長いと、閉じているときに末尾が隠れる。0241） */
 function fileLabel(f: ReceivedFile): string {
-  return `${docLabel(f)}${f.count > 1 ? ` ${f.index}/${f.count}` : ""}（${f.file.mime === "application/pdf" ? "PDF" : "写真"}・${listDate(f.receivedAt)} 受け取り）`;
+  return `${docLabel(f)}${f.count > 1 ? ` ${f.index}/${f.count}` : ""}（${f.file.mime === "application/pdf" ? "PDF" : "写真"}・${listDate(f.receivedAt)}）`;
 }
 
 function release(s: Source): void {
