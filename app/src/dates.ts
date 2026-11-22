@@ -21,6 +21,7 @@ interface Parts {
 
 const p2 = (n: number): string => String(n).padStart(2, "0");
 const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const WRITTEN = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/;
 
 /** 書いてある数字のまま読む（時差を直さない） */
@@ -44,6 +45,14 @@ const unreadable = (v: DateInput, bad: string | undefined): string => bad ?? (ty
 const withTime = (day: string, t: Parts): string => (t.time === null ? day : `${day} ${t.time}`);
 const slash = (t: Parts): string => `${t.y}/${p2(t.m)}/${p2(t.d)}`;
 const kanji = (t: Parts): string => `${t.y}年${t.m}月${t.d}日`;
+
+/**
+ * 時刻つきの日時（ISO 8601）として読める文字か。日時らしく読めてしまうだけの文字（「2026」「2026/11/19」）や日だけの文字は、日時として読まない。
+ * 書いてある数字のまま出していた所を端末の時刻に直すとき、無い・壊れた値の出し方を変えないための確かめ（読めない文字は 〜Written の方で今までどおり出す）
+ */
+export function isDateTimeText(v: unknown): v is string {
+  return typeof v === "string" && ISO_TIME.test(v) && !Number.isNaN(Date.parse(v));
+}
 
 /** 一覧の日（2026/11/21。端末の時刻で） */
 export function listDate(v: DateInput, bad?: string): string {
