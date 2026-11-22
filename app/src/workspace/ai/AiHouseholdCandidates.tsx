@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { AiHouseholdCandidate } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { householdOverview, KIND_TEXT, readHouseholdCandidate, type HouseholdKind, type OverviewRow, type ReadHousehold } from "./households.ts";
-import { dateTimeText } from "./model.ts";
+import { dateTimeProse } from "./model.ts";
 
 /** 届いている候補の帯（件数と、確かめる画面を開くボタンだけ。中身は出さない） */
 export function AiHouseholdCandidateBand({ count, onOpen }: { count: number; onOpen: () => void }) {
@@ -151,7 +151,7 @@ function CandidateReview({ c, check, onCreate, onDiscard }: { c: ReadHousehold; 
           {c.title}
         </b>
         <span class="pl-sub">
-          {dateTimeText(c.receivedAt)} に届きました{c.connector !== null ? `・AI のアプリの名乗り: ${c.connector}（自己申告）` : ""}・{ov.basis}
+          {dateTimeProse(c.receivedAt)} に届きました{c.connector !== null ? `・AI のアプリの名乗り: ${c.connector}（自己申告）` : ""}・{ov.basis}
         </span>
       </div>
       <fieldset class="ai-scope ai-hh-kind">

@@ -12,7 +12,7 @@
 // - 1人で2台の PC で使う同期フォルダ（0024）は「保存先」のパネル（StoragePanel）。同期フォルダで使っている間は、ここではその案内だけを出す
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OfficeHost, OfficeStatus } from "../../engine/host.ts";
-import { shortDate } from "./HouseholdPanel.tsx";
+import { listDate, proseDate, proseDateTime } from "../../dates.ts";
 import { normalizeFingerprint, normalizeOfficeCode, officeMessage, syncShareNotice } from "./office.ts";
 
 export interface OfficePanelProps {
@@ -294,7 +294,7 @@ export function OfficePanel(p: OfficePanelProps) {
               <div class="of-alert" role="alert" data-office-notice>
                 {st.notices.map((n) => (
                   <p key={`${n.name}-${n.at}`}>
-                    <b>復元キーで{n.name}さんが加わりました</b>（{shortDate(n.at)}）。
+                    <b>復元キーで{n.name}さんが加わりました</b>（{proseDateTime(n.at, "")}）。
                   </p>
                 ))}
                 <p class="pl-sub">事務所の復元キーを持つ人は、承認なしで加われます。心当たりが無いときは、すぐにその人を外し（復元キーも新しくなります）、復元キーの控えの置き場所を確かめてください。</p>
@@ -339,7 +339,7 @@ export function OfficePanel(p: OfficePanelProps) {
                     return (
                       <li key={r.requestId} data-office-request={r.name}>
                         <span>
-                          <b>{r.name}</b> さん <span class="pl-sub">{shortDate(r.requestedAt)} に申請</span>
+                          <b>{r.name}</b> さん <span class="pl-sub">{proseDateTime(r.requestedAt, "")} に申請</span>
                         </span>
                         <input
                           class="of-fp-input"
@@ -396,7 +396,7 @@ export function OfficePanel(p: OfficePanelProps) {
                       <td>
                         <code class="of-code">{m.fingerprint}</code>
                       </td>
-                      <td class="num">{shortDate(m.joinedAt).slice(0, 10)}</td>
+                      <td class="num">{listDate(m.joinedAt, "")}</td>
                       <td>{m.viaRecovery ? "（復元キーで参加）" : (m.approvedBy ?? "（始めた人）")}</td>
                       <td>
                         {!m.isMe && st.members.length > 1 && !st.viewOnly ? (
@@ -460,7 +460,7 @@ export function OfficePanel(p: OfficePanelProps) {
             ) : null}
             {st.removed.length > 0 ? (
               <p class="pl-sub">
-                外したメンバー: {st.removed.map((r) => `${r.name}（${shortDate(r.removedAt).slice(0, 10)}）`).join("、")}
+                外したメンバー: {st.removed.map((r) => `${r.name}（${proseDate(r.removedAt, "")}）`).join("、")}
               </p>
             ) : null}
             {st.localHouseholds > 0 ? (
@@ -486,7 +486,7 @@ export function OfficePanel(p: OfficePanelProps) {
             ) : null}
             <h3>事務所の復元キー</h3>
             <p>
-              {st.recoveryAcknowledged ? `保管済み（${st.recoveryAcknowledgedBy ?? "メンバー"}さん、${shortDate(st.recoveryAcknowledgedAt ?? "")}）` : "まだ保管されていません。事務所の代表の方が保管してください。"}{" "}
+              {st.recoveryAcknowledged ? `保管済み（${st.recoveryAcknowledgedBy ?? "メンバー"}さん、${proseDateTime(st.recoveryAcknowledgedAt, "")}）` : "まだ保管されていません。事務所の代表の方が保管してください。"}{" "}
               <button type="button" class="link-btn" onClick={p.onRecovery}>
                 復元キーを表示・保管する
               </button>

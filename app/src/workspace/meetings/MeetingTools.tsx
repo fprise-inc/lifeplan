@@ -5,9 +5,10 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
-import { snapshotDateText, TRIGGER_TEXT, type Snapshot } from "../snapshots/snapshots.ts";
+import { listDateTimeWritten, listDateWritten, proseDateWritten } from "../../dates.ts";
+import { TRIGGER_TEXT, type Snapshot } from "../snapshots/snapshots.ts";
 import { SnapshotCompare } from "../tools/FpTools.tsx";
-import { EMPTY_INTENT, hasContent, intentOf, isMeetingDate, MEETING_TEXT_MAX, meetingDateText, newMeeting, putMeeting, sortedMeetings, todayText, withIntent, withoutMeeting, type InsuranceIntent, type Meeting } from "./meetings.ts";
+import { EMPTY_INTENT, hasContent, intentOf, isMeetingDate, MEETING_TEXT_MAX, newMeeting, putMeeting, sortedMeetings, todayText, withIntent, withoutMeeting, type InsuranceIntent, type Meeting } from "./meetings.ts";
 
 export interface MeetingToolsProps {
   wh: WorkingHousehold;
@@ -71,7 +72,7 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
     try {
       let snapshot: string | undefined;
       if (v.snap.kind === "pick") snapshot = v.snap.id;
-      else if (v.snap.kind === "take" && onSnapshot !== undefined) snapshot = (await onSnapshot(`面談の記録（${meetingDateText(v.draft.on)}）`)) ?? undefined;
+      else if (v.snap.kind === "take" && onSnapshot !== undefined) snapshot = (await onSnapshot(`面談の記録（${proseDateWritten(v.draft.on)}）`)) ?? undefined;
       const { snapshot: _old, ...rest } = v.draft;
       void _old;
       const m: Meeting = { ...rest, ...(snapshot !== undefined ? { snapshot } : {}) };
@@ -118,7 +119,7 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
             <ul class="fp-list mt-list" data-meeting-list>
               {sorted.map((m) => (
                 <li key={m.id} data-meeting-row={m.id}>
-                  <span class="fp-when">{meetingDateText(m.on)}</span>
+                  <span class="fp-when">{listDateWritten(m.on)}</span>
                   <span class="mt-gist">{firstLine(m.shared.decided) || firstLine(m.shared.talked) || (hideFp ? "" : firstLine(m.fpOnly.note)) || "—"}</span>
                   {m.snapshot !== undefined ? <span class="fp-v">{snapOf(m.snapshot) !== null ? "控えあり" : "控えは外されています"}</span> : null}
                   {nameOf(m.by) !== null ? <span class="fp-v">書いた人 {nameOf(m.by)}</span> : null}
@@ -136,7 +137,7 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
             m === undefined ? null : (
               <div class="mt-open" data-meeting-view={m.id}>
                 <div class="mt-record">
-                  <h3>{meetingDateText(m.on)}の面談</h3>
+                  <h3>{proseDateWritten(m.on)}の面談</h3>
                   {nameOf(m.by) !== null ? (
                     <p class="fp-v" data-meeting-authors>
                       書いた人 {nameOf(m.by)}
@@ -200,7 +201,7 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
                     ) : (
                       <>
                         <p class="mt-snap-when">
-                          {snapshotDateText(s.createdAt)}（{TRIGGER_TEXT[s.trigger]}
+                          {listDateTimeWritten(s.createdAt)}（{TRIGGER_TEXT[s.trigger]}
                           {s.memo !== "" ? `・${s.memo}` : ""}）
                         </p>
                         <SnapshotCompare wh={wh} snap={s} result={result} computeOne={computeOne} onOpen={onOpen} atAge={atAge} />
@@ -263,7 +264,7 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
               <option value="none">つながない</option>
               {snaps.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {snapshotDateText(s.createdAt)}（{TRIGGER_TEXT[s.trigger]}
+                  {listDateTimeWritten(s.createdAt)}（{TRIGGER_TEXT[s.trigger]}
                   {s.memo !== "" ? `・${s.memo}` : ""}）
                 </option>
               ))}

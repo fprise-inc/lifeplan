@@ -128,9 +128,3 @@ export function keepSnapshots(next: WorkingHousehold, cur: WorkingHousehold): Wo
   }
   return { ...next, snapshots: cur.snapshots };
 }
-
-/** 一覧に出す日時（例: 2027年4月12日 14:03） */
-export function snapshotDateText(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
-  return m === null ? iso : `${Number(m[1])}年${Number(m[2])}月${Number(m[3])}日 ${m[4]}:${m[5]}`;
-}

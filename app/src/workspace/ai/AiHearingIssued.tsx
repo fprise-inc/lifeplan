@@ -14,6 +14,7 @@ import { arrivedNow, UNASSIGNED_LIMIT, unassignedAccepting, type AiIssueLog, typ
 import { accepting, ARRIVAL_INTERVAL_MS, arrivalOf, checkAnswered, invitationText, noteArrival, onArrivals, removeOnServer, selectionName, STATUS_TEXT, statusOf, type WebLogEntry } from "../hearing/web.ts";
 import { unassignedLink } from "../hearing/issuedUrls.ts";
 import { dateTimeText } from "./model.ts";
+import { listDate } from "../../dates.ts";
 
 /** 帯（FP がまだ確かめていない、AI が発行した URL の数と、確かめる画面を開くボタン） */
 export function AiHearingBand({ count, onOpen }: { count: number; onOpen: () => void }) {
@@ -105,8 +106,6 @@ export interface AiHearingPanelProps {
   onClose: () => void;
 }
 
-const day = (iso: string) => new Date(iso).toLocaleDateString("ja-JP");
-
 export function AiHearingPanel(p: AiHearingPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -165,7 +164,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
           <span class="hs-kind wr-origin">AI が発行</span>
           <small>
             発行 {dateTimeText(l?.at ?? e?.record.issuedAt ?? "")}
-            {e !== undefined ? `・期限 ${day(e.record.expiresAt)}` : ""}
+            {e !== undefined ? `・期限 ${listDate(e.record.expiresAt)}` : ""}
             {l?.connector != null ? `・${l.connector}` : ""}
           </small>
         </div>

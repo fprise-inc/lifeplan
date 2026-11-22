@@ -2,7 +2,7 @@
 // 戻す前に、どの時点の保存か（日時・何回目の保存か・保存した人）を見せる。開けなかったファイルは捨てずに、本体がこの PC の中に別名で残す
 import { useEffect, useRef } from "preact/hooks";
 import type { PreviousGeneration } from "../../engine/host.ts";
-import { shortDate } from "./HouseholdPanel.tsx";
+import { proseDateTime } from "../../dates.ts";
 
 /**
  * 直前の世代を探す、本体の開く操作の失敗（ファイルが壊れた・読めない）。鍵・復元キー・新しい版・事務所の共有の失敗では探さない。
@@ -25,7 +25,7 @@ export interface PreviousPanelProps {
 export function PreviousPanel(p: PreviousPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  const when = p.info.savedAt !== null ? shortDate(p.info.savedAt) : "";
+  const when = p.info.savedAt !== null ? proseDateTime(p.info.savedAt, "") : "";
   const point = [when !== "" ? `${when} の保存` : null, `${p.info.generation}回目の保存`, p.info.savedBy !== null ? `保存した人: ${p.info.savedBy}` : null].filter((x) => x !== null).join("・");
   return (
     <>

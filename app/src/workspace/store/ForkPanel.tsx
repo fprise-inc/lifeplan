@@ -4,7 +4,7 @@
 // どれを選んでも、選ばなかったほうはこの PC の中に暗号化したまま残る
 import { useEffect, useRef } from "preact/hooks";
 import type { ForkInfo } from "../../engine/host.ts";
-import { shortDate } from "./HouseholdPanel.tsx";
+import { proseDateTime } from "../../dates.ts";
 
 export type ForkChoiceUi = "theirs" | "ours" | "both";
 
@@ -23,7 +23,7 @@ export function ForkPanel(p: ForkPanelProps) {
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
   // 1人で2台の PC の同期フォルダでは、相手は人ではなく、もう1台の PC（0024）
   const who = p.info?.theirsBy != null ? (p.info.personal ? `もう1台のPC「${p.info.theirsBy}」` : `${p.info.theirsBy}さん`) : "ほかのPC";
-  const when = p.info?.theirsSavedAt != null ? shortDate(p.info.theirsSavedAt) : "";
+  const when = p.info?.theirsSavedAt != null ? proseDateTime(p.info.theirsSavedAt, "") : "";
   return (
     <>
       <div class="scrim" aria-hidden="true" />

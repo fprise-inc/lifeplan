@@ -19,6 +19,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SentAnswers } from "../../hearingForm/Form.tsx";
+import { listDate, listDateTime, proseDate, proseDateTime } from "../../dates.ts";
 import type { HearingWebHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { ImportView } from "./sheet.ts";
@@ -105,14 +106,11 @@ function SentView({ e }: { e: WebLogEntry }) {
   );
 }
 
-const day = (iso: string) => new Date(iso).toLocaleDateString("ja-JP");
-const dayTime = (iso: string) => new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-
 /** 作った側の印（FP が URL生成で作った依頼は「FP が作成」、AI が発行した依頼は「AI が発行」。発行の日時と AI のアプリの名乗りは添え書きに） */
 function byBadge(e: WebLogEntry) {
   if (e.origin?.kind === "ai")
     return (
-      <span class="hs-kind wr-origin ai" title={`AI が発行しました（${dayTime(e.origin.at)}${e.origin.connector !== null ? `・${e.origin.connector}` : ""}）`} data-web-origin="ai">
+      <span class="hs-kind wr-origin ai" title={`AI が発行しました（${proseDateTime(e.origin.at)}${e.origin.connector !== null ? `・${e.origin.connector}` : ""}）`} data-web-origin="ai">
         AI が発行
       </span>
     );
@@ -140,7 +138,7 @@ function OfficeRow({ row, now, readOnly, onOpen }: { row: IssuedRow; now: Date; 
           </span>
         ) : null}
         <small>
-          発行 {day(e.record.issuedAt)}・期限 {day(e.record.expiresAt)}
+          発行 {listDate(e.record.issuedAt)}・期限 {listDate(e.record.expiresAt)}
         </small>
       </div>
       <p class="rp-note wr-what">
@@ -216,7 +214,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
           : code === "E_WEB_DECRYPT"
             ? "答えの暗号文が開けませんでした（改ざんの疑い。受け取っていません）"
             : code === "E_RELAY_EXTEND_LIMIT"
-              ? `期限は発行した日から90日（${day(limitOf(e.record))}）までです。これ以上は延ばせません`
+              ? `期限は発行した日から90日（${proseDate(limitOf(e.record))}）までです。これ以上は延ばせません`
               : code === "E_RELAY_GONE" || code === "E_RELAY_EXPIRED"
                 ? "サーバーにありません（期限が過ぎたか、消しました）"
                 : `できませんでした（${code}）`,
@@ -251,7 +249,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       const n = answeredScreens(r.entry);
       const what = [...(t.answers ? [n !== null ? `回答 ${n.answered}画面（問いの画面 ${n.total}）` : "回答"] : []), ...(t.batches.length > 0 ? [`書類 ${t.files}（${t.batches.length}回分）`] : [])];
       const warn = [...(t.missingFiles > 0 ? [`受け取れなかった書類 ${t.missingFiles}`] : []), ...(t.badBatches > 0 ? [`開けなかった書類の送り ${t.badBatches}`] : []), ...(t.dropped > 0 ? [`形の違う答え ${t.dropped}は捨てました`] : [])];
-      const text = `受け取りました（${[...what, ...warn].join("・")}）。${cleaned ? "受け取った分はサーバーから消しました" : "サーバーの分は消せませんでした（期限が来れば消えます）"}。書類は期限（${day(r.entry.record.expiresAt)}）まで、同じ URL で続けて届きます`;
+      const text = `受け取りました（${[...what, ...warn].join("・")}）。${cleaned ? "受け取った分はサーバーから消しました" : "サーバーの分は消せませんでした（期限が来れば消えます）"}。書類は期限（${proseDate(r.entry.record.expiresAt)}）まで、同じ URL で続けて届きます`;
       // 答えを受け取ったら、受け取りの画面を挟まず、そのまま取り込みの候補の画面へ（0192 の追記 2026-11-17）
       if (t.answers && r.entry.received !== undefined) return onImport(importWeb(r.wh, r.entry, appVersion), e.record.requestId, r.entry.received.submittedAt, text);
       note(e.record.requestId, text);
@@ -264,9 +262,9 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       note(
         e.record.requestId,
         // 日付が変わらないほどの延び（発行したすぐ後に押したとき）は「のまま」と出す
-        r.changed && day(r.entry.record.expiresAt) !== day(e.record.expiresAt)
-          ? `期限を ${day(r.entry.record.expiresAt)} まで延ばしました${r.entry.record.expiresAt === limitOf(r.entry.record) ? "（発行した日から90日の上限です）" : ""}。お客さまの画面の期限も変わります（案内文は送り直さなくてかまいません）`
-          : `期限は ${day(r.entry.record.expiresAt)} のままです（延長は押した日から30日です。今の期限がそれより先なので、延びませんでした）`,
+        r.changed && proseDate(r.entry.record.expiresAt) !== proseDate(e.record.expiresAt)
+          ? `期限を ${proseDate(r.entry.record.expiresAt)} まで延ばしました${r.entry.record.expiresAt === limitOf(r.entry.record) ? "（発行した日から90日の上限です）" : ""}。お客さまの画面の期限も変わります（案内文は送り直さなくてかまいません）`
+          : `期限は ${proseDate(r.entry.record.expiresAt)} のままです（延長は押した日から30日です。今の期限がそれより先なので、延びませんでした）`,
       );
     });
   const cancel = (e: WebLogEntry) =>
@@ -304,7 +302,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
             <ol>
               {batches.map((b) => (
                 <li key={b.batchId} data-web-batch>
-                  {dayTime(b.sentAt)} に送られ、{dayTime(b.receivedAt)} に受け取り:{" "}
+                  {proseDateTime(b.sentAt)} に送られ、{proseDateTime(b.receivedAt)} に受け取り:{" "}
                   {b.documents.map((x) => `${docs.find((d) => d.id === x.id)?.title ?? x.id} ${x.files}`).join("・") || "（受け取れたファイルなし）"}
                   {b.missingFiles > 0 ? `（受け取れなかったファイル ${b.missingFiles}）` : ""}
                 </li>
@@ -328,7 +326,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 return (
                   <div class="wr-file" key={f.fileId}>
                     <span>
-                      {f.mime === "application/pdf" ? "PDF" : "写真"} {n + 1}（{Math.ceil(f.bytes / 1024)}KB{b !== undefined ? `・${dayTime(b.receivedAt)} に受け取り` : ""}）
+                      {f.mime === "application/pdf" ? "PDF" : "写真"} {n + 1}（{Math.ceil(f.bytes / 1024)}KB{b !== undefined ? `・${proseDateTime(b.receivedAt)} に受け取り` : ""}）
                     </span>
                     {f.viewedAt !== undefined ? <small data-web-doc-viewed>見た</small> : null}
                     {f.savedAt !== undefined ? <small data-web-doc-saved>保存した</small> : null}
@@ -466,7 +464,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                   <small>
                     {selectionName(e.record.selection)}
                     {e.record.customerNo !== "" ? `・顧客番号 ${e.record.customerNo}` : ""}
-                    {e.importedAt !== undefined && mode === "done" ? `・${day(e.importedAt)} に取り込み` : mode === "closed" ? `・発行 ${day(e.record.issuedAt)}` : ""}
+                    {e.importedAt !== undefined && mode === "done" ? `・${listDate(e.importedAt)} に取り込み` : mode === "closed" ? `・発行 ${listDate(e.record.issuedAt)}` : ""}
                   </small>
                   <span class="wr-fold-acts">
                     {viewButtons(e, true)}
@@ -478,7 +476,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 {waitingDocs.length > 0 ? (
                   <div class="wr-waiting" data-web-docs-waiting>
                     <span>
-                      書類待ち: {waitingDocs.map((d) => d.title).join("・")}（期限 {day(e.record.expiresAt)} まで。届いたら、ここに「届いた書類を受け取る」が出ます）
+                      書類待ち: {waitingDocs.map((d) => d.title).join("・")}（期限 {proseDate(e.record.expiresAt)} まで。届いたら、ここに「届いた書類を受け取る」が出ます）
                     </span>
                     <span class="rp-actions">
                       {canTake ? takeBtn(true) : null}
@@ -508,9 +506,9 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                   </span>
                 ) : null}
                 <small>
-                  発行 {day(e.record.issuedAt)}・期限 <span data-web-expires>{day(e.record.expiresAt)}</span>
-                  {mode === "waiting" ? `（延長は ${day(limitOf(e.record))} まで）` : ""}
-                  {e.received !== undefined ? <span data-web-sent-at>・お客さまが送った日時 {sentAtText(e.received.submittedAt)}</span> : null}
+                  発行 {listDate(e.record.issuedAt)}・期限 <span data-web-expires>{listDate(e.record.expiresAt)}</span>
+                  {mode === "waiting" ? `（延長は ${listDate(limitOf(e.record))} まで）` : ""}
+                  {e.received !== undefined ? <span data-web-sent-at>・お客さまが送った日時 {listDateTime(e.received.submittedAt, "不明")}</span> : null}
                 </small>
                 {unfolded === id ? (
                   <button type="button" class="link-btn" onClick={() => setUnfolded(null)} data-web-fold>
@@ -524,8 +522,8 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
               </p>
               {e.received !== undefined || (e.batches ?? []).length > 0 ? (
                 <p class="rp-note wr-got" data-web-got>
-                  {e.received !== undefined ? `答え: ${dayTime(e.received.at)} に受け取り（${((n) => (n === null ? "" : `問いの画面 ${n.total}のうち ${n.answered}画面に答えあり`))(answeredScreens(e))}）` : "答え: まだ"}
-                  {docs.length > 0 ? `・書類: ${(e.batches ?? []).length > 0 ? `${(e.batches ?? []).length}回受け取り（最後 ${dayTime((e.batches ?? [])[(e.batches ?? []).length - 1]?.receivedAt ?? "")}）` : "まだ"}` : ""}
+                  {e.received !== undefined ? `答え: ${proseDateTime(e.received.at)} に受け取り（${((n) => (n === null ? "" : `問いの画面 ${n.total}のうち ${n.answered}画面に答えあり`))(answeredScreens(e))}）` : "答え: まだ"}
+                  {docs.length > 0 ? `・書類: ${(e.batches ?? []).length > 0 ? `${(e.batches ?? []).length}回受け取り（最後 ${proseDateTime((e.batches ?? [])[(e.batches ?? []).length - 1]?.receivedAt ?? "")}）` : "まだ"}` : ""}
                   {waitingDocs.length > 0 ? `・書類待ち: ${waitingDocs.map((d) => d.title).join("・")}` : ""}
                 </p>
               ) : null}
@@ -543,7 +541,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                       届いたかを確かめる
                     </button>
                     <button type="button" class="btn" disabled={busy !== null || !ext.ok} onClick={() => void extend(e)} title={ext.ok ? "押した日から30日に延ばします（発行した日から90日まで）" : undefined} data-web-extend>
-                      {ext.ok && ext.to !== null ? `延長（${day(ext.to)}まで）` : "延長（今日から30日）"}
+                      {ext.ok && ext.to !== null ? `延長（${proseDate(ext.to)}まで）` : "延長（今日から30日）"}
                     </button>
                     <button type="button" class="btn" onClick={() => void navigator.clipboard?.writeText(invitationText(e, officeName, wh)).then(() => note(id, "案内文を写しました"))} data-web-copy>
                       案内文をコピー
@@ -569,7 +567,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                     {viewButtons(e, false)}
                     {live && waitingDocs.length > 0 ? (
                       <button type="button" class="btn" disabled={busy !== null || !ext.ok} onClick={() => void extend(e)} title={ext.ok ? "書類の期限を、押した日から30日に延ばします（発行した日から90日まで）" : undefined} data-web-extend>
-                        {ext.ok && ext.to !== null ? `書類の期限を延長（${day(ext.to)}まで）` : "書類の期限を延長"}
+                        {ext.ok && ext.to !== null ? `書類の期限を延長（${proseDate(ext.to)}まで）` : "書類の期限を延長"}
                       </button>
                     ) : null}
                     {live ? cancelBtn("受け付けを終える") : null}
@@ -579,7 +577,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
               {st === "undone" ? <p class="rp-note">取り込みを元に戻したので、世帯には入っていません（受け取った答えはこの世帯に残っています）。</p> : null}
               {live && !ext.ok && ext.reason === "limit" && (mode === "waiting" || waitingDocs.length > 0) ? (
                 <p class="rp-note" data-web-extend-limit>
-                  期限は発行した日から90日（{day(limitOf(e.record))}）までです。これ以上は延ばせません。
+                  期限は発行した日から90日（{proseDate(limitOf(e.record))}）までです。これ以上は延ばせません。
                 </p>
               ) : null}
               {st === "expired" && e.closedAt === undefined ? <p class="rp-note">期限が過ぎました（サーバーでは期限を過ぎると消えます）。まだ答えや書類が要るときは、新しく発行してください。</p> : null}
@@ -615,7 +613,7 @@ export function ImportedAnswers({ wh }: { wh: WorkingHousehold }) {
             <li key={id} data-web-imported-item={id}>
               <span>
                 {id}・{selectionName(e.record.selection)}・顧客番号 {e.record.customerNo}
-                {e.importedAt !== undefined ? `・${day(e.importedAt)} に取り込み` : ""}
+                {e.importedAt !== undefined ? `・${listDate(e.importedAt)} に取り込み` : ""}
               </span>{" "}
               <button type="button" class="link-btn" onClick={() => setOpen(open === id ? null : id)} aria-expanded={open === id} data-web-answers-open>
                 {open === id ? "送られた内容を閉じる" : "送られた内容を見る・印刷"}

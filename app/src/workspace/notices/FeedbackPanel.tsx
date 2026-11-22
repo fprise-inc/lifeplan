@@ -3,8 +3,8 @@
 // フォームが番号の差し込みに対応していないときのために、番号は「写す」で写せる。別の PC で送った番号は手で入れて覚えられる。
 // 下に、この PC のエラーの記録（0234）を出す: 見る・写す（文は本体が記録から作る）・消す。記録はどこにも送らない
 import { useEffect, useRef, useState } from "preact/hooks";
-import { dateText } from "./center.ts";
-import { localTime, type ErrorLogView } from "./errorLog.ts";
+import { listDateTime, listDateWritten, proseDateTime } from "../../dates.ts";
+import type { ErrorLogView } from "./errorLog.ts";
 import { feedbackFormUrl, newReceiptCode, readReceiptInput, type Receipt } from "./receipts.ts";
 
 export interface FeedbackPanelProps {
@@ -139,7 +139,7 @@ export function FeedbackPanel(p: FeedbackPanelProps) {
               {p.receipts.map((r) => (
                 <li key={r.code} data-feedback-receipt={r.code}>
                   <span class="fb-list-no">{r.code}</span>
-                  <span class="fb-list-on">{dateText(r.on)}</span>
+                  <span class="fb-list-on">{listDateWritten(r.on)}</span>
                   <span class="fb-list-how">{r.manual === true ? "手で入れた番号" : "この PC で送った番号"}</span>
                 </li>
               ))}
@@ -232,7 +232,7 @@ function ErrorLogSection({ actions, initial }: { actions: ErrorLogActions; initi
         <ul class="fb-errors" data-error-log-list>
           {view.entries.map((e, i) => (
             <li key={`${e.lastAt}-${i}`} data-error-log-entry={e.kind}>
-              <span class="fb-err-at">{localTime(e.lastAt)}</span>
+              <span class="fb-err-at">{listDateTime(e.lastAt)}</span>
               <span class="fb-err-where">
                 {e.place}・{e.action}
               </span>
@@ -250,7 +250,7 @@ function ErrorLogSection({ actions, initial }: { actions: ErrorLogActions; initi
       </p>
       {view !== null && view.aiReads.count > 0 ? (
         <p class="fb-note" data-error-log-ai>
-          AI がこの記録を読んだのは {view.aiReads.count}回です{view.aiReads.lastAt !== null ? `（最後は ${localTime(view.aiReads.lastAt)}）` : ""}。
+          AI がこの記録を読んだのは {view.aiReads.count}回です{view.aiReads.lastAt !== null ? `（最後は ${proseDateTime(view.aiReads.lastAt)}）` : ""}。
         </p>
       ) : null}
       <div class="fb-actions">

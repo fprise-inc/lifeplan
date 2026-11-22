@@ -10,7 +10,8 @@
 // 記録を書くのは本体。画面は入力を送り、本体が返した記録を見せるだけ
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { AiConsentDecision, AiConsentMethod, AiHost, AiHouseholdView, AiStatus } from "../../engine/host.ts";
-import { aiDocumentsUseOf, aiMessage, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
+import { listDateWritten, proseDateWritten } from "../../dates.ts";
+import { aiDocumentsUseOf, aiMessage, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeProse, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
 
 export type AiPanelTab = "consent" | "records";
 
@@ -150,7 +151,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
             ) : null}
             {fictional ? null : latest !== undefined ? (
               <p class="ai-latest" data-ai-consent-latest={latest.decision}>
-                いまの記録: <b>{DECISION_LABELS[latest.decision]}</b>（{latest.obtainedOn}・{methodLabel(latest.method)}
+                いまの記録: <b>{DECISION_LABELS[latest.decision]}</b>（{proseDateWritten(latest.obtainedOn)}・{methodLabel(latest.method)}
                 {providerText(latest.externalAi) !== null ? `・提供先 ${providerText(latest.externalAi)}` : ""}
                 {latest.decision === "given" ? documentsLabel(latest.documents, latest.method) : ""}）
               </p>
@@ -376,8 +377,8 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
       {records.map((r) => (
         <section key={r.id} class="ai-record" data-ai-record={r.shareId}>
           <div class="ai-record-h">
-            <b>{dateTimeText(r.grantedAt)} に渡した</b>
-            <span>{r.endedAt === null ? `共有中（期限 ${dateTimeText(r.expiresAt)}）` : `${dateTimeText(r.endedAt)} に終わり（${END_REASONS[r.endReason ?? ""] ?? r.endReason}）`}</span>
+            <b>{dateTimeProse(r.grantedAt)} に渡した</b>
+            <span>{r.endedAt === null ? `共有中（期限 ${dateTimeProse(r.expiresAt)}）` : `${dateTimeProse(r.endedAt)} に終わり（${END_REASONS[r.endReason ?? ""] ?? r.endReason}）`}</span>
           </div>
           <dl class="ai-kv">
             <dt>申告した接続先</dt>
@@ -475,7 +476,7 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
                   {c.decision === "given" ? `（${documentsLabel(c.documents, c.method).slice(1)}）` : ""}
                   {c.origin === "previousOffice" ? "（引き継ぎ）" : ""}
                 </td>
-                <td class="num">{c.obtainedOn}</td>
+                <td class="num">{listDateWritten(c.obtainedOn)}</td>
                 <td>{methodLabel(c.method)}</td>
                 {withProvider ? <td>{providerText(c.externalAi) ?? "—"}</td> : null}
                 <td>{c.externalAi !== undefined ? (c.externalAi.noTrainingConfirmed ? "確かめた" : "確かめていない") : "—"}</td>

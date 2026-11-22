@@ -10,6 +10,7 @@ import { FILL_TARGETS } from "../../../../hearing/src/estimates.ts";
 import { enginePreset, ENGINE_NO_FILL } from "../../../../engine/src/sdk/estimates.ts";
 import { setOfficeEstimateValues } from "../../engine/officeValues.ts";
 import type { EngineNoFill, EstimateValue } from "../../engine/types.ts";
+import { proseDateWritten } from "../../dates.ts";
 import { changeText, estimateEntry, formatNumber, isLegalValue, officialEstimate, sourceText, stepLabel, stepValue, summaryText, type EstimateEntry } from "./estimateCatalog.ts";
 
 export type OfficeValue = MasterValue["value"];
@@ -266,8 +267,8 @@ export interface OfficialUpdate {
   effect: string;
 }
 
-/** 日の文（「2026年10月26日」） */
-const dayText = (d: string): string => `${d.slice(0, 4)}年${String(Number(d.slice(5, 7)))}月${String(Number(d.slice(8, 10)))}日`;
+/** 日の文（「2026年10月26日」。書き方は dates.ts の1か所で決める） */
+const dayText = (d: string): string => proseDateWritten(d);
 
 /** 出典の1行（「「題名」・2026年10月26日に取得」。原本での確認待ちならそう書く）。題名はデータの読み方の注記を外す */
 export function sourceLine(s: OfficialSource): string {

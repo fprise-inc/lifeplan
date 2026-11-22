@@ -12,6 +12,7 @@ import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGOR
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
 import { storageNoticeText } from "./storage.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
+import { listDateTime } from "../../dates.ts";
 
 export type HouseholdTab = "customers" | "samples";
 
@@ -87,14 +88,6 @@ const CUSTOMER_NO = /^[A-Za-z0-9_-]{1,16}$/;
 /** 架空の世帯をお客さまの世帯にするときの説明（一方向。お客さまの世帯を架空にはできない） */
 export const MAKE_CLIENT_TEXT =
   "「架空」の印を外し、お客さまの世帯にします。外部AIへの提供の同意を記録するまで、AI には渡せなくなります（いま AI に渡していれば、その場で止めます）。お客さまの世帯を架空の世帯に戻すことはできません。顧客番号はそのままです。";
-
-/** 一覧の日時（ISO 8601 → 2026/10/18 14:03。端末の時刻で） */
-export function shortDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
 
 export const STORE_MESSAGES: Record<string, string> = {
   E_STORE_OFFICE_DATA_TOO_NEW: "この PC の事務所データが、新しい版のアプリで保存されています。閲覧だけで開いています（保存しません）。アプリを更新してください",
@@ -623,7 +616,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                           </>
                         ))(splitSummary(h.summary))}
                       </td>
-                      <td class="num">{shortDate(h.updatedAt)}</td>
+                      <td class="num">{listDateTime(h.updatedAt, "")}</td>
                       {shared ? <td data-household-editor>{h.updatedBy ?? "—"}</td> : null}
                       {shared ? (
                         <td data-household-presence={h.openBy.length}>

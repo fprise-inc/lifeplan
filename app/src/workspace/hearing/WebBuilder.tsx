@@ -16,6 +16,7 @@ import { DOCUMENT_TEMPLATES, OWNER_LABEL, templateOf, type DocumentOwner } from 
 import { axisOf } from "../../../../hearing/src/definition.ts";
 import { checkSelection, CUSTOM_CHOICES_MAX, CUSTOM_CHOICE_LABEL_MAX, CUSTOM_HELP_MAX, CUSTOM_LABEL_MAX, CUSTOM_MAX, documentCovers, FP_SECTION, selectableItems, type CustomAnswer, type CustomQuestion, type QuestionsPacket, type RequestedDocument, type SelectedItem, type SelectedSection, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 import { answerText } from "../../../../hearing/src/web/flow.ts";
+import { proseDate } from "../../dates.ts";
 import type { HearingWebHost } from "../../engine/host.ts";
 import { docRequests } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -349,7 +350,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
     issued !== null ? (
       <div class="wb-issued" role="status" data-web-issued>
         <p>
-          発行しました（依頼番号 {issued.entry.record.requestId}・期限 {new Date(issued.entry.record.expiresAt).toLocaleDateString("ja-JP")}）。アプリはメールを送りません。下の案内文をコピーして、お客さまに送ってください。
+          発行しました（依頼番号 {issued.entry.record.requestId}・期限 {proseDate(issued.entry.record.expiresAt)}）。アプリはメールを送りません。下の案内文をコピーして、お客さまに送ってください。
         </p>
         <textarea readOnly rows={3} value={issued.entry.record.url} aria-label="お客さまの URL" data-web-url />
         <button type="button" class="btn" onClick={() => void copy("url", issued.entry.record.url)}>

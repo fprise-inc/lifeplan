@@ -2,7 +2,8 @@
 // 押すと帯の下に一覧を重ねて出す: 「未読」「すべて」の切り替えと種類の絞り込み・「すべて既読にする」。
 // 1件を押すと詳しい中身（何があったか → 何が変わったか → 関係する世帯 → その画面を開くボタン）。開いたものは既読にして一覧に残す
 import { useEffect, useRef, useState } from "preact/hooks";
-import { CATEGORIES, countsAsUnread, dateText, filterItems, RECEIPT_MATCH_TEXT, sortItems, unreadCount, URGENCY_LABEL, type CenterItem, type NoticeCategory } from "./center.ts";
+import { listDateWritten, proseDateWritten } from "../../dates.ts";
+import { CATEGORIES, countsAsUnread, filterItems, RECEIPT_MATCH_TEXT, sortItems, unreadCount, URGENCY_LABEL, type CenterItem, type NoticeCategory } from "./center.ts";
 
 export interface NoticeCenterProps {
   items: readonly CenterItem[];
@@ -106,7 +107,7 @@ export function NoticeCenter({ items, onRead, onFeedback, focus }: NoticeCenterP
               </button>
               <div class="nc-head">
                 <Marks i={current} />
-                {current.date !== null ? <span class="nc-date">{dateText(current.date)}</span> : null}
+                {current.date !== null ? <span class="nc-date">{proseDateWritten(current.date)}</span> : null}
               </div>
               {current.receipts.length > 0 ? (
                 <p class="nc-rcpt-note" data-notice-receipts>
@@ -179,7 +180,7 @@ export function NoticeCenter({ items, onRead, onFeedback, focus }: NoticeCenterP
                         <span class="nc-main">
                           <span class="nc-line">
                             <Marks i={i} />
-                            {i.date !== null ? <span class="nc-date">{dateText(i.date)}</span> : null}
+                            {i.date !== null ? <span class="nc-date">{listDateWritten(i.date)}</span> : null}
                           </span>
                           <span class="nc-item-title">
                             {i.read ? null : <span class="sr-only">未読 </span>}

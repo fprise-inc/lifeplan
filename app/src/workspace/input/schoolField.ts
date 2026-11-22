@@ -13,6 +13,7 @@ import { mutate, type WorkingHousehold } from "./household.ts";
 import { stagePeriod, stageStatistic, stageYears } from "./educationCost.ts";
 import { currentSchool, departmentOf, departmentsOf, loadSchoolList, SCHOOL_KIND_LABELS, schoolDetail, schoolFits, schoolListNow, schoolOfStage, searchSchools, sectorForSchool, stageHasSchools, tuitionPlanFor, type School, type SchoolHit } from "./schools.ts";
 import { firstYearOfRows, revisionSource, TUITION_PLAN_LABELS, type TuitionRow } from "./tuition.ts";
+import { proseDateWritten } from "../../dates.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -93,7 +94,7 @@ export function schoolRowsInfo(st: EducationStage, child: Member | undefined): S
   const name = list?.byCode.get(sc.school)?.name ?? "この学校";
   const t = list === null ? null : tuitionPlanFor(list, sc.school, typeof sc.unit === "string" ? sc.unit : sc.school, st);
   const src = t?.plan == null ? undefined : t.data.sources[revisionSource(t.plan, first.ref)];
-  const source = src === undefined ? `${name}の学費データ` : `${name}の公式の学費の案内「${src.title}」（${src.retrievedAt} 取得）`;
+  const source = src === undefined ? `${name}の学費データ` : `${name}の公式の学費の案内「${src.title}」（${proseDateWritten(src.retrievedAt)} 取得）`;
   const estimated = entryYear !== null && entryYear !== first.ref;
   const yen = (v: number) => `${(v / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 2 })}万円`;
   const amounts = `授業料 年${yen(first.annual)}${first.admission !== null ? `・入学料 ${yen(first.admission)}` : ""}`;
@@ -206,7 +207,7 @@ export function schoolNameField(o: { key: string; find: Finder; childOf: (wh: Wo
         return {
           value,
           hint: `${detail}。${avg}`,
-          warn: now !== null ? `この学校は${s.abolishedOn.replaceAll("-", "/")}の時点で廃止され、${now.name}に移っています` : `この学校は${s.abolishedOn.replaceAll("-", "/")}の時点で廃止されています。学校を選び直してください`,
+          warn: now !== null ? `この学校は${proseDateWritten(s.abolishedOn)}の時点で廃止され、${now.name}に移っています` : `この学校は${proseDateWritten(s.abolishedOn)}の時点で廃止されています。学校を選び直してください`,
           warnFix: now !== null && schoolFits(now, st.stage, st.sector) ? { label: `${now.name}にする`, run: (w) => pick(w, now) } : null,
         };
       }

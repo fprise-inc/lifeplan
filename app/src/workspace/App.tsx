@@ -23,7 +23,8 @@ import { balanceTabModel, bsPlan, bsPrev, defaultGuideBasis } from "./balanceTab
 import { RentalTab } from "../presentation/RentalTab.tsx";
 import { analysisOf, hasRentalProperty, recordSaleVariant, rentalPropertyName, rentalTabModel, resolveRentalView, salePlanName, saleVariantOf, useRentalSale, type RentalUi } from "./rentalTab.ts";
 import { MONEY_THREE_NAME_CHOICES, moneyThreeModel } from "./moneyThree.ts";
-import { snapshotDateText, TRIGGER_TEXT } from "./snapshots/snapshots.ts";
+import { TRIGGER_TEXT } from "./snapshots/snapshots.ts";
+import { proseDateWritten } from "../dates.ts";
 import { colorStyle, PLAN_COLORS } from "../presentation/planLines.tsx";
 import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
@@ -88,7 +89,7 @@ import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
 import { advisoryFeeState, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { MeetingTools } from "./meetings/MeetingTools.tsx";
-import { latestMeeting, meetingDateText, withMeetings, withoutNotes, type Meeting } from "./meetings/meetings.ts";
+import { latestMeeting, withMeetings, withoutNotes, type Meeting } from "./meetings/meetings.ts";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, hideFromBand, MAX_BAND, planLetters, planLinesModel, removeFromBand, unsavedRemoval, type UnsavedRemoval } from "./plans/band.ts";
 import { BandDropDialog, type BandDropChoice } from "./plans/BandDropDialog.tsx";
@@ -2459,7 +2460,7 @@ export function App() {
   }, [tab, opened, slots, work, letters, selReq, baseReq, reqOf, ...slotResults]);
   // 前回と比較: 控え（新しい順）。選んだ控えだけを、控えの現状の入力で計算する（結果は控えを選び直すまで持つ）
   const bsSnaps = useMemo(() => [...(opened?.wh.snapshots ?? [])].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)), [opened?.wh.snapshots]);
-  const bsPrevChoices = bsSnaps.map((x, i) => ({ key: `p${i + 1}`, label: `${snapshotDateText(x.createdAt).replace(/ .*$/, "")}の控え（${TRIGGER_TEXT[x.trigger]}）` }));
+  const bsPrevChoices = bsSnaps.map((x, i) => ({ key: `p${i + 1}`, label: `${proseDateWritten(x.createdAt)}の控え（${TRIGGER_TEXT[x.trigger]}）` }));
   const [bsPrevRun, setBsPrevRun] = useState<{ key: string; id: string; result: PreviewResult | null | "loading" } | null>(null);
   const onBsPrev = useCallback(
     (key: string) => {
@@ -3007,7 +3008,7 @@ export function App() {
               <UndoButtons />
               <FpMenu
                 groups={fpMenuGroups({
-                  notes: { memo: opened.wh.memo.length, meetings: (opened.wh.meetings ?? []).length, last: ((m) => (m === null ? null : meetingDateText(m.on)))(latestMeeting(opened.wh.meetings ?? [])) },
+                  notes: { memo: opened.wh.memo.length, meetings: (opened.wh.meetings ?? []).length, last: ((m) => (m === null ? null : proseDateWritten(m.on)))(latestMeeting(opened.wh.meetings ?? [])) },
                   snapshots: (opened.wh.snapshots ?? []).length,
                   review: ((t) => (t === null ? null : { last: formatYearMonth(t.last), next: formatYearMonth(t.next) }))(reviewTiming(opened.wh.snapshots ?? [])),
                   imports: host !== null ? { ai: storedInfo !== null, hearing: ((p) => (p.arrived > 0 ? `回答が届いています ${p.arrived}件` : p.toImport > 0 ? `取り込み待ち ${p.toImport}件` : null))(pendingCount(opened.wh)) } : null,

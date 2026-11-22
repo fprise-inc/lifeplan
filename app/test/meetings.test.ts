@@ -193,7 +193,8 @@ describe("面談の履歴の画面", () => {
   it("一覧: 新しい順に日と要点。名前・連絡先の欄は無い", () => {
     const html = renderToString(h(MeetingTools, props));
     expect(html).toContain("data-meeting-list");
-    expect(html.indexOf("2026年11月9日")).toBeLessThan(html.indexOf("2026年10月1日"));
+    expect(html).toContain("2026/11/09");
+    expect(html.indexOf("2026/11/09")).toBeLessThan(html.indexOf("2026/10/01"));
     expect(html).not.toMatch(/お名前|連絡先の欄|電話/);
   });
 

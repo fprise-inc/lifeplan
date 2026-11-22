@@ -62,12 +62,6 @@ export function sortItems<T extends Pick<CenterItem, "urgency" | "date">>(items:
     .map((v) => v.x);
 }
 
-/** 日付の文（2026-10-30 → 2026年10月30日） */
-export function dateText(d: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
-  return m === null ? d : `${m[1]}年${Number(m[2])}月${Number(m[3])}日`;
-}
-
 // ---- 配信元のお知らせ（形式は app/schemas/notices.json。署名の確認は本体が済ませ、確かめた中身だけを受け取る） ----
 
 /** 配信元のお知らせで開ける画面（関係する画面。「事務所」「世帯」の知らせの画面と同じ名前） */

@@ -19,7 +19,7 @@ import type { Values } from "../plans/plans.ts";
 import { today } from "../report/assemble.ts";
 import type { SnapshotDraft } from "../snapshots/snapshots.ts";
 import { buildPayload, dataSetLabel, takeawayMeeting, type TakeawayChoice, type TakeawayKnob } from "./build.ts";
-import { meetingDateText } from "../meetings/meetings.ts";
+import { proseDateWritten } from "../../dates.ts";
 import { loadAssets, makeTakeawayFile } from "./file.ts";
 import { DEFAULT_MONEY_THREE } from "../moneyThree.ts";
 
@@ -241,7 +241,7 @@ export function TakeawayPanel(p: Props) {
               <label class="rp-check">
                 <input type="checkbox" checked={withMeeting} onChange={(e) => setWithMeeting((e.currentTarget as HTMLInputElement).checked)} data-takeaway-view="meeting" />
                 面談で決めたこと・次までにやること
-                <small>（{meetingDateText(lastMeeting.on)}の面談から。ほかの欄は載せません）</small>
+                <small>（{proseDateWritten(lastMeeting.on)}の面談から。ほかの欄は載せません）</small>
               </label>
             ) : null}
             <label class="rp-check">

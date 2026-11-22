@@ -31,14 +31,14 @@ describe("区画の出し方", () => {
   it("コードがあれば、区画に名前と期限を出す", () => {
     const html = panel(st([code()]));
     expect(html).toContain("data-office-features");
-    expect(html).toContain("見本 花子さん向けに有効（期限 2027-05-31）");
+    expect(html).toContain("見本 花子さん向けに有効（期限 2027年5月31日）");
     expect(html).not.toContain("data-feature-renew");
   });
 
   it("期限の30日前から更新の知らせ", () => {
     const c = code({ state: "expiring", daysLeft: 12 });
     expect(renewText(c)).toContain("あと12日");
-    expect(renewText(code({ state: "expiring", daysLeft: 0 }))).toContain("今日（2027-05-31）まで");
+    expect(renewText(code({ state: "expiring", daysLeft: 0 }))).toContain("今日（2027年5月31日）まで");
     expect(renewText(code())).toBeNull();
     const html = panel(st([c]));
     expect(html).toContain("data-feature-renew");
@@ -75,7 +75,7 @@ describe("区画の出し方", () => {
     expect(featureErrorText("E_FEATURE_CODE_SIGNATURE")).toContain("正しくありません");
     expect(featureErrorText("E_FEATURE_CODE_EXPIRED")).toContain("期限が切れています");
     expect(featureErrorText("E_X")).toContain("E_X");
-    expect(enabledLine(code())).toBe("見本 花子さん向けに有効（期限 2027-05-31）");
+    expect(enabledLine(code())).toBe("見本 花子さん向けに有効（期限 2027年5月31日）");
   });
 });
 
@@ -150,12 +150,13 @@ describe("期限なしのコードと、提供元が止めたコード（0110 �
   it("止めた一覧の確かめの様子（コードを入れている FP にだけ出す）", () => {
     expect(checkText(undefined)).toBeNull();
     expect(checkText({ checkedAt: null, okAt: null, result: null, serial: null, listed: 0 })).toContain("まだ確かめていません");
-    expect(checkText({ checkedAt: "2026-11-01T03:00:00Z", okAt: "2026-11-01T03:00:00Z", result: "ok", serial: 2, listed: 1 })).toBe("提供元が止めたコードの一覧は 2026-11-01 に確かめました。");
+    expect(checkText({ checkedAt: "2026-11-01T03:00:00Z", okAt: "2026-11-01T03:00:00Z", result: "ok", serial: 2, listed: 1 })).toBe("提供元が止めたコードの一覧は 2026年11月1日 に確かめました。");
     // 日本の日付で出す（UTC の 15時は翌日）
-    expect(checkText({ checkedAt: "2026-11-01T15:00:00Z", okAt: "2026-11-01T15:00:00Z", result: "ok", serial: 2, listed: 1 })).toContain("2026-11-02");
+    expect(checkText({ checkedAt: "2026-11-01T15:00:00Z", okAt: "2026-11-01T15:00:00Z", result: "ok", serial: 2, listed: 1 })).toContain("2026年11月2日 に確かめました");
     const off = checkText({ checkedAt: "2026-11-03T00:00:00Z", okAt: "2026-10-30T00:00:00Z", result: "offline", serial: 2, listed: 1 }) ?? "";
     expect(off).toContain("つながりませんでした");
-    expect(off).toContain("2026-10-30 に取れた一覧");
+    expect(off).toContain("2026年11月3日 に確かめに行きました");
+    expect(off).toContain("2026年10月30日 に取れた一覧");
     expect(off).toContain("今の状態のまま");
     expect(checkText({ checkedAt: "2026-11-03T00:00:00Z", okAt: null, result: "offline", serial: null, listed: 0 })).toContain("どのコードも止めていません");
     expect(checkText({ checkedAt: "2026-11-03T00:00:00Z", okAt: null, result: "rejected", serial: null, listed: 0 })).toContain("署名ではなかった");

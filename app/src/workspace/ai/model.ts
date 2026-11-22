@@ -8,6 +8,7 @@ import type { Catalog } from "../plans/items.ts";
 import { headLetter, savePlan, suggestName, type Values } from "../plans/plans.ts";
 import { fromBody } from "../store/body.ts";
 import { sameJson } from "../undo/reopen.ts";
+import { listDateTime, proseDateTime } from "../../dates.ts";
 
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
@@ -75,14 +76,11 @@ export function remainingText(sec: number): string {
 
 export const durationText = (min: number): string => (min < 60 ? `${min}分` : `${min / 60}時間`);
 
-/** 日時（ISO 8601 → 2026/10/19 14:03。端末の時刻で） */
-export function dateTimeText(iso: string | null | undefined): string {
-  if (iso == null) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+/** 一覧の日時（ISO 8601 → 2026/10/19 14:03。端末の時刻で。書き方は dates.ts の1か所で決める） */
+export const dateTimeText = (iso: string | null | undefined): string => (iso == null ? "—" : listDateTime(iso));
+
+/** 文の中の日時（ISO 8601 → 2026年10月19日 14:03。端末の時刻で） */
+export const dateTimeProse = (iso: string | null | undefined): string => (iso == null ? "—" : proseDateTime(iso));
 
 /** 今日（端末の日付。YYYY-MM-DD） */
 export function todayText(now: Date = new Date()): string {

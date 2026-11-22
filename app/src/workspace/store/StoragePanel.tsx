@@ -8,7 +8,7 @@
 // 複数の FP の事務所での共有は「事務所の共有」のパネル（OfficePanel）。こちらは PC の言葉（呼び名）だけを使い、人の名前・指紋・承認は出さない
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OfficeHost, OfficeStatus, StorageNotice, StoreStatus } from "../../engine/host.ts";
-import { shortDate } from "./HouseholdPanel.tsx";
+import { listDate, proseDateTime } from "../../dates.ts";
 import { storageNoticeText, syncMessage } from "./storage.ts";
 
 export interface StoragePanelProps {
@@ -267,7 +267,7 @@ export function StoragePanel(p: StoragePanelProps) {
               <div class="of-alert" role="alert" data-sync-notice>
                 {st.notices.map((n) => (
                   <p key={`${n.name}-${n.at}`}>
-                    <b>復元キーで「{n.name}」が同期フォルダを開きました</b>（{shortDate(n.at)}）。
+                    <b>復元キーで「{n.name}」が同期フォルダを開きました</b>（{proseDateTime(n.at, "")}）。
                   </p>
                 ))}
                 <p class="pl-sub">復元キーを持つ人は、承認なしで同期フォルダを開けます。心当たりが無いときは、すぐにそのPCを外し（復元キーも新しくなります）、復元キーの控えの置き場所を確かめてください。</p>
@@ -283,7 +283,7 @@ export function StoragePanel(p: StoragePanelProps) {
                 </p>
                 {st.requests.map((r) => (
                   <p key={r.requestId}>
-                    「{r.name}」（{shortDate(r.requestedAt)}）{" "}
+                    「{r.name}」（{proseDateTime(r.requestedAt, "")}）{" "}
                     <button type="button" class="link-btn danger" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.reject(r.requestId)))}>
                       断る
                     </button>
@@ -326,7 +326,7 @@ export function StoragePanel(p: StoragePanelProps) {
                         <b>{m.name}</b>
                         {m.isMe ? <span class="pl-tag">このPC</span> : null}
                       </td>
-                      <td class="num">{shortDate(m.joinedAt).slice(0, 10)}</td>
+                      <td class="num">{listDate(m.joinedAt, "")}</td>
                       <td>{m.viaRecovery ? "復元キーで開いた" : "最初に同期フォルダを選んだ"}</td>
                       <td>
                         {!m.isMe ? (
@@ -407,7 +407,7 @@ export function StoragePanel(p: StoragePanelProps) {
             ) : null}
             <h3>復元キー</h3>
             <p>
-              {st.recoveryAcknowledged ? `保管済み（${shortDate(st.recoveryAcknowledgedAt ?? "")}）` : "まだ保管されていません。"}{" "}
+              {st.recoveryAcknowledged ? `保管済み（${proseDateTime(st.recoveryAcknowledgedAt, "")}）` : "まだ保管されていません。"}{" "}
               <button type="button" class="link-btn" onClick={p.onRecovery}>
                 復元キーを表示・保管する
               </button>

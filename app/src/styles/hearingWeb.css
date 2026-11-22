@@ -67,6 +67,7 @@
 .rd-table th { font-size: 0.8rem; color: var(--ink-2); font-weight: 700; }
 .rd-table td small { color: var(--ink-2); }
 .rd-table td.num { text-align: right; white-space: nowrap; }
+.rd-table td.rd-when { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .rd-table tr.on td { background: var(--prop-bg); }
 .rd-table .rd-yet { color: var(--ink-2); }
 .rd-table .rd-acts { white-space: nowrap; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
