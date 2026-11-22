@@ -47,7 +47,7 @@
 .fpm { position: relative; flex: none; }
 .fpm-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; cursor: pointer; padding: 0; }
 .fpm-btn:hover { border-color: var(--ink); }
-.fpm-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-fill); }
+.fpm-btn[aria-expanded="true"] { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 .fpm-ico { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
 .fpm-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: grid; gap: 4px; margin: 0; padding: 8px; width: max-content; min-width: 20em; max-width: min(30em, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); }
 .fpm-group { display: grid; padding: 2px 0 6px; }
@@ -62,9 +62,9 @@
 /* 文字の大きさ「文字 [中] [大]」（どちらかを選ぶ。選んでいる方を塗る） */
 .fs-pick { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .fs-lbl { font-weight: 700; font-size: 0.86rem; color: var(--ink-2); margin-right: 2px; white-space: nowrap; }
-.fs-opt { min-width: 2.3em; height: 2.1em; padding: 0 0.5em; display: inline-grid; place-items: center; border: 2px solid var(--ink-2); background: var(--card); color: var(--ink); border-radius: 8px; font-weight: 700; font-size: 0.9rem; line-height: 1; cursor: pointer; }
+.fs-opt { min-width: 2.3em; height: 2.1em; padding: 0 0.5em; display: inline-grid; place-items: center; border: 2px solid var(--prop); background: var(--card); color: var(--prop-ink); border-radius: 8px; font-weight: 700; font-size: 0.9rem; line-height: 1; cursor: pointer; }
 .fs-opt.fs-l { font-size: 1.05rem; }
-.fs-opt:hover:not([aria-checked="true"]) { border-color: var(--ink); background: var(--prop-bg); }
+.fs-opt:hover:not([aria-checked="true"]) { background: var(--prop-bg); }
 .fs-opt[aria-checked="true"] { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 
 /* 通知の印（件数つき）と一覧。行動を求める通知（復元キーの保管など）をここにまとめる */
@@ -76,14 +76,16 @@
 .bell-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: var(--est); color: var(--on-fill); font-size: 0.78em; padding: 0 0.3em; }
 /* お知らせの一覧（workspace/notices/NoticeCenter.tsx。0087）。未読が0件のときのベルは落ち着いた色（数字なし） */
 .bell-btn.quiet { border-color: var(--line); background: var(--card); color: var(--ink-2); }
-.bell-btn.quiet[aria-expanded="true"] { background: var(--ink-2); border-color: var(--ink-2); color: var(--on-fill); }
+.bell-btn.quiet[aria-expanded="true"] { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 .nc { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(34em, calc(100vw - 32px)); max-height: min(70vh, 640px); overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); padding: 10px 12px 8px; font-size: 0.9rem; }
 .nc .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .nc-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
 .nc-ttl { font-weight: 700; font-size: 1rem; }
-.nc-tabs { display: inline-flex; border: 1.5px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
-.nc-tabs button { border: 0; background: var(--card); padding: 3px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
-.nc-tabs button.on { background: var(--prop); color: var(--on-fill); }
+.nc-tabs { display: inline-flex; border: 1.5px solid var(--prop); border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.nc-tabs button { border: 0; background: var(--card); padding: 3px 12px; font-weight: 700; cursor: pointer; color: var(--prop-ink); }
+.nc-tabs button + button { border-left: 1.5px solid var(--prop); }
+.nc-tabs button:hover { background: var(--prop-bg); }
+.nc-tabs button.on, .nc-tabs button.on:hover { background: var(--prop); color: var(--on-fill); }
 .nc-cats { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 6px; }
 .nc-cat-pick { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 1px 10px; font-size: 0.8rem; cursor: pointer; color: var(--ink-2); }
 .nc-cat-pick.on { border-color: var(--ink); color: var(--ink); font-weight: 700; background: var(--base-bg); }

@@ -89,17 +89,17 @@ export function DocumentEntry({ wh, sample, ai, onOpen, onSamples }: { wh: Worki
         {readableDocsLine()}
       </span>
       {ai !== undefined ? (
-        <button type="button" class="btn" onClick={ai.onOpen} data-imports-ai-open>
+        <button type="button" class="btn small" onClick={ai.onOpen} data-imports-ai-open>
           {ai.connected ? "この世帯を AI に渡す" : "AI と接続する"}
         </button>
       ) : null}
       {readings.length > 0 ? (
-        <button type="button" class="btn" onClick={onOpen} data-documents-open>
+        <button type="button" class="btn small" onClick={onOpen} data-documents-open>
           読んだ書類を確かめる{pending > 0 ? `（未決 ${pending}件）` : `（${readings.length}通）`}
         </button>
       ) : null}
       {sample ? (
-        <button type="button" class="btn" onClick={onSamples} data-documents-samples>
+        <button type="button" class="btn small" onClick={onSamples} data-documents-samples>
           架空の保険証券の見本で試す
         </button>
       ) : null}

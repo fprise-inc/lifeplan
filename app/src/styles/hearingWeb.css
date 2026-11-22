@@ -14,7 +14,6 @@
 .wb-sec > summary small { color: var(--ink-2); }
 .wb-sec.off > summary b { color: var(--ink-2); font-weight: 400; }
 .wb-move { margin-left: auto; display: inline-flex; gap: 2px; align-items: center; }
-.wb-move .link-btn:disabled { opacity: 0.3; }
 .wb-items { list-style: none; margin: 4px 0 6px 26px; padding: 0; display: grid; gap: 2px; }
 .wb-items li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 3px 6px; border-radius: 6px; }
 .wb-items li:hover { background: var(--base-bg); }
@@ -73,7 +72,6 @@
 .rd-table .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ip-docs { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 6px 18px; border-bottom: 1px solid var(--line-2); background: color-mix(in srgb, var(--c) 6%, var(--card)); flex: none; }
 .ip-docs-h { font-size: 0.82rem; font-weight: 700; color: var(--ink-2); }
-.ip-docs .btn.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
 
 /* 見る枠: 画面の右に固定。開いている間は入力のパネルを左に寄せて並べる（html.doc-side） */
 :root { --dv-w: clamp(340px, 44vw, 780px); }
@@ -83,7 +81,6 @@
 .dv-pick { flex: 1; min-width: 0; font-size: 0.86rem; padding: 3px 4px; }
 .dv-close { border: 0; background: none; font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px; color: var(--ink-2); }
 .dv-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--line-2); }
-.dv-tools .btn.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
 .dv-zoom { min-width: 3.4em; text-align: center; font-variant-numeric: tabular-nums; font-size: 0.86rem; }
 .dv-pages { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; }
 .dv-meta { margin: 0; padding: 4px 12px; font-size: 0.8rem; color: var(--ink-2); }
@@ -101,9 +98,7 @@ html.doc-side .scrim { right: var(--dv-w); }
 /* 入力のホームの見出しの「確かめの一覧」「書類のお願い」「受け取った書類」の間 */
 .ih-check { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 
-/* 0192: FP の画面のまとまり（ひな形・聞く／聞かないの要約・範囲でも答えられる・独自の質問を直す・ご相談の話題・押せないボタン・送られた内容） */
-.wb .btn:disabled, .wr .btn:disabled, .hs-panel .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.wb .btn.primary:disabled { background: var(--base-bg); border-color: var(--line); color: var(--ink-2); }
+/* 0192: FP の画面のまとまり（ひな形・聞く／聞かないの要約・範囲でも答えられる・独自の質問を直す・ご相談の話題・送られた内容） */
 .wb-customs { display: grid; gap: 2px; border-top: 1px dashed var(--card-line); padding-top: 6px; }
 .wb-summary { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 0.88rem; }
 .wb-summary b { color: var(--ink-2); font-weight: 700; margin-right: 2px; }

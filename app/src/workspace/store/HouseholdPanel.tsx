@@ -494,7 +494,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
         <div class="hh-unsaved">
           <span>いま開いている「{p.unsavedTitle}」は保存していません。</span>
           <CategorySelect categories={p.categories} value={newCat} onChange={setNewCat} label="保存するときの区分" />
-          <button type="button" class="btn primary" onClick={() => p.onSaveCurrent(newCat)} data-save-current>
+          <button type="button" class="btn small primary" onClick={() => p.onSaveCurrent(newCat)} data-save-current>
             この世帯を保存して使う
           </button>
         </div>

@@ -35,7 +35,7 @@ export function AiShareBand({ shares, detailed, unsaved = false, paused = false,
       {shares.map((s) => (
         <span key={s.shareId} class="ai-band-item">
           顧客番号 {s.customerNumber ?? "—"}（AIには「{s.alias}」）・{remainingText(s.expiresInSec)}
-          <button type="button" class="btn danger" onClick={() => onStop(s.householdId)} data-ai-band-stop>
+          <button type="button" class="btn small danger" onClick={() => onStop(s.householdId)} data-ai-band-stop>
             取り消す
           </button>
         </span>

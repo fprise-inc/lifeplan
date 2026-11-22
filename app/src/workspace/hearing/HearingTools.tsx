@@ -531,12 +531,12 @@ export function HearingTools({
           <div class="hs-tools" role="group" aria-label="事前ヒアリング内容を作る" data-hearing-ask>
             <span class="hs-tools-h">事前ヒアリング内容を作る</span>
             {excel ? (
-              <button type="button" class="btn" onClick={() => setMode(mode === "export" ? null : "export")} aria-expanded={mode === "export"} data-hearing-export>
+              <button type="button" class="btn small" onClick={() => setMode(mode === "export" ? null : "export")} aria-expanded={mode === "export"} data-hearing-export>
                 Excel を書き出す
               </button>
             ) : null}
             {webProps !== undefined ? (
-              <button type="button" class="btn" onClick={() => setMode(mode === "web" ? null : "web")} aria-expanded={mode === "web"} data-hearing-web>
+              <button type="button" class="btn small" onClick={() => setMode(mode === "web" ? null : "web")} aria-expanded={mode === "web"} data-hearing-web>
                 URL生成
               </button>
             ) : null}
@@ -545,7 +545,7 @@ export function HearingTools({
             <div class="hs-tools" role="group" aria-label="事前ヒアリングを取り込む" data-hearing-take>
               <span class="hs-tools-h">事前ヒアリングを取り込む</span>
               {excel ? (
-                <button type="button" class="btn" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
+                <button type="button" class="btn small" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
                   {mode === "busy" ? "読んでいます…" : "記入済みの Excel を取り込む"}
                 </button>
               ) : null}

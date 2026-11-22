@@ -26,8 +26,6 @@
 .rp-viewer { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
 .rp-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
 .rp-nav, .rp-zoom { display: flex; gap: 6px; align-items: center; }
-.rp-nav .btn, .rp-zoom .btn { padding: 4px 10px; }
-.rp-zoom .btn.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
 .rp-pct { min-width: 3.4em; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
 .rp-pageno { display: flex; gap: 4px; align-items: center; font-variant-numeric: tabular-nums; }
 .rp-pageno input { width: 3.6em; border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 4px; font: inherit; text-align: right; }
@@ -52,7 +50,6 @@
 /* ---- ヒアリングシート（入力のホームの上部） ---- */
 .hs-tools { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .hs-tools-h { font-weight: 700; color: var(--ink-2); font-size: 0.9rem; }
-.hs-tools .btn { padding: 5px 14px; }
 .hs-msg { margin: 0; justify-self: end; font-weight: 700; color: var(--good); background: var(--good-bg); border-radius: 6px; padding: 4px 10px; }
 .hs-panel { display: grid; gap: 10px; }
 .hs-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 16px; }
