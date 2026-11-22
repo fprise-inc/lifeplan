@@ -18,7 +18,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv { padding-top: 8px; }
 .sv-howto { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 14px; background: var(--wash, #fafbfc); }
 .sv-howto .k { font-weight: 700; }
-.sv-howto .seg-g button { padding: 5px 18px; font-size: 1rem; }
+.sv-howto .seg-g button { padding: 5px 12px; }
 .sv-howto .d { color: var(--ink-2); font-size: 0.88rem; flex: 1 1 260px; }
 .sv-carry { margin-top: 10px; border: 1.5px solid var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }
 .sv-sec { margin-top: 18px; }
@@ -82,7 +82,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-fld > .sv-rate-msg { grid-column: 2; margin: 0; }
 @media (max-width: 720px) { .sv-fld > .sv-rate-msg { grid-column: 1; } }
 @media (max-width: 720px) { .sv-fld { grid-template-columns: 1fr; } .sv-fld .help { grid-column: 1; } }
-.seg-g.sm button { font-size: 0.85rem; padding: 3px 10px; }
+.seg-g.sm button { padding: 3px 10px; }
 .sv-nisa { margin-top: 12px; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 .sv-nisa .nt { flex: 1 1 360px; }
 .sv-nisa .nt small { display: block; color: var(--est-ink); }
