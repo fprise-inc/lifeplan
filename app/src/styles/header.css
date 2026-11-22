@@ -118,8 +118,6 @@
 .nc-rcpt { background: var(--good); color: var(--on-fill); }
 .nc-date { font-size: 0.78rem; color: var(--ink-2); }
 .nc-empty { color: var(--ink-2); margin: 14px 4px; }
-/* 足元の「要望・不具合を送る」: FP のメニューが出ていないとき（世帯を開いていないとき）だけ（0245） */
-.nc-foot { border-top: 1px solid var(--line-2); margin-top: 6px; padding-top: 6px; text-align: right; }
 .nc-detail { padding: 2px 2px 6px; }
 .nc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .nc-h { margin: 12px 0 2px; font-size: 0.78rem; color: var(--ink-2); font-weight: 700; }

@@ -1,6 +1,6 @@
 // 上の帯の FP のメニュー（線のアイコン1つ）。顧客と一緒に見る画面に常に出す必要のない FP の操作を、ここにまとめる（0077 の追記）:
 // 記録（メモ・面談の履歴。メモは前は上の帯のボタン。面談の履歴は 0182。0016 の追記）／控え（この時点を残す・控えの一覧）／面談の準備（世帯の中身の一覧・次の1年に起きること・前回から変わったこと）／情報を集める（事前ヒアリング〔0192〕と AI で書類を読み取る）／事務所の設定（今の保存先と事務所の共有の状態・既定値）／
-// ファイナンシアへ（要望・不具合を送る。0087。入口はここに一本化。お知らせの一覧の足元には、このメニューが出ていないとき〔世帯を開いていないとき〕だけ出す。0245）。
+// ファイナンシアへ（要望・不具合を送る。0087。入口はここだけ。お知らせの一覧には置かない。0245）。世帯を開いていないとき（読み込み中・開けなかったとき・選ぶ前）も出し、そのときは世帯が無くても開ける物〔事務所の設定・ファイナンシアへ〕だけを並べる（fpMenuWithoutHousehold。0245）。
 // 見出しは小さめの灰色（太字にしない）、項目は見出しより一段右に下げ、まとまりの間に区切りの線を引く（見た目は styles/header.css の .fpm-*。0077 の追記）。
 // 開いた一覧は帯の下に重ねて出す（画面は動かさない）。Esc・外を押すと閉じる。1つを押すと閉じて、その中身を開く
 // （入力のホームの中身なら、親が入力のタブに切り替えて開く。どのタブでも帯は同じ）
@@ -79,18 +79,28 @@ export function fpMenuGroups(p: FpMenuInput): FpMenuGroup[] {
       label: "情報を集める",
       items: [{ action: "hearing", label: HEARING_EXCEL_SHOWN ? "事前ヒアリング（Excel・URL生成・取り込み）" : "事前ヒアリング（URL生成・取り込み）", ...(p.imports.hearing != null ? { note: p.imports.hearing } : {}) }, ...(p.imports.ai ? [{ action: "ai" as const, label: "AI で書類を読み取る", pop: true }] : [])],
     });
-  if (p.office !== null)
-    out.push({
-      id: "office",
-      label: "事務所の設定",
-      items: [
-        { action: "storage", label: "保存先", note: p.office.storage, pop: true },
-        { action: "office", label: "事務所の共有", note: p.office.share, pop: true },
-        { action: "officeDefaults", label: "事務所の既定値", note: "新しい世帯に写す値・ホームの並び", pop: true },
-      ],
-    });
-  out.push({ id: "feedback", label: "ファイナンシアへ", items: [{ action: "feedback", label: "要望・不具合を送る", note: "受付番号を作ってフォームを開きます", pop: true }] });
+  if (p.office !== null) out.push(officeGroup(p.office));
+  out.push(FEEDBACK_GROUP);
   return out;
+}
+
+const officeGroup = (o: NonNullable<FpMenuInput["office"]>): FpMenuGroup => ({
+  id: "office",
+  label: "事務所の設定",
+  items: [
+    { action: "storage", label: "保存先", note: o.storage, pop: true },
+    { action: "office", label: "事務所の共有", note: o.share, pop: true },
+    { action: "officeDefaults", label: "事務所の既定値", note: "新しい世帯に写す値・ホームの並び", pop: true },
+  ],
+});
+const FEEDBACK_GROUP: FpMenuGroup = { id: "feedback", label: "ファイナンシアへ", items: [{ action: "feedback", label: "要望・不具合を送る", note: "受付番号を作ってフォームを開きます", pop: true }] };
+
+/**
+ * 世帯を開いていないとき（読み込み中・開けなかったとき・選ぶ前）のメニュー（0245）: 世帯が無くても開ける物だけ。
+ * 世帯が要る項目（記録・控え・面談の準備・情報を集める）は、押せない形で並べず、出さない
+ */
+export function fpMenuWithoutHousehold(office: FpMenuInput["office"]): FpMenuGroup[] {
+  return [...(office !== null ? [officeGroup(office)] : []), FEEDBACK_GROUP];
 }
 
 /** 今の保存先の文（世帯の選択のメニューの「保存先」と同じ） */

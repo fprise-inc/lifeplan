@@ -8,7 +8,7 @@ import { FEEDBACK_FORM } from "../src/generated/distribution.ts";
 import type { StorageNotice } from "../src/engine/host.ts";
 import { barNotices, householdNoticeText, NOTICE_TODO, type BarInputs } from "../src/workspace/header/status.ts";
 import { CATEGORIES, compareVersions, EMPTY_LOCAL, FEED_SCREENS, feedKey, filterItems, householdKey, markRead, needsAction, parseFeed, readLocal, sortItems, unreadCount, visibleFeed, type CenterItem } from "../src/workspace/notices/center.ts";
-import { fpMenuGroups } from "../src/workspace/header/FpMenu.tsx";
+import { fpMenuGroups, fpMenuWithoutHousehold } from "../src/workspace/header/FpMenu.tsx";
 import { HEARING_ARRIVAL_TODO } from "../src/workspace/hearing/bell.ts";
 import { customCenterNotice, estimateCenterNotice } from "../src/workspace/office/customNotice.ts";
 import { FeedbackPanel } from "../src/workspace/notices/FeedbackPanel.tsx";
@@ -244,7 +244,7 @@ describe("印は状態にだけ色を使い、要対応と参考を見分ける�
     expect(out.find((x) => x.title === "ペットの費用の入れ先をまとめました")?.todo).toBe(false);
   });
 
-  it("ほかの人が開いている・参加の承認待ち・参加の申請は知らせるだけ。届いたヒアリングの回答・書類は要対応", () => {
+  it("ほかの人が開いている・共有に加わる承認待ち・共有に加わる申請は知らせるだけ。届いたヒアリングの回答・書類は要対応", () => {
     expect(barNotices({ ...base, presence: "担当Bさんが開いています" }).map((x) => x.todo)).toEqual([false]);
     expect(HEARING_ARRIVAL_TODO).toBe(true);
   });
@@ -319,19 +319,23 @@ describe("印は状態にだけ色を使い、要対応と参考を見分ける�
     expect(src).toContain('class="btn primary nc-go"');
   });
 
-  it("「要望・不具合を送る」は FP のメニューに一本化。一覧の足元には、FP のメニューが出ていないとき（世帯を開いていないとき）だけ出す", () => {
-    const withoutEntry = renderToString(h(NoticeCenter, { items: [item()], onRead: noop, initialOpen: true }));
-    expect(withoutEntry).not.toContain("data-notice-feedback");
-    expect(withoutEntry).not.toContain("要望・不具合を送る");
-    expect(renderToString(h(NoticeCenter, { items: [], onRead: noop, onFeedback: noop, initialOpen: true }))).toContain("data-notice-feedback");
-    // FP のメニューには、いつも「ファイナンシアへ」の「要望・不具合を送る」がある
-    const groups = fpMenuGroups({ snapshots: 0, review: null, imports: null, office: null });
-    expect(groups.find((g) => g.id === "feedback")?.items.map((i) => [i.action, i.label])).toEqual([["feedback", "要望・不具合を送る"]]);
-    // 画面は、FP のメニューを出していない（世帯を開いていない）ときだけ足元の入口を渡す
+  it("「要望・不具合を送る」の入口は FP のメニューだけ。お知らせの一覧には、どんなときも出さない。FP のメニューは世帯を開いていないときも出す", () => {
+    const html = renderToString(h(NoticeCenter, { items: [item()], onRead: noop, initialOpen: true }));
+    expect(html).not.toContain("data-notice-feedback");
+    expect(html).not.toContain("要望・不具合を送る");
+    expect(renderToString(h(NoticeCenter, { items: [], onRead: noop, initialOpen: true }))).not.toContain("要望・不具合を送る");
+    const center = readFileSync(join(APP, "src", "workspace", "notices", "NoticeCenter.tsx"), "utf8");
+    expect(center).not.toMatch(/onFeedback|data-notice-feedback/);
+    // FP のメニューには、世帯を開いていてもいなくても「ファイナンシアへ」の「要望・不具合を送る」がある
+    const feedback = (groups: { id: string; items: { action: string; label: string }[] }[]) => groups.find((g) => g.id === "feedback")?.items.map((i) => [i.action, i.label]);
+    expect(feedback(fpMenuGroups({ snapshots: 0, review: null, imports: null, office: null }))).toEqual([["feedback", "要望・不具合を送る"]]);
+    expect(feedback(fpMenuWithoutHousehold(null))).toEqual([["feedback", "要望・不具合を送る"]]);
+    // 画面は、お知らせに入口を渡さず、世帯を開いていないときも FP のメニューを描く
     const app = readFileSync(join(APP, "src", "workspace", "App.tsx"), "utf8");
-    expect(app.match(/onFeedback:/g)?.length).toBe(1);
-    expect(app).toContain("...(opened === null ? { onFeedback: () => setFeedbackOpen(true) } : {})");
-    expect(app).toMatch(/tools=\{\s*opened !== null \? \(\s*<>\s*<UndoButtons \/>\s*<FpMenu/);
+    expect(app).not.toContain("onFeedback");
+    expect(app).toMatch(/tools=\{\s*opened !== null \? \(\s*<>\s*<UndoButtons \/>\s*<FpMenu[\s\S]*?\) : \(\s*\/\/[^\n]*\n\s*<FpMenu groups=\{fpMenuWithoutHousehold\(fpOffice\)\} onPick=\{pickFpMenu\}/);
+    expect(app).toContain('if (a === "feedback") return setFeedbackOpen(true);');
+    expect(readFileSync(join(APP, "src", "styles", "header.css"), "utf8")).not.toContain(".nc-foot");
   });
 
   it("ベルの線の太さは、隣の ↶↷・FP のメニューと同じ 1.5px。左右の余白で、数の丸つきの幅を前と同じに", () => {

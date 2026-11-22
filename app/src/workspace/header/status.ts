@@ -247,11 +247,11 @@ export function storageNoticeTitle(n: StorageNotice): string {
     case "removed":
       return personal ? "このPCが同期フォルダから外されました" : "事務所の共有から外されました";
     case "pending":
-      return "参加の承認を待っています";
+      return "共有に加わる承認を待っています";
     case "recoveryJoin":
       return personal ? "復元キーで PC が加わりました" : "復元キーで加わった人がいます";
     case "joinRequest":
-      return "参加の申請があります";
+      return "共有に加わる申請があります";
     case "localHouseholds":
       return "まだ移していない世帯があります";
     case "syncCopies":
