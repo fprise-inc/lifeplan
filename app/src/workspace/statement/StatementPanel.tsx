@@ -954,7 +954,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
           <p class="rp-note">シートには、日付・店・金額・口座の呼び名・お使いになった方と、選ぶ欄だけが載ります（お名前・世帯の番号は載りません）。迷う店は同じ店を1行にまとめ（期間・回数・合計）、答えはその店の行すべてに使います。高額の行などは1行ずつ載せます。</p>
           <div class="rp-actions">
             <button type="button" class="btn primary" disabled={busy} onClick={() => void write()} data-statement-sheet-go>
-              {busy ? "作っています…" : "分かったうえで書き出す"}
+              {busy ? "作っています…" : "わかりました。書き出す"}
             </button>
             <button type="button" class="btn" onClick={() => setAsking(false)} data-statement-sheet-cancel>
               キャンセル

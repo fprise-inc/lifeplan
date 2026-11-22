@@ -244,4 +244,16 @@ describe("追記（2026-11-23）: 取り消しの確かめの文を短く・法�
     expect(html).toContain("法人を顧問先に持つ FP 向けの機能です。");
     expect(html).not.toContain("会社を顧問先");
   });
+
+  it("確認シートを書き出す前の注意の進むボタンは「わかりました。書き出す」（保存の前の注意「わかりました。保存する」と同じ言い方）", () => {
+    const st = src("workspace", "statement", "StatementPanel.tsx");
+    expect(st).toContain('"わかりました。書き出す"');
+    expect(st).not.toContain("分かったうえで書き出す");
+  });
+
+  it("エラーの記録の「すべて消す」は危ない段（赤）。取り消しの「やめる」は下線のリンクのまま", () => {
+    const fb = src("workspace", "notices", "FeedbackPanel.tsx");
+    expect(fb).toMatch(/<button type="button" class="btn danger" onClick=\{\(\) => void clear\(\)\} data-error-log-clear-yes>\s*すべて消す/);
+    expect(fb).toMatch(/すべて消す\s*<\/button>\s*<button type="button" class="link-btn" onClick=\{\(\) => setConfirming\(false\)\}>\s*やめる/);
+  });
 });
