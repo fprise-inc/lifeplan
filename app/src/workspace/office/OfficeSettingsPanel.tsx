@@ -37,6 +37,7 @@ import { DisplayDefaultsSection } from "./DisplayDefaultsSection.tsx";
 import { withOfficeDisplay } from "./settings.ts";
 import { officeDisplayOf } from "../settings.ts";
 import { carryDisplayValue } from "./displayProposals.ts";
+import { proseDateTimeWritten } from "../../dates.ts";
 import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, NOTICE_FADE_TEXT, noticeCodes, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
 export interface OfficeSettingsPanelProps {
@@ -935,7 +936,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
               <p class="os-code-cand-title">
                 <b>AIからの候補: 機能を有効にするコードを入れる</b>
                 <span class="pl-sub">
-                  {c.receivedAt.slice(0, 16).replace("T", " ")}（UTC）に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
+                  {proseDateTimeWritten(c.receivedAt)}（UTC）に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
                 </span>
               </p>
               {c.ok ? (

@@ -9,7 +9,7 @@ import type { AiCandidate } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Catalog } from "../plans/items.ts";
 import type { Values } from "../plans/plans.ts";
-import { candidatePlanNames, candidateRows, candidateValues, dateTimeText, type CandidateRow } from "./model.ts";
+import { candidatePlanNames, candidateRows, candidateValues, dateTimeProse, type CandidateRow } from "./model.ts";
 
 export interface AiCandidatesProps {
   candidates: readonly AiCandidate[];
@@ -76,7 +76,7 @@ function CandidateCard({ c, rows, values, name, onName, onAccept, onReject }: Ai
         <span class="ai-tag">AIが書いた題名</span>
         <b class="ai-untrusted">{c.title}</b>
         <span class="pl-sub">
-          {dateTimeText(c.receivedAt)} に届きました{c.origin.connector !== null ? `・AI のアプリの名乗り: ${c.origin.connector}（自己申告）` : ""}
+          {dateTimeProse(c.receivedAt)} に届きました{c.origin.connector !== null ? `・AI のアプリの名乗り: ${c.origin.connector}（自己申告）` : ""}
         </span>
       </div>
       {c.summary.trim() !== "" ? (

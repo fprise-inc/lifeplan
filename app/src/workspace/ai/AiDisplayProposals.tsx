@@ -9,7 +9,7 @@ import { useState } from "preact/hooks";
 import type { AiHouseholdDisplayCandidate } from "../../engine/host.ts";
 import { buildDisplayCatalog, type HouseholdProposableDisplayId } from "../../connector/displayCatalog.ts";
 import { householdProposalRow, type HouseholdDisplayState } from "./displayProposals.ts";
-import { dateTimeText } from "./model.ts";
+import { dateTimeProse } from "./model.ts";
 
 export interface AiDisplayProposalsProps {
   candidates: readonly AiHouseholdDisplayCandidate[];
@@ -63,7 +63,7 @@ export function AiDisplayProposals({ candidates, state, blocked, onApply, onDisc
           <p class="os-code-cand-title">
             <b>表示の設定の案（{c.changes.length}件）</b>
             <span class="pl-sub">
-              {dateTimeText(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
+              {dateTimeProse(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
             </span>
           </p>
           {c.changes.map((ch) => {

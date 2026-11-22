@@ -74,6 +74,7 @@ import {
   type WorkStyle,
 } from "../../../../statement/src/index.ts";
 import type { Household } from "../../engine/types.ts";
+import { listDateWritten, proseDateWritten } from "../../dates.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { isAdult, memberLabels } from "../input/labels.ts";
 
@@ -357,7 +358,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/u;
 export function periodProblem(p: { from: string; to: string }, span?: { from: string; to: string } | null): string | null {
   if (!DATE.test(p.from) || !DATE.test(p.to) || Number.isNaN(Date.parse(p.from)) || Number.isNaN(Date.parse(p.to))) return "日付を入れてください";
   if (p.from > p.to) return "始めの日が終わりの日より後になっています";
-  if (span != null && (p.from > span.from || p.to < span.to)) return `期間は、使った日の最初（${span.from.replace(/-/gu, "/")}）から最後（${span.to.replace(/-/gu, "/")}）までを含めてください（狭くすると、月平均が多く出ます）`;
+  if (span != null && (p.from > span.from || p.to < span.to)) return `期間は、使った日の最初（${proseDateWritten(span.from)}）から最後（${proseDateWritten(span.to)}）までを含めてください（狭くすると、月平均が多く出ます）`;
   return null;
 }
 
@@ -651,7 +652,7 @@ export function markText(c: MarkCandidate): string {
   return parts.join("・");
 }
 
-const dateText = (d: string) => d.replace(/-/gu, "/");
+const dateText = (d: string) => listDateWritten(d);
 
 /** シートの行の使った日の文（まとめた店の行は「2025/10/10〜2026/09/10・12回」） */
 export function markDateText(c: Pick<MarkCandidate, "kind" | "date" | "to" | "count">): string {

@@ -5,6 +5,7 @@
 import { createContext } from "preact";
 import { useContext, useMemo, useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
+import { listDate, listDateTime, proseDateTime } from "../../dates.ts";
 import type { FolderSaveOutcome, SaveOutcome } from "../../engine/host.ts";
 import { Help } from "../../presentation/Help.tsx";
 import { docRequests, type DocRequest } from "../input/docRequests.ts";
@@ -106,8 +107,6 @@ export function useReceivedDocs(wh: WorkingHousehold, p: ReceivedProps): Receive
 export const DocViewContext = createContext<ReceivedDocsState | null>(null);
 export const useDocView = (): ReceivedDocsState | null => useContext(DocViewContext);
 
-const day = (iso: string) => new Date(iso).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
-const dayTime = (iso: string) => new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const kindText = (r: ReceivedFile) => (r.file.mime === "application/pdf" ? "PDF" : "写真");
 
 /** 入力のホームの見出しのボタン「受け取った書類（N件・2.1MB）」 */
@@ -209,10 +208,12 @@ export function ReceivedDocs({ rd }: { rd: ReceivedDocsState }) {
                     </small>
                   </td>
                   <td>{r.whose ?? "—"}</td>
-                  <td title={r.sentAt !== null ? `お客さまが送った日時（申告）: ${dayTime(r.sentAt)}` : undefined}>{dayTime(r.receivedAt)}</td>
+                  <td class="rd-when" title={r.sentAt !== null ? `お客さまが送った日時（申告）: ${proseDateTime(r.sentAt)}` : undefined}>
+                    {listDateTime(r.receivedAt)}
+                  </td>
                   <td class="num">{sizeText(r.file.bytes)}</td>
                   <td data-received-viewed={r.file.viewedAt !== undefined ? "1" : "0"}>{r.file.viewedAt !== undefined ? "見た" : <span class="rd-yet">まだ</span>}</td>
-                  <td data-received-saved={r.file.savedAt !== undefined ? "1" : "0"}>{r.file.savedAt !== undefined ? `保存した（${day(r.file.savedAt)}）` : <span class="rd-yet">まだ</span>}</td>
+                  <td data-received-saved={r.file.savedAt !== undefined ? "1" : "0"}>{r.file.savedAt !== undefined ? `保存した（${listDate(r.file.savedAt)}）` : <span class="rd-yet">まだ</span>}</td>
                   <td class="rd-acts">
                     <button type="button" class="link-btn" onClick={() => rd.view(rd.viewing === id ? null : id)} data-received-view={id}>
                       {rd.viewing === id ? "閉じる" : "見る"}

@@ -3,7 +3,8 @@
 // 提案書の PDF を保存したときの控えは、提案書のタブが自動で作る（ReportTab.tsx）。控えは作った後に変えない（消すことはできる）
 import { useEffect, useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
-import { SNAPSHOT_MEMO_MAX, snapshotDateText, TRIGGER_TEXT, verifySnapshot, type Snapshot } from "./snapshots.ts";
+import { listDateTimeWritten } from "../../dates.ts";
+import { SNAPSHOT_MEMO_MAX, TRIGGER_TEXT, verifySnapshot, type Snapshot } from "./snapshots.ts";
 
 export interface SnapshotToolsProps {
   list: readonly Snapshot[];
@@ -141,7 +142,7 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mod
               <tbody>
                 {sorted.map((s) => (
                   <tr key={s.id} data-snapshot-row={s.trigger}>
-                    <td class="snap-date">{snapshotDateText(s.createdAt)}</td>
+                    <td class="snap-date">{listDateTimeWritten(s.createdAt)}</td>
                     <td>
                       <span class={`snap-kind ${s.trigger}`}>{TRIGGER_TEXT[s.trigger]}</span>
                     </td>

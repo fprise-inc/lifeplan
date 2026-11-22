@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { documentFromCheck, documentFromTemplate, templateSelection, webLog, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "../src/workspace/hearing/web.ts";
 import { byDocument, DOC_CARDS, docFileName, docNameParts, fileNames, filesForCard, receivedFiles, receivedSummary, sizeText, withFileMarks, withoutFiles } from "../src/workspace/hearing/receivedDocs.ts";
 import { DocLinks, ReceivedDocs, type ReceivedDocsState } from "../src/workspace/hearing/ReceivedDocs.tsx";
+import { DocViewer } from "../src/workspace/hearing/DocViewer.tsx";
 import { DOCUMENT_TEMPLATES, OWNER_LABEL } from "../../hearing/src/web/documents.ts";
 import type { RequestedDocument, WebSelection } from "../../hearing/src/web/packet.ts";
 import { blankHousehold, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -163,5 +164,23 @@ describe("受け取った書類（0191）", () => {
     expect(links).toContain("源泉徴収票（ご本人）を見る（2枚）");
     expect(links).not.toContain("ねんきん定期便");
     expect(renderToString(h(DocLinks, { rd, card: "family" }))).toBe("");
+  });
+
+  it("書類を見る枠の選ぶ欄: 選択肢は名前・何枚目・種類・受け取った日だけ（「受け取り」の言葉と時刻は下の説明の行に出す。0241）", () => {
+    const { wh } = household();
+    const files = receivedFiles(wh);
+    const rd: ReceivedDocsState = { files, names: fileNames(files), viewing: "f3", view: () => undefined, listOpen: false, setListOpen: () => undefined, markViewed: () => undefined, canSave: true, save: async () => "", remove: () => undefined, note: null, pending: [] };
+    const html = renderToString(h(DocViewer, { rd, beside: false }));
+    const options = [...html.matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((m) => m[1]);
+    expect(options).toHaveLength(4);
+    // 一覧の形の日だけ（年つき・2桁）。同じ依頼の同じ書類は「1/2」「2/2」で見分ける
+    expect(options[0]).toMatch(/^ねんきん定期便（ご本人）（PDF・\d{4}\/\d{2}\/\d{2}）$/);
+    expect(options[1]).toMatch(/^健康診断の結果（写真・\d{4}\/\d{2}\/\d{2}）$/);
+    expect(options[2]).toMatch(/^源泉徴収票（ご本人） 1\/2（写真・\d{4}\/\d{2}\/\d{2}）$/);
+    expect(options[3]).toMatch(/^源泉徴収票（ご本人） 2\/2（写真・\d{4}\/\d{2}\/\d{2}）$/);
+    expect(new Set(options).size).toBe(4);
+    for (const o of options) expect(o).not.toMatch(/受け取り|\d\d:\d\d/);
+    // 受け取った日時は説明の行に（一覧の形の日時）
+    expect(html).toMatch(/data-dv-meta[^>]*>PDF・2\.3MB・\d{4}\/\d{2}\/\d{2} \d{2}:00 に受け取り・まだ保存していません/);
   });
 });

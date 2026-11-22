@@ -19,6 +19,7 @@ import { cleanValue, isPersonalNumberValue } from "./privacy.ts";
 import { fieldPlaces, memberIdOf, placeByKey, resolveTarget, type FieldPlace, type Resolution } from "./resolve.ts";
 import { readingScore, scoreTotals } from "./score.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
+import { proseDateWritten } from "../../dates.ts";
 import { CONFIDENCE_LABELS, docTypeLabel, isRetired, LIMITS, VIA_LABELS, type CandidateValue, type DocCandidate, type DocObject, type DocumentReading } from "./types.ts";
 
 type Obj = Record<string, unknown>;
@@ -352,7 +353,7 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
   if (r.file !== undefined) {
     // 1つのファイルに何通かの証明書が入っていることがあるので、同じ時に読んだ記録どうしは比較しない（0153）
     const dup = others.find((x) => x.id !== r.id && x.file?.sha256 === r.file?.sha256 && x.at !== r.at);
-    if (dup !== undefined) notices.push(`同じファイルを前にも読んでいます（${dup.at.slice(0, 10)}）。`);
+    if (dup !== undefined) notices.push(`同じファイルを前にも読んでいます（${proseDateWritten(dup.at)}）。`);
   }
   if (r.asOf !== undefined && r.asOf < addMonths(wh.request.input.baseMonth, -12)) notices.push(`書類の時点（${formatYearMonth(r.asOf)}）が、計算の基準の月より1年以上前です。新しい書類か確かめてください。`);
   for (const o of objectViews.values())

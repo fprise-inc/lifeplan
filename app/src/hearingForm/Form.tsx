@@ -14,6 +14,7 @@ import { DOCUMENT_LIMITS, hideTip, PHOTO_TIPS } from "../../../hearing/src/web/d
 import { answerText, coverLine, coverSummary, customerDocTitle, customerText, docShown, DOCS_SECTION, DOCS_TITLE, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, insteadLine, itemGuide, itemLabel, markSent, MONTH_UNKNOWN, normNumber, progress, rangeFirst, requiredKey, requiredMissing, requiredText, requiredWhat, requiredWho, REVIEW_TITLE, screenFields, screenGates, screenId, screens, START_SECTION, START_TITLE, unknownShown, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
 import type { GateId, PacketDocument, QuestionsPacket, WebItem } from "../../../hearing/src/web/packet.ts";
 import { prepareFile } from "./photo.ts";
+import { listDateTime, proseDate, proseDateTime } from "../dates.ts";
 
 export interface FormProps {
   packet: QuestionsPacket;
@@ -244,7 +245,7 @@ function Office({ p }: { p: QuestionsPacket }) {
   );
 }
 
-const dateText = (iso: string) => new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+const dateText = (iso: string) => proseDate(iso);
 
 /**
  * 「このページの仕組み」（最初の画面と、答えを送った後に開き直した「書類を送る」の画面の一番下に小さく。専門用語・作る側の言葉を避けて短く。
@@ -747,7 +748,7 @@ function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProp
       <main class="hf-main">
         <h1 class="hf-q">書類を送る</h1>
         <p class="hf-pre" data-hf-answered>
-          {answeredAt !== null ? `${new Date(answeredAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}にご回答いただいています。` : "ご回答いただいています。"}
+          {answeredAt !== null ? `${proseDate(answeredAt)}にご回答いただいています。` : "ご回答いただいています。"}
           ありがとうございました。書類は、回答の期限（{dateText(p.expiresAt)}）まで、このページから何回でも送れます。
         </p>
         <Documents p={p} d={{ documents: m.documents, gates: {} }} mode={mode} thumbs={thumbs} camera={props.camera ?? touchDevice()} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => setM((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} />
@@ -758,7 +759,7 @@ function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProp
         ) : null}
         {done !== null && count === 0 ? (
           <p class="hf-pre" role="status" data-hf-more-done>
-            {new Date(done).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}に送りました。担当の FP が受け取ります。ほかにもあれば、続けて送れます。
+            {proseDateTime(done)}に送りました。担当の FP が受け取ります。ほかにもあれば、続けて送れます。
           </p>
         ) : null}
         {m.sent.length > 0 ? (
@@ -767,7 +768,7 @@ function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProp
             <ul class="hf-sent-docs">
               {m.sent.map((r) => (
                 <li key={r.at}>
-                  {new Date(r.at).toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}: {r.items.map((x) => `${title(x.id)}（${x.files}）`).join("・")}
+                  {listDateTime(r.at)}: {r.items.map((x) => `${title(x.id)}（${x.files}）`).join("・")}
                 </li>
               ))}
             </ul>
@@ -977,7 +978,7 @@ export function HearingForm(props: FormProps): JSX.Element {
           </div>
           <h1>事前ヒアリングの内容を送りました</h1>
           <p>
-            {sent.toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}に送りました。ご協力ありがとうございました。
+            {proseDateTime(sent)}に送りました。ご協力ありがとうございました。
           </p>
           {laterDocs.length > 0 ? <p>「あとで送る」にした書類（{laterDocs.map((x) => x.title).join("・")}）は、用意できたら、このページか、届いたリンクを開き直して送ってください（期限は{dateText(p.expiresAt)}までです）。</p> : null}
           {p.documents.length > 0 && laterDocs.length === 0 ? <p>書類は、あとからでも、届いたリンクを開き直して送れます（期限は{dateText(p.expiresAt)}までです）。</p> : null}

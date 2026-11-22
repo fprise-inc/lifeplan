@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { AiHost, AiStatus } from "../../engine/host.ts";
 import { AiAppRegister } from "./AiAppRegister.tsx";
-import { aiMessage, codeOf, dateTimeText, remainingText } from "./model.ts";
+import { aiMessage, codeOf, dateTimeProse, remainingText } from "./model.ts";
 
 export interface AiConnectorPanelProps {
   ai: AiHost;
@@ -106,7 +106,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
           事務所のプライバシーポリシーに、お客さまの情報を外部の AI サービスで扱うこと（AI を使った資料の読み取りや分析）を書いていることを確かめました
         </label>
         <p class="in-note" data-ai-privacy-policy-at>
-          {policyAt !== null ? `確かめた日時: ${dateTimeText(policyAt)}` : "まだ確かめていません。"}
+          {policyAt !== null ? `確かめた日時: ${dateTimeProse(policyAt)}` : "まだ確かめていません。"}
         </p>
         <p class="in-note">
           確かめると、外部AIへの提供の同意の答えが無いお客さまの世帯も、事務所のプライバシーポリシーに沿って AI に渡せます。お客さまが「同意しない」と答えた世帯と、同意を撤回した世帯は、確かめた後も渡せません。印を外すと、同意の記録が無いまま渡していた世帯の共有は、すぐに取り消します。

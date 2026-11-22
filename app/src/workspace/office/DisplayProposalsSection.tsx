@@ -8,7 +8,7 @@ import { useState } from "preact/hooks";
 import type { AiDisplayCandidate } from "../../engine/host.ts";
 import { buildDisplayCatalog, type ProposableDisplayId } from "../../connector/displayCatalog.ts";
 import { isProposableDisplayId } from "../../connector/displayProposal.ts";
-import { dateTimeText } from "../ai/model.ts";
+import { dateTimeProse, dateTimeText } from "../ai/model.ts";
 import { DISPLAY_HISTORY_MAX } from "./displayHistory.ts";
 import { displayNow, displayText, proposalRow } from "./displayProposals.ts";
 import type { OfficeSettings } from "./settings.ts";
@@ -71,7 +71,7 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
           <p class="os-code-cand-title">
             <b>表示の設定の案（{c.changes.length}件）</b>
             <span class="pl-sub">
-              {dateTimeText(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
+              {dateTimeProse(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
             </span>
           </p>
           {c.changes.map((ch) => {
