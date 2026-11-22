@@ -5,6 +5,7 @@
 // 開いた一覧は帯の下に重ねて出す（画面は動かさない）。Esc・外を押すと閉じる。1つを押すと閉じて、その中身を開く
 // （入力のホームの中身なら、親が入力のタブに切り替えて開く。どのタブでも帯は同じ）
 import { useEffect, useRef, useState } from "preact/hooks";
+import { useEscClose } from "../../presentation/CloseX.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { HEARING_EXCEL_SHOWN } from "../hearing/excelSwitch.ts";
 
@@ -107,22 +108,17 @@ export function FpMenu({ groups, onPick, initialOpen = false }: { groups: readon
   const [open, setOpen] = useState(initialOpen);
   const box = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
+  useEscClose(() => {
+    setOpen(false);
+    btn.current?.focus();
+  }, open);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setOpen(false);
-      btn.current?.focus();
-    };
     const onDown = (e: MouseEvent) => {
       if (box.current !== null && e.target instanceof Node && !box.current.contains(e.target)) setOpen(false);
     };
-    document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onDown);
-    };
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
   return (
     <div class="fpm" ref={box}>

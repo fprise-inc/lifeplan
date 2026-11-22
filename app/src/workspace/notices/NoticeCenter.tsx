@@ -2,6 +2,7 @@
 // 押すと帯の下に一覧を重ねて出す: 「未読」「すべて」の切り替えと種類の絞り込み・「すべて既読にする」。
 // 1件を押すと詳しい中身（何があったか → 何が変わったか → 関係する世帯 → その画面を開くボタン）。開いたものは既読にして一覧に残す
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { CATEGORIES, countsAsUnread, dateText, filterItems, RECEIPT_MATCH_TEXT, sortItems, unreadCount, URGENCY_LABEL, type CenterItem, type NoticeCategory } from "./center.ts";
 
 export interface NoticeCenterProps {
@@ -12,6 +13,8 @@ export interface NoticeCenterProps {
   onFeedback?: (() => void) | undefined;
   /** 外から1件を開く（帯の札を押した・画面の確かめ）。n が変わるたびに開き直す */
   focus?: { key: string | null; n: number } | null | undefined;
+  /** 一覧を開いた状態で描く（画面の確かめ用） */
+  initialOpen?: boolean;
 }
 
 const catLabel = (c: NoticeCategory) => CATEGORIES.find((x) => x.id === c)?.short ?? c;
@@ -32,8 +35,8 @@ function Marks({ i }: { i: CenterItem }) {
   );
 }
 
-export function NoticeCenter({ items, onRead, onFeedback, focus }: NoticeCenterProps) {
-  const [open, setOpen] = useState(false);
+export function NoticeCenter({ items, onRead, onFeedback, focus, initialOpen = false }: NoticeCenterProps) {
+  const [open, setOpen] = useState(initialOpen);
   const [unreadOnly, setUnreadOnly] = useState(true);
   const [cat, setCat] = useState<NoticeCategory | null>(null);
   const [sel, setSel] = useState<string | null>(null);
@@ -53,22 +56,19 @@ export function NoticeCenter({ items, onRead, onFeedback, focus }: NoticeCenterP
   useEffect(() => {
     if (focus != null) show(focus.key);
   }, [focus?.n]);
+  // × と Esc で閉じたら、ベルに戻る
+  const close = () => {
+    setOpen(false);
+    btn.current?.focus();
+  };
+  useEscClose(close, open);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setOpen(false);
-      btn.current?.focus();
-    };
     const onDown = (e: MouseEvent) => {
       if (box.current !== null && e.target instanceof Node && !box.current.contains(e.target)) setOpen(false);
     };
-    document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onDown);
-    };
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
   const shown = filterItems(sorted, { unreadOnly, category: cat });
@@ -101,9 +101,12 @@ export function NoticeCenter({ items, onRead, onFeedback, focus }: NoticeCenterP
         <div class="nc" role="dialog" aria-label="お知らせ" data-notice-center>
           {current !== null ? (
             <div class="nc-detail" data-notice-detail={current.key}>
-              <button type="button" class="link-btn nc-back" onClick={() => setSel(null)} data-notice-back>
-                ‹ 一覧に戻る
-              </button>
+              <div class="nc-top">
+                <button type="button" class="link-btn" onClick={() => setSel(null)} data-notice-back>
+                  ‹ 一覧に戻る
+                </button>
+                <CloseX onClose={close} what="お知らせ" data-notice-close />
+              </div>
               <div class="nc-head">
                 <Marks i={current} />
                 {current.date !== null ? <span class="nc-date">{dateText(current.date)}</span> : null}
@@ -148,6 +151,7 @@ export function NoticeCenter({ items, onRead, onFeedback, focus }: NoticeCenterP
                 <button type="button" class="link-btn" disabled={!anyUnread} onClick={() => onRead(items.filter((i) => !i.read).map((i) => i.key))} data-notice-read-all>
                   すべて既読にする
                 </button>
+                <CloseX onClose={close} what="お知らせ" data-notice-close />
               </div>
               <div class="nc-tabs" role="radiogroup" aria-label="出すお知らせ">
                 {[

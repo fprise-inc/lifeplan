@@ -288,7 +288,8 @@ describe("世帯の一覧", () => {
     expect(html).toContain('<h2 id="hh-title">世帯を選ぶ</h2>');
     const i = html.indexOf("data-household-close");
     expect(html.slice(i, html.indexOf("</button>", i))).toContain(">×");
-    expect(html.slice(html.lastIndexOf("<button", i), i)).toContain('aria-label="閉じる"');
+    // ほかの重ねて出す物と同じ丸い ×（0239）
+    expect(html.slice(html.lastIndexOf("<button", i), i)).toContain('class="x-btn" aria-label="世帯の一覧を閉じる（Esc）"');
     expect(html.indexOf("hh-title")).toBeLessThan(html.indexOf("data-household-now"));
     expect(html.indexOf("data-household-now")).toBeLessThan(html.indexOf("data-hh-tab"));
   });

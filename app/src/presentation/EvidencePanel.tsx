@@ -1,6 +1,7 @@
 // 根拠のパネル（0006 の7）: 数字を押すと、内訳・式・使った制度の値（値・出典・制度データの版・適用の開始）を出す。
 // 別の窓や画面の中央の重なりにはせず、画面の右の端の引き出しに出す（グラフや表を覆わない。広い画面では本文を左に寄せる）
 import { useEffect, useRef } from "preact/hooks";
+import { CloseX, useEscClose } from "./CloseX.tsx";
 import { yen } from "./format.ts";
 import type { EvidenceView } from "./model.ts";
 
@@ -11,9 +12,11 @@ export function EvidencePanel({ state, onClose }: { state: EvidenceState; onClos
   // 開いたら引き出しの閉じるボタンに移り、閉じたら元の場所（押した数字）に戻る
   useEffect(() => {
     const back = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>(".ev-close")?.focus({ preventScroll: true });
+    ref.current?.querySelector<HTMLElement>(".x-btn")?.focus({ preventScroll: true });
     return () => back?.focus({ preventScroll: true });
   }, []);
+  // 引き出しの外にいるときの Esc でも閉じる（横に並ぶ物なので、ほかの重ねて出した物が先）
+  useEscClose(onClose, true, { side: true });
   const title = state.status === "ready" ? state.view.title : state.title;
   return (
     <aside
@@ -36,9 +39,7 @@ export function EvidencePanel({ state, onClose }: { state: EvidenceState; onClos
             </h2>
             {state.status === "ready" ? <div class="ev-sub">{state.view.context}</div> : null}
           </div>
-          <button type="button" class="ev-close" onClick={onClose}>
-            閉じる ×
-          </button>
+          <CloseX onClose={onClose} what="根拠" />
         </div>
         {state.status === "loading" ? <p class="ev-wait">根拠の記録を計算しています…</p> : null}
         {state.status === "error" ? <p class="ev-wait">根拠を出せませんでした（{state.code}）</p> : null}

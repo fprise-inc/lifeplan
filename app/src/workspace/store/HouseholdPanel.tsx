@@ -6,6 +6,7 @@ import { splitSummary } from "../hearing/web.ts";
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { officeShareText, storageText } from "../header/FpMenu.tsx";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
 import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, parseSampleNo, sampleNoText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
@@ -340,11 +341,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const [sampleEdit, setSampleEdit] = useState<{ id: string; name: string; traits: string[]; error: string | null } | null>(null);
   const [sampleDelete, setSampleDelete] = useState<{ id: string; value: string; error: string | null } | null>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  useEscClose(p.onClose);
 
   const ready = p.status?.state === "ready" && p.unavailable === null;
   const shared = p.officeState === "member";
@@ -913,9 +910,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
       <div class="card-h hh-head">
         <h2 id="hh-title">世帯を選ぶ</h2>
         <span class="aside">{shared ? (personal ? "世帯ごとに暗号化して、同期フォルダに自動で保存します（2台のPCで使えます）" : "世帯ごとに暗号化して、事務所の共有フォルダに自動で保存します") : "世帯ごとに暗号化して、このPCのアプリのデータの場所に自動で保存します"}</span>
-        <button type="button" class="x hh-x" aria-label="閉じる" title="閉じる" onClick={p.onClose} data-household-close>
-          ×
-        </button>
+        <CloseX onClose={p.onClose} what="世帯の一覧" data-household-close />
       </div>
       {p.now}
       <div class="tabs hh-tabs" role="tablist" aria-label="世帯の一覧の切り替え">

@@ -13,6 +13,7 @@
 //   まだ世帯の決まっていない AI の URL は、表の下のリンクから開く（aiIssued。上の帯が消えた後の入口）。「事前ヒアリングを取り込む」の段は、記入済みの
 //   Excel を取り込む（Excel の切り替えがオンのとき）と、届いた件数の知らせだけ（どちらも無ければ段ごと出さない）
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { version as APP_VERSION } from "../../../package.json";
 import type { HearingWebHost, SaveOutcome, SheetHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -175,11 +176,13 @@ function ExportPanel({ wh, sheets, onSave, onClose, customerNo = null }: Props &
       setBusy(false);
     }
   };
+  useEscClose(busy ? null : onClose);
   return (
     <section class="card hs-panel" aria-label="ヒアリングシートを書き出す" data-hearing-export-panel>
       <div class="card-h">
         <h2>ヒアリングシートを書き出す</h2>
         <span class="aside">表計算のファイル（.xlsx）。お名前の欄はありません</span>
+        <CloseX onClose={onClose} what="ヒアリングシートを書き出す" />
       </div>
       <div class="hs-form">
         <label>
@@ -236,9 +239,6 @@ function ExportPanel({ wh, sheets, onSave, onClose, customerNo = null }: Props &
         <button type="button" class="btn primary" disabled={busy || !okNo} onClick={() => void go()} data-hearing-export-go>
           {busy ? "作っています…" : "書き出す"}
         </button>
-        <button type="button" class="btn" onClick={onClose}>
-          閉じる
-        </button>
       </div>
     </section>
   );
@@ -270,6 +270,8 @@ function QuietFields({ list, fresh }: { list: readonly FieldView[]; fresh: boole
 }
 
 export function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt, received }: { wh: WorkingHousehold; view: ImportView; onSave: (w: WorkingHousehold) => void; onClose: (msg: string | null) => void; heading?: string; sentAt?: string; received?: string }) {
+  // 確かめている途中は Esc で閉じない（選んだ物を消さない。下の「事前ヒアリング・取り込む」にも Esc を渡さない）。やめるときは「キャンセル」
+  useEscClose(null);
   const [sel, setSel] = useState<Set<string>>(() => defaultSelection(view));
   /** 働き方の種類が変わった候補の入れ方（置きかえる・終えて足す。0139 の追記 2026-11-07） */
   const [modes, setModes] = useState<Map<string, WorkChangeMode>>(() => defaultWorkModes(view));
@@ -505,6 +507,7 @@ export function HearingTools({
   const [webImport, setWebImport] = useState<{ id: string; sentAt: string | null; received: string | null } | null>(null);
   const [issues, setIssues] = useState<readonly Issue[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  useEscClose(() => setIssues(null), issues !== null);
   const pick = async () => {
     setMsg(null);
     setIssues(null);
@@ -601,13 +604,9 @@ export function HearingTools({
         <section class="card hs-panel" aria-label="取り込めませんでした" data-hearing-failed>
           <div class="card-h">
             <h2>取り込めませんでした</h2>
+            <CloseX onClose={() => setIssues(null)} what="取り込めなかった理由" />
           </div>
           <IssueList issues={issues} />
-          <div class="rp-actions">
-            <button type="button" class="btn" onClick={() => setIssues(null)}>
-              閉じる
-            </button>
-          </div>
         </section>
       ) : null}
       {view !== null ? (

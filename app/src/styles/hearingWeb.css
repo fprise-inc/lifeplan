@@ -81,7 +81,6 @@
 .dv-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px 6px; border-bottom: 1px solid var(--line-2); }
 .dv-title { font-size: 0.95rem; white-space: nowrap; }
 .dv-pick { flex: 1; min-width: 0; font-size: 0.86rem; padding: 3px 4px; }
-.dv-close { border: 0; background: none; font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px; color: var(--ink-2); }
 .dv-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--line-2); }
 .dv-tools .btn.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
 .dv-zoom { min-width: 3.4em; text-align: center; font-variant-numeric: tabular-nums; font-size: 0.86rem; }

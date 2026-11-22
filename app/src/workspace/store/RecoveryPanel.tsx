@@ -11,6 +11,7 @@
 //   空にしても履歴と同期に残った分は消えないため）
 // 復元キーは表示のためだけに受け取り、パネルを閉じたら消す（画面はどこにも保存しない。0016 の1）
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { StoreHost, StoreStatus } from "../../engine/host.ts";
 
 export type RecoveryMode = "first" | "manage" | "restore";
@@ -152,11 +153,8 @@ export function RecoveryPanel({
     return () => setKey(null);
   }, [mode, store]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && mode !== "restore" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [mode, onClose]);
+  // 鍵を戻す画面（restore）は閉じられない（Esc を下の物にも渡さない）
+  useEscClose(mode === "restore" ? null : onClose);
 
   const tryKey = async () => {
     if (recoveryKeyShape(input) === "notKey") {
@@ -182,6 +180,7 @@ export function RecoveryPanel({
     <>
       <div class="scrim" aria-hidden="true" onClick={mode === "restore" ? undefined : onClose} />
       <div ref={panel} class="rk-panel" role="dialog" aria-modal="true" aria-labelledby="rk-title" tabIndex={-1} data-recovery-panel={mode}>
+        {mode !== "restore" ? <CloseX onClose={onClose} what="復元キー" /> : null}
         <h2 id="rk-title">{title}</h2>
         {mode === "first" && !shared && onOpenSync !== undefined ? (
           <div class="sp-second" data-recovery-second-pc>
