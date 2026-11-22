@@ -5,6 +5,7 @@
 // - 世帯は直さない（移るだけ）
 import { useMemo, useState } from "preact/hooks";
 import { Help } from "../../presentation/Help.tsx";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { docRequests, requestMessage, SAFE_SENDING, type DocRequest } from "./docRequests.ts";
@@ -48,9 +49,11 @@ export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
     }
   };
   const values = reqs.reduce((n, r) => n + r.values.length, 0);
+  useEscClose(onClose ?? null, onClose !== undefined);
   return (
     <section class="ck dr" aria-label="書類のお願い" data-doc-requests>
       <div class="ck-head">
+        {onClose !== undefined ? <CloseX onClose={onClose} what="書類のお願い" data-dr-close /> : null}
         <h2>
           書類のお願い
           <Help label="書類のお願い" id="docRequests">
@@ -171,13 +174,6 @@ export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
           ))}
         </ul>
       </details>
-      {onClose !== undefined ? (
-        <div class="rp-actions">
-          <button type="button" class="btn" onClick={onClose} data-dr-close>
-            閉じる
-          </button>
-        </div>
-      ) : null}
     </section>
   );
 }

@@ -14,6 +14,7 @@ import { today } from "../report/assemble.ts";
 import { ackedRows, CERTAINTY_LABELS, CHECK_KIND_LABELS, checkCounts, checkList, confirmAllEstimates, DEFAULT_KINDS, fillAll, confirmAllLabel, CONFIRM_ALL_NOTE, fillAllLabel, KIND_ORDER, KIND_UNITS, kindCount, ORIGIN_LABELS, type Certainty, type CheckKind, type CheckRow, type OriginKind } from "./checkRows.ts";
 import { isRechecked, recheckMarks, recheckText, setRecheck } from "./recheck.ts";
 import { Help } from "../../presentation/Help.tsx";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 
 /** 根拠を、行を開いたときだけ出す種類（推定・書類待ち・確かさ。0077）。ほかの種類の文は状態の知らせなので常に出す */
 export const BASIS_ON_OPEN: ReadonlySet<CheckKind> = new Set<CheckKind>(["estimated", "unknown", "certainty", "premise"]);
@@ -40,6 +41,8 @@ interface Props {
   plan?: CheckPlan;
   /** 書類待ちの行を、送ってほしい書類の一覧（書類のお願い。0102）にまとめて開く */
   onDocRequests?: () => void;
+  /** 右上の × と Esc で閉じる（省略すると × を出さない） */
+  onClose?: () => void;
 }
 
 /**
@@ -89,7 +92,7 @@ export function passesFilter(r: CheckRow, f: CheckFilter, marked: (id: string) =
   return true;
 }
 
-export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDocRequests }: Props) {
+export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDocRequests, onClose }: Props) {
   const all = useMemo(() => checkList(wh, notices), [wh, notices]);
   const planRows = useMemo(() => (plan === undefined ? [] : planOnlyRows(wh, plan.view)), [wh, plan?.view]);
   const acked = useMemo(() => ackedRows(wh), [wh]);
@@ -200,9 +203,11 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
     );
   };
   const kinds = kind === "acked" ? [] : kind === "" || kind === "recheck" ? KIND_ORDER : [kind];
+  useEscClose(onClose ?? null, onClose !== undefined);
   return (
     <section class="ck" aria-label="確かめの一覧" data-checklist>
       <div class="ck-head">
+        {onClose !== undefined ? <CloseX onClose={onClose} what="確かめの一覧" data-ck-close /> : null}
         <h2>
           確かめの一覧
           <Help label="確かめの一覧" id="checklist">

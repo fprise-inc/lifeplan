@@ -13,6 +13,7 @@
 // 「最初の5枚」の案内と印はなくした（どの項目から入れてもよい。並びは事務所の既定値で変えられる）
 import { Fragment, type ComponentChildren } from "preact";
 import { Help } from "../../presentation/Help.tsx";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { toggledSet, type GroupOpenState } from "./FieldViews.tsx";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
@@ -272,12 +273,14 @@ const NO_NOTICES: readonly NoticeRow[] = [];
 /**
  * カードをまたぐ取り込みの入口（ヒアリングシート・AI で書類を読み取る）。明細は基本生活費のカードの見出しから（ここには置かない）。
  * 取り込みは現状に入るので、プランの編集中（off）は中身の代わりに「現状に切り替える」を出す。ボタンの大きさは変えない（配置を動かさない）。
- * button を false にすると「取り込む ▾」を描かず、開いた中身だけを出す（FP のメニューから開いたとき。中身に「閉じる」を出す）
+ * button を false にすると「取り込む ▾」を描かず、開いた中身だけを出す（FP のメニューから開いたとき。中身の右上に × を出す）
  */
 export function ImportMenu({ children, off, initialOpen = false, open: outer, onOpen, button = true }: { children?: ComponentChildren; off?: { label: string; toCurrent?: () => void }; initialOpen?: boolean; open?: boolean; onOpen?: (open: boolean) => void; button?: boolean }) {
   const [inner, setInner] = useState(initialOpen);
   const open = outer ?? inner;
   const setOpen = (v: boolean) => (onOpen !== undefined ? onOpen(v) : setInner(v));
+  // FP のメニューから開いた中身は、× と Esc で閉じる（「取り込む ▾」のボタンで開いたときは、今までどおりボタンで閉じる）
+  useEscClose(() => setOpen(false), open && !button);
   return (
     <>
       {button ? (
@@ -297,9 +300,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
           {!button ? (
             <div class="ih-imports-h">
               <b>事前ヒアリング・取り込む</b>
-              <button type="button" class="btn small" onClick={() => setOpen(false)} data-imports-close>
-                閉じる
-              </button>
+              <CloseX onClose={() => setOpen(false)} what="事前ヒアリング・取り込む" data-imports-close />
             </div>
           ) : null}
           {off !== undefined ? (
@@ -628,6 +629,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         <CheckList
           wh={wh}
           onDocRequests={() => setDocsOpen(true)}
+          onClose={() => setCheckOpen(false)}
           notices={calcNotices}
           onOpen={openField}
           onEdit={(next, done) => {

@@ -21,6 +21,7 @@ import { withOfficeSources } from "./officeSource.ts";
 import { withProvisionalHousing } from "./housingCredit.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { Help, HelpOf } from "../../presentation/Help.tsx";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { LEVEL_HELP_COMMON, levelDiffLine } from "./levelHelp.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
@@ -378,18 +379,8 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
     return () => document.documentElement.classList.remove("panel-open");
   }, []);
 
-  // Esc で閉じる（変更があれば先に知らせ、もう一度で閉じる）
-  const closeRef = useRef(tryClose);
-  closeRef.current = tryClose;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      closeRef.current();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  // Esc で閉じる（変更があれば先に知らせ、もう一度で閉じる）。欄にいても受ける: 閉じる前に打ちかけの値を決め、変わっていれば知らせで止まる
+  useEscClose(tryClose, true, { typing: true });
 
   // 開いている間: 世帯の切り替え・アプリを閉じる・ページを読み直す前に、保存していない変更があれば「保存していない変更があります」を出して止める（0131）
   useEffect(
@@ -506,9 +497,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
               ))}
               <p data-level-diff>{levelDiffLine(stage.id)}</p>
             </Help>
-            <button type="button" class="x-btn" aria-label="閉じる（Esc）" title="閉じる（Esc）" onClick={tryClose}>
-              ×
-            </button>
+            <CloseX onClose={tryClose} />
           </div>
           {stageStart !== undefined ? (
             <p class="ip-docread" data-panel-read-doc={itemId}>
