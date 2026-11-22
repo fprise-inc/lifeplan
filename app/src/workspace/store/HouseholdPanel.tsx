@@ -172,11 +172,12 @@ function RowMore(p: { id: string; open: boolean; onOpen: (open: boolean) => void
   }, open);
   useEffect(() => {
     if (!open) return undefined;
-    const outside = (e: PointerEvent) => {
+    // 押し終えたとき（click）に閉じる。押し始め（pointerdown）で閉じると、たたんだぶん下の行が上がり、押した物から外れてしまう
+    const outside = (e: MouseEvent) => {
       if (box.current !== null && e.target instanceof Node && !box.current.contains(e.target)) onOpen(false);
     };
-    document.addEventListener("pointerdown", outside, true);
-    return () => document.removeEventListener("pointerdown", outside, true);
+    document.addEventListener("click", outside, true);
+    return () => document.removeEventListener("click", outside, true);
   }, [open, onOpen]);
   return (
     <span class="hh-more" ref={box} {...rest}>
@@ -650,7 +651,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                         ) : null}
                       </td>
                       {useCats ? <td data-household-category={h.category ?? ""}>{categoryText(p.categories, h.category)}</td> : null}
-                      <td>
+                      <td class="hh-wrap">
                         {((x) => (
                           <>
                             {x.family || "—"}
@@ -666,7 +667,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                       <td class="num">{listDateTime(h.updatedAt, "")}</td>
                       {shared ? <td data-household-editor>{h.updatedBy ?? "—"}</td> : null}
                       {shared ? (
-                        <td data-household-presence={h.openBy.length}>
+                        <td class="hh-wrap" data-household-presence={h.openBy.length}>
                           {h.openBy.length === 0 ? (
                             "—"
                           ) : (
@@ -905,7 +906,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                         </button>
                       )}
                     </td>
-                    <td>
+                    <td class="hh-wrap">
                       {sampleEdit?.id === s.id ? (
                         <form
                           class="pl-edit"

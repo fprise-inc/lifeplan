@@ -34,10 +34,15 @@
 /* 見本を開いているときの帯（動かしても見本は変わらない） */
 .sample-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px dashed var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
 .hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }
-/* 一覧の行を1行にそろえる（0244）。顧客番号の右の印（架空・自由な番号）は番号と同じ行に並べ、隣の列に重ねない */
-.hh-list td:first-child .hh-tags { display: inline-flex; flex-wrap: nowrap; margin: 0 0 0 8px; vertical-align: 1px; }
-/* 見本の名前は長いので、幅が足りないときはここで折る */
-.hh-shelf td:nth-child(2) { white-space: normal; min-width: 9em; }
+/* 一覧の行を1行にそろえる（0244）。顧客番号の右の印（架空・自由な番号）は番号の右に並べ、隣の列に重ねない。
+   幅が足りないときは、番号は折らずに印だけを番号の下へ送る（長い自由な番号で番号の欄が広がり、ほかの欄を押さないように） */
+.hh-list td:first-child { white-space: normal; }
+.hh-list td:first-child > b, .hh-list td:first-child > .hh-no-btn { white-space: nowrap; margin-right: 8px; }
+.hh-list td:first-child .hh-tags { display: inline-flex; flex-wrap: nowrap; margin: 0; vertical-align: 1px; }
+/* 幅が足りないときに折る欄（顧客の家族・開いている人、見本の名前）。行の操作の欄は折らずに残す（事務所で共有して列が増えても「開く」が隠れない） */
+.hh-list td.hh-wrap { white-space: normal; min-width: 7em; }
+/* 同期の衝突の写しの知らせは、番号の下に置く（番号の欄を広げない） */
+.hh-list td:first-child .hh-fork { display: block; margin: 2px 0 0; white-space: normal; text-align: left; }
 /* 行の操作: 「開く」（小さいボタン）か「開いています」を同じ幅の場所に置き、その右に控えめなリンク（見本は「この見本をもとに顧客を作る」）と「ほかの操作」 */
 .hh-ops { flex-wrap: nowrap; align-items: flex-start; gap: 4px 14px; white-space: nowrap; }
 .hh-open { flex: none; min-width: 5.6rem; box-sizing: border-box; text-align: center; }

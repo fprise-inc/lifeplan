@@ -163,7 +163,7 @@ describe("顧客の一覧の行（0244）", () => {
       for (const c of clicks) expect(c.startsWith("pick("), c).toBe(true);
     }
     // 外側を押すと閉じる（押した所が「ほかの操作」の中でなければ）
-    expect(panel).toMatch(/document\.addEventListener\("pointerdown", outside, true\)/);
+    expect(panel).toMatch(/document\.addEventListener\("click", outside, true\)/);
   });
 
   it("行の操作のフォーム（顧客番号を変える など）を出した行は、操作の代わりにフォーム（今までどおり）", () => {
