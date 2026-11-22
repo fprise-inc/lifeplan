@@ -9,7 +9,7 @@ import { ALL_ROWS, applyRowsView, forEngine, pickRow, type RowsView } from "../e
 import { CalcNotices } from "./CalcNotices.tsx";
 import { noticeRows } from "./engineNotices.ts";
 import { engineErrorText, HOST_BUSY_TEXT, isHostBusy } from "./engineErrors.ts";
-import { CompareTable } from "../presentation/Compare.tsx";
+import { CompareCard, CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
 import { ChartPip, closePip, openPip } from "../presentation/ChartPip.tsx";
@@ -3542,18 +3542,9 @@ export function App() {
                   onClose={() => setPanel(null)}
                 /> : null}
             {panel === "compare" ? (
-              <section class="card compare-card" aria-label="プランの比較" data-compare>
-                <div class="card-h">
-                  <h2>
-                    プランの比較（{slots.length}つ。基準: {planLabel(letterOf(work.base))}）
-                  </h2>
-                  <span class="aside">{compareModel === null ? "計算しています…" : "帯に並べたプランの主な数字。差はいつも「そのプラン−基準」"}</span>
-                  <button type="button" class="btn" onClick={() => setPanel(null)}>
-                    閉じる
-                  </button>
-                </div>
+              <CompareCard title={`プランの比較（${slots.length}つ。基準: ${planLabel(letterOf(work.base))}）`} note={compareModel === null ? "計算しています…" : "帯に並べたプランの主な数字。差はいつも「そのプラン−基準」"} onClose={() => setPanel(null)}>
                 {compareModel !== null ? <CompareTable model={compareModel} /> : null}
-              </section>
+              </CompareCard>
             ) : null}
             {/* ② グラフ */}
             <ResultCard

@@ -3,6 +3,7 @@
 // - 同期サービスの衝突の写しがある: 写しを今の内容にする／写しを片付ける
 // どれを選んでも、選ばなかったほうはこの PC の中に暗号化したまま残る
 import { useEffect, useRef } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { ForkInfo } from "../../engine/host.ts";
 import { proseDateTime } from "../../dates.ts";
 
@@ -21,6 +22,9 @@ export interface ForkPanelProps {
 export function ForkPanel(p: ForkPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
+  // 閉じられるのは、どちらを残すかを選ばなくてよいとき（同期サービスの写しだけ）。選ぶまでは × も Esc も出さない（Esc を下の物にも渡さない）
+  const closable = p.info !== null && !p.info.savedConflict;
+  useEscClose(closable ? p.onClose : null);
   // 1人で2台の PC の同期フォルダでは、相手は人ではなく、もう1台の PC（0024）
   const who = p.info?.theirsBy != null ? (p.info.personal ? `もう1台のPC「${p.info.theirsBy}」` : `${p.info.theirsBy}さん`) : "ほかのPC";
   const when = p.info?.theirsSavedAt != null ? proseDateTime(p.info.theirsSavedAt, "") : "";
@@ -28,6 +32,7 @@ export function ForkPanel(p: ForkPanelProps) {
     <>
       <div class="scrim" aria-hidden="true" />
       <div ref={panel} class="rk-panel fork-panel" role="dialog" aria-modal="true" aria-labelledby="fork-title" tabIndex={-1} data-fork-panel>
+        {closable ? <CloseX onClose={p.onClose} what="分岐の知らせ" /> : null}
         <h2 id="fork-title">世帯 {p.customerNo} が分岐しました</h2>
         {p.info === null ? <p>読み込んでいます…</p> : null}
         {p.info?.savedConflict === true ? (
@@ -71,7 +76,7 @@ export function ForkPanel(p: ForkPanelProps) {
             {p.error}
           </p>
         ) : null}
-        {p.info !== null && !p.info.savedConflict ? (
+        {closable ? (
           <div class="rk-foot">
             <button type="button" class="btn" onClick={p.onClose}>
               閉じる

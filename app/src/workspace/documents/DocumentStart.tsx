@@ -5,6 +5,7 @@
 // - AI の答えを貼り付ける道は、利用者の判断（2026-11-20）でなくした（0151 の追記）
 // 世帯は変えない
 import { useEffect, useRef } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { DocStart } from "./start.ts";
 
@@ -21,15 +22,12 @@ export interface DocumentStartProps {
 export function DocumentStart(p: DocumentStartProps) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  useEscClose(p.onClose);
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel dr-panel ds-panel" role="dialog" aria-modal="true" aria-labelledby="ds-title" tabIndex={-1} data-documents-start={p.start.docType}>
+        <CloseX onClose={p.onClose} what="この書類を読む" />
         <h2 id="ds-title">この書類を読む: {p.start.title}</h2>
         <p class="in-note">保険証券・ご契約内容のお知らせ・設計書から読んだ値は候補として届き、確かめの画面で承認したものだけが現状に入ります。書類の名義の人は、確かめの画面で選びます。</p>
         <ul class="ds-ways">

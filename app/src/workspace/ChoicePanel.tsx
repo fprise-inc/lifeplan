@@ -1,8 +1,9 @@
 // 消える前に選ばせる中央のパネル: 保存できていない・保存していない変更があるのに、それが消える操作をしようとしたとき。
-// 黙って捨てずに、何が無くなるかを書いて、残す道・捨てて進む・やめる を選ばせる（Esc はやめる）。
+// 黙って捨てずに、何が無くなるかを書いて、残す道・捨てて進む・やめる を選ばせる（右上の × と Esc はやめる）。
 // 世帯を離れる前の確かめ（store/LeaveDialog.tsx）と、プランの帯から外す前の確かめで同じ形にする
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
+import { CloseX, useEscClose } from "../presentation/CloseX.tsx";
 
 export interface Choice<K extends string> {
   key: K;
@@ -29,6 +30,9 @@ export function ChoicePanel<K extends string>(p: ChoicePanelProps<K>) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
   const busy = p.busy === true;
+  // × と Esc は「やめる」と同じ（保存している間は閉じない）
+  const cancel = () => p.onChoose(p.cancel);
+  useEscClose(busy ? null : cancel);
   return (
     <>
       <div class="scrim" aria-hidden="true" />
@@ -39,11 +43,9 @@ export function ChoicePanel<K extends string>(p: ChoicePanelProps<K>) {
         aria-modal="true"
         aria-labelledby={`${p.name}-title`}
         tabIndex={-1}
-        onKeyDown={(e) => {
-          if (e.key === "Escape" && !busy) p.onChoose(p.cancel);
-        }}
         data-choice-panel={p.name}
       >
+        <CloseX onClose={cancel} disabled={busy} />
         <h2 id={`${p.name}-title`}>{p.title}</h2>
         {p.children}
         <div class="fork-choices">

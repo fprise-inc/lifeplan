@@ -4,6 +4,7 @@
 // - AI が書いた題・推定したことは、信用しない文章として文字のまま出す（番号らしい所は読み口で消してある）
 // - 作る前に、番号らしい所を消した後の入力を画面と同じ計算で確かめる（計算できなければ作れない）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { AiHouseholdCandidate } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { householdOverview, KIND_TEXT, readHouseholdCandidate, type HouseholdKind, type OverviewRow, type ReadHousehold } from "./households.ts";
@@ -40,15 +41,12 @@ export function AiHouseholdCandidates(p: AiHouseholdCandidatesProps) {
   const current = read.find((r) => r.id === sel) ?? read[0];
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  useEscClose(p.onClose);
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel ai-panel ai-hh-panel" role="dialog" aria-modal="true" aria-labelledby="ai-hh-title" tabIndex={-1} data-ai-household-panel>
+        <CloseX onClose={p.onClose} what="AIからの新しい世帯の候補" />
         <h2 id="ai-hh-title">AIからの新しい世帯の候補</h2>
         <p class="in-note">AI が組み立てた世帯です。中身を確かめて「世帯として作る」を押したときだけ、世帯の一覧に入ります。捨てても、ほかの世帯は変わりません。作らなかった候補は、アプリを閉じると消えます。</p>
         {read.length > 1 ? (

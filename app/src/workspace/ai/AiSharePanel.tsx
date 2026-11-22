@@ -9,6 +9,7 @@
 // - 記録: 同意の記録・AIに渡した記録（いつ・どの接続から・何を・何回）・AIからの候補
 // 記録を書くのは本体。画面は入力を送り、本体が返した記録を見せるだけ
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { AiConsentDecision, AiConsentMethod, AiHost, AiHouseholdView, AiStatus } from "../../engine/host.ts";
 import { listDateWritten, proseDateWritten } from "../../dates.ts";
 import { aiDocumentsUseOf, aiMessage, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeProse, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
@@ -69,11 +70,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
 
   // 開いたときに1回だけ、パネルに焦点を移す（読み直しのたびに入力欄から焦点を奪わない）
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  useEscClose(p.onClose);
 
   const run = async (fn: () => Promise<AiHouseholdView>, ok: string) => {
     setBusy(true);
@@ -118,6 +115,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel ai-panel" role="dialog" aria-modal="true" aria-labelledby="ai-share-title" tabIndex={-1} data-ai-share-panel={tab}>
+        <CloseX onClose={p.onClose} what="AIとの共有" />
         <h2 id="ai-share-title">
           AIとの共有（顧客番号 {p.customerNo}
           {fictional ? "・架空の世帯" : ""}）

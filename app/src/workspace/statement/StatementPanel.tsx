@@ -7,6 +7,7 @@
 // 明細のファイルのバイト列はこのパネルの中で読むときだけ持ち、閉じれば捨てる（世帯にも事務所データにも残さない）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { CARD_ISSUERS, COLUMN_ROLES, LIVING_LABELS, markSheetWarnings, ROLE_LABELS, sameAsOtherAccount, WORK_STYLE_LABELS, type Bucket, type ColumnMapping, type ColumnRole, type Issue, type ReviewItem, type SourceKind, type StatementCandidate, type StatementCategory, type SameStatement, type StatementLog, type StatementReader } from "../../../../statement/src/index.ts";
 import type { SaveOutcome, StatementHost, StatementOfficeData } from "../../engine/host.ts";
 import { ImageCheck, ShootingTips } from "./ImageCheck.tsx";
@@ -1450,17 +1451,7 @@ export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose
     document.documentElement.classList.add("panel-open");
     return () => document.documentElement.classList.remove("panel-open");
   }, []);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      closeRef.current();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  useEscClose(onClose);
   useEffect(() => {
     panel.current?.querySelector(".ip-body")?.scrollTo({ top: 0 });
   }, [step]);
@@ -1507,9 +1498,7 @@ export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose
               </button>
             ))}
           </nav>
-          <button type="button" class="x-btn" aria-label="閉じる（Esc）" title="閉じる（Esc）" onClick={onClose}>
-            ×
-          </button>
+          <CloseX onClose={onClose} />
         </div>
         <div class="ip-body">
           {officeErr !== null ? <p class="rp-note warn">事務所で覚えた辞書と形を読めませんでした（{officeErr}）。同梱の辞書だけで仕分けます。</p> : null}

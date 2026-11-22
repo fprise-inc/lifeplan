@@ -2,6 +2,7 @@
 // 提示層の部品には渡さない（0016 の2）。開いている間も、グラフや表の上には重ねない（広い画面では本文を左に寄せる）
 // 事務所で共有しているときは、行ごとに書いた人を残し（変わらない行は前の人のまま）、引き出しの下に一覧で出す（0023 の6）
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../presentation/CloseX.tsx";
 import type { WorkingHousehold } from "./input/household.ts";
 import { memoAuthors } from "./store/office.ts";
 
@@ -31,15 +32,21 @@ export function MemoDrawer({ wh, onEdit, onClose, me = null, names = {} }: MemoD
   useEffect(() => {
     area.current?.focus({ preventScroll: true });
   }, []);
+  const close = () => {
+    commit();
+    onClose();
+  };
+  // 引き出しの外にいるときの Esc でも閉じる（横に並ぶ物なので、ほかの重ねて出した物が先）
+  useEscClose(close, true, { side: true });
   return (
     <aside
       class="drawer memo-drawer"
       aria-labelledby="memo-title"
       onKeyDown={(e) => {
-        if (e.key === "Escape") {
+        // 引き出しの中にいるときは、メモの欄にいても引き出しを閉じる（書いたメモは入れてから閉じる）
+        if (e.key === "Escape" && !e.isComposing) {
           e.preventDefault();
-          commit();
-          onClose();
+          close();
         }
       }}
     >
@@ -47,18 +54,7 @@ export function MemoDrawer({ wh, onEdit, onClose, me = null, names = {} }: MemoD
         <h2 id="memo-title" class="memo-h">
           メモ（顧客には見せない）
         </h2>
-        <button
-          type="button"
-          class="x-btn"
-          aria-label="メモを閉じる（Esc）"
-          title="閉じる（Esc）"
-          onClick={() => {
-            commit();
-            onClose();
-          }}
-        >
-          ×
-        </button>
+        <CloseX onClose={close} what="メモ" />
       </div>
       <div class="drawer-body">
         <p class="drawer-note">世帯ごとのメモです。画面には出さず、ここを開いたときだけ見えます。1行に1つ書きます。</p>

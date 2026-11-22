@@ -1,6 +1,7 @@
 // 世帯ファイルが開けなかった（壊れた・途中で切れた・空）ときに、直前の保存（直前の世代 .prev。0011 の7）で開き直す画面（中央のパネル）。
 // 戻す前に、どの時点の保存か（日時・何回目の保存か・保存した人）を見せる。開けなかったファイルは捨てずに、本体がこの PC の中に別名で残す
 import { useEffect, useRef } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { PreviousGeneration } from "../../engine/host.ts";
 import { proseDateTime } from "../../dates.ts";
 
@@ -25,12 +26,15 @@ export interface PreviousPanelProps {
 export function PreviousPanel(p: PreviousPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
+  // × と Esc は「開かない」と同じ（開き直している間は閉じない）
+  useEscClose(p.busy ? null : p.onClose);
   const when = p.info.savedAt !== null ? proseDateTime(p.info.savedAt, "") : "";
   const point = [when !== "" ? `${when} の保存` : null, `${p.info.generation}回目の保存`, p.info.savedBy !== null ? `保存した人: ${p.info.savedBy}` : null].filter((x) => x !== null).join("・");
   return (
     <>
       <div class="scrim" aria-hidden="true" />
       <div ref={panel} class="rk-panel fork-panel" role="dialog" aria-modal="true" aria-labelledby="prev-title" tabIndex={-1} data-previous-panel>
+        <CloseX onClose={p.onClose} disabled={p.busy} />
         <h2 id="prev-title">世帯 {p.customerNo} を開けませんでした</h2>
         {p.reason !== "" ? <p>{p.reason}</p> : null}
         <p>

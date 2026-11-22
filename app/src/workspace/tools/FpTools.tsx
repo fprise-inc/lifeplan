@@ -5,6 +5,7 @@ import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { formatYearMonth } from "../input/units.ts";
 import { addMonths } from "../levers.ts";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { man } from "../../presentation/format.ts";
 import { TRIGGER_TEXT, type Snapshot } from "../snapshots/snapshots.ts";
 import { withoutRemovedAssumptions } from "../surplus.ts";
@@ -85,13 +86,12 @@ export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance,
 }
 
 function Head({ title, note, onClose }: { title: string; note: string; onClose: () => void }) {
+  useEscClose(onClose);
   return (
     <div class="card-h">
       <h2>{title}</h2>
       <span class="aside">{note}</span>
-      <button type="button" class="btn" onClick={onClose}>
-        閉じる
-      </button>
+      <CloseX onClose={onClose} what={title} />
     </div>
   );
 }

@@ -828,6 +828,8 @@ function AccountLabel(p: { a: Account; kindName: string; f: FieldDef | undefined
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
           if (e.key === "Escape") {
+            // 名前の打ちかけを捨てるだけ（入力項目のパネルの Esc には渡さない）
+            e.preventDefault();
             cancelled.current = true;
             setProblem(null);
             (e.currentTarget as HTMLInputElement).blur();

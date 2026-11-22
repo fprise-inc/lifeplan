@@ -4,6 +4,7 @@
 // - 見た・保存したの印は世帯ファイルの依頼の記録に残す（元に戻す・やり直すの履歴には積まない。依頼の記録と同じ）
 import { createContext } from "preact";
 import { useContext, useMemo, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { listDate, listDateTime, proseDateTime } from "../../dates.ts";
 import type { FolderSaveOutcome, SaveOutcome } from "../../engine/host.ts";
 import { Help } from "../../presentation/Help.tsx";
@@ -144,9 +145,11 @@ export function ReceivedDocs({ rd }: { rd: ReceivedDocsState }) {
   const [asking, setAsking] = useState<string | null>(null);
   const s = receivedSummary(rd.files);
   const unsaved = rd.files.filter((r) => r.file.savedAt === undefined);
+  useEscClose(() => rd.setListOpen(false));
   return (
     <section class="ck rd" aria-label="受け取った書類" data-received-docs>
       <div class="ck-head">
+        <CloseX onClose={() => rd.setListOpen(false)} what="受け取った書類" data-received-close />
         <h2>
           受け取った書類
           <Help label="受け取った書類" id="receivedDocs">
@@ -251,11 +254,6 @@ export function ReceivedDocs({ rd }: { rd: ReceivedDocsState }) {
           </tbody>
         </table>
       ) : null}
-      <div class="rp-actions">
-        <button type="button" class="btn" onClick={() => rd.setListOpen(false)} data-received-close>
-          閉じる
-        </button>
-      </div>
     </section>
   );
 }

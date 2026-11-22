@@ -8,6 +8,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { listDateTimeWritten, listDateWritten, proseDateWritten } from "../../dates.ts";
 import { TRIGGER_TEXT, type Snapshot } from "../snapshots/snapshots.ts";
 import { SnapshotCompare } from "../tools/FpTools.tsx";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { EMPTY_INTENT, hasContent, intentOf, isMeetingDate, MEETING_TEXT_MAX, newMeeting, putMeeting, sortedMeetings, todayText, withIntent, withoutMeeting, type InsuranceIntent, type Meeting } from "./meetings.ts";
 
 export interface MeetingToolsProps {
@@ -84,6 +85,8 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
     }
   };
 
+  // 書きかけ（足す・直す）の間は Esc で閉じない（書いた物を消さない）
+  useEscClose(view.kind === "edit" ? null : onClose);
   const head = (
     <div class="card-h">
       <h2>面談の履歴</h2>
@@ -92,9 +95,7 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
         <input type="checkbox" checked={hideFp} onChange={(e) => setHideFp((e.currentTarget as HTMLInputElement).checked)} data-meeting-hide-fp />
         FP だけの欄を隠す（お客さまと一緒に見るとき）
       </label>
-      <button type="button" class="btn" onClick={onClose}>
-        閉じる
-      </button>
+      <CloseX onClose={onClose} what="面談の履歴" />
     </div>
   );
 

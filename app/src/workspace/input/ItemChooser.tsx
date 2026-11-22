@@ -3,6 +3,7 @@
 // 一覧の下で、この選び方を事務所の既定（新しい世帯で出す入力項目と開いたときの入れ方）にでき、事務所の既定にそろえることもできる（0091）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Help } from "../../presentation/Help.tsx";
+import { useEscClose } from "../../presentation/CloseX.tsx";
 import type { Level, StageId } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ALWAYS_SHOWN, isHiddenIn, levelIn, sameChoice, setItemChoice, withLevel, withShown, type ItemChoice } from "./itemChoice.ts";
@@ -47,23 +48,16 @@ export function ItemChooser({ wh, items, onChange, onLevel, initialOpen = false,
   const box = useRef<HTMLDivElement>(null);
   const c = wh.itemChoice;
   const hiddenCount = items.filter((i) => i.hidden).length;
+  // Esc は、ほかの重ねて出す物と同じ順で受ける（上に出ている物があれば、そちらだけを閉じる）
+  useEscClose(() => setOpen(false), open);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      setOpen(false);
-    };
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node | null;
       if (t !== null && box.current !== null && !box.current.contains(t) && !(t instanceof Element && t.closest("[data-help-host]") !== null)) setOpen(false);
     };
-    document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onDown);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onDown);
-    };
+    return () => document.removeEventListener("pointerdown", onDown);
   }, [open]);
   const show = (id: StageId, on: boolean) => {
     onChange(setItemChoice(wh, withShown(c, id, on)));

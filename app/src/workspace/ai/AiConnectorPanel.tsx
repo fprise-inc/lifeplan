@@ -7,6 +7,7 @@
 // - FP が自分の AI に手動で登録する手順（接続口の場所は伏せた文面。本物は本体がクリップボードへ写す）と、AI 向けの説明書の置き場所（0019）
 // - 防げる範囲と防げない範囲（0015 の9）
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { AiHost, AiStatus } from "../../engine/host.ts";
 import { AiAppRegister } from "./AiAppRegister.tsx";
 import { aiMessage, codeOf, dateTimeProse, remainingText } from "./model.ts";
@@ -27,11 +28,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
 
   // 開いたときに1回だけ、パネルに焦点を移す（読み直しのたびに入力欄から焦点を奪わない）
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useEscClose(onClose);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -53,6 +50,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
     <>
       <div class="scrim" aria-hidden="true" onClick={onClose} />
       <div ref={panel} class="rk-panel ai-panel" role="dialog" aria-modal="true" aria-labelledby="ai-conn-title" tabIndex={-1} data-ai-connector-panel>
+        <CloseX onClose={onClose} what="AI との接続" />
         <h2 id="ai-conn-title">AI との接続（事務所全体の設定）</h2>
         <p>
           FP がお使いの AI のアプリから、このアプリの計算・制度の値・架空の見本の世帯を使えるようにする口です。このPCの中だけで動き、ネットワークの口は開けません。

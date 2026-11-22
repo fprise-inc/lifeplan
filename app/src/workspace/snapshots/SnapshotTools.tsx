@@ -2,6 +2,7 @@
 // 入口は上の帯の FP のメニュー（0077 の追記）。開いた中身は入力のホームの上部に出す（bar を省くとボタンの並びを描かない）
 // 提案書の PDF を保存したときの控えは、提案書のタブが自動で作る（ReportTab.tsx）。控えは作った後に変えない（消すことはできる）
 import { useEffect, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { listDateTimeWritten } from "../../dates.ts";
 import { SNAPSHOT_MEMO_MAX, TRIGGER_TEXT, verifySnapshot, type Snapshot } from "./snapshots.ts";
 
@@ -31,6 +32,8 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mod
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  // × と Esc は「キャンセル」「閉じる」と同じ（残している間は閉じない）
+  useEscClose(busy ? null : () => setMode(null), mode !== null);
   /** 指紋の確かめ（控えの ID → 作ったときのままか） */
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
@@ -87,6 +90,7 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mod
           <div class="card-h">
             <h2>この時点を残す</h2>
             <span class="aside">今の現状とプラン（保存していない変更を含む）を、変えられない控えとして残します</span>
+            <CloseX onClose={() => setMode(null)} what="この時点を残す" disabled={busy} />
           </div>
           <form
             class="snap-form"
@@ -116,6 +120,7 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mod
           <div class="card-h">
             <h2>控えの一覧</h2>
             <span class="aside">{stored ? "世帯ファイルに保存しています" : "保存していない世帯です。アプリを閉じると消えます"}</span>
+            <CloseX onClose={() => setMode(null)} what="控えの一覧" />
           </div>
           {sorted.length === 0 ? (
             <p class="rp-note">まだ控えはありません。「この時点を残す」か、提案書の PDF を保存すると残ります。</p>
@@ -175,11 +180,6 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mod
               </tbody>
             </table>
           )}
-          <div class="rp-actions">
-            <button type="button" class="btn" onClick={() => setMode(null)}>
-              閉じる
-            </button>
-          </div>
         </section>
       ) : null}
     </>

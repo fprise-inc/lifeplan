@@ -10,6 +10,7 @@
 //   ひな形の既定から外した。ひな形の説明の数は、どれも夫婦と子2人で数え、この世帯の数を添える。分かりにくい欄に「？」の説明。外部 AI の同意（任意）を
 //   お客さまに聞くかを選べる（既定は聞く）。「何のための問いか」の欄はなくした（お客さまの最初の画面に出さなくなったため。問いには今までの文を入れる）
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { HearingForm } from "../../hearingForm/Form.tsx";
 import { screenId, screenOf, screens } from "../../../../hearing/src/web/flow.ts";
 import { DOCUMENT_TEMPLATES, OWNER_LABEL, templateOf, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
@@ -364,11 +365,13 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
       </div>
     ) : null;
 
+  useEscClose(busy ? null : onClose);
   return (
     <section class="card hs-panel wb" aria-label="URL生成" data-web-builder>
       <div class="card-h">
         <h2>URL生成（Web の事前ヒアリング）</h2>
         <span class="aside">お客さまがスマホなどで画面に沿って答えます。答えと書類はお客さまの端末で暗号化され、このアプリだけが開けます</span>
+        <CloseX onClose={onClose} what="URL生成" />
       </div>
       <div class="wb-grid">
         <div class="wb-left">
@@ -767,9 +770,6 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
             <div class="rp-actions">
               <button type="button" class={`btn${sameAsIssued ? "" : " primary"}`} disabled={busy || !okNo || !persisted || problems.length > 0} onClick={() => void issue()} data-web-issue-go>
                 {busy ? "発行しています…" : sameAsIssued ? "同じ内容でもう1通作る" : `URL を発行する（聞く項目 ${count}・書類 ${sel.documents.length}）`}
-              </button>
-              <button type="button" class="btn" onClick={onClose}>
-                閉じる
               </button>
             </div>
             {sameAsIssued ? <p class="rp-note">この内容の URL は発行しました（上）。もう1通作ると、別の URL になります（前の URL もそのまま使えます）。</p> : null}
