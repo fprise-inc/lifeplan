@@ -11,7 +11,7 @@ import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/works
 import { InputView } from "../src/workspace/input/InputView.tsx";
 import { inputItems, itemStage, type InputItem } from "../src/workspace/input/items.ts";
 import { MISSING_MARK, STATUS_TEXT } from "../src/workspace/input/StatusBadge.tsx";
-import { modelWithGaps } from "./helpers.ts";
+import { modelHousehold, modelWithGaps } from "./helpers.ts";
 
 const CSS = readFileSync(join(APP_DIR, "src", "styles", "app.css"), "utf8");
 const esc = (s: string) => s.replace(/[.[\]()>:*+]/g, "\\$&");
@@ -42,6 +42,11 @@ function cardHtml(html: string, id: string): string {
   const at = html.indexOf(`data-card="${id}"`);
   const from = html.lastIndexOf('<div class="ih-card ', at);
   return html.slice(from, html.indexOf('<span class="ih-band"', at));
+}
+/** 開くボタンの中の文字（タグを外して、画面に出る順に） */
+function openText(card: string): string {
+  const from = card.indexOf(">", card.indexOf('class="ih-open"')) + 1;
+  return card.slice(from, card.indexOf("</button>", from)).replace(/<[^>]*>/g, "").trim();
 }
 /** 住まい・ローンを入れ始める（ローンを足す。額が空の所が残るので未入力になる） */
 function startHousing(wh: WorkingHousehold): WorkingHousehold {
@@ -130,13 +135,15 @@ describe("未入力（0円の所あり）の入力項目は印で見せる（024
       const part = cardHtml(html, i.id);
       expect(part, i.id).toContain(`class="ih-card s-${i.status}"`);
       if (i.status === "missing") {
-        // 印は絵のすぐ後ろ（開くボタンの中）。状態の行は出さない。すぐ下の案内の文は残す
-        expect(part, i.id).toContain(`</span><span class="ih-miss">${MISSING_MARK}</span>`);
+        // 印は開くボタンの中の最後（名前・数字の後ろ。見た目は絵の左上）。状態の行は出さない。すぐ下の案内の文は残す
+        expect(part, i.id).toContain(`</span><span class="ih-miss">${MISSING_MARK}</span></button>`);
         expect(part, i.id).not.toContain("ih-st missing");
         expect(i.hint, i.id).not.toBeNull();
         expect(part, i.id).toContain(`<p>${i.hint ?? ""}</p>`);
       } else expect(part, i.id).not.toContain("ih-miss");
-      // 読み上げ用の名前には、どの状態でも状態の言葉が入る
+      // 開くボタンの中の文字は、どの状態でも入力項目の名前から始まる（画面の文字で入力項目を探して押せる。通しの操作のテストもこの探し方）
+      expect(openText(part), i.id).toMatch(new RegExp(`^${i.label}`));
+      // 読み上げ用の名前も、どの状態でも入力項目の名前から始まり、状態の言葉が入る
       expect(part, i.id).toMatch(new RegExp(`aria-label="${i.label}（${STATUS_TEXT[i.status].replace(/[（）]/g, "\\$&")}`));
     }
     expect((html.match(/class="ih-miss"/g) ?? []).length).toBe(items.filter((i) => i.status === "missing").length);
@@ -153,6 +160,17 @@ describe("未入力（0円の所あり）の入力項目は印で見せる（024
     check(items, html);
     // 進み具合の左の「未入力（0円の所あり）n 項目」は今までどおり
     expect(html).toContain('<span class="ih-st missing mini">未入力（0円の所あり）</span>');
+  });
+
+  it("どの状態（入力済み・推定で計算中・未入力・まだ入れていない・該当なし・事務所の既定値どおり）の入力項目も、開くボタンの中の文字と読み上げ用の名前が入力項目の名前から始まる", () => {
+    const seen = new Set<string>();
+    const whs = [blankHousehold("2026-10", seq()), startHousing(blankHousehold("2026-10", seq())), fromRequest(modelWithGaps("salariedCoupleTwoKids"), { memo: [] }), fromRequest(modelHousehold("salariedCoupleTwoKids"), { memo: [] })];
+    for (const wh of whs) {
+      const { items, html } = cards(wh);
+      check(items, html);
+      for (const i of items) seen.add(i.status);
+    }
+    expect([...seen].sort()).toEqual(["done", "empty", "est", "missing", "na", "std"]);
   });
 
   it("まだ入れていない入力項目に印は付けない（「まだ入っていません」の文だけ）", () => {
