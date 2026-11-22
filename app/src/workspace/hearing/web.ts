@@ -135,6 +135,9 @@ export function statusOf(e: WebLogEntry, now: Date, answered = false, wh?: Worki
   return answered ? "answered" : "issued";
 }
 
+/** 発行した URL を取り消す前の確かめの文（FP が作った URL・AI が発行した URL で同じ。0243） */
+export const CANCEL_ASK_TEXT = "お客さまはこの URL を開けなくなります。取り消しますか。";
+
 export const STATUS_TEXT: Readonly<Record<WebStatus, string>> = { issued: "発行済み", answered: "回答あり", received: "受け取り済み", imported: "取り込み済み", undone: "受け取り済み（取り込みを元に戻しました）", expired: "期限切れ", cancelled: "取り消し" };
 
 /**

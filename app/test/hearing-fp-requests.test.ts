@@ -108,7 +108,7 @@ describe("依頼の行の段階（0192 の追記）", () => {
     noteArrival(r.entry.record.requestId, { answers: false, batches: 0, submitted: false, at: NOW.toISOString() });
     const node = h(WebRequests, { wh: r.wh, web: host, officeName: "試しの事務所", appVersion: "0.1.0", onSave: () => undefined, saveNow: async () => true, onImport: () => undefined });
     const ask = within(renderPressing(node, "data-web-cancel"), "data-web-cancel-ask");
-    expect(ask).toContain("お客さまはこの URL を開けなくなります（途中の回答も送れません）。取り消しますか。");
+    expect(ask).toContain("お客さまはこの URL を開けなくなります。取り消しますか。");
     expect(buttonTexts(ask)).toEqual(["はい、取り消す", "やめる"]);
     expect(ask).toMatch(/class="btn danger"[^>]*>はい、取り消す/);
     expect(renderPressing(node, "data-web-cancel", "data-web-cancel-no")).not.toContain("data-web-cancel-ask");

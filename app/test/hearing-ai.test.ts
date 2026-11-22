@@ -473,7 +473,7 @@ describe("画面: 帯・AI が発行した URL の一覧・依頼の一覧の出
     const html = renderPressing(node, "data-ai-hearing-cancel");
     const ask = within(html, "data-ai-hearing-cancel-ask");
     expect(ask).toMatch(/^<div class="wr-ask" role="alertdialog" aria-label="取り消しの確かめ"/);
-    expect(ask).toContain("お客さまはこの URL を開けなくなります（途中のお答えも送れません）。取り消しますか。");
+    expect(ask).toContain("<span>お客さまはこの URL を開けなくなります。取り消しますか。</span>");
     expect(buttonTexts(ask)).toEqual(["はい、取り消す", "やめる"]);
     expect(ask).toMatch(/class="btn danger"[^>]*>はい、取り消す/);
     // 元のボタンの段には「取り消す」（押せない）が残り、確かめのボタンは入らない

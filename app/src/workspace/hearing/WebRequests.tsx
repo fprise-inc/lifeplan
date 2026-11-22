@@ -27,7 +27,7 @@ import { useDocView } from "./ReceivedDocs.tsx";
 import { AiUnassignedLink } from "../ai/AiHearingIssued.tsx";
 import { issuedRows, unassignedLink, type IssuedAi, type IssuedRow } from "./issuedUrls.ts";
 import { takeFocus, wantedFocus } from "./bell.ts";
-import { accepting, answeredScreens, arrivalOf, checkAnswered, checkArrivals, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importedEntries, importWeb, invitationText, limitOf, noteArrival, onArrivals, packetOf, receivedDraft, receiveWeb, removeOnServer, rowMode, selectedCount, selectionName, sentAtText, STATUS_TEXT, statusOf, waitingDocuments, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
+import { accepting, answeredScreens, CANCEL_ASK_TEXT, arrivalOf, checkAnswered, checkArrivals, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importedEntries, importWeb, invitationText, limitOf, noteArrival, onArrivals, packetOf, receivedDraft, receiveWeb, removeOnServer, rowMode, selectedCount, selectionName, sentAtText, STATUS_TEXT, statusOf, waitingDocuments, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -356,15 +356,15 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       </div>
     );
   };
-  /** 取り消す・受け付けを終えるの確かめ（押してすぐは取り消さない。どの段階でも1回確かめる。確かめのボタンは元のボタンと別の段に出す） */
+  /** 取り消す・受け付けを終えるの確かめ（押してすぐは取り消さない。どの段階でも1回確かめる。確かめのボタンは元のボタンと別の段に出す。文は短く、幅 1000px・文字「中」でボタンと1行に収める。0243） */
   const cancelAsk = (e: WebLogEntry, arrived: boolean) => (
     <div class="wr-ask" role="alertdialog" aria-label={e.received === undefined ? "取り消しの確かめ" : "受け付けを終えるかの確かめ"} data-web-cancel-ask>
       <span>
         {e.received !== undefined
-          ? "お客さまはこの URL を開けなくなり、書類も届きません。受け付けを終えますか。"
+          ? "お客さまはこの URL を開けず、書類も届きません。受け付けを終えますか。"
           : arrived
-            ? "届いている回答を受け取らずに、サーバーから消します（もう受け取れません）。お客さまもこの URL を開けなくなります。取り消しますか。"
-            : "お客さまはこの URL を開けなくなります（途中の回答も送れません）。取り消しますか。"}
+            ? "お客さまはこの URL を開けなくなり、届いた回答も消えます。取り消しますか。"
+            : CANCEL_ASK_TEXT}
       </span>
       <span class="wr-ask-acts">
         <button type="button" class="btn danger" disabled={busy !== null} onClick={() => void cancel(e)} data-web-cancel-yes>

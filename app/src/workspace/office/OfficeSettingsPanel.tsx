@@ -853,7 +853,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
         {featureOn(features, "combinedBs") ? (
         <section class="os-sec" aria-labelledby="os-corp" data-office-features>
           <h3 id="os-corp">法人経営者向けの機能</h3>
-          <p class="pl-sub">会社を顧問先に持つ FP 向けの機能です。既定では使いません。使うと決めたときだけ、役員として働く人のいる世帯に出ます（ほかの世帯の画面は変わりません）。どれも見せ方だけで、計算の結果は変わりません。</p>
+          <p class="pl-sub">法人を顧問先に持つ FP 向けの機能です。既定では使いません。使うと決めたときだけ、役員として働く人のいる世帯に出ます（ほかの世帯の画面は変わりません）。どれも見せ方だけで、計算の結果は変わりません。</p>
           <label class="os-radio">
             <input type="checkbox" checked={s.features.combinedBs} onChange={(e) => setS({ ...s, features: { ...s.features, combinedBs: (e.currentTarget as HTMLInputElement).checked } })} data-office-feature="combinedBs" />
             合算BS（経営者個人と会社のバランスシート）を使う

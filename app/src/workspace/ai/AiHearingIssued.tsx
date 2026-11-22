@@ -12,7 +12,7 @@ import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { HearingWebHost } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { arrivedNow, UNASSIGNED_LIMIT, unassignedAccepting, type AiIssueLog, type OfficeHearing, type PendingWebRequest } from "../hearing/aiHearing.ts";
-import { accepting, ARRIVAL_INTERVAL_MS, arrivalOf, checkAnswered, invitationText, noteArrival, onArrivals, removeOnServer, selectionName, STATUS_TEXT, statusOf, type WebLogEntry } from "../hearing/web.ts";
+import { accepting, ARRIVAL_INTERVAL_MS, CANCEL_ASK_TEXT, arrivalOf, checkAnswered, invitationText, noteArrival, onArrivals, removeOnServer, selectionName, STATUS_TEXT, statusOf, type WebLogEntry } from "../hearing/web.ts";
 import { unassignedLink } from "../hearing/issuedUrls.ts";
 import { dateTimeText } from "./model.ts";
 import { listDate } from "../../dates.ts";
@@ -216,7 +216,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
         {/* 取り消すの確かめ（「発行した URL」の確かめと同じ形・同じ言葉。元のボタンと別の段に出す） */}
         {asking === id && r !== undefined && live && p.web !== null ? (
           <div class="wr-ask" role="alertdialog" aria-label="取り消しの確かめ" data-ai-hearing-cancel-ask>
-            <span>お客さまはこの URL を開けなくなります（途中のお答えも送れません）。取り消しますか。</span>
+            <span>{CANCEL_ASK_TEXT}</span>
             <span class="wr-ask-acts">
               <button
                 type="button"

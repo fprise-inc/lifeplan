@@ -10,7 +10,9 @@ import { h } from "preact";
 import { describe, expect, it } from "vitest";
 import { APP_DIR, REPO_DIR } from "../scripts/lib.ts";
 import type { FeatureStatus } from "../src/engine/host.ts";
+import { CANCEL_ASK_TEXT, templateSelection } from "../src/workspace/hearing/web.ts";
 import { WebBuilder } from "../src/workspace/hearing/WebBuilder.tsx";
+import type { HearingTemplate } from "../src/workspace/hearing/selection.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { MeetingTools } from "../src/workspace/meetings/MeetingTools.tsx";
 import { withMeetings } from "../src/workspace/meetings/meetings.ts";
@@ -120,15 +122,28 @@ describe("文と2つのボタンを分ける（くっついて「外すやめる
     expect(src("styles", "wire.css")).toMatch(/\.snap-confirm \{[^}]*display: flex;[^}]*gap: 4px 10px;/);
   });
 
-  it("URL生成のひな形を選び直す確かめ: 進むボタンは何をするかが読める「選んだひな形にする」・やめるが右", () => {
-    const props = { wh: wh(), web: anyHost, office: { name: "", color: null }, templates: [], onTemplates: async () => undefined, customerNo: "B0007", persisted: true, onSave: noop, saveNow: async () => true, onClose: noop };
-    // 分野の並びを変えて（項目を直した状態にして）から、別のひな形を選ぶ
-    const html = renderPressing(h(WebBuilder, props), "aria-label=ご家族を下へ", "data-web-template=detail");
-    const ask = within(html, "data-web-template-ask");
-    expect(ask).toMatch(/<span>直した項目は、選んだひな形の項目に戻ります。書類・独自の質問はそのまま残します。よろしいですか。<\/span><span class="wr-confirm-acts">/);
-    expect(buttonTexts(ask)).toEqual(["選んだひな形にする", "やめる"]);
-    expect(ask).not.toMatch(/>\s*選ぶ\s*</);
-    // やめるで確かめが消える
+  it("URL生成のひな形を切り替える確かめ（追記 2026-11-23）: 切り替え先の名前と消える物を書き、「切り替える／キャンセル」（項目を選んでいる途中をやめる物なのでキャンセル）", () => {
+    const base = wh();
+    const saved = { name: "子育て世帯の最初の面談", selection: templateSelection("simple", base) } as unknown as HearingTemplate;
+    const props = { wh: base, web: anyHost, office: { name: "", color: null }, templates: [saved], onTemplates: async () => undefined, customerNo: "B0007", persisted: true, onSave: noop, saveNow: async () => true, onClose: noop };
+    // 分野の並びを変えて（項目を直した状態にして）から、詳細を選ぶ
+    const ask = within(renderPressing(h(WebBuilder, props), "aria-label=ご家族を下へ", "data-web-template=detail"), "data-web-template-ask");
+    expect(ask).toMatch(/<span>「詳細」に切り替えると、項目に加えた変更は消えます（書類・独自の質問は残ります）。<\/span><span class="wr-confirm-acts">/);
+    expect(buttonTexts(ask)).toEqual(["切り替える", "キャンセル"]);
+    expect(ask).not.toMatch(/選んだひな形|戻ります|よろしいですか/);
+    // 保存したカスタム: 項目を直したとき
+    expect(within(renderPressing(h(WebBuilder, props), "aria-label=ご家族を下へ", "data-web-template=t:0"), "data-web-template-ask")).toContain(
+      "「子育て世帯の最初の面談」に切り替えると、項目に加えた変更は消えます（「子育て世帯の最初の面談」の項目・書類・独自の質問になります）。",
+    );
+    // 保存したカスタム: 項目は直さず、書類を頼んでいるとき
+    expect(within(renderPressing(h(WebBuilder, props), "data-web-doc-add=withholding", "data-web-template=t:0"), "data-web-template-ask")).toContain(
+      "「子育て世帯の最初の面談」に切り替えると、今の書類・独自の質問は消えます（「子育て世帯の最初の面談」の項目・書類・独自の質問になります）。",
+    );
+    // 両方
+    expect(within(renderPressing(h(WebBuilder, props), "data-web-doc-add=withholding", "aria-label=ご家族を下へ", "data-web-template=t:0"), "data-web-template-ask")).toContain(
+      "「子育て世帯の最初の面談」に切り替えると、項目に加えた変更と、今の書類・独自の質問は消えます（",
+    );
+    // キャンセルで確かめが消える
     expect(renderPressing(h(WebBuilder, props), "aria-label=ご家族を下へ", "data-web-template=detail", "data-web-template-no")).not.toContain("data-web-template-ask");
   });
 });
@@ -193,8 +208,6 @@ describe("「やめる」のままにする所（消す・外す・捨てる・�
       "workspace/documents/DocumentReview.tsx": 1,
       // 受け取った書類の「消す」
       "workspace/hearing/ReceivedDocs.tsx": 1,
-      // ひな形を選び直す（直した項目が戻る）
-      "workspace/hearing/WebBuilder.tsx": 1,
       // 発行した URL の「取り消す」「受け付けを終える」
       "workspace/hearing/WebRequests.tsx": 1,
       // 入力項目のパネルの「一緒に外す物」
@@ -212,5 +225,23 @@ describe("「やめる」のままにする所（消す・外す・捨てる・�
       "workspace/statement/StatementPanel.tsx": 3,
       "workspace/store/LeaveDialog.tsx": 1,
     });
+  });
+});
+
+describe("追記（2026-11-23）: 取り消しの確かめの文を短く・法人経営者向けの機能の説明", () => {
+  it("発行した URL の確かめの文は1か所で短く（幅 1000px・文字「中」でボタンと1行）。回答が届いているとき・受け付けを終えるときも短く", () => {
+    expect(CANCEL_ASK_TEXT).toBe("お客さまはこの URL を開けなくなります。取り消しますか。");
+    const web = src("workspace", "hearing", "WebRequests.tsx");
+    expect(web).toContain("CANCEL_ASK_TEXT");
+    expect(web).toContain('"お客さまはこの URL を開けなくなり、届いた回答も消えます。取り消しますか。"');
+    expect(web).toContain('"お客さまはこの URL を開けず、書類も届きません。受け付けを終えますか。"');
+    expect(src("workspace", "ai", "AiHearingIssued.tsx")).toContain("<span>{CANCEL_ASK_TEXT}</span>");
+    for (const f of [web, src("workspace", "ai", "AiHearingIssued.tsx")]) expect(f).not.toMatch(/途中の(回答|お答え)も送れません/);
+  });
+
+  it("法人経営者向けの機能の説明は「法人を顧問先に持つ FP 向け」（見出しと同じ「法人」）", () => {
+    const html = renderPressing(h(OfficeSettingsPanel, { value: DEFAULT_OFFICE_SETTINGS, onSave: async () => undefined, shared: false, onClose: noop, features: { today: "2026-11-23", active: ["combinedBs"], codes: [], invalid: [] } }));
+    expect(html).toContain("法人を顧問先に持つ FP 向けの機能です。");
+    expect(html).not.toContain("会社を顧問先");
   });
 });
