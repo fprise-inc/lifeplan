@@ -27,7 +27,7 @@ import type { FindHit, FindTarget } from "./inputSearch.ts";
 import { inheritanceTaxNote, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
-import { STATUS_TEXT, StatusBadge, statusText } from "./StatusBadge.tsx";
+import { MISSING_MARK, STATUS_TEXT, StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkButtonText, checkSummary } from "./CheckList.tsx";
 import { DocRequests } from "./DocRequests.tsx";
 import { docRequests, type DocRequest } from "./docRequests.ts";
@@ -195,8 +195,11 @@ function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (
               {s.note}
             </span>
           ) : null}
-          {tip === null ? <StatusBadge item={item} mini /> : null}
+          {tip === null && item.status !== "missing" ? <StatusBadge item={item} mini /> : null}
         </span>
+        {/* 未入力（0円の所あり）の印: 絵の左上に重ねる（状態の行の代わり。0242）。置き場所は見た目だけで決め、要素は状態の行のあった所（名前・数字の後ろ）に置く
+            （開くボタンの中の文字は、どの状態でも入力項目の名前から始まる。読み上げは開くボタンの名前の状態の言葉） */}
+        {item.status === "missing" ? <span class="ih-miss">{MISSING_MARK}</span> : null}
       </button>
       {/* 推定で計算中の札: カーソルを合わせる・キーボードでフォーカスする・押すと、何が推定かの短い一覧（「?」と同じ吹き出しの部品。札の文字と大きさは変えない。
           開くボタンの中にボタンを入れられないので、札だけをボタンの外の同じ所に置く。0041 の追記 2026-11-06） */}
