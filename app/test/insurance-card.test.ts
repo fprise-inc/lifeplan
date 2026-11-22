@@ -380,7 +380,7 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
       // 確認した注意の絞り込みに並び、「また出す」で戻る（欄ごと外れる）
       const listed = ackedRows(acked);
       expect(listed.map((r) => [r.id, r.label, r.actions.map((a) => a.label)])).toEqual([[row!.id, "ご本人の医療保険が2本", ["また出す"]]]);
-      expect(listed[0]!.detail).toMatch(/^\d{4}-\d{2}-\d{2} に確認しました（ご本人の医療保険が2本あります/);
+      expect(listed[0]!.detail).toMatch(/^\d{4}年\d{1,2}月\d{1,2}日 に確認しました（ご本人の医療保険が2本あります/);
       const back = press(acked, row!.id, "unack");
       expect(overlap(back).map((r) => r.label)).toEqual(["ご本人の医療保険が2本"]);
       expect("noticeAcks" in back).toBe(false);

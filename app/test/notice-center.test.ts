@@ -194,7 +194,7 @@ describe("画面", () => {
     expect(html).toContain("data-feedback-copy");
     expect(html).toContain("data-feedback-send");
     expect(html).toContain('data-feedback-receipt="R-9MXT"');
-    expect(html).toContain("2026年10月29日");
+    expect(html).toContain("2026/10/29");
     expect(html).toContain("data-feedback-input");
   });
 });

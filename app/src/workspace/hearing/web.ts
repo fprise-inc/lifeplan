@@ -23,6 +23,7 @@ import { buildPacket, checkSelection, CONSULT_KEY, documentCovers, FILLED_ON, FP
 
 import { relay, RELAY_LIMITS, type RelayTransport } from "../../../../hearing/src/web/protocol.ts";
 import type { Answer } from "../../../../hearing/src/answers.ts";
+import { proseDate, proseDateTime } from "../../dates.ts";
 import type { DocRequest } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { gateCounts, logOf, viewOfResult, type ImportView } from "./sheet.ts";
@@ -185,11 +186,8 @@ export function importedEntries(wh: WorkingHousehold, now: Date = new Date()): W
     .sort((a, b) => ((a.importedAt ?? "") < (b.importedAt ?? "") ? 1 : -1));
 }
 
-/** お客さまが送った日時の言葉（例: 11月6日 22:15） */
-export function sentAtText(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "不明" : d.toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
+/** お客さまが送った日時の言葉（文の中の形。例: 2026年11月6日 22:15） */
+export const sentAtText = (iso: string): string => proseDateTime(iso, "不明");
 
 // ---- 元のシート・ひな形 ----
 
@@ -432,7 +430,7 @@ export function pageHead(url: string): string | null {
  * 所要時間は問いの数から（お客さまの最初の画面と同じ数え方。0192）。偽の URL への注意・聞かないこと・送れるのは1回だけ、を添える（H-118）
  */
 export function invitationText(e: WebLogEntry, office: string, wh: WorkingHousehold | null = null): string {
-  const end = new Date(e.record.expiresAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+  const end = proseDate(e.record.expiresAt);
   const docs = e.record.selection.documents.length;
   // お客さまの最初の画面と同じ数（見直しは前回の値も載せて数える）
   const est = estimateOf(wh, e.record.selection)?.shown ?? null;

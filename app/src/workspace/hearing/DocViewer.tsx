@@ -5,6 +5,7 @@
 // - Esc はこの枠だけを閉じる（入力のパネルは閉じない）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
+import { listDate, listDateTime } from "../../dates.ts";
 import { byDocument, docLabel, sizeText, type ReceivedFile } from "./receivedDocs.ts";
 import type { ReceivedDocsState } from "./ReceivedDocs.tsx";
 import { openPdf, type PdfDoc } from "./pdfPages.ts";
@@ -16,7 +17,6 @@ const MAX_SIDE = 8192;
 
 type Source = { kind: "image"; bmp: ImageBitmap } | { kind: "pdf"; pdf: PdfDoc };
 
-const dayTime = (iso: string) => new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 /** 書類を描く: 拡大率（1 = 写真の1画素・PDF の1ポイントを画面の1点）と回し。描いた大きさ（画面の点）を返す */
 async function draw(c: HTMLCanvasElement, src: Source, scale: number, rot: number, page: number): Promise<{ w: number; h: number } | null> {
@@ -258,7 +258,7 @@ export function DocViewer({ rd, beside }: { rd: ReceivedDocsState; beside: boole
         ) : null}
       </div>
       <p class="dv-meta" data-dv-meta>
-        {cur.file.mime === "application/pdf" ? "PDF" : "写真"}・{sizeText(cur.file.bytes)}・{dayTime(cur.receivedAt)} に受け取り・{cur.file.savedAt !== undefined ? "自分のフォルダに保存済み" : "まだ保存していません"}
+        {cur.file.mime === "application/pdf" ? "PDF" : "写真"}・{sizeText(cur.file.bytes)}・{listDateTime(cur.receivedAt)} に受け取り・{cur.file.savedAt !== undefined ? "自分のフォルダに保存済み" : "まだ保存していません"}
       </p>
       {rd.note !== null ? (
         <p class="dv-meta" role="status">
@@ -286,9 +286,9 @@ export function DocViewer({ rd, beside }: { rd: ReceivedDocsState; beside: boole
   );
 }
 
-/** 書類の選び方の1行（書類の名前・持ち主・何枚目・受け取った日） */
+/** 書類の選び方の1行（書類の名前・持ち主・何枚目・受け取った日）。受け取った日時は下の説明の行に出すので、ここは日だけ（長いと、閉じているときに末尾が隠れる。0241） */
 function fileLabel(f: ReceivedFile): string {
-  return `${docLabel(f)}${f.count > 1 ? ` ${f.index}/${f.count}` : ""}（${f.file.mime === "application/pdf" ? "PDF" : "写真"}・${new Date(f.receivedAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })} 受け取り）`;
+  return `${docLabel(f)}${f.count > 1 ? ` ${f.index}/${f.count}` : ""}（${f.file.mime === "application/pdf" ? "PDF" : "写真"}・${listDate(f.receivedAt)}）`;
 }
 
 function release(s: Source): void {

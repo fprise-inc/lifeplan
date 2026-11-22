@@ -8,6 +8,7 @@
 // 承認の流れ・台帳・保存庫は同じで、言葉だけが違う
 import { useState } from "preact/hooks";
 import type { CustomHost, CustomKind, CustomRowText, CustomTextsStatus } from "../../engine/host.ts";
+import { proseDate } from "../../dates.ts";
 
 /** 種類ごとの言葉 */
 export interface KindWords {
@@ -69,8 +70,7 @@ const unescape = (s: string | null): string => (s === "{basis}" ? "（世帯ご�
 
 /** 承認した日（その PC の日付） */
 export function approvedOn(at: number): string {
-  const d = new Date(at * 1000);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  return proseDate(new Date(at * 1000));
 }
 
 /** 今の様子の1行 */

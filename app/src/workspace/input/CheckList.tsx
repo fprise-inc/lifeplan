@@ -15,6 +15,7 @@ import { ackedRows, CERTAINTY_LABELS, CHECK_KIND_LABELS, checkCounts, checkList,
 import { isRechecked, recheckMarks, recheckText, setRecheck } from "./recheck.ts";
 import { Help } from "../../presentation/Help.tsx";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
+import { proseDateWritten } from "../../dates.ts";
 
 /** 根拠を、行を開いたときだけ出す種類（推定・書類待ち・確かさ。0077）。ほかの種類の文は状態の知らせなので常に出す */
 export const BASIS_ON_OPEN: ReadonlySet<CheckKind> = new Set<CheckKind>(["estimated", "unknown", "certainty", "premise"]);
@@ -411,7 +412,7 @@ function RecheckGone({ wh, rows }: { wh: WorkingHousehold; rows: readonly CheckR
           <li key={m.id} data-ck-gone={m.id}>
             <span class="ck-card">{m.cardLabel}</span>
             <span class="ck-label">{m.label}</span>
-            <span class="ck-detail">{m.on} に印。確定したか物を外したため、一覧からは消えました（書き出しには残ります）</span>
+            <span class="ck-detail">{proseDateWritten(m.on)} に印。確定したか物を外したため、一覧からは消えました（書き出しには残ります）</span>
           </li>
         ))}
       </ul>

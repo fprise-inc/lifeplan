@@ -7,12 +7,13 @@ import { formatYearMonth } from "../input/units.ts";
 import { addMonths } from "../levers.ts";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { man } from "../../presentation/format.ts";
-import { snapshotDateText, TRIGGER_TEXT, type Snapshot } from "../snapshots/snapshots.ts";
+import { TRIGGER_TEXT, type Snapshot } from "../snapshots/snapshots.ts";
 import { withoutRemovedAssumptions } from "../surplus.ts";
 import { householdContents, inputChanges, nextYearEvents, pastPlans, resultFigures, type ResultFigures } from "./fpTools.ts";
 import { consultNotes, gateNotes } from "../hearing/web.ts";
 import { HEARING_EXCEL_SHOWN } from "../hearing/excelSwitch.ts";
-import { latestMeeting, meetingDateText, type Meeting } from "../meetings/meetings.ts";
+import { latestMeeting, type Meeting } from "../meetings/meetings.ts";
+import { listDateTimeWritten, proseDate, proseDateWritten } from "../../dates.ts";
 
 export interface FpToolsProps {
   wh: WorkingHousehold;
@@ -280,7 +281,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
           {meeting !== null && onMeeting !== undefined ? (
             <p class="fp-meeting-link">
               <button type="button" class="link-btn" onClick={() => onMeeting(meeting.id)} data-fp-review-meeting={meeting.id}>
-                {snap !== null && meeting.snapshot === snap.id ? "この控えの面談の記録を開く" : "前回の面談の記録を開く"}（{meetingDateText(meeting.on)}）
+                {snap !== null && meeting.snapshot === snap.id ? "この控えの面談の記録を開く" : "前回の面談の記録を開く"}（{proseDateWritten(meeting.on)}）
               </button>
             </p>
           ) : null}
@@ -293,7 +294,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
                 <select value={snap.id} onChange={(e) => setSel((e.currentTarget as HTMLSelectElement).value)} data-fp-review-select>
                   {snaps.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {snapshotDateText(s.createdAt)}（{TRIGGER_TEXT[s.trigger]}
+                      {listDateTimeWritten(s.createdAt)}（{TRIGGER_TEXT[s.trigger]}
                       {s.memo !== "" ? `・${s.memo}` : ""}）
                     </option>
                   ))}
@@ -317,7 +318,7 @@ function GateNotes({ wh }: { wh: WorkingHousehold }) {
     c === null ? null : (
       <div class="fp-gates" data-fp-consult>
         <p class="fp-sub">
-          Web のヒアリングで届いたご相談したいこと（{c.requestId}・{new Date(c.receivedAt).toLocaleDateString("ja-JP")} に受け取り）
+          Web のヒアリングで届いたご相談したいこと（{c.requestId}・{proseDate(c.receivedAt)} に受け取り）
         </p>
         <ul class="fp-list">
           {c.topics.length > 0 ? (
@@ -342,7 +343,7 @@ function GateNotes({ wh }: { wh: WorkingHousehold }) {
       {consult}
       <div class="fp-gates" data-fp-gates>
         <p class="fp-sub">
-          Web のヒアリングで届いた人数など（{g.requestId}・{new Date(g.receivedAt).toLocaleDateString("ja-JP")} に受け取り）{diff > 0 ? `。今の世帯と違うもの ${diff}件は面談で確かめてください` : ""}
+          Web のヒアリングで届いた人数など（{g.requestId}・{proseDate(g.receivedAt)} に受け取り）{diff > 0 ? `。今の世帯と違うもの ${diff}件は面談で確かめてください` : ""}
         </p>
         <ul class="fp-list">
           {g.lines.map((l) => (
