@@ -3,7 +3,7 @@
 // プランは世帯ファイルに保存する（保存していない世帯のプランは、アプリを閉じると消える。控えの一覧と同じ言い方で出し分ける）
 import { useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
-import { listDateTimeWritten } from "../../dates.ts";
+import { listDateTime, listDateTimeWritten } from "../../dates.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { MAX_BAND } from "./band.ts";
 import type { Catalog } from "./items.ts";
@@ -11,6 +11,17 @@ import { changesOf, deletePlan, modernPlanName, planLabel, renamePlan, type Revi
 
 /** 現状に反映すると入る差分の要確認の状態（現状が変わった差分は、プランの値で入る） */
 const APPLIED: ReadonlySet<ReviewState> = new Set(["ok", "changed"]);
+
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/**
+ * 作った日（一覧の日時。端末の時刻で）。プランを作った時刻は UTC の文字（ISO 8601）で残しているので、時差を直して出す
+ * （数字をそのまま出すと、日本の端末では9時間前の時刻に見える。0241 の追記）。
+ * 時刻つきの日時として読めない文字（古い世帯ファイルで無い・壊れている）は、今までと同じく書いてある文字のまま
+ */
+export function createdText(iso: string): string {
+  return ISO_TIME.test(iso) && !Number.isNaN(Date.parse(iso)) ? listDateTime(iso) : listDateTimeWritten(iso);
+}
 
 export interface PlanListProps {
   wh: WorkingHousehold;
@@ -118,7 +129,7 @@ export function PlanList(p: PlanListProps) {
                         </>
                       )}
                     </td>
-                    <td class="num">{listDateTimeWritten(x.createdAt)}</td>
+                    <td class="num">{createdText(x.createdAt)}</td>
                     <td class="pl-ops">
                       {confirm?.id === x.id ? (
                         <span class="pl-confirm">
