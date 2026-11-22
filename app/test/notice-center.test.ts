@@ -6,15 +6,17 @@ import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { FEEDBACK_FORM } from "../src/generated/distribution.ts";
 import type { StorageNotice } from "../src/engine/host.ts";
-import { barNotices, type BarInputs } from "../src/workspace/header/status.ts";
+import { barNotices, householdNoticeText, NOTICE_TODO, type BarInputs } from "../src/workspace/header/status.ts";
 import { CATEGORIES, compareVersions, EMPTY_LOCAL, FEED_SCREENS, feedKey, filterItems, householdKey, markRead, needsAction, parseFeed, readLocal, sortItems, unreadCount, visibleFeed, type CenterItem } from "../src/workspace/notices/center.ts";
 import { fpMenuGroups } from "../src/workspace/header/FpMenu.tsx";
+import { HEARING_ARRIVAL_TODO } from "../src/workspace/hearing/bell.ts";
+import { customCenterNotice, estimateCenterNotice } from "../src/workspace/office/customNotice.ts";
 import { FeedbackPanel } from "../src/workspace/notices/FeedbackPanel.tsx";
 import { NoticeCenter } from "../src/workspace/notices/NoticeCenter.tsx";
 import { addReceipt, feedbackFormUrl, newReceiptCode, osName, RECEIPT_CHARS, RECEIPT_PATTERN, readReceiptInput } from "../src/workspace/notices/receipts.ts";
 
 const APP = join(import.meta.dirname, "..");
-const item = (over: Partial<CenterItem> = {}): CenterItem => ({ key: "k", category: "app", urgency: "normal", date: "2026-10-30", title: "題", body: "本文", household: null, receipts: [], action: null, read: false, ...over });
+const item = (over: Partial<CenterItem> = {}): CenterItem => ({ key: "k", category: "app", urgency: "normal", date: "2026-10-30", title: "題", body: "本文", household: null, receipts: [], action: null, todo: false, read: false, ...over });
 const feed = (notices: unknown[], formatVersion = "1.0") => JSON.stringify({ format: "financia-notices", formatVersion, issuedAt: "2026-10-30T00:00:00Z", notices });
 const n = (over: Record<string, unknown> = {}) => ({ id: "a", kind: "app", urgency: "normal", date: "2026-10-30", title: "題", body: "本文", ...over });
 
@@ -213,25 +215,69 @@ describe("印は状態にだけ色を使い、要対応と参考を見分ける�
   /** 一覧の1行（押すボタンの中身） */
   const row = (html: string, key: string) => new RegExp(`<button[^>]*data-notice="${key}"[^>]*>([\\s\\S]*?)</button>`).exec(html)?.[1] ?? "";
 
-  it("要対応: 今の状態の知らせ（日付なし）で、開く画面があり、参考でないもの。既読でも付けたまま。配信元のお知らせ（日付つき）には付けない", () => {
-    expect(needsAction(item({ date: null, action }))).toBe(true);
-    expect(needsAction(item({ date: null, action, urgency: "critical" }))).toBe(true);
-    expect(needsAction(item({ date: null, action, read: true }))).toBe(true);
-    expect(needsAction(item({ date: null, action, urgency: "info" }))).toBe(false);
-    expect(needsAction(item({ date: null, action: null }))).toBe(false);
-    expect(needsAction(item({ date: "2026-10-30", action }))).toBe(false);
+  it("要対応は種類ごとに決めた todo だけで決める（日付・開く画面からは推し量らない）。既読でも付けたまま・参考には付けない", () => {
+    expect(needsAction(item({ todo: true }))).toBe(true);
+    expect(needsAction(item({ todo: true, urgency: "critical" }))).toBe(true);
+    expect(needsAction(item({ todo: true, read: true }))).toBe(true);
+    expect(needsAction(item({ todo: true, urgency: "info" }))).toBe(false);
+    // 今の状態の知らせ（日付なし）で開く画面があっても、種類が要対応でなければ付けない
+    expect(needsAction(item({ date: null, action, todo: false }))).toBe(false);
+  });
+
+  const base: BarInputs = { opened: true, stored: true, save: { kind: "idle" }, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message: (c) => c };
+  const sn = (kind: string, level: "alert" | "warn" | "info" = "warn") => ({ kind, level, scope: "office" as const, count: 1, name: "担当N", at: null, code: null });
+
+  it("本体の保存先・事務所の共有の通知: 表のとおりに付く。表に無い種類には付けない", () => {
+    const want: Record<string, boolean> = { needsRecovery: true, recoveryNotKept: true, unavailable: true, closed: true, removed: true, recoveryJoin: true, localHouseholds: true, syncCopies: true, pending: false, joinRequest: false };
+    expect(NOTICE_TODO.storage).toEqual(want);
+    const out = barNotices({ ...base, storage: [...Object.keys(want).map((k) => sn(k)), sn("someNewKind"), sn("constructor")] });
+    expect(Object.fromEntries(out.map((x) => [x.id.replace(/:\d+$/, ""), x.todo]))).toEqual({ ...want, someNewKind: false, constructor: false });
+  });
+
+  it("世帯を開いたときの知らせ: 困ることが残る2つだけ要対応。済んだことの知らせ・表に無い種類には付けない", () => {
+    expect(Object.entries(NOTICE_TODO.household).filter(([, v]) => v).map(([k]) => k).sort()).toEqual(["livingAllowance", "unresolvedDiffs"]);
+    const kinds = Object.keys(NOTICE_TODO.household);
+    // 表の種類はどれも文がある（表と文の種類がずれていない）
+    for (const kind of kinds) expect(householdNoticeText({ kind, count: 1 }), kind).not.toBeNull();
+    const out = barNotices({ ...base, household: [...kinds.map((kind, k) => ({ id: `n${k}`, kind, count: 1 })), { id: "x", kind: "someNewKind", count: 1 }] });
+    expect(out.filter((x) => x.todo).map((x) => x.title).sort()).toEqual(["基本生活費の内訳の「仕送り」を移してください", "読み替えられなかったプランの変更があります"]);
+    expect(out.find((x) => x.title === "ペットの費用の入れ先をまとめました")?.todo).toBe(false);
+  });
+
+  it("ほかの人が開いている・参加の承認待ち・参加の申請は知らせるだけ。届いたヒアリングの回答・書類は要対応", () => {
+    expect(barNotices({ ...base, presence: "担当Bさんが開いています" }).map((x) => x.todo)).toEqual([false]);
+    expect(HEARING_ARRIVAL_TODO).toBe(true);
+  });
+
+  it("事務所の既定値の知らせ: 承認の記録が無効・承認待ち・推定の値を使えなくなった は要対応。公式が新しくなった知らせは付けない", () => {
+    const st = { state: "pending", fingerprint: "f", ledgerReset: true, updates: [{}], approved: { fingerprint: "a" } } as unknown as Parameters<typeof customCenterNotice>[0];
+    expect(customCenterNotice(st).map((n) => [n.key.split(":")[2], n.todo])).toEqual([
+      ["ledger", true],
+      ["pending", true],
+      ["updates", false],
+    ]);
+    expect(customCenterNotice({ ...(st as object), kind: "terms", ledgerReset: false } as unknown as Parameters<typeof customCenterNotice>[0]).map((n) => [n.key.split(":")[2], n.todo])).toEqual([
+      ["pending", true],
+      ["updates", false],
+    ]);
+    const src = readFileSync(join(APP, "src", "workspace", "office", "customNotice.ts"), "utf8");
+    expect(src).toContain('todo: u.kind === "broken"');
+    expect(estimateCenterNotice(undefined)).toEqual([]);
   });
 
   it("一覧: 状態の印（重大・要対応・参考・要望に対応）を言葉で先に、種類は色の無い言葉で後ろに。並びは重大 → 要対応 → 参考 → 配信元のお知らせ", () => {
     const items = [
       item({ key: "feed", date: "2026-10-30" }),
-      item({ key: "info", category: "office", urgency: "info", date: null, action }),
-      item({ key: "todo", category: "household", date: null, action }),
+      item({ key: "info", category: "office", urgency: "info", date: null, action, todo: true }),
+      item({ key: "state", category: "household", date: null, action }),
+      item({ key: "todo", category: "household", date: null, action, todo: true }),
       item({ key: "crit", category: "data", urgency: "critical", date: "2026-10-01" }),
       item({ key: "rcpt", date: "2026-10-29", receipts: ["R-7K2Q"] }),
     ];
     const html = renderToString(h(NoticeCenter, { items, onRead: noop, initialOpen: true }));
-    expect([...html.matchAll(/data-notice="([^"]+)"/g)].map((m) => m[1])).toEqual(["crit", "todo", "info", "feed", "rcpt"]);
+    // 要対応は、先に並んでいた今の状態の知らせ（要対応でない）より上に来る
+    expect([...html.matchAll(/data-notice="([^"]+)"/g)].map((m) => m[1])).toEqual(["crit", "todo", "state", "info", "feed", "rcpt"]);
+    expect(row(html, "state")).not.toContain("data-notice-todo");
     const todo = row(html, "todo");
     expect(todo).toContain("data-notice-todo");
     expect(todo).toContain("要対応");

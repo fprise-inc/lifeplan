@@ -49,7 +49,7 @@ import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
 import { HearingTools } from "./hearing/HearingTools.tsx";
 import { accepting, ARRIVAL_INTERVAL_MS, checkArrivals, listSummary, onArrivals, pendingCount, pendingMark, webLog } from "./hearing/web.ts";
-import { askFocus, checkUnopened, hearingBellItems, peekedLive, type PeekCache } from "./hearing/bell.ts";
+import { askFocus, checkUnopened, HEARING_ARRIVAL_TODO, hearingBellItems, peekedLive, type PeekCache } from "./hearing/bell.ts";
 import { ReportTab } from "./report/ReportTab.tsx";
 import { runWireCheck } from "./report/wirecheck.ts";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel.tsx";
@@ -2853,6 +2853,7 @@ export function App() {
         household: n.category === "household" || n.target === "presence" ? hhLabel : null,
         receipts: [],
         action: { label: n.action, run: n.category === "household" ? () => openHouseholdNotice(n.target) : noticeActions[n.target] },
+        todo: n.todo,
         read: noticeLocal.read[key] !== undefined,
       };
     }),
@@ -2873,6 +2874,7 @@ export function App() {
         household: n.household,
         receipts: [],
         action: { label: "受け取る画面", run: () => openHearingRequest(n.householdId, n.requestId) },
+        todo: HEARING_ARRIVAL_TODO,
         read: noticeLocal.read[n.key] !== undefined,
       }),
     ),
@@ -2888,6 +2890,8 @@ export function App() {
         household: null,
         receipts: n.matched,
         action: target === undefined ? null : { label: SCREEN_LABEL[target], run: target === "family" || target === "work" || target === "plans" ? () => openHouseholdNotice(target) : noticeActions[target] },
+        // 配信元のお知らせは読むだけ（要対応にしない。0245）
+        todo: false,
         read: noticeLocal.read[feedKey(n.id)] !== undefined,
       };
     }),

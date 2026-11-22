@@ -34,6 +34,11 @@ export interface CenterItem {
   receipts: string[];
   /** その画面を開くボタン（無ければ null） */
   action: { label: string; run: () => void } | null;
+  /**
+   * 行動が要るか（印「要対応」。0245）。推し量らず、知らせの種類ごとに決めた値を入れる（header/status.ts の NOTICE_TODO・
+   * office/customNotice.ts・hearing/bell.ts）。FP が何かしないと困ることが残る・データを失いうる物だけ true。配信元のお知らせは false
+   */
+  todo: boolean;
   read: boolean;
 }
 
@@ -42,10 +47,10 @@ export const countsAsUnread = (i: Pick<CenterItem, "read" | "urgency">) => !i.re
 export const unreadCount = (items: readonly Pick<CenterItem, "read" | "urgency">[]) => items.filter(countsAsUnread).length;
 
 /**
- * 行動が要る知らせ（印「要対応」。0245）: 今の状態の知らせ（日付なし。直すまで一覧に残る）で、開く画面があり、参考でないもの。
- * 配信元のお知らせ（日付つき）は読むだけなので、開く画面があっても付けない。既読にしても、直すまでは付けたまま
+ * 印「要対応」を付けるか（0245）: 知らせの種類ごとに決めた todo だけで決める（日付・開く画面の有無からは推し量らない）。
+ * 参考（ベルの数に数えない物）は知らせるだけなので付けない。既読にしても、直すまでは付けたまま
  */
-export const needsAction = (i: Pick<CenterItem, "date" | "action" | "urgency">) => i.date === null && i.action !== null && i.urgency !== "info";
+export const needsAction = (i: Pick<CenterItem, "todo" | "urgency">) => i.todo && i.urgency !== "info";
 export const NEEDS_ACTION_LABEL = "要対応";
 
 /** 一覧の絞り込み: 未読だけ（参考の未読も見せる）／すべて、と種類 */
@@ -54,12 +59,16 @@ export function filterItems<T extends Pick<CenterItem, "read" | "category">>(ite
 }
 
 const URGENCY_ORDER: Record<NoticeUrgency, number> = { critical: 0, normal: 1, info: 2 };
-/** 並び: 重大を先に、次に今の状態の知らせ（日付なし。要対応が参考より先）、配信元のお知らせは新しい順。同じなら元の順 */
-export function sortItems<T extends Pick<CenterItem, "urgency" | "date">>(items: readonly T[]): T[] {
+/**
+ * 並び: 重大を先に、次に要対応（0245）、次に今の状態の知らせ（日付なし）、配信元のお知らせは新しい順。同じなら元の順。
+ * 重大かつ要対応は重大の中に入る（重大の中の並びは前のまま）
+ */
+export function sortItems<T extends Pick<CenterItem, "urgency" | "date"> & { todo?: boolean }>(items: readonly T[]): T[] {
+  const rank = (x: T) => (x.urgency === "critical" ? 0 : needsAction({ todo: x.todo === true, urgency: x.urgency }) ? 1 : 2);
   return items
     .map((x, k) => ({ x, k }))
     .sort((a, b) => {
-      const u = (a.x.urgency === "critical" ? 0 : 1) - (b.x.urgency === "critical" ? 0 : 1);
+      const u = rank(a.x) - rank(b.x);
       if (u !== 0) return u;
       const da = a.x.date ?? "9999-99-99";
       const db = b.x.date ?? "9999-99-99";
