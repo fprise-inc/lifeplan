@@ -39,6 +39,9 @@
 .rk-panel { position: fixed; z-index: 50; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; background: var(--card); border-radius: 12px; border-top: 6px solid var(--prop); padding: 18px 24px 16px; box-shadow: 0 18px 48px rgba(20, 30, 50, 0.28); }
 .rk-panel:focus { outline: none; }
 .rk-panel h2 { margin: 0 0 8px; font-size: 1.25rem; }
+/* 右上の ×（0239）: 中を縦に送っても右上に残す。見出しは × の左で折り返す。足元の「閉じる」は中央のパネルだけに残す */
+.rk-panel > .x-btn { float: right; position: sticky; top: 0; z-index: 3; margin: -6px -10px 4px 12px; }
+.rk-panel > .x-btn + h2 { min-height: 34px; }
 .rk-panel h3 { margin: 14px 0 4px; font-size: 0.98rem; }
 .rk-panel p { margin: 6px 0; }
 .rk-advice { font-weight: 700; }

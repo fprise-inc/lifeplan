@@ -88,7 +88,7 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
       const overlaps = (a?: DOMRect, b?: DOMRect) => a !== undefined && b !== undefined && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
       report.evidence = { ms: Math.round(performance.now() - t0), title: text("#ev-title"), params: document.querySelectorAll(".ev-params tbody tr").length, coversChart: overlaps(drawer, chart), coversTable: overlaps(drawer, table), viewport: `${innerWidth}x${innerHeight}` };
       await stage("evidence", report);
-      document.querySelector<HTMLButtonElement>(".ev-close")?.click();
+      document.querySelector<HTMLButtonElement>(".drawer.evidence .x-btn")?.click();
       await sleep(300);
     }
     window.scrollTo(0, 0);

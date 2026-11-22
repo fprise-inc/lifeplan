@@ -4,6 +4,7 @@
 // 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人経営者向けの機能（合算BS。0107）・結果のタブ・資産と負債のタブの表示の設定（0213 の段C。
 // 事務所の既定値に従う世帯にすぐ効く）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { STAGE_ORDER } from "../input/stages/index.ts";
 import { END_AGES, STANDARD_END_AGE } from "../input/household.ts";
 import { DEFAULT_LAYOUT } from "../input/items.ts";
@@ -350,16 +351,11 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
-  // 閉じる処理は描き直しのたびに新しい関数で届く（呼ぶ側がその場で作る）。最新のものを持っておき、Esc で呼ぶ
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  useEscClose(onClose);
   // パネルへ移すのは開いたときの1回だけ。描き直しのたびに移すと、事務所の名前など打っている欄から選択が外れる
   // （名前は打つたびに左上の見本を描き直すので、呼ぶ側が描き直す）
   useEffect(() => {
     panel.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
   }, []);
   const layout = layoutOf(s);
   const order = [...layout.order, ...STAGE_ORDER.map((x) => x.id).filter((id) => !layout.order.includes(id))];
@@ -484,6 +480,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
     <>
       <div class="scrim" aria-hidden="true" onClick={onClose} />
       <div ref={panel} class="rk-panel os-panel" role="dialog" aria-modal="true" aria-labelledby="os-title" tabIndex={-1} data-office-settings>
+        <CloseX onClose={onClose} what="事務所の既定値" />
         <h2 id="os-title">事務所の既定値</h2>
         <p class="pl-sub">
           新しく作る世帯に写す値と、入力のホームの並びです。前提条件は世帯の欄に「事務所の既定値」の印で入ります。後で変えても作った世帯は黙って変わりません（違うときは確かめの一覧に「事務所の既定値が変わりました」と出て、1押しでその世帯に当てられます）。

@@ -7,6 +7,7 @@
 // - 世帯の値を変える操作は、読み取りの記録を先に入れてから、元に戻せる変更として現状に入れる（呼ぶ側の onChange）
 // - 読めるのは保険証券・ご契約内容のお知らせ・設計書（0159）と、課税明細書・路線価図（0235。書類の土地は今ある不動産に入れるだけで、足さない）。取り込みを外した書類の前の記録は、見るだけで出す
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { WorkingHousehold } from "../input/household.ts";
 import { formatYearMonth } from "../input/units.ts";
 import { approvalTime } from "../hearing/sheet.ts";
@@ -132,11 +133,7 @@ export function DocumentReview(p: DocumentReviewProps) {
   const [discard, setDiscard] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [p.onClose]);
+  useEscClose(p.onClose);
   const reading: DocumentReading | undefined = readings.find((r) => r.id === cur) ?? readings[0];
   const view = useMemo(() => (reading === undefined ? null : docReview(p.wh, reading, chosen, p.calc, readings)), [p.wh, reading, chosen, p.calc, readings]);
 
@@ -149,6 +146,7 @@ export function DocumentReview(p: DocumentReviewProps) {
       <>
         <div class="scrim" aria-hidden="true" onClick={p.onClose} />
         <div ref={panel} class="rk-panel dr-panel" role="dialog" aria-modal="true" aria-labelledby="dr-title" tabIndex={-1} data-documents-panel>
+          <CloseX onClose={p.onClose} what="書類の読み取りの確かめ" />
           <h2 id="dr-title">書類の読み取りの確かめ</h2>
           <p class="in-note">読んだ書類はありません。</p>
           <div class="dr-foot">
@@ -170,6 +168,7 @@ export function DocumentReview(p: DocumentReviewProps) {
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel dr-panel" role="dialog" aria-modal="true" aria-labelledby="dr-title" tabIndex={-1} data-documents-panel={reading.id}>
+        <CloseX onClose={p.onClose} what="書類の読み取りの確かめ" />
         <h2 id="dr-title">書類の読み取りの確かめ</h2>
         {readings.length > 1 ? (
           <nav class="dr-list" aria-label="読んだ書類">

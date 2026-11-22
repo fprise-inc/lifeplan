@@ -125,6 +125,10 @@ b { font-weight: 700; }
 .card-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
 .card-h h2 { font-size: 1.05rem; margin: 0; }
 .card-h .aside, .footnote { font-size: 0.85rem; color: var(--ink-2); }
+/* 見出しの行に × がある枠（その場に開いた物。0239）: × はいつも行の右上。見出しと説明は × の左で折り返す */
+.card-h:has(> .x-btn) { position: relative; align-items: center; justify-content: flex-start; gap: 4px 14px; min-height: 40px; padding-right: 54px; }
+.card-h:has(> .x-btn) > .aside { flex: 1 1 12em; min-width: 0; }
+.card-h > .x-btn { position: absolute; top: 0; right: 0; }
 .loading, .fatal { padding: 24px; font-weight: 700; }
 .fatal { color: var(--short-ink); }
 .placeholder { min-height: 240px; }
@@ -336,15 +340,16 @@ html.big .lever input[type="range"] { height: 36px; }
 .memo-drawer { background: var(--wash-warm, #fffdf0); }
 .memo-drawer .drawer-head { background: var(--memo-bg); border-bottom-color: var(--memo-line); }
 .memo-drawer textarea { width: 100%; border: 1.5px solid var(--memo-line); border-radius: 6px; padding: 8px; font: inherit; font-size: 0.95rem; background: var(--card); resize: vertical; }
-.x-btn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 2px solid var(--ink); background: var(--card); font-size: 1.25rem; line-height: 1; cursor: pointer; display: grid; place-items: center; }
-.x-btn:hover { background: #f1f3f5; }
+/* 重ねて出す物の右上の ×（どの画面も同じ丸い形。presentation/CloseX.tsx。0239）。置き場所は、それぞれの見出しの行の決まりに書く */
+.x-btn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 2px solid var(--ink); background: var(--card); color: var(--ink); font-size: 1.25rem; font-weight: 400; line-height: 1; padding: 0; cursor: pointer; display: grid; place-items: center; }
+.x-btn:hover { background: var(--base-bg); }
+.x-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .ev { font-size: 0.95rem; }
 .ev-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 16px 20px 12px; border-bottom: 2px solid var(--line); position: sticky; top: 0; background: var(--card); }
 .ev-kicker { display: inline-block; background: var(--prop); color: var(--on-fill); font-weight: 700; border-radius: 4px; padding: 0 8px; font-size: 0.8rem; }
 .ev-head h2 { margin: 4px 0 2px; font-size: 1.3rem; }
 .ev-total { color: var(--prop); }
 .ev-sub { color: var(--ink-2); font-size: 0.88rem; }
-.ev-close { border: 2px solid var(--ink); background: var(--card); border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .ev-wait { padding: 20px; }
 .ev-body { padding: 4px 20px 20px; display: grid; gap: 4px; grid-template-columns: minmax(0, 1fr); }
 .ev-body section { min-width: 0; }
@@ -581,6 +586,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .ip-ask, .ck-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 4px 0 0; font-size: 0.84rem; color: var(--ink-2); }
 .ck { background: var(--card); border: 1px solid var(--card-line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
 .ck-head h2 { margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+/* 右上の ×（0239）: 見出しと説明は × の左で折り返す */
+.ck-head > .x-btn { float: right; margin: 0 0 4px 12px; }
 .ck-basis { font-size: 0.78rem; }
 .ck-lead { margin: 0 0 6px; font-size: 0.86rem; color: var(--ink-2); }
 .ck-tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 0.86rem; }
@@ -1452,8 +1459,6 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .chg-key i { width: 14px; height: 14px; border: 1px solid var(--line); background-image: linear-gradient(135deg, color-mix(in srgb, var(--prop) 55%, transparent) 0 5px, transparent 5px); }
 
 /* 案の一覧・比較の表（帯のすぐ下に開く） */
-.plan-list-card .card-h, .compare-card .card-h { align-items: center; }
-.plan-list-card .card-h .aside, .compare-card .card-h .aside { flex: 1; }
 .cmp-table thead th.is-base { background: var(--wash, #f0f1f3); }
 .cmp-table thead th .p-tag { margin-left: 6px; }
 @media (prefers-reduced-motion: reduce) { .chart .ex-new { animation: none; } .plan, .plan-x { transition: none; } }
@@ -1841,7 +1846,6 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .fp-figs th { text-align: left; padding: 2px 10px 2px 0; color: var(--ink-2); font-weight: 400; }
 .fp-sub { margin: 8px 0 2px; font-weight: 700; }
 /* 面談の履歴（0182）: 一覧・1件を開く（記録とその日の控えを左右に並べる。狭い画面では上下）・足す／直す。FP だけの欄はメモと同じ色で見分ける */
-.mt-panel .card-h { flex-wrap: wrap; }
 .mt-hide { display: inline-flex; gap: 6px; align-items: center; font-size: 0.86rem; margin-left: auto; }
 .mt-list .mt-gist { flex: 1 1 16em; min-width: 0; }
 .fp-meeting-link { margin: 4px 0; }
