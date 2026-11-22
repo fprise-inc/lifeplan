@@ -117,7 +117,7 @@ describe("足した変化の並びと置き場所", () => {
     // 次の段まで何年かけて移すかは、段の中で次の段がある段だけ（今のまま）
     const ramps = groupsOf(buildStage("work", w)).flatMap((g) => g.fields).filter((f) => f.key.startsWith(`in/${id}/stage/`) && f.key.endsWith("/ramp"));
     expect(ramps).toHaveLength(1);
-    expect(ramps[0]?.label).toBe("ここから次の段まで何年かけて移すか");
+    expect(ramps[0]?.label).toBe("ここから次の段階まで何年かけて移すか");
   });
 
   it("行のまとまりの中、見込みの欄の前に描く（詳細）", () => {
