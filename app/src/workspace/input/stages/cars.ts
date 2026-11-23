@@ -542,7 +542,10 @@ export function carRowsByCar(h: Household): { after: Map<string, PeriodicExpense
     const firstOff = (c: Car): number => (c.purchase === undefined ? -1 : off(c.purchase.first));
     const starts = list.filter((c) => c.purchase !== undefined && c.purchase.first.event === ev && firstOff(c) <= off(p.from));
     const owner = starts.reduce<Car | undefined>((best, c) => (best === undefined || firstOff(c) >= firstOff(best) ? c : best), undefined);
-    if (owner !== undefined) put(upkeep, owner.id, p);
+    // 「購入済みにする」（0253）で、購入の出来事が次の買い替えになり、修理費の始まりを出来事より前へずらした行（周期が10年を超える車）は、
+    // その出来事から始まる車のうち、いちばん先に始まる車の行にする
+    const early = owner ?? list.filter((c) => c.purchase !== undefined && c.purchase.first.event === ev).reduce<Car | undefined>((best, c) => (best === undefined || firstOff(c) < firstOff(best) ? c : best), undefined);
+    if (early !== undefined) put(upkeep, early.id, p);
   }
   return { after, upkeep };
 }

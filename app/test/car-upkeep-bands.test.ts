@@ -7,7 +7,7 @@ import { allFields, resolveTimepoint, type FieldDef, type GroupDef } from "../sr
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addMonths, ageAt } from "../src/workspace/levers.ts";
 import { putRow } from "../src/workspace/input/rows.ts";
-import { addAfterCar, addCar, addLeaseCar, addNextCar, addRepair, afterCarTitle, breakdownAnnual, markBought, repairAdded, REST_LABEL, setReplace, setUpkeepMode, upkeepEstimate } from "../src/workspace/input/stages/cars.ts";
+import { addAfterCar, addCar, addLeaseCar, addNextCar, addRepair, afterCarTitle, breakdownAnnual, carRowsByCar, markBought, repairAdded, REST_LABEL, setReplace, setUpkeepMode, upkeepEstimate } from "../src/workspace/input/stages/cars.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { EMPTY_ESTIMATES, publishOfficeEstimates, withOfficeValue } from "../src/workspace/office/estimates.ts";
@@ -353,6 +353,8 @@ describe("「＋ 古くなってからの修理費」は足した後は出さな
     expect(repairRows(wh)[0]!.from.offset).toEqual({ years: -2, months: 0 });
     expect(repairAdded(wh.request.input.household, id)).toBe(true);
     expect(repairBtn(wh, id)).toBeUndefined();
+    // 行は前へずらした後もその車の枠の中（「維持費」の後。0257）
+    expect(carRowsByCar(wh.request.input.household).upkeep.get(id)?.map((p) => p.label)).toEqual(["古くなってからの修理費"]);
   });
 
   it("手放した後の移動の費用の行は、続きの車の修理費の行として数えない", () => {
