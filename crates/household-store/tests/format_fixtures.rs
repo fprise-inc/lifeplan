@@ -331,13 +331,20 @@ fn every_format_version_has_a_fixture_and_opens() {
         }
         // 0.89 から: 資産配分の資産の種類ごとの信託報酬 allocation.fees と新興国の資産の種類（0252）。前の版の見本は配分全体の信託報酬
         // allocation.fee を持たないので、変換で fees を書き足さない（fee を持つ世帯の移し方は migrate の単体のテスト）
-        let alloc = &now["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
+        let alloc =
+            &now["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
         if migrate::parse(v).unwrap() >= (0, 89) {
-            assert_eq!(alloc["fees"]["equity.emerging"], "0.002", "{v}: 種類ごとの信託報酬");
+            assert_eq!(
+                alloc["fees"]["equity.emerging"], "0.002",
+                "{v}: 種類ごとの信託報酬"
+            );
             assert_eq!(alloc["mix"][1]["assetClass"], "equity.emerging");
             assert!(alloc.get("fee").is_none());
         } else {
-            assert!(alloc.get("fees").is_none(), "{v}: 信託報酬の無い配分に fees を書き足さない");
+            assert!(
+                alloc.get("fees").is_none(),
+                "{v}: 信託報酬の無い配分に fees を書き足さない"
+            );
         }
         // 0.86 から: 相続税の試算の設定 inheritanceTax.detailed・lands（0231）。変換で書き足さない（前の版の世帯は相続税も試算しない）。
         // 0.86 の見本は持ち家（路線価・二次の取得する人）と物件（倍率・貸家建付地・貸付の取得する人）の2件

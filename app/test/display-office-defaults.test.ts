@@ -61,7 +61,7 @@ const bodyWith = (display: unknown): string => JSON.stringify({ meta: { formatVe
 describe("事務所データの display（形の版 4）", () => {
   it("11件の事務所の既定値を持てる。提供元の既定と同じ欄は持たず、並べる時点は持たない。前の版の事務所データはそのまま読める", () => {
     const s = readOfficeSettings(JSON.parse(JSON.stringify(office())));
-    expect(s.version).toBe(4);
+    expect(s.version).toBe(5);
     expect(officeDisplayOf(s.display)).toEqual(OFFICE_PAIR);
     // 標準と違う欄だけ（moneyThree は欄ごと）
     const part = withOfficeDisplay(DEFAULT_OFFICE_SETTINGS, { ...STANDARD_DISPLAY, result: { ...DEFAULT_DISPLAY_SETTINGS, atAge: 85 }, balance: { ...DEFAULT_BALANCE_SETTINGS, moneyThree: { ...DEFAULT_BALANCE_SETTINGS.moneyThree, years: 5 } } });

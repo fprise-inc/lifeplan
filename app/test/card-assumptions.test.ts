@@ -237,7 +237,7 @@ describe("前提と推定の一覧", () => {
     expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "事務所の既定値", value: "1%", source: "提供元の既定の値（事務所の既定値の画面で変えられます）", agreeable: false });
     const own = fieldOf(wh, "assume/inflation").set(wh, "0.02");
     expect(assumptionRows(own).find((r) => r.id === "field:assume/inflation")).toMatchObject({ state: "この世帯だけ", value: "2%", agreeable: true });
-    expect(assumptionRows(wh).filter((r) => r.group === "assetReturns")).toHaveLength(12);
+    expect(assumptionRows(wh).filter((r) => r.group === "assetReturns")).toHaveLength(14);
     expect(rows.find((r) => r.id === "field:assume/endYear")).toMatchObject({ group: "range" });
     expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "基本生活費")).toBe(true);
     // 仮の値（新しい顧客の生年月）は推定の根拠に並べない（推定と分けて未入力の側。0041 の追記 2026-11-06）

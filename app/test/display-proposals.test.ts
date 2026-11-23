@@ -218,12 +218,12 @@ describe("反映する・前の値に戻す", () => {
   it("前の値は事務所データに保存して読み直せ、読めない行・知らない設定は捨てる。前の版の事務所データは前の値なしで読む", () => {
     const s = applyDisplayValue(DEFAULT_OFFICE_SETTINGS, "result.levers", SAMPLES["result.levers"], AT, "ai") as OfficeSettings;
     const back = readOfficeSettings(JSON.parse(JSON.stringify(s)));
-    expect(back.version).toBe(4);
+    expect(back.version).toBe(5);
     expect(back.displayHistory).toEqual({ "result.levers": [{ value: ["lever:retireAge", "lever:pensionAge", "lever:livingMonthly", "spouse:work"], at: AT, reason: "ai" }] });
     // 版 1・2 の事務所データ（前の値の欄が無い）
     for (const version of [1, 2]) {
       const old = readOfficeSettings({ version, levers: { shown: ["lever:nisaMonthly"] } });
-      expect(old.version).toBe(4);
+      expect(old.version).toBe(5);
       expect(old.displayHistory).toBeUndefined();
       expect(old.levers).toEqual({ shown: ["lever:nisaMonthly"] });
     }

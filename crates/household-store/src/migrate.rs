@@ -2886,7 +2886,11 @@ fn v0_88_to_0_89(mut body: Value) -> Result<Value, StoreError> {
                 }
                 let at: Vec<String> = d["at"]
                     .as_array()
-                    .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|x| x.as_str().map(str::to_string))
+                            .collect()
+                    })
                     .unwrap_or_default();
                 let at: Vec<&str> = at.iter().map(String::as_str).collect();
                 match at.as_slice() {
@@ -3978,24 +3982,52 @@ mod tests {
         // 表の11種類＋配分のバランス型＋段階のその他
         assert_eq!(fees.len(), 13);
         assert!(fees.values().all(|v| v == "0.0025"));
-        for c in ["equity.emerging", "bond.emerging", "cash.foreign", "balanced", "other"] {
+        for c in [
+            "equity.emerging",
+            "bond.emerging",
+            "cash.foreign",
+            "balanced",
+            "other",
+        ] {
             assert_eq!(fees[c], "0.0025", "{c}");
         }
-        assert_eq!(a["mix"], b["household"]["request"]["input"]["assumptions"]["investment"]["allocation"]["mix"], "割合は変えない");
+        assert_eq!(
+            a["mix"],
+            b["household"]["request"]["input"]["assumptions"]["investment"]["allocation"]["mix"],
+            "割合は変えない"
+        );
         let d = &u["proposals"][0]["diffs"];
         assert_eq!(d[0]["at"], serde_json::json!(["allocation", "fees"]));
         assert_eq!(d[0]["value"]["value"]["equity.emerging"], "0.005");
-        assert_eq!(d[0]["value"]["value"]["balanced"], "0.005", "今の世帯の配分の種類も入れる");
-        assert_eq!(d[0]["before"]["value"], a["fees"], "前の値は今の世帯と同じ形（見直しで「変わった」にしない）");
+        assert_eq!(
+            d[0]["value"]["value"]["balanced"], "0.005",
+            "今の世帯の配分の種類も入れる"
+        );
+        assert_eq!(
+            d[0]["before"]["value"], a["fees"],
+            "前の値は今の世帯と同じ形（見直しで「変わった」にしない）"
+        );
         assert_eq!(d[0]["value"]["state"], "confirmed");
         assert!(d[1]["value"]["value"].get("fee").is_none());
         assert_eq!(d[1]["value"]["value"]["fees"]["bond.emerging"], "0.001");
-        assert_eq!(d[2]["value"]["value"]["allocation"]["fees"]["equity.domestic"], "0.002");
+        assert_eq!(
+            d[2]["value"]["value"]["allocation"]["fees"]["equity.domestic"],
+            "0.002"
+        );
         assert!(d[2]["value"]["value"]["allocation"].get("fee").is_none());
-        assert_eq!(d[3], b["proposals"][0]["diffs"][3], "割合だけの差分は変えない");
-        assert_eq!(d[4], b["proposals"][0]["diffs"][4], "ほかの入力項目の差分は変えない");
+        assert_eq!(
+            d[3], b["proposals"][0]["diffs"][3],
+            "割合だけの差分は変えない"
+        );
+        assert_eq!(
+            d[4], b["proposals"][0]["diffs"][4],
+            "ほかの入力項目の差分は変えない"
+        );
         assert_eq!(u["snapshots"], b["snapshots"], "控えの中身は変えない");
-        assert_eq!(u["sampleInitial"], b["sampleInitial"], "最初の状態は変えない");
+        assert_eq!(
+            u["sampleInitial"], b["sampleInitial"],
+            "最初の状態は変えない"
+        );
         // 信託報酬の無い世帯・配分の無い世帯は、形式の版だけ
         let none = serde_json::json!({
             "meta": {"formatVersion": "0.88"},
@@ -4005,7 +4037,10 @@ mod tests {
         want["meta"]["formatVersion"] = "0.89".into();
         assert_eq!(upgrade("0.88", none).unwrap(), want);
         let empty = serde_json::json!({"meta": {"formatVersion": "0.88"}, "household": {"request": {"input": {}}}});
-        assert_eq!(upgrade("0.88", empty).unwrap()["meta"]["formatVersion"], "0.89");
+        assert_eq!(
+            upgrade("0.88", empty).unwrap()["meta"]["formatVersion"],
+            "0.89"
+        );
     }
 
     #[test]

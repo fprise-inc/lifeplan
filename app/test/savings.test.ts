@@ -164,7 +164,7 @@ describe("資産の推移の値", () => {
 
   it("相場が下がった場合の3つの型（退職の年に株などが3割・取り崩しを始めてから10年 年0.5%・ずっと1%低い）", () => {
     const sr = stressRequests(open().request);
-    expect(sr.drop.input.stressTest).toEqual({ template: "marketDropAtRetirement", params: { year: 2041, drop: "0.3", assetClasses: ["equity.domestic", "equity.global", "reit.domestic", "reit.global"] } });
+    expect(sr.drop.input.stressTest).toEqual({ template: "marketDropAtRetirement", params: { year: 2041, drop: "0.3", assetClasses: ["equity.domestic", "equity.global", "equity.emerging", "reit.domestic", "reit.global"] } });
     expect(sr.low.input.stressTest).toEqual({ template: "lowReturnPeriod", params: { year: 2046, years: 10, cap: "0.005" } });
     expect(sr.minus1.input.stressTest).toEqual({ template: "returnShortfall", params: { add: "-0.01" } });
   });
