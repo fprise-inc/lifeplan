@@ -600,3 +600,125 @@ fn the_entered_state_goes_only_to_calc_reads_with_pseudonyms() {
         "AI に見せる読み取りには添えない"
     );
 }
+
+/// 顧客のフォローの要約の材料（0248）: 日付・数・区分の記号だけを読み、面談の中身・メモ・印の見出しは返事に入らない。
+/// 形の合わない面談・印は数えない。面談の履歴が無い世帯は日付なし・数0
+#[test]
+fn followup_facts_carry_dates_and_counts_only() {
+    let (reg, _) = registry();
+    let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+    v["meetings"]["records"].as_array_mut().unwrap().extend([
+        json!({ "id": "mt-2", "on": "2026-03-02", "shared": {}, "fpOnly": {} }),
+        // 形の合わない日・同じ ID は数えない
+        json!({ "id": "mt-3", "on": "2026-02-30", "shared": {}, "fpOnly": {} }),
+        json!({ "id": "mt-1", "on": "2027-01-01", "shared": {}, "fpOnly": {} }),
+    ]);
+    v["household"]["recheck"] = json!([
+        { "id": "r1", "card": "c", "cardLabel": "目印の入力項目", "label": "目印の行", "on": "2026-10-01" },
+        { "id": "r1", "card": "c", "cardLabel": "x", "label": "y", "on": "2026-10-01" },
+        { "id": "r2", "card": "c", "cardLabel": "x", "label": "y", "on": "2026-10" },
+        { "id": "r3", "card": "c", "cardLabel": "x", "label": "y", "on": "2026-10-02" }
+    ]);
+    v["snapshots"] = json!([
+        { "id": "s1", "createdAt": "2025-04-12T10:00:00+09:00" },
+        { "id": "s2", "createdAt": "2025-09-01T10:00:00+09:00" },
+        { "id": "s3", "createdAt": "壊れた日付" }
+    ]);
+    let (mut b, _) =
+        HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NO.into()), 1, &v.to_string())
+            .unwrap();
+    b.category = Some("A".into());
+    let f = b.source().unwrap().followup.unwrap();
+    assert_eq!(f.category.as_deref(), Some("A"));
+    assert_eq!(f.last_meeting_on.as_deref(), Some("2026-10-19"));
+    assert_eq!(f.meetings, 2);
+    assert_eq!(f.last_snapshot_month.as_deref(), Some("2025-09"));
+    assert_eq!(f.recheck_marks, 2);
+
+    // 返事: 計算に使う読み取りの形に followup を添える。文は入らない。記録に followup.* の項目が残る
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    let g = reg.grant(b.source().unwrap(), opts()).unwrap();
+    reg.set_office_categories(Some(Arc::new(|| Some(json!({ "A": "顧問契約" })))));
+    let out = reg
+        .handle_get_followup(
+            &g.share_id,
+            "summarize_shared_households",
+            &Caller::default(),
+        )
+        .unwrap();
+    let p: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(p["followup"]["category"], "A");
+    assert_eq!(p["followup"]["categoryName"], "顧問契約");
+    assert_eq!(p["followup"]["recheckMarks"], 2);
+    assert!(p["input"].is_object() && p.get("officeEstimates").is_some());
+    for secret in ["目印", CUSTOMER_NO, HOUSEHOLD_ID, MEMO] {
+        assert!(!out.contains(secret), "{secret} が渡っています");
+    }
+    let r = &reg.records(HOUSEHOLD_ID)[0].reads[0];
+    assert_eq!(r.tool, "summarize_shared_households");
+    for f in ai_share::FOLLOWUP_FIELDS {
+        assert!(r.fields.iter().any(|x| x == f), "{f}");
+    }
+    // ふだんの読み取りの指紋とは別（材料も指紋に入る）
+    get(&reg, &g.share_id).unwrap();
+    let reads = &reg.records(HOUSEHOLD_ID)[0].reads;
+    assert_ne!(reads[0].digest, reads[1].digest);
+
+    // 面談の履歴・控え・印・区分の無い世帯
+    let (plain, _) = HouseholdBook::from_opened(
+        HOUSEHOLD_ID,
+        None,
+        1,
+        &json!({ "household": { "request": { "input": {} } } }).to_string(),
+    )
+    .unwrap();
+    assert_eq!(
+        plain.source().unwrap().followup.unwrap(),
+        ai_share::FollowupFacts::default()
+    );
+    // 区分の記号の形でないものは渡さない
+    let mut odd = plain.clone();
+    odd.category = Some("顧問".into());
+    assert_eq!(odd.source().unwrap().followup.unwrap().category, None);
+}
+
+/// 世帯を開いたときの記録の読み込み（0248 の追記）: ほかの PC がいま渡している共有の記録は閉じない（期限が過ぎていれば期限切れで閉じる）。
+/// この PC の前の起動の記録・PC の ID の無い前の版の記録は、今までどおり「アプリの終了」で閉じる
+#[test]
+fn records_of_shares_on_another_pc_are_not_closed() {
+    let clock = ManualClock::new(1_792_198_923_000);
+    let a = ShareRegistry::with_clock(Arc::new(clock.clone()));
+    a.set_device(Some("pc-a".into()));
+    let mut b = book();
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    a.grant(b.source().unwrap(), opts()).unwrap();
+    let file = a.records(HOUSEHOLD_ID);
+    assert_eq!(file[0].device.as_deref(), Some("pc-a"));
+    assert!(file[0].launch.is_some());
+    let load = |device: Option<&str>| {
+        let r = ShareRegistry::with_clock(Arc::new(clock.clone()));
+        r.set_device(device.map(str::to_owned));
+        r.load_records(HOUSEHOLD_ID, file.clone());
+        r.records(HOUSEHOLD_ID)[0].end_reason
+    };
+    // ほかの PC（期限内）: 閉じない
+    assert_eq!(load(Some("pc-b")), None);
+    // 同じ PC の前の起動・PC の ID が分からない: アプリの終了
+    assert_eq!(load(Some("pc-a")), Some(EndReason::AppClosed));
+    assert_eq!(load(None), Some(EndReason::AppClosed));
+    // 前の版の記録（PC の ID が無い）: アプリの終了
+    let mut legacy = file.clone();
+    legacy[0].device = None;
+    let r = ShareRegistry::with_clock(Arc::new(clock.clone()));
+    r.set_device(Some("pc-b".into()));
+    r.load_records(HOUSEHOLD_ID, legacy);
+    assert_eq!(
+        r.records(HOUSEHOLD_ID)[0].end_reason,
+        Some(EndReason::AppClosed)
+    );
+    // ほかの PC の記録でも、期限が過ぎていれば期限切れ
+    clock.advance_ms(61 * 60 * 1000);
+    assert_eq!(load(Some("pc-b")), Some(EndReason::Expired));
+}

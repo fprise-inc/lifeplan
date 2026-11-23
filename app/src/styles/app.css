@@ -1785,6 +1785,9 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 /* 機能を有効にするコード（0110）: 区画の「○○さん向けに有効」と、いちばん下の目立たない入れ口 */
 .os-feat-on { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 0.86rem; font-weight: 700; margin: 6px 0 2px; }
 .os-feat-on .link-btn { font-weight: 400; font-size: 0.8rem; }
+/* 文の後ろに続く確かめ（コードを外す・公式に戻す。0243）: 文と2つのボタンの間を空け、ボタンは2つ一緒に折り返す */
+.os-ask { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.os-ask-acts { display: inline-flex; gap: 12px; white-space: nowrap; }
 .os-code { margin: 18px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
 .os-code-link { font-size: 0.78rem; color: var(--ink-2); }
 .os-code-expired { display: block; margin: 6px 0; }
@@ -1887,6 +1890,9 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .mt-open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 20px; align-items: start; }
 @media (max-width: 860px) { .mt-open { grid-template-columns: minmax(0, 1fr); } }
 .mt-open h3 { font-size: 0.95rem; margin: 0 0 6px; }
+/* 開いた記録を外すかの確かめ（文と「外す／キャンセル」だけ。0243） */
+.mt-remove { display: grid; gap: 6px; }
+.mt-remove-q { margin: 0; font-size: 0.88rem; color: var(--short-ink); }
 .mt-group { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 12px 8px; margin: 0 0 10px; display: grid; gap: 6px; min-width: 0; }
 .mt-group legend, .mt-group-h { font-weight: 700; font-size: 0.86rem; color: var(--ink-2); margin: 0; padding: 0 4px; }
 .mt-fp { border: 1.5px solid var(--memo-line); background: var(--memo-bg); }

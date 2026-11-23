@@ -146,6 +146,8 @@ async fn with_ai<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<StoreState>();
         let ai = app.state::<AiState>();
+        // 世帯を開く前に、この PC の ID を共有の台帳に入れる（ほかの PC の共有の記録を閉じないため。0248 の追記）
+        ai.registry().set_device(state.store.pc_id());
         f(&state.store, &ai)
     })
     .await
@@ -244,7 +246,13 @@ pub async fn store_set_category(
     id: String,
     category: String,
 ) -> Result<RenameOutcome, String> {
-    blocking(app, move |s| s.set_category(&id, &category)).await
+    with_ai(app, move |s, ai| {
+        let r = s.set_category(&id, &category).map_err(code)?;
+        // 共有中なら、顧客のフォローの要約の区分を合わせる（0248）
+        ai.refresh_categories(s);
+        Ok(r)
+    })
+    .await
 }
 
 /// 自由な番号の世帯に、区分の記号＋新しい通し番号を付ける（一方向。0033）
@@ -296,7 +304,13 @@ pub async fn store_set_categories(
     app: AppHandle,
     edits: Vec<CategoryEdit>,
 ) -> Result<CategorySettings, String> {
-    blocking(app, move |s| s.set_categories(&edits)).await
+    with_ai(app, move |s, ai| {
+        let r = s.set_categories(&edits).map_err(code)?;
+        // 区分の記号を付け替えたら、顧客のフォローの要約の区分を合わせる（0248）
+        ai.refresh_categories(s);
+        Ok(r)
+    })
+    .await
 }
 
 #[tauri::command]

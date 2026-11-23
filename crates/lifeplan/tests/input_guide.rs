@@ -382,6 +382,7 @@ async fn recipe_for_a_shared_household() {
         }),
         fictional: false,
         entered: None,
+        followup: None,
     };
     let g = reg
         .grant(

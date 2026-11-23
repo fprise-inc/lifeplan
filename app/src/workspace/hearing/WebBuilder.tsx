@@ -346,6 +346,13 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
   const asked = order.filter((id) => (secOf(id)?.items.length ?? 0) > 0);
   const notAsked = order.filter((id) => id !== FP_SECTION.id && (secOf(id)?.items.length ?? 0) === 0);
   const startKind = WEB_TEMPLATES.find((t) => t.value === kind)?.label ?? templates[Number(kind.slice(2))]?.name ?? "";
+  /** ひな形を切り替える前の確かめの文: 切り替え先の名前と、消える物（項目に加えた変更・今の書類と独自の質問）を書く（0243） */
+  const switchAsk = (k: string): string => {
+    const name = `「${WEB_TEMPLATES.find((t) => t.value === k)?.label ?? templates[Number(k.slice(2))]?.name ?? ""}」`;
+    if (!k.startsWith("t:")) return `${name}に切り替えると、項目に加えた変更は消えます（書類・独自の質問は残ります）。`;
+    const lost = [...(edited ? ["項目に加えた変更"] : []), ...(sel.documents.length > 0 || sel.custom.length > 0 ? ["今の書類・独自の質問"] : [])].join("と、");
+    return `${name}に切り替えると、${lost}は消えます（${name}の項目・書類・独自の質問になります）。`;
+  };
 
   const issuedBox =
     issued !== null ? (
@@ -413,15 +420,15 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
             ) : null}
             {asking !== null ? (
               <p class="wr-confirm" role="alert" data-web-template-ask>
-                {edited ? "直した項目は、選んだひな形の項目に戻ります。" : ""}
-                {asking.startsWith("t:") ? "書類・独自の質問も、保存した組み合わせのものになります。" : "書類・独自の質問はそのまま残します。"}
-                よろしいですか。
-                <button type="button" class="btn" onClick={() => pickTemplate(asking, true)} data-web-template-yes>
-                  選ぶ
-                </button>
-                <button type="button" class="btn" onClick={() => setAsking(null)}>
-                  やめる
-                </button>
+                <span>{switchAsk(asking)}</span>
+                <span class="wr-confirm-acts">
+                  <button type="button" class="btn small" onClick={() => pickTemplate(asking, true)} data-web-template-yes>
+                    切り替える
+                  </button>
+                  <button type="button" class="btn small" onClick={() => setAsking(null)} data-web-template-no>
+                    キャンセル
+                  </button>
+                </span>
               </p>
             ) : null}
             {!confirmAny && filled > 0 && def.sheetId !== "full" ? (

@@ -24,6 +24,7 @@ import { bodyOf, fromBody } from "../src/workspace/store/body.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { modelHousehold } from "./helpers.ts";
+import { buttonTexts, renderPressing, within } from "./pressing.ts";
 
 const NOW = new Date("2026-11-17T09:00:00Z");
 const NONE: AiSelectionContext = { filled: null, officeTemplates: null };
@@ -459,6 +460,28 @@ describe("画面: 帯・AI が発行した URL の一覧・依頼の一覧の出
     expect(html).toContain('data-ai-hearing-place="household"');
     expect(html).toContain("顧客番号 A0003 の世帯の「発行した URL」にあります");
     expect(html.match(/data-ai-hearing-cancel=""/g)?.length ?? html.match(/data-ai-hearing-cancel/g)?.length).toBeGreaterThan(0);
+  });
+
+  it("一覧の「取り消す」の確かめ（0243）: 世帯の「発行した URL」の確かめと同じ形・同じ言葉（「はい、取り消す」が左で危ない色・「やめる」が右。元のボタンの段とは別の段）", async () => {
+    const r = relayFor();
+    const a = await runIssueJob(job(sel({ template: "simple" })), { transport: r.t, config, office: { name: "", color: null }, privacyContact: "", opened: null, now: NOW }, EMPTY_OFFICE_HEARING);
+    const store = withIssued(EMPTY_OFFICE_HEARING, a.entry, null, null, a.log);
+    const web = { config, call: r.t, saveDocument: async () => ({ saved: false }), saveDocuments: async () => ({ picked: false, saved: [], failed: 0, syncFolder: false, via: "folder" as const }) };
+    const node = h(AiHearingPanel, { store, web: web as never, officeName: "", opened: null, onEntry: async () => undefined, onAssignOpened: async () => true, onCreate: async () => null, onOpenHousehold: () => undefined, onClose: () => undefined });
+    // 押すまで確かめは出さない
+    expect(renderToString(node)).not.toContain("data-ai-hearing-cancel-ask");
+    const html = renderPressing(node, "data-ai-hearing-cancel");
+    const ask = within(html, "data-ai-hearing-cancel-ask");
+    expect(ask).toMatch(/^<div class="wr-ask" role="alertdialog" aria-label="取り消しの確かめ"/);
+    expect(ask).toContain("<span>お客さまはこの URL を開けなくなります。取り消しますか。</span>");
+    expect(buttonTexts(ask)).toEqual(["はい、取り消す", "やめる"]);
+    expect(ask).toMatch(/class="btn danger"[^>]*>はい、取り消す/);
+    // 元のボタンの段には「取り消す」（押せない）が残り、確かめのボタンは入らない
+    const acts = buttonTexts(within(html, 'class="rp-actions"'));
+    expect(acts.at(-1)).toBe("取り消す");
+    expect(acts).not.toContain("やめる");
+    // やめるで確かめが消える
+    expect(renderPressing(node, "data-ai-hearing-cancel", "data-ai-hearing-cancel-no")).not.toContain("data-ai-hearing-cancel-ask");
   });
 
   it("世帯の「発行した URL」の行に作った側の印（AI が発行した依頼は「AI が発行」、FP が URL生成で作った依頼は「FP が作成」）", async () => {

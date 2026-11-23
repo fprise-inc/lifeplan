@@ -4,8 +4,8 @@
 use ai_share::clock::ManualClock;
 use ai_share::record::EndReason;
 use ai_share::{
-    AppEndpoint, ConsentDecision, ConsentRef, GrantOptions, ShareRegistry, SharedHouseholdSource,
-    SourceText,
+    AppEndpoint, ConsentDecision, ConsentRef, FollowupFacts, GrantOptions, ShareRegistry,
+    SharedHouseholdSource, SourceText,
 };
 use rmcp::model::{
     CallToolRequestParams, ClientCapabilities, ClientConfig, Implementation, ProtocolVersion,
@@ -83,6 +83,7 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
         }),
         fictional: false,
         entered: None,
+        followup: None,
     }
 }
 
@@ -194,6 +195,7 @@ async fn standalone_tools_work_without_the_app() {
         "find_threshold",
         "list_shared_households",
         "get_shared_household",
+        "summarize_shared_households",
         "propose_scenario",
         "propose_inputs",
         "propose_feature_code",
@@ -323,6 +325,7 @@ async fn standalone_tools_work_without_the_app() {
     for (tool, args) in [
         ("list_shared_households", json!({})),
         ("get_shared_household", json!({ "share_id": "s-1" })),
+        ("summarize_shared_households", json!({})),
         ("calculate", json!({ "share_id": "s-1" })),
         (
             "explain_value",
@@ -415,6 +418,7 @@ async fn prompts_list_and_expand() {
         "report_issue",
         "read_property_tax_statement",
         "read_route_price_map",
+        "follow_up_clients",
     ];
     for n in expected {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
@@ -455,6 +459,20 @@ async fn prompts_list_and_expand() {
     // 引数を入れて中身を取る（空の文字は書かなかったものとして扱う）
     let cases: Vec<(&str, Value, Vec<&str>)> = vec![
         ("what_can_you_do", json!({}), vec!["list_sample_households"]),
+        (
+            "follow_up_clients",
+            json!({ "category": "A 顧問契約", "focus": "", "purpose": "年末の見直しのご案内" }),
+            vec![
+                "A 顧問契約",
+                "年末の見直しのご案内",
+                "summarize_shared_households",
+                "選んだ世帯をまとめてAIに渡す",
+                "仮名",
+                "顧客番号",
+                "メールを送ったり",
+                "次の面談の目安",
+            ],
+        ),
         (
             "compare_households",
             json!({ "household_a": "sampleSingle20s", "household_b": "sampleCoupleNoKids", "focus": "65歳の時点の資産" }),
@@ -758,6 +776,7 @@ async fn prompts_list_and_expand() {
     ];
     // 道具の名前の形（英小文字と _）の言葉のうち、道具の引数・入力の鍵として書いた物
     let not_tools = [
+        "share_ids",
         "sample_household_id",
         "share_id",
         "at_ages",
@@ -4075,6 +4094,191 @@ async fn compare_shared_households() {
         .unwrap()
         .contains("基本の世帯を読めない"));
     assert_eq!(r[2]["status"], "ok");
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 顧客のフォローの要約（summarize_shared_households。0248）: 1世帯1行で、区分・前回の面談の日・控えと次の面談の目安・印の数・
+/// 資産が尽きる年と金融資産がいちばん少ない年（calculate の keyFigures と同じ）・計算のお知らせの件数を返す。面談の履歴が無い世帯・
+/// 計算できない世帯（失敗の印。全体は止めない）・期限切れ・取り消し後の世帯も確かめる。読むたびに世帯ごとの「AIに渡した記録」に残る
+#[tokio::test(flavor = "multi_thread")]
+async fn summarize_shared_households_for_followup() {
+    let dir = temp_dir("followup");
+    let clock = ManualClock::new(1_792_198_923_000);
+    let reg = Arc::new(ShareRegistry::with_clock(Arc::new(clock.clone())));
+    reg.set_office_categories(Some(Arc::new(|| {
+        Some(json!({ "A": "顧問契約", "B": "単発相談" }))
+    })));
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    // 渡していなければ空の一覧
+    let none = call_ok(&c, "summarize_shared_households", json!({})).await;
+    assert_eq!(none["rows"], json!([]));
+    assert_eq!(none["count"], 0);
+
+    // 1. 顧問契約・面談と控えと印のある世帯
+    let mut a = source("salariedCoupleTwoKids", true);
+    a.followup = Some(FollowupFacts {
+        category: Some("A".into()),
+        last_meeting_on: Some("2026-05-10".into()),
+        meetings: 3,
+        last_snapshot_month: Some("2024-04".into()),
+        recheck_marks: 2,
+    });
+    let ga = reg.grant(a, grant_opts()).unwrap();
+    // 2. 面談の履歴も控えも無い世帯（区分なし）
+    let b_id = "7d1f0c2a-3b4c-4d5e-8f60-718293a4b5c6";
+    let mut b = source("dualNoKids", false);
+    b.household_id = b_id.into();
+    b.followup = Some(FollowupFacts::default());
+    let gb = reg.grant(b, grant_opts()).unwrap();
+    // 3. 計算できない世帯（失敗の印つきで返し、全体は止めない）
+    let x_id = "1e2d3c4b-5a69-4788-9a0b-c1d2e3f40516";
+    let mut x = source("single25", false);
+    x.household_id = x_id.into();
+    x.input = json!({ "household": {} });
+    x.followup = Some(FollowupFacts {
+        category: Some("B".into()),
+        ..FollowupFacts::default()
+    });
+    let gx = reg.grant(x, grant_opts()).unwrap();
+
+    let got = call_ok(&c, "summarize_shared_households", json!({})).await;
+    assert_eq!(got["count"], 3, "{got}");
+    assert!(got.get("truncated").is_none());
+    assert!(got["note"].as_str().unwrap().contains("メールを送ったり"));
+    let rows = got["rows"].as_array().unwrap();
+    let row = |id: &str| rows.iter().find(|r| r["shareId"] == id).unwrap().clone();
+    let ra = row(&ga.share_id);
+    assert_eq!(ra["ok"], true, "{ra}");
+    assert_eq!(ra["alias"], json!(ga.alias));
+    assert_eq!(ra["category"], json!({ "code": "A", "name": "顧問契約" }));
+    assert_eq!(ra["lastMeetingOn"], "2026-05-10");
+    assert_eq!(ra["meetings"], 3);
+    assert_eq!(ra["lastSnapshotMonth"], "2024-04");
+    assert_eq!(ra["nextReviewMonth"], "2025-04");
+    assert_eq!(ra["reviewDue"], true);
+    assert_eq!(ra["recheckMarks"], 2);
+    // 主な数字は calculate と同じ数え方
+    let kf = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": "salariedCoupleTwoKids", "omit": ["years", "pension"] }),
+    )
+    .await["keyFigures"]
+        .clone();
+    assert_eq!(ra["depletion"], kf["depletion"]);
+    assert_eq!(ra["minimum"], kf["minimum"]);
+    assert!(ra["minimum"]["year"].is_i64(), "{ra}");
+    assert!(ra["notices"].is_u64());
+    // 面談の履歴が無い世帯: 日付は null、数は 0
+    let rb = row(&gb.share_id);
+    assert_eq!(rb["ok"], true, "{rb}");
+    assert_eq!(rb["category"], Value::Null);
+    assert_eq!(rb["lastMeetingOn"], Value::Null);
+    assert_eq!(rb["meetings"], 0);
+    assert_eq!(rb["nextReviewMonth"], Value::Null);
+    assert_eq!(rb["reviewDue"], Value::Null);
+    // 計算できない世帯: 失敗の印と理由。要約の材料はそのまま
+    let rx = row(&gx.share_id);
+    assert_eq!(rx["ok"], false, "{rx}");
+    assert!(rx["calcError"]["message"].is_string(), "{rx}");
+    assert_eq!(rx["category"]["code"], "B");
+    assert_eq!(rx["category"]["name"], "単発相談");
+    // 顧客番号・内部ID・メモ・人が書いた文は渡らない
+    let text = got.to_string();
+    for secret in [
+        HOUSEHOLD_ID,
+        b_id,
+        x_id,
+        CUSTOMER_NUMBER,
+        MEMO,
+        "上のお子さん",
+        "SYSTEM",
+    ] {
+        assert!(!text.contains(secret), "{secret} が渡っています");
+    }
+    // 読んだことが世帯ごとに記録に残る（項目に followup.* を足す）
+    for id in [HOUSEHOLD_ID, b_id, x_id] {
+        let rec = reg.records(id);
+        let reads: Vec<_> = rec[0]
+            .reads
+            .iter()
+            .filter(|r| r.tool == "summarize_shared_households")
+            .collect();
+        assert_eq!(reads.len(), 1, "{id}");
+        assert!(reads[0]
+            .fields
+            .iter()
+            .any(|f| f == "followup.lastMeetingOn"));
+        assert!(reads[0].digest.starts_with("sha256:"));
+    }
+
+    // 取り消した後: 一覧からは消え、share_ids で指すとその行だけ理由を返す
+    assert!(reg.revoke(&gb.share_id));
+    let got = call_ok(
+        &c,
+        "summarize_shared_households",
+        json!({ "share_ids": [ga.share_id, gb.share_id] }),
+    )
+    .await;
+    let rows = got["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0]["ok"], true);
+    assert_eq!(rows[1]["ok"], false);
+    assert!(rows[1]["error"]["code"] == "REVOKED", "{}", rows[1]);
+    let all = call_ok(&c, "summarize_shared_households", json!({})).await;
+    assert_eq!(all["count"], 2);
+    // 期限切れの後: どれも読めない（一覧は空。指せば EXPIRED）
+    clock.advance_ms(61 * 60 * 1000);
+    let all = call_ok(&c, "summarize_shared_households", json!({})).await;
+    assert_eq!(all["rows"], json!([]));
+    let got = call_ok(
+        &c,
+        "summarize_shared_households",
+        json!({ "share_ids": [ga.share_id] }),
+    )
+    .await;
+    assert_eq!(got["rows"][0]["error"]["code"], "EXPIRED", "{got}");
+    // 引数の確かめ: 空・上限を超える・知らない引数
+    let (err, msg) = call(
+        &c,
+        "summarize_shared_households",
+        json!({ "share_ids": [] }),
+    )
+    .await;
+    assert!(err && msg.contains("1つ以上"), "{msg}");
+    let many: Vec<String> = (0..51).map(|i| format!("s-{i}")).collect();
+    let (err, msg) = call(
+        &c,
+        "summarize_shared_households",
+        json!({ "share_ids": many }),
+    )
+    .await;
+    assert!(err && msg.contains("50件まで"), "{msg}");
+    let fifty: Vec<String> = (0..50).map(|i| format!("s-{i}")).collect();
+    let got = call_ok(
+        &c,
+        "summarize_shared_households",
+        json!({ "share_ids": fifty }),
+    )
+    .await;
+    assert_eq!(got["count"], 50);
+    assert!(got["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|r| r["ok"] == false && r["error"]["code"] == "NOT_SHARED"));
+    let (err, _) = call(
+        &c,
+        "summarize_shared_households",
+        json!({ "share_id": "s-1" }),
+    )
+    .await;
+    assert!(err);
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "summarize_shared_households");
     ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);

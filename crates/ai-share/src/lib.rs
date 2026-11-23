@@ -50,6 +50,7 @@ pub use record::{verify_append_only, AiShareRecord, EndReason};
 pub use reduce::Scope;
 pub use registry::{
     ErrorLogSource, FeatureCodeCandidate, GrantError, GrantOptions, Granted, HouseholdCheck,
-    OfficeDisplaySource, OfficeEstimatesSource, ShareRegistry, ShareStatus,
+    OfficeCategoriesSource, OfficeDisplaySource, OfficeEstimatesSource, ShareRegistry, ShareStatus,
+    FOLLOWUP_FIELDS,
 };
-pub use source::{ConsentDecision, ConsentRef, SharedHouseholdSource, SourceText};
+pub use source::{ConsentDecision, ConsentRef, FollowupFacts, SharedHouseholdSource, SourceText};
