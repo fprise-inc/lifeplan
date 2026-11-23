@@ -33,6 +33,9 @@ pub enum AiUse {
     Withdrawn,
     /// 書類の判定だけ: 同意は書類を含まない説明でのもので、事務所のプライバシーポリシーも確かめていない（計算の項目は渡せる）
     ConsentWithoutDocuments,
+    /// メモと面談の履歴の判定だけ: 同意はメモと面談の記録を含まない説明（版1・版2）でのもので、事務所のプライバシーポリシーの
+    /// 「面談の記録やメモ」の確かめも無い（計算の項目は渡せる。0249）
+    ConsentWithoutNotes,
     /// 同意の答えが無く、事務所のプライバシーポリシーも確かめていない
     None,
 }
@@ -49,7 +52,7 @@ impl AiUse {
     /// AIに渡した記録の `consentAtGrant.state` に残す言葉（`given`／`officePolicy`／`fictional`、使えないときは同意の状態）
     pub fn grant_state(self) -> &'static str {
         match self {
-            AiUse::Consent | AiUse::ConsentWithoutDocuments => "given",
+            AiUse::Consent | AiUse::ConsentWithoutDocuments | AiUse::ConsentWithoutNotes => "given",
             AiUse::OfficePolicy => "officePolicy",
             AiUse::Fictional => "fictional",
             AiUse::Refused => "refused",
@@ -67,6 +70,7 @@ impl AiUse {
             AiUse::Refused => "refused",
             AiUse::Withdrawn => "withdrawn",
             AiUse::ConsentWithoutDocuments => "consentWithoutDocuments",
+            AiUse::ConsentWithoutNotes => "consentWithoutNotes",
             AiUse::None => "none",
         }
     }
@@ -80,6 +84,7 @@ impl AiUse {
             AiUse::Refused => "お客さまが外部AIへの提供に「同意しない」と答えました。事務所の設定にかかわらず、この世帯は AI に渡せません。",
             AiUse::Withdrawn => "お客さまが外部AIへの提供の同意を撤回しました。事務所の設定にかかわらず、この世帯は AI に渡せません。",
             AiUse::ConsentWithoutDocuments => "お客さまの同意は、書類を AI に渡すことを含んでいません（前の版の説明かヒアリングシートの同意欄で同意した世帯です）。",
+            AiUse::ConsentWithoutNotes => "お客さまの同意は、面談の記録やメモを AI に渡すことを含んでいません（前の版の説明で同意した世帯です）。",
             AiUse::None => "お客さまの外部AIへの提供の同意が記録されておらず、事務所のプライバシーポリシーも確かめられていません。",
         }
     }
@@ -114,6 +119,18 @@ pub fn ai_documents_use(
     }
 }
 
+/// メモと面談の履歴（両方の欄）を AI に渡せるか（0249）。計算の項目の判定（`ai_use`）より狭いか同じで、作りは書類の判定と同じ。
+/// `notes_policy` は、事務所のプライバシーポリシーの確かめに加えて「面談の記録やメモを AI で扱うことも書いている」の確かめもあるか
+pub fn ai_notes_use(consent: Option<&ConsentRef>, notes_policy: bool, fictional: bool) -> AiUse {
+    match ai_use(consent, notes_policy, fictional) {
+        AiUse::Consent if consent.is_some_and(|c| c.notes) => AiUse::Consent,
+        // 前の版の説明の同意: お客さまは断っていないので、事務所のプライバシーポリシーで面談の記録やメモも確かめていれば渡せる
+        AiUse::Consent if notes_policy => AiUse::OfficePolicy,
+        AiUse::Consent => AiUse::ConsentWithoutNotes,
+        other => other,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,6 +140,7 @@ mod tests {
             decision,
             record_id: "c-1".into(),
             documents,
+            notes: false,
         }
     }
 

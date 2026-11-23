@@ -549,12 +549,20 @@ export interface StoreHost {
 // ---- AI接続口（0014・0015）。画面には鍵もパスも渡らない（接続の設定の文面は場所を伏せたもの） ----
 
 /** 共有中の世帯（仮名・顧客番号・残り時間） */
+/** 渡す前の確かめの画面の1世帯（0249）: AI に渡る文（名前を伏せた後）と伏せた所（文字の位置）、名前らしい所が残っていそうな所 */
+export interface AiNotesPreview {
+  id: string;
+  customerNo: string;
+  texts: { item: string; author: string; text: string; spans: [number, number][] }[];
+  suspects: string[];
+}
+
 /** まとめて渡すときに渡さなかった世帯の理由（0248） */
 export type AiBulkBlock = "refused" | "withdrawn" | "noBasis" | "sample" | "notSaved" | "readOnly" | "openByOthers" | "unreadable" | "unknown";
 
 /** まとめて渡す確かめ・結果（0248）。ready は確かめでは渡せる世帯、渡した後は渡した世帯（alias は渡した後だけ） */
 export interface AiBulkOutcome {
-  ready: { id: string; customerNo: string; basis: AiUse; alias: string | null }[];
+  ready: { id: string; customerNo: string; basis: AiUse; alias: string | null; notes?: AiUse; notesShared?: boolean }[];
   already: { id: string; customerNo: string }[];
   blocked: { reason: AiBulkBlock; households: { id: string; customerNo: string }[] }[];
   /** 上限（共有中の世帯と合わせた数） */
@@ -586,6 +594,10 @@ export interface AiStatus {
    * 確かめていると、外部AIへの提供の同意の答えが無い世帯も AI に渡せる（「同意しない」と答えた世帯・撤回した世帯は渡せない）
    */
   privacyPolicyConfirmedAt?: string | null;
+  /** 事務所のプライバシーポリシーに「面談の記録やメモを AI で扱うこと」も書いていることを確かめた日時（0249。無い本体は確かめていない） */
+  notesPolicyConfirmedAt?: string | null;
+  /** 「メモと面談の履歴も渡す」の印を最初から付けておくか（0249。既定はオフ） */
+  notesByDefault?: boolean;
   /** アプリ本体の受け口が開いているか */
   running: boolean;
   problem: string | null;
@@ -774,13 +786,19 @@ export interface AiHouseholdView {
   aiUse?: AiUse;
   /** 書類（お名前・番号を伏せたもの）を AI に渡せるか・その理由（0157・0226。本体の ai_documents_use） */
   aiDocumentsUse?: AiUse;
+  /** 今の同意が、面談の記録やメモを AI に渡すことを含む説明（版3〜）でのものか（0249） */
+  consentNotes?: boolean;
+  /** メモと面談の履歴を AI に渡せるか・その理由（0249。本体の ai_notes_use） */
+  aiNotesUse?: AiUse;
+  /** 渡せるメモの行と面談の記録の欄の数（0249） */
+  notesCount?: number;
 }
 
 /**
  * AI接続を使える・使えない理由（0226）: consent＝同意がある、officePolicy＝事務所のプライバシーポリシー（FP が確かめ済みで、お客さまが「同意しない」と答えていない）、
  * fictional＝架空の世帯、refused＝お客さまが「同意しない」と答えた、withdrawn＝撤回した、consentWithoutDocuments＝書類を含まない同意（書類の判定だけ）、none＝理由が無い
  */
-export type AiUse = "consent" | "officePolicy" | "fictional" | "refused" | "withdrawn" | "consentWithoutDocuments" | "none";
+export type AiUse = "consent" | "officePolicy" | "fictional" | "refused" | "withdrawn" | "consentWithoutDocuments" | "consentWithoutNotes" | "none";
 
 /**
  * AI接続口の道具（propose_display_settings）で届いた、事務所の既定値の表示の設定の案（0215）。本体はメモリの中に置くだけで、設定は変えない。
@@ -878,12 +896,19 @@ export interface AiHost {
   unregisterApp?(client: string): Promise<AiAppsStatus>;
   household(id: string): Promise<AiHouseholdView>;
   recordConsent(id: string, input: AiConsentInput): Promise<AiHouseholdView>;
-  startShare(id: string, minutes: number, destination: string): Promise<AiHouseholdView>;
+  /** notes はメモと面談の履歴も渡すか、words はそのとき伏せる言葉（メモリの上だけで使い、保存しない。0249） */
+  startShare(id: string, minutes: number, destination: string, notes?: boolean, words?: string[]): Promise<AiHouseholdView>;
+  /** 事務所のプライバシーポリシーの「面談の記録やメモを AI で扱うことも書いている」を確かめた・外した（0249） */
+  setNotesPolicy?(confirmed: boolean): Promise<AiStatus>;
+  /** 「メモと面談の履歴も渡す」の印を最初から付けておくか（0249） */
+  setNotesDefault?(enabled: boolean): Promise<AiStatus>;
+  /** AI に渡るメモと面談の履歴を、名前を伏せた形で見る（渡す前の確かめの画面。0249） */
+  notesPreview?(ids: string[], words: string[]): Promise<AiNotesPreview[]>;
   stopShare(id: string): Promise<AiHouseholdView>;
   /** まとめて渡す前の確かめ（世帯の一覧で選んだ世帯。共有は作らない。0248。無い本体〔開発用のブラウザ〕は使えない） */
   bulkCheck?(ids: string[]): Promise<AiBulkOutcome>;
   /** 選んだ世帯をまとめて渡す（1件ずつと同じ確かめ・期限・申告・記録。渡せない世帯は渡さずに理由を返す。0248） */
-  bulkStart?(ids: string[], minutes: number, destination: string): Promise<AiBulkOutcome>;
+  bulkStart?(ids: string[], minutes: number, destination: string, notes?: { ids: string[]; words: string[] }): Promise<AiBulkOutcome>;
   /** 選んだ世帯の共有をまとめて取り消す（取り消した世帯の数。0248） */
   bulkStop?(ids: string[]): Promise<number>;
   /** AIの候補についての FP の判断（accept のときは保存したプランの ID） */
@@ -1191,10 +1216,13 @@ export function tauriHost(): HostApi {
       unregisterApp: (client) => invoke<AiAppsStatus>("ai_app_unregister", { client }),
       household: (id) => invoke<AiHouseholdView>("ai_household", { id }),
       recordConsent: (id, input) => invoke<AiHouseholdView>("ai_consent_record", { id, input }),
-      startShare: (id, minutes, destination) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination }),
+      startShare: (id, minutes, destination, notes, words) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination, notes, words }),
+      setNotesPolicy: (confirmed) => invoke<AiStatus>("ai_set_notes_policy", { confirmed }),
+      setNotesDefault: (enabled) => invoke<AiStatus>("ai_set_notes_default", { enabled }),
+      notesPreview: (ids, words) => invoke<AiNotesPreview[]>("ai_notes_preview", { ids, words }),
       stopShare: (id) => invoke<AiHouseholdView>("ai_share_stop", { id }),
       bulkCheck: (ids) => invoke<AiBulkOutcome>("ai_share_bulk_check", { ids }),
-      bulkStart: (ids, minutes, destination) => invoke<AiBulkOutcome>("ai_share_bulk_start", { ids, minutes, destination }),
+      bulkStart: (ids, minutes, destination, notes) => invoke<AiBulkOutcome>("ai_share_bulk_start", { ids, minutes, destination, notes }),
       bulkStop: (ids) => invoke<number>("ai_share_bulk_stop", { ids }),
       decide: (id, candidate, accept, plan) => invoke<AiHouseholdView>("ai_candidate_decide", { id, candidate, accept, plan }),
       takeDocuments: (id, candidate) => invoke<AiHouseholdView>("ai_documents_taken", { id, candidate }),

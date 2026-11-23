@@ -57,7 +57,7 @@ export function MemoDrawer({ wh, onEdit, onClose, me = null, names = {} }: MemoD
         <CloseX onClose={close} what="メモ" />
       </div>
       <div class="drawer-body">
-        <p class="drawer-note">世帯ごとのメモです。画面には出さず、ここを開いたときだけ見えます。1行に1つ書きます。</p>
+        <p class="drawer-note">世帯ごとのメモです。画面には出さず、ここを開いたときだけ見えます。1行に1つ書きます。お名前は書かず、「ご主人」「長女」のように書いてください。</p>
         <textarea ref={area} rows={14} value={draft ?? text} aria-label="FP用のメモ" onInput={(e) => setDraft((e.currentTarget as HTMLTextAreaElement).value)} onBlur={commit} data-memo />
         {authors !== null ? (
           <ul class="memo-authors" aria-label="メモの行ごとの書いた人" data-memo-authors>

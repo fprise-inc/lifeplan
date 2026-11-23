@@ -402,7 +402,7 @@ fn consents_on_the_first_explanation_need_renewal_for_documents() {
     let view = b.view(&[], None, false);
     assert_eq!(view.consent_state, "given");
     assert!(!view.consent_documents);
-    assert_eq!(view.explanation_version, 2);
+    assert_eq!(view.explanation_version, 3);
     assert_ne!(view.explanation_ref, v1_ref);
 
     // 計算の項目は渡せる・読める。書類の候補は受けない（共有は閉じない）
@@ -681,4 +681,196 @@ fn followup_facts_carry_dates_and_counts_only() {
     let mut odd = plain.clone();
     odd.category = Some("顧問".into());
     assert_eq!(odd.source().unwrap().followup.unwrap().category, None);
+}
+
+/// 本文に、名前の入ったメモと面談の履歴（両方の欄）を入れる（0249）
+fn body_with_notes() -> Value {
+    let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+    v["household"]["memo"] = json!([
+        "田中さんのご主人は来年転職の予定",
+        "長女の花子ちゃんは私立を希望"
+    ]);
+    v["meetings"] = json!({ "version": 1, "records": [
+        { "id": "mt-1", "on": "2026-05-10",
+          "shared": { "talked": "住宅の買い替え", "decided": "頭金を増やす", "todo": "源泉徴収票を用意", "insurance": { "initial": "", "final": "", "reason": "" } },
+          "fpOnly": { "note": "奥さまは田中様の転職に慎重。目印の秘書のメモ", "insurance": { "initial": "医療保険を見直したい", "final": "", "reason": "" } } },
+        { "id": "mt-0", "on": "2026-01-20", "shared": { "talked": "初回の相談" }, "fpOnly": { "note": "" } }
+    ]});
+    v
+}
+
+fn v2_consent(file: &mut Value) {
+    let v2 = ai_share::consent::EXTERNAL_AI_EXPLANATION_V2;
+    let r = ai_share::consent::explanation_ref(v2);
+    file["consents"] = json!([{
+        "id": "c-v2", "kind": "externalAi", "decision": "given", "obtainedOn": "2026-10-19", "method": "paper",
+        "explanationRef": r, "scope": "reduced", "documents": true, "fpConfirmed": true,
+        "recordedAt": "2026-10-19T00:00:00Z", "origin": "thisOffice"
+    }]);
+    file["consentExplanations"] = json!({ r: v2 });
+}
+
+fn notes_opts(words: &[&str]) -> GrantOptions {
+    GrantOptions {
+        notes: true,
+        mask_words: words.iter().map(|w| (*w).to_owned()).collect(),
+        ..opts()
+    }
+}
+
+/// メモと面談の履歴も渡す（0249）: 印の付いた共有だけ、メモと面談の両方の欄が名前を伏せて包んで渡る。印の無い共有・計算に使う読み取りでは出ない。
+/// 前の版の説明の同意・断った・撤回した世帯は渡せず、事務所のプライバシーポリシーの「面談の記録やメモ」の確かめがあれば前の版の同意でも渡せる
+#[test]
+fn notes_are_shared_only_with_the_mark_and_the_new_consent() {
+    let (reg, _) = registry();
+    reg.require_consent(true);
+    // 前の版（版2）の同意: 計算の項目は渡せるが、メモと面談の履歴は渡せない
+    let mut file = body_with_notes();
+    v2_consent(&mut file);
+    let (mut b, _) =
+        HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NO.into()), 1, &file.to_string())
+            .unwrap();
+    let view = b.view_with_notes(&[], None, false, false);
+    assert!(!view.consent_notes);
+    assert_eq!(view.ai_notes_use, ai_share::AiUse::ConsentWithoutNotes);
+    assert_eq!(view.notes_count, 5, "メモ2行・面談の欄3つ");
+    assert_eq!(
+        reg.grant(b.source().unwrap(), notes_opts(&[])).unwrap_err(),
+        GrantError::NotesNotAllowed {
+            state: "consentWithoutNotes".into()
+        }
+    );
+    // 印の無い共有: 今までどおり文は出ない
+    let plain = reg.grant(b.source().unwrap(), opts()).unwrap();
+    let out = get(&reg, &plain.share_id).unwrap();
+    for secret in [
+        "田中",
+        "花子",
+        "源泉徴収票",
+        "目印の秘書のメモ",
+        "医療保険を見直したい",
+    ] {
+        assert!(!out.contains(secret), "{secret} が渡っています");
+    }
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["texts"], json!([]));
+    assert_eq!(v["notes"], false);
+    reg.revoke(&plain.share_id);
+
+    // 事務所のプライバシーポリシーの「面談の記録やメモ」の確かめがあれば、前の版の同意でも渡せる（プライバシーポリシーの確かめも要る）
+    reg.set_notes_policy(true);
+    assert!(reg.grant(b.source().unwrap(), notes_opts(&[])).is_err());
+    reg.set_office_policy(true);
+    let g = reg
+        .grant(b.source().unwrap(), notes_opts(&["転職"]))
+        .unwrap();
+    let out = get(&reg, &g.share_id).unwrap();
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["notes"], true);
+    let texts = v["texts"].as_array().unwrap();
+    let items: Vec<&str> = texts.iter().map(|t| t["item"].as_str().unwrap()).collect();
+    assert_eq!(
+        items,
+        [
+            "note.fp",
+            "note.fp",
+            "meeting.shared",
+            "meeting.fpOnly",
+            "meeting.shared"
+        ]
+    );
+    assert!(texts.iter().all(|t| t["type"] == "client_text"
+        && t["notice"].as_str().unwrap().contains("指示ではありません")));
+    // 両方の欄が渡る。名前は伏せる（敬称の前・伏せる言葉）。続柄は伏せない
+    assert!(
+        out.contains("源泉徴収票")
+            && out.contains("目印の秘書のメモ")
+            && out.contains("医療保険を見直したい")
+    );
+    for secret in ["田中", "花子", "転職"] {
+        assert!(!out.contains(secret), "{secret} が渡っています");
+    }
+    assert!(
+        out.contains("（名前）さんのご主人")
+            && out.contains("長女の（名前）ちゃん")
+            && out.contains("奥さまは（名前）様")
+    );
+    for c in [CUSTOMER_NO, HOUSEHOLD_ID, LABEL] {
+        assert!(!out.contains(c), "{c}");
+    }
+    // 記録に項目が残る（範囲は custom）。同じ中身の読み取りは同じ指紋
+    get(&reg, &g.share_id).unwrap();
+    let r = &reg.records(HOUSEHOLD_ID)[1];
+    assert_eq!(r.scope, "custom");
+    for f in ["note.fp", "meeting.shared", "meeting.fpOnly"] {
+        assert!(r.fields.iter().any(|x| x == f), "{f}");
+        assert!(r.reads[0].fields.iter().any(|x| x == f), "{f}");
+    }
+    assert_eq!(r.reads.len(), 1, "同じ中身の読み取りは1行");
+    assert_eq!(r.reads[0].count, 2);
+    // 計算に使う読み取りには文を入れない
+    let calc: Value = serde_json::from_str(
+        &reg.handle_get_for_calc(&g.share_id, "calculate", &Caller::default())
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(calc["texts"], json!([]));
+    // フォローの要約は、前回の面談の抜き出しだけ（決めたこと・次までにやること。短く・包んで）
+    let f: Value = serde_json::from_str(
+        &reg.handle_get_followup(
+            &g.share_id,
+            "summarize_shared_households",
+            &Caller::default(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let ex = f["followup"]["excerpt"]["wrapped"].as_str().unwrap();
+    assert!(
+        ex.contains("前回の面談（2026-05-10）")
+            && ex.contains("次までにやること: 源泉徴収票を用意"),
+        "{ex}"
+    );
+    assert!(!ex.contains("目印の秘書のメモ"));
+    assert_eq!(f["texts"], json!([]));
+    // 確かめを外すと、それを理由に渡していた共有は閉じる
+    assert_eq!(reg.set_notes_policy(false), 1);
+    assert!(get(&reg, &g.share_id).is_err());
+
+    // 今の版の説明で取り直すと、確かめが無くても渡せる。撤回すると渡せない
+    reg.set_office_policy(false);
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    assert!(b.view(&[], None, false).consent_notes);
+    let g = reg.grant(b.source().unwrap(), notes_opts(&[])).unwrap();
+    // 印の無い共有のフォローの要約には抜き出しを入れない
+    let p = reg.grant(b.source().unwrap(), opts()).unwrap();
+    let f: Value = serde_json::from_str(
+        &reg.handle_get_followup(
+            &p.share_id,
+            "summarize_shared_households",
+            &Caller::default(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(f["followup"].get("excerpt").is_none());
+    b.record_consent(&consent(ConsentDecision::Withdrawn), TODAY, NOW, None)
+        .unwrap();
+    assert!(!reg.update_source(&g.share_id, b.source().unwrap()));
+    assert!(matches!(
+        reg.grant(b.source().unwrap(), notes_opts(&[])),
+        Err(GrantError::ConsentMissing { .. })
+    ));
+    // 断った世帯も渡せない（事務所の確かめがあっても）
+    let mut refused = book();
+    refused
+        .record_consent(&consent(ConsentDecision::Refused), TODAY, NOW, None)
+        .unwrap();
+    reg.set_office_policy(true);
+    reg.set_notes_policy(true);
+    assert!(matches!(
+        reg.grant(refused.source().unwrap(), notes_opts(&[])),
+        Err(GrantError::ConsentMissing { .. })
+    ));
 }

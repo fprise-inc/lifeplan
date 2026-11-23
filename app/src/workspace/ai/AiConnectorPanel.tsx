@@ -46,6 +46,9 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
   const shares = status?.shares ?? [];
   const policyAt = status?.privacyPolicyConfirmedAt ?? null;
   const setPolicy = ai.setPrivacyPolicy;
+  const notesAt = status?.notesPolicyConfirmedAt ?? null;
+  const setNotesPolicy = ai.setNotesPolicy;
+  const setNotesDefault = ai.setNotesDefault;
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={onClose} />
@@ -54,7 +57,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         <h2 id="ai-conn-title">AI との接続（事務所全体の設定）</h2>
         <p>
           FP がお使いの AI のアプリから、このアプリの計算・制度の値・架空の見本の世帯を使えるようにする口です。このPCの中だけで動き、ネットワークの口は開けません。
-          顧客の世帯は、<b>顧客の同意を記録するか下の事務所のプライバシーポリシーを確かめ、世帯ごとに「AIに渡す」を押したときだけ</b>、計算に要る項目だけ（縮約版）を期限つきで渡します。お名前・ご住所・FPのメモは渡しません。
+          顧客の世帯は、<b>顧客の同意を記録するか下の事務所のプライバシーポリシーを確かめ、世帯ごとに「AIに渡す」を押したときだけ</b>、計算に要る項目だけ（縮約版）を期限つきで渡します。お名前・ご住所は渡しません。FPのメモと面談の履歴は、渡すときに「メモと面談の履歴も渡す」の印を付けたときだけ、お名前を伏せて渡します。
         </p>
         {status !== null && !status.storeReady ? <p class="hh-warn">事務所の鍵が使えないため、設定を変えられません（復元キーを確かめてください）。</p> : null}
         <div class={`ai-switch${enabled ? " on" : ""}`}>
@@ -111,6 +114,54 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         <p class="in-note">
           確かめると、外部AIへの提供の同意の答えが無いお客さまの世帯も、事務所のプライバシーポリシーに沿って AI に渡せます。お客さまが「同意しない」と答えた世帯と、同意を撤回した世帯は、確かめた後も渡せません。印を外すと、同意の記録が無いまま渡していた世帯の共有は、すぐに取り消します。
         </p>
+
+        {setNotesPolicy !== undefined ? (
+          <>
+            <label class="ai-check">
+              <input
+                type="checkbox"
+                checked={notesAt !== null}
+                disabled={busy || status === null || !status.storeReady || (policyAt === null && notesAt === null)}
+                onChange={(e) => {
+                  const on = (e.currentTarget as HTMLInputElement).checked;
+                  void run(async () => {
+                    onStatus(await setNotesPolicy(on));
+                    onChanged();
+                    setMsg({ ok: true, text: on ? "面談の記録やメモも書いていることを確かめた印を記録しました" : "印を外しました。それを理由にメモと面談の履歴を渡していた世帯の共有は取り消しました" });
+                  });
+                }}
+                data-ai-notes-policy
+              />
+              面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている
+            </label>
+            <p class="in-note" data-ai-notes-policy-at>
+              {notesAt !== null ? `確かめた日時: ${dateTimeProse(notesAt)}` : "まだ確かめていません。"}
+              上の印と両方を付けると、前の版の説明で同意した世帯・同意の答えが無い世帯も、メモと面談の履歴を AI に渡せます（「同意しない」と答えた世帯・撤回した世帯は渡せません）。
+            </p>
+          </>
+        ) : null}
+        {setNotesDefault !== undefined ? (
+          <>
+            <h3>メモと面談の履歴</h3>
+            <label class="ai-check">
+              <input
+                type="checkbox"
+                checked={status?.notesByDefault === true}
+                disabled={busy || status === null || !status.storeReady}
+                onChange={(e) => {
+                  const on = (e.currentTarget as HTMLInputElement).checked;
+                  void run(async () => {
+                    onStatus(await setNotesDefault(on));
+                    setMsg({ ok: true, text: on ? "「メモと面談の履歴も渡す」の印を、最初から付けておきます" : "「メモと面談の履歴も渡す」の印は、最初は付けません" });
+                  });
+                }}
+                data-ai-notes-default
+              />
+              メモと面談の履歴を渡す印を、最初から付けておく
+            </label>
+            <p class="in-note">既定はオフです。オンにしても、世帯ごとに渡すときに外せます。渡せるのは、今の説明で同意した世帯か、上の2つの印を付けた事務所で「同意しない」と答えていない世帯だけです。</p>
+          </>
+        ) : null}
 
         <h3>共有中の世帯</h3>
         {shares.length === 0 ? (

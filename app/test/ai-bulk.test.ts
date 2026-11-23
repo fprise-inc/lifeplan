@@ -97,7 +97,7 @@ describe("まとめて渡す画面", () => {
     expect(html).toContain("同意が記録されていない世帯（事務所のプライバシーポリシーも確かめていません）（1件）: C0004");
     expect(html).toContain("data-ai-bulk-destination");
     expect(html).toContain("1時間");
-    expect(html).toContain("メモと面談の履歴の文は渡しません");
+    expect(html).toContain("メモと面談の履歴は、上の印を付けたときだけ");
     expect(html).toContain("選んだ世帯をAIに渡す（1件）");
     expect(html).not.toContain("data-ai-bulk-over");
   });

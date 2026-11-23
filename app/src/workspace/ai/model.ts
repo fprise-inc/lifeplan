@@ -17,6 +17,7 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_NO_CONSENT: "外部AIへの提供の同意が記録されていない世帯は、AIに渡せません",
   E_AI_NOT_SAVED: "保存していない世帯（見本）は、AIに渡せません。世帯を保存してから使ってください",
   E_AI_ALREADY_SHARED: "この世帯はもう共有中です",
+  E_AI_NOTES_NOT_ALLOWED: "この世帯は、メモと面談の履歴を AI に渡せません（今の説明での同意が無く、事務所の設定で「面談の記録やメモを AI で扱うことも書いている」も確かめていません）",
   E_AI_OPEN_BY_OTHERS: "ほかの人（ほかのPC）がこの世帯を開いている間は、AIに渡せません（AIに渡した記録を書くと、相手の保存が分岐になるため）。閉じてから渡してください",
   E_AI_DURATION: "期限の選び方が違います",
   E_AI_DESTINATION: "使うAIのアプリの名前を入れてください（60文字まで）",
@@ -109,6 +110,22 @@ export function aiDocumentsUseOf(view: AiHouseholdView): AiUse {
   if (view.aiDocumentsUse !== undefined) return view.aiDocumentsUse;
   const u = aiUseOf(view);
   return u === "consent" && view.consentDocuments !== true ? "consentWithoutDocuments" : u;
+}
+
+/** メモと面談の履歴を AI に渡せるか・その理由（0249。本体の ai_notes_use。返さない本体は渡せない側） */
+export const aiNotesUseOf = (view: AiHouseholdView): AiUse => view.aiNotesUse ?? "none";
+
+/** メモと面談の履歴を渡せないときの文（0249。理由ごと） */
+export const NOTES_BLOCKED_TEXT: Record<string, string> = {
+  consentWithoutNotes: "この世帯の同意は前の版の説明でいただいたもので、面談の記録やメモを AI に渡すことは含まれていません。今の説明で同意を記録し直すか、事務所の設定で「面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている」を確かめると渡せます。",
+  none: "同意の記録が無いため、メモと面談の履歴は渡せません。今の説明で同意を記録するか、事務所の設定で「面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている」を確かめると渡せます。",
+  refused: "お客さまが外部AIへの提供に「同意しない」と答えたため、メモと面談の履歴は渡せません。",
+  withdrawn: "お客さまが同意を撤回したため、メモと面談の履歴は渡せません。",
+};
+
+/** 伏せる言葉の欄の文字を言葉の並びに（「、」・読点・空白・改行で区切る。保存しない） */
+export function maskWords(text: string): string[] {
+  return [...new Set(text.split(/[、,，\s]+/u).map((w) => w.trim()).filter((w) => w !== ""))].slice(0, 50);
 }
 
 /** その理由で AI に渡せるか */

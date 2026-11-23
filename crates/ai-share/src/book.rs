@@ -24,7 +24,7 @@ use crate::proposal::{PendingProposal, ProposalOrigin, ProposedDiff};
 use crate::record::{for_screen, only_read_counts_changed, verify_append_only, AiShareRecord};
 use crate::reduce::{allowlist, reduced_items};
 use crate::registry::ShareStatus;
-use crate::source::{ConsentDecision, ConsentRef, SharedHouseholdSource};
+use crate::source::{ConsentDecision, ConsentRef, SharedHouseholdSource, SourceText};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
@@ -145,6 +145,12 @@ pub struct HouseholdAiView {
     pub ai_use: AiUse,
     /// 書類（お名前・番号を伏せたもの）を AI に渡せるか・その理由（0157・0226。`basis::ai_documents_use`）
     pub ai_documents_use: AiUse,
+    /// 今の同意が、面談の記録やメモを AI に渡すことを含む説明（版3〜）でのものか（0249）
+    pub consent_notes: bool,
+    /// メモと面談の履歴を AI に渡せるか・その理由（0249。`basis::ai_notes_use`）
+    pub ai_notes_use: AiUse,
+    /// 渡せるメモの行と面談の記録の欄の数（0249。「メモと面談の履歴も渡す」の印の横に出す）
+    pub notes_count: usize,
 }
 
 /// 画面の入力の進み具合（保存した入力項目と足した入力項目の数・仮の値を入れた欄のキー。0222 の追記 2026-11-19）。文は写さない
@@ -258,6 +264,175 @@ pub fn followup_of(
         last_snapshot_month,
         recheck_marks: recheck,
     }
+}
+
+/// メモと面談の履歴の項目（0249。縮約の部品の「足せる項目」。共有が「メモと面談の履歴も渡す」のときだけ足す）
+pub const NOTE_ITEMS: [&str; 3] = ["note.fp", "meeting.shared", "meeting.fpOnly"];
+/// 顧客のフォローの要約に入れる、前回の面談の短い抜き出し（0249。summarize_shared_households の読み取りだけ）
+pub const EXCERPT_ITEM: &str = "meeting.excerpt";
+/// 抜き出しの字数の上限（決めたこと・次までにやること）
+pub const EXCERPT_DECIDED_MAX: usize = 60;
+pub const EXCERPT_TODO_MAX: usize = 80;
+
+/// 1つの欄の長さの上限（画面の meetings.ts の MEETING_TEXT_MAX と同じ）
+const NOTE_TEXT_MAX: usize = 4000;
+
+fn cut(s: &str, max: usize) -> String {
+    let t = s.trim();
+    if t.chars().count() <= max {
+        t.to_owned()
+    } else {
+        format!("{}…", t.chars().take(max).collect::<String>())
+    }
+}
+
+/// 保険の意向の欄（当初・最終・理由のうち書いてある物）
+fn intent_lines(v: Option<&Value>) -> Vec<String> {
+    let Some(v) = v.filter(|v| v.is_object()) else {
+        return Vec::new();
+    };
+    [
+        ("initial", "保険の当初の意向"),
+        ("final", "保険の最終的な意向"),
+        ("reason", "意向が違う理由"),
+    ]
+    .iter()
+    .filter_map(|(k, label)| {
+        let t = v.get(*k).and_then(Value::as_str).unwrap_or("").trim();
+        (!t.is_empty()).then(|| format!("{label}: {}", cut(t, NOTE_TEXT_MAX)))
+    })
+    .collect()
+}
+
+/// メモ（1行ずつ）と面談の履歴（面談ごとに、お客さまと見てよい欄と FP だけの欄）と、前回の面談の抜き出し（0249）。
+/// 読み方は画面と同じ（面談は日の形の合う記録で同じ ID は1件、保険の意向は両方にあれば FP だけの欄）。名前は伏せない（伏せるのは渡すとき）
+fn note_texts(body: &Map<String, Value>) -> Vec<SourceText> {
+    let text = |author: &str, item: &str, body: String| SourceText {
+        item: item.to_owned(),
+        author: author.to_owned(),
+        body,
+        object: None,
+    };
+    let mut out = Vec::new();
+    if let Some(memo) = body
+        .get("household")
+        .and_then(|h| h.get("memo"))
+        .and_then(Value::as_array)
+    {
+        for line in memo.iter().take(500).filter_map(Value::as_str) {
+            if !line.trim().is_empty() {
+                out.push(text("FP（メモ）", "note.fp", cut(line, NOTE_TEXT_MAX)));
+            }
+        }
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    let mut meetings: Vec<&Value> = body
+        .get("meetings")
+        .and_then(|m| m.get("records"))
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .take(500)
+                .filter(|r| {
+                    let id = r
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .filter(|i| !i.is_empty() && i.len() <= 64);
+                    let on = r.get("on").and_then(Value::as_str).filter(|d| is_date(d));
+                    matches!((id, on), (Some(id), Some(_)) if seen.insert(id.to_owned()))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    // 新しい順（同じ日なら後に足した物を先に）
+    meetings.reverse();
+    meetings.sort_by(|a, b| b["on"].as_str().cmp(&a["on"].as_str()));
+    let field = |v: &Value, k: &str| {
+        v.get(k)
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_owned()
+    };
+    for m in &meetings {
+        let on = m["on"].as_str().unwrap_or("");
+        let shared = m
+            .get("shared")
+            .filter(|v| v.is_object())
+            .cloned()
+            .unwrap_or(Value::Null);
+        let fp = m
+            .get("fpOnly")
+            .filter(|v| v.is_object())
+            .cloned()
+            .unwrap_or(Value::Null);
+        let fp_intent = fp.get("insurance").filter(|v| v.is_object());
+        let mut lines: Vec<String> = [
+            ("talked", "話したこと"),
+            ("decided", "決めたこと"),
+            ("todo", "次までにやること"),
+        ]
+        .iter()
+        .filter_map(|(k, label)| {
+            let t = field(&shared, k);
+            (!t.is_empty()).then(|| format!("{label}: {}", cut(&t, NOTE_TEXT_MAX)))
+        })
+        .collect();
+        if fp_intent.is_none() {
+            lines.extend(intent_lines(shared.get("insurance")));
+        }
+        if !lines.is_empty() {
+            out.push(text(
+                "FP（面談の記録・お客さまと見てよい欄）",
+                "meeting.shared",
+                format!("面談の日: {on}\n{}", lines.join("\n")),
+            ));
+        }
+        let mut lines: Vec<String> = Vec::new();
+        let note = field(&fp, "note");
+        if !note.is_empty() {
+            lines.push(format!("FPのメモ: {}", cut(&note, NOTE_TEXT_MAX)));
+        }
+        lines.extend(intent_lines(fp_intent));
+        if !lines.is_empty() {
+            out.push(text(
+                "FP（面談の記録・FPだけの欄）",
+                "meeting.fpOnly",
+                format!("面談の日: {on}\n{}", lines.join("\n")),
+            ));
+        }
+    }
+    // 前回の面談の抜き出し（決めたこと・次までにやること。短く）
+    if let Some(m) = meetings.first() {
+        let shared = m
+            .get("shared")
+            .filter(|v| v.is_object())
+            .cloned()
+            .unwrap_or(Value::Null);
+        let decided = field(&shared, "decided");
+        let todo = field(&shared, "todo");
+        if !decided.is_empty() || !todo.is_empty() {
+            let mut lines = vec![format!("前回の面談（{}）", m["on"].as_str().unwrap_or(""))];
+            if !decided.is_empty() {
+                lines.push(format!(
+                    "決めたこと: {}",
+                    cut(&decided, EXCERPT_DECIDED_MAX)
+                ));
+            }
+            if !todo.is_empty() {
+                lines.push(format!(
+                    "次までにやること: {}",
+                    cut(&todo, EXCERPT_TODO_MAX)
+                ));
+            }
+            out.push(text(
+                "FP（面談の記録の抜き出し）",
+                EXCERPT_ITEM,
+                lines.join("\n"),
+            ));
+        }
+    }
+    out
 }
 
 /// 開いている世帯の帳面
@@ -450,7 +625,9 @@ impl HouseholdBook {
             customer_number: self.customer_no.clone(),
             revision: format!("generation-{}", self.generation),
             input,
-            texts: Vec::new(),
+            // メモと面談の履歴（両方の欄）。共有が「メモと面談の履歴も渡す」のときだけ、縮約の部品が名前を伏せて包んで渡す（0249）。
+            // それ以外の共有では、縮約の部品がこの項目を読まない（縮約版の決まりのまま）
+            texts: note_texts(&self.body),
             labels_by_member: None,
             // 画面は保存した条件をそのまま使う（無ければ条件なし）。縮約の部品が数と選択肢だけを確かめて渡す（0195）
             post_retirement: Some(
@@ -553,7 +730,27 @@ impl HouseholdBook {
         share: Option<ShareStatus>,
         office_policy: bool,
     ) -> HouseholdAiView {
+        self.view_with_notes(records, share, office_policy, false)
+    }
+
+    /// 画面に返す形（`notes_policy` は、事務所のプライバシーポリシーの「面談の記録やメモ」の確かめ。0249）
+    pub fn view_with_notes(
+        &self,
+        records: &[AiShareRecord],
+        share: Option<ShareStatus>,
+        office_policy: bool,
+        notes_policy: bool,
+    ) -> HouseholdAiView {
         let consent = self.consent();
+        let ai_notes_use = crate::basis::ai_notes_use(
+            consent.as_ref(),
+            office_policy && notes_policy,
+            self.fictional,
+        );
+        let notes_count = note_texts(&self.body)
+            .iter()
+            .filter(|t| NOTE_ITEMS.contains(&t.item.as_str()))
+            .count();
         let ai_use = ai_use(consent.as_ref(), office_policy, self.fictional);
         let ai_documents_use = ai_documents_use(consent.as_ref(), office_policy, self.fictional);
         let consent_state = match consent.as_ref().map(|c| c.decision) {
@@ -564,7 +761,7 @@ impl HouseholdBook {
         };
         HouseholdAiView {
             consent_state: consent_state.into(),
-            consent_documents: consent.is_some_and(|c| c.documents),
+            consent_documents: consent.as_ref().is_some_and(|c| c.documents),
             consents: self.consents.clone(),
             explanation: EXTERNAL_AI_EXPLANATION.into(),
             explanation_ref: explanation_ref(EXTERNAL_AI_EXPLANATION),
@@ -581,6 +778,9 @@ impl HouseholdBook {
             fictional: self.fictional,
             ai_use,
             ai_documents_use,
+            consent_notes: consent.is_some_and(|c| c.notes),
+            ai_notes_use,
+            notes_count,
         }
     }
 }

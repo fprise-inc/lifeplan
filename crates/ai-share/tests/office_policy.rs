@@ -53,6 +53,7 @@ fn source(consent: Option<(ConsentDecision, bool)>) -> SharedHouseholdSource {
             decision,
             record_id: "c-1".into(),
             documents,
+            notes: false,
         }),
         fictional: false,
         entered: None,

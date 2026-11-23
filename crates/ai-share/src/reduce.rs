@@ -38,8 +38,15 @@ pub const TEXT_ITEMS: &[(&str, &str)] = &[
 ];
 
 /// 画面の側の文章の項目。既定で外す
-pub const SOURCE_TEXT_ITEMS: &[&str] =
-    &["note.fp", "note.consultation", "note.import", "note.free"];
+pub const SOURCE_TEXT_ITEMS: &[&str] = &[
+    "note.fp",
+    "note.consultation",
+    "note.import",
+    "note.free",
+    // 面談の履歴の両方の欄（0249。共有が「メモと面談の履歴も渡す」のときだけ足す）
+    "meeting.shared",
+    "meeting.fpOnly",
+];
 
 /// 入力項目IDの無い文字列のうち、アプリが作る決まった値で、計算に要るものの扱い。スキーマでは「文字」としか決まっていないので、
 /// ここで形を決める（人や AI が文を書ける欄から文を渡さないため。独立した点検の指摘で 2026-11-15 に分けた）
