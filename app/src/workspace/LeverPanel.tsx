@@ -3,7 +3,7 @@
 // 最初から出さない対策の固定の項目も、足した・値が入っているときはこの形で出し、「外す」を付ける。「＋ 動かす項目を追加」「変更を取り消す」（保存していない変更を全部取り消す。1つずつ戻すのは上部の ↶）「上書き保存」「案として保存」（名前の欄はその場に開く。別の窓は出さない）。
 // 動かしている間（input）は画面側の先出し、指を離したら（change・pointerup・keyup）正の計算（0005 の5）
 import type { ComponentChildren } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { feeStateText, type LeverKey } from "./levers.ts";
 import { AmountInput } from "./plans/ItemControls.tsx";
 import type { ChangeRow } from "./plans/plans.ts";
@@ -98,6 +98,8 @@ export interface LeverCardProps {
   initialSave?: boolean;
   /** 開いた直後に「変えたこと」の一覧を開く（画面の確かめ用） */
   initialOpen?: boolean;
+  /** 増えるたびに「変えたこと」の一覧を開き、対策の区画へ移る（プランの一覧の要確認の吹き出しの「対策で確かめる」から。0250） */
+  openChanges?: number;
   /** 最初から出す項目のうち、対策の固定の項目でない物の行（固定の項目の後ろ、FP顧問料の前。0084） */
   fixedRows?: ComponentChildren;
   /** 足した動かす項目の行 */
@@ -136,6 +138,16 @@ export function LeverCard(p: LeverCardProps) {
   const [saving, setSaving] = useState(p.initialSave === true);
   const [name, setName] = useState(p.initialSave === true ? p.suggested : "");
   const [open, setOpen] = useState(p.initialOpen === true);
+  const root = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (p.openChanges === undefined || p.openChanges === 0) return;
+    setOpen(true);
+    const el = root.current;
+    if (el === null) return;
+    el.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    // キーボードで来たときも続けて操作できるように、要確認のボタン（無ければ「変えたこと」）へフォーカスを移す
+    (el.querySelector<HTMLElement>("[data-plan-review]") ?? el.querySelector<HTMLElement>("[data-plan-changes]"))?.focus({ preventScroll: true });
+  }, [p.openChanges]);
   const locked = p.locked !== null;
   const review = p.changes.filter((c) => c.state !== "ok");
   // 一覧は要確認の行を先に並べる（「! 要確認」で開いたときに探さなくてよいように。中の順はそのまま）
@@ -143,7 +155,7 @@ export function LeverCard(p: LeverCardProps) {
   const guide = reviewGuide(review, p.onAck !== null, p.onDrop !== null);
   const baseTag = (t: string) => `基準（${p.baseLetter}）: ${t}`;
   return (
-    <section class="card levers" aria-labelledby="h-lev" data-levers data-reveal-root>
+    <section ref={root} class="card levers" aria-labelledby="h-lev" data-levers data-reveal-root>
       <div class="lv-head">
         <h2 id="h-lev">対策</h2>
         <span class="lv-who">
