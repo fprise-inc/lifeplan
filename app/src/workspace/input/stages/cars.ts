@@ -534,17 +534,50 @@ export function afterCarTitle(wh: WorkingHousehold, c: Car): string {
   return `手放した後（${when}${replaces ? "買い替えはここまでで、この後は世帯に車がありません" : "この後は世帯に車がありません"}）`;
 }
 
+/** 「購入済みにする」で入れた次の買い替えの時期の、推定の根拠の文 */
+export const boughtFirstBasis = (baseMonth: string, everyYears: number): string =>
+  `購入済みにした月（計算の基準の月 ${formatYearMonth(baseMonth)}）から買い替えの周期（${String(everyYears)}年）後。この世帯に合わせて直してください`;
+
 /**
- * これから買う車を「購入済み」（今の車）にする（0253）。入れた値（購入の時期・周期・価格・下取り・ローン・維持費・手放す時期）はそのままで、
- * 前の「今の車」のチェックを入れたときと同じ読み替えになる: 購入の時期は次の買い替えの時期、1回目の買い替えから下取りを引く、
- * 維持費は今から数える、この1台だけの車はもう買わない（手放す時期まで乗る）
+ * これから買う車を「購入済み」（今の車）にする（0253）。今の車の印（purchase.owned）を入れ、次の買い替えの時期を「今（計算の基準の月）から
+ * 買い替えの周期の年数後」にする（購入の予定の時期がまだ先でも、もう過ぎていても同じ。利用者の判断）。今の車は次の買い替えの周期の前に買ったと
+ * みなすので、今買った車として読み替わる: 次の買い替えから下取りを引く・ローンはその買い替えで下取りを引いた額から借りる・維持費と車検は今から・
+ * 古くなってからの修理費は今から10年後。次の買い替えの時期は推定の印（周期を直したら FP が時期も直す）。購入の時期が出来事「この車の購入」を
+ * 指しているときは出来事を動かし、出来事から決めた時点（手放す時期の目安「買ってから13年」・古くなってからの修理費の始まりと終わり）は、
+ * 「買った月」が出来事の周期の年数前に変わるので、その分だけずらし直す（今から13年・今から10年になる）。
+ * ほかの値（価格・下取り・ローンの条件・維持費・FP が入れた手放す時期）はそのまま
  */
 export function markBought(wh: WorkingHousehold, carId: string): WorkingHousehold {
   const cur = (wh.request.input.household.cars ?? []).find((x) => x.id === carId);
   if (cur?.purchase === undefined || cur.purchase.owned === true) return wh;
-  return mutate(wh, (h) => {
+  return mutate(wh, (h, req) => {
     const x = (h.cars ?? []).find((y) => y.id === carId);
-    if (x?.purchase !== undefined) x.purchase.owned = true;
+    if (x?.purchase === undefined) return;
+    const base = req.input.baseMonth;
+    const every = x.purchase.everyYears;
+    const next = addMonths(base, 12 * every);
+    x.purchase.owned = true;
+    const f = x.purchase.first;
+    const ev = f.event !== undefined && f.offset === undefined ? (h.events ?? []).find((e) => e.id === f.event && e.kind === "carPurchase") : undefined;
+    putRow(inputOf(req), addr(carId, "car.purchase", ["first"]), estRow(boughtFirstBasis(base, every)));
+    if (ev === undefined) {
+      x.purchase.first = { at: next };
+      return;
+    }
+    ev.at = { at: next };
+    // 出来事は「次の買い替え」になり、買った月はその周期の年数前（今）。出来事から決めた時点は、その分だけ前へずらし直す
+    const back = (t: Timepoint | null | undefined): void => {
+      if (t?.event !== ev.id) return;
+      const m = (t.offset?.years ?? 0) * 12 + (t.offset?.months ?? 0) - 12 * every;
+      if (m === 0) delete t.offset;
+      else t.offset = { years: Math.trunc(m / 12), months: m % 12 === 0 ? 0 : m % 12 };
+    };
+    back(x.until);
+    for (const p of h.periodicExpenses ?? []) {
+      if (p.kind !== "car") continue;
+      back(p.from);
+      back(p.to);
+    }
   });
 }
 

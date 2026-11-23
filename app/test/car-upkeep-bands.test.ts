@@ -5,9 +5,9 @@ import { carBand, carBandEstimates, carUpkeepEstimates } from "../../hearing/src
 import { carPurchaseYms } from "../src/workspace/input/carPurchases.ts";
 import { allFields, resolveTimepoint, type FieldDef, type GroupDef } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { ageAt } from "../src/workspace/levers.ts";
+import { addMonths, ageAt } from "../src/workspace/levers.ts";
 import { putRow } from "../src/workspace/input/rows.ts";
-import { addCar, addLeaseCar, afterCarTitle, breakdownAnnual, markBought, REST_LABEL, setReplace, setUpkeepMode, upkeepEstimate } from "../src/workspace/input/stages/cars.ts";
+import { addCar, addLeaseCar, addRepair, afterCarTitle, breakdownAnnual, markBought, REST_LABEL, setReplace, setUpkeepMode, upkeepEstimate } from "../src/workspace/input/stages/cars.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { EMPTY_ESTIMATES, publishOfficeEstimates, withOfficeValue } from "../src/workspace/office/estimates.ts";
@@ -212,60 +212,111 @@ describe("これから買う車の「購入済みにする」（0253）", () => 
     expect(allFields(stage(wh)).some((f) => f.key.endsWith("/owned"))).toBe(false);
   });
 
-  it("押すと入れた値はそのままで今の車に: 見出しは「今の車」、購入の時期は次の買い替えの時期、1回目から下取りを引く、維持費は今から、今返しているローンを足せる。逆向きのボタンは出さない", () => {
-    let wh = addCar(open("salariedCoupleTwoKids"), ids(), false);
-    const c = car0(wh);
-    const base = wh.request.input.baseMonth;
-    const firstYm = resolveTimepoint(wh.request.input.household, c.purchase!.first)!;
-    expect(headOf(wh, c.id).title).toBe("車 1（ご本人・これから買う車）");
-    expect(fieldOf(wh, "/first").label).toBe("購入の時期");
-    const before = { lump: rows(wh, c.id, "cf.expense.lumpSum.car", yearOf(firstYm)), upkeepNow: rows(wh, c.id, "cf.expense.living.car", yearOf(base)), months: carPurchaseYms(wh.request.input.household, c, `${yearOf(base) + 40}-12`) };
-    expect(before.upkeepNow).toBe(0);
-    const act = headOf(wh, c.id).actions.find((a) => a.key.endsWith("/bought"))!;
-    wh = act.run(wh);
-    const d = car0(wh);
-    // 入れた値はそのまま（今の車の印だけ）
-    expect(d).toEqual({ ...c, purchase: { ...c.purchase!, owned: true } });
-    expect(headOf(wh, c.id).title).toBe("車 1（ご本人・今の車）");
-    expect(headOf(wh, c.id).actions.map((a) => a.label)).toEqual(["外す"]);
-    expect(fieldOf(wh, "/first").label).toBe("次の買い替えの時期");
-    expect(fieldStatus(fieldOf(wh, "/price"), wh).status).toBe("estimated");
-    // 購入の月は同じ（今の車の次の買い替えとして）
-    expect(carPurchaseYms(wh.request.input.household, d, `${yearOf(base) + 40}-12`)).toEqual(before.months);
-    // その月の買い替えから下取りを引く（前は1回目は引かない）
-    const after = rows(wh, c.id, "cf.expense.lumpSum.car", yearOf(firstYm));
-    expect(after / before.lump).toBeCloseTo((c.purchase!.price - c.purchase!.tradeIn!) / c.purchase!.price, 2);
-    // 維持費は今から数える
+  /** 購入の時期を基準の月から months か月後にした、これから買う車（周期は推定の8年） */
+  const futureCar = (months: number, base?: string): WorkingHousehold => {
+    let src = open("salariedCoupleTwoKids");
+    if (base !== undefined) src = mutate(src, (_h, req) => void (req.input.baseMonth = base));
+    const wh = addCar(src, ids(), false);
+    return mutate(wh, (h, req) => void (h.cars![0]!.purchase!.first = { at: addMonths(req.input.baseMonth, months) }));
+  };
+  const firstOf = (wh: WorkingHousehold) => resolveTimepoint(wh.request.input.household, car0(wh).purchase!.first)!;
+
+  it("押すと今の車に: 見出しは「今の車」、次の買い替えの時期は今から周期の年数後（推定）。予定より早く・予定どおり・予定より後のどれでも同じ。逆向きのボタンは出さない", () => {
+    for (const months of [36, 0, -12]) {
+      let wh = futureCar(months);
+      const c = car0(wh);
+      const base = wh.request.input.baseMonth;
+      expect(headOf(wh, c.id).title).toBe("車 1（ご本人・これから買う車）");
+      expect(fieldOf(wh, "/first").label).toBe("購入の時期");
+      wh = headOf(wh, c.id).actions.find((a) => a.key.endsWith("/bought"))!.run(wh);
+      const d = car0(wh);
+      expect(d.purchase!.owned, String(months)).toBe(true);
+      expect(firstOf(wh), String(months)).toBe(addMonths(base, 96));
+      // ほかの値はそのまま
+      const { valueStates: _v1, ...dRest } = d;
+      const { valueStates: _v2, ...cRest } = c;
+      void _v1;
+      void _v2;
+      expect({ ...dRest, purchase: { ...d.purchase!, first: c.purchase!.first } }).toEqual({ ...cRest, purchase: { ...c.purchase!, owned: true } });
+      expect(headOf(wh, c.id).title).toBe("車 1（ご本人・今の車）");
+      expect(headOf(wh, c.id).actions.map((a) => a.label)).toEqual(["外す"]);
+      const first = fieldOf(wh, "/first");
+      expect(first.label).toBe("次の買い替えの時期");
+      expect(fieldStatus(first, wh)).toMatchObject({ status: "estimated" });
+      expect(fieldStatus(first, wh).basis).toContain("買い替えの周期（8年）後");
+      expect(first.warn?.(wh) ?? null).toBeNull();
+      // 今返しているローンを車の枠の中で足せる
+      expect(groups(wh).some((g) => g.key === `ev/car/${c.id}/addNowLoan`)).toBe(true);
+      // もう一度押しても変わらない
+      expect(markBought(wh, c.id)).toBe(wh);
+    }
+  });
+
+  it("基準月が1〜3月でも、今（基準の月）から周期の年数後の同じ月", () => {
+    for (const base of ["2027-01", "2027-02", "2027-03"]) {
+      const wh = markBought(futureCar(36, base), "00000000-0000-4000-8000-000000000001");
+      expect(firstOf(wh), base).toBe(addMonths(base, 96));
+    }
+  });
+
+  it("周期が推定のままでも FP が入れた値でも、その周期で数える", () => {
+    let wh = futureCar(36);
+    wh = fieldOf(wh, "/every").set(wh, 5);
+    expect(fieldStatus(fieldOf(wh, "/every"), wh).status).toBe("confirmed");
+    wh = markBought(wh, car0(wh).id);
+    expect(firstOf(wh)).toBe(addMonths(wh.request.input.baseMonth, 60));
+    expect(fieldStatus(fieldOf(wh, "/first"), wh).basis).toContain("買い替えの周期（5年）後");
+  });
+
+  it("読み替え: 次の買い替えから下取りを引く、維持費は今から、購入の月は次の買い替えから周期ごと", () => {
+    const wh0 = futureCar(36);
+    const c = car0(wh0);
+    const base = wh0.request.input.baseMonth;
+    const next = addMonths(base, 96);
+    // 比べる物: 同じ月に買う、これから買う車（1回目は下取りを引かない）
+    const ref = mutate(wh0, (h) => void (h.cars![0]!.purchase!.first = { at: next }));
+    expect(rows(wh0, c.id, "cf.expense.living.car", yearOf(base))).toBe(0);
+    const wh = markBought(wh0, c.id);
+    expect(carPurchaseYms(wh.request.input.household, car0(wh), `${yearOf(base) + 40}-12`)).toEqual(carPurchaseYms(ref.request.input.household, car0(ref), `${yearOf(base) + 40}-12`));
+    const ratio = rows(wh, c.id, "cf.expense.lumpSum.car", yearOf(next)) / rows(ref, c.id, "cf.expense.lumpSum.car", yearOf(next));
+    expect(ratio).toBeCloseTo((c.purchase!.price - c.purchase!.tradeIn!) / c.purchase!.price, 2);
     expect(rows(wh, c.id, "cf.expense.living.car", yearOf(base))).toBeGreaterThan(0);
-    // 今返しているローンを車の枠の中で足せる
-    expect(groups(wh).some((g) => g.key === `ev/car/${c.id}/addNowLoan`)).toBe(true);
-    // もう一度押しても変わらない
-    expect(markBought(wh, c.id)).toBe(wh);
   });
 
   it("ローンで買う車: ローンの条件はそのまま、次の買い替えで下取りを引いた額から借りる", () => {
-    let wh = addCar(open("salariedCoupleTwoKids"), ids(), false);
-    wh = fieldOf(wh, "/pay").set(wh, "loan");
-    const c = car0(wh);
-    const firstYm = resolveTimepoint(wh.request.input.household, c.purchase!.first)!;
-    const lumpBefore = rows(wh, c.id, "cf.expense.lumpSum.car", yearOf(firstYm));
-    wh = markBought(wh, c.id);
+    let wh0 = futureCar(36);
+    wh0 = fieldOf(wh0, "/pay").set(wh0, "loan");
+    const c = car0(wh0);
+    const next = addMonths(wh0.request.input.baseMonth, 96);
+    const ref = mutate(wh0, (h) => void (h.cars![0]!.purchase!.first = { at: next }));
+    const wh = markBought(wh0, c.id);
     expect(car0(wh).loan).toEqual(c.loan);
-    const lumpAfter = rows(wh, c.id, "cf.expense.lumpSum.car", yearOf(firstYm));
     // 頭金（借りない分）も下取りを引いた額に対する割合
-    expect(lumpAfter / lumpBefore).toBeCloseTo((c.purchase!.price - c.purchase!.tradeIn!) / c.purchase!.price, 2);
+    const ratio = rows(wh, c.id, "cf.expense.lumpSum.car", yearOf(next)) / rows(ref, c.id, "cf.expense.lumpSum.car", yearOf(next));
+    expect(ratio).toBeCloseTo((c.purchase!.price - c.purchase!.tradeIn!) / c.purchase!.price, 2);
   });
 
-  it("この1台だけの車: 押すともう買わず（購入の行が無くなる）、手放す時期まで乗る。手放す時期は入れた値のまま", () => {
-    let wh = addCar(open("salariedCoupleTwoKids"), ids(), false);
-    wh = setReplace(wh, car0(wh).id, "none");
-    const c = car0(wh);
-    const buys = (w: WorkingHousehold) => preview(w.request).table.filter((x) => x.object === c.id && x.row === "cf.expense.lumpSum.car").length;
+  it("この1台だけの車: もう買わず、手放す時期の目安（買ってから13年・推定）は今から13年、古くなってからの修理費は今から10年に。FP が入れた手放す時期は変えない", () => {
+    let wh = futureCar(36);
+    const id = car0(wh).id;
+    wh = setReplace(wh, id, "none");
+    wh = addRepair(wh, id, "00000000-0000-4000-8000-0000000000aa");
+    const base = wh.request.input.baseMonth;
+    const h0 = wh.request.input.household;
+    expect(resolveTimepoint(h0, car0(wh).until)).toBe(addMonths(base, 36 + 156));
+    const repair = (w: WorkingHousehold) => resolveTimepoint(w.request.input.household, w.request.input.household.periodicExpenses!.find((p) => p.id === "00000000-0000-4000-8000-0000000000aa")!.from);
+    expect(repair(wh)).toBe(addMonths(base, 36 + 120));
+    const buys = (w: WorkingHousehold) => preview(w.request).table.filter((x) => x.object === id && x.row === "cf.expense.lumpSum.car").length;
     expect(buys(wh)).toBeGreaterThan(0);
-    wh = markBought(wh, c.id);
-    expect(buys(wh)).toBe(0);
-    expect(car0(wh).until).toEqual(c.until);
-    expect(fieldOf(wh, "/untilAge").label).toBe("手放す時期");
-    expect(rows(wh, c.id, "cf.expense.living.car", yearOf(wh.request.input.baseMonth))).toBeGreaterThan(0);
+    const bought = markBought(wh, id);
+    expect(buys(bought)).toBe(0);
+    expect(resolveTimepoint(bought.request.input.household, car0(bought).until)).toBe(addMonths(base, 156));
+    expect(fieldStatus(fieldOf(bought, "/untilAge"), bought).status).toBe("estimated");
+    expect(repair(bought)).toBe(addMonths(base, 120));
+    expect(rows(bought, id, "cf.expense.living.car", yearOf(base))).toBeGreaterThan(0);
+    // FP が年齢で入れた手放す時期は変えない
+    const fp = fieldOf(wh, "/untilAge").set(wh, 70);
+    const until = car0(fp).until;
+    expect(car0(markBought(fp, id)).until).toEqual(until);
   });
 });
