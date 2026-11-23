@@ -32,6 +32,13 @@ pub struct AiShareRecord {
     pub consent_at_grant: ConsentAtGrant,
     pub reads: Vec<ReadEntry>,
     pub proposals: Vec<ProposalEntry>,
+    /// 共有を作った PC（保存の部品の PC の ID。0011）。世帯を開いたときに、ほかの PC がいま渡している共有の記録を
+    /// 「アプリの終了」で閉じないために使う（0248 の追記）。無い記録（前の版のアプリが書いた）は、今までどおり閉じる
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device: Option<String>,
+    /// 共有を作った起動（起動ごとの乱数）。同じ PC の前の起動の記録だけを「アプリの終了」で閉じる（0248 の追記）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -253,6 +260,8 @@ mod tests {
             },
             reads: vec![],
             proposals: vec![],
+            device: None,
+            launch: None,
         }
     }
 

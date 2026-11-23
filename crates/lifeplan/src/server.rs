@@ -531,6 +531,19 @@ pub struct ShareArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SummarizeSharedArgs {
+    /// 要約する世帯の共有 ID（list_shared_households で分かる。50件まで）。省くと、いま渡されている世帯すべて（仮名の順に50件まで）
+    pub share_ids: Option<Vec<String>>,
+}
+
+/// 顧客のフォローの要約で1回に読む世帯の数の上限（アプリでまとめて渡せる数と同じ。0248）
+pub const MAX_SUMMARY_ROWS: usize = 50;
+
+/// 顧客のフォローの要約に添える説明（AIに向けて。0248）
+const FOLLOWUP_NOTE: &str = "1世帯1行の要約です。区分 category は FP の事務所の区分（記号と名前。例 A 顧問契約）。lastMeetingOn は前回の面談の日（面談の履歴の日付だけで、話した中身は渡していません）、lastSnapshotMonth は最後の控えの年月、nextReviewMonth はその1年後（アプリの面談の準備の「次の面談の目安」と同じ考え方）、reviewDue は今月が目安の月を過ぎているか（控えが無ければ null）。recheckMarks は FP が付けた「次回確かめる」の印の数（何に付けたかは渡していません）。depletion は資産が尽きる年と本人の年齢（尽きなければ null）、minimum は金融資産がいちばん少ない年と額（円）で、calculate の keyFigures と同じ数え方。notices は計算のお知らせの件数（中身は calculate で見られます）。ok が false の行は、読めなかった（error）か計算できなかった（calcError）世帯で、ほかの行はそのまま使えます。ファイナンシアはお客さまのお名前・メールアドレス・顧客番号を AI に渡しません。連絡の文の下書きは宛名を空けて作り、仮名（alias）で並べてください。FP がアプリで仮名と顧客番号を、自分の台帳で顧客番号とお客さまを結びつけて宛先を入れます。AI からメールを送ったり、宛先を探したりしないでください。";
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ProposedChange {
     /// 対象: 世帯の物の ID（get_shared_household の中の仮の ID）か、前提条件なら "assumptions"
     pub target: String,
@@ -875,6 +888,80 @@ async fn base_input(
         ));
     }
     Ok((base, office, post))
+}
+
+/// 顧客のフォローの要約で省く物（主な数字と計算のお知らせだけを使う。年金の見込みは計算しない。0248）
+const FOLLOWUP_OMIT: [&str; 10] = [
+    "pension",
+    "noticeText",
+    "ages",
+    "years",
+    "totals",
+    "insurance",
+    "packs",
+    "protection",
+    "protectionDetail",
+    "inheritanceTax",
+];
+
+/// 年月（YYYY-MM）の n か月後
+fn add_months(ym: &str, n: i64) -> Option<String> {
+    if ym.len() != 7 || ym.as_bytes()[4] != b'-' {
+        return None;
+    }
+    let y: i64 = ym.get(0..4)?.parse().ok()?;
+    let m: i64 = ym.get(5..7)?.parse().ok()?;
+    if !(1..=12).contains(&m) {
+        return None;
+    }
+    let total = y * 12 + (m - 1) + n;
+    Some(format!(
+        "{:04}-{:02}",
+        total.div_euclid(12),
+        total.rem_euclid(12) + 1
+    ))
+}
+
+/// 顧客のフォローの要約の1行（計算の前）と計算の材料。`v` はアプリの返事（計算に使う読み取りの形と followup。0248）
+fn followup_row(share_id: &str, v: &mut Value, this_month: &str) -> (Value, Job) {
+    let f = v["followup"].take();
+    let last_snapshot = f["lastSnapshotMonth"].as_str().map(str::to_owned);
+    // 次の面談の目安: 最後の控えの1年後（アプリの面談の準備の reviewTiming と同じ考え方）
+    let next = last_snapshot.as_deref().and_then(|m| add_months(m, 12));
+    let due = next.as_deref().map(|n| this_month > n);
+    let category = match f["category"].as_str() {
+        Some(code) => json!({ "code": code, "name": f["categoryName"].clone() }),
+        None => Value::Null,
+    };
+    let row = json!({
+        "shareId": share_id,
+        "alias": v["alias"].clone(),
+        "basis": v["basis"].clone(),
+        "category": category,
+        "lastMeetingOn": f["lastMeetingOn"].clone(),
+        "meetings": f["meetings"].as_u64().unwrap_or(0),
+        "lastSnapshotMonth": last_snapshot,
+        "nextReviewMonth": next,
+        "reviewDue": due,
+        "recheckMarks": f["recheckMarks"].as_u64().unwrap_or(0),
+        "depletion": Value::Null,
+        "minimum": Value::Null,
+        "notices": Value::Null,
+        "ok": Value::Null,
+    });
+    let job = Job {
+        input: v["input"].take(),
+        plan_changes: Vec::new(),
+        market: None,
+        sample: None,
+        office: v["officeEstimates"].take(),
+        // 定年後の働き方の条件（縮約版。無ければ条件なし。0195）
+        post: match v["postRetirement"].take() {
+            Value::Null => json!({}),
+            p => p,
+        },
+    };
+    (row, job)
 }
 
 /// 計算の前の処理（画面がエンジンへ渡す前に当てる処理と同じ関数。0184）を当てた要求と、当てた処理
@@ -3538,6 +3625,144 @@ impl LifeplanMcp {
                 Ok(fail(e.user_message()))
             }
         }
+    }
+
+    #[tool(
+        description = "顧客のフォローのための、渡された世帯の1世帯1行の要約（読むだけ）。「顧問契約のお客さまで、連絡したほうがよい人は？」のときに、get_shared_household・calculate を世帯の数だけ呼ぶ代わりに使う。行ごとに、共有 ID・仮名・渡された理由 basis・区分（category。記号と名前）・前回の面談の日（lastMeetingOn。面談の履歴の日付だけ）と面談の数（meetings）・最後の控えの年月（lastSnapshotMonth）と次の面談の目安の月（nextReviewMonth。その1年後）と目安を過ぎたか（reviewDue）・「次回確かめる」の印の数（recheckMarks）・資産が尽きる年（depletion。年と本人の年齢。尽きなければ null）と金融資産がいちばん少ない年と額（minimum）・計算のお知らせの件数（notices）を返す。数字は calculate の keyFigures と同じ数え方（画面と同じ計算の前の処理を適用する）。面談の中身・メモ・お名前・顧客番号は返さない。share_ids を省くと、いま渡されている世帯すべて（50件まで。超えたら truncated に件数が出るので、share_ids で残りを指定する）。読めない世帯（期限切れ・取り消し後など）・計算できない世帯は、その行だけ ok: false と理由（error か calcError）を返し、ほかの行は返す。期限内で取り消されていない世帯だけ読め、読むたびにアプリの「AIに渡した記録」に世帯ごとに残る。受け取ったデータを会話の外や別の道具に渡さないこと。",
+        annotations(
+            title = "渡された世帯のフォローの要約",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn summarize_shared_households(
+        &self,
+        Parameters(a): Parameters<SummarizeSharedArgs>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        const TOOL: &str = "summarize_shared_households";
+        let t = Instant::now();
+        let ids: Vec<String> = match a.share_ids {
+            Some(list) => {
+                let mut v: Vec<String> = Vec::new();
+                for id in list {
+                    let id = id.trim().to_owned();
+                    if !id.is_empty() && !v.contains(&id) {
+                        v.push(id);
+                    }
+                }
+                if v.is_empty() {
+                    log(TOOL, t, "INVALID");
+                    return Ok(fail("share_ids に共有 ID を1つ以上書くか、share_ids を省いてください（省くと渡されている世帯すべて）。"));
+                }
+                if v.len() > MAX_SUMMARY_ROWS {
+                    log(TOOL, t, "INVALID");
+                    return Ok(fail(format!(
+                        "share_ids は{MAX_SUMMARY_ROWS}件までです（{}件）。分けて呼んでください。",
+                        v.len()
+                    )));
+                }
+                v
+            }
+            None => match ask_app(&ctx, Request::ListShares).await {
+                Ok(payload) => serde_json::from_str::<Value>(&payload)
+                    .ok()
+                    .and_then(|v| {
+                        v["shares"].as_array().map(|a| {
+                            a.iter()
+                                .filter_map(|s| s["shareId"].as_str().map(str::to_owned))
+                                .collect()
+                        })
+                    })
+                    .unwrap_or_default(),
+                Err(e) => {
+                    log(TOOL, t, e.code());
+                    return Ok(fail(e.user_message()));
+                }
+            },
+        };
+        let total = ids.len();
+        let ids: Vec<String> = ids.into_iter().take(MAX_SUMMARY_ROWS).collect();
+        let today = today_jst();
+        let this_month = today.get(0..7).unwrap_or("").to_owned();
+        // 1世帯ずつアプリに読む（読むたびに、その世帯の「AIに渡した記録」に残る）
+        let mut rows: Vec<Value> = Vec::with_capacity(ids.len());
+        let mut jobs: Vec<Option<Job>> = Vec::with_capacity(ids.len());
+        for id in &ids {
+            let req = Request::GetShareFollowup {
+                share_id: id.clone(),
+                tool: TOOL.to_owned(),
+            };
+            let got = ask_app(&ctx, req)
+                .await
+                .map_err(|e| (e.code().to_owned(), e.user_message()))
+                .and_then(|p| {
+                    serde_json::from_str::<Value>(&p).map_err(|_| {
+                        (
+                            "IPC_ERROR".to_owned(),
+                            "アプリの返事の形が違います。".to_owned(),
+                        )
+                    })
+                });
+            match got {
+                Ok(mut v) => {
+                    let (row, job) = followup_row(id, &mut v, &this_month);
+                    rows.push(row);
+                    jobs.push(Some(job));
+                }
+                Err((code, message)) => {
+                    rows.push(json!({ "shareId": id, "ok": false, "error": { "code": code, "message": message } }));
+                    jobs.push(None);
+                }
+            }
+        }
+        // 計算（calculate と同じ道。年金の見込み・文は省く）。計算できない世帯は、その行だけ失敗の印を付ける
+        let omit: Vec<String> = FOLLOWUP_OMIT.iter().map(|s| (*s).to_owned()).collect();
+        let opts = match answer::Options::new(None, None, Some(&omit), None) {
+            Ok(o) => o,
+            Err(msg) => {
+                log(TOOL, t, "E_HOST");
+                return Ok(fail(msg));
+            }
+        };
+        let outcomes = tokio::task::spawn_blocking(move || compute_all(&jobs, &opts))
+            .await
+            .unwrap_or_default();
+        for (i, row) in rows.iter_mut().enumerate() {
+            if row["ok"] == false {
+                continue;
+            }
+            match outcomes.get(i).and_then(Option::as_ref) {
+                Some(Ok(c)) => {
+                    let kf = &c.summary["keyFigures"];
+                    row["depletion"] = kf["depletion"].clone();
+                    row["minimum"] = kf["minimum"].clone();
+                    row["notices"] = json!(c.summary["notices"].as_array().map_or(0, Vec::len));
+                    row["ok"] = json!(true);
+                }
+                Some(Err((message, code))) => {
+                    row["ok"] = json!(false);
+                    row["calcError"] = json!({ "code": code, "message": message });
+                }
+                None => {
+                    row["ok"] = json!(false);
+                    row["calcError"] = json!({ "code": "E_HOST", "message": "計算できませんでした（接続口の中の誤り）。" });
+                }
+            }
+        }
+        let mut answer = json!({
+            "today": today,
+            "count": rows.len(),
+            "rows": rows,
+            "note": FOLLOWUP_NOTE,
+        });
+        if total > MAX_SUMMARY_ROWS {
+            answer["truncated"] = json!({ "total": total, "returned": MAX_SUMMARY_ROWS, "note": "残りの世帯は share_ids で指定して、もう一度呼んでください（list_shared_households で共有 ID が分かります）。" });
+        }
+        log(TOOL, t, "ok");
+        Ok(text(&answer))
     }
 
     #[tool(

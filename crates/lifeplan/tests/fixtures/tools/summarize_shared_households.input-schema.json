@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "share_ids": {
+      "description": "要約する世帯の共有 ID（list_shared_households で分かる。50件まで）。省くと、いま渡されている世帯すべて（仮名の順に50件まで）",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

@@ -28,6 +28,7 @@ import { proseDateWritten } from "../dates.ts";
 import { colorStyle, PLAN_COLORS } from "../presentation/planLines.tsx";
 import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
+import { AiBulkShare } from "./ai/AiBulkShare.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
 import { AiCodeCandidateBand } from "./ai/AiCodeCandidateBand.tsx";
 import { AiDisplayCandidateBand } from "./ai/AiDisplayCandidateBand.tsx";
@@ -1890,6 +1891,31 @@ export function App() {
     },
     [putWork],
   );
+  /** 結果のタブの対策で「変えたこと」を開いた回数（プランの一覧の要確認の吹き出しの「対策で確かめる」で増やす。0250） */
+  const [leverReview, setLeverReview] = useState(0);
+  /**
+   * プランの一覧の要確認の吹き出しから: そのプランを選び（帯に無ければ足す）、一覧を閉じて、対策の「変えたこと」を開く（要確認の行が上に並び、
+   * 「確認した（このまま）」「この差分を外す」で直せる。0250）
+   */
+  const showReview = useCallback(
+    (id: string) => {
+      if (!settleInput().ok) return;
+      const o = openedRef.current;
+      const w = workRef.current;
+      if (o === null) return;
+      if (id !== w.sel) {
+        const r = addToBand(w.band, id, [w.sel, w.base]);
+        const v = valuesOf(o.wh, w, id);
+        setShown((s) => [...new Set([...s, ...Object.keys(v).filter((k) => o.catalog.byKey.get(k)?.builtin === false)])]);
+        setTableKey(null);
+        putWork({ ...w, band: r.band, sel: id }, o, "set");
+        if (r.dropped !== null) say(`帯は${MAX_BAND}つまでのため、${planLabel(planLetters(o.wh.proposals).get(r.dropped)?.letter ?? "")}を帯から外しました（一覧に残っています）`);
+      }
+      setPanel(null);
+      setLeverReview((n) => n + 1);
+    },
+    [putWork],
+  );
   const setBase = useCallback(
     (letter: string) => {
       const o = openedRef.current;
@@ -2190,6 +2216,10 @@ export function App() {
   const savedForAi = aiShare === "sharing" && storedInfo !== null ? savedBodies.current.get(storedInfo.id) : undefined;
   const savedInputForAi = useMemo(() => savedInputOf(savedForAi), [savedForAi]);
   const aiUnsaved = useMemo(() => unsavedForAi(aiShare === "sharing", savedInputForAi, opened?.wh.request.input), [aiShare, savedInputForAi, opened?.wh.request.input]);
+  // まとめて渡す（0248）: 開いている世帯に保存していない入力の変更があるか（世帯の一覧を開いているときだけ数える。渡すのは保存した内容のまま）
+  const savedForBulk = hhOpen && storedInfo !== null && storedInfo.sample === undefined ? savedBodies.current.get(storedInfo.id) : undefined;
+  const savedInputForBulk = useMemo(() => savedInputOf(savedForBulk), [savedForBulk]);
+  const bulkUnsaved = useMemo(() => unsavedForAi(savedForBulk !== undefined, savedInputForBulk, opened?.wh.request.input), [savedForBulk, savedInputForBulk, opened?.wh.request.input]);
 
   /** ＋ この案を元に作る: 選んでいる案（保存していない変更を含む）を写して新しい案を作り、そのまま選ぶ */
   const duplicate = useCallback(() => {
@@ -3208,6 +3238,11 @@ export function App() {
                 }
               }}
               onRecovery={() => setRecovery(storeStatus?.state === "needsRecovery" ? "restore" : "manage")}
+              aiBulk={
+                host.ai.bulkStart !== undefined
+                  ? (shown) => <AiBulkShare ai={host.ai} status={ai.status} households={shown} currentId={storedInfo?.sample === undefined ? (storedInfo?.id ?? null) : null} currentUnsaved={bulkUnsaved} onChanged={() => void ai.refresh()} />
+                  : undefined
+              }
               onAiConnector={() => {
                 void ai.refresh();
                 setAiPanel("connector");
@@ -3552,6 +3587,7 @@ export function App() {
                     setPanel(null);
                     setTab("input");
                   }}
+                  onShowReview={showReview}
                   onClose={() => setPanel(null)}
                 /> : null}
             {panel === "compare" ? (
@@ -3655,6 +3691,7 @@ export function App() {
               }
               suggested={planInfo.suggested}
               changes={planInfo.changes}
+              openChanges={leverReview}
               onAck={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(acknowledge(opened.wh, opened.catalog, work.sel, k)) : null}
               onDrop={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(dropChange(opened.wh, opened.catalog, work.sel, k)) : null}
               {...(initial.save === true ? { initialSave: true } : {})}

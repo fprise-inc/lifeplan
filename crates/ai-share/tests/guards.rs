@@ -42,6 +42,7 @@ fn source(input: Value) -> SharedHouseholdSource {
         }),
         fictional: false,
         entered: None,
+        followup: None,
     }
 }
 
