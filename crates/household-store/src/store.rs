@@ -324,7 +324,8 @@ pub struct Status {
     pub deletions_completed: usize,
     /// 事務所データがこのアプリより新しい版で書かれている（閲覧だけ。保存しない。アプリの更新を案内する。0222）
     pub office_too_new: bool,
-    /// 見本番号を無くす移行で、重なった名前を直した見本（0247 の8）。事務所データを開いた最初の状態の答えにだけ入る（画面は1回だけ知らせる）
+    /// 見本番号を無くす移行・一覧の作り直しで、重なった名前を直した見本（0247 の8）。この起動の間だけ持つ（画面はお知らせの一覧の
+    /// 「参考」に出す。保存先の知らせ `sampleRenames`）
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sample_renames: Vec<SampleRename>,
 }
@@ -681,7 +682,7 @@ struct Inner {
     first_run: bool,
     opened: HashMap<String, OpenState>,
     fail: FailPoint,
-    /// 事務所データを開いたときの見本の移行で直した名前（最初の状態の答えで1回だけ返す。0247 の8）
+    /// 事務所データを開いたときの見本の移行・一覧の作り直しで直した名前（この起動の間だけ持つ。0247 の8）
     sample_renames: Vec<SampleRename>,
 }
 
@@ -814,6 +815,12 @@ fn write_json<T: Serialize>(p: &Path, v: &T) -> Result<(), StoreError> {
 }
 
 fn encode_office(data: &OfficeData, office_id: &str, master: &[u8; 32]) -> Vec<u8> {
+    let body = Zeroizing::new(serde_json::to_vec(data).expect("事務所データの JSON"));
+    seal_office_raw(&body, OFFICE_FORMAT_VERSION, office_id, master)
+}
+
+/// 事務所データの本文のバイト列を、見出しの形式の版を指定して暗号化する
+fn seal_office_raw(body: &[u8], version: &str, office_id: &str, master: &[u8; 32]) -> Vec<u8> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct H<'a> {
@@ -827,24 +834,19 @@ fn encode_office(data: &OfficeData, office_id: &str, master: &[u8; 32]) -> Vec<u
     let h = H {
         cipher: crypto::CIPHER,
         format: OFFICE_FORMAT,
-        format_version: OFFICE_FORMAT_VERSION,
+        format_version: version,
         nonce: crypto::hex_encode(&nonce),
         office_id,
     };
-    let body = Zeroizing::new(serde_json::to_vec(data).expect("事務所データの JSON"));
     let k = crypto::derive(master, purpose::OFFICE_DATA);
-    container::seal(OFFICE_MAGIC, &container::header_json(&h), &k, &nonce, &body)
+    container::seal(OFFICE_MAGIC, &container::header_json(&h), &k, &nonce, body)
 }
 
-fn decode_office(bytes: &[u8], master: &[u8; 32]) -> Result<OfficeData, StoreError> {
-    decode_office_versioned(bytes, master).map(|(d, _)| d)
-}
-
-/// 事務所データと、その形式の版（見出しに版の無い古いファイルは 0.1）
-fn decode_office_versioned(
+/// 事務所データの暗号を外した本文のバイト列（読み直さない）と、見出しの形式の版（版の無い古いファイルは 0.1）
+fn open_office_raw(
     bytes: &[u8],
     master: &[u8; 32],
-) -> Result<(OfficeData, String), StoreError> {
+) -> Result<(Zeroizing<Vec<u8>>, String), StoreError> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct H {
@@ -862,8 +864,25 @@ fn decode_office_versioned(
     let nonce: [u8; NONCE_LEN] = crypto::hex_array(&h.nonce).ok_or(StoreError::CORRUPT)?;
     let k = crypto::derive(master, purpose::OFFICE_DATA);
     let body = crypto::open(&k, &nonce, p.aad, p.ciphertext)?;
+    Ok((body, h.format_version.unwrap_or_else(|| "0.1".into())))
+}
+
+/// 見本番号を無くす移行（0247 の8）の前の事務所データを残すファイル（暗号化のまま。1回だけ書き、後から書き換えない）。
+/// 前の版のアプリに戻すときは、アプリを閉じてこのファイルを office.lpod に置き換える
+pub const OFFICE_BEFORE_SAMPLE_MIGRATION: &str = "office.lpod.before-0.3";
+
+fn decode_office(bytes: &[u8], master: &[u8; 32]) -> Result<OfficeData, StoreError> {
+    decode_office_versioned(bytes, master).map(|(d, _)| d)
+}
+
+/// 事務所データと、その形式の版（見出しに版の無い古いファイルは 0.1）
+fn decode_office_versioned(
+    bytes: &[u8],
+    master: &[u8; 32],
+) -> Result<(OfficeData, String), StoreError> {
+    let (body, version) = open_office_raw(bytes, master)?;
     let data = serde_json::from_slice(&body).map_err(|_| StoreError::CORRUPT)?;
-    Ok((data, h.format_version.unwrap_or_else(|| "0.1".into())))
+    Ok((data, version))
 }
 
 /// 世帯ファイルの名前から世帯ID（`<ID>.lphf`・`.prev`・`.tmp-*`）
@@ -983,6 +1002,21 @@ impl Store {
         Ok(())
     }
 
+    /// 試験用: 移行の前の事務所データの写しの中身（JSON）と形式の版（無ければ None）
+    #[doc(hidden)]
+    pub fn office_before_migration_for_test(&self) -> Result<Option<(Value, String)>, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let Ok(b) = fs::read(self.root.join(OFFICE_BEFORE_SAMPLE_MIGRATION)) else {
+            return Ok(None);
+        };
+        let (body, version) = open_office_raw(&b, &s.master)?;
+        Ok(Some((
+            serde_json::from_slice(&body).map_err(|_| StoreError::CORRUPT)?,
+            version,
+        )))
+    }
+
     /// 試験用: 開いている状態を忘れる（アプリを閉じて開き直した代わり）
     #[doc(hidden)]
     pub fn forget_session(&self) {
@@ -1024,7 +1058,7 @@ impl Store {
             self.load(&mut g)?;
         }
         let mut st = self.status_of(&g);
-        st.sample_renames = std::mem::take(&mut g.sample_renames);
+        st.sample_renames = g.sample_renames.clone();
         Ok(st)
     }
 
@@ -1160,6 +1194,17 @@ impl Store {
             &encode_office(&s.data, &s.office_id, new),
             FailPoint::None,
         )?;
+        // 移行の前の事務所データの写しも新しい鍵で包み直す（中身と形式の版はそのまま。前の版に戻すときに開けるように）
+        let before = self.root.join(OFFICE_BEFORE_SAMPLE_MIGRATION);
+        if let Ok((body, version)) = fs::read(&before)
+            .map_err(|_| StoreError::IO)
+            .and_then(|b| open_office_raw(&b, &s.master))
+        {
+            let _ = atomic::replace_no_prev(
+                &before,
+                &seal_office_raw(&body, &version, &s.office_id, new),
+            );
+        }
         halt(2)?;
         atomic::replace(&self.vault_path(), &vault.encode(new), FailPoint::None)?;
         halt(3)?;
@@ -1350,6 +1395,11 @@ impl Store {
         // 起動を止めない（事務所データは前の形のまま残る。1回の差し替えで書くので、半分だけ直した形にはならない。次に書くときか
         // 次の起動で、同じ結果に直す）
         if !s.office_too_new {
+            // 移行で書く前に、前の形の事務所データを1回だけ別名で残す（前の版のアプリに戻すため。直前の世代 .prev と毎日の写しは、
+            // 次に事務所データを書いたとき・その日のうちに移行の後の形に入れ替わるので頼れない）。残せないときは移行を書かずに止める
+            if !migration.migrated.is_empty() {
+                self.keep_office_before_migration()?;
+            }
             if rebuilt {
                 self.write_office(&s)?;
             } else if !migration.migrated.is_empty() {
@@ -1363,6 +1413,22 @@ impl Store {
         self.daily_backup(&s);
         g.session = Some(s);
         Ok(())
+    }
+
+    /// 移行の前の事務所データ（今の office.lpod のバイト列そのまま）を [`OFFICE_BEFORE_SAMPLE_MIGRATION`] に残す。もうあれば書かない
+    fn keep_office_before_migration(&self) -> Result<(), StoreError> {
+        let to = self.root.join(OFFICE_BEFORE_SAMPLE_MIGRATION);
+        if to.exists() {
+            return Ok(());
+        }
+        match fs::read(self.office_data_path()) {
+            Ok(b) => {
+                atomic::replace_no_prev(&to, &b)?;
+                Ok(())
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err(StoreError::IO),
+        }
     }
 
     /// 世帯ファイルの本文から一覧の欄を作り直す（見本かどうかは `meta.sample`。0247 の1）
@@ -1944,7 +2010,7 @@ impl Store {
             let s = Self::session(&mut g)?;
             Self::usable(s)?;
             self.refresh_shared(s)?;
-            let (customer_no, label) = match &s.shared {
+            let (mut customer_no, mut label) = match &s.shared {
                 Some(sh) => {
                     let c = sh.read_card(id)?;
                     (c.customer_no, c.label)
@@ -1966,6 +2032,19 @@ impl Store {
                 Err(_) => return Err(StoreError::IO),
             };
             let (h, mut value, access) = self.decode_household(s, id, &bytes)?;
+            // 一覧は顧客なのに世帯ファイルが見本の中身（meta.sample。0.87 から見本の保存でだけ書く）を持つとき（見本にした後に事務所データが
+            // 前の世代に戻った・登録の途中で一覧を書けなかった）は、見本に倒す（見本を顧客に戻す操作は無いので、見本の印は落とさない。0247 の1）。
+            // 書けるときは一覧も直す（次の保存で meta.sample が消えないように）
+            if !label.is_sample() && value.pointer("/meta/sample").is_some_and(Value::is_object) {
+                let (no, from_file) = numbering::label_from_meta(value.get("meta"));
+                if from_file.is_sample() {
+                    customer_no = no;
+                    label = from_file;
+                    if Self::writable(s).is_ok() {
+                        self.put_label(s, id, &customer_no, label.clone())?;
+                    }
+                }
+            }
             if let Some(meta) = value.get_mut("meta").and_then(Value::as_object_mut) {
                 match &label.sample {
                     Some(info) => {
@@ -2485,35 +2564,77 @@ impl Store {
         if label.is_sample() || req.origin.is_some() {
             return Err(StoreError::SAMPLE);
         }
+        let (old_no, old_label) = Self::label_of(s, id)?;
         let (no, label) = Self::new_sample(&Self::all_labels(s), req, reserved)?;
-        self.put_label(s, id, &no, label)?;
-        self.rewrite_meta(&mut g, id)?;
+        // 先に世帯ファイルの meta を書き、後で一覧を書く（一覧を書けなければ meta を前に戻す。失敗＝何も変わらない）
+        self.rewrite_meta(&mut g, id, &no, &label)?;
+        let s = Self::session(&mut g)?;
+        if let Err(e) = self.put_label(s, id, &no, label) {
+            let _ = self.rewrite_meta(&mut g, id, &old_no, &old_label);
+            return Err(e);
+        }
         Ok(RenameOutcome {
             customer_no: no,
             duplicate: false,
         })
     }
 
-    /// 一覧の欄（番号の中身）を変えたときに、世帯ファイルの meta（`customerNo`・`sample`）を書き直す（中身は変えない。0247 の1）。
-    /// ふつうの保存と同じく一時ファイルからの差し替えで、世代を1つ進め、直前の世代を残す。閲覧だけで開く形式の版（MINOR が新しい）の
-    /// ファイルは書かない（次に保存したときに直る）。開いている世帯は、開いたときのファイルのままなら、次の保存が分岐にならないよう
-    /// 開いた状態の世代と指紋も進める（ほかの保存が先にあったときは、そのまま分岐として見つける）
-    fn rewrite_meta(&self, g: &mut Inner, id: &str) -> Result<(), StoreError> {
+    /// 一覧の欄（番号の中身）を変えるときに、世帯ファイルの meta（`customerNo`・`sample`）を `customer_no`・`label` の形に書き直す
+    /// （中身は変えない。0247 の1）。ふつうの保存と同じく一時ファイルからの差し替えで、世代を1つ進め、直前の世代を残す。
+    /// 書かないとき（次に保存したときに直る）: 閲覧だけで開く形式の版（MINOR が新しい）のファイル・事務所の共有でほかのメンバーが
+    /// 開いている世帯（書くと相手の次の保存が分岐になる。共有では世帯の札が正）。開いている世帯は、開いたときのファイルのままなら、
+    /// 次の保存が分岐にならないよう開いた状態の世代と指紋も進める（ほかの保存が先にあったときは、そのまま分岐として見つける）
+    fn rewrite_meta(
+        &self,
+        g: &mut Inner,
+        id: &str,
+        customer_no: &str,
+        label: &Label,
+    ) -> Result<(), StoreError> {
         let fail = g.fail;
         let now = self.now();
-        let (old_digest, new_digest, generation, carry) = {
-            let s = Self::session(g)?;
+        let Some((old_digest, new_digest, generation, carry)) =
+            self.write_meta_of(Self::session(g)?, id, customer_no, label, fail, now)?
+        else {
+            return Ok(());
+        };
+        if let Some(st) = g.opened.get_mut(id) {
+            if st.parent_revision == old_digest && !st.read_only {
+                st.parent_revision = new_digest;
+                st.generation = generation;
+                st.carry = carry;
+            }
+        }
+        Ok(())
+    }
+
+    /// [`Store::rewrite_meta`] の中身（書いたら (前の指紋, 新しい指紋, 新しい世代, 持ち越し)、書かなければ None）
+    #[allow(clippy::type_complexity)]
+    fn write_meta_of(
+        &self,
+        s: &Session,
+        id: &str,
+        customer_no: &str,
+        label: &Label,
+        fail: FailPoint,
+        now: i64,
+    ) -> Result<Option<(String, String, u64, MetaCarry)>, StoreError> {
+        if let Some(sh) = &s.shared {
+            if sh.presence_map(now).get(id).is_some_and(|v| !v.is_empty()) {
+                return Ok(None);
+            }
+        }
+        {
             let path = self.hh_path(s, id);
             let bytes = match fs::read(&path) {
                 Ok(b) => b,
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
                 Err(_) => return Err(StoreError::IO),
             };
             let (h, value, access) = self.decode_household(s, id, &bytes)?;
             if access == Access::ReadOnly {
-                return Ok(());
+                return Ok(None);
             }
-            let (customer_no, label) = Self::label_of(s, id)?;
             let mut carry = MetaCarry::from_body(&value);
             let Value::Object(body) = value else {
                 return Err(StoreError::CORRUPT);
@@ -2529,8 +2650,8 @@ impl Store {
             };
             let plain = Zeroizing::new(self.with_meta(
                 body,
-                &customer_no,
-                &label,
+                customer_no,
+                label,
                 &iso_of(now),
                 now,
                 h.generation + 1,
@@ -2556,16 +2677,13 @@ impl Store {
                 c.generation = h.generation + 1;
                 sh.write_card(id, &c)?;
             }
-            (parent, crypto::digest(&out), h.generation + 1, carry)
-        };
-        if let Some(st) = g.opened.get_mut(id) {
-            if st.parent_revision == old_digest && !st.read_only {
-                st.parent_revision = new_digest;
-                st.generation = generation;
-                st.carry = carry;
-            }
+            Ok(Some((
+                parent,
+                crypto::digest(&out),
+                h.generation + 1,
+                carry,
+            )))
         }
-        Ok(())
     }
 
     /// 架空の世帯をお客さまの世帯にする（印を外す。一方向: お客さまの世帯を架空にする操作は無い）。番号はそのまま。
@@ -2617,12 +2735,19 @@ impl Store {
             origin: None,
         })?;
         Self::check_sample_name(&Self::all_labels(s), name, reserved, Some(id))?;
+        let old_label = Self::label_of(s, id)?.1;
         info.name = numbering::sample_name_key(name);
         info.traits = traits.to_vec();
         info.family = family;
         info.age = age;
-        self.put_label(s, id, &no, label)?;
-        self.rewrite_meta(&mut g, id)
+        // 先に世帯ファイルの meta を書き、後で一覧を書く（一覧を書けなければ meta を前に戻す）
+        self.rewrite_meta(&mut g, id, &no, &label)?;
+        let s = Self::session(&mut g)?;
+        if let Err(e) = self.put_label(s, id, &no, label) {
+            let _ = self.rewrite_meta(&mut g, id, &no, &old_label);
+            return Err(e);
+        }
+        Ok(())
     }
 
     /// 区分の設定（区分の一覧と、区分を使うかを決めたか。0033）
@@ -2696,6 +2821,18 @@ impl Store {
     /// 完全削除（0013 の5）: 世帯ファイル・直前の世代・アプリが管理するバックアップの写しを消し、鍵置き場からその世帯の鍵を消す。
     /// 削除の記録（世帯の内部IDと日付だけ）を残す。鍵置き場の古い世代（最大30日）が入れ替わると、どこにも読める鍵が無くなる。
     /// 事務所で共有しているときは、共有フォルダの世帯ファイル・世帯の札・開いている印・すべての時代の世帯の鍵の札も消す（0023 の9）。
+    /// 完全削除の確かめ（`confirm`）が、その世帯に合うか（[`Store::delete`] と同じ判定。消す前に AI への共有を取り消すかを決めるため。0247 の1）
+    pub fn delete_confirms(&self, id: &str, confirm: &str) -> bool {
+        if !crypto::is_uuid(id) {
+            return false;
+        }
+        let mut g = self.lock();
+        let Ok(s) = Self::session(&mut g) else {
+            return false;
+        };
+        Self::label_of(s, id).is_ok_and(|(no, label)| delete_confirmed(confirm, &no, &label))
+    }
+
     /// `confirm` は FP が打った顧客番号（見本では見本の名前。0247 の1。取り違えて消さないため）。空の `confirm` は、どの世帯でも断る
     pub fn delete(&self, id: &str, confirm: &str) -> Result<(), StoreError> {
         if !crypto::is_uuid(id) {

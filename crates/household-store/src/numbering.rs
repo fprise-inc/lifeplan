@@ -207,7 +207,12 @@ pub fn valid_code(c: &str) -> bool {
 
 fn valid_text(s: &str, max: usize) -> bool {
     let n = s.chars().count();
-    n >= 1 && n <= max && s.trim() == s && !s.chars().any(char::is_control)
+    n >= 1 && n <= max && s.trim() == s && !s.chars().any(|c| c.is_control() || invisible(c))
+}
+
+/// 見えない文字（幅の無い空白・つなぎ・向きの制御・語をつなぐ印・BOM・やわらかいハイフン）。名前に入ると、同じに見えて違う名前ができる（0247 の1）
+fn invisible(c: char) -> bool {
+    matches!(c, '\u{00AD}' | '\u{180E}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{206F}' | '\u{FEFF}')
 }
 
 /// 枝番の書式（1〜99 か C）

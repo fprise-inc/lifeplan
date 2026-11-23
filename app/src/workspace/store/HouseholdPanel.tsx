@@ -809,7 +809,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
         >
           <label>
             確認のため見本の名前（{s.name}）を入れてください{" "}
-            <input value={sampleDelete.value} maxLength={40} aria-label="確認の見本の名前" onInput={(e) => setSampleDelete({ ...sampleDelete, value: (e.currentTarget as HTMLInputElement).value, error: null })} />
+            <input value={sampleDelete.value} aria-label="確認の見本の名前" onInput={(e) => setSampleDelete({ ...sampleDelete, value: (e.currentTarget as HTMLInputElement).value, error: null })} />
           </label>
           <button type="submit" class="btn danger" disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.name)}>
             完全に削除する

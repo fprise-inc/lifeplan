@@ -227,7 +227,7 @@ export function householdNoticeText(n: { kind: string; count?: number; plans?: n
 export function noticeTarget(n: StorageNotice): NoticeTarget {
   if (n.kind === "needsRecovery") return "restore";
   if (n.kind === "recoveryNotKept") return "recovery";
-  if (n.kind === "syncCopies") return "households";
+  if (n.kind === "syncCopies" || n.kind === "sampleRenames") return "households";
   if (n.kind === "localHouseholds" || n.scope !== "office") return "storage";
   return "office";
 }
@@ -256,6 +256,8 @@ export function storageNoticeTitle(n: StorageNotice): string {
       return "まだ移していない世帯があります";
     case "syncCopies":
       return "衝突の写しがある世帯があります";
+    case "sampleRenames":
+      return "同じ名前の見本の名前を直しました";
     default:
       return "保存先の通知";
   }

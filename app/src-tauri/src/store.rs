@@ -355,18 +355,23 @@ pub async fn store_rename(
     blocking(app, move |s| s.rename(&id, &customer_no)).await
 }
 
-/// 完全削除（confirm は FP が打った顧客番号）
+/// 完全削除（confirm は FP が打った顧客番号。見本は見本の名前。0247）
 #[tauri::command]
 pub async fn store_delete(app: AppHandle, id: String, confirm: String) -> Result<(), String> {
-    with_ai(app, move |s, ai| {
-        // 確認の顧客番号が合うときだけ、共有を取り消して帳面を捨てる
-        let matches = entry_of(s, &id).is_some_and(|e| e.customer_no == confirm.trim());
-        if matches {
-            ai.on_deleting(&id);
-        }
-        s.delete(&id, &confirm).map_err(code)
-    })
-    .await
+    with_ai(app, move |s, ai| delete_household(s, ai, &id, &confirm)).await
+}
+
+/// 完全削除。確かめが合うときだけ、先に AI への共有を取り消して帳面を捨てる（判定は本体の完全削除と同じ1か所。見本は名前・空は合わない）
+pub(crate) fn delete_household(
+    s: &Store,
+    ai: &AiState,
+    id: &str,
+    confirm: &str,
+) -> Result<(), String> {
+    if s.delete_confirms(id, confirm) {
+        ai.on_deleting(id);
+    }
+    s.delete(id, confirm).map_err(code)
 }
 
 /// 復元キー（72文字）を表示のために返す

@@ -185,10 +185,11 @@ describe("世帯の一覧の画面", () => {
     expect(html).toContain("<td class=\"hh-nowrap\">夫婦のみ・30代</td>");
     expect(html).toContain("はじめから入っている見本は直せません");
   });
-  it("見本の完全削除の確かめは見本の名前（40字まで）。見本に登録の文に番号の話を書かない。名前と項目を直すで家族の形・年代も直せる", () => {
+  it("見本の完全削除の確かめは見本の名前。見本に登録の文に番号の話を書かない。名前と項目を直すで家族の形・年代も直せる", () => {
     const panel = readFileSync(new URL("../src/workspace/store/HouseholdPanel.tsx", import.meta.url), "utf8");
     expect(panel).toContain("確認のため見本の名前（{s.name}）を入れてください");
-    expect(panel).toContain('maxLength={40} aria-label="確認の見本の名前"');
+    // 入力欄で字数を切らない（maxLength は UTF-16 の数で、名前の上限〔40字〕と数え方が違う。合うまで押せないので足りる。0247）
+    expect(panel).toContain('<input value={sampleDelete.value} aria-label="確認の見本の名前"');
     expect(panel).toContain('disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.name)}');
     expect(panel).not.toContain("見本番号");
     expect(panel).not.toContain("shapeFixed />");

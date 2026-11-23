@@ -1443,15 +1443,6 @@ export function App() {
     autosaver.current?.change(bodyFor(opened, workRef.current, shown, disp, sr.carry));
   }, [opened, work.band, work.base, work.sel, shown, disp]);
 
-  // 見本番号を無くす移行で名前を直した見本を、1回だけ知らせる（本体は事務所データを開いた最初の状態の答えにだけ入れる。0247 の8）
-  const renamesShown = useRef(false);
-  useEffect(() => {
-    const r = storeStatus?.sampleRenames ?? [];
-    if (r.length === 0 || renamesShown.current) return;
-    renamesShown.current = true;
-    say(`見本の番号を無くしました。${r.map((x) => `同じ名前の見本「${x.from}」は「${x.to}」`).join("、")}にしました`);
-  }, [storeStatus, say]);
-
   // ---- 世帯の一覧の操作 ----
   const refreshStore = useCallback(async () => {
     if (host === null) return;
@@ -4055,6 +4046,7 @@ export function App() {
       {fork !== null && host !== null ? (
         <ForkPanel
           customerNo={storedList.find((h) => h.id === fork.id)?.customerNo ?? storedInfo?.customerNo ?? ""}
+          sampleName={storedSamples.find((h) => h.id === fork.id)?.sample?.name ?? (storedInfo?.id === fork.id ? storedInfo.sample?.name : undefined)}
           info={fork.info}
           busy={fork.busy}
           error={fork.error}

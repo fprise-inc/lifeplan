@@ -230,7 +230,7 @@ export interface StoreStatus {
   deletionsCompleted: number;
   /** この PC の事務所データが、このアプリより新しい版で保存されている（閲覧だけ。保存しない。アプリの更新を案内する。0222）。無い本体は false */
   officeTooNew?: boolean;
-  /** 見本番号を無くす移行で、重なった名前を直した見本（事務所データを開いた最初の状態の答えにだけ入る。画面は1回だけ知らせる。0247 の8） */
+  /** 見本番号を無くす移行・一覧の作り直しで、重なった名前を直した見本（この起動の間。画面は保存先の知らせ sampleRenames でお知らせの一覧の「参考」に出す。0247 の8） */
   sampleRenames?: { from: string; to: string }[];
 }
 

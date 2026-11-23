@@ -37,7 +37,9 @@ pub use numbering::{
 };
 pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
-pub use store::{office_version_too_new, OFFICE_FORMAT_VERSION, OFFICE_KNOWN};
+pub use store::{
+    office_version_too_new, OFFICE_BEFORE_SAMPLE_MIGRATION, OFFICE_FORMAT_VERSION, OFFICE_KNOWN,
+};
 pub use store::{
     Clock, CreateOptions, CreateRequest, ForkChoice, ForkInfo, HearingPeek, HouseholdEntry,
     MemberView, NoticeView, OfficeStatus, Opened, PresenceView, PreviousGeneration, RemovedView,

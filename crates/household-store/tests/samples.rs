@@ -193,8 +193,28 @@ fn numbered_office_data_is_migrated_once() {
     assert!(st2.sample_renames.is_empty());
     assert_eq!(shelf(&s2), got);
     assert_eq!(s2.office_json_for_test().unwrap(), office);
-    // 同じ状態の答えは2回目からは知らせを出さない（1回だけ）
-    assert!(s.status().unwrap().sample_renames.is_empty());
+    // 直した名前は、この起動の間はお知らせ（参考）に出る（状態を何度読んでも消えない）。次の起動では出ない
+    assert_eq!(s.status().unwrap().sample_renames.len(), 1);
+    let n = s.storage_notices().unwrap();
+    let r = n
+        .iter()
+        .find(|x| x.kind == "sampleRenames")
+        .expect("名前を直した知らせ");
+    assert_eq!(r.level, "info");
+    assert_eq!(r.count, Some(1));
+    assert_eq!(r.name.as_deref(), Some("「研修用」→「研修用（2）」"));
+    assert!(s2
+        .storage_notices()
+        .unwrap()
+        .iter()
+        .all(|x| x.kind != "sampleRenames"));
+    // 移行の前の事務所データは、別名で残っている（番号つきの前の形・版 0.2）
+    let (before, version) = s2
+        .office_before_migration_for_test()
+        .unwrap()
+        .expect("移行の前の写し");
+    assert_eq!(version, "0.2");
+    assert_eq!(before["households"][&a.id]["sample"]["no"], "3-4-10");
     // 世帯ファイルには触れていない
     let after: Vec<String> = [&a.id, &b.id, &c.id, &customer.id]
         .iter()
@@ -524,6 +544,18 @@ fn samples_stay_samples_after_recovery() {
     );
     assert_eq!(customer_ids(&s2), std::slice::from_ref(&c.id));
     let _ = recovery::DISPLAY_LEN;
+    // 事務所データも無くして復元キーで戻すと、一覧は世帯ファイルから作り直され、見本は見本のまま
+    let office_id = office["officeId"].as_str().unwrap().to_owned();
+    env.secrets.delete(&office_id).unwrap();
+    std::fs::remove_file(env.base.join("pc").join("office.lpod")).unwrap();
+    let _ = std::fs::remove_file(env.base.join("pc").join("office.lpod.prev"));
+    let s3 = env.store("pc");
+    assert_eq!(s3.status().unwrap().state, StatusState::NeedsRecovery);
+    s3.restore_with_recovery_key(&key).unwrap();
+    let s3 = env.store("pc");
+    s3.status().unwrap();
+    assert_eq!(shelf(&s3)[&x.id].0, "ひとり親の研修");
+    assert_eq!(customer_ids(&s3), std::slice::from_ref(&c.id));
 }
 
 /// (f): 共有フォルダの前の形（0.1）の見本の札は、読むときにメモリの中で新しい形に直す（どの PC でも同じ名前）。開いただけでは札を
@@ -629,4 +661,271 @@ fn samples_come_back_from_the_shared_folder() {
     assert_eq!(got[&before.id].0, "前からの見本");
     assert_eq!(got[&x.id], ("シニアの研修".to_owned(), 5, 7, String::new()));
     assert_eq!(customer_ids(&a), std::slice::from_ref(&c.id));
+}
+
+/// 事務所の共有で2台（A が始め、B が加わる）
+fn office_pair(env: &Env) -> (Store, Store) {
+    let folder = env.base.join("共有フォルダ");
+    std::fs::create_dir_all(&folder).unwrap();
+    let a = env.other_pc("a");
+    let b = env.other_pc("b");
+    a.status().unwrap();
+    a.office_start(&folder, "担当A", true, &[]).unwrap();
+    a.acknowledge_recovery().unwrap();
+    b.status().unwrap();
+    let st = b.office_join(&folder, "担当B", true, &[]).unwrap();
+    let fp = st.my_fingerprint.unwrap();
+    let rq = a.office_status().unwrap().requests;
+    a.office_approve(&rq[0].request_id, &fp).unwrap();
+    assert_eq!(b.office_status().unwrap().state, "member");
+    (a, b)
+}
+
+/// 点検の1: 移行の後に世帯を開いて事務所データを何度か書いても、移行の前の形の事務所データが別名で残る（前の版へ戻せる）。
+/// 写しは1回だけ書き、後から書き換えない
+#[test]
+fn the_office_data_before_the_migration_is_kept() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let a = make(&s, sample(3, 4, "研修用"));
+    let c = s.create(req()).unwrap();
+    let mut office = s.office_json_for_test().unwrap();
+    to_legacy_entry(&mut office["households"][&a.id], "3-4-10");
+    s.write_office_json_for_test(&office, "0.2").unwrap();
+    let path = env
+        .base
+        .join("pc")
+        .join(household_store::OFFICE_BEFORE_SAMPLE_MIGRATION);
+    assert!(!path.exists());
+    let s = env.store("pc");
+    s.status().unwrap();
+    let kept = std::fs::read(&path).expect("移行の前の写し");
+    // 世帯を開く（最後に開いた世帯を書く）・保存する・見本を作る: どれも事務所データを書くが、写しは変わらない
+    s.open(&c.id).unwrap();
+    s.save(&c.id, &body(), "本人").unwrap();
+    s.open(&a.id).unwrap();
+    make(&s, sample(1, 2, "新しい見本"));
+    let s = env.store("pc");
+    s.status().unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), kept, "写しは書き換えない");
+    let (before, version) = s.office_before_migration_for_test().unwrap().unwrap();
+    assert_eq!(version, "0.2");
+    assert_eq!(before["households"][&a.id]["customerNo"], "3-4-10");
+    // 移行の無い事務所データでは写しを作らない
+    let other = env.store("pc2");
+    other.status().unwrap();
+    make(&other, sample(1, 2, "x"));
+    let other = env.store("pc2");
+    other.status().unwrap();
+    assert!(other.office_before_migration_for_test().unwrap().is_none());
+}
+
+/// 点検の4: 見本に登録・名前を直すの途中で世帯ファイルを書けなかったら、何も変わらない（一覧も世帯ファイルも前のまま）
+#[test]
+fn a_failed_registration_or_rename_changes_nothing() {
+    use household_store::atomic::FailPoint;
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let c = s.create(req()).unwrap();
+    s.set_fail_point(FailPoint::AfterTempWritten);
+    assert!(s.make_sample(&c.id, &sample(1, 3, "登録"), &[]).is_err());
+    s.set_fail_point(FailPoint::None);
+    assert_eq!(customer_ids(&s), std::slice::from_ref(&c.id), "顧客のまま");
+    assert!(s.list_samples().unwrap().is_empty());
+    let meta = s.raw_body_for_test(&c.id).unwrap()["meta"].clone();
+    assert!(meta.get("sample").is_none());
+    assert_eq!(meta["customerNo"], c.customer_no);
+    // もう一度登録できる。開いたままの保存も分岐にならない
+    s.make_sample(&c.id, &sample(1, 3, "登録"), &[]).unwrap();
+    s.save(&c.id, &body(), "本人").unwrap();
+    assert_eq!(
+        s.raw_body_for_test(&c.id).unwrap()["meta"]["sample"]["name"],
+        "登録"
+    );
+    // 名前を直すの途中の失敗
+    let x = make(&s, sample(3, 4, "直す前"));
+    s.set_fail_point(FailPoint::AfterTempWritten);
+    assert!(s.update_sample(&x.id, "直した後", &[], 2, 5, &[]).is_err());
+    s.set_fail_point(FailPoint::None);
+    assert_eq!(shelf(&s)[&x.id], ("直す前".to_owned(), 3, 4, String::new()));
+    assert_eq!(
+        s.raw_body_for_test(&x.id).unwrap()["meta"]["sample"]["name"],
+        "直す前"
+    );
+}
+
+/// 点検の5: 事務所の共有で、ほかのメンバーが開いている世帯を見本に登録・名前を直しても、相手の次の保存が分岐にならない
+/// （世帯ファイルの meta は相手の次の保存で追いつく。共有では世帯の札が正）
+#[test]
+fn renaming_a_sample_another_member_has_open_does_not_fork_their_save() {
+    let env = Env::new();
+    let (a, b) = office_pair(&env);
+    let x = make(&a, sample(3, 4, "共有の見本"));
+    let o = b.open(&x.id).unwrap();
+    a.update_sample(&x.id, "共有の見本・直した", &[], 3, 4, &[])
+        .unwrap();
+    b.save(&x.id, &o.body, "本人").unwrap();
+    assert_eq!(shelf(&a)[&x.id].0, "共有の見本・直した");
+    assert_eq!(
+        a.raw_body_for_test(&x.id).unwrap()["meta"]["sample"]["name"],
+        "共有の見本・直した",
+        "相手の保存で追いつく"
+    );
+    let c = a.create(req()).unwrap();
+    let o = b.open(&c.id).unwrap();
+    a.make_sample(&c.id, &sample(1, 3, "登録"), &[]).unwrap();
+    b.save(&c.id, &o.body, "本人").unwrap();
+    assert_eq!(
+        a.raw_body_for_test(&c.id).unwrap()["meta"]["sample"]["name"],
+        "登録"
+    );
+    // 誰も開いていなければ、その場で世帯ファイルも書き直す
+    b.leave_all();
+    a.update_sample(&c.id, "登録・直した", &[], 1, 3, &[])
+        .unwrap();
+    assert_eq!(
+        a.raw_body_for_test(&c.id).unwrap()["meta"]["sample"]["name"],
+        "登録・直した"
+    );
+}
+
+/// 点検の7: PC の中の見本を、同じ名前の見本がある共有フォルダへ移すと、移す見本の名前の後ろに「（2）」が付く（同じ名前が2件並ばない）。
+/// 見えない文字の入った名前は作れない
+#[test]
+fn moving_samples_into_the_shared_folder_keeps_names_unique() {
+    let env = Env::new();
+    let folder = env.base.join("同期フォルダ");
+    std::fs::create_dir_all(&folder).unwrap();
+    let a = env.other_pc("a");
+    a.status().unwrap();
+    a.acknowledge_recovery().unwrap();
+    a.sync_start(&folder, "PC1", true, &[]).unwrap();
+    make(&a, sample(3, 4, "同じ名前"));
+    let key = a.recovery_key().unwrap().to_string();
+    let b = env.other_pc("b");
+    b.status().unwrap();
+    b.acknowledge_recovery().unwrap();
+    let y = make(&b, sample(2, 5, "同じ名前"));
+    b.sync_open(&folder, "PC2", &key, true, &[]).unwrap();
+    b.office_move_local().unwrap();
+    let names: Vec<String> = shelf(&b).into_values().map(|v| v.0).collect();
+    let mut sorted = names.clone();
+    sorted.sort();
+    assert_eq!(sorted, ["同じ名前", "同じ名前（2）"]);
+    assert_eq!(shelf(&b)[&y.id].0, "同じ名前（2）");
+    b.update_sample(&y.id, "同じ名前（2）", &["賃貸".into()], 2, 5, &[])
+        .unwrap();
+    for bad in ["研修\u{200b}用", "\u{feff}研修", "研修\u{202e}用"] {
+        assert_eq!(
+            b.create_with(
+                req(),
+                CreateOptions {
+                    sample: Some(sample(1, 2, bad)),
+                    ..Default::default()
+                }
+            )
+            .err(),
+            Some(StoreError::SAMPLE),
+            "{bad:?}"
+        );
+    }
+}
+
+/// 点検の8・9: 前の形の札が、鍵の入れ替え（メンバーを外す）で書き直されるときも、表示の番号を空にした新しい形で書く。
+/// 同じ名前の前の形の札2枚は、保存の順番を入れ替えても名前が重ならない
+#[test]
+fn old_sample_cards_are_rewritten_whole_and_keep_distinct_names() {
+    let env = Env::new();
+    let (a, b) = office_pair(&env);
+    let x = make(&a, sample(2, 6, "古い見本・一つ目"));
+    let y = make(&a, sample(2, 6, "古い見本・二つ目"));
+    for (id, no) in [(&x.id, "2-6-10"), (&y.id, "2-6-11")] {
+        let mut c = a.card_json_for_test(id).unwrap();
+        let sm = c["sample"].as_object_mut().unwrap();
+        sm.remove("family");
+        sm.remove("age");
+        sm.insert("no".into(), no.into());
+        sm.insert("name".into(), "古い見本".into());
+        c["customerNo"] = no.into();
+        a.write_card_json_for_test(id, &c).unwrap();
+    }
+    let (first, second) = if x.id < y.id { (&x, &y) } else { (&y, &x) };
+    assert_eq!(shelf(&b)[&first.id].0, "古い見本");
+    assert_eq!(shelf(&b)[&second.id].0, "古い見本（2）");
+    // 前の形の札が残っている間は、お知らせ（参考）に出る
+    assert!(b
+        .storage_notices()
+        .unwrap()
+        .iter()
+        .any(|n| n.kind == "sampleRenames"));
+    // 2つ目から先に保存し、次に1つ目を保存しても、名前は重ならない
+    let o = b.open(&second.id).unwrap();
+    b.save(&second.id, &o.body, "本人").unwrap();
+    let o = b.open(&first.id).unwrap();
+    b.save(&first.id, &o.body, "本人").unwrap();
+    let names: Vec<String> = shelf(&a).into_values().map(|v| v.0).collect();
+    let mut sorted = names.clone();
+    sorted.sort();
+    assert_eq!(sorted, ["古い見本", "古い見本（2）"]);
+    assert!(
+        a.storage_notices()
+            .unwrap()
+            .iter()
+            .all(|n| n.kind != "sampleRenames"),
+        "書き直した後は出ない"
+    );
+    // 鍵の入れ替え（B を外す）で札がすべて新しい形で書き直される
+    let z = make(&a, sample(1, 2, "三つ目"));
+    let mut c = a.card_json_for_test(&z.id).unwrap();
+    let sm = c["sample"].as_object_mut().unwrap();
+    sm.remove("family");
+    sm.remove("age");
+    sm.insert("no".into(), "1-2-10".into());
+    c["customerNo"] = "1-2-10".into();
+    a.write_card_json_for_test(&z.id, &c).unwrap();
+    let member_b = a
+        .office_status()
+        .unwrap()
+        .members
+        .into_iter()
+        .find(|m| m.name == "担当B")
+        .unwrap();
+    a.office_remove(&member_b.member_id, "担当B").unwrap();
+    let card = a.card_json_for_test(&z.id).unwrap();
+    assert_eq!(card["customerNo"], "");
+    assert!(card["sample"].get("no").is_none());
+    assert_eq!(card["sample"]["family"], 1);
+}
+
+/// 点検の9: 一覧は顧客なのに世帯ファイルが見本の中身（meta.sample）を持つとき（事務所データが見本に登録する前の世代に戻った）は、
+/// 開いたときに見本に倒し、一覧も直す。次の保存でも meta.sample が消えない
+#[test]
+fn a_household_file_with_meta_sample_opens_as_a_sample() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let c = s.create(req()).unwrap();
+    let before = s.office_json_for_test().unwrap();
+    s.make_sample(&c.id, &sample(1, 3, "登録した見本"), &[])
+        .unwrap();
+    s.write_office_json_for_test(&before, household_store::OFFICE_FORMAT_VERSION)
+        .unwrap();
+    let s = env.store("pc");
+    s.status().unwrap();
+    assert_eq!(
+        customer_ids(&s),
+        std::slice::from_ref(&c.id),
+        "開く前は一覧のまま"
+    );
+    let o = s.open(&c.id).unwrap();
+    assert_eq!(o.customer_no, "");
+    assert_eq!(o.label.sample.as_ref().unwrap().name, "登録した見本");
+    assert!(customer_ids(&s).is_empty());
+    assert_eq!(shelf(&s)[&c.id].0, "登録した見本");
+    s.save(&c.id, &o.body, "本人").unwrap();
+    let meta = s.raw_body_for_test(&c.id).unwrap()["meta"].clone();
+    assert_eq!(meta["sample"]["name"], "登録した見本");
+    assert!(meta.get("customerNo").is_none());
 }

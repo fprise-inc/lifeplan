@@ -1598,6 +1598,51 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    /// 見本を完全削除するとき（確かめは見本の名前。0247）も、先に AI への共有を取り消して帳面を捨てる。空白だけの確かめでは何もしない
+    #[test]
+    fn deleting_a_sample_by_its_name_revokes_shares_and_forgets_the_book() {
+        let root = root("delete-sample");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        let o = pc1
+            .store
+            .create_with(
+                CreateRequest {
+                    body: body(),
+                    summary: "本人".into(),
+                },
+                CreateOptions {
+                    sample: Some(household_store::SampleRequest {
+                        family: 1,
+                        age: 2,
+                        name: "研修用".into(),
+                        traits: vec![],
+                        origin: None,
+                    }),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(o.customer_no, "");
+        let id = o.id.clone();
+        pc1.open(&id);
+        pc1.record(&id, "given");
+        let share = pc1.share(&id).expect("本体は見本でも渡せる（画面が止めている）");
+        assert!(!pc1.ai.registry.active_share_ids(&id).is_empty());
+        // 空白だけ・違う名前では、共有も帳面もそのまま
+        for wrong in [" ", "", "研修"] {
+            assert!(crate::store::delete_household(&pc1.store, &pc1.ai, &id, wrong).is_err());
+            assert!(lock(&pc1.ai.books).contains_key(&id), "{wrong:?}");
+            assert!(pc1.ai.registry.active_share_ids(&id).contains(&share));
+        }
+        // 見本の名前で消すと、共有が取り消され帳面も消える
+        crate::store::delete_household(&pc1.store, &pc1.ai, &id, " 研修用 ").unwrap();
+        assert!(pc1.ai.registry.active_share_ids(&id).is_empty());
+        assert!(!lock(&pc1.ai.books).contains_key(&id));
+        assert!(pc1.store.list_samples().unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// 同じ起動の中で開き直したら、世帯ファイルの同意で帳面を作り直す。もう1台で記録した撤回が見え、渡せず、保存しても消えない
     #[test]
     fn reopening_reads_consents_written_on_another_pc() {

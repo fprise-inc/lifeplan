@@ -133,6 +133,7 @@ pub struct ForkInfo {
 /// - `joinRequest`（1人の同期フォルダでは alert、事務所では info）: 参加の申請がある（`count`）
 /// - `localHouseholds`（info）: この PC の中に、まだ移していない世帯がある（`count`）
 /// - `syncCopies`（warn）: 同期サービスの衝突の写しがある世帯がある（`count`）
+/// - `sampleRenames`（info）: 見本番号を無くす移行・一覧の作り直しで、同じ名前の見本の後ろに「（2）」を付けた（`count`、`name` に「前」→「後」の並び。0247 の8）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageNotice {
@@ -231,11 +232,17 @@ impl Shared {
     }
 
     pub(super) fn write_card(&self, id: &str, card: &Card) -> Result<(), StoreError> {
+        // 見本の札は、どの道から書いても表示の番号を空にする（前の形の札を半分だけ新しい形で書かない。0247 の8）
+        let mut card = card.clone();
+        if let Some(info) = card.label.sample.as_mut() {
+            card.customer_no.clear();
+            info.legacy_no = None;
+        }
         let bytes = office::encode_card(
             &self.office_id,
             &self.roster.master_key_id,
             id,
-            card,
+            &card,
             &self.master,
         );
         atomic::replace_no_prev(&self.paths.card(id), &bytes)?;
@@ -261,6 +268,24 @@ impl Shared {
         out.sort_by(|a, b| a.0.cmp(&b.0));
         normalize_legacy_cards(&mut out);
         out
+    }
+
+    /// 前の形の見本の札をメモリの中で直すときに、名前を直す見本（前の形の札が残っている間だけ。知らせに使う）
+    pub(super) fn legacy_card_renames(&self) -> Vec<SampleRename> {
+        let mut cards = vec![];
+        if let Ok(rd) = fs::read_dir(self.paths.cards_dir()) {
+            for e in rd.filter_map(|e| e.ok()) {
+                let name = e.file_name().to_string_lossy().into_owned();
+                let Some(id) = name.strip_suffix(".lpcd").filter(|i| crypto::is_uuid(i)) else {
+                    continue;
+                };
+                if let Ok(c) = self.read_card_raw(id) {
+                    cards.push((id.to_owned(), c));
+                }
+            }
+        }
+        cards.sort_by(|a, b| a.0.cmp(&b.0));
+        normalize_legacy_cards(&mut cards)
     }
 
     fn write_keys(
@@ -433,6 +458,8 @@ impl Shared {
     pub(super) fn reseal_stale(&self, only_dict_of: Option<&str>) {
         let cur = self.roster.master_key_id.as_str();
         if only_dict_of.is_none() {
+            // 前の形の見本の札は、一覧と同じに直した物（名前の重なりの番号を含む）で書き直す
+            let mut normalized: Option<HashMap<String, Card>> = None;
             if let Ok(rd) = fs::read_dir(self.paths.cards_dir()) {
                 for e in rd.filter_map(|e| e.ok()) {
                     let name = e.file_name().to_string_lossy().into_owned();
@@ -445,7 +472,14 @@ impl Shared {
                     if office::peek_card_master(&b).ok().as_deref() == Some(cur) {
                         continue;
                     }
-                    if let Ok(c) = office::open_card(&b, id, |mk| self.master_for(mk)) {
+                    if let Ok(mut c) = office::open_card(&b, id, |mk| self.master_for(mk)) {
+                        if c.label.sample.as_ref().is_some_and(|x| x.is_legacy()) {
+                            let all = normalized
+                                .get_or_insert_with(|| self.list_cards().into_iter().collect());
+                            if let Some(n) = all.get(id) {
+                                c = n.clone();
+                            }
+                        }
                         let _ = self.write_card(id, &c);
                     }
                 }
@@ -731,11 +765,12 @@ fn usage_of(r: &Roster) -> &'static str {
     }
 }
 
-/// 前の形の見本の札を新しい形にそろえる（[`Shared::list_cards`]。`cards` は内部ID の順）
-fn normalize_legacy_cards(cards: &mut [(String, Card)]) {
+/// 前の形の見本の札を新しい形にそろえる（[`Shared::list_cards`]。`cards` は内部ID の順）。名前を直した見本を返す
+fn normalize_legacy_cards(cards: &mut [(String, Card)]) -> Vec<SampleRename> {
     let legacy = |c: &Card| c.label.sample.as_ref().is_some_and(|x| x.is_legacy());
+    let mut renamed = vec![];
     if !cards.iter().any(|(_, c)| legacy(c)) {
-        return;
+        return renamed;
     }
     let mut taken: std::collections::HashSet<String> = cards
         .iter()
@@ -752,10 +787,17 @@ fn normalize_legacy_cards(cards: &mut [(String, Card)]) {
         if let Some(info) = c.label.sample.as_mut() {
             info.legacy_no = None;
             if info.origin.is_none() {
-                info.name = crate::numbering::unique_sample_name(&info.name, &mut taken);
+                let name = crate::numbering::unique_sample_name(&info.name, &mut taken);
+                if name != info.name {
+                    renamed.push(SampleRename {
+                        from: std::mem::replace(&mut info.name, name.clone()),
+                        to: name,
+                    });
+                }
             }
         }
     }
+    renamed
 }
 
 impl Store {
@@ -1986,9 +2028,25 @@ impl Store {
         }
         let ids: Vec<String> = s.data.households.keys().cloned().collect();
         let mut moved = 0;
+        // 共有フォルダにもう同じ名前の見本があれば、移す見本の名前の後ろに「（2）」を付ける（同じ名前の見本を作れない決まり。0247 の1）
+        let mut taken: HashSet<String> = s
+            .shared
+            .as_ref()
+            .map(|sh| {
+                sh.list_cards()
+                    .into_iter()
+                    .filter_map(|(_, c)| c.label.sample)
+                    .filter(|x| x.origin.is_none())
+                    .map(|x| crate::numbering::sample_name_key(&x.name))
+                    .collect()
+            })
+            .unwrap_or_default();
         for id in ids {
             let path = self.household_path(&id);
-            let entry = s.data.households.get(&id).cloned().expect("一覧の世帯");
+            let mut entry = s.data.households.get(&id).cloned().expect("一覧の世帯");
+            if let Some(info) = entry.label.sample.as_mut().filter(|x| x.origin.is_none()) {
+                info.name = crate::numbering::unique_sample_name(&info.name, &mut taken);
+            }
             let Ok(bytes) = fs::read(&path) else {
                 continue;
             };
@@ -2165,6 +2223,30 @@ impl Store {
                     ..StorageNotice::new("syncCopies", "warn", scope)
                 });
             }
+        }
+        // 見本番号を無くす移行・一覧の作り直しで、重なった名前に「（2）」を付けた見本（参考。0247 の8）。PC の中の分はこの起動の間、
+        // 共有フォルダの前の形の札の分は、その札が新しい形に書き直されるまで出る
+        let mut renames = status.sample_renames.clone();
+        {
+            let mut g = self.lock();
+            if let Ok(s) = Self::session(&mut g) {
+                if let Some(sh) = &s.shared {
+                    renames.extend(sh.legacy_card_renames());
+                }
+            }
+        }
+        if !renames.is_empty() {
+            out.push(StorageNotice {
+                count: Some(renames.len()),
+                name: Some(
+                    renames
+                        .iter()
+                        .map(|r| format!("「{}」→「{}」", r.from, r.to))
+                        .collect::<Vec<_>>()
+                        .join("、"),
+                ),
+                ..StorageNotice::new("sampleRenames", "info", scope)
+            });
         }
         Ok(out)
     }
