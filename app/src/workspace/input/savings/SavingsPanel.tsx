@@ -11,7 +11,7 @@ import { FieldFill, FieldStateBadge, FieldStateLine } from "../FieldStateLine.ts
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
 import { fieldStatus, typeValue } from "../valueState.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
-import { accountHolderRule, accountLabelOf, accountLabelProblem, cleanAccountLabel, holderOptions, memberLabel, withAccountLabel } from "../labels.ts";
+import { accountHolderRule, accountLabelCloses, accountLabelOf, accountLabelProblem, cleanAccountLabel, holderOptions, memberLabel, withAccountLabel } from "../labels.ts";
 import { buildStage } from "../stages/index.ts";
 import { accountMoreLabel, dropContributions, flowMatters, MAIN_ADD_KINDS, SETTLEMENT_CONTRIBUTION_UNUSED, SETTLEMENT_SAVES } from "../stages/savings.ts";
 import { revealAdded } from "../../../presentation/revealAdded.ts";
@@ -775,16 +775,23 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
 /**
  * 口座の名前の欄（任意。0223）: 口座の表の「口座」の列に、種類の名前の下に細い欄で出す。名前の無い口座は欄を出さず、名義の横の小さな
  * 「名前を付ける」のリンク（AccountsTable）で開く。打っている間は下書きだけで、離れたとき（Enter）に決める（NumBox と同じ）。
- * 空にして離れたら名前を外して欄を閉じる。長すぎる名前・口座番号らしき数字は書かず、理由を欄の下に出す
+ * 空にして離れたら名前を外して欄を閉じる（名前の無い口座で何も入れずに離れたときも閉じる）。長すぎる名前・口座番号らしき数字は書かず、理由を欄の下に出す。
+ * 欄の右の小さな「キャンセル」（と Esc）は打ちかけを捨てて、保存した名前に戻す。保存した名前が無ければ欄を閉じて「名前を付ける」に戻す
+ * （0223 の追記 2026-11-24。入力の途中をやめる言葉は「キャンセル」。0243）。「キャンセル」は欄を開いて名前がまだ無い間と、打っている間だけ出す
  */
 function AccountLabel(p: { a: Account; kindName: string; f: FieldDef | undefined; focus: boolean; onCommit: (v: string | null) => void; onClose: () => void }) {
   const shown = accountLabelOf(p.a) ?? "";
   const [draft, setDraft] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  /** 欄に入ってから、決める・キャンセルするまで（Tab で「キャンセル」に移った間も含む） */
+  const [editing, setEditing] = useState(false);
   const start = useRef<string | null>(null);
-  /** Esc で打ちかけを捨てた（離れても書かない） */
+  /** Esc・「キャンセル」で打ちかけを捨てた（離れても書かない） */
   const cancelled = useRef(false);
+  /** Tab で欄から「キャンセル」に移った（まだ決めない。押さずに離れたら、そのとき決める） */
+  const onCancelBtn = useRef(false);
   const el = useRef<HTMLInputElement>(null);
+  const cancelEl = useRef<HTMLButtonElement>(null);
   const leaveInput = useRef<(() => void) | null>(null);
   const settleNow = useRef<() => Settled>(() => "none");
   useEffect(() => {
@@ -797,65 +804,120 @@ function AccountLabel(p: { a: Account; kindName: string; f: FieldDef | undefined
     },
     [],
   );
-  /** 打った文字を決める（入ったときと同じ文字なら何もしない。書けない名前は書かずに理由を出す） */
+  /** 打った文字を決める（入ったときと同じ文字なら何もしない。書けない名前は書かずに理由を出す）。何も入れていなければ欄を閉じる */
   const decide = (t: string): Settled => {
-    if (!shouldCommitOnBlur(start.current, t)) return "none";
+    if (!shouldCommitOnBlur(start.current, t)) {
+      if (accountLabelCloses(shown, t)) p.onClose();
+      return "none";
+    }
     const why = accountLabelProblem(t);
     setProblem(why !== null ? `入れられないため、前の名前のままです。${why}` : null);
     if (why !== null) return "rejected";
     const clean = cleanAccountLabel(t);
     p.onCommit(clean === "" ? null : clean);
     start.current = t;
-    if (clean === "") p.onClose();
+    if (accountLabelCloses(shown, t)) p.onClose();
     return "committed";
   };
   settleNow.current = () => decide(el.current?.value ?? draft ?? shown);
+  /** 欄を離れ終える（決めた・捨てた後の片付け） */
+  const finish = () => {
+    leaveInput.current?.();
+    leaveInput.current = null;
+    cancelled.current = false;
+    onCancelBtn.current = false;
+    setDraft(null);
+    setEditing(false);
+    start.current = null;
+  };
+  /** 「キャンセル」・Esc: 打ちかけを捨てて保存した名前に戻す。保存した名前が無ければ欄を閉じる */
+  const cancel = () => {
+    setProblem(null);
+    if (document.activeElement === el.current) {
+      cancelled.current = true;
+      el.current?.blur();
+    } else finish();
+    if (accountLabelCloses(shown, null)) p.onClose();
+  };
   const id = fieldDomId(`sav/${p.a.id}/label`);
   return (
     <span class="sv-lbl-w">
-      <input
-        ref={el}
-        id={id}
-        type="text"
-        class={`sv-lbl${problem !== null ? " bad" : ""}`}
-        value={draft ?? shown}
-        placeholder="名前（任意）例: ○○銀行"
-        aria-label={`${p.kindName}の名前（任意）`}
-        aria-invalid={problem !== null ? true : undefined}
-        aria-describedby={problem !== null ? `${id}-problem` : undefined}
-        title={p.f?.help}
-        data-account-label={p.a.id}
-        onFocus={() => {
-          setDraft(shown);
-          start.current = shown;
-          leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
-        }}
-        onInput={(e) => {
-          setDraft((e.currentTarget as HTMLInputElement).value);
-          setProblem(null);
-        }}
-        onBlur={(e) => {
-          leaveInput.current?.();
-          leaveInput.current = null;
-          const t = (e.currentTarget as HTMLInputElement).value;
-          // 書けない名前は前の名前のまま（理由は欄の下に残す）。Esc で捨てたときは書かない
-          if (!cancelled.current) decide(t);
-          cancelled.current = false;
-          setDraft(null);
-          start.current = null;
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-          if (e.key === "Escape") {
-            // 名前の打ちかけを捨てるだけ（入力項目のパネルの Esc には渡さない）
-            e.preventDefault();
-            cancelled.current = true;
+      <span class="sv-lbl-row">
+        <input
+          ref={el}
+          id={id}
+          type="text"
+          class={`sv-lbl${problem !== null ? " bad" : ""}`}
+          value={draft ?? shown}
+          placeholder="名前（任意）例: ○○銀行"
+          aria-label={`${p.kindName}の名前（任意）`}
+          aria-invalid={problem !== null ? true : undefined}
+          aria-describedby={problem !== null ? `${id}-problem` : undefined}
+          title={p.f?.help}
+          data-account-label={p.a.id}
+          onFocus={() => {
+            // 「キャンセル」から Shift+Tab で戻ったときは、打ちかけをそのまま続ける
+            if (onCancelBtn.current) {
+              onCancelBtn.current = false;
+              return;
+            }
+            setDraft(shown);
+            setEditing(true);
+            start.current = shown;
+            leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
+          }}
+          onInput={(e) => {
+            setDraft((e.currentTarget as HTMLInputElement).value);
             setProblem(null);
-            (e.currentTarget as HTMLInputElement).blur();
-            if (shown === "") p.onClose();
-          }
-        }}
-      />
+          }}
+          onBlur={(e) => {
+            // Tab で「キャンセル」に移ったときは、まだ決めない（押せば捨てる。押さずに離れたら、そのとき決める）
+            if (!cancelled.current && e.relatedTarget !== null && e.relatedTarget === cancelEl.current) {
+              onCancelBtn.current = true;
+              return;
+            }
+            const t = (e.currentTarget as HTMLInputElement).value;
+            // 書けない名前は前の名前のまま（理由は欄の下に残す）。Esc・「キャンセル」で捨てたときは書かない
+            if (!cancelled.current) decide(t);
+            finish();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+            if (e.key === "Escape") {
+              // 名前の打ちかけを捨てるだけ（入力項目のパネルの Esc には渡さない）
+              e.preventDefault();
+              cancel();
+            }
+          }}
+        />
+        {editing || shown === "" ? (
+          <button
+            ref={cancelEl}
+            type="button"
+            class="link-btn sv-lbl-cancel"
+            aria-label={`${p.kindName}の名前をキャンセル`}
+            title={shown === "" ? "入れかけの名前を捨てて「名前を付ける」に戻します" : "入れかけの名前を捨てて、前の名前に戻します"}
+            data-account-label-cancel={p.a.id}
+            // 押しても欄から離れない（離れると打ちかけが決まってしまう）
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={cancel}
+            onBlur={(e) => {
+              // 押さずに「キャンセル」から離れた（欄に戻ったときは欄の onFocus が続ける）
+              if (!onCancelBtn.current || e.relatedTarget === el.current) return;
+              decide(el.current?.value ?? draft ?? shown);
+              finish();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                cancel();
+              }
+            }}
+          >
+            キャンセル
+          </button>
+        ) : null}
+      </span>
       {problem !== null ? (
         <span class="fld-help warn sv-rate-msg" id={`${id}-problem`} role="alert">
           {problem}

@@ -489,6 +489,16 @@ export function accountLabelProblem(text: string): string | null {
 }
 
 /**
+ * 名前の欄を閉じて「名前を付ける」のリンクに戻すか（0223 の追記 2026-11-24）。text が null は「キャンセル」・Esc（打ちかけを捨てる）。
+ * キャンセルは、前に保存した名前が無いときだけ閉じる（名前のある口座は欄をいつも出し、保存した名前に戻す）。
+ * 離れたときは、何も入れていない（空・空白だけ）なら閉じる（名前があった口座は名前を外して閉じる）
+ */
+export function accountLabelCloses(saved: string, text: string | null): boolean {
+  if (text === null) return cleanAccountLabel(saved) === "";
+  return cleanAccountLabel(text) === "";
+}
+
+/**
  * 名前のある口座の呼び名（0223）: 「名前（種類・名義）」。名前が無ければ「種類（名義）」（今までの形）。
  * 同じ金融機関に NISA と課税口座があっても見分けられるよう、名前があっても種類と名義を残す
  */
