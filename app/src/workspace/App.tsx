@@ -123,7 +123,7 @@ import { dropNotesOnPersist, stripNotesBeforeSample } from "./store/sampleNotes.
 import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory, APP_SAMPLE_MEMO_TEXT, COPY_SAMPLE_TITLE } from "./store/HouseholdPanel.tsx";
 import { PreviousPanel, offersPrevious } from "./store/PreviousPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
-import { guessShape, sampleNoText, sampleNotSaving, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
+import { guessShape, reservedSampleNames, sampleNotSaving, shapeText, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
@@ -157,6 +157,9 @@ import { TopBar } from "./header/TopBar.tsx";
 
 /** 機能を有効にするコードの状態を読み直す間隔（提供元が止めた・外したを、本体の裏の確かめのあとに画面へ出す） */
 const FEATURE_POLL_MS = 60_000;
+
+/** 見本の名前に使えない名前（アプリに入っているすべての見本の名前。本体が自分で作った見本の名前と重ならないよう確かめる。0247 の1） */
+const RESERVED_SAMPLE_NAMES = reservedSampleNames(DEMO_HOUSEHOLDS);
 
 type Tab = "input" | "main" | "balance" | "rental" | "contingency" | "report";
 /** FP のメニューから開く、入力のホームの中身 */
@@ -1394,7 +1397,7 @@ export function App() {
       const o: Opened = stripped ? { ...o0, wh: withoutNotes(o0.wh) } : o0;
       const body = bodyFor(o, workRef.current, shownRef.current, dispRef.current, EMPTY_CARRY);
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
-      const r = await host.store.create(body, summaryOf(o.wh.request), { ...(category !== undefined ? { category } : {}), ...(sample !== undefined ? { sample } : {}) });
+      const r = await host.store.create(body, summaryOf(o.wh.request), { ...(category !== undefined ? { category } : {}), ...(sample !== undefined ? { sample, reservedNames: RESERVED_SAMPLE_NAMES } : {}) });
       const info = { id: r.id, customerNo: r.customerNo, readOnly: false, ...(r.sample !== undefined ? { sample: r.sample } : {}) };
       storedRef.current = { ...info, carry: EMPTY_CARRY };
       setStoredInfo(info);
@@ -1412,7 +1415,7 @@ export function App() {
       setStoredList(await host.store.list());
       void host.store.listSamples().then(setStoredSamples, () => undefined);
       // 見本として作るのは、見本を複製するときだけ（見本に登録は別の命令。0244）
-      say((r.sample !== undefined ? `見本 ${r.customerNo} として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`) + (keptHidden ? `。${SAMPLE_SAVED_TEXT}` : ""));
+      say((r.sample !== undefined ? `見本「${r.sample.name}」として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`) + (keptHidden ? `。${SAMPLE_SAVED_TEXT}` : ""));
     },
     [host, say, history],
   );
@@ -2839,7 +2842,7 @@ export function App() {
     void host?.notices.putLocal(next).catch(() => undefined);
   };
   // お知らせの一覧の中身: 事務所・世帯の知らせ（文と開く画面は前のまま）と、配信元のお知らせ（版の範囲・受付番号で絞る）
-  const hhLabel = storedInfo !== null ? (storedInfo.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo.customerNo) : opened?.demo != null ? `見本 ${opened.demo.sampleNo}` : "この世帯";
+  const hhLabel = storedInfo !== null ? (storedInfo.sample !== undefined ? `見本「${storedInfo.sample.name}」` : storedInfo.customerNo) : opened?.demo != null ? `見本「${opened.demo.title}」` : "この世帯";
   const hhId = storedInfo?.id ?? opened?.demo?.id ?? "unsaved";
   const centerItems: CenterItem[] = [
     ...barNotices(barIn).map((n): CenterItem => {
@@ -2999,7 +3002,7 @@ export function App() {
         household={
           host !== null
             ? {
-                no: storedInfo?.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo !== null ? storedInfo.customerNo : opened?.demo != null ? `見本 ${opened.demo.sampleNo}` : "新しい世帯",
+                no: storedInfo?.sample !== undefined ? `見本「${storedInfo.sample.name}」` : storedInfo !== null ? storedInfo.customerNo : opened?.demo != null ? `見本「${opened.demo.title}」` : "新しい世帯",
                 sub: storedInfo?.sample !== undefined ? storedInfo.sample.name : storedInfo !== null ? (opened !== null ? summaryOf(opened.wh.request) : "") : (opened?.demo?.title ?? ""),
                 open: hhOpen,
                 onToggle: toggleHousehold,
@@ -3081,12 +3084,12 @@ export function App() {
           </div>
         ) : null}
         {sampleItem !== null && opened !== null && host !== null ? (
-          <div class="sample-band" role="status" data-sample-band={sampleItem.no}>
+          <div class="sample-band" role="status" data-sample-band={sampleItem.id}>
             <span>
               <b>
-                見本 {sampleItem.no}「{sampleItem.name}」
+                見本「{sampleItem.name}」
               </b>
-              （{sampleNoText(sampleItem.no)}・架空）を開いています。{!sampleView ? "手直しは自動で保存します。" : "動かしても見本は変わりません（閉じれば元どおり。「最初に戻す」も使えます）。"}
+              （{shapeText(sampleItem.family, sampleItem.age)}・架空）を開いています。{!sampleView ? "手直しは自動で保存します。" : "動かしても見本は変わりません（閉じれば元どおり。「最初に戻す」も使えます）。"}
             </span>
             {storeStatus?.state === "ready" && storeUnavailable === null ? (
               <>
@@ -3094,7 +3097,7 @@ export function App() {
                   この見本をもとに顧客を作る
                 </button>
                 {sampleMode !== "edit" ? (
-                  <button type="button" class="link-btn" onClick={() => void guard(async () => { const req = copyRequest(sampleItem); if (req !== null) await persistCurrent(undefined, req); })} title={COPY_SAMPLE_TITLE} data-band-copy>
+                  <button type="button" class="link-btn" onClick={() => void guard(async () => { const req = copyRequest(sampleItem, [...shelf.map((i) => i.name), ...RESERVED_SAMPLE_NAMES]); if (req !== null) await persistCurrent(undefined, req); })} title={COPY_SAMPLE_TITLE} data-band-copy>
                     複製する
                   </button>
                 ) : null}
@@ -3114,7 +3117,7 @@ export function App() {
               now={
                 opened !== null ? (
                   <HouseholdNow
-                    title={storedInfo?.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo !== null ? `顧客番号 ${storedInfo.customerNo}` : opened.demo !== null ? `見本 ${opened.demo.sampleNo}（${opened.demo.title}）` : "新しい世帯"}
+                    title={storedInfo?.sample !== undefined ? `見本「${storedInfo.sample.name}」` : storedInfo !== null ? `顧客番号 ${storedInfo.customerNo}` : opened.demo !== null ? `見本「${opened.demo.title}」` : "新しい世帯"}
                     fictional={currentFictional}
                     members={basis?.members ?? null}
                     asOf={basis?.asOf ?? null}
@@ -3151,7 +3154,7 @@ export function App() {
                 // 見本にする前に、メモと面談の履歴を外して保存する（0182 の追記）。開いていない世帯は開いてから外す
                 const strip = await stripNotesForSample(id);
                 if (strip !== null) return strip;
-                const err = await numberOp(id, () => host.store.makeSample(id, req), (no) => `見本 ${no} として見本の棚へ移しました`);
+                const err = await numberOp(id, () => host.store.makeSample(id, req, RESERVED_SAMPLE_NAMES), () => `見本「${req.name}」として見本の棚へ移しました`);
                 // 開いている世帯を見本にしたときは、見本として開き直す（動かしても保存しない）
                 if (err === null && storedRef.current?.id === id) await openStored(id).catch(() => undefined);
                 return err;
@@ -3184,19 +3187,19 @@ export function App() {
               }
               onCopySample={(item) =>
                 void guard(async () => {
-                  const req = copyRequest(item);
+                  const req = copyRequest(item, [...shelf.map((i) => i.name), ...RESERVED_SAMPLE_NAMES]);
                   if (req === null) return;
                   if (!(await openSample(item))) return false;
                   await persistCurrent(undefined, req);
                 })
               }
-              onUpdateSample={async (id, name, traits) => {
+              onUpdateSample={async (id, name, traits, family, age) => {
                 try {
-                  await host.store.updateSample(id, name, traits);
+                  await host.store.updateSample(id, name, traits, family, age, RESERVED_SAMPLE_NAMES);
                   setStoredSamples(await host.store.listSamples());
                   const sr = storedRef.current;
                   if (sr !== null && sr.id === id && sr.sample !== undefined) {
-                    sr.sample = { ...sr.sample, name, traits };
+                    sr.sample = { ...sr.sample, name, traits, family, age };
                     setStoredInfo({ id, customerNo: sr.customerNo, readOnly: sr.readOnly, sample: sr.sample });
                   }
                   return null;
@@ -4043,6 +4046,7 @@ export function App() {
       {fork !== null && host !== null ? (
         <ForkPanel
           customerNo={storedList.find((h) => h.id === fork.id)?.customerNo ?? storedInfo?.customerNo ?? ""}
+          sampleName={storedSamples.find((h) => h.id === fork.id)?.sample?.name ?? (storedInfo?.id === fork.id ? storedInfo.sample?.name : undefined)}
           info={fork.info}
           busy={fork.busy}
           error={fork.error}

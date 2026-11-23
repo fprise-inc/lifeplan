@@ -1,11 +1,12 @@
 // 顧客番号の区分と通し番号・見本の棚（0033）: 一覧の探し方・絞り込み、見本番号の読み方、世帯の一覧の画面（初めの「区分を使いますか？」・区分を使わない形）
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { StoredHousehold } from "../src/engine/host.ts";
 import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
 import { CATEGORY_LATER, HouseholdPanel, copyRequest, defaultCategory, FICTIONAL_CONFIRM, type HouseholdPanelProps } from "../src/workspace/store/HouseholdPanel.tsx";
-import { categoryText, DEFAULT_CATEGORIES, filterCustomers, filterShelf, guessShape, matchesNumber, NO_CATEGORY, parseSampleNo, sampleNoText, SAMPLE_TRAITS, shelfItems } from "../src/workspace/store/numbering.ts";
+import { categoryText, DEFAULT_CATEGORIES, filterCustomers, filterShelf, guessShape, matchesNumber, NO_CATEGORY, parseSampleNo, reservedSampleNames, sampleNameKey, sampleNoText, SAMPLE_TRAITS, shapeText, shelfItems } from "../src/workspace/store/numbering.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const row = (customerNo: string, label: Partial<StoredHousehold> = {}): StoredHousehold => ({ id: customerNo, customerNo, summary: "本人", createdAt: "2026-10-21T00:00:00Z", updatedAt: "2026-10-21T00:00:00Z", updatedBy: null, openBy: [], forks: 0, ...label });
@@ -70,12 +71,19 @@ describe("一覧で番号を探す", () => {
   });
 });
 
-describe("見本番号と見本の棚", () => {
-  it("家族の形-年代-順番", () => {
+describe("見本の棚（見本は番号を持たない。0247）", () => {
+  it("家族の形・本人の年代の説明。アプリの見本の定義の sampleNo も同じ説明で読む（定義に欄を移すまで）", () => {
+    expect(shapeText(4, 3)).toBe("ひとり親・30代");
+    expect(shapeText(9, 3)).toBe("");
+    expect(shapeText(3, 8)).toBe("");
     expect(parseSampleNo("3-4-01")).toEqual({ family: 3, age: 4, order: 1 });
     expect(parseSampleNo("6-4-01")).toBeNull();
-    expect(parseSampleNo("3-4-1")).toBeNull();
     expect(sampleNoText("4-3-10")).toBe("ひとり親・30代");
+    // 見本の名前は本体と同じく前後の空白を除き NFC で比べる。アプリの見本の名前は使えない名前として本体へ渡す
+    expect(sampleNameKey(" か\u3099 ")).toBe("が");
+    const reserved = reservedSampleNames(DEMO_HOUSEHOLDS);
+    expect(reserved).toHaveLength(DEMO_HOUSEHOLDS.length);
+    expect(new Set(reserved.map(sampleNameKey)).size, "アプリの見本の名前は重ならない").toBe(reserved.length);
   });
   it("アプリの見本はすべて番号が重ならず、順番は01〜09。名前と絞り込みの項目がある", () => {
     const seen = new Set<string>();
@@ -92,19 +100,29 @@ describe("見本番号と見本の棚", () => {
       expect(`${g.family}-${g.age}`, d.id).toBe(d.sampleNo.slice(0, 3));
     }
   });
-  it("アプリの見本と自分で作った見本を番号の順に並べ、家族の形・年代・項目で絞り込む", () => {
-    const own = [row("3-4-10", { sample: { no: "3-4-10", name: "研修用", traits: ["共働き"] } }), row("C0001", { category: "C", serial: 1 })];
+  it("アプリの見本（定義の順）→ 自分で作った見本（名前の順）に並べ、家族の形・年代・項目で絞り込む", () => {
+    const own = [
+      { ...row("", { sample: { name: "研修用", traits: ["共働き"], family: 3, age: 4 } }), id: "own-b" },
+      { ...row("", { sample: { name: "あいう研修", traits: [], family: 1, age: 2 } }), id: "own-a" },
+      row("C0001", { category: "C", serial: 1 }),
+    ];
     const items = shelfItems(
       DEMO_HOUSEHOLDS.map((d) => ({ id: d.id, sampleNo: d.sampleNo, title: d.title, traits: d.traits })),
       own,
     );
-    expect(items.map((i) => i.no)).toEqual([...items.map((i) => i.no)].sort());
-    expect(items.filter((i) => i.kind === "own").map((i) => i.no)).toEqual(["3-4-10"]);
-    expect(filterShelf(items, { family: 3, age: 4, traits: ["共働き"] }).map((i) => i.no)).toContain("3-4-10");
-    expect(filterShelf(items, { family: 1, age: 0, traits: [] }).every((i) => i.no.startsWith("1-"))).toBe(true);
+    expect(items.filter((i) => i.kind === "app").map((i) => i.id)).toEqual(DEMO_HOUSEHOLDS.map((d) => d.id));
+    expect(items.filter((i) => i.kind === "own").map((i) => i.id)).toEqual(["own-a", "own-b"]);
+    expect(items.slice(-2).map((i) => i.kind)).toEqual(["own", "own"]);
+    for (const d of DEMO_HOUSEHOLDS) {
+      const it = items.find((i) => i.id === d.id)!;
+      expect(`${it.family}-${it.age}`, d.id).toBe(d.sampleNo.slice(0, 3));
+    }
+    expect(filterShelf(items, { family: 3, age: 4, traits: ["共働き"] }).map((i) => i.id)).toContain("own-b");
+    expect(filterShelf(items, { family: 1, age: 0, traits: [] }).every((i) => i.family === 1)).toBe(true);
+    expect(filterShelf(items, { family: 1, age: 2, traits: [] }).map((i) => i.id)).toContain("own-a");
     // 複製するときは同じ家族の形・年代で、名前に「（複製）」を付ける（0244）。前に付けた「（写し）」の名前はそのまま
     const app = items.find((i) => i.kind === "app") as (typeof items)[number];
-    expect(copyRequest(app)).toMatchObject({ family: Number(app.no[0]), age: Number(app.no[2]), name: `${app.name}（複製）` });
+    expect(copyRequest(app)).toMatchObject({ family: app.family, age: app.age, name: `${app.name}（複製）` });
     expect(copyRequest({ ...app, name: "研修用（写し）" })?.name).toBe("研修用（写し）（複製）");
   });
 });
@@ -119,7 +137,7 @@ describe("世帯の一覧の画面", () => {
     categories: CATS,
     shelf: shelfItems(
       DEMO_HOUSEHOLDS.map((d) => ({ id: d.id, sampleNo: d.sampleNo, title: d.title, traits: d.traits })),
-      [row("2-3-10", { sample: { no: "2-3-10", name: "夫婦のみ・研修用", traits: [] } })],
+      [{ ...row("", { sample: { name: "夫婦のみ・研修用", traits: [], family: 2, age: 3 } }), id: "own-1" }],
     ),
     currentSample: null,
     currentShape: null,
@@ -154,15 +172,28 @@ describe("世帯の一覧の画面", () => {
     expect(html).not.toContain("data-sample-row");
     expect(html).toContain(`見本（${base.shelf.length}・うち自分で作った見本 1）`);
   });
-  it("見本の一覧: 見本番号の順、アプリの見本は直せない（消す・名前を直すは自分で作った見本だけ）", () => {
+  it("見本の一覧: 見本番号の列は無く、名前・家族と年代・項目。アプリの見本は直せない（消す・名前を直すは自分で作った見本だけ）", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, initialTab: "samples" }));
-    expect(html).toContain('data-sample-row="3-4-01"');
-    expect(html).toContain('data-customer-from-sample="3-4-01"');
-    expect(html).toContain('data-copy-sample="3-4-01"');
-    expect(html).not.toContain('data-delete-sample="3-4-01"');
-    expect(html).toContain('data-delete-sample="2-3-10"');
+    expect(html).toContain('data-sample-row="salariedCoupleTwoKids"');
+    expect(html).toContain('data-customer-from-sample="salariedCoupleTwoKids"');
+    expect(html).toContain('data-copy-sample="salariedCoupleTwoKids"');
+    expect(html).not.toContain('data-delete-sample="salariedCoupleTwoKids"');
+    expect(html).toContain('data-delete-sample="own-1"');
     expect(html).not.toContain("data-household-row");
-    expect(html).toContain("01〜09 ははじめから入っている見本（直せません）");
+    expect(html).not.toContain("見本番号");
+    expect(html).not.toMatch(/\d-\d-\d{2}/);
+    expect(html).toContain("<td class=\"hh-nowrap\">夫婦のみ・30代</td>");
+    expect(html).toContain("はじめから入っている見本は直せません");
+  });
+  it("見本の完全削除の確かめは見本の名前。見本に登録の文に番号の話を書かない。名前と項目を直すで家族の形・年代も直せる", () => {
+    const panel = readFileSync(new URL("../src/workspace/store/HouseholdPanel.tsx", import.meta.url), "utf8");
+    expect(panel).toContain("確認のため見本の名前（{s.name}）を入れてください");
+    // 入力欄で字数を切らない（maxLength は UTF-16 の数で、名前の上限〔40字〕と数え方が違う。合うまで押せないので足りる。0247）
+    expect(panel).toContain('<input value={sampleDelete.value} aria-label="確認の見本の名前"');
+    expect(panel).toContain('disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.name)}');
+    expect(panel).not.toContain("見本番号");
+    expect(panel).not.toContain("shapeFixed />");
+    expect(panel).toContain("p.onUpdateSample(s.id, name, sampleEdit.traits, sampleEdit.family, sampleEdit.age)");
   });
   it("区分を使うかまだ決めていないときは、1回だけ「区分を使いますか？」と聞く（あとから変えられる一文つき）。新しく作るは答えてから", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, list: [], categories: [], categoriesDecided: false }));

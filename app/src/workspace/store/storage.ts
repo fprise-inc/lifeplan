@@ -54,6 +54,9 @@ export function storageNoticeText(n: StorageNotice): string {
       return `このPCの中に、まだ${where}へ移していない世帯が${n.count ?? 0}件あります`;
     case "syncCopies":
       return `同期サービスの衝突の写しがある世帯が${n.count ?? 0}件あります`;
+    // 見本番号を無くした（0247 の8）ときに、同じ名前の見本の後ろに番号を付けた（済んだことの知らせ。名前はあとから直せる）
+    case "sampleRenames":
+      return `同じ名前の見本があったので、名前の後ろに番号を付けました（${n.name ?? ""}）。名前は見本の一覧の「名前と項目を直す」で直せます`;
     default:
       return `保存先の通知（${n.kind}）`;
   }

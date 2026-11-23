@@ -32,14 +32,19 @@ pub mod statement_dict;
 mod store;
 pub mod vault;
 
-pub use numbering::{Category, CategoryEdit, CategorySettings, Label, SampleInfo, SampleRequest};
+pub use numbering::{
+    Category, CategoryEdit, CategorySettings, Label, SampleInfo, SampleOrigin, SampleRequest,
+};
 pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
-pub use store::{office_version_too_new, OFFICE_FORMAT_VERSION, OFFICE_KNOWN};
+pub use store::{
+    office_version_too_new, OFFICE_BEFORE_SAMPLE_MIGRATION, OFFICE_FORMAT_VERSION, OFFICE_KNOWN,
+};
 pub use store::{
     Clock, CreateOptions, CreateRequest, ForkChoice, ForkInfo, HearingPeek, HouseholdEntry,
     MemberView, NoticeView, OfficeStatus, Opened, PresenceView, PreviousGeneration, RemovedView,
-    RenameOutcome, RequestView, Saved, Status, StatusState, StorageNotice, Store, SystemClock,
+    RenameOutcome, RequestView, SampleRename, Saved, Status, StatusState, StorageNotice, Store,
+    SystemClock,
 };
 
 #[cfg(feature = "os-keyring")]
@@ -107,9 +112,13 @@ impl StoreError {
     pub const CATEGORY: StoreError = StoreError("E_STORE_CATEGORY");
     /// 世帯が使っている区分は消せない（0033）
     pub const CATEGORY_IN_USE: StoreError = StoreError("E_STORE_CATEGORY_IN_USE");
-    /// 見本の指定が違う・見本にはできない操作・見本の番号の空きが無い（0033）
+    /// 見本の指定が違う・見本にはできない操作（0033・0247）
     pub const SAMPLE: StoreError = StoreError("E_STORE_SAMPLE");
-    /// 完全削除の確認（顧客番号の入力）が合わない
+    /// 同じ名前の見本がある（同じ棚の見本か、アプリのセットの見本。0247 の1）
+    pub const SAMPLE_NAME: StoreError = StoreError("E_STORE_SAMPLE_NAME");
+    /// 同じ出どころ（セットの見本）の直した版が、もう棚にある（0247 の5）
+    pub const SAMPLE_EXISTS: StoreError = StoreError("E_STORE_SAMPLE_EXISTS");
+    /// 完全削除の確認（顧客番号の入力。見本は見本の名前）が合わない
     pub const CONFIRM: StoreError = StoreError("E_STORE_CONFIRM");
     /// 復元キーの打ち間違い（確かめ用の4バイトが合わない・文字数が違う・使えない文字）
     pub const RECOVERY_TYPO: StoreError = StoreError("E_RECOVERY_TYPO");
