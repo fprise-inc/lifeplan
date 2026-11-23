@@ -144,6 +144,9 @@
 //   0.86 から: 相続税の目安の設定 input.inheritanceTax に、任意の欄 detailed（相続税も試算する）と lands（不動産ごとの土地の面積・評価の入れ方・
 //   建物の固定資産税評価額・賃貸割合・借地権割合・小規模宅地等の特例の種類と一次・二次の取得する人。0231）。足すだけ。本体の変換の段は版だけを
 //   書き換える（前の版の世帯は欄が無い＝相続税も試算しない）
+//   0.88 から: 相続税の目安の設定 input.inheritanceTax に、任意の欄 division（遺産の分け方: 一次で配偶者が取得する割合・配偶者のほかの相続人の割合）と、
+//   不動産ごとの設定の取得する人 lands[].primary.member・lands[].secondary.member（0250）。足すだけ。本体の変換の段は版だけを書き換える
+//   （前の版の世帯は欄が無い＝法定相続分どおり）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -217,7 +220,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.87";
+export const BODY_FORMAT_VERSION = "0.88";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

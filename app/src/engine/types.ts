@@ -907,12 +907,24 @@ export interface InheritanceTaxRequest {
   detailed?: boolean;
   /** 相続税の試算の、不動産ごとの設定（0231） */
   lands?: InheritanceLandSetting[];
+  /** 遺産の分け方（0250。相続税も試算する世帯だけ読む） */
+  division?: InheritanceDivision;
+  /** 一次と二次の推移を求める（0250。画面が目安を求める要求にだけ入れる。世帯には保存しない） */
+  timeline?: { alternatives?: { key: string; spouseShare?: string }[]; step?: number };
+}
+
+/** 遺産の分け方（0250。割合は財産の評価額〔小規模宅地等の特例の前〕のうち。shares は配偶者の分を除いた残りのうちの割合） */
+export interface InheritanceDivision {
+  spouseShare?: string;
+  shares?: { member: string; share: string }[];
 }
 
 /** 小規模宅地等の特例で土地を取得する人と、要件を満たすか（0231） */
 export interface SmallLandChoice {
   acquirer: "spouse" | "cohabiting" | "noHome" | "successor" | "other";
   met?: boolean;
+  /** 取得する人（配偶者のほかの相続人。0250） */
+  member?: string;
 }
 
 /** 相続税の試算の不動産1つの設定（0231。物件全体の値） */
@@ -949,7 +961,7 @@ export interface InheritanceLandResult {
   rentalRatio?: string;
   area?: string;
   use: "residence" | "rental" | "business" | "familyCompany" | "none";
-  special: { status: "applied" | "limit" | "notSet" | "notMet" | "noArea" | "within3Years" | "notLived" | "notRented" | "none"; rate?: string; acquirer?: SmallLandChoice["acquirer"]; defaulted?: boolean; appliedArea?: string; reduction: number; recentRental?: boolean };
+  special: { status: "applied" | "limit" | "notSet" | "notMet" | "noArea" | "within3Years" | "notLived" | "notRented" | "none"; rate?: string; acquirer?: SmallLandChoice["acquirer"]; member?: string; defaulted?: boolean; appliedArea?: string; reduction: number; recentRental?: boolean };
 }
 
 /** 相続税の目安の1時点（0039。engine/schemas/engine.output.json の inheritanceTax のうち画面が使う部分） */
@@ -975,11 +987,40 @@ export interface InheritancePoint {
   surcharge?: number;
   minorCredit?: number;
   lands?: InheritanceLandResult[];
+  /** 0250: 人ごとの取得と税（分け方。相続税も試算する世帯は分け方と、特例の減額を取得する人に寄せた額） */
+  byHeir?: { member?: string; count?: number; outside: boolean; acquisition: number; tax: number; payable: number; landReduction?: number; successiveCredit?: number }[];
+  division?: { entered: boolean; spouseShare?: string; adjusted?: true };
+}
+
+/** 一次と二次の推移の1年（0250） */
+export interface InheritanceTimelineRow {
+  year: number;
+  month: string;
+  primary: number;
+  secondary: number;
+  total: number;
+  primaryTaxable: number;
+  secondaryTaxable: number;
+  spouseAcquisition: number;
+  spouseTax: number;
+  inherited: number;
+  successiveCredit: number;
+  secondaryMinorCredit: number;
+}
+
+/** 一次と二次の推移（0250。相続税も試算する法律婚の夫婦の世帯で、要求に timeline を入れたときだけ） */
+export interface InheritanceTimeline {
+  first: string;
+  second: string;
+  secondMonth: string;
+  step: number;
+  series: { key: string; spouseShare?: string; rows: InheritanceTimelineRow[] }[];
 }
 
 export interface InheritanceOutput {
   points: InheritancePoint[];
   notIncluded: string[];
+  timeline?: InheritanceTimeline;
 }
 
 export interface YearSeries {

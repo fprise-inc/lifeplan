@@ -4,10 +4,10 @@
 // - 建物の固定資産税評価額を入れていない不動産は、固定資産税の目安（0112・0181）と同じ式の建物の評価額を、計算の要求を作るときだけ
 //   buildingEstimate に入れる（世帯には保存しない。withLandEstimates）。建てる・買う予定の物件は推定を作らず、計算エンジンが予定の欄の建物の
 //   固定資産税評価額を評価の年に動かした額（asset.realEstate の years[].assessed。0232）を使う
-import type { Account, EngineRequest, Household, InheritanceLandSetting, InheritanceTaxRequest, Residence, SmallLandChoice } from "../../engine/types.ts";
+import type { Account, EngineRequest, Household, InheritanceDivision, InheritanceLandSetting, InheritanceTaxRequest, Member, Residence, SmallLandChoice } from "../../engine/types.ts";
 import { field, resolveTimepoint, type FieldDef, type GroupDef, type Option, type SectionDef } from "./form.ts";
 import { mutate, type WorkingHousehold } from "./household.ts";
-import { accountLabelOf, HELD_ESTATE_SUBTYPES, VALUATION_DEFAULTS } from "./labels.ts";
+import { accountLabelOf, HELD_ESTATE_SUBTYPES, memberLabel, VALUATION_DEFAULTS } from "./labels.ts";
 import { hasExecutive } from "./officer.ts";
 import { ownedHomeTaxInputs } from "./ownedHomeTax.ts";
 import { buildingValueRatio, propertyTaxInputs, taxGuide } from "./propertyTax.ts";
@@ -106,6 +106,11 @@ function writeTax(wh: WorkingHousehold, fn: (t: InheritanceTaxRequest) => void):
       if (t.lands.length === 0) delete t.lands;
     }
     if (t.detailed !== true) delete t.detailed;
+    if (t.division !== undefined) {
+      if (t.division.shares !== undefined && t.division.shares.length === 0) delete t.division.shares;
+      if (t.division.spouseShare === undefined) delete t.division.spouseShare;
+      if (Object.keys(t.division).length === 0) delete t.division;
+    }
     for (const k of Object.keys(t) as (keyof InheritanceTaxRequest)[]) if (t[k] === undefined) delete t[k];
     if (Object.keys(t).length === 0) delete req.input.inheritanceTax;
     else req.input.inheritanceTax = t;
@@ -324,11 +329,50 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
           kind: "select",
           options,
           blankMeans: spouseDefault ? "配偶者が取得するとみなす" : "選んでいない（特例を使わない）",
-          help: r.name === "secondary" ? "二人とも亡くなった後に、この土地を取得する人です（同居の子がいるかなど、一次とは違うことが多いので別に選びます）" : "この土地を取得する人です。配偶者が自宅を取得するときは要件がありません",
+          help:
+            r.name === "secondary"
+              ? `二人とも亡くなった後に、この土地を取得する人です。一次で配偶者が取得した分も、ここで選んだ人が取得します。同居の子がいるか・持ち家があるかなど、二次の時点の家族で選び直します（選ぶまでは二次で特例を使いません）。${secondaryFamilyNote(wh)}`
+              : "この土地を取得する人です。配偶者が自宅を取得するときは要件がありません",
           get: get((x) => x[r.name]?.acquirer),
-          set: (w, v) => writeLand(w, t.object, (x) => (x[r.name] = v === null || v === "" ? undefined : { ...((x[r.name] as SmallLandChoice | undefined) ?? {}), acquirer: v })),
+          set: (w, v) =>
+            writeLand(w, t.object, (x) => {
+              if (v === null || v === "") {
+                x[r.name] = undefined;
+                return;
+              }
+              const prev = (x[r.name] as SmallLandChoice | undefined) ?? undefined;
+              // 配偶者を選んだら取得する子は外す（配偶者の取得に入る）
+              x[r.name] = { ...(prev ?? {}), acquirer: v, ...(v === "spouse" ? { member: undefined } : {}) };
+              if (v === "spouse") delete (x[r.name] as Record<string, unknown>).member;
+            }),
         }),
       );
+      // 誰が取得するか（0250）: 配偶者のほかの相続人を選んだ土地は、取得する子を選ぶと、その子の取得に土地の評価と特例で減った額を寄せる
+      const heirs = childHeirs(h);
+      if (choice !== undefined && choice.acquirer !== "spouse" && heirs.length > 0)
+        fields.push(
+          field({
+            ...base,
+            key: `${k}/${r.name}/member`,
+            label: `取得する子（${r.label}）`,
+            level: "simple",
+            kind: "select",
+            options: heirs.map((m) => ({ value: m.id, label: memberLabel(wh, m.id) })),
+            blankMeans: "配偶者のほかの相続人で、分け方の割合どおりに分ける",
+            help:
+              r.name === "secondary"
+                ? `二人とも亡くなった後にこの土地を取得する子です。${secondaryFamilyNote(wh)}選ぶと、この土地の評価と特例で減った額をその子の取得に入れます`
+                : "この土地を取得する子です。選ぶと、この土地の評価と特例で減った額をその子の取得に入れます（遺産の分け方の割合は、この土地を含めた全体の割合です）",
+            get: get((x) => x[r.name]?.member),
+            set: (w, v) =>
+              writeLand(w, t.object, (x) => {
+                const c = x[r.name] as SmallLandChoice | undefined;
+                if (c === undefined) return;
+                const next: SmallLandChoice = { acquirer: c.acquirer, ...(c.met === true ? { met: true } : {}), ...(v === null || v === "" ? {} : { member: String(v) }) };
+                x[r.name] = next;
+              }),
+          }),
+        );
       const needsMet = choice !== undefined && choice.acquirer !== "other" && !(use === "residence" && choice.acquirer === "spouse");
       if (needsMet)
         fields.push(
@@ -343,13 +387,145 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
             set: (w, v) => writeLand(w, t.object, (x) => {
               const c = x[r.name] as SmallLandChoice | undefined;
               if (c === undefined) return;
-              x[r.name] = v === true ? { ...c, met: true } : { acquirer: c.acquirer };
+              x[r.name] = v === true ? { ...c, met: true } : { acquirer: c.acquirer, ...(c.member !== undefined ? { member: c.member } : {}) };
             }),
           }),
         );
     }
   }
   return { key: k, title: t.title, level: "simple", fields, actions: [] };
+}
+
+// ---- 遺産の分け方と先に亡くなる人（0250） ----
+
+/** 取得する子の候補（世帯の子・世帯の外の子。生まれる予定の子は除く） */
+export function childHeirs(h: Household): Member[] {
+  return h.members.filter((m) => m.kind === "child" && m.expected !== true);
+}
+
+const pctText = (v: string): string => `${String(Math.round(Number(v) * 1000) / 10)}%`;
+
+/**
+ * 二次の時点（表の最後の年）の家族の1文（取得する人を選び直す手がかり）: 子ごとに、独立する見込み（世帯から抜ける時点）があればその年、
+ * 無ければ同居の見込み。持ち家の有無はソフトでは分からないので確かめてもらう
+ */
+export function secondaryFamilyNote(wh: WorkingHousehold): string {
+  const h = wh.request.input.household;
+  const end = wh.request.input.endYear;
+  const kids = childHeirs(h);
+  if (kids.length === 0) return "";
+  const bits = kids.map((m) => {
+    if (m.outside !== undefined) return `${memberLabel(wh, m.id)}は世帯の外`;
+    const ym = m.leaves === undefined || m.leaves === null ? null : resolveTimepoint(h, m.leaves);
+    return ym !== null && Number(ym.slice(0, 4)) <= end ? `${memberLabel(wh, m.id)}は${ym.slice(0, 4)}年に独立する見込み` : `${memberLabel(wh, m.id)}は同居の見込み`;
+  });
+  return `二次の時点（${String(end)}年）の家族: ${bits.join("・")}（入力の家族から。持ち家の有無はソフトでは分からないので確かめてください）。`;
+}
+
+const divisionOf = (wh: WorkingHousehold): InheritanceDivision => taxOf(wh).division ?? {};
+
+/** 夫婦の大人（本人・配偶者。結婚の予定の人は除く） */
+const coupleOf = (h: Household): Member[] => h.members.filter((m) => (m.kind === "self" || m.kind === "spouse") && m.expected !== true && m.outside === undefined);
+
+/** 年上の人（二人とも亡くなった後の後に亡くなる人の省略が年下の人なので、先に亡くなる人の省略） */
+function olderOf(h: Household): Member | undefined {
+  const c = coupleOf(h);
+  const birth = (m: Member) => m.birth?.birthYearMonth ?? "9999-12";
+  return [...c].sort((a, b) => (birth(a) < birth(b) ? -1 : birth(a) > birth(b) ? 1 : a.kind === "self" ? -1 : 1))[0];
+}
+
+export const DIVISION_HELP =
+  "遺産の分け方です。割合は、財産の評価額（小規模宅地等の特例の前）のうちで、債務と葬式の費用は取得する割合で負担します。土地は「取得する人」に選んだ人の分に入れ、特例で減った額もその人の取得から引きます（取得する土地の評価が割合の分より大きい人は、その人の分を土地の評価まで増やします）。入れなければ法定相続分どおりです。プランごとに分け方を変えると、プランの相続税の目安で比較できます";
+
+/** まとまり「遺産の分け方」（夫婦の世帯は先に亡くなる人と配偶者の割合、子が2人以上なら子ごとの割合） */
+function divisionGroup(wh: WorkingHousehold): GroupDef | null {
+  const h = wh.request.input.household;
+  const couple = coupleOf(h);
+  const kids = childHeirs(h);
+  const fields: FieldDef[] = [];
+  const atDivision = onInput(["division"]);
+  const writeDivision = (w: WorkingHousehold, fn: (d: { spouseShare?: string; shares?: { member: string; share: string }[] }) => void) =>
+    writeTax(w, (t) => {
+      const d = structuredClone(t.division ?? {});
+      fn(d);
+      t.division = d;
+    });
+  if (couple.length === 2) {
+    const older = olderOf(h);
+    fields.push(
+      field({
+        key: "inherit/division/first",
+        item: "plan.inheritanceTax",
+        label: "先に亡くなる人（一次の相続）",
+        level: "simple",
+        kind: "select",
+        optional: true,
+        options: couple.map((m) => ({ value: m.id, label: memberLabel(wh, m.id) })),
+        blankMeans: older !== undefined ? `年上の人（${memberLabel(wh, older.id)}）` : "年上の人",
+        help: "一次と二次の推移で、先に亡くなるとする人です。「二人とも亡くなった後」の目安は、もう一人（後に亡くなる人）が亡くなったときの額です。入れなければ年上の人が先（同じ年月ならご本人が先）",
+        get: (w) => {
+          const last = taxOf(w).lastSurvivor;
+          return { value: last === undefined ? null : (couple.find((m) => m.id !== last)?.id ?? null) };
+        },
+        set: (w, v) =>
+          writeTax(w, (t) => {
+            const other = couple.find((m) => m.id !== v)?.id;
+            if (v === null || v === "" || other === undefined) delete t.lastSurvivor;
+            else t.lastSurvivor = other;
+          }),
+        address: onInput(["lastSurvivor"]),
+      }),
+      field({
+        key: "inherit/division/spouse",
+        item: "plan.inheritanceTax",
+        label: "一次の相続で配偶者が取得する割合",
+        level: "simple",
+        kind: "pct",
+        min: 0,
+        max: 100,
+        optional: true,
+        blankMeans: kids.length > 0 ? "法定相続分（50%）" : "法定相続分",
+        help: `${DIVISION_HELP}。配偶者が多く取得すると、一次は配偶者の税額軽減（1億6,000万円か法定相続分の多い方まで0円）で少なくなりますが、二次の財産が増えます。下の「一次と二次の相続税の推移」で、分け方ごとの合計を比較できます`,
+        get: (w) => ({ value: divisionOf(w).spouseShare ?? null }),
+        set: (w, v) => writeDivision(w, (d) => (v === null || v === "" ? delete d.spouseShare : (d.spouseShare = String(v)))),
+        address: atDivision,
+      }),
+    );
+  }
+  if (kids.length >= 2)
+    for (const m of kids)
+      fields.push(
+        field({
+          key: `inherit/division/share/${m.id}`,
+          item: "plan.inheritanceTax",
+          label: `${memberLabel(wh, m.id)}が取得する割合${couple.length === 2 ? "（配偶者の分を除いた残りのうち）" : ""}`,
+          level: "simple",
+          kind: "pct",
+          min: 0,
+          max: 100,
+          optional: true,
+          blankMeans: "残りを法定相続分の比で分ける",
+          help: `${DIVISION_HELP}。子の割合は、配偶者の分を除いた残りのうちの割合です（二人とも亡くなった後・二次は遺産の全体のうち）。入れていない子は、入れた子の残りを法定相続分の比で分けます。合計が100%を超えれば比で直します`,
+          get: (w) => ({ value: divisionOf(w).shares?.find((x) => x.member === m.id)?.share ?? null }),
+          set: (w, v) =>
+            writeDivision(w, (d) => {
+              const rest = (d.shares ?? []).filter((x) => x.member !== m.id);
+              d.shares = v === null || v === "" ? rest : [...rest, { member: m.id, share: String(v) }];
+              if (d.shares.length === 0) delete d.shares;
+            }),
+          address: atDivision,
+        }),
+      );
+  if (fields.length === 0) return null;
+  return { key: "inherit/division", title: "遺産の分け方", level: "simple", fields, actions: [] };
+}
+
+/** 入れた分け方の短い言葉（内訳・推移の見出し）。入れていなければ null */
+export function divisionText(wh: WorkingHousehold): string | null {
+  const d = taxOf(wh).division;
+  if (d === undefined) return null;
+  const bits = [...(d.spouseShare !== undefined ? [`配偶者 ${pctText(d.spouseShare)}`] : []), ...(d.shares ?? []).map((x) => `${memberLabel(wh, x.member)} ${pctText(x.share)}`)];
+  return bits.length > 0 ? bits.join("・") : null;
 }
 
 /** 区画「相続税の試算」: チェックしていない世帯は詳細の1つの欄だけ。チェックした世帯は標準に出し、不動産ごとのまとまりを並べる */
@@ -369,7 +545,11 @@ export function taxDetailSection(wh: WorkingHousehold): SectionDef {
     title: "相続税の試算",
     note,
     level,
-    groups: [{ key: "inherit/detail", level, fields: [detailedField(level)], actions: [] }, ...targets.map((t) => landGroup(wh, t, couple))],
+    groups: [
+      { key: "inherit/detail", level, fields: [detailedField(level)], actions: [] },
+      ...(on ? [divisionGroup(wh)].filter((g): g is GroupDef => g !== null) : []),
+      ...targets.map((t) => landGroup(wh, t, couple)),
+    ],
     actions: [],
   };
 }

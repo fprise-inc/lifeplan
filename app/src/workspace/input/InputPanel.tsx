@@ -26,6 +26,7 @@ import { LEVEL_HELP_COMMON, levelDiffLine } from "./levelHelp.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
 import { detailPrompt, inheritanceTaxNote, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { InheritanceTimeline } from "./InheritanceTimeline.tsx";
 import { setDetailed } from "./inheritanceLand.ts";
 import { RetirementLineup } from "./RetirementLineup.tsx";
 import { AssumptionList } from "./AssumptionList.tsx";
@@ -162,7 +163,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
   /** 欄に見せる世帯: 現状を直すときは下書き、プランを直すときは下書きにそのプランを当てた作業中の世帯 */
   const shown = useMemo(() => (plan === undefined ? draft : planView(draft, plan.cat, plan.id)), [draft, plan]);
   /** 相続・贈与のカードの相続税の目安（計算の結果から読むだけ） */
-  const inheritance = useInheritanceEstimate(shown, itemId === "inheritance", computeOne);
+  const inheritance = useInheritanceEstimate(shown, itemId === "inheritance", computeOne, { timeline: true });
   const rentalFig = useRentalFigures(shown.request, itemId === "rental", computeOne);
   /** 保険の入力項目の保険料と解約返戻金（今のままの計算を読むだけ。0055 の追記） */
   const insurance = useInsuranceView(shown, itemId === "insurance", computeOne);
@@ -680,6 +681,8 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                     ) : null}
                   </div>
                 ) : null}
+                {/* 相続・贈与: 相続税も試算する夫婦の世帯は、目安の下に一次と二次の推移と分け方の比較（読むだけ。0250） */}
+                {itemId === "inheritance" ? <InheritanceTimeline wh={shown} result={inheritance} /> : null}
                 {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
                 {/* 前提条件: 前提と推定の一覧（確かめた記録はプランごと。値は変えないので、プランを直していても差分にしない。0070） */}

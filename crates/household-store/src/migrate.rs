@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.87";
+pub const CURRENT: &str = "0.88";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -318,6 +318,11 @@ pub const CURRENT: &str = "0.87";
 ///   **これからの変換の段は `sampleInitial` の中を書き換えない**（控えの中身を変えない 0011 の5 と同じ考え方。最初の状態に戻すときに、
 ///   `{ meta: { formatVersion }, ...sections }` を本文として変換の段に通してから使う）。版を上げるときは、0.87 の見本の `sampleInitial` を
 ///   今の版へ変換できることをテストで確かめる。0.86 の段の後に積む
+/// - 0.88: 相続税の目安の設定 `household.request.input.inheritanceTax` に、任意の欄 `division`（遺産の分け方: 一次で配偶者が取得する割合
+///   `spouseShare`・配偶者のほかの相続人の割合 `shares[]`）と、不動産ごとの設定の取得する人の欄 `lands[].primary.member`・`lands[].secondary.member`
+///   （配偶者のほかの相続人の誰が取得するか。0250）を足した（足すだけの MINOR）。前の版のアプリは計算の要求の知らない欄を読み落として書き戻し、
+///   分け方が消えるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり）。
+///   `sampleInitial` の中は書き換えない（0.87 の決まり）。0.87 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -326,7 +331,7 @@ pub const KNOWN: &[&str] = &[
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
     "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85",
-    "0.86", "0.87",
+    "0.86", "0.87", "0.88",
 ];
 
 /// 1段分の変換
@@ -767,6 +772,11 @@ pub const STEPS: &[Step] = &[
         from: "0.86",
         to: "0.87",
         apply: v0_86_to_0_87,
+    },
+    Step {
+        from: "0.87",
+        to: "0.88",
+        apply: v0_87_to_0_88,
     },
 ];
 
@@ -2745,6 +2755,16 @@ fn v0_86_to_0_87(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.87 → 0.88: 遺産の分け方 `inheritanceTax.division`・土地を取得する人 `inheritanceTax.lands[].primary.member`・`secondary.member`（0250）は
+/// 任意の欄なので、形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり。欄を書き足さない。`sampleInitial` の中に触れない）
+fn v0_87_to_0_88(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.88".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3739,7 +3759,8 @@ mod tests {
         assert_eq!(access("0.85").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.86").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.87").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.88").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.88").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.89").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3752,7 +3773,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.87", b.clone()).unwrap(),
+            upgrade("0.89", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4255,6 +4276,25 @@ mod tests {
         let up = upgrade("0.81", named.clone()).unwrap();
         assert_eq!(up["household"], named["household"]);
         assert_eq!(up["meta"]["formatVersion"], CURRENT);
+    }
+
+    #[test]
+    fn v0_87_to_0_88_only_bumps_version() {
+        // 遺産の分け方・土地を取得する人（inheritanceTax.division・lands[].primary.member。0250）は足さない（前の版の世帯は法定相続分どおり）。
+        // ほかの設定と sampleInitial の中に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.87"},
+            "household": {"request": {"input": {"inheritanceTax": {"detailed": true, "lands": [{"object": "x", "secondary": {"acquirer": "cohabiting", "met": true}}]}}}},
+            "sampleInitial": {"formatVersion": "0.87", "sections": {"household": {}}},
+            "proposals": []
+        });
+        let u = upgrade("0.87", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["sampleInitial"], b["sampleInitial"]);
+        assert!(u["household"]["request"]["input"]["inheritanceTax"]
+            .get("division")
+            .is_none());
     }
 
     #[test]
