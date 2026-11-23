@@ -900,4 +900,42 @@ fn notes_are_shared_only_with_the_mark_and_the_new_consent() {
         reg.grant(refused.source().unwrap(), notes_opts(&[])),
         Err(GrantError::ConsentMissing { .. })
     ));
+/// 世帯を開いたときの記録の読み込み（0248 の追記）: ほかの PC がいま渡している共有の記録は閉じない（期限が過ぎていれば期限切れで閉じる）。
+/// この PC の前の起動の記録・PC の ID の無い前の版の記録は、今までどおり「アプリの終了」で閉じる
+#[test]
+fn records_of_shares_on_another_pc_are_not_closed() {
+    let clock = ManualClock::new(1_792_198_923_000);
+    let a = ShareRegistry::with_clock(Arc::new(clock.clone()));
+    a.set_device(Some("pc-a".into()));
+    let mut b = book();
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    a.grant(b.source().unwrap(), opts()).unwrap();
+    let file = a.records(HOUSEHOLD_ID);
+    assert_eq!(file[0].device.as_deref(), Some("pc-a"));
+    assert!(file[0].launch.is_some());
+    let load = |device: Option<&str>| {
+        let r = ShareRegistry::with_clock(Arc::new(clock.clone()));
+        r.set_device(device.map(str::to_owned));
+        r.load_records(HOUSEHOLD_ID, file.clone());
+        r.records(HOUSEHOLD_ID)[0].end_reason
+    };
+    // ほかの PC（期限内）: 閉じない
+    assert_eq!(load(Some("pc-b")), None);
+    // 同じ PC の前の起動・PC の ID が分からない: アプリの終了
+    assert_eq!(load(Some("pc-a")), Some(EndReason::AppClosed));
+    assert_eq!(load(None), Some(EndReason::AppClosed));
+    // 前の版の記録（PC の ID が無い）: アプリの終了
+    let mut legacy = file.clone();
+    legacy[0].device = None;
+    let r = ShareRegistry::with_clock(Arc::new(clock.clone()));
+    r.set_device(Some("pc-b".into()));
+    r.load_records(HOUSEHOLD_ID, legacy);
+    assert_eq!(
+        r.records(HOUSEHOLD_ID)[0].end_reason,
+        Some(EndReason::AppClosed)
+    );
+    // ほかの PC の記録でも、期限が過ぎていれば期限切れ
+    clock.advance_ms(61 * 60 * 1000);
+    assert_eq!(load(Some("pc-b")), Some(EndReason::Expired));
 }

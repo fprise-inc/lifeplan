@@ -2049,17 +2049,23 @@ impl Store {
 
     /// 世帯を開く（古い形式の版は今の版へ変換する）
     pub fn open(&self, id: &str) -> Result<Opened, StoreError> {
-        self.open_marked(id, true)
+        self.open_marked(id, true, true)
     }
 
     /// 画面に出さずに世帯を開く（まとめて AI に渡すとき。0248）。保存のための状態（AIに渡した記録を世帯ファイルへ書き戻すのに要る）は
     /// [`Store::open`] と同じに持つが、世帯を開いた印（前回開いた世帯・事務所の共有の「開いている」）は変えない。
     /// 画面で開いている世帯の状態を作り直さないよう、もう開いている世帯には使わない（呼ぶ側が確かめる）
     pub fn open_unmarked(&self, id: &str) -> Result<Opened, StoreError> {
-        self.open_marked(id, false)
+        self.open_marked(id, false, true)
     }
 
-    fn open_marked(&self, id: &str, mark: bool) -> Result<Opened, StoreError> {
+    /// 開いた印も保存のための状態も作らずに、世帯を読む（まとめて AI に渡す前の確かめ。0248 の追記）。前からある保存の状態は変えない。
+    /// この戻り値では保存できない
+    pub fn read_unmarked(&self, id: &str) -> Result<Opened, StoreError> {
+        self.open_marked(id, false, false)
+    }
+
+    fn open_marked(&self, id: &str, mark: bool, keep: bool) -> Result<Opened, StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
@@ -2156,7 +2162,9 @@ impl Store {
                 },
             )
         };
-        g.opened.insert(id.to_owned(), state);
+        if keep {
+            g.opened.insert(id.to_owned(), state);
+        }
         Ok(opened)
     }
 
@@ -3169,6 +3177,12 @@ impl Store {
     }
 
     /// 「事務所のプライバシーポリシーに AI の利用を書いている」を FP が確かめた日時（0226。確かめていなければ None）
+    /// この PC の ID（0011。AIに渡した記録に、どの PC が作った共有かを残すためだけに使う。0248 の追記）。保存の部品を使えなければ None
+    pub fn pc_id(&self) -> Option<String> {
+        let mut g = self.lock();
+        Self::session(&mut g).ok().map(|s| s.device_id.clone())
+    }
+
     pub fn ai_privacy_policy_confirmed_at(&self) -> Result<Option<String>, StoreError> {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
