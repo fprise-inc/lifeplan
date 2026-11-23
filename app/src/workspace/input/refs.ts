@@ -190,7 +190,28 @@ export function refSites(input: Obj): RefSite[] {
     for (const x of list(it, "overrides")) at("inheritanceTax.overrides", x.decedent, "donor", null, clear(x, "decedent"));
     // 相続税の試算の不動産ごとの設定（0231）: 持ち家か住まい以外の不動産を外したら、その行を消す
     const homes = new Set(list(h, "residences").map((r) => r.id));
-    for (const x of list(it, "lands")) at("inheritanceTax.lands", x.object, homes.has(x.object) ? "residence" : "account", null, dropRow(it, "lands", x));
+    for (const x of list(it, "lands")) {
+      at("inheritanceTax.lands", x.object, homes.has(x.object) ? "residence" : "account", null, dropRow(it, "lands", x));
+      // 土地を取得する人（0251）: 外した人なら、取得する人の種類（同居の親族など）は残して人だけ消す（配偶者のほかの相続人で割合どおりに戻る）
+      for (const round of ["primary", "secondary"]) {
+        const c = isObj(x[round]) ? x[round] : null;
+        if (c !== null) at(`inheritanceTax.lands.${round}.member`, c.member, "donor", null, clear(c, "member"));
+      }
+    }
+    // 遺産の分け方（0251）: 外した人の割合の行を消す（残りの人で割合を分け直す）
+    const dv = isObj(it.division) ? it.division : null;
+    if (dv !== null)
+      at("inheritanceTax.division.first", dv.first, "donor", null, () => {
+        delete dv.first;
+        if (Object.keys(dv).length === 0) delete it.division;
+      });
+    if (dv !== null)
+      for (const x of list(dv, "shares"))
+        at("inheritanceTax.division.shares", x.member, "donor", null, () => {
+          dropRow(dv, "shares", x)();
+          if (list(dv, "shares").length === 0) delete dv.shares;
+          if (Object.keys(dv).length === 0) delete it.division;
+        });
   }
   return out;
 }
@@ -249,12 +270,15 @@ export const SCHEMA_REF_FIELDS: readonly string[] = [
   "#residentTaxAssessment.member",
   "#retirementBenefit.employment",
   "#retirementBenefit.member",
+  "#smallLandChoice.member",
   "#transfer.from",
   "#transfer.linked",
   "#transfer.to",
   ".assumptions.incomeShocks[].member",
   ".assumptions.withdrawal.order[].object",
   ".inheritanceTax.adopted[]",
+  ".inheritanceTax.division.first",
+  ".inheritanceTax.division.shares[].member",
   ".inheritanceTax.heirCounts[].decedent",
   ".inheritanceTax.lands[].object",
   ".inheritanceTax.lastSurvivor",
