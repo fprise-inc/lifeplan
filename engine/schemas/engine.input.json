@@ -440,7 +440,7 @@
           "additionalProperties": false,
           "properties": {
             "spouseShare": { "description": "一次の相続（配偶者のいる人の相続）で配偶者が取得する割合（省略は法定相続分）", "$ref": "#/$defs/unitShare" },
-            "first": { "description": "一次と二次の推移で先に亡くなる人（本人か配偶者。lastSurvivor が無いとき、もう一人を後に亡くなる人にする。detailed のときだけ読む）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "first": { "description": "一次と二次の推移で先に亡くなる人（世帯の中の本人か配偶者。ほかの人は E_ARGUMENT。detailed のときだけ読み、もう一人を後に亡くなる人にする〔lastSurvivor より先に読む〕）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
             "shares": {
               "description": "配偶者のほかの相続人の分け方（配偶者の分を除いた残りのうちの割合。入れていない人は、残りを法定相続分の比で分ける。合計が1を超える・全員入れて合計が1でないときは使わず法定相続分どおりにして、注意 divisionSharesInvalid を出す）。二人とも亡くなった後・二次にも使う",
               "type": "array",

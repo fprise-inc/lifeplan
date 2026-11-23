@@ -990,11 +990,12 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     };
     const jobs: Job[] = [];
     // 二人とも亡くなった後の、後に亡くなる人（lastSurvivor。省略は年下の人、同じなら配偶者）と夫婦の子
-    // 相続税も試算する世帯で先に亡くなる人（division.first）を選んでいれば、もう一人（0251。試算しない世帯は読まない）
+    // 相続税も試算する世帯で先に亡くなる人（division.first）を選んでいれば、もう一人（0251。試算しない世帯は読まない）。画面の欄と同じ決め方にするため、
+    // 試算する世帯では lastSurvivor より先に読む
     const firstChosen = req.detailed === true && req.division?.first !== undefined ? adults.find((a) => a.id !== req.division?.first && adults.some((b) => b.id === req.division?.first))?.id : undefined;
     const lastOf = (): string | undefined =>
-      req.lastSurvivor ??
       firstChosen ??
+      req.lastSurvivor ??
       [...adults].sort((a, b) => {
         const ba = byId.get(a.id)?.birth ?? 0;
         const bb = byId.get(b.id)?.birth ?? 0;
@@ -1380,7 +1381,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       slots: readonly Slot[],
       division: Division | undefined,
       T0: number,
-    ): { P: number[]; L: number[]; G: number[]; R: number[]; target: Frac[]; adjusted: boolean; sharesInvalid: boolean; spLands: Map<string, number> } => {
+    ): { P: number[]; L: number[]; G: number[]; R: number[]; target: Frac[]; adjusted: boolean; sharesInvalid: boolean; sharesIgnored: boolean; spLands: Map<string, number> } => {
       const second = g.job.kind === "bothAfter" || g.job.kind === "secondaryAt";
       const n = slots.length;
       const sp = slots.findIndex((s) => s.spouse);
@@ -1394,6 +1395,8 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       }
       let gsum = F0;
       for (const v of given.values()) gsum = fAdd(gsum, v);
+      // 相続人の数を直した世帯（配偶者のほかをまとめた行）は人ごとの行が無いので、子の割合を使えない（注意 divisionSharesIgnored）
+      const sharesIgnored = (division?.shares?.length ?? 0) > 0 && slots.some((x) => x.count !== undefined);
       const w: Frac[] = slots.map(() => F0);
       let missing = others.filter((i) => !given.has(i));
       // 合計が1を超える・全員入れて1でない: 黙って補わず、入れた割合を使わない（法定相続分の比。注意を出す）
@@ -1464,7 +1467,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       if (sumL > T0) {
         // 取得する土地の評価と贈与の合計が財産より大きい（起きないはずの丸めの差）: その比で分ける
         for (let i = 0; i < n; i++) P[i] = sumL <= 0 ? 0 : ctx.money.mulRatio(yen(T0), least[i] ?? 0, sumL, "conv.tax.allocate");
-        return { P, L, G, R, target, adjusted: true, sharesInvalid, spLands };
+        return { P, L, G, R, target, adjusted: true, sharesInvalid, sharesIgnored, spLands };
       }
       const fixed = new Set<number>();
       for (let loop = 0; loop <= n; loop++) {
@@ -1488,7 +1491,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         adjusted = true;
         for (const i of short) fixed.add(i);
       }
-      return { P, L, G, R, target, adjusted, sharesInvalid, spLands };
+      return { P, L, G, R, target, adjusted, sharesInvalid, sharesIgnored, spLands };
     };
     /** その時点の数える相続人（配偶者を除く） */
     const heirsOfG = (g: Gathered): Set<string> => new Set(g.heirs.filter((h) => h.counted && h.relation !== "spouse").map((h) => h.member));
@@ -1542,6 +1545,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       const netSum = net === null ? 0 : net.reduce((a, b) => a + b, 0);
       if (useDivision && alloc?.adjusted === true) cautions.add("divisionAdjusted");
       if (alloc?.sharesInvalid === true) cautions.add("divisionSharesInvalid");
+      if (alloc?.sharesIgnored === true) cautions.add("divisionSharesIgnored");
       const ratioOf = (i: number, s: Slot): Frac => (net === null || netSum <= 0 ? s.share : frac(BigInt(net[i] ?? 0), BigInt(netSum)));
       const floor = at.paramYen(P.spouseFloor) ?? yen(0);
       // 2割加算（相続税法18条）と未成年者控除（同19条の3）は、相続税も試算する世帯だけ（0231）。人ごとの行（数を直していない）のとき

@@ -433,3 +433,34 @@ describe("試算しない世帯は main（0231 の版）の時点の数と同じ
     expect(pick(out)).toEqual(snap[key]);
   });
 });
+
+describe("2回目の点検の直し", () => {
+  it("試算する世帯は、先に亡くなる人（division.first）を lastSurvivor より先に読む（画面の欄と同じ）", () => {
+    const out = run(family(), { ...TL, lastSurvivor: W, division: { first: W }, timeline: {} });
+    expect(out.timeline?.first).toBe(W);
+    expect(out.timeline?.second).toBe(H);
+    // 試算しない世帯は lastSurvivor のまま（division は読まない）
+    expect((run(family(), { points: ["bothAfter"], lastSurvivor: W, division: { first: W } }).points[0] as Point).decedent).toBe(W);
+  });
+  it("先に亡くなる人に本人・配偶者でない人を入れると断る（黙って無視しない）", () => {
+    expect(() => run(family(), { ...TL, division: { first: C1 } })).toThrow(/inheritanceTax\.division\.first/);
+  });
+  it("相続人の数を直した世帯では子の割合を使わず、注意を出す", () => {
+    const p = nowOf(family(), { ...D, heirCounts: [{ decedent: H, count: 3 }], division: { shares: [{ member: C1, share: "0.7" }] } });
+    expect(p.cautions).toContain("divisionSharesIgnored");
+  });
+});
+
+describe("利用者の判断待ち: 何も入れていない試算する世帯でも、配偶者が取得するとみなした自宅が法定相続分より大きいと、配偶者の取得を自宅の評価まで増やす", () => {
+  it("預金5,000万円＋自宅（評価2億円・面積なし）: 税の総額 3,970万円、納める額は法定相続分どおりの 1,985万円ではなく 1,429万2,000円（注意 divisionAdjusted）", () => {
+    const req = withHome(family({ amount: 50_000_000 }), 250_000_000);
+    const p = nowOf(req, D);
+    expect(p.assets.taxablePrice).toBe(250_000_000);
+    expect(p.totalTax).toBe(39_700_000);
+    expect(p.payable).toBe(14_292_000);
+    expect(p.cautions).toContain("divisionAdjusted");
+    expect(heir(p, W).acquisition).toBe(200_000_000);
+    // 試算しない世帯（評価の割合80%の目安）は法定相続分どおり
+    expect(nowOf(req).payable).toBe(19_850_000);
+  });
+});

@@ -319,7 +319,7 @@ pub const CURRENT: &str = "0.88";
 ///   `{ meta: { formatVersion }, ...sections }` を本文として変換の段に通してから使う）。版を上げるときは、0.87 の見本の `sampleInitial` を
 ///   今の版へ変換できることをテストで確かめる。0.86 の段の後に積む
 /// - 0.88: 相続税の目安の設定 `household.request.input.inheritanceTax` に、任意の欄 `division`（遺産の分け方: 一次で配偶者が取得する割合
-///   `spouseShare`・配偶者のほかの相続人の割合 `shares[]`）と、不動産ごとの設定の取得する人の欄 `lands[].primary.member`・`lands[].secondary.member`
+///   `spouseShare`・配偶者のほかの相続人の割合 `shares[]`・一次と二次の推移で先に亡くなる人 `first`）と、不動産ごとの設定の取得する人の欄 `lands[].primary.member`・`lands[].secondary.member`
 ///   （配偶者のほかの相続人の誰が取得するか。0251）を足した（足すだけの MINOR）。前の版のアプリは計算の要求の知らない欄を読み落として書き戻し、
 ///   分け方が消えるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり）。
 ///   `sampleInitial` の中は書き換えない（0.87 の決まり）。0.87 の段の後に積む
