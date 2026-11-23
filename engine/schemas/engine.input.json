@@ -465,7 +465,7 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["key"],
-                "properties": { "key": { "type": "string", "maxLength": 40 }, "spouseShare": { "$ref": "#/$defs/unitShare" } }
+                "properties": { "key": { "description": "分け方の名前（英字で始まる英数字）", "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{0,39}$" }, "spouseShare": { "$ref": "#/$defs/unitShare" } }
               }
             },
             "step": { "description": "年の間引き（step 年ごと。省略は1。計算基準年と表の最後の年はいつも求める）", "type": "integer", "minimum": 1, "maximum": 10 }

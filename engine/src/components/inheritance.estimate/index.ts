@@ -208,10 +208,12 @@ export const NOT_INCLUDED: readonly string[] = [
   "receivingSideEstimate",
 ];
 
-/** 相続税も試算する世帯（detailed）で含めていない決まり（0231。土地の評価・小規模宅地等の特例・2割加算・未成年者控除を外し、補正の細部を足す） */
+/**
+ * 相続税も試算する世帯（detailed）で含めていない決まり（0231。土地の評価・小規模宅地等の特例・2割加算・未成年者控除を外し、補正の細部を足す。
+ * 0250 で一次と二次の分け方の比較を外した〔分け方と推移〕）
+ */
 export const NOT_INCLUDED_DETAILED: readonly string[] = [
   "landCorrectionDetail",
-  "primarySecondaryComparison",
   "calendarGiftAddBack",
   "successiveInheritanceCredit",
   "disabilityCredit",

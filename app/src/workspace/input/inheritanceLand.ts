@@ -417,7 +417,8 @@ export function secondaryFamilyNote(wh: WorkingHousehold): string {
   const bits = kids.map((m) => {
     if (m.outside !== undefined) return `${memberLabel(wh, m.id)}は世帯の外`;
     const ym = m.leaves === undefined || m.leaves === null ? null : resolveTimepoint(h, m.leaves);
-    return ym !== null && Number(ym.slice(0, 4)) <= end ? `${memberLabel(wh, m.id)}は${ym.slice(0, 4)}年に独立する見込み` : `${memberLabel(wh, m.id)}は同居の見込み`;
+    if (ym === null || Number(ym.slice(0, 4)) > end) return `${memberLabel(wh, m.id)}は同居の見込み`;
+    return ym <= wh.request.input.baseMonth ? `${memberLabel(wh, m.id)}は独立している（${ym.slice(0, 4)}年から）` : `${memberLabel(wh, m.id)}は${ym.slice(0, 4)}年に独立する見込み`;
   });
   return `二次の時点（${String(end)}年）の家族: ${bits.join("・")}（入力の家族から。持ち家の有無はソフトでは分からないので確かめてください）。`;
 }
@@ -463,9 +464,10 @@ function divisionGroup(wh: WorkingHousehold): GroupDef | null {
         options: couple.map((m) => ({ value: m.id, label: memberLabel(wh, m.id) })),
         blankMeans: older !== undefined ? `年上の人（${memberLabel(wh, older.id)}）` : "年上の人",
         help: "一次と二次の推移で、先に亡くなるとする人です。「二人とも亡くなった後」の目安は、もう一人（後に亡くなる人）が亡くなったときの額です。入れなければ年上の人が先（同じ年月ならご本人が先）",
+        // 入れていなければ年上の人を薄く出す（土地の評価の入れ方と同じ見せ方）
         get: (w) => {
           const last = taxOf(w).lastSurvivor;
-          return { value: last === undefined ? null : (couple.find((m) => m.id !== last)?.id ?? null) };
+          return last === undefined ? { value: older?.id ?? null, implicit: true } : { value: couple.find((m) => m.id !== last)?.id ?? null };
         },
         set: (w, v) =>
           writeTax(w, (t) => {

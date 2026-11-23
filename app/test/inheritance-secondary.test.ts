@@ -66,7 +66,7 @@ describe("遺産の分け方の欄（相続税も試算する世帯だけ）", (
 
   it("先に亡くなる人を選ぶと、後に亡くなる人（lastSurvivor）にもう一人を書く。空にすると年上の人が先（省略）", () => {
     const f = fieldOf(on, "inherit/division/first");
-    expect(f.get(on).value).toBeNull();
+    expect(f.get(on)).toEqual({ value: self.id, implicit: true });
     const w = f.set(on, spouse.id);
     expect(w.request.input.inheritanceTax?.lastSurvivor).toBe(self.id);
     expect(fieldOf(w, "inherit/division/first").get(w).value).toBe(spouse.id);

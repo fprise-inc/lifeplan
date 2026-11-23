@@ -90,6 +90,11 @@ describe("相続税も試算しない世帯・分け方を入れない世帯は�
     expect(heir(p, C1).acquisition).toBe(p.assets.taxablePrice / 4);
   });
 
+  it("相続税も試算する世帯の含めていない一覧から、一次と二次の分け方の比較を外す（試算しない世帯は今までの一覧）", () => {
+    expect(run(family(), { ...D, points: ["now"] }).notIncluded).not.toContain("primarySecondaryComparison");
+    expect(run(family(), { points: ["now"] }).notIncluded).toContain("primarySecondaryComparison");
+  });
+
   it("推移を求めても、時点の結果は同じ（推移は別の欄）", () => {
     const req = withRental(withHome(family()));
     const a = run(req, { ...D, points: ["now", "bothAfter"] });
