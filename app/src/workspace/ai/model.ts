@@ -17,6 +17,7 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_NO_CONSENT: "外部AIへの提供の同意が記録されていない世帯は、AIに渡せません",
   E_AI_NOT_SAVED: "保存していない世帯（見本）は、AIに渡せません。世帯を保存してから使ってください",
   E_AI_ALREADY_SHARED: "この世帯はもう共有中です",
+  E_AI_OPEN_BY_OTHERS: "ほかの人（ほかのPC）がこの世帯を開いている間は、AIに渡せません（AIに渡した記録を書くと、相手の保存が分岐になるため）。閉じてから渡してください",
   E_AI_DURATION: "期限の選び方が違います",
   E_AI_DESTINATION: "使うAIのアプリの名前を入れてください（60文字まで）",
   E_AI_CONSENT_DATE: "日付の書き方が違います",

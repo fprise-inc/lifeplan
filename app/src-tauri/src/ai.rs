@@ -28,7 +28,7 @@
 //! 画面（WebView）には、鍵・パス（データフォルダ・作業フォルダ・接続口の実行ファイル）を渡さない（0016 の1）。
 //! 接続の設定の文面は、場所を `<接続口の場所>` に伏せた形で見せ、本物の場所の入った文面は本体が OS のクリップボードに写す。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
@@ -153,12 +153,28 @@ pub struct AiState {
     books: Mutex<HashMap<String, Entry>>,
     /// 捨てた帳面（`forget`）。次にその世帯を開いたとき、世帯ファイルに無い AI の候補を引き継ぐためだけに持つ（書き戻さない）
     parked: Mutex<HashMap<String, HouseholdBook>>,
+    /// 画面がいま開いている世帯（最後に画面から開いた・作った世帯）。ほかの帳面（この起動で前に開いた世帯・まとめて渡すときに
+    /// 画面に出さずに開いた世帯。0248）は、記録を書き戻す前に世帯ファイルを読み直す（ほかのメンバーが間に保存していても分岐にしない）
+    current: Mutex<Option<String>>,
     endpoint: Mutex<Option<AppEndpoint>>,
     problem: Mutex<Option<String>>,
     runtime_dir: PathBuf,
     app_version: String,
     /// 画面に頼んでいる Web のヒアリングの発行（0222）
     hearing: Arc<HearingJobs>,
+}
+
+/// 事務所で共有しているとき、ほかのメンバー（ほかの PC）が今開いている世帯（0248 の追記）。一覧を読めなければ空
+fn opened_by_others(store: &Store) -> HashSet<String> {
+    store
+        .list()
+        .map(|l| {
+            l.into_iter()
+                .filter(|h| !h.open_by.is_empty())
+                .map(|h| h.id)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -245,6 +261,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
         registry,
         books: Mutex::new(HashMap::new()),
         parked: Mutex::new(HashMap::new()),
+        current: Mutex::new(None),
         endpoint: Mutex::new(None),
         problem: Mutex::new(None),
         runtime_dir,
@@ -286,7 +303,13 @@ impl AiState {
     /// 撤回・候補の判断を読むため）、画面に返す本文からアプリだけが書く区画を外す。
     /// AIに渡した記録は、世帯ファイルの記録の後ろにこの起動の記録を足して合わせる（共有の台帳の `load_records`）。
     /// 共有中なら、渡す中身と同意を開いた世帯に合わせる（同意が無くなっていれば、その場で閉じる）
-    pub fn on_opened(&self, mut o: Opened, summary: String) -> Result<Opened, String> {
+    pub fn on_opened(&self, o: Opened, summary: String) -> Result<Opened, String> {
+        *lock(&self.current) = Some(o.id.clone());
+        self.on_opened_background(o, summary)
+    }
+
+    /// 画面に出さずに世帯の帳面を作る（まとめて渡すとき。0248）。画面がいま開いている世帯は変えない
+    fn on_opened_background(&self, mut o: Opened, summary: String) -> Result<Opened, String> {
         let (mut book, screen) =
             HouseholdBook::from_opened(&o.id, Some(o.customer_no.clone()), o.generation, &o.body)
                 .map_err(str::to_owned)?;
@@ -438,15 +461,37 @@ impl AiState {
 
     /// 帳面のうち、まだ書いていない記録を世帯ファイルへ書き戻す（ロックを持った呼び出し元から）
     fn persist_locked(&self, store: &Store, books: &mut HashMap<String, Entry>) {
-        self.persist_where(store, books, true);
+        self.persist_where(store, books, true, false);
     }
 
-    /// 書き戻す。`now` でないとき（裏の見回り）は、読まれた回数だけの変化を間引く。間引いた世帯があれば false
-    fn persist_where(&self, store: &Store, books: &mut HashMap<String, Entry>, now: bool) -> bool {
+    /// 書き戻す。ただし、ほかのメンバー（ほかの PC）が今開いている世帯は書かずに、閉じた後の見回りに回す（0248 の追記）。
+    /// 開いている相手の次の保存が分岐にならないように。取り消し・まとめて渡す・裏の見回りから
+    fn persist_quiet(&self, store: &Store, books: &mut HashMap<String, Entry>) {
+        self.persist_where(store, books, true, true);
+    }
+
+    /// 書き戻す。`now` でないとき（裏の見回り）は、読まれた回数だけの変化を間引く。`quiet` のときは、ほかのメンバーが
+    /// 開いている世帯を書かない。間引いた・書かなかった世帯があれば false
+    fn persist_where(
+        &self,
+        store: &Store,
+        books: &mut HashMap<String, Entry>,
+        now: bool,
+        quiet: bool,
+    ) -> bool {
         let mut all = true;
+        let mut busy: Option<HashSet<String>> = None;
         for (id, e) in books.iter_mut() {
             let records = self.registry.records(id);
             if !e.book.is_dirty(&records) {
+                continue;
+            }
+            if quiet
+                && busy
+                    .get_or_insert_with(|| opened_by_others(store))
+                    .contains(id)
+            {
+                all = false;
                 continue;
             }
             if !now
@@ -457,6 +502,20 @@ impl AiState {
                 all = false;
                 continue;
             }
+            // 画面がいま開いていない世帯は、書く前に世帯ファイルを読み直す（間にほかの保存があっても、その上に記録を足す）。
+            // 読み直すのは、ほかのメンバーを気にする書き戻し（裏の見回り・取り消し・まとめて渡す）で、帳面だけの変化が無いときだけ
+            let records = if quiet
+                && lock(&self.current).as_deref() != Some(id.as_str())
+                && e.book.only_additions_pending()
+            {
+                if self.reload_background(store, id, e).is_err() {
+                    all = false;
+                    continue;
+                }
+                self.registry.records(id)
+            } else {
+                records
+            };
             let Ok(composed) = e.book.compose(&records) else {
                 continue; // 追記だけでない記録は書かない（起こらないはずの状態）
             };
@@ -466,6 +525,25 @@ impl AiState {
             }
         }
         all
+    }
+
+    /// 画面がいま開いていない世帯の帳面を、世帯ファイルの今の中身で作り直す（開いた印は変えない。AI の候補は引き継ぎ、記録はこの起動の分と合わせる）
+    fn reload_background(&self, store: &Store, id: &str, e: &mut Entry) -> Result<(), String> {
+        let o = store.open_unmarked(id).map_err(code)?;
+        let (mut book, _) =
+            HouseholdBook::from_opened(&o.id, Some(o.customer_no.clone()), o.generation, &o.body)
+                .map_err(str::to_owned)?;
+        book.fictional = o.label.fictional;
+        book.category = o.label.category.clone();
+        book.carry_candidates_from(&e.book);
+        self.registry.load_records(id, book.file_ai_shares.clone());
+        if let Some(src) = book.source() {
+            for sid in self.registry.active_share_ids(id) {
+                self.registry.update_source(&sid, src.clone());
+            }
+        }
+        e.book = book;
+        Ok(())
     }
 
     fn persist_all(&self, store: &Store) {
@@ -487,7 +565,7 @@ impl AiState {
                 e.book.add_candidate(p);
             }
         }
-        w.waiting = !self.persist_where(store, &mut books, false);
+        w.waiting = !self.persist_where(store, &mut books, false, true);
         w.revision = revision;
     }
 
@@ -542,6 +620,7 @@ impl AiState {
             registry,
             books: Mutex::new(HashMap::new()),
             parked: Mutex::new(HashMap::new()),
+            current: Mutex::new(None),
             endpoint: Mutex::new(None),
             problem: Mutex::new(None),
             runtime_dir: dir.join("run"),
@@ -961,6 +1040,10 @@ pub async fn ai_share_start(
         if !ai.registry.active_share_ids(&id).is_empty() {
             return Err("E_AI_ALREADY_SHARED".into());
         }
+        // ほかのメンバーが開いている世帯は渡さない（AIに渡した記録を書くと、相手の次の保存が分岐になる。0248 の追記）
+        if opened_by_others(store).contains(&id) {
+            return Err("E_AI_OPEN_BY_OTHERS".into());
+        }
         let source = e.book.source().ok_or("E_AI_BODY")?;
         // 渡せるかは共有の台帳が basis の1か所で決める（同意・事務所のプライバシーポリシー・架空の世帯。0226）
         ai.registry.set_office_policy(
@@ -1000,7 +1083,7 @@ pub async fn ai_share_stop(app: AppHandle, id: String) -> Result<HouseholdAiView
             ai.registry.revoke(&sid);
         }
         let mut books = lock(&ai.books);
-        ai.persist_locked(store, &mut books);
+        ai.persist_quiet(store, &mut books);
         view(ai, &books, &id)
     })
     .await
@@ -1024,6 +1107,8 @@ pub enum BulkBlock {
     NotSaved,
     /// 閲覧だけで開く世帯（AIに渡した記録を世帯ファイルに残せない）
     ReadOnly,
+    /// ほかのメンバー（ほかの PC）が今開いている世帯（AIに渡した記録を書くと、相手の次の保存が分岐になる。0248 の追記）
+    OpenByOthers,
     /// 開けなかった世帯（壊れている・鍵が無い・新しい版の形式など）
     Unreadable,
     /// 一覧に無い世帯（消した・ほかの PC で移した）
@@ -1158,6 +1243,10 @@ fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval
         }
         if !ai.registry.active_share_ids(id).is_empty() {
             out.push(Eval::Already(h));
+            continue;
+        }
+        if !entry.open_by.is_empty() {
+            out.push(Eval::Blocked(BulkBlock::OpenByOthers, h));
             continue;
         }
         // この起動で開いた世帯（画面で開いている世帯を含む）は、持っている帳面で確かめる（保存の状態を作り直さない）
@@ -1311,7 +1400,8 @@ pub(crate) fn bulk_grant(
         // 確かめの間に画面が開いていれば、そちらの帳面を使う
         if let Some(b) = opened {
             let (o, summary) = *b;
-            if !lock(&ai.books).contains_key(&h.id) && ai.on_opened(o, summary).is_err() {
+            if !lock(&ai.books).contains_key(&h.id) && ai.on_opened_background(o, summary).is_err()
+            {
                 blocked.push((BulkBlock::Unreadable, h));
                 continue;
             }
@@ -1354,7 +1444,7 @@ pub(crate) fn bulk_grant(
         }
     }
     let mut books = lock(&ai.books);
-    ai.persist_locked(store, &mut books);
+    ai.persist_quiet(store, &mut books);
     Ok(outcome(ready, already, blocked, active))
 }
 
@@ -1369,7 +1459,7 @@ pub(crate) fn bulk_revoke(ai: &AiState, store: &Store, ids: &[String]) -> usize 
         n += usize::from(any);
     }
     let mut books = lock(&ai.books);
-    ai.persist_locked(store, &mut books);
+    ai.persist_quiet(store, &mut books);
     n
 }
 
@@ -2673,5 +2763,68 @@ mod tests {
             1
         );
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 事務所の共有で、ほかのメンバーが開いている世帯（0248 の追記）: 開いた印を付けずに開いて記録を書き戻すと、相手の次の保存が分岐になる。
+    /// そのため、まとめて渡すとき・1件ずつ渡すときに断り、渡した後に相手が開いたら、相手が閉じるまで記録を書き戻さない
+    #[test]
+    fn households_open_on_another_pc_are_not_shared_or_written() {
+        let base = root("bulk-office");
+        let shared = base.join("共有フォルダ");
+        std::fs::create_dir_all(&shared).unwrap();
+        let a = pc(&base.join("pc-a"), &Arc::new(MemorySecretStore::default()));
+        let b = pc(&base.join("pc-b"), &Arc::new(MemorySecretStore::default()));
+        a.store.office_start(&shared, "担当A", true, &[]).unwrap();
+        a.store.acknowledge_recovery().unwrap();
+        let st = b.store.office_join(&shared, "担当B", true, &[]).unwrap();
+        let req = a.store.office_status().unwrap().requests;
+        a.store
+            .office_approve(&req[0].request_id, &st.my_fingerprint.unwrap())
+            .unwrap();
+        assert_eq!(b.store.office_status().unwrap().state, "member");
+        a.store.set_ai_privacy_policy_confirmed(true).unwrap();
+        let x = create(&a, None, false);
+        let y = create(&a, None, false);
+        let z = create(&a, None, false);
+
+        // 分岐が起きることの確かめ: B が開いている間に、A が開いた印なしで開いて書くと、B の次の保存は分岐になる
+        let ob = b.store.open(&x).unwrap();
+        let o = a.store.open_unmarked(&x).unwrap();
+        a.store.save(&x, &o.body, "本人").unwrap();
+        assert_eq!(
+            b.store.save(&x, &ob.body, "本人").unwrap_err(),
+            StoreError::CONFLICT
+        );
+
+        // まとめて渡す: B が開いている世帯は断る
+        let ids = vec![x.clone(), y.clone()];
+        let c = bulk_check(&a.ai, &a.store, &ids).unwrap();
+        assert_eq!(ready_ids(&c), vec![y.clone()]);
+        assert_eq!(
+            reasons(&c),
+            vec![(BulkBlock::OpenByOthers, vec![x.clone()])]
+        );
+        let g = bulk_grant(&a.ai, &a.store, &ids, 60, "AIのアプリ").unwrap();
+        assert_eq!(ready_ids(&g), vec![y.clone()]);
+
+        // 渡した後に B が開いたら、AI に読まれても A は書き戻さない（B の保存は分岐にならない）
+        let oy = b.store.open(&y).unwrap();
+        let sid = a.ai.registry.active_shares()[0].share_id.clone();
+        a.ai_reads(&sid);
+        let mut w = Watch::default();
+        a.tick(&mut w);
+        assert!(w.waiting, "書かずに待つ");
+        b.store.save(&y, &oy.body, "本人").unwrap();
+        // 取り消しも、B が開いている間は書かない
+        assert_eq!(bulk_revoke(&a.ai, &a.store, std::slice::from_ref(&y)), 1);
+        // B が別の世帯を開く（y を閉じる）と、次の見回りで書く
+        b.store.open(&z).unwrap();
+        a.tick(&mut w);
+        assert!(!w.waiting);
+        let back = b.store.open(&y).unwrap();
+        let file: serde_json::Value = serde_json::from_str(&back.body).unwrap();
+        assert_eq!(file["aiShares"][0]["endReason"], "revoked");
+        assert_eq!(file["aiShares"][0]["reads"][0]["count"], 1);
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

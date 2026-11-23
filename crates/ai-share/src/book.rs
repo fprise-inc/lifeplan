@@ -408,6 +408,16 @@ impl HouseholdBook {
             && only_read_counts_changed(&self.saved_ai_shares, ai_shares)
     }
 
+    /// 保存していない変化が、共有の台帳の記録と新しく届いた AI の候補だけか（同意の記録・候補の判断は書いた後）。
+    /// そうなら、世帯ファイルの今の中身で帳面を作り直してから書いても、帳面だけの変化を落とさない（0248 の追記）
+    pub fn only_additions_pending(&self) -> bool {
+        self.saved_consents == self.consents
+            && self
+                .saved_candidates
+                .iter()
+                .all(|c| self.candidates.contains(c))
+    }
+
     /// 同じ起動の中で前に持っていた帳面から、世帯ファイルに無い AI の候補を引き継ぐ（開き直したとき。
     /// 世帯ファイルに書けないまま開き直した候補・分岐で相手の版を選んだときのこちらの候補を落とさない）
     pub fn carry_candidates_from(&mut self, earlier: &HouseholdBook) {

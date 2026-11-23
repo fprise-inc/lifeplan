@@ -50,7 +50,7 @@ describe("まとめて渡すときの決まり", () => {
     expect(overLimit(10, outcome({ ready: r(10), active: 41 }))).toContain("共有中の世帯（41件）");
   });
   it("渡せない理由の文はすべての理由にある（「当てる」「比べ」「カード」「接続口」の言葉を使わない）", () => {
-    for (const k of ["refused", "withdrawn", "noBasis", "sample", "notSaved", "readOnly", "unreadable", "unknown"] as const) expect(BULK_BLOCK_TEXT[k]).toBeTruthy();
+    for (const k of ["refused", "withdrawn", "noBasis", "sample", "notSaved", "readOnly", "openByOthers", "unreadable", "unknown"] as const) expect(BULK_BLOCK_TEXT[k]).toBeTruthy();
     const all = [...Object.values(BULK_BLOCK_TEXT), ...Object.values(BULK_MESSAGES)].join("");
     for (const bad of ["当て", "比べ", "カード", "接続口", "つなぐ"]) expect(all).not.toContain(bad);
   });

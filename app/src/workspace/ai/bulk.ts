@@ -13,6 +13,7 @@ export const BULK_BLOCK_TEXT: Record<AiBulkBlock, string> = {
   sample: "見本の世帯",
   notSaved: "保存していない世帯",
   readOnly: "閲覧だけで開く世帯（AIに渡した記録を残せません）",
+  openByOthers: "ほかの人（ほかのPC）が開いている世帯（AIに渡した記録を書くと、相手の保存が分岐になるため。閉じてから渡してください）",
   unreadable: "開けなかった世帯",
   unknown: "見つからない世帯（削除したか、ほかの PC で移した可能性があります）",
 };
