@@ -857,7 +857,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
                       <td class="l">{c.name}</td>
                       <td>
                         <span class="os-in">
-                          <input inputMode="decimal" value={texts[mixKey(c.key)] ?? ""} placeholder={rateToPct(GPIF_MIX.find((m) => m.assetClass === c.key)?.share ?? null) || "0"} aria-label={`${c.name}の割合`} aria-invalid={bad.includes("assetMix")} onInput={(e) => setTexts({ ...texts, [mixKey(c.key)]: (e.currentTarget as HTMLInputElement).value })} data-office-setting={mixKey(c.key)} />%
+                          <input inputMode="decimal" value={texts[mixKey(c.key)] ?? ""} placeholder={officeMix === null ? rateToPct(GPIF_MIX.find((m) => m.assetClass === c.key)?.share ?? null) || "0" : "0"} aria-label={`${c.name}の割合`} aria-invalid={bad.includes("assetMix")} onInput={(e) => setTexts({ ...texts, [mixKey(c.key)]: (e.currentTarget as HTMLInputElement).value })} data-office-setting={mixKey(c.key)} />%
                         </span>
                       </td>
                       <td>
