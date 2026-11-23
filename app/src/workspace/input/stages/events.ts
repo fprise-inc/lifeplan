@@ -2,7 +2,7 @@
 // その他の一時的収入（祝い金・お見舞い・一時の給付金・動産の売却・一時所得・その他の入金）。ほかのカードに置いた予定も含めた「この世帯の予定」を読むだけで並べる。
 // 車（cars.ts）・FP顧問料（fees.ts）は別の項目。介護の費用は介護・親の項目（care.ts。careGroup はここに置いたまま使う）、種類の無い古い行で子の年齢で
 // 始まる支出は子ども・教育のカード、介護・親と相続・贈与のお金の行はそれぞれのカードに出す。FP が「＋ 項目を追加」で足した物もここに出る（ホームのピンは見せ方だけ。items.ts）
-import type { CareExpense, EducationGift, Household, IncomeFlow, Member, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
+import type { CareExpense, EducationGift, Household, Member, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
 import { careEstimate, fillsByEstimate, lifeExpectancy } from "../../../../../hearing/src/estimates.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { ageSwitchMonth, resolveTimepoint } from "../../timepoint.ts";
@@ -727,50 +727,7 @@ function inTemplateActions(wh: WorkingHousehold): ActionDef[] {
   return [...all.filter((a) => a.chip?.group !== OTHER_TEMPLATES), ...all.filter((a) => a.chip?.group === OTHER_TEMPLATES)];
 }
 
-// ---- 入る⇄出るの付け替え・基本生活費へ移す（0068） ----
-
-/** 出るお金の行を入るお金の行にする（同じ名前・額・時期。種類は「その他の入金」。行を外して足す） */
-export function expenseToIncome(wh: WorkingHousehold, id: string, newRowId: string = newId()): WorkingHousehold {
-  return mutate(wh, (h) => {
-    const p = (h.periodicExpenses ?? []).find((x) => x.id === id);
-    if (p === undefined) return;
-    const f: IncomeFlow = {
-      id: newRowId,
-      ...(p.label !== undefined ? { label: p.label } : {}),
-      kind: "other",
-      from: structuredClone(p.from),
-      to: p.to === undefined ? null : structuredClone(p.to),
-      everyYears: p.everyYears,
-      ...(p.monthly === true ? { monthly: true } : {}),
-      amount: structuredClone(p.amount),
-      ...(p.growth !== undefined ? { growth: structuredClone(p.growth) } : {}),
-    };
-    h.periodicExpenses = (h.periodicExpenses ?? []).filter((x) => x.id !== id);
-    (h.incomeFlows ??= []).push(f);
-  });
-}
-
-/** 入るお金の行を出るお金の行にする（同じ名前・額・時期。種類は「ライフイベントの支出」。表の行は、1回でもくり返しでも一時的支出） */
-export function incomeToExpense(wh: WorkingHousehold, id: string, newRowId: string = newId()): WorkingHousehold {
-  return mutate(wh, (h) => {
-    const f = (h.incomeFlows ?? []).find((x) => x.id === id);
-    if (f === undefined) return;
-    const p: PeriodicExpense = {
-      id: newRowId,
-      ...(f.label !== undefined ? { label: f.label } : {}),
-      kind: "general",
-      row: EVENT_ROW,
-      from: structuredClone(f.from),
-      to: f.to === undefined ? null : structuredClone(f.to),
-      everyYears: f.everyYears,
-      ...(f.monthly === true ? { monthly: true } : {}),
-      amount: structuredClone(f.amount),
-      ...(f.growth !== undefined ? { growth: structuredClone(f.growth) } : {}),
-    };
-    h.incomeFlows = (h.incomeFlows ?? []).filter((x) => x.id !== id);
-    (h.periodicExpenses ??= []).push(p);
-  });
-}
+// ---- 基本生活費へ移す（0068。入る⇄出るの付け替えのボタンは 2026-11-23 になくした） ----
 
 /**
  * 古い世帯の周期的な支出（年払いの暮らしの支出に当たる物）を、基本生活費のカードの行にする（種類を変える。額はそのまま）。表の行は、年払いの暮らしの
@@ -818,13 +775,13 @@ function eventHeadFields(p: PeriodicExpense, fields: readonly FieldDef[]): Field
   return out;
 }
 
-/** 出るお金の行のまとまり（1行目に付け替えのボタンを足す） */
+/** 出るお金の行のまとまり（1行目に「夢にする」「基本生活費の項目へ移す」のボタンを足す） */
 function eventRowGroups(wh: WorkingHousehold, p: PeriodicExpense): GroupDef[] {
   const h = wh.request.input.household;
   const [first, ...rest] = periodicGroups(wh, p);
   if (first === undefined) return rest;
   const head: GroupDef = { ...first, fields: eventHeadFields(p, first.fields), ...(p.monthly === true ? { note: [first.note, MONTHLY_NOTE].filter((x) => x !== undefined).join("。") } : {}) };
-  const more: ActionDef[] = [{ key: `ev/${p.id}/toIncome`, label: "入るお金にする", level: "detail", run: (w) => expenseToIncome(w, p.id) }];
+  const more: ActionDef[] = [];
   // 前にライフイベントのひな形（特別な旅行・大きな買い物・資格・学び直し）で足した行は、ふつうの行のまま。FP が夢プランへ移せる（0103 の追記 2026-11-01）
   const legacy = DREAM_TEMPLATES.some((t) => legacyDreamRows(h, t).some((x) => x.id === p.id));
   if (legacy && !head.actions.some((a) => a.key === `ev/${p.id}/toDream`))
@@ -1024,7 +981,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
     groups: [...rows.flatMap((p) => eventRowGroups(wh, p)), ...(gifts !== null ? [gifts] : []), outTemplateGroup(wh)],
     actions: [{ key: "ev/addOther", label: "＋ ほかの支出", help: "よくあるライフイベントに無い支出を、1回・1年後で足します（名前・額・時期を直してください）", level: "simple", run: (w) => addOtherExpense(w) }],
   };
-  // 入るお金（祝い金・一時所得・動産の売却・その他の入金。0044）。行に「出るお金にする」。ひな形は行を足した後も出す
+  // 入るお金（祝い金・一時所得・動産の売却・その他の入金。0044）。ひな形は行を足した後も出す
   const inSec = moneySections(wh, "events", { claimed: NONE_CLAIMED, level: "simple", inTitle: "入るお金" }).find((x) => x.key.endsWith("/in"));
   const inRows = (h.incomeFlows ?? []).filter((f) => incomeCard(f) === "events");
   const inSection: SectionDef | null =
@@ -1034,11 +991,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
           ...inSec,
           note: `${inRows.length === 0 ? "まだありません。" : ""}祝い金・お見舞い・給付金・物の売却などの入金です。香典もここで入れられます。相続・贈与、親からの援助、副業の収入などは、それぞれの入力項目で入れます`,
           groups: [
-            ...inSec.groups.map((g) => {
-              const m = /^in\/([^/]+)$/.exec(g.key);
-              const id = m?.[1];
-              return id === undefined ? g : { ...g, actions: [{ key: `in/${id}/toExpense`, label: "出るお金にする", level: "detail" as const, run: (w: WorkingHousehold) => incomeToExpense(w, id) }, ...g.actions] };
-            }),
+            ...inSec.groups,
             { key: "in/templates", title: "よくある入金（当てはまるものだけ足してください）", level: "simple", chips: true, fields: [], actions: inTemplateActions(wh) },
           ],
           actions: inSec.actions.map((a) => {

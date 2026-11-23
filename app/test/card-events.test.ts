@@ -1,5 +1,5 @@
 // ライフイベントのカードの中身（0068）: ひな形（7。ご家族に起きること・備え。まとまりごとの小さなボタン、足した後も出す・「入れた（…）」）・予備費・子の成人式（ライフイベントに残す）・
-// 子の結婚の援助（子ども・教育の子への援助を使う）・親の葬儀（聞かずに平均余命で推定）・法事・祝い金の時期・入る⇄出るの付け替え・基本生活費へ移す・
+// 子の結婚の援助（子ども・教育の子への援助を使う）・親の葬儀（聞かずに平均余命で推定）・法事・祝い金の時期・基本生活費へ移す（入る⇄出るの付け替えのボタンは出さない）・
 // 種類と表の行と毎月は選ばない・介護はここに出さない・この世帯の予定（ほかのカードを含む。重なる年）
 import { describe, expect, it } from "vitest";
 import type { Member, PeriodicExpense } from "../src/engine/types.ts";
@@ -17,8 +17,6 @@ import {
   addReserve,
   childOfPeriodic,
   comingOfAgeMonth,
-  expenseToIncome,
-  incomeToExpense,
   livingMonthlyNow,
   moveToLiving,
   OUT_TEMPLATES,
@@ -393,26 +391,27 @@ describe("ライフイベントの行の欄", () => {
   });
 });
 
-describe("入る⇄出るの付け替え・基本生活費へ移す・介護は出さない", () => {
-  it("出るお金の行を入るお金にする（同じ名前・額・時期）、戻すと出るお金（表の行は1回でもくり返しでも一時的支出）", () => {
-    const wh0 = addEventTemplate(bare(), tpl("memorial"), "00000000-0000-4000-8000-0000000000e6");
-    const p = rowsOf(wh0).find((x) => x.id.endsWith("e6"))!;
-    const wh = expenseToIncome(wh0, p.id, "00000000-0000-4000-8000-0000000000e7");
-    expect(rowsOf(wh).some((x) => x.id === p.id)).toBe(false);
-    const f = wh.request.input.household.incomeFlows!.find((x) => x.id.endsWith("e7"))!;
-    expect(f).toMatchObject({ label: p.label, kind: "other", from: p.from, to: p.to, everyYears: p.everyYears, amount: p.amount });
-    expect(events(wh).sections.find((x) => x.key === "money/events/in")!.groups[0]!.actions.some((a) => a.key.endsWith("/toExpense"))).toBe(true);
-    const back = incomeToExpense(wh, f.id, "00000000-0000-4000-8000-0000000000e8");
-    expect(rowsOf(back).find((x) => x.id.endsWith("e8"))).toMatchObject({ label: p.label, kind: "general", row: "cf.expense.lumpSum.other", amount: p.amount });
-    const repeat = mutate(wh, (h) => void Object.assign(h.incomeFlows!.find((x) => x.id === f.id)!, { to: null, everyYears: 2 }));
-    expect(rowsOf(incomeToExpense(repeat, f.id, "00000000-0000-4000-8000-0000000000e9")).at(-1)).toMatchObject({ row: "cf.expense.lumpSum.other", everyYears: 2 });
+describe("基本生活費へ移す・入る⇄出るの付け替えは出さない・介護は出さない", () => {
+  it("出るお金の行にも入るお金の行にも、入る⇄出るの付け替えのボタンは出さない（1回の行・くり返しの行・入るお金の行）", () => {
+    const once = addEventTemplate(bare(), tpl("memorial"), "00000000-0000-4000-8000-0000000000e6");
+    const reserve = addReserve(once, "00000000-0000-4000-8000-0000000000e7");
+    const wh = addIncomeTemplate(reserve, "結婚のお祝い");
+    const keys = events(wh).sections.flatMap((x) => x.groups).flatMap((g) => g.actions).map((a) => a.key);
+    expect(keys.some((k) => k.endsWith("/toIncome") || k.endsWith("/toExpense"))).toBe(false);
+    const labels = events(wh).sections.flatMap((x) => x.groups).flatMap((g) => g.actions).map((a) => a.label);
+    expect(labels).not.toContain("入るお金にする");
+    expect(labels).not.toContain("出るお金にする");
+    // 入るお金の行はある（ボタンが無いだけ）
+    expect(wh.request.input.household.incomeFlows!.some((f) => f.label === "結婚のお祝い")).toBe(true);
+    // 基本生活費の項目へ移すは、くり返す行に残る
+    expect(groupOf(wh, "00000000-0000-4000-8000-0000000000e7").actions.map((a) => a.key)).toContain("ev/00000000-0000-4000-8000-0000000000e7/toLiving");
   });
 
   it("くり返す行は「基本生活費の項目へ移す」で基本生活費の行になる（表の行は基本生活費に含める。自動では移さない）", () => {
     const id = "00000000-0000-4000-8000-0000000000e9";
     const wh0 = addReserve(bare(), id);
     const head = groupOf(wh0, id);
-    expect(head.actions.map((a) => a.key)).toEqual(expect.arrayContaining([`ev/${id}/toIncome`, `ev/${id}/toLiving`]));
+    expect(head.actions.map((a) => a.key)).toContain(`ev/${id}/toLiving`);
     const wh = moveToLiving(wh0, id);
     expect(rowsOf(wh).find((p) => p.id === id)).toMatchObject({ kind: "livingAnnual", row: "cf.expense.living" });
     expect(outSection(wh).groups.some((g) => g.key === `ev/${id}`)).toBe(false);

@@ -185,7 +185,7 @@ entries:
       - incomeFlow.recipient
     fields:
       - 入るお金の行の「副業・雑所得」
-      - 「ライフイベント」の入力項目の「入るお金にする」
+      - 「ライフイベント」の入力項目の入るお金の行
     rows:
       - cf.income.other.sideJob
       - cf.income.other.miscellaneous
