@@ -549,6 +549,74 @@ export function healthRateEstimate(kind: "union" | "mutualAid", options: { month
  */
 const CAR_BASIS = "自動車の保有・維持費の目安（仮の値。原本での確かめ前）";
 const car = (id: string, what: string): Estimate => ({ value: presetNum(id), basis: presetText(id, () => `${CAR_BASIS}・${what}`) });
+
+/**
+ * 車の維持費の帯（0253）: 車両の価格（下取りを引く前。計算基準年の価格）で分ける。境目の額は presets.ts の preset.car.band.*（事務所の推定の値で直せる）。
+ * 境目ちょうどは上の帯（200万円は普通車、400万円は大型・高級車）。価格の無い車（リース・長期レンタル）は普通車
+ */
+export type CarBand = "small" | "normal" | "large";
+export const CAR_BANDS: readonly CarBand[] = ["small", "normal", "large"];
+const CAR_BAND_NAME: Readonly<Record<CarBand, string>> = { small: "軽・コンパクト", normal: "普通車", large: "大型・高級車" };
+
+export function carBand(price: number | null | undefined): CarBand {
+  if (price == null) return "normal";
+  if (price < presetNum("preset.car.band.smallBelow")) return "small";
+  if (price >= presetNum("preset.car.band.largeFrom")) return "large";
+  return "normal";
+}
+
+/** 帯の名前と価格の範囲（「軽・コンパクト（車両の価格200万円未満）」） */
+export function carBandText(b: CarBand): string {
+  const man = (id: string) => `${String(presetNum(id) / 10000)}万円`;
+  const lo = man("preset.car.band.smallBelow");
+  const hi = man("preset.car.band.largeFrom");
+  const range = b === "small" ? `${lo}未満` : b === "large" ? `${hi}以上` : `${lo}以上${hi}未満`;
+  return `${CAR_BAND_NAME[b]}（車両の価格${range}）`;
+}
+
+/**
+ * 自動車税（種別割）の標準税率の、帯ごとの目安（法令の値なので presets に置かない。どの排気量の区分かは帯からの推定）。
+ * 軽・コンパクトは軽自動車税、普通車は1.5リットル超2リットル以下、大型・高級車は2.5リットル超3リットル以下
+ */
+const CAR_TAX: Readonly<Record<CarBand, Estimate>> = {
+  small: { value: 10800, basis: "軽自動車税（種別割）の標準税率（自家用の軽四輪の乗用・2015年4月以後に最初の新規検査）" },
+  normal: { value: 36000, basis: "自動車税（種別割）の標準税率（自家用の乗用車・1.5リットル超2リットル以下・2019年10月以後の新規登録）" },
+  large: { value: 50000, basis: "自動車税（種別割）の標準税率（自家用の乗用車・2.5リットル超3リットル以下・2019年10月以後の新規登録）" },
+};
+
+/** 維持費とその内訳の目安（1台・年額。車検は1回の額）。帯は車両の価格から */
+export interface CarUpkeepEstimates {
+  band: CarBand;
+  upkeep: Estimate;
+  tax: Estimate;
+  insurance: Estimate;
+  inspection: Estimate;
+  fuel: Estimate;
+}
+
+/**
+ * 車両の価格の帯ごとの維持費・内訳の目安（0253）。値は presets.ts（普通車は前からの値ID、ほかの帯は値ID の後ろに .small・.large）。
+ * 価格が分かる車は根拠の文に帯を書く。価格の無い車（リース・長期レンタル）は普通車の値で、根拠の文は前のまま（帯を書かない）
+ */
+export function carUpkeepEstimates(price: number | null | undefined): CarUpkeepEstimates {
+  return price == null ? carBandEstimates("normal", false) : carBandEstimates(carBand(price));
+}
+
+/** 帯の維持費・内訳の目安。named は根拠の文に帯を書くか（価格の分からない車は書かない） */
+export function carBandEstimates(b: CarBand, named = true): CarUpkeepEstimates {
+  const tail = named ? `・${carBandText(b)}` : "";
+  const at = (id: string, what: string): Estimate => car(b === "normal" ? id : `${id}.${b}`, `${what}${tail}`);
+  const tax = CAR_TAX[b];
+  return {
+    band: b,
+    upkeep: at("preset.car.upkeep", "維持費の合計（自動車税・保険・車検・駐車場・燃料）"),
+    tax: named ? { value: tax.value, basis: `${tax.basis}。${carBandText(b)}の目安` } : tax,
+    insurance: at("preset.car.insurance", "任意保険"),
+    inspection: at("preset.car.inspection", "車検1回（法定費用と整備）"),
+    fuel: at("preset.car.fuel", "燃料"),
+  };
+}
+
 export const CAR_ESTIMATE = {
   get everyYears(): Estimate {
     return car("preset.car.everyYears", "乗り換えの間隔");
@@ -559,11 +627,11 @@ export const CAR_ESTIMATE = {
   get tradeIn(): Estimate {
     return car("preset.car.tradeIn", "下取り");
   },
-  /** 維持費の合計（自動車税・保険・車検・駐車場・燃料） */
+  /** 維持費の合計（自動車税・保険・車検・駐車場・燃料）。ここの維持費・内訳は普通車（価格の分からない車）の目安。価格の分かる車は carUpkeepEstimates */
   get upkeep(): Estimate {
     return car("preset.car.upkeep", "維持費の合計（自動車税・保険・車検・駐車場・燃料）");
   },
-  tax: { value: 36000, basis: "自動車税（種別割）の標準税率（自家用の乗用車・1.5リットル超2リットル以下・2019年10月以後の新規登録）" },
+  tax: CAR_TAX.normal,
   get insurance(): Estimate {
     return car("preset.car.insurance", "任意保険");
   },

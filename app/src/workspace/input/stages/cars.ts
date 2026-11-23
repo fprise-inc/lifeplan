@@ -11,7 +11,7 @@ import { carPurchaseYms } from "../carPurchases.ts";
 import { monthIndex } from "../../timepoint.ts";
 import { wareki } from "../units.ts";
 import type { Address } from "../../store/readings.ts";
-import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
+import { CAR_BANDS, CAR_ESTIMATE, carBandEstimates, carUpkeepEstimates, type CarUpkeepEstimates, type Estimate } from "../estimates.ts";
 import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, timeView, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { ADULTS_WHO, GROWTH_KINDS, holderOptions, memberLabel, WORDS } from "../labels.ts";
@@ -19,7 +19,7 @@ import { addExpense, moneySections } from "../moneyRows.ts";
 import { materializeEvent } from "../namedEvents.ts";
 import { manYen } from "../readLines.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
-import { amountText, oneMinus, rateText } from "../units.ts";
+import { amountText, formatYearMonth, oneMinus, rateText } from "../units.ts";
 import { bandKey, splitBands, type BandSpec } from "./bands.ts";
 import { carLoanGroups, newCarLoan } from "./housing.ts";
 import { fixGrowth } from "./living.ts";
@@ -157,27 +157,95 @@ export function upkeepAnnual(c: Car): number {
   return (c.upkeep?.annual ?? 0) + breakdownAnnual(c);
 }
 
+/** 維持費の帯を決める車両の価格（買う車の価格。リース・長期レンタルは価格が無いので普通車。0253） */
+const bandPrice = (c: Car): number | null => (isLeaseCar(c) ? null : (c.purchase?.price ?? null));
+
+/** この車の維持費・内訳の目安（車両の価格の帯で。0253） */
+export const upkeepEstimates = (c: Car): CarUpkeepEstimates => carUpkeepEstimates(bandPrice(c));
+
 /**
- * 維持費の合計の目安（買う車は車の目安。リース・長期レンタルは、月額に含む自動車税・車検・保険の目安を引いた額。0101）
+ * 維持費の合計の目安（買う車は車両の価格の帯の目安〔0253〕。リース・長期レンタルは、月額に含む自動車税・車検・保険の目安を引いた額。0101）
  */
 export function upkeepEstimate(c: Car): Estimate {
+  const e = upkeepEstimates(c);
   const inc = leaseIncludes(c);
-  if (inc === null) return CAR_ESTIMATE.upkeep;
-  let value = CAR_ESTIMATE.upkeep.value;
+  if (inc === null) return e.upkeep;
+  let value = e.upkeep.value;
   const parts: string[] = [];
   if (inc.taxAndCompulsory) {
-    value -= CAR_ESTIMATE.tax.value;
+    value -= e.tax.value;
     parts.push("自動車税");
   }
   if (inc.inspectionMaintenance) {
-    value -= Math.round(CAR_ESTIMATE.inspection.value / 2);
+    value -= Math.round(e.inspection.value / 2);
     parts.push("車検");
   }
   if (inc.insurance) {
-    value -= CAR_ESTIMATE.insurance.value;
+    value -= e.insurance.value;
     parts.push("保険");
   }
-  return parts.length === 0 ? CAR_ESTIMATE.upkeep : { value, basis: `${CAR_ESTIMATE.upkeep.basis}から、月額に含む${parts.join("・")}の目安を引いた額` };
+  return parts.length === 0 ? e.upkeep : { value, basis: `${e.upkeep.basis}から、月額に含む${parts.join("・")}の目安を引いた額` };
+}
+
+/** 内訳の欄のうち、帯の目安で入れ直す物（車検は1回の額） */
+type BandPart = "tax" | "insurance" | "inspection" | "fuel";
+const BAND_PARTS: readonly { key: BandPart; write: (c: Car, v: number) => void }[] = [
+  { key: "tax", write: (c, v) => void (c.tax = { ...c.tax, annual: v }) },
+  { key: "insurance", write: (c, v) => void (c.insurance = { ...c.insurance, annual: v }) },
+  { key: "inspection", write: (c, v) => void (c.inspection = { ...c.inspection, amount: v }) },
+  { key: "fuel", write: (c, v) => void (c.fuel = { ...c.fuel, annual: v }) },
+];
+
+/** 根拠の文が、どれかの帯（と価格の分からない車）の目安のままか（FP が入れた値・合計から分けた残りは違う文） */
+function isBandBasis(basis: string | undefined, key: BandPart): boolean {
+  if (basis === undefined) return false;
+  const all = [carBandEstimates("normal", false), ...CAR_BANDS.map((b) => carBandEstimates(b))];
+  return all.some((e) => e[key].basis === basis);
+}
+
+/** 合計と内訳の差を置く行（「その他（まだ分けていない）」）の推定の根拠の文 */
+const restBasis = (total: number): string => `合計（年${manYen(total)}）と内訳の差（内訳を直したら外してください）`;
+
+/**
+ * 車両の価格を直したときに、推定のままの維持費の合計と内訳を、新しい帯の目安で入れ直す（0253）。FP が入れた値は変えない。
+ * 合計と内訳の差の行（推定のまま）は、合計も推定のままなら差を出し直す（差が無くなれば外す）
+ */
+export function refreshUpkeepBand(wh: WorkingHousehold, carId: string): WorkingHousehold {
+  const k = `ev/car/${carId}`;
+  const cur = (wh.request.input.household.cars ?? []).find((x) => x.id === carId);
+  if (cur === undefined) return wh;
+  const assumed = { ...wh.assumed };
+  const next = mutate(wh, (h) => {
+    const x = (h.cars ?? []).find((y) => y.id === carId);
+    if (x === undefined) return;
+    const e = upkeepEstimates(x);
+    const totalKey = `${k}/upkeep`;
+    if (assumed[totalKey] !== undefined && x.upkeep !== undefined) {
+      const u = upkeepEstimate(x);
+      x.upkeep.annual = u.value;
+      assumed[totalKey] = u.basis;
+    }
+    for (const p of BAND_PARTS) {
+      const key = `${k}/${p.key}`;
+      if (!isBandBasis(assumed[key], p.key)) continue;
+      p.write(x, e[p.key].value);
+      assumed[key] = e[p.key].basis;
+    }
+    const rest = (x.upkeepOther ?? []).find((o) => o.label === REST_LABEL);
+    const restKey = rest === undefined ? "" : `${k}/other/${rest.id}/annual`;
+    if (rest === undefined || assumed[restKey] === undefined || assumed[totalKey] === undefined || x.upkeep === undefined) return;
+    const others = (x.upkeepOther ?? []).filter((o) => o.id !== rest.id);
+    const diff = x.upkeep.annual - breakdownAnnual({ ...x, upkeepOther: others });
+    if (diff > 0) {
+      rest.annual = diff;
+      assumed[restKey] = restBasis(x.upkeep.annual);
+      return;
+    }
+    if (others.length === 0) delete x.upkeepOther;
+    else x.upkeepOther = others;
+    delete assumed[restKey];
+  });
+  return { ...next, assumed };
 }
 
 /** 2つの年月の間の月数（b − a） */
@@ -449,6 +517,37 @@ export function lastCarOfHousehold(h: Household, carId: string): boolean {
   return best?.id === carId;
 }
 
+/**
+ * 世帯が最後に手放す車の「手放した後」の見出し（0253）: いつのことか（手放す月・名義の人の年齢）を書く。手放す時期を直せば一緒に変わる。
+ * 手放す時期が推定のまま（足したときの既定・買い替えない車の目安）なら〔推定〕を添える。買い替える車は「買い替えはここまで」も書く
+ */
+export function afterCarTitle(wh: WorkingHousehold, c: Car): string {
+  const h = wh.request.input.household;
+  const ym = c.until == null ? null : resolveTimepoint(h, c.until);
+  const o = ownerOf(h, c);
+  const row = rowAt(inputOf(wh.request), addr(c.id, "car.until"));
+  const est = row?.state === "estimated" ? "〔推定〕" : "";
+  const who = o === undefined || ym === null ? "" : `・${memberLabel(wh, c.owner)}${String(ageAt(o, ym))}歳`;
+  // 名前のかっこの中に「。」を書かない決まり（0077 の追記。tidy-words.test.ts）なので、時期と続きの文は「、」でつなぐ
+  const when = ym === null ? "" : `${formatYearMonth(ym)}${who}${est}、`;
+  const replaces = !isLeaseCar(c) && replaceKind(c) !== "none";
+  return `手放した後（${when}${replaces ? "買い替えはここまでで、この後は世帯に車がありません" : "この後は世帯に車がありません"}）`;
+}
+
+/**
+ * これから買う車を「購入済み」（今の車）にする（0253）。入れた値（購入の時期・周期・価格・下取り・ローン・維持費・手放す時期）はそのままで、
+ * 前の「今の車」のチェックを入れたときと同じ読み替えになる: 購入の時期は次の買い替えの時期、1回目の買い替えから下取りを引く、
+ * 維持費は今から数える、この1台だけの車はもう買わない（手放す時期まで乗る）
+ */
+export function markBought(wh: WorkingHousehold, carId: string): WorkingHousehold {
+  const cur = (wh.request.input.household.cars ?? []).find((x) => x.id === carId);
+  if (cur?.purchase === undefined || cur.purchase.owned === true) return wh;
+  return mutate(wh, (h) => {
+    const x = (h.cars ?? []).find((y) => y.id === carId);
+    if (x?.purchase !== undefined) x.purchase.owned = true;
+  });
+}
+
 /** 続きの車（購入の時期が、ほかの車を手放す出来事から決まる車）の、元の車（無ければ null） */
 function predecessorOf(h: Household, c: Car): { car: Car; index: number; offset: number } | null {
   const ev = c.purchase?.first.event;
@@ -558,7 +657,21 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         }),
       );
     if (!keepCurrent)
-      fields.push(carYen({ key: `${k}/price`, item: "car.purchase", label: "車両の価格", level: "simple", basis: "once", find, path: ["purchase", "price"], estimate: CAR_ESTIMATE.price, help: "今の価格で入れます（物価上昇率で伸ばします）", after: refreshTradeIn }));
+      fields.push(
+        carYen({
+          key: `${k}/price`,
+          item: "car.purchase",
+          label: "車両の価格",
+          level: "simple",
+          basis: "once",
+          find,
+          path: ["purchase", "price"],
+          estimate: CAR_ESTIMATE.price,
+          help: "今の価格で入れます（物価上昇率で伸ばします）。推定のままの維持費は、価格の帯（軽・コンパクト／普通車／大型・高級車）の目安で入れ直します",
+          // 推定のままの下取り（価格と周期から）と維持費・内訳（価格の帯から。0253）を入れ直す
+          after: (w) => refreshUpkeepBand(refreshTradeIn(w), c.id),
+        }),
+      );
     if (kind !== "none")
       fields.push(
         carYen({
@@ -576,20 +689,6 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
           help: "次の買い替えで車両の価格から引く額です。推定は、車両の価格と周期からの残価です。下取りを引いた額を車両の価格に入れたときは0円に",
         }),
       );
-    fields.push(
-      plain({
-        key: `${k}/owned`,
-        item: "car.purchase",
-        label: "今の車（外すと「これから買う車」）",
-        level: "detail",
-        kind: "bool",
-        find,
-        path: ["purchase", "owned"],
-        optional: true,
-        fallback: false,
-        help: "持っているときは、上の時期から買い替えます（その前の車検も数え、1回目から下取りを引きます）",
-      }),
-    );
     if (!keepCurrent) fields.push(...payFields(c, k, car));
   }
   // 維持費（入れ方: 合計／内訳。どちらの値も残し、計算は入れ方の側だけを数える。0069）
@@ -653,11 +752,16 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       }),
     );
     // リースの月額に含む物は、内訳の欄を出さない（値は残す。0101）
-    if (inc?.taxAndCompulsory !== true) fields.push(carYen({ key: `${k}/tax`, item: "car.tax", label: "自動車税（年額）", level: "detail", basis: "annual", find, path: ["tax", "annual"], estimate: CAR_ESTIMATE.tax }));
-    if (inc?.insurance !== true) fields.push(carYen({ key: `${k}/insurance`, item: "car.insurance", label: "自動車保険（年額）", level: "detail", basis: "annual", find, path: ["insurance", "annual"], estimate: CAR_ESTIMATE.insurance }));
+    // 内訳の目安は車両の価格の帯で（0253）
+    const bandOf = (w: WorkingHousehold): CarUpkeepEstimates => {
+      const x = car(w.request.input.household, w);
+      return x === undefined ? carUpkeepEstimates(null) : upkeepEstimates(x);
+    };
+    if (inc?.taxAndCompulsory !== true) fields.push(carYen({ key: `${k}/tax`, item: "car.tax", label: "自動車税（年額）", level: "detail", basis: "annual", find, path: ["tax", "annual"], estimate: (w) => bandOf(w).tax }));
+    if (inc?.insurance !== true) fields.push(carYen({ key: `${k}/insurance`, item: "car.insurance", label: "自動車保険（年額）", level: "detail", basis: "annual", find, path: ["insurance", "annual"], estimate: (w) => bandOf(w).insurance }));
     if (inc?.inspectionMaintenance !== true)
       fields.push(
-        carYen({ key: `${k}/inspection`, item: "car.inspection", label: "車検（1回の額）", level: "detail", basis: "once", find, path: ["inspection", "amount"], estimate: CAR_ESTIMATE.inspection }),
+        carYen({ key: `${k}/inspection`, item: "car.inspection", label: "車検（1回の額）", level: "detail", basis: "once", find, path: ["inspection", "amount"], estimate: (w) => bandOf(w).inspection }),
         plain({ key: `${k}/inspFirst`, item: "car.inspection", label: lease ? "最初の車検（借り始めから）" : "最初の車検（購入から）", level: "detail", kind: "int", suffix: "年後", min: 1, max: 10, find, path: ["inspection", "firstAfterYears"], optional: true, fallback: 3 }),
         plain({ key: `${k}/inspEvery`, item: "car.inspection", label: "その後の車検の周期", level: "detail", kind: "int", suffix: "年ごと", min: 1, max: 10, find, path: ["inspection", "everyYears"], optional: true, fallback: 2 }),
       );
@@ -701,6 +805,16 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
     const neverReplaced = kind === "none" || (untilYm !== null && firstYm !== null && (owned ? untilYm < firstYm : untilYm < addMonths(firstYm, 12 * c.purchase.everyYears)));
     if (c.purchase.everyYears >= 10 || neverReplaced) actions.push({ key: `${k}/repair`, label: "＋ 古くなってからの修理費", help: "買ってから10年たった頃からの修理費を、よくある額の目安で毎年足します（足した後に直せます）", level: "detail", run: (w) => addRepair(w, c.id) });
   }
+  // これから買う車を、もう買った車（今の車）にする（0253。入れた値はそのまま。逆向きのボタンは出さない: 足し間違いは外して足し直す〔利用者の判断〕）
+  if (!lease && !owned && c.purchase !== undefined)
+    actions.push({
+      key: `${k}/bought`,
+      label: "購入済みにする",
+      help: "プランを見直したときに、この車をもう買っていたら押します。入れた値はそのままで「今の車」になります。",
+      level: "detail",
+      head: true,
+      run: (w) => markBought(w, c.id),
+    });
   actions.push({
     key: `${k}/remove`,
     label: "外す",
@@ -716,7 +830,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   });
   // 車1台の枠の中を中枠に分ける（住宅ローンと同じ形。欄とボタンのキー・中身は今のまま。0237）。頭のまとまりは見出しと「外す」だけで、「▸」は車に1つ（枠の最後）
   const title = `車 ${i + 1}（${memberLabel(wh, c.owner)}・${lease ? (c.lease?.type === "longRental" ? "長期レンタル" : "カーリース") : owned ? "今の車" : "これから買う車"}）`;
-  const head: GroupDef = { key: k, title, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", moreLabel: lease ? "契約の年数・月額の中身を入れる" : "維持費の内訳・ローンの条件を入れる", fields: [], actions: actions.filter((a) => a.danger === true) };
+  const head: GroupDef = { key: k, title, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", moreLabel: lease ? "契約の年数・月額の中身を入れる" : "維持費の内訳・ローンの条件を入れる", fields: [], actions: actions.filter((a) => a.danger === true || a.head === true) };
   // 内訳の名前つきの行は「維持費」の中枠の中に、行を足すボタンは中枠の最後に
   const otherAdd = detailGroups.filter((g) => g.key === `${k}/other/add`).flatMap((g) => g.actions);
   const otherRows = detailGroups.filter((g) => g.key !== `${k}/other/add`);
@@ -726,7 +840,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       ? [
           {
             key: `${k}/afterCar`,
-            title: "手放した後（この後、世帯に車がありません）",
+            title: afterCarTitle(wh, c),
             where: title,
             band: true,
             level: "simple",
@@ -735,7 +849,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
           },
         ]
       : [];
-  const bands = splitBands(k, lease ? LEASE_BANDS : CAR_BANDS, fields, [...actions.filter((a) => a.danger !== true), ...otherAdd], { inner: { upkeep: otherRows }, where: title });
+  const bands = splitBands(k, lease ? LEASE_BANDS : CAR_BAND_SPECS, fields, [...actions.filter((a) => a.danger !== true && a.head !== true), ...otherAdd], { inner: { upkeep: otherRows }, where: title });
   // 今返しているローン（この車の枠の中の中枠。1本 = 中枠1つ）と、足すボタン（ローンの並びの最後）。「価格・買い方」の後、「維持費」の前に置く
   const nowLoans: GroupDef[] = [...(o.loans ?? []), ...(o.addLoan !== undefined ? [{ key: `${k}/addNowLoan`, where: title, level: "simple" as const, fields: [], actions: [o.addLoan] }] : [])];
   const at = bands.findIndex((g) => g.key === bandKey(k, "upkeep"));
@@ -746,8 +860,8 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
 /**
  * 車1台の中枠（0237）。欄のキーの末尾 → 中枠。順番は 持ち主・買い替えと時期 → 価格・買い方 →（今返しているローン。carStage が渡す）→ 維持費 → 伸び方・万一のとき
  */
-const CAR_BANDS: readonly BandSpec[] = [
-  { id: "car", title: "車と買い替え", keys: ["owner", "owned", "replace", "replaceAll", "replaceUntil", "first", "every", "untilAge"], actions: ["next"] },
+const CAR_BAND_SPECS: readonly BandSpec[] = [
+  { id: "car", title: "車と買い替え", keys: ["owner", "replace", "replaceAll", "replaceUntil", "first", "every", "untilAge"], actions: ["next"] },
   { id: "price", title: "価格・買い方", keys: ["price", "tradeIn", "pay", "down", "term", "rate"] },
   { id: "upkeep", title: "維持費", keys: ["upkeepMode", "upkeep", "upkeepSum", "tax", "insurance", "inspection", "inspFirst", "inspEvery", "parking", "fuel"], actions: ["other/add", "repair"] },
   { id: "future", title: "伸び方・万一のとき", keys: ["growth", "growthRate", "on"] },
@@ -1279,30 +1393,41 @@ export function setUpkeepMode(wh: WorkingHousehold, carId: string, to: "total" |
     const total = x.upkeep?.annual;
     if (!hasBreakdown(x)) {
       const t = total ?? upkeepEstimate(x).value;
+      // 内訳の目安は車両の価格の帯で（0253）
+      const e = upkeepEstimates(x);
       // リース・長期レンタルの月額に含む物は、合計に入っていないので分けない（欄も出さない。0101）
       const inc = leaseIncludes(x);
       const parts: string[] = [];
       let rest = t;
       if (inc?.taxAndCompulsory !== true) {
-        x.tax = { annual: CAR_ESTIMATE.tax.value };
-        assumed[`${k}/tax`] = CAR_ESTIMATE.tax.basis;
-        rest -= CAR_ESTIMATE.tax.value;
+        x.tax = { annual: e.tax.value };
+        assumed[`${k}/tax`] = e.tax.basis;
+        rest -= e.tax.value;
         parts.push("自動車税");
       }
       if (inc?.insurance !== true) {
-        x.insurance = { annual: CAR_ESTIMATE.insurance.value };
-        assumed[`${k}/insurance`] = CAR_ESTIMATE.insurance.basis;
-        rest -= CAR_ESTIMATE.insurance.value;
+        x.insurance = { annual: e.insurance.value };
+        assumed[`${k}/insurance`] = e.insurance.basis;
+        rest -= e.insurance.value;
         parts.push("保険");
       }
       if (inc?.inspectionMaintenance !== true) {
-        x.inspection = { amount: CAR_ESTIMATE.inspection.value };
-        assumed[`${k}/inspection`] = CAR_ESTIMATE.inspection.basis;
-        rest -= Math.round(CAR_ESTIMATE.inspection.value / 2);
+        x.inspection = { amount: e.inspection.value };
+        assumed[`${k}/inspection`] = e.inspection.basis;
+        rest -= Math.round(e.inspection.value / 2);
         parts.push("車検");
       }
-      if (rest > 0) x.fuel = { annual: rest };
-      if (rest > 0) assumed[`${k}/fuel`] = parts.length === 0 ? `維持費の合計（年${manYen(t)}）` : `維持費の合計（年${manYen(t)}）から${parts.join("・")}の目安を引いた残り`;
+      if (rest <= 0) return;
+      // 燃料は帯の目安（残りがそれより少なければ残り全部）。まだ残る分（点検・タイヤ・オイルなど）は「その他（まだ分けていない）」の行に置く（0253）
+      const fuel = Math.min(e.fuel.value, rest);
+      x.fuel = { annual: fuel };
+      assumed[`${k}/fuel`] = fuel === e.fuel.value ? e.fuel.basis : parts.length === 0 ? `維持費の合計（年${manYen(t)}）` : `維持費の合計（年${manYen(t)}）から${parts.join("・")}の目安を引いた残り`;
+      const left = rest - fuel;
+      if (left > 0) {
+        const id = newId();
+        x.upkeepOther = [{ id, label: REST_LABEL, annual: left }];
+        assumed[`${k}/other/${id}/annual`] = restBasis(t);
+      }
       return;
     }
     if (total === undefined) return;
@@ -1312,7 +1437,7 @@ export function setUpkeepMode(wh: WorkingHousehold, carId: string, to: "total" |
     if (diff > 0) {
       const id = old?.id ?? newId();
       x.upkeepOther = [...others, { id, label: REST_LABEL, annual: diff }];
-      assumed[`${k}/other/${id}/annual`] = `合計（年${manYen(total)}）と内訳の差（内訳を直したら外してください）`;
+      assumed[`${k}/other/${id}/annual`] = restBasis(total);
     } else if (old !== undefined && assumed[`${k}/other/${old.id}/annual`] !== undefined) {
       // 差が無くなった推定の行は外す（FP が直した行は残す）
       if (others.length === 0) delete x.upkeepOther;
@@ -1351,19 +1476,21 @@ export function addCar(wh: WorkingHousehold, id: () => string = newId, owned = t
   const carId = id();
   const k = `ev/car/${carId}`;
   const trade = tradeInEstimate(CAR_ESTIMATE.price.value, CAR_ESTIMATE.everyYears.value);
+  // 維持費の目安は車両の価格の帯で（0253）
+  const upkeep = carUpkeepEstimates(CAR_ESTIMATE.price.value).upkeep;
   const next = mutate(wh, (hh, req) => {
     (hh.cars ??= []).push({
       id: carId,
       owner: owner.id,
       purchase: { first: { at: addMonths(wh.request.input.baseMonth, 36) }, everyYears: CAR_ESTIMATE.everyYears.value, price: CAR_ESTIMATE.price.value, tradeIn: trade.value, owned },
-      upkeep: { annual: CAR_ESTIMATE.upkeep.value },
+      upkeep: { annual: upkeep.value },
       upkeepMode: "total",
       until: releaseAt(hh, owner.id, wh.request.input.baseMonth),
     });
     putRow(inputOf(req), addr(carId, "car.purchase", ["first"]), estRow(FIRST_BASIS));
     putRow(inputOf(req), addr(carId, "car.until"), estRow(RELEASE_BASIS));
   });
-  return { ...next, assumed: { ...next.assumed, [`${k}/every`]: CAR_ESTIMATE.everyYears.basis, [`${k}/price`]: CAR_ESTIMATE.price.basis, [`${k}/tradeIn`]: trade.basis, [`${k}/upkeep`]: CAR_ESTIMATE.upkeep.basis } };
+  return { ...next, assumed: { ...next.assumed, [`${k}/every`]: CAR_ESTIMATE.everyYears.basis, [`${k}/price`]: CAR_ESTIMATE.price.basis, [`${k}/tradeIn`]: trade.basis, [`${k}/upkeep`]: upkeep.basis } };
 }
 
 /**
