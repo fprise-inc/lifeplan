@@ -244,7 +244,8 @@ describe("これから買う車の「購入済みにする」（0253）", () => 
       expect(first.label).toBe("次の買い替えの時期");
       expect(fieldStatus(first, wh)).toMatchObject({ status: "estimated" });
       expect(fieldStatus(first, wh).basis).toContain("買い替えの周期（8年）後");
-      expect(first.warn?.(wh) ?? null).toBeNull();
+      // 過ぎた時点の知らせ（「今から○年後」で入れ直してください）は出ない
+      expect((first as { warn?: (w: WorkingHousehold) => string | null }).warn?.(wh) ?? null).toBeNull();
       // 今返しているローンを車の枠の中で足せる
       expect(groups(wh).some((g) => g.key === `ev/car/${c.id}/addNowLoan`)).toBe(true);
       // もう一度押しても変わらない
