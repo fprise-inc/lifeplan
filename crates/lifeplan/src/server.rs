@@ -3628,7 +3628,7 @@ impl LifeplanMcp {
     }
 
     #[tool(
-        description = "顧客のフォローのための、渡された世帯の1世帯1行の要約（読むだけ）。「顧問契約のお客さまで、連絡したほうがよい人は？」のときに、get_shared_household・calculate を世帯の数だけ呼ぶ代わりに使う。行ごとに、共有 ID・仮名・渡された理由 basis・区分（category。記号と名前）・前回の面談の日（lastMeetingOn。面談の履歴の日付だけ）と面談の数（meetings）・最後の控えの年月（lastSnapshotMonth）と次の面談の目安の月（nextReviewMonth。その1年後）と目安を過ぎたか（reviewDue）・「次回確かめる」の印の数（recheckMarks）・資産が尽きる年（depletion。年と本人の年齢。尽きなければ null）と金融資産がいちばん少ない年と額（minimum）・計算のお知らせの件数（notices）を返す。数字は calculate の keyFigures と同じ数え方（画面と同じ計算の前の処理を当てる）。面談の中身・メモ・お名前・顧客番号は返さない。share_ids を省くと、いま渡されている世帯すべて（50件まで。超えたら truncated に件数が出るので、share_ids で残りを指定する）。読めない世帯（期限切れ・取り消し後など）・計算できない世帯は、その行だけ ok: false と理由（error か calcError）を返し、ほかの行は返す。期限内で取り消されていない世帯だけ読め、読むたびにアプリの「AIに渡した記録」に世帯ごとに残る。受け取ったデータを会話の外や別の道具に渡さないこと。",
+        description = "顧客のフォローのための、渡された世帯の1世帯1行の要約（読むだけ）。「顧問契約のお客さまで、連絡したほうがよい人は？」のときに、get_shared_household・calculate を世帯の数だけ呼ぶ代わりに使う。行ごとに、共有 ID・仮名・渡された理由 basis・区分（category。記号と名前）・前回の面談の日（lastMeetingOn。面談の履歴の日付だけ）と面談の数（meetings）・最後の控えの年月（lastSnapshotMonth）と次の面談の目安の月（nextReviewMonth。その1年後）と目安を過ぎたか（reviewDue）・「次回確かめる」の印の数（recheckMarks）・資産が尽きる年（depletion。年と本人の年齢。尽きなければ null）と金融資産がいちばん少ない年と額（minimum）・計算のお知らせの件数（notices）を返す。数字は calculate の keyFigures と同じ数え方（画面と同じ計算の前の処理を適用する）。面談の中身・メモ・お名前・顧客番号は返さない。share_ids を省くと、いま渡されている世帯すべて（50件まで。超えたら truncated に件数が出るので、share_ids で残りを指定する）。読めない世帯（期限切れ・取り消し後など）・計算できない世帯は、その行だけ ok: false と理由（error か calcError）を返し、ほかの行は返す。期限内で取り消されていない世帯だけ読め、読むたびにアプリの「AIに渡した記録」に世帯ごとに残る。受け取ったデータを会話の外や別の道具に渡さないこと。",
         annotations(
             title = "渡された世帯のフォローの要約",
             read_only_hint = true,
