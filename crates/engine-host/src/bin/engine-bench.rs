@@ -1,8 +1,9 @@
 //! 速さの計測（0005 の「速さの回帰」と追記の目標2）。製品と同じ形（バイトコードから読み込み、パックの形は先に1回だけ確かめ、
 //! 計算ごとに新しい実行環境）で、quickjs-ng の正の計算の時間を測る。
-//! 使い方: engine-bench --engine dist/engine.js --packs packs.json --requests requests.json [--protection protection.json] [--repeat N] [--threads T]
+//! 使い方: engine-bench --engine dist/engine.js --packs packs.json --requests requests.json [--protection protection.json] [--inheritance inheritance.json] [--repeat N] [--threads T]
 //! requests.json は要求の JSON の配列（5案×4想定の20件。案ごとに4件）。protection.json は必要保障額の推移（夫婦2人。0005 の追記 2026-10-09）を
-//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す。
+//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。inheritance.json は相続税も試算する世帯の一次と二次の推移（0251）を
+//! 求める要求1件（あれば inheritance として同じく測る）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す。
 //! --repeat 0 は、バイトコードへの変換・パックの確かめ・温めの1件だけを流す（CI で命令の数を数えるとき。0005 の追記 2026-10-28）。
 //! --time-limit 秒 は1件の計算の時間の上限を置き換える（valgrind の下では10倍以上遅く、製品の上限 10秒に届くため）
 use std::time::{Duration, Instant};
@@ -100,6 +101,7 @@ fn main() {
     let mut packs_path = None;
     let mut requests_path = None;
     let mut protection_path = None;
+    let mut inheritance_path = None;
     let mut repeat = 5usize;
     let mut time_limit: Option<Duration> = None;
     let mut threads = std::thread::available_parallelism()
@@ -114,6 +116,7 @@ fn main() {
             "--packs" => packs_path = args.next(),
             "--requests" => requests_path = args.next(),
             "--protection" => protection_path = args.next(),
+            "--inheritance" => inheritance_path = args.next(),
             "--repeat" => repeat = args.next().and_then(|v| v.parse().ok()).unwrap_or(5),
             "--threads" => threads = args.next().and_then(|v| v.parse().ok()).unwrap_or(threads),
             "--time-limit" => {
@@ -122,7 +125,7 @@ fn main() {
                     .and_then(|v| v.parse().ok())
                     .map(Duration::from_secs)
             }
-            _ => panic!("usage: engine-bench --engine <engine.js> --packs <packs.json> --requests <requests.json> [--protection <request.json>] [--repeat N] [--threads T] [--time-limit S]"),
+            _ => panic!("usage: engine-bench --engine <engine.js> --packs <packs.json> --requests <requests.json> [--protection <request.json>] [--inheritance <request.json>] [--repeat N] [--threads T] [--time-limit S]"),
         }
     }
     let engine_js = std::fs::read_to_string(engine_path.expect("--engine")).expect("engine");
@@ -136,6 +139,11 @@ fn main() {
     let protection: Option<String> = protection_path.map(|p| {
         let v: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(p).expect("protection")).expect("json");
+        v.to_string()
+    });
+    let inheritance: Option<String> = inheritance_path.map(|p| {
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(p).expect("inheritance")).expect("json");
         v.to_string()
     });
     // 製品と同じ: ビルドの時にバイトコードにし、パックの形は本体が読み込んだときに1回だけ確かめる
@@ -157,6 +165,7 @@ fn main() {
     let mut par20 = Vec::new();
     let mut plans5 = Vec::new();
     let mut protection_ms = Vec::new();
+    let mut inheritance_ms = Vec::new();
     // 温める（ファイルの読み込みなどの初回の費用を除く）
     bench.one(&requests[0]);
     for _ in 0..repeat {
@@ -185,6 +194,11 @@ fn main() {
             bench.one(p);
             protection_ms.push(ms(t));
         }
+        if let Some(p) = &inheritance {
+            let t = Instant::now();
+            bench.one(p);
+            inheritance_ms.push(ms(t));
+        }
     }
     let mut out = serde_json::json!({
         "threads": threads,
@@ -198,6 +212,9 @@ fn main() {
     });
     if !protection_ms.is_empty() {
         out["protection"] = stats(protection_ms);
+    }
+    if !inheritance_ms.is_empty() {
+        out["inheritance"] = stats(inheritance_ms);
     }
     println!("{out}");
 }

@@ -157,6 +157,7 @@
                         },
                         "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" },
                         "acquirer": { "enum": ["spouse", "cohabiting", "noHome", "successor", "other"] },
+                        "member": { "description": "取得する人（配偶者のほかの相続人を選んだとき。約束の版 1.3・0251）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                         "defaulted": { "description": "取得する人を選んでいない自宅で、配偶者が取得するとみなした", "type": "boolean" },
                         "appliedArea": { "description": "特例を適用した面積（㎡）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                         "reduction": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
@@ -167,7 +168,7 @@
                 }
               },
               "byHeir": {
-                "description": "人ごと（法定相続分どおりに分けたとする）。法定相続人の数を直したときは、配偶者のほかをまとめた1行（member なし・count）",
+                "description": "人ごと（法定相続分どおりに分けたとする。相続税も試算する世帯は分け方〔division〕と、特例の減額を土地を取得する人に寄せた額。0251）。法定相続人の数を直したときは、配偶者のほかをまとめた1行（member なし・count）",
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -184,9 +185,19 @@
                     "payable": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                     "refund": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                     "surcharge": { "description": "2割加算（tax の内数。約束の版 1.2）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                    "minorCredit": { "description": "未成年者控除（引ききれない分を扶養義務者の税から引いた分を含む。約束の版 1.2）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                    "minorCredit": { "description": "未成年者控除（引ききれない分を扶養義務者の税から引いた分を含む。約束の版 1.2）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "landReduction": { "description": "取得した土地の小規模宅地等の特例で減った額（相続税も試算する世帯で、特例の減額を取得する人に寄せたとき。約束の版 1.3・0251）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "successiveCredit": { "description": "相次相続控除（一次と二次の推移の二次だけ。約束の版 1.3・0251）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
                   }
                 }
+              },
+              "successiveCredit": { "description": "相次相続控除の合計（任意。一次と二次の推移の二次だけ。約束の版 1.3・0251）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "division": {
+                "description": "分け方（任意。相続税も試算する世帯で、分け方を入れたか特例の減額を取得する人に寄せたとき。約束の版 1.3・0251）。entered は分け方を入れた、spouseShare は配偶者が取得した割合（遺産の評価額〔特例の前〕のうち）、adjusted は取得する土地の評価に合わせて割合を直した",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["entered"],
+                "properties": { "entered": { "type": "boolean" }, "spouseShare": { "$ref": "urn:financia:schema:common#/$defs/rate" }, "adjusted": { "const": true } }
               },
               "payable": { "description": "納める額の合計（目安）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
               "payableHousehold": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
@@ -200,7 +211,54 @@
             }
           }
         },
-        "notIncluded": { "description": "目安に含めていない決まり（いつも同じ一覧）", "type": "array", "items": { "type": "string" } }
+        "notIncluded": { "description": "目安に含めていない決まり（いつも同じ一覧）", "type": "array", "items": { "type": "string" } },
+        "timeline": {
+          "description": "一次と二次の相続税の推移（任意。相続税も試算する世帯で要求に timeline があり、法律婚の夫婦の世帯だけ。約束の版 1.3・0251）。先に亡くなる人（first）がその年に亡くなったら（計算基準年はいまの時点、ほかの年はその年の12月）の一次と、後に亡くなる人（second）が表の最後の年の12月に亡くなる二次。series は分け方ごと（entered は入れた分け方、ほかは要求の alternatives）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["first", "second", "secondMonth", "step", "series"],
+          "properties": {
+            "first": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "second": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "secondMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+            "step": { "description": "年の間引き（step 年ごと。計算基準年と表の最後の年はいつも出す）", "type": "integer", "minimum": 1, "maximum": 10 },
+            "secondaryStatus": { "description": "noHeirs は二次の相続人がいない（子のいない夫婦で兄弟姉妹などを入れていない）ので二次を計算していない（二次は0円）", "enum": ["noHeirs"] },
+            "series": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["key", "rows"],
+                "properties": {
+                  "key": { "type": "string" },
+                  "spouseShare": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+                  "rows": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["year", "month", "primary", "secondary", "total", "primaryTaxable", "secondaryTaxable", "spouseAcquisition", "spouseTax", "inherited", "successiveCredit", "secondaryMinorCredit"],
+                      "properties": {
+                        "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                        "month": { "description": "一次の亡くなる月", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+                        "primary": { "description": "一次の納める額", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "secondary": { "description": "二次の納める額（相次相続控除の後）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "total": { "description": "一次と二次の合計", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "primaryTaxable": { "description": "一次の課税価格の合計", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "secondaryTaxable": { "description": "二次の課税価格の合計（後に亡くなる人の財産に、一次で取得した分を足した額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "spouseAcquisition": { "description": "一次で配偶者が取得した額（課税価格）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "spouseTax": { "description": "一次で配偶者が納めた額", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "inherited": { "description": "二次の財産に足した、一次で取得した額（土地・建物と精算課税で前にもらった財産のほか。非課税の分を含み、負担した債務と一次で納めた額を引く。一次の時点の額のまま。表の最後の年に無い土地・建物は一次の時点の評価で足す）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "successiveCredit": { "description": "二次の相次相続控除の合計", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "secondaryMinorCredit": { "description": "二次の未成年者控除の合計（一次で受けた分の残りまで。相続税法19条の3第3項）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "protectionBreakdown": {

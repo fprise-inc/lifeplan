@@ -34,6 +34,7 @@ const grab = (name, f, detail = false) => {
 const r0 = JSON.stringify(data.requests[0]);
 grab("single", () => check(engine.run(r0, packsJson, "{}")), true);
 if (data.protection !== undefined) grab("protection", () => check(engine.run(JSON.stringify(data.protection), packsJson, "{}")));
+if (data.inheritance !== undefined) grab("inheritance", () => check(engine.run(JSON.stringify(data.inheritance), packsJson, "{}")));
 for (const [name, ticks] of Object.entries(data.sliders)) {
   const session = engine.createSession(packsJson);
   const slots = (k) => JSON.stringify(Object.fromEntries(ticks[k].map((r, i) => [slotId(i), r])));

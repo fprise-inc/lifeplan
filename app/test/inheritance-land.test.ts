@@ -52,7 +52,8 @@ describe("相続税も試算する世帯", () => {
     const sec = stage(on).sections.find((s) => s.key === "inherit/detail")!;
     expect(sec.level).toBe("simple");
     const targets = landTargets(on.request.input.household);
-    expect(sec.groups.map((g) => g.key)).toEqual(["inherit/detail", ...targets.map((t) => `inherit/land/${t.object}`)]);
+    // 遺産の分け方（0251）のまとまりは、夫婦の世帯か子が2人以上の世帯だけ、不動産の前に出る
+    expect(sec.groups.map((g) => g.key)).toEqual(["inherit/detail", "inherit/division", ...targets.map((t) => `inherit/land/${t.object}`)]);
     expect(keys(on)).toContain(`inherit/land/${home.id}/area`);
     expect(keys(on)).toContain(`inherit/land/${prop.id}/leasehold`);
     const withArea = fieldOf(on, `inherit/land/${home.id}/area`).set(on, "165.5");
