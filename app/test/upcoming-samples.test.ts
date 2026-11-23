@@ -36,14 +36,14 @@ const UPCOMING_SAMPLES: readonly Upcoming[] = [
     age: 50,
     traits: ["会社員", "賃貸"],
     targetAge: 95,
-    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 30000, 50000], livingMonthly: [160000, 170000, 180000, 200000] },
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 30000, 50000], livingMonthly: [140000, 150000, 160000, 180000] },
     firstProposal: { retireAge: 65, nisaMonthly: 50000 },
-    reemployment: { fromAge: 60, type: "contract", annualSalary: 5600000, standardMonthlyRemuneration: 470000 },
-    notes: { retireAge: "60歳で定年、その後は再雇用（年収560万円）", nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "家賃（月5.8万円）は別。退職後は90%、80歳から80%" },
+    reemployment: { fromAge: 60, type: "contract", annualSalary: 4000000, standardMonthlyRemuneration: 340000 },
+    notes: { retireAge: "60歳で定年、その後は再雇用（年収400万円）", nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "家賃（月5.8万円）は別。退職後は90%、80歳から80%" },
     memo: ["家賃は月5.8万円。退職した後も同じ賃貸に住み続ける前提（架空の例）", "退職金1,900万円は勤め先の規程からの見込み（架空の例）", "次回: 60歳からの働き方（再雇用の条件）と、老後の住まいの希望を確認"],
     plans: [
       { name: "プランB 65歳まで働く（60歳から再雇用）", tags: ["老後"], values: { "lever:retireAge": 65 } },
-      { name: "プランC 生活費を月17万円に", tags: ["老後"], values: { "lever:livingMonthly": 170000 } },
+      { name: "プランC 生活費を月15万円に", tags: ["老後"], values: { "lever:livingMonthly": 150000 } },
     ],
   },
   {
@@ -305,9 +305,10 @@ describe.each(UPCOMING_SAMPLES)("$id（$title）", (s) => {
 });
 
 describe("それぞれの見本の中身", () => {
-  it("おひとり様・50代: 会社員（60歳で定年・退職一時金）、賃貸、預金と NISA、50歳以上の定期便", () => {
+  it("おひとり様・50代: 女性の会社員（60歳で定年・退職一時金）、賃貸、預金と NISA、50歳以上の定期便", () => {
     const h = modelHousehold("sampleSingle50sRenter").input.household;
     expect(h.members.map((m) => m.kind)).toEqual(["self"]);
+    expect(h.members[0]!.sex).toBe("female");
     expect(h.residences?.map((r) => r.kind)).toEqual(["rent"]);
     expect(h.employmentPeriods?.map((p) => p.type)).toEqual(["regular"]);
     expect(h.retirementBenefits?.map((b) => b.kind)).toEqual(["lumpSum"]);

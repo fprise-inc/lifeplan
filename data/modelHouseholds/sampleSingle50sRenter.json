@@ -17,7 +17,7 @@
             "birthYearMonth": "1971-06",
             "bornOnFirst": false
           },
-          "sex": "male",
+          "sex": "female",
           "joins": null,
           "leaves": null,
           "expected": false
@@ -47,14 +47,14 @@
           },
           "salary": {
             "annual": {
-              "value": 5740000,
+              "value": 3880000,
               "state": "confirmed",
               "origin": {
                 "kind": "manual"
               }
             },
             "bonus": {
-              "value": 1590000,
+              "value": 860000,
               "state": "confirmed",
               "origin": {
                 "kind": "manual"
@@ -63,14 +63,14 @@
           },
           "standardMonthlyRemuneration": {
             "health": {
-              "value": 470000,
+              "value": 320000,
               "state": "confirmed",
               "origin": {
                 "kind": "manual"
               }
             },
             "pension": {
-              "value": 470000,
+              "value": 320000,
               "state": "confirmed",
               "origin": {
                 "kind": "manual"
@@ -86,7 +86,7 @@
           "kind": "deposit",
           "owner": "3960582b-b8b8-4bc1-ab87-c3fac0440d6f",
           "marketValue": {
-            "value": 10200000,
+            "value": 11400000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -100,14 +100,14 @@
           "kind": "nisa",
           "owner": "3960582b-b8b8-4bc1-ab87-c3fac0440d6f",
           "marketValue": {
-            "value": 3800000,
+            "value": 2900000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
             }
           },
           "costBasis": {
-            "value": 3000000,
+            "value": 2300000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -138,7 +138,7 @@
           "member": "3960582b-b8b8-4bc1-ab87-c3fac0440d6f",
           "fiscalYear": 2026,
           "amount": {
-            "value": 402000,
+            "value": 225000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -273,7 +273,7 @@
           "id": "351b9bfe-9f6b-4dfe-9b8c-82310c606087",
           "mode": "total",
           "monthly": {
-            "value": 180000,
+            "value": 160000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -336,7 +336,7 @@
               }
             },
             "employee": {
-              "value": 1274200,
+              "value": 768400,
               "state": "confirmed",
               "origin": {
                 "kind": "manual"
