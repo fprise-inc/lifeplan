@@ -145,6 +145,7 @@ describe("選んでいる・押し込んでいる・開いている状態は藍�
       '.jb[aria-pressed="true"], .jb[aria-pressed="true"]:hover',
       ".stress-btn.on",
       ".tag-filter button.on",
+      ".nc-cat-pick.on",
     ]) {
       const hit = rules.filter((r) => r.selector === selector);
       expect(hit.length, selector).toBe(1);
@@ -165,10 +166,25 @@ describe("選んでいる・押し込んでいる・開いている状態は藍�
     expect(body).toContain("background: var(--prop-bg)");
   });
 
-  it("選んでいる状態を墨の塗り・墨の枠で見せる所は、決めて残した4つだけ", () => {
+  it("選んでいる状態を墨の塗り・墨の枠で見せる所は、決めて残した3つだけ", () => {
     const ink = rules.filter((r) => active(r.selector) && /(background|border|border-color|box-shadow):[^;]*var\(--(ink|ink-2|sel)\)/.test(r.body)).map((r) => r.selector);
-    // お知らせの種類の絞り込み（種類の色の見直しと一緒に決める）・色の見本（見本の色と混ざらないよう墨の輪）・
-    // グラフのプランの線の見出し（マウスを乗せた線の強調）・グラフの年の印（選んでいる年。線の色〔藍〕と混ざらないよう墨）
-    expect(ink.sort()).toEqual([".chip.on", ".ml-item:hover, .ml-item.on", ".nc-cat-pick.on", '.os-swatch[aria-checked="true"]']);
+    // 色の見本（見本の色と混ざらないよう墨の輪）・グラフのプランの線の見出し（マウスを乗せた線の強調）・
+    // グラフの年の印（選んでいる年。線の色〔藍〕と混ざらないよう墨）。お知らせの種類の絞り込みは藍にした（0245）
+    expect(ink.sort()).toEqual([".chip.on", ".ml-item:hover, .ml-item.on", '.os-swatch[aria-checked="true"]']);
+  });
+
+  it("開いていないときの「表示の設定」・グラフを小さい画面に出すボタン・FP のメニュー・↶↷・未読なしのベルも、ふつうのボタンの藍の枠（0245）", () => {
+    const body = (selector: string) => rules.filter((r) => r.selector === selector).map((r) => r.body).join(" ");
+    expect(body(".explain-btn, .set-btn")).toContain("border: 2px solid var(--prop)");
+    expect(rules.filter((r) => r.selector === ".set-btn")).toEqual([]);
+    for (const selector of [".pip-btn", ".fpm-btn", ".undo-btn"]) {
+      expect(body(selector), selector).toMatch(/border: (2|1\.5)px solid var\(--prop\)/);
+      expect(body(selector), selector).toContain("color: var(--prop-ink)");
+    }
+    expect(body(".bell-btn.quiet")).toContain("border-color: var(--prop)");
+    // 押せないときの ↶↷ は、押せないボタンの決まり（0240 の3）と同じ灰
+    expect(body(".undo-btn:disabled")).toContain("background: var(--base-bg)");
+    expect(body(".undo-btn:disabled")).toContain("border-color: var(--line)");
+    expect(body(".undo-btn:disabled")).toContain("color: var(--field)");
   });
 });

@@ -104,7 +104,7 @@ describe("保存先のパネル: 同期フォルダ（1人で2台の PC）", () 
     expect(html).toContain("data-sync-end");
     expect(html).toContain("同期フォルダには置きません");
   });
-  it("復元キーで PC が加わった通知・置かれた参加の申請（承認はできない）・移していない世帯", () => {
+  it("復元キーで PC が加わった通知・置かれた共有に加わる申請（承認はできない）・移していない世帯", () => {
     const html = storage(personal({ notices: [{ kind: "recoveryJoin", name: "古いノート", at: "2026-10-19T00:00:00Z" }], requests: [{ requestId: "r", name: "だれか", requestedAt: "2026-10-19T00:00:00Z" }], localHouseholds: 2 }));
     expect(html).toContain("data-sync-notice");
     expect(html).toContain("復元キーで「古いノート」が同期フォルダを開きました");
