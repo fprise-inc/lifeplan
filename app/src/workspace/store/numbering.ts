@@ -1,5 +1,5 @@
-// 顧客番号の区分と通し番号・見本の棚（0033）。番号を振る・変えるのは本体（household-store）で、画面は一覧の探し方・絞り込みと
-// 見本の番号の読み方だけを持つ
+// 顧客番号の区分と通し番号・見本の棚（0033・0247）。番号を振る・変えるのは本体（household-store）で、画面は一覧の探し方・絞り込みを持つ。
+// 見本は番号を持たない（名前・家族の形・本人の年代・項目で探す。0247 の1）
 import type { Category, NumberLabel } from "../../engine/host.ts";
 import type { EngineRequest } from "../../engine/types.ts";
 
@@ -14,7 +14,7 @@ export const DEFAULT_CATEGORIES: readonly Category[] = [
   { code: "C", name: "見込み客" },
 ];
 
-/** 家族の形（見本番号の1つ目） */
+/** 家族の形（見本の family） */
 export const FAMILY_SHAPES: readonly { n: number; name: string }[] = [
   { n: 1, name: "単身" },
   { n: 2, name: "夫婦のみ" },
@@ -23,7 +23,7 @@ export const FAMILY_SHAPES: readonly { n: number; name: string }[] = [
   { n: 5, name: "シニア" },
 ];
 
-/** 本人の年代（見本番号の2つ目） */
+/** 本人の年代（見本の age） */
 export const AGE_BANDS: readonly number[] = [2, 3, 4, 5, 6, 7];
 
 export const ageBandName = (a: number) => `${a}0代`;
@@ -32,9 +32,10 @@ export const familyName = (n: number) => FAMILY_SHAPES.find((f) => f.n === n)?.n
 /** 見本の絞り込みの項目（番号に入れないもの: 働き方・稼ぎ方・住まいなど） */
 export const SAMPLE_TRAITS: readonly string[] = ["会社員", "公務員", "自営業", "役員", "年金生活", "共働き", "片働き", "持ち家", "賃貸", "住宅ローン", "教育費", "資産運用", "収益不動産", "親の介護・相続"];
 
-/** FP が作る見本の順番の始まり（01〜09 はアプリに入っている見本） */
+/** アプリに入っている見本の前の番号の順番の始まり（アプリの見本の定義の sampleNo を読むときだけ。セットの定義に移すまで。0247） */
 export const FIRST_OWN_SAMPLE = 10;
 
+/** アプリに入っている見本の定義の sampleNo（家族の形-年代-順番）を読む。保存した見本は番号を持たない（0247） */
 export function parseSampleNo(no: string): { family: number; age: number; order: number } | null {
   const m = /^([1-5])-([2-7])-(\d{2})$/.exec(no);
   if (m === null) return null;
@@ -51,10 +52,16 @@ export function sampleNotSaving(item: ShelfItem | null, mode: null | "view" | "e
   return item !== null && mode !== "edit";
 }
 
-/** 見本番号の説明（例: 夫婦と子・40代） */
+/** 家族の形と本人の年代の説明（例: 夫婦と子・40代） */
+export function shapeText(family: number, age: number): string {
+  const f = familyName(family);
+  return f === "" || !AGE_BANDS.includes(age) ? "" : `${f}・${ageBandName(age)}`;
+}
+
+/** アプリの見本の定義の sampleNo の説明（例: 夫婦と子・40代） */
 export function sampleNoText(no: string): string {
   const p = parseSampleNo(no);
-  return p === null ? "" : `${familyName(p.family)}・${ageBandName(p.age)}`;
+  return p === null ? "" : shapeText(p.family, p.age);
 }
 
 /** 体系の番号として読む（区分の記号＋通し番号[-枝番]。記号は大文字・小文字を問わない） */
@@ -94,25 +101,43 @@ export function categoryText(cats: readonly Category[], code: string | undefined
   return c === undefined ? code : `${c.code} ${c.name}`;
 }
 
-/** 見本の棚の1件（アプリに入っている見本と、FP が作った見本） */
+/** 見本の棚の1件（アプリに入っている見本と、FP が作った見本）。番号は持たない（0247 の1） */
 export interface ShelfItem {
   kind: "app" | "own";
   /** アプリの見本は data/modelHouseholds の名前、FP の見本は世帯の内部ID */
   id: string;
-  no: string;
+  /** 家族の形（1〜5） */
+  family: number;
+  /** 本人の年代（2〜7） */
+  age: number;
   name: string;
   traits: readonly string[];
   /** FP の見本の最後の保存 */
   updatedAt?: string;
 }
 
+/**
+ * 見本の棚の並び: アプリの見本（定義の順）→ 自分で作った見本（名前の順。本体の一覧と同じ）。アプリの見本の家族の形・年代は、定義の sampleNo から読む
+ * （セットの定義に欄を移すまで。0247）
+ */
 export function shelfItems(app: readonly { id: string; sampleNo: string; title: string; traits: readonly string[] }[], own: readonly ({ id: string; customerNo: string; updatedAt: string } & NumberLabel)[]): ShelfItem[] {
-  const items: ShelfItem[] = [
-    ...app.map((d): ShelfItem => ({ kind: "app", id: d.id, no: d.sampleNo, name: d.title, traits: d.traits })),
-    ...own.flatMap((h): ShelfItem[] => (h.sample === undefined ? [] : [{ kind: "own", id: h.id, no: h.sample.no, name: h.sample.name, traits: h.sample.traits, updatedAt: h.updatedAt }])),
-  ];
-  return items.sort((a, b) => (a.no < b.no ? -1 : a.no > b.no ? 1 : 0));
+  const apps = app.map((d): ShelfItem => {
+    const p = parseSampleNo(d.sampleNo);
+    return { kind: "app", id: d.id, family: p?.family ?? 0, age: p?.age ?? 0, name: d.title, traits: d.traits };
+  });
+  const owns = own
+    .flatMap((h): ShelfItem[] => (h.sample === undefined ? [] : [{ kind: "own", id: h.id, family: h.sample.family, age: h.sample.age, name: h.sample.name, traits: h.sample.traits, updatedAt: h.updatedAt }]))
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return [...apps, ...owns];
 }
+
+/** 見本の名前に使えない名前（アプリに入っている見本の名前。本体に渡して、自分で作った見本の名前と重ならないようにする。0247 の1） */
+export function reservedSampleNames(app: readonly { title: string }[]): string[] {
+  return app.map((d) => d.title);
+}
+
+/** 見本の名前を比べる形（本体と同じく前後の空白を除き NFC にそろえる） */
+export const sampleNameKey = (name: string) => name.trim().normalize("NFC");
 
 export interface ShelfFilter {
   /** 家族の形（0 はすべて） */
@@ -124,14 +149,10 @@ export interface ShelfFilter {
 }
 
 export function filterShelf(items: readonly ShelfItem[], f: ShelfFilter): ShelfItem[] {
-  return items.filter((i) => {
-    const p = parseSampleNo(i.no);
-    if (p === null) return false;
-    return (f.family === 0 || p.family === f.family) && (f.age === 0 || p.age === f.age) && f.traits.every((t) => i.traits.includes(t));
-  });
+  return items.filter((i) => (f.family === 0 || i.family === f.family) && (f.age === 0 || i.age === f.age) && f.traits.every((t) => i.traits.includes(t)));
 }
 
-/** 世帯の入力から、見本番号の家族の形と本人の年代の初めの値を決める（FP が選び直せる） */
+/** 世帯の入力から、見本の家族の形と本人の年代の初めの値を決める（FP が選び直せる） */
 export function guessShape(req: EngineRequest): { family: number; age: number } {
   const ms = req.input.household.members;
   const self = ms.find((m) => m.kind === "self");

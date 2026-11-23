@@ -136,7 +136,7 @@ export function OfficePanel(p: OfficePanelProps) {
               共有フォルダを選んで始める
             </button>
             <h3>事務所の共有に参加する</h3>
-            <p class="pl-sub">事務所を始めた人と同じ共有フォルダを選ぶと、参加の申請を置きます。ほかのメンバーが承認すると使えます。</p>
+            <p class="pl-sub">事務所を始めた人と同じ共有フォルダを選ぶと、共有に加わる申請を置きます。ほかのメンバーが承認すると使えます。</p>
             <button
               type="button"
               class="btn"
@@ -149,7 +149,7 @@ export function OfficePanel(p: OfficePanelProps) {
               }
               data-office-join
             >
-              共有フォルダを選んで参加を申請する
+              共有フォルダを選んで申請する
             </button>
             <details class="of-recover" data-office-recover-section>
               <summary>事務所の全員の PC が使えなくなったとき（事務所の復元キーで加わる）</summary>
@@ -185,7 +185,7 @@ export function OfficePanel(p: OfficePanelProps) {
         {!personal && st?.state === "pending" ? (
           <>
             <p>
-              参加の申請を置きました。承認する人（事務所のメンバー）に、<b>電話や対面など、ファイルとは別の方法で</b>、次の指紋を読み上げて伝えてください。
+              共有に加わる申請を置きました。承認する人（事務所のメンバー）に、<b>電話や対面など、ファイルとは別の方法で</b>、次の指紋を読み上げて伝えてください。
               承認されると、自動で使えるようになります。
             </p>
             <div class="rk-key of-fp" data-office-my-fingerprint>
@@ -313,7 +313,7 @@ export function OfficePanel(p: OfficePanelProps) {
             {st.recoveryRequired ? (
               <div class="of-lock" role="status" data-office-locked>
                 <p>
-                  <b>事務所の復元キーがまだ保管されていません。</b>保管するまで、<b>参加の承認</b>と<b>メンバーを外す</b>操作を止めています（世帯を開く・直すことはできます）。
+                  <b>事務所の復元キーがまだ保管されていません。</b>保管するまで、<b>共有に加わる承認</b>と<b>メンバーを外す</b>操作を止めています（世帯を開く・直すことはできます）。
                 </p>
                 <p class="pl-sub">
                   {st.removed.length > 0 ? "メンバーを外すと、事務所の復元キーは新しくなります。新しいキーを保管して、古い控えは破棄してください。" : "共有を始めると、事務所の復元キーは新しくなります。"}
@@ -326,7 +326,7 @@ export function OfficePanel(p: OfficePanelProps) {
             ) : null}
             {st.requests.length > 0 ? (
               <>
-                <h3>参加の申請（{st.requests.length}）</h3>
+                <h3>共有に加わる申請（{st.requests.length}）</h3>
                 <p class="pl-sub">
                   申請した人の画面に出ている<b>指紋（16文字）を、電話や対面で読み上げてもらって</b>入力してください。共有フォルダに書ける人なら誰でも申請を置けるため、指紋が合わないと承認できません。
                 </p>

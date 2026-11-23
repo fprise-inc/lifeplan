@@ -1400,7 +1400,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.86");
+    expect(BODY_FORMAT_VERSION).toBe("0.87");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -2497,9 +2497,9 @@ describe("画面にファイルの道（パス）を渡さない（0016 の1）"
     const calls = [...host.matchAll(/invoke<[^>]*>\("((?:store|recovery_key|app|office)_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
     expect(calls.length).toBeGreaterThanOrEqual(23);
     // 0023: 共有フォルダは本体のダイアログで選ばせるので、パス・フォルダの引数は無い
-    // 0033: 区分の記号・区分の設定・見本の指定（家族の形・年代・名前・絞り込みの項目）
+    // 0033: 区分の記号・区分の設定・見本の指定（家族の形・年代・名前・絞り込みの項目）。0247: 見本の名前に使えない名前（アプリの見本の名前）
     // 0073: 事務所の既定値（画面の形の JSON のオブジェクト。本体は大きさとオブジェクトかだけを確かめる）
-    const allowed = new Set(["id", "body", "summary", "customerNo", "confirm", "key", "keepOurs", "adopt", "name", "request: requestId", "fingerprint", "member: memberId", "category", "category: opts?.category ?? null", "sample", "sample: opts?.sample ?? null", "traits", "edits", "value"]);
+    const allowed = new Set(["id", "body", "summary", "customerNo", "confirm", "key", "keepOurs", "adopt", "name", "request: requestId", "fingerprint", "member: memberId", "category", "category: opts?.category ?? null", "sample", "sample: opts?.sample ?? null", "traits", "edits", "value", "family", "age", "reservedNames: opts?.reservedNames ?? null", "reservedNames: reservedNames ?? null"]);
     for (const c of calls) {
       const args = (c[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "");
       for (const a of args) expect(allowed.has(a), `${c[1]} の引数 ${a}`).toBe(true);

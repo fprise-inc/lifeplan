@@ -7,7 +7,7 @@ import { OFFICE_MESSAGES } from "./office.ts";
 export const SYNC_MESSAGES: Record<string, string> = {
   E_SYNC_RECOVERY_REQUIRED: "先に復元キーを保管してください。2台目のPCで同期フォルダを開くときに要ります",
   E_SYNC_IS_OFFICE: "このフォルダは、事務所での共有（複数のFP）に使われています。「事務所の共有」の「参加する」から申請してください",
-  E_SYNC_PERSONAL: "1人で使う同期フォルダでは、参加の申請を承認できません",
+  E_SYNC_PERSONAL: "1人で使う同期フォルダでは、共有に加わる申請を承認できません",
   E_SYNC_OTHER_PC_OPEN: "もう1台のPCで世帯を開いています。そのPCでファイナンシアを閉じ、同期が終わってからもう一度操作してください",
   E_OFFICE_NAME: "PCの呼び名は1〜20文字で入れてください（例: 事務所のPC・自宅のノート）",
   E_OFFICE_EXISTS: "そのフォルダには、既にファイナンシアの保存先があります。2台目のPCなら「すでに使っている同期フォルダを開く」を使ってください",
@@ -45,15 +45,18 @@ export function storageNoticeText(n: StorageNotice): string {
     case "removed":
       return personal ? "このPCは同期フォルダから外されました" : "この事務所の共有から外されました";
     case "pending":
-      return "事務所の共有への参加の承認を待っています";
+      return "事務所の共有に加わる承認を待っています";
     case "recoveryJoin":
       return personal ? `復元キーで「${n.name ?? ""}」が同期フォルダを開きました。心当たりが無ければ、すぐにそのPCを外してください` : `復元キーで${n.name ?? ""}さんが加わりました`;
     case "joinRequest":
-      return personal ? `1人で使う同期フォルダに、参加の申請が${n.count ?? 0}件置かれています（承認はできません。心当たりが無ければ断ってください）` : `参加の申請が${n.count ?? 0}件あります`;
+      return personal ? `1人で使う同期フォルダに、共有に加わる申請が${n.count ?? 0}件置かれています（承認はできません。心当たりが無ければ断ってください）` : `共有に加わる申請が${n.count ?? 0}件あります`;
     case "localHouseholds":
       return `このPCの中に、まだ${where}へ移していない世帯が${n.count ?? 0}件あります`;
     case "syncCopies":
       return `同期サービスの衝突の写しがある世帯が${n.count ?? 0}件あります`;
+    // 見本番号を無くした（0247 の8）ときに、同じ名前の見本の後ろに番号を付けた（済んだことの知らせ。名前はあとから直せる）
+    case "sampleRenames":
+      return `同じ名前の見本があったので、名前の後ろに番号を付けました（${n.name ?? ""}）。名前は見本の一覧の「名前と項目を直す」で直せます`;
     default:
       return `保存先の通知（${n.kind}）`;
   }

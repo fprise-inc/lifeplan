@@ -10,7 +10,7 @@ import { PopIcon } from "../../presentation/icons.tsx";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { officeShareText, storageText } from "../header/FpMenu.tsx";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
-import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, parseSampleNo, sampleNoText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
+import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, sampleNameKey, shapeText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
 import { storageNoticeText } from "./storage.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
@@ -34,7 +34,7 @@ export interface HouseholdPanelProps {
   categories: Category[];
   /** 区分を使うかを決めたか（false なら「区分を使いますか？」を1回だけ聞く。省略は決めたもの） */
   categoriesDecided?: boolean;
-  /** 見本の棚（アプリの見本と自分で作った見本。見本番号の順） */
+  /** 見本の棚（アプリの見本〔定義の順〕と自分で作った見本〔名前の順〕。見本は番号を持たない。0247） */
   shelf: ShelfItem[];
   /** 開いている見本（アプリの見本の名前か、自分で作った見本の内部ID） */
   currentSample: string | null;
@@ -61,9 +61,10 @@ export interface HouseholdPanelProps {
   onOpenSample: (item: ShelfItem) => void;
   /** 見本をもとに顧客を作る（見本は変わらない） */
   onCustomerFromSample: (item: ShelfItem, category: string | undefined) => void;
-  /** 見本を複製する（次の空き番号の新しい見本） */
+  /** 見本を複製する（同じ家族の形・年代の新しい見本） */
   onCopySample: (item: ShelfItem) => void;
-  onUpdateSample: (id: string, name: string, traits: string[]) => Promise<string | null>;
+  /** 自分で作った見本の名前・項目・家族の形・本人の年代を直す（0247） */
+  onUpdateSample: (id: string, name: string, traits: string[], family: number, age: number) => Promise<string | null>;
   onRecovery: () => void;
   /** AI接続口の事務所全体の設定を開く */
   onAiConnector?: () => void;
@@ -98,8 +99,10 @@ export const STORE_MESSAGES: Record<string, string> = {
   E_STORE_CUSTOMER_NO: "顧客番号は英数字・ハイフン・下線の16字までです（お名前は入れないでください）",
   E_STORE_CATEGORY: "区分の記号は英大文字1〜2字、名前は20字までで、記号は重ねられません",
   E_STORE_CATEGORY_IN_USE: "世帯が使っている区分は消せません（記号や名前を変えるのはできます）",
-  E_STORE_SAMPLE: "見本の指定を確かめてください（見本番号は変えられません。同じ家族の形・年代の見本は99番までです）",
-  E_STORE_CONFIRM: "確認の番号が違います",
+  E_STORE_SAMPLE: "見本の指定を確かめてください（家族の形・本人の年代と、40字までの名前を入れてください。はじめから入っている見本は直せません）",
+  E_STORE_SAMPLE_NAME: "同じ名前の見本があります。別の名前にしてください",
+  E_STORE_SAMPLE_EXISTS: "ほかの人が先にこの見本を直した版があります",
+  E_STORE_CONFIRM: "確認の番号（見本は見本の名前）が違います",
   E_STORE_CONFLICT: "ほかの人（ほかのPC）がこの世帯を先に保存していました。上書きせず、今の内容はこのPCの中に残しました。どちらを残すか選んでください",
   E_STORE_READ_ONLY: "新しい版のアプリで保存された世帯のため、閲覧だけできます（保存はできません）",
   E_STORE_FORMAT_TOO_NEW: "新しい版のアプリで保存されたファイルです。アプリを更新してください",
@@ -147,15 +150,22 @@ export const SAMPLE_NOTES_TEXT = "メモと面談の履歴は外します（お�
 /** アプリに入っている見本から顧客を作るときの一言（0182 の追記）: 見本のメモ（例の文）は写さない */
 export const APP_SAMPLE_MEMO_TEXT = "見本のメモ（例の文）は写しません";
 
-/** 見本を複製するときの指定（同じ家族の形・年代。名前に「（複製）」を付ける。前に付けた「（写し）」の名前はそのまま） */
-export function copyRequest(item: ShelfItem): SampleRequest | null {
-  const p = parseSampleNo(item.no);
-  if (p === null) return null;
-  return { family: p.family, age: p.age, name: `${item.name}（複製）`.slice(0, 40), traits: [...item.traits] };
+/**
+ * 見本を複製するときの指定（同じ家族の形・年代。名前に「（複製）」を付ける。前に付けた「（写し）」の名前はそのまま）。
+ * 見本の名前は重ならない決まりなので（0247 の1）、taken（棚の見本とアプリの見本の名前）と重なれば「（複製2）」「（複製3）」…にする
+ */
+export function copyRequest(item: ShelfItem, taken: readonly string[] = []): SampleRequest | null {
+  const used = new Set(taken.map(sampleNameKey));
+  for (let n = 1; n < 1000; n++) {
+    const tail = n === 1 ? "（複製）" : `（複製${n}）`;
+    const name = `${[...item.name].slice(0, 40 - tail.length).join("").trimEnd()}${tail}`;
+    if (!used.has(sampleNameKey(name))) return { family: item.family, age: item.age, name, traits: [...item.traits] };
+  }
+  return null;
 }
 
 /** 見本を複製するボタンの説明（見本の行の「ほかの操作」） */
-export const COPY_SAMPLE_TITLE = "同じ家族の形・年代の次の空き番号（10〜）に複製します。メモと面談の履歴は複製しません";
+export const COPY_SAMPLE_TITLE = "同じ家族の形・年代の新しい見本に複製します。メモと面談の履歴は複製しません";
 
 /**
  * 行の「ほかの操作」: 押すと、すぐ下に操作が並ぶ（行の高さはそのぶん伸びる）。開くのは一覧の中で1つだけ（呼ぶ側が1つの状態で持つ）。
@@ -371,7 +381,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const [shelfAge, setShelfAge] = useState(0);
   const [shelfTraits, setShelfTraits] = useState<string[]>([]);
   const [fromSample, setFromSample] = useState<{ item: ShelfItem; category: string | undefined } | null>(null);
-  const [sampleEdit, setSampleEdit] = useState<{ id: string; name: string; traits: string[]; error: string | null } | null>(null);
+  const [sampleEdit, setSampleEdit] = useState<{ id: string; name: string; traits: string[]; family: number; age: number; error: string | null } | null>(null);
   const [sampleDelete, setSampleDelete] = useState<{ id: string; value: string; error: string | null } | null>(null);
   /** 「ほかの操作」を開いている行（一覧の中で1つだけ。顧客は `c:<内部ID>`、見本は `s:<app|own>-<ID>`） */
   const [more, setMore] = useState<string | null>(p.initialMore ?? null);
@@ -466,7 +476,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
             }}
             data-make-sample-form
           >
-            <span>見本の棚へ移します。顧客番号（{h.customerNo}）は外れ、見本番号（10〜）が付きます。外れた通し番号は使い回しません。</span>
+            <span>見本の棚へ移します。顧客番号（{h.customerNo}）は外れます。外れた通し番号は使い回しません。見本の名前は、ほかの見本と重ならない名前にしてください。</span>
             <span class="pl-sub" data-make-sample-notes>{SAMPLE_NOTES_TEXT}</span>
             <SampleFields value={form.value} onChange={(v) => setForm({ ...form, value: v, error: null })} />
             <label class="hh-fictional">
@@ -798,10 +808,10 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           }}
         >
           <label>
-            確認のため見本番号（{s.no}）を入れてください{" "}
-            <input value={sampleDelete.value} maxLength={6} aria-label="確認の見本番号" onInput={(e) => setSampleDelete({ ...sampleDelete, value: (e.currentTarget as HTMLInputElement).value, error: null })} />
+            確認のため見本の名前（{s.name}）を入れてください{" "}
+            <input value={sampleDelete.value} aria-label="確認の見本の名前" onInput={(e) => setSampleDelete({ ...sampleDelete, value: (e.currentTarget as HTMLInputElement).value, error: null })} />
           </label>
-          <button type="submit" class="btn danger" disabled={busy || sampleDelete.value.trim() !== s.no}>
+          <button type="submit" class="btn danger" disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.name)}>
             完全に削除する
           </button>
           <button type="button" class="link-btn" onClick={() => setSampleDelete(null)}>
@@ -813,7 +823,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
     return (
       <div class="pl-ops hh-ops">
         {!isCurrent ? (
-          <button type="button" class="btn small hh-open" onClick={() => p.onOpenSample(s)} data-open-sample={s.no}>
+          <button type="button" class="btn small hh-open" onClick={() => p.onOpenSample(s)} data-open-sample={s.id}>
             開く
           </button>
         ) : (
@@ -822,23 +832,23 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           </span>
         )}
         {ready ? (
-          <button type="button" class="link-btn" onClick={pick(() => setFromSample({ item: s, category: defaultCategory(p.categories) }))} data-customer-from-sample={s.no}>
+          <button type="button" class="link-btn" onClick={pick(() => setFromSample({ item: s, category: defaultCategory(p.categories) }))} data-customer-from-sample={s.id}>
             この見本をもとに顧客を作る
           </button>
         ) : null}
         {ready || s.kind === "own" ? (
-          <RowMore {...moreOf(`s:${s.kind}-${s.id}`)} data-sample-more={s.no}>
+          <RowMore {...moreOf(`s:${s.kind}-${s.id}`)} data-sample-more={s.id}>
             {ready ? (
-              <button type="button" class="link-btn" onClick={pick(() => p.onCopySample(s))} title={COPY_SAMPLE_TITLE} data-copy-sample={s.no}>
+              <button type="button" class="link-btn" onClick={pick(() => p.onCopySample(s))} title={COPY_SAMPLE_TITLE} data-copy-sample={s.id}>
                 複製する
               </button>
             ) : null}
             {s.kind === "own" ? (
               <>
-                <button type="button" class="link-btn" onClick={pick(() => setSampleEdit({ id: s.id, name: s.name, traits: [...s.traits], error: null }))} data-edit-sample={s.no}>
+                <button type="button" class="link-btn" onClick={pick(() => setSampleEdit({ id: s.id, name: s.name, traits: [...s.traits], family: s.family, age: s.age, error: null }))} data-edit-sample={s.id}>
                   名前と項目を直す
                 </button>
-                <button type="button" class="link-btn danger" onClick={pick(() => setSampleDelete({ id: s.id, value: "", error: null }))} data-delete-sample={s.no}>
+                <button type="button" class="link-btn danger" onClick={pick(() => setSampleDelete({ id: s.id, value: "", error: null }))} data-delete-sample={s.id}>
                   完全削除
                 </button>
               </>
@@ -852,7 +862,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const samples = (
     <>
       <p class="pl-sub hh-shelf-note">
-        見本は架空の世帯です。顧客番号を持たず、顧客の一覧には出ません。番号は「家族の形-本人の年代-順番」で、01〜09 ははじめから入っている見本（直せません）、10〜 は{shared && !personal ? "事務所" : "自分"}で作った見本です。開いて動かしても見本は変わりません（閉じれば元どおり）。
+        見本は架空の世帯です。顧客番号を持たず、顧客の一覧には出ません。はじめから入っている見本は直せません。{shared && !personal ? "事務所" : "自分"}で作った見本は、名前・家族の形・項目を直せます。開いて動かしても見本は変わりません（閉じれば元どおり）。
       </p>
       <div class="hh-tools">
         <label>
@@ -885,7 +895,6 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           <table class="plan-list hh-list hh-shelf">
             <thead>
               <tr>
-                <th>見本番号</th>
                 <th>名前</th>
                 <th>家族・年代</th>
                 <th>項目</th>
@@ -896,16 +905,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
               {shelf.map((s) => {
                 const isCurrent = p.currentSample === s.id;
                 return (
-                  <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.no}>
-                    <td>
-                      {isCurrent ? (
-                        <b>{s.no}</b>
-                      ) : (
-                        <button type="button" class="hh-no-btn" onClick={() => p.onOpenSample(s)} title="この見本を開く" data-open-sample-no={s.no}>
-                          {s.no}
-                        </button>
-                      )}
-                    </td>
+                  <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.id}>
                     <td class="hh-wrap">
                       {sampleEdit?.id === s.id ? (
                         <form
@@ -915,14 +915,14 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                             const name = sampleEdit.name.trim();
                             if (name === "") return setSampleEdit({ ...sampleEdit, error: storeMessage("E_STORE_SAMPLE") });
                             setBusy(true);
-                            void p.onUpdateSample(s.id, name, sampleEdit.traits).then((err) => {
+                            void p.onUpdateSample(s.id, name, sampleEdit.traits, sampleEdit.family, sampleEdit.age).then((err) => {
                               setBusy(false);
                               if (err === null) setSampleEdit(null);
                               else setSampleEdit({ ...sampleEdit, error: err });
                             });
                           }}
                         >
-                          <SampleFields value={{ family: 0, age: 0, name: sampleEdit.name, traits: sampleEdit.traits }} onChange={(v) => setSampleEdit({ ...sampleEdit, name: v.name, traits: v.traits, error: null })} shapeFixed />
+                          <SampleFields value={{ family: sampleEdit.family, age: sampleEdit.age, name: sampleEdit.name, traits: sampleEdit.traits }} onChange={(v) => setSampleEdit({ ...sampleEdit, name: v.name, traits: v.traits, family: v.family, age: v.age, error: null })} />
                           <button type="submit" class="btn" disabled={busy}>
                             直す
                           </button>
@@ -932,10 +932,10 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                           {sampleEdit.error !== null ? <span class="hh-err">{sampleEdit.error}</span> : null}
                         </form>
                       ) : (
-                        s.name
+                        <span data-sample-name-cell>{s.name}</span>
                       )}
                     </td>
-                    <td class="hh-nowrap">{sampleNoText(s.no)}</td>
+                    <td class="hh-nowrap">{shapeText(s.family, s.age)}</td>
                     <td>
                       <span class="hh-tags">
                         {s.traits.map((t) => (
