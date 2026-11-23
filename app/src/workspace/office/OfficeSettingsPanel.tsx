@@ -17,7 +17,10 @@ import { normalProtection, OPEN_SCENES, PREMISE_KINDS, premiseStarts, SCENE_KIND
 import type { ScenarioKind } from "../contingency/requests.ts";
 import { outOfRangeText, rangeText, type PctRange } from "../input/rateRanges.ts";
 import { normalizeNumberText, rateFromPct, readYen } from "../input/units.ts";
-import { DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, officePremise, withOfficePremise, type FeeTable, type OfficeSettings } from "./settings.ts";
+import { DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, officePremise, withOfficeAssetMix, withOfficePremise, type FeeTable, type OfficeSettings } from "./settings.ts";
+import { CLASSES, GPIF_MIX } from "../input/savings/model.ts";
+import { officialPreset } from "../../../../hearing/src/presets.ts";
+import { FEE_RANGE } from "../input/rateRanges.ts";
 import { PREMISE_DEFS, PREMISE_SECTION_LABELS, premiseText, type PremiseDef, type PremiseSection } from "../input/premiseDefaults.ts";
 import { withOfficeValue as withEstimateValue, withoutOfficeValue as withoutEstimateValue } from "./estimates.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
@@ -230,9 +233,42 @@ export function premiseFromText(d: PremiseDef, text: string): string | null | un
   return String(Number(t));
 }
 
+/** 資産配分の資産の種類ごとの割合・信託報酬の欄の文字の鍵（0252。欄の data-office-setting にも使う） */
+const mixKey = (cls: string) => `assetMix.${cls}`;
+const feeKey = (cls: string) => `assetFee.${cls}`;
+/** 種類の信託報酬の目安の値ID（事務所の推定の値に置く） */
+const feePreset = (cls: string) => `preset.invest.${cls}.fee`;
+
+/** 事務所の推定の値の今の値（率の文字。決めていなければ null） */
+const estimateValue = (v: OfficeSettings, id: string): string | null => {
+  const x = v.estimates?.values[id]?.value;
+  return typeof x === "string" || typeof x === "number" ? String(x) : null;
+};
+
+/**
+ * 資産の種類ごとの割合の欄の文字を読む（0252）: 全部空なら null（提供元の既定＝GPIF の基本ポートフォリオ）、読めない・合計が100%でなければ undefined。
+ * 空の種類は入れない（0%と同じ）
+ */
+export function officeMixFromTexts(texts: Readonly<Record<string, string>>): { assetClass: string; share: string }[] | null | undefined {
+  const out: { assetClass: string; share: string }[] = [];
+  for (const c of CLASSES) {
+    const r = pctToRate(texts[mixKey(c.key)] ?? "", 0, 100);
+    if (r === undefined) return undefined;
+    if (r !== null && Number(r) > 0) out.push({ assetClass: c.key, share: r });
+  }
+  if (out.length === 0) return CLASSES.every((c) => (texts[mixKey(c.key)] ?? "").trim() === "") ? null : undefined;
+  const total = out.reduce((x, m) => x + Number(m.share), 0);
+  return Math.abs(total - 1) < 0.00005 ? out : undefined;
+}
+
+/** 資産の種類ごとの割合の欄の合計（％。読めない欄は数えない） */
+const mixTotalPct = (texts: Readonly<Record<string, string>>): number => Math.round(CLASSES.reduce((x, c) => x + Number(pctToRate(texts[mixKey(c.key)] ?? "", 0, 100) ?? 0), 0) * 10000) / 100;
+
 /** 事務所の既定値から、％・年齢の欄の文字 */
 const settingTexts = (v: OfficeSettings): Record<string, string> => ({
   ...Object.fromEntries(PREMISE_DEFS.map((d) => [premiseTextKey(d), premiseInput(d, d.live !== undefined ? liveValue(v, d) : officePremise(v, d.id))])),
+  ...Object.fromEntries(CLASSES.map((c) => [mixKey(c.key), rateToPct(v.assetMix?.find((m) => m.assetClass === c.key)?.share ?? (v.assetMix !== undefined ? "0" : null))])),
+  ...Object.fromEntries(CLASSES.map((c) => [feeKey(c.key), rateToPct(estimateValue(v, feePreset(c.key)))])),
   realEstateRatio: rateToPct(v.realEstateRatio),
   horizonAge: String(v.protection.horizon?.age ?? 90),
   reverseAge: v.protection.protection?.reverseUntilAge !== undefined ? String(v.protection.protection.reverseUntilAge) : "",
@@ -406,7 +442,15 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
   };
   const protNext = protectionFrom(prot);
   const feeTable = feeFromTexts(s.fee, fee);
-  const bad = [...PREMISE_DEFS.filter((d) => premiseFromText(d, texts[premiseTextKey(d)] ?? "") === undefined).map(premiseTextKey), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : []), ...(protNext === undefined ? ["protection"] : [])];
+  const officeMix = officeMixFromTexts(texts);
+  const bad = [
+    ...PREMISE_DEFS.filter((d) => premiseFromText(d, texts[premiseTextKey(d)] ?? "") === undefined).map(premiseTextKey),
+    ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []),
+    ...(feeTable === null ? ["fee"] : []),
+    ...(protNext === undefined ? ["protection"] : []),
+    ...(officeMix === undefined ? ["assetMix"] : []),
+    ...CLASSES.filter((c) => pctToRate(texts[feeKey(c.key)] ?? "", FEE_RANGE.min, FEE_RANGE.max) === undefined).map((c) => feeKey(c.key)),
+  ];
   const per = s.fee.per === "month" ? "月" : "年";
   const save = async () => {
     // 前提条件の既定値（0214）: 写す物は事務所の既定値に、土地の割合など3つは事務所の推定の値に（変えた物だけ。変えていない値の年月は変えない）
@@ -421,6 +465,15 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
         if (r === cur || (r !== null && cur !== null && Number(r) === Number(cur))) continue;
         estNext = r === null ? withoutEstimateValue(estNext, d.live) : withEstimateValue(estNext, d.live, r, null, today());
       }
+    }
+    // 資産の種類ごとの割合（0252）と、種類ごとの信託報酬の目安（事務所の推定の値。変えた物だけ）
+    if (officeMix !== undefined) withPremises = withOfficeAssetMix(withPremises, officeMix);
+    for (const c of CLASSES) {
+      const r = pctToRate(texts[feeKey(c.key)] ?? "", FEE_RANGE.min, FEE_RANGE.max);
+      if (r === undefined) continue;
+      const cur = estimateValue({ ...s, estimates: est }, feePreset(c.key));
+      if (r === cur || (r !== null && cur !== null && Number(r) === Number(cur))) continue;
+      estNext = r === null ? withoutEstimateValue(estNext, feePreset(c.key)) : withEstimateValue(estNext, feePreset(c.key), r, null, today());
     }
     const ratio = pctToRate(texts.realEstateRatio ?? "", 0, 100);
     const sameLayout = JSON.stringify(layout) === JSON.stringify(DEFAULT_LAYOUT);
@@ -784,6 +837,59 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
               </div>
             </div>
           ))}
+          <div class="os-premise" data-office-premises="assetMix">
+            <h4>資産配分の資産の種類ごとの割合</h4>
+            <p class="pl-sub">
+              資産配分の入れ方で、割合をまだ入れていない世帯が使う割合と、種類ごとの信託報酬の目安です（世帯の「＋ 資産の種類を足す」で足した種類にも、この信託報酬を入れます）。割合が空欄なら、GPIF の基本ポートフォリオ（国内債券・先進国債券・国内株式・先進国株式を25%ずつ）。割合を入れるときは合計を100%にします。信託報酬は「推定の値（統計・目安）」の区画と同じ値です。
+            </p>
+            <div class="sv-tw">
+              <table class="os-mix" data-office-mix>
+                <thead>
+                  <tr>
+                    <th class="l">資産の種類</th>
+                    <th>割合</th>
+                    <th>信託報酬（年）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {CLASSES.map((c) => (
+                    <tr key={c.key} data-office-mix-class={c.key}>
+                      <td class="l">{c.name}</td>
+                      <td>
+                        <span class="os-in">
+                          <input inputMode="decimal" value={texts[mixKey(c.key)] ?? ""} placeholder={rateToPct(GPIF_MIX.find((m) => m.assetClass === c.key)?.share ?? null) || "0"} aria-label={`${c.name}の割合`} aria-invalid={bad.includes("assetMix")} onInput={(e) => setTexts({ ...texts, [mixKey(c.key)]: (e.currentTarget as HTMLInputElement).value })} data-office-setting={mixKey(c.key)} />%
+                        </span>
+                      </td>
+                      <td>
+                        <span class="os-in">
+                          <input inputMode="decimal" value={texts[feeKey(c.key)] ?? ""} placeholder={rateToPct(String(officialPreset(feePreset(c.key))))} aria-label={`${c.name}の信託報酬`} aria-invalid={bad.includes(feeKey(c.key))} onInput={(e) => setTexts({ ...texts, [feeKey(c.key)]: (e.currentTarget as HTMLInputElement).value })} data-office-setting={feeKey(c.key)} />%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th class="l">合計</th>
+                    <td class={officeMix === undefined ? "sum-ng" : ""} data-office-mix-total>
+                      {officeMix === null ? "空欄（GPIF の基本ポートフォリオ）" : `${mixTotalPct(texts)}%`}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {officeMix === undefined ? (
+              <span class="fld-help bad" role="alert" data-office-setting-problem="assetMix">
+                割合は0〜100%の数で入れ、合計を100%にしてください（今は{mixTotalPct(texts)}%）
+              </span>
+            ) : null}
+            {CLASSES.some((c) => bad.includes(feeKey(c.key))) ? (
+              <span class="fld-help bad" role="alert" data-office-setting-problem="assetFee">
+                信託報酬は{FEE_RANGE.min}〜{FEE_RANGE.max}%の数で入れてください
+              </span>
+            ) : null}
+          </div>
           <p class="pl-sub">長い期間の平均の目安です。根拠（出典・期間）は事務所で確かめてください。商品のおすすめではありません。</p>
         </section>
         <section class="os-sec" aria-labelledby="os-fee" data-office-fee>

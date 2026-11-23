@@ -6,7 +6,7 @@
 // 欄の当て先（0036 の2）は、物（向き先）・入力項目ID・その値の中の場所（並びの要素は ID）
 import type { Household, Member, Timepoint } from "../../engine/types.ts";
 import { resolveTimepoint } from "../timepoint.ts";
-import { field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type StageTableRow } from "./form.ts";
+import { field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type Option, type StageTableRow } from "./form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "./household.ts";
 import { ASSET_CLASSES, WORDS } from "./labels.ts";
 import { formatYen, type YenBasis } from "./units.ts";
@@ -592,7 +592,7 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
 }
 
 /** 段の中の資産の配分の行（ID を持たない並び。0035 の5 で、入力項目の値の全体を差分の1件で変える） */
-function mixRowsGroup(key: string, title: string, item: string, findOwner: Finder, mixPath: readonly string[], address: Address, rows: number): GroupDef {
+function mixRowsGroup(key: string, title: string, item: string, findOwner: Finder, mixPath: readonly string[], address: Address, rows: number, options: Option[] = ASSET_CLASSES): GroupDef {
   const mixOf = (o: Obj | undefined) => getPath(o, mixPath) as Mix | undefined;
   const mixField = (j: number, what: "assetClass" | "share", label: string, kind: "select" | "pct"): FieldDef => ({
     ...plain({
@@ -601,7 +601,7 @@ function mixRowsGroup(key: string, title: string, item: string, findOwner: Finde
       label,
       level: LEVEL,
       kind,
-      ...(kind === "select" ? { options: ASSET_CLASSES } : {}),
+      ...(kind === "select" ? { options } : {}),
       find: (h, w) => (getPath(findOwner(h, w), [...mixPath, String(j)]) as Obj | undefined) ?? undefined,
       path: [what],
     }),
@@ -636,6 +636,9 @@ function mixRowsGroup(key: string, title: string, item: string, findOwner: Finde
   };
 }
 
+/** 資産配分の割合の表に出さない資産の種類（前提条件の利回りには残す。0252） */
+const NOT_IN_ALLOCATION: ReadonlySet<string> = new Set(["balanced", "realEstate", "other"]);
+
 /** 資産配分の入れ方の、共通の配分の段階（前提 assumptions.investment.allocation.stages） */
 export function allocationStageGroups(wh: WorkingHousehold, o: { ageOf?: (h: Household) => Member | undefined }): GroupDef[] {
   const inv = (wh.request.input as unknown as { assumptions: { investment?: { allocation?: { mix: Mix; stages?: Obj[] } } } }).assumptions.investment;
@@ -662,7 +665,10 @@ export function allocationStageGroups(wh: WorkingHousehold, o: { ageOf?: (h: Hou
       fields,
       actions: [{ key: `${k}/remove`, label: "この段階を外す", level: LEVEL, danger: true, run: (w) => mutate(w, (hh, req) => dropFrom(findAlloc(hh, { ...w, request: req }), place.path, id)) }],
     });
-    groups.push(mixRowsGroup(`${k}/mix`, `資産配分の段階 ${n + 1} の割合`, place.item, find, ["mix"], ad(["mix"]), (s.mix as Mix).length));
+    // 資産配分の割合の表と同じく、バランス型・不動産・その他は選ばせない（前の版で入れた段の値はそのまま見せる。0252）
+    const used = new Set((s.mix as Mix).map((m) => m.assetClass));
+    const options = ASSET_CLASSES.filter((o) => !NOT_IN_ALLOCATION.has(o.value) || used.has(o.value));
+    groups.push(mixRowsGroup(`${k}/mix`, `資産配分の段階 ${n + 1} の割合`, place.item, find, ["mix"], ad(["mix"]), (s.mix as Mix).length, options));
   });
   groups.push({
     key: "sav/alloc/staged",

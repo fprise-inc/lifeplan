@@ -256,7 +256,7 @@ export type RealEstateExpenseItem = "management" | "propertyTax" | "insurance" |
 /** 資産運用の入れ方と、運用・取り崩しの前提（0026。エンジンの assumptions.investment） */
 export interface InvestmentSetting {
   method?: "total" | "accounts" | "allocation";
-  allocation?: { mix: { assetClass: string; share: string }[]; fee?: string; rebalance?: boolean; stages?: { id: string; at: Timepoint; mix: { assetClass: string; share: string }[]; rampYears?: number }[] };
+  allocation?: { mix: { assetClass: string; share: string }[]; fee?: string; fees?: Record<string, string>; rebalance?: boolean; stages?: { id: string; at: Timepoint; mix: { assetClass: string; share: string }[]; rampYears?: number }[] };
   nisaOverflow?: "deposit" | "taxable";
   taxableTax?: "onSale" | "annual";
   drawdown?: { start: Timepoint; method: "fixed" | "rate"; monthly?: number; rate?: string };

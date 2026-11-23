@@ -5,7 +5,10 @@
 //   前提条件のうち土地の割合・建物の残りの価値の下限・売却の費用は、事務所データの置き場所が事務所の推定の値（estimates）だが、写し方はほかと同じ（0218）
 // - 形の版は 4（0214 で足すだけの欄 realEstateValuation・assetReturns と、assumptions の2つの系列を足して 2。0215 で足すだけの欄 displayHistory
 //   〔AI の表示の設定の案を反映する前の値。office/displayHistory.ts〕を足して 3。0213 の段C で足すだけの欄 display〔結果のタブ・資産と負債のタブの
-//   表示の設定の事務所の既定値。workspace/settings.ts の OfficeDisplayStored〕を足して 4。版 1〜3 の事務所データもそのまま読む）
+//   表示の設定の事務所の既定値。workspace/settings.ts の OfficeDisplayStored〕を足して 4。0252 で足すだけの欄 assetMix〔資産配分の資産の種類ごとの
+//   割合の事務所の既定値〕を足して 5。版 1〜4 の事務所データもそのまま読む）
+// - 資産配分の資産の種類ごとの割合（assetMix。0252）: 世帯には写さず、割合をまだ持たない世帯が資産配分にするときに読む（input/savings/model.ts の defaultMix）。
+//   種類ごとの信託報酬の目安は事務所の推定の値（preset.invest.<種類>.fee）に置く（画面は同じ区画で読み書きする）
 // - 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（display。0213 の段C）: 見せ方だけなので世帯には写さず、世帯ファイルで
 //   「事務所の既定値に従う」の印のある設定だけがすぐ従う（印の無い設定・前の版の世帯は変わらない）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
@@ -39,6 +42,7 @@ import { isEmptyEstimates, publishOfficeEstimates, readOfficeEstimates, type Off
 import { cleanTopics, readHearingTemplates, readHearingTopics, type HearingTemplate } from "../hearing/web.ts";
 import { readDisplayHistory, type DisplayHistory } from "./displayHistory.ts";
 import { officeDisplayOf, officeDisplayStored, type OfficeDisplayStored } from "../settings.ts";
+import { CLASSES } from "../input/savings/model.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
@@ -112,8 +116,8 @@ export const DEFAULT_FEATURES: OfficeFeatures = { combinedBs: false };
 export type InheritLikelihood = "likely" | "uncertain";
 
 export interface OfficeSettings {
-  /** 形の版（この画面の側の形。1 から。0214 で 2、0215 で 3、0213 の段C で 4。前の版の事務所データもそのまま読み、読んだら 4） */
-  version: 4;
+  /** 形の版（この画面の側の形。1 から。0214 で 2、0215 で 3、0213 の段C で 4、0252 で 5。前の版の事務所データもそのまま読み、読んだら 5） */
+  version: 5;
   /** 入力項目の並び（null は標準） */
   layout: CardLayout | null;
   /** 新しい世帯で出す入力項目と、開いたときの入れ方（空は全部出す・全部標準。新しい世帯に写す） */
@@ -136,6 +140,11 @@ export interface OfficeSettings {
   realEstateValuation?: OfficeValuation;
   /** 前提条件の資産の種類ごとの利回りの既定値（0214。種類 → 小数の文字。不動産は assumptions.heldEstateGrowth。無い種類は入れない） */
   assetReturns?: Readonly<Partial<Record<string, string>>>;
+  /**
+   * 資産配分の資産の種類ごとの割合の事務所の既定値（0252。種類と割合〔小数の文字。合計は1〕。無ければ提供元の既定〔GPIF の基本ポートフォリオ〕）。
+   * 世帯には写さない。割合をまだ持たない世帯が資産配分にするときに、この割合で始める
+   */
+  assetMix?: readonly { assetClass: string; share: string }[];
   /** 相続税の目安の不動産の評価の割合（時価に掛ける。null は標準の80%） */
   realEstateRatio: string | null;
   /**
@@ -169,7 +178,7 @@ export interface OfficeSettings {
   display?: OfficeDisplayStored;
 }
 
-export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 4, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, features: DEFAULT_FEATURES, changedOn: null };
+export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 5, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, features: DEFAULT_FEATURES, changedOn: null };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -230,7 +239,24 @@ function readCoreSettings(v: unknown): OfficeSettings {
   const fee = readFeeTable(v.fee);
   // 法人経営者向けの機能（欄の無い古い事務所データ・読めない値は使わない）
   const features: OfficeFeatures = { combinedBs: isObj(v.features) && v.features.combinedBs === true };
-  return { version: 4, layout, items, levers, premises: premiseChoice, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn, ...(endAge !== undefined ? { endAge } : {}), ...premises };
+  const assetMix = readOfficeAssetMix(v.assetMix);
+  return { version: 5, layout, items, levers, premises: premiseChoice, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn, ...(endAge !== undefined ? { endAge } : {}), ...premises, ...(assetMix !== null ? { assetMix } : {}) };
+}
+
+/**
+ * 事務所データの資産の種類ごとの割合（0252）。割合の表の種類（CLASSES）だけ・割合は 0〜1 の率の文字・同じ種類は1つ・合計が100%（小数第4位まで）・
+ * 1つ以上が0%より大きい、のどれかに合わなければ読まない（null ＝ 提供元の既定）
+ */
+export function readOfficeAssetMix(v: unknown): { assetClass: string; share: string }[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const known = new Set(CLASSES.map((c) => c.key));
+  const out: { assetClass: string; share: string }[] = [];
+  for (const x of v) {
+    if (!isObj(x) || typeof x.assetClass !== "string" || !known.has(x.assetClass) || out.some((m) => m.assetClass === x.assetClass) || !rateOk(x.share, 0, 1)) return null;
+    out.push({ assetClass: x.assetClass, share: x.share as string });
+  }
+  const total = out.reduce((s, m) => s + Number(m.share), 0);
+  return Math.abs(total - 1) < 0.00005 && out.some((m) => Number(m.share) > 0) ? out : null;
 }
 
 /** 前提条件の値か（id の欄の範囲の中。耐用年数は 1〜100 の整数） */
@@ -337,6 +363,14 @@ export function withOfficePremise(s: OfficeSettings, id: string, v: string | nul
   return s;
 }
 
+/** 資産配分の資産の種類ごとの割合を置き換えた設定（null は決めていない＝提供元の既定〔GPIF の基本ポートフォリオ〕。0252） */
+export function withOfficeAssetMix(s: OfficeSettings, mix: readonly { assetClass: string; share: string }[] | null): OfficeSettings {
+  const { assetMix: _old, ...rest } = s;
+  void _old;
+  const read = mix === null ? null : readOfficeAssetMix(mix);
+  return read === null ? rest : { ...rest, assetMix: read };
+}
+
 /** 並びの設定（無ければ標準） */
 export const layoutOf = (s: OfficeSettings): CardLayout => s.layout ?? DEFAULT_LAYOUT;
 
@@ -363,7 +397,7 @@ export async function loadOfficeStart(office: Pick<OfficeHost, "defaults" | "fea
 
 /** 標準（既定の値）と同じか（基本生活費の内訳の並べ方の分は下の isDefaultSettings で見る） */
 function isDefaultCore(s: OfficeSettings): boolean {
-  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateValuation === undefined && s.assetReturns === undefined && s.realEstateRatio === null && s.endAge === undefined && sameFee(s.fee, STANDARD_FEE_TABLE) && !s.features.combinedBs;
+  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateValuation === undefined && s.assetReturns === undefined && s.assetMix === undefined && s.realEstateRatio === null && s.endAge === undefined && sameFee(s.fee, STANDARD_FEE_TABLE) && !s.features.combinedBs;
 }
 
 /**
@@ -376,7 +410,7 @@ export const withOfficeItems = (s: OfficeSettings, items: ItemChoice): OfficeSet
 
 /** 今の事務所の既定値を、操作のときに読む所（office/current.ts）へ入れる（基本生活費の内訳の並べ方は下の publishOfficeSettings で入れる） */
 function publishCore(s: OfficeSettings): void {
-  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, premises: officePremises(s), basis: officeBasis(s), fee: s.fee, endAge: s.endAge ?? null });
+  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, premises: officePremises(s), basis: officeBasis(s), fee: s.fee, endAge: s.endAge ?? null, assetMix: s.assetMix ?? null });
 }
 
 // ---- 新しい世帯に写す ----

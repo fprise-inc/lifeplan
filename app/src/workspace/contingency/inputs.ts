@@ -136,7 +136,7 @@ function planBool(o: { key: string; label: string; level?: Level; path: readonly
 
 /** 下げる資産の選択肢（資産の種類と、器ごと下げる持株会・外貨預金・暗号資産〔0122〕） */
 export const MARKET_CLASS_OPTIONS: Option[] = [
-  ...["equity.domestic", "equity.global", "reit.domestic", "reit.global", "bond.domestic", "bond.global", "balanced", "commodity"].map((v) => ({ value: v, label: ASSET_CLASSES.find((c) => c.value === v)?.label ?? v })),
+  ...["equity.domestic", "equity.global", "equity.emerging", "reit.domestic", "reit.global", "bond.domestic", "bond.global", "bond.emerging", "balanced", "commodity"].map((v) => ({ value: v, label: ASSET_CLASSES.find((c) => c.value === v)?.label ?? v })),
   { value: ESOP, label: "持株会（配分を入れていない分）" },
   { value: FX_DEPOSIT, label: "外貨預金" },
   { value: CRYPTO_ASSET, label: "暗号資産" },

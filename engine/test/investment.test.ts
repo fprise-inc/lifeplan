@@ -213,6 +213,55 @@ describe("入れ方（合計・口座・資産配分）（0026）", () => {
   });
 });
 
+describe("資産の種類ごとの信託報酬（0252）", () => {
+  const tx = (v: number) => ({ id: uid("tx"), kind: "taxable", owner: A, marketValue: box(v), costBasis: box(v), asOf: "2025-12", contributions: [] });
+  const returns = { "equity.global": { default: "0.06" }, "equity.emerging": { default: "0.08" }, "bond.domestic": { default: "0.01" } };
+  const run = (allocation: Obj, end = 2050) =>
+    full(
+      mk(
+        [dep(0), tx(10000000)],
+        (_h, input) => {
+          const a = input.assumptions as Obj;
+          a.assetReturns = returns;
+          a.investment = { method: "allocation", allocation };
+        },
+        end,
+      ),
+    );
+  const bal = (r: ReturnType<typeof full>, y: number) => cells(r, "cf.balance.account.taxable", y);
+
+  it("割合でならした信託報酬を引く: 先進国株式50%（0.1%）・新興国株式25%（0.2%）・国内債券25%（0.15%）", () => {
+    const r = run({ mix: [{ assetClass: "equity.global", share: "0.5" }, { assetClass: "equity.emerging", share: "0.25" }, { assetClass: "bond.domestic", share: "0.25" }], fees: { "equity.global": "0.001", "equity.emerging": "0.002", "bond.domestic": "0.0015" } });
+    // 期待リターン 6%×0.5＋8%×0.25＋1%×0.25 = 5.25%、信託報酬 0.1%×0.5＋0.2%×0.25＋0.15%×0.25 = 0.1375% → 5.1125%
+    expect(bal(r, 2026)).toBe(10511250);
+  });
+
+  it("全部の種類に同じ値を入れた世帯（前の版の「平均」から移した形）は、前の版の fee と1円も違わない（リバランスしない・段階のある配分も）", () => {
+    const mix = [{ assetClass: "equity.global", share: "0.3333" }, { assetClass: "equity.emerging", share: "0.3333" }, { assetClass: "bond.domestic", share: "0.3334" }];
+    const stages = [{ id: uid("st"), at: at("2040-01"), mix: [{ assetClass: "bond.domestic", share: "0.7" }, { assetClass: "equity.global", share: "0.3" }], rampYears: 3 }];
+    for (const rebalance of [true, false]) {
+      const old = run({ mix, stages, fee: "0.0025", rebalance });
+      const moved = run({ mix, stages, fees: { "equity.global": "0.0025", "equity.emerging": "0.0025", "bond.domestic": "0.0025", "cash.deposit": "0.0025" }, rebalance });
+      for (const y of [2026, 2035, 2041, 2050]) expect(bal(moved, y)).toBe(bal(old, y));
+    }
+  });
+
+  it("fees に無い種類は fee を使い、どちらも無ければ引かない。段階の配分は、その段の割合でならす", () => {
+    const mix = [{ assetClass: "equity.global", share: "0.5" }, { assetClass: "bond.domestic", share: "0.5" }];
+    // 先進国株式 0.4%・国内債券は fee の 0.2% → 0.3%
+    const withFallback = run({ mix, fees: { "equity.global": "0.004" }, fee: "0.002" }, 2026);
+    const flat = run({ mix, fee: "0.003" }, 2026);
+    expect(bal(withFallback, 2026)).toBe(bal(flat, 2026));
+    // 国内債券の信託報酬が無い（fee も無い）: 先進国株式の 0.4%×0.5 = 0.2% だけ引く
+    const none = run({ mix, fees: { "equity.global": "0.004" } }, 2026);
+    expect(bal(none, 2026)).toBe(bal(run({ mix, fee: "0.002" }, 2026), 2026));
+    // 段階: 2030年から国内債券だけ → 国内債券の信託報酬（0.1%）だけ
+    const staged = run({ mix, fees: { "equity.global": "0.004", "bond.domestic": "0.001" }, stages: [{ id: uid("st2"), at: at("2030-01"), mix: [{ assetClass: "bond.domestic", share: "1" }] }] }, 2031);
+    const onlyBond = run({ mix: [{ assetClass: "bond.domestic", share: "1" }], fee: "0.001" }, 2031);
+    expect(bal(staged, 2031) / bal(staged, 2030)).toBeCloseTo(bal(onlyBond, 2031) / bal(onlyBond, 2030), 6);
+  });
+});
+
 describe("取り崩しの計画（0026）", () => {
   it("定額: 始まりの月から毎月の額を使う。その年の収支の不足より多い分を「取り崩して使うお金」として年間収支から引く", () => {
     const req = mk([dep(50000000)], (_h, input) => ((input.assumptions as Obj).investment = { drawdown: { start: at("2040-01"), method: "fixed", monthly: 200000 } }));

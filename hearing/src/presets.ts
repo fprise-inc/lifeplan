@@ -14,6 +14,87 @@ export type { PresetDef, PresetKind, PresetUnit, PresetUse };
 const NONE = "出典なし";
 const p = (id: string, value: number | string, unit: PresetUnit, group: string, name: string, use: PresetUse, source: string = NONE, kind: PresetKind = "guide", rev = 1): PresetDef => ({ id, value, unit, group, name, source, kind, use, rev });
 
+/**
+ * 資産配分の資産の種類の目安（0252）: [キー, 名前, 期待リターン, 値動きの大きさ, 信託報酬, 期待リターンの根拠, 信託報酬の根拠]。期待リターンの null は目安を持たない
+ * （預金の種類は前提条件の預金の利回りで計算する）。値を変えたら、その行の rev を上げる（p の最後の引数）
+ */
+const INVEST_CLASS_ROWS: readonly (readonly [string, string, string | null, string, string, string, string])[] = [
+  ["equity.domestic", "国内株式", "0.05", "0.18", "0.0015", "仮の値", "仮の値（国内株式のインデックス型の投資信託のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["equity.global", "先進国株式", "0.06", "0.2", "0.001", "仮の値", "仮の値（先進国株式のインデックス型の投資信託のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["equity.emerging", "新興国株式", "0.07", "0.25", "0.002", "仮の値（先進国株式より高い期待リターンと値動きの相場の目安。統計で確かめていない）", "仮の値（新興国株式のインデックス型の投資信託のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["bond.domestic", "国内債券", "0.01", "0.03", "0.0015", "仮の値（国内の長期金利の水準の相場の目安。統計で確かめていない）", "仮の値（国内債券のインデックス型の投資信託のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["bond.global", "先進国債券", "0.01", "0.05", "0.0015", "仮の値", "仮の値（先進国債券のインデックス型の投資信託のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["bond.emerging", "新興国債券", "0.03", "0.12", "0.0025", "仮の値（先進国債券より高い金利と為替の値動きの相場の目安。統計で確かめていない）", "仮の値（新興国債券のインデックス型の投資信託のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["reit.domestic", "国内REIT", "0.04", "0.18", "0.002", "仮の値（外国REIT と同じ水準の目安。統計で確かめていない）", "仮の値（国内REIT のインデックス型の投資信託のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["reit.global", "外国REIT", "0.04", "0.18", "0.0025", "仮の値", "仮の値（外国REIT のインデックス型の投資信託のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["commodity", "コモディティ（金など）", "0.02", "0.18", "0.003", "仮の値（金などは利息・配当が無いので、株式より低い期待リターンの目安。統計で確かめていない）", "仮の値（金の投資信託・ETF のよくある信託報酬の目安。商品の公表の値で確かめていない）"],
+  ["cash.deposit", "預金", "0.001", "0.005", "0", "仮の値", "預金に信託報酬はかからない"],
+  ["cash.foreign", "外貨預金", null, "0.1", "0", "", "外貨預金に信託報酬はかからない（為替の手数料は利回りに含めて入れる）"],
+];
+
+function investClassPresets(): PresetDef[] {
+  const out: PresetDef[] = [];
+  for (const [key, name, ret, vol, fee, retBasis, feeBasis] of INVEST_CLASS_ROWS) {
+    if (ret !== null) out.push(p(`preset.invest.${key}.return`, ret, "pct", "前提条件・資産運用", `資産の種類の期待リターン: ${name}`, "fill", retBasis, "market"));
+    out.push(p(`preset.invest.${key}.volatility`, vol, "pct", "前提条件・資産運用", `資産の種類の値動きの大きさ: ${name}`, "fill", "仮の値（相場の目安。統計で確かめていない）", "market"));
+    out.push(p(`preset.invest.${key}.fee`, fee, "pct", "前提条件・資産運用", `資産の種類の信託報酬（年）: ${name}`, "template", feeBasis, "market"));
+  }
+  return out;
+}
+
+/**
+ * 資産の種類の間の相関の目安（0252。資産配分の表の「値動きの大きさ」を組み合わせるときだけに使う。計算には使わない）。原本の統計で確かめていない
+ * 仮の値（相場の目安）で、事務所の推定の値では変えられない（55組あるため。docs/estimates-review.md の「一覧に入れていない値」）。書いていない組は0
+ */
+const INVEST_CORRELATIONS: Readonly<Record<string, number>> = {
+  "equity.domestic|equity.global": 0.6,
+  "equity.domestic|equity.emerging": 0.5,
+  "equity.global|equity.emerging": 0.8,
+  "equity.domestic|bond.domestic": -0.1,
+  "equity.domestic|bond.global": 0.1,
+  "equity.global|bond.global": 0.2,
+  "equity.emerging|bond.global": 0.3,
+  "equity.domestic|bond.emerging": 0.3,
+  "equity.global|bond.emerging": 0.5,
+  "equity.emerging|bond.emerging": 0.6,
+  "bond.domestic|bond.global": 0.2,
+  "bond.domestic|bond.emerging": 0.1,
+  "bond.global|bond.emerging": 0.6,
+  "equity.domestic|reit.domestic": 0.6,
+  "equity.global|reit.domestic": 0.4,
+  "equity.emerging|reit.domestic": 0.4,
+  "bond.domestic|reit.domestic": 0.1,
+  "bond.global|reit.domestic": 0.2,
+  "bond.emerging|reit.domestic": 0.3,
+  "equity.domestic|reit.global": 0.6,
+  "equity.global|reit.global": 0.6,
+  "equity.emerging|reit.global": 0.5,
+  "bond.global|reit.global": 0.3,
+  "bond.emerging|reit.global": 0.5,
+  "reit.domestic|reit.global": 0.5,
+  "equity.domestic|commodity": 0.1,
+  "equity.global|commodity": 0.3,
+  "equity.emerging|commodity": 0.3,
+  "bond.global|commodity": 0.4,
+  "bond.emerging|commodity": 0.3,
+  "reit.domestic|commodity": 0.1,
+  "reit.global|commodity": 0.3,
+  "equity.domestic|cash.foreign": 0.3,
+  "equity.global|cash.foreign": 0.6,
+  "equity.emerging|cash.foreign": 0.5,
+  "bond.global|cash.foreign": 0.8,
+  "bond.emerging|cash.foreign": 0.6,
+  "reit.domestic|cash.foreign": 0.2,
+  "reit.global|cash.foreign": 0.6,
+  "commodity|cash.foreign": 0.5,
+};
+
+/** 資産の種類の間の相関の目安（同じ種類は1、書いていない組は0） */
+export function investCorrelation(a: string, b: string): number {
+  if (a === b) return 1;
+  return INVEST_CORRELATIONS[`${a}|${b}`] ?? INVEST_CORRELATIONS[`${b}|${a}`] ?? 0;
+}
+
 /** 画面とヒアリングシートの目安（エンジンが引く目安は ENGINE_PRESETS） */
 const APP_PRESETS: readonly PresetDef[] = [
   // ---- 住まい・ローン ----
@@ -163,17 +244,10 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.contingency.hospitalDays.heartStroke", 30, "days", "万一・保険", "入院の日数の想定（心疾患・脳卒中）", "template", "患者調査の平均在院日数を丸めた仮の値（版は未確認）", "statistic"),
   p("preset.contingency.hospitalDays.other", 10, "days", "万一・保険", "入院の日数の想定（その他）", "template", "患者調査の平均在院日数を丸めた仮の値（版は未確認）", "statistic"),
   // ---- 前提条件・資産運用（前提条件の標準値〔物価・賃金・運用利回り〕は 0073 の事務所の既定値で別に扱う） ----
-  p("preset.invest.equity.domestic.return", "0.05", "pct", "前提条件・資産運用", "資産の種類の期待リターン: 国内株", "fill", "仮の値", "market"),
-  p("preset.invest.equity.domestic.volatility", "0.18", "pct", "前提条件・資産運用", "資産の種類の値動きの大きさ: 国内株", "fill", "仮の値", "market"),
-  p("preset.invest.equity.global.return", "0.06", "pct", "前提条件・資産運用", "資産の種類の期待リターン: 外国株", "fill", "仮の値", "market"),
-  p("preset.invest.equity.global.volatility", "0.2", "pct", "前提条件・資産運用", "資産の種類の値動きの大きさ: 外国株", "fill", "仮の値", "market"),
-  p("preset.invest.bond.global.return", "0.01", "pct", "前提条件・資産運用", "資産の種類の期待リターン: 債券", "fill", "仮の値", "market"),
-  p("preset.invest.bond.global.volatility", "0.05", "pct", "前提条件・資産運用", "資産の種類の値動きの大きさ: 債券", "fill", "仮の値", "market"),
-  p("preset.invest.reit.global.return", "0.04", "pct", "前提条件・資産運用", "資産の種類の期待リターン: REIT", "fill", "仮の値", "market"),
-  p("preset.invest.reit.global.volatility", "0.18", "pct", "前提条件・資産運用", "資産の種類の値動きの大きさ: REIT", "fill", "仮の値", "market"),
-  p("preset.invest.cash.deposit.return", "0.001", "pct", "前提条件・資産運用", "資産の種類の期待リターン: 現金", "fill", "仮の値", "market"),
-  p("preset.invest.cash.deposit.volatility", "0.005", "pct", "前提条件・資産運用", "資産の種類の値動きの大きさ: 現金", "fill", "仮の値", "market"),
-  p("preset.invest.fee", "0.0025", "pct", "前提条件・資産運用", "運用の費用（信託報酬など。年）", "template", "仮の値", "market"),
+  // 資産配分の資産の種類ごとの期待リターン（信託報酬を引く前）・値動きの大きさ・信託報酬（0252。種類は app の input/savings/model.ts の CLASSES）。
+  // どれも原本の統計で確かめていない仮の値（相場の目安）。期待リターンは推定の印で世帯に書き、値動きの大きさは表示だけ、信託報酬は新しく割合の表に
+  // 足す種類に入れる値（ひな形）。前の「外国株」「債券」「REIT」（equity.global・bond.global・reit.global）の値は変えず、名前だけ先進国・外国に読み替えた
+  ...investClassPresets(),
   p("preset.withdrawal.startAge", 65, "age", "前提条件・資産運用", "取り崩しの計画: 始める年齢", "template", "仮の値"),
   p("preset.withdrawal.monthly", 150000, "yen", "前提条件・資産運用", "取り崩しの計画: 定額の月額", "template", "仮の値"),
   p("preset.withdrawal.rate", "0.04", "pct", "前提条件・資産運用", "取り崩しの計画: 定率の割合（年）", "template", "仮の値"),

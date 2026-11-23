@@ -8,8 +8,9 @@ import { classRate, DEPOSIT_CLASSES, expectedReturn } from "../../plans/allocati
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
-import { isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
+import { investCorrelation, isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { ASSET_CLASSES, withAccountLabel } from "../labels.ts";
+import { officeNow } from "../../office/current.ts";
 import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 
 export type Method = "total" | "accounts" | "allocation";
@@ -448,43 +449,94 @@ export function editTotal(wh: WorkingHousehold, patch: { value?: number; rate?: 
 
 // ---- 資産配分 ----
 
-/** 資産配分の資産の種類（画面の5つ）と、事務所の標準値（仮の値。根拠を確かめて事務所で直す前提） */
+/** 資産配分の割合の表の資産の種類（0252） */
+export interface ClassDef {
+  key: string;
+  /** 名前（前提条件の「資産の種類ごとの利回り」と同じ。labels.ts の ASSET_CLASSES） */
+  name: string;
+  /** 「＋ 資産の種類を足す」の見出し */
+  group: "株式" | "債券" | "REIT" | "コモディティ・預金";
+  color: string;
+  /** 株などの割合に数える（株式・REIT） */
+  risky: boolean;
+  /** 期待リターンの目安（presets.ts の preset.invest.<種類>.return。無い種類〔外貨預金〕は預金の利回りで計算するので "0"） */
+  readonly mu: string;
+  /** 値動きの大きさの目安（preset.invest.<種類>.volatility） */
+  readonly sd: string;
+}
+
 /** 期待リターン（mu）と値動きの大きさ（sd）は presets.ts の目安 preset.invest.<種類>.return・volatility（事務所の推定の値があればその値。読むたびに引く） */
 const classPreset = (key: string) => ({
   get mu(): string {
-    return presetRate(`preset.invest.${key}.return`);
+    return isPresetId(`preset.invest.${key}.return`) ? presetRate(`preset.invest.${key}.return`) : "0";
   },
   get sd(): string {
-    return presetRate(`preset.invest.${key}.volatility`);
+    return isPresetId(`preset.invest.${key}.volatility`) ? presetRate(`preset.invest.${key}.volatility`) : "0";
   },
 });
-export const CLASSES: readonly { key: string; name: string; color: string; risky: boolean; mu: string; sd: string }[] = [
-  // 名前は前提条件の「資産の種類ごとの利回り」と同じ（labels.ts の ASSET_CLASSES。どちらで直しても同じ値なので、同じ名前で見せる）
-  { key: "equity.domestic", name: "国内株式", color: "#2b4c8c", risky: true, ...classPreset("equity.domestic") },
-  { key: "equity.global", name: "外国株式", color: "#5a7fc0", risky: true, ...classPreset("equity.global") },
-  { key: "bond.global", name: "外国債券", color: "#9db3d9", risky: false, ...classPreset("bond.global") },
-  { key: "reit.global", name: "外国REIT", color: "#c8a35a", risky: true, ...classPreset("reit.global") },
-  { key: "cash.deposit", name: "預金", color: "#cfd5dd", risky: false, ...classPreset("cash.deposit") },
+const def = (key: string, group: ClassDef["group"], color: string, risky: boolean): ClassDef => ({ key, name: ASSET_CLASSES.find((o) => o.value === key)?.label ?? key, group, color, risky, ...classPreset(key) });
+/**
+ * 資産配分の割合の表で選べる資産の種類（0252。並びは表の並び）。前の「外国株式」「外国債券」（equity.global・bond.global）は先進国と読み替え、
+ * 新興国・国内債券・国内REIT・コモディティ・外貨預金を足した。バランス型・不動産・その他は出さない（前提条件の利回りには残す）
+ */
+export const CLASSES: readonly ClassDef[] = [
+  def("equity.domestic", "株式", "#2b4c8c", true),
+  def("equity.global", "株式", "#5a7fc0", true),
+  def("equity.emerging", "株式", "#93b1e3", true),
+  def("bond.domestic", "債券", "#2f7a68", false),
+  def("bond.global", "債券", "#6fae9c", false),
+  def("bond.emerging", "債券", "#a9d6c8", false),
+  def("reit.domestic", "REIT", "#a8803a", true),
+  def("reit.global", "REIT", "#d2ae66", true),
+  def("commodity", "コモディティ・預金", "#b5869e", false),
+  def("cash.deposit", "コモディティ・預金", "#cfd5dd", false),
+  def("cash.foreign", "コモディティ・預金", "#97a3b3", false),
 ];
+/** 表に無い種類（前の版の配分・段階の配分のバランス型など）の見せ方 */
+export const classDefOf = (key: string): ClassDef => CLASSES.find((c) => c.key === key) ?? def(key, "コモディティ・預金", "#bcbcbc", false);
 /** 相場が下がる場合に下げる資産クラス（株・REIT） */
-export const RISKY_CLASSES: readonly string[] = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
-/** 資産の種類の間の相関（値動きの大きさを組み合わせるときだけに使う。表示用の目安） */
-const CORR: readonly (readonly number[])[] = [
-  [1, 0.6, 0.1, 0.6, 0],
-  [0.6, 1, 0.2, 0.6, 0],
-  [0.1, 0.2, 1, 0.3, 0],
-  [0.6, 0.6, 0.3, 1, 0],
-  [0, 0, 0, 0, 1],
-];
-export const DEFAULT_MIX: readonly { assetClass: string; share: string }[] = [
+export const RISKY_CLASSES: readonly string[] = ["equity.domestic", "equity.global", "equity.emerging", "reit.domestic", "reit.global"];
+
+type MixPart = { assetClass: string; share: string };
+
+/** 割合の標準（0252）: GPIF の基本ポートフォリオ（国内債券・先進国債券〔外国債券〕・国内株式・先進国株式〔外国株式〕を25%ずつ） */
+export const GPIF_MIX: readonly MixPart[] = [
   { assetClass: "equity.domestic", share: "0.25" },
-  { assetClass: "equity.global", share: "0.4" },
-  { assetClass: "bond.global", share: "0.2" },
-  { assetClass: "reit.global", share: "0.05" },
-  { assetClass: "cash.deposit", share: "0.1" },
+  { assetClass: "equity.global", share: "0.25" },
+  { assetClass: "bond.domestic", share: "0.25" },
+  { assetClass: "bond.global", share: "0.25" },
 ];
-/** 運用の費用の既定（presets.ts の目安） */
-export const defaultFee = (): string => presetRate("preset.invest.fee");
+/** 割合の既定: 事務所の既定値の「資産の種類ごとの割合」（無ければ GPIF の基本ポートフォリオ）。新しく資産配分にする世帯がこの割合で始める */
+export const defaultMix = (): MixPart[] => (officeNow().assetMix ?? GPIF_MIX).map((m) => ({ ...m }));
+
+/** 資産の種類の信託報酬の目安（preset.invest.<種類>.fee。事務所の推定の値があればその値。目安の無い種類〔バランス型など〕は null） */
+export const classFeePreset = (assetClass: string): string | null => (isPresetId(`preset.invest.${assetClass}.fee`) ? presetRate(`preset.invest.${assetClass}.fee`) : null);
+
+/** 配分の種類ごとの信託報酬の目安（目安の無い種類は入れない） */
+export function defaultFees(mix: readonly MixPart[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of mix) {
+    const f = classFeePreset(m.assetClass);
+    if (f !== null) out[m.assetClass] = f;
+  }
+  return out;
+}
+
+/** まだ配分の無い世帯に書く配分（割合の既定と、その種類の信託報酬の目安） */
+const startAllocation = (): NonNullable<InvestmentSetting["allocation"]> => {
+  const mix = defaultMix();
+  return { mix, fees: defaultFees(mix) };
+};
+
+/**
+ * 計算と同じ、資産の種類の信託報酬（エンジンの engine/investment.ts と同じ: 種類ごとの値 fees、無ければ前の版の配分全体の値 fee、どちらも無ければ0）。
+ * まだ配分の無い世帯は目安
+ */
+export function classFeeOf(req: EngineRequest, assetClass: string): string {
+  const alloc = investmentOf(req).allocation;
+  if (alloc === undefined) return classFeePreset(assetClass) ?? "0";
+  return alloc.fees?.[assetClass] ?? alloc.fee ?? "0";
+}
 
 // ---- 資産配分を計算に渡す（0137）----
 // 画面に出している割合・信託報酬・期待リターンと、計算に渡す値を食い違わせない。期待リターンの無い資産の種類（預金の種類を除く）は、目安を
@@ -501,19 +553,28 @@ export const classReturnPreset = (assetClass: string): string | null => (isPrese
 
 /** 期待リターンの目安の根拠の文（事務所の推定の値があればその根拠の文） */
 export const classReturnBasis = (assetClass: string): string => {
-  const name = CLASSES.find((c) => c.key === assetClass)?.name ?? assetClass;
+  const name = classDefOf(assetClass).name;
   return presetBasis(presetText(classPresetId(assetClass), (v) => `${name}の期待リターンの目安 ${pctText(String(v))}`));
 };
 
 /** 資産配分の割合（今と段階）に出てくる、割合のある資産の種類 */
 function allocationClasses(req: EngineRequest): string[] {
   const alloc = investmentOf(req).allocation;
-  const mixes = [alloc?.mix ?? DEFAULT_MIX, ...(alloc?.stages ?? []).map((st) => st.mix)];
+  const mixes = [alloc?.mix ?? defaultMix(), ...(alloc?.stages ?? []).map((st) => st.mix)];
   return [...new Set(mixes.flatMap((m) => m.filter((x) => Number(x.share) > 0).map((x) => x.assetClass)))];
 }
 
+/** 資産配分（今と段階）に出てくる種類のうち、信託報酬がまだ無い物（種類ごとの信託報酬で、目安のある種類だけ。前の版の配分全体の値があれば無いと数えない。0252） */
+function missingFees(req: EngineRequest): string[] {
+  const alloc = investmentOf(req).allocation;
+  if (alloc === undefined || alloc.fee !== undefined) return [];
+  const mixes = [alloc.mix, ...(alloc.stages ?? []).map((st) => st.mix)];
+  const used = [...new Set(mixes.flatMap((m) => m.map((x) => x.assetClass)))];
+  return used.filter((c) => alloc.fees?.[c] === undefined && classFeePreset(c) !== null);
+}
+
 /**
- * 資産配分の入れ方で、まだ計算に渡っていないもの（配分そのもの・期待リターンの無い資産の種類。預金の種類と目安の無い種類は除く）。
+ * 資産配分の入れ方で、まだ計算に渡っていないもの（配分そのもの・期待リターンの無い資産の種類〔預金の種類と目安の無い種類は除く〕・信託報酬の無い資産の種類）。
  * 資産配分の入れ方でない・全部渡っていれば空
  */
 export function allocationGaps(req: EngineRequest): string[] {
@@ -522,16 +583,20 @@ export function allocationGaps(req: EngineRequest): string[] {
   const out: string[] = [];
   if (inv.allocation === undefined) out.push("割合と信託報酬");
   const own = req.input.assumptions?.assetReturns ?? {};
-  for (const c of allocationClasses(req)) if (!DEPOSIT_CLASSES.has(c) && own[c] === undefined && classReturnPreset(c) !== null) out.push(`${CLASSES.find((x) => x.key === c)?.name ?? c}の期待リターン`);
+  for (const c of allocationClasses(req)) if (!DEPOSIT_CLASSES.has(c) && own[c] === undefined && classReturnPreset(c) !== null) out.push(`${classDefOf(c).name}の期待リターン`);
+  for (const c of missingFees(req)) out.push(`${classDefOf(c).name}の信託報酬`);
   return out;
 }
 
-/** 資産配分を計算に渡す（allocationGaps の分を書く。割合と信託報酬は画面の既定、期待リターンは目安を推定の印で）。渡っていれば同じ世帯 */
+/** 資産配分を計算に渡す（allocationGaps の分を書く。割合は既定、信託報酬と期待リターンは目安〔期待リターンは推定の印で〕）。渡っていれば同じ世帯 */
 export function fillAllocation(wh: WorkingHousehold): WorkingHousehold {
   if (allocationGaps(wh.request).length === 0) return wh;
   const assumed = { ...wh.assumed };
   const next = mutate(wh, (_h, req) => {
-    if (investmentOf(req).allocation === undefined) setInvestment(req, { allocation: { mix: [...DEFAULT_MIX], fee: defaultFee() } });
+    if (investmentOf(req).allocation === undefined) setInvestment(req, { allocation: startAllocation() });
+    const missing = missingFees(req);
+    const alloc = investmentOf(req).allocation;
+    if (missing.length > 0 && alloc !== undefined) setInvestment(req, { allocation: { ...alloc, fees: { ...(alloc.fees ?? {}), ...defaultFees(missing.map((c) => ({ assetClass: c, share: "0" }))) } } });
     const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
     for (const c of allocationClasses(req)) {
       const mu = classReturnPreset(c);
@@ -584,32 +649,57 @@ export interface ClassRow {
   key: string;
   name: string;
   color: string;
-  /** 割合（%） */
+  /** 割合（%。小数第1位まで） */
   weight: number;
+  /** 割合（%。丸める前。合計の見せ方に使う） */
+  weightRaw: number;
   /** 期待リターン（10進の文字列）と、FP が入れた値か */
   mu: string;
   muOwn: boolean;
   sd: string;
   sdOwn: boolean;
+  /** 信託報酬（計算に使う値。10進の文字列）と、世帯に値があるか（無ければ目安か0。classFeeOf） */
+  fee: string;
+  feeOwn: boolean;
 }
 
+/** 表に出す配分（まだ配分の無い世帯は既定の割合） */
+const shownMix = (req: EngineRequest): readonly MixPart[] => investmentOf(req).allocation?.mix ?? defaultMix();
+
+/** 資産配分の割合の表の行（今の配分の種類だけ。表の種類の並び〔CLASSES〕で、表に無い種類は後ろ。同じ種類が2行あれば割合を足す） */
 export function classRows(req: EngineRequest): ClassRow[] {
   const inv = investmentOf(req);
-  const mix = inv.allocation?.mix ?? DEFAULT_MIX;
+  const mix = shownMix(req);
   const a = req.input.assumptions;
   const year = parseYm(req.input.baseMonth).y + 1;
-  return CLASSES.map((c) => {
-    const own = a?.assetReturns?.[c.key]?.default;
-    const sd = a?.assetVolatility?.[c.key];
+  const order = (k: string) => {
+    const i = CLASSES.findIndex((c) => c.key === k);
+    return i < 0 ? CLASSES.length : i;
+  };
+  const keys = [...new Set(mix.map((m) => m.assetClass))].sort((x, y) => order(x) - order(y));
+  return keys.map((key) => {
+    const c = classDefOf(key);
+    const own = a?.assetReturns?.[key]?.default;
+    const sd = a?.assetVolatility?.[key];
     // 期待リターンの無い種類は、計算と同じ値（預金の種類は預金の利回り、ほかは運用利回り。資産配分の入れ方でなければ目安を見せる。0137）
-    const fallback = inv.method === "allocation" || DEPOSIT_CLASSES.has(c.key) ? classRate(req, c.key, year).rate : c.mu;
-    return { key: c.key, name: c.name, color: c.color, weight: Math.round(Number(mix.find((m) => m.assetClass === c.key)?.share ?? "0") * 1000) / 10, mu: own ?? fallback, muOwn: own !== undefined, sd: sd ?? c.sd, sdOwn: sd !== undefined };
+    const fallback = inv.method === "allocation" || DEPOSIT_CLASSES.has(key) || classReturnPreset(key) === null ? classRate(req, key, year).rate : c.mu;
+    const share = mix.filter((m) => m.assetClass === key).reduce((s, m) => s + Number(m.share), 0);
+    const fee = classFeeOf(req, key);
+    return { key, name: c.name, color: c.color, weight: Math.round(share * 1000) / 10, weightRaw: share * 100, mu: own ?? fallback, muOwn: own !== undefined, sd: sd ?? c.sd, sdOwn: sd !== undefined, fee, feeOwn: inv.allocation?.fees?.[key] !== undefined };
   });
+}
+
+/** 「＋ 資産の種類を足す」で選べる種類（表の種類のうち、今の配分に無い物。見出しの順） */
+export function addableClasses(req: EngineRequest): { group: ClassDef["group"]; list: ClassDef[] }[] {
+  const have = new Set(shownMix(req).map((m) => m.assetClass));
+  const groups: ClassDef["group"][] = ["株式", "債券", "REIT", "コモディティ・預金"];
+  return groups.map((group) => ({ group, list: CLASSES.filter((c) => c.group === group && !have.has(c.key)) })).filter((g) => g.list.length > 0);
 }
 
 export interface Portfolio {
   /** 組み合わせた期待リターン（割合で平均） */
   expected: number;
+  /** 信託報酬（種類ごとの信託報酬を割合でならした値。0252） */
   fee: number;
   /** 信託報酬を引いた利回り */
   net: number;
@@ -625,34 +715,74 @@ export function portfolioOf(req: EngineRequest): Portfolio {
   const w = rows.map((r) => r.weight / total);
   const expected = rows.reduce((s, r, i) => s + (w[i] ?? 0) * Number(r.mu), 0);
   let v = 0;
-  for (let i = 0; i < rows.length; i++) for (let j = 0; j < rows.length; j++) v += (w[i] ?? 0) * (w[j] ?? 0) * Number(rows[i]?.sd) * Number(rows[j]?.sd) * (CORR[i]?.[j] ?? 0);
-  // 信託報酬: 配分を書いた世帯は書いた値（無ければ引かない。計算と同じ）。まだ配分の無い世帯は目安
-  const alloc = investmentOf(req).allocation;
-  const fee = Number(alloc === undefined ? defaultFee() : (alloc.fee ?? "0"));
-  const risky = rows.reduce((s, r, i) => s + (CLASSES[i]?.risky === true ? (w[i] ?? 0) : 0), 0);
-  return { expected, fee, net: expected - fee, sd: Math.sqrt(v), risky };
+  for (let i = 0; i < rows.length; i++) for (let j = 0; j < rows.length; j++) v += (w[i] ?? 0) * (w[j] ?? 0) * Number(rows[i]?.sd) * Number(rows[j]?.sd) * investCorrelation(rows[i]?.key ?? "", rows[j]?.key ?? "");
+  // 信託報酬: 種類ごとの値を割合でならす（計算と同じ。配分を書いた世帯は書いた値〔無い種類は前の版の配分全体の値、それも無ければ引かない〕、まだ配分の無い世帯は目安）
+  const fee = rows.reduce((s, r, i) => s + (w[i] ?? 0) * Number(r.fee), 0);
+  const risky = rows.reduce((s, r, i) => s + (classDefOf(r.key).risky ? (w[i] ?? 0) : 0), 0);
+  return { expected, fee, net: expected - fee, sd: Math.sqrt(Math.max(0, v)), risky };
 }
 
-/** 割合（%の数）を、合計で割った10進の文字列の配分にする（0の種類は外す） */
-export function mixFromWeights(weights: readonly { key: string; weight: number }[]): { assetClass: string; share: string }[] {
+/**
+ * 割合（%の数）を、合計で割った10進の文字列の配分にする（小数第4位まで。端数は最も大きい行で合わせ、合計をちょうど100%にする〔0177 の「合計を100%にする」と同じ〕。
+ * 表の行は0%でも残す。全部0なら既定の割合）
+ */
+export function mixFromWeights(weights: readonly { key: string; weight: number }[]): MixPart[] {
   const total = weights.reduce((s, x) => s + Math.max(0, x.weight), 0);
-  if (total <= 0) return [...DEFAULT_MIX];
-  return weights.filter((x) => x.weight > 0).map((x) => ({ assetClass: x.key, share: rateTextFine(x.weight / total) }));
+  if (total <= 0) return defaultMix();
+  const units = weights.map((x) => Math.round((Math.max(0, x.weight) / total) * 10000));
+  const rest = 10000 - units.reduce((s, n) => s + n, 0);
+  if (rest !== 0) {
+    const big = units.indexOf(Math.max(...units));
+    units[big] = (units[big] ?? 0) + rest;
+  }
+  return weights.map((x, i) => ({ assetClass: x.key, share: unitsText(units[i] ?? 0) }));
 }
 
-/** 率の小数を、小数4桁までの10進の文字列にする */
-function rateTextFine(r: number): string {
-  const n = Math.round(r * 10000);
+/** 1万分の1の数を、小数4桁までの10進の文字列にする */
+function unitsText(n: number): string {
   return n >= 10000 ? "1" : `0.${String(n).padStart(4, "0")}`.replace(/0+$/, "").replace(/\.$/, "") || "0";
 }
 
 /** 資産配分を書き換える（まだ無ければ既定から始める） */
-export function editAllocation(req: EngineRequest, patch: { mix?: { assetClass: string; share: string }[]; fee?: string; rebalance?: boolean }): void {
+export function editAllocation(req: EngineRequest, patch: { mix?: MixPart[]; fees?: Record<string, string>; rebalance?: boolean }): void {
   const inv = investmentOf(req);
-  const cur = inv.allocation ?? { mix: [...DEFAULT_MIX], fee: defaultFee() };
+  const cur = inv.allocation ?? startAllocation();
   const next = { ...cur, ...patch };
   if (next.rebalance === true) delete next.rebalance;
   setInvestment(req, { allocation: next });
+}
+
+/** 割合の表の1行の割合を直す（ほかの行と合わせて合計で割る。今の決まりのまま） */
+export function setClassWeight(req: EngineRequest, key: string, weight: number): void {
+  editAllocation(req, { mix: mixFromWeights(classRows(req).map((x) => ({ key: x.key, weight: x.key === key ? weight : x.weight }))) });
+}
+
+/** 割合の表に資産の種類を足す（割合0%で足す。信託報酬は、世帯に値が無ければ目安） */
+export function addClass(req: EngineRequest, key: string): void {
+  const cur = investmentOf(req).allocation ?? startAllocation();
+  if (cur.mix.some((m) => m.assetClass === key)) return;
+  const fee = cur.fees?.[key] ?? classFeePreset(key);
+  editAllocation(req, { mix: [...cur.mix, { assetClass: key, share: "0" }], ...(fee !== null && cur.fees?.[key] === undefined ? { fees: { ...(cur.fees ?? {}), [key]: fee } } : {}) });
+}
+
+/** 割合の表から資産の種類を外す（残りの割合を合計で割り直す。1行だけなら外さない。段階の配分に無い種類は、信託報酬も外す） */
+export function removeClass(req: EngineRequest, key: string): void {
+  const cur = investmentOf(req).allocation ?? startAllocation();
+  const rows = classRows(req).filter((x) => x.key !== key);
+  if (rows.length === 0) return;
+  const inStages = (cur.stages ?? []).some((st) => st.mix.some((m) => m.assetClass === key));
+  const { [key]: _gone, ...fees } = cur.fees ?? {};
+  void _gone;
+  editAllocation(req, { mix: mixFromWeights(rows.map((x) => ({ key: x.key, weight: x.weight }))), ...(cur.fees !== undefined && !inStages ? { fees } : {}) });
+}
+
+/** 割合の表の1行の信託報酬を直す（空にしたら目安。目安の無い種類は外す＝前の版の配分全体の値か0） */
+export function setClassFee(req: EngineRequest, key: string, v: string | null): void {
+  const cur = investmentOf(req).allocation ?? startAllocation();
+  const value = v ?? classFeePreset(key);
+  const { [key]: _old, ...rest } = cur.fees ?? {};
+  void _old;
+  editAllocation(req, { fees: value === null ? rest : { ...rest, [key]: value } });
 }
 
 // ---- お金の行き先（取り崩す順番・取り崩さない口座・決済口座・預金に残しておく額。0026 の追記）----

@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.87";
+pub const CURRENT: &str = "0.88";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -318,6 +318,13 @@ pub const CURRENT: &str = "0.87";
 ///   **これからの変換の段は `sampleInitial` の中を書き換えない**（控えの中身を変えない 0011 の5 と同じ考え方。最初の状態に戻すときに、
 ///   `{ meta: { formatVersion }, ...sections }` を本文として変換の段に通してから使う）。版を上げるときは、0.87 の見本の `sampleInitial` を
 ///   今の版へ変換できることをテストで確かめる。0.86 の段の後に積む
+/// - 0.88: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。任意の欄 `assumptions.investment.allocation.fees`（資産の種類 → 年率）を足し、
+///   資産の種類に新興国（`bond.emerging`・`equity.emerging`）を足した（前の `bond.global`・`equity.global` は先進国と読み替え。キーは変えない）。
+///   形を変える段: 配分全体の信託報酬 `allocation.fee` を持つ世帯は、その値を資産の割合の表で選べる11種類と配分（段階の配分も）に出てくる
+///   種類の全部に入れた `fees` に移し、`fee` を外す（計算エンジンは、どの種類も同じ値なら前の版と同じ計算の道を通る。結果は1円も変わらない）。
+///   プランの差分（入力項目 `assumptions.investment`）で `allocation.fee`・`allocation`・前提の資産運用の全体を変える物も、値と前の値を同じく移す。
+///   控え・`sampleInitial` の中身は変えない（計算エンジンは前の版の `fee` も読む）。前の版のアプリは計算の入力の検査で `fees` と新しい種類を
+///   通さないので、版を上げて閲覧だけにする。0.87 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -326,7 +333,7 @@ pub const KNOWN: &[&str] = &[
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
     "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85",
-    "0.86", "0.87",
+    "0.86", "0.87", "0.88",
 ];
 
 /// 1段分の変換
@@ -767,6 +774,11 @@ pub const STEPS: &[Step] = &[
         from: "0.86",
         to: "0.87",
         apply: v0_86_to_0_87,
+    },
+    Step {
+        from: "0.87",
+        to: "0.88",
+        apply: v0_87_to_0_88,
     },
 ];
 
@@ -2745,6 +2757,162 @@ fn v0_86_to_0_87(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 資産配分の割合の表で選べる資産の種類（app/src/workspace/input/savings/model.ts の CLASSES と同じ。0252）
+const ALLOCATION_CLASSES: &[&str] = &[
+    "equity.domestic",
+    "equity.global",
+    "equity.emerging",
+    "bond.domestic",
+    "bond.global",
+    "bond.emerging",
+    "reit.domestic",
+    "reit.global",
+    "commodity",
+    "cash.deposit",
+    "cash.foreign",
+];
+
+/// 配分（`mix`）と段階の配分（`stages[].mix`）に出てくる資産の種類（出てきた順）
+fn allocation_mix_classes(alloc: &Value, out: &mut Vec<String>) {
+    let mixes = std::iter::once(alloc.get("mix")).chain(
+        alloc
+            .get("stages")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(|s| s.get("mix")),
+    );
+    for m in mixes.flatten().filter_map(Value::as_array) {
+        for x in m {
+            if let Some(c) = x.get("assetClass").and_then(Value::as_str) {
+                if !out.iter().any(|y| y == c) {
+                    out.push(c.to_string());
+                }
+            }
+        }
+    }
+}
+
+/// 信託報酬の1つの値を、表の11種類と `classes` の全部に入れた `fees`
+fn fees_for(fee: &Value, classes: &[String]) -> Value {
+    let mut m = Map::new();
+    for c in ALLOCATION_CLASSES
+        .iter()
+        .map(|c| c.to_string())
+        .chain(classes.iter().cloned())
+    {
+        m.entry(c).or_insert_with(|| fee.clone());
+    }
+    Value::Object(m)
+}
+
+/// 資産配分の `fee`（率の文字）を `fees` に移す（`fees` に既にある種類は変えない）。移したら true。`classes` は配分に出てくる種類に足して入れる種類
+fn move_allocation_fee(alloc: &mut Value, extra: &[String]) -> bool {
+    let Some(fee) = alloc.get("fee").filter(|f| f.is_string()).cloned() else {
+        return false;
+    };
+    let mut classes = extra.to_vec();
+    allocation_mix_classes(alloc, &mut classes);
+    let Some(obj) = alloc.as_object_mut() else {
+        return false;
+    };
+    obj.remove("fee");
+    let fees = obj
+        .entry("fees")
+        .or_insert_with(|| Value::Object(Map::new()));
+    if let (Some(have), Value::Object(add)) = (fees.as_object_mut(), fees_for(&fee, &classes)) {
+        for (k, v) in add {
+            have.entry(k).or_insert(v);
+        }
+    }
+    true
+}
+
+/// 値の箱（`{ value, state, origin }`）の中の値を書き換える（箱でなければ何もしない）
+fn with_box_value(b: &mut Value, f: impl FnOnce(&mut Value)) {
+    if let Some(v) = b.as_object_mut().and_then(|o| o.get_mut("value")) {
+        f(v);
+    }
+}
+
+/// 0.87 → 0.88: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と配分（段階の配分も）に
+/// 出てくる種類の全部に同じ値で入れた `allocation.fees` に移し、`fee` を外す（どの種類も同じ値なので、計算の結果は変わらない）。
+/// - 今の世帯（`household.request.input.assumptions.investment.allocation`）
+/// - プランの差分（入力項目 `assumptions.investment`）: 場所 `["allocation", "fee"]` は `["allocation", "fees"]` にし、値と前の値の箱の中の率を
+///   `fees` にする（種類は今の世帯の配分の種類も入れる）。場所 `["allocation"]`・`[]`（資産配分・資産運用の全体）は、値と前の値の中の配分を同じく移す
+/// - 控え（`snapshots`）・自分で作った見本の最初の状態（`sampleInitial`）の中身は変えない（0011 の5・0247）
+fn v0_87_to_0_88(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    let mut base: Vec<String> = Vec::new();
+    if let Some(alloc) = obj
+        .get_mut("household")
+        .and_then(|h| h.get_mut("request"))
+        .and_then(|r| r.get_mut("input"))
+        .and_then(|i| i.get_mut("assumptions"))
+        .and_then(|a| a.get_mut("investment"))
+        .and_then(|v| v.get_mut("allocation"))
+    {
+        allocation_mix_classes(alloc, &mut base);
+        move_allocation_fee(alloc, &[]);
+    }
+    if let Some(list) = obj.get_mut("proposals").and_then(Value::as_array_mut) {
+        for plan in list {
+            let Some(diffs) = plan.get_mut("diffs").and_then(Value::as_array_mut) else {
+                continue;
+            };
+            for d in diffs.iter_mut() {
+                if d["item"] != "assumptions.investment" || d["op"] != "set" {
+                    continue;
+                }
+                let at: Vec<String> = d["at"]
+                    .as_array()
+                    .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+                    .unwrap_or_default();
+                let at: Vec<&str> = at.iter().map(String::as_str).collect();
+                match at.as_slice() {
+                    ["allocation", "fee"] => {
+                        d["at"] = serde_json::json!(["allocation", "fees"]);
+                        for k in ["value", "before"] {
+                            if let Some(b) = d.get_mut(k) {
+                                with_box_value(b, |v| {
+                                    if v.is_string() {
+                                        *v = fees_for(v, &base);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    ["allocation"] => {
+                        for k in ["value", "before"] {
+                            if let Some(b) = d.get_mut(k) {
+                                with_box_value(b, |v| {
+                                    move_allocation_fee(v, &base);
+                                });
+                            }
+                        }
+                    }
+                    [] => {
+                        for k in ["value", "before"] {
+                            if let Some(b) = d.get_mut(k) {
+                                with_box_value(b, |v| {
+                                    if let Some(a) = v.get_mut("allocation") {
+                                        move_allocation_fee(a, &base);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.88".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3739,7 +3907,8 @@ mod tests {
         assert_eq!(access("0.85").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.86").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.87").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.88").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.88").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.89").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3752,10 +3921,70 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.87", b.clone()).unwrap(),
+            upgrade("0.88", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
+    }
+
+    #[test]
+    fn v0_87_to_0_88_moves_allocation_fee_to_each_class() {
+        // 0252: 配分全体の信託報酬を、表の11種類と配分（段階も）に出てくる種類の全部に同じ値で入れる。プランの差分も移す。控え・最初の状態は変えない
+        let manual = |v: Value| serde_json::json!({"value": v, "state": "confirmed", "origin": {"kind": "manual"}});
+        let alloc = serde_json::json!({
+            "mix": [{"assetClass": "equity.global", "share": "0.6"}, {"assetClass": "balanced", "share": "0.4"}],
+            "fee": "0.0025",
+            "stages": [{"id": "s1", "at": {"at": "2040-01"}, "mix": [{"assetClass": "other", "share": "1"}]}]
+        });
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.87"},
+            "household": {"request": {"input": {"assumptions": {"investment": {"method": "allocation", "allocation": alloc}}}}},
+            "proposals": [{"diffs": [
+                {"id": "d1", "op": "set", "item": "assumptions.investment", "at": ["allocation", "fee"], "value": manual(serde_json::json!("0.005")), "before": manual(serde_json::json!("0.0025"))},
+                {"id": "d2", "op": "set", "item": "assumptions.investment", "at": ["allocation"], "value": manual(serde_json::json!({"mix": [{"assetClass": "bond.emerging", "share": "1"}], "fee": "0.001"})), "before": null},
+                {"id": "d3", "op": "set", "item": "assumptions.investment", "at": [], "value": manual(serde_json::json!({"method": "allocation", "allocation": {"mix": [{"assetClass": "equity.domestic", "share": "1"}], "fee": "0.002"}})), "before": null},
+                {"id": "d4", "op": "set", "item": "assumptions.investment", "at": ["allocation", "mix"], "value": manual(serde_json::json!([{"assetClass": "equity.domestic", "share": "1"}])), "before": null},
+                {"id": "d5", "op": "set", "item": "livingExpense.monthly", "at": ["allocation", "fee"], "value": manual(serde_json::json!("0.005")), "before": null}
+            ]}],
+            "snapshots": [{"inputs": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}],
+            "sampleInitial": {"formatVersion": "0.87", "sections": {"household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}}
+        });
+        let u = upgrade("0.87", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.88");
+        let a = &u["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
+        assert!(a.get("fee").is_none(), "配分全体の値は外す");
+        let fees = a["fees"].as_object().unwrap();
+        // 表の11種類＋配分のバランス型＋段階のその他
+        assert_eq!(fees.len(), 13);
+        assert!(fees.values().all(|v| v == "0.0025"));
+        for c in ["equity.emerging", "bond.emerging", "cash.foreign", "balanced", "other"] {
+            assert_eq!(fees[c], "0.0025", "{c}");
+        }
+        assert_eq!(a["mix"], b["household"]["request"]["input"]["assumptions"]["investment"]["allocation"]["mix"], "割合は変えない");
+        let d = &u["proposals"][0]["diffs"];
+        assert_eq!(d[0]["at"], serde_json::json!(["allocation", "fees"]));
+        assert_eq!(d[0]["value"]["value"]["equity.emerging"], "0.005");
+        assert_eq!(d[0]["value"]["value"]["balanced"], "0.005", "今の世帯の配分の種類も入れる");
+        assert_eq!(d[0]["before"]["value"], a["fees"], "前の値は今の世帯と同じ形（見直しで「変わった」にしない）");
+        assert_eq!(d[0]["value"]["state"], "confirmed");
+        assert!(d[1]["value"]["value"].get("fee").is_none());
+        assert_eq!(d[1]["value"]["value"]["fees"]["bond.emerging"], "0.001");
+        assert_eq!(d[2]["value"]["value"]["allocation"]["fees"]["equity.domestic"], "0.002");
+        assert!(d[2]["value"]["value"]["allocation"].get("fee").is_none());
+        assert_eq!(d[3], b["proposals"][0]["diffs"][3], "割合だけの差分は変えない");
+        assert_eq!(d[4], b["proposals"][0]["diffs"][4], "ほかの入力項目の差分は変えない");
+        assert_eq!(u["snapshots"], b["snapshots"], "控えの中身は変えない");
+        assert_eq!(u["sampleInitial"], b["sampleInitial"], "最初の状態は変えない");
+        // 信託報酬の無い世帯・配分の無い世帯は、形式の版だけ
+        let none = serde_json::json!({
+            "meta": {"formatVersion": "0.87"},
+            "household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}]}}}}}}
+        });
+        let mut want = none.clone();
+        want["meta"]["formatVersion"] = "0.88".into();
+        assert_eq!(upgrade("0.87", none).unwrap(), want);
+        let empty = serde_json::json!({"meta": {"formatVersion": "0.87"}, "household": {"request": {"input": {}}}});
+        assert_eq!(upgrade("0.87", empty).unwrap()["meta"]["formatVersion"], "0.88");
     }
 
     #[test]

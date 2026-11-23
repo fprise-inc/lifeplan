@@ -12,6 +12,8 @@
 //   毎月の積立は月ごとに pooled の積立−ほかの器の本人の積立の合計（0未満は0）。どちらも0なら外す。運用しない分（uninvested）は外す（0031）
 //   allocation: 運用する器（課税口座・NISA・iDeCo・企業型DC・持株会）に、共通の資産配分と信託報酬を当てる（FP が入れた器の利回りは使わない）。
 //   資産配分の段階（allocation.stages。0040）は、運用する器の利回りの段階（returnStages の資産の配分の段）に写す（器の利回りの段階・例外の年は使わない）
+//   資産の種類ごとの信託報酬（allocation.fees。0252）は、配分（段階の配分も）の行ごとに fee として写す（無い種類は allocation.fee。どちらも無ければ書かない＝0）。
+//   どの行も同じ信託報酬なら、行に書かずに器の信託報酬（fee）にする（前の版の「配分全体で1つ」と同じ計算の道。結果を1円も変えない）
 import { addMonths, formatYm, type MonthIndex } from "../time/month.ts";
 import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
 import { yen, type Yen } from "../money/yen.ts";
@@ -98,6 +100,24 @@ function compress(byMonth: Map<number, number>, base: MonthIndex, end: MonthInde
   return out;
 }
 
+type Mix = readonly { readonly assetClass: string; readonly share: string; readonly fee?: string }[];
+type Allocation = NonNullable<NonNullable<EngineInput["assumptions"]["investment"]>["allocation"]>;
+
+/**
+ * 資産配分の信託報酬の写し方（0252）: 資産の種類ごとの信託報酬（fees。無い種類は fee）を配分の行ごとに書く。配分（段階の配分も）に出てくる
+ * 種類の信託報酬がどれも同じ（か全部無い）なら、行に書かずに器の信託報酬 fee の1つにする（前の版の「配分全体で1つ」と同じ計算の道）
+ */
+function allocationFees(alloc: Allocation): { mixOf: (m: Mix) => Mix; fee: string | undefined } {
+  const fees = alloc.fees;
+  if (fees === undefined) return { mixOf: (m) => m, fee: alloc.fee };
+  const feeOf = (cls: string): string | undefined => fees[cls] ?? alloc.fee;
+  const used = [alloc.mix, ...(alloc.stages ?? []).map((s) => s.mix)].flatMap((m) => m.map((x) => feeOf(x.assetClass)));
+  const first = used[0];
+  // 率の文字の書き方の違い（"0.001" と "0.0010"）は同じ値と読む
+  if (used.every((f) => (f === undefined ? first === undefined : first !== undefined && Number(f) === Number(first)))) return { mixOf: (m) => m, fee: first };
+  return { mixOf: (m) => m.map((x) => ({ assetClass: x.assetClass, share: x.share, fee: feeOf(x.assetClass) ?? "0" })), fee: undefined };
+}
+
 /** 入れ方と既定の値を重ねた入力（重ねるものが無ければ同じ物を返す）と、見出しに出す知らせ */
 export function applyInvestment(
   input: EngineInput,
@@ -170,14 +190,15 @@ export function applyInvestment(
   }
   if (method === "allocation" && setting?.allocation !== undefined) {
     const alloc = setting.allocation;
+    const { mixOf, fee } = allocationFees(alloc);
     accounts = accounts.map((a) => {
       if (!INVEST_KINDS.has(a.kind)) return a;
       const { expectedReturn: _e, returnStages: _s, returnExceptions: _x, ...rest } = a;
       void _e;
       void _s;
       void _x;
-      const stages = alloc.stages === undefined || alloc.stages.length === 0 ? {} : { returnStages: alloc.stages.map((s) => ({ id: s.id, at: s.at, assetMix: s.mix, ...(s.rampYears !== undefined ? { rampYears: s.rampYears } : {}) })) };
-      return { ...rest, assetMix: alloc.mix, ...stages, ...(alloc.fee !== undefined ? { fee: alloc.fee } : {}) } as AccountInput;
+      const stages = alloc.stages === undefined || alloc.stages.length === 0 ? {} : { returnStages: alloc.stages.map((s) => ({ id: s.id, at: s.at, assetMix: mixOf(s.mix), ...(s.rampYears !== undefined ? { rampYears: s.rampYears } : {}) })) };
+      return { ...rest, assetMix: mixOf(alloc.mix), ...stages, ...(fee !== undefined ? { fee } : {}) } as AccountInput;
     });
     changed = true;
   }
