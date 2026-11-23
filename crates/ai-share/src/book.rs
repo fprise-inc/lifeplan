@@ -277,13 +277,11 @@ pub const EXCERPT_TODO_MAX: usize = 80;
 /// 1つの欄の長さの上限（画面の meetings.ts の MEETING_TEXT_MAX と同じ）
 const NOTE_TEXT_MAX: usize = 4000;
 
+/// 切る（名前を伏せる前の下ごしらえ）。伏せた後に `names::mask_and_cut` が上限で切るので、ここでは上限より少し長く残す
+/// （上限の切れ目をまたぐ「名前＋敬称」が、伏せる前に敬称だけ落ちないように。0249 の点検の直し）
 fn cut(s: &str, max: usize) -> String {
     let t = s.trim();
-    if t.chars().count() <= max {
-        t.to_owned()
-    } else {
-        format!("{}…", t.chars().take(max).collect::<String>())
-    }
+    t.chars().take(max + crate::names::CUT_MARGIN).collect()
 }
 
 /// 保険の意向の欄（当初・最終・理由のうち書いてある物）

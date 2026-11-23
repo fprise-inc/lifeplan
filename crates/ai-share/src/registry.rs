@@ -1737,9 +1737,23 @@ fn has_notes(scope: &Scope) -> bool {
 fn masked(source: &SharedHouseholdSource, mask: &[String]) -> SharedHouseholdSource {
     let mut s = source.clone();
     for t in &mut s.texts {
-        t.body = crate::names::mask_names(&t.body, mask).text;
+        t.body = masked_text(&t.item, &t.body, mask).text;
     }
     s
+}
+
+/// 1つの文を、伏せてから上限で切る（抜き出しは決めたこと60字・次までにやること80字、ほかは欄ごとに4000字。0249）
+pub fn masked_text(item: &str, body: &str, mask: &[String]) -> crate::names::Masked {
+    let excerpt = [
+        ("決めたこと: ", crate::book::EXCERPT_DECIDED_MAX),
+        ("次までにやること: ", crate::book::EXCERPT_TODO_MAX),
+    ];
+    let caps: &[(&str, usize)] = if item == crate::book::EXCERPT_ITEM {
+        &excerpt
+    } else {
+        &[]
+    };
+    crate::names::mask_and_cut(body, mask, caps, crate::names::NOTE_FIELD_MAX)
 }
 
 /// 渡してよい世帯か: 同意がある・事務所のプライバシーポリシーを確かめていて断られていない・架空の世帯（0226）

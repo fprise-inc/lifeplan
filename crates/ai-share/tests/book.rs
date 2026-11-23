@@ -900,6 +900,8 @@ fn notes_are_shared_only_with_the_mark_and_the_new_consent() {
         reg.grant(refused.source().unwrap(), notes_opts(&[])),
         Err(GrantError::ConsentMissing { .. })
     ));
+}
+
 /// 世帯を開いたときの記録の読み込み（0248 の追記）: ほかの PC がいま渡している共有の記録は閉じない（期限が過ぎていれば期限切れで閉じる）。
 /// この PC の前の起動の記録・PC の ID の無い前の版の記録は、今までどおり「アプリの終了」で閉じる
 #[test]
@@ -938,4 +940,67 @@ fn records_of_shares_on_another_pc_are_not_closed() {
     // ほかの PC の記録でも、期限が過ぎていれば期限切れ
     clock.advance_ms(61 * 60 * 1000);
     assert_eq!(load(Some("pc-b")), Some(EndReason::Expired));
+}
+
+/// 抜き出しと長い欄の切れ目（0249 の点検の直し）: 名前を伏せてから切るので、切れ目の前後に「名前＋敬称」があっても名前は残らない。
+/// 「（名前）」の途中では切らない
+#[test]
+fn excerpt_and_long_fields_are_cut_after_masking() {
+    use ai_share::registry::masked_text;
+    let excerpt_of = |decided: &str, todo: &str, note: &str| {
+        let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+        v["meetings"] = json!({ "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+            "shared": { "decided": decided, "todo": todo }, "fpOnly": { "note": note } }] });
+        let (b, _) = HouseholdBook::from_opened(HOUSEHOLD_ID, None, 1, &v.to_string()).unwrap();
+        b.source().unwrap().texts
+    };
+    for (field, max) in [("decided", 60usize), ("todo", 80usize)] {
+        for name in ["田中", "山田太郎"] {
+            // 名前の終わりが、上限の1字前・ちょうど・1字後
+            for end in [max - 1, max, max + 1] {
+                let n = name.chars().count();
+                let text = format!("{}{name}さんに確認する", "あ".repeat(end - n));
+                let (d, t) = if field == "decided" {
+                    (text.as_str(), "")
+                } else {
+                    ("", text.as_str())
+                };
+                let texts = excerpt_of(d, t, "");
+                let ex = texts.iter().find(|t| t.item == "meeting.excerpt").unwrap();
+                let out = masked_text(&ex.item, &ex.body, &[]).text;
+                assert!(!out.contains(name), "{field} {name} {end}: {out}");
+                // 伏せる言葉（敬称なし）も同じ
+                let text = format!("{}{name}に確認する", "あ".repeat(end - n));
+                let (d, t) = if field == "decided" {
+                    (text.as_str(), "")
+                } else {
+                    ("", text.as_str())
+                };
+                let texts = excerpt_of(d, t, "");
+                let ex = texts.iter().find(|t| t.item == "meeting.excerpt").unwrap();
+                let out = masked_text(&ex.item, &ex.body, &[name.to_owned()]).text;
+                assert!(
+                    !out.contains(name),
+                    "伏せる言葉 {field} {name} {end}: {out}"
+                );
+                assert!(!out.contains("（名前") || out.contains("（名前）"), "{out}");
+                assert!(!out.contains("（名…") && !out.contains("（…"), "{out}");
+            }
+        }
+    }
+    // 4000字の欄の切れ目
+    for end in [3999usize, 4000, 4001] {
+        let note = format!("{}田中さん", "い".repeat(end - 2));
+        let texts = excerpt_of("", "", &note);
+        let fp = texts.iter().find(|t| t.item == "meeting.fpOnly").unwrap();
+        let out = masked_text(&fp.item, &fp.body, &[]).text;
+        assert!(!out.contains("田中"), "{end}");
+    }
+    // 切らない長さなら、そのまま（伏せた所だけ変わる）
+    let texts = excerpt_of("田中さんと決めた", "源泉徴収票", "");
+    let ex = texts.iter().find(|t| t.item == "meeting.excerpt").unwrap();
+    assert_eq!(
+        masked_text(&ex.item, &ex.body, &[]).text,
+        "前回の面談（2026-05-10）\n決めたこと: （名前）さんと決めた\n次までにやること: 源泉徴収票"
+    );
 }

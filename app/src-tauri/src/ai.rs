@@ -1075,30 +1075,44 @@ pub async fn ai_consent_record(
     id: String,
     input: ExternalAiConsentInput,
 ) -> Result<HouseholdAiView, String> {
-    blocking(app, move |ai, store| {
-        let mut books = lock(&ai.books);
-        let e = books
-            .get_mut(&id)
-            .ok_or_else(|| code(StoreError::NOT_OPEN))?;
-        if e.book.generation == 0 {
-            return Err("E_AI_NOT_SAVED".into());
+    blocking(app, move |ai, store| consent_record(ai, store, &id, &input)).await
+}
+
+/// 外部AIへの提供の同意（同意しなかった・撤回）を記録する（命令の中身）
+pub(crate) fn consent_record(
+    ai: &AiState,
+    store: &Store,
+    id: &str,
+    input: &ExternalAiConsentInput,
+) -> Result<HouseholdAiView, String> {
+    let id = id.to_owned();
+    let mut books = lock(&ai.books);
+    let e = books
+        .get_mut(&id)
+        .ok_or_else(|| code(StoreError::NOT_OPEN))?;
+    if e.book.generation == 0 {
+        return Err("E_AI_NOT_SAVED".into());
+    }
+    e.book
+        .record_consent(input, &today_upper(), &now_iso(), author_of(store))
+        .map_err(str::to_owned)?;
+    if input.decision != ai_share::ConsentDecision::Given {
+        ai.registry.withdraw_consent(&id);
+    }
+    // 共有中なら、渡す中身（同意）をその場で置き換える（メモを含まない同意に変わったら、メモと面談の履歴を渡す共有は閉じる。0249）
+    if let Some(src) = books.get(&id).and_then(|e| e.book.source()) {
+        for sid in ai.registry.active_share_ids(&id) {
+            ai.registry.update_source(&sid, src.clone());
         }
-        e.book
-            .record_consent(&input, &today_upper(), &now_iso(), author_of(store))
-            .map_err(str::to_owned)?;
-        if input.decision != ai_share::ConsentDecision::Given {
-            ai.registry.withdraw_consent(&id);
-        }
-        ai.persist_locked(store, &mut books);
-        if books
-            .get(&id)
-            .is_some_and(|e| e.book.is_dirty(&ai.registry.records(&id)))
-        {
-            return Err("E_AI_PERSIST".into());
-        }
-        view(ai, &books, &id)
-    })
-    .await
+    }
+    ai.persist_locked(store, &mut books);
+    if books
+        .get(&id)
+        .is_some_and(|e| e.book.is_dirty(&ai.registry.records(&id)))
+    {
+        return Err("E_AI_PERSIST".into());
+    }
+    view(ai, &books, &id)
 }
 
 /// 世帯をAIに渡す（期限つきの共有を作る）。AI接続口がオンで、渡す理由（同意がある・事務所のプライバシーポリシーを確かめていてお客さまが断っていない・
@@ -1691,7 +1705,7 @@ pub(crate) fn notes_preview(
         }
         let source = match lock(&ai.books).get(id).and_then(|e| e.book.source()) {
             Some(s) => Some(s),
-            None => store.open_unmarked(id).ok().and_then(|o| {
+            None => store.read_unmarked(id).ok().and_then(|o| {
                 HouseholdBook::from_opened(&o.id, None, o.generation, &o.body)
                     .ok()
                     .and_then(|(b, _)| b.source())
@@ -1704,7 +1718,7 @@ pub(crate) fn notes_preview(
             .iter()
             .filter(|t| ai_share::book::NOTE_ITEMS.contains(&t.item.as_str()))
             .map(|t| {
-                let m = ai_share::names::mask_names(&t.body, words);
+                let m = ai_share::registry::masked_text(&t.item, &t.body, words);
                 suspects.extend(ai_share::names::suspects(&m.text));
                 NotesPreviewText {
                     item: t.item.clone(),
@@ -3405,6 +3419,16 @@ mod tests {
             }
         }
         assert!(!found, "伏せる言葉がファイルに残っています");
+        // 復号した世帯ファイル（ほかの世帯も）と、AIに渡した記録にも残らない
+        for e in p.store.list().unwrap() {
+            assert!(
+                !p.store.read_unmarked(&e.id).unwrap().body.contains(WORD),
+                "{}",
+                e.id
+            );
+            let recs = serde_json::to_string(&p.ai.registry.records(&e.id)).unwrap();
+            assert!(!recs.contains(WORD));
+        }
         // 記録には、メモと面談の履歴の項目が残る
         let file = file_sections(&root, &secrets, &given);
         let fields = file["aiShares"][0]["fields"].to_string();
@@ -3630,5 +3654,34 @@ mod tests {
         let recs = file_records(&a, &x);
         assert_eq!(recs[0].1, "consentWithdrawn", "{recs:?}");
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// 事務所の確かめを理由にメモと面談の履歴を渡している世帯に、メモを含まない同意（ヒアリングシートの同意欄）を記録したら、
+    /// その場でメモと面談の履歴を渡す共有を閉じる（0249 の点検の直し）
+    #[test]
+    fn a_consent_without_notes_closes_the_notes_share_at_once() {
+        let root = root("notes-consent");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        let id = create(&p, None, false);
+        p.store.set_ai_privacy_policy_confirmed(true).unwrap();
+        p.store.set_ai_notes_policy_confirmed(true).unwrap();
+        share_start(&p.ai, &p.store, &id, 60, "AIのアプリ".into(), true, vec![]).unwrap();
+        assert_eq!(p.ai.registry.active_shares().len(), 1);
+        let input: ExternalAiConsentInput = serde_json::from_value(serde_json::json!({
+            "decision": "given", "obtainedOn": "2026-11-01", "method": "hearingSheet",
+            "noTrainingConfirmed": true, "fpConfirmed": true
+        }))
+        .unwrap();
+        let v = consent_record(&p.ai, &p.store, &id, &input).unwrap();
+        assert_eq!(v.ai_notes_use, AiUse::ConsentWithoutNotes);
+        assert!(
+            p.ai.registry.active_shares().is_empty(),
+            "メモを渡す共有が残っています"
+        );
+        // メモを含まない共有なら、渡したまま
+        share_start(&p.ai, &p.store, &id, 60, "AIのアプリ".into(), false, vec![]).unwrap();
+        assert_eq!(p.ai.registry.active_shares().len(), 1);
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

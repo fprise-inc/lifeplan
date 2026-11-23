@@ -12,6 +12,53 @@
 /// 伏せた所に入れる言葉
 pub const NAME_MARK: &str = "（名前）";
 
+/// 切る前に残しておく余り（伏せる前の文を、上限よりこれだけ長く残す。名前らしい語12字と敬称3字が入る長さ）
+pub const CUT_MARGIN: usize = 16;
+
+/// メモと面談の記録の1つの欄の長さの上限（伏せた後に切る）
+pub const NOTE_FIELD_MAX: usize = 4000;
+
+/// 名前を伏せてから、行ごとに上限で切る（0249 の点検の直し: 切ってから伏せると、切れ目の敬称が落ちて名前が残る）。
+/// 行が「見出し: 本文」の形なら本文の字数で切り（`caps` に見出しごとの上限、無ければ `default`）、「（名前）」の途中では切らない
+pub fn mask_and_cut(
+    text: &str,
+    words: &[String],
+    caps: &[(&str, usize)],
+    default: usize,
+) -> Masked {
+    let m = mask_names(text, words);
+    let mark: Vec<char> = NAME_MARK.chars().collect();
+    let mut lines: Vec<String> = Vec::new();
+    for line in m.text.split('\n') {
+        let (label, body) = match line.find(": ") {
+            Some(p) if line[..p].chars().count() <= 20 => (&line[..p + 2], &line[p + 2..]),
+            _ => ("", line),
+        };
+        let cap = caps
+            .iter()
+            .find(|(l, _)| *l == label)
+            .map_or(default, |(_, c)| *c);
+        let chars: Vec<char> = body.chars().collect();
+        if chars.len() <= cap {
+            lines.push(line.to_owned());
+            continue;
+        }
+        // 切れ目が「（名前）」の途中なら、その前で切る
+        let mut n = cap;
+        for (s, e) in spans_of(&chars, &mark) {
+            if s < n && n < e {
+                n = s;
+            }
+        }
+        lines.push(format!("{label}{}…", chars[..n].iter().collect::<String>()));
+    }
+    let out: Vec<char> = lines.join("\n").chars().collect();
+    Masked {
+        spans: spans_of(&out, &mark),
+        text: out.into_iter().collect(),
+    }
+}
+
 /// 敬称（長い順に当てる）
 const HONORIFICS: [&str; 9] = [
     "ちゃん",
