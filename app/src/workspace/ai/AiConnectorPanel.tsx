@@ -136,7 +136,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
             </label>
             <p class="in-note" data-ai-notes-policy-at>
               {notesAt !== null ? `確かめた日時: ${dateTimeProse(notesAt)}` : "まだ確かめていません。"}
-              上の印と両方を付けると、前の版の説明で同意した世帯・同意の答えが無い世帯も、メモと面談の履歴を AI に渡せます（「同意しない」と答えた世帯・撤回した世帯は渡せません）。
+              上の印と両方を付けると、同意の答えが無い世帯も、メモと面談の履歴を AI に渡せます。前の版の説明で同意した世帯は、説明で「FPのメモは渡しません」とお伝えしているので、今の説明で同意を記録し直すまで渡せません（「同意しない」と答えた世帯・撤回した世帯も渡せません）。
             </p>
           </>
         ) : null}
@@ -159,7 +159,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
               />
               メモと面談の履歴を渡す印を、最初から付けておく
             </label>
-            <p class="in-note">既定はオフです。オンにしても、世帯ごとに渡すときに外せます。渡せるのは、今の説明で同意した世帯か、上の2つの印を付けた事務所で「同意しない」と答えていない世帯だけです。</p>
+            <p class="in-note">既定はオフです。オンにしても、世帯ごとに渡すときに外せます。渡せるのは、今の説明で同意した世帯か、上の2つの印を付けた事務所で同意の答えが無い世帯だけです。</p>
           </>
         ) : null}
 

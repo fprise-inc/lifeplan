@@ -719,7 +719,7 @@ fn notes_opts(words: &[&str]) -> GrantOptions {
 }
 
 /// メモと面談の履歴も渡す（0249）: 印の付いた共有だけ、メモと面談の両方の欄が名前を伏せて包んで渡る。印の無い共有・計算に使う読み取りでは出ない。
-/// 前の版の説明の同意・断った・撤回した世帯は渡せず、事務所のプライバシーポリシーの「面談の記録やメモ」の確かめがあれば前の版の同意でも渡せる
+/// 前の版の説明の同意・断った・撤回した世帯は、事務所の2つの確かめがあっても渡せない。同意の答えが無い世帯は、事務所の2つの確かめがあれば渡せる
 #[test]
 fn notes_are_shared_only_with_the_mark_and_the_new_consent() {
     let (reg, _) = registry();
@@ -757,12 +757,39 @@ fn notes_are_shared_only_with_the_mark_and_the_new_consent() {
     assert_eq!(v["notes"], false);
     reg.revoke(&plain.share_id);
 
-    // 事務所のプライバシーポリシーの「面談の記録やメモ」の確かめがあれば、前の版の同意でも渡せる（プライバシーポリシーの確かめも要る）
+    // 前の版の同意は、事務所の2つの確かめがあっても渡せない（説明で「FPのメモは渡しません」と約束しているため）
     reg.set_notes_policy(true);
-    assert!(reg.grant(b.source().unwrap(), notes_opts(&[])).is_err());
     reg.set_office_policy(true);
+    assert_eq!(
+        b.view_with_notes(&[], None, true, true).ai_notes_use,
+        ai_share::AiUse::ConsentWithoutNotes
+    );
+    assert_eq!(
+        reg.grant(b.source().unwrap(), notes_opts(&[])).unwrap_err(),
+        GrantError::NotesNotAllowed {
+            state: "consentWithoutNotes".into()
+        }
+    );
+    // 同意の答えが無い世帯は、事務所の2つの確かめがあれば渡せる（プライバシーポリシーの確かめだけでは渡せない）
+    let (nb, _) = HouseholdBook::from_opened(
+        HOUSEHOLD_ID,
+        Some(CUSTOMER_NO.into()),
+        1,
+        &body_with_notes().to_string(),
+    )
+    .unwrap();
+    reg.set_notes_policy(false);
+    assert!(matches!(
+        reg.grant(nb.source().unwrap(), notes_opts(&[])),
+        Err(GrantError::NotesNotAllowed { .. })
+    ));
+    reg.set_notes_policy(true);
+    assert_eq!(
+        nb.view_with_notes(&[], None, true, true).ai_notes_use,
+        ai_share::AiUse::OfficePolicy
+    );
     let g = reg
-        .grant(b.source().unwrap(), notes_opts(&["転職"]))
+        .grant(nb.source().unwrap(), notes_opts(&["転職"]))
         .unwrap();
     let out = get(&reg, &g.share_id).unwrap();
     let v: Value = serde_json::from_str(&out).unwrap();

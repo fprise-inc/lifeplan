@@ -35,6 +35,9 @@ describe("メモと面談の履歴の印", () => {
       expect(html).not.toContain("data-ai-notes-words");
     }
     expect(NOTES_BLOCKED_TEXT.consentWithoutNotes).toContain("前の版の説明");
+    // 前の版の同意は、事務所の設定では渡せない（取り直しだけを案内する）
+    expect(NOTES_BLOCKED_TEXT.consentWithoutNotes).toContain("同意を記録し直してください");
+    expect(NOTES_BLOCKED_TEXT.consentWithoutNotes).not.toContain("事務所の設定");
   });
   it("伏せる言葉は「、」・読点・空白で区切る（重ねない・50語まで）", () => {
     expect(maskWords("田中、山田 , 田中\n佐藤")).toEqual(["田中", "山田", "佐藤"]);
@@ -74,7 +77,8 @@ describe("1件ずつ渡す画面と事務所の設定", () => {
     expect(html).toContain("面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている");
     expect(html).toContain("メモと面談の履歴を渡す印を、最初から付けておく");
     expect(html).toContain("既定はオフです。オンにしても、世帯ごとに渡すときに外せます。");
-    expect(html).not.toContain("FPのメモは渡しません");
+    expect(html).not.toContain("お名前・ご住所・FPのメモは渡しません");
+    expect(html).toContain("前の版の説明で同意した世帯は、説明で「FPのメモは渡しません」とお伝えしているので、今の説明で同意を記録し直すまで渡せません");
     // プライバシーポリシーを確かめる前は押せない
     const before = renderToString(h(AiConnectorPanel, { ai: host, status: status(), onStatus: () => undefined, onChanged: () => undefined, onClose: () => undefined }));
     expect(before).toMatch(/<input type="checkbox" disabled[^>]*data-ai-notes-policy/);

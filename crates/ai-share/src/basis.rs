@@ -119,13 +119,14 @@ pub fn ai_documents_use(
     }
 }
 
-/// メモと面談の履歴（両方の欄）を AI に渡せるか（0249）。計算の項目の判定（`ai_use`）より狭いか同じで、作りは書類の判定と同じ。
-/// `notes_policy` は、事務所のプライバシーポリシーの確かめに加えて「面談の記録やメモを AI で扱うことも書いている」の確かめもあるか
+/// メモと面談の履歴（両方の欄）を AI に渡せるか（0249）。計算の項目の判定（`ai_use`）より狭いか同じ。
+/// `notes_policy` は、事務所のプライバシーポリシーの確かめに加えて「面談の記録やメモを AI で扱うことも書いている」の確かめもあるか。
+/// 事務所の確かめで渡せるのは、同意の答えが無い世帯だけ。前の版（版1・版2）の説明で同意した世帯は、説明に「FPのメモは渡しません」と
+/// 書いてあり、その約束で同意をもらっているので、事務所の確かめがあっても渡さない（今の説明で同意を記録し直すと渡せる。利用者の判断 2026-11-23）
 pub fn ai_notes_use(consent: Option<&ConsentRef>, notes_policy: bool, fictional: bool) -> AiUse {
     match ai_use(consent, notes_policy, fictional) {
         AiUse::Consent if consent.is_some_and(|c| c.notes) => AiUse::Consent,
-        // 前の版の説明の同意: お客さまは断っていないので、事務所のプライバシーポリシーで面談の記録やメモも確かめていれば渡せる
-        AiUse::Consent if notes_policy => AiUse::OfficePolicy,
+        // 前の版の説明の同意: 事務所の確かめがあっても渡さない（説明で「FPのメモは渡しません」と約束しているため）
         AiUse::Consent => AiUse::ConsentWithoutNotes,
         other => other,
     }
