@@ -139,6 +139,9 @@ export function householdLabel(h: Pick<StoredHousehold, "customerNo" | "summary"
  * ベルに出す届いた知らせ: まだ受け取っていない答えか書類のある依頼ごとに1件。live はその依頼がまだ受け付けているか
  * （開いている世帯は世帯の依頼の記録、開いていない世帯は覚えた欄で）。一覧に無い世帯（見本・消した世帯）は出さない
  */
+/** 届いた回答・書類の知らせは要対応（受け取らないと世帯に入らず、依頼の期限を過ぎると受け取れなくなる。0245） */
+export const HEARING_ARRIVAL_TODO = true;
+
 export function hearingBellItems(households: readonly Pick<StoredHousehold, "id" | "customerNo" | "summary">[], live: (household: string, requestId: string) => boolean): HearingBellItem[] {
   const out: HearingBellItem[] = [];
   for (const [requestId, a] of allArrivals()) {

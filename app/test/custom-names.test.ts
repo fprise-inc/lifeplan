@@ -294,8 +294,8 @@ describe("事務所の既定値の画面の「名前」「入力の欄の見せ�
   });
 
   it("承認待ちはお知らせの一覧にも出る", () => {
-    expect(customCenterNotice(st({ kind: "terms", state: "pending" }))[0]?.title).toBe("カスタム層の名前が変わりました（承認待ち）");
-    expect(customCenterNotice(st({ kind: "fields", state: "pending" }))[0]?.title).toBe("カスタム層の入力の欄の見せ方が変わりました（承認待ち）");
+    expect(customCenterNotice(st({ kind: "terms", state: "pending" }))[0]?.title).toBe("事務所で書き換えた名前が変わりました（承認待ち）");
+    expect(customCenterNotice(st({ kind: "fields", state: "pending" }))[0]?.title).toBe("事務所で変えた入力の欄の見せ方が変わりました（承認待ち）");
     expect(customCenterNotice(st({ kind: "terms", state: "approved" }))).toEqual([]);
   });
 });

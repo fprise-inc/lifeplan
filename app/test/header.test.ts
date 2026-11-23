@@ -16,7 +16,7 @@ import { TextSizePick, TopBar } from "../src/workspace/header/TopBar.tsx";
 import { NoticeCenter } from "../src/workspace/notices/NoticeCenter.tsx";
 import type { CenterItem } from "../src/workspace/notices/center.ts";
 
-const centerItem = (over: Partial<CenterItem> = {}): CenterItem => ({ key: "office:recoveryNotKept:復元キーを保管してください", category: "office", urgency: "normal", date: null, title: "復元キーをまだ保管していません", body: "復元キーを保管してください", household: null, receipts: [], action: { label: "復元キー", run: () => undefined }, read: false, ...over });
+const centerItem = (over: Partial<CenterItem> = {}): CenterItem => ({ key: "office:recoveryNotKept:復元キーを保管してください", category: "office", urgency: "normal", date: null, title: "復元キーをまだ保管していません", body: "復元キーを保管してください", household: null, receipts: [], action: { label: "復元キー", run: () => undefined }, todo: true, read: false, ...over });
 const NO_NOTICES = { items: [], onRead: () => undefined };
 
 const noop = () => undefined;
