@@ -24,7 +24,8 @@ const read = (...p: string[]) => readFileSync(join(src, ...p), "utf8");
 
 const row = (customerNo: string, label: Partial<StoredHousehold> = {}): StoredHousehold => ({ id: `id-${customerNo}`, customerNo, summary: "本人・配偶者", createdAt: "2026-11-01T00:00:00Z", updatedAt: "2026-11-21T01:54:00Z", updatedBy: null, openBy: [], forks: 0, ...label });
 const list = [row("A0042", { category: "A", serial: 42 }), row("A0042-1", { category: "A", serial: 42, branch: "1" }), row("K-2019-42", { category: "A" }), row("C0007", { category: "C", serial: 7, fictional: true })];
-const own = row("2-3-10", { sample: { no: "2-3-10", name: "夫婦のみ・研修用", traits: [] } });
+// 見本は番号を持たない（表示の番号は空。行の目印は見本の ID。0247）
+const own = { ...row("", { sample: { name: "夫婦のみ・研修用", traits: [], family: 2, age: 3 } }), id: "own-1" };
 const shelf = shelfItems(
   DEMO_HOUSEHOLDS.map((d) => ({ id: d.id, sampleNo: d.sampleNo, title: d.title, traits: d.traits })),
   [own],
@@ -175,43 +176,46 @@ describe("顧客の一覧の行（0244）", () => {
 describe("見本の一覧の行（0244）", () => {
   it("行に見せるのは「開く」「この見本をもとに顧客を作る」「ほかの操作」。はじめから入っている見本の「ほかの操作」は「複製する」だけ", () => {
     const { html } = render({ initialTab: "samples" });
-    const r = rowHtml(html, "data-sample-row", "3-4-01");
+    const r = rowHtml(html, "data-sample-row", "salariedCoupleTwoKids");
     expect(shown(r)).toEqual(["開く", "この見本をもとに顧客を作る", "ほかの操作"]);
     expect(inside(r)).toEqual(["複製する"]);
     expect(moreHidden(r)).toBe(true);
-    expect(r).toContain(`title="${COPY_SAMPLE_TITLE}" data-copy-sample="3-4-01"`);
+    expect(r).toContain(`title="${COPY_SAMPLE_TITLE}" data-copy-sample="salariedCoupleTwoKids"`);
   });
 
   it("自分で作った見本の「ほかの操作」は 複製する・名前と項目を直す・完全削除（危ない段）", () => {
     const { html } = render({ initialTab: "samples" });
-    const r = rowHtml(html, "data-sample-row", "2-3-10");
+    const r = rowHtml(html, "data-sample-row", "own-1");
     expect(shown(r)).toEqual(["開く", "この見本をもとに顧客を作る", "ほかの操作"]);
     expect(inside(r)).toEqual(["複製する", "名前と項目を直す", "完全削除"]);
-    expect(r).toMatch(/class="link-btn danger" data-delete-sample="2-3-10">完全削除</);
+    expect(r).toMatch(/class="link-btn danger" data-delete-sample="own-1">完全削除</);
   });
 
   it("「アプリ」の印を出さない。開いている見本は「開く」の場所に「開いています」（番号の右には出さない）", () => {
     const { html } = render({ initialTab: "samples", currentSample: "salariedCoupleTwoKids" });
     expect(html).not.toContain("hh-app");
     expect(html).not.toMatch(/>アプリ<\/span>/);
-    const r = rowHtml(html, "data-sample-row", "3-4-01");
-    expect(r).toMatch(/<td><b>3-4-01<\/b><\/td>/);
+    const r = rowHtml(html, "data-sample-row", "salariedCoupleTwoKids");
+    // 見本番号の列は無い（行は名前から始まる。0247）
+    expect(r).not.toContain("3-4-01");
+    expect(r).toMatch(/<td class="hh-wrap"><span data-sample-name-cell[^>]*>会社員の夫婦と子2人<\/span><\/td>/);
     expect(shown(r)).toEqual(["開いています", "この見本をもとに顧客を作る", "ほかの操作"]);
     expect(r).toContain("data-sample-current");
-    for (const no of shelf.map((s) => s.no)) expect(rowHtml(html, "data-sample-row", no)).not.toContain("hh-tags\"><span class=\"pl-tag");
+    for (const id of shelf.map((s) => s.id)) expect(rowHtml(html, "data-sample-row", id)).not.toContain("hh-tags\"><span class=\"pl-tag");
   });
 
   it("保存の部品を使えないとき: はじめからの見本は「開く」だけ（ほかの操作も無い）。自分で作った見本は「ほかの操作」に 名前と項目を直す・完全削除", () => {
     const { html } = render({ initialTab: "samples", unavailable: "保存の部品を使えません" });
-    const app = rowHtml(html, "data-sample-row", "3-4-01");
+    const app = rowHtml(html, "data-sample-row", "salariedCoupleTwoKids");
     expect(shown(app)).toEqual(["開く"]);
     expect(inside(app)).toBeNull();
-    expect(inside(rowHtml(html, "data-sample-row", "2-3-10"))).toEqual(["名前と項目を直す", "完全削除"]);
+    expect(inside(rowHtml(html, "data-sample-row", "own-1"))).toEqual(["名前と項目を直す", "完全削除"]);
   });
 
   it("一覧の上の説明は「はじめから入っている見本」（「アプリ」と書かない）。見本に登録の案内は「ほかの操作」の中を指す", () => {
     const { html } = render({ initialTab: "samples" });
-    expect(html).toContain("01〜09 ははじめから入っている見本（直せません）、10〜 は自分で作った見本です。");
+    expect(html).toContain("はじめから入っている見本は直せません。自分で作った見本は、名前・家族の形・項目を直せます。");
+    expect(html).not.toContain("01〜09");
     expect(html).not.toContain("アプリに入っている見本");
     expect(html).toContain("「顧客」の一覧の行の「ほかの操作」の「見本に登録」から");
   });
@@ -224,13 +228,17 @@ describe("見本の「複製する」（0244）", () => {
     expect(copyRequest(app!)?.name).toBe(`${app!.name}（複製）`);
     expect(copyRequest({ ...app!, name: "あ".repeat(40) })?.name).toHaveLength(40);
     expect(copyRequest({ ...app!, name: "研修用（写し）" })?.name).toBe("研修用（写し）（複製）");
-    expect(COPY_SAMPLE_TITLE).toBe("同じ家族の形・年代の次の空き番号（10〜）に複製します。メモと面談の履歴は複製しません");
+    expect(COPY_SAMPLE_TITLE).toBe("同じ家族の形・年代の新しい見本に複製します。メモと面談の履歴は複製しません");
+    // 見本の名前は重ならない決まりなので（0247）、同じ名前があれば「（複製2）」…
+    expect(copyRequest(app!, [`${app!.name}（複製）`])?.name).toBe(`${app!.name}（複製2）`);
+    expect(copyRequest(app!, [`${app!.name}（複製）`, ` ${app!.name}（複製2） `])?.name).toBe(`${app!.name}（複製3）`);
+    expect(copyRequest(app!)).toMatchObject({ family: app!.family, age: app!.age });
   });
 
-  it("見本の帯のボタンも「複製する」。複製した後の知らせは「見本 … として複製しました」", () => {
+  it("見本の帯のボタンも「複製する」。複製した後の知らせは「見本「名前」として複製しました」", () => {
     const app = read("workspace", "App.tsx");
     expect(app).toMatch(/title=\{COPY_SAMPLE_TITLE\} data-band-copy>\s*複製する\s*</);
-    expect(app).toContain('`見本 ${r.customerNo} として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します`');
+    expect(app).toContain('`見本「${r.sample.name}」として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します`');
   });
 
   it("画面に「写して手直しする」「（写し）」を付ける所が残っていない", () => {

@@ -1042,7 +1042,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 /* 世帯の一覧の印（顧客番号の右の印・見本の項目。印の中の文字は折らない。番号の右に並べる形は store.css。0244） */
 .hh-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .hh-tags .pl-tag { margin-left: 0; white-space: nowrap; }
-/* 顧客番号・見本番号を押しても開く（太字のまま、押せることはカーソルを合わせたときの下線で） */
+/* 顧客番号を押しても開く（太字のまま、押せることはカーソルを合わせたときの下線で） */
 .hh-no-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
 .hh-no-btn:hover, .hh-no-btn:focus-visible { text-decoration: underline; }
 /* 顧客の一覧・見本の棚: 番号・区分・家族・日付などの短い欄は折り返さない（2行になって読みにくいため）。操作の欄は行の操作のフォームを

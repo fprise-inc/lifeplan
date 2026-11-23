@@ -355,7 +355,7 @@ describe("入力のパネルの「保存」の知らせ（保存を止めてい�
     expect(panel).toMatch(/data-save-current>\s*この世帯を保存して使う\s*</);
     const app = readFileSync(new URL("../src/workspace/App.tsx", import.meta.url), "utf8");
     expect(app).toContain('unsavedTitle={unsavedNew ? "新しい世帯" : null}');
-    expect(app).toContain(': opened?.demo != null ? `見本 ${opened.demo.sampleNo}` : "新しい世帯",');
+    expect(app).toContain(': opened?.demo != null ? `見本「${opened.demo.title}」` : "新しい世帯",');
   });
   it("保存していない新しい世帯かどうかは、世帯の選択のメニューの「この世帯を保存して使う」と同じ条件（開いていて、保存した世帯でも見本でもない）", () => {
     expect(unsavedNewHousehold({ opened: true, stored: false, sample: false })).toBe(true);
