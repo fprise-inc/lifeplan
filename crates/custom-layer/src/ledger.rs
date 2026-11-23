@@ -34,7 +34,7 @@ pub struct Approval {
     pub fingerprint: String,
     /// 承認した時（1970-01-01 からの秒。UTC）
     pub approved_at: i64,
-    /// 承認したときの公式の文（行の `basedOn` が今の一覧と合った行だけ。更新の確かめの画面で「前の公式の文」に出す）
+    /// 承認したときの公式の文（行の `basedOn` が今の一覧と合った行だけ。公式の文の更新の確認画面で「前の公式の文」に出す）
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub official: BTreeMap<String, String>,
 }

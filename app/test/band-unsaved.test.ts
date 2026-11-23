@@ -52,7 +52,7 @@ describe("帯から外す前の確かめ", () => {
   });
 });
 
-describe("帯から外す前の確かめの画面", () => {
+describe("保存していない変更の確認画面（プランを帯から外す前）", () => {
   const render = (mode: "hide" | "delete", heirs: string[] = []) => renderToString(h(BandDropDialog, { removal: { id: "x", letter: "B", mode, heirs }, onChoose: () => undefined }));
   it("一覧で帯から外す: 上書き保存して外す・変更を捨てて外す・やめる。プランは一覧に残ると書く", () => {
     const html = render("hide");

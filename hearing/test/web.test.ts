@@ -677,7 +677,7 @@ describe("お客さまの画面の言葉と入れやすさ", () => {
     expect(at("regular")).toContain("hs.income.annual#1");
   });
 
-  it("確かめの画面の金額: 全角・桁区切りでも単位つき（年 850万円・月 98,000円）", async () => {
+  it("入力内容の確認画面の金額: 全角・桁区切りでも単位つき（年 850万円・月 98,000円）", async () => {
     const p = await basicPacket();
     const item = (k: string) => p.items.find((i) => i.key === k)!;
     expect(answerText(item("hs.income.annual"), v("８５０", "number"))).toBe("年 850万円");

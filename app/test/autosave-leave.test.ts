@@ -103,7 +103,7 @@ describe("世帯を離れる前の保存", () => {
   });
 });
 
-describe("離れる前の確かめの画面", () => {
+describe("保存できなかった変更の確認画面（世帯を切り替える・閉じる前）", () => {
   const render = (code: string, action: "switch" | "close", error: string | null = null) =>
     renderToString(h(LeaveDialog, { customerNo: "C0001", code, action, busy: false, error, message: (c: string) => `理由:${c}`, onChoose: () => undefined }));
   it("保存し直す・捨てる・やめるを出し、理由と、何が無くなるかを書く", () => {

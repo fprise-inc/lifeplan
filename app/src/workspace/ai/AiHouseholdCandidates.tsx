@@ -10,7 +10,7 @@ import { PopIcon } from "../../presentation/icons.tsx";
 import { householdOverview, KIND_TEXT, readHouseholdCandidate, type HouseholdKind, type OverviewRow, type ReadHousehold } from "./households.ts";
 import { dateTimeProse } from "./model.ts";
 
-/** 届いている候補の帯（件数と、確かめる画面を開くボタンだけ。中身は出さない） */
+/** 届いている候補の帯（件数と、AIからの新しい世帯の候補の確認画面を開くボタンだけ。中身は出さない） */
 export function AiHouseholdCandidateBand({ count, onOpen }: { count: number; onOpen: () => void }) {
   if (count <= 0) return null;
   return (

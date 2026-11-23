@@ -21,7 +21,7 @@ export const PROPOSAL_CONTRACT = "document-candidates@1";
 export type DocType = "insurancePolicy" | "propertyTaxStatement" | "routePriceMap";
 
 /**
- * 取り込みを外した書類の種類（0159）。前に読んだ記録の見出しに使うだけで、読み口は受けない。記録は捨てずに残し、確かめの画面では見るだけ
+ * 取り込みを外した書類の種類（0159）。前に読んだ記録の見出しに使うだけで、読み口は受けない。記録は捨てずに残し、書類の読み取りの確認画面では見るだけ
  * （値の候補は承認できない）。足すだけ（消さない。世帯ファイルの記録の値なので）
  */
 export type RetiredDocType =
@@ -95,7 +95,7 @@ export const LAND_AT: Readonly<Record<"propertyTaxStatement" | "routePriceMap", 
   routePriceMap: ["routeMark"],
 };
 
-/** 取り込みを外した種類の記録か（確かめの画面で見るだけにする） */
+/** 取り込みを外した種類の記録か（書類の読み取りの確認画面で見るだけにする） */
 export const isRetired = (r: { docType: RecordedDocType }): boolean => !DOC_TYPES.some((d) => d.value === r.docType);
 
 export const docTypeLabel = (t: RecordedDocType): string => DOC_TYPES.find((d) => d.value === t)?.label ?? RETIRED_DOC_TYPES.find((d) => d.value === t)?.label ?? "書類";
