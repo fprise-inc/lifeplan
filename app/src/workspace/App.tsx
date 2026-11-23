@@ -1890,6 +1890,31 @@ export function App() {
     },
     [putWork],
   );
+  /** 結果のタブの対策で「変えたこと」を開いた回数（プランの一覧の要確認の吹き出しの「対策で確かめる」で増やす。0250） */
+  const [leverReview, setLeverReview] = useState(0);
+  /**
+   * プランの一覧の要確認の吹き出しから: そのプランを選び（帯に無ければ足す）、一覧を閉じて、対策の「変えたこと」を開く（要確認の行が上に並び、
+   * 「確認した（このまま）」「この差分を外す」で直せる。0250）
+   */
+  const showReview = useCallback(
+    (id: string) => {
+      if (!settleInput().ok) return;
+      const o = openedRef.current;
+      const w = workRef.current;
+      if (o === null) return;
+      if (id !== w.sel) {
+        const r = addToBand(w.band, id, [w.sel, w.base]);
+        const v = valuesOf(o.wh, w, id);
+        setShown((s) => [...new Set([...s, ...Object.keys(v).filter((k) => o.catalog.byKey.get(k)?.builtin === false)])]);
+        setTableKey(null);
+        putWork({ ...w, band: r.band, sel: id }, o, "set");
+        if (r.dropped !== null) say(`帯は${MAX_BAND}つまでのため、${planLabel(planLetters(o.wh.proposals).get(r.dropped)?.letter ?? "")}を帯から外しました（一覧に残っています）`);
+      }
+      setPanel(null);
+      setLeverReview((n) => n + 1);
+    },
+    [putWork],
+  );
   const setBase = useCallback(
     (letter: string) => {
       const o = openedRef.current;
@@ -3552,6 +3577,7 @@ export function App() {
                     setPanel(null);
                     setTab("input");
                   }}
+                  onShowReview={showReview}
                   onClose={() => setPanel(null)}
                 /> : null}
             {panel === "compare" ? (
@@ -3655,6 +3681,7 @@ export function App() {
               }
               suggested={planInfo.suggested}
               changes={planInfo.changes}
+              openChanges={leverReview}
               onAck={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(acknowledge(opened.wh, opened.catalog, work.sel, k)) : null}
               onDrop={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(dropChange(opened.wh, opened.catalog, work.sel, k)) : null}
               {...(initial.save === true ? { initialSave: true } : {})}

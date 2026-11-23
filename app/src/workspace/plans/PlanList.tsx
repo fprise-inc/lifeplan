@@ -8,6 +8,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { MAX_BAND } from "./band.ts";
 import type { Catalog } from "./items.ts";
 import { changesOf, deletePlan, modernPlanName, planLabel, renamePlan, type ReviewState } from "./plans.ts";
+import { ReviewMark } from "./ReviewMark.tsx";
 
 /** 現状に反映すると入る差分の要確認の状態（現状が変わった差分は、プランの値で入る） */
 const APPLIED: ReadonlySet<ReviewState> = new Set(["ok", "changed"]);
@@ -31,6 +32,8 @@ export interface PlanListProps {
   onReflect: (id: string) => void;
   /** 「入力で直す」（入力の画面でこのプランを編集の対象にする。0036 の8） */
   onOpenInput?: (id: string) => void;
+  /** 要確認の吹き出しの「対策で確かめる」（このプランを選び、対策の「変えたこと」を開く。0250） */
+  onShowReview?: (id: string) => void;
   onClose: () => void;
   /** 保存している世帯か（見本・保存していない世帯のプランは、アプリを閉じると消える） */
   stored: boolean;
@@ -83,7 +86,7 @@ export function PlanList(p: PlanListProps) {
             <tbody>
               {rows.map((x) => {
                 const ch = changesOf(plans, x.id, wh, cat);
-                const review = ch.filter((c) => c.state !== "ok").length;
+                const review = ch.filter((c) => c.state !== "ok");
                 // 現状に反映しても入らない差分（指す物が無い・読み替えられなかったなど。0036 の7）
                 const skipped = ch.filter((c) => !APPLIED.has(c.state)).length;
                 const on = p.band.includes(x.id);
@@ -119,7 +122,7 @@ export function PlanList(p: PlanListProps) {
                               #{t}
                             </span>
                           ))}
-                          {review > 0 ? <span class="pb-review sm">! 要確認 {review}</span> : null}
+                          {review.length > 0 ? <ReviewMark rows={review} planName={l !== undefined ? planLabel(l.letter) : modernPlanName(x.name)} {...(p.onShowReview !== undefined ? { onShow: () => p.onShowReview?.(x.id) } : {})} /> : null}
                           <span class="pl-sub">
                             変えたこと {ch.length}件{baseName !== undefined ? `・元のプラン: ${planLabel(baseName.letter)}` : ""}
                             {x.reflectedAt !== undefined ? "・現状に反映済み" : ""}
