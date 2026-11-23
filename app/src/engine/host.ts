@@ -570,7 +570,7 @@ export interface StoreHost {
 // ---- AI接続口（0014・0015）。画面には鍵もパスも渡らない（接続の設定の文面は場所を伏せたもの） ----
 
 /** 共有中の世帯（仮名・顧客番号・残り時間） */
-/** 渡す前の確かめの画面の1世帯（0249）: AI に渡る文（名前を伏せた後）と伏せた所（文字の位置）、名前らしい所が残っていそうな所 */
+/** AI に渡す中身の確認画面の1世帯（0249）: AI に渡る文（名前を伏せた後）と伏せた所（文字の位置）、名前らしい所が残っていそうな所 */
 export interface AiNotesPreview {
   id: string;
   customerNo: string;
@@ -579,7 +579,7 @@ export interface AiNotesPreview {
 }
 
 /** まとめて渡すときに渡さなかった世帯の理由（0248） */
-export type AiBulkBlock = "refused" | "withdrawn" | "noBasis" | "sample" | "notSaved" | "readOnly" | "openByOthers" | "unreadable" | "closed" | "unknown";
+export type AiBulkBlock = "refused" | "withdrawn" | "noBasis" | "sample" | "notSaved" | "readOnly" | "openByOthers" | "unreadable" | "closed" | "notWritten" | "unknown";
 
 /** まとめて渡す確かめ・結果（0248）。ready は確かめでは渡せる世帯、渡した後は渡した世帯（alias は渡した後だけ） */
 export interface AiBulkOutcome {
@@ -814,6 +814,8 @@ export interface AiHouseholdView {
   aiNotesUse?: AiUse;
   /** 渡せるメモの行と面談の記録の欄の数（0249） */
   notesCount?: number;
+  /** 今の説明文（版3）を出した日（YYYY-MM-DD）。これより前の日付の同意は、メモと面談の記録を含まない同意として記録する */
+  explanationSince?: string;
 }
 
 /**
@@ -924,7 +926,7 @@ export interface AiHost {
   setNotesPolicy?(confirmed: boolean): Promise<AiStatus>;
   /** 「メモと面談の履歴も渡す」の印を最初から付けておくか（0249） */
   setNotesDefault?(enabled: boolean): Promise<AiStatus>;
-  /** AI に渡るメモと面談の履歴を、名前を伏せた形で見る（渡す前の確かめの画面。0249） */
+  /** AI に渡るメモと面談の履歴を、名前を伏せた形で見る（AI に渡す中身の確認画面。0249） */
   notesPreview?(ids: string[], words: string[]): Promise<AiNotesPreview[]>;
   stopShare(id: string): Promise<AiHouseholdView>;
   /** まとめて渡す前の確かめ（世帯の一覧で選んだ世帯。共有は作らない。0248。無い本体〔開発用のブラウザ〕は使えない） */

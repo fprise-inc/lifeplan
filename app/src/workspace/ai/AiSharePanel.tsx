@@ -43,6 +43,10 @@ const BLOCKED_TEXT: Record<string, string> = {
   none: "外部AIへの提供の同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確かめると、渡せるようになります。",
 };
 
+/** 同意を得た日が、今の説明（版3）を出した日より前のときの注意（0249。その日付の同意は、メモと面談の記録を含まない同意として記録する） */
+export const CONSENT_BEFORE_NOTES_TEXT =
+  "この日付は、面談の記録やメモを AI に渡すことを含む今の説明を出した日より前のため、メモと面談の履歴を渡すことを含まない同意として記録します。今の説明を見せて同意をいただいたときは、その日付を入れてください。";
+
 /** 事務所のプライバシーポリシーで渡す世帯の注意（0226） */
 const OFFICE_POLICY_NOTE = "この世帯は、事務所のプライバシーポリシーに沿って渡します（同意の記録はありません。お客さまは「同意しない」と答えていません）。";
 
@@ -68,6 +72,8 @@ export function AiSharePanel(p: AiSharePanelProps) {
   // メモと面談の履歴も渡す（0249）: 印は事務所の設定で最初から付けておける。伏せる言葉は保存しない
   const [notesOn, setNotesOn] = useState(p.status?.notesByDefault === true);
   const [words, setWords] = useState("");
+  // AI に渡す中身の確認画面を開いたときの伏せる言葉（同じ言葉で見ていなければ、メモと面談の履歴を渡せない。本体も確かめる）
+  const [lookedWords, setLookedWords] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -218,6 +224,11 @@ export function AiSharePanel(p: AiSharePanelProps) {
                     <input type="date" value={form.date} max={todayText()} onInput={(e) => setForm({ ...form, date: (e.currentTarget as HTMLInputElement).value })} data-ai-date />
                   </label>
                 </div>
+                {!sheet && v.explanationSince !== undefined && form.date !== "" && form.date < v.explanationSince ? (
+                  <p class="in-note" data-ai-consent-before-notes>
+                    {CONSENT_BEFORE_NOTES_TEXT}
+                  </p>
+                ) : null}
                 <fieldset class="ai-scope">
                   <legend>渡してよい範囲</legend>
                   <label>
@@ -360,6 +371,8 @@ export function AiSharePanel(p: AiSharePanelProps) {
                     blocked={aiUseAllowed(aiNotesUseOf(v)) ? null : (NOTES_BLOCKED_TEXT[aiNotesUseOf(v)] ?? NOTES_BLOCKED_TEXT.none!)}
                     count={v.notesCount}
                     bulk={false}
+                    onLooked={setLookedWords}
+                    looked={lookedWords === words}
                   />
                 ) : null}
                 <ul class="ai-limits">
@@ -370,7 +383,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                   {use === "officePolicy" ? <li data-ai-share-office>{OFFICE_POLICY_NOTE}</li> : null}
                 </ul>
                 <div class="ai-actions">
-                  <button type="submit" class="btn primary" disabled={busy || destination.trim() === ""} data-ai-share-start>
+                  <button type="submit" class="btn primary" disabled={busy || destination.trim() === "" || (v.aiNotesUse !== undefined && notesOn && aiUseAllowed(aiNotesUseOf(v)) && lookedWords !== words)} data-ai-share-start>
                     この世帯をAIに渡す
                   </button>
                 </div>

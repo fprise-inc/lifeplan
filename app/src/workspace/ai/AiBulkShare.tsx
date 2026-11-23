@@ -108,6 +108,8 @@ export function AiBulkShare(p: AiBulkShareProps) {
   // メモと面談の履歴も渡す（0249）。事務所の設定で最初から付けておける。伏せる言葉は保存しない
   const [notesOn, setNotesOn] = useState(p.status?.notesByDefault === true);
   const [words, setWords] = useState("");
+  // AI に渡す中身の確認画面を開いたときの伏せる言葉（同じ言葉で見ていなければ、メモと面談の履歴を渡せない。本体も確かめる）
+  const [lookedWords, setLookedWords] = useState<string | null>(null);
 
   // 絞り込みが変わったら、選び直す（一覧に無い世帯は選ばない）
   useEffect(() => {
@@ -237,6 +239,8 @@ export function AiBulkShare(p: AiBulkShareProps) {
             onWords={setWords}
             blocked={null}
             bulk
+            onLooked={setLookedWords}
+            looked={lookedWords === words}
           />
         ) : null}
         {unsavedNote ? (
@@ -291,7 +295,7 @@ export function AiBulkShare(p: AiBulkShareProps) {
             <li>取り消しで止まるのは今後の読み取りだけです。すでに送った内容は、AIの会社の側に残ります。</li>
           </ul>
           <div class="ai-actions">
-            <button type="submit" class="btn primary" disabled={busy || destination.trim() === "" || chosen.length === 0 || over !== null || (check !== null && ready === 0)} data-ai-bulk-start>
+            <button type="submit" class="btn primary" disabled={busy || destination.trim() === "" || chosen.length === 0 || over !== null || (check !== null && ready === 0) || (notesOn && p.ai.notesPreview !== undefined && lookedWords !== words)} data-ai-bulk-start>
               選んだ世帯をAIに渡す{check !== null ? `（${ready}件）` : ""}
             </button>
             <button type="button" class="btn" onClick={() => setOpen(false)} data-ai-bulk-close>

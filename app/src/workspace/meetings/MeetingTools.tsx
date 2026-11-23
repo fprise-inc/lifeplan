@@ -273,6 +273,9 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
             </select>
           </label>
           <p class="rp-note">お客さまの名前や連絡先は書かないでください（このソフトは顧客の名前を持ちません）。</p>
+          <p class="rp-note" data-meeting-contacts-note>
+            電話番号・メールアドレス・住所は書かないでください（AI に渡すときに伏せます）
+          </p>
           <div class="rp-actions">
             <button type="submit" class="btn primary" disabled={busy} data-meeting-save>
               {view.isNew ? "足す" : "直す"}

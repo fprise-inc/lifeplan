@@ -14,9 +14,9 @@
 
 use crate::basis::{ai_documents_use, ai_use, AiUse};
 use crate::consent::{
-    self, current_external_ai, explanation_for, explanation_ref, verify_consents_append_only,
-    Author, ConsentRecord, ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION,
-    EXTERNAL_AI_EXPLANATION_VERSION, HEARING_SHEET_EXTERNAL_AI_TEXT,
+    self, current_external_ai, explanation_ref, verify_consents_append_only, Author, ConsentRecord,
+    ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION, EXTERNAL_AI_EXPLANATION_VERSION,
+    HEARING_SHEET_EXTERNAL_AI_TEXT,
 };
 use crate::display_proposals::HouseholdDisplayCandidate;
 use crate::documents::PendingDocumentProposal;
@@ -151,6 +151,8 @@ pub struct HouseholdAiView {
     pub ai_notes_use: AiUse,
     /// 渡せるメモの行と面談の記録の欄の数（0249。「メモと面談の履歴も渡す」の印の横に出す）
     pub notes_count: usize,
+    /// 今の説明文（版3）を出した日。これより前の日付の同意は、メモと面談の記録を含まない同意として記録する（0249 の追記）
+    pub explanation_since: String,
 }
 
 /// 画面の入力の進み具合（保存した入力項目と足した入力項目の数・仮の値を入れた欄のキー。0222 の追記 2026-11-19）。文は写さない
@@ -278,6 +280,16 @@ pub const EXCERPT_TODO_MAX: usize = 80;
 /// 伏せて文が縮んだときに上限の中へ入ってきた名前が残るため。0249 の点検の直し）
 fn cut(s: &str) -> String {
     s.trim().to_owned()
+}
+
+/// 欄の中の改行を空白にした1行（抜き出しの欄）
+fn one_line(s: &str) -> String {
+    s.trim()
+        .split(['\n', '\r'])
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// 保険の意向の欄（当初・最終・理由のうち書いてある物）
@@ -408,10 +420,11 @@ fn note_texts(body: &Map<String, Value>) -> Vec<SourceText> {
         if !decided.is_empty() || !todo.is_empty() {
             let mut lines = vec![format!("前回の面談（{}）", m["on"].as_str().unwrap_or(""))];
             if !decided.is_empty() {
-                lines.push(format!("決めたこと: {}", cut(&decided)));
+                // 欄の中の改行は空白にしてから見出しを付ける（欄の中に見出しと同じ文字の行があっても、上限を欄ごとにかける。0249 の点検の直し）
+                lines.push(format!("決めたこと: {}", one_line(&decided)));
             }
             if !todo.is_empty() {
-                lines.push(format!("次までにやること: {}", cut(&todo)));
+                lines.push(format!("次までにやること: {}", one_line(&todo)));
             }
             out.push(text(
                 "FP（面談の記録の抜き出し）",
@@ -645,7 +658,7 @@ impl HouseholdBook {
         let mut r = consent::new_external_ai_record(&self.consents, input, today, now)?;
         r.recorded_by = author;
         // 見せた文（シートの同意欄の文か、アプリの今の説明文）を1回だけ写す（0014 の4・0172）
-        let shown = explanation_for(r.method);
+        let shown = consent::explanation_shown(r.method, &r.obtained_on);
         self.explanations
             .entry(explanation_ref(shown))
             .or_insert_with(|| shown.to_owned());
@@ -769,6 +782,7 @@ impl HouseholdBook {
             consent_notes: consent.is_some_and(|c| c.notes),
             ai_notes_use,
             notes_count,
+            explanation_since: consent::EXTERNAL_AI_EXPLANATION_V3_SINCE.to_owned(),
         }
     }
 }

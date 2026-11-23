@@ -19,6 +19,7 @@ pub mod basis;
 pub mod book;
 pub mod clock;
 pub mod consent;
+pub mod contacts;
 pub mod display;
 pub mod display_proposals;
 pub mod documents;

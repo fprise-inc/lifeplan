@@ -270,7 +270,12 @@ pub async fn store_make_sample(
     reserved_names: Option<Vec<String>>,
 ) -> Result<RenameOutcome, String> {
     let reserved = reserved_names.unwrap_or_default();
-    blocking(app, move |s| s.make_sample(&id, &sample, &reserved)).await
+    with_ai(app, move |s, ai| {
+        // 見本へ移す前に、AI への共有を取り消して記録を書く（見本は AI に渡さない。画面に出している世帯でも。0249 の追記）
+        ai.on_making_sample(s, &id);
+        s.make_sample(&id, &sample, &reserved).map_err(code)
+    })
+    .await
 }
 
 /// 見本の名前・絞り込みの項目・家族の形・本人の年代を直す（0033・0247）

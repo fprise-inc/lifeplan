@@ -1,7 +1,7 @@
-// メモと面談の履歴も AI に渡す（0249）: 渡すときの印・伏せる言葉・AI に渡る文の確かめ（1件ずつ・まとめての両方で使う）。
+// メモと面談の履歴も AI に渡す（0249）: 渡すときの印・伏せる言葉・AI に渡す中身の確認画面（1件ずつ・まとめての両方で使う）。
 // - 印を付けた共有だけ、FP のメモと面談の記録の両方の欄（お客さまと見てよい欄・FP だけの欄）を渡す。渡せるかは本体の判定（ai_notes_use）
 // - 渡す前に本体が名前を伏せる（伏せる言葉と、敬称の前の名前らしい語）。伏せる言葉はこの画面と本体のメモリの上だけで使い、保存しない
-// - 確かめの画面は、AI に渡る文（伏せた後）を伏せた所に印を付けて見せ、名前らしい所が残っていそうな世帯を先に出す
+// - AI に渡す中身の確認画面は、AI に渡る文（伏せた後）を伏せた所に印を付けて見せ、名前らしい所が残っていそうな世帯を先に出す
 import { useState } from "preact/hooks";
 import type { AiHost, AiNotesPreview } from "../../engine/host.ts";
 import { aiMessage, codeOf, maskWords } from "./model.ts";
@@ -38,12 +38,12 @@ export function MaskedText({ text, spans }: { text: string; spans: readonly [num
   );
 }
 
-/** 確かめの画面の一覧（名前らしい所が残っていそうな世帯が先。本体が並べた順） */
+/** AI に渡す中身の確認画面の一覧（名前らしい所が残っていそうな世帯が先。本体が並べた順） */
 export function NotesPreviewList({ list, showNo }: { list: readonly AiNotesPreview[]; showNo: boolean }) {
   if (list.length === 0) return <p class="in-note">メモと面談の記録はありません。</p>;
   return (
     <div class="ai-notes-preview" data-ai-notes-preview>
-      <p class="pl-sub">AIに渡る文です（伏せた所に印）。名前が残っていたら、伏せる言葉に足してください。</p>
+      <p class="pl-sub">AI に渡す中身の確認画面です。伏せた所に印があります。名前・電話番号などが残っていたら、伏せる言葉に足してください。</p>
       {list.map((p) => (
         <details key={p.id} open={p.suspects.length > 0} data-ai-notes-household={p.customerNo}>
           <summary>
@@ -73,7 +73,7 @@ export function NotesPreviewList({ list, showNo }: { list: readonly AiNotesPrevi
 
 export interface NotesOptionsProps {
   ai: AiHost;
-  /** 確かめの画面で見る世帯 */
+  /** AI に渡す中身の確認画面で見る世帯 */
   ids: readonly string[];
   /** 印を付けているか */
   on: boolean;
@@ -85,11 +85,18 @@ export interface NotesOptionsProps {
   blocked: string | null;
   /** メモと面談の記録の数（1件ずつのとき。分からなければ undefined） */
   count?: number;
-  /** まとめて渡すとき（確かめの画面に顧客番号を出す） */
+  /** まとめて渡すとき（AI に渡す中身の確認画面に顧客番号を出す） */
   bulk: boolean;
-  /** 初めの確かめの画面（テスト用） */
+  /** 初めの AI に渡す中身の確認画面（テスト用） */
   initialPreview?: AiNotesPreview[] | null;
+  /** AI に渡す中身の確認画面を開いたとき（そのときの伏せる言葉の欄の文字。渡すときに同じ言葉で見たかを見る） */
+  onLooked?: (words: string) => void;
+  /** いまの伏せる言葉で AI に渡す中身の確認画面を見たか（見ていなければ、渡す前に開くよう案内する） */
+  looked?: boolean;
 }
+
+/** AI に渡す中身の確認画面を見ていないときの案内 */
+export const NOTES_LOOK_FIRST = "メモと面談の履歴を渡す前に、「AI に渡す中身の確認画面を開く」で、AI に渡る文を見てください（伏せる言葉を変えたときは、もう一度開きます）。";
 
 export function NotesOptions(p: NotesOptionsProps) {
   const [preview, setPreview] = useState<AiNotesPreview[] | null>(p.initialPreview ?? null);
@@ -127,6 +134,7 @@ export function NotesOptions(p: NotesOptionsProps) {
                   (l) => {
                     setBusy(false);
                     setPreview(l);
+                    p.onLooked?.(p.words);
                   },
                   (e: unknown) => {
                     setBusy(false);
@@ -136,10 +144,15 @@ export function NotesOptions(p: NotesOptionsProps) {
               }}
               data-ai-notes-look
             >
-              AIに渡る文を確かめる
+              AI に渡す中身の確認画面を開く
             </button>
           ) : null}
           {error !== null ? <p class="hh-err">{error}</p> : null}
+          {p.looked === false ? (
+            <p class="in-note" data-ai-notes-look-first>
+              {NOTES_LOOK_FIRST}
+            </p>
+          ) : null}
           {preview !== null ? <NotesPreviewList list={preview} showNo={p.bulk} /> : null}
         </>
       ) : null}

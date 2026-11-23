@@ -15,8 +15,8 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 const HID: &str = "0c6a1f0e-6a4b-4f0e-9d7e-2b4b6d3c9a11";
-const TODAY: &str = "2026-11-08";
-const NOW: &str = "2026-11-08T00:00:00Z";
+const TODAY: &str = "2026-11-23";
+const NOW: &str = "2026-11-23T00:00:00Z";
 
 fn book_from(body: Value) -> HouseholdBook {
     HouseholdBook::from_opened(HID, None, 1, &body.to_string())

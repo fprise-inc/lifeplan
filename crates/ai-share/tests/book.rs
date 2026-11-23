@@ -20,8 +20,8 @@ const HOUSEHOLD_ID: &str = "7d1e4c2a-0b3f-4a6e-9c5d-1f2e3a4b5c6d";
 const CUSTOMER_NO: &str = "Z0099";
 const MEMO: &str = "目印のFPメモ: 来年に転職の予定";
 const LABEL: &str = "目印の呼び名: 上のお子さん";
-const TODAY: &str = "2026-10-19";
-const NOW: &str = "2026-10-19T01:00:00Z";
+const TODAY: &str = "2026-11-23";
+const NOW: &str = "2026-11-23T01:00:00Z";
 
 fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -1080,7 +1080,18 @@ fn excerpt_fields_with_line_breaks_are_cut_as_a_whole() {
     );
     assert_eq!(out.matches('…').count(), 2, "{out}");
     assert!(
-        out.contains("決めたこと: 1つ目\n") && out.contains("次までにやること: "),
+        out.contains("決めたこと: 1つ目 あ") && out.contains("次までにやること: "),
+        "{out}"
+    );
+    // 欄の中に見出しと同じ文字の行が何行あっても、上限は欄ごと（行の数だけ増えない）
+    let many = (0..20)
+        .map(|i| format!("決めたこと: {i}{}", "か".repeat(30)))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let out = excerpt(&many, "");
+    assert!(
+        out.chars().count()
+            <= "前回の面談（2026-05-10）\n決めたこと: ".chars().count() + 60 + 1,
         "{out}"
     );
     // 改行のまわりの名前
