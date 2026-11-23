@@ -537,11 +537,13 @@ impl AiState {
     /// 共有を取り消して帳面を捨てる。ほかの世帯は読み直す（同意が無くなっていれば、読み直しで共有が閉じる）。読み直すだけで書かない
     fn check_shared_files(&self, store: &Store) {
         let current = lock(&self.current).clone();
+        // 共有中の世帯と、前の見回りで一覧に出なかった世帯（取り消した後、帳面を捨てるかを決める）
         let mut ids: Vec<String> = self
             .registry
             .active_shares()
             .into_iter()
             .map(|s| s.household_id)
+            .chain(lock(&self.missing).keys().cloned())
             .filter(|id| current.as_deref() != Some(id.as_str()))
             .collect();
         ids.sort();
@@ -562,30 +564,52 @@ impl AiState {
                     self.end_household(store, &id, true);
                     continue;
                 }
-                // 一覧に出ない: 完全削除か、欄がまだ届いていない・読めない瞬間。2回続けて出ず、世帯ファイルも無いときだけ完全削除とみる
+                // 一覧に出ない: 完全削除か、欄がまだ届いていない・読めない瞬間。世帯ファイルも無ければ、その場で共有を取り消す
+                // （同期の遅れだったときは FP が渡し直せばよい、安全な側）。帳面を捨てるのは2回続けて出ず、ファイルも無いとき。
+                // 一覧には無いがファイルはあるときは、取り消さずに待つ
+                let gone = store.household_digest(&id) == Err(StoreError::UNKNOWN_HOUSEHOLD);
+                if !gone {
+                    lock(&self.missing).remove(&id);
+                    continue;
+                }
                 let n = {
                     let mut m = lock(&self.missing);
                     let c = m.entry(id.clone()).or_insert(0);
                     *c = c.saturating_add(1);
                     *c
                 };
-                let gone = store.household_digest(&id) == Err(StoreError::UNKNOWN_HOUSEHOLD);
-                if n >= 2 && gone {
+                for sid in self.registry.active_share_ids(&id) {
+                    self.registry.revoke(&sid);
+                }
+                if n >= 2 {
                     lock(&self.missing).remove(&id);
                     self.end_household(store, &id, false);
                 }
                 continue;
             }
             lock(&self.missing).remove(&id);
+            let Some(entry) = list.iter().find(|h| h.id == id) else {
+                continue;
+            };
             // 世帯ファイルが変わった世帯だけ読み直す（中身の指紋で見る。保存の日時は秒までなので見落とすため）。ロックは世帯ごとに取る
             let Ok(digest) = store.household_digest(&id) else {
                 continue;
             };
             let mut books = lock(&self.books);
+            // ロックを取り直す間に画面がこの世帯を開いていたら、裏では読み直さない
+            if lock(&self.current).as_deref() == Some(id.as_str()) {
+                continue;
+            }
             let Some(e) = books.get_mut(&id) else {
                 continue;
             };
-            if e.seen.as_deref() == Some(digest.as_str()) || !e.book.only_additions_pending() {
+            // 一覧の印（架空の印・区分）だけが変わったときも読み直す（世帯ファイルは変わらないため。ほかの PC で
+            // 架空の世帯をお客さまの世帯にした など）
+            let label_same = e.book.fictional == entry.label.fictional
+                && e.book.category == entry.label.category;
+            if (label_same && e.seen.as_deref() == Some(digest.as_str()))
+                || !e.book.only_additions_pending()
+            {
                 continue;
             }
             if self.reload_background(store, &id, e).is_ok() {
@@ -3703,11 +3727,11 @@ mod tests {
             .customer_no;
         crate::store::delete_household(&b.store, &b.ai, &y, &no).unwrap();
         assert!(read_ok(&a, &sy));
-        // 一覧に出ないのが1回だけなら、まだ取り消さない（一覧が届いていない瞬間かもしれないため）
+        // 一覧に出ず世帯ファイルも無ければ、最初の見回りで取り消す（帳面を捨てるのは2回続いたとき）
         tick_now(&a, &mut w);
-        assert!(read_ok(&a, &sy));
+        assert!(!read_ok(&a, &sy), "完全削除が最初の見回りで届いていない");
+        assert!(lock(&a.ai.books).contains_key(&y));
         tick_now(&a, &mut w);
-        assert!(!read_ok(&a, &sy), "完全削除が届いていない");
         assert!(a.ai.registry.active_shares().is_empty());
         assert!(!lock(&a.ai.books).contains_key(&y));
         // 閉じた記録は、B が x を閉じた後の見回りで書く（B が開いている間は書かずに待つ）
@@ -3826,6 +3850,24 @@ mod tests {
         tick_now(&a, &mut w);
         assert!(!read_ok(&a, &sid));
         assert_ne!(seen(), before);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// 一覧の印だけが変わったとき（ほかの PC が架空の世帯をお客さまの世帯にした。世帯ファイルは変わらない）も、見回りで読み直して
+    /// 共有を閉じる（0248 の追記。読み取りが無くても）
+    #[test]
+    fn the_watch_notices_label_only_changes() {
+        let (base, a, b) = office("label-only");
+        let x = create(&a, None, true);
+        let _ = create(&a, None, false);
+        bulk_grant(&a.ai, &a.store, std::slice::from_ref(&x), 60, "AIのアプリ").unwrap();
+        let sid = a.ai.registry.active_shares()[0].share_id.clone();
+        let mut w = Watch::default();
+        tick_now(&a, &mut w);
+        assert_eq!(a.ai.registry.active_shares().len(), 1);
+        assert!(b.store.make_client(&x).unwrap());
+        tick_now(&a, &mut w);
+        assert!(!read_ok(&a, &sid), "架空の印が外れたのに共有が残っています");
         let _ = std::fs::remove_dir_all(&base);
     }
 }
