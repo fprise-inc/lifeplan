@@ -3172,6 +3172,7 @@ mod tests {
                     category: Some("A".into()),
                     sample: None,
                     fictional: false,
+                    ..Default::default()
                 },
             )
             .unwrap()
