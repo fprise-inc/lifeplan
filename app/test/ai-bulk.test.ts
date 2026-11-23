@@ -5,7 +5,7 @@ import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import type { AiBulkOutcome, AiHost, AiStatus, StoredHousehold } from "../src/engine/host.ts";
 import { AiBulkShare, BulkOutcomeView } from "../src/workspace/ai/AiBulkShare.tsx";
-import { BULK_BLOCK_TEXT, BULK_LIMIT, BULK_MESSAGES, blockedCount, defaultSelection, numbersText, overLimit, sharedAmong } from "../src/workspace/ai/bulk.ts";
+import { BULK_BLOCK_TEXT, BULK_LIMIT, BULK_MESSAGES, blockedCount, defaultSelection, householdText, numbersText, overLimit, sharedAmong } from "../src/workspace/ai/bulk.ts";
 import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
 import { HouseholdPanel, type HouseholdPanelProps } from "../src/workspace/store/HouseholdPanel.tsx";
 import { DEFAULT_CATEGORIES, shelfItems } from "../src/workspace/store/numbering.ts";
@@ -53,6 +53,13 @@ describe("まとめて渡すときの決まり", () => {
     for (const k of ["refused", "withdrawn", "noBasis", "sample", "notSaved", "readOnly", "openByOthers", "unreadable", "unknown"] as const) expect(BULK_BLOCK_TEXT[k]).toBeTruthy();
     const all = [...Object.values(BULK_BLOCK_TEXT), ...Object.values(BULK_MESSAGES)].join("");
     for (const bad of ["当て", "比べ", "カード", "接続口", "つなぐ"]) expect(all).not.toContain(bad);
+  });
+  it("見本は番号を持たないので、断った行は見本の名前で出す（空白にしない。0247）", () => {
+    expect(householdText({ customerNo: "", name: "共働き・研修用" })).toBe("見本「共働き・研修用」");
+    expect(householdText({ customerNo: "A0001" })).toBe("A0001");
+    expect(householdText({ customerNo: "" })).toBe("（番号なし）");
+    const html = renderToString(h(BulkOutcomeView, { o: outcome({ blocked: [{ reason: "sample", households: [{ id: "s1", customerNo: "", name: "共働き・研修用" }] }] }), done: false }));
+    expect(html).toContain("見本の世帯（1件）: 見本「共働き・研修用」");
   });
   it("顧客番号の並びと件数", () => {
     expect(numbersText([{ customerNo: "A1" }, { customerNo: "A2" }])).toBe("A1、A2");

@@ -1167,6 +1167,9 @@ impl BulkBlock {
 pub struct BulkHousehold {
     id: String,
     customer_no: String,
+    /// 見本の世帯だけ: 見本の名前（見本は番号を持たないので、行はこの名前で出す。0247）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1219,6 +1222,17 @@ enum Eval {
     Blocked(BulkBlock, BulkHousehold),
 }
 
+/// 見本の名前（見本でなければ None。名前が空なら「名前のない見本」）
+fn sample_name(e: &household_store::HouseholdEntry) -> Option<String> {
+    let s = e.label.sample.as_ref()?;
+    let n = s.name.trim();
+    Some(if n.is_empty() {
+        "名前のない見本".to_owned()
+    } else {
+        n.to_owned()
+    })
+}
+
 /// 共有中の世帯の数（同じ世帯の共有は1つに数える）
 fn active_households(ai: &AiState) -> usize {
     let mut ids: Vec<String> = ai
@@ -1259,13 +1273,11 @@ fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval
     let mut out = Vec::with_capacity(ids.len());
     for id in ids {
         let Some(entry) = customers.iter().find(|e| &e.id == id) else {
+            let sample = samples.iter().find(|e| &e.id == id);
             let h = BulkHousehold {
                 id: id.clone(),
-                customer_no: samples
-                    .iter()
-                    .find(|e| &e.id == id)
-                    .map(|e| e.customer_no.clone())
-                    .unwrap_or_default(),
+                customer_no: sample.map(|e| e.customer_no.clone()).unwrap_or_default(),
+                name: sample.and_then(sample_name),
             };
             let why = if samples.iter().any(|e| &e.id == id) {
                 BulkBlock::Sample
@@ -1278,6 +1290,7 @@ fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval
         let h = BulkHousehold {
             id: id.clone(),
             customer_no: entry.customer_no.clone(),
+            name: sample_name(entry),
         };
         // 見本は顧客の一覧に入らないが、念のため札でも確かめる（見本は AI に渡さない）
         if entry.label.is_sample() {
@@ -2743,6 +2756,7 @@ mod tests {
                 category: category.map(str::to_owned),
                 sample: None,
                 fictional,
+                ..Default::default()
             },
         )
         .unwrap()
@@ -2796,8 +2810,10 @@ mod tests {
                         age: 3,
                         name: "見本".into(),
                         traits: vec![],
+                        origin: None,
                     }),
                     fictional: false,
+                    ..Default::default()
                 },
             )
             .unwrap()
@@ -2830,6 +2846,24 @@ mod tests {
             ]
         );
         assert_eq!((c.limit, c.active), (MAX_BULK_SHARES, 0));
+        // 見本は番号を持たないので、断った行は見本の名前で出す（行を空白にしない。0247）。顧客の行は名前を持たない
+        let sample_row = &c
+            .blocked
+            .iter()
+            .find(|g| g.reason == BulkBlock::Sample)
+            .unwrap()
+            .households[0];
+        assert_eq!(sample_row.name.as_deref(), Some("見本"));
+        assert!(c
+            .blocked
+            .iter()
+            .filter(|g| g.reason != BulkBlock::Sample)
+            .all(|g| g
+                .households
+                .iter()
+                .all(|h| h.name.is_none() && !h.customer_no.is_empty())));
+        let json = serde_json::to_value(&c).unwrap();
+        assert!(json.to_string().contains("\"name\":\"見本\""));
         assert!(pc2.ai.registry.active_shares().is_empty());
         assert!(!lock(&pc2.ai.books).contains_key(&fictional));
         assert_eq!(
