@@ -118,7 +118,7 @@ describe("お客さまの画面: 1通1画面・書類で分かる問いを出さ
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "doc:d1", now: () => NOW }));
     for (const t of ["大丈夫です。かわりに、お給料の額を伺います（1問）。", "年収（賞与を含む）", "わからなければ、範囲で選ぶ"]) expect(html).toContain(t);
     expect(html).not.toContain("くわしい額を入れる");
-    // 確かめの画面にも出る
+    // 入力内容の確認画面にも出る
     const rv = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "review", now: () => NOW }));
     expect(rv).toContain("書類のかわりに伺ったこと");
     expect(rv).toContain("ご本人さまの源泉徴収票");

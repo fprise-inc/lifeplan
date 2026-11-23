@@ -356,9 +356,9 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       </div>
     );
   };
-  /** 取り消す・受け付けを終えるの確かめ（押してすぐは取り消さない。どの段階でも1回確かめる。確かめのボタンは元のボタンと別の段に出す。文は短く、幅 1000px・文字「中」でボタンと1行に収める。0243） */
+  /** URL の取り消しの確認・URL の受け付けの終了の確認（押してすぐは取り消さない。どの段階でも1回確かめる。確かめのボタンは元のボタンと別の段に出す。文は短く、幅 1000px・文字「中」でボタンと1行に収める。0243） */
   const cancelAsk = (e: WebLogEntry, arrived: boolean) => (
-    <div class="wr-ask" role="alertdialog" aria-label={e.received === undefined ? "取り消しの確かめ" : "受け付けを終えるかの確かめ"} data-web-cancel-ask>
+    <div class="wr-ask" role="alertdialog" aria-label={e.received === undefined ? "URL の取り消しの確認" : "URL の受け付けの終了の確認"} data-web-cancel-ask>
       <span>
         {e.received !== undefined
           ? "お客さまはこの URL を開けず、書類も届きません。受け付けを終えますか。"

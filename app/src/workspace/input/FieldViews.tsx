@@ -10,7 +10,8 @@ import { FieldIcon } from "./fieldIcons.tsx";
 import { InfoNote } from "./InfoNote.tsx";
 import { FoldClose, FoldedGroup, useFold } from "./FoldedGroup.tsx";
 import { StageTable } from "./StageTable.tsx";
-import { blankLineFor, estimateBasisLines, fitsIn, fittingPlaceholder, splitEstimateHint, textEm } from "./placeholder.ts";
+import { blankLineFor, estimateBasisLines, fitsIn, fittingPlaceholder, splitEstimateHint } from "./placeholder.ts";
+import { enterEstimateByMouse, estimateSelectText, keptText, selectEstimate } from "./estimateFocus.ts";
 import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type PremiseMark, type SearchDef, type SearchItem, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
@@ -1117,20 +1118,6 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
   }
 }
 
-/**
- * 数の欄の中に「この値にする」を置いたとき、値の文字に使える幅（em）。欄の幅（.fld-c input.num の 9.5em）から、ボタンの分の
- * 左の余白（app.css の input.has-fill の 5.4em）と右の余白・枠を引いた値（見えない Chrome で測って 3.6em。ボタンの右端と値の左端の間は 6px 以上）。
- * 収まらない値（円で見た大きな額など）は、ボタンを欄の横に出す（欄の値とボタンを重ねない）
- */
-export const FILL_VALUE_ROOM = 3.6;
-
-/** 推定の値を入れるボタンを、数の欄の中に置くか（値が見えていて、ボタンと重ならない長さのときだけ。0041 の追記） */
-export const fillInside = (inputClass: string, shown: string): boolean => inputClass === "num" && shown !== "" && textEm(shown) <= FILL_VALUE_ROOM;
-
-/**
- * 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。押しても欄のフォーカスを動かさない
- * （動かすと、欄の値が入れ直されて「保存していない変更」になるため）
- */
 /** 前提条件の事務所の既定値の印（0214 の4。欄の名前の横の小さな文字）: 「事務所の既定値」「この世帯だけ」「既定値が変わりました」。推定の印ではない */
 export function PremiseTag({ mark }: { mark: PremiseMark }) {
   const text = mark.state === "office" ? "事務所の既定値" : mark.state === "household" ? "この世帯だけ" : "既定値が変わりました";
@@ -1156,9 +1143,14 @@ export function PremiseReset({ mark, wh, onEdit }: { mark: PremiseMark; wh: Work
   );
 }
 
-export function FillButton({ label, status, inside, onFill }: { label: string; status: ValueStatus; inside?: boolean; onFill: () => void }) {
+/**
+ * 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。押しても欄のフォーカスを動かさない
+ * （動かすと、欄の値が入れ直されて「保存していない変更」になるため）。
+ * 置き場所はいつも欄の外: 欄（数字だけ）→ 単位（年ごと・万円など）→「この値にする」の並び。欄の中には入れない（0254）
+ */
+export function FillButton({ label, status, onFill }: { label: string; status: ValueStatus; onFill: () => void }) {
   return (
-    <button type="button" class={`fld-fill${inside === true ? " inside" : ""}`} title={fillTitle(status)} aria-label={`${label}: ${fillTitle(status)}`} onMouseDown={(e) => e.preventDefault()} onClick={onFill} data-op="confirm" data-fill-estimate>
+    <button type="button" class="fld-fill" title={fillTitle(status)} aria-label={`${label}: ${fillTitle(status)}`} onMouseDown={(e) => e.preventDefault()} onClick={onFill} data-op="confirm" data-fill-estimate>
       {FILL_LABEL}
     </button>
   );
@@ -1297,9 +1289,10 @@ export function isSegmented(f: FieldDef): boolean {
  * 区切りボタン（1つを選ぶ。ラジオの並びとして読み上げる）: Tab で選んでいるボタンに入り、矢印（←→↑↓）・Home・End で移って選ぶ。
  * est は、空欄のまま推定で計算している選択肢（点線で見せる。押すと確定になる）
  */
-function SegChoice({ id, labelId, options, value, est, onPick }: { id: string; labelId: string; options: readonly Option[]; value: Val; est: string | undefined; onPick: (v: string) => void }) {
+function SegChoice({ id, labelId, options, value, est, estimated, estTitle, onPick }: { id: string; labelId: string; options: readonly Option[]; value: Val; est: string | undefined; estimated: boolean; estTitle: string | null; onPick: (v: string) => void }) {
   const cur = options.findIndex((o) => o.value === value);
-  const estAt = cur < 0 && est !== undefined ? options.findIndex((o) => o.value === est) : -1;
+  // 推定の見た目にする選択肢: 空欄のまま推定で計算している選択肢か、推定の値として入っている選択肢（どちらも押すと確定。0254）
+  const estAt = cur < 0 ? (est !== undefined ? options.findIndex((o) => o.value === est) : -1) : estimated ? cur : -1;
   const tab = cur >= 0 ? cur : estAt >= 0 ? estAt : 0;
   const onKey = (e: KeyboardEvent, i: number) => {
     const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
@@ -1321,9 +1314,9 @@ function SegChoice({ id, labelId, options, value, est, onPick }: { id: string; l
           aria-checked={i === cur}
           tabIndex={i === tab ? 0 : -1}
           data-value={o.value}
-          {...(i === estAt ? { title: "空欄のまま、この選択肢で推定して計算しています（押すと確定します）" } : {})}
+          {...(i === estAt ? { title: estOptionTitle(estTitle), "data-est-option": o.value } : {})}
           onClick={() => {
-            if (i !== cur) onPick(o.value);
+            if (i !== cur || i === estAt) onPick(o.value);
           }}
           onKeyDown={(e) => onKey(e, i)}
         >
@@ -1332,6 +1325,15 @@ function SegChoice({ id, labelId, options, value, est, onPick }: { id: string; l
       ))}
     </span>
   );
+}
+
+/**
+ * 推定している選択肢（区切りボタン・選ぶ欄）にカーソルを合わせたときの文: 推定の根拠（例「65歳に一時金で受け取る計算」）と、押すと確定になること（0254）。
+ * 根拠が無ければ決まった文
+ */
+export function estOptionTitle(basis: string | null): string {
+  const tail = "押すと、この選択で確定します";
+  return basis !== null && basis !== "" ? `推定: ${basis}（${tail}）` : `空欄のまま、この選択肢で推定して計算しています（${tail}）`;
 }
 
 /** 選ぶ欄の選択肢。見出し（group）のある選択肢は、同じ見出しが続く所を optgroup にまとめる */
@@ -1555,9 +1557,9 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   // 通しの確かめ。0150）。内訳の行（「うち賞与 108.1万円（推定）」）の後ろに小さな「推定」の印を置き、押すと推定の部分の根拠
   const partLine = shownStatus === "confirmed" || shownStatus === null ? (state.partEstimated ?? null) : null;
 
-  // 推定の値をそのまま入れる（値の状態の操作の確定と同じ）は、欄の横か中のボタン（0041 の追記）
+  // 推定の値をそのまま入れる（値の状態の操作の確定と同じ）は、欄の外のボタン（0041 の追記）。並びは 欄 → 単位 →「この値にする」（0254）
   const canFill = ops.includes("confirm") && shownStatus !== null;
-  const fill = (inside: boolean) => (canFill && shownStatus !== null ? <FillButton label={f.label} status={shownStatus} inside={inside} onFill={() => runOp("confirm")} /> : null);
+  const fill = canFill && shownStatus !== null ? <FillButton label={f.label} status={shownStatus} onFill={() => runOp("confirm")} /> : null;
   // ほかの操作（推定に戻す・書類で確かめる・該当なし）とプランの印は欄の下（時点の欄でも同じ。0041）
   const stateLines = (
     <>
@@ -1567,8 +1569,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   );
 
   let control;
-  /** 推定の値を入れるボタンを数の欄の中に置いたか（置かなければ、欄の横に出す） */
-  let filledInside = false;
+  /** 文字を打つ欄か（欄・単位・「この値にする」を1行の並びにまとめる。幅が足りなければ欄を縮め、「この値にする」を次の行へ落とさない。0254） */
+  let textBox = false;
   /** 入れた文字を使えない理由（打っている間）か、使えないまま離れた知らせ */
   let problem: string | null = null;
   /** 空欄の意味が欄に収まらなかったときの、欄の下の1行（「空欄なら: ○○」） */
@@ -1578,7 +1580,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
     // 推定の時点（仮の印）の欄の根拠の短い文（FieldState.blankHint）: 出どころは「推定」の印の吹き出しの頭へ移し、欄の横には残す一言だけ（数の欄と同じ）
     const est = shownStatus === "estimated" ? splitEstimateHint(state.blankHint) : { source: null, rest: null };
-    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badgeWith(est.source ?? state.estimateSource ?? null)} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} warnFix={state.warnFix ?? null} status={shownStatus} fill={fill(false)} note={est.rest} extras={stateLines} />;
+    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badgeWith(est.source ?? state.estimateSource ?? null)} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} warnFix={state.warnFix ?? null} status={shownStatus} fill={fill} note={est.rest} extras={stateLines} />;
   }
   if (f.readOnly !== undefined) {
     // 円の欄は万円（か円）の書き方で、月額・年額を添える
@@ -1614,10 +1616,20 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
       <input id={id} type="checkbox" checked={state.value === onOff.on.value} onChange={(e) => commit((e.currentTarget as HTMLInputElement).checked ? onOff.on.value : onOff.off.value)} data-on-off />
     ) : isSeg ? (
       // 区切りボタン（全部の選択肢が見えて、1回押せば選べる）
-      <SegChoice id={id} labelId={`${id}-l`} options={f.options} value={state.value} est={estOpt?.value} onPick={commit} />
+      // 推定の選択肢は点線・薄い色で選ばれた見た目にする（押すと FP が選んだ確定。0254）
+      <SegChoice id={id} labelId={`${id}-l`} options={f.options} value={state.value} est={estOpt?.value} estimated={shownStatus === "estimated"} estTitle={basisText} onPick={(v) => onEdit(typeValue(f, wh, v))} />
     ) : (
-      <select id={id} value={state.value === null ? "" : String(state.value)} onChange={(e) => commit((e.currentTarget as HTMLSelectElement).value)}>
-        {state.value === null || !f.options.some((o) => o.value === state.value) ? <option value="">{estOpt !== undefined ? `（推定: ${estOpt.label}）` : "（選ぶ）"}</option> : null}
+      <select id={id} value={state.value === null ? "" : String(state.value)} onChange={(e) => commit((e.currentTarget as HTMLSelectElement).value)} {...(estOpt !== undefined ? { "data-est-option": estOpt.value, title: estOptionTitle(basisText) } : {})}>
+        {state.value === null || !f.options.some((o) => o.value === state.value) ? (
+          estOpt !== undefined ? (
+            // 推定の選択肢を選ばれた見た目で出す（点線の枠・薄い色は欄の is-est）。一覧には出さない（hidden）ので、一覧で同じ選択肢を選ぶと確定になる（0254）
+            <option value="" disabled hidden>
+              {estOpt.label}
+            </option>
+          ) : (
+            <option value="">（選ぶ）</option>
+          )
+        ) : null}
         {optionNodes(f.options)}
       </select>
     );
@@ -1650,6 +1662,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     /** 打った文字を決める（入ったときと同じ文字なら何もしない。読めれば書いて知らせを出す。読めなければ書かない） */
     const decide = (t: string): Settled => {
       if (!shouldCommitOnBlur(startText.current, t) && !(typed.current && typedStateful(status ?? fieldStatus(f, wh)))) return "none";
+      // 空欄のまま推定で計算している欄（灰色の推定の値を選んで入った欄）を空にして離れたら、空欄の推定のまま（値も印も変えない。0254）
+      if (state.value === null && normalizeNumberText(t) === "") return "none";
       const r = parse(t);
       if (r === undefined) return "rejected";
       commitTyped(r);
@@ -1660,7 +1674,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     };
     // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 今の下書きを決める。読めなければ欄に残して止める（理由は下書きから欄の下に出ている）
     settleNow.current = () => decide(inputEl.current?.value ?? draft ?? shown);
-    const bad = draft !== null && parse(draft) === undefined;
+    // 空欄の推定の欄を空にしている間は、使えない文字にしない（離れたら空欄の推定のまま。0254）
+    const bad = draft !== null && parse(draft) === undefined && !(state.value === null && normalizeNumberText(draft) === "");
     problem = bad ? (refused(draft) ?? rejectReason(f, draft, unit) ?? "この値は入れられません") : rejected;
     const inputClass = f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num";
     // 空欄のまま推定で計算する欄で、推定の値を書ける欄（blankEstimate）は、推定の値そのものを欄の中に灰色で見せる（「空欄＝推定」の代わり。
@@ -1668,7 +1683,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     const ghostVal = f.kind !== "text" && f.blankMeans === undefined && shownStatus === "estimated" && state.value === null && f.blankEstimate !== undefined ? f.blankEstimate(wh) : null;
     const ghost = ghostVal === null ? null : textOf(ghostVal);
     ghosted = ghost !== null && ghost !== "" && fitsIn(inputClass, ghost);
-    filledInside = canFill && fillInside(inputClass, shown !== "" ? shown : ghosted ? (ghost as string) : "");
+    /** 推定の欄に入ったときに全部選ぶ文字（入っている推定の値か、灰色の推定の値。0254） */
+    const estSelect = estimateSelectText(shownStatus === "estimated", shown, ghost);
     // 灰色の入力例: 空欄に意味のある欄は「空欄＝○○」を先に（収まらなければ欄の下の1行）、次に欄ごとの例。年月の欄の共通の例は過去の年月
     const blankMeans = f.blankMeans ?? (state.estimated != null ? "推定" : null);
     const blankText = blankMeans !== null ? `空欄＝${blankMeans}` : null;
@@ -1690,16 +1706,20 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         id={id}
         type="text"
         inputMode={f.kind === "text" || f.kind === "ym" ? undefined : "decimal"}
-        class={`${inputClass}${bad ? " bad" : ""}${filledInside ? " has-fill" : ""}${ghosted ? " est-ghost" : ""}`}
+        class={`${inputClass}${bad ? " bad" : ""}${ghosted ? " est-ghost" : ""}`}
         value={draft ?? shown}
         placeholder={placeholder}
         aria-invalid={bad ? true : undefined}
         aria-describedby={problem !== null ? `${id}-problem` : undefined}
+        onMouseDown={(e) => enterEstimateByMouse(e, estSelect !== null)}
         onFocus={() => {
-          setDraft(shown);
-          startText.current = shown;
+          // 推定の欄は、推定の数字を全部選んだ状態で入る（そのまま打てば置き換わる。← → で選択を外して一部を直せる。何も打たずに離れたら推定のまま。0254）
+          const start = estSelect ?? shown;
+          setDraft(start);
+          startText.current = start;
           typed.current = false;
           setTold(null);
+          if (estSelect !== null) selectEstimate(inputEl.current, estSelect);
           leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => inputEl.current?.focus() });
         }}
         onInput={(e) => {
@@ -1715,7 +1735,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
           const t = (e.currentTarget as HTMLInputElement).value;
           // 入ったときと同じ文字のまま離れたら、何も書かない（欄に入って離れる・Tab で通るだけで値も状態も変えない。0041）
           if (decide(t) === "rejected") {
-            setRejected(`「${t}」は入れられないため、前の値のままです。${refused(t) ?? rejectReason(f, t, unit) ?? ""}`);
+            setRejected(keptText(t, refused(t) ?? rejectReason(f, t, unit) ?? "この値は入れられません"));
             noteRejected(() => inputEl.current?.focus());
           }
           setDraft(null);
@@ -1727,15 +1747,9 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         }}
       />
     );
-    // 数の欄は、灰色の推定の値（入っている推定の値か、空欄の推定の値）の左（欄の中）に「この値にする」を置く。打ち始めると隠れる（app.css）
-    control = filledInside ? (
-      <span class="fld-box">
-        {input}
-        {fill(true)}
-      </span>
-    ) : (
-      input
-    );
+    control = input;
+    // 文の欄（名前など。欄の幅いっぱい）はまとめない
+    textBox = inputClass !== "txt";
   }
 
   const unitControls =
@@ -1808,11 +1822,17 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
             </span>
             {nameMarks}
           </>
+        ) : textBox ? (
+          <span class="fld-in">
+            {control}
+            {unitControls}
+            {fill}
+          </span>
         ) : (
           control
         )}
-        {unitControls}
-        {filledInside ? null : fill(false)}
+        {textBox ? null : unitControls}
+        {textBox ? null : fill}
         {basisHint !== null && !markOwnsBasis ? (
           // 推定の根拠（「推定あり: …」）は長さによらず印だけ出し、カーソルをのせる・押すと開く（0077）
           <StateMark status="estimated" basis={basisHint} text="推定" label={f.label} />
@@ -1882,6 +1902,20 @@ const PLACEHOLDER: Record<WhenMode, string> = { age: "例: 65歳", ym: "例: 204
 /** 空の欄で入れ方を選んだときに、欄の下に出す打ち方（出来事からは横の選択肢で選ぶ） */
 const PICK_HINT: Record<Exclude<WhenMode, "event">, string> = { age: "年齢を打ってください（例: 60 と打つと60歳）", ym: "年月を打ってください（例: 2041-06・令和23年6月）", now: "何年後かを打ってください（例: 5 と打つと今から5年後）" };
 
+/** 時点の欄で、打っている文字が数字だけのときに欄の外に出す単位（○年後は「5」と打つと5年後、年齢は「60」と打つと60歳。when.ts の parseWhen） */
+const WHEN_UNIT: Partial<Record<WhenMode, string>> = { now: "年後", age: "歳" };
+
+/**
+ * 時点の欄に見せる文字を、欄の中の数字と欄の外の単位に分ける（0254。欄の中は数字だけ・単位は欄のすぐ右）。
+ * 分けるのは「3年後」「65歳」のように数字と単位だけの形。年月・出来事から・「3年2か月後」・「65歳の誕生月」・ほかの人の年齢（「配偶者65歳」）は分けない
+ */
+export function whenNumber(text: string, mode: WhenMode): { num: string; unit: string } | null {
+  const unit = WHEN_UNIT[mode];
+  if (unit === undefined || !text.endsWith(unit)) return null;
+  const num = text.slice(0, -unit.length);
+  return /^\d+$/.test(num) ? { num, unit } : null;
+}
+
 /** 時点の欄の読み取り（欄の決まりの範囲の確かめを含む） */
 function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: string): { tp: Timepoint | null } | { reason: string } {
   const r = parseWhen(text, ctx);
@@ -1932,7 +1966,14 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
   const ctx: WhenCtx = { ...state.ctx, mode, current: shownRaw };
   // 打った文字は、横の「誰の年齢で」に見せている人の年齢として読む（when.ts の typingCtx。0162）
   const typing = typingCtx(state.ctx, shownRaw, mode);
-  const shown = showWhen(shownRaw, ctx);
+  // 「3年後」「65歳」は、欄の中に数字だけ（「3」）、単位は欄のすぐ右に出す（打ち直すと同じ時点に読める。0254）
+  const shown = (() => {
+    const full = showWhen(shownRaw, ctx);
+    return whenNumber(full, mode)?.num ?? full;
+  })();
+  const unitNow = /^\d+$/.test(normalizeNumberText(draft ?? shown)) ? (WHEN_UNIT[mode] ?? null) : null;
+  /** 推定の欄に入ったときに全部選ぶ文字（0254） */
+  const estSelect = estimateSelectText(status === "estimated", shown, null);
   const live = draft !== null && draft !== shown ? readText(time, wh, typing, draft) : null;
   const problem = live !== null && "reason" in live ? live.reason : rejected;
   const reading = live !== null && "tp" in live ? `→ ${readWhen(live.tp, ctx, time.when.nullText)}` : state.read;
@@ -1970,7 +2011,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
     if (text === shown) return;
     const r = readText(time, wh, typing, text);
     if ("reason" in r) {
-      setRejected(`「${text}」は入れられないため、前の値のままです。${r.reason}`);
+      setRejected(keptText(text, r.reason));
       noteRejected(() => input.current?.focus());
       return;
     }
@@ -2008,14 +2049,16 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
           ref={input}
           id={id}
           type="text"
-          class={`when-in${problem !== null && live !== null ? " bad" : ""}`}
+          class={`when-in${unitNow !== null ? " num-only" : ""}${problem !== null && live !== null ? " bad" : ""}`}
           value={draft ?? shown}
           placeholder={fittingPlaceholder("when-in", picked === null && state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, f.example, mode === "age" ? ageExample({ h: state.ctx.h, person }) : PLACEHOLDER[mode])}
           aria-invalid={live !== null && "reason" in live ? true : undefined}
           aria-describedby={`${id}-read`}
+          onMouseDown={(e) => enterEstimateByMouse(e, estSelect !== null)}
           onFocus={() => {
             setDraft(shown);
             typed.current = false;
+            if (estSelect !== null) selectEstimate(input.current, estSelect);
             leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => input.current?.focus() });
           }}
           onInput={(e) => {
@@ -2028,6 +2071,11 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
             if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
           }}
         />
+        {unitNow !== null ? (
+          <span class="suffix" data-when-unit={f.key}>
+            {unitNow}
+          </span>
+        ) : null}
         {modes.length > 1 ? (
           <select class="when-mode" aria-label={`${label}の入れ方`} value={mode} onChange={(e) => pickMode((e.currentTarget as HTMLSelectElement).value as WhenMode)} data-when-mode>
             {modes.map((m) => (

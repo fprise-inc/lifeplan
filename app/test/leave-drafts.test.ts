@@ -49,7 +49,7 @@ describe("切り替える・閉じる前に、プランの保存していない�
   });
 });
 
-describe("切り替える・閉じる前の確かめの画面", () => {
+describe("保存していない変更の確認画面（世帯を切り替える・閉じる前）", () => {
   const render = (action: "switch" | "close", names: string[]) => renderToString(h(DraftsLeaveDialog, { names, action, onChoose: () => undefined }));
   it("上書き保存して切り替える・変更を捨てて切り替える・やめる。どのプランかを書く", () => {
     const html = render("switch", ["プランB", "プランC"]);
