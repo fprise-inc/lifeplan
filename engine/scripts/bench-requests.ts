@@ -95,3 +95,21 @@ export function protectionRequest(): Obj {
   (r.input as Obj).protection = { members: [(members(r)[0] as Obj).id, (members(r)[1] as Obj).id], method: "accumulation" };
   return r;
 }
+
+/**
+ * 相続税も試算する世帯の、一次と二次の推移（0251）: 1案目の想定なしの要求に、相続税の目安（いま・二人とも亡くなった後）と、持ち家の土地の面積・
+ * 推移（毎年・入れた分け方と比較の3通り）を足した1件。画面の相続・贈与の入力項目が求める要求と同じ形（目安は Apple シリコンで3秒以内）
+ */
+export function inheritanceRequest(): Obj {
+  const r = benchRequests()[0] as Obj;
+  const input = r.input as Obj;
+  delete input.contingencies;
+  const homes = ((h(r).residences ?? []) as Obj[]).filter((x) => x.kind === "own");
+  input.inheritanceTax = {
+    points: ["now", "bothAfter"],
+    detailed: true,
+    lands: homes.map((x) => ({ object: x.id, area: "150" })),
+    timeline: { alternatives: [{ key: "legal" }, { key: "spouseAll", spouseShare: "1" }, { key: "spouseLandsOnly", spouseShare: "0" }] },
+  };
+  return r;
+}
