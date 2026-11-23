@@ -25,7 +25,7 @@ import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { LEVEL_HELP_COMMON, levelDiffLine } from "./levelHelp.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
-import { detailPrompt, inheritanceTaxNote, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { DETAIL_BUTTON, detailPrompt, ESTIMATE_NOTICE, inheritanceTaxNote, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { InheritanceTimeline } from "./InheritanceTimeline.tsx";
 import { setDetailed } from "./inheritanceLand.ts";
 import { RetirementLineup } from "./RetirementLineup.tsx";
@@ -640,6 +640,10 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                           <b>相続税の目安</b>
                           <Help label="相続税の目安">表示だけです。お金の流れには入れていません。</Help>
                         </p>
+                        {/* 目安の試算であることを「?」に隠さず、いつも出す（0231 の追記 2026-11-23） */}
+                        <p class="ip-inherit-note" data-inheritance-notice>
+                          {ESTIMATE_NOTICE}
+                        </p>
                         <ul>
                           {inheritanceView(shown, inheritance).points.map((p) => (
                             <li key={p.title} data-inheritance-point>
@@ -662,14 +666,15 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                             </li>
                           ))}
                         </ul>
-                        {/* 目安でかかりそうな世帯にだけ「詳しく試算しますか」（押すと相続税も試算するにチェックし、区画「相続税の試算」が標準に出る。0231） */}
+                        {/* 目安でかかりそうな世帯にだけ、一言とボタン「土地の評価を入れて試算する」（押すと相続税も試算するにチェックし、区画「相続税の試算」が標準に出る。
+                            ボタンはふつうの段の小。0231・0240。2026-11-23 にリンクからボタンへ） */}
                         {detailPrompt(shown, inheritance) !== null ? (
-                          <p class="ip-inherit-note" data-inherit-detail-prompt>
-                            {detailPrompt(shown, inheritance)}
-                            <button type="button" class="link-btn" onClick={() => edit(setDetailed(shown, true))} data-inherit-detail-on>
-                              詳しく試算する
+                          <div class="ip-inherit-detail" data-inherit-detail-prompt>
+                            <p>{detailPrompt(shown, inheritance)}</p>
+                            <button type="button" class="btn small" onClick={() => edit(setDetailed(shown, true))} data-inherit-detail-on>
+                              {DETAIL_BUTTON}
                             </button>
-                          </p>
+                          </div>
                         ) : null}
                         {inheritanceView(shown, inheritance).notIncluded.length > 0 ? (
                           <p class="ip-inherit-note">
