@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.88";
+pub const CURRENT: &str = "0.89";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -318,13 +318,18 @@ pub const CURRENT: &str = "0.88";
 ///   **これからの変換の段は `sampleInitial` の中を書き換えない**（控えの中身を変えない 0011 の5 と同じ考え方。最初の状態に戻すときに、
 ///   `{ meta: { formatVersion }, ...sections }` を本文として変換の段に通してから使う）。版を上げるときは、0.87 の見本の `sampleInitial` を
 ///   今の版へ変換できることをテストで確かめる。0.86 の段の後に積む
-/// - 0.88: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。任意の欄 `assumptions.investment.allocation.fees`（資産の種類 → 年率）を足し、
+/// - 0.88: 相続税の目安の設定 `household.request.input.inheritanceTax` に、任意の欄 `division`（遺産の分け方: 一次で配偶者が取得する割合
+///   `spouseShare`・配偶者のほかの相続人の割合 `shares[]`・一次と二次の推移で先に亡くなる人 `first`）と、不動産ごとの設定の取得する人の欄 `lands[].primary.member`・`lands[].secondary.member`
+///   （配偶者のほかの相続人の誰が取得するか。0251）を足した（足すだけの MINOR）。前の版のアプリは計算の要求の知らない欄を読み落として書き戻し、
+///   分け方が消えるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり）。
+///   `sampleInitial` の中は書き換えない（0.87 の決まり）。0.87 の段の後に積む
+/// - 0.89: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。任意の欄 `assumptions.investment.allocation.fees`（資産の種類 → 年率）を足し、
 ///   資産の種類に新興国（`bond.emerging`・`equity.emerging`）を足した（前の `bond.global`・`equity.global` は先進国と読み替え。キーは変えない）。
 ///   形を変える段: 配分全体の信託報酬 `allocation.fee` を持つ世帯は、その値を資産の割合の表で選べる11種類と配分（段階の配分も）に出てくる
 ///   種類の全部に入れた `fees` に移し、`fee` を外す（計算エンジンは、どの種類も同じ値なら前の版と同じ計算の道を通る。結果は1円も変わらない）。
 ///   プランの差分（入力項目 `assumptions.investment`）で `allocation.fee`・`allocation`・前提の資産運用の全体を変える物も、値と前の値を同じく移す。
 ///   控え・`sampleInitial` の中身は変えない（計算エンジンは前の版の `fee` も読む）。前の版のアプリは計算の入力の検査で `fees` と新しい種類を
-///   通さないので、版を上げて閲覧だけにする。0.87 の段の後に積む
+///   通さないので、版を上げて閲覧だけにする。0.88 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -333,7 +338,7 @@ pub const KNOWN: &[&str] = &[
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
     "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85",
-    "0.86", "0.87", "0.88",
+    "0.86", "0.87", "0.88", "0.89",
 ];
 
 /// 1段分の変換
@@ -779,6 +784,11 @@ pub const STEPS: &[Step] = &[
         from: "0.87",
         to: "0.88",
         apply: v0_87_to_0_88,
+    },
+    Step {
+        from: "0.88",
+        to: "0.89",
+        apply: v0_88_to_0_89,
     },
 ];
 
@@ -2757,6 +2767,16 @@ fn v0_86_to_0_87(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.87 → 0.88: 遺産の分け方 `inheritanceTax.division`・土地を取得する人 `inheritanceTax.lands[].primary.member`・`secondary.member`（0251）は
+/// 任意の欄なので、形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり。欄を書き足さない。`sampleInitial` の中に触れない）
+fn v0_87_to_0_88(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.88".into());
+    }
+    Ok(body)
+}
+
 /// 資産配分の割合の表で選べる資産の種類（app/src/workspace/input/savings/model.ts の CLASSES と同じ。0252）
 const ALLOCATION_CLASSES: &[&str] = &[
     "equity.domestic",
@@ -2835,13 +2855,13 @@ fn with_box_value(b: &mut Value, f: impl FnOnce(&mut Value)) {
     }
 }
 
-/// 0.87 → 0.88: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と配分（段階の配分も）に
+/// 0.88 → 0.89: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と配分（段階の配分も）に
 /// 出てくる種類の全部に同じ値で入れた `allocation.fees` に移し、`fee` を外す（どの種類も同じ値なので、計算の結果は変わらない）。
 /// - 今の世帯（`household.request.input.assumptions.investment.allocation`）
 /// - プランの差分（入力項目 `assumptions.investment`）: 場所 `["allocation", "fee"]` は `["allocation", "fees"]` にし、値と前の値の箱の中の率を
 ///   `fees` にする（種類は今の世帯の配分の種類も入れる）。場所 `["allocation"]`・`[]`（資産配分・資産運用の全体）は、値と前の値の中の配分を同じく移す
 /// - 控え（`snapshots`）・自分で作った見本の最初の状態（`sampleInitial`）の中身は変えない（0011 の5・0247）
-fn v0_87_to_0_88(mut body: Value) -> Result<Value, StoreError> {
+fn v0_88_to_0_89(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     let mut base: Vec<String> = Vec::new();
     if let Some(alloc) = obj
@@ -2908,7 +2928,7 @@ fn v0_87_to_0_88(mut body: Value) -> Result<Value, StoreError> {
         }
     }
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
-        meta.insert("formatVersion".into(), "0.88".into());
+        meta.insert("formatVersion".into(), "0.89".into());
     }
     Ok(body)
 }
@@ -3908,7 +3928,8 @@ mod tests {
         assert_eq!(access("0.86").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.87").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.88").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.89").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.89").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.90").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3921,14 +3942,14 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.88", b.clone()).unwrap(),
+            upgrade("0.90", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
     }
 
     #[test]
-    fn v0_87_to_0_88_moves_allocation_fee_to_each_class() {
+    fn v0_88_to_0_89_moves_allocation_fee_to_each_class() {
         // 0252: 配分全体の信託報酬を、表の11種類と配分（段階も）に出てくる種類の全部に同じ値で入れる。プランの差分も移す。控え・最初の状態は変えない
         let manual = |v: Value| serde_json::json!({"value": v, "state": "confirmed", "origin": {"kind": "manual"}});
         let alloc = serde_json::json!({
@@ -3937,7 +3958,7 @@ mod tests {
             "stages": [{"id": "s1", "at": {"at": "2040-01"}, "mix": [{"assetClass": "other", "share": "1"}]}]
         });
         let b = serde_json::json!({
-            "meta": {"formatVersion": "0.87"},
+            "meta": {"formatVersion": "0.88"},
             "household": {"request": {"input": {"assumptions": {"investment": {"method": "allocation", "allocation": alloc}}}}},
             "proposals": [{"diffs": [
                 {"id": "d1", "op": "set", "item": "assumptions.investment", "at": ["allocation", "fee"], "value": manual(serde_json::json!("0.005")), "before": manual(serde_json::json!("0.0025"))},
@@ -3947,10 +3968,10 @@ mod tests {
                 {"id": "d5", "op": "set", "item": "livingExpense.monthly", "at": ["allocation", "fee"], "value": manual(serde_json::json!("0.005")), "before": null}
             ]}],
             "snapshots": [{"inputs": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}],
-            "sampleInitial": {"formatVersion": "0.87", "sections": {"household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}}
+            "sampleInitial": {"formatVersion": "0.88", "sections": {"household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}}
         });
-        let u = upgrade("0.87", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.88");
+        let u = upgrade("0.88", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.89");
         let a = &u["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
         assert!(a.get("fee").is_none(), "配分全体の値は外す");
         let fees = a["fees"].as_object().unwrap();
@@ -3977,14 +3998,14 @@ mod tests {
         assert_eq!(u["sampleInitial"], b["sampleInitial"], "最初の状態は変えない");
         // 信託報酬の無い世帯・配分の無い世帯は、形式の版だけ
         let none = serde_json::json!({
-            "meta": {"formatVersion": "0.87"},
+            "meta": {"formatVersion": "0.88"},
             "household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}]}}}}}}
         });
         let mut want = none.clone();
-        want["meta"]["formatVersion"] = "0.88".into();
-        assert_eq!(upgrade("0.87", none).unwrap(), want);
-        let empty = serde_json::json!({"meta": {"formatVersion": "0.87"}, "household": {"request": {"input": {}}}});
-        assert_eq!(upgrade("0.87", empty).unwrap()["meta"]["formatVersion"], "0.88");
+        want["meta"]["formatVersion"] = "0.89".into();
+        assert_eq!(upgrade("0.88", none).unwrap(), want);
+        let empty = serde_json::json!({"meta": {"formatVersion": "0.88"}, "household": {"request": {"input": {}}}});
+        assert_eq!(upgrade("0.88", empty).unwrap()["meta"]["formatVersion"], "0.89");
     }
 
     #[test]
@@ -4484,6 +4505,25 @@ mod tests {
         let up = upgrade("0.81", named.clone()).unwrap();
         assert_eq!(up["household"], named["household"]);
         assert_eq!(up["meta"]["formatVersion"], CURRENT);
+    }
+
+    #[test]
+    fn v0_87_to_0_88_only_bumps_version() {
+        // 遺産の分け方・土地を取得する人（inheritanceTax.division・lands[].primary.member。0251）は足さない（前の版の世帯は法定相続分どおり）。
+        // ほかの設定と sampleInitial の中に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.87"},
+            "household": {"request": {"input": {"inheritanceTax": {"detailed": true, "lands": [{"object": "x", "secondary": {"acquirer": "cohabiting", "met": true}}]}}}},
+            "sampleInitial": {"formatVersion": "0.87", "sections": {"household": {}}},
+            "proposals": []
+        });
+        let u = upgrade("0.87", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["sampleInitial"], b["sampleInitial"]);
+        assert!(u["household"]["request"]["input"]["inheritanceTax"]
+            .get("division")
+            .is_none());
     }
 
     #[test]

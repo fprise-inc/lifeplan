@@ -304,10 +304,35 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 顧客の見本ファイル（A0001）は顧客として戻る"
             );
         }
-        // 0.88 から: 資産配分の資産の種類ごとの信託報酬 allocation.fees と新興国の資産の種類（0252）。前の版の見本は配分全体の信託報酬
+        // 0.88 から: 遺産の分け方 inheritanceTax.division と土地を取得する人 lands[].primary.member・secondary.member（0251）。
+        // 変換で書き足さない（前の版の世帯は法定相続分どおり）。0.88 の見本は配偶者60%・子1の割合70%と、二次の自宅・一次の物件の取得する子
+        let tax88 = &now["household"]["request"]["input"]["inheritanceTax"];
+        if migrate::parse(v).unwrap() >= (0, 88) {
+            assert_eq!(
+                tax88["division"]["spouseShare"], "0.6",
+                "{v}: 0.88 からの見本は分け方を持つ"
+            );
+            assert_eq!(
+                tax88["division"]["shares"].as_array().map(Vec::len),
+                Some(1)
+            );
+            assert!(tax88["lands"][0]["secondary"]["member"].is_string());
+            assert!(tax88["lands"][1]["primary"]["member"].is_string());
+        } else {
+            assert!(
+                tax88.get("division").is_none()
+                    && tax88["lands"]
+                        .as_array()
+                        .map(|xs| xs.iter().all(|l| l["primary"].get("member").is_none()
+                            && l["secondary"].get("member").is_none()))
+                        .unwrap_or(true),
+                "{v}: 分け方・取得する人は変換で書き足さない"
+            );
+        }
+        // 0.89 から: 資産配分の資産の種類ごとの信託報酬 allocation.fees と新興国の資産の種類（0252）。前の版の見本は配分全体の信託報酬
         // allocation.fee を持たないので、変換で fees を書き足さない（fee を持つ世帯の移し方は migrate の単体のテスト）
         let alloc = &now["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
-        if migrate::parse(v).unwrap() >= (0, 88) {
+        if migrate::parse(v).unwrap() >= (0, 89) {
             assert_eq!(alloc["fees"]["equity.emerging"], "0.002", "{v}: 種類ごとの信託報酬");
             assert_eq!(alloc["mix"][1]["assetClass"], "equity.emerging");
             assert!(alloc.get("fee").is_none());
