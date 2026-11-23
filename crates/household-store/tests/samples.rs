@@ -1,5 +1,5 @@
 // 見本番号をなくした保存の形・移行・一覧の作り直しの境目の試験（0247 の1・8 と「守るもの」の本体の節）。
-// 保管庫はメモリの実装を使う（OS の保管庫に触れない）。前の版のアプリが書いた事務所データ・世帯ファイル・世帯の札は、試験用の道具で
+// 保管庫はメモリの実装を使う（OS の保管庫に触れない）。前の版のアプリが書いた事務所データ・世帯ファイル・一覧の欄のファイルは、試験用の道具で
 // 前の形の JSON を書いて作る
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -558,8 +558,8 @@ fn samples_stay_samples_after_recovery() {
     assert_eq!(customer_ids(&s3), std::slice::from_ref(&c.id));
 }
 
-/// (f): 共有フォルダの前の形（0.1）の見本の札は、読むときにメモリの中で新しい形に直す（どの PC でも同じ名前）。開いただけでは札を
-/// 書き換えず、保存・名前を直すで札を書き直すと新しい形になる。札が無い世帯は世帯ファイルの meta から戻す
+/// (f): 共有フォルダの前の形（0.1）の見本の一覧の欄のファイルは、読むときにメモリの中で新しい形に直す（どの PC でも同じ名前）。開いただけでは一覧の欄のファイルを
+/// 書き換えず、保存・名前を直すで一覧の欄のファイルを書き直すと新しい形になる。一覧の欄のファイルが無い世帯は世帯ファイルの meta から戻す
 #[test]
 fn old_sample_cards_in_the_shared_folder() {
     let env = Env::new();
@@ -580,7 +580,7 @@ fn old_sample_cards_in_the_shared_folder() {
     let old1 = make(&a, sample(2, 6, "古い見本1"));
     let old2 = make(&a, sample(1, 2, "古い見本2"));
     let customer = a.create(req()).unwrap();
-    // 前の版のアプリが書いた札: 見本番号つき。old1 は新しい形の見本と同じ名前
+    // 前の版のアプリが書いた一覧の欄のファイル: 見本番号つき。old1 は新しい形の見本と同じ名前
     for (id, no, name) in [
         (&old1.id, "2-6-10", "研修用"),
         (&old2.id, "1-2-10", "古い見本2"),
@@ -612,14 +612,14 @@ fn old_sample_cards_in_the_shared_folder() {
     assert_eq!(
         a.card_json_for_test(&old1.id).unwrap(),
         raw_before,
-        "読んだだけでは札を書き換えない"
+        "読んだだけでは一覧の欄のファイルを書き換えない"
     );
     // 完全削除の確かめは直した名前
     assert_eq!(
         b.delete(&old1.id, "研修用").err(),
         Some(StoreError::CONFIRM)
     );
-    // 保存すると札が新しい形になる（名前は直した名前のまま）
+    // 保存すると一覧の欄のファイルが新しい形になる（名前は直した名前のまま）
     let o = b.open(&old1.id).unwrap();
     b.save(&old1.id, &o.body, "本人").unwrap();
     let card = a.card_json_for_test(&old1.id).unwrap();
@@ -757,7 +757,7 @@ fn a_failed_registration_or_rename_changes_nothing() {
 }
 
 /// 点検の5: 事務所の共有で、ほかのメンバーが開いている世帯を見本に登録・名前を直しても、相手の次の保存が分岐にならない
-/// （世帯ファイルの meta は相手の次の保存で追いつく。共有では世帯の札が正）
+/// （世帯ファイルの meta は相手の次の保存で追いつく。共有では一覧の欄のファイルが正）
 #[test]
 fn renaming_a_sample_another_member_has_open_does_not_fork_their_save() {
     let env = Env::new();
@@ -833,8 +833,8 @@ fn moving_samples_into_the_shared_folder_keeps_names_unique() {
     }
 }
 
-/// 点検の8・9: 前の形の札が、鍵の入れ替え（メンバーを外す）で書き直されるときも、表示の番号を空にした新しい形で書く。
-/// 同じ名前の前の形の札2枚は、保存の順番を入れ替えても名前が重ならない
+/// 点検の8・9: 前の形の一覧の欄のファイルが、鍵の入れ替え（メンバーを外す）で書き直されるときも、表示の番号を空にした新しい形で書く。
+/// 同じ名前の前の形の一覧の欄のファイル2枚は、保存の順番を入れ替えても名前が重ならない
 #[test]
 fn old_sample_cards_are_rewritten_whole_and_keep_distinct_names() {
     let env = Env::new();
@@ -854,7 +854,7 @@ fn old_sample_cards_are_rewritten_whole_and_keep_distinct_names() {
     let (first, second) = if x.id < y.id { (&x, &y) } else { (&y, &x) };
     assert_eq!(shelf(&b)[&first.id].0, "古い見本");
     assert_eq!(shelf(&b)[&second.id].0, "古い見本（2）");
-    // 前の形の札が残っている間は、お知らせ（参考）に出る
+    // 前の形の一覧の欄のファイルが残っている間は、お知らせ（参考）に出る
     assert!(b
         .storage_notices()
         .unwrap()
@@ -876,7 +876,7 @@ fn old_sample_cards_are_rewritten_whole_and_keep_distinct_names() {
             .all(|n| n.kind != "sampleRenames"),
         "書き直した後は出ない"
     );
-    // 鍵の入れ替え（B を外す）で札がすべて新しい形で書き直される
+    // 鍵の入れ替え（B を外す）で一覧の欄のファイルがすべて新しい形で書き直される
     let z = make(&a, sample(1, 2, "三つ目"));
     let mut c = a.card_json_for_test(&z.id).unwrap();
     let sm = c["sample"].as_object_mut().unwrap();

@@ -1627,7 +1627,9 @@ mod tests {
         let id = o.id.clone();
         pc1.open(&id);
         pc1.record(&id, "given");
-        let share = pc1.share(&id).expect("本体は見本でも渡せる（画面が止めている）");
+        let share = pc1
+            .share(&id)
+            .expect("本体は見本でも渡せる（画面が止めている）");
         assert!(!pc1.ai.registry.active_share_ids(&id).is_empty());
         // 空白だけ・違う名前では、共有も帳面もそのまま
         for wrong in [" ", "", "研修"] {

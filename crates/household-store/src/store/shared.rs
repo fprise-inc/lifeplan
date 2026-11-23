@@ -208,7 +208,7 @@ impl Shared {
         self.roster.master_for(&self.master, master_key_id)
     }
 
-    /// 世帯の札を読む。前の形の見本の札（見本番号つき。0247 の8）は、ほかの札と合わせてメモリの中で新しい形に直した物を返す
+    /// 一覧の欄のファイルを読む。前の形の見本の一覧の欄のファイル（見本番号つき。0247 の8）は、ほかの一覧の欄のファイルと合わせてメモリの中で新しい形に直した物を返す
     /// （名前の重なりの番号が [`Shared::list_cards`] と同じになるように）。共有フォルダは書き換えない
     pub(super) fn read_card(&self, id: &str) -> Result<Card, StoreError> {
         let c = self.read_card_raw(id)?;
@@ -232,7 +232,7 @@ impl Shared {
     }
 
     pub(super) fn write_card(&self, id: &str, card: &Card) -> Result<(), StoreError> {
-        // 見本の札は、どの道から書いても表示の番号を空にする（前の形の札を半分だけ新しい形で書かない。0247 の8）
+        // 見本の一覧の欄のファイルは、どの道から書いても表示の番号を空にする（前の形の一覧の欄のファイルを半分だけ新しい形で書かない。0247 の8）
         let mut card = card.clone();
         if let Some(info) = card.label.sample.as_mut() {
             card.customer_no.clear();
@@ -249,9 +249,9 @@ impl Shared {
         Ok(())
     }
 
-    /// 世帯の札の一覧（開けないものは出さない。内部ID の順）。前の形の見本の札（見本番号つき）は、メモリの中で新しい形に直す
+    /// 一覧の欄のファイルの一覧（開けないものは出さない。内部ID の順）。前の形の見本の一覧の欄のファイル（見本番号つき）は、メモリの中で新しい形に直す
     /// （表示の番号を空にし、名前が新しい形の見本と重なれば「（2）」を付ける。重なりの番号は内部ID の順で、どの PC でも同じ。0247 の8）。
-    /// 共有フォルダは書き換えない（その世帯を保存する・名前を直すなどで札を書き直すときに新しい形になる）
+    /// 共有フォルダは書き換えない（その世帯を保存する・名前を直すなどで一覧の欄のファイルを書き直すときに新しい形になる）
     pub(super) fn list_cards(&self) -> Vec<(String, Card)> {
         let mut out = vec![];
         if let Ok(rd) = fs::read_dir(self.paths.cards_dir()) {
@@ -270,7 +270,7 @@ impl Shared {
         out
     }
 
-    /// 前の形の見本の札をメモリの中で直すときに、名前を直す見本（前の形の札が残っている間だけ。知らせに使う）
+    /// 前の形の見本の一覧の欄のファイルをメモリの中で直すときに、名前を直す見本（前の形の一覧の欄のファイルが残っている間だけ。知らせに使う）
     pub(super) fn legacy_card_renames(&self) -> Vec<SampleRename> {
         let mut cards = vec![];
         if let Ok(rd) = fs::read_dir(self.paths.cards_dir()) {
@@ -458,7 +458,7 @@ impl Shared {
     pub(super) fn reseal_stale(&self, only_dict_of: Option<&str>) {
         let cur = self.roster.master_key_id.as_str();
         if only_dict_of.is_none() {
-            // 前の形の見本の札は、一覧と同じに直した物（名前の重なりの番号を含む）で書き直す
+            // 前の形の見本の一覧の欄のファイルは、一覧と同じに直した物（名前の重なりの番号を含む）で書き直す
             let mut normalized: Option<HashMap<String, Card>> = None;
             if let Ok(rd) = fs::read_dir(self.paths.cards_dir()) {
                 for e in rd.filter_map(|e| e.ok()) {
@@ -765,7 +765,7 @@ fn usage_of(r: &Roster) -> &'static str {
     }
 }
 
-/// 前の形の見本の札を新しい形にそろえる（[`Shared::list_cards`]。`cards` は内部ID の順）。名前を直した見本を返す
+/// 前の形の見本の一覧の欄のファイルを新しい形にそろえる（[`Shared::list_cards`]。`cards` は内部ID の順）。名前を直した見本を返す
 fn normalize_legacy_cards(cards: &mut [(String, Card)]) -> Vec<SampleRename> {
     let legacy = |c: &Card| c.label.sample.as_ref().is_some_and(|x| x.is_legacy());
     let mut renamed = vec![];
@@ -1763,7 +1763,7 @@ impl Store {
                 label: c.label,
             },
             Err(_) => {
-                // 札が無いときは世帯ファイルの meta から作り直す（見本かどうかは meta.sample。0247 の1）
+                // 一覧の欄のファイルが無いときは世帯ファイルの meta から作り直す（見本かどうかは meta.sample。0247 の1）
                 let v: Value = serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)?;
                 super::catalog_from_body(&v)
             }
@@ -2225,7 +2225,7 @@ impl Store {
             }
         }
         // 見本番号を無くす移行・一覧の作り直しで、重なった名前に「（2）」を付けた見本（参考。0247 の8）。PC の中の分はこの起動の間、
-        // 共有フォルダの前の形の札の分は、その札が新しい形に書き直されるまで出る
+        // 共有フォルダの前の形の一覧の欄のファイルの分は、その一覧の欄のファイルが新しい形に書き直されるまで出る
         let mut renames = status.sample_renames.clone();
         {
             let mut g = self.lock();
@@ -2375,7 +2375,7 @@ impl Store {
 
     /// 試験用: 共有フォルダの、自分の開いている印を書き直す（時計を進めた後の確かめ）
     #[doc(hidden)]
-    /// 試験用: 共有フォルダの世帯の札の中身（JSON）を読む・そのまま書く（前の版のアプリが書いた札の代わり）
+    /// 試験用: 共有フォルダの一覧の欄のファイルの中身（JSON）を読む・そのまま書く（前の版のアプリが書いた一覧の欄のファイルの代わり）
     #[doc(hidden)]
     pub fn card_json_for_test(&self, id: &str) -> Result<Value, StoreError> {
         let mut g = self.lock();
