@@ -506,6 +506,11 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
             {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
           </h3>
         )}
+        {section.lead !== undefined ? (
+          <p class="in-note" data-section-lead>
+            {section.lead}
+          </p>
+        ) : null}
         {sn.state !== null ? <p class="in-note in-empty">{sn.state}</p> : null}
         {shownGroups.map((g) => (placed.has(g.key) || parts.has(g.key) ? null : draw(g, false)))}
         {actions.length > 0 ? <Actions actions={actions} wh={wh} onEdit={onEdit} /> : null}
