@@ -49,10 +49,14 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
   const [view, setView] = useState<View>(focus !== null && list.some((m) => m.id === focus.id) ? { kind: "open", id: focus.id } : { kind: "list" });
   const [hideFp, setHideFp] = useState(initialHideFp);
   const [busy, setBusy] = useState(false);
-  const [removing, setRemoving] = useState(false);
+  /** 外すかを確かめている記録（ID。ほかの記録を開いたときに確かめを持ち越さない） */
+  const [removing, setRemoving] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => {
-    if (focus !== null && list.some((m) => m.id === focus.id)) setView({ kind: "open", id: focus.id });
+    if (focus !== null && list.some((m) => m.id === focus.id)) {
+      setRemoving(null);
+      setView({ kind: "open", id: focus.id });
+    }
   }, [focus?.n]);
   useEffect(() => {
     if (msg === null) return;
@@ -159,18 +163,17 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
                       {m.fpOnly.insurance !== undefined ? <IntentRead intent={m.fpOnly.insurance} /> : null}
                     </div>
                   ) : null}
-                  <div class="rp-actions">
-                    <button type="button" class="btn" onClick={() => startEdit(m)} data-meeting-edit>
-                      直す
-                    </button>
-                    {removing ? (
-                      <>
+                  {removing === m.id ? (
+                    // 確かめの間は、文と「外す／キャンセル」だけ（直す・一覧へ戻るは出さない）
+                    <div class="mt-remove" role="alert" data-meeting-remove-ask>
+                      <p class="mt-remove-q">この面談の記録を外しますか（元に戻すで戻せます）</p>
+                      <div class="rp-actions">
                         <button
                           type="button"
                           class="btn danger"
                           onClick={() => {
                             onSave(withoutMeeting(list, m.id));
-                            setRemoving(false);
+                            setRemoving(null);
                             setMsg("面談の記録を外しました（元に戻すで戻せます）");
                             setView({ kind: "list" });
                           }}
@@ -178,19 +181,24 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
                         >
                           外す
                         </button>
-                        <button type="button" class="btn" onClick={() => setRemoving(false)}>
+                        <button type="button" class="btn" onClick={() => setRemoving(null)} data-meeting-remove-cancel>
                           キャンセル
                         </button>
-                      </>
-                    ) : (
-                      <button type="button" class="btn" onClick={() => setRemoving(true)} data-meeting-remove>
+                      </div>
+                    </div>
+                  ) : (
+                    <div class="rp-actions">
+                      <button type="button" class="btn" onClick={() => startEdit(m)} data-meeting-edit>
+                        直す
+                      </button>
+                      <button type="button" class="btn" onClick={() => setRemoving(m.id)} data-meeting-remove>
                         外す
                       </button>
-                    )}
-                    <button type="button" class="btn" onClick={() => setView({ kind: "list" })} data-meeting-back>
-                      一覧へ戻る
-                    </button>
-                  </div>
+                      <button type="button" class="btn" onClick={() => setView({ kind: "list" })} data-meeting-back>
+                        一覧へ戻る
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div class="mt-snap" data-meeting-snapshot>
                   <h3>そのときの控えと今</h3>

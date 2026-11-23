@@ -194,7 +194,7 @@ function AccountForm({ wh, initial, onDone, onCancel, edit }: { wh: WorkingHouse
   );
 }
 
-function AccountsStep({ wh, log, onLog, onNext }: { wh: WorkingHousehold; log: StatementLog; onLog: (l: StatementLog) => void; onNext: () => void }) {
+export function AccountsStep({ wh, log, onLog, onNext }: { wh: WorkingHousehold; log: StatementLog; onLog: (l: StatementLog) => void; onNext: () => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const owners = new Map(ownerOptions(wh).map((o) => [o.value, o.label]));
@@ -230,20 +230,31 @@ function AccountsStep({ wh, log, onLog, onNext }: { wh: WorkingHousehold; log: S
                     <span class="st-acc-act">
                       {removing === a.id ? (
                         <>
-                          <small>{n > 0 ? `取り込んだ明細 ${n}件もいっしょに外します。` : ""}</small>
-                          <button type="button" class="btn small danger" onClick={() => onLog(removeAccount(log, a.id))}>
-                            外す
-                          </button>
-                          <button type="button" class="btn small" onClick={() => setRemoving(null)}>
-                            やめる
-                          </button>
+                          <small class="st-ask-q" data-statement-account-remove-ask>
+                            この口座・カードを外しますか（{n > 0 ? `取り込んだ明細 ${n}件もいっしょに外します。` : ""}元に戻せません）
+                          </small>
+                          <span class="st-ask-acts">
+                            <button type="button" class="btn small danger" onClick={() => onLog(removeAccount(log, a.id))} data-statement-account-remove-go>
+                              外す
+                            </button>
+                            <button type="button" class="btn small" onClick={() => setRemoving(null)} data-statement-account-remove-cancel>
+                              やめる
+                            </button>
+                          </span>
                         </>
                       ) : (
                         <>
-                          <button type="button" class="btn small" onClick={() => setEditing(a.id)}>
+                          <button
+                            type="button"
+                            class="btn small"
+                            onClick={() => {
+                              setRemoving(null);
+                              setEditing(a.id);
+                            }}
+                          >
                             直す
                           </button>
-                          <button type="button" class="btn small" onClick={() => setRemoving(a.id)}>
+                          <button type="button" class="btn small" onClick={() => setRemoving(a.id)} data-statement-account-remove>
                             外す
                           </button>
                         </>
@@ -390,7 +401,7 @@ function readingSpan(items: readonly ReadItem[]): { from: string; to: string } |
   return d.length === 0 ? null : { from: d[0] as string, to: d[d.length - 1] as string };
 }
 
-function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, onAccounts }: { wh: WorkingHousehold; log: StatementLog; office: StatementOfficeData; host: StatementHost; readers: readonly StatementReader[]; onLog: (l: StatementLog) => void; onOffice: (o: StatementOfficeData) => void; onNext: () => void; onAccounts: () => void }) {
+export function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, onAccounts }: { wh: WorkingHousehold; log: StatementLog; office: StatementOfficeData; host: StatementHost; readers: readonly StatementReader[]; onLog: (l: StatementLog) => void; onOffice: (o: StatementOfficeData) => void; onNext: () => void; onAccounts: () => void }) {
   const [account, setAccount] = useState<string | null>(log.accounts[0]?.id ?? null);
   const [reading, setReading] = useState<Reading | null>(null);
   const [failed, setFailed] = useState<readonly Issue[] | null>(null);
@@ -678,8 +689,8 @@ function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, o
               <button type="button" class="btn primary" disabled={busy || rowCount === 0 || pp !== null || editProblem} onClick={() => void take()} data-statement-take>
                 取り込む（{rowCount}行）
               </button>
-              <button type="button" class="btn" onClick={() => setReading(null)}>
-                やめる
+              <button type="button" class="btn" onClick={() => setReading(null)} data-statement-take-cancel>
+                キャンセル
               </button>
             </div>
           )}
@@ -718,16 +729,19 @@ function ImportStep({ wh, log, office, host, readers, onLog, onOffice, onNext, o
                   </td>
                   <td>
                     {removing === i.id ? (
-                      <>
-                        <button type="button" class="btn small danger" onClick={() => onLog(removeImport(log, i.id))}>
-                          外す
-                        </button>
-                        <button type="button" class="btn small" onClick={() => setRemoving(null)}>
-                          やめる
-                        </button>
-                      </>
+                      <span class="st-ask" data-statement-import-remove-ask>
+                        <small class="st-ask-q">この明細を外しますか（元に戻せません）</small>
+                        <span class="st-ask-acts">
+                          <button type="button" class="btn small danger" onClick={() => onLog(removeImport(log, i.id))} data-statement-import-remove-go>
+                            外す
+                          </button>
+                          <button type="button" class="btn small" onClick={() => setRemoving(null)} data-statement-import-remove-cancel>
+                            やめる
+                          </button>
+                        </span>
+                      </span>
                     ) : (
-                      <button type="button" class="btn small" onClick={() => setRemoving(i.id)}>
+                      <button type="button" class="btn small" onClick={() => setRemoving(i.id)} data-statement-import-remove>
                         外す
                       </button>
                     )}
@@ -940,10 +954,10 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
           <p class="rp-note">シートには、日付・店・金額・口座の呼び名・お使いになった方と、選ぶ欄だけが載ります（お名前・世帯の番号は載りません）。迷う店は同じ店を1行にまとめ（期間・回数・合計）、答えはその店の行すべてに使います。高額の行などは1行ずつ載せます。</p>
           <div class="rp-actions">
             <button type="button" class="btn primary" disabled={busy} onClick={() => void write()} data-statement-sheet-go>
-              {busy ? "作っています…" : "分かったうえで書き出す"}
+              {busy ? "作っています…" : "わかりました。書き出す"}
             </button>
-            <button type="button" class="btn" onClick={() => setAsking(false)}>
-              やめる
+            <button type="button" class="btn" onClick={() => setAsking(false)} data-statement-sheet-cancel>
+              キャンセル
             </button>
           </div>
         </div>
@@ -1043,8 +1057,8 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
             <button type="button" class="btn primary" disabled={sel.size === 0} onClick={take} data-statement-marks-approve>
               承認して仕分けに入れる（{sel.size}行）
             </button>
-            <button type="button" class="btn" onClick={() => setRead(null)}>
-              やめる
+            <button type="button" class="btn" onClick={() => setRead(null)} data-statement-marks-cancel>
+              キャンセル
             </button>
           </div>
         </div>

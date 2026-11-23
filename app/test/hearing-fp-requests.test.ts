@@ -19,6 +19,7 @@ import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/works
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import type { HearingWebHost, SheetHost } from "../src/engine/host.ts";
 import { modelHousehold } from "./helpers.ts";
+import { buttonTexts, renderPressing, within } from "./pressing.ts";
 
 const OFFICE = officeFace({ name: "試しの事務所", color: null, purpose: "", privacyContact: "03-0000-0000" });
 const NOW = new Date("2026-11-05T09:00:00Z");
@@ -98,6 +99,19 @@ describe("依頼の行の段階（0192 の追記）", () => {
     // ワンクリックで取り消さない: 「はい、取り消す」は確かめの段にだけある（押す前は出ない）
     expect(html).not.toContain("data-web-cancel-yes");
     expect(html).not.toContain("data-web-cancel-ask");
+  });
+
+  it("取り消すの確かめ（0243）: 進むボタン「はい、取り消す」（危ない色）が左・「やめる」が右。やめるで確かめが消える", async () => {
+    const { t } = relayFor();
+    const wh = blank();
+    const r = await issueWeb(wh, { selection: templateSelection("simple", wh), customerNo: "0001", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
+    noteArrival(r.entry.record.requestId, { answers: false, batches: 0, submitted: false, at: NOW.toISOString() });
+    const node = h(WebRequests, { wh: r.wh, web: host, officeName: "試しの事務所", appVersion: "0.1.0", onSave: () => undefined, saveNow: async () => true, onImport: () => undefined });
+    const ask = within(renderPressing(node, "data-web-cancel"), "data-web-cancel-ask");
+    expect(ask).toContain("お客さまはこの URL を開けなくなります。取り消しますか。");
+    expect(buttonTexts(ask)).toEqual(["はい、取り消す", "やめる"]);
+    expect(ask).toMatch(/class="btn danger"[^>]*>はい、取り消す/);
+    expect(renderPressing(node, "data-web-cancel", "data-web-cancel-no")).not.toContain("data-web-cancel-ask");
   });
 
   it("回答が届いたら: 受け取る・取り消すだけ（届いたかを確かめる・延長・案内文をコピーは出さない）", async () => {

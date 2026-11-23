@@ -260,7 +260,7 @@ function ErrorLogSection({ actions, initial }: { actions: ErrorLogActions; initi
         {confirming ? (
           <>
             <span class="fb-confirm">エラーの記録をすべて消します。よろしいですか</span>
-            <button type="button" class="btn" onClick={() => void clear()} data-error-log-clear-yes>
+            <button type="button" class="btn danger" onClick={() => void clear()} data-error-log-clear-yes>
               すべて消す
             </button>
             <button type="button" class="link-btn" onClick={() => setConfirming(false)}>
