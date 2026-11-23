@@ -124,8 +124,9 @@ describe("車のひな形のボタン（出来事に結ぶ）", () => {
     expect(row).toMatchObject({ kind: "car", row: "cf.expense.living.car", monthly: true, from: { event: ev.id, offset: { years: 0, months: 1 } }, to: null });
     expect(row.amount.state).toBe("estimated");
     expect(fieldStatus(fieldOf(wh, `ev/${row.id}/amount`), wh).basis).toBe("よくある額の目安（手放した後の移動の費用 月1万円。この世帯に合わせて直してください）");
-    // 車のカードに出る。ボタンは消える
-    expect(buildStage("car", wh).sections.find((s) => s.key === "money/car/out")!.groups.some((g) => g.key === `ev/${row.id}`)).toBe(true);
+    // 車の入力項目の、その車の枠の中に出る（区画「出るお金」には出ない。0257）。ボタンは消える
+    expect(buildStage("car", wh).sections[0]!.groups.some((g) => g.key === `ev/${row.id}`)).toBe(true);
+    expect(buildStage("car", wh).sections.find((s) => s.key === "money/car/out")?.groups.some((g) => g.key === `ev/${row.id}`) ?? false).toBe(false);
     expect(buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).some((a) => a.key.endsWith("/afterCar"))).toBe(false);
     const start1 = resolveTimepoint(wh.request.input.household, row.from);
     wh = fieldOf(wh, "/untilAge").set(wh, 70);

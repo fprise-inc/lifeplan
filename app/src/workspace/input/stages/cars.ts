@@ -15,7 +15,7 @@ import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
 import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, timeView, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { ADULTS_WHO, GROWTH_KINDS, holderOptions, memberLabel, WORDS } from "../labels.ts";
-import { addExpense, moneySections } from "../moneyRows.ts";
+import { addExpense, moneySections, periodicGroups } from "../moneyRows.ts";
 import { materializeEvent } from "../namedEvents.ts";
 import { manYen } from "../readLines.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
@@ -341,7 +341,9 @@ export function addNextCar(wh: WorkingHousehold, carId: string, id: string = new
     const body: Car = { ...copy, id, until: null, ...(others !== undefined ? { upkeepOther: others } : {}) };
     if (copy.purchase !== undefined) body.purchase = { ...copy.purchase, first, owned: false };
     else if (copy.lease !== undefined) body.lease = { ...copy.lease, from: first };
-    (h.cars ??= []).push(body);
+    // 押した車のすぐ後ろに入れる（0257。利用者の判断）。後ろの車の「車 N」と出来事の名前の番号は1つずつ繰り下がる
+    const list = (h.cars ??= []);
+    list.splice(list.indexOf(c) + 1, 0, body);
     ok = true;
   });
   if (!ok) return wh;
@@ -434,6 +436,36 @@ function afterCarAdded(h: Household, carId: string): boolean {
 }
 
 /**
+ * 車の枠の中に出す、車の出るお金の行（0257。利用者の判断。今返している自動車ローンを車の枠に入れた 0237 と同じく見せ方だけで、行の持ち方・計算は変えない）。
+ * 「＋ 手放した後の移動の費用」「＋ 古くなってからの修理費」で足した行のように、始まりが車の出来事から決まる行を、その車の枠に置く:
+ * - after: 始まりが、その車を手放す出来事の翌月の行（afterCarAdded と同じ見分け方）。枠のいちばん下（「手放した後」の所）に出す
+ * - upkeep: それ以外で、始まりがその車の購入の出来事（続きの車は、元の車を手放す出来事）からの行。同じ出来事から始まる車が何台かあれば、
+ *   行の始まりより前に始まる車のうち、いちばん後に始まる車。「維持費」の後に出す
+ * どの車にも合わない行（年月で入れた行・区画の「＋」で足した行など）は、今までどおり区画「出るお金」に出す
+ */
+export function carRowsByCar(h: Household): { after: Map<string, PeriodicExpense[]>; upkeep: Map<string, PeriodicExpense[]> } {
+  const off = (t: Timepoint) => (t.offset?.years ?? 0) * 12 + (t.offset?.months ?? 0);
+  const list = h.cars ?? [];
+  const after = new Map<string, PeriodicExpense[]>();
+  const upkeep = new Map<string, PeriodicExpense[]>();
+  const put = (m: Map<string, PeriodicExpense[]>, id: string, p: PeriodicExpense) => m.set(id, [...(m.get(id) ?? []), p]);
+  for (const p of h.periodicExpenses ?? []) {
+    const ev = p.from.event;
+    if (p.kind !== "car" || ev === undefined) continue;
+    const released = list.find((c) => c.until != null && c.until.event === ev && off(p.from) === off(c.until) + 1);
+    if (released !== undefined) {
+      put(after, released.id, p);
+      continue;
+    }
+    const firstOff = (c: Car): number => (c.purchase === undefined ? -1 : off(c.purchase.first));
+    const starts = list.filter((c) => c.purchase !== undefined && c.purchase.first.event === ev && firstOff(c) <= off(p.from));
+    const owner = starts.reduce<Car | undefined>((best, c) => (best === undefined || firstOff(c) >= firstOff(best) ? c : best), undefined);
+    if (owner !== undefined) put(upkeep, owner.id, p);
+  }
+  return { after, upkeep };
+}
+
+/**
  * 世帯が最後に手放す車か（0101）: どの車も手放す時期が入っていて、この車の手放す月がいちばん後（同じ月なら並びの後の車）。
  * 「手放した後の移動の費用」はこの車にだけ出す（ほかの車がまだあるうちは移動の費用はかからない）
  */
@@ -470,7 +502,7 @@ const laterText = (months: number): string => {
   return months === 0 ? "今月" : months > 0 ? `${t}後` : `${t}前`;
 };
 
-export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly Car[], o: { loans?: readonly GroupDef[]; addLoan?: ActionDef } = {}): GroupDef[] {
+export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly Car[], o: { loans?: readonly GroupDef[]; addLoan?: ActionDef; upkeepRows?: readonly GroupDef[]; afterRows?: readonly GroupDef[] } = {}): GroupDef[] {
   const find = byId(cars, c.id);
   const k = `ev/car/${c.id}`;
   const car = (h: Household, w: WorkingHousehold) => find(h, w) as Car | undefined;
@@ -740,7 +772,11 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   const nowLoans: GroupDef[] = [...(o.loans ?? []), ...(o.addLoan !== undefined ? [{ key: `${k}/addNowLoan`, where: title, level: "simple" as const, fields: [], actions: [o.addLoan] }] : [])];
   const at = bands.findIndex((g) => g.key === bandKey(k, "upkeep"));
   const withLoan = at < 0 ? [...bands, ...nowLoans] : [...bands.slice(0, at), ...nowLoans, ...bands.slice(at)];
-  return [head, ...withLoan, ...after];
+  // この車の出来事から始まる出るお金の行（carRowsByCar。0257）: 古くなってからの修理費などは「維持費」の後（「伸び方・万一のとき」の前）、手放した後の移動の費用は枠のいちばん下
+  const rows = o.upkeepRows ?? [];
+  const fut = withLoan.findIndex((g) => g.key === bandKey(k, "future"));
+  const withRows = fut < 0 ? [...withLoan, ...rows] : [...withLoan.slice(0, fut), ...rows, ...withLoan.slice(fut)];
+  return [head, ...withRows, ...after, ...(o.afterRows ?? [])];
 }
 
 /**
@@ -1386,8 +1422,9 @@ export function addLeaseCar(wh: WorkingHousehold, id: () => string = newId): Wor
 }
 
 /** 車の入力項目の出るお金の行の区画（車の修理・用品・手放した後の移動の費用など。ときどき使うカーシェア・レンタカーは基本生活費の交通費で入れる。0101） */
-function moveSection(wh: WorkingHousehold): SectionDef | null {
-  const out = moneySections(wh, "car", { claimed: new Set(), level: "simple", outTitle: "出るお金" }).find((s) => s.key.endsWith("/out"));
+function moveSection(wh: WorkingHousehold, inCars: ReadonlySet<string> = new Set()): SectionDef | null {
+  // 車の枠の中に出す行（carRowsByCar。0257）は、ここには出さない
+  const out = moneySections(wh, "car", { claimed: inCars, level: "simple", outTitle: "出るお金" }).find((s) => s.key.endsWith("/out"));
   if (out === undefined) return null;
   const empty = out.groups.length === 0;
   return {
@@ -1435,6 +1472,18 @@ function nowLoanBands(wh: WorkingHousehold, carKey: string, debts: readonly Debt
   });
 }
 
+/**
+ * 車の枠の中に出す出るお金の行1つ（carRowsByCar。0257）: 今返しているローン（nowLoanBands）と同じく、行の頭のまとまりを車の枠の中の中枠にし、
+ * 続くまとまり（ev/<行の id>/…）もその中に入れる。「▸」は車に1つ（行の詳細の欄も車の「▸」で開く）
+ */
+function carRowBands(wh: WorkingHousehold, carKey: string, p: PeriodicExpense): GroupDef[] {
+  return periodicGroups(wh, p).map((g, j): GroupDef => {
+    const { moreLabel: _m, ...x } = g;
+    void _m;
+    return j === 0 ? { ...x, ...(g.title !== undefined ? { where: g.title } : {}), band: true, partOf: carKey, unitOf: carKey } : { ...x, unitOf: carKey };
+  });
+}
+
 /** 車の枠の中の「＋ 今返しているローン」（足したローンの名義を、この車の名義の人に合わせる。名義の欄と同じ書き方で書く） */
 function addNowLoan(c: Car, k: string): ActionDef {
   return {
@@ -1474,7 +1523,9 @@ function carLoanSection(wh: WorkingHousehold, debts: readonly Debt[]): SectionDe
 /** 車のパネル: 持っている車を1台ずつ（台数に上限なし）、車のカードの出るお金の行、今返している自動車ローン */
 export function carStage(wh: WorkingHousehold): StageDef {
   const list = wh.request.input.household.cars ?? [];
-  const move = moveSection(wh);
+  // 車の出来事から始まる出るお金の行は、その車の枠の中に出す（0257）
+  const carRows = carRowsByCar(wh.request.input.household);
+  const move = moveSection(wh, new Set([...carRows.after.values(), ...carRows.upkeep.values()].flat().map((p) => p.id)));
   // 今返している自動車ローンは、その車の枠の中に出す（0237）。出せない分だけ、車の区画のすぐ下の区画に
   const loans = loansByCar(wh.request.input.household);
   const loanSection = carLoanSection(wh, loans.rest);
@@ -1491,7 +1542,8 @@ export function carStage(wh: WorkingHousehold): StageDef {
         groups: list.flatMap((c, i) => {
           const k = `ev/car/${c.id}`;
           const ownedNow = !isLeaseCar(c) && c.purchase?.owned === true;
-          return carGroups(wh, c, i, list, { loans: nowLoanBands(wh, k, loans.of.get(c.id) ?? []), ...(ownedNow ? { addLoan: addNowLoan(c, k) } : {}) });
+          const rowsOf = (m: Map<string, PeriodicExpense[]>) => (m.get(c.id) ?? []).flatMap((p) => carRowBands(wh, k, p));
+          return carGroups(wh, c, i, list, { loans: nowLoanBands(wh, k, loans.of.get(c.id) ?? []), ...(ownedNow ? { addLoan: addNowLoan(c, k) } : {}), upkeepRows: rowsOf(carRows.upkeep), afterRows: rowsOf(carRows.after) });
         }),
         actions: [
           ...(list.length === 0

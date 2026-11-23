@@ -6,8 +6,8 @@ import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { Help, HelpOf } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { addMonths, ageAt } from "../../levers.ts";
-import { actionHelp, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, StateMark, useGroupOpen, visible } from "../FieldViews.tsx";
-import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
+import { actionHelp, estOptionTitle, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, StateMark, useGroupOpen, visible } from "../FieldViews.tsx";
+import { FieldFill, FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
 import { fieldStatus, typeValue } from "../valueState.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
@@ -17,6 +17,7 @@ import { accountMoreLabel, dropContributions, flowMatters, MAIN_ADD_KINDS, SETTL
 import { revealAdded } from "../../../presentation/revealAdded.ts";
 import { amountText, formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
 import { enterInput, type Settled } from "../pendingInput.ts";
+import { enterEstimateByMouse, estimateSelectText, keptText, selectEstimate } from "../estimateFocus.ts";
 import { outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
 import {
   accountMonthlyAt,
@@ -150,11 +151,16 @@ function NumBox(p: {
     const v = Number(normalizeNumberText(t));
     return Number.isFinite(v) && v >= 0 ? v : undefined;
   };
-  const bad = draft !== null && parse(draft) === undefined;
+  /** 推定の欄に入ったときに全部選ぶ文字（入っている推定の値か、灰色で見せている推定の値。0254） */
+  const estSelect = estimateSelectText(p.est === true, shown, p.placeholder ?? null);
+  /** 空欄のまま推定で計算している欄を、空のまま離れる（値も印も変えない。0254） */
+  const keepsBlank = (t: string) => p.value === null && normalizeNumberText(t) === "";
+  const bad = draft !== null && parse(draft) === undefined && !keepsBlank(draft);
   // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの値を決める。読めなければ欄に残して止める
   settleNow.current = () => {
     const t = el.current?.value ?? draft ?? shown;
     if (!shouldCommitOnBlur(start, t) && !typed.current) return "none";
+    if (keepsBlank(t)) return "none";
     const v = parse(t);
     if (v === undefined) return "rejected";
     p.onCommit(v);
@@ -177,10 +183,14 @@ function NumBox(p: {
       data-sv={p.data}
       {...(p.id !== undefined ? { id: p.id } : {})}
       ref={el}
+      onMouseDown={(e) => enterEstimateByMouse(e, estSelect !== null)}
       onFocus={() => {
-        setDraft(shown);
-        setStart(shown);
+        // 推定の欄は、推定の数字を全部選んだ状態で入る（そのまま打てば置き換わる。何も打たずに離れたら推定のまま。0254）
+        const first = estSelect ?? shown;
+        setDraft(first);
+        setStart(first);
         typed.current = false;
+        if (estSelect !== null) selectEstimate(el.current, estSelect);
         leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
       }}
       onInput={(e) => {
@@ -197,11 +207,11 @@ function NumBox(p: {
         // 打ったなら同じ文字でも書く（推定の欄は確定になる。確定の欄は同じ値なので変わらない）
         const typedNow = typed.current;
         typed.current = false;
-        if (shouldCommitOnBlur(start, t) || typedNow) {
+        if ((shouldCommitOnBlur(start, t) || typedNow) && !keepsBlank(t)) {
           const v = parse(t);
           if (v !== undefined) p.onCommit(v);
           const why = rangeProblem(t);
-          p.onProblem?.(why !== null ? `「${t}」は入れられないため、前の値のままです。${why}` : null);
+          p.onProblem?.(why !== null ? keptText(t, why) : null);
         }
         setDraft(null);
         setStart(null);
@@ -234,31 +244,36 @@ function StepsEditor(p: { steps: Step[]; now: number; stopAge: number | null; la
         const past = stop !== null && s.fromAge >= stop;
         return (
           <div class={`sv-st${past ? " past" : ""}`} key={j} data-reveal-item>
-            {j === 0 ? (
-              <span class="sv-st-from">{s.fromAge}</span>
-            ) : (
-              <NumBox
-                value={s.fromAge}
-                unit="age"
-                size="xs"
-                label={`${p.label}の${j + 1}つ目の期間の始まりの年齢`}
-                onCommit={(v) => {
-                  if (typeof v !== "number") return;
-                  const lo = (steps[j - 1]?.fromAge ?? 0) + 1;
-                  const hi = (steps[j + 1]?.fromAge ?? 100) - 1;
-                  if (v < lo || v > hi) return;
-                  p.onChange(steps.map((x, k) => (k === j ? { ...x, fromAge: v } : x)));
-                }}
-              />
-            )}
-            <span class="sv-st-to">
-              {to === null ? "歳〜" : `〜${Math.max(s.fromAge, to)}歳`}
-              {/* 最後の期間の終わりは「○歳になる前の月まで」（積立をやめる年齢と同じ時点を、同じ言い方で） */}
-              {next === undefined && stop !== null && to !== null ? <small class="sv-st-end">（{p.endNote ?? `${stop}歳になる前の月まで`}）</small> : null}
+            {/* 「45〜59歳（…まで）」と「月 [1] 万円」はそれぞれひとかたまり（狭い幅では、かたまりごと次の行へ回す。途中で切らない。0255） */}
+            <span class="sv-st-age">
+              {j === 0 ? (
+                <span class="sv-st-from">{s.fromAge}</span>
+              ) : (
+                <NumBox
+                  value={s.fromAge}
+                  unit="age"
+                  size="xs"
+                  label={`${p.label}の${j + 1}つ目の期間の始まりの年齢`}
+                  onCommit={(v) => {
+                    if (typeof v !== "number") return;
+                    const lo = (steps[j - 1]?.fromAge ?? 0) + 1;
+                    const hi = (steps[j + 1]?.fromAge ?? 100) - 1;
+                    if (v < lo || v > hi) return;
+                    p.onChange(steps.map((x, k) => (k === j ? { ...x, fromAge: v } : x)));
+                  }}
+                />
+              )}
+              <span class="sv-st-to">
+                {to === null ? "歳〜" : `〜${Math.max(s.fromAge, to)}歳`}
+                {/* 最後の期間の終わりは「○歳になる前の月まで」（積立をやめる年齢と同じ時点を、同じ言い方で） */}
+                {next === undefined && stop !== null && to !== null ? <small class="sv-st-end">（{p.endNote ?? `${stop}歳になる前の月まで`}）</small> : null}
+              </span>
             </span>
-            <span>月</span>
-            <NumBox value={s.monthly} unit="man" size="s" label={`${p.label}の${j + 1}つ目の期間の毎月の積立`} onCommit={(v) => typeof v === "number" && p.onChange(steps.map((x, k) => (k === j ? { ...x, monthly: v } : x)))} />
-            <span>万円</span>
+            <span class="sv-st-amt">
+              <span>月</span>
+              <NumBox value={s.monthly} unit="man" size="s" label={`${p.label}の${j + 1}つ目の期間の毎月の積立`} onCommit={(v) => typeof v === "number" && p.onChange(steps.map((x, k) => (k === j ? { ...x, monthly: v } : x)))} />
+              <span>万円</span>
+            </span>
             {j > 0 ? (
               <button type="button" class="sv-st-del" aria-label={`${p.label}の${j + 1}つ目の期間を消す`} title="この期間を消す" onClick={() => p.onChange(steps.filter((_, k) => k !== j))}>
                 ×
@@ -650,6 +665,7 @@ function AccountRate(p: { a: Account; name: string; f: FieldDef | undefined; wh:
       />{" "}
       %
       <FieldStateBadge f={f} wh={wh} />
+      <FieldFill f={f} wh={wh} onEdit={p.onEdit} />
       {problem !== null ? (
         <div class="fld-help bad sv-rate-msg" role="alert" id={`${id}-problem`} data-rate-problem>
           {problem}
@@ -690,6 +706,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
         <div class="ctl">
           <NumBox value={t.value} unit="man" label="金融資産の合計" data="total-value" {...(fValue !== undefined ? { id: fieldDomId(fValue.key) } : {})} onCommit={(v) => typeof v === "number" && (fValue !== undefined ? onEdit((fValue.write ?? fValue.set)(wh, v)) : onEdit(editTotal(wh, { value: v })))} />
           <span class="u">万円</span>
+          <FieldFill f={fValue} wh={wh} onEdit={onEdit} />
         </div>
         <FieldStateLine f={fValue} wh={wh} onEdit={onEdit} />
         {sumAcc > 0 ? <p class="help">口座ごとに入れた値（合計 {man1(sumAcc)}万円）は残っています。合計を増やした分は、口座の入れ方で「まだ分けていない」に入ります。</p> : null}
@@ -719,6 +736,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
             onCommit={(v) => (typeof v === "string" || v === null) && setRate(v)}
           />
           <span class="u">%</span>
+          <FieldFill f={fRate} wh={wh} onEdit={onEdit} />
         </div>
         {rateProblem !== null ? (
           <p class="help bad" role="alert" data-rate-problem {...(fRate !== undefined ? { id: `${fieldDomId(fRate.key)}-problem` } : {})}>
@@ -742,6 +760,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
           <div class="ctl">
             <NumBox value={t.uninvested} unit="man" optional placeholder="0" label="運用しない分" data="total-uninvested" {...(fUn !== undefined ? { id: fieldDomId(fUn.key) } : {})} onCommit={(v) => (v === null || typeof v === "number") && onEdit(editTotal(wh, { uninvested: v }))} />
             <span class="u">万円</span>
+            <FieldFill f={fUn} wh={wh} onEdit={onEdit} />
           </div>
           <FieldStateLine f={fUn} wh={wh} onEdit={onEdit} />
           <p class="help">
@@ -905,7 +924,7 @@ function AccountsTable(p: {
         <thead>
           <tr>
             <th class="l">口座</th>
-            <th>残高</th>
+            <th class="l">残高</th>
             <th class="l">毎月の積立</th>
             <th>利回り（年）</th>
           </tr>
@@ -920,7 +939,7 @@ function AccountsTable(p: {
                 </span>
                 <span class="memo">{KIND_INFO.pooled?.memo}</span>
               </td>
-              <td class="ro num">{man1(un.value)} 万円</td>
+              <td class="ro num l">{man1(un.value)} 万円</td>
               <td class="ro l">
                 {un.steps
                   .filter((s) => s.monthly > 0 || un.steps.length === 1)
@@ -987,19 +1006,21 @@ function AccountsTable(p: {
                   </span>
                   {more.length > 0 ? <MoreToggle groupKey={moreKey} open={open} toggle={() => opened.toggle(moreKey)} label={name} text={accountMoreLabel(a)} /> : null}
                 </td>
-                <td>
+                <td class="l">
                   <NumBox value={valueOf(a)} unit="man" label={`${name}の残高`} data={`bal-${a.kind}`} id={fieldDomId(`sav/${a.id}/value`)} onCommit={(v) => typeof v === "number" && editField(fields.get(`sav/${a.id}/value`), v)} /> 万円
                   <FieldStateBadge f={fields.get(`sav/${a.id}/value`)} wh={wh} />
+                  <FieldFill f={fields.get(`sav/${a.id}/value`)} wh={wh} onEdit={onEdit} />
                   <FieldStateLine f={fields.get(`sav/${a.id}/value`)} wh={wh} onEdit={onEdit} compact />
                   {(level === "detail" || open) && WITH_COST.has(a.kind) ? (
                     <div class="sv-sub">
                       取得価額 <NumBox value={a.costBasis?.value ?? null} unit="man" size="s" optional placeholder="時価" label={`${name}の取得価額`} id={fieldDomId(`sav/${a.id}/cost`)} onCommit={(v) => editField(fields.get(`sav/${a.id}/cost`), v)} /> 万円
                       <FieldStateBadge f={fields.get(`sav/${a.id}/cost`)} wh={wh} />
+                      <FieldFill f={fields.get(`sav/${a.id}/cost`)} wh={wh} onEdit={onEdit} />
                       <FieldStateLine f={fields.get(`sav/${a.id}/cost`)} wh={wh} onEdit={onEdit} compact />
                     </div>
                   ) : null}
                 </td>
-                <td class="l">
+                <td class="l sv-mon">
                   {isSettle && (a.contributions ?? []).length === 0 ? (
                     <span class="memo" data-settlement-saves>
                       {SETTLEMENT_SAVES}
@@ -1083,7 +1104,7 @@ function AccountsTable(p: {
         <tfoot>
           <tr>
             <th class="l">合計</th>
-            <td class="num" data-total-balance>
+            <td class="l num" data-total-balance>
               {man1(list.reduce((s, a) => s + valueOf(a), 0) + (showUn ? (un?.value ?? 0) : 0))} 万円
             </td>
             <td class="l num">今 月{man1(totalMonthly)}万円</td>
@@ -1342,11 +1363,15 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
               <span class="lbl">受け取り方</span>
               <div class="ctl">
                 <span class="seg-g sm" role="group" aria-label={`${name}の受け取り方`}>
-                  {PAYOUT_METHODS.map((m) => (
-                    <button type="button" key={m.id} aria-pressed={!est && a.payout?.method === m.id} onClick={() => edit(a.id, { method: m.id })}>
-                      {m.label}
-                    </button>
-                  ))}
+                  {PAYOUT_METHODS.map((m) => {
+                    // 空欄のまま推定で計算している選択肢（一時金）は、点線・薄い色で選ばれた見た目（押すと FP が選んだ確定。0254）
+                    const estOpt = est && m.id === "lumpSum";
+                    return (
+                      <button type="button" key={m.id} aria-pressed={!est && a.payout?.method === m.id} onClick={() => edit(a.id, { method: m.id })} {...(estOpt ? { class: "is-est-opt", title: estOptionTitle(`${payoutAgeBasis(req, a)}に一時金で受け取る計算`), "data-est-option": m.id } : {})}>
+                        {m.label}
+                      </button>
+                    );
+                  })}
                 </span>
                 {est ? (
                   <EstTag basis={`${payoutAgeBasis(req, a)}に一時金`} label={`${name}の受け取り方`} />
@@ -1448,6 +1473,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
               <b data-stop-age-read>{stopAge ?? estimate.age}</b>
             )}{" "}
             歳になる前の月まで
+            {level === "detail" ? <FieldFill f={fields.get("sav/stopAge")} wh={wh} onEdit={onEdit} /> : null}
             {est ? <EstTag basis={estimate.retired ? `退職はもう過ぎているので、${estimate.until}まで` : `${estimate.until}まで`} label="積立をやめる年齢" /> : null}
           </div>
           {level === "detail" ? <FieldStateLine f={fields.get("sav/stopAge")} wh={wh} onEdit={onEdit} noBasis /> : null}
