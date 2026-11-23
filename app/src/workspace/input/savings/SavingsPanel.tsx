@@ -234,31 +234,36 @@ function StepsEditor(p: { steps: Step[]; now: number; stopAge: number | null; la
         const past = stop !== null && s.fromAge >= stop;
         return (
           <div class={`sv-st${past ? " past" : ""}`} key={j} data-reveal-item>
-            {j === 0 ? (
-              <span class="sv-st-from">{s.fromAge}</span>
-            ) : (
-              <NumBox
-                value={s.fromAge}
-                unit="age"
-                size="xs"
-                label={`${p.label}の${j + 1}つ目の期間の始まりの年齢`}
-                onCommit={(v) => {
-                  if (typeof v !== "number") return;
-                  const lo = (steps[j - 1]?.fromAge ?? 0) + 1;
-                  const hi = (steps[j + 1]?.fromAge ?? 100) - 1;
-                  if (v < lo || v > hi) return;
-                  p.onChange(steps.map((x, k) => (k === j ? { ...x, fromAge: v } : x)));
-                }}
-              />
-            )}
-            <span class="sv-st-to">
-              {to === null ? "歳〜" : `〜${Math.max(s.fromAge, to)}歳`}
-              {/* 最後の期間の終わりは「○歳になる前の月まで」（積立をやめる年齢と同じ時点を、同じ言い方で） */}
-              {next === undefined && stop !== null && to !== null ? <small class="sv-st-end">（{p.endNote ?? `${stop}歳になる前の月まで`}）</small> : null}
+            {/* 「45〜59歳（…まで）」と「月 [1] 万円」はそれぞれひとかたまり（狭い幅では、かたまりごと次の行へ回す。途中で切らない。0255） */}
+            <span class="sv-st-age">
+              {j === 0 ? (
+                <span class="sv-st-from">{s.fromAge}</span>
+              ) : (
+                <NumBox
+                  value={s.fromAge}
+                  unit="age"
+                  size="xs"
+                  label={`${p.label}の${j + 1}つ目の期間の始まりの年齢`}
+                  onCommit={(v) => {
+                    if (typeof v !== "number") return;
+                    const lo = (steps[j - 1]?.fromAge ?? 0) + 1;
+                    const hi = (steps[j + 1]?.fromAge ?? 100) - 1;
+                    if (v < lo || v > hi) return;
+                    p.onChange(steps.map((x, k) => (k === j ? { ...x, fromAge: v } : x)));
+                  }}
+                />
+              )}
+              <span class="sv-st-to">
+                {to === null ? "歳〜" : `〜${Math.max(s.fromAge, to)}歳`}
+                {/* 最後の期間の終わりは「○歳になる前の月まで」（積立をやめる年齢と同じ時点を、同じ言い方で） */}
+                {next === undefined && stop !== null && to !== null ? <small class="sv-st-end">（{p.endNote ?? `${stop}歳になる前の月まで`}）</small> : null}
+              </span>
             </span>
-            <span>月</span>
-            <NumBox value={s.monthly} unit="man" size="s" label={`${p.label}の${j + 1}つ目の期間の毎月の積立`} onCommit={(v) => typeof v === "number" && p.onChange(steps.map((x, k) => (k === j ? { ...x, monthly: v } : x)))} />
-            <span>万円</span>
+            <span class="sv-st-amt">
+              <span>月</span>
+              <NumBox value={s.monthly} unit="man" size="s" label={`${p.label}の${j + 1}つ目の期間の毎月の積立`} onCommit={(v) => typeof v === "number" && p.onChange(steps.map((x, k) => (k === j ? { ...x, monthly: v } : x)))} />
+              <span>万円</span>
+            </span>
             {j > 0 ? (
               <button type="button" class="sv-st-del" aria-label={`${p.label}の${j + 1}つ目の期間を消す`} title="この期間を消す" onClick={() => p.onChange(steps.filter((_, k) => k !== j))}>
                 ×
@@ -905,7 +910,7 @@ function AccountsTable(p: {
         <thead>
           <tr>
             <th class="l">口座</th>
-            <th>残高</th>
+            <th class="l">残高</th>
             <th class="l">毎月の積立</th>
             <th>利回り（年）</th>
           </tr>
@@ -920,7 +925,7 @@ function AccountsTable(p: {
                 </span>
                 <span class="memo">{KIND_INFO.pooled?.memo}</span>
               </td>
-              <td class="ro num">{man1(un.value)} 万円</td>
+              <td class="ro num l">{man1(un.value)} 万円</td>
               <td class="ro l">
                 {un.steps
                   .filter((s) => s.monthly > 0 || un.steps.length === 1)
@@ -987,7 +992,7 @@ function AccountsTable(p: {
                   </span>
                   {more.length > 0 ? <MoreToggle groupKey={moreKey} open={open} toggle={() => opened.toggle(moreKey)} label={name} text={accountMoreLabel(a)} /> : null}
                 </td>
-                <td>
+                <td class="l">
                   <NumBox value={valueOf(a)} unit="man" label={`${name}の残高`} data={`bal-${a.kind}`} id={fieldDomId(`sav/${a.id}/value`)} onCommit={(v) => typeof v === "number" && editField(fields.get(`sav/${a.id}/value`), v)} /> 万円
                   <FieldStateBadge f={fields.get(`sav/${a.id}/value`)} wh={wh} />
                   <FieldStateLine f={fields.get(`sav/${a.id}/value`)} wh={wh} onEdit={onEdit} compact />
@@ -999,7 +1004,7 @@ function AccountsTable(p: {
                     </div>
                   ) : null}
                 </td>
-                <td class="l">
+                <td class="l sv-mon">
                   {isSettle && (a.contributions ?? []).length === 0 ? (
                     <span class="memo" data-settlement-saves>
                       {SETTLEMENT_SAVES}
@@ -1083,7 +1088,7 @@ function AccountsTable(p: {
         <tfoot>
           <tr>
             <th class="l">合計</th>
-            <td class="num" data-total-balance>
+            <td class="l num" data-total-balance>
               {man1(list.reduce((s, a) => s + valueOf(a), 0) + (showUn ? (un?.value ?? 0) : 0))} 万円
             </td>
             <td class="l num">今 月{man1(totalMonthly)}万円</td>
