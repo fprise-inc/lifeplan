@@ -29,6 +29,10 @@
 .st-acc-meta { color: var(--ink-2); font-size: 0.88rem; }
 .st-acc-act { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .st-acc .st-acc-form { width: 100%; }
+/* 外すかの確かめ（口座・カードの行、取り込んだ明細の行。文と「外す／やめる」。0243） */
+.st-ask { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.st-ask-q { color: var(--short-ink); font-size: 0.88rem; }
+.st-ask-acts { display: inline-flex; gap: 6px; }
 .st-kind { font-size: 0.75rem; font-weight: 700; border-radius: 4px; padding: 1px 7px; color: var(--on-fill); background: var(--prop); }
 .st-kind.k-bank { background: var(--good); }
 .st-kind.k-app { background: var(--base-ink); }

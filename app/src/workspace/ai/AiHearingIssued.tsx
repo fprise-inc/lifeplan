@@ -12,7 +12,7 @@ import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { HearingWebHost } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { arrivedNow, UNASSIGNED_LIMIT, unassignedAccepting, type AiIssueLog, type OfficeHearing, type PendingWebRequest } from "../hearing/aiHearing.ts";
-import { accepting, ARRIVAL_INTERVAL_MS, arrivalOf, checkAnswered, invitationText, noteArrival, onArrivals, removeOnServer, selectionName, STATUS_TEXT, statusOf, type WebLogEntry } from "../hearing/web.ts";
+import { accepting, ARRIVAL_INTERVAL_MS, CANCEL_ASK_TEXT, arrivalOf, checkAnswered, invitationText, noteArrival, onArrivals, removeOnServer, selectionName, STATUS_TEXT, statusOf, type WebLogEntry } from "../hearing/web.ts";
 import { unassignedLink } from "../hearing/issuedUrls.ts";
 import { dateTimeText } from "./model.ts";
 import { listDate } from "../../dates.ts";
@@ -207,37 +207,39 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
               <button type="button" class="btn" onClick={() => copy(id, "URL", r.entry.record.url)} data-ai-hearing-copy-url>
                 URL をコピー
               </button>
-              {asking === id ? (
-                <span class="wr-confirm" role="alert">
-                  お客さまはこの URL を開けなくなります（途中のお答えも送れません）。取り消しますか。
-                  <button
-                    type="button"
-                    class="btn"
-                    disabled={busy !== null}
-                    onClick={() =>
-                      void run(id, async () => {
-                        await removeOnServer(r.entry, (p.web as HearingWebHost).call);
-                        await p.onEntry({ ...r.entry, state: "cancelled" });
-                        setAsking(null);
-                        note(id, "取り消しました（サーバーから消しました）");
-                      })
-                    }
-                    data-ai-hearing-cancel-yes
-                  >
-                    取り消す
-                  </button>
-                  <button type="button" class="btn" onClick={() => setAsking(null)}>
-                    やめる
-                  </button>
-                </span>
-              ) : (
-                <button type="button" class="btn" disabled={busy !== null} onClick={() => setAsking(id)} data-ai-hearing-cancel>
-                  取り消す
-                </button>
-              )}
+              <button type="button" class="btn" disabled={busy !== null || asking === id} onClick={() => setAsking(id)} aria-expanded={asking === id} data-ai-hearing-cancel>
+                取り消す
+              </button>
             </>
           ) : null}
         </div>
+        {/* 取り消すの確かめ（「発行した URL」の確かめと同じ形・同じ言葉。元のボタンと別の段に出す） */}
+        {asking === id && r !== undefined && live && p.web !== null ? (
+          <div class="wr-ask" role="alertdialog" aria-label="取り消しの確かめ" data-ai-hearing-cancel-ask>
+            <span>{CANCEL_ASK_TEXT}</span>
+            <span class="wr-ask-acts">
+              <button
+                type="button"
+                class="btn danger"
+                disabled={busy !== null}
+                onClick={() =>
+                  void run(id, async () => {
+                    await removeOnServer(r.entry, (p.web as HearingWebHost).call);
+                    await p.onEntry({ ...r.entry, state: "cancelled" });
+                    setAsking(null);
+                    note(id, "取り消しました（サーバーから消しました）");
+                  })
+                }
+                data-ai-hearing-cancel-yes
+              >
+                はい、取り消す
+              </button>
+              <button type="button" class="btn" onClick={() => setAsking(null)} data-ai-hearing-cancel-no>
+                やめる
+              </button>
+            </span>
+          </div>
+        ) : null}
         {msg[id] !== undefined ? (
           <p class="rp-note" role="status">
             {msg[id]}

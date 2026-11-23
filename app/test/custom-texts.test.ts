@@ -20,6 +20,7 @@ import { customCenterNotice } from "../src/workspace/office/customNotice.ts";
 import { CustomTextsSection, customStateLine, rowTextLabel } from "../src/workspace/office/CustomTextsSection.tsx";
 import { buildTextsCatalog, CATALOG_PATH, CATALOG_SCHEMA } from "../scripts/textsCatalog.ts";
 import { modelHousehold } from "./helpers.ts";
+import { buttonTexts, renderPressing, within } from "./pressing.ts";
 
 const sha = (s: string) => `sha256:${createHash("sha256").update(s, "utf8").digest("hex")}`;
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -202,6 +203,17 @@ describe("事務所の既定値の画面の「説明の文（カスタム層）�
     expect(html).toContain("意味が変わったため");
     expect(html).toContain("このまま使う");
     expect(html).toContain("公式の文に戻す");
+  });
+
+  it("「公式に戻す」の確かめ（0243）: 文は文、ボタンは2つ一緒の枠に分ける（くっついて「戻すやめる」と読めない）。「戻す」が左・「やめる」が右。やめるで元の並び", () => {
+    const node = h(CustomTextsSection, { host, status: status({ state: "approved", approved: { fingerprint: "x", approvedAt: 1_793_000_000 } }), onStatus: noop });
+    expect(renderToString(node)).not.toContain("data-custom-revert-confirm");
+    const ask = within(renderPressing(node, "data-custom-revert"), "data-custom-revert-confirm");
+    expect(ask).toMatch(/^<p class="rp-note os-ask"[^>]*><span>事務所の文を全部やめて、公式に戻します[^<]*<\/span><span class="os-ask-acts"><button/);
+    expect(buttonTexts(ask)).toEqual(["戻す", "やめる"]);
+    const back = renderPressing(node, "data-custom-revert", "data-custom-revert-cancel");
+    expect(back).not.toContain("data-custom-revert-confirm");
+    expect(back).toContain("data-custom-revert");
   });
 
   it("台帳を確かめられなかったときは知らせる。お知らせの一覧にも事務所の知らせとして出す", () => {

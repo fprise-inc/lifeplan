@@ -139,6 +139,9 @@ html.doc-side .scrim { right: var(--dv-w); }
 .wr-waiting .rp-actions { margin: 0; }
 .wr-ask { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; border: 1.5px solid var(--short-ink); border-radius: 8px; padding: 8px 10px; background: var(--card); }
 .wr-ask-acts { display: inline-flex; gap: 8px; margin-left: auto; }
+/* 行の中の確かめ（ひな形を選び直す・受け取った書類を消す。0243）: 文とボタン・ボタンどうしの間を空ける */
+.wr-confirm { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; white-space: normal; }
+.wr-confirm-acts { display: inline-flex; gap: 8px; }
 .wb-ai-consent { margin: 6px 0; }
 .hs-form label > span .wb-help, .wb-ai-consent .wb-help { margin-left: 4px; vertical-align: middle; }
 /* 取り込みの画面（0192 の追記 2026-11-17）: 頭の1段・聞いていない欄をまとめた1行・お答えなしはたたむ・承認のボタンは下に貼り付く */

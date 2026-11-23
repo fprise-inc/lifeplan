@@ -69,8 +69,8 @@ function EditBox({ row, onDone, onCancel }: { row: ReviewRow; onDone: (text: str
       <button type="submit" class="btn small">
         入れる
       </button>
-      <button type="button" class="link-btn" onClick={onCancel}>
-        やめる
+      <button type="button" class="link-btn" onClick={onCancel} data-rv-edit-cancel>
+        キャンセル
       </button>
       {err !== null ? (
         <span class="hh-err" role="alert">
