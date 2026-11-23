@@ -16,8 +16,8 @@ import { full, modelHousehold, preview, screenTotals, screenYears } from "./help
 
 const REPO = join(import.meta.dirname, "..", "..");
 const FIXTURE = join(REPO, "crates", "lifeplan", "tests", "fixtures", "prepare", "expected.json");
-/** 夢プランの見本の世帯（計算に入れない夢がある。0103 の追記 2026-11-12） */
-const DREAM_SAMPLE = "sampleFamilyDreams";
+/** 夢プランの見本の世帯と、計算に入れない夢の数（0103 の追記 2026-11-12。教育費のピークの見本は 2026-11-23 に足した） */
+const DREAM_SAMPLES: Record<string, number> = { sampleFamilyDreams: 3, sampleCoupleTwoKidsPeak: 5 };
 
 // 画面と同じく、事務所データを読んで今の事務所の値にする（App.tsx の putOfficeSettings）。テストの後は事務所の値を外す
 const useOffice = (estimates: OfficeEstimates | null) => publishOfficeSettings(readOfficeSettings(estimates === null ? {} : { estimates }));
@@ -107,7 +107,7 @@ describe("AI接続口の計算の前の処理（0184）", () => {
 
   it("どのモデル世帯（見本の世帯）にも、当てても要求は変わらない（見本に事務所の値は無く、計算に入れない物も無い。夢プランの見本は下で見る）", () => {
     const dir = join(REPO, "data", "modelHouseholds");
-    const ids = readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)).filter((x) => x !== DREAM_SAMPLE);
+    const ids = readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)).filter((x) => DREAM_SAMPLES[x] === undefined);
     expect(ids.length).toBeGreaterThan(10);
     for (const x of ids) {
       const req = modelHousehold(x);
@@ -117,10 +117,10 @@ describe("AI接続口の計算の前の処理（0184）", () => {
     }
   });
 
-  it("夢プランの見本（計算に入れない夢が3件ある）では、その3件の夢だけを外し、ほかは変えない（画面と同じ。0103）", () => {
-    const req = modelHousehold(DREAM_SAMPLE);
+  it.each(Object.entries(DREAM_SAMPLES))("夢の入った見本（%s。計算に入れない夢が %i 件ある）では、その夢だけを外し、ほかは変えない（画面と同じ。0103）", (id, n) => {
+    const req = modelHousehold(id);
     const off = (req.input.household.periodicExpenses ?? []).filter((p) => p.kind === "dream" && p.dream?.include === false).map((p) => p.id);
-    expect(off).toHaveLength(3);
+    expect(off).toHaveLength(n);
     const got = prepared(req, null);
     expect(got.applied.offDreams).toEqual(off);
     expect(Object.entries(got.applied).filter(([k]) => k !== "offDreams").every(([, l]) => l.length === 0)).toBe(true);
