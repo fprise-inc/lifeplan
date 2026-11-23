@@ -111,7 +111,11 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
     [...s.households.entries()].some(([k, e]) => k !== except && e.label.sample !== undefined && nameKey(e.label.sample.name) === nameKey(name)) || reserved.some((r) => nameKey(r) === nameKey(name));
   const validShape = (family: number, age: number) => family >= 1 && family <= 5 && age >= 2 && age <= 7;
   // 見えない文字（幅の無い空白・向きの制御など）の入った名前は作れない（本体と同じ。0247 の1）
-  const validName = (n: string) => n.trim() === n && n !== "" && [...n].length <= 40 && !/[\u0000-\u001f\u007f-\u009f\u00ad\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/.test(n);
+  const hidden = (c: string) => {
+    const p = c.codePointAt(0) ?? 0;
+    return p < 0x20 || (p >= 0x7f && p <= 0x9f) || p === 0xad || p === 0x180e || (p >= 0x200b && p <= 0x200f) || (p >= 0x202a && p <= 0x202e) || (p >= 0x2060 && p <= 0x206f) || p === 0xfeff;
+  };
+  const validName = (n: string) => n.trim() === n && n !== "" && [...n].length <= 40 && ![...n].some(hidden);
   const newSample = (raw: string | undefined, reservedRaw: string | undefined): DevLabel | string => {
     const r = JSON.parse(raw ?? "null") as { family: number; age: number; name: string; traits: string[]; origin?: { set: string; id: string; rev: number } } | null;
     if (r === null || !validShape(r.family, r.age) || !validName(r.name)) return "E_STORE_SAMPLE";
