@@ -43,11 +43,15 @@ pub const STATEMENT_DICT_FORMAT: &str = "lifeplan.statementDictionary";
 /// - MINOR だけが新しいファイルは読んで使い、名簿・世帯の札を書き直すときは**知らない欄を残す**（`extra`）。
 ///   世帯ファイルと違って閲覧だけにしないのは、名簿と札は事務所の全員が書くため（1人が更新しただけで全員の承認・保存が止まらないように）。
 /// - 暗号の見出し（平文）と世帯の鍵の札・開いている印の本文は、書くたびに作り直すので知らない欄を残さない。そこに欄を足すときは MAJOR を上げる。
-pub const SHARED_FORMAT_VERSION: &str = "0.1";
+pub const SHARED_FORMAT_VERSION: &str = "0.2";
 
 /// これまでの共有フォルダの形式の版（古い順）。消さない。版ごとに `tests/fixtures/shared-format/<版>/` の見本がある
 /// - 0.1: 最初の版（2026-10-19。0023・0024・0033 の番号の中身・0034 の明細の辞書）
-pub const SHARED_KNOWN: &[&str] = &["0.1"];
+/// - 0.2: 世帯の札の見本 `sample` を、見本番号 `no` の代わりに家族の形 `family`・本人の年代 `age`（と任意の `origin`・`changed`）を持つ形にした。
+///   見本の札の表示の番号 `customerNo` は空（0247 の1）。前の形の見本の札は、読むときにメモリの中で直し（家族の形・年代を番号から読み、
+///   名前の重なりに内部ID の順で「（2）」を付ける）、札を書き直すときに新しい形で書く（開いただけでは書き換えない。0247 の8）。
+///   0.1 のアプリは `no` の無い見本の札を読めないので、その見本は古いアプリの一覧に出ない（消えたわけではない）
+pub const SHARED_KNOWN: &[&str] = &["0.1", "0.2"];
 
 /// 共有フォルダのファイルの形式の版を確かめる（形が違えば壊れている、MAJOR が新しければ使わない）
 pub fn check_shared_version(v: &str) -> Result<(), StoreError> {
@@ -828,6 +832,28 @@ pub fn encode_card(
     master_key_id: &str,
     household_id: &str,
     card: &Card,
+    master: &[u8; KEY_LEN],
+) -> Vec<u8> {
+    seal_small(
+        CARD_MAGIC,
+        CARD_FORMAT,
+        purpose::HOUSEHOLD_CARD,
+        office_id,
+        master_key_id,
+        household_id,
+        None,
+        card,
+        master,
+    )
+}
+
+/// 試験用: 世帯の札の中身（JSON）をそのまま暗号化する（前の版のアプリが書いた札の代わり）
+#[doc(hidden)]
+pub fn encode_card_json_for_test(
+    office_id: &str,
+    master_key_id: &str,
+    household_id: &str,
+    card: &Value,
     master: &[u8; KEY_LEN],
 ) -> Vec<u8> {
     seal_small(

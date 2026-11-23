@@ -1,4 +1,4 @@
-//! 顧客番号の区分と通し番号、見本の番号（0033）。
+//! 顧客番号の区分と通し番号、見本の中身の説明（0033・0247）。
 //!
 //! - 顧客番号は「区分の記号＋通し番号」（例 `A0042`）。区分の記号は英大文字1〜2字で、既定は A（顧問契約）・B（単発相談）・C（見込み客）。
 //!   記号と名前は FP が設定で足す・変える。通し番号は一度付けたら変えず、使い回さない（事務所で共有しているときは事務所全体で1本）。
@@ -7,8 +7,9 @@
 //! - 自分の番号体系を持つ FP 向けに、自由な番号（英数字・ハイフン・下線の16字。0012）も入れられる。自由な番号は区分を変えても付け替えない。
 //! - 今までの「PCの接頭辞＋連番」の番号（接頭辞は A〜Z）は、番号の中身の欄が無いので自由な番号として読む。接頭辞が区分の記号と同じ
 //!   （`A0001` など）でも、形だけを見て体系の番号とは読まない。
-//! - 見本の世帯は顧客番号を持たず、見本番号「家族の形-年代-順番」（例 `3-4-01`）を持つ。順番 01〜09 はアプリに入っている見本、
-//!   10〜 は FP が作った見本。
+//! - 見本の世帯は顧客番号も番号も持たない（0247 の1。表示の番号は空）。名前（同じ棚とアプリのセットの見本の中で重ならない）・
+//!   家族の形・本人の年代・絞り込みの項目で探す。前の見本番号（「家族の形-年代-順番」。例 `3-4-01`）は、前の形の一覧の欄と
+//!   0.86 までの世帯ファイルを読むとき（移行）にだけ読む。
 
 use serde::{Deserialize, Serialize};
 
@@ -29,10 +30,8 @@ pub const MAX_SAMPLE_NAME: usize = 40;
 /// 見本の絞り込みの項目の数と長さの上限
 pub const MAX_TRAITS: usize = 12;
 pub const MAX_TRAIT: usize = 12;
-/// FP が作る見本の順番の始まり（01〜09 はアプリに入っている見本）
-pub const FIRST_OWN_SAMPLE: u8 = 10;
-/// 見本の順番の上限（2桁）
-pub const MAX_SAMPLE_ORDER: u8 = 99;
+/// 見本のセットの ID・セットの中の見本の ID の長さの上限（0247 の3）
+pub const MAX_ORIGIN_ID: usize = 64;
 
 /// 区分（記号と名前）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,17 +62,83 @@ pub struct CategoryEdit {
     pub name: String,
 }
 
-/// 見本の中身の説明（見本番号・名前・絞り込みの項目）
+/// 見本の出どころ（セットの見本を直した版のときだけ持つ。0247 の1・5）。`set` はセットの ID（`作成者.名前`）、
+/// `id` はそのセットの中の見本の ID、`rev` はセットの定義が持つ見本の中身の版（無ければ 0）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SampleOrigin {
+    pub set: String,
+    pub id: String,
+    #[serde(default)]
+    pub rev: u32,
+}
+
+/// 見本の中身の説明（0247 の1）。一覧の欄（PC の中の事務所データ・共有フォルダの世帯の札）の `sample` と、
+/// 世帯ファイルの `meta.sample`（`changed` を除く）で同じ形。
+/// 前の形（見本番号 `no` を持ち、家族の形・年代を持たない）も読む。家族の形・年代は番号から読み（読めなければ 3・4）、番号は書かない
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", from = "SampleInfoRead")]
 pub struct SampleInfo {
-    pub no: String,
     pub name: String,
     #[serde(default)]
     pub traits: Vec<String>,
+    /// 家族の形（1 単身・2 夫婦のみ・3 夫婦と子・4 ひとり親・5 シニア）
+    pub family: u8,
+    /// 本人の年代（2〜7）
+    pub age: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<SampleOrigin>,
+    /// 最初の状態から変わっているか（無ければ false。0247 の6）
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub changed: bool,
+    /// 前の形で読んだときの見本番号（移行の印。書かない。0247 の8）
+    #[serde(skip)]
+    pub legacy_no: Option<String>,
 }
 
-/// 見本を作る・登録するときの指定（家族の形 1〜5・本人の年代 2〜7・名前・絞り込みの項目）
+/// 読むときの形（前の形の `no` も受け付ける）
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SampleInfoRead {
+    #[serde(default)]
+    no: Option<String>,
+    name: String,
+    #[serde(default)]
+    traits: Vec<String>,
+    #[serde(default)]
+    family: Option<u8>,
+    #[serde(default)]
+    age: Option<u8>,
+    #[serde(default)]
+    origin: Option<SampleOrigin>,
+    #[serde(default)]
+    changed: bool,
+}
+
+impl From<SampleInfoRead> for SampleInfo {
+    fn from(r: SampleInfoRead) -> SampleInfo {
+        let from_no = r.no.as_deref().and_then(parse_sample_no);
+        SampleInfo {
+            name: r.name,
+            traits: r.traits,
+            family: r.family.or(from_no.map(|x| x.0)).unwrap_or(3),
+            age: r.age.or(from_no.map(|x| x.1)).unwrap_or(4),
+            origin: r.origin,
+            changed: r.changed,
+            // 新しい形の欄（家族の形）があれば移行は済んでいる
+            legacy_no: if r.family.is_none() { r.no } else { None },
+        }
+    }
+}
+
+impl SampleInfo {
+    /// 前の形（見本番号つき）で読んだ一覧の欄か
+    pub fn is_legacy(&self) -> bool {
+        self.legacy_no.is_some()
+    }
+}
+
+/// 見本を作る・登録するときの指定（名前・絞り込みの項目・家族の形 1〜5・本人の年代 2〜7・セットの見本を直した版なら出どころ）
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SampleRequest {
@@ -82,12 +147,14 @@ pub struct SampleRequest {
     pub name: String,
     #[serde(default)]
     pub traits: Vec<String>,
+    #[serde(default)]
+    pub origin: Option<SampleOrigin>,
 }
 
 /// 世帯の番号の中身（一覧の札・事務所データに持つ）。
 /// - 体系の番号: `serial` があり、表示の番号は `記号＋通し番号[-枝番]`。区分を使わないときは `category` が無く、表示の番号は通し番号だけ（`0001`）
 /// - 自由な番号: `serial` が無い（`category` はあってもよい。区分で絞り込むため）
-/// - 見本: `sample` がある（顧客番号を持たない。表示の番号は見本番号）
+/// - 見本: `sample` がある（顧客番号を持たない。表示の番号は空。0247）
 /// - 架空の世帯: `fictional` が true（顧客の一覧に「架空」の印つきで出る。番号の付け方はお客さまの世帯と同じ）
 ///
 /// 欄の無い古い札・事務所データは、区分なしの自由な番号として読む（今までの「PCの接頭辞＋連番」の番号は壊さない。
@@ -163,7 +230,7 @@ pub fn format_no(code: &str, serial: u32, branch: Option<&str>) -> String {
 
 /// 体系の番号として読めるか（記号が区分にあるときだけ）。`A42` も `A0042` と読む。
 /// 区分を使わないとき（区分が空）は、数字だけ（`42`・`0042-1`）を区分なしの通し番号と読む（区分の記号は None）。
-/// FP が入れた番号を読むときだけに使う（保存してある古い番号を読み直すのには使わない。`label_from_no`）
+/// FP が入れた番号を読むときだけに使う（保存してある古い番号を読み直すのには使わない。`label_from_meta`）
 pub fn parse_structured(
     s: &str,
     categories: &[Category],
@@ -202,13 +269,8 @@ pub fn parse_structured(
     ))
 }
 
-/// 見本番号（`3-4-01`）
-pub fn sample_no(family: u8, age: u8, order: u8) -> String {
-    format!("{family}-{age}-{order:02}")
-}
-
-/// 見本番号を読む（家族の形・年代・順番）
-pub fn parse_sample_no(s: &str) -> Option<(u8, u8, u8)> {
+/// 前の見本番号（`3-4-01`）を読む（家族の形・年代・順番）。前の形の一覧の欄と 0.86 までの世帯ファイルを読むときだけ使う（0247 の8）
+pub(crate) fn parse_sample_no(s: &str) -> Option<(u8, u8, u8)> {
     let b = s.as_bytes();
     if b.len() != 6 || b[1] != b'-' || b[3] != b'-' {
         return None;
@@ -220,15 +282,53 @@ pub fn parse_sample_no(s: &str) -> Option<(u8, u8, u8)> {
         .then_some((family, age, order))
 }
 
+/// 家族の形の言葉（前の見本番号の世帯ファイルから一覧を作り直すときの仮の名前に使う）
+fn family_text(family: u8) -> &'static str {
+    match family {
+        1 => "単身",
+        2 => "夫婦のみ",
+        3 => "夫婦と子",
+        4 => "ひとり親",
+        _ => "シニア",
+    }
+}
+
+/// セットの ID・見本の ID の書式（英字で始まる英数字。セットの ID は `作成者.名前` の点区切り。0004・0247 の3）
+fn valid_origin_part(s: &str, dotted: bool) -> bool {
+    let parts: Vec<&str> = s.split('.').collect();
+    !s.is_empty()
+        && s.len() <= MAX_ORIGIN_ID
+        && (if dotted {
+            parts.len() >= 2
+        } else {
+            parts.len() == 1
+        })
+        && parts.iter().all(|p| {
+            p.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+                && p.chars().all(|c| c.is_ascii_alphanumeric())
+        })
+}
+
 /// 見本の指定の検査
 pub fn check_sample_request(r: &SampleRequest) -> Result<(), StoreError> {
-    if !(1..=5).contains(&r.family)
-        || !(2..=7).contains(&r.age)
-        || !valid_text(&r.name, MAX_SAMPLE_NAME)
-    {
+    check_shape(r.family, r.age)?;
+    if !valid_text(&r.name, MAX_SAMPLE_NAME) {
         return Err(StoreError::SAMPLE);
     }
+    if let Some(o) = &r.origin {
+        if !valid_origin_part(&o.set, true) || !valid_origin_part(&o.id, false) {
+            return Err(StoreError::SAMPLE);
+        }
+    }
     check_traits(&r.traits)
+}
+
+/// 家族の形（1〜5）・本人の年代（2〜7）の検査
+pub fn check_shape(family: u8, age: u8) -> Result<(), StoreError> {
+    if !(1..=5).contains(&family) || !(2..=7).contains(&age) {
+        return Err(StoreError::SAMPLE);
+    }
+    Ok(())
 }
 
 pub fn check_traits(traits: &[String]) -> Result<(), StoreError> {
@@ -238,19 +338,34 @@ pub fn check_traits(traits: &[String]) -> Result<(), StoreError> {
     Ok(())
 }
 
-/// 同じ家族の形・年代で、FP が作る見本の次の空き番号（10〜99）
-pub fn next_sample_order<'a>(
-    family: u8,
-    age: u8,
-    used: impl IntoIterator<Item = &'a str>,
-) -> Option<u8> {
-    let taken: std::collections::HashSet<u8> = used
-        .into_iter()
-        .filter_map(parse_sample_no)
-        .filter(|(f, a, _)| *f == family && *a == age)
-        .map(|(_, _, o)| o)
-        .collect();
-    (FIRST_OWN_SAMPLE..=MAX_SAMPLE_ORDER).find(|o| !taken.contains(o))
+/// 見本の名前を比べる形（前後の空白を除き、Unicode の NFC にそろえる。0247 の1）
+pub fn sample_name_key(name: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    name.trim().nfc().collect()
+}
+
+/// 重なった名前の後ろに「（2）」「（3）」…を付けた、`taken` に無い名前（40字を超えるときは元の名前を切る。0247 の8）。
+/// 見つけた名前は `taken` に足す
+pub fn unique_sample_name(name: &str, taken: &mut std::collections::HashSet<String>) -> String {
+    let key = sample_name_key(name);
+    if !key.is_empty() && taken.insert(key.clone()) {
+        return name.trim().to_owned();
+    }
+    let base = if key.is_empty() {
+        "見本".to_owned()
+    } else {
+        key
+    };
+    for n in 2u32.. {
+        let tail = format!("（{n}）");
+        let room = MAX_SAMPLE_NAME.saturating_sub(tail.chars().count());
+        let head: String = base.chars().take(room).collect();
+        let cand = format!("{}{tail}", head.trim_end());
+        if taken.insert(sample_name_key(&cand)) {
+            return cand;
+        }
+    }
+    unreachable!("名前の候補は尽きない")
 }
 
 /// 区分の設定を当てた結果（新しい区分の一覧と、記号の付け替え（前の記号 → 新しい記号））
@@ -301,20 +416,75 @@ pub fn apply_category_edits(
     Ok((out, renames))
 }
 
-/// 世帯ファイルの本文から一覧を作り直すとき（事務所データが古い世代に戻ったなど）の番号の中身。
-/// 見本番号の形なら見本として戻す（名前は番号から仮に付ける）。それ以外は自由な番号として戻す（区分の記号の形でも体系の番号にしない）
-pub fn label_from_no(customer_no: &str) -> Label {
-    match parse_sample_no(customer_no) {
-        Some(_) => Label {
-            sample: Some(SampleInfo {
-                no: customer_no.to_owned(),
-                name: format!("見本 {customer_no}"),
-                traits: vec![],
-            }),
-            ..Label::default()
-        },
-        None => Label::default(),
+/// 世帯ファイルの本文の `meta` から一覧の欄の (表示の番号, 番号の中身) を作り直す（事務所データが古い世代に戻った・共有フォルダの
+/// 世帯の札が無いとき。0247 の1・8）。
+/// - `meta.sample` があれば見本（名前・項目・家族の形・年代・出どころがそのまま戻る。表示の番号は空）
+/// - 無くて、0.86 までのファイル（`meta.formatVersion` が 0.87 より前）で `meta.customerNo` が前の見本番号の形のときだけ、前と同じく
+///   見本として戻す（名前は「見本（夫婦と子・40代）」の形。重なりは呼ぶ側が [`unique_sample_name`] で直す）
+/// - それ以外は顧客の世帯（自由な番号。区分の記号の形でも体系の番号にしない。0.87 からのファイルの `3-4-10` も顧客番号のまま）
+pub fn label_from_meta(meta: Option<&serde_json::Value>) -> (String, Label) {
+    use serde_json::Value;
+    let text = |k: &str| meta.and_then(|m| m.get(k)).and_then(Value::as_str);
+    if let Some(v) = meta.and_then(|m| m.get("sample")).filter(|v| v.is_object()) {
+        let mut info: SampleInfo = serde_json::from_value(v.clone()).unwrap_or(SampleInfo {
+            name: String::new(),
+            traits: vec![],
+            family: 3,
+            age: 4,
+            origin: None,
+            changed: false,
+            legacy_no: None,
+        });
+        if check_shape(info.family, info.age).is_err() {
+            info.family = 3;
+            info.age = 4;
+        }
+        if !valid_text(&info.name, MAX_SAMPLE_NAME) {
+            info.name = format!("見本（{}・{}0代）", family_text(info.family), info.age);
+        }
+        if check_traits(&info.traits).is_err() {
+            info.traits = vec![];
+        }
+        // 直した版は、ファイルがある間は最初の状態から変わっている（0247 の6）
+        info.changed = info.origin.is_some();
+        info.legacy_no = None;
+        return (
+            String::new(),
+            Label {
+                sample: Some(info),
+                ..Label::default()
+            },
+        );
     }
+    let customer_no = text("customerNo").unwrap_or("");
+    let old_file = text("formatVersion")
+        .and_then(crate::migrate::parse)
+        .is_none_or(|v| v < (0, 87));
+    if old_file {
+        if let Some((family, age, _)) = parse_sample_no(customer_no) {
+            return (
+                String::new(),
+                Label {
+                    sample: Some(SampleInfo {
+                        name: format!("見本（{}・{age}0代）", family_text(family)),
+                        traits: vec![],
+                        family,
+                        age,
+                        origin: None,
+                        changed: false,
+                        legacy_no: None,
+                    }),
+                    ..Label::default()
+                },
+            );
+        }
+    }
+    let no = if crate::store::valid_customer_no(customer_no) {
+        customer_no.to_owned()
+    } else {
+        "NO-NUMBER".to_owned()
+    };
+    (no, Label::default())
 }
 
 #[cfg(test)]
@@ -379,23 +549,49 @@ mod tests {
     }
 
     #[test]
-    fn sample_numbers() {
-        assert_eq!(sample_no(3, 4, 1), "3-4-01");
+    fn old_sample_numbers_are_read_only_for_migration() {
         assert_eq!(parse_sample_no("3-4-01"), Some((3, 4, 1)));
         assert_eq!(parse_sample_no("5-7-10"), Some((5, 7, 10)));
         for s in [
-            "6-4-01", "3-1-01", "3-8-01", "3-4-00", "3-4-1", "34-01", "3-4-001",
+            "6-4-01", "3-1-01", "3-8-01", "3-4-00", "3-4-1", "34-01", "3-4-001", "",
         ] {
             assert_eq!(parse_sample_no(s), None, "{s}");
         }
-        let used = ["3-4-01", "3-4-10", "3-4-11", "3-3-12", "2-4-10"];
-        assert_eq!(next_sample_order(3, 4, used), Some(12));
-        assert_eq!(next_sample_order(3, 3, used), Some(10));
-        let full: Vec<String> = (10..=99).map(|o| sample_no(1, 2, o)).collect();
+        // 前の形の一覧の欄: 家族の形・年代は番号から読み、番号は書かない
+        let old: SampleInfo = serde_json::from_value(serde_json::json!({
+            "no": "2-6-11", "name": "研修用", "traits": ["賃貸"]
+        }))
+        .unwrap();
+        assert_eq!((old.family, old.age), (2, 6));
+        assert!(old.is_legacy());
+        assert_eq!(old.legacy_no.as_deref(), Some("2-6-11"));
+        let written = serde_json::to_value(&old).unwrap();
         assert_eq!(
-            next_sample_order(1, 2, full.iter().map(String::as_str)),
-            None
+            written,
+            serde_json::json!({"name": "研修用", "traits": ["賃貸"], "family": 2, "age": 6})
         );
+        // 読めない番号は 3・4
+        let broken: SampleInfo =
+            serde_json::from_value(serde_json::json!({"no": "x", "name": "a"})).unwrap();
+        assert_eq!((broken.family, broken.age), (3, 4));
+        // 新しい形（番号を持たない）。出どころと「変わっている」は任意
+        let new: SampleInfo = serde_json::from_value(serde_json::json!({
+            "name": "退職前後の夫婦・60代", "traits": ["会社員"], "family": 3, "age": 6,
+            "origin": {"set": "official.basic", "id": "sampleSeniorRental", "rev": 1}, "changed": true
+        }))
+        .unwrap();
+        assert!(!new.is_legacy());
+        assert_eq!(new.origin.as_ref().unwrap().rev, 1);
+        let back = serde_json::to_value(&new).unwrap();
+        assert_eq!(back["changed"], true);
+        assert!(back.get("no").is_none());
+        // 新しい形に前の番号が残っていても、移行は済んだものとして扱う
+        let both: SampleInfo = serde_json::from_value(
+            serde_json::json!({"no": "3-4-10", "name": "a", "family": 1, "age": 2}),
+        )
+        .unwrap();
+        assert!(!both.is_legacy());
+        assert_eq!((both.family, both.age), (1, 2));
     }
 
     #[test]
@@ -405,8 +601,26 @@ mod tests {
             age: 4,
             name: "夫婦と子・研修用".into(),
             traits: vec!["共働き".into()],
+            origin: None,
         };
         assert!(check_sample_request(&ok).is_ok());
+        let with_origin = SampleRequest {
+            origin: Some(SampleOrigin {
+                set: "official.corporateOwner".into(),
+                id: "sampleOwnerCompany".into(),
+                rev: 1,
+            }),
+            ..ok.clone()
+        };
+        assert!(check_sample_request(&with_origin).is_ok());
+        let origin = |set: &str, id: &str| SampleRequest {
+            origin: Some(SampleOrigin {
+                set: set.into(),
+                id: id.into(),
+                rev: 0,
+            }),
+            ..ok.clone()
+        };
         for bad in [
             SampleRequest {
                 family: 0,
@@ -425,12 +639,97 @@ mod tests {
                 ..ok.clone()
             },
             SampleRequest {
+                name: "あ".repeat(41),
+                ..ok.clone()
+            },
+            SampleRequest {
                 traits: vec!["".into()],
                 ..ok.clone()
             },
+            origin("basic", "x"),
+            origin("official.basic", "a.b"),
+            origin("official.", "x"),
+            origin("official.basic", ""),
+            origin("1x.basic", "x"),
+            origin("official.basic", "../x"),
         ] {
-            assert_eq!(check_sample_request(&bad), Err(StoreError::SAMPLE));
+            assert_eq!(
+                check_sample_request(&bad),
+                Err(StoreError::SAMPLE),
+                "{bad:?}"
+            );
         }
+    }
+
+    #[test]
+    fn sample_names() {
+        // 比べるのは前後の空白を除き NFC にそろえた形（合成済みの「が」と、か＋濁点は同じ）
+        assert_eq!(sample_name_key(" 夫婦 "), "夫婦");
+        assert_eq!(sample_name_key("か\u{3099}"), sample_name_key("が"));
+        let mut taken = std::collections::HashSet::new();
+        assert_eq!(unique_sample_name("研修用", &mut taken), "研修用");
+        assert_eq!(unique_sample_name("研修用", &mut taken), "研修用（2）");
+        assert_eq!(unique_sample_name("研修用", &mut taken), "研修用（3）");
+        assert_eq!(
+            unique_sample_name("研修用（2）", &mut taken),
+            "研修用（2）（2）"
+        );
+        // 40字を超えるときは元の名前を切る
+        let long = "あ".repeat(40);
+        let mut t = std::collections::HashSet::new();
+        unique_sample_name(&long, &mut t);
+        let second = unique_sample_name(&long, &mut t);
+        assert_eq!(second.chars().count(), 40);
+        assert!(second.ends_with("（2）"));
+    }
+
+    #[test]
+    fn labels_rebuilt_from_the_household_file() {
+        use serde_json::json;
+        let sample = json!({"name": "研修用", "traits": ["賃貸"], "family": 2, "age": 6,
+            "origin": {"set": "official.basic", "id": "sampleSeniorRental", "rev": 1}});
+        // meta.sample があれば見本（表示の番号は空・出どころつきは変わっている）
+        let (no, l) = label_from_meta(Some(&json!({"formatVersion": "0.87", "sample": sample})));
+        assert_eq!(no, "");
+        let info = l.sample.unwrap();
+        assert_eq!(
+            (info.name.as_str(), info.family, info.age),
+            ("研修用", 2, 6)
+        );
+        assert!(info.changed);
+        // 0.87 からのファイルは、前の見本番号の形の顧客番号でも顧客のまま
+        let (no, l) = label_from_meta(Some(
+            &json!({"formatVersion": "0.87", "customerNo": "3-4-10"}),
+        ));
+        assert_eq!(no, "3-4-10");
+        assert!(!l.is_sample());
+        // 0.86 までのファイルは、前の見本番号の形なら見本（仮の名前）
+        let (no, l) = label_from_meta(Some(
+            &json!({"formatVersion": "0.86", "customerNo": "3-4-10"}),
+        ));
+        assert_eq!(no, "");
+        assert_eq!(l.sample.unwrap().name, "見本（夫婦と子・40代）");
+        let (_, l) = label_from_meta(Some(&json!({"customerNo": "5-7-01"})));
+        assert_eq!(l.sample.unwrap().name, "見本（シニア・70代）");
+        // 顧客の世帯（区分の記号の形でも体系の番号にしない）・番号の無いファイル
+        for old in ["A0001", "B0042", "C0007", "Z0001"] {
+            let (no, l) =
+                label_from_meta(Some(&json!({"formatVersion": "0.86", "customerNo": old})));
+            assert_eq!((no.as_str(), l), (old, Label::default()), "{old}");
+        }
+        assert_eq!(label_from_meta(None).0, "NO-NUMBER");
+        assert_eq!(
+            label_from_meta(Some(&json!({"customerNo": "山田"}))).0,
+            "NO-NUMBER"
+        );
+        // 壊れた meta.sample でも見本のまま（顧客の一覧に出さない）
+        let (no, l) = label_from_meta(Some(
+            &json!({"formatVersion": "0.87", "customerNo": "A0001", "sample": {"family": 9}}),
+        ));
+        assert_eq!(no, "");
+        let info = l.sample.unwrap();
+        assert_eq!((info.family, info.age), (3, 4));
+        assert_eq!(info.name, "見本（夫婦と子・40代）");
     }
 
     #[test]
@@ -494,10 +793,6 @@ mod tests {
         assert_eq!(l, Label::default());
         assert_eq!(l.display(), None);
         // 今までの「PCの接頭辞＋連番」の番号は、接頭辞が既定の区分の記号（A・B・C）と同じでも体系の番号にしない
-        for old in ["A0001", "B0042", "C0007", "Z0001"] {
-            assert_eq!(label_from_no(old), Label::default(), "{old}");
-        }
-        assert!(label_from_no("3-4-10").is_sample());
         let s = Label {
             category: Some("A".into()),
             serial: Some(42),

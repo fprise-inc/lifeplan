@@ -11,7 +11,7 @@
 use std::path::{Path, PathBuf};
 
 use household_store::member::{self, MemberKeys};
-use household_store::numbering::{Category, Label};
+use household_store::numbering::{Category, Label, SampleInfo, SampleOrigin};
 use household_store::office::{self, Author, Card, HouseholdKeys, Member, Paths, Roster};
 use household_store::statement_dict::{DictionaryEntry, LearnedFormat, StatementOffice};
 use household_store::{crypto, migrate};
@@ -34,6 +34,8 @@ const MEMBER_C: &str = "0f0f0f0f-0000-4000-8000-0000000000c1";
 const MEMBER_D: &str = "0f0f0f0f-0000-4000-8000-0000000000d1";
 const MEMBER_E: &str = "0f0f0f0f-0000-4000-8000-0000000000e1";
 const HOUSEHOLD: &str = "0f0f0f0f-0000-4000-8000-000000000101";
+/// 見本の世帯（0.2 から。見本の札の形を固定する。0247）
+const SAMPLE_HOUSEHOLD: &str = "0f0f0f0f-0000-4000-8000-000000000102";
 const HOUSEHOLD_KEY: &str = "0f0f0f0f-0000-4000-8000-000000000201";
 const HOUSEHOLD_KEY_OLD: &str = "0f0f0f0f-0000-4000-8000-000000000202";
 const DEVICE: &str = "0f0f0f0f-0000-4000-8000-000000000301";
@@ -147,7 +149,11 @@ fn open_all(dir: &Path) -> Value {
     for x in &rosters {
         assert_eq!(roster_view(x), roster_view(&r));
     }
-    json!({
+    // 0.2 から: 見本の札（見本番号を持たない形。0247）
+    let sample_card = std::fs::read(p.card(SAMPLE_HOUSEHOLD))
+        .ok()
+        .map(|b| office::open_card(&b, SAMPLE_HOUSEHOLD, lookup).unwrap());
+    let mut out = json!({
         "officeFile": of,
         "roster": roster_view(&r),
         "officeCode": member::office_code(&master),
@@ -157,7 +163,11 @@ fn open_all(dir: &Path) -> Value {
         "presence": presence,
         "request": request,
         "statementDictionary": dict,
-    })
+    });
+    if let Some(c) = sample_card {
+        out["sampleCard"] = serde_json::to_value(c).unwrap();
+    }
+    out
 }
 
 #[test]
@@ -221,6 +231,16 @@ fn every_shared_format_version_has_a_fixture_and_opens() {
         )
         .unwrap();
         assert_eq!(c2, c, "{v}: 世帯の札の書き直し");
+        // 0.2 から: 見本の札は見本番号・表示の番号を持たず、家族の形・年代・出どころを持つ（0247）
+        if migrate::parse(v).unwrap() >= (0, 2) {
+            let sc = &got["sampleCard"];
+            assert_eq!(sc["customerNo"], "", "{v}: 見本の表示の番号は空");
+            assert!(sc["sample"].get("no").is_none(), "{v}: 見本番号を持たない");
+            assert_eq!(sc["sample"]["family"], 3);
+            assert_eq!(sc["sample"]["origin"]["set"], "official.basic");
+        } else {
+            assert!(got.get("sampleCard").is_none());
+        }
     }
 }
 
@@ -374,6 +394,40 @@ fn regenerate_shared_fixture() {
     std::fs::write(
         p.card(HOUSEHOLD),
         office::encode_card(OFFICE, MASTER_ID, HOUSEHOLD, &card, &master),
+    )
+    .unwrap();
+    // 見本の札（0.2 から。0247）: セットの見本を直した版
+    let sample_card = Card {
+        customer_no: String::new(),
+        summary: "本人・配偶者".into(),
+        created_at: "2026-11-20T10:00:00Z".into(),
+        updated_at: "2026-11-21T10:00:00Z".into(),
+        updated_by: Some(Author {
+            member_id: MEMBER_A.into(),
+            name: "見本の担当A".into(),
+        }),
+        generation: 2,
+        label: Label {
+            sample: Some(SampleInfo {
+                name: "退職前後の夫婦・60代".into(),
+                traits: vec!["会社員".into(), "持ち家".into()],
+                family: 3,
+                age: 6,
+                origin: Some(SampleOrigin {
+                    set: "official.basic".into(),
+                    id: "sampleSeniorRental".into(),
+                    rev: 1,
+                }),
+                changed: true,
+                legacy_no: None,
+            }),
+            ..Label::default()
+        },
+        extra: Default::default(),
+    };
+    std::fs::write(
+        p.card(SAMPLE_HOUSEHOLD),
+        office::encode_card(OFFICE, MASTER_ID, SAMPLE_HOUSEHOLD, &sample_card, &master),
     )
     .unwrap();
     let presence = office::Presence {

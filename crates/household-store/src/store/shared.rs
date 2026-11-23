@@ -207,7 +207,19 @@ impl Shared {
         self.roster.master_for(&self.master, master_key_id)
     }
 
+    /// 世帯の札を読む。前の形の見本の札（見本番号つき。0247 の8）は、ほかの札と合わせてメモリの中で新しい形に直した物を返す
+    /// （名前の重なりの番号が [`Shared::list_cards`] と同じになるように）。共有フォルダは書き換えない
     pub(super) fn read_card(&self, id: &str) -> Result<Card, StoreError> {
+        let c = self.read_card_raw(id)?;
+        if c.label.sample.as_ref().is_some_and(|x| x.is_legacy()) {
+            if let Some((_, c)) = self.list_cards().into_iter().find(|(k, _)| k == id) {
+                return Ok(c);
+            }
+        }
+        Ok(c)
+    }
+
+    fn read_card_raw(&self, id: &str) -> Result<Card, StoreError> {
         let bytes = match fs::read(self.paths.card(id)) {
             Ok(b) => b,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -230,7 +242,9 @@ impl Shared {
         Ok(())
     }
 
-    /// 世帯の札の一覧（開けないものは出さない）
+    /// 世帯の札の一覧（開けないものは出さない。内部ID の順）。前の形の見本の札（見本番号つき）は、メモリの中で新しい形に直す
+    /// （表示の番号を空にし、名前が新しい形の見本と重なれば「（2）」を付ける。重なりの番号は内部ID の順で、どの PC でも同じ。0247 の8）。
+    /// 共有フォルダは書き換えない（その世帯を保存する・名前を直すなどで札を書き直すときに新しい形になる）
     pub(super) fn list_cards(&self) -> Vec<(String, Card)> {
         let mut out = vec![];
         if let Ok(rd) = fs::read_dir(self.paths.cards_dir()) {
@@ -239,12 +253,13 @@ impl Shared {
                 let Some(id) = name.strip_suffix(".lpcd").filter(|i| crypto::is_uuid(i)) else {
                     continue;
                 };
-                if let Ok(c) = self.read_card(id) {
+                if let Ok(c) = self.read_card_raw(id) {
                     out.push((id.to_owned(), c));
                 }
             }
         }
         out.sort_by(|a, b| a.0.cmp(&b.0));
+        normalize_legacy_cards(&mut out);
         out
     }
 
@@ -713,6 +728,33 @@ fn usage_of(r: &Roster) -> &'static str {
         office::USAGE_PERSONAL
     } else {
         office::USAGE_OFFICE
+    }
+}
+
+/// 前の形の見本の札を新しい形にそろえる（[`Shared::list_cards`]。`cards` は内部ID の順）
+fn normalize_legacy_cards(cards: &mut [(String, Card)]) {
+    let legacy = |c: &Card| c.label.sample.as_ref().is_some_and(|x| x.is_legacy());
+    if !cards.iter().any(|(_, c)| legacy(c)) {
+        return;
+    }
+    let mut taken: std::collections::HashSet<String> = cards
+        .iter()
+        .filter(|(_, c)| !legacy(c))
+        .filter_map(|(_, c)| c.label.sample.as_ref())
+        .filter(|x| x.origin.is_none())
+        .map(|x| crate::numbering::sample_name_key(&x.name))
+        .collect();
+    for (_, c) in cards.iter_mut() {
+        if !legacy(c) {
+            continue;
+        }
+        c.customer_no = String::new();
+        if let Some(info) = c.label.sample.as_mut() {
+            info.legacy_no = None;
+            if info.origin.is_none() {
+                info.name = crate::numbering::unique_sample_name(&info.name, &mut taken);
+            }
+        }
     }
 }
 
@@ -1679,23 +1721,9 @@ impl Store {
                 label: c.label,
             },
             Err(_) => {
+                // 札が無いときは世帯ファイルの meta から作り直す（見本かどうかは meta.sample。0247 の1）
                 let v: Value = serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)?;
-                let text = |k: &str| {
-                    v.pointer(&format!("/meta/{k}"))
-                        .and_then(Value::as_str)
-                        .map(str::to_owned)
-                };
-                let saved = text("savedAt").unwrap_or_default();
-                let customer_no = text("customerNo")
-                    .filter(|c| valid_customer_no(c))
-                    .unwrap_or_else(|| "NO-NUMBER".into());
-                CatalogEntry {
-                    label: crate::numbering::label_from_no(&customer_no),
-                    customer_no,
-                    summary: String::new(),
-                    created_at: saved.clone(),
-                    updated_at: saved,
-                }
+                super::catalog_from_body(&v)
             }
         };
         let (key_id, k) = s.vault.insert_new(&s.master, id);
@@ -2186,7 +2214,11 @@ impl Store {
                     .map(|e| e.summary.clone())
                     .unwrap_or_default(),
             };
-            let carry = MetaCarry::from_meta(cv.get("meta"));
+            let mut carry = MetaCarry::from_meta(cv.get("meta"));
+            // 本体が持つ区画（自分で作った見本の最初の状態。0247 の6）は、残すこちらの中身の物を持ち越す
+            carry.sample_initial = serde_json::from_slice::<Value>(&plain)
+                .ok()
+                .and_then(|v| v.get(super::SAMPLE_INITIAL).cloned());
             if let Some(st) = g.opened.get_mut(id) {
                 st.parent_revision = crypto::digest(&current);
                 st.generation = ch.generation;
@@ -2261,6 +2293,31 @@ impl Store {
 
     /// 試験用: 共有フォルダの、自分の開いている印を書き直す（時計を進めた後の確かめ）
     #[doc(hidden)]
+    /// 試験用: 共有フォルダの世帯の札の中身（JSON）を読む・そのまま書く（前の版のアプリが書いた札の代わり）
+    #[doc(hidden)]
+    pub fn card_json_for_test(&self, id: &str) -> Result<Value, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let sh = s.shared.as_ref().ok_or(StoreError::OFFICE_STATE)?;
+        serde_json::to_value(sh.read_card_raw(id)?).map_err(|_| StoreError::IO)
+    }
+
+    #[doc(hidden)]
+    pub fn write_card_json_for_test(&self, id: &str, card: &Value) -> Result<(), StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let sh = s.shared.as_ref().ok_or(StoreError::OFFICE_STATE)?;
+        let bytes = office::encode_card_json_for_test(
+            &sh.office_id,
+            &sh.roster.master_key_id,
+            id,
+            card,
+            &sh.master,
+        );
+        atomic::replace_no_prev(&sh.paths.card(id), &bytes)?;
+        Ok(())
+    }
+
     pub fn shared_root_for_test(&self) -> Option<PathBuf> {
         let mut g = self.lock();
         let s = Self::session(&mut g).ok()?;

@@ -37,7 +37,7 @@ const cardText = (p: Page, card: string) => p.eval<string>(`return w.all("button
 /** パネルの中の欄の今の値（欄の名前で探す。nth は同じ名前の何番目か） */
 const fieldValue = (p: Page, label: string, nth = 0) => p.eval<string>(`const f = w.all(".fld", w.panel()).filter((x) => w.txt(x).startsWith(${JSON.stringify(label)}))[${nth}]; return f?.querySelector("input,select")?.value ?? "（欄なし）"`);
 
-/** 上の帯の世帯の名前（「見本 3-4-01 …▼」「0001 …▼」）を押して、世帯を選ぶ画面を開く。開いた直後は描き直しで外れることがあるので、開くまで押し直す */
+/** 上の帯の世帯の名前（「見本「会社員の夫婦と子2人」…▼」「0001 …▼」）を押して、世帯を選ぶ画面を開く。開いた直後は描き直しで外れることがあるので、開くまで押し直す */
 async function openPicker(p: Page): Promise<void> {
   // 前の世帯の途中で落ちたときに開いたままのパネルを閉じる（入れかけの変更は捨てる）
   if (await p.eval<boolean>("return !!w.panel()")) {
@@ -68,11 +68,11 @@ export async function newHousehold(p: Page): Promise<void> {
   await p.until(`w.all("button").some((b) => w.txt(b).startsWith("家族"))`, "入力のホーム");
 }
 
-/** 見本の棚の世帯を開く（見本番号で） */
-export async function openSample(p: Page, no: string): Promise<void> {
+/** 見本の棚の世帯を開く（見本の名前で。見本は番号を持たない。0247）。行は名前で始まる */
+export async function openSample(p: Page, name: string): Promise<void> {
   await openPicker(p);
   await p.click("見本（", { within: "dialog" });
-  await p.click("開く", { within: "dialog", row: no, exact: true });
+  await p.click("開く", { within: "dialog", row: name, exact: true });
   await p.click("入力", { exact: true });
   await p.until(`w.all("button").some((b) => w.txt(b).startsWith("家族"))`, "入力のホーム");
 }
