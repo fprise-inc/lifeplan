@@ -21,7 +21,7 @@
 .hh-trait.on { border-color: var(--prop); background: var(--prop-bg); color: var(--ink); font-weight: 700; }
 .hh-tags { display: inline-flex; flex-wrap: wrap; gap: 3px; }
 .hh-tag { font-size: 0.75rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--ink-2); white-space: nowrap; }
-.hh-free, .hh-app { font-weight: 400; }
+.hh-free { font-weight: 400; }
 .hh-nowrap { white-space: nowrap; }
 .hh-sample-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 .hh-sample-fields input { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; width: 16em; }
@@ -34,6 +34,32 @@
 /* 見本を開いているときの帯（動かしても見本は変わらない） */
 .sample-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px dashed var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
 .hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }
+/* 一覧の行を1行にそろえる（0244）。顧客番号の右の印（架空・自由な番号）は番号の右に並べ、隣の列に重ねない。
+   幅が足りないときは、番号は折らずに印だけを番号の下へ送る（長い自由な番号で番号の欄が広がり、ほかの欄を押さないように） */
+.hh-list td:first-child { white-space: normal; }
+.hh-list td:first-child > b, .hh-list td:first-child > .hh-no-btn { white-space: nowrap; margin-right: 8px; }
+.hh-list td:first-child .hh-tags { display: inline-flex; flex-wrap: nowrap; margin: 0; vertical-align: 1px; }
+/* 幅が足りないときに折る欄（顧客の家族・開いている人、見本の名前）。行の操作の欄は折らずに残す（事務所で共有して列が増えても「開く」が隠れない） */
+.hh-list td.hh-wrap { white-space: normal; min-width: 7em; }
+/* 同期の衝突の写しの知らせは、番号の下に置く（番号の欄を広げない） */
+.hh-list td:first-child .hh-fork { display: block; margin: 2px 0 0; white-space: normal; text-align: left; }
+/* 行の操作: 「開く」（小さいボタン）か「開いています」を同じ幅の場所に置き、その右に控えめなリンク（見本は「この見本をもとに顧客を作る」）と「ほかの操作」 */
+.hh-ops { flex-wrap: nowrap; align-items: flex-start; gap: 4px 14px; white-space: nowrap; }
+.hh-open { flex: none; min-width: 5.6rem; box-sizing: border-box; text-align: center; }
+.hh-open-now { font-size: 0.8rem; font-weight: 700; color: var(--prop-ink); }
+/* ボタンの無い物（「開いています」・リンク・「ほかの操作」）は、小さいボタンと同じ高さの行の真ん中に文字を置く */
+.hh-open-now, .hh-ops > .link-btn, .hh-more-btn { min-height: 2rem; display: inline-flex; align-items: center; }
+/* 「ほかの操作」: 閉じているときは灰の文字（行の中で目立たせない）。開くと藍の太字になり、すぐ下に操作が縦に並ぶ */
+.hh-more { display: inline-grid; justify-items: start; }
+.hh-more-btn { color: var(--ink-2); font-weight: 400; }
+.hh-more-btn::after { content: "▾"; margin-left: 0.2em; }
+.hh-more-btn.on { color: var(--prop-ink); font-weight: 700; }
+.hh-more-btn.on::after { content: "▴"; }
+.hh-more-list { display: grid; justify-items: start; gap: 4px; margin: 0 0 4px; }
+.hh-more-list[hidden] { display: none; }
+.hh-more-list .link-btn { font-weight: 400; }
+/* 「ほかの操作」を開いた行は、番号・家族・日付を上にそろえる（操作の列だけが下に伸びるため） */
+.hh-list tr:has(.hh-more-list:not([hidden])) > td { vertical-align: top; }
 
 /* 復元キーの中央のパネル */
 .rk-panel { position: fixed; z-index: 50; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; background: var(--card); border-radius: 12px; border-top: 6px solid var(--prop); padding: 18px 24px 16px; box-shadow: 0 18px 48px rgba(20, 30, 50, 0.28); }
