@@ -56,6 +56,8 @@ export interface NoticeSpec {
   urgency: NoticeUrgency;
   /** 何があったか（一覧の見出し。文は text のまま） */
   title: string;
+  /** 行動が要るか（印「要対応」。種類ごとに NOTICE_TODO で決める。0245） */
+  todo: boolean;
 }
 
 export function barAlerts(i: BarInputs): AlertSpec[] {
@@ -68,6 +70,56 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
   if (i.opened && i.aiSharing) out.push({ kind: "aiSharing", text: "AIと共有中", short: "AI共有", title: "この世帯をAIに渡しています（縮約版・期限つき）。押すと、同意と共有の画面を開きます", tone: "ai" });
   return out;
 }
+
+/**
+ * 知らせの種類ごとの「要対応」（0245。利用者の判断で、推し量らず種類ごとに決める）。
+ * 要対応にするのは、FP が何かしないと困ることが残る・データを失いうる物だけ。済んだことの知らせ（「〜にしました」「〜をまとめました」）と
+ * 知らせるだけの物は付けない。ここに無い種類（新しく足した種類）は要対応にしない
+ */
+export const NOTICE_TODO: { storage: Readonly<Record<string, boolean>>; household: Readonly<Record<string, boolean>>; presence: boolean } = {
+  /** 本体の保存先・復元キー・事務所の共有の通知 */
+  storage: {
+    // 鍵が無いと世帯を開けない
+    needsRecovery: true,
+    // PC が壊れたときに世帯を戻せない
+    recoveryNotKept: true,
+    // 共有フォルダ・同期フォルダに保存できない
+    unavailable: true,
+    closed: true,
+    removed: true,
+    // 心当たりの無い人・PC なら、すぐ外す必要がある
+    recoveryJoin: true,
+    // ほかの人が開けない・このPCが壊れると失う
+    localHouseholds: true,
+    // どちらを残すか決めないと、変更が分かれたまま
+    syncCopies: true,
+    // 承認を待つだけ（相手の操作）
+    pending: false,
+    // 同僚の参加の申請は今すぐでなくてよい（1人で使う同期フォルダに置かれた申請は「重大」で出る）
+    joinRequest: false,
+  },
+  /** 世帯を開いたときの知らせ（0035 の8） */
+  household: {
+    // 古い形式のプランの変更が計算に入っていない
+    unresolvedDiffs: true,
+    // 仕送りが前の内訳に残ったまま（ほかの入力項目に足すと重ねて数える）
+    livingAllowance: true,
+    // 済んだことの知らせ（値は直してある・結果が変わることを知らせるだけ）
+    outsideFamily: false,
+    smrBlank: false,
+    neutralEstimates: false,
+    cryptoAccounts: false,
+    cryptoSeparateTax: false,
+    planEndYearShared: false,
+    livingUnknown: false,
+    unknownEstimated: false,
+    carLoanEstimated: false,
+    petTemplate: false,
+    compatibilityDropped: false,
+  },
+  /** ほかの人がこの世帯を開いている（知らせるだけ） */
+  presence: false,
+};
 
 const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", work: "働き方と収入", living: "基本生活費", input: "入力", plans: "プランの一覧" };
 
@@ -195,11 +247,11 @@ export function storageNoticeTitle(n: StorageNotice): string {
     case "removed":
       return personal ? "このPCが同期フォルダから外されました" : "事務所の共有から外されました";
     case "pending":
-      return "参加の承認を待っています";
+      return "共有に加わる承認を待っています";
     case "recoveryJoin":
       return personal ? "復元キーで PC が加わりました" : "復元キーで加わった人がいます";
     case "joinRequest":
-      return "参加の申請があります";
+      return "共有に加わる申請があります";
     case "localHouseholds":
       return "まだ移していない世帯があります";
     case "syncCopies":
@@ -219,12 +271,12 @@ export function barNotices(i: BarInputs): NoticeSpec[] {
     if ((target === "recovery" || target === "restore") && i.showing.recovery) return;
     if (target === "office" && i.showing.office) return;
     if (target === "storage" && i.showing.storage) return;
-    out.push({ id: `${n.kind}:${k}`, target, text: storageNoticeText(n), action: ACTION[target], category: "office", urgency: LEVEL[n.level] ?? "normal", title: storageNoticeTitle(n) });
+    out.push({ id: `${n.kind}:${k}`, target, text: storageNoticeText(n), action: ACTION[target], category: "office", urgency: LEVEL[n.level] ?? "normal", title: storageNoticeTitle(n), todo: NOTICE_TODO.storage[n.kind] === true });
   });
-  if (i.opened && i.stored && i.presence !== null) out.push({ id: "presence", target: "presence", text: i.presence, action: ACTION.presence, category: "office", urgency: "normal", title: "ほかの人がこの世帯を開いています" });
+  if (i.opened && i.stored && i.presence !== null) out.push({ id: "presence", target: "presence", text: i.presence, action: ACTION.presence, category: "office", urgency: "normal", title: "ほかの人がこの世帯を開いています", todo: NOTICE_TODO.presence });
   for (const n of i.opened ? (i.household ?? []) : []) {
     const t = householdNoticeText(n);
-    if (t !== null) out.push({ id: `household:${n.id}`, target: t.target, text: t.text, action: ACTION[t.target], category: "household", urgency: "normal", title: t.title });
+    if (t !== null) out.push({ id: `household:${n.id}`, target: t.target, text: t.text, action: ACTION[t.target], category: "household", urgency: "normal", title: t.title, todo: NOTICE_TODO.household[n.kind] === true });
   }
   return out;
 }

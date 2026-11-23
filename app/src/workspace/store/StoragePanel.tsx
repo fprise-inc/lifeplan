@@ -277,7 +277,7 @@ export function StoragePanel(p: StoragePanelProps) {
             {st.requests.length > 0 ? (
               <div class="of-alert" role="alert" data-sync-requests>
                 <p>
-                  <b>この同期フォルダに、参加の申請が置かれています。</b>1人で使う同期フォルダなので、承認はできません。心当たりが無ければ断り、同期フォルダの共有の設定（同期サービス側）を確かめてください。
+                  <b>この同期フォルダに、共有に加わる申請が置かれています。</b>1人で使う同期フォルダなので、承認はできません。心当たりが無ければ断り、同期フォルダの共有の設定（同期サービス側）を確かめてください。
                 </p>
                 {st.requests.map((r) => (
                   <p key={r.requestId}>

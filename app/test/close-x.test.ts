@@ -331,6 +331,37 @@ describe("画面ごと: 右上の × と Esc で閉じる", () => {
     expect(parts(h(NoticeCenter, { items: [], onRead: noop })).esc).toHaveLength(0);
   });
 
+  it("お知らせの詳しい中身: Esc は上の1つだけ（詳しい中身 → 一覧 → お知らせを閉じる。0245 の追記）。Esc は「‹ 一覧に戻る」と同じ、× はお知らせごと閉じる", () => {
+    const one = { key: "k1", category: "office" as const, urgency: "normal" as const, date: null, title: "題", body: "本文", household: null, receipts: [], action: null, todo: false, read: false };
+    const backs: VNode<Props>[] = [];
+    const prev = options.vnode;
+    options.vnode = (v) => {
+      if (v.type === "button" && "data-notice-back" in (v.props as Props)) backs.push(v as VNode<Props>);
+      prev?.(v);
+    };
+    let detail: ReturnType<typeof parts>;
+    try {
+      detail = parts(h(NoticeCenter, { items: [one], onRead: noop, initialOpen: true, initialSel: "k1" }));
+    } finally {
+      options.vnode = prev;
+    }
+    expect(detail.html).toContain('data-notice-detail="k1"');
+    expect(detail.esc).toHaveLength(1);
+    expect(detail.esc[0]?.close).toBe(backs[0]?.props.onClick);
+    expect(detail.esc[0]?.close).not.toBe(detail.xs[0]?.props.onClick);
+    // 一覧では、Esc は × と同じ（お知らせを閉じる）
+    const list = parts(h(NoticeCenter, { items: [one], onRead: noop, initialOpen: true }));
+    expect(list.html).not.toContain("data-notice-detail");
+    expect(list.esc[0]?.close).toBe(list.xs[0]?.props.onClick);
+    // 開いていた1件が一覧から無くなったときは、Esc でお知らせを閉じる
+    const gone = parts(h(NoticeCenter, { items: [], onRead: noop, initialOpen: true, initialSel: "k1" }));
+    expect(gone.esc[0]?.close).toBe(gone.xs[0]?.props.onClick);
+    // 一覧に戻ったら、開いていた行に選択を戻す
+    const src = readFileSync(join(APP_DIR, "src", "workspace", "notices", "NoticeCenter.tsx"), "utf8");
+    expect(src).toMatch(/refocus\.current = sel;/);
+    expect(src).toMatch(/getAttribute\("data-notice"\) === k\)\?\.focus\(\)/);
+  });
+
   it("FP のメニュー（項目を選ぶ一覧）は × を置かず、Esc で閉じる。入力項目を選ぶの小さな一覧も Esc の受け手として重ねる", () => {
     const menu = parts(h(FpMenu, { groups: [{ id: "notes", label: "記録", items: [{ action: "memo", label: "メモ" }] }], onPick: noop, initialOpen: true }));
     expect(menu.xs).toHaveLength(0);
