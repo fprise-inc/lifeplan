@@ -549,6 +549,20 @@ export interface StoreHost {
 // ---- AI接続口（0014・0015）。画面には鍵もパスも渡らない（接続の設定の文面は場所を伏せたもの） ----
 
 /** 共有中の世帯（仮名・顧客番号・残り時間） */
+/** まとめて渡すときに渡さなかった世帯の理由（0248） */
+export type AiBulkBlock = "refused" | "withdrawn" | "noBasis" | "sample" | "notSaved" | "readOnly" | "unreadable" | "unknown";
+
+/** まとめて渡す確かめ・結果（0248）。ready は確かめでは渡せる世帯、渡した後は渡した世帯（alias は渡した後だけ） */
+export interface AiBulkOutcome {
+  ready: { id: string; customerNo: string; basis: AiUse; alias: string | null }[];
+  already: { id: string; customerNo: string }[];
+  blocked: { reason: AiBulkBlock; households: { id: string; customerNo: string }[] }[];
+  /** 上限（共有中の世帯と合わせた数） */
+  limit: number;
+  /** いま共有中の世帯の数（この確かめ・結果の前） */
+  active: number;
+}
+
 export interface AiShareStatus {
   shareId: string;
   alias: string;
@@ -866,6 +880,12 @@ export interface AiHost {
   recordConsent(id: string, input: AiConsentInput): Promise<AiHouseholdView>;
   startShare(id: string, minutes: number, destination: string): Promise<AiHouseholdView>;
   stopShare(id: string): Promise<AiHouseholdView>;
+  /** まとめて渡す前の確かめ（世帯の一覧で選んだ世帯。共有は作らない。0248。無い本体〔開発用のブラウザ〕は使えない） */
+  bulkCheck?(ids: string[]): Promise<AiBulkOutcome>;
+  /** 選んだ世帯をまとめて渡す（1件ずつと同じ確かめ・期限・申告・記録。渡せない世帯は渡さずに理由を返す。0248） */
+  bulkStart?(ids: string[], minutes: number, destination: string): Promise<AiBulkOutcome>;
+  /** 選んだ世帯の共有をまとめて取り消す（取り消した世帯の数。0248） */
+  bulkStop?(ids: string[]): Promise<number>;
   /** AIの候補についての FP の判断（accept のときは保存したプランの ID） */
   decide(id: string, candidate: string, accept: boolean, plan: string | null): Promise<AiHouseholdView>;
   /** 読み取りの記録にした（または読めなかった）書類の候補を、本体の承認待ちから外す（0151） */
@@ -1173,6 +1193,9 @@ export function tauriHost(): HostApi {
       recordConsent: (id, input) => invoke<AiHouseholdView>("ai_consent_record", { id, input }),
       startShare: (id, minutes, destination) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination }),
       stopShare: (id) => invoke<AiHouseholdView>("ai_share_stop", { id }),
+      bulkCheck: (ids) => invoke<AiBulkOutcome>("ai_share_bulk_check", { ids }),
+      bulkStart: (ids, minutes, destination) => invoke<AiBulkOutcome>("ai_share_bulk_start", { ids, minutes, destination }),
+      bulkStop: (ids) => invoke<number>("ai_share_bulk_stop", { ids }),
       decide: (id, candidate, accept, plan) => invoke<AiHouseholdView>("ai_candidate_decide", { id, candidate, accept, plan }),
       takeDocuments: (id, candidate) => invoke<AiHouseholdView>("ai_documents_taken", { id, candidate }),
       householdCandidates: () => invoke<AiHouseholdCandidate[]>("ai_household_candidates"),

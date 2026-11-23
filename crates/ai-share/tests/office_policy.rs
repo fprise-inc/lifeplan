@@ -56,6 +56,7 @@ fn source(consent: Option<(ConsentDecision, bool)>) -> SharedHouseholdSource {
         }),
         fictional: false,
         entered: None,
+        followup: None,
     }
 }
 

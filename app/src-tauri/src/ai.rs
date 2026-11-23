@@ -7,6 +7,9 @@
 //!   判定は ai-share の `basis` の1か所。0226）。撤回すると、その世帯の共有をすぐに取り消す。
 //! - **世帯を渡す**: FPが画面で「AIに渡す」を押したときだけ、期限つきの共有を作る（既定60分・最長8時間）。渡るのは縮約版だけ
 //!   （FPのメモなどの文章は渡さない）。世帯の中身は、保存した本文（本体が復号したもの）から作る。
+//! - **まとめて渡す**（0248）: 世帯の一覧で選んだ世帯（絞り込みの結果）を、1件ずつと同じ確かめ・期限・申告・記録でまとめて渡す
+//!   （`ai_share_bulk_check`・`ai_share_bulk_start`・`ai_share_bulk_stop`）。画面で開いていない世帯は、開いた印を変えずに開いて帳面を作る
+//!   （`Store::open_unmarked`。読まれた記録を世帯ファイルへ書き戻すため）。上限は共有中の世帯と合わせて `MAX_BULK_SHARES` 件。
 //! - **記録**: 世帯ファイルの `consents`・`consentExplanations`・`aiShares`・`candidates` は本体だけが書く。画面から届いた本文に
 //!   これらの区画が入っていても使わない（ai-share の `HouseholdBook`）。読まれた記録・届いた候補は、裏の見回りが世帯ファイルへ書き戻す。
 //! - **候補**: AIの出したプランの候補は `candidates` に承認待ちで入るだけ。FPが画面で「プランとして保存」か「捨てる」を選んだ記録を残す。
@@ -33,8 +36,8 @@ use std::time::{Duration, Instant};
 use ai_share::clock::{iso8601, Clock, SystemClock};
 use ai_share::registry::ShareStatus;
 use ai_share::{
-    AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError, GrantOptions, HearingJob,
-    HearingTemplateCandidate, HouseholdAiView, HouseholdBook, HouseholdCandidate,
+    ai_use, AiUse, AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError, GrantOptions,
+    HearingJob, HearingTemplateCandidate, HouseholdAiView, HouseholdBook, HouseholdCandidate,
     HouseholdDisplayPending, Scope, ShareRegistry,
 };
 use household_store::{CreateOptions, Opened, Store, StoreError};
@@ -53,6 +56,8 @@ const RUNTIME_PLACEHOLDER: &str = "<開発用の作業フォルダ>";
 pub const DURATIONS_MIN: [u32; 5] = [15, 60, 120, 240, 480];
 /// 接続先の申告の長さの上限
 const MAX_DESTINATION_CHARS: usize = 60;
+/// まとめて AI に渡せる世帯の数の上限（選んだ世帯と、いま共有中の世帯の合計。0248 の3）
+pub const MAX_BULK_SHARES: usize = 50;
 /// 裏の見回りの間隔（期限切れを閉じる・届いた候補を入れる・記録を世帯ファイルへ書き戻す）
 const TICK: Duration = Duration::from_secs(2);
 /// 同じ中身の読み取りが続いただけ（読まれた記録の回数と最後の日時だけの変化）は、前に書いてからこの間をおいて書く
@@ -206,6 +211,17 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
             "templates": d.get("hearingTemplates").cloned().unwrap_or_else(|| serde_json::json!([])),
         }))
     })));
+    // 顧客のフォローの要約（summarize_shared_households。0248）の区分の名前（記号 → 名前。読むだけ）
+    let handle = app.clone();
+    registry.set_office_categories(Some(Arc::new(move || {
+        let c = handle.try_state::<StoreState>()?.store.categories().ok()?;
+        Some(serde_json::Value::Object(
+            c.categories
+                .into_iter()
+                .map(|c| (c.code, serde_json::Value::String(c.name)))
+                .collect(),
+        ))
+    })));
     // エラーの記録（get_error_log。0234。読むだけ。世帯の中身ではないので「AIに渡した記録」には残さず、読んだ回数をエラーの記録の中に残す）
     if let Some(path) = crate::errlog::path_of(app) {
         registry.set_error_log(Some(Arc::new(move || {
@@ -276,6 +292,8 @@ impl AiState {
                 .map_err(str::to_owned)?;
         // 架空の印は世帯の一覧の札から（本文には書かない。画面からは付けられない）
         book.fictional = o.label.fictional;
+        // 区分の記号も札から（顧客のフォローの要約だけに使う。0248）
+        book.category = o.label.category.clone();
         let mut books = lock(&self.books);
         let earlier = books
             .remove(&o.id)
@@ -380,6 +398,27 @@ impl AiState {
             p.fictional = false;
         }
         self.persist_locked(store, &mut books);
+    }
+
+    /// 区分を変えた・区分の記号を付け替えた後: 帳面の区分の記号を世帯の一覧の札に合わせ、共有中なら渡す中身を置き換える
+    /// （顧客のフォローの要約の区分。0248）。一覧を読めなければ何もしない
+    pub fn refresh_categories(&self, store: &Store) {
+        let Ok(list) = store.list() else { return };
+        let mut books = lock(&self.books);
+        for h in list {
+            let Some(e) = books.get_mut(&h.id) else {
+                continue;
+            };
+            if e.book.category == h.label.category {
+                continue;
+            }
+            e.book.category = h.label.category.clone();
+            if let Some(src) = e.book.source() {
+                for sid in self.registry.active_share_ids(&h.id) {
+                    self.registry.update_source(&sid, src.clone());
+                }
+            }
+        }
     }
 
     /// 事務所の作業フォルダ（AIの受け口の場所）。共有フォルダに選ばせない場所の1つ（0023 の8）
@@ -965,6 +1004,406 @@ pub async fn ai_share_stop(app: AppHandle, id: String) -> Result<HouseholdAiView
         view(ai, &books, &id)
     })
     .await
+}
+
+// ------------------------------------------------------------------ まとめて渡す（0248）
+
+/// まとめて渡すときに渡さなかった世帯の理由（画面は理由ごとに件数と顧客番号を出す）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BulkBlock {
+    /// お客さまが「同意しない」と答えた（0226。事務所の設定では上書きしない）
+    Refused,
+    /// お客さまが同意を撤回した
+    Withdrawn,
+    /// 同意の答えが無く、事務所のプライバシーポリシーも確かめていない
+    NoBasis,
+    /// 見本の世帯（見本の棚。AI には渡さない）
+    Sample,
+    /// 保存していない世帯
+    NotSaved,
+    /// 閲覧だけで開く世帯（AIに渡した記録を世帯ファイルに残せない）
+    ReadOnly,
+    /// 開けなかった世帯（壊れている・鍵が無い・新しい版の形式など）
+    Unreadable,
+    /// 一覧に無い世帯（消した・ほかの PC で移した）
+    Unknown,
+}
+
+impl BulkBlock {
+    fn of(u: AiUse) -> BulkBlock {
+        match u {
+            AiUse::Refused => BulkBlock::Refused,
+            AiUse::Withdrawn => BulkBlock::Withdrawn,
+            _ => BulkBlock::NoBasis,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkHousehold {
+    id: String,
+    customer_no: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkReady {
+    id: String,
+    customer_no: String,
+    /// 渡す理由（同意・事務所のプライバシーポリシー・架空の世帯）
+    basis: AiUse,
+    /// 渡した後だけ: AI に見える仮名（例「共有中の世帯A」。FP が AI の答えの仮名と顧客番号を結びつけるため）
+    alias: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkGroup {
+    reason: BulkBlock,
+    households: Vec<BulkHousehold>,
+}
+
+/// まとめて渡す確かめ・結果
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkOutcome {
+    /// 確かめ: 渡せる世帯。渡した後: 渡した世帯
+    ready: Vec<BulkReady>,
+    /// もう共有中の世帯（期限はそのまま。新しい共有は作らない）
+    already: Vec<BulkHousehold>,
+    /// 渡せない・渡さなかった世帯（理由ごと。理由の順）
+    blocked: Vec<BulkGroup>,
+    /// 上限（共有中の世帯と合わせた数）
+    limit: usize,
+    /// いま共有中の世帯の数（この確かめ・結果の前）
+    active: usize,
+}
+
+enum Eval {
+    Ready {
+        h: BulkHousehold,
+        basis: AiUse,
+        /// 画面で開いていない世帯: 開いた印を変えずに開いた中身（渡すときに帳面にする）
+        opened: Option<Box<(Opened, String)>>,
+    },
+    Already(BulkHousehold),
+    Blocked(BulkBlock, BulkHousehold),
+}
+
+/// 共有中の世帯の数（同じ世帯の共有は1つに数える）
+fn active_households(ai: &AiState) -> usize {
+    let mut ids: Vec<String> = ai
+        .registry
+        .active_shares()
+        .into_iter()
+        .map(|s| s.household_id)
+        .collect();
+    ids.sort();
+    ids.dedup();
+    ids.len()
+}
+
+/// 選んだ世帯の内部IDを、重ねずに並びのまま（空は除く）。上限を超えれば E_AI_BULK_LIMIT
+fn bulk_ids(ids: &[String]) -> Result<Vec<String>, String> {
+    let mut out: Vec<String> = Vec::new();
+    for id in ids {
+        let id = id.trim();
+        if !id.is_empty() && !out.iter().any(|x| x == id) {
+            out.push(id.to_owned());
+        }
+    }
+    if out.is_empty() {
+        return Err("E_AI_BULK_EMPTY".into());
+    }
+    if out.len() > MAX_BULK_SHARES {
+        return Err("E_AI_BULK_LIMIT".into());
+    }
+    Ok(out)
+}
+
+/// 選んだ世帯を1件ずつ確かめる（渡す理由の判定は 1件ずつと同じ ai_share::ai_use。0226）。共有は作らない
+fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval>, String> {
+    let customers = store.list().map_err(code)?;
+    let samples = store.list_samples().unwrap_or_default();
+    let policy = sync_office_policy(ai, store).is_some();
+    let mut out = Vec::with_capacity(ids.len());
+    for id in ids {
+        let Some(entry) = customers.iter().find(|e| &e.id == id) else {
+            let h = BulkHousehold {
+                id: id.clone(),
+                customer_no: samples
+                    .iter()
+                    .find(|e| &e.id == id)
+                    .map(|e| e.customer_no.clone())
+                    .unwrap_or_default(),
+            };
+            let why = if samples.iter().any(|e| &e.id == id) {
+                BulkBlock::Sample
+            } else {
+                BulkBlock::Unknown
+            };
+            out.push(Eval::Blocked(why, h));
+            continue;
+        };
+        let h = BulkHousehold {
+            id: id.clone(),
+            customer_no: entry.customer_no.clone(),
+        };
+        // 見本は顧客の一覧に入らないが、念のため札でも確かめる（見本は AI に渡さない）
+        if entry.label.is_sample() {
+            out.push(Eval::Blocked(BulkBlock::Sample, h));
+            continue;
+        }
+        if !ai.registry.active_share_ids(id).is_empty() {
+            out.push(Eval::Already(h));
+            continue;
+        }
+        // この起動で開いた世帯（画面で開いている世帯を含む）は、持っている帳面で確かめる（保存の状態を作り直さない）
+        let known = lock(&ai.books).get(id).map(|e| {
+            (
+                e.book.generation,
+                e.book.source().is_some(),
+                ai_use(e.book.consent().as_ref(), policy, e.book.fictional),
+            )
+        });
+        if let Some((generation, has_source, basis)) = known {
+            out.push(if generation == 0 {
+                Eval::Blocked(BulkBlock::NotSaved, h)
+            } else if !has_source {
+                Eval::Blocked(BulkBlock::Unreadable, h)
+            } else if !basis.allowed() {
+                Eval::Blocked(BulkBlock::of(basis), h)
+            } else {
+                Eval::Ready {
+                    h,
+                    basis,
+                    opened: None,
+                }
+            });
+            continue;
+        }
+        let Ok(o) = store.open_unmarked(id) else {
+            out.push(Eval::Blocked(BulkBlock::Unreadable, h));
+            continue;
+        };
+        if o.read_only {
+            out.push(Eval::Blocked(BulkBlock::ReadOnly, h));
+            continue;
+        }
+        let Ok((mut book, _)) =
+            HouseholdBook::from_opened(&o.id, Some(o.customer_no.clone()), o.generation, &o.body)
+        else {
+            out.push(Eval::Blocked(BulkBlock::Unreadable, h));
+            continue;
+        };
+        book.fictional = o.label.fictional;
+        let basis = ai_use(book.consent().as_ref(), policy, book.fictional);
+        out.push(if book.generation == 0 {
+            Eval::Blocked(BulkBlock::NotSaved, h)
+        } else if book.source().is_none() {
+            Eval::Blocked(BulkBlock::Unreadable, h)
+        } else if !basis.allowed() {
+            Eval::Blocked(BulkBlock::of(basis), h)
+        } else {
+            Eval::Ready {
+                h,
+                basis,
+                opened: Some(Box::new((o, entry.summary.clone()))),
+            }
+        });
+    }
+    Ok(out)
+}
+
+fn outcome(
+    ready: Vec<BulkReady>,
+    already: Vec<BulkHousehold>,
+    blocked: Vec<(BulkBlock, BulkHousehold)>,
+    active: usize,
+) -> BulkOutcome {
+    let mut groups: Vec<BulkGroup> = Vec::new();
+    let mut blocked = blocked;
+    blocked.sort_by_key(|(r, _)| *r);
+    for (reason, h) in blocked {
+        match groups.last_mut() {
+            Some(g) if g.reason == reason => g.households.push(h),
+            _ => groups.push(BulkGroup {
+                reason,
+                households: vec![h],
+            }),
+        }
+    }
+    BulkOutcome {
+        ready,
+        already,
+        blocked: groups,
+        limit: MAX_BULK_SHARES,
+        active,
+    }
+}
+
+/// まとめて渡す前の確かめ（共有は作らない。世帯ファイルにも書かない）
+pub(crate) fn bulk_check(
+    ai: &AiState,
+    store: &Store,
+    ids: &[String],
+) -> Result<BulkOutcome, String> {
+    let ids = bulk_ids(ids)?;
+    let active = active_households(ai);
+    let (mut ready, mut already, mut blocked) = (Vec::new(), Vec::new(), Vec::new());
+    for e in bulk_evaluate(ai, store, &ids)? {
+        match e {
+            Eval::Ready { h, basis, .. } => ready.push(BulkReady {
+                id: h.id,
+                customer_no: h.customer_no,
+                basis,
+                alias: None,
+            }),
+            Eval::Already(h) => already.push(h),
+            Eval::Blocked(r, h) => blocked.push((r, h)),
+        }
+    }
+    Ok(outcome(ready, already, blocked, active))
+}
+
+/// まとめて渡す（受け口の確かめの後。期限・接続先の申告・縮約版・記録は1件ずつと同じ）。渡せない世帯は渡さずに理由を返す。
+/// 共有中の世帯と合わせて上限を超えるときは、1件も渡さずに E_AI_BULK_LIMIT
+pub(crate) fn bulk_grant(
+    ai: &AiState,
+    store: &Store,
+    ids: &[String],
+    minutes: u32,
+    destination: &str,
+) -> Result<BulkOutcome, String> {
+    if !DURATIONS_MIN.contains(&minutes) {
+        return Err("E_AI_DURATION".into());
+    }
+    let destination = destination.trim().to_owned();
+    if destination.is_empty() || destination.chars().count() > MAX_DESTINATION_CHARS {
+        return Err("E_AI_DESTINATION".into());
+    }
+    let ids = bulk_ids(ids)?;
+    let active = active_households(ai);
+    let evals = bulk_evaluate(ai, store, &ids)?;
+    let new = evals
+        .iter()
+        .filter(|e| matches!(e, Eval::Ready { .. }))
+        .count();
+    if active + new > MAX_BULK_SHARES {
+        return Err("E_AI_BULK_LIMIT".into());
+    }
+    let (mut ready, mut already, mut blocked) = (Vec::new(), Vec::new(), Vec::new());
+    for e in evals {
+        let (h, opened) = match e {
+            Eval::Ready { h, opened, .. } => (h, opened),
+            Eval::Already(h) => {
+                already.push(h);
+                continue;
+            }
+            Eval::Blocked(r, h) => {
+                blocked.push((r, h));
+                continue;
+            }
+        };
+        // 画面で開いていない世帯は、ここで帳面にする（世帯ファイルの AI に渡した記録を読み込み、この後の記録を書き戻せるようにする）。
+        // 確かめの間に画面が開いていれば、そちらの帳面を使う
+        if let Some(b) = opened {
+            let (o, summary) = *b;
+            if !lock(&ai.books).contains_key(&h.id) && ai.on_opened(o, summary).is_err() {
+                blocked.push((BulkBlock::Unreadable, h));
+                continue;
+            }
+        }
+        let source = lock(&ai.books).get(&h.id).and_then(|e| e.book.source());
+        let Some(source) = source else {
+            blocked.push((BulkBlock::Unreadable, h));
+            continue;
+        };
+        if !ai.registry.active_share_ids(&h.id).is_empty() {
+            already.push(h);
+            continue;
+        }
+        match ai.registry.grant(
+            source,
+            GrantOptions {
+                scope: Scope::Reduced,
+                duration: Duration::from_secs(u64::from(minutes) * 60),
+                destination_declared: destination.clone(),
+                proceed_without_consent: false,
+            },
+        ) {
+            Ok(g) => ready.push(BulkReady {
+                id: h.id,
+                customer_no: h.customer_no,
+                basis: g.basis,
+                alias: Some(g.alias),
+            }),
+            Err(GrantError::ConsentMissing { state }) => {
+                let why = match state.as_str() {
+                    "refused" => BulkBlock::Refused,
+                    "withdrawn" => BulkBlock::Withdrawn,
+                    _ => BulkBlock::NoBasis,
+                };
+                blocked.push((why, h));
+            }
+            Err(GrantError::BadDuration) => return Err("E_AI_DURATION".into()),
+            Err(GrantError::DestinationMissing) => return Err("E_AI_DESTINATION".into()),
+            Err(GrantError::NotAddable(_)) => return Err("E_AI_SCOPE".into()),
+        }
+    }
+    let mut books = lock(&ai.books);
+    ai.persist_locked(store, &mut books);
+    Ok(outcome(ready, already, blocked, active))
+}
+
+/// まとめて取り消す（選んだ世帯の共有をすべて。即時）。取り消した世帯の数を返す
+pub(crate) fn bulk_revoke(ai: &AiState, store: &Store, ids: &[String]) -> usize {
+    let mut n = 0;
+    for id in ids.iter().take(MAX_BULK_SHARES * 20) {
+        let mut any = false;
+        for sid in ai.registry.active_share_ids(id) {
+            any |= ai.registry.revoke(&sid);
+        }
+        n += usize::from(any);
+    }
+    let mut books = lock(&ai.books);
+    ai.persist_locked(store, &mut books);
+    n
+}
+
+/// まとめて渡す前の確かめ（世帯の一覧で選んだ世帯。渡せる世帯・もう共有中の世帯・渡せない世帯を理由ごとに。共有は作らない。0248）
+#[tauri::command]
+pub async fn ai_share_bulk_check(app: AppHandle, ids: Vec<String>) -> Result<BulkOutcome, String> {
+    blocking(app, move |ai, store| bulk_check(ai, store, &ids)).await
+}
+
+/// 選んだ世帯をまとめて AI に渡す（1件ずつと同じ確かめ・期限・申告・記録。渡せない世帯は渡さずに理由を返す。0248）
+#[tauri::command]
+pub async fn ai_share_bulk_start(
+    app: AppHandle,
+    ids: Vec<String>,
+    minutes: u32,
+    destination: String,
+) -> Result<BulkOutcome, String> {
+    blocking(app, move |ai, store| {
+        if !store.ai_connector_enabled().map_err(code)? {
+            return Err("E_AI_OFF".into());
+        }
+        ai.ensure_endpoint(store);
+        if lock(&ai.endpoint).is_none() {
+            return Err("E_AI_ENDPOINT".into());
+        }
+        bulk_grant(ai, store, &ids, minutes, &destination)
+    })
+    .await
+}
+
+/// 選んだ世帯の共有をまとめて取り消す（即時。0248）。取り消した世帯の数
+#[tauri::command]
+pub async fn ai_share_bulk_stop(app: AppHandle, ids: Vec<String>) -> Result<usize, String> {
+    blocking(app, move |ai, store| Ok(bulk_revoke(ai, store, &ids))).await
 }
 
 /// AIの候補についてのFPの判断を記録する（accept のときは、画面が保存したプランの ID）
@@ -1970,6 +2409,269 @@ mod tests {
         pc1.ai.shutdown(&pc1.store);
         let file = file_sections(&root, &secrets, &id);
         assert_eq!(file["aiShares"][0]["reads"][0]["count"], 6);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // ---------------------------------------------------------------- まとめて渡す（0248）
+
+    /// 区分を使う（A 顧問契約・B 単発相談・C 見込み客）
+    fn use_categories(p: &Pc) {
+        let edit = |code: &str, name: &str| household_store::CategoryEdit {
+            from: None,
+            code: code.into(),
+            name: name.into(),
+        };
+        p.store
+            .set_categories(&[
+                edit("A", "顧問契約"),
+                edit("B", "単発相談"),
+                edit("C", "見込み客"),
+            ])
+            .unwrap();
+    }
+
+    fn create(p: &Pc, category: Option<&str>, fictional: bool) -> String {
+        crate::store::create_household(
+            &p.store,
+            &p.ai,
+            body(),
+            "本人".into(),
+            CreateOptions {
+                category: category.map(str::to_owned),
+                sample: None,
+                fictional,
+            },
+        )
+        .unwrap()
+        .id
+    }
+
+    fn reasons(o: &BulkOutcome) -> Vec<(BulkBlock, Vec<String>)> {
+        o.blocked
+            .iter()
+            .map(|g| {
+                (
+                    g.reason,
+                    g.households.iter().map(|h| h.id.clone()).collect(),
+                )
+            })
+            .collect()
+    }
+
+    fn ready_ids(o: &BulkOutcome) -> Vec<String> {
+        o.ready.iter().map(|r| r.id.clone()).collect()
+    }
+
+    /// 渡せる世帯と渡せない世帯が混ざったとき: 渡せる世帯だけ渡し、渡せない世帯は理由ごとに返す。見本は渡さない。
+    /// 画面で開いていない世帯は、開いた印（前回開いた世帯）を変えずに開き、AIに渡した記録を世帯ファイルに残す
+    #[test]
+    fn bulk_share_mixes_shareable_and_blocked_households() {
+        let root = root("bulk-mixed");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        use_categories(&pc1);
+        let given = create(&pc1, Some("A"), false);
+        let refused = create(&pc1, Some("A"), false);
+        let withdrawn = create(&pc1, Some("A"), false);
+        let none = create(&pc1, Some("B"), false);
+        let fictional = create(&pc1, Some("C"), true);
+        pc1.record(&given, "given");
+        pc1.record(&refused, "refused");
+        pc1.record(&withdrawn, "given");
+        pc1.record(&withdrawn, "withdrawn");
+        let sample = pc1
+            .store
+            .create_with(
+                CreateRequest {
+                    body: body(),
+                    summary: "本人".into(),
+                },
+                CreateOptions {
+                    category: None,
+                    sample: Some(household_store::SampleRequest {
+                        family: 1,
+                        age: 3,
+                        name: "見本".into(),
+                        traits: vec![],
+                    }),
+                    fictional: false,
+                },
+            )
+            .unwrap()
+            .id;
+        // アプリを開き直した PC（まだどの世帯も開いていない）で、画面は「同意あり」の世帯を開いている
+        let pc2 = pc(&root, &secrets);
+        pc2.open(&given);
+        // 見本を画面で開いていても、まとめて渡す対象にはしない
+        pc2.open(&sample);
+        pc2.open(&given);
+        let last = || pc2.store.status().unwrap().last_opened;
+        assert_eq!(last().as_deref(), Some(given.as_str()));
+        let ids: Vec<String> = [
+            &given, &refused, &withdrawn, &none, &fictional, &sample, &given,
+        ]
+        .iter()
+        .map(|s| (*s).clone())
+        .collect();
+
+        // 確かめ: 共有は作らず、帳面も作らない
+        let c = bulk_check(&pc2.ai, &pc2.store, &ids).unwrap();
+        assert_eq!(ready_ids(&c), vec![given.clone(), fictional.clone()]);
+        assert_eq!(
+            reasons(&c),
+            vec![
+                (BulkBlock::Refused, vec![refused.clone()]),
+                (BulkBlock::Withdrawn, vec![withdrawn.clone()]),
+                (BulkBlock::NoBasis, vec![none.clone()]),
+                (BulkBlock::Sample, vec![sample.clone()]),
+            ]
+        );
+        assert_eq!((c.limit, c.active), (MAX_BULK_SHARES, 0));
+        assert!(pc2.ai.registry.active_shares().is_empty());
+        assert!(!lock(&pc2.ai.books).contains_key(&fictional));
+        assert_eq!(
+            last().as_deref(),
+            Some(given.as_str()),
+            "開いた印は変えない"
+        );
+
+        // 期限・申告の確かめは1件ずつと同じ
+        assert_eq!(
+            bulk_grant(&pc2.ai, &pc2.store, &ids, 7, "AIのアプリ").unwrap_err(),
+            "E_AI_DURATION"
+        );
+        assert_eq!(
+            bulk_grant(&pc2.ai, &pc2.store, &ids, 60, " ").unwrap_err(),
+            "E_AI_DESTINATION"
+        );
+        // 渡す: 渡せる世帯だけ
+        let g = bulk_grant(&pc2.ai, &pc2.store, &ids, 60, "AIのアプリ").unwrap();
+        assert_eq!(ready_ids(&g), vec![given.clone(), fictional.clone()]);
+        assert_eq!(g.ready[1].basis, AiUse::Fictional);
+        assert!(g.ready.iter().all(|r| r
+            .alias
+            .as_deref()
+            .is_some_and(|a| a.starts_with("共有中の世帯"))));
+        assert!(c.ready.iter().all(|r| r.alias.is_none()));
+        assert_eq!(g.blocked.len(), 4);
+        let shares = pc2.ai.registry.active_shares();
+        assert_eq!(shares.len(), 2);
+        assert!(shares
+            .iter()
+            .all(|s| s.household_id == given || s.household_id == fictional));
+        assert_eq!(
+            last().as_deref(),
+            Some(given.as_str()),
+            "開いた印は変えない"
+        );
+        // 開いていなかった世帯も、AIに渡した記録が世帯ファイルに残る（申告・期限も1件ずつと同じ）
+        let file = file_sections(&root, &secrets, &fictional);
+        assert_eq!(file["aiShares"][0]["destinationDeclared"], "AIのアプリ");
+        assert_eq!(file["aiShares"][0]["consentAtGrant"]["state"], "fictional");
+        // 読まれた記録も書き戻す。フォローの要約の区分は札から
+        let sid = shares
+            .iter()
+            .find(|s| s.household_id == fictional)
+            .unwrap()
+            .share_id
+            .clone();
+        let out = pc2
+            .ai
+            .registry
+            .handle_get_followup(&sid, "summarize_shared_households", &Default::default())
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["followup"]["category"], "C");
+        assert!(!out.contains(&fictional), "内部ID は渡さない");
+        pc2.ai.persist_all(&pc2.store);
+        let file = file_sections(&root, &secrets, &fictional);
+        assert_eq!(
+            file["aiShares"][0]["reads"][0]["tool"],
+            "summarize_shared_households"
+        );
+
+        // もう一度: 共有中の世帯は「もう共有中」（新しい共有は作らない）
+        let again = bulk_grant(&pc2.ai, &pc2.store, &ids, 60, "AIのアプリ").unwrap();
+        assert!(again.ready.is_empty());
+        assert_eq!(again.already.len(), 2);
+        assert_eq!(again.active, 2);
+        assert_eq!(pc2.ai.registry.active_shares().len(), 2);
+
+        // 事務所のプライバシーポリシーを確かめると、同意の答えが無い世帯も渡せる（断った・撤回した世帯は渡せない）
+        pc2.store.set_ai_privacy_policy_confirmed(true).unwrap();
+        let p = bulk_grant(&pc2.ai, &pc2.store, &ids, 60, "AIのアプリ").unwrap();
+        assert_eq!(ready_ids(&p), vec![none.clone()]);
+        assert_eq!(p.ready[0].basis, AiUse::OfficePolicy);
+        assert_eq!(
+            reasons(&p),
+            vec![
+                (BulkBlock::Refused, vec![refused.clone()]),
+                (BulkBlock::Withdrawn, vec![withdrawn.clone()]),
+                (BulkBlock::Sample, vec![sample.clone()]),
+            ]
+        );
+
+        // まとめて取り消す
+        assert_eq!(bulk_revoke(&pc2.ai, &pc2.store, &ids), 3);
+        assert!(pc2.ai.registry.active_shares().is_empty());
+        let file = file_sections(&root, &secrets, &none);
+        assert_eq!(file["aiShares"][0]["endReason"], "revoked");
+        // 空の選択・知らない世帯
+        assert_eq!(
+            bulk_check(&pc2.ai, &pc2.store, &[" ".into()]).unwrap_err(),
+            "E_AI_BULK_EMPTY"
+        );
+        let unknown = bulk_check(
+            &pc2.ai,
+            &pc2.store,
+            &["00000000-0000-4000-8000-000000000000".into()],
+        )
+        .unwrap();
+        assert_eq!(reasons(&unknown)[0].0, BulkBlock::Unknown);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 上限ちょうど（50件）は渡せ、超えると1件も渡さない（選んだ数・共有中と合わせた数のどちらも）
+    #[test]
+    fn bulk_share_limit() {
+        let root = root("bulk-limit");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        use_categories(&pc1);
+        pc1.store.set_ai_privacy_policy_confirmed(true).unwrap();
+        let ids: Vec<String> = (0..=MAX_BULK_SHARES)
+            .map(|_| create(&pc1, Some("A"), false))
+            .collect();
+        let (first, last) = ids.split_at(MAX_BULK_SHARES);
+        assert_eq!(
+            bulk_check(&pc1.ai, &pc1.store, &ids).unwrap_err(),
+            "E_AI_BULK_LIMIT"
+        );
+        assert_eq!(
+            bulk_grant(&pc1.ai, &pc1.store, &ids, 60, "AIのアプリ").unwrap_err(),
+            "E_AI_BULK_LIMIT"
+        );
+        assert!(pc1.ai.registry.active_shares().is_empty());
+        let ok = bulk_grant(&pc1.ai, &pc1.store, first, 60, "AIのアプリ").unwrap();
+        assert_eq!(ok.ready.len(), MAX_BULK_SHARES);
+        // 共有中の50件と合わせると超える
+        assert_eq!(
+            bulk_grant(&pc1.ai, &pc1.store, last, 60, "AIのアプリ").unwrap_err(),
+            "E_AI_BULK_LIMIT"
+        );
+        assert_eq!(pc1.ai.registry.active_shares().len(), MAX_BULK_SHARES);
+        // 確かめは数を返すだけ（画面が上限を出す）
+        let c = bulk_check(&pc1.ai, &pc1.store, last).unwrap();
+        assert_eq!((c.ready.len(), c.active), (1, MAX_BULK_SHARES));
+        // 1件取り消すと渡せる
+        assert_eq!(bulk_revoke(&pc1.ai, &pc1.store, &first[..1]), 1);
+        assert_eq!(
+            bulk_grant(&pc1.ai, &pc1.store, last, 60, "AIのアプリ")
+                .unwrap()
+                .ready
+                .len(),
+            1
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 }

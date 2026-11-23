@@ -163,6 +163,103 @@ fn entered_of(body: &Map<String, Value>) -> Value {
     serde_json::json!({ "confirmed": count("confirmed"), "addedItems": count("addedItems"), "assumed": assumed })
 }
 
+/// 年月日の形（YYYY-MM-DD。月の日数も見る。面談の履歴・「次回確かめる」の印の日の確かめ。画面の meetings.ts の isMeetingDate と同じ）
+fn is_date(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return false;
+    }
+    let num = |r: std::ops::Range<usize>| -> Option<u32> {
+        let t = &s[r];
+        t.bytes()
+            .all(|c| c.is_ascii_digit())
+            .then(|| t.parse().ok())
+            .flatten()
+    };
+    let (Some(y), Some(m), Some(d)) = (num(0..4), num(5..7), num(8..10)) else {
+        return false;
+    };
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let days = match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    (1..=days).contains(&d)
+}
+
+/// 顧客のフォローの要約の材料（0248）: 日付・数・区分の記号だけ。文（面談の中身・メモ・印の見出し）は読まない。
+/// 読み方は画面と同じ（面談の履歴は meetings/meetings.ts の readMeetings、印は input/recheck.ts の readRecheck、控えは snapshots の createdAt）。
+/// 形の合わない記録は数えない
+pub fn followup_of(
+    body: &Map<String, Value>,
+    category: Option<&str>,
+) -> crate::source::FollowupFacts {
+    const MAX_MEETINGS: usize = 500;
+    let str_of = |v: &Value, k: &str| v.get(k).and_then(Value::as_str).map(str::to_owned);
+    // 面談の履歴（0182）: 日の形の合う記録（同じ ID は先の1件だけ）
+    let mut seen = std::collections::BTreeSet::new();
+    let meetings: Vec<String> = body
+        .get("meetings")
+        .and_then(|m| m.get("records"))
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .take(MAX_MEETINGS)
+                .filter_map(|r| {
+                    let id = str_of(r, "id").filter(|i| !i.is_empty() && i.len() <= 64)?;
+                    let on = str_of(r, "on").filter(|d| is_date(d))?;
+                    seen.insert(id).then_some(on)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    // 「次回確かめる」の印（0072）: 形の合う印（同じ行の ID は1つ）
+    let mut ids = std::collections::BTreeSet::new();
+    let recheck = body
+        .get("household")
+        .and_then(|h| h.get("recheck"))
+        .and_then(Value::as_array)
+        .map_or(0, |a| {
+            a.iter()
+                .filter(|x| {
+                    let ok = ["card", "cardLabel", "label"]
+                        .iter()
+                        .all(|k| x.get(*k).is_some_and(Value::is_string))
+                        && str_of(x, "on").is_some_and(|d| is_date(&d));
+                    match str_of(x, "id").filter(|i| !i.is_empty()) {
+                        Some(id) if ok => ids.insert(id),
+                        _ => false,
+                    }
+                })
+                .count()
+        });
+    // 控え（0009）: 作った年月（いちばん新しいもの）
+    let last_snapshot_month = body
+        .get("snapshots")
+        .and_then(Value::as_array)
+        .and_then(|a| {
+            a.iter()
+                .filter_map(|x| str_of(x, "createdAt"))
+                .filter_map(|c| {
+                    let ym = c.get(0..7)?;
+                    is_date(&format!("{ym}-01")).then(|| ym.to_owned())
+                })
+                .max()
+        });
+    crate::source::FollowupFacts {
+        category: category
+            .filter(|c| (1..=2).contains(&c.len()) && c.bytes().all(|b| b.is_ascii_uppercase()))
+            .map(str::to_owned),
+        last_meeting_on: meetings.iter().max().cloned(),
+        meetings: meetings.len(),
+        last_snapshot_month,
+        recheck_marks: recheck,
+    }
+}
+
 /// 開いている世帯の帳面
 #[derive(Debug, Clone)]
 pub struct HouseholdBook {
@@ -171,6 +268,8 @@ pub struct HouseholdBook {
     pub generation: u64,
     /// 架空の世帯か（世帯の一覧の札の印。アプリ本体が世帯を開いたときに札から入れる。本文には書かない）
     pub fictional: bool,
+    /// 区分の記号（世帯の一覧の札から。アプリ本体が世帯を開いたとき・区分を変えたときに入れる。顧客のフォローの要約だけに使う。0248）
+    pub category: Option<String>,
     /// 画面から届いた最後の本文（アプリ本体だけが書く区画は外したもの）
     body: Map<String, Value>,
     pub consents: Vec<ConsentRecord>,
@@ -237,6 +336,7 @@ impl HouseholdBook {
                 customer_no,
                 generation,
                 fictional: false,
+                category: None,
                 body,
                 saved_consents: consents.clone(),
                 consents,
@@ -355,6 +455,7 @@ impl HouseholdBook {
             external_ai_consent: self.consent(),
             fictional: self.fictional,
             entered: Some(entered_of(&self.body)),
+            followup: Some(followup_of(&self.body, self.category.as_deref())),
         })
     }
 

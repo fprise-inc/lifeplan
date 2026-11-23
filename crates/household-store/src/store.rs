@@ -1695,6 +1695,17 @@ impl Store {
 
     /// 世帯を開く（古い形式の版は今の版へ変換する）
     pub fn open(&self, id: &str) -> Result<Opened, StoreError> {
+        self.open_marked(id, true)
+    }
+
+    /// 画面に出さずに世帯を開く（まとめて AI に渡すとき。0248）。保存のための状態（AIに渡した記録を世帯ファイルへ書き戻すのに要る）は
+    /// [`Store::open`] と同じに持つが、世帯を開いた印（前回開いた世帯・事務所の共有の「開いている」）は変えない。
+    /// 画面で開いている世帯の状態を作り直さないよう、もう開いている世帯には使わない（呼ぶ側が確かめる）
+    pub fn open_unmarked(&self, id: &str) -> Result<Opened, StoreError> {
+        self.open_marked(id, false)
+    }
+
+    fn open_marked(&self, id: &str, mark: bool) -> Result<Opened, StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
@@ -1735,14 +1746,14 @@ impl Store {
                 .and_then(Value::as_str)
                 .map(str::to_owned);
             // 新しい版の事務所データでは、最後に開いた世帯も書かない（閲覧だけ）
-            if s.data.last_opened.as_deref() != Some(id) && !s.office_too_new {
+            if mark && s.data.last_opened.as_deref() != Some(id) && !s.office_too_new {
                 s.data.last_opened = Some(id.to_owned());
                 self.write_office(s)?;
             }
             let view_only = Self::writable(s).is_err();
             let others = match &mut s.shared {
-                Some(sh) => sh.enter(id, now),
-                None => vec![],
+                Some(sh) if mark => sh.enter(id, now),
+                _ => vec![],
             };
             (
                 Opened {

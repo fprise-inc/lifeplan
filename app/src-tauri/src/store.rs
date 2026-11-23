@@ -241,7 +241,13 @@ pub async fn store_set_category(
     id: String,
     category: String,
 ) -> Result<RenameOutcome, String> {
-    blocking(app, move |s| s.set_category(&id, &category)).await
+    with_ai(app, move |s, ai| {
+        let r = s.set_category(&id, &category).map_err(code)?;
+        // 共有中なら、顧客のフォローの要約の区分を合わせる（0248）
+        ai.refresh_categories(s);
+        Ok(r)
+    })
+    .await
 }
 
 /// 自由な番号の世帯に、区分の記号＋新しい通し番号を付ける（一方向。0033）
@@ -283,7 +289,13 @@ pub async fn store_set_categories(
     app: AppHandle,
     edits: Vec<CategoryEdit>,
 ) -> Result<CategorySettings, String> {
-    blocking(app, move |s| s.set_categories(&edits)).await
+    with_ai(app, move |s, ai| {
+        let r = s.set_categories(&edits).map_err(code)?;
+        // 区分の記号を付け替えたら、顧客のフォローの要約の区分を合わせる（0248）
+        ai.refresh_categories(s);
+        Ok(r)
+    })
+    .await
 }
 
 #[tauri::command]

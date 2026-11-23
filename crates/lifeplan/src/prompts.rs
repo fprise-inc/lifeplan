@@ -210,6 +210,16 @@ pub struct CheckCoverageArgs {
     pub topic: String,
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct FollowUpArgs {
+    /// どの区分のお客さまを見るか（例「A 顧問契約」）。省くと、渡されている世帯すべて
+    pub category: Option<String>,
+    /// フォローが要るとみる目安（例「前回の面談から半年以上・資産が90歳より前に尽きる」）。省くと AI が要約から選ぶ
+    pub focus: Option<String>,
+    /// 連絡の文の用途（例「面談のお誘い」「年末の見直しのご案内」）。省くと面談のお誘い
+    pub purpose: Option<String>,
+}
+
 #[prompt_router(vis = "pub(crate)")]
 impl LifeplanMcp {
     #[prompt(
@@ -730,6 +740,34 @@ impl LifeplanMcp {
                  3. 一覧に見当たらないときは、入っていると推測せず「一覧に見当たらない」と答える。まだ入っていない物は、アプリの「要望・不具合を送る」から送れると伝える（この接続口からは送らない）。\n\
                  4. ほかのソフトとの違いを聞かれても、ほかのソフトのことは推測で断定しない（ファイナンシアの側は一覧で確かめた事実だけを書く）。",
                 a.topic.trim(),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "follow_up_clients",
+        title = "顧客のフォロー",
+        description = "FP がアプリで世帯の一覧からまとめて渡した世帯（区分 A 顧問契約など）を、summarize_shared_households の1世帯1行の要約で見て、フォローの要る世帯を理由つきで仮名で並べ、連絡の文の下書きを作る（宛名は空けて FP が入れる。AI からは送らない）"
+    )]
+    async fn follow_up_clients(&self, Parameters(a): Parameters<FollowUpArgs>) -> GetPromptResult {
+        let category = given(&a.category).map_or_else(
+            || "（指定なし。渡されている世帯すべて）".to_owned(),
+            |c| format!("{c}（要約の category の記号か名前が合う世帯だけ）"),
+        );
+        let focus = given(&a.focus).unwrap_or("（指定なし。前回の面談から長くたった・次の面談の目安を過ぎた・資産が尽きる年がある・金融資産がいちばん少ない額が小さい・「次回確かめる」の印がある・計算のお知らせが多い、のどれかに当たる世帯）");
+        let purpose = given(&a.purpose).unwrap_or("面談のお誘い");
+        result(
+            "顧客のフォロー",
+            format!(
+                "ファイナンシアの接続口で、顧客のフォローを手伝ってください。\n\
+                 - 見る世帯: {category}\n- フォローが要るとみる目安: {focus}\n- 連絡の文の用途: {purpose}\n\n\
+                 進め方:\n\
+                 1. summarize_shared_households を呼び、渡されている世帯の1世帯1行の要約（区分・前回の面談の日・次の面談の目安・「次回確かめる」の印の数・資産が尽きる年・金融資産がいちばん少ない年と額・計算のお知らせの件数）を取る。世帯が1つも無ければ、FP にアプリの世帯の一覧で区分を絞り込み「選んだ世帯をまとめてAIに渡す」をしてもらうよう伝えて止める。truncated があれば share_ids で残りも取る。\n\
+                 2. 見る区分に合う行だけを選び、目安に当たる世帯を、急ぐ順に理由つきで表にする（列: 仮名・区分・理由・前回の面談の日・次の面談の目安・主な数字）。ok が false の行は「読めなかった・計算できなかった」として別に並べ、推測で埋めない。\n\
+                 3. 理由を確かめたい世帯だけ、calculate（share_id。omit に [\"years\"]）や check_inputs で中身を見る。全部の世帯を1件ずつ読まない。\n\
+                 4. 選んだ世帯ごとに、用途に合う連絡の文の下書きを作る。宛名・お名前・メールアドレスは書かずに「（お名前）」のように空けておく。数字は丸めて、試算であること・前提しだいで変わることを添える。\n\
+                 5. FP には次を伝える: ファイナンシアはお客さまのお名前・メールアドレスを持たず、AI には顧客番号も渡していないこと。表の仮名は、アプリで渡したときに出た「顧客番号 → 仮名」の対応か共有中の帯で顧客番号と結びつけ、宛先は FP が自分の台帳で入れること。\n\
+                 AI からメールを送ったり、宛先を探したり、別の道具に世帯のデータを渡したりしない。"
             ),
         )
     }

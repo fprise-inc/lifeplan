@@ -163,7 +163,21 @@ pub struct ShareRegistry {
     hearing_issuer: Mutex<Option<HearingIssuer>>,
     office_hearing: Mutex<Option<OfficeHearingSource>>,
     error_log: Mutex<Option<ErrorLogSource>>,
+    categories: Mutex<Option<OfficeCategoriesSource>>,
 }
+
+/// 事務所の区分の名前（記号 → 名前の物。例 `{"A": "顧問契約"}`。区分を使っていなければ空の物）を読む所。アプリ本体が入れる（0248）。
+/// 顧客のフォローの要約で、区分の記号に名前を添えるためだけに使う
+pub type OfficeCategoriesSource = Arc<dyn Fn() -> Option<Value> + Send + Sync>;
+
+/// 顧客のフォローの要約の読み取りで「AIに渡した記録」に残す項目（縮約版の項目の後ろに足す。0248）
+pub const FOLLOWUP_FIELDS: [&str; 5] = [
+    "followup.category",
+    "followup.lastMeetingOn",
+    "followup.meetings",
+    "followup.lastSnapshotMonth",
+    "followup.recheckMarks",
+];
 
 /// この PC のアプリのエラーの記録を読む所（読めなければ None）。アプリ本体が入れる（0234）
 pub type ErrorLogSource = Arc<dyn Fn() -> Option<Value> + Send + Sync>;
@@ -201,6 +215,7 @@ impl ShareRegistry {
             hearing_issuer: Mutex::new(None),
             office_hearing: Mutex::new(None),
             error_log: Mutex::new(None),
+            categories: Mutex::new(None),
         }
     }
 
@@ -260,6 +275,11 @@ impl ShareRegistry {
             .office_hearing
             .lock()
             .unwrap_or_else(|p| p.into_inner()) = source;
+    }
+
+    /// 事務所の区分の名前を読む所を入れる（アプリ本体が起動したときに入れる。0248）。入れなければ、要約の区分は記号だけ
+    pub fn set_office_categories(&self, source: Option<OfficeCategoriesSource>) {
+        *self.categories.lock().unwrap_or_else(|p| p.into_inner()) = source;
     }
 
     /// 記録が変わった回数（世帯ファイルへ書き戻すかどうかの判定に使う）
@@ -1322,7 +1342,7 @@ impl ShareRegistry {
         tool: &str,
         caller: &Caller,
     ) -> Result<String, Refusal> {
-        self.get_payload(share_id, tool, caller, false)
+        self.get_payload(share_id, tool, caller, false, false)
             .map(|v| v.to_string())
     }
 
@@ -1335,15 +1355,48 @@ impl ShareRegistry {
         tool: &str,
         caller: &Caller,
     ) -> Result<String, Refusal> {
-        let mut payload = self.get_payload(share_id, tool, caller, true)?;
-        // 共有の台帳のロックを放してから読む（事務所の値を読む所は、アプリ本体の保存の部品のロックを取る）
+        let mut payload = self.get_payload(share_id, tool, caller, true, false)?;
+        payload["officeEstimates"] = self.office_estimates();
+        Ok(payload.to_string())
+    }
+
+    /// 事務所の推定の値（共有の台帳のロックを放してから読む。事務所の値を読む所は、アプリ本体の保存の部品のロックを取る）
+    fn office_estimates(&self) -> Value {
         let source = self
             .office
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .clone();
-        let office = source.and_then(|f| f()).unwrap_or(Value::Null);
-        payload["officeEstimates"] = office;
+        source.and_then(|f| f()).unwrap_or(Value::Null)
+    }
+
+    /// 顧客のフォローの要約の読み取り（summarize_shared_households。0248）: 計算に使う読み取り（`handle_get_for_calc`）と同じ返事に、
+    /// フォローの要約の材料 `followup`（区分の記号と名前・前回の面談の日・面談の数・最後の控えの年月・「次回確かめる」の印の数。
+    /// 文は入れない）を添える。AIに渡した記録には、縮約版の項目に `followup.*` の項目を足し、中身の指紋にも材料を入れて残す
+    pub fn handle_get_followup(
+        &self,
+        share_id: &str,
+        tool: &str,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let mut payload = self.get_payload(share_id, tool, caller, true, true)?;
+        payload["officeEstimates"] = self.office_estimates();
+        // 区分の名前は、ロックを放してから事務所の設定から読む（名前は事務所が決めた短い言葉。お客さまの文ではない）
+        let code = payload["followup"]["category"].as_str().map(str::to_owned);
+        let names = self
+            .categories
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone()
+            .and_then(|f| f());
+        payload["followup"]["categoryName"] = match (code, names) {
+            (Some(c), Some(n)) => n
+                .get(&c)
+                .and_then(Value::as_str)
+                .map(|s| Value::String(s.chars().take(20).collect()))
+                .unwrap_or(Value::Null),
+            _ => Value::Null,
+        };
         Ok(payload.to_string())
     }
 
@@ -1353,6 +1406,7 @@ impl ShareRegistry {
         tool: &str,
         caller: &Caller,
         for_calc: bool,
+        followup: bool,
     ) -> Result<Value, Refusal> {
         let now = self.now();
         let mut st = self.lock();
@@ -1390,7 +1444,19 @@ impl ShareRegistry {
                 payload["enteredState"] = entered_state(e, &share.pseudonyms);
             }
         }
-        let digest = content_digest(share.scope.name(), &reduced, &share.pseudonyms);
+        let mut fields = reduced.fields.clone();
+        let mut digest = content_digest(share.scope.name(), &reduced, &share.pseudonyms);
+        // 顧客のフォローの要約の材料（0248）: 返した材料を記録の項目と指紋に入れる
+        if followup {
+            let facts = share.source.followup.clone().unwrap_or_default();
+            let facts = serde_json::to_value(&facts).unwrap_or(Value::Null);
+            fields.extend(FOLLOWUP_FIELDS.iter().map(|f| (*f).to_owned()));
+            digest = format!(
+                "sha256:{:x}",
+                Sha256::digest(format!("{digest}\n{facts}").as_bytes())
+            );
+            payload["followup"] = facts;
+        }
         let household_id = share.source.household_id.clone();
         let index = share.record_index;
         if let Some(r) = st
@@ -1398,7 +1464,7 @@ impl ShareRegistry {
             .get_mut(&household_id)
             .and_then(|l| l.get_mut(index))
         {
-            r.add_read(iso8601(now), tool, &reduced.fields, &digest, caller);
+            r.add_read(iso8601(now), tool, &fields, &digest, caller);
         }
         st.revision += 1;
         Ok(payload)
