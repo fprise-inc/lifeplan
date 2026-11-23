@@ -3860,7 +3860,15 @@ mod tests {
         let (base, a, b) = office("label-only");
         let x = create(&a, None, true);
         let _ = create(&a, None, false);
-        bulk_grant(&a.ai, &a.store, std::slice::from_ref(&x), 60, "AIのアプリ").unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            std::slice::from_ref(&x),
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         let sid = a.ai.registry.active_shares()[0].share_id.clone();
         let mut w = Watch::default();
         tick_now(&a, &mut w);

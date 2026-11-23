@@ -1044,3 +1044,53 @@ fn shrinking_masks_do_not_pull_names_into_the_excerpt() {
     let out = excerpt("頭金を増やす", "源泉徴収票", &[]);
     assert!(!out.contains("…"), "{out}");
 }
+
+/// 「決めたこと」「次までにやること」に改行があっても、抜き出しは欄ごとに60字・80字で切る（0249 の3回目の点検の直し）。
+/// 改行のまわりの名前も伏せる
+#[test]
+fn excerpt_fields_with_line_breaks_are_cut_as_a_whole() {
+    use ai_share::registry::masked_text;
+    let excerpt = |decided: &str, todo: &str| {
+        let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+        v["meetings"] = json!({ "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+            "shared": { "decided": decided, "todo": todo }, "fpOnly": {} }] });
+        let (b, _) = HouseholdBook::from_opened(HOUSEHOLD_ID, None, 1, &v.to_string()).unwrap();
+        let t = b
+            .source()
+            .unwrap()
+            .texts
+            .into_iter()
+            .find(|t| t.item == "meeting.excerpt")
+            .unwrap();
+        masked_text(&t.item, &t.body, &[]).text
+    };
+    let decided = format!("1つ目\n{}\n{}", "あ".repeat(300), "い".repeat(300));
+    let todo = format!("{}\n{}", "う".repeat(300), "え".repeat(300));
+    let out = excerpt(&decided, &todo);
+    let n = out.chars().count();
+    // 見出しの行（前回の面談（2026-05-10））と見出しの言葉を足しても、60＋80字と「…」2つに収まる
+    assert!(
+        n <= "前回の面談（2026-05-10）\n決めたこと: \n次までにやること: "
+            .chars()
+            .count()
+            + 60
+            + 80
+            + 2,
+        "{n}: {out}"
+    );
+    assert_eq!(out.matches('…').count(), 2, "{out}");
+    assert!(
+        out.contains("決めたこと: 1つ目\n") && out.contains("次までにやること: "),
+        "{out}"
+    );
+    // 改行のまわりの名前
+    let out = excerpt("頭金を増やす\n田中さんに確認", "山田様へ連絡\n書類を用意");
+    assert!(!out.contains("田中") && !out.contains("山田"), "{out}");
+    assert!(
+        out.contains("（名前）さんに確認") && out.contains("（名前）様へ連絡"),
+        "{out}"
+    );
+    // 上限の外の2行目にある名前は、切って出さない
+    let out = excerpt(&format!("{}\n田中さんに確認", "お".repeat(70)), "");
+    assert!(!out.contains("田中") && !out.contains("（名前）"), "{out}");
+}

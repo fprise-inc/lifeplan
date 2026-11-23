@@ -25,19 +25,48 @@ pub fn mask_and_cut(
 ) -> Masked {
     let m = mask_names(text, words);
     let mark: Vec<char> = NAME_MARK.chars().collect();
-    let mut lines: Vec<String> = Vec::new();
-    for line in m.text.split('\n') {
-        let (label, body) = match line.find(": ") {
-            Some(p) if line[..p].chars().count() <= 20 => (&line[..p + 2], &line[p + 2..]),
-            _ => ("", line),
+    // 欄に分ける: 見出しの付いた行から欄が始まり、見出しの無い次の行（欄の中の改行）は同じ欄に入れる（上限は欄の全体にかける）。
+    // `caps` があるとき（抜き出し）は、`caps` の見出しだけを欄の始まりとみる（欄の中の「注: …」のような行で上限を外さない）
+    let label_of = |line: &str| -> Option<usize> {
+        let p = line.find(": ")?;
+        let label = &line[..p + 2];
+        let known = if caps.is_empty() {
+            line[..p].chars().count() <= 20
+        } else {
+            caps.iter().any(|(l, _)| *l == label)
         };
+        known.then_some(p + 2)
+    };
+    let mut fields: Vec<(String, String)> = Vec::new();
+    let mut open = false;
+    for line in m.text.split('\n') {
+        match label_of(line) {
+            Some(p) => {
+                fields.push((line[..p].to_owned(), line[p..].to_owned()));
+                open = true;
+            }
+            // 見出しの付いた欄の続きの行（抜き出しのときだけ。ほかの文は行ごと）
+            None if open && !caps.is_empty() => {
+                if let Some(f) = fields.last_mut() {
+                    f.1.push('\n');
+                    f.1.push_str(line);
+                }
+            }
+            None => {
+                fields.push((String::new(), line.to_owned()));
+                open = false;
+            }
+        }
+    }
+    let mut lines: Vec<String> = Vec::new();
+    for (label, body) in fields {
         let cap = caps
             .iter()
             .find(|(l, _)| *l == label)
             .map_or(default, |(_, c)| *c);
         let chars: Vec<char> = body.chars().collect();
         if chars.len() <= cap {
-            lines.push(line.to_owned());
+            lines.push(format!("{label}{body}"));
             continue;
         }
         // 切れ目が「（名前）」の途中なら、その前で切る
