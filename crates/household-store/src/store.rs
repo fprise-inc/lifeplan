@@ -2042,6 +2042,40 @@ impl Store {
 
     /// 世帯を開く（古い形式の版は今の版へ変換する）
     pub fn open(&self, id: &str) -> Result<Opened, StoreError> {
+        self.open_marked(id, true, true)
+    }
+
+    /// 画面に出さずに世帯を開く（まとめて AI に渡すとき。0248）。保存のための状態（AIに渡した記録を世帯ファイルへ書き戻すのに要る）は
+    /// [`Store::open`] と同じに持つが、世帯を開いた印（前回開いた世帯・事務所の共有の「開いている」）は変えない。
+    /// 画面で開いている世帯の状態を作り直さないよう、もう開いている世帯には使わない（呼ぶ側が確かめる）
+    pub fn open_unmarked(&self, id: &str) -> Result<Opened, StoreError> {
+        self.open_marked(id, false, true)
+    }
+
+    /// 世帯ファイルの今の中身の指紋（読むだけで、復号しない。保存のたびに変わる）。ファイルが無ければ [`StoreError::UNKNOWN_HOUSEHOLD`]。
+    /// AI に渡している世帯の世帯ファイルが変わったかを、見回りで見るために使う（0248 の追記）
+    pub fn household_digest(&self, id: &str) -> Result<String, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        match fs::read(self.hh_path(s, id)) {
+            Ok(b) => Ok(crypto::digest(&b)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                Err(StoreError::UNKNOWN_HOUSEHOLD)
+            }
+            Err(_) => Err(StoreError::IO),
+        }
+    }
+
+    /// 開いた印も保存のための状態も作らずに、世帯を読む（まとめて AI に渡す前の確かめ。0248 の追記）。前からある保存の状態は変えない。
+    /// この戻り値では保存できない
+    pub fn read_unmarked(&self, id: &str) -> Result<Opened, StoreError> {
+        self.open_marked(id, false, false)
+    }
+
+    fn open_marked(&self, id: &str, mark: bool, keep: bool) -> Result<Opened, StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
@@ -2108,14 +2142,14 @@ impl Store {
                 .and_then(Value::as_str)
                 .map(str::to_owned);
             // 新しい版の事務所データでは、最後に開いた世帯も書かない（閲覧だけ）
-            if s.data.last_opened.as_deref() != Some(id) && !s.office_too_new {
+            if mark && s.data.last_opened.as_deref() != Some(id) && !s.office_too_new {
                 s.data.last_opened = Some(id.to_owned());
                 self.write_office(s)?;
             }
             let view_only = Self::writable(s).is_err();
             let others = match &mut s.shared {
-                Some(sh) => sh.enter(id, now),
-                None => vec![],
+                Some(sh) if mark => sh.enter(id, now),
+                _ => vec![],
             };
             (
                 Opened {
@@ -2138,7 +2172,9 @@ impl Store {
                 },
             )
         };
-        g.opened.insert(id.to_owned(), state);
+        if keep {
+            g.opened.insert(id.to_owned(), state);
+        }
         Ok(opened)
     }
 
@@ -3151,6 +3187,12 @@ impl Store {
     }
 
     /// 「事務所のプライバシーポリシーに AI の利用を書いている」を FP が確かめた日時（0226。確かめていなければ None）
+    /// この PC の ID（0011。AIに渡した記録に、どの PC が作った共有かを残すためだけに使う。0248 の追記）。保存の部品を使えなければ None
+    pub fn pc_id(&self) -> Option<String> {
+        let mut g = self.lock();
+        Self::session(&mut g).ok().map(|s| s.device_id.clone())
+    }
+
     pub fn ai_privacy_policy_confirmed_at(&self) -> Result<Option<String>, StoreError> {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;

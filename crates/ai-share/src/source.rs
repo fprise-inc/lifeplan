@@ -36,6 +36,26 @@ pub struct SharedHouseholdSource {
     /// `{ confirmed: 保存した入力項目の数, addedItems: 足した入力項目の数, assumed: [仮の値を入れた欄のキー] }`。数と欄のキーだけ（文は持たない）。
     /// 接続口の計算の読み取りの返事にだけ、欄のキーの物の ID を共有の仮の ID にして添える（AI には見せない）。無ければ None
     pub entered: Option<Value>,
+    /// 顧客のフォローの要約の材料（区分の記号・前回の面談の日・面談の数・最後の控えの年月・「次回確かめる」の印の数。0248）。
+    /// 日付・数・区分の記号だけで、面談の履歴の文・メモ・印の見出しは持たない。フォローの要約の読み取り（summarize_shared_households）の
+    /// 返事にだけ入れる（縮約版には入らない）。無ければ None
+    pub followup: Option<FollowupFacts>,
+}
+
+/// 顧客のフォローの要約の材料（0248）。文は持たない
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FollowupFacts {
+    /// 区分の記号（例 `A`。区分を使っていない・区分なしは None。顧客番号の通し番号は持たない。0033）
+    pub category: Option<String>,
+    /// 前回の面談の日（面談の履歴〔0182〕のいちばん新しい日。YYYY-MM-DD。記録が無ければ None）
+    pub last_meeting_on: Option<String>,
+    /// 面談の記録の数
+    pub meetings: usize,
+    /// 最後の控え（0009）の年月（YYYY-MM。次の面談の目安はこの1年後。画面の面談の準備と同じ考え方）
+    pub last_snapshot_month: Option<String>,
+    /// 「次回確かめる」の印の数（0072）
+    pub recheck_marks: usize,
 }
 
 /// 画面の側の文章の1件

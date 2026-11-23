@@ -68,6 +68,8 @@ export interface HouseholdPanelProps {
   onRecovery: () => void;
   /** AI接続口の事務所全体の設定を開く */
   onAiConnector?: () => void;
+  /** 一覧の上に置く、絞り込みの結果に対する AI の操作（まとめて渡す。0248。ai/AiBulkShare.tsx）。渡さなければ出さない */
+  aiBulk?: (shown: StoredHousehold[]) => ComponentChildren;
   /** 事務所の既定値を開く（0073） */
   onOfficeDefaults?: () => void;
   aiEnabled?: boolean;
@@ -614,6 +616,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
               {query !== "" || catFilter !== "" ? <span class="pl-sub">{shown.length}件</span> : null}
             </div>
           ) : null}
+          {p.aiBulk !== undefined && shown.length > 0 ? p.aiBulk(shown) : null}
           {shown.length > 0 ? (
             <div class="plan-list-wrap">
               <table class="plan-list hh-list">

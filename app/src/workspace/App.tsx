@@ -28,6 +28,7 @@ import { proseDateWritten } from "../dates.ts";
 import { colorStyle, PLAN_COLORS } from "../presentation/planLines.tsx";
 import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
+import { AiBulkShare } from "./ai/AiBulkShare.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
 import { AiCodeCandidateBand } from "./ai/AiCodeCandidateBand.tsx";
 import { AiDisplayCandidateBand } from "./ai/AiDisplayCandidateBand.tsx";
@@ -2190,6 +2191,10 @@ export function App() {
   const savedForAi = aiShare === "sharing" && storedInfo !== null ? savedBodies.current.get(storedInfo.id) : undefined;
   const savedInputForAi = useMemo(() => savedInputOf(savedForAi), [savedForAi]);
   const aiUnsaved = useMemo(() => unsavedForAi(aiShare === "sharing", savedInputForAi, opened?.wh.request.input), [aiShare, savedInputForAi, opened?.wh.request.input]);
+  // まとめて渡す（0248）: 開いている世帯に保存していない入力の変更があるか（世帯の一覧を開いているときだけ数える。渡すのは保存した内容のまま）
+  const savedForBulk = hhOpen && storedInfo !== null && storedInfo.sample === undefined ? savedBodies.current.get(storedInfo.id) : undefined;
+  const savedInputForBulk = useMemo(() => savedInputOf(savedForBulk), [savedForBulk]);
+  const bulkUnsaved = useMemo(() => unsavedForAi(savedForBulk !== undefined, savedInputForBulk, opened?.wh.request.input), [savedForBulk, savedInputForBulk, opened?.wh.request.input]);
 
   /** ＋ この案を元に作る: 選んでいる案（保存していない変更を含む）を写して新しい案を作り、そのまま選ぶ */
   const duplicate = useCallback(() => {
@@ -3208,6 +3213,11 @@ export function App() {
                 }
               }}
               onRecovery={() => setRecovery(storeStatus?.state === "needsRecovery" ? "restore" : "manage")}
+              aiBulk={
+                host.ai.bulkStart !== undefined
+                  ? (shown) => <AiBulkShare ai={host.ai} status={ai.status} households={shown} currentId={storedInfo?.sample === undefined ? (storedInfo?.id ?? null) : null} currentUnsaved={bulkUnsaved} onChanged={() => void ai.refresh()} />
+                  : undefined
+              }
               onAiConnector={() => {
                 void ai.refresh();
                 setAiPanel("connector");

@@ -181,6 +181,9 @@ async fn serve(
                     registry.handle_get(share_id, tool, &caller)
                 }
             }
+            Request::GetShareFollowup { share_id, tool } => {
+                registry.handle_get_followup(share_id, tool, &caller)
+            }
             Request::Propose { share_id, proposal } => {
                 registry.handle_propose(share_id, proposal, &caller)
             }

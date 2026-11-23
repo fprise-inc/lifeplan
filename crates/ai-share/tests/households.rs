@@ -170,6 +170,7 @@ fn source(fictional: bool, consent: Option<ConsentDecision>) -> SharedHouseholdS
         }),
         fictional,
         entered: None,
+        followup: None,
     }
 }
 

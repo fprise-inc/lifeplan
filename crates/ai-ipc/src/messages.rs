@@ -37,6 +37,10 @@ pub enum Request {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         for_calc: bool,
     },
+    /// 顧客のフォローの要約のための読み取り（summarize_shared_households。0248）。返事は `GetShare` の計算に使う読み取り（`for_calc`）と同じ形に、
+    /// フォローの要約の材料 `followup`（区分の記号と名前・前回の面談の日・面談の数・最後の控えの年月・「次回確かめる」の印の数。文は入れない）を添えたもの。
+    /// `tool` は読んだ道具の名前（AIに渡した記録の `reads` に残す）。接続口とアプリは同じ版でしかつながらないので、足しても `IPC_VERSION` は変えない
+    GetShareFollowup { share_id: String, tool: String },
     /// AIのプランの候補を「AIからの候補」に承認待ちで入れる（世帯は変えない。0015 の7）
     Propose { share_id: String, proposal: Value },
     /// 書類から読んだ値の候補（答えの形 `document-candidates@1`）を承認待ちに入れる（世帯は変えない。0151）
@@ -265,6 +269,19 @@ mod tests {
             })
             .unwrap(),
             r#"{"op":"proposeHearingTemplate","proposal":{"name":"初回"}}"#
+        );
+    }
+
+    #[test]
+    fn followup_request_uses_camel_case() {
+        // 顧客のフォローの要約のための読み取り（0248）
+        assert_eq!(
+            serde_json::to_string(&Request::GetShareFollowup {
+                share_id: "s-1".into(),
+                tool: "summarize_shared_households".into(),
+            })
+            .unwrap(),
+            r#"{"op":"getShareFollowup","shareId":"s-1","tool":"summarize_shared_households"}"#
         );
     }
 
