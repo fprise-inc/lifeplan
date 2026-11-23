@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { FpMenu, fpMenuGroups, officeShareText, storageText } from "../src/workspace/header/FpMenu.tsx";
+import { FpMenu, fpMenuGroups, fpMenuWithoutHousehold, officeShareText, storageText } from "../src/workspace/header/FpMenu.tsx";
 import { blankHousehold, fromRequest } from "../src/workspace/input/household.ts";
 import { InputView } from "../src/workspace/input/InputView.tsx";
 import { inputItems, nothingEnteredYet } from "../src/workspace/input/items.ts";
@@ -17,6 +17,18 @@ const sample = () => fromRequest(modelHousehold("salariedCoupleTwoKids"));
 const noop = () => undefined;
 
 describe("FP のメニューの中身", () => {
+  it("世帯を開いていないとき（読み込み中・開けなかったとき・選ぶ前）は、世帯が無くても開ける物だけ（事務所の設定・ファイナンシアへ）。世帯が要る項目は出さない（0245）", () => {
+    const office = { storage: "このPCの中", share: "オフ（既定）" };
+    const g = fpMenuWithoutHousehold(office);
+    expect(g.map((x) => x.id)).toEqual(["office", "feedback"]);
+    expect(g.flatMap((x) => x.items.map((i) => i.action))).toEqual(["storage", "office", "officeDefaults", "feedback"]);
+    // 世帯を開いているときと同じ形・同じ文（事務所の設定・ファイナンシアへ）
+    const full = fpMenuGroups({ notes: { memo: 0, meetings: 0, last: null }, snapshots: 0, review: null, imports: { ai: true }, office });
+    expect(g).toEqual(full.filter((x) => x.id === "office" || x.id === "feedback"));
+    // 本体につながっていない（読み込み中）ときは「ファイナンシアへ」だけ
+    expect(fpMenuWithoutHousehold(null).map((x) => x.id)).toEqual(["feedback"]);
+  });
+
   it("控え・面談の準備・情報を集める・事務所の設定の順。本体につながっていないときは情報を集めると事務所の設定を出さない", () => {
     const full = fpMenuGroups({ snapshots: 2, review: { last: "2026年10月", next: "2027年10月" }, imports: { ai: true }, office: { storage: "このPCの中", share: "オフ（既定）" } });
     expect(full.map((g) => g.id)).toEqual(["snapshots", "tools", "imports", "office", "feedback"]);
