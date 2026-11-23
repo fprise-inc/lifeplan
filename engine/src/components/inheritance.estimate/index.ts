@@ -109,12 +109,33 @@ interface Request {
   readonly overrides?: readonly { readonly point: Point; readonly decedent?: string; readonly amount: Yen }[];
   readonly detailed?: boolean;
   readonly lands?: readonly LandSetting[];
+  readonly division?: Division;
+  readonly timeline?: TimelineRequest;
+}
+
+/**
+ * 遺産の分け方（0251。相続税も試算する世帯だけ）。割合は財産の評価額（小規模宅地等の特例の前。債務・葬式の費用を引く前）のうち。
+ * spouseShare は一次の相続（配偶者がいる人の相続）で配偶者が取得する割合（省略は法定相続分）。shares は配偶者のほかの相続人の分け方
+ * （配偶者の分を除いた残りのうちの割合。入れていない人は、残りを法定相続分の比で分ける。合計が1を超える・全員入れて1でないときは使わず、
+ * 法定相続分どおりにして注意 divisionSharesInvalid）。first は一次と二次の推移で先に亡くなる人（lastSurvivor が無いときの後に亡くなる人を決める）
+ */
+interface Division {
+  readonly spouseShare?: string;
+  readonly shares?: readonly { readonly member: string; readonly share: string }[];
+  readonly first?: string;
+}
+/** 一次と二次の推移（0251）: 比較する分け方（key と配偶者の割合。spouseShare の省略は法定相続分）と、年の間引き（step 年ごと） */
+interface TimelineRequest {
+  readonly alternatives?: readonly { readonly key: string; readonly spouseShare?: string }[];
+  readonly step?: number;
 }
 
 type Acquirer = "spouse" | "cohabiting" | "noHome" | "successor" | "other";
 interface Choice {
   readonly acquirer: Acquirer;
   readonly met?: boolean;
+  /** 取得する人（0251。配偶者のほかの相続人。省略は配偶者のほかの相続人で分け方の割合どおりに分ける） */
+  readonly member?: string;
 }
 type Use = "residence" | "rental" | "business" | "familyCompany" | "none";
 /** 相続税の試算の不動産1つの設定（0231。物件全体の値） */
@@ -189,10 +210,12 @@ export const NOT_INCLUDED: readonly string[] = [
   "receivingSideEstimate",
 ];
 
-/** 相続税も試算する世帯（detailed）で含めていない決まり（0231。土地の評価・小規模宅地等の特例・2割加算・未成年者控除を外し、補正の細部を足す） */
+/**
+ * 相続税も試算する世帯（detailed）で含めていない決まり（0231。土地の評価・小規模宅地等の特例・2割加算・未成年者控除を外し、補正の細部を足す。
+ * 0251 で一次と二次の分け方の比較を外した〔分け方と推移〕）
+ */
 export const NOT_INCLUDED_DETAILED: readonly string[] = [
   "landCorrectionDetail",
-  "primarySecondaryComparison",
   "calendarGiftAddBack",
   "successiveInheritanceCredit",
   "disabilityCredit",
@@ -241,6 +264,24 @@ const frac = (n: bigint, d: bigint): [bigint, bigint] => {
   return [n / g, d / g];
 };
 const fmtFrac = (f: [bigint, bigint]) => `${f[0]}/${f[1]}`;
+type Frac = [bigint, bigint];
+const F0: Frac = [0n, 1n];
+const F1: Frac = [1n, 1n];
+const fAdd = (a: Frac, b: Frac): Frac => frac(a[0] * b[1] + b[0] * a[1], a[1] * b[1]);
+const fSub = (a: Frac, b: Frac): Frac => frac(a[0] * b[1] - b[0] * a[1], a[1] * b[1]);
+const fMul = (a: Frac, b: Frac): Frac => frac(a[0] * b[0], a[1] * b[1]);
+const fDiv = (a: Frac, b: Frac): Frac => (b[0] === 0n ? F0 : frac(a[0] * b[1], a[1] * b[0]));
+const fCmp = (a: Frac, b: Frac): number => {
+  const d = a[0] * b[1] - b[0] * a[1];
+  return d > 0n ? 1 : d < 0n ? -1 : 0;
+};
+/** 10進の文字列の割合（0〜1）を分数に */
+const fOf = (text: string): Frac => {
+  const [i, f = ""] = text.split(".");
+  let den = 1n;
+  for (let k = 0; k < f.length; k++) den *= 10n;
+  return frac(BigInt(`${i ?? "0"}${f}`), den);
+};
 
 type SpecialStatus = "applied" | "limit" | "notSet" | "notMet" | "noArea" | "within3Years" | "notLived" | "notRented" | "none";
 /** 不動産1つの評価（亡くなる人の分）と小規模宅地等の特例（0231） */
@@ -260,7 +301,7 @@ type LandResult = {
   /** 土地の面積のうち亡くなる人の分（㎡） */
   area?: string;
   use: Use;
-  special: { status: SpecialStatus; rate?: string; acquirer?: Acquirer; defaulted?: boolean; appliedArea?: string; reduction: Yen; recentRental?: boolean };
+  special: { status: SpecialStatus; rate?: string; acquirer?: Acquirer; member?: string; defaulted?: boolean; appliedArea?: string; reduction: Yen; recentRental?: boolean };
 };
 
 type PointResult = {
@@ -281,12 +322,31 @@ type PointResult = {
   totalTax: Yen;
   spouseReduction: Yen;
   settlementCredit: Yen;
-  byHeir: { member?: string; count?: number; outside: boolean; acquisition: Yen; tax: Yen; spouseReduction: Yen; credit: Yen; payable: Yen; refund: Yen; surcharge?: Yen; minorCredit?: Yen }[];
+  byHeir: {
+    member?: string;
+    count?: number;
+    outside: boolean;
+    acquisition: Yen;
+    tax: Yen;
+    spouseReduction: Yen;
+    credit: Yen;
+    payable: Yen;
+    refund: Yen;
+    surcharge?: Yen;
+    minorCredit?: Yen;
+    /** 0251: 取得した土地の小規模宅地等の特例で減った額（相続税も試算する世帯で、特例の減額を取得する人に寄せたとき） */
+    landReduction?: Yen;
+    successiveCredit?: Yen;
+  }[];
   /** 0231: 2割加算・未成年者控除の合計（相続税も試算する世帯だけ） */
   surcharge?: Yen;
   minorCredit?: Yen;
   /** 0231: 不動産ごとの評価と小規模宅地等の特例（相続税も試算する世帯だけ） */
   lands?: LandResult[];
+  /** 0251: 相次相続控除の合計（一次と二次の推移の二次だけ） */
+  successiveCredit?: Yen;
+  /** 0251: 分け方（相続税も試算する世帯だけ）。配偶者が取得した割合（評価額のうち）と、取得する土地の評価に合わせて割合を直したか */
+  division?: { entered: boolean; spouseShare?: string; adjusted?: true };
   payable: Yen;
   payableHousehold: Yen;
   payableOutside: Yen;
@@ -298,11 +358,36 @@ type PointResult = {
   cautions: string[];
 };
 
-export default defineComponent<{ request: Request }, { points: PointResult[]; notIncluded: readonly string[] }>({
+/** 一次と二次の推移の1年（0251） */
+type TimelineRow = {
+  year: number;
+  month: string;
+  primary: Yen;
+  secondary: Yen;
+  total: Yen;
+  primaryTaxable: Yen;
+  secondaryTaxable: Yen;
+  spouseAcquisition: Yen;
+  spouseTax: Yen;
+  inherited: Yen;
+  successiveCredit: Yen;
+  secondaryMinorCredit: Yen;
+};
+type Timeline = {
+  first: string;
+  second: string;
+  secondMonth: string;
+  step: number;
+  /** 二次の相続人がいないので二次を計算していない（0251） */
+  secondaryStatus?: "noHeirs";
+  series: { key: string; spouseShare?: string; rows: TimelineRow[] }[];
+};
+
+export default defineComponent<{ request: Request }, { points: PointResult[]; notIncluded: readonly string[]; timeline?: Timeline }>({
   id: "inheritance.estimate",
   title: "相続税の目安（基礎控除・法定相続人・非課税・速算表・配偶者の軽減・精算課税の足し戻し）",
-  contract: "1.2",
-  revision: 6,
+  contract: "1.3",
+  revision: 7,
   requires: {
     "plan.cashflow": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -500,7 +585,15 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     // 年末の残高の行（plan.cashflow）
     const cashflow = ctx.call<{ annual: readonly AnnualRow[]; flows: readonly Flow[] }>("plan.cashflow", {});
     const annual = cashflow.annual;
-    const rowsOf = (y: number) => annual.filter((a) => a.year === y && a.row.startsWith("cf.balance."));
+    // 年末の残高の行を年ごとに1回だけ分けておく（一次と二次の推移で年ごとに読むため。0251）
+    const balanceByYear = new Map<number, AnnualRow[]>();
+    for (const a of annual) {
+      if (!a.row.startsWith("cf.balance.")) continue;
+      const list = balanceByYear.get(a.year);
+      if (list === undefined) balanceByYear.set(a.year, [a]);
+      else list.push(a);
+    }
+    const rowsOf = (y: number): readonly AnnualRow[] => balanceByYear.get(y) ?? [];
     const accounts = ctx.list<AccountInput>("account");
     const contracts = ctx.list<InsuranceContractInput>("insurance");
     const debts = ctx.list<DebtInput>("debt");
@@ -703,12 +796,11 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     /** 不動産ごとの評価（亡くなる人の分）と特例の減額 */
     const evaluateLands = (
       parts: ReadonlyMap<string, { land: number; building: number; unsplit: number; fullLand: number; fullBuilding: number; fullUnsplit: number; share: string }>,
-      job: { point: Point; decedent: string; D: MonthIndex; V: number },
+      job: { decedent: string; D: MonthIndex; V: number; second: boolean },
       at: MonthCtx,
       cautions: Set<string>,
     ): { value: Yen; reduction: Yen; lands: LandResult[] } => {
-      const { point, decedent: X, D, V } = job;
-      const second = point === "bothAfter";
+      const { decedent: X, D, V, second } = job;
       const spouseAlive = !second && legalSpouseAt(X, D) !== null;
       const lands: LandResult[] = [];
       const cands: Cand[] = [];
@@ -785,7 +877,10 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
             choice = { acquirer: "spouse" };
             special.defaulted = true;
           }
-          if (choice !== undefined) special.acquirer = choice.acquirer;
+          if (choice !== undefined) {
+            special.acquirer = choice.acquirer;
+            if (choice.member !== undefined && choice.acquirer !== "spouse") special.member = choice.member;
+          }
           const recentYears = at.paramCount(P.rentRecent) ?? 0;
           const recent = use === "rental" && rent.start !== null && rent.start > D - recentYears * 12;
           if (recent) special.recentRental = true;
@@ -835,7 +930,38 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       return { value: yen(value), reduction: yen(reduction), lands };
     };
 
-    const results: PointResult[] = [];
+    /** 相続時精算課税で亡くなる人（X）が贈与した財産と、受け取った人が払った贈与税（亡くなる月 D までの贈与。受け取った人ごと） */
+    const settlementCache = new Map<string, { recipient: string; amount: number; tax: number }[]>();
+    const settlementOf = (X: string, D: MonthIndex): { recipient: string; amount: number; tax: number }[] => {
+      const key = `${X}|${String(D)}`;
+      const hit = settlementCache.get(key);
+      if (hit !== undefined) return hit;
+      const out: { recipient: string; amount: number; tax: number }[] = [];
+      const defaultPayer = (recipient: string): string | undefined =>
+        relations.flatMap((r) => (r.type === "parentOf" && r.child === recipient ? [r.parent] : []))[0] ?? members.find((m) => m.kind === "self")?.id;
+      for (const m of members) {
+        if (m.id === X) continue;
+        const gifts = ctx.call<GiftReceivedOutput>("gift.received", { member: m.id }).gifts;
+        // 精算課税は一度選ぶと同じ贈与者のその後の贈与にも当たる（gift.tax）ので、精算課税の贈与がある人は亡くなる月までの贈与の年をすべて見る
+        if (!gifts.some((g) => g.method === "settlement")) continue;
+        const years = [...new Set(gifts.filter((g) => parseYm(g.ym) <= D).map((g) => yearOf(parseYm(g.ym))))].sort((a, b) => a - b);
+        for (const y of years) {
+          const t = ctx.call<GiftTaxOutput>("gift.tax", { member: m.id, year: y });
+          for (const e of t.settlementByGiver ?? []) {
+            let giver = e.member;
+            if (giver === undefined && e.giver.startsWith("household|")) {
+              const goal = goals.find((g) => e.objects.includes(g.id));
+              giver = goal !== undefined ? defaultPayer(goal.owner) : undefined;
+            }
+            if (giver !== X) continue;
+            out.push({ recipient: m.id, amount: e.amount, tax: e.tax });
+          }
+        }
+      }
+      settlementCache.set(key, out);
+      return out;
+    };
+
     const contingencyDeath = (() => {
       for (const m of members) {
         const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: m.id }).event;
@@ -844,35 +970,80 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       return null;
     })();
     const wanted = (p: Point) => req.points === undefined || req.points.includes(p);
-    const jobs: { point: Point; decedent: string; D: MonthIndex; V: number; opening: boolean; owners: Set<string>; spouseAllowed: boolean; childrenFrom: string[] | null }[] = [];
+    /**
+     * 時点の計算の1件。kind: now（いま亡くなったら）・bothAfter（二人とも亡くなった後）・contingency（万一の想定）は出力の時点。
+     * primaryAt（一次と二次の推移の、計算基準年より後の年の12月に先に亡くなる）・secondaryAt（その推移の二次。後に亡くなる人が表の最後の年の12月に亡くなる。
+     * 一次で取得した土地の分を inherit で足す）は推移だけ（0251）
+     */
+    type Job = {
+      point: Point;
+      kind: "now" | "bothAfter" | "contingency" | "primaryAt" | "secondaryAt";
+      decedent: string;
+      D: MonthIndex;
+      V: number;
+      opening: boolean;
+      owners: Set<string>;
+      spouseAllowed: boolean;
+      childrenFrom: string[] | null;
+      /** 二次（secondaryAt）: 先に亡くなった人（from）の名義の不動産のうち、一次で後に亡くなる人が取得した割合（物ごと）と、名義の無い財産の先に亡くなった人の分 */
+      inherit?: { from: string; unassigned: string; fraction: ReadonlyMap<string, Frac> };
+    };
+    const jobs: Job[] = [];
+    // 二人とも亡くなった後の、後に亡くなる人（lastSurvivor。省略は年下の人、同じなら配偶者）と夫婦の子
+    // 相続税も試算する世帯で先に亡くなる人（division.first）を選んでいれば、もう一人（0251。試算しない世帯は読まない）。画面の欄と同じ決め方にするため、
+    // 試算する世帯では lastSurvivor より先に読む
+    const firstChosen = req.detailed === true && req.division?.first !== undefined ? adults.find((a) => a.id !== req.division?.first && adults.some((b) => b.id === req.division?.first))?.id : undefined;
+    const lastOf = (): string | undefined =>
+      firstChosen ??
+      req.lastSurvivor ??
+      [...adults].sort((a, b) => {
+        const ba = byId.get(a.id)?.birth ?? 0;
+        const bb = byId.get(b.id)?.birth ?? 0;
+        return bb - ba || (a.kind === "spouse" ? -1 : 1);
+      })[0]?.id;
+    const coupleKids = (): string[] => inOrder(new Set(adults.flatMap((a) => childrenOfX(a.id))));
+    const nowJob = (id: string): Job => ({ point: "now", kind: "now", decedent: id, D: base, V: baseYear, opening: true, owners: new Set([id]), spouseAllowed: true, childrenFrom: null });
     if (contingencyDeath !== null) {
       if (wanted("contingency")) {
         const D = contingencyDeath.month;
         const y = yearOf(D);
-        jobs.push({ point: "contingency", decedent: contingencyDeath.member, D, V: y > baseYear ? y - 1 : baseYear, opening: y <= baseYear, owners: new Set([contingencyDeath.member]), spouseAllowed: true, childrenFrom: null });
+        jobs.push({ point: "contingency", kind: "contingency", decedent: contingencyDeath.member, D, V: y > baseYear ? y - 1 : baseYear, opening: y <= baseYear, owners: new Set([contingencyDeath.member]), spouseAllowed: true, childrenFrom: null });
       }
     } else {
       if (wanted("now")) {
         const ids = req.members ?? adults.map((m) => m.id);
-        for (const id of ids) jobs.push({ point: "now", decedent: id, D: base, V: baseYear, opening: true, owners: new Set([id]), spouseAllowed: true, childrenFrom: null });
+        for (const id of ids) jobs.push(nowJob(id));
       }
       if (wanted("bothAfter") && adults.length > 0) {
-        const last =
-          req.lastSurvivor ??
-          [...adults].sort((a, b) => {
-            const ba = byId.get(a.id)?.birth ?? 0;
-            const bb = byId.get(b.id)?.birth ?? 0;
-            return bb - ba || (a.kind === "spouse" ? -1 : 1);
-          })[0]?.id;
-        if (last !== undefined) {
-          const kids = inOrder(new Set(adults.flatMap((a) => childrenOfX(a.id))));
-          jobs.push({ point: "bothAfter", decedent: last, D: monthIndex(endYear, 12), V: endYear, opening: false, owners: new Set(adults.map((a) => a.id)), spouseAllowed: false, childrenFrom: kids });
-        }
+        const last = lastOf();
+        if (last !== undefined) jobs.push({ point: "bothAfter", kind: "bothAfter", decedent: last, D: monthIndex(endYear, 12), V: endYear, opening: false, owners: new Set(adults.map((a) => a.id)), spouseAllowed: false, childrenFrom: coupleKids() });
       }
     }
 
-    for (const job of jobs) {
+    /** 税の総額までの材料（1つの時点）。分け方で変わらない部分 */
+    type Gathered = {
+      job: Job;
+      at: MonthCtx;
+      cautions: Set<string>;
+      heirs: Heir[];
+      N: number;
+      given: number | undefined;
+      base: PointResult;
+      /** 財産の合計（特例の前。非課税の後）と、債務・葬式の費用、特例で減った額 */
+      grossNoRed: number;
+      deductions: number;
+      reduction: number;
+      landEval: { value: Yen; reduction: Yen; lands: LandResult[] } | null;
+      credits: Map<string, number>;
+      /** 相続時精算課税で贈与した財産（受け取った人ごと。分け方で、その人の取得の分に先に置く。0251） */
+      gifts: Map<string, number>;
+      exempt: number;
+    };
+
+    /** 時点1つの財産・相続人・課税価格（相続人がいない・制度データが無い時点は、出力の形のまま返す） */
+    const gather = (job: Job): Gathered | PointResult => {
       const { point, decedent: X, D, V, opening, owners } = job;
+      const second = job.kind === "bothAfter" || job.kind === "secondaryAt";
       const at = ctx.at(D);
       const empty = (status: PointResult["status"]): PointResult => ({
         point,
@@ -902,8 +1073,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       });
       if (!at.has(P.base)) {
         ctx.notice("N_PARAM_MISSING", [P.base, X]);
-        results.push(empty("noData"));
-        continue;
+        return empty("noData");
       }
       const cautions = new Set<string>();
       // 相続人
@@ -913,8 +1083,9 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       const N = given ?? autoCount;
       if (heirs.some((h) => !h.counted)) cautions.add("adoptedLimit");
       if (!detailed && heirs.some((h) => h.relation === "sibling" || h.relation === "grandparent")) cautions.add("twentyPercentSurcharge");
-      const hasSpouse = heirs.some((h) => h.relation === "spouse") || (job.point === "bothAfter" ? false : legalSpouseAt(X, D) !== null);
-      const unassigned = req.unassignedShare ?? (job.point === "bothAfter" || !hasSpouse || adults.length < 2 ? "1" : "0.5");
+      const hasSpouse = heirs.some((h) => h.relation === "spouse") || (second ? false : legalSpouseAt(X, D) !== null);
+      // 二次（推移）は、名義の無い財産のうち一次で亡くなった人の分の残り（後に亡くなる人の分）
+      const unassigned = job.inherit !== undefined ? ctx.rate.toString(ctx.rate.sub(RATE_ONE, ctx.rate.of(job.inherit.unassigned))) : (req.unassignedShare ?? (second || !hasSpouse || adults.length < 2 ? "1" : "0.5"));
 
       // 財産
       let financial = 0;
@@ -929,12 +1100,26 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         return c === undefined ? S : parseYm(c.contractDate);
       };
       const rows = rowsOf(V);
-      const residenceShare = (object: string | undefined): string | null | undefined => {
+      const residenceShareFor = (object: string | undefined, who: ReadonlySet<string>): string | null | undefined => {
         const r = residences.find((x) => x.id === object);
         if (r === undefined || r.ownership === undefined || r.ownership.length === 0) return undefined;
         let sum = ctx.rate.of("0");
-        for (const o of r.ownership) if (owners.has(o.member)) sum = ctx.rate.add(sum, ctx.rate.of(o.share));
+        for (const o of r.ownership) if (who.has(o.member)) sum = ctx.rate.add(sum, ctx.rate.of(o.share));
         return ctx.rate.compare(sum, ctx.rate.of("0")) === 0 ? null : ctx.rate.toString(sum);
+      };
+      const residenceShare = (object: string | undefined) => residenceShareFor(object, owners);
+      /** 二次（推移）: 先に亡くなった人の名義の不動産のうち、一次で後に亡くなる人が取得した分を足す（0251） */
+      const withInherited = (object: string | undefined, member: string | null | undefined, own: string | null): string | null => {
+        const inh = job.inherit;
+        const f = inh === undefined || object === undefined ? undefined : inh.fraction.get(object);
+        if (inh === undefined || f === undefined || f[0] === 0n) return own;
+        const from = new Set([inh.from]);
+        const rs = residenceShareFor(object, from);
+        const xs = rs !== undefined ? rs : member === null || member === undefined ? inh.unassigned : member === inh.from ? "1" : null;
+        if (xs === null) return own;
+        const add = ctx.rate.div(ctx.rate.mul(ctx.rate.of(xs), rOf(Number(f[0]))), rOf(Number(f[1])));
+        const sum = ctx.rate.add(own === null ? ZERO : ctx.rate.of(own), add);
+        return ctx.rate.compare(sum, ZERO) === 0 ? null : ctx.rate.toString(sum);
       };
       let hasHome = false;
       // 不動産ごとの時価（物件全体 full と亡くなる人の分 mine。土地・建物・分けていない器。相続税も試算する世帯で使う。0231）
@@ -968,7 +1153,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         } else amount = ctx.money.mulRatio(total, mine.length, payers.length, "conv.exact");
         // 団信で消える分（亡くなる人が対象で、事由に死亡がある。二人とも亡くなった後は、夫婦のどちらかが対象なら先に亡くなった人の分も消えている。0170）
         const cl = d.creditLife;
-        const deadCovered = cl === undefined ? [] : cl.covered.filter((m) => (point === "bothAfter" ? owners.has(m) : m === X));
+        const deadCovered = cl === undefined ? [] : cl.covered.filter((m) => (second ? owners.has(m) : m === X));
         if (cl !== undefined && deadCovered.length > 0 && (cl.events ?? ["death"]).includes("death") && !unpaidInterest) {
           let ratio = ctx.rate.of("0");
           for (const m of deadCovered) {
@@ -1006,7 +1191,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           realMarket += v;
           addPart(x.object, "unsplit", x.value, v, xs);
         }
-        for (const d of point === "now" ? debts : []) {
+        for (const d of job.kind === "now" ? debts : []) {
           const b = debtAtS.get(d.id);
           if (b !== undefined) debtTotal += debtShare(d, b.balance, false) + debtShare(d, b.unpaid, true);
         }
@@ -1019,7 +1204,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
             // いまの時点（改訂4）: 貸していない不動産の器は入力の時価で数えた（上）。住まい・貸している不動産は、持ち始める月が計算基準月より後の物を入れない
             if (opening && (k === "realEstate" || (a.object !== undefined && heldAtS.get(a.object) === false))) continue;
             const rs = residenceShare(a.object);
-            const s = rs !== undefined ? rs : shareOf(a.member, owners, unassigned);
+            const s = withInherited(a.object, a.member, rs !== undefined ? rs : shareOf(a.member, owners, unassigned));
             const v = part(a.amount, s);
             if (v > 0 && residences.some((r) => r.id === a.object)) hasHome = true;
             realMarket += v;
@@ -1057,25 +1242,27 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           }
           // 世帯の負債のいまの時点は、計算基準月の残高（上）。計算基準年の万一の想定の時点は、借りる月が計算基準月か、それより後の負債を入れない
           // （残高は年末の額。団信で消える分は想定の表で減っているため）
-          if (opening && (point === "now" || ctx.time.resolve(d.start) >= S)) continue;
+          if (opening && (job.kind === "now" || ctx.time.resolve(d.start) >= S)) continue;
           debtTotal += debtShare(d, a.amount, a.row === "cf.balance.debt.unpaidInterest");
         }
       }
       // 死亡保険金（亡くなる人が契約者で被保険者の契約。二人とも亡くなった後は夫婦のどちらかが契約者）
       for (const c of contracts) {
-        if (c.insured !== X || !owners.has(c.policyholder) || (point !== "bothAfter" && c.policyholder !== X)) continue;
+        // 推移の二次は、先に亡くなった人が契約者の契約（一次で受け継いだ契約）も数える（0251）
+        const holderOk = owners.has(c.policyholder) || (job.inherit !== undefined && c.policyholder === job.inherit.from);
+        if (c.insured !== X || !holderOk || (!second && c.policyholder !== X)) continue;
         const o = policy(c.id);
-        if (point === "contingency") {
+        if (job.kind === "contingency") {
           // 年金で受け取る死亡保険金（収入保障）も相続税の対象（相続税法3条1項1号）。いまの時点と同じく受け取る総額で数える（0170）
           for (const r of o.receipts) if ((r.kind === "death" || r.kind === "incomeProtection") && r.taxClass === "inheritance") insurance += r.amount;
-        } else if (point === "now") {
+        } else if (job.kind === "now") {
           // いまの時点は、計算基準月の死亡保障額（その年の最初の月の値。計算基準年は計算基準月。必要保障額と同じ取り方。改訂4。前はその年の12月の額）
           const e = o.years.find((x) => x.year === yearOf(D));
           insurance += e?.start?.deathBenefit ?? e?.deathBenefit ?? 0;
         } else insurance += o.years.find((e) => e.year === yearOf(D))?.deathBenefit ?? 0;
       }
       // 死亡退職金
-      if (point === "contingency") {
+      if (job.kind === "contingency") {
         const flows: readonly Flow[] = [
           ...ctx.call<{ flows: readonly Flow[] }>("retirement.benefit", { member: X }).flows,
           ...ctx.call<{ flows: readonly Flow[] }>("contingency.lumpSum", {}).flows,
@@ -1085,7 +1272,8 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           else if (f.formula === "retirement.benefit.guaranteeRemainder") other += f.amount;
         }
       } else {
-        const givenRa = req.retirementAllowances?.find((r) => r.decedent === X)?.amount;
+        // いま亡くなったときの死亡退職金の額（0039。推移の先の年・二次には使わない）
+        const givenRa = job.kind === "primaryAt" || job.kind === "secondaryAt" ? undefined : req.retirementAllowances?.find((r) => r.decedent === X)?.amount;
         if (givenRa !== undefined) retirement += givenRa;
         else {
           for (const r of ctx.call<{ receipts: readonly RetirementReceipt[] }>("retirement.receipts", { member: X }).receipts) {
@@ -1100,32 +1288,16 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       // 相続時精算課税で贈与した財産と、払った贈与税（受け取った人ごと）
       let settlement = 0;
       const credits = new Map<string, number>();
-      const defaultPayer = (recipient: string): string | undefined =>
-        relations.flatMap((r) => (r.type === "parentOf" && r.child === recipient ? [r.parent] : []))[0] ?? members.find((m) => m.kind === "self")?.id;
-      for (const m of members) {
-        if (m.id === X) continue;
-        const gifts = ctx.call<GiftReceivedOutput>("gift.received", { member: m.id }).gifts;
-        // 精算課税は一度選ぶと同じ贈与者のその後の贈与にも当たる（gift.tax）ので、精算課税の贈与がある人は亡くなる月までの贈与の年をすべて見る
-        if (!gifts.some((g) => g.method === "settlement")) continue;
-        const years = [...new Set(gifts.filter((g) => parseYm(g.ym) <= D).map((g) => yearOf(parseYm(g.ym))))].sort((a, b) => a - b);
-        for (const y of years) {
-          const t = ctx.call<GiftTaxOutput>("gift.tax", { member: m.id, year: y });
-          for (const e of t.settlementByGiver ?? []) {
-            let giver = e.member;
-            if (giver === undefined && e.giver.startsWith("household|")) {
-              const goal = goals.find((g) => e.objects.includes(g.id));
-              giver = goal !== undefined ? defaultPayer(goal.owner) : undefined;
-            }
-            if (giver !== X) continue;
-            settlement += e.amount;
-            credits.set(m.id, (credits.get(m.id) ?? 0) + e.tax);
-          }
-        }
+      const gifts = new Map<string, number>();
+      for (const e of settlementOf(X, D)) {
+        settlement += e.amount;
+        credits.set(e.recipient, (credits.get(e.recipient) ?? 0) + e.tax);
+        gifts.set(e.recipient, (gifts.get(e.recipient) ?? 0) + e.amount);
       }
       // 亡くなった人がまだ払っていない、死亡の年までの所得の税（相続する人が納める。相続税法13条1項・14条2項）と、準確定申告の還付（財産）
       let unpaidTaxes = 0;
-      if (point !== "bothAfter") {
-        const scene = point === "contingency" ? cashflow.flows : (ctx.deathScenario(X, D) ?? []);
+      if (job.kind === "now" || job.kind === "contingency") {
+        const scene = job.kind === "contingency" ? cashflow.flows : (ctx.deathScenario(X, D) ?? []);
         for (const f of scene) {
           if (f.member !== X || !isUnpaidTaxRow(f.row) || parseYm(f.ym) <= D || f.accrualYear > yearOf(D)) continue;
           if (f.amount > 0) unpaidTaxes += f.amount;
@@ -1139,10 +1311,11 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       const insExempt = Math.min(insurance, ctx.money.mulRatio(at.paramYen(P.insurance) ?? yen(0), N, 1, "conv.exact"));
       const retExempt = Math.min(retirement, ctx.money.mulRatio(at.paramYen(P.retirement) ?? yen(0), N, 1, "conv.exact"));
       // 相続税も試算する世帯は不動産ごとに評価し、小規模宅地等の特例で減らす（0231）。ほかは時価の合計×評価の割合（今まで）
-      const landEval = detailed ? evaluateLands(parts, job, at, cautions) : null;
+      const landEval = detailed ? evaluateLands(parts, { decedent: X, D, V, second }, at, cautions) : null;
       const realEval = landEval !== null ? landEval.value : ctx.money.mulRate(yen(realMarket), realRatio, "conv.asset.valuation");
-      const gross = financial + realEval - (landEval?.reduction ?? 0) + other + (insurance - insExempt) + (retirement - retExempt) + settlement;
-      const T = at.money.round(yen(Math.max(0, gross - debtTotal - funeral)), P.taxableRound);
+      const grossNoRed = financial + realEval + other + (insurance - insExempt) + (retirement - retExempt) + settlement;
+      const reduction = landEval?.reduction ?? 0;
+      const T = at.money.round(yen(Math.max(0, grossNoRed - reduction - debtTotal - funeral)), P.taxableRound);
       const basic = yen((at.paramYen(P.base) ?? 0) + ctx.money.mulRatio(at.paramYen(P.perHeir) ?? yen(0), N, 1, "conv.exact"));
       const assets: PointResult["assets"] = {
         financial: yen(financial),
@@ -1175,22 +1348,177 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       const r: PointResult = { ...empty(N === 0 ? "noHeirs" : "ok"), assets, heirs: heirsOut, heirCount: N, heirCountOverridden: given !== undefined, basicDeduction: basic, margin: yen(basic - T), noTax: T <= basic };
       if (N === 0) {
         cautions.add("noHeirs");
-        results.push({ ...r, cautions: [...cautions].sort() });
-        continue;
+        return { ...r, cautions: [...cautions].sort() };
       }
-      // 税の総額を出す相続人と法定相続分（数を直したときは、配偶者のほかを同じ順位で等分とみなす）
+      return { job, at, cautions, heirs, N, given, base: r, grossNoRed, deductions: debtTotal + funeral, reduction, landEval, credits, gifts, exempt: insExempt + retExempt };
+    };
+
+    /** 税の総額を出す相続人と法定相続分（数を直したときは、配偶者のほかを同じ順位で等分とみなす） */
+    type Slot = { member?: string; count?: number; outside: boolean; share: Frac; spouse: boolean };
+    const slotsOf = (g: Gathered): Slot[] => {
+      const { heirs, N, given } = g;
       const spouseHeir = heirs.find((h) => h.relation === "spouse");
-      type Slot = { member?: string; count?: number; outside: boolean; share: [bigint, bigint]; spouse: boolean };
-      let slots: Slot[];
-      if (given === undefined) slots = heirs.filter((h) => h.counted && h.share !== null).map((h) => ({ member: h.member, outside: h.outside, share: h.share as [bigint, bigint], spouse: h.relation === "spouse" }));
-      else {
-        const rest = Math.max(0, N - (spouseHeir !== undefined ? 1 : 0));
-        const rank = heirs.find((h) => h.relation !== "spouse" && h.counted)?.relation ?? "child";
-        const sp: [bigint, bigint] = spouseHeir === undefined ? [0n, 1n] : rest === 0 ? [1n, 1n] : rank === "child" || rank === "grandchild" ? [1n, 2n] : rank === "sibling" ? [3n, 4n] : [2n, 3n];
-        slots = [];
-        if (spouseHeir !== undefined) slots.push({ member: spouseHeir.member, outside: spouseHeir.outside, share: sp, spouse: true });
-        if (rest > 0) slots.push({ count: rest, outside: heirs.some((h) => h.relation !== "spouse" && h.outside), share: frac(sp[1] - sp[0], sp[1]), spouse: false });
+      if (given === undefined) return heirs.filter((h) => h.counted && h.share !== null).map((h) => ({ member: h.member, outside: h.outside, share: h.share as Frac, spouse: h.relation === "spouse" }));
+      const rest = Math.max(0, N - (spouseHeir !== undefined ? 1 : 0));
+      const rank = heirs.find((h) => h.relation !== "spouse" && h.counted)?.relation ?? "child";
+      const sp: Frac = spouseHeir === undefined ? [0n, 1n] : rest === 0 ? [1n, 1n] : rank === "child" || rank === "grandchild" ? [1n, 2n] : rank === "sibling" ? [3n, 4n] : [2n, 3n];
+      const slots: Slot[] = [];
+      if (spouseHeir !== undefined) slots.push({ member: spouseHeir.member, outside: spouseHeir.outside, share: sp, spouse: true });
+      if (rest > 0) slots.push({ count: rest, outside: heirs.some((h) => h.relation !== "spouse" && h.outside), share: frac(sp[1] - sp[0], sp[1]), spouse: false });
+      return slots;
+    };
+
+    /**
+     * 分け方（0251）: 相続人ごとの、財産の評価額（特例の前。債務を引く前）のうち取得する分 P と、その人が取得する土地の評価 L・特例で減った額 R。
+     * 割合は spouseShare（配偶者）と shares（配偶者のほかの相続人の残りの分け方。入れていない人は残りを法定相続分の比で）。土地は取得する人
+     * （一次は primary、二次は secondary。配偶者・選んだ人・配偶者のほかの相続人で割合どおり。選んでいない土地は全員で割合どおり）に寄せる。
+     * 相続時精算課税で贈与した財産は、受け取った人の分に置く（G）。取得する土地の評価と贈与の合計が割合の分より大きい人は、その人の分を
+     * その合計まで増やし、ほかの人の分を割合の比で減らす（adjusted）。債務と葬式の費用は、取得する分 P の比で負担する（呼ぶ側で引く）。
+     * 子の割合の合計が1を超える・全員入れて1でないときは使わない（sharesInvalid。法定相続分の比）。spLands は配偶者が取得した土地の評価（物ごと）
+     */
+    const allocateEstate = (
+      g: Gathered,
+      slots: readonly Slot[],
+      division: Division | undefined,
+      T0: number,
+    ): { P: number[]; L: number[]; G: number[]; R: number[]; target: Frac[]; adjusted: boolean; sharesInvalid: boolean; sharesIgnored: boolean; spLands: Map<string, number> } => {
+      const second = g.job.kind === "bothAfter" || g.job.kind === "secondaryAt";
+      const n = slots.length;
+      const sp = slots.findIndex((s) => s.spouse);
+      const others = slots.map((_, i) => i).filter((i) => i !== sp);
+      // 配偶者のほかの相続人の分け方の重み（合計1）
+      const given = new Map<number, Frac>();
+      for (const i of others) {
+        const m = slots[i]?.member;
+        const e = m === undefined ? undefined : division?.shares?.find((x) => x.member === m);
+        if (e !== undefined) given.set(i, fOf(e.share));
       }
+      let gsum = F0;
+      for (const v of given.values()) gsum = fAdd(gsum, v);
+      // 相続人の数を直した世帯（配偶者のほかをまとめた行）は人ごとの行が無いので、子の割合を使えない（注意 divisionSharesIgnored）
+      const sharesIgnored = (division?.shares?.length ?? 0) > 0 && slots.some((x) => x.count !== undefined);
+      const w: Frac[] = slots.map(() => F0);
+      let missing = others.filter((i) => !given.has(i));
+      // 合計が1を超える・全員入れて1でない: 黙って補わず、入れた割合を使わない（法定相続分の比。注意を出す）
+      const sharesInvalid = given.size > 0 && (fCmp(gsum, F1) > 0 || (missing.length === 0 && fCmp(gsum, F1) !== 0));
+      if (sharesInvalid) {
+        given.clear();
+        gsum = F0;
+        missing = [...others];
+      }
+      for (const [i, v] of given) w[i] = v;
+      let legal = F0;
+      for (const i of missing) legal = fAdd(legal, (slots[i] as Slot).share);
+      for (const i of missing) w[i] = given.size === 0 ? fDiv((slots[i] as Slot).share, legal) : fMul(fSub(F1, gsum), fDiv((slots[i] as Slot).share, legal));
+      const spShare: Frac = sp < 0 ? F0 : others.length === 0 ? F1 : division?.spouseShare !== undefined ? fOf(division.spouseShare) : (slots[sp] as Slot).share;
+      const target: Frac[] = slots.map((_, i) => (i === sp ? spShare : fMul(fSub(F1, spShare), w[i] as Frac)));
+      // 土地を取得する人
+      const L = slots.map(() => 0);
+      const R = slots.map(() => 0);
+      const spLands = new Map<string, number>();
+      let current = "";
+      const spread = (value: number, red: number, weights: readonly Frac[]) => {
+        let sum = F0;
+        for (const x of weights) sum = fAdd(sum, x);
+        if (sum[0] === 0n) return;
+        let leftV = value;
+        let leftR = red;
+        const idx = weights.map((x, i) => (x[0] === 0n ? -1 : i)).filter((i) => i >= 0);
+        idx.forEach((i, k) => {
+          const f = fDiv(weights[i] as Frac, sum);
+          const v = k === idx.length - 1 ? leftV : ctx.money.mulRatio(yen(value), f[0], f[1], "conv.tax.allocate");
+          const r = k === idx.length - 1 ? leftR : ctx.money.mulRatio(yen(red), f[0], f[1], "conv.tax.allocate");
+          L[i] = (L[i] ?? 0) + v;
+          R[i] = (R[i] ?? 0) + r;
+          if (i === sp) spLands.set(current, (spLands.get(current) ?? 0) + v);
+          leftV -= v;
+          leftR -= r;
+        });
+      };
+      for (const l of g.landEval?.lands ?? []) {
+        const value = l.land + l.building;
+        const red = l.special.status === "applied" ? l.special.reduction : 0;
+        const st = landSettings.get(l.object);
+        current = l.object;
+        const choice = l.special.defaulted === true ? { acquirer: "spouse" as const } : second ? st?.secondary : st?.primary;
+        if (choice !== undefined && choice.acquirer === "spouse" && sp >= 0) spread(value, red, slots.map((_, i) => (i === sp ? F1 : F0)));
+        else if (choice !== undefined && others.length > 0) {
+          // 選んだ人（数を直した世帯は、配偶者のほかの相続人のまとめた行）。選んでいなければ配偶者のほかの相続人で分け方の割合どおり
+          let who = -1;
+          if (choice.member !== undefined) {
+            who = others.find((i) => slots[i]?.member === choice.member) ?? -1;
+            if (who < 0) who = others.find((i) => slots[i]?.count !== undefined) ?? -1;
+          }
+          spread(value, red, slots.map((_, i) => (who >= 0 ? (i === who ? F1 : F0) : i === sp ? F0 : (w[i] as Frac))));
+        } else spread(value, red, target);
+      }
+      // 相続時精算課税で贈与した財産は、受け取った人の分（数を直した世帯は、配偶者のほかの相続人のまとめた行）
+      const G = slots.map(() => 0);
+      for (const [m, amount] of g.gifts) {
+        let i = slots.findIndex((x) => x.member === m);
+        if (i < 0 && slots.some((x) => x.count !== undefined) && heirsOfG(g).has(m)) i = slots.findIndex((x) => x.count !== undefined);
+        if (i >= 0) G[i] = (G[i] ?? 0) + amount;
+      }
+      // 割合の分（P）と、土地の評価・贈与に足りない人の直し
+      const P = slots.map(() => 0);
+      const least = slots.map((_, i) => (L[i] ?? 0) + (G[i] ?? 0));
+      const sumL = least.reduce((a, b) => a + b, 0);
+      let adjusted = false;
+      if (sumL > T0) {
+        // 取得する土地の評価と贈与の合計が財産より大きい（起きないはずの丸めの差）: その比で分ける
+        for (let i = 0; i < n; i++) P[i] = sumL <= 0 ? 0 : ctx.money.mulRatio(yen(T0), least[i] ?? 0, sumL, "conv.tax.allocate");
+        return { P, L, G, R, target, adjusted: true, sharesInvalid, sharesIgnored, spLands };
+      }
+      const fixed = new Set<number>();
+      for (let loop = 0; loop <= n; loop++) {
+        const free = slots.map((_, i) => i).filter((i) => !fixed.has(i));
+        const remainder = T0 - [...fixed].reduce((a, i) => a + (least[i] ?? 0), 0);
+        let ts = F0;
+        for (const i of free) ts = fAdd(ts, target[i] as Frac);
+        const weights = free.map((i) => (ts[0] === 0n ? (slots[i] as Slot).share : (target[i] as Frac)));
+        let ws = F0;
+        for (const x of weights) ws = fAdd(ws, x);
+        let left = remainder;
+        free.forEach((i, k) => {
+          const f = fDiv(weights[k] as Frac, ws);
+          const v = k === free.length - 1 ? left : ctx.money.mulRatio(yen(Math.max(0, remainder)), f[0], f[1], "conv.tax.allocate");
+          P[i] = v;
+          left -= v;
+        });
+        for (const i of fixed) P[i] = least[i] ?? 0;
+        const short = free.filter((i) => (P[i] ?? 0) < (least[i] ?? 0));
+        if (short.length === 0) break;
+        adjusted = true;
+        for (const i of short) fixed.add(i);
+      }
+      return { P, L, G, R, target, adjusted, sharesInvalid, sharesIgnored, spLands };
+    };
+    /** その時点の数える相続人（配偶者を除く） */
+    const heirsOfG = (g: Gathered): Set<string> => new Set(g.heirs.filter((h) => h.counted && h.relation !== "spouse").map((h) => h.member));
+
+    /** 分け方の結果（推移の二次に渡す）: 配偶者の取得の分 */
+    type Finished = {
+      result: PointResult;
+      /** 配偶者が取得した財産の評価額（特例の前・債務を引く前）・そのうち土地・非課税の分・負担した債務と葬式の費用・課税価格・納める額 */
+      spouse: { pre: number; land: number; gift: number; lands: Map<string, number>; exempt: number; debt: number; acquisition: Yen; payable: Yen } | null;
+      minorUsed: Map<string, { full: number; used: number }>;
+    };
+
+    /**
+     * 税の計算（分け方・推移の二次の直し）。T・gross は推移の二次で一次の取得を足したときの課税価格と財産の合計（特例の前。省略は時点の値）。minorCap は一次で受けた
+     * 未成年者控除の残り（相続税法19条の3第3項）、successive は相次相続控除（同20条）の材料
+     */
+    const finish = (
+      g: Gathered,
+      o: { division?: Division | undefined; T?: Yen; gross?: number; minorCap?: ReadonlyMap<string, number>; successive?: { A: Yen; B: Yen; months: number }; override?: boolean } = {},
+    ): Finished => {
+      const { job, at, heirs } = g;
+      const { point, decedent: X, D } = job;
+      const cautions = new Set(g.cautions);
+      const T = o.T ?? g.base.assets.taxablePrice;
+      const basic = g.base.basicDeduction;
+      const r: PointResult = o.T === undefined ? g.base : { ...g.base, assets: { ...g.base.assets, taxablePrice: T }, margin: yen(basic - T), noTax: T <= basic };
+      const slots = slotsOf(g);
       const taxable = yen(Math.max(0, T - basic));
       let total = 0;
       const table = at.paramBrackets(P.table);
@@ -1205,14 +1533,21 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         }
       }
       const totalTax = at.money.round(yen(total), P.totalRound);
+      // 分け方（0251）: 相続税も試算する世帯で、分け方を入れたか、特例の減額を取得する人に寄せるとき。ほかは法定相続分どおり（今まで）
+      const G0 = o.gross ?? g.grossNoRed;
+      // 相続税も試算する世帯は、いつも取得する分を配分する（推移の二次に足す配偶者の分にも使う）。人ごとの税に使うのは、分け方を入れたか、
+      // 特例の減額を取得する人に寄せるか、土地の評価・贈与に合わせて割合を直したときだけ（ほかは法定相続分どおりで同じ額）
+      const alloc = detailed ? allocateEstate(g, slots, o.division, Math.max(0, G0)) : null;
+      const entered = o.division !== undefined && (o.division.spouseShare !== undefined || (o.division.shares?.length ?? 0) > 0);
+      const useDivision = alloc !== null && (entered || g.reduction > 0 || alloc.adjusted);
+      // 課税価格の割合: 取得する分−その分の比で負担する債務と葬式の費用−取得した土地の特例で減った額
+      const net = !useDivision || alloc === null ? null : alloc.P.map((p, i) => Math.max(0, p - (G0 > 0 ? ctx.money.mulRatio(yen(g.deductions), p, G0, "conv.tax.allocate") : 0) - (alloc.R[i] ?? 0)));
+      const netSum = net === null ? 0 : net.reduce((a, b) => a + b, 0);
+      if (useDivision && alloc?.adjusted === true) cautions.add("divisionAdjusted");
+      if (alloc?.sharesInvalid === true) cautions.add("divisionSharesInvalid");
+      if (alloc?.sharesIgnored === true) cautions.add("divisionSharesIgnored");
+      const ratioOf = (i: number, s: Slot): Frac => (net === null || netSum <= 0 ? s.share : frac(BigInt(net[i] ?? 0), BigInt(netSum)));
       const floor = at.paramYen(P.spouseFloor) ?? yen(0);
-      let red = 0;
-      let creditSum = 0;
-      let payable = 0;
-      let payableHousehold = 0;
-      let payableOutside = 0;
-      let refund = 0;
-      const byHeir: PointResult["byHeir"] = [];
       // 2割加算（相続税法18条）と未成年者控除（同19条の3）は、相続税も試算する世帯だけ（0231）。人ごとの行（数を直していない）のとき
       const kidsOfX = new Set(job.childrenFrom ?? childrenOfX(X));
       const surchargeRate = detailed ? at.paramRate(P.surcharge) : null;
@@ -1223,19 +1558,22 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         const h = heirs.find((x) => x.member === member);
         if (h === undefined) return false;
         if (h.relation === "sibling" || h.relation === "grandparent") return true;
-        return h.relation === "child" && h.adopted && relations.some((r) => r.type === "parentOf" && r.child === h.member && r.parent !== X && kidsOfX.has(r.parent));
+        return h.relation === "child" && h.adopted && relations.some((x) => x.type === "parentOf" && x.child === h.member && x.parent !== X && kidsOfX.has(x.parent));
       };
-      /** 未成年者控除の額（満18歳になるまでの年数。1年未満は1年。年齢は月で数える） */
+      /** 未成年者控除の額（満18歳になるまでの年数。1年未満は1年。年齢は月で数える）。前の相続で受けたことがあれば、その残りまで（19条の3第3項） */
       const minorOf = (member: string | undefined): number => {
         if (minorAge === null || minorPer === null || member === undefined) return 0;
         const b = byId.get(member)?.birth ?? null;
         if (b === null || b > D) return 0;
         const age = Math.floor((D - b) / 12);
-        return age < minorAge ? ctx.money.mulRatio(minorPer, minorAge - age, 1, "conv.exact") : 0;
+        const full = age < minorAge ? ctx.money.mulRatio(minorPer, minorAge - age, 1, "conv.exact") : 0;
+        const cap = o.minorCap?.get(member);
+        return cap === undefined ? full : Math.min(full, cap);
       };
-      const heirRows = slots.map((s) => {
-        const acquisition = ctx.money.mulRatio(T, s.share[0], s.share[1], "conv.tax.allocate");
-        const base = ctx.money.mulRatio(totalTax, s.share[0], s.share[1], "conv.tax.allocate");
+      const heirRows = slots.map((s, i) => {
+        const f = ratioOf(i, s);
+        const acquisition = ctx.money.mulRatio(T, f[0], f[1], "conv.tax.allocate");
+        const base = ctx.money.mulRatio(totalTax, f[0], f[1], "conv.tax.allocate");
         const surcharge = surchargeRate !== null && s.count === undefined && surchargeOf(s.member) ? ctx.money.mulRate(base, surchargeRate, "conv.tax.allocate") : 0;
         const tax = base + surcharge;
         let sRed = 0;
@@ -1245,25 +1583,56 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           // 相続税法19条の2: 相続税の総額×（配偶者の課税価格と「1億6,000万円か法定相続分の額の多い方」の小さい方）÷課税価格の合計
           sRed = Math.min(tax, ctx.money.mulRatio(totalTax, lim, T, "conv.tax.allocate"));
         }
-        const minorFull = s.count === undefined ? minorOf(s.member) : 0;
+        // 未成年者控除は財産を取得した人だけ（相続税法19条の3第1項。分け方で取得しない子は受けない）
+        const minorFull = s.count === undefined && acquisition > 0 ? minorOf(s.member) : 0;
         const minor = Math.min(minorFull, tax - sRed);
-        return { s, acquisition, base, surcharge, tax, sRed, minor, excess: minorFull - minor };
+        return { s, i, acquisition, base, surcharge, tax, sRed, minor, minorFull, excess: minorFull - minor, successive: 0 };
       });
       // 引ききれない未成年者控除は、扶養義務者（配偶者、次に他の相続人の順）の税から引く
-      let excess = heirRows.reduce((sum, r) => sum + r.excess, 0);
-      for (const r of [...heirRows.filter((x) => x.s.spouse), ...heirRows.filter((x) => !x.s.spouse)]) {
+      const excessAll = heirRows.reduce((sum, x) => sum + x.excess, 0);
+      let excess = excessAll;
+      for (const x of [...heirRows.filter((y) => y.s.spouse), ...heirRows.filter((y) => !y.s.spouse)]) {
         if (excess <= 0) break;
-        const room = r.tax - r.sRed - r.minor;
+        const room = x.tax - x.sRed - x.minor;
         const take = Math.min(room, excess);
-        if (take <= 0 || r.excess > 0) continue;
-        r.minor += take;
+        if (take <= 0 || x.excess > 0) continue;
+        x.minor += take;
         excess -= take;
       }
+      // 受けた未成年者控除（本人の税から引いた分と、扶養義務者の税から引いた分を引ききれた比で）
+      const minorUsed = new Map<string, { full: number; used: number }>();
+      for (const x of heirRows) {
+        if (x.s.member === undefined || x.minorFull <= 0) continue;
+        const own = Math.min(x.minorFull, x.tax - x.sRed);
+        const passed = excessAll <= 0 ? 0 : ctx.money.mulRatio(yen(x.excess), excessAll - excess, excessAll, "conv.exact");
+        minorUsed.set(x.s.member, { full: x.minorFull, used: own + passed });
+      }
+      // 相次相続控除（相続税法20条。推移の二次）: A×（C÷(B−A)。1を超えれば1）×（D÷C）×（10−経過年数）÷10。経過年数の1年未満は切り捨て（No.4168）
+      let successiveSum = 0;
+      if (o.successive !== undefined && o.successive.A > 0 && o.successive.months < 120 && T > 0) {
+        const { A, B, months } = o.successive;
+        const years = 10 - Math.floor(months / 12);
+        const capped = B - A <= 0 || T >= B - A ? A : ctx.money.mulRatio(A, T, B - A, "conv.tax.allocate");
+        const whole = ctx.money.mulRatio(capped, years, 10, "conv.tax.allocate");
+        for (const x of heirRows) {
+          const room = Math.max(0, x.tax - x.sRed - x.minor);
+          x.successive = Math.min(room, ctx.money.mulRatio(whole, x.acquisition, T, "conv.tax.allocate"));
+          successiveSum += x.successive;
+        }
+      }
+      let red = 0;
+      let creditSum = 0;
+      let payable = 0;
+      let payableHousehold = 0;
+      let payableOutside = 0;
+      let refund = 0;
       let surchargeSum = 0;
       let minorSum = 0;
-      for (const { s, acquisition, tax, surcharge, sRed, minor } of heirRows) {
-        const credit = s.member !== undefined ? (credits.get(s.member) ?? 0) : 0;
-        const before = tax - sRed - minor;
+      const byHeir: PointResult["byHeir"] = [];
+      let spouseOut: Finished["spouse"] = null;
+      for (const { s, i, acquisition, tax, surcharge, sRed, minor, successive } of heirRows) {
+        const credit = s.member !== undefined ? (g.credits.get(s.member) ?? 0) : 0;
+        const before = tax - sRed - minor - successive;
         const pay = at.money.round(yen(Math.max(0, before - credit)), P.taxRound);
         const back = Math.max(0, credit - before);
         red += sRed;
@@ -1274,6 +1643,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         minorSum += minor;
         if (s.outside) payableOutside += pay;
         else payableHousehold += pay;
+        const landRed = useDivision ? (alloc?.R[i] ?? 0) : 0;
         byHeir.push({
           ...(s.member !== undefined ? { member: s.member } : {}),
           ...(s.count !== undefined ? { count: s.count } : {}),
@@ -1286,29 +1656,183 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           refund: yen(back),
           ...(surcharge > 0 ? { surcharge: yen(surcharge) } : {}),
           ...(minor > 0 ? { minorCredit: yen(minor) } : {}),
+          ...(landRed > 0 ? { landReduction: yen(landRed) } : {}),
+          ...(successive > 0 ? { successiveCredit: yen(successive) } : {}),
+        });
+        if (s.spouse)
+          spouseOut = {
+            pre: alloc?.P[i] ?? ctx.money.mulRatio(yen(Math.max(0, G0)), s.share[0], s.share[1], "conv.tax.allocate"),
+            land: alloc?.L[i] ?? 0,
+            gift: alloc?.G[i] ?? 0,
+            lands: alloc?.spLands ?? new Map(),
+            exempt: 0,
+            debt: 0,
+            acquisition,
+            payable: pay,
+          };
+      }
+      if (spouseOut !== null) {
+        const so = spouseOut as NonNullable<Finished["spouse"]>;
+        so.exempt = G0 > 0 ? ctx.money.mulRatio(yen(g.exempt), Math.min(so.pre, G0), G0, "conv.tax.allocate") : 0;
+        so.debt = G0 > 0 ? ctx.money.mulRatio(yen(g.deductions), Math.min(so.pre, G0), G0, "conv.tax.allocate") : 0;
+      }
+      const override = o.override === true ? req.overrides?.find((x) => x.point === point && (x.decedent === undefined || x.decedent === X)) : undefined;
+      const sp = slots.findIndex((s) => s.spouse);
+      // 配偶者が取得した割合（小数4桁に丸める）
+      const shareText = (num: number, den: number): string => {
+        const q = (BigInt(num) * 10000n + BigInt(den) / 2n) / BigInt(den);
+        return ctx.rate.toString(ctx.rate.div(rOf(Number(q)), rOf(10000)));
+      };
+      const division: PointResult["division"] | undefined =
+        useDivision && alloc !== null
+          ? {
+              entered,
+              ...(sp >= 0 && G0 > 0 ? { spouseShare: shareText(alloc.P[sp] ?? 0, G0) } : {}),
+              ...(alloc.adjusted ? { adjusted: true as const } : {}),
+            }
+          : undefined;
+      return {
+        result: {
+          ...r,
+          taxableEstate: taxable,
+          totalTax,
+          spouseReduction: yen(red),
+          settlementCredit: yen(creditSum),
+          byHeir,
+          payable: yen(payable),
+          payableHousehold: yen(payableHousehold),
+          payableOutside: yen(payableOutside),
+          refund: yen(refund),
+          amount: override !== undefined ? override.amount : yen(payable),
+          state: override !== undefined ? "confirmed" : "estimated",
+          ...(detailed ? { surcharge: yen(surchargeSum), minorCredit: yen(minorSum), lands: g.landEval?.lands ?? [] } : {}),
+          ...(successiveSum > 0 ? { successiveCredit: yen(successiveSum) } : {}),
+          ...(division !== undefined ? { division } : {}),
+          cautions: [...cautions].sort(),
+        },
+        spouse: spouseOut,
+        minorUsed,
+      };
+    };
+
+    const results: PointResult[] = [];
+    for (const job of jobs) {
+      const g = gather(job);
+      if (!("job" in g)) {
+        results.push(g);
+        continue;
+      }
+      results.push(finish(g, { division: req.division, override: true }).result);
+    }
+
+    // ---- 一次と二次の推移（0251。相続税も試算する世帯で、要求に timeline があり、法律婚の夫婦の世帯だけ） ----
+    const timeline = ((): Timeline | undefined => {
+      if (!detailed || req.timeline === undefined || contingencyDeath !== null || adults.length < 2) return undefined;
+      const second = lastOf();
+      const first = adults.find((a) => a.id !== second)?.id;
+      if (second === undefined || first === undefined) return undefined;
+      const D2 = monthIndex(endYear, 12);
+      const step = Math.min(10, Math.max(1, Math.floor(req.timeline.step ?? 1)));
+      const kids = coupleKids();
+      const series: { key: string; division: Division | undefined }[] = [
+        { key: "entered", division: req.division },
+        ...(req.timeline.alternatives ?? []).map((a) => ({ key: a.key, division: { ...(req.division?.shares !== undefined ? { shares: req.division.shares } : {}), ...(a.spouseShare !== undefined ? { spouseShare: a.spouseShare } : {}) } as Division })),
+      ];
+      // 一次の配偶者の法定相続分（選んでいない土地を配偶者が取得する割合の省略）と、配偶者のほかの相続人がいるか（計算基準月の家族）
+      const heirsAtBase = heirsOf(first, base, true, null, ctx.at(base));
+      const legalSpouse = heirsAtBase.find((x) => x.relation === "spouse")?.share ?? F0;
+      const othersAtBase = heirsAtBase.some((x) => x.relation !== "spouse" && x.counted);
+      /**
+       * 一次で後に亡くなる人が取得する、先に亡くなる人の不動産の割合（物ごと）。一次の配分（allocateEstate）と同じ決まり: 配偶者を選んだ土地と、
+       * 取得する人を選んでいない自宅（特例の種類が自宅）は全部、配偶者のほかの人を選んだ土地は無し（配偶者のほかの相続人がいなければ全部）、
+       * 選んでいない土地は配偶者の割合（配偶者のほかの相続人がいなければ全部）
+       */
+      const fractionOf = (division: Division | undefined): Map<string, Frac> => {
+        const share = !othersAtBase ? F1 : division?.spouseShare !== undefined ? fOf(division.spouseShare) : legalSpouse;
+        const out = new Map<string, Frac>();
+        const objects = [...residences.map((x) => x.id), ...accounts.filter((a) => a.kind === "realEstate").map((a) => a.id)];
+        for (const object of objects) {
+          const st = landSettings.get(object);
+          const isHome = residences.some((x) => x.id === object);
+          const use = st?.use ?? (isHome ? "residence" : "none");
+          const c = st?.primary;
+          out.set(object, c === undefined ? (use === "residence" ? F1 : share) : c.acquirer === "spouse" || !othersAtBase ? F1 : F0);
+        }
+        return out;
+      };
+      const unassignedFirst = req.unassignedShare ?? "0.5";
+      const secondaries = new Map<string, Gathered | PointResult>();
+      const secondaryOf = (division: Division | undefined): Gathered | PointResult => {
+        const fraction = fractionOf(division);
+        const key = JSON.stringify([...fraction].map(([k, v]) => [k, fmtFrac(v)]));
+        let g = secondaries.get(key);
+        if (g === undefined) {
+          g = gather({ point: "bothAfter", kind: "secondaryAt", decedent: second, D: D2, V: endYear, opening: false, owners: new Set([second]), spouseAllowed: false, childrenFrom: kids, inherit: { from: first, unassigned: unassignedFirst, fraction } });
+          secondaries.set(key, g);
+        }
+        return g;
+      };
+      const years: number[] = [];
+      for (let y = baseYear; y <= endYear; y += step) years.push(y);
+      if (years[years.length - 1] !== endYear) years.push(endYear);
+      const out: Timeline["series"] = series.map((s) => ({ key: s.key, ...(s.division?.spouseShare !== undefined ? { spouseShare: s.division.spouseShare } : {}), rows: [] }));
+      for (const y of years) {
+        const job: Job = y === baseYear ? nowJob(first) : { point: "now", kind: "primaryAt", decedent: first, D: monthIndex(y, 12), V: y, opening: false, owners: new Set([first]), spouseAllowed: true, childrenFrom: null };
+        if (legalSpouseAt(first, job.D) !== second) continue;
+        const g1 = gather(job);
+        series.forEach((s, k) => {
+          const p1 = "job" in g1 ? finish(g1, { division: s.division }) : null;
+          const sp = p1?.spouse ?? null;
+          const A = sp?.payable ?? yen(0);
+          const g2 = secondaryOf(s.division);
+          // 一次で取得した土地・建物のうち、表の最後の年に無い物（二次の前に売る・手放す物）は、一次の時点の評価のまま二次の財産に残す
+          // （売った代金は表では先に亡くなった人の名義の口座に入り、後に亡くなる人の財産に乗らないため）
+          const atEnd = new Set(("job" in g2 ? (g2.landEval?.lands ?? []) : []).map((l) => l.object));
+          let goneLands = 0;
+          for (const [object, v] of sp?.lands ?? []) if (!atEnd.has(object)) goneLands += v;
+          // 二次の財産に足す一次の取得: 土地・建物と精算課税で前にもらった財産のほか（非課税の分を含む）−負担した債務と葬式の費用−一次で納めた額
+          // （一次の時点の額のまま）＋二次の前に手放す土地・建物
+          const inherited = sp === null ? 0 : Math.max(0, sp.pre - sp.land - sp.gift + sp.exempt - sp.debt - A + goneLands);
+          let secondary = yen(0);
+          let secondaryTaxable = yen(0);
+          let successive = yen(0);
+          let minor2 = yen(0);
+          if ("job" in g2) {
+            const gross = g2.grossNoRed + inherited;
+            const T2 = g2.at.money.round(yen(Math.max(0, gross - g2.reduction - g2.deductions)), P.taxableRound);
+            const cap = new Map<string, number>();
+            for (const [m, u] of p1?.minorUsed ?? []) if (u.used > 0) cap.set(m, Math.max(0, u.full - u.used));
+            const p2 = finish(g2, { division: s.division?.shares !== undefined ? { shares: s.division.shares } : undefined, T: T2, gross, minorCap: cap, ...(sp !== null ? { successive: { A, B: sp.acquisition, months: D2 - job.D } } : {}) }).result;
+            secondary = p2.payable;
+            secondaryTaxable = T2;
+            successive = p2.successiveCredit ?? yen(0);
+            minor2 = p2.minorCredit ?? yen(0);
+          }
+          const primary = p1?.result.payable ?? yen(0);
+          out[k]?.rows.push({
+            year: y,
+            month: formatYm(job.D),
+            primary,
+            secondary,
+            total: yen(primary + secondary),
+            primaryTaxable: p1?.result.assets.taxablePrice ?? yen(0),
+            secondaryTaxable,
+            spouseAcquisition: sp?.acquisition ?? yen(0),
+            spouseTax: A,
+            inherited: yen(inherited),
+            successiveCredit: successive,
+            secondaryMinorCredit: minor2,
+          });
         });
       }
-      const override = req.overrides?.find((o) => o.point === point && (o.decedent === undefined || o.decedent === X));
-      results.push({
-        ...r,
-        taxableEstate: taxable,
-        totalTax,
-        spouseReduction: yen(red),
-        settlementCredit: yen(creditSum),
-        byHeir,
-        payable: yen(payable),
-        payableHousehold: yen(payableHousehold),
-        payableOutside: yen(payableOutside),
-        refund: yen(refund),
-        amount: override !== undefined ? override.amount : yen(payable),
-        state: override !== undefined ? "confirmed" : "estimated",
-        ...(detailed ? { surcharge: yen(surchargeSum), minorCredit: yen(minorSum), lands: landEval?.lands ?? [] } : {}),
-        cautions: [...cautions].sort(),
-      });
-    }
+      // 二次の相続人がいない（子のいない夫婦で、兄弟姉妹などを入れていない）: 二次を計算していないことを出す
+      const noHeirs = [...secondaries.values()].some((g) => !("job" in g) && g.status === "noHeirs");
+      return { first, second, secondMonth: formatYm(D2), step, ...(noHeirs ? { secondaryStatus: "noHeirs" as const } : {}), series: out };
+    })();
+
     // 目安（推定）であることと、不動産の評価の割合に既定（時価の80%）を使ったこと
     if (results.some((p) => p.status === "ok")) ctx.notice("N_ESTIMATED", ["inheritanceTax.estimate"]);
     if (req.realEstateRatio === undefined && results.some((p) => p.assets.realEstateMarket > 0)) ctx.notice("N_DEFAULT_USED", ["inheritanceTax.realEstateRatio"]);
-    return { points: results, notIncluded: detailed ? NOT_INCLUDED_DETAILED : NOT_INCLUDED };
+    return { points: results, notIncluded: detailed ? NOT_INCLUDED_DETAILED : NOT_INCLUDED, ...(timeline !== undefined ? { timeline } : {}) };
   },
 });

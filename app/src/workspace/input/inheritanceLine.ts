@@ -2,19 +2,30 @@
 // 今の世帯の要求に相続税の目安（いま亡くなったら・二人とも亡くなった後）を求めて1回だけ計算し、入力項目の要約の下の小さな1行とパネルの1行に出す。
 // 表示だけで、お金の流れ・世帯の物は変えない（求めるのは画面の側の写しの要求）。計算の道が無い所（画面の確かめなど）では出さない
 import { useEffect, useMemo, useState } from "preact/hooks";
-import type { EngineRequest, Household, InheritancePoint, PreviewResult } from "../../engine/types.ts";
+import type { EngineRequest, Household, InheritancePoint, InheritanceTimelineRow, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { manText } from "./items.ts";
 import { bothAfterLabel, memberLabel } from "./labels.ts";
-import { isDetailed, landTargets, withLandEstimates } from "./inheritanceLand.ts";
+import { divisionText, isDetailed, landTargets, withLandEstimates } from "./inheritanceLand.ts";
 
-/** 相続税の目安を求める要求（今の世帯の写し。万一の想定・必要保障額の推移は外す） */
-export function inheritanceRequest(req: EngineRequest): EngineRequest {
+/** 一次と二次の推移で比較する分け方（0251。入れた分け方の配偶者の割合だけを替える。spouseShare の省略は法定相続分） */
+export const TIMELINE_ALTERNATIVES = [
+  { key: "legal" },
+  { key: "spouseAll", spouseShare: "1" },
+  { key: "spouseLandsOnly", spouseShare: "0" },
+] as const;
+
+/**
+ * 相続税の目安を求める要求（今の世帯の写し。万一の想定・必要保障額の推移は外す）。timeline は相続税も試算する世帯で、一次と二次の推移
+ * （毎年・比較する分け方つき。0251）も求める（入力項目の下の目安だけ。結果のタブのポイントは求めない）
+ */
+export function inheritanceRequest(req: EngineRequest, o: { timeline?: boolean } = {}): EngineRequest {
   const out = structuredClone(req);
   delete out.input.contingencies;
   delete out.input.protection;
   // 相続税も試算する世帯は、建物の固定資産税評価額の推定を足す（世帯には保存しない。0231）
-  out.input.inheritanceTax = { ...withLandEstimates(req.input.inheritanceTax ?? {}, req), points: ["now", "bothAfter"] };
+  const t = withLandEstimates(req.input.inheritanceTax ?? {}, req);
+  out.input.inheritanceTax = { ...t, points: ["now", "bothAfter"], ...(o.timeline === true && t.detailed === true ? { timeline: { alternatives: TIMELINE_ALTERNATIVES.map((a) => ({ ...a })) } } : {}) };
   out.trace = "none";
   return out;
 }
@@ -40,9 +51,10 @@ export function inheritanceTaxNote(r: PreviewResult | null, h: Household): strin
   return p.noTax ? `${head}: かからない見込み` : `${head}: 約${manText(p.payable)}万円`;
 }
 
-/** 相続税の目安の計算（今の世帯が変わったら計算し直す）。計算の道が無ければ null のまま */
-export function useInheritanceEstimate(wh: WorkingHousehold, active: boolean, computeOne: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined): PreviewResult | null {
-  const req = useMemo(() => (active && computeOne !== undefined ? inheritanceRequest(wh.request) : null), [active, computeOne, wh.request]);
+/** 相続税の目安の計算（今の世帯が変わったら計算し直す）。計算の道が無ければ null のまま。timeline は一次と二次の推移も求める（相続・贈与の入力項目の中だけ。0251） */
+export function useInheritanceEstimate(wh: WorkingHousehold, active: boolean, computeOne: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined, o: { timeline?: boolean } = {}): PreviewResult | null {
+  const timeline = o.timeline === true;
+  const req = useMemo(() => (active && computeOne !== undefined ? inheritanceRequest(wh.request, { timeline }) : null), [active, computeOne, wh.request, timeline]);
   const [res, setRes] = useState<{ req: EngineRequest; r: PreviewResult | null } | null>(null);
   useEffect(() => {
     if (req === null || computeOne === undefined) return;
@@ -74,6 +86,9 @@ export const CAUTION_TEXT: Readonly<Record<string, string>> = {
   smallLandAreaLimit: "小規模宅地等の特例の面積の上限を超えた分は、減らしていません（減る額の大きい土地から適用）",
   smallLandRecentRental: "貸し始めて3年以内の貸付があります（事業的規模の貸付を3年を超えて続けていなければ、貸付の特例の対象になりません）",
   landInputMissing: "土地の評価の入れ方に要る値（路線価と面積・固定資産税評価額・倍率）が無い土地は、時価×評価の割合で見ています",
+  divisionAdjusted: "取得する土地の評価や、前に相続時精算課税でもらった財産が、分け方の割合の分より大きい人がいるので、その人の取得をその額まで増やし、ほかの人の分を割合の比で減らしました",
+  divisionSharesInvalid: "子の割合の合計が100%になっていないので、入れた割合を使わず法定相続分どおりで計算しています（入力項目の「遺産の分け方」で直せます）",
+  divisionSharesIgnored: "法定相続人の数を直しているので、子ごとの割合は使わず、配偶者のほかの相続人で等分しています",
 };
 
 /** 目安に含めていない決まり（エンジンの notIncluded） */
@@ -143,6 +158,14 @@ export const NO_HEIRS_HINT = "兄弟姉妹（亡くなっていれば甥・姪�
 /** 相続税の目安の不動産の評価の割合の既定（計算エンジンの inheritance.estimate の REAL_ESTATE_RATIO と同じ。時価の80%） */
 const REAL_ESTATE_RATIO_DEFAULT = "0.8";
 
+/** 内訳の分け方の言葉（0251）: 入れた分け方・法定相続分どおり（特例の減額は土地を取得する人に）・法定相続分どおり */
+function divisionNote(wh: WorkingHousehold, p: InheritancePoint): string {
+  // 二人とも亡くなった後は配偶者がいないので、子の割合だけを書く
+  if (p.division?.entered === true) return `入れた分け方（${divisionText(wh, { spouse: p.point !== "bothAfter" }) ?? "法定相続分どおり"}）で分けたとして`;
+  if (p.division !== undefined) return "法定相続分どおりに分け、特例で減った額は土地を取得する人の分から引いたとして";
+  return "法定相続分どおりに分けたとして";
+}
+
 /** 時点ごとの見せ方（相続・贈与のカードの区画「相続税の目安」） */
 export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): { points: InheritancePointView[]; notIncluded: string[] } {
   const out: InheritancePointView[] = [];
@@ -194,13 +217,93 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
           ...((p.minorCredit ?? 0) > 0 ? [`未成年者控除 −${man(p.minorCredit ?? 0)}`] : []),
           ...((p.settlementCredit ?? 0) > 0 ? [`精算課税で払った贈与税 −${man(p.settlementCredit ?? 0)}`] : []),
         ];
-        details.push(`課税遺産総額 ${man(p.taxableEstate ?? 0)} → 税の総額 ${man(p.totalTax)}${minus.length > 0 ? `（${minus.join("・")}）` : ""} → 納める額 ${man(p.payable)}（世帯の人 ${man(p.payableHousehold)}${p.payableOutside > 0 ? `・世帯の外の相続人 ${man(p.payableOutside)}` : ""}。法定相続分どおりに分けたとして）`);
+        details.push(`課税遺産総額 ${man(p.taxableEstate ?? 0)} → 税の総額 ${man(p.totalTax)}${minus.length > 0 ? `（${minus.join("・")}）` : ""} → 納める額 ${man(p.payable)}（世帯の人 ${man(p.payableHousehold)}${p.payableOutside > 0 ? `・世帯の外の相続人 ${man(p.payableOutside)}` : ""}。${divisionNote(wh, p)}）`);
       }
+      // 分け方（0251）: 人ごとの取得と納める額（相続税も試算する世帯で、分け方を入れたか、特例の減額を取得する人に寄せたとき）
+      if (p.division !== undefined && (p.byHeir ?? []).length > 0)
+        details.push(
+          `人ごと: ${(p.byHeir ?? [])
+            .map((b) => `${b.member !== undefined ? memberLabel(wh, b.member) : `ほかの${String(b.count ?? 0)}人`} 取得 ${man(b.acquisition)}${(b.landReduction ?? 0) > 0 ? `（特例 −${man(b.landReduction ?? 0)}）` : ""}・納める額 ${man(b.payable)}`)
+            .join("、")}`,
+        );
       if (p.state === "confirmed") details.push(`目安は ${p.noTax ? "かからない見込み" : `約${man(p.payable)}`}（FP が入れた額を使っています）`);
     }
     out.push({ title, answer, details, cautions: p.cautions.map((c) => CAUTION_TEXT[c] ?? c) });
   }
-  return { points: out, notIncluded: (r?.inheritanceTax?.notIncluded ?? []).map((x) => NOT_INCLUDED_TEXT[x] ?? x) };
+  const hasTimeline = r?.inheritanceTax?.timeline !== undefined;
+  return { points: out, notIncluded: (r?.inheritanceTax?.notIncluded ?? []).map((x) => (x === "successiveInheritanceCredit" && hasTimeline ? "相次相続控除（一次と二次の推移の二次には入れています）" : (NOT_INCLUDED_TEXT[x] ?? x))) };
+}
+
+// ---- 一次と二次の相続税の推移（0251。相続税も試算する夫婦の世帯だけ） ----
+
+/** 分け方の名前（推移の比較の行）。配偶者は残された人（後に亡くなる人）の呼び名を添える */
+export const SERIES_LABEL: Readonly<Record<string, (survivor: string) => string>> = {
+  entered: () => "入れた分け方",
+  legal: () => "法定相続分どおり",
+  spouseAll: (n) => `残された${n}が全部取得する`,
+  spouseLandsOnly: (n) => `残された${n}は取得する土地だけ`,
+};
+
+export interface TimelineView {
+  /** 「ご本人が先に亡くなるとして（年は表の行）、配偶者は2071年12月に亡くなるとして」 */
+  lead: string;
+  /** 表の上に出す前提の1文（一次で取得したお金は二次まで使わないとして） */
+  premise: string;
+  /** 二次を計算していない理由（二次の相続人がいない）。計算していれば null */
+  secondaryMissing: string | null;
+  /** 入れた分け方の名前（入れていなければ「法定相続分どおり」） */
+  entered: string;
+  /** 入れた分け方の年ごとの行 */
+  rows: InheritanceTimelineRow[];
+  /** 比較する分け方（入れた分け方が法定相続分どおりなら、法定相続分の行は出さない） */
+  series: { key: string; label: string; rows: InheritanceTimelineRow[] }[];
+  /** 二次の税に入れた控除と、二次の財産の決め方の注意 */
+  notes: string[];
+}
+
+/** 一次と二次の推移の見せ方。推移が無い（試算しない・夫婦でない・計算の道が無い）ときは null */
+export function timelineView(wh: WorkingHousehold, r: PreviewResult | null): TimelineView | null {
+  const tl = r?.inheritanceTax?.timeline;
+  const entered = tl?.series.find((s) => s.key === "entered");
+  if (tl === undefined || entered === undefined || entered.rows.length === 0) return null;
+  const d = wh.request.input.inheritanceTax?.division;
+  const enteredText = divisionText(wh);
+  const plainLegal = d?.spouseShare === undefined;
+  const survivor = memberLabel(wh, tl.second);
+  const series = tl.series
+    .filter((s) => !(s.key === "legal" && plainLegal))
+    .map((s) => ({ key: s.key, label: s.key === "entered" ? (enteredText !== null ? `入れた分け方（${enteredText}）` : "法定相続分どおり") : (SERIES_LABEL[s.key]?.(survivor) ?? s.key), rows: s.rows }));
+  return {
+    lead: `${memberLabel(wh, tl.first)}が先に亡くなるとして（年は表の行）、${survivor}は${tl.secondMonth.slice(0, 4)}年${String(Number(tl.secondMonth.slice(5, 7)))}月に亡くなるとして`,
+    premise: "一次で取得したお金は、二次まで使わない（増えも減りもしない）として出しています",
+    secondaryMissing: tl.secondaryStatus === "noHeirs" ? `二次は計算していません（${survivor}の相続人〔兄弟姉妹など〕が入っていません）。${NO_HEIRS_HINT}` : null,
+    entered: enteredText !== null ? `入れた分け方（${enteredText}）` : "法定相続分どおり",
+    rows: entered.rows,
+    series,
+    notes: [
+      "一次は、今年はいまの時点、ほかの年はその年の12月に亡くなるとして、その年の年末の財産で出しています",
+      "二次の財産は、後に亡くなる人の名義の財産（表の年末）に、一次で取得した財産（土地・建物は二次の年の評価、ほかは一次の時点の額から一次で納めた額を引いた額）を足しています。一次で取得したお金は二次まで増えも減りもしないとみなします",
+      "二次は相次相続控除（一次から10年以内）と、一次で受けた未成年者控除の残りを入れています。二次の自宅などの特例は、土地ごとに二次の相続の取得する人を選ぶまで使いません",
+    ],
+  };
+}
+
+/** 推移の表に出す年（5年ごと・最初と最後の年。all なら毎年） */
+export function timelineYears(rows: readonly InheritanceTimelineRow[], all: boolean): InheritanceTimelineRow[] {
+  if (all || rows.length <= 8) return [...rows];
+  const first = rows[0]?.year ?? 0;
+  return rows.filter((x, i) => i === 0 || i === rows.length - 1 || (x.year - first) % 5 === 0);
+}
+
+/** 比較の行のうち合計がいちばん少ない分け方（同じなら前の行）。二次を計算していないときは出さない */
+export function cheapestAt(view: TimelineView, year: number): { label: string; total: number } | null {
+  if (view.secondaryMissing !== null) return null;
+  let best: { label: string; total: number } | null = null;
+  for (const s of view.series) {
+    const row = s.rows.find((x) => x.year === year);
+    if (row !== undefined && (best === null || row.total < best.total)) best = { label: s.label, total: row.total };
+  }
+  return best;
 }
 
 /**
