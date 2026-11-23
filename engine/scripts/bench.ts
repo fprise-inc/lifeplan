@@ -3,7 +3,8 @@
 // - 画面側（V8・JavaScriptCore）: スライダーの1刻み（世帯の入力・案の前提を動かし、見ている1枠を先出し）と、手を離した後のほかの19枠
 //   （測り方は scripts/bench-js.js。Node と Bun で同じ手順）
 // - 本体（quickjs-ng。engine-bench）: バイトコードから読み込み、計算ごとに新しい実行環境で、1案×4想定・5案×4想定の正の計算と、
-//   必要保障額の推移（夫婦2人。protection。0005 の追記 2026-10-09 の目安: Apple シリコンで3秒以内）
+//   必要保障額の推移（夫婦2人。protection。0005 の追記 2026-10-09 の目安: Apple シリコンで3秒以内）と、相続税も試算する世帯の一次と二次の推移
+//   （inheritance。0250。同じ目安）
 // 時間のほかに、揺れない物差しを2つ記録する（0005 の追記 2026-10-28）:
 // - 部品の呼び出しの回数（scripts/bench-count.js。決まった値で、OS によらない）
 // - 実行した命令の数（百万）。macOS の /usr/bin/time -l が数えられる所（作業の Mac）では V8 の手順（scripts/bench-js の形を
@@ -22,7 +23,7 @@ import { availableParallelism, cpus, loadavg } from "node:os";
 import vm from "node:vm";
 import { measure } from "./bench-js.js";
 import { compareAll, type BenchResult, type Compared, type HistoryEntry, noisyLoad } from "./bench-compare.ts";
-import { benchRequests, protectionRequest, SLIDERS } from "./bench-requests.ts";
+import { benchRequests, inheritanceRequest, protectionRequest, SLIDERS } from "./bench-requests.ts";
 import { ENGINE_DIR, REPO_DIR } from "./lib.ts";
 
 const args = process.argv.slice(2);
@@ -52,6 +53,11 @@ const protection = protectionRequest();
 const protectionPath = join(outDir, "protection.json");
 writeFileSync(protectionPath, JSON.stringify(protection));
 (data as Record<string, unknown>).protection = protection;
+// 相続税も試算する世帯の一次と二次の推移（0250）
+const inheritance = inheritanceRequest();
+const inheritancePath = join(outDir, "inheritance.json");
+writeFileSync(inheritancePath, JSON.stringify(inheritance));
+(data as Record<string, unknown>).inheritance = inheritance;
 const dataPath = join(outDir, "data.json");
 writeFileSync(dataPath, JSON.stringify(data));
 
@@ -75,7 +81,7 @@ const quickjsBin = join(REPO_DIR, "target", "release", `engine-bench${process.pl
 if (!args.includes("--no-quickjs")) {
   const bin = quickjsBin;
   if (!existsSync(bin)) throw new Error("engine-bench がありません。先に cargo build --release を流してください");
-  const q = spawnSync(bin, ["--engine", enginePath, "--packs", packsPath, "--requests", requestsPath, "--protection", protectionPath, "--repeat", String(Math.max(3, Math.ceil(repeat / 2)))], { encoding: "utf8", maxBuffer: 1 << 30 });
+  const q = spawnSync(bin, ["--engine", enginePath, "--packs", packsPath, "--requests", requestsPath, "--protection", protectionPath, "--inheritance", inheritancePath, "--repeat", String(Math.max(3, Math.ceil(repeat / 2)))], { encoding: "utf8", maxBuffer: 1 << 30 });
   if (q.status !== 0) throw new Error(`engine-bench が失敗しました: ${q.stderr.slice(0, 500)}`);
   result.quickjs = JSON.parse(q.stdout);
 }
