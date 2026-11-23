@@ -226,21 +226,23 @@ export function ReceivedDocs({ rd }: { rd: ReceivedDocsState }) {
                     {asking === id ? (
                       <span class="wr-confirm" role="alert">
                         この世帯から消します（元に戻せません）。{r.file.savedAt === undefined ? "まだ自分のフォルダに保存していません。" : ""}
-                        <button
-                          type="button"
-                          class="btn small danger"
-                          onClick={() => {
-                            setAsking(null);
-                            if (rd.viewing === id) rd.view(null);
-                            rd.remove([id]);
-                          }}
-                          data-received-delete-yes={id}
-                        >
-                          消す
-                        </button>
-                        <button type="button" class="btn small" onClick={() => setAsking(null)}>
-                          やめる
-                        </button>
+                        <span class="wr-confirm-acts">
+                          <button
+                            type="button"
+                            class="btn small danger"
+                            onClick={() => {
+                              setAsking(null);
+                              if (rd.viewing === id) rd.view(null);
+                              rd.remove([id]);
+                            }}
+                            data-received-delete-yes={id}
+                          >
+                            消す
+                          </button>
+                          <button type="button" class="btn small" onClick={() => setAsking(null)}>
+                            やめる
+                          </button>
+                        </span>
                       </span>
                     ) : (
                       <button type="button" class="link-btn" onClick={() => setAsking(id)} data-received-delete={id}>

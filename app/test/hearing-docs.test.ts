@@ -12,6 +12,7 @@ import type { RequestedDocument, WebSelection } from "../../hearing/src/web/pack
 import { blankHousehold, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import type { DocRequest } from "../src/workspace/input/docRequests.ts";
+import { buttonTexts, renderPressing, within } from "./pressing.ts";
 
 let n = 0;
 const seq = () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
@@ -155,6 +156,11 @@ describe("受け取った書類（0191）", () => {
     expect(html).toContain('data-received-saved="1"');
     expect(html).toContain("ねんきん定期便");
     expect(html).not.toContain("data-received-delete-yes");
+    // 押すと、その行に確かめの文と「消す／やめる」（2つ一緒の枠。文とくっつかない。0243）
+    const ask = within(renderPressing(h(ReceivedDocs, { rd }), "data-received-delete"), 'class="wr-confirm"');
+    expect(ask).toContain("この世帯から消します（元に戻せません）。");
+    expect(ask).toMatch(/<span class="wr-confirm-acts"><button/);
+    expect(buttonTexts(ask)).toEqual(["消す", "やめる"]);
     // 自動で消す・消すように促す文は出さない
     expect(html).not.toContain("消してよいですか");
     // 保存の口が無いとき（見本の世帯など）は保存のボタンを出さない

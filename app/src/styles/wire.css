@@ -111,6 +111,9 @@
 .snap-bad { display: block; margin-top: 2px; color: var(--short-ink); font-weight: 700; font-size: 0.82rem; }
 .snap-ops { white-space: nowrap; text-align: right; }
 .snap-ops .link-btn + .link-btn { margin-left: 8px; }
+/* 外すかの確かめ（文と「外す／キャンセル」。0243）: 文は折り返してよい・ボタンは右に寄せる */
+.snap-confirm { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 4px 10px; white-space: normal; color: var(--short-ink); }
+.snap-confirm .link-btn + .link-btn { margin-left: 0; }
 
 /* ---- 万一のとき: 見るプランの切り替え（場面の帯の見出しの下） ---- */
 .cg-band .band-head select { max-width: 13em; }

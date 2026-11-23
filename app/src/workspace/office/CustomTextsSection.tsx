@@ -332,22 +332,25 @@ export function CustomTextsSection({ host, status, onStatus, kind: given }: { ho
       ) : null}
       {st.effective.length > 0 || st.state === "approved" ? (
         confirmRevert ? (
-          <p class="rp-note" data-custom-revert-confirm>
-            {w.office}を全部やめて、公式に戻します（カスタム層のファイルは消しません。もう一度使うときは「承認する」を押します）。
-            <button
-              type="button"
-              class="link-btn"
-              disabled={busy}
-              onClick={() => {
-                setConfirmRevert(false);
-                void run(() => host.revert(kind), "公式に戻しました。");
-              }}
-            >
-              戻す
-            </button>
-            <button type="button" class="link-btn" onClick={() => setConfirmRevert(false)}>
-              やめる
-            </button>
+          <p class="rp-note os-ask" data-custom-revert-confirm>
+            <span>{w.office}を全部やめて、公式に戻します（カスタム層のファイルは消しません。もう一度使うときは「承認する」を押します）。</span>
+            <span class="os-ask-acts">
+              <button
+                type="button"
+                class="link-btn"
+                disabled={busy}
+                onClick={() => {
+                  setConfirmRevert(false);
+                  void run(() => host.revert(kind), "公式に戻しました。");
+                }}
+                data-custom-revert-go
+              >
+                戻す
+              </button>
+              <button type="button" class="link-btn" onClick={() => setConfirmRevert(false)} data-custom-revert-cancel>
+                やめる
+              </button>
+            </span>
           </p>
         ) : (
           <p class="pl-sub">

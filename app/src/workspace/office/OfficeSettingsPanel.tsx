@@ -852,7 +852,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
         {featureOn(features, "combinedBs") ? (
         <section class="os-sec" aria-labelledby="os-corp" data-office-features>
           <h3 id="os-corp">法人経営者向けの機能</h3>
-          <p class="pl-sub">会社を顧問先に持つ FP 向けの機能です。既定では使いません。使うと決めたときだけ、役員として働く人のいる世帯に出ます（ほかの世帯の画面は変わりません）。どれも見せ方だけで、計算の結果は変わりません。</p>
+          <p class="pl-sub">法人を顧問先に持つ FP 向けの機能です。既定では使いません。使うと決めたときだけ、役員として働く人のいる世帯に出ます（ほかの世帯の画面は変わりません）。どれも見せ方だけで、計算の結果は変わりません。</p>
           <label class="os-radio">
             <input type="checkbox" checked={s.features.combinedBs} onChange={(e) => setS({ ...s, features: { ...s.features, combinedBs: (e.currentTarget as HTMLInputElement).checked } })} data-office-feature="combinedBs" />
             合算BS（経営者個人と会社のバランスシート）を使う
@@ -868,14 +868,16 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
             </p>
           ) : null}
           {combinedCode !== null && removing === combinedCode.ref ? (
-            <p class="rp-note" data-feature-remove-confirm>
-              外すと、この区画と合算BS の画面・提案書の章は出なくなります（世帯に入れた会社の数字は消しません。コードを入れ直すと戻ります）。
-              <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void removeCode(combinedCode.ref)}>
-                外す
-              </button>
-              <button type="button" class="link-btn" onClick={() => setRemoving(null)}>
-                やめる
-              </button>
+            <p class="rp-note os-ask" data-feature-remove-confirm>
+              <span>外すと、この区画と合算BS の画面・提案書の章は出なくなります（世帯に入れた会社の数字は消しません。コードを入れ直すと戻ります）。</span>
+              <span class="os-ask-acts">
+                <button type="button" class="link-btn danger" disabled={codeBusy} onClick={() => void removeCode(combinedCode.ref)} data-feature-remove-go>
+                  外す
+                </button>
+                <button type="button" class="link-btn" onClick={() => setRemoving(null)} data-feature-remove-cancel>
+                  やめる
+                </button>
+              </span>
             </p>
           ) : null}
           {combinedCode !== null && renewText(combinedCode) !== null ? (
@@ -1038,8 +1040,9 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
                     setCodeOpen(false);
                     setCodeText("");
                   }}
+                  data-feature-code-cancel
                 >
-                  やめる
+                  キャンセル
                 </button>
               </div>
             </div>
