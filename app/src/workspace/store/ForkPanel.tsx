@@ -11,6 +11,8 @@ export type ForkChoiceUi = "theirs" | "ours" | "both";
 
 export interface ForkPanelProps {
   customerNo: string;
+  /** 見本の世帯なら見本の名前（見本は顧客番号を持たないので、見出しは「見本「名前」」。0247） */
+  sampleName?: string;
   info: ForkInfo | null;
   busy: boolean;
   error: string | null;
@@ -33,7 +35,7 @@ export function ForkPanel(p: ForkPanelProps) {
       <div class="scrim" aria-hidden="true" />
       <div ref={panel} class="rk-panel fork-panel" role="dialog" aria-modal="true" aria-labelledby="fork-title" tabIndex={-1} data-fork-panel>
         {closable ? <CloseX onClose={p.onClose} what="分岐の知らせ" /> : null}
-        <h2 id="fork-title">世帯 {p.customerNo} が分岐しました</h2>
+        <h2 id="fork-title">{p.sampleName !== undefined ? `見本「${p.sampleName}」が分岐しました` : `世帯 ${p.customerNo} が分岐しました`}</h2>
         {p.info === null ? <p>読み込んでいます…</p> : null}
         {p.info?.savedConflict === true ? (
           <>

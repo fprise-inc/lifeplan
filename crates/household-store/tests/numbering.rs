@@ -77,7 +77,17 @@ fn sample(family: u8, age: u8, name: &str) -> SampleRequest {
         age,
         name: name.into(),
         traits: vec!["共働き".into(), "会社員".into()],
+        origin: None,
     }
+}
+
+fn sample_names(store: &Store) -> Vec<String> {
+    store
+        .list_samples()
+        .unwrap()
+        .into_iter()
+        .map(|e| e.label.sample.unwrap().name)
+        .collect()
 }
 
 fn edit(from: Option<&str>, code: &str, name: &str) -> CategoryEdit {
@@ -362,7 +372,7 @@ fn sample_shelf() {
     s.status().unwrap();
     use_categories(&s);
     let customer = s.create(req()).unwrap();
-    // FP が作る見本は 10 から。顧客の一覧には混ぜない
+    // 見本は番号を持たない（表示の番号は空。0247 の1）。顧客の一覧には混ぜない
     let mk = |r: SampleRequest| {
         s.create_with(
             req(),
@@ -372,71 +382,138 @@ fn sample_shelf() {
                 ..Default::default()
             },
         )
-        .unwrap()
     };
-    let x = mk(sample(3, 4, "夫婦と子・研修用"));
-    assert_eq!(x.customer_no, "3-4-10");
+    let x = mk(sample(3, 4, "夫婦と子・研修用")).unwrap();
+    assert_eq!(x.customer_no, "");
     assert_eq!(x.label.serial, None);
-    assert_eq!(x.label.sample.as_ref().unwrap().name, "夫婦と子・研修用");
-    assert_eq!(mk(sample(3, 4, "二つ目")).customer_no, "3-4-11");
-    assert_eq!(mk(sample(1, 2, "単身")).customer_no, "1-2-10");
+    let info = x.label.sample.as_ref().unwrap();
+    assert_eq!(
+        (info.name.as_str(), info.family, info.age),
+        ("夫婦と子・研修用", 3, 4)
+    );
+    assert!(info.origin.is_none() && !info.changed);
+    mk(sample(3, 4, "二つ目")).unwrap();
+    mk(sample(1, 2, "単身")).unwrap();
     assert_eq!(nos(&s), ["C0001"]);
-    let shelf: Vec<String> = s
+    // 見本の棚は名前の順。表示の番号はどれも空
+    assert_eq!(sample_names(&s), ["二つ目", "単身", "夫婦と子・研修用"]);
+    assert!(s
         .list_samples()
         .unwrap()
-        .into_iter()
-        .map(|e| e.customer_no)
-        .collect();
-    assert_eq!(shelf, ["1-2-10", "3-4-10", "3-4-11"]);
+        .iter()
+        .all(|e| e.customer_no.is_empty()));
+    // 同じ名前の見本は作れない（前後の空白・NFC の違いも同じとみなす）
+    assert_eq!(
+        mk(sample(2, 3, "単身")).err(),
+        Some(StoreError::SAMPLE_NAME)
+    );
+    assert_eq!(mk(sample(2, 3, "か\u{3099}")).map(|_| ()), Ok(()));
+    assert_eq!(mk(sample(2, 3, "が")).err(), Some(StoreError::SAMPLE_NAME));
+    // アプリのセットの見本の名前（画面が渡す使えない名前）とも重ならない
+    let reserved = vec!["会社員の夫婦と子2人・40代".to_owned()];
+    assert_eq!(
+        s.create_with(
+            req(),
+            CreateOptions {
+                sample: Some(sample(3, 4, "会社員の夫婦と子2人・40代")),
+                reserved_names: reserved.clone(),
+                ..Default::default()
+            },
+        )
+        .err(),
+        Some(StoreError::SAMPLE_NAME)
+    );
     // 見本の番号・区分は変えない
     assert_eq!(s.rename(&x.id, "A0001").err(), Some(StoreError::SAMPLE));
     assert_eq!(s.set_category(&x.id, "A").err(), Some(StoreError::SAMPLE));
     assert_eq!(s.assign_serial(&x.id).err(), Some(StoreError::SAMPLE));
-    // 名前と絞り込みの項目は直せる
-    s.update_sample(&x.id, "夫婦と子・片働き", &["片働き".to_owned()])
-        .unwrap();
+    // 名前・項目・家族の形・年代を直せる（0247 の1）。自分の名前はそのまま使える。ほかの見本・使えない名前とは重ならない
+    s.update_sample(
+        &x.id,
+        "夫婦と子・片働き",
+        &["片働き".to_owned()],
+        3,
+        5,
+        &reserved,
+    )
+    .unwrap();
+    s.update_sample(
+        &x.id,
+        "夫婦と子・片働き",
+        &["片働き".to_owned()],
+        3,
+        5,
+        &reserved,
+    )
+    .unwrap();
     let e = s
         .list_samples()
         .unwrap()
         .into_iter()
         .find(|e| e.id == x.id)
         .unwrap();
-    assert_eq!(e.label.sample.unwrap().traits, ["片働き"]);
+    let info = e.label.sample.unwrap();
+    assert_eq!(info.traits, ["片働き"]);
+    assert_eq!((info.family, info.age), (3, 5));
     assert_eq!(
-        s.update_sample(&customer.id, "x", &[]).err(),
+        s.update_sample(&x.id, "単身", &[], 3, 5, &[]).err(),
+        Some(StoreError::SAMPLE_NAME)
+    );
+    assert_eq!(
+        s.update_sample(&x.id, "会社員の夫婦と子2人・40代", &[], 3, 5, &reserved)
+            .err(),
+        Some(StoreError::SAMPLE_NAME)
+    );
+    assert_eq!(
+        s.update_sample(&x.id, "x", &[], 6, 4, &[]).err(),
         Some(StoreError::SAMPLE)
     );
-    // 自分の世帯を見本に登録する: 顧客番号が外れ、空き番号が付く。外れた通し番号は使い回さない
+    assert_eq!(
+        s.update_sample(&customer.id, "x", &[], 3, 4, &[]).err(),
+        Some(StoreError::SAMPLE)
+    );
+    // 自分の世帯を見本に登録する: 顧客番号が外れ、番号は付かない。外れた通し番号は使い回さない
     let r = s
-        .make_sample(&customer.id, &sample(3, 4, "研修の世帯"))
+        .make_sample(&customer.id, &sample(3, 4, "研修の世帯"), &reserved)
         .unwrap();
-    assert_eq!(r.customer_no, "3-4-12");
+    assert_eq!(r.customer_no, "");
     assert!(nos(&s).is_empty());
     assert_eq!(s.create(req()).unwrap().customer_no, "C0002");
     assert_eq!(
-        s.make_sample(&customer.id, &sample(3, 4, "二度目")).err(),
+        s.make_sample(&customer.id, &sample(3, 4, "二度目"), &[])
+            .err(),
         Some(StoreError::SAMPLE)
     );
+    let c2 = s.create(req()).unwrap();
+    assert_eq!(
+        s.make_sample(&c2.id, &sample(3, 4, "研修の世帯"), &[])
+            .err(),
+        Some(StoreError::SAMPLE_NAME)
+    );
+    assert_eq!(nos(&s).len(), 2, "名前が重なったら顧客のまま");
     // 見本の指定の検査
     for bad in [sample(6, 4, "x"), sample(3, 1, "x"), sample(3, 4, "")] {
+        assert_eq!(mk(bad).err(), Some(StoreError::SAMPLE));
+    }
+    // 消すときの確認は見本の名前（違う名前・前の見本番号・空では消えない）
+    for wrong in ["単身", "3-4-10", "", "  "] {
         assert_eq!(
-            s.create_with(
-                req(),
-                CreateOptions {
-                    category: None,
-                    sample: Some(bad),
-                    ..Default::default()
-                }
-            )
-            .err(),
-            Some(StoreError::SAMPLE)
+            s.delete(&x.id, wrong).err(),
+            Some(StoreError::CONFIRM),
+            "{wrong:?}"
         );
     }
-    // 消すときの確認は見本番号
-    assert_eq!(s.delete(&x.id, "3-4-11").err(), Some(StoreError::CONFIRM));
-    s.delete(&x.id, "3-4-10").unwrap();
-    // 空いた番号は次の見本で使う（見本番号は通し番号ではない）
-    assert_eq!(mk(sample(3, 4, "三つ目")).customer_no, "3-4-10");
+    s.delete(&x.id, " 夫婦と子・片働き ").unwrap();
+    assert!(!sample_names(&s).contains(&"夫婦と子・片働き".to_owned()));
+    // 消した見本の名前は、また使える
+    mk(sample(3, 4, "夫婦と子・片働き")).unwrap();
+    // 顧客の世帯は今までどおり顧客番号で確かめる（空では消えない）
+    assert_eq!(s.delete(&c2.id, "").err(), Some(StoreError::CONFIRM));
+    assert_eq!(
+        s.delete(&c2.id, "夫婦と子・片働き").err(),
+        Some(StoreError::CONFIRM)
+    );
+    s.delete(&c2.id, &c2.customer_no).unwrap();
 }
 
 #[test]
@@ -451,6 +528,16 @@ fn office_wide_serials_categories_and_samples() {
     // 共有を始める前の世帯（番号の中身つき）は、共有フォルダへ移っても番号の中身を持ち越す
     let before = with(&a, Some("A"));
     assert_eq!(before.customer_no, "A0001");
+    // 共有を始める前の見本も、見本の中身ごと共有フォルダへ移る
+    let local = a
+        .create_with(
+            req(),
+            CreateOptions {
+                sample: Some(sample(5, 7, "前からの見本")),
+                ..Default::default()
+            },
+        )
+        .unwrap();
     a.office_start(&folder, "担当A", true, &[]).unwrap();
     a.acknowledge_recovery().unwrap();
     b.status().unwrap();
@@ -462,6 +549,15 @@ fn office_wide_serials_categories_and_samples() {
     let moved = a.list().unwrap();
     assert_eq!(moved.len(), 1);
     assert_eq!(moved[0].label.category.as_deref(), Some("A"));
+    let shelf = b.list_samples().unwrap();
+    assert_eq!(shelf.len(), 1);
+    assert_eq!(shelf[0].id, local.id);
+    assert_eq!(shelf[0].customer_no, "");
+    let info = shelf[0].label.sample.as_ref().unwrap();
+    assert_eq!(
+        (info.name.as_str(), info.family, info.age),
+        ("前からの見本", 5, 7)
+    );
     // 事務所の名簿に区分があるので、加わった PC には聞かない
     assert!(b.categories().unwrap().decided);
     // 通し番号は事務所全体で1本（B の PC の次の番号は 1 だが、共有フォルダの番号の先から振る）
@@ -483,7 +579,7 @@ fn office_wide_serials_categories_and_samples() {
         "K0001"
     );
     assert_eq!(b.set_category(&x.id, "K").unwrap().customer_no, "K0002");
-    // 見本の棚も事務所で1つ（番号も事務所全体で空きを探す）
+    // 見本の棚も事務所で1つ（名前の重なりも事務所全体で確かめる）
     let s1 = a
         .create_with(
             req(),
@@ -494,20 +590,40 @@ fn office_wide_serials_categories_and_samples() {
             },
         )
         .unwrap();
-    assert_eq!(s1.customer_no, "2-3-10");
-    let s2 = b
-        .create_with(
+    assert_eq!(s1.customer_no, "");
+    assert_eq!(
+        b.create_with(
             req(),
             CreateOptions {
-                category: None,
-                sample: Some(sample(2, 3, "夫婦のみ・二つ目")),
+                sample: Some(sample(2, 3, "夫婦のみ")),
                 ..Default::default()
             },
         )
-        .unwrap();
-    assert_eq!(s2.customer_no, "2-3-11");
-    assert_eq!(a.list_samples().unwrap().len(), 2);
+        .err(),
+        Some(StoreError::SAMPLE_NAME)
+    );
+    b.create_with(
+        req(),
+        CreateOptions {
+            category: None,
+            sample: Some(sample(2, 3, "夫婦のみ・二つ目")),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(a.list_samples().unwrap().len(), 3);
     assert!(b.list().unwrap().iter().all(|e| e.label.sample.is_none()));
+    // 見本の名前を直すと、ほかの PC の棚にも出る。完全削除の確かめは名前
+    b.update_sample(&s1.id, "夫婦のみ・直した", &[], 2, 4, &[])
+        .unwrap();
+    assert!(sample_names(&a).contains(&"夫婦のみ・直した".to_owned()));
+    assert_eq!(a.delete(&s1.id, "").err(), Some(StoreError::CONFIRM));
+    assert_eq!(
+        a.delete(&s1.id, "夫婦のみ").err(),
+        Some(StoreError::CONFIRM)
+    );
+    a.delete(&s1.id, "夫婦のみ・直した").unwrap();
+    assert_eq!(b.list_samples().unwrap().len(), 2);
 }
 
 #[test]
@@ -598,7 +714,7 @@ fn fictional_mark_is_set_by_the_app_and_only_removed() {
             },
         )
         .unwrap();
-    s.make_sample(&g.id, &sample(1, 3, "単身")).unwrap();
+    s.make_sample(&g.id, &sample(1, 3, "単身"), &[]).unwrap();
     let shelf = s.list_samples().unwrap();
     assert!(shelf.iter().all(|e| !e.label.fictional));
     // 見本として作るときは付けない

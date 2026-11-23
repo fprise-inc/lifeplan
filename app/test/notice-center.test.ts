@@ -234,6 +234,14 @@ describe("印は状態にだけ色を使い、要対応と参考を見分ける�
     expect(Object.fromEntries(out.map((x) => [x.id.replace(/:\d+$/, ""), x.todo]))).toEqual({ ...want, someNewKind: false, constructor: false });
   });
 
+  it("見本番号を無くしたときに名前の後ろに番号を付けた知らせ（0247 の8）: 参考・要対応にしない・世帯の一覧を開く。文に前と後の名前", () => {
+    const n = { kind: "sampleRenames", level: "info" as const, scope: "local" as const, count: 1, name: "「研修用」→「研修用（2）」", at: null, code: null };
+    const [x] = barNotices({ ...base, storage: [n] });
+    expect(x).toMatchObject({ urgency: "info", todo: false, target: "households", title: "同じ名前の見本の名前を直しました" });
+    expect(x?.text).toContain("「研修用」→「研修用（2）」");
+    expect(x?.text).toContain("「名前と項目を直す」");
+  });
+
   it("世帯を開いたときの知らせ: 困ることが残る2つだけ要対応。済んだことの知らせ・表に無い種類には付けない", () => {
     expect(Object.entries(NOTICE_TODO.household).filter(([, v]) => v).map(([k]) => k).sort()).toEqual(["livingAllowance", "unresolvedDiffs"]);
     const kinds = Object.keys(NOTICE_TODO.household);
