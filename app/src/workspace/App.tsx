@@ -120,7 +120,7 @@ import { LeaveDialog, type LeaveDialogChoice } from "./store/LeaveDialog.tsx";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
 import { dropNotesOnPersist, stripNotesBeforeSample } from "./store/sampleNotes.ts";
-import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory, APP_SAMPLE_MEMO_TEXT } from "./store/HouseholdPanel.tsx";
+import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory, APP_SAMPLE_MEMO_TEXT, COPY_SAMPLE_TITLE } from "./store/HouseholdPanel.tsx";
 import { PreviousPanel, offersPrevious } from "./store/PreviousPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
 import { guessShape, sampleNoText, sampleNotSaving, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
@@ -1411,7 +1411,8 @@ export function App() {
       autosaver.current?.reset(body, nowIso());
       setStoredList(await host.store.list());
       void host.store.listSamples().then(setStoredSamples, () => undefined);
-      say((r.sample !== undefined ? `見本 ${r.customerNo} を作りました${stripped ? "（メモと面談の履歴は写していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`) + (keptHidden ? `。${SAMPLE_SAVED_TEXT}` : ""));
+      // 見本として作るのは、見本を複製するときだけ（見本に登録は別の命令。0244）
+      say((r.sample !== undefined ? `見本 ${r.customerNo} として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`) + (keptHidden ? `。${SAMPLE_SAVED_TEXT}` : ""));
     },
     [host, say, history],
   );
@@ -3093,8 +3094,8 @@ export function App() {
                   この見本をもとに顧客を作る
                 </button>
                 {sampleMode !== "edit" ? (
-                  <button type="button" class="link-btn" onClick={() => void guard(async () => { const req = copyRequest(sampleItem); if (req !== null) await persistCurrent(undefined, req); })} data-band-copy>
-                    写して手直しする
+                  <button type="button" class="link-btn" onClick={() => void guard(async () => { const req = copyRequest(sampleItem); if (req !== null) await persistCurrent(undefined, req); })} title={COPY_SAMPLE_TITLE} data-band-copy>
+                    複製する
                   </button>
                 ) : null}
                 {sampleItem.kind === "own" && sampleMode === "view" ? (
