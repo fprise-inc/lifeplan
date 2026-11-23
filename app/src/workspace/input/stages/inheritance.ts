@@ -185,6 +185,19 @@ export function grandchildGroup(wh: WorkingHousehold, m: Member): GroupDef {
 /** あげる贈与の相手の孫（世帯の外の家族。足した順） */
 export const outsideGrandchildren = (h: Household): Member[] => h.members.filter((m) => m.kind === "grandchild" && m.outside !== undefined);
 
+/**
+ * 区画「あげる贈与」のまとまりの並び（0257）: 相手が孫でない行 → 今ある援助の読むだけの行 → 孫ごとに「孫のまとまり → その孫を相手にした行」。
+ * 行のまとまり（ev/<行の id> と、その下の ev/<行の id>/…）は、行の相手（counterparty）で分ける。行どうしの順（時期の順）は変えない
+ */
+export function giveGroups(wh: WorkingHousehold, rows: readonly GroupDef[], reads: readonly GroupDef[]): GroupDef[] {
+  const h = wh.request.input.household;
+  const kids = outsideGrandchildren(h);
+  const kidIds = new Set(kids.map((m) => m.id));
+  const partyOf = new Map((h.periodicExpenses ?? []).flatMap((p) => (p.counterparty !== undefined && kidIds.has(p.counterparty) ? [[p.id, p.counterparty] as const] : [])));
+  const kidOf = (g: GroupDef): string | undefined => partyOf.get(/^ev\/([^/]+)/.exec(g.key)?.[1] ?? "");
+  return [...rows.filter((g) => kidOf(g) === undefined), ...reads, ...kids.flatMap((m) => [grandchildGroup(wh, m), ...rows.filter((g) => kidOf(g) === m.id)])];
+}
+
 // ---- 区画A 受け取る予定 ----
 
 /** 相続の受け取る時期の推定: 相手の亡くなる見込みの10か月後（申告と納税の期限の目安） */
@@ -536,8 +549,9 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
       title: moneyOut?.title ?? "あげる贈与",
       ...(moneyOut?.note !== undefined ? { note: moneyOut.note } : {}),
       level: "simple",
-      // 足した孫は、あげる贈与の行の後ろに並べる（「＋ 贈与の相手の孫」を押すと、その場に出て呼び名の欄に移る）
-      groups: [...(moneyOut?.groups ?? []), ...groupsOf(readGroup("inherit/give", undefined, lines.give)), ...outsideGrandchildren(wh.request.input.household).map((m) => grandchildGroup(wh, m))],
+      // 足した孫は、あげる贈与の行の後ろに並べ、孫ごとに、その孫を相手にしたあげる贈与の行をすぐ下に続ける（「＋ この孫へのあげる贈与」で足した行が
+      // 押した孫のまとまりの下に出る。0257）。相手が孫でない行（子への贈与・相手なしなど）は今までどおり区画の上
+      groups: giveGroups(wh, moneyOut?.groups ?? [], groupsOf(readGroup("inherit/give", undefined, lines.give))),
       actions: [...(moneyOut?.actions ?? []), { key: "money/inherit/addGrandchild", label: "＋ 贈与の相手の孫", help: "あげる贈与の相手にする孫を、世帯の外の家族（家計が別）として足します。足した孫はこの区画に並び、呼び名と生年月を入れます", level: "detail", run: (w: WorkingHousehold) => addOutsideGrandchild(w) }],
     },
     {
