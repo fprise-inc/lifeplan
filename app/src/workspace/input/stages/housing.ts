@@ -681,7 +681,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   if (buying) groups.push(...customPaymentGroups(wh, r, k), ...giftGroups(wh, r, k));
   // 住宅ローンを使う購入は、この家の住宅ローンの欄を住宅の購入の中に続けて出す（「住宅ローン」の区画には出さない。0175）
   if (buying) {
-    const loans = purchaseLoans(h0, r);
+    const loans = shownPurchaseLoans(h0, r);
     groups.push(...loans.flatMap((d, j) => loanGroups(wh, d, j, `この家の住宅ローン${loans.length > 1 ? ` ${j + 1}` : ""}`)));
   }
   if (r.kind === "own") groups.push(...valuationGroups(wh, r, k));
@@ -789,6 +789,23 @@ export function purchaseFunding(h: Household, r: Residence): "cash" | "loan" | n
   if (r.kind !== "own" || r.purchase === undefined) return null;
   if (purchaseLoans(h, r).length > 0) return "loan";
   return r.purchase.price - (r.purchase.downPayment ?? 0) <= 0 ? "cash" : null;
+}
+
+/**
+ * 住宅の購入の中に出す住宅ローン（0257）: つながるローン（purchaseLoans）に、そのペアローンの相手（pairWith）を、相手のすぐ後ろに足す。
+ * 「＋ ペアローン（配偶者の2本目）」で足した2本目は、借入の年月を1本目に合わせるだけで控除の条件の住まいを持たないので、1本目の借入の年月が購入の月と
+ * 違うと、2本目だけ「住宅ローン」の区画に離れて出ていた。見せる所だけの並びで、計算・購入の形（現金で買う・住宅ローンを使う）の決まりは purchaseLoans のまま。
+ * ほかの購入の予定につながるローンは足さない（同じローンを2か所に出さない）
+ */
+export function shownPurchaseLoans(h: Household, r: Residence): Debt[] {
+  const base = purchaseLoans(h, r);
+  const elsewhere = new Set((h.residences ?? []).filter((x) => x.id !== r.id && x.kind === "own" && x.purchase !== undefined).flatMap((x) => purchaseLoans(h, x).map((d) => d.id)));
+  const seen = new Set(base.map((d) => d.id));
+  return base.flatMap((d) => {
+    const pairs = (h.debts ?? []).filter((x) => x.kind === "mortgage" && x.property === undefined && !seen.has(x.id) && !elsewhere.has(x.id) && (x.pairWith === d.id || d.pairWith === x.id));
+    for (const x of pairs) seen.add(x.id);
+    return [d, ...pairs];
+  });
 }
 
 const FUNDING_OPTIONS = [
@@ -2370,7 +2387,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     ],
   };
   // 住宅購入の予定につながる住宅ローンは、住宅の購入の中に出す（0175）。ここはそれ以外（今の家のローンなど）
-  const inPurchase = new Set((h.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).flatMap((r) => purchaseLoans(h, r).map((d) => d.id)));
+  const inPurchase = new Set((h.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).flatMap((r) => shownPurchaseLoans(h, r).map((d) => d.id)));
   const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined && !inPurchase.has(d.id));
   // 住まい以外の不動産のローン（debt.property）は、その不動産の欄（貯蓄・運用）で入れる
   // 今返している自動車ローンは車のカード（0069。ここは読むだけの1行）
