@@ -52,8 +52,10 @@ pub fn explanation_for(method: ConsentMethod) -> &'static str {
     }
 }
 
-/// 版3の説明文を出した日（`YYYY-MM-DD`）。この日より前に得た同意は、版3の説明を見せていないので、メモと面談の記録を含まない同意
-/// （版2の説明）として記録する（0249 の追記。古い同意をあとから記録したときに、メモを渡せる同意にしないため）
+/// 版3の説明文を出した日（`YYYY-MM-DD`。境目の日）。この日より前に得た同意は、版3の説明を見せていないので、メモと面談の記録を含まない同意
+/// （版2の説明）として記録する（0249 の追記。古い同意をあとから記録したときに、メモを渡せる同意にしないため）。
+/// 境目の日はこの1か所だけ（画面は本体から受け取り、テストはこの日から数える）。β公開の日に合わせる（日付が決まったら直す。
+/// リポジトリの `README.md` の「β公開の前に」の項目）
 pub const EXTERNAL_AI_EXPLANATION_V3_SINCE: &str = "2026-11-23";
 
 /// 同意を得たときに見せた説明文（取り方と、同意を得た日で決める）
@@ -357,10 +359,15 @@ pub fn verify_consents_append_only(
 mod tests {
     use super::*;
 
+    /// 版3の説明を出した日（境目の日）から数えた日。境目の日を公開の日に直しても、テストはそのまま通る
+    fn day(offset: i64) -> String {
+        crate::clock::add_days(EXTERNAL_AI_EXPLANATION_V3_SINCE, offset).unwrap()
+    }
+
     fn input(decision: ConsentDecision) -> ExternalAiConsentInput {
         ExternalAiConsentInput {
             decision,
-            obtained_on: "2026-11-23".into(),
+            obtained_on: EXTERNAL_AI_EXPLANATION_V3_SINCE.into(),
             method: "paper".into(),
             no_training_confirmed: true,
             fp_confirmed: true,
@@ -383,7 +390,7 @@ mod tests {
         let mut v = vec![];
         assert_eq!(current_external_ai(&v), None);
         let given =
-            new_external_ai_record(&v, &input(ConsentDecision::Given), "2026-11-24", now).unwrap();
+            new_external_ai_record(&v, &input(ConsentDecision::Given), &day(1), now).unwrap();
         v.push(given.clone());
         assert_eq!(
             current_external_ai(&v).unwrap().decision,
@@ -396,11 +403,11 @@ mod tests {
         );
         // 同じ同意を2回は記録しない
         assert_eq!(
-            new_external_ai_record(&v, &input(ConsentDecision::Given), "2026-11-24", now),
+            new_external_ai_record(&v, &input(ConsentDecision::Given), &day(1), now),
             Err("E_AI_CONSENT_ALREADY")
         );
-        let w = new_external_ai_record(&v, &input(ConsentDecision::Withdrawn), "2026-11-24", now)
-            .unwrap();
+        let w =
+            new_external_ai_record(&v, &input(ConsentDecision::Withdrawn), &day(1), now).unwrap();
         v.push(w);
         assert_eq!(
             current_external_ai(&v).unwrap().decision,
@@ -408,7 +415,7 @@ mod tests {
         );
         // 撤回は同意のある世帯だけ
         assert_eq!(
-            new_external_ai_record(&v, &input(ConsentDecision::Withdrawn), "2026-11-24", now),
+            new_external_ai_record(&v, &input(ConsentDecision::Withdrawn), &day(1), now),
             Err("E_AI_CONSENT_NOT_GIVEN")
         );
         // 引き継ぎで受け取った行は数えない
@@ -440,7 +447,7 @@ mod tests {
         assert!(!c.documents);
         // 今の版の説明で取り直せる（同意がもうあっても）
         let renewed =
-            new_external_ai_record(&v, &input(ConsentDecision::Given), "2026-11-24", now).unwrap();
+            new_external_ai_record(&v, &input(ConsentDecision::Given), &day(1), now).unwrap();
         assert!(renewed.documents);
         assert_eq!(
             renewed.explanation_ref,
@@ -454,12 +461,12 @@ mod tests {
         assert!(current_external_ai(&v).unwrap().documents);
         // 今の版で取った後は、2回は記録しない
         assert_eq!(
-            new_external_ai_record(&v, &input(ConsentDecision::Given), "2026-11-24", now),
+            new_external_ai_record(&v, &input(ConsentDecision::Given), &day(1), now),
             Err("E_AI_CONSENT_ALREADY")
         );
         // 撤回の行は書類を含まない
-        let w = new_external_ai_record(&v, &input(ConsentDecision::Withdrawn), "2026-11-24", now)
-            .unwrap();
+        let w =
+            new_external_ai_record(&v, &input(ConsentDecision::Withdrawn), &day(1), now).unwrap();
         assert!(!w.documents);
         v.push(w);
         assert!(!current_external_ai(&v).unwrap().documents);
@@ -478,24 +485,23 @@ mod tests {
         let mut i = input(ConsentDecision::Given);
         i.fp_confirmed = false;
         assert_eq!(
-            new_external_ai_record(&[], &i, "2026-11-24", now),
+            new_external_ai_record(&[], &i, &day(1), now),
             Err("E_AI_CONSENT_FP_CONFIRM")
         );
         let mut i = input(ConsentDecision::Given);
-        i.obtained_on = "2026-11-25".into();
+        i.obtained_on = day(2);
         assert_eq!(
-            new_external_ai_record(&[], &i, "2026-11-24", now),
+            new_external_ai_record(&[], &i, &day(1), now),
             Err("E_AI_CONSENT_DATE_FUTURE")
         );
         let mut i = input(ConsentDecision::Given);
         i.method = "telepathy".into();
         assert_eq!(
-            new_external_ai_record(&[], &i, "2026-11-24", now),
+            new_external_ai_record(&[], &i, &day(1), now),
             Err("E_AI_CONSENT_METHOD")
         );
         // どの AI の会社かは聞かない（0172）。記録の行にも会社・所在国を書かない
-        let r =
-            new_external_ai_record(&[], &input(ConsentDecision::Given), "2026-11-24", now).unwrap();
+        let r = new_external_ai_record(&[], &input(ConsentDecision::Given), &day(1), now).unwrap();
         let v = serde_json::to_value(&r).unwrap();
         assert_eq!(
             v["externalAi"],
@@ -506,18 +512,12 @@ mod tests {
     #[test]
     fn rewriting_consents_is_refused() {
         let now = "2026-10-19T00:00:00Z";
-        let r =
-            new_external_ai_record(&[], &input(ConsentDecision::Given), "2026-11-24", now).unwrap();
+        let r = new_external_ai_record(&[], &input(ConsentDecision::Given), &day(1), now).unwrap();
         let before = vec![r.clone()];
         let mut after = before.clone();
         after.push(
-            new_external_ai_record(
-                &before,
-                &input(ConsentDecision::Withdrawn),
-                "2026-11-24",
-                now,
-            )
-            .unwrap(),
+            new_external_ai_record(&before, &input(ConsentDecision::Withdrawn), &day(1), now)
+                .unwrap(),
         );
         assert!(verify_consents_append_only(&before, &after).is_ok());
         let mut changed = before.clone();
@@ -531,25 +531,24 @@ mod tests {
     fn consents_obtained_before_the_third_explanation_do_not_cover_notes() {
         let now = "2026-11-24T00:00:00Z";
         let mut old = input(ConsentDecision::Given);
-        old.obtained_on = "2026-11-22".into();
-        let r = new_external_ai_record(&[], &old, "2026-11-24", now).unwrap();
+        old.obtained_on = day(-1);
+        let r = new_external_ai_record(&[], &old, &day(1), now).unwrap();
         assert!(!r.notes && r.documents);
         assert_eq!(
             r.explanation_ref,
             Some(explanation_ref(EXTERNAL_AI_EXPLANATION_V2))
         );
         // 同じ日からは版3
-        let r =
-            new_external_ai_record(&[], &input(ConsentDecision::Given), "2026-11-24", now).unwrap();
+        let r = new_external_ai_record(&[], &input(ConsentDecision::Given), &day(1), now).unwrap();
         assert!(r.notes);
         assert_eq!(
             r.explanation_ref,
             Some(explanation_ref(EXTERNAL_AI_EXPLANATION))
         );
         // 前の日付で記録した後も、今の日付で取り直せる
-        let v = vec![new_external_ai_record(&[], &old, "2026-11-24", now).unwrap()];
+        let v = vec![new_external_ai_record(&[], &old, &day(1), now).unwrap()];
         assert!(
-            new_external_ai_record(&v, &input(ConsentDecision::Given), "2026-11-24", now)
+            new_external_ai_record(&v, &input(ConsentDecision::Given), &day(1), now)
                 .unwrap()
                 .notes
         );

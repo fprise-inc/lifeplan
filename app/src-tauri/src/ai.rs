@@ -552,8 +552,6 @@ impl AiState {
         all
     }
 
-    /// 共有中で、画面がいま開いていない世帯の世帯ファイルを見る（0248 の追記）。一覧から消えた世帯（ほかの PC で完全削除した・見本へ移した）は
-    /// 共有を取り消して帳面を捨てる。ほかの世帯は読み直す（同意が無くなっていれば、読み直しで共有が閉じる）。読み直すだけで書かない
     /// メモと面談の履歴の指紋（伏せる言葉と、伏せた後の文から作る。AI に渡す中身の確認画面で見た中身と、渡す中身が同じかを見る）
     fn notes_digest(source: &ai_share::SharedHouseholdSource, words: &[String]) -> u64 {
         use std::hash::{Hash, Hasher};
@@ -581,6 +579,8 @@ impl AiState {
         source.is_some_and(|s| lock(&self.looked).get(id) == Some(&Self::notes_digest(s, words)))
     }
 
+    /// 共有中で、画面がいま開いていない世帯の世帯ファイルを見る（0248 の追記）。一覧から消えた世帯（ほかの PC で完全削除した・見本へ移した）は
+    /// 共有を取り消して帳面を捨てる。ほかの世帯は読み直す（同意が無くなっていれば、読み直しで共有が閉じる）。読み直すだけで書かない
     fn check_shared_files(&self, store: &Store) {
         let current = lock(&self.current).clone();
         // 共有中の世帯と、前の見回りで一覧に出なかった世帯（取り消した後、帳面を捨てるかを決める）
@@ -2436,7 +2436,7 @@ mod tests {
 
     fn consent(decision: &str) -> ExternalAiConsentInput {
         serde_json::from_value(serde_json::json!({
-            "decision": decision, "obtainedOn": "2026-11-23", "method": "paper",
+            "decision": decision, "obtainedOn": ai_share::consent::EXTERNAL_AI_EXPLANATION_V3_SINCE, "method": "paper",
             "company": "A社", "country": "米国", "noTrainingConfirmed": true, "fpConfirmed": true
         }))
         .unwrap()
@@ -2458,7 +2458,7 @@ mod tests {
                 .book
                 .record_consent(
                     &consent(decision),
-                    "2026-11-23",
+                    ai_share::consent::EXTERNAL_AI_EXPLANATION_V3_SINCE,
                     "2026-11-07T00:00:00Z",
                     None,
                 )
@@ -4102,6 +4102,116 @@ mod tests {
         assert!(g.ready.is_empty());
         assert_eq!(reasons(&g)[0].0, BulkBlock::NotWritten);
         assert!(p.ai.registry.active_shares().is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 共有中にメモ・面談の記録が変わったら、メモと面談の履歴だけ AI に渡すのを止める（0249 の追記）。世帯の数字は渡したまま。
+    /// 取り消して、AI に渡す中身の確認画面を開き直して渡し直すまで止めたまま（1件ずつ・まとめての両方）
+    #[test]
+    fn notes_changed_while_shared_stop_until_shared_again() {
+        let root = root("notes-paused");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        let body = serde_json::json!({
+            "household": { "request": { "input": model_input() }, "memo": ["頭金を増やす相談"] }
+        })
+        .to_string();
+        let mk = || {
+            crate::store::create_household(
+                &p.store,
+                &p.ai,
+                body.clone(),
+                "本人".into(),
+                CreateOptions {
+                    category: None,
+                    sample: None,
+                    fictional: false,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .id
+        };
+        let one = mk();
+        let two = mk();
+        p.record(&one, "given");
+        p.record(&two, "given");
+        let share_of = |id: &str| {
+            p.ai.registry
+                .active_shares()
+                .into_iter()
+                .find(|s| s.household_id == id)
+                .unwrap()
+        };
+        let read = |sid: &str| {
+            p.ai.registry
+                .handle_get(sid, "get_shared_household", &Default::default())
+                .unwrap()
+        };
+        // 画面と同じく、開いた世帯の本文にメモを1行足して保存する（`line` が空なら、そのまま保存する）
+        let save_with = |id: &str, line: &str| {
+            let o = p.open(id);
+            let mut b: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+            if !line.is_empty() {
+                b["household"]["memo"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(line.into());
+            }
+            p.ai.save(&p.store, id, &b.to_string(), "本人").unwrap();
+        };
+
+        // 1件ずつ渡した世帯
+        notes_preview(&p.ai, &p.store, std::slice::from_ref(&one), &[]).unwrap();
+        share_start(&p.ai, &p.store, &one, 60, "AIのアプリ".into(), true, vec![]).unwrap();
+        assert!(read(&share_of(&one).share_id).contains("頭金"));
+        // メモが変わらない保存では止めない
+        save_with(&one, "");
+        assert!(!share_of(&one).notes_paused);
+        assert!(read(&share_of(&one).share_id).contains("頭金"));
+        // 書き足すと、メモと面談の履歴だけ止める（世帯の数字は渡したまま）
+        save_with(&one, "伊藤健一が相続人");
+        let s = share_of(&one);
+        assert!(s.notes_paused);
+        let out = read(&s.share_id);
+        assert!(!out.contains("頭金") && !out.contains("伊藤"), "{out}");
+        assert!(out.contains("\"notesPaused\":true") && out.contains("\"notes\":false"));
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert!(v["input"].is_object(), "世帯の数字は渡したまま");
+        assert!(view(&p.ai, &lock(&p.ai.books), &one)
+            .unwrap()
+            .share
+            .is_some_and(|s| s.notes_paused));
+        // 渡し直す: 取り消して、AI に渡す中身の確認画面を開き直すまで渡せない
+        p.ai.registry.revoke(&s.share_id);
+        assert_eq!(
+            share_start(&p.ai, &p.store, &one, 60, "AIのアプリ".into(), true, vec![]).unwrap_err(),
+            "E_AI_NOTES_NOT_LOOKED"
+        );
+        notes_preview(&p.ai, &p.store, std::slice::from_ref(&one), &[]).unwrap();
+        share_start(&p.ai, &p.store, &one, 60, "AIのアプリ".into(), true, vec![]).unwrap();
+        assert!(!share_of(&one).notes_paused);
+        assert!(read(&share_of(&one).share_id).contains("頭金"));
+
+        // まとめて渡した世帯
+        let ids = vec![two.clone()];
+        let notes = BulkNotes {
+            ids: ids.clone(),
+            words: vec![],
+        };
+        notes_preview(&p.ai, &p.store, &ids, &[]).unwrap();
+        bulk_grant(&p.ai, &p.store, &ids, 60, "AIのアプリ", &notes).unwrap();
+        assert!(read(&share_of(&two).share_id).contains("頭金"));
+        save_with(&two, "次回は来月");
+        let s = share_of(&two);
+        assert!(s.notes_paused);
+        let out = read(&s.share_id);
+        assert!(
+            !out.contains("頭金") && !out.contains("次回は来月"),
+            "{out}"
+        );
+        // 渡し直した1件ずつの共有は、ほかの世帯の書き足しでは止まらない
+        assert!(!share_of(&one).notes_paused);
         let _ = std::fs::remove_dir_all(&root);
     }
 }

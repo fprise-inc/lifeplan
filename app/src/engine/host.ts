@@ -599,6 +599,8 @@ export interface AiShareStatus {
   householdId: string;
   customerNumber: string | null;
   expiresInSec: number;
+  /** 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ AI に渡すのを止めている（0249 の追記。無い本体は止めていない） */
+  notesPaused?: boolean;
 }
 
 /** 接続の設定の文面（接続口の場所は `<接続口の場所>` に伏せてある。本物は copySetup でクリップボードへ） */

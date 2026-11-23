@@ -7,7 +7,8 @@ import { MASK_WORDS_NOTE, MaskedText, NOTES_LOOK_FIRST, NOTES_OPTION_TEXT, Notes
 import { AiConnectorPanel } from "../src/workspace/ai/AiConnectorPanel.tsx";
 import { AiSharePanel, CONSENT_BEFORE_NOTES_TEXT } from "../src/workspace/ai/AiSharePanel.tsx";
 import { BulkOutcomeView } from "../src/workspace/ai/AiBulkShare.tsx";
-import { aiMessage, maskWords, NOTES_BLOCKED_TEXT } from "../src/workspace/ai/model.ts";
+import { aiMessage, maskWords, NOTES_BLOCKED_TEXT, NOTES_PAUSED_SHORT, NOTES_PAUSED_TEXT } from "../src/workspace/ai/model.ts";
+import { AiShareBand } from "../src/workspace/ai/AiShareBand.tsx";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { APP_DIR } from "../scripts/lib.ts";
@@ -111,6 +112,21 @@ describe("名前・連絡先を書かない案内・確認画面を見てから�
   });
   it("同意を得た日が今の説明を出した日より前なら、メモと面談の記録を含まない同意として記録すると出す", () => {
     expect(CONSENT_BEFORE_NOTES_TEXT).toContain("含まない同意として記録します");
+  });
+  it("共有中にメモ・面談の記録が変わって、メモと面談の履歴だけ止めたことを出す（1件ずつの画面・共有中の帯）", () => {
+    const share = { shareId: "s", alias: "共有中の世帯A", householdId: "h", customerNumber: "A0001", expiresInSec: 600 };
+    const panel = (notesPaused: boolean) => renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status(), view: view({ share: { ...share, notesPaused } }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
+    expect(panel(true)).toContain(NOTES_PAUSED_TEXT);
+    expect(panel(false)).not.toContain("data-ai-sharing-notes-paused");
+    expect(NOTES_PAUSED_TEXT).toContain("AI に渡す中身の確認画面を開き直して");
+    expect(NOTES_PAUSED_TEXT).toContain("世帯の数字などは、そのまま渡しています");
+    const band = renderToString(h(AiShareBand, { shares: [{ ...share, notesPaused: true }, { ...share, shareId: "t" }], detailed: true, onStop: () => undefined, onOpen: () => undefined }));
+    expect(band.match(/data-ai-band-notes-paused/g)).toHaveLength(1);
+    expect(band).toContain(NOTES_PAUSED_SHORT);
+    // 顧客と一緒に見ることのある画面の短い帯は件数だけ
+    const brief = renderToString(h(AiShareBand, { shares: [{ ...share, notesPaused: true }], detailed: false, onStop: () => undefined, onOpen: () => undefined }));
+    expect(brief).toContain(`${NOTES_PAUSED_SHORT}（1件）`);
+    expect(brief).not.toContain("A0001");
   });
   it("見本・記録を書けなかった・確認画面を見ていないときの文", () => {
     expect(aiMessage("E_AI_SAMPLE")).toBe("見本の世帯は AI に渡せません");

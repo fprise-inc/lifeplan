@@ -9,6 +9,7 @@ FP（ファイナンシャルプランナー）向けの無料ライフプラン
 
 - 設計の決定は [`docs/decisions/`](docs/decisions/README.md)（ADR）にある。作業の前に関係する記録を読む。
 - **リリースの前に**、推定の目安（市場の金利・値段・調査の年がある統計・よくある額のひな形）を [`docs/estimates-review.md`](docs/estimates-review.md) の一覧で見直す（「毎リリース」の行は必ず）。
+- **β公開の前に**、同意の説明（版3。面談の記録やメモを AI に渡すことを含む説明）を出し始めた日を、β公開の日に直す。境目の日は1つの定数 `EXTERNAL_AI_EXPLANATION_V3_SINCE`（[`crates/ai-share/src/consent.rs`](crates/ai-share/src/consent.rs)。今は仮に `2026-11-23`）だけにあり、画面は本体から受け取り、テストはこの日から数える。この日より前の日付で記録した同意は、メモと面談の履歴を渡すことを含まない（0249）
 - `engine/` … 計算エンジン（TypeScript）。`npm ci` の後、`npm run typecheck`・`npm run lint`・`npm test`・`npm run build`
 - `crates/engine-host/` … エンジンを quickjs-ng で動かす Rust のホストと、JSON を受けて JSON を返すコマンド `engine-host`
 - `crates/lifeplan/` … AI接続口（MCP サーバー。`lifeplan mcp`、標準入出力だけ。0015）。`crates/ai-share/` はアプリ本体に組み込む側（共有の台帳・縮約版・文章の包み方・AIに渡した記録・受け口。0014・0015）、`crates/ai-ipc/` は両者の間の取り決め。接続のしかたは [`docs/ai-connector.md`](docs/ai-connector.md)。テストは `cargo test --release -p lifeplan -p ai-share -p ai-ipc`（`engine/dist` が要る）

@@ -13,7 +13,7 @@ import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { AiConsentDecision, AiConsentMethod, AiHost, AiHouseholdView, AiStatus } from "../../engine/host.ts";
 import { listDateWritten, proseDateWritten } from "../../dates.ts";
 import { NotesOptions } from "./AiNotesOptions.tsx";
-import { aiDocumentsUseOf, aiMessage, aiNotesUseOf, maskWords, NOTES_BLOCKED_TEXT, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeProse, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
+import { aiDocumentsUseOf, aiMessage, aiNotesUseOf, maskWords, NOTES_BLOCKED_TEXT, NOTES_PAUSED_TEXT, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeProse, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
 
 export type AiPanelTab = "consent" | "records";
 
@@ -321,6 +321,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 <p>
                   AIには「<b>{v.share.alias}</b>」として見えています（顧客番号・お名前は渡していません）。{remainingText(v.share.expiresInSec)}。
                 </p>
+                {v.share.notesPaused === true ? <p class="in-note" data-ai-sharing-notes-paused>{NOTES_PAUSED_TEXT}</p> : null}
                 {noDocuments ? <p class="in-note" data-ai-sharing-no-documents>{NO_DOCUMENTS_NOTE}</p> : null}
                 {use === "officePolicy" ? <p class="in-note" data-ai-sharing-office>{OFFICE_POLICY_NOTE}</p> : null}
                 <button type="button" class="btn danger" disabled={busy} onClick={() => void run(() => p.ai.stopShare(p.householdId), "共有を取り消しました")} data-ai-stop>

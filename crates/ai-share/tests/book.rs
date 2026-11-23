@@ -20,7 +20,8 @@ const HOUSEHOLD_ID: &str = "7d1e4c2a-0b3f-4a6e-9c5d-1f2e3a4b5c6d";
 const CUSTOMER_NO: &str = "Z0099";
 const MEMO: &str = "目印のFPメモ: 来年に転職の予定";
 const LABEL: &str = "目印の呼び名: 上のお子さん";
-const TODAY: &str = "2026-11-23";
+/// 今日（版3の説明を出した日。境目の日を直しても通るように、その定数から）
+const TODAY: &str = ai_share::consent::EXTERNAL_AI_EXPLANATION_V3_SINCE;
 const NOW: &str = "2026-11-23T01:00:00Z";
 
 fn repo() -> PathBuf {

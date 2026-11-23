@@ -190,12 +190,153 @@ const NOT_NAMES: &[&str] = &[
     "営業",
     "彼女",
     "各位",
+    // 時を表す語・人数など（「毎月ちゃんと貯金」）
+    "毎月",
+    "毎日",
+    "毎年",
+    "毎週",
+    "毎回",
+    "今回",
+    "今度",
+    "次回",
+    "前回",
+    "今月",
+    "来月",
+    "先月",
+    "今年",
+    "来年",
+    "去年",
+    "今日",
+    "明日",
+    "昨日",
+    "今後",
+    "最近",
+    "普段",
+    "全部",
+    "全員",
+    "自分",
+    "夫婦",
+];
+
+/// 敬称の前の語がこの語で終わるとき、名前としては伏せない（契約者様・法定相続人様。「者」で終わる語も伏せない）
+const NOT_NAME_ENDINGS: &[&str] = &[
+    "相続人",
+    "受取人",
+    "代理人",
+    "保証人",
+    "後見人",
+    "管理人",
+    "名義人",
+    "依頼人",
+    "仲介人",
+    "世話人",
+    "相談人",
+];
+
+/// 数字のすぐ後ろにあるとき、名前に入れない単位（「100万円田中さん」の「万円」・「3月田中さん」の「月」。いちばん長い1つだけ外す
+/// 〔「3月本田さん」の「本」は名字に残す〕）
+const UNITS: &[&str] = &[
+    "万円", "億円", "千円", "万", "億", "千", "百", "円", "年", "ヶ月", "か月", "カ月", "月", "日",
+    "時間", "時", "分", "秒", "歳", "才", "回", "件", "人", "名", "個", "社", "号", "割", "倍",
+    "代", "期", "週", "台", "戸", "階", "丁目", "番地", "番", "本", "枚", "点",
 ];
 
 /// 敬称の前の語と敬称で1つの言葉になるもの（名前としては伏せない）。1字の名字（王さん・今さん・神さん・上さん）は伏せる
 const COMPOUNDS: &[&str] = &[
-    "同様", "仕様", "模様", "多様", "異様", "左様", "有様", "一様", "今様", "王様", "神様", "仏様",
-    "殿様", "上様", "何様", "両氏", "同氏", "各氏", "諸氏", "彼氏", "御殿",
+    "同様",
+    "仕様",
+    "模様",
+    "多様",
+    "異様",
+    "左様",
+    "有様",
+    "一様",
+    "今様",
+    "王様",
+    "神様",
+    "仏様",
+    "殿様",
+    "上様",
+    "何様",
+    "両氏",
+    "同氏",
+    "各氏",
+    "諸氏",
+    "彼氏",
+    "御殿",
+    "苦労様",
+    "陰様",
+    "馳走様",
+    "世話様",
+    "愁傷様",
+    "生憎様",
+    "摂氏",
+    "華氏",
+];
+
+/// 敬称の字で始まるが、敬称と読まない語（語の全体で見る）。前がひらがなの語のときだけ効く
+/// （前が漢字・カタカナ・英字の名前らしい語なら、後ろに何が続いても敬称と読む。「田中さんから」「田中様相談」「田中氏名義」）
+const NOT_HONORIFIC_WORDS: &[&str] = &[
+    "さんかす",
+    "さんかし",
+    "さんかさ",
+    "さんかせ",
+    "さんかで",
+    "さんかを",
+    "さんかは",
+    "さんかが",
+    "さんかの",
+    "さんかに",
+    "さんかひ",
+    "さんかしゃ",
+    "さんこう",
+    "さんぽ",
+    "さんま",
+    "さんざん",
+    "さんすう",
+    "さんせい",
+    "さんにん",
+    "さんかく",
+    "さんそ",
+    "さんしょう",
+    "さまざま",
+    "さまよ",
+    "様子",
+    "様々",
+    "様式",
+    "様相",
+    "様態",
+    "氏名",
+    "氏族",
+    "君主",
+    "君臨",
+    "殿堂",
+    "殿下",
+    "殿方",
+    "ちゃんぽん",
+    "ちゃんこ",
+    "ちゃんばら",
+    "ちゃんねる",
+];
+
+/// 前が名前らしい語でも、敬称と読まない語（「申請様式」「顧客氏名」。「氏名義」は「氏」＋「名義」と読む）
+const NOT_HONORIFIC_STRONG: &[(&str, &str)] = &[("様式", ""), ("氏名", "氏名義")];
+
+/// 「ちゃんと」の前にあるとき、「ちゃん」を敬称と読まないひらがなの語（「もうちゃんと決めた」）
+const ADVERBS_BEFORE_CHANTO: &[&str] = &[
+    "もう",
+    "まだ",
+    "いつも",
+    "もっと",
+    "ずっと",
+    "きっと",
+    "まず",
+    "また",
+    "あと",
+    "それ",
+    "これ",
+    "みんな",
+    "ちょっと",
 ];
 
 /// 前に「お」「ご」が付くときだけ伏せない1字の語（お孫さん・お子さん・お客さん。「孫さん」は名字として伏せる）
@@ -238,6 +379,23 @@ const NOT_NAMES_KANA: &[&str] = &[
     "おくさ",
     "だんな",
     "みなさ",
+    // 名前でない語（たくさん・おかげさま・ごちそうさま・おつかれさま・お世話さま・お互いさま・この様に・する様に）
+    "たく",
+    "かげ",
+    "ちそう",
+    "つかれ",
+    "せわ",
+    "たがい",
+    "この",
+    "その",
+    "あの",
+    "どの",
+    "する",
+    "なる",
+    "れる",
+    "ある",
+    "いる",
+    "ない",
 ];
 
 /// 伏せた後の文と、伏せた所（伏せた後の文の中の文字の位置。始まりと終わり）
@@ -268,31 +426,30 @@ fn is_name_char(c: char) -> bool {
     is_kanji(c) || is_katakana(c) || is_latin(c)
 }
 
-/// その位置の敬称（敬称として読めない形は外す: 「様子」「様々」「様式」・「氏名」・「さまざま」「さまよう」・「殿堂」・「君主」）
+/// その位置の敬称（字が一致するか。敬称と読むかは、前の語と後ろの語で決める）
 fn honorific_at(chars: &[char], i: usize) -> Option<usize> {
-    for h in HONORIFICS {
+    HONORIFICS.iter().find_map(|h| {
         let hc: Vec<char> = h.chars().collect();
-        if chars.len() < i + hc.len() || chars[i..i + hc.len()] != hc[..] {
-            continue;
-        }
-        let next = chars.get(i + hc.len()).copied();
-        let bad = match h {
-            "様" => matches!(
-                next,
-                Some('子' | '々' | '式' | '相' | '態' | '変' | '化' | '体')
-            ),
-            "氏" => matches!(next, Some('名' | '族')),
-            "さま" => matches!(next, Some('ざ' | 'よ' | 'た')),
-            "殿" => next.is_some_and(is_kanji),
-            "君" => matches!(next, Some('主' | '臨' | '子')),
-            "さん" => matches!(next, Some('か' | 'こ' | 'ぽ' | 'ま' | 'ば' | 'せ' | 'ぷ')),
-            _ => false,
-        };
-        if !bad {
-            return Some(hc.len());
-        }
+        (chars.len() >= i + hc.len() && chars[i..i + hc.len()] == hc[..]).then_some(hc.len())
+    })
+}
+
+/// その位置から、`word` が続くか
+fn starts_with_at(chars: &[char], i: usize, word: &str) -> bool {
+    let w: Vec<char> = word.chars().collect();
+    chars.len() >= i + w.len() && chars[i..i + w.len()] == w[..]
+}
+
+/// その位置の敬称の字が、敬称と読まない語の頭か（`strong` は前が名前らしい語のときにも効く語だけを見る）
+fn not_honorific_word(chars: &[char], i: usize, strong: bool) -> bool {
+    if strong {
+        return NOT_HONORIFIC_STRONG.iter().any(|(w, except)| {
+            starts_with_at(chars, i, w) && (except.is_empty() || !starts_with_at(chars, i, except))
+        });
     }
-    None
+    NOT_HONORIFIC_WORDS
+        .iter()
+        .any(|w| starts_with_at(chars, i, w))
 }
 
 /// 空白か「・」をはさんだ前の名前字の続き（氏名の名字。6字まで）があれば、その始まり
@@ -313,26 +470,83 @@ fn surname_before(chars: &[char], start: usize) -> usize {
     }
 }
 
-/// 敬称の直前の名前らしい語の始まり（伏せないときは None）。`honorific` は続く敬称
-fn name_before(chars: &[char], end: usize, honorific: &str) -> Option<usize> {
-    let mut start = end;
-    while start > 0 && end - start < 12 && is_name_char(chars[start - 1]) {
+/// 数字のすぐ後ろの単位の長さ（いちばん長い1つ。`start` の前が数字でなければ 0）
+fn unit_len(chars: &[char], start: usize, end: usize) -> usize {
+    if start == 0 || !chars[start - 1].is_ascii_digit() {
+        return 0;
+    }
+    UNITS
+        .iter()
+        .filter(|u| starts_with_at(&chars[..end], start, u))
+        .map(|u| u.chars().count())
+        .max()
+        .unwrap_or(0)
+}
+
+/// 「もうちゃんと決めた」「家計簿をちゃんと」: 「ちゃんと」の前のひらがなが副詞か助詞で終わるか（名前ではない）
+fn adverb_before_chanto(
+    chars: &[char],
+    end: usize,
+    word: &str,
+    honorific: &str,
+    after: &[char],
+) -> bool {
+    honorific == "ちゃん"
+        && after.get(3) == Some(&'と')
+        && (ADVERBS_BEFORE_CHANTO.iter().any(|a| word.ends_with(a))
+            || matches!(
+                chars[end - 1],
+                'を' | 'は' | 'も' | 'に' | 'で' | 'が' | 'へ' | 'や'
+            ))
+}
+
+/// 名前としては伏せない語か（続柄・一般の語・「者」「相続人」で終わる語）
+fn not_a_name(word: &str) -> bool {
+    NOT_NAMES.contains(&word)
+        || (word.chars().count() >= 2 && word.ends_with('者'))
+        || NOT_NAME_ENDINGS.iter().any(|e| word.ends_with(e))
+}
+
+/// 敬称の直前の名前らしい語の始まり（伏せないときは None）。`end` は敬称の位置、`honorific` は敬称、`after` は敬称の位置からの文
+/// （`chars` は伏せている途中の文で、`after` は元の文）
+fn name_before(chars: &[char], end: usize, honorific: &str, after: &[char]) -> Option<usize> {
+    // 「田中 様」「田中　さん」: 敬称の前の空白（2字まで）は飛ばす（漢字・カタカナ・英字の名前のときだけ）
+    let mut e = end;
+    while e > 0 && end - e < 2 && matches!(chars[e - 1], ' ' | '\u{3000}') {
+        e -= 1;
+    }
+    let spaced = e < end;
+    let mut start = e;
+    while start > 0 && e - start < 12 && is_name_char(chars[start - 1]) {
         start -= 1;
     }
-    if start < end {
-        let word: String = chars[start..end].iter().collect();
-        if COMPOUNDS.contains(&format!("{word}{honorific}").as_str()) {
+    // 数字のすぐ後ろの単位の字（万円・月・歳・時）は名前に入れない
+    if start < e {
+        start += unit_len(chars, start, e);
+        if start == e {
+            return None;
+        }
+        // 敬称と読まない語: 前が名前らしい語でも「申請様式」「顧客氏名」。空白をはさむときは一覧の全部（「模様 様子」「多様 氏名」）
+        if not_honorific_word(after, 0, true) || (spaced && not_honorific_word(after, 0, false)) {
+            return None;
+        }
+        let word: String = chars[start..e].iter().collect();
+        let full = format!("{word}{honorific}");
+        if COMPOUNDS.iter().any(|c| full.ends_with(c)) {
             return None;
         }
         if PREFIX_ONLY.contains(&word.as_str()) {
             let prefixed = start > 0 && matches!(chars[start - 1], 'お' | 'ご');
             return (!prefixed).then(|| surname_before(chars, start));
         }
-        if NOT_NAMES.contains(&word.as_str()) {
+        if not_a_name(&word) {
             return None;
         }
         // 「田中 太郎さん」「Tanaka Taroさん」は、空白の前の名字まで
         return Some(surname_before(chars, start));
+    }
+    if spaced || not_honorific_word(after, 0, false) {
+        return None;
     }
     // ひらがなの名前（敬称の前の2〜5字。助詞と同じ字でも切らない〔のぞみ・はなこ・ともこ〕）
     let mut s = end;
@@ -346,6 +560,9 @@ fn name_before(chars: &[char], end: usize, honorific: &str) -> Option<usize> {
     if NOT_NAMES_KANA.iter().any(|k| word.ends_with(k)) {
         return None;
     }
+    if adverb_before_chanto(chars, end, &word, honorific, after) {
+        return None;
+    }
     // 「田中みどりさん」: すぐ前の漢字・カタカナ（名字）も一緒に伏せる。ひらがなの頭が助詞として読める字なら一緒にしない
     if s > 0 && is_name_char(chars[s - 1]) && !STRONG_PARTICLES.contains(&chars[s]) {
         let mut k = s;
@@ -353,7 +570,7 @@ fn name_before(chars: &[char], end: usize, honorific: &str) -> Option<usize> {
             k -= 1;
         }
         let w: String = chars[k..s].iter().collect();
-        if !NOT_NAMES.contains(&w.as_str()) {
+        if !not_a_name(&w) {
             return Some(surname_before(chars, k));
         }
     }
@@ -443,7 +660,7 @@ pub fn mask_names(text: &str, words: &[String]) -> Masked {
             let already = out.len() >= mark.len() && out[out.len() - mark.len()..] == mark[..];
             if !already {
                 let h: String = chars[i..i + hlen].iter().collect();
-                if let Some(start) = name_before(&out, out.len(), &h) {
+                if let Some(start) = name_before(&out, out.len(), &h, &chars[i..]) {
                     out.truncate(start);
                     out.extend(mark.iter());
                 }
@@ -623,13 +840,17 @@ pub fn suspects(text: &str) -> Vec<String> {
         }
         // ひらがなの名前らしい語＋敬称が伏せずに残った所（敬称の前の字がひらがな）
         if let Some(hlen) = honorific_at(&chars, i) {
-            if i > 0 && is_hiragana(chars[i - 1]) {
+            if i > 0 && is_hiragana(chars[i - 1]) && !not_honorific_word(&chars, i, false) {
                 let mut s = i;
                 while s > 0 && i - s < 5 && is_hiragana(chars[s - 1]) {
                     s -= 1;
                 }
                 let word: String = chars[s..i].iter().collect();
-                if i - s >= 2 && !NOT_NAMES_KANA.iter().any(|k| word.ends_with(k)) {
+                let h: String = chars[i..i + hlen].iter().collect();
+                if i - s >= 2
+                    && !NOT_NAMES_KANA.iter().any(|k| word.ends_with(k))
+                    && !adverb_before_chanto(&chars, i, &word, &h, &chars[i..])
+                {
                     hits.push((s, i + hlen));
                 }
             }
@@ -646,8 +867,10 @@ pub fn suspects(text: &str) -> Vec<String> {
             while s > 0 && i - s < 4 && is_name_char(chars[s - 1]) {
                 s -= 1;
             }
+            // 数字の単位（「100万円（名前）さん」の「万円」）は名字とみない
+            let s = s + unit_len(&chars, s, i);
             let w: String = chars[s..i].iter().collect();
-            if !NOT_NAMES.contains(&w.as_str()) {
+            if s < i && !not_a_name(&w) {
                 hits.push((s, i + 4));
             }
         }
@@ -938,5 +1161,103 @@ mod tests {
         // 上限で切るときも、伏せた所の途中では切らない
         let c = mask_and_cut("あああ090-1234-5678", &[], &[], 5);
         assert_eq!(c.text, "あああ…");
+    }
+
+    /// 5回目の点検: 敬称の後ろに何が続いても、前が名前らしい語なら伏せる（「〇〇さんから」「〇〇様相談」「〇〇氏名義」）
+    #[test]
+    fn names_are_masked_whatever_follows_the_honorific() {
+        for (t, want) in [
+            ("田中さんから電話", "（名前）さんから電話"),
+            ("田中さんからの紹介", "（名前）さんからの紹介"),
+            ("みどりさんから", "（名前）さんから"),
+            ("田中さんまで届ける", "（名前）さんまで届ける"),
+            ("山田さんまたは奥様", "（名前）さんまたは奥様"),
+            ("田中さんか奥様", "（名前）さんか奥様"),
+            ("田中さんこそ", "（名前）さんこそ"),
+            ("鈴木さんばかり", "（名前）さんばかり"),
+            ("田中さんせいで", "（名前）さんせいで"),
+            ("田中さまより", "（名前）さまより"),
+            ("田中さまた来る", "（名前）さまた来る"),
+            ("田中様相談", "（名前）様相談"),
+            ("田中様変更希望", "（名前）様変更希望"),
+            ("田中様体調不良", "（名前）様体調不良"),
+            ("田中氏名義の口座", "（名前）氏名義の口座"),
+            ("田中君主催", "（名前）君主催"),
+            ("田中殿宛", "（名前）殿宛"),
+            ("田中 太郎さんから", "（名前）さんから"),
+        ] {
+            assert_eq!(m(t), want, "{t}");
+        }
+        // 敬称と読まない語（前が名前らしい語でないとき）
+        for t in [
+            "イベントにさんかする",
+            "みんなでさんかする",
+            "おさんぽ",
+            "さんこうにする",
+            "さんざん悩んだ",
+            "この様子なら",
+            "その様式で",
+            "申請様式",
+            "顧客氏名",
+            "さまざまな",
+            "殿堂",
+            "ちゃんぽん",
+        ] {
+            assert_eq!(m(t), t, "{t}");
+        }
+    }
+
+    /// 5回目の点検: 伏せすぎ（数字の単位・名前でない語）と、敬称の前の空白
+    #[test]
+    fn units_and_common_words_are_not_masked_and_spaces_are_skipped() {
+        for (t, want) in [
+            ("100万円田中さんへ贈与", "100万円（名前）さんへ贈与"),
+            ("3月田中さんと面談", "3月（名前）さんと面談"),
+            ("2026年11月田中さん来社", "2026年11月（名前）さん来社"),
+            ("65歳田中様", "65歳（名前）様"),
+            ("13時田中様", "13時（名前）様"),
+            ("3月本田さん", "3月（名前）さん"),
+            ("100万円本田さん", "100万円（名前）さん"),
+            ("花子ちゃんと遊ぶ", "（名前）ちゃんと遊ぶ"),
+            ("さくらちゃんと遊ぶ", "（名前）ちゃんと遊ぶ"),
+            ("田中 様", "（名前）様"),
+            ("田中 太郎 様", "（名前）様"),
+            ("田中\u{3000}さん", "（名前）さん"),
+            ("長谷川 さん", "（名前）さん"),
+        ] {
+            assert_eq!(m(t), want, "{t}");
+        }
+        for t in [
+            "毎月ちゃんと貯金",
+            "もうちゃんと決めた",
+            "家計簿をちゃんとつける",
+            "たくさん貯金したい",
+            "おかげさまで",
+            "ごちそうさま",
+            "おつかれさまでした",
+            "ご苦労様",
+            "お陰様で",
+            "この様に",
+            "積立する様にする",
+            "どの様な",
+            "契約者様",
+            "被保険者様",
+            "相続人様",
+            "法定相続人様",
+            "配偶者様",
+            "ご担当者様",
+            "受取人さん",
+            "第3号被保険者様",
+            "資産3000万円さん",
+            "多種多様",
+            "同様 仕様 模様 様子 様々 様式 多様 氏名 摂氏 彼氏 君主 殿堂 御殿",
+        ] {
+            assert_eq!(m(t), t, "{t}");
+        }
+        // 単位や副詞は、名字が残っていそうな所の目安にも出さない
+        for t in ["100万円田中さんへ贈与", "65歳田中様", "もうちゃんと決めた"]
+        {
+            assert!(suspects(&m(t)).is_empty(), "{t}: {:?}", suspects(&m(t)));
+        }
     }
 }

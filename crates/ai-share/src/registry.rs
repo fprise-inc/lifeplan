@@ -99,6 +99,8 @@ pub struct ShareStatus {
     pub household_id: String,
     pub customer_number: Option<String>,
     pub expires_in_sec: u64,
+    /// 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ渡すのを止めている（0249 の追記。世帯の数字などは渡したまま）
+    pub notes_paused: bool,
 }
 
 struct Share {
@@ -113,6 +115,8 @@ struct Share {
     record_index: usize,
     /// この共有で受け取ったプランの候補の数（上限 `MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD` の数え方）
     scenario_proposals: usize,
+    /// 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ渡すのを止めた（0249 の追記。取り消して渡し直すまで）
+    notes_paused: bool,
 }
 
 /// 1つの世帯について、開いている共有の間に受け取れるプランの候補の数（開いている共有の合計。書類の候補の世帯ごとの上限と同じ数）。
@@ -429,6 +433,7 @@ impl ShareRegistry {
                 pseudonyms,
                 record_index,
                 scenario_proposals: 0,
+                notes_paused: false,
             },
         );
         Ok(Granted {
@@ -451,6 +456,12 @@ impl ShareRegistry {
                 || notes_basis_of(&st, &source).allowed());
         let updated = match st.shares.get_mut(share_id) {
             Some(s) if s.ended.is_none() && s.source.household_id == source.household_id => {
+                // メモと面談の履歴も渡している共有で、メモ・面談の記録が変わった: AI に渡す中身の確認画面で見ていない文なので、
+                // メモと面談の履歴だけ渡すのを止める（世帯の数字などは渡したまま。取り消して、確認画面を開き直して渡し直すまで。0249 の追記）
+                if has_notes(&s.scope) && note_texts(&s.source) != note_texts(&source) {
+                    s.scope = without_notes(&s.scope);
+                    s.notes_paused = true;
+                }
                 s.source = source;
                 true
             }
@@ -594,6 +605,7 @@ impl ShareRegistry {
                 household_id: s.source.household_id.clone(),
                 customer_number: s.source.customer_number.clone(),
                 expires_in_sec: (s.expires_ms - now) / 1000,
+                notes_paused: s.notes_paused,
             })
             .collect();
         v.sort_by(|a, b| a.alias.cmp(&b.alias));
@@ -1314,7 +1326,7 @@ impl ShareRegistry {
             "values": counts.values,
             "objects": counts.objects,
             "references": counts.references,
-            "message": "書類から読んだ値の候補を、アプリの「書類の読み取り」に承認待ちで入れました。FPがアプリのAI に渡す中身の確認画面で値ごとに承認するまで、世帯のデータは変わりません。登録簿に無い入力項目・形の違う候補・個人番号などの番号らしい候補は、アプリが読まずに落とします。",
+            "message": "書類から読んだ値の候補を、アプリの「書類の読み取り」に承認待ちで入れました。FPがアプリの確かめの画面で値ごとに承認するまで、世帯のデータは変わりません。登録簿に無い入力項目・形の違う候補・個人番号などの番号らしい候補は、アプリが読まずに落とします。",
         })
         .to_string())
     }
@@ -1424,6 +1436,8 @@ impl ShareRegistry {
                         "documents": documents_basis_of(&st, &s.source).allowed(),
                         // メモと面談の履歴も渡されているか（0249。true の共有だけ、get_shared_household の texts に入る）
                         "notes": has_notes(&s.scope),
+                        // 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ止めている（0249 の追記）
+                        "notesPaused": s.notes_paused,
                     }),
                 )
             })
@@ -1530,8 +1544,9 @@ impl ShareRegistry {
             "expiresAt": iso8601(share.expires_ms),
             "expiresInSec": (share.expires_ms - now) / 1000,
             "notice": SHARED_NOTICE,
-            // メモと面談の履歴も渡されているか（0249）
+            // メモと面談の履歴も渡されているか（0249）。共有中にメモ・面談の記録が変わって止めているときは notesPaused
             "notes": has_notes(&share.scope),
+            "notesPaused": share.notes_paused,
             // どの理由で渡されているか（0226。consent・officePolicy・fictional）
             "basis": basis.name(),
             "basisNote": basis.note_for_ai(),
@@ -1726,6 +1741,38 @@ fn notes_basis_of(st: &State, source: &SharedHouseholdSource) -> AiUse {
         st.office_policy && st.notes_policy,
         source.fictional,
     )
+}
+
+/// メモと面談の履歴（と前回の面談の抜き出し）の文。共有中に変わったかを見る
+fn note_texts(source: &SharedHouseholdSource) -> Vec<(&str, &str)> {
+    source
+        .texts
+        .iter()
+        .filter(|t| {
+            crate::book::NOTE_ITEMS.contains(&t.item.as_str())
+                || t.item == crate::book::EXCERPT_ITEM
+        })
+        .map(|t| (t.item.as_str(), t.body.as_str()))
+        .collect()
+}
+
+/// メモと面談の履歴を外した版（ほかに足した項目が無ければ縮約版）
+fn without_notes(scope: &Scope) -> Scope {
+    match scope {
+        Scope::Custom { added } => {
+            let rest: std::collections::BTreeSet<String> = added
+                .iter()
+                .filter(|i| !crate::book::NOTE_ITEMS.contains(&i.as_str()))
+                .cloned()
+                .collect();
+            if rest.is_empty() {
+                Scope::Reduced
+            } else {
+                Scope::Custom { added: rest }
+            }
+        }
+        Scope::Reduced => Scope::Reduced,
+    }
 }
 
 /// メモと面談の履歴も渡す共有か

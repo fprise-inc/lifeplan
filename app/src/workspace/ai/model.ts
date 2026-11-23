@@ -10,6 +10,12 @@ import { fromBody } from "../store/body.ts";
 import { sameJson } from "../undo/reopen.ts";
 import { listDateTime, proseDateTime } from "../../dates.ts";
 
+/** 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ AI に渡すのを止めたときの文（0249 の追記） */
+export const NOTES_PAUSED_TEXT =
+  "共有中にメモ・面談の記録が変わったため、メモと面談の履歴は AI に渡すのを止めています（世帯の数字などは、そのまま渡しています）。メモと面談の履歴も渡すときは、共有を取り消し、AI に渡す中身の確認画面を開き直してから、もう一度渡してください。";
+/** 共有中の帯の短い文 */
+export const NOTES_PAUSED_SHORT = "メモと面談の履歴は止めています";
+
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
   E_AI_OFF: "AI との接続がオフです。事務所の設定（世帯の一覧の「AI との接続」）でオンにしてください",
