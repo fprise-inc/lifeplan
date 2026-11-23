@@ -115,12 +115,18 @@ fn is_dash(c: char) -> bool {
     matches!(c, '-' | '‐' | '−' | '―' | '–' | 'ー')
 }
 
+/// 範囲を印に置き換える。範囲は前から並んでいる前提だが、前の範囲と重なる範囲は前の範囲にまとめる（落ちないための守り。0249 の6回目の点検）
 fn replace(out: &mut Vec<char>, chars: &[char], spans: &[(usize, usize, &str)]) {
     let mut i = 0;
     for (s, e, mark) in spans {
-        out.extend_from_slice(&chars[i..*s]);
+        let (s, e) = ((*s).min(chars.len()), (*e).min(chars.len()));
+        if s < i {
+            i = i.max(e);
+            continue;
+        }
+        out.extend_from_slice(&chars[i..s]);
         out.extend(mark.chars());
-        i = *e;
+        i = e.max(s);
     }
     out.extend_from_slice(&chars[i..]);
 }
@@ -462,19 +468,23 @@ fn addresses(chars: &[char]) -> Vec<(usize, usize)> {
             i += 1;
             continue;
         };
+        // 地名をさかのぼるのは、直前に見つけた住所の終わりまで（前の住所の中へ戻ると範囲が重なる。0249 の6回目の点検）
+        let floor = v.last().map_or(0, |r| r.1);
         // 番地のすぐ前の空白（1つ）は飛ばす（「つくば市竹園 1-2-3」。数字だけの番地のときは飛ばさない）
         let mut pe = i;
-        if !h.bare && pe >= 2 && space(chars[pe - 1]) && place_char(chars[pe - 2]) {
+        if !h.bare && pe >= floor + 2 && space(chars[pe - 1]) && place_char(chars[pe - 2]) {
             pe -= 1;
         }
         // 地名（番地のすぐ前に続く地名の字。30字まで。地名の中の「の」「が」〔丸の内・美しが丘〕は、前後が地名の字なら続ける。
         // 空白は1つまで、前後が地名の字ならはさむ〔つくば市 竹園〕）
         let mut ws = pe;
         let mut spaced = pe < i;
-        while ws > 0 && pe - ws < 30 {
+        while ws > floor && pe - ws < 30 {
             let c = chars[ws - 1];
-            let inner = matches!(c, 'の' | 'が') && ws >= 2 && ws < pe && place_char(chars[ws - 2]);
-            let gap = !spaced && space(c) && ws >= 2 && ws < pe && place_char(chars[ws - 2]);
+            let inner =
+                matches!(c, 'の' | 'が') && ws >= floor + 2 && ws < pe && place_char(chars[ws - 2]);
+            let gap =
+                !spaced && space(c) && ws >= floor + 2 && ws < pe && place_char(chars[ws - 2]);
             if place_char(c) || inner {
                 ws -= 1;
             } else if gap {
@@ -522,7 +532,8 @@ fn addresses(chars: &[char]) -> Vec<(usize, usize)> {
             // 市・区・町・村・郡の無い番地: すぐ前の漢字2〜4字（町名）＋強い番地（最初の数は3桁まで）
             _ => {
                 let mut st = i;
-                while st > 0 && i - st < 4 && (is_kanji(chars[st - 1]) || joiner(chars[st - 1])) {
+                while st > floor && i - st < 4 && (is_kanji(chars[st - 1]) || joiner(chars[st - 1]))
+                {
                     st -= 1;
                 }
                 let strong = h.parts >= 3 || h.named;
@@ -828,6 +839,161 @@ mod tests {
             "2026-05-10 2027-05",
         ] {
             assert_eq!(m(t), normalize(t), "{t}");
+        }
+    }
+
+    /// 6回目の点検: 2つ目の住所の地名をさかのぼるとき、前の住所の中まで戻って範囲が重なり、置き換えで落ちていた
+    #[test]
+    fn overlapping_addresses_do_not_panic() {
+        for t in [
+            "京都市下京区四条通烏丸東入ル長刀鉾町20",
+            "土浦市中央一丁目メゾン101",
+            "港区六本木六丁目ヒルズ1001",
+            "中京区二条通280",
+            "京都市中京区烏丸通二条上る蒔絵屋町280",
+            "京都市中京区三条通河原町東入ル中島町100",
+            "中央区日本橋三丁目ビル8",
+            "竹園村12番地郡くん3",
+        ] {
+            let out = m(t);
+            assert!(out.contains(ADDRESS_MARK), "{t} → {out}");
+        }
+    }
+
+    /// 置き換えの範囲が重なっても落ちず、前の範囲にまとめる（守り）
+    #[test]
+    fn overlapping_spans_are_merged_when_replacing() {
+        let chars: Vec<char> = "あいうえおかき".chars().collect();
+        let mut out = Vec::new();
+        replace(
+            &mut out,
+            &chars,
+            &[(1, 3, "〔A〕"), (2, 5, "〔B〕"), (6, 99, "〔C〕")],
+        );
+        assert_eq!(out.into_iter().collect::<String>(), "あ〔A〕か〔C〕");
+    }
+
+    /// 6回目の点検: 決まった種から作る文（住所・番号・名前に使う字を並べたもの）で、伏せる処理が落ちない（性質のテスト）
+    #[test]
+    fn masking_never_panics_on_generated_text() {
+        let parts: &[&str] = &[
+            "0",
+            "1",
+            "2",
+            "3",
+            "12",
+            "123",
+            "1234",
+            "一",
+            "二",
+            "三",
+            "十",
+            "〇",
+            "丁目",
+            "番地",
+            "番",
+            "号",
+            "号室",
+            "条",
+            "階",
+            "室",
+            "市",
+            "区",
+            "町",
+            "村",
+            "郡",
+            "東京都",
+            "北海道",
+            "つくば",
+            "竹園",
+            "中央",
+            "本町",
+            "ヒルズ",
+            "コーポ",
+            "メゾン",
+            "A",
+            "b",
+            " ",
+            "\u{3000}",
+            "-",
+            "ー",
+            "の",
+            "が",
+            "に",
+            "は",
+            "、",
+            "。",
+            "\n",
+            "(",
+            ")",
+            "+",
+            "+81",
+            "090",
+            "03",
+            "@",
+            ".",
+            "jp",
+            "com",
+            "さん",
+            "様",
+            "氏",
+            "君",
+            "殿",
+            "先生",
+            "ちゃん",
+            "くん",
+            "さま",
+            "田中",
+            "みどり",
+            "タナカ",
+            "お",
+            "ご",
+            "万円",
+            "月",
+            "歳",
+            "西",
+            "北",
+            "通",
+            "上る",
+            "ヶ",
+            "ノ",
+            "（名前）",
+            "〔住所〕",
+            "〔電話番号〕",
+            "決めたこと: ",
+            "次までにやること: ",
+            "𠮷",
+            "ﾀﾞ",
+            "ﾟ",
+            "（",
+            "）",
+            "：",
+            "様子",
+            "さんま",
+        ];
+        let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut next = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        let words = vec!["田中".to_owned(), "1".to_owned()];
+        for n in 0..100_000u64 {
+            let len = (next() % 12 + 1) as usize;
+            let s: String = (0..len)
+                .map(|_| parts[(next() % parts.len() as u64) as usize])
+                .collect();
+            let w: &[String] = if n % 4 == 0 { &words } else { &[] };
+            let r = crate::names::mask_names(&s, w);
+            assert!(
+                r.spans
+                    .iter()
+                    .all(|(a, b)| a < b && *b <= r.text.chars().count()),
+                "{s:?}"
+            );
+            let _ = crate::names::suspects(&r.text);
+            let _ = crate::names::mask_and_cut(&s, w, &[("決めたこと: ", 6)], 8);
         }
     }
 }

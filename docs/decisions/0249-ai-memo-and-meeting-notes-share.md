@@ -103,6 +103,15 @@
 - **同意の版の境目の日**（E。利用者の判断）: 境目の日は β公開の日に合わせる（日付はまだ決まっていない）。境目の日は1つの定数（`crates/ai-share/src/consent.rs` の `EXTERNAL_AI_EXPLANATION_V3_SINCE`。今は仮に 2026-11-23）だけにし、画面は本体から受け取り、テストはこの日から数える（`clock::add_days`）。リポジトリの `README.md` の「β公開の前に」に、この日を公開の日に直す項目を書いた。
 - **言葉の置き換えの巻き込み**（低1）: 書類の候補・新しい世帯の候補を確かめる画面の説明（`registry.rs` の `propose_inputs` の文・`docs/ai-connector.md`・`docs/decisions/README.md` の 0148・0208 の行）は、元の「確かめの画面」に戻した（言葉の統一は別の変更に任せる）。
 
+### 9. 6回目の点検で直したこと（2026-11-24 の追記）
+
+- **住所の置き換えで落ちていた**（`contacts.rs`）: 2つ目の住所の地名を前へさかのぼるとき、前に見つけた住所の中まで戻り、範囲が重なって置き換えで落ちた（「京都市下京区四条通烏丸東入ル長刀鉾町20」「土浦市中央一丁目メゾン101」「港区六本木六丁目ヒルズ1001」「中京区二条通280」。8 で足した数字だけの番地・条・建物の名前で起きるようになった）。確認画面が開けず、メモを渡さない共有も作れず、まとめて渡すと途中で止まって記録が書かれないまま残った。
+  - 地名をさかのぼるのは、直前に見つけた住所の終わりまでにした。
+  - 置き換え（`replace`）も、前の範囲と重なる範囲は前の範囲にまとめ、落ちない。
+  - 念のための守り: 1つの文を伏せる処理（`registry::masked_text`。確認画面・共有・指紋のすべてが通る）が思いがけず落ちたときは、その文を渡さず「（この欄は、伏せる処理で読めなかったため渡しません）」に置き換える。元の文は出さない。共有・確認画面・まとめて渡す処理が、伏せる処理の不具合で途中で止まらない（まとめて渡す処理の中で落ちる所は、ほかに伏せる処理しかない）。
+- **ひらがなの名前の後の言葉**（`names.rs`）: 敬称と読まない語の一覧の「さんま」「さまよ」「さんかの」「さんそ」などが広すぎて、「みどりさんまで」「みどりさんまたは」「さくらさんまだ」「ひなたさまより」「みどりさんかの」「みどりさんみたい」「みどりちゃんこっち」で名前を伏せなかった。一覧を、名前の後に来ても誤らない形（さんまを・さんまの・さまよう・さまよっ・ちゃんこ鍋 など）に絞った。
+
+
 ## 理由
 
 - 印を共有ごとにすることで、FP が渡す世帯ごとに決められ、記録にも範囲 `custom` と項目が残る。縮約と包み方を1か所に保つ（0015 の6）。
@@ -125,6 +134,7 @@
 - `crates/lifeplan`（`notes_reach_the_ai_only_for_marked_shares`）: `texts`・`notes`・`notesExcerpt` が印の付いた共有だけに出る。
 - `app`（`test/ai-notes.test.ts`）: 印・渡せない理由の文・伏せる言葉の欄・AI に渡す中身の確認画面・事務所の設定・まとめて渡した後の件数・止めたメモの文（1件ずつの画面・共有中の帯）。
 - 5回目の点検の直し（8）: `names.rs` の `names_are_masked_whatever_follows_the_honorific`・`units_and_common_words_are_not_masked_and_spaces_are_skipped`、`contacts.rs` の `phones_right_after_letters_are_masked_and_dates_in_a_row_are_not`・`counts_after_place_like_words_are_not_addresses`・`more_addresses_with_house_numbers_are_masked`・`places_without_house_numbers_and_counts_stay`（点検で壊れていないと確かめた例をすべて残す）、`app/src-tauri` の `notes_changed_while_shared_stop_until_shared_again`（1件ずつ・まとめての両方）、`clock.rs` の `adds_days`。
+- 6回目の点検の直し（9）: `contacts.rs` の `overlapping_addresses_do_not_panic`・`overlapping_spans_are_merged_when_replacing`・`masking_never_panics_on_generated_text`（決まった種から作る10万文で、名前・連絡先を伏せる処理・目安・上限で切る処理が落ちず、伏せた所の範囲が文の中に収まる）、`names.rs` の `hiragana_names_before_common_words_are_masked`。
 
 ## 未確定
 

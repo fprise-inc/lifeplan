@@ -1800,8 +1800,19 @@ pub fn masked_text(item: &str, body: &str, mask: &[String]) -> crate::names::Mas
     } else {
         &[]
     };
-    crate::names::mask_and_cut(body, mask, caps, crate::names::NOTE_FIELD_MAX)
+    // 伏せる処理が思いがけず落ちたときは、その文を渡さない（元の文は出さず、決まった文に置き換える）。落ちて、共有・確認画面・
+    // まとめて渡す処理が途中で止まらないための守り（0249 の6回目の点検）
+    std::panic::catch_unwind(|| {
+        crate::names::mask_and_cut(body, mask, caps, crate::names::NOTE_FIELD_MAX)
+    })
+    .unwrap_or_else(|_| crate::names::Masked {
+        text: UNMASKABLE_TEXT.to_owned(),
+        spans: Vec::new(),
+    })
 }
+
+/// 伏せる処理が落ちた文の代わりに渡す文
+pub const UNMASKABLE_TEXT: &str = "（この欄は、伏せる処理で読めなかったため渡しません）";
 
 /// 渡してよい世帯か: 同意がある・事務所のプライバシーポリシーを確かめていて断られていない・架空の世帯（0226）
 fn may_share(st: &State, source: &SharedHouseholdSource) -> bool {
