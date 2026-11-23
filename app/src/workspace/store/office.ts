@@ -22,7 +22,7 @@ export const OFFICE_MESSAGES: Record<string, string> = {
   E_OFFICE_KEY_MISSING: "このPCのメンバーの鍵が見つかりません。もう一度「参加する」から申請してください",
   E_OFFICE_WAITING_SYNC: "この世帯の鍵の同期を待っています。少し待ってから開き直してください",
   E_OFFICE_BAD_KEY: "申請の鍵が壊れています。申請し直してもらってください",
-  E_OFFICE_RECOVERY_REQUIRED: "事務所の復元キーがまだ保管されていません。保管するまで、参加の承認とメンバーを外す操作は止めています",
+  E_OFFICE_RECOVERY_REQUIRED: "事務所の復元キーがまだ保管されていません。保管するまで、共有に加わる承認とメンバーを外す操作は止めています",
   E_OFFICE_CLOSED: "この事務所の共有は終わっています（最後のメンバーが共有をやめました）",
   E_OFFICE_OTHERS_REMAIN: "ほかのメンバーがいる間は、共有をやめられません。先にほかのメンバーを外してください",
   E_OFFICE_FORMAT_TOO_NEW: "共有フォルダのファイルが、新しい版のアプリで書かれています。アプリを更新してください",

@@ -49,7 +49,7 @@ import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
 import { HearingTools } from "./hearing/HearingTools.tsx";
 import { accepting, ARRIVAL_INTERVAL_MS, checkArrivals, listSummary, onArrivals, pendingCount, pendingMark, webLog } from "./hearing/web.ts";
-import { askFocus, checkUnopened, hearingBellItems, peekedLive, type PeekCache } from "./hearing/bell.ts";
+import { askFocus, checkUnopened, HEARING_ARRIVAL_TODO, hearingBellItems, peekedLive, type PeekCache } from "./hearing/bell.ts";
 import { ReportTab } from "./report/ReportTab.tsx";
 import { runWireCheck } from "./report/wirecheck.ts";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel.tsx";
@@ -137,7 +137,7 @@ import type { DocStart } from "./documents/start.ts";
 import { StatementPanel } from "./statement/StatementPanel.tsx";
 import type { StatementLog } from "../../../statement/src/index.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
-import { FpMenu, fpMenuGroups, officeShareText, storageText, type FpMenuAction } from "./header/FpMenu.tsx";
+import { FpMenu, fpMenuGroups, fpMenuWithoutHousehold, officeShareText, storageText, type FpMenuAction } from "./header/FpMenu.tsx";
 import { reviewTiming } from "./tools/FpTools.tsx";
 import { formatYearMonth } from "./input/units.ts";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
@@ -2854,6 +2854,7 @@ export function App() {
         household: n.category === "household" || n.target === "presence" ? hhLabel : null,
         receipts: [],
         action: { label: n.action, run: n.category === "household" ? () => openHouseholdNotice(n.target) : noticeActions[n.target] },
+        todo: n.todo,
         read: noticeLocal.read[key] !== undefined,
       };
     }),
@@ -2874,6 +2875,7 @@ export function App() {
         household: n.household,
         receipts: [],
         action: { label: "受け取る画面", run: () => openHearingRequest(n.householdId, n.requestId) },
+        todo: HEARING_ARRIVAL_TODO,
         read: noticeLocal.read[n.key] !== undefined,
       }),
     ),
@@ -2889,6 +2891,8 @@ export function App() {
         household: null,
         receipts: n.matched,
         action: target === undefined ? null : { label: SCREEN_LABEL[target], run: target === "family" || target === "work" || target === "plans" ? () => openHouseholdNotice(target) : noticeActions[target] },
+        // 配信元のお知らせは読むだけ（要対応にしない。0245）
+        todo: false,
         read: noticeLocal.read[feedKey(n.id)] !== undefined,
       };
     }),
@@ -2916,6 +2920,8 @@ export function App() {
   /** 入力で直しているプラン（取り込みは現状に入るので、このときは取り込みの中身に「現状に切り替える」を出す） */
   const inputPlanSel = opened !== null && inputPlanOn && work.sel !== CURRENT && opened.wh.proposals.some((p) => p.id === work.sel) ? work.sel : null;
   // FP のメニューで押した物: 入力のホームの中身は、入力のタブに切り替えてホームの上部に開く（パネルの入力は閉じる）。事務所の設定・AI は中央のパネル
+  /** FP のメニューの「事務所の設定」（本体につながっていないときは出さない） */
+  const fpOffice = host !== null ? { storage: storageText(officeStatus?.state, officeStatus?.usage === "personal"), share: officeShareText(officeStatus?.state, officeStatus?.usage === "personal") } : null;
   const pickFpMenu = (a: FpMenuAction) => {
     const home: Partial<Record<FpMenuAction, FpOpen>> = { snapTake: "snapTake", snapList: "snapList", contents: "contents", year: "year", review: "review", hearing: "imports", meetings: "meetings" };
     // メモは右の端の引き出し（前は上の帯のボタン。根拠の引き出しとは同時に出さない）
@@ -3002,7 +3008,7 @@ export function App() {
             : null
         }
         alerts={[...barAlertList.map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] })), ...criticalAlerts]}
-        notices={{ items: centerItems, onRead: readNotices, onFeedback: () => setFeedbackOpen(true), focus: noticeFocus }}
+        notices={{ items: centerItems, onRead: readNotices, focus: noticeFocus }}
         tools={
           opened !== null ? (
             <>
@@ -3013,13 +3019,16 @@ export function App() {
                   snapshots: (opened.wh.snapshots ?? []).length,
                   review: ((t) => (t === null ? null : { last: formatYearMonth(t.last), next: formatYearMonth(t.next) }))(reviewTiming(opened.wh.snapshots ?? [])),
                   imports: host !== null ? { ai: storedInfo !== null, hearing: ((p) => (p.arrived > 0 ? `回答が届いています ${p.arrived}件` : p.toImport > 0 ? `取り込み待ち ${p.toImport}件` : null))(pendingCount(opened.wh)) } : null,
-                  office: host !== null ? { storage: storageText(officeStatus?.state, officeStatus?.usage === "personal"), share: officeShareText(officeStatus?.state, officeStatus?.usage === "personal") } : null,
+                  office: fpOffice,
                 })}
                 onPick={pickFpMenu}
                 {...(initial.fpMenu === true ? { initialOpen: true } : {})}
               />
             </>
-          ) : null
+          ) : (
+            // 世帯を開いていないときも、世帯が無くても開ける物（事務所の設定・要望・不具合を送る）だけで出す（0245）
+            <FpMenu groups={fpMenuWithoutHousehold(fpOffice)} onPick={pickFpMenu} {...(initial.fpMenu === true ? { initialOpen: true } : {})} />
+          )
         }
         big={big}
         onBig={setBig}
