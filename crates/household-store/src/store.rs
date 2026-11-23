@@ -64,12 +64,16 @@ const OFFICE_FORMAT: &str = "lifeplan.officeData";
 /// この PC の事務所データ（officeData）の形式の版。読む側の決まり（0222 で決めた）: このアプリが知らない新しい版（MINOR を含む）の事務所データは、
 /// 読んで使うが書かない（閲覧だけ。世帯ファイルの新しい版と同じ考え方）。前の版のアプリは知らない欄を読み落として書き戻し、新しい版が足した欄
 /// （鍵を含む Web のヒアリングの依頼など）を消すため
-pub const OFFICE_FORMAT_VERSION: &str = "0.2";
+pub const OFFICE_FORMAT_VERSION: &str = "0.3";
 
 /// これまでの事務所データの形式の版（古い順）。消さない
 /// - 0.1: 最初の版
 /// - 0.2: 世帯ファイルにまだ入っていない Web のヒアリングの依頼 `hearingRequests`（0222）。この版から、新しい版の事務所データを閲覧だけで開く
-pub const OFFICE_KNOWN: &[&str] = &["0.1", "0.2"];
+/// - 0.3: 一覧の欄の見本 `sample` を、見本番号 `no` の代わりに家族の形 `family`・本人の年代 `age`（と任意の出どころ `origin`・
+///   最初の状態から変わっているか `changed`）を持つ形にした。見本の表示の番号は空（0247 の1）。前の形の見本は開いたときに1回だけ直す
+///   （番号を外し、家族の形・年代を番号から読み、名前の重なりに「（2）」を付ける。0247 の8）。0.2 までのアプリは `no` の無い見本を
+///   読めないので、見本のある 0.3 の事務所データは開けない（更新の後に前の版へ戻すときは、更新の前の毎日の写しから戻す）
+pub const OFFICE_KNOWN: &[&str] = &["0.1", "0.2", "0.3"];
 
 /// 事務所データの形式の版が、このアプリの知っている版より新しいか（形の読めない版も新しいとみなす: 書かない側に倒す）
 pub fn office_version_too_new(v: &str) -> bool {
@@ -320,6 +324,18 @@ pub struct Status {
     pub deletions_completed: usize,
     /// 事務所データがこのアプリより新しい版で書かれている（閲覧だけ。保存しない。アプリの更新を案内する。0222）
     pub office_too_new: bool,
+    /// 見本番号を無くす移行・一覧の作り直しで、重なった名前を直した見本（0247 の8）。この起動の間だけ持つ（画面はお知らせの一覧の
+    /// 「参考」に出す。保存先の知らせ `sampleRenames`）
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub sample_renames: Vec<SampleRename>,
+}
+
+/// 移行で直した見本の名前（前の名前 → 直した名前）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SampleRename {
+    pub from: String,
+    pub to: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -455,9 +471,12 @@ pub struct CreateOptions {
     /// 区分の記号（無ければ既定の区分）
     #[serde(default)]
     pub category: Option<String>,
-    /// 見本として作る（顧客番号を持たず、見本番号を振る）
+    /// 見本として作る（顧客番号も番号も持たない。0247）
     #[serde(default)]
     pub sample: Option<SampleRequest>,
+    /// 見本の名前に使えない名前（アプリに入っているすべてのセットの見本の名前。本体はセットを知らないので、画面が渡す。0247 の1）
+    #[serde(default)]
+    pub reserved_names: Vec<String>,
     /// 架空の世帯として作る（AIの候補から「架空」で作るときだけ。アプリ本体が付け、画面の新しく作るからは付けない）。見本には付けない
     #[serde(default)]
     pub fictional: bool,
@@ -478,16 +497,22 @@ struct Session {
 }
 
 /// 本体が保存のたびに書き直す meta の欄（[`Store::with_meta`]）。これ以外の欄は開いた本文から持ち越す
-const META_WRITTEN: [&str; 8] = [
+/// `sample` は一覧の欄の見本の中身（見本だけ。0247 の1）。見本では `customerNo` を書かない
+const META_WRITTEN: [&str; 9] = [
     "format",
     "formatVersion",
     "savedAt",
     "appVersion",
     "customerNo",
+    "sample",
     "savedBy",
     "revisions",
     "editors",
 ];
+
+/// 本体が持つ本文の区画（画面に渡さない・画面から受け取らない。開いたファイルから持ち越して保存のたびに書き戻す）。
+/// 自分で作った見本の最初の状態（0247 の6）
+const SAMPLE_INITIAL: &str = "sampleInitial";
 
 /// 開いた世帯の本文から持ち越す meta: 「誰が直したか」の記録（0023 の6）と、変換の段が書いた記録
 /// （合算BS の引き継ぎ `extTransfers`。0011 の4）・このアプリが知らない欄（捨てない決まり）。
@@ -497,12 +522,23 @@ struct MetaCarry {
     revisions: Vec<Value>,
     editors: serde_json::Map<String, Value>,
     rest: serde_json::Map<String, Value>,
+    /// 本文の区画 `sampleInitial`（本体が持つ区画。0247 の6）。開いたファイルにあれば、保存のたびにそのまま書き戻す
+    sample_initial: Option<Value>,
 }
 
 impl MetaCarry {
+    /// 開いた本文の meta と、本体が持つ区画を持ち越す
+    fn from_body(body: &Value) -> MetaCarry {
+        MetaCarry {
+            sample_initial: body.get(SAMPLE_INITIAL).cloned(),
+            ..MetaCarry::from_meta(body.get("meta"))
+        }
+    }
+
     fn from_meta(meta: Option<&Value>) -> MetaCarry {
         let m = meta.and_then(Value::as_object);
         MetaCarry {
+            sample_initial: None,
             revisions: m
                 .and_then(|m| m.get("revisions"))
                 .and_then(Value::as_array)
@@ -518,12 +554,111 @@ impl MetaCarry {
     }
 }
 
+/// 完全削除の確かめ（0013 の5）: 見本は見本の名前（前後の空白を除き NFC で比べる）、顧客の世帯は顧客番号。
+/// 空の確かめはどちらでも断る（見本の表示の番号は空なので、空どうしの一致で確かめが抜けないように。0247 の1）
+fn delete_confirmed(confirm: &str, customer_no: &str, label: &Label) -> bool {
+    let typed = confirm.trim();
+    if typed.is_empty() {
+        return false;
+    }
+    match &label.sample {
+        Some(info) => {
+            let name = numbering::sample_name_key(&info.name);
+            !name.is_empty() && numbering::sample_name_key(typed) == name
+        }
+        None => !customer_no.is_empty() && typed == customer_no,
+    }
+}
+
+/// 世帯ファイルの `meta.sample`（一覧の欄の見本の中身から `changed` を除いた物。0247 の1）
+fn sample_meta(info: &SampleInfo) -> Value {
+    let mut v = serde_json::to_value(info).expect("見本の中身の JSON");
+    if let Some(m) = v.as_object_mut() {
+        m.remove("changed");
+    }
+    v
+}
+
 /// meta のうち、本体が書き直さない欄
 fn rest_of_meta(m: &serde_json::Map<String, Value>) -> serde_json::Map<String, Value> {
     m.iter()
         .filter(|(k, _)| !META_WRITTEN.contains(&k.as_str()))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect()
+}
+
+/// 世帯ファイルの本文（変換する前のまま）から一覧の欄を作り直す。要約は空、作った日・直した日は保存した日時
+fn catalog_from_body(v: &Value) -> CatalogEntry {
+    let meta = v.get("meta");
+    let saved = meta
+        .and_then(|m| m.get("savedAt"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let (customer_no, label) = numbering::label_from_meta(meta);
+    CatalogEntry {
+        label,
+        customer_no,
+        summary: String::new(),
+        created_at: saved.clone(),
+        updated_at: saved,
+    }
+}
+
+/// 見本の移行の結果
+struct SampleMigration {
+    /// 前の形から直した見本の内部ID
+    migrated: Vec<String>,
+    /// 名前を直した見本
+    renamed: Vec<SampleRename>,
+}
+
+/// 一覧の欄の見本を新しい形にそろえる（0247 の8）。前の形（見本番号つき）の見本と、世帯ファイルから作り直した見本（`fresh`）は、
+/// 表示の番号を空にし、名前がほかの見本と重なれば後ろに「（2）」「（3）」…を付ける（内部ID の順。新しい形の見本の名前はそのまま）。
+/// セットの見本を直した版（出どころあり）は元の見本と同じ名前を持つので、重なりに数えない。何度流しても同じ結果
+fn migrate_sample_entries(
+    entries: &mut BTreeMap<String, CatalogEntry>,
+    fresh: &[String],
+) -> SampleMigration {
+    let needs = |id: &String, e: &CatalogEntry| {
+        e.label
+            .sample
+            .as_ref()
+            .is_some_and(|x| x.is_legacy() || fresh.contains(id))
+    };
+    let mut taken: std::collections::HashSet<String> = entries
+        .iter()
+        .filter(|(id, e)| !needs(id, e))
+        .filter_map(|(_, e)| e.label.sample.as_ref())
+        .filter(|x| x.origin.is_none())
+        .map(|x| numbering::sample_name_key(&x.name))
+        .collect();
+    let mut migrated = vec![];
+    let mut renamed = vec![];
+    for (id, e) in entries.iter_mut() {
+        if !needs(id, e) {
+            continue;
+        }
+        let Some(info) = e.label.sample.as_mut() else {
+            continue;
+        };
+        if info.is_legacy() {
+            migrated.push(id.clone());
+        }
+        info.legacy_no = None;
+        e.customer_no = String::new();
+        if info.origin.is_some() {
+            continue;
+        }
+        let name = numbering::unique_sample_name(&info.name, &mut taken);
+        if name != info.name {
+            renamed.push(SampleRename {
+                from: std::mem::replace(&mut info.name, name.clone()),
+                to: name,
+            });
+        }
+    }
+    SampleMigration { migrated, renamed }
 }
 
 struct OpenState {
@@ -547,6 +682,8 @@ struct Inner {
     first_run: bool,
     opened: HashMap<String, OpenState>,
     fail: FailPoint,
+    /// 事務所データを開いたときの見本の移行・一覧の作り直しで直した名前（この起動の間だけ持つ。0247 の8）
+    sample_renames: Vec<SampleRename>,
 }
 
 pub struct Store {
@@ -678,6 +815,12 @@ fn write_json<T: Serialize>(p: &Path, v: &T) -> Result<(), StoreError> {
 }
 
 fn encode_office(data: &OfficeData, office_id: &str, master: &[u8; 32]) -> Vec<u8> {
+    let body = Zeroizing::new(serde_json::to_vec(data).expect("事務所データの JSON"));
+    seal_office_raw(&body, OFFICE_FORMAT_VERSION, office_id, master)
+}
+
+/// 事務所データの本文のバイト列を、見出しの形式の版を指定して暗号化する
+fn seal_office_raw(body: &[u8], version: &str, office_id: &str, master: &[u8; 32]) -> Vec<u8> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct H<'a> {
@@ -691,24 +834,19 @@ fn encode_office(data: &OfficeData, office_id: &str, master: &[u8; 32]) -> Vec<u
     let h = H {
         cipher: crypto::CIPHER,
         format: OFFICE_FORMAT,
-        format_version: OFFICE_FORMAT_VERSION,
+        format_version: version,
         nonce: crypto::hex_encode(&nonce),
         office_id,
     };
-    let body = Zeroizing::new(serde_json::to_vec(data).expect("事務所データの JSON"));
     let k = crypto::derive(master, purpose::OFFICE_DATA);
-    container::seal(OFFICE_MAGIC, &container::header_json(&h), &k, &nonce, &body)
+    container::seal(OFFICE_MAGIC, &container::header_json(&h), &k, &nonce, body)
 }
 
-fn decode_office(bytes: &[u8], master: &[u8; 32]) -> Result<OfficeData, StoreError> {
-    decode_office_versioned(bytes, master).map(|(d, _)| d)
-}
-
-/// 事務所データと、その形式の版（見出しに版の無い古いファイルは 0.1）
-fn decode_office_versioned(
+/// 事務所データの暗号を外した本文のバイト列（読み直さない）と、見出しの形式の版（版の無い古いファイルは 0.1）
+fn open_office_raw(
     bytes: &[u8],
     master: &[u8; 32],
-) -> Result<(OfficeData, String), StoreError> {
+) -> Result<(Zeroizing<Vec<u8>>, String), StoreError> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct H {
@@ -726,8 +864,25 @@ fn decode_office_versioned(
     let nonce: [u8; NONCE_LEN] = crypto::hex_array(&h.nonce).ok_or(StoreError::CORRUPT)?;
     let k = crypto::derive(master, purpose::OFFICE_DATA);
     let body = crypto::open(&k, &nonce, p.aad, p.ciphertext)?;
+    Ok((body, h.format_version.unwrap_or_else(|| "0.1".into())))
+}
+
+/// 見本番号を無くす移行（0247 の8）の前の事務所データを残すファイル（暗号化のまま。1回だけ書き、後から書き換えない）。
+/// 前の版のアプリに戻すときは、アプリを閉じてこのファイルを office.lpod に置き換える
+pub const OFFICE_BEFORE_SAMPLE_MIGRATION: &str = "office.lpod.before-0.3";
+
+fn decode_office(bytes: &[u8], master: &[u8; 32]) -> Result<OfficeData, StoreError> {
+    decode_office_versioned(bytes, master).map(|(d, _)| d)
+}
+
+/// 事務所データと、その形式の版（見出しに版の無い古いファイルは 0.1）
+fn decode_office_versioned(
+    bytes: &[u8],
+    master: &[u8; 32],
+) -> Result<(OfficeData, String), StoreError> {
+    let (body, version) = open_office_raw(bytes, master)?;
     let data = serde_json::from_slice(&body).map_err(|_| StoreError::CORRUPT)?;
-    Ok((data, h.format_version.unwrap_or_else(|| "0.1".into())))
+    Ok((data, version))
 }
 
 /// 世帯ファイルの名前から世帯ID（`<ID>.lphf`・`.prev`・`.tmp-*`）
@@ -805,6 +960,63 @@ impl Store {
         Ok(())
     }
 
+    /// 試験用: 今の事務所データの中身（JSON）。前の版の形の事務所データを作るのに使う
+    #[doc(hidden)]
+    pub fn office_json_for_test(&self) -> Result<Value, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        serde_json::to_value(&s.data).map_err(|_| StoreError::IO)
+    }
+
+    /// 試験用: 事務所データの中身（JSON）を、見出しの形式の版を指定して書く（前の版のアプリが書いた事務所データの代わり）。
+    /// 開いている状態は変えない（読み直すには開き直す）
+    #[doc(hidden)]
+    pub fn write_office_json_for_test(
+        &self,
+        data: &Value,
+        version: &str,
+    ) -> Result<(), StoreError> {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct H<'a> {
+            cipher: &'a str,
+            format: &'a str,
+            format_version: &'a str,
+            nonce: String,
+            office_id: &'a str,
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let nonce = crypto::random_nonce();
+        let h = H {
+            cipher: crypto::CIPHER,
+            format: OFFICE_FORMAT,
+            format_version: version,
+            nonce: crypto::hex_encode(&nonce),
+            office_id: &s.office_id,
+        };
+        let body = serde_json::to_vec(data).map_err(|_| StoreError::IO)?;
+        let k = crypto::derive(&s.master, purpose::OFFICE_DATA);
+        let bytes = container::seal(OFFICE_MAGIC, &container::header_json(&h), &k, &nonce, &body);
+        atomic::replace(&self.office_data_path(), &bytes, FailPoint::None)?;
+        Ok(())
+    }
+
+    /// 試験用: 移行の前の事務所データの写しの中身（JSON）と形式の版（無ければ None）
+    #[doc(hidden)]
+    pub fn office_before_migration_for_test(&self) -> Result<Option<(Value, String)>, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let Ok(b) = fs::read(self.root.join(OFFICE_BEFORE_SAMPLE_MIGRATION)) else {
+            return Ok(None);
+        };
+        let (body, version) = open_office_raw(&b, &s.master)?;
+        Ok(Some((
+            serde_json::from_slice(&body).map_err(|_| StoreError::CORRUPT)?,
+            version,
+        )))
+    }
+
     /// 試験用: 開いている状態を忘れる（アプリを閉じて開き直した代わり）
     #[doc(hidden)]
     pub fn forget_session(&self) {
@@ -845,7 +1057,9 @@ impl Store {
         if g.session.is_none() {
             self.load(&mut g)?;
         }
-        Ok(self.status_of(&g))
+        let mut st = self.status_of(&g);
+        st.sample_renames = g.sample_renames.clone();
+        Ok(st)
     }
 
     fn status_of(&self, g: &Inner) -> Status {
@@ -879,6 +1093,7 @@ impl Store {
             last_opened: g.session.as_ref().and_then(|s| s.data.last_opened.clone()),
             deletions_pending: pending,
             deletions_completed: done,
+            sample_renames: vec![],
         }
     }
 
@@ -979,6 +1194,17 @@ impl Store {
             &encode_office(&s.data, &s.office_id, new),
             FailPoint::None,
         )?;
+        // 移行の前の事務所データの写しも新しい鍵で包み直す（中身と形式の版はそのまま。前の版に戻すときに開けるように）
+        let before = self.root.join(OFFICE_BEFORE_SAMPLE_MIGRATION);
+        if let Ok((body, version)) = fs::read(&before)
+            .map_err(|_| StoreError::IO)
+            .and_then(|b| open_office_raw(&b, &s.master))
+        {
+            let _ = atomic::replace_no_prev(
+                &before,
+                &seal_office_raw(&body, &version, &s.office_id, new),
+            );
+        }
         halt(2)?;
         atomic::replace(&self.vault_path(), &vault.encode(new), FailPoint::None)?;
         halt(3)?;
@@ -1146,23 +1372,82 @@ impl Store {
                 });
             }
         }
-        // 一覧に無い世帯ファイル（事務所データが古い世代に戻った場合など）を一覧に戻す
+        // 一覧に無い世帯ファイル（事務所データが古い世代に戻った場合など）を一覧に戻す（見本かどうかは世帯ファイルの meta.sample で
+        // 見分ける。0247 の1）。前の形の見本（見本番号つき）は番号を外す（0247 の8）。どちらも、名前の重なりは「（2）」を付けて直す
         let missing: Vec<String> = self
             .household_files()
             .into_iter()
             .filter(|id| !s.data.households.contains_key(id) && s.vault.contains(id))
             .collect();
-        // 新しい版の事務所データは書かない（一覧に戻すのも、この起動の間だけ）
-        if !missing.is_empty() {
-            for id in missing {
-                if let Some(entry) = self.catalog_from_file(&s, &id) {
-                    s.data.households.insert(id, entry);
+        let mut fresh: Vec<String> = vec![];
+        let mut rebuilt = false;
+        for id in missing {
+            rebuilt = true;
+            if let Some(entry) = self.catalog_from_file(&s, &id) {
+                if entry.label.is_sample() {
+                    fresh.push(id.clone());
                 }
-            }
-            if !s.office_too_new {
-                self.write_office(&s)?;
+                s.data.households.insert(id, entry);
             }
         }
+        let migration = migrate_sample_entries(&mut s.data.households, &fresh);
+        // 新しい版の事務所データは書かない（一覧に戻すのも、移行も、この起動の間だけ）。移行だけのときは、書き込みに失敗しても
+        // 起動を止めない（事務所データは前の形のまま残る。1回の差し替えで書くので、半分だけ直した形にはならない。次に書くときか
+        // 次の起動で、同じ結果に直す）
+        if !s.office_too_new {
+            // 移行で書く前に、前の形の事務所データを1回だけ別名で残す（前の版のアプリに戻すため。直前の世代 .prev と毎日の写しは、
+            // 次に事務所データを書いたとき・その日のうちに移行の後の形に入れ替わるので頼れない）。残せないときは移行を書かずに止める
+            if !migration.migrated.is_empty() {
+                self.keep_office_before_migration()?;
+            }
+            let written = if rebuilt {
+                self.write_office(&s)?;
+                true
+            } else if !migration.migrated.is_empty() {
+                self.write_office(&s).is_ok()
+            } else {
+                false
+            };
+            // この版で初めて開いた前の版（0.3 より前）の事務所データでは、一覧が正しいと分かっている今のうちに、一覧の作り直しで見本と顧客が
+            // 入れ替わりうる世帯ファイルだけ meta を書き直す（0247 の8。世帯ファイルに触れない移行の例外。ふつうの保存と同じ差し替えで、
+            // 直前の世代は残る）: meta.sample の無い見本（前の版で作った・登録した見本）と、前の見本番号の形の顧客番号を持つ顧客。
+            // 書けなかった世帯は、次に保存したときに直る
+            // 事務所データを先に 0.3 で書いてから（書けたときだけ）世帯ファイルを書く。次の起動で同じ世帯を書き直し続けないように
+            let first_open = migrate::parse(&office_version).is_none_or(|v| v < (0, 3));
+            let targets: Vec<(String, String, Label)> = if first_open {
+                s.data
+                    .households
+                    .iter()
+                    .filter(|(id, e)| {
+                        migration.migrated.contains(id)
+                            || (!e.label.is_sample()
+                                && numbering::parse_sample_no(&e.customer_no).is_some())
+                    })
+                    .map(|(id, e)| (id.clone(), e.customer_no.clone(), e.label.clone()))
+                    .collect()
+            } else {
+                vec![]
+            };
+            if !targets.is_empty()
+                && (written
+                    || (self.keep_office_before_migration().is_ok()
+                        && self.write_office(&s).is_ok()))
+            {
+                let now = self.now();
+                for (id, no, label) in targets {
+                    // 0.87 からのファイルは、この版が一覧の欄から meta を書いているので触れない
+                    let old_file = fs::read(self.household_path(&id))
+                        .ok()
+                        .and_then(|b| container::read_household_header(&b).ok())
+                        .and_then(|h| migrate::parse(&h.format_version))
+                        .is_some_and(|v| v < (0, 87));
+                    if old_file {
+                        let _ = self.write_meta_of(&s, &id, &no, &label, FailPoint::None, now);
+                    }
+                }
+            }
+        }
+        g.sample_renames = migration.renamed;
         g.needs_recovery = false;
         // 事務所で共有しているときは、共有フォルダの名簿を開く（0023）
         self.activate_shared(&mut s);
@@ -1171,29 +1456,29 @@ impl Store {
         Ok(())
     }
 
-    /// 世帯ファイルの本文から一覧の欄を作り直す
+    /// 移行の前の事務所データ（今の office.lpod のバイト列そのまま）を [`OFFICE_BEFORE_SAMPLE_MIGRATION`] に残す。もうあれば書かない
+    fn keep_office_before_migration(&self) -> Result<(), StoreError> {
+        let to = self.root.join(OFFICE_BEFORE_SAMPLE_MIGRATION);
+        if to.exists() {
+            return Ok(());
+        }
+        match fs::read(self.office_data_path()) {
+            Ok(b) => {
+                atomic::replace_no_prev(&to, &b)?;
+                Ok(())
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err(StoreError::IO),
+        }
+    }
+
+    /// 世帯ファイルの本文から一覧の欄を作り直す（見本かどうかは `meta.sample`。0247 の1）
     fn catalog_from_file(&self, s: &Session, id: &str) -> Option<CatalogEntry> {
         let bytes = fs::read(self.household_path(id)).ok()?;
         let (_, key) = s.vault.unwrap_key(&s.master, id).ok()?;
         let (_, body) = container::open_household(&bytes, &key).ok()?;
         let v: Value = serde_json::from_slice(&body).ok()?;
-        let meta = v.get("meta");
-        let text = |k: &str| {
-            meta.and_then(|m| m.get(k))
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-        };
-        let saved = text("savedAt").unwrap_or_default();
-        let customer_no = text("customerNo")
-            .filter(|c| valid_customer_no(c))
-            .unwrap_or_else(|| "NO-NUMBER".into());
-        Some(CatalogEntry {
-            label: numbering::label_from_no(&customer_no),
-            customer_no,
-            summary: String::new(),
-            created_at: saved.clone(),
-            updated_at: saved,
-        })
+        Some(catalog_from_body(&v))
     }
 
     /// データフォルダの世帯ファイルの世帯ID（今のファイル・.prev・一時ファイルのどれかがあるもの）
@@ -1298,14 +1583,21 @@ impl Store {
             .collect())
     }
 
-    /// 見本の棚（FP が作った見本の世帯。見本番号の順。0033）
+    /// 見本の棚（保存した見本の世帯。名前の順。セットの並びは画面がセットの定義で決める。0033・0247 の11）
     pub fn list_samples(&self) -> Result<Vec<HouseholdEntry>, StoreError> {
         let mut v: Vec<HouseholdEntry> = self
             .entries()?
             .into_iter()
             .filter(|e| e.label.is_sample())
             .collect();
-        v.sort_by(|a, b| a.customer_no.cmp(&b.customer_no));
+        let key = |e: &HouseholdEntry| {
+            e.label
+                .sample
+                .as_ref()
+                .map(|x| numbering::sample_name_key(&x.name))
+                .unwrap_or_default()
+        };
+        v.sort_by(|a, b| key(a).cmp(&key(b)).then(a.id.cmp(&b.id)));
         Ok(v)
     }
 
@@ -1438,38 +1730,79 @@ impl Store {
         }
     }
 
-    /// 見本の番号の中身（家族の形・年代の次の空き番号。10〜）
+    /// 見本の名前が使えるか（0247 の1）: 同じ棚のほかの見本（`except` の世帯を除く）の名前と、使えない名前（アプリのセットの見本の名前）に
+    /// 重ならない。比べるのは前後の空白を除き NFC にそろえた形
+    fn check_sample_name(
+        labels: &[(String, String, Label)],
+        name: &str,
+        reserved: &[String],
+        except: Option<&str>,
+    ) -> Result<(), StoreError> {
+        let key = numbering::sample_name_key(name);
+        let clash = labels
+            .iter()
+            .filter(|(id, _, _)| Some(id.as_str()) != except)
+            .filter_map(|(_, _, l)| l.sample.as_ref())
+            .any(|x| numbering::sample_name_key(&x.name) == key)
+            || reserved
+                .iter()
+                .any(|r| numbering::sample_name_key(r) == key);
+        if clash {
+            return Err(StoreError::SAMPLE_NAME);
+        }
+        Ok(())
+    }
+
+    /// 見本の番号の中身（番号は持たない。表示の番号は空。0247 の1）。セットの見本を直した版（出どころあり）は、元の見本と同じ名前を持つので
+    /// 名前の重なりを確かめず、同じ出どころの見本が棚に無いことを確かめる
     fn new_sample(
         labels: &[(String, String, Label)],
         req: &SampleRequest,
+        reserved: &[String],
     ) -> Result<(String, Label), StoreError> {
         numbering::check_sample_request(req)?;
-        let used = labels
-            .iter()
-            .filter_map(|(_, _, l)| l.sample.as_ref().map(|x| x.no.as_str()));
-        let order =
-            numbering::next_sample_order(req.family, req.age, used).ok_or(StoreError::SAMPLE)?;
-        let no = numbering::sample_no(req.family, req.age, order);
+        match &req.origin {
+            Some(o) => {
+                let exists = labels.iter().any(|(_, _, l)| {
+                    l.sample
+                        .as_ref()
+                        .and_then(|x| x.origin.as_ref())
+                        .is_some_and(|x| x.set == o.set && x.id == o.id)
+                });
+                if exists {
+                    return Err(StoreError::SAMPLE_EXISTS);
+                }
+            }
+            None => Self::check_sample_name(labels, &req.name, reserved, None)?,
+        }
         Ok((
-            no.clone(),
+            String::new(),
             Label {
                 sample: Some(SampleInfo {
-                    no,
-                    name: req.name.clone(),
+                    name: numbering::sample_name_key(&req.name),
                     traits: req.traits.clone(),
+                    family: req.family,
+                    age: req.age,
+                    origin: req.origin.clone(),
+                    // 直した版は、ある間は最初の状態から変わっている（0247 の6）
+                    changed: req.origin.is_some(),
+                    legacy_no: None,
                 }),
                 ..Label::default()
             },
         ))
     }
 
-    /// 本文の meta（形式名・形式の版・保存日時・保存したアプリの版・表示用の顧客番号）を入れる（0011 の2）。
-    /// 誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。0023 の6）も入れる。`carry` は保存できたら OpenState に戻す
+    /// 本文の meta（形式名・形式の版・保存日時・保存したアプリの版・表示用の顧客番号。見本では顧客番号の代わりに見本の中身 `sample`）を
+    /// 入れる（0011 の2・0247 の1）。誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。0023 の6）も入れる。
+    /// 本体が持つ区画 `sampleInitial` は、画面から届いた物を捨て、開いたファイルの物（`carry`）を書き戻す（0247 の6）。
+    /// `carry` は保存できたら OpenState に戻す
     #[allow(clippy::too_many_arguments)]
     fn with_meta(
         &self,
         mut body: serde_json::Map<String, Value>,
         customer_no: &str,
+        label: &Label,
         saved_at: &str,
         now: i64,
         generation: u64,
@@ -1489,7 +1822,20 @@ impl Store {
         meta.insert("formatVersion".into(), migrate::CURRENT.into());
         meta.insert("savedAt".into(), saved_at.into());
         meta.insert("appVersion".into(), self.app_version.clone().into());
-        meta.insert("customerNo".into(), customer_no.into());
+        match &label.sample {
+            Some(info) => {
+                meta.remove("customerNo");
+                meta.insert("sample".into(), sample_meta(info));
+            }
+            None => {
+                meta.remove("sample");
+                meta.insert("customerNo".into(), customer_no.into());
+            }
+        }
+        body.remove(SAMPLE_INITIAL);
+        if let Some(v) = &carry.sample_initial {
+            body.insert(SAMPLE_INITIAL.into(), v.clone());
+        }
         let member = author.map_or(Value::Null, |a| Value::from(a.member_id.clone()));
         let merge = carry
             .revisions
@@ -1569,7 +1915,7 @@ impl Store {
             let mut data = s.data.clone();
             let labels = Self::all_labels(s);
             let (customer_no, label) = match &opts.sample {
-                Some(req) => Self::new_sample(&labels, req)?,
+                Some(req) => Self::new_sample(&labels, req, &opts.reserved_names)?,
                 None => {
                     let code =
                         Self::pick_category(&Self::categories_of(s), opts.category.as_deref())?;
@@ -1605,6 +1951,7 @@ impl Store {
             let plain = Zeroizing::new(self.with_meta(
                 body,
                 &customer_no,
+                &label,
                 &saved_at,
                 now,
                 1,
@@ -1715,7 +2062,7 @@ impl Store {
             let s = Self::session(&mut g)?;
             Self::usable(s)?;
             self.refresh_shared(s)?;
-            let (customer_no, label) = match &s.shared {
+            let (mut customer_no, mut label) = match &s.shared {
                 Some(sh) => {
                     let c = sh.read_card(id)?;
                     (c.customer_no, c.label)
@@ -1737,10 +2084,36 @@ impl Store {
                 Err(_) => return Err(StoreError::IO),
             };
             let (h, mut value, access) = self.decode_household(s, id, &bytes)?;
-            if let Some(meta) = value.get_mut("meta").and_then(Value::as_object_mut) {
-                meta.insert("customerNo".into(), customer_no.clone().into());
+            // 一覧は顧客なのに世帯ファイルが見本の中身（meta.sample。0.87 から見本の保存でだけ書く）を持つとき（見本にした後に事務所データが
+            // 前の世代に戻った・登録の途中で一覧を書けなかった）は、見本に倒す（見本を顧客に戻す操作は無いので、見本の印は落とさない。0247 の1）。
+            // 書けるときは一覧も直す（次の保存で meta.sample が消えないように）
+            if !label.is_sample() && value.pointer("/meta/sample").is_some_and(Value::is_object) {
+                let (no, from_file) = numbering::label_from_meta(value.get("meta"));
+                if from_file.is_sample() {
+                    customer_no = no;
+                    label = from_file;
+                    if Self::writable(s).is_ok() {
+                        self.put_label(s, id, &customer_no, label.clone())?;
+                    }
+                }
             }
-            let carry = MetaCarry::from_meta(value.get("meta"));
+            if let Some(meta) = value.get_mut("meta").and_then(Value::as_object_mut) {
+                match &label.sample {
+                    Some(info) => {
+                        meta.remove("customerNo");
+                        meta.insert("sample".into(), sample_meta(info));
+                    }
+                    None => {
+                        meta.remove("sample");
+                        meta.insert("customerNo".into(), customer_no.clone().into());
+                    }
+                }
+            }
+            let carry = MetaCarry::from_body(&value);
+            // 本体が持つ区画は画面に渡さない（0247 の6）
+            if let Some(o) = value.as_object_mut() {
+                o.remove(SAMPLE_INITIAL);
+            }
             let saved_by = value
                 .pointer("/meta/savedBy/name")
                 .and_then(Value::as_str)
@@ -1918,20 +2291,19 @@ impl Store {
             self.refresh_shared(s)?;
             Self::writable(s)?;
             let author = s.shared.as_ref().map(|sh| sh.me.clone());
-            let (customer_no, card) = match &s.shared {
+            let (customer_no, label, card) = match &s.shared {
                 Some(sh) => {
                     let c = sh.read_card(id)?;
-                    (c.customer_no.clone(), Some(c))
+                    (c.customer_no.clone(), c.label.clone(), Some(c))
                 }
-                None => (
-                    s.data
+                None => {
+                    let e = s
+                        .data
                         .households
                         .get(id)
-                        .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?
-                        .customer_no
-                        .clone(),
-                    None,
-                ),
+                        .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?;
+                    (e.customer_no.clone(), e.label.clone(), None)
+                }
             };
             let keys = match (&s.shared, &card) {
                 (Some(sh), Some(c)) => sh.keys_for_write(id, &c.created_at)?,
@@ -1941,6 +2313,7 @@ impl Store {
             let plain = Zeroizing::new(self.with_meta(
                 body,
                 &customer_no,
+                &label,
                 &saved_at,
                 now,
                 generation + 1,
@@ -2224,24 +2597,145 @@ impl Store {
         })
     }
 
-    /// 顧客の世帯を見本の棚へ移す（中身は架空であることを FP が確かめた後に呼ぶ。0033）。顧客番号は外れ、見本番号（10〜）が付く。
-    /// 外れた通し番号は使い回さない
-    pub fn make_sample(&self, id: &str, req: &SampleRequest) -> Result<RenameOutcome, StoreError> {
+    /// 顧客の世帯を見本の棚へ移す（中身は架空であることを FP が確かめた後に呼ぶ。0033）。顧客番号は外れ、番号は付かない（0247 の1）。
+    /// 外れた通し番号は使い回さない。`reserved` は見本の名前に使えない名前（アプリのセットの見本の名前）。
+    /// 世帯ファイルの meta も書き直す（一覧を世帯ファイルから作り直すときに、顧客の世帯として戻らないように。[`Store::rewrite_meta`]）
+    pub fn make_sample(
+        &self,
+        id: &str,
+        req: &SampleRequest,
+        reserved: &[String],
+    ) -> Result<RenameOutcome, StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
         let mut g = self.lock();
         let s = self.ready_session(&mut g)?;
         let (_, label) = Self::label_of(s, id)?;
-        if label.is_sample() {
+        // 登録した見本はセットの見本を直した版ではない
+        if label.is_sample() || req.origin.is_some() {
             return Err(StoreError::SAMPLE);
         }
-        let (no, label) = Self::new_sample(&Self::all_labels(s), req)?;
-        self.put_label(s, id, &no, label)?;
+        let (old_no, old_label) = Self::label_of(s, id)?;
+        let (no, label) = Self::new_sample(&Self::all_labels(s), req, reserved)?;
+        // 先に世帯ファイルの meta を書き、後で一覧を書く（一覧を書けなければ meta を前に戻す。失敗＝何も変わらない）
+        self.rewrite_meta(&mut g, id, &no, &label)?;
+        let s = Self::session(&mut g)?;
+        if let Err(e) = self.put_label(s, id, &no, label) {
+            let _ = self.rewrite_meta(&mut g, id, &old_no, &old_label);
+            return Err(e);
+        }
         Ok(RenameOutcome {
             customer_no: no,
             duplicate: false,
         })
+    }
+
+    /// 一覧の欄（番号の中身）を変えるときに、世帯ファイルの meta（`customerNo`・`sample`）を `customer_no`・`label` の形に書き直す
+    /// （中身は変えない。0247 の1）。ふつうの保存と同じく一時ファイルからの差し替えで、世代を1つ進め、直前の世代を残す。
+    /// 書かないとき（次に保存したときに直る）: 閲覧だけで開く形式の版（MINOR が新しい）のファイル・事務所の共有でほかのメンバーが
+    /// 開いている世帯（書くと相手の次の保存が分岐になる。共有では一覧の欄のファイルが正）。開いている世帯は、開いたときのファイルのままなら、
+    /// 次の保存が分岐にならないよう開いた状態の世代と指紋も進める（ほかの保存が先にあったときは、そのまま分岐として見つける）
+    fn rewrite_meta(
+        &self,
+        g: &mut Inner,
+        id: &str,
+        customer_no: &str,
+        label: &Label,
+    ) -> Result<(), StoreError> {
+        let fail = g.fail;
+        let now = self.now();
+        let Some((old_digest, new_digest, generation, carry)) =
+            self.write_meta_of(Self::session(g)?, id, customer_no, label, fail, now)?
+        else {
+            return Ok(());
+        };
+        if let Some(st) = g.opened.get_mut(id) {
+            if st.parent_revision == old_digest && !st.read_only {
+                st.parent_revision = new_digest;
+                st.generation = generation;
+                st.carry = carry;
+            }
+        }
+        Ok(())
+    }
+
+    /// [`Store::rewrite_meta`] の中身（書いたら (前の指紋, 新しい指紋, 新しい世代, 持ち越し)、書かなければ None）
+    #[allow(clippy::type_complexity)]
+    fn write_meta_of(
+        &self,
+        s: &Session,
+        id: &str,
+        customer_no: &str,
+        label: &Label,
+        fail: FailPoint,
+        now: i64,
+    ) -> Result<Option<(String, String, u64, MetaCarry)>, StoreError> {
+        if let Some(sh) = &s.shared {
+            if sh.presence_map(now).get(id).is_some_and(|v| !v.is_empty()) {
+                return Ok(None);
+            }
+        }
+        {
+            let path = self.hh_path(s, id);
+            let bytes = match fs::read(&path) {
+                Ok(b) => b,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(_) => return Err(StoreError::IO),
+            };
+            let (h, value, access) = self.decode_household(s, id, &bytes)?;
+            if access == Access::ReadOnly {
+                return Ok(None);
+            }
+            let mut carry = MetaCarry::from_body(&value);
+            let Value::Object(body) = value else {
+                return Err(StoreError::CORRUPT);
+            };
+            let author = s.shared.as_ref().map(|sh| sh.me.clone());
+            let card = match &s.shared {
+                Some(sh) => Some(sh.read_card(id)?),
+                None => None,
+            };
+            let keys = match (&s.shared, &card) {
+                (Some(sh), Some(c)) => sh.keys_for_write(id, &c.created_at)?,
+                _ => self.keys_for_read(s, id)?,
+            };
+            let plain = Zeroizing::new(self.with_meta(
+                body,
+                customer_no,
+                label,
+                &iso_of(now),
+                now,
+                h.generation + 1,
+                author.as_ref(),
+                &mut carry,
+            ));
+            let parent = crypto::digest(&bytes);
+            let header = HouseholdHeader {
+                cipher: String::new(),
+                compression: "none".into(),
+                device_id: s.device_id.clone(),
+                format: HOUSEHOLD_FORMAT.into(),
+                format_version: migrate::CURRENT.into(),
+                generation: h.generation + 1,
+                household_id: id.to_owned(),
+                key_id: keys.current_id.clone(),
+                nonce: String::new(),
+                parent_revision: Some(parent.clone()),
+            };
+            let out = container::seal_household(header, &keys.current, &plain);
+            atomic::replace(&path, &out, fail)?;
+            if let (Some(sh), Some(mut c)) = (&s.shared, card) {
+                c.generation = h.generation + 1;
+                sh.write_card(id, &c)?;
+            }
+            Ok(Some((
+                parent,
+                crypto::digest(&out),
+                h.generation + 1,
+                carry,
+            )))
+        }
     }
 
     /// 架空の世帯をお客さまの世帯にする（印を外す。一方向: お客さまの世帯を架空にする操作は無い）。番号はそのまま。
@@ -2261,8 +2755,18 @@ impl Store {
         Ok(true)
     }
 
-    /// 見本の名前と絞り込みの項目を直す（見本番号は変えない。0033）
-    pub fn update_sample(&self, id: &str, name: &str, traits: &[String]) -> Result<(), StoreError> {
+    /// 見本の名前・絞り込みの項目・家族の形・本人の年代を直す（0033・0247 の1）。セットの見本を直した版（出どころあり）は直せない
+    /// （セットの定義が正）。名前はほかの見本と `reserved`（アプリのセットの見本の名前）に重ならない。世帯ファイルの meta も書き直す
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_sample(
+        &self,
+        id: &str,
+        name: &str,
+        traits: &[String],
+        family: u8,
+        age: u8,
+        reserved: &[String],
+    ) -> Result<(), StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
@@ -2272,16 +2776,30 @@ impl Store {
         let Some(info) = label.sample.as_mut() else {
             return Err(StoreError::SAMPLE);
         };
-        let (family, age, _) = numbering::parse_sample_no(&info.no).ok_or(StoreError::SAMPLE)?;
+        if info.origin.is_some() {
+            return Err(StoreError::SAMPLE);
+        }
         numbering::check_sample_request(&SampleRequest {
             family,
             age,
             name: name.to_owned(),
             traits: traits.to_vec(),
+            origin: None,
         })?;
-        info.name = name.to_owned();
+        Self::check_sample_name(&Self::all_labels(s), name, reserved, Some(id))?;
+        let old_label = Self::label_of(s, id)?.1;
+        info.name = numbering::sample_name_key(name);
         info.traits = traits.to_vec();
-        self.put_label(s, id, &no, label)
+        info.family = family;
+        info.age = age;
+        // 先に世帯ファイルの meta を書き、後で一覧を書く（一覧を書けなければ meta を前に戻す）
+        self.rewrite_meta(&mut g, id, &no, &label)?;
+        let s = Self::session(&mut g)?;
+        if let Err(e) = self.put_label(s, id, &no, label) {
+            let _ = self.rewrite_meta(&mut g, id, &no, &old_label);
+            return Err(e);
+        }
+        Ok(())
     }
 
     /// 区分の設定（区分の一覧と、区分を使うかを決めたか。0033）
@@ -2355,7 +2873,19 @@ impl Store {
     /// 完全削除（0013 の5）: 世帯ファイル・直前の世代・アプリが管理するバックアップの写しを消し、鍵置き場からその世帯の鍵を消す。
     /// 削除の記録（世帯の内部IDと日付だけ）を残す。鍵置き場の古い世代（最大30日）が入れ替わると、どこにも読める鍵が無くなる。
     /// 事務所で共有しているときは、共有フォルダの世帯ファイル・世帯の札・開いている印・すべての時代の世帯の鍵の札も消す（0023 の9）。
-    /// `confirm` は FP が打った顧客番号（取り違えて消さないため）
+    /// 完全削除の確かめ（`confirm`）が、その世帯に合うか（[`Store::delete`] と同じ判定。消す前に AI への共有を取り消すかを決めるため。0247 の1）
+    pub fn delete_confirms(&self, id: &str, confirm: &str) -> bool {
+        if !crypto::is_uuid(id) {
+            return false;
+        }
+        let mut g = self.lock();
+        let Ok(s) = Self::session(&mut g) else {
+            return false;
+        };
+        Self::label_of(s, id).is_ok_and(|(no, label)| delete_confirmed(confirm, &no, &label))
+    }
+
+    /// `confirm` は FP が打った顧客番号（見本では見本の名前。0247 の1。取り違えて消さないため）。空の `confirm` は、どの世帯でも断る
     pub fn delete(&self, id: &str, confirm: &str) -> Result<(), StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
@@ -2369,7 +2899,7 @@ impl Store {
             Self::writable(s)?;
             if let Some(sh) = &s.shared {
                 let card = sh.read_card(id)?;
-                if confirm.trim() != card.customer_no {
+                if !delete_confirmed(confirm, &card.customer_no, &card.label) {
                     return Err(StoreError::CONFIRM);
                 }
                 sh.delete_household(id)?;
@@ -2379,7 +2909,7 @@ impl Store {
                     .households
                     .get(id)
                     .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?;
-                if confirm.trim() != entry.customer_no {
+                if !delete_confirmed(confirm, &entry.customer_no, &entry.label) {
                     return Err(StoreError::CONFIRM);
                 }
                 // 1. 世帯ファイル・直前の世代・一時ファイル
@@ -2913,6 +3443,19 @@ impl Store {
     #[doc(hidden)]
     pub fn household_path_for_test(&self, id: &str) -> PathBuf {
         self.household_path(id)
+    }
+
+    /// 試験用: 世帯ファイルの暗号を外した本文（変換しない・本体が持つ区画も含む。テストの中だけで使う）
+    #[doc(hidden)]
+    pub fn raw_body_for_test(&self, id: &str) -> Result<Value, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let bytes = fs::read(self.hh_path(s, id)).map_err(|_| StoreError::IO)?;
+        let h = container::read_household_header(&bytes)?;
+        let keys = self.keys_for_read(s, id)?;
+        let key = keys.find(&h.key_id).ok_or(StoreError::CORRUPT)?;
+        let (_, plain) = container::open_household(&bytes, &key)?;
+        serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)
     }
 
     /// 試験用: 世帯の鍵で、指定の形式の版の世帯ファイルを書く（新しい形式の版のファイルを作るため）

@@ -267,6 +267,43 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(unsure.is_empty(), "{v}: 印は変換で書き足さない");
         }
+        // 0.87 から: 見本の中身 meta.sample（見本では meta.customerNo が無い）と、本体が持つ区画 sampleInitial（自分で作った見本の
+        // 最初の状態）（0247）。変換で書き足さない・中身を変えない。0.87 の見本はセットの見本を直した版（出どころつき）で、最初の状態を持つ。
+        // 一覧を世帯ファイルから作り直すと見本として戻る。最初の状態は `{ meta: { formatVersion }, ...sections }` を本文として今の版へ変換できる
+        // （これからの変換の段でも確かめ続ける）
+        let (shown, label) = household_store::numbering::label_from_meta(Some(&expected["meta"]));
+        if migrate::parse(v).unwrap() >= (0, 87) {
+            assert!(
+                now["meta"].get("customerNo").is_none(),
+                "{v}: 見本は顧客番号を持たない"
+            );
+            assert_eq!(
+                now["meta"]["sample"], expected["meta"]["sample"],
+                "{v}: 見本の中身は変えない"
+            );
+            assert_eq!(now["meta"]["sample"]["origin"]["set"], "official.basic");
+            assert_eq!(
+                now["sampleInitial"], expected["sampleInitial"],
+                "{v}: 最初の状態は変換で変えない"
+            );
+            let info = label.sample.expect("一覧の作り直しで見本として戻る");
+            assert_eq!((shown.as_str(), info.family, info.age), ("", 3, 6));
+            let initial = &expected["sampleInitial"];
+            let mut as_body = initial["sections"].clone();
+            as_body["meta"] = serde_json::json!({ "formatVersion": initial["formatVersion"] });
+            let up = migrate::upgrade(initial["formatVersion"].as_str().unwrap(), as_body).unwrap();
+            assert_eq!(up["meta"]["formatVersion"], migrate::CURRENT);
+            assert!(up["household"]["request"]["input"]["household"]["members"].is_array());
+        } else {
+            assert!(
+                now["meta"].get("sample").is_none() && now.get("sampleInitial").is_none(),
+                "{v}: 見本の中身・最初の状態は変換で書き足さない"
+            );
+            assert!(
+                !label.is_sample(),
+                "{v}: 顧客の見本ファイル（A0001）は顧客として戻る"
+            );
+        }
         // 0.86 から: 相続税の試算の設定 inheritanceTax.detailed・lands（0231）。変換で書き足さない（前の版の世帯は相続税も試算しない）。
         // 0.86 の見本は持ち家（路線価・二次の取得する人）と物件（倍率・貸家建付地・貸付の取得する人）の2件
         let tax = &now["household"]["request"]["input"]["inheritanceTax"];
@@ -1852,16 +1889,19 @@ fn regenerate_fixture() {
     );
     std::fs::write(dir.join("key.txt"), format!("{seed}\n\n試験用の鍵は、1行目の文字列（UTF-8）の SHA-256。秘密ではない。中身は架空のモデル世帯。\n")).unwrap();
     let mut body: serde_json::Value = serde_json::from_slice(&std::fs::read(src).unwrap()).unwrap();
-    // 誰が直したかの記録（0.2 から。0023 の6）は、元の本文の meta にあれば残す
+    // 誰が直したかの記録（0.2 から。0023 の6）と見本の中身（0.87 から。0247）は、元の本文の meta にあれば残す。
+    // 見本の本文（meta.sample あり）は顧客番号を持たない
     let carried = body["meta"].clone();
     body["meta"] = serde_json::json!({
         "format": household_store::HOUSEHOLD_FORMAT,
         "formatVersion": migrate::CURRENT,
         "savedAt": "2026-10-18T00:00:00Z",
         "appVersion": "0.1.0",
-        "customerNo": "A0001"
     });
-    for k in ["savedBy", "revisions", "editors"] {
+    if carried.get("sample").is_none() {
+        body["meta"]["customerNo"] = "A0001".into();
+    }
+    for k in ["savedBy", "revisions", "editors", "sample"] {
         if let Some(v) = carried.get(k) {
             body["meta"][k] = v.clone();
         }

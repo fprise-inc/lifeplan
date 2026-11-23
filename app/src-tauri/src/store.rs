@@ -166,7 +166,8 @@ fn summary_of(s: &Store, id: &str) -> String {
 }
 
 /// 新しい世帯を作る（世帯の内部IDと世帯の鍵は本体が作る）。`category` は区分の記号（無ければ見込み客）、
-/// `sample` があれば見本として作る（顧客番号を持たず、見本番号を振る。0033）
+/// `sample` があれば見本として作る（顧客番号も番号も持たない。0033・0247）。`reserved_names` は見本の名前に使えない名前
+/// （アプリに入っているすべてのセットの見本の名前。画面がセットの定義から渡す。0247 の1）
 #[tauri::command]
 pub async fn store_create(
     app: AppHandle,
@@ -174,6 +175,7 @@ pub async fn store_create(
     summary: String,
     category: Option<String>,
     sample: Option<SampleRequest>,
+    reserved_names: Option<Vec<String>>,
 ) -> Result<Opened, String> {
     with_ai(app, move |s, ai| {
         create_household(
@@ -184,6 +186,7 @@ pub async fn store_create(
             CreateOptions {
                 category,
                 sample,
+                reserved_names: reserved_names.unwrap_or_default(),
                 fictional: false,
             },
         )
@@ -228,7 +231,7 @@ pub(crate) fn create_household(
     ai.on_opened(o, summary)
 }
 
-/// 見本の棚（FP が作った見本の世帯。0033）
+/// 見本の棚（保存した見本の世帯。名前の順。0033・0247）
 #[tauri::command]
 pub async fn store_list_samples(app: AppHandle) -> Result<Vec<HouseholdEntry>, String> {
     blocking(app, |s| s.list_samples()).await
@@ -256,25 +259,35 @@ pub async fn store_assign_serial(app: AppHandle, id: String) -> Result<RenameOut
     blocking(app, move |s| s.assign_serial(&id)).await
 }
 
-/// 顧客の世帯を見本の棚へ移す（画面で「中身は架空です」を確かめた後。0033）
+/// 顧客の世帯を見本の棚へ移す（画面で「中身は架空です」を確かめた後。0033）。番号は付かない（0247）
 #[tauri::command]
 pub async fn store_make_sample(
     app: AppHandle,
     id: String,
     sample: SampleRequest,
+    reserved_names: Option<Vec<String>>,
 ) -> Result<RenameOutcome, String> {
-    blocking(app, move |s| s.make_sample(&id, &sample)).await
+    let reserved = reserved_names.unwrap_or_default();
+    blocking(app, move |s| s.make_sample(&id, &sample, &reserved)).await
 }
 
-/// 見本の名前と絞り込みの項目を直す（0033）
+/// 見本の名前・絞り込みの項目・家族の形・本人の年代を直す（0033・0247）
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn store_update_sample(
     app: AppHandle,
     id: String,
     name: String,
     traits: Vec<String>,
+    family: u8,
+    age: u8,
+    reserved_names: Option<Vec<String>>,
 ) -> Result<(), String> {
-    blocking(app, move |s| s.update_sample(&id, &name, &traits)).await
+    let reserved = reserved_names.unwrap_or_default();
+    blocking(app, move |s| {
+        s.update_sample(&id, &name, &traits, family, age, &reserved)
+    })
+    .await
 }
 
 /// 区分の設定（区分の一覧と、区分を使うかを決めたか。0033）
@@ -354,18 +367,23 @@ pub async fn store_rename(
     blocking(app, move |s| s.rename(&id, &customer_no)).await
 }
 
-/// 完全削除（confirm は FP が打った顧客番号）
+/// 完全削除（confirm は FP が打った顧客番号。見本は見本の名前。0247）
 #[tauri::command]
 pub async fn store_delete(app: AppHandle, id: String, confirm: String) -> Result<(), String> {
-    with_ai(app, move |s, ai| {
-        // 確認の顧客番号が合うときだけ、共有を取り消して帳面を捨てる
-        let matches = entry_of(s, &id).is_some_and(|e| e.customer_no == confirm.trim());
-        if matches {
-            ai.on_deleting(&id);
-        }
-        s.delete(&id, &confirm).map_err(code)
-    })
-    .await
+    with_ai(app, move |s, ai| delete_household(s, ai, &id, &confirm)).await
+}
+
+/// 完全削除。確かめが合うときだけ、先に AI への共有を取り消して帳面を捨てる（判定は本体の完全削除と同じ1か所。見本は名前・空は合わない）
+pub(crate) fn delete_household(
+    s: &Store,
+    ai: &AiState,
+    id: &str,
+    confirm: &str,
+) -> Result<(), String> {
+    if s.delete_confirms(id, confirm) {
+        ai.on_deleting(id);
+    }
+    s.delete(id, confirm).map_err(code)
 }
 
 /// 復元キー（72文字）を表示のために返す

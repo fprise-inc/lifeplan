@@ -178,12 +178,25 @@ export interface CategoryEdit {
   name: string;
 }
 
-/** 見本の中身の説明 */
+/** 見本の出どころ（セットの見本を直した版のときだけ。set はセットの ID、id はセットの中の見本の ID、rev は見本の中身の版。0247） */
+export interface SampleOrigin {
+  set: string;
+  id: string;
+  rev: number;
+}
+
+/** 見本の中身の説明（見本は番号を持たない。名前・家族の形・本人の年代・項目で探す。0247 の1） */
 export interface SampleInfo {
-  /** 見本番号（家族の形-年代-順番。例 3-4-01） */
-  no: string;
   name: string;
   traits: string[];
+  /** 家族の形（1 単身・2 夫婦のみ・3 夫婦と子・4 ひとり親・5 シニア） */
+  family: number;
+  /** 本人の年代（2〜7） */
+  age: number;
+  /** セットの見本を直した版のときだけ */
+  origin?: SampleOrigin;
+  /** 最初の状態から変わっているか（無ければ false） */
+  changed?: boolean;
 }
 
 /** 見本を作る・登録するときの指定 */
@@ -192,6 +205,8 @@ export interface SampleRequest {
   age: number;
   name: string;
   traits: string[];
+  /** セットの見本を直した版を作るときだけ */
+  origin?: SampleOrigin;
 }
 
 /** 一覧の札・開いた世帯の番号の中身（本体の Label） */
@@ -215,6 +230,8 @@ export interface StoreStatus {
   deletionsCompleted: number;
   /** この PC の事務所データが、このアプリより新しい版で保存されている（閲覧だけ。保存しない。アプリの更新を案内する。0222）。無い本体は false */
   officeTooNew?: boolean;
+  /** 見本番号を無くす移行・一覧の作り直しで、重なった名前を直した見本（この起動の間。画面は保存先の知らせ sampleRenames でお知らせの一覧の「参考」に出す。0247 の8） */
+  sampleRenames?: { from: string; to: string }[];
 }
 
 /** 今その世帯を開いている他のメンバー（事務所で共有しているとき。0023 の7） */
@@ -494,8 +511,11 @@ export interface StoreHost {
   status(): Promise<StoreStatus>;
   /** 顧客の世帯の一覧（見本は入れない） */
   list(): Promise<StoredHousehold[]>;
-  /** 新しい世帯（opts.category は区分の記号。無ければ見込み客（区分を使わないときは通し番号だけ）。opts.sample があれば見本として作る。0033） */
-  create(body: string, summary: string, opts?: { category?: string; sample?: SampleRequest }): Promise<StoredOpened>;
+  /**
+   * 新しい世帯（opts.category は区分の記号。無ければ見込み客（区分を使わないときは通し番号だけ）。opts.sample があれば見本として作る。0033）。
+   * opts.reservedNames は見本の名前に使えない名前（アプリのセットの見本の名前。0247 の1）
+   */
+  create(body: string, summary: string, opts?: { category?: string; sample?: SampleRequest; reservedNames?: string[] }): Promise<StoredOpened>;
   open(id: string): Promise<StoredOpened>;
   /**
    * 開かずに、Web のヒアリングの依頼の、届いたかの確かめに要る欄だけを読む（開いていない世帯の届いた知らせ。0192 の追記 2026-11-18）。
@@ -508,7 +528,7 @@ export interface StoreHost {
   openPrevious(id: string): Promise<StoredOpened>;
   save(id: string, body: string, summary: string): Promise<{ generation: number; savedAt: string }>;
   rename(id: string, customerNo: string): Promise<{ customerNo: string; duplicate: boolean }>;
-  /** 完全削除（confirm は FP が打った顧客番号） */
+  /** 完全削除（confirm は FP が打った顧客番号。見本は見本の名前。0247） */
   remove(id: string, confirm: string): Promise<void>;
   /** 復元キー（72文字）。表示のためだけに受け取り、どこにも保存しない */
   recoveryKey(): Promise<string>;
@@ -530,17 +550,18 @@ export interface StoreHost {
   /** 開発用のビルドで、鍵を OS の保管庫ではなくファイルに置いているか（画面に小さな札を出す） */
   devFileKeys(): Promise<boolean>;
   // ---- 顧客番号の区分と通し番号・見本の棚（0033） ----
-  /** 見本の棚（FP が作った見本） */
+  /** 見本の棚（保存した見本。名前の順） */
   listSamples(): Promise<StoredHousehold[]>;
   /** 区分を変える（体系の番号は記号だけが変わる） */
   setCategory(id: string, category: string): Promise<{ customerNo: string; duplicate: boolean }>;
   /** 自由な番号の世帯に、区分の記号＋新しい通し番号を付ける */
   assignSerial(id: string): Promise<{ customerNo: string; duplicate: boolean }>;
-  /** 顧客の世帯を見本の棚へ移す（「中身は架空です」を確かめた後） */
-  makeSample(id: string, sample: SampleRequest): Promise<{ customerNo: string; duplicate: boolean }>;
+  /** 顧客の世帯を見本の棚へ移す（「中身は架空です」を確かめた後。番号は付かない。reservedNames は使えない名前。0247） */
+  makeSample(id: string, sample: SampleRequest, reservedNames?: string[]): Promise<{ customerNo: string; duplicate: boolean }>;
   /** 架空の世帯をお客さまの世帯にする（一方向。お客さまの世帯を架空にする命令は無い）。印を外したら true */
   makeClient(id: string): Promise<boolean>;
-  updateSample(id: string, name: string, traits: string[]): Promise<void>;
+  /** 見本の名前・項目・家族の形・本人の年代を直す（セットの見本を直した版は直せない。0247） */
+  updateSample(id: string, name: string, traits: string[], family: number, age: number, reservedNames?: string[]): Promise<void>;
   categories(): Promise<CategorySettings>;
   /** 区分の設定を変える（空は「区分を使わない」。初めの「区分を使いますか？」の答えもこれで書く） */
   setCategories(edits: CategoryEdit[]): Promise<CategorySettings>;
@@ -1109,7 +1130,8 @@ export function tauriHost(): HostApi {
     store: {
       status: () => invoke<StoreStatus>("store_status"),
       list: () => invoke<StoredHousehold[]>("store_list"),
-      create: (body, summary, opts) => invoke<StoredOpened>("store_create", { body, summary, category: opts?.category ?? null, sample: opts?.sample ?? null }),
+      create: (body, summary, opts) =>
+        invoke<StoredOpened>("store_create", { body, summary, category: opts?.category ?? null, sample: opts?.sample ?? null, reservedNames: opts?.reservedNames ?? null }),
       open: (id) => invoke<StoredOpened>("store_open", { id }),
       peekHearing: (id) => invoke<unknown>("store_peek_hearing", { id }),
       previousGeneration: (id) => invoke<PreviousGeneration | null>("store_previous_generation", { id }),
@@ -1131,9 +1153,10 @@ export function tauriHost(): HostApi {
       listSamples: () => invoke<StoredHousehold[]>("store_list_samples"),
       setCategory: (id, category) => invoke<{ customerNo: string; duplicate: boolean }>("store_set_category", { id, category }),
       assignSerial: (id) => invoke<{ customerNo: string; duplicate: boolean }>("store_assign_serial", { id }),
-      makeSample: (id, sample) => invoke<{ customerNo: string; duplicate: boolean }>("store_make_sample", { id, sample }),
+      makeSample: (id, sample, reservedNames) => invoke<{ customerNo: string; duplicate: boolean }>("store_make_sample", { id, sample, reservedNames: reservedNames ?? null }),
       makeClient: (id) => invoke<boolean>("store_make_client", { id }),
-      updateSample: (id, name, traits) => invoke<void>("store_update_sample", { id, name, traits }),
+      updateSample: (id, name, traits, family, age, reservedNames) =>
+        invoke<void>("store_update_sample", { id, name, traits, family, age, reservedNames: reservedNames ?? null }),
       categories: () => invoke<CategorySettings>("store_categories"),
       setCategories: (edits) => invoke<CategorySettings>("store_set_categories", { edits }),
     },
@@ -1379,7 +1402,16 @@ export function devBrowserHost(engine: WebEngine): HostApi {
     store: {
       status: async () => devJson<StoreStatus>(await devStore("status")),
       list: async () => devJson<StoredHousehold[]>(await devStore("list")),
-      create: async (body, summary, opts) => devJson<StoredOpened>(await devStore("create", { body, summary, ...(opts?.category !== undefined ? { category: opts.category } : {}), ...(opts?.sample !== undefined ? { sample: JSON.stringify(opts.sample) } : {}) })),
+      create: async (body, summary, opts) =>
+        devJson<StoredOpened>(
+          await devStore("create", {
+            body,
+            summary,
+            ...(opts?.category !== undefined ? { category: opts.category } : {}),
+            ...(opts?.sample !== undefined ? { sample: JSON.stringify(opts.sample) } : {}),
+            ...(opts?.reservedNames !== undefined ? { reserved: JSON.stringify(opts.reservedNames) } : {}),
+          }),
+        ),
       open: async (id) => devJson<StoredOpened>(await devStore("open", { id })),
       peekHearing: async (id) => devJson<unknown>(await devStore("peekHearing", { id })),
       previousGeneration: async (id) => devJson<PreviousGeneration | null>(await devStore("previousGeneration", { id })),
@@ -1401,9 +1433,13 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       listSamples: async () => devJson<StoredHousehold[]>(await devStore("listSamples")),
       setCategory: async (id, category) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("setCategory", { id, category })),
       assignSerial: async (id) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("assignSerial", { id })),
-      makeSample: async (id, sample) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("makeSample", { id, sample: JSON.stringify(sample) })),
+      makeSample: async (id, sample, reservedNames) =>
+        devJson<{ customerNo: string; duplicate: boolean }>(await devStore("makeSample", { id, sample: JSON.stringify(sample), reserved: JSON.stringify(reservedNames ?? []) })),
       makeClient: async (id) => devJson<boolean>(await devStore("makeClient", { id })),
-      updateSample: async (id, name, traits) => void (await devJson<unknown>(await devStore("updateSample", { id, name, traits: JSON.stringify(traits) }))),
+      updateSample: async (id, name, traits, family, age, reservedNames) =>
+        void (await devJson<unknown>(
+          await devStore("updateSample", { id, name, traits: JSON.stringify(traits), family: String(family), age: String(age), reserved: JSON.stringify(reservedNames ?? []) }),
+        )),
       categories: async () => devJson<CategorySettings>(await devStore("categories")),
       setCategories: async (edits) => devJson<CategorySettings>(await devStore("setCategories", { edits: JSON.stringify(edits) })),
     },
