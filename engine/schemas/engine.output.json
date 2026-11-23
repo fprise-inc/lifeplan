@@ -222,6 +222,7 @@
             "second": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
             "secondMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
             "step": { "description": "年の間引き（step 年ごと。計算基準年と表の最後の年はいつも出す）", "type": "integer", "minimum": 1, "maximum": 10 },
+            "secondaryStatus": { "description": "noHeirs は二次の相続人がいない（子のいない夫婦で兄弟姉妹などを入れていない）ので二次を計算していない（二次は0円）", "enum": ["noHeirs"] },
             "series": {
               "type": "array",
               "items": {
@@ -247,7 +248,7 @@
                         "secondaryTaxable": { "description": "二次の課税価格の合計（後に亡くなる人の財産に、一次で取得した分を足した額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                         "spouseAcquisition": { "description": "一次で配偶者が取得した額（課税価格）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                         "spouseTax": { "description": "一次で配偶者が納めた額", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                        "inherited": { "description": "二次の財産に足した、一次で取得した額（土地・建物のほか。非課税の分を含み、一次で納めた額を引く。一次の時点の額のまま）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                        "inherited": { "description": "二次の財産に足した、一次で取得した額（土地・建物と精算課税で前にもらった財産のほか。非課税の分を含み、負担した債務と一次で納めた額を引く。一次の時点の額のまま。表の最後の年に無い土地・建物は一次の時点の評価で足す）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                         "successiveCredit": { "description": "二次の相次相続控除の合計", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                         "secondaryMinorCredit": { "description": "二次の未成年者控除の合計（一次で受けた分の残りまで。相続税法19条の3第3項）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
                       }

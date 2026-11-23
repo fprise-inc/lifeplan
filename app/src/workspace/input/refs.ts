@@ -201,6 +201,11 @@ export function refSites(input: Obj): RefSite[] {
     // 遺産の分け方（0251）: 外した人の割合の行を消す（残りの人で割合を分け直す）
     const dv = isObj(it.division) ? it.division : null;
     if (dv !== null)
+      at("inheritanceTax.division.first", dv.first, "donor", null, () => {
+        delete dv.first;
+        if (Object.keys(dv).length === 0) delete it.division;
+      });
+    if (dv !== null)
       for (const x of list(dv, "shares"))
         at("inheritanceTax.division.shares", x.member, "donor", null, () => {
           dropRow(dv, "shares", x)();
@@ -272,6 +277,7 @@ export const SCHEMA_REF_FIELDS: readonly string[] = [
   ".assumptions.incomeShocks[].member",
   ".assumptions.withdrawal.order[].object",
   ".inheritanceTax.adopted[]",
+  ".inheritanceTax.division.first",
   ".inheritanceTax.division.shares[].member",
   ".inheritanceTax.heirCounts[].decedent",
   ".inheritanceTax.lands[].object",

@@ -35,6 +35,14 @@ export function InheritanceTimeline({ wh, result }: { wh: WorkingHousehold; resu
       <p class="sub">
         {view.lead}・{view.entered}
       </p>
+      <p class="sub" data-timeline-premise>
+        {view.premise}
+      </p>
+      {view.secondaryMissing !== null ? (
+        <p class="sub warn" data-timeline-no-secondary>
+          {view.secondaryMissing}
+        </p>
+      ) : null}
       <table data-timeline-rows>
         <thead>
           <tr>
@@ -50,7 +58,7 @@ export function InheritanceTimeline({ wh, result }: { wh: WorkingHousehold; resu
               <td>{r.year}年</td>
               <td>{man(r.primary)}</td>
               <td>
-                {man(r.secondary)}
+                {view.secondaryMissing !== null ? "計算していません" : man(r.secondary)}
                 {r.successiveCredit > 0 ? <span class="sub">（相次相続控除 −{manText(r.successiveCredit)}万円）</span> : null}
               </td>
               <td>{man(r.total)}</td>
@@ -91,7 +99,7 @@ export function InheritanceTimeline({ wh, result }: { wh: WorkingHousehold; resu
               <tr key={s.key} data-timeline-series={s.key}>
                 <td>{s.label}</td>
                 <td>{man(r.primary)}</td>
-                <td>{man(r.secondary)}</td>
+                <td>{view.secondaryMissing !== null ? "計算していません" : man(r.secondary)}</td>
                 <td>{man(r.total)}</td>
               </tr>
             );

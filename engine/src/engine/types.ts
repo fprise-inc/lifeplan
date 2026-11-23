@@ -1372,6 +1372,8 @@ export interface InheritanceTaxRequest {
 /** 遺産の分け方（0251。割合は遺産の評価額〔特例の前〕のうち） */
 export interface InheritanceDivision {
   readonly spouseShare?: string;
+  /** 一次と二次の推移で先に亡くなる人（detailed のときだけ読む。0251） */
+  readonly first?: string;
   readonly shares?: readonly { readonly member: string; readonly share: string }[];
 }
 

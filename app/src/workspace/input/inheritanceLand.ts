@@ -109,6 +109,7 @@ function writeTax(wh: WorkingHousehold, fn: (t: InheritanceTaxRequest) => void):
     if (t.division !== undefined) {
       if (t.division.shares !== undefined && t.division.shares.length === 0) delete t.division.shares;
       if (t.division.spouseShare === undefined) delete t.division.spouseShare;
+      if (t.division.first === undefined) delete t.division.first;
       if (Object.keys(t.division).length === 0) delete t.division;
     }
     for (const k of Object.keys(t) as (keyof InheritanceTaxRequest)[]) if (t[k] === undefined) delete t[k];
@@ -445,7 +446,7 @@ function divisionGroup(wh: WorkingHousehold): GroupDef | null {
   const kids = childHeirs(h);
   const fields: FieldDef[] = [];
   const atDivision = onInput(["division"]);
-  const writeDivision = (w: WorkingHousehold, fn: (d: { spouseShare?: string; shares?: { member: string; share: string }[] }) => void) =>
+  const writeDivision = (w: WorkingHousehold, fn: (d: { spouseShare?: string; shares?: { member: string; share: string }[]; first?: string }) => void) =>
     writeTax(w, (t) => {
       const d = structuredClone(t.division ?? {});
       fn(d);
@@ -463,19 +464,14 @@ function divisionGroup(wh: WorkingHousehold): GroupDef | null {
         optional: true,
         options: couple.map((m) => ({ value: m.id, label: memberLabel(wh, m.id) })),
         blankMeans: older !== undefined ? `年上の人（${memberLabel(wh, older.id)}）` : "年上の人",
-        help: "一次と二次の推移で、先に亡くなるとする人です。「二人とも亡くなった後」の目安は、もう一人（後に亡くなる人）が亡くなったときの額です。入れなければ年上の人が先（同じ年月ならご本人が先）",
-        // 入れていなければ年上の人を薄く出す（土地の評価の入れ方と同じ見せ方）
+        help: "一次と二次の推移で、先に亡くなるとする人です。「二人とも亡くなった後」の目安は、もう一人（後に亡くなる人）が亡くなったときの額です。入れなければ年上の人が先（同じ年月ならご本人が先）。相続税も試算するときだけ使います（チェックを外すと今までの目安に戻ります）",
+        // 入れていなければ年上の人を薄く出す（土地の評価の入れ方と同じ見せ方）。分け方の欄 division.first に置く（試算しない世帯の計算には効かない）
         get: (w) => {
-          const last = taxOf(w).lastSurvivor;
-          return last === undefined ? { value: older?.id ?? null, implicit: true } : { value: couple.find((m) => m.id !== last)?.id ?? null };
+          const first = divisionOf(w).first;
+          return first === undefined ? { value: older?.id ?? null, implicit: true } : { value: first };
         },
-        set: (w, v) =>
-          writeTax(w, (t) => {
-            const other = couple.find((m) => m.id !== v)?.id;
-            if (v === null || v === "" || other === undefined) delete t.lastSurvivor;
-            else t.lastSurvivor = other;
-          }),
-        address: onInput(["lastSurvivor"]),
+        set: (w, v) => writeDivision(w, (d) => (v === null || v === "" ? delete d.first : (d.first = String(v)))),
+        address: atDivision,
       }),
       field({
         key: "inherit/division/spouse",
@@ -508,7 +504,13 @@ function divisionGroup(wh: WorkingHousehold): GroupDef | null {
           optional: true,
           blankMeans: "残りを法定相続分の比で分ける",
           help: `${DIVISION_HELP}。子の割合は、配偶者の分を除いた残りのうちの割合です（二人とも亡くなった後・二次は遺産の全体のうち）。入れていない子は、入れた子の残りを法定相続分の比で分けます。合計が100%を超えれば比で直します`,
-          get: (w) => ({ value: divisionOf(w).shares?.find((x) => x.member === m.id)?.share ?? null }),
+          get: (w) => {
+            const value = divisionOf(w).shares?.find((x) => x.member === m.id)?.share ?? null;
+            const bad = m.id === kids[0]?.id ? sharesProblem(w, kids) : null;
+            return bad === null
+              ? { value }
+              : { value, warn: bad, warnFix: { label: "子の割合を消す（法定相続分どおり）", run: (x: WorkingHousehold) => writeDivision(x, (d) => delete d.shares) } };
+          },
           set: (w, v) =>
             writeDivision(w, (d) => {
               const rest = (d.shares ?? []).filter((x) => x.member !== m.id);
@@ -522,11 +524,25 @@ function divisionGroup(wh: WorkingHousehold): GroupDef | null {
   return { key: "inherit/division", title: "遺産の分け方", level: "simple", fields, actions: [] };
 }
 
-/** 入れた分け方の短い言葉（内訳・推移の見出し）。入れていなければ null */
-export function divisionText(wh: WorkingHousehold): string | null {
+/**
+ * 子の割合の合計が100%にならない（全員入れて100%でない・100%を超える）ときの知らせ（確かめの一覧にも出る）。計算エンジンは入れた割合を使わず、
+ * 法定相続分どおりにする（注意 divisionSharesInvalid）。黙って補わない
+ */
+export function sharesProblem(wh: WorkingHousehold, kids: readonly Member[]): string | null {
+  const shares = divisionOf(wh).shares ?? [];
+  const given = shares.filter((x) => kids.some((m) => m.id === x.member));
+  if (given.length === 0) return null;
+  const sum = given.reduce((a, x) => a + Math.round(Number(x.share) * 1e6), 0);
+  const all = kids.every((m) => given.some((x) => x.member === m.id));
+  if (sum <= 1e6 && !(all && sum !== 1e6)) return null;
+  return `子の割合の合計が100%になっていません（今は${String(Math.round(sum / 1e4 * 10) / 10)}%）。今は入れた割合を使わず、法定相続分どおりで計算しています。合計が100%になるように入れ直すか、1人を空欄にしてください（空欄の子は残りを受け取ります）`;
+}
+
+/** 入れた分け方の短い言葉（内訳・推移の見出し）。入れていなければ null。spouse: false は配偶者のいない時点（二人とも亡くなった後）で、子の割合だけ */
+export function divisionText(wh: WorkingHousehold, o: { spouse?: boolean } = {}): string | null {
   const d = taxOf(wh).division;
   if (d === undefined) return null;
-  const bits = [...(d.spouseShare !== undefined ? [`配偶者 ${pctText(d.spouseShare)}`] : []), ...(d.shares ?? []).map((x) => `${memberLabel(wh, x.member)} ${pctText(x.share)}`)];
+  const bits = [...(d.spouseShare !== undefined && o.spouse !== false ? [`配偶者 ${pctText(d.spouseShare)}`] : []), ...(d.shares ?? []).map((x) => `${memberLabel(wh, x.member)} ${pctText(x.share)}`)];
   return bits.length > 0 ? bits.join("・") : null;
 }
 

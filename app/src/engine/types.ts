@@ -916,6 +916,8 @@ export interface InheritanceTaxRequest {
 /** 遺産の分け方（0251。割合は財産の評価額〔小規模宅地等の特例の前〕のうち。shares は配偶者の分を除いた残りのうちの割合） */
 export interface InheritanceDivision {
   spouseShare?: string;
+  /** 一次と二次の推移で先に亡くなる人（相続税も試算する世帯だけ読む） */
+  first?: string;
   shares?: { member: string; share: string }[];
 }
 
@@ -1014,6 +1016,8 @@ export interface InheritanceTimeline {
   second: string;
   secondMonth: string;
   step: number;
+  /** 二次の相続人がいないので二次を計算していない */
+  secondaryStatus?: "noHeirs";
   series: { key: string; spouseShare?: string; rows: InheritanceTimelineRow[] }[];
 }
 

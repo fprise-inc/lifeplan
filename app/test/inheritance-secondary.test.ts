@@ -64,13 +64,31 @@ describe("遺産の分け方の欄（相続税も試算する世帯だけ）", (
     expect(forEngine(b.request).input.inheritanceTax).toBeUndefined();
   });
 
-  it("先に亡くなる人を選ぶと、後に亡くなる人（lastSurvivor）にもう一人を書く。空にすると年上の人が先（省略）", () => {
+  it("先に亡くなる人は分け方の欄（division.first）に置く（試算しない世帯の計算には効かない。lastSurvivor は書かない）。空にすると年上の人（省略）", () => {
     const f = fieldOf(on, "inherit/division/first");
     expect(f.get(on)).toEqual({ value: self.id, implicit: true });
     const w = f.set(on, spouse.id);
-    expect(w.request.input.inheritanceTax?.lastSurvivor).toBe(self.id);
+    expect(w.request.input.inheritanceTax?.division).toEqual({ first: spouse.id });
+    expect(w.request.input.inheritanceTax?.lastSurvivor).toBeUndefined();
     expect(fieldOf(w, "inherit/division/first").get(w).value).toBe(spouse.id);
-    expect(fieldOf(w, "inherit/division/first").set(w, null).request.input.inheritanceTax?.lastSurvivor).toBeUndefined();
+    expect(fieldOf(w, "inherit/division/first").set(w, null).request.input.inheritanceTax?.division).toBeUndefined();
+    // チェックを外すと、二人とも亡くなった後の亡くなる人は今までの決め方に戻る
+    const off = setDetailed(w, false);
+    const both = (x: WorkingHousehold) => estimate(x, false).inheritanceTax?.points.find((p) => p.point === "bothAfter")?.decedent;
+    expect(both(off)).toBe(both(plain));
+    expect(both(w)).toBe(self.id);
+  });
+
+  it("子の割合の合計が100%にならないときは、1人目の子の欄と確かめの一覧に知らせを出す（計算は法定相続分どおり）", () => {
+    let w = fieldOf(on, `inherit/division/share/${c1!.id}`).set(on, "0.3");
+    expect(fieldOf(w, `inherit/division/share/${c1!.id}`).get(w).warn).toBeUndefined();
+    w = fieldOf(w, `inherit/division/share/${c2!.id}`).set(w, "0.3");
+    const st = fieldOf(w, `inherit/division/share/${c1!.id}`).get(w);
+    expect(st.warn).toContain("今は60%");
+    expect(st.warnFix?.run(w).request.input.inheritanceTax?.division).toBeUndefined();
+    const p = estimate(w, false).inheritanceTax?.points.find((x) => x.point === "now" && x.decedent === self.id);
+    expect(p?.cautions).toContain("divisionSharesInvalid");
+    expect(inheritanceView(w, estimate(w, false)).points[0]?.cautions.join("")).toContain("子の割合の合計が100%になっていない");
   });
 
   it("配偶者のほかの人を選んだ土地には「取得する子」が出て、member に書く。配偶者に戻すと子を外す", () => {
@@ -112,7 +130,9 @@ describe("一次と二次の推移の見せ方", () => {
     const r = estimate(withHome);
     const v = timelineView(withHome, r)!;
     expect(v).not.toBeNull();
-    expect(v.lead).toContain("が先にその年に亡くなり");
+    expect(v.lead).toContain("が先に亡くなるとして（年は表の行）");
+    expect(v.premise).toContain("二次まで使わない");
+    expect(v.secondaryMissing).toBeNull();
     const base = Number(withHome.request.input.baseMonth.slice(0, 4));
     expect(v.rows[0]?.year).toBe(base);
     expect(v.rows.at(-1)?.year).toBe(withHome.request.input.endYear);
@@ -124,6 +144,8 @@ describe("一次と二次の推移の見せ方", () => {
     // 分け方を入れていなければ、入れた分け方＝法定相続分どおりなので、法定相続分の行は重ねて出さない
     expect(v.series.map((s) => s.key)).toEqual(["entered", "spouseAll", "spouseLandsOnly"]);
     expect(v.series[0]?.label).toBe("法定相続分どおり");
+    // 配偶者は残された人の呼び名を添える（先に亡くなる人が配偶者の世帯でも読み違えない）
+    expect(v.series[1]?.label).toMatch(/^残された.+が全部取得する$/);
     // 計算基準年の一次は「いまご本人が亡くなったら」と同じ額
     const now = r.inheritanceTax?.points.find((p) => p.point === "now" && p.decedent === self.id);
     expect(v.rows[0]?.primary).toBe(now?.payable);

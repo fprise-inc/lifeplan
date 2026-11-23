@@ -506,7 +506,7 @@ function runCore(req: EngineRequest, packs: readonly unknown[], options: RunOpti
   // 相続税の目安の要求が指す人は、構成員か世帯の外の家族（贈与者として読んだ人を含む。0039）
   const it = input.inheritanceTax;
   if (it !== undefined) {
-    const itRefs = [...(it.members ?? []), ...(it.lastSurvivor !== undefined ? [it.lastSurvivor] : []), ...(it.adopted ?? []), ...(it.heirCounts ?? []).map((x) => x.decedent), ...(it.retirementAllowances ?? []).map((x) => x.decedent), ...(it.overrides ?? []).flatMap((x) => (x.decedent !== undefined ? [x.decedent] : [])), ...(it.division?.shares ?? []).map((x) => x.member), ...(it.lands ?? []).flatMap((l) => [l.primary?.member, l.secondary?.member].filter((m): m is string => m !== undefined))];
+    const itRefs = [...(it.members ?? []), ...(it.lastSurvivor !== undefined ? [it.lastSurvivor] : []), ...(it.adopted ?? []), ...(it.heirCounts ?? []).map((x) => x.decedent), ...(it.retirementAllowances ?? []).map((x) => x.decedent), ...(it.overrides ?? []).flatMap((x) => (x.decedent !== undefined ? [x.decedent] : [])), ...(it.division?.shares ?? []).map((x) => x.member), ...(it.division?.first !== undefined ? [it.division.first] : []), ...(it.lands ?? []).flatMap((l) => [l.primary?.member, l.secondary?.member].filter((m): m is string => m !== undefined))];
     if (itRefs.some((id) => !memberIds.has(id) && !donorIds.has(id))) throw new EngineError("E_ARGUMENT", ["inheritanceTax.member"]);
   }
   // 指す先の無い欄（外した物を指したままの欄。0163）: 黙って無視せず知らせる。重ねる前の入力（FP が入れた世帯）で見る

@@ -1,6 +1,8 @@
 // 相続税の試算の次の回（0251）: 遺産の分け方（配偶者の割合・配偶者のほかの相続人の分け方）、小規模宅地等の特例の減額を土地を取得する人に寄せる、
 // 一次と二次の推移（先に亡くなる人がその年に亡くなったら、の一次と、後に亡くなる人が表の最後の年の12月に亡くなる二次）、相次相続控除、
 // 二次の未成年者控除の残り（inheritance.estimate 改訂7・約束の版 1.3）
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runEngine } from "../src/engine/run.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
@@ -23,7 +25,7 @@ type Point = {
   lands?: { object: string; special: { status: string; reduction: number } }[];
 };
 type Row = { year: number; month: string; primary: number; secondary: number; total: number; primaryTaxable: number; secondaryTaxable: number; spouseAcquisition: number; spouseTax: number; inherited: number; successiveCredit: number; secondaryMinorCredit: number };
-type Timeline = { first: string; second: string; secondMonth: string; step: number; series: { key: string; spouseShare?: string; rows: Row[] }[] };
+type Timeline = { first: string; second: string; secondMonth: string; step: number; secondaryStatus?: string; series: { key: string; spouseShare?: string; rows: Row[] }[] };
 type Out = { points: Point[]; notIncluded: string[]; timeline?: Timeline };
 
 const H = uid("h");
@@ -294,3 +296,140 @@ describe("一次と二次の推移", () => {
   });
 });
 
+
+// ---- 別の目の点検（#591）の直し ----
+const ALT = [{ key: "legal" }, { key: "spouseAll", spouseShare: "1" }, { key: "spouseLandsOnly", spouseShare: "0" }];
+const rowsOf = (out: Out, key: string): Row[] => out.timeline?.series.find((s) => s.key === key)?.rows ?? [];
+
+describe("点検の1: 分け方を入れていない世帯の推移の「入れた分け方」は、法定相続分どおりの行と同じ（不動産を二次に二重に数えない）", () => {
+  const same = (req: Req, request: Obj) => {
+    const out = run(req, { ...TL, ...request, timeline: { alternatives: ALT } });
+    const entered = rowsOf(out, "entered");
+    expect(entered.length).toBeGreaterThan(0);
+    expect(entered).toEqual(rowsOf(out, "legal"));
+    return entered;
+  };
+  it("自宅（面積なし＝特例なし）: 二次の課税価格は 預金の半分＋自宅の評価（2億円＋4,800万円 → 1億2,400万円）", () => {
+    const rows = same(withHome(family()), {});
+    expect(rows[0]?.secondaryTaxable).toBe(124_000_000);
+  });
+  it("貸している物件（取得する人を選んでいない）と、取得する人を選んでいない土地", () => {
+    same(withRental(family()), { lands: [{ object: RENT, use: "none", rentalRatio: "0" }] });
+    same(withRental(family()), {});
+  });
+  it("面積を入れた自宅を出た年（特例が使えなくなる年）も、入れた分け方と法定相続分どおりの行は同じで、二次は飛ばない", () => {
+    const req = edit(withHome(family({ endYear: 2034 })), (h) => ((h.residences as Obj[])[0]!.to = at("2029-06")));
+    const rows = same(req, { lands: [{ object: HOME, area: "200" }] });
+    // 2029年は住んでいないので一次の特例が使えず一次の財産が増えるが、二次は自宅を二重に数えないので大きく飛ばない
+    const sec = (y: number) => (rows.find((r) => r.year === y) as Row).secondaryTaxable;
+    expect(Math.abs(sec(2029) - sec(2028))).toBeLessThan(5_000_000);
+  });
+});
+
+describe("点検の2: 子の割合の合計が100%でないときは、黙って補わず法定相続分どおりに戻して注意を出す", () => {
+  const shares = (xs: [string, string][], extra: Obj = {}) => nowOf(family(), { ...D, division: { ...extra, shares: xs.map(([member, share]) => ({ member, share })) } });
+  it("30%・30%（全員入れて合計60%）: 法定相続分どおり（配偶者 1億円・子 5,000万円ずつ）と注意", () => {
+    const p = shares([[C1, "0.3"], [C2, "0.3"]]);
+    expect(heir(p, W).acquisition).toBe(100_000_000);
+    expect(heir(p, C1).acquisition).toBe(50_000_000);
+    expect(p.cautions).toContain("divisionSharesInvalid");
+  });
+  it("0%・0%、合計が100%を超える（70%・40%）も同じ", () => {
+    for (const xs of [[[C1, "0"], [C2, "0"]], [[C1, "0.7"], [C2, "0.4"]]] as [string, string][][]) {
+      const p = shares(xs);
+      expect(heir(p, C2).acquisition).toBe(50_000_000);
+      expect(p.cautions).toContain("divisionSharesInvalid");
+    }
+  });
+  it("1人だけ入れた（30%）: 残りの70%をもう1人へ（注意なし）。全員で100%なら注意なし", () => {
+    const p = shares([[C1, "0.3"]]);
+    expect(heir(p, C1).acquisition).toBe(30_000_000);
+    expect(heir(p, C2).acquisition).toBe(70_000_000);
+    expect(p.cautions).not.toContain("divisionSharesInvalid");
+    expect(shares([[C1, "0.25"], [C2, "0.75"]]).cautions).not.toContain("divisionSharesInvalid");
+  });
+});
+
+describe("点検の3: 相続時精算課税で贈与した財産は、受け取った人の分に置く（割合で配偶者に分けない）", () => {
+  const gifted = edit(family({ amount: 100_000_000 }), (h) => {
+    h.goals = [{ id: uid("g"), kind: "education", owner: C1, education: { stages: [], gifts: [{ at: at("2025-06"), amount: 30_000_000, purpose: "other", payer: H, taxMethod: "settlement" }] } }];
+  });
+  it("配偶者が全部取得: 子1の取得は足し戻した贈与（2,890万円）を下回らず、配偶者の取得は残っている財産（1億円）まで", () => {
+    const out = run(gifted, { ...TL, division: { spouseShare: "1" }, timeline: {} });
+    const p = out.points[0] as Point;
+    const gift = p.assets.settlementGifts as number;
+    expect(gift).toBe(28_900_000);
+    expect(heir(p, C1).acquisition).toBeGreaterThanOrEqual(gift - 1000);
+    expect(heir(p, W).acquisition).toBeLessThanOrEqual(100_000_000);
+    expect(heir(p, C1).payable).toBeGreaterThan(0);
+    // 二次に足す額は、残っている財産を超えない
+    expect(rowsOf(out, "entered")[0]?.inherited).toBeLessThanOrEqual(100_000_000);
+  });
+});
+
+describe("点検の4: 一次で配偶者が取得した不動産を二次の前に売る世帯も、その分が二次から抜けない", () => {
+  it("2029-06 に売る自宅: 売る前の年の一次の二次の課税価格は、自宅の評価の分も入る（売った後の年より自宅の分だけ小さくならない）", () => {
+    const req = edit(withHome(family({ endYear: 2032 })), (h) => {
+      const r = (h.residences as Obj[])[0]!;
+      r.to = at("2029-06");
+      r.sale = { price: 60_000_000 };
+    });
+    const rows = rowsOf(run(req, { ...TL, timeline: {} }), "entered");
+    const before = rows.find((r) => r.year === 2028) as Row;
+    const after = rows.find((r) => r.year === 2030) as Row;
+    expect(before.secondaryTaxable).toBeGreaterThan(after.secondaryTaxable - 30_000_000);
+    expect(before.inherited).toBeGreaterThan(48_000_000 - 1);
+  });
+});
+
+describe("点検の6: 子のいない夫婦（兄弟姉妹などを入れていない）は、二次を計算していない印を出す", () => {
+  it("secondaryStatus noHeirs", () => {
+    const out = run(family({ kids: 0 }), { ...TL, timeline: {} });
+    expect(out.timeline?.secondaryStatus).toBe("noHeirs");
+    expect(run(family(), { ...TL, timeline: {} }).timeline?.secondaryStatus).toBeUndefined();
+  });
+});
+
+describe("点検の8: 細かい所", () => {
+  it("先に亡くなる人（division.first）は試算する世帯だけ読む。試算しない世帯の二人とも亡くなった後の亡くなる人は変わらない", () => {
+    const plain = run(family(), { points: ["bothAfter"], division: { first: W } }).points[0] as Point;
+    expect(plain.decedent).toBe(W);
+    const detailed = run(family(), { ...D, points: ["bothAfter"], division: { first: W } }).points[0] as Point;
+    expect(detailed.decedent).toBe(H);
+    expect(run(family(), { ...TL, division: { first: W }, timeline: {} }).timeline?.first).toBe(W);
+  });
+  it("相続人が配偶者だけの世帯で土地に子を選んでいても、一次の配分と二次に足す割合が合う（土地が二次から抜けない）", () => {
+    // 子のいない夫婦（二次の相続人は配偶者の兄弟姉妹）。物件に「貸付を引き継ぐ親族」を選んでいても、一次の相続人は配偶者だけなので配偶者が取得する
+    const sib = { id: uid("sibw"), kind: "sibling", joins: null, leaves: null, expected: false, outside: { of: W, periods: [] } };
+    const req = edit(withRental(family({ kids: 0 })), (h) => (h.members as Obj[]).push(sib));
+    const out = run(req, { ...TL, lands: [{ object: RENT, use: "none", rentalRatio: "0", primary: { acquirer: "successor" } }], timeline: {} });
+    const r = rowsOf(out, "entered")[0] as Row;
+    expect(out.timeline?.secondaryStatus).toBeUndefined();
+    expect(Math.abs(r.secondaryTaxable - (r.spouseAcquisition - r.spouseTax))).toBeLessThanOrEqual(1000);
+  });
+  it("配偶者が取得した割合は小数4桁に丸める", () => {
+    const p = nowOf(family({ amount: 100_000_001 }), { ...D, division: { spouseShare: "0.333" } });
+    expect(p.division?.spouseShare).toBe("0.333");
+  });
+});
+
+describe("試算しない世帯は main（0231 の版）の時点の数と同じ", () => {
+  const snap = JSON.parse(readFileSync(join(import.meta.dirname, "fixtures", "inheritance-main-snapshot.json"), "utf8")) as Record<string, { notIncluded: string[]; points: Obj[] }>;
+  const pick = (r: Out) => ({
+    notIncluded: r.notIncluded,
+    points: r.points.map((p) => ({ point: p.point, decedent: p.decedent, status: p.status, taxablePrice: p.assets.taxablePrice, totalTax: p.totalTax, spouseReduction: (p as unknown as { spouseReduction: number }).spouseReduction, payable: p.payable, byHeir: p.byHeir.map((b) => b.payable), cautions: p.cautions })),
+  });
+  it.each(Object.keys(snap))("%s", (key) => {
+    const [name, mode] = key.split(":") as [string, string];
+    const r = clone(modelHousehold(name));
+    const inp = r.input as unknown as Obj;
+    delete inp.protection;
+    const stored = (inp.inheritanceTax ?? {}) as Obj;
+    // 0251 で足した欄（分け方・推移の要求）があっても、試算しない世帯は読まない
+    const sp = (r.input.household.members as unknown as { id: string; kind: string }[]).find((m) => m.kind === "spouse")?.id;
+    const extra = { division: { spouseShare: "1", ...(sp !== undefined ? { first: sp } : {}) }, timeline: { alternatives: ALT } };
+    const it0 = mode === "plain" ? { points: ["now", "bothAfter"] } : mode === "stored" ? { ...stored, points: ["now", "bothAfter"] } : { points: ["now", "bothAfter"], realEstateRatio: "0.7", funeral: 2_000_000, unassignedShare: "0.6" };
+    const out = runEngine(edit(r, (_h, input) => (input.inheritanceTax = { ...it0, ...extra })), realPacks(), {}).inheritanceTax as Out;
+    expect(pick(out)).toEqual(snap[key]);
+  });
+});

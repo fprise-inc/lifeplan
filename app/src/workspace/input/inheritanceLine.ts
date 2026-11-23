@@ -86,7 +86,8 @@ export const CAUTION_TEXT: Readonly<Record<string, string>> = {
   smallLandAreaLimit: "小規模宅地等の特例の面積の上限を超えた分は、減らしていません（減る額の大きい土地から適用）",
   smallLandRecentRental: "貸し始めて3年以内の貸付があります（事業的規模の貸付を3年を超えて続けていなければ、貸付の特例の対象になりません）",
   landInputMissing: "土地の評価の入れ方に要る値（路線価と面積・固定資産税評価額・倍率）が無い土地は、時価×評価の割合で見ています",
-  divisionAdjusted: "取得する土地の評価が分け方の割合の分より大きい人がいるので、その人の取得を土地の評価まで増やし、ほかの人の分を割合の比で減らしました",
+  divisionAdjusted: "取得する土地の評価や、前に相続時精算課税でもらった財産が、分け方の割合の分より大きい人がいるので、その人の取得をその額まで増やし、ほかの人の分を割合の比で減らしました",
+  divisionSharesInvalid: "子の割合の合計が100%になっていないので、入れた割合を使わず法定相続分どおりで計算しています（入力項目の「遺産の分け方」で直せます）",
 };
 
 /** 目安に含めていない決まり（エンジンの notIncluded） */
@@ -158,7 +159,8 @@ const REAL_ESTATE_RATIO_DEFAULT = "0.8";
 
 /** 内訳の分け方の言葉（0251）: 入れた分け方・法定相続分どおり（特例の減額は土地を取得する人に）・法定相続分どおり */
 function divisionNote(wh: WorkingHousehold, p: InheritancePoint): string {
-  if (p.division?.entered === true) return `入れた分け方（${divisionText(wh) ?? "法定相続分どおり"}）で分けたとして`;
+  // 二人とも亡くなった後は配偶者がいないので、子の割合だけを書く
+  if (p.division?.entered === true) return `入れた分け方（${divisionText(wh, { spouse: p.point !== "bothAfter" }) ?? "法定相続分どおり"}）で分けたとして`;
   if (p.division !== undefined) return "法定相続分どおりに分け、特例で減った額は土地を取得する人の分から引いたとして";
   return "法定相続分どおりに分けたとして";
 }
@@ -233,17 +235,21 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
 
 // ---- 一次と二次の相続税の推移（0251。相続税も試算する夫婦の世帯だけ） ----
 
-/** 分け方の名前（推移の比較の行） */
-export const SERIES_LABEL: Readonly<Record<string, string>> = {
-  entered: "入れた分け方",
-  legal: "法定相続分どおり",
-  spouseAll: "配偶者が全部取得する",
-  spouseLandsOnly: "配偶者は取得する土地だけ",
+/** 分け方の名前（推移の比較の行）。配偶者は残された人（後に亡くなる人）の呼び名を添える */
+export const SERIES_LABEL: Readonly<Record<string, (survivor: string) => string>> = {
+  entered: () => "入れた分け方",
+  legal: () => "法定相続分どおり",
+  spouseAll: (n) => `残された${n}が全部取得する`,
+  spouseLandsOnly: (n) => `残された${n}は取得する土地だけ`,
 };
 
 export interface TimelineView {
-  /** 「ご本人が先に亡くなり、配偶者が2071年12月に亡くなるとして」 */
+  /** 「ご本人が先に亡くなるとして（年は表の行）、配偶者は2071年12月に亡くなるとして」 */
   lead: string;
+  /** 表の上に出す前提の1文（一次で取得したお金は二次まで使わないとして） */
+  premise: string;
+  /** 二次を計算していない理由（二次の相続人がいない）。計算していれば null */
+  secondaryMissing: string | null;
   /** 入れた分け方の名前（入れていなければ「法定相続分どおり」） */
   entered: string;
   /** 入れた分け方の年ごとの行 */
@@ -262,11 +268,14 @@ export function timelineView(wh: WorkingHousehold, r: PreviewResult | null): Tim
   const d = wh.request.input.inheritanceTax?.division;
   const enteredText = divisionText(wh);
   const plainLegal = d?.spouseShare === undefined;
+  const survivor = memberLabel(wh, tl.second);
   const series = tl.series
     .filter((s) => !(s.key === "legal" && plainLegal))
-    .map((s) => ({ key: s.key, label: s.key === "entered" ? (enteredText !== null ? `入れた分け方（${enteredText}）` : "法定相続分どおり") : (SERIES_LABEL[s.key] ?? s.key), rows: s.rows }));
+    .map((s) => ({ key: s.key, label: s.key === "entered" ? (enteredText !== null ? `入れた分け方（${enteredText}）` : "法定相続分どおり") : (SERIES_LABEL[s.key]?.(survivor) ?? s.key), rows: s.rows }));
   return {
-    lead: `${memberLabel(wh, tl.first)}が先にその年に亡くなり、${memberLabel(wh, tl.second)}が${tl.secondMonth.slice(0, 4)}年${String(Number(tl.secondMonth.slice(5, 7)))}月に亡くなるとして`,
+    lead: `${memberLabel(wh, tl.first)}が先に亡くなるとして（年は表の行）、${survivor}は${tl.secondMonth.slice(0, 4)}年${String(Number(tl.secondMonth.slice(5, 7)))}月に亡くなるとして`,
+    premise: "一次で取得したお金は、二次まで使わない（増えも減りもしない）として出しています",
+    secondaryMissing: tl.secondaryStatus === "noHeirs" ? `二次は計算していません（${survivor}の相続人〔兄弟姉妹など〕が入っていません）。${NO_HEIRS_HINT}` : null,
     entered: enteredText !== null ? `入れた分け方（${enteredText}）` : "法定相続分どおり",
     rows: entered.rows,
     series,
@@ -285,8 +294,9 @@ export function timelineYears(rows: readonly InheritanceTimelineRow[], all: bool
   return rows.filter((x, i) => i === 0 || i === rows.length - 1 || (x.year - first) % 5 === 0);
 }
 
-/** 比較の行のうち合計がいちばん少ない分け方（同じなら前の行） */
+/** 比較の行のうち合計がいちばん少ない分け方（同じなら前の行）。二次を計算していないときは出さない */
 export function cheapestAt(view: TimelineView, year: number): { label: string; total: number } | null {
+  if (view.secondaryMissing !== null) return null;
   let best: { label: string; total: number } | null = null;
   for (const s of view.series) {
     const row = s.rows.find((x) => x.year === year);
