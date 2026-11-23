@@ -493,6 +493,20 @@ export function setReplace(wh: WorkingHousehold, carId: string, kind: ReplaceKin
 }
 
 /** その車を手放す出来事を、手放した後の移動の費用の行がもう指しているか（手放す時期の翌月から始まる車の行） */
+/**
+ * その車の「＋ 古くなってからの修理費」の行をもう足したか: 始まりが、その車の購入の出来事（から何年後）を指す車の出るお金の行がある。
+ * ほかの車を手放す出来事の翌月から始まる行（手放した後の移動の費用。続きの車は購入の時期が元の車を手放す出来事を指す）は数えない。
+ * ずらしの年数は見ない（「購入済みにする」で前へずらした行も数える）
+ */
+export function repairAdded(h: Household, carId: string): boolean {
+  const c = (h.cars ?? []).find((x) => x.id === carId);
+  const ev = c?.purchase?.first.event;
+  if (ev === undefined) return false;
+  const off = (t: Timepoint) => (t.offset?.years ?? 0) * 12 + (t.offset?.months ?? 0);
+  const afterRow = (p: PeriodicExpense) => (h.cars ?? []).some((x) => x.until != null && x.until.event === p.from.event && off(p.from) === off(x.until) + 1);
+  return (h.periodicExpenses ?? []).some((p) => p.kind === "car" && p.from.event === ev && !afterRow(p));
+}
+
 function afterCarAdded(h: Household, carId: string): boolean {
   const u = (h.cars ?? []).find((x) => x.id === carId)?.until;
   const ev = u?.event;
@@ -836,7 +850,8 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   if (c.until != null && lastCar) actions.push({ key: `${k}/next`, label: "＋ この車の続き", help: "手放した翌月から次の車を持つ形で足します", level: "detail", run: (w) => addNextCar(w, c.id) });
   if (c.purchase !== undefined) {
     const neverReplaced = kind === "none" || (untilYm !== null && firstYm !== null && (owned ? untilYm < firstYm : untilYm < addMonths(firstYm, 12 * c.purchase.everyYears)));
-    if (c.purchase.everyYears >= 10 || neverReplaced) actions.push({ key: `${k}/repair`, label: "＋ 古くなってからの修理費", help: "買ってから10年たった頃からの修理費を、よくある額の目安で毎年足します（足した後に直せます）", level: "detail", run: (w) => addRepair(w, c.id) });
+    // 修理費の行をもう足した車には出さない（二度押して2本にならないように。利用者の判断）
+    if ((c.purchase.everyYears >= 10 || neverReplaced) && !repairAdded(h0, c.id)) actions.push({ key: `${k}/repair`, label: "＋ 古くなってからの修理費", help: "買ってから10年たった頃からの修理費を、よくある額の目安で毎年足します（足した後に直せます）", level: "detail", run: (w) => addRepair(w, c.id) });
   }
   // これから買う車を、もう買った車（今の車）にする（0253。入れた値はそのまま。逆向きのボタンは出さない: 足し間違いは外して足し直す〔利用者の判断〕）
   if (!lease && !owned && c.purchase !== undefined)

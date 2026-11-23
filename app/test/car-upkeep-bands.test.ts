@@ -7,7 +7,7 @@ import { allFields, resolveTimepoint, type FieldDef, type GroupDef } from "../sr
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addMonths, ageAt } from "../src/workspace/levers.ts";
 import { putRow } from "../src/workspace/input/rows.ts";
-import { addCar, addLeaseCar, addRepair, afterCarTitle, breakdownAnnual, markBought, REST_LABEL, setReplace, setUpkeepMode, upkeepEstimate } from "../src/workspace/input/stages/cars.ts";
+import { addAfterCar, addCar, addLeaseCar, addNextCar, addRepair, afterCarTitle, breakdownAnnual, markBought, repairAdded, REST_LABEL, setReplace, setUpkeepMode, upkeepEstimate } from "../src/workspace/input/stages/cars.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { EMPTY_ESTIMATES, publishOfficeEstimates, withOfficeValue } from "../src/workspace/office/estimates.ts";
@@ -321,3 +321,53 @@ describe("これから買う車の「購入済みにする」（0253）", () => 
     expect(car0(markBought(fp, id)).until).toEqual(until);
   });
 });
+
+describe("「＋ 古くなってからの修理費」は足した後は出さない", () => {
+  const repairBtn = (wh: WorkingHousehold, id: string) => stage(wh).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((a) => a.key === `ev/car/${id}/repair`);
+  const repairRows = (wh: WorkingHousehold) => (wh.request.input.household.periodicExpenses ?? []).filter((p) => p.label === "古くなってからの修理費");
+
+  it("足すとボタンが消え、行を外すとまた出る。ほかの車のボタンは残る", () => {
+    const gen = ids();
+    let wh = addCar(open("salariedCoupleTwoKids"), gen, false);
+    wh = addCar(wh, gen, false);
+    const [a, b] = wh.request.input.household.cars! as [Car, Car];
+    wh = setReplace(setReplace(wh, a.id, "none"), b.id, "none");
+    expect(repairBtn(wh, a.id)).toBeDefined();
+    wh = repairBtn(wh, a.id)!.run(wh);
+    expect(repairRows(wh)).toHaveLength(1);
+    expect(repairBtn(wh, a.id)).toBeUndefined();
+    expect(repairAdded(wh.request.input.household, a.id)).toBe(true);
+    expect(repairBtn(wh, b.id)).toBeDefined();
+    expect(repairAdded(wh.request.input.household, b.id)).toBe(false);
+    // 行を外すとまた出る
+    const rowId = repairRows(wh)[0]!.id;
+    wh = mutate(wh, (h) => void (h.periodicExpenses = (h.periodicExpenses ?? []).filter((p) => p.id !== rowId)));
+    expect(repairBtn(wh, a.id)).toBeDefined();
+  });
+
+  it("「購入済みにする」で修理費の始まりを前へずらした後も、足した行として数える（周期12年で始まりが購入の出来事より前でも）", () => {
+    let wh = futureCarRepair(12);
+    const id = car0(wh).id;
+    wh = repairBtn(wh, id)!.run(wh);
+    wh = markBought(wh, id);
+    expect(repairRows(wh)[0]!.from.offset).toEqual({ years: -2, months: 0 });
+    expect(repairAdded(wh.request.input.household, id)).toBe(true);
+    expect(repairBtn(wh, id)).toBeUndefined();
+  });
+
+  it("手放した後の移動の費用の行は、続きの車の修理費の行として数えない", () => {
+    let wh = addCar(open("salariedCoupleTwoKids"), ids(), false);
+    const a = car0(wh);
+    wh = confirmUntil(fieldOf(wh, "/untilAge").set(wh, 60), a.id);
+    wh = addNextCar(wh, a.id, "00000000-0000-4000-8000-0000000000cc");
+    wh = addAfterCar(wh, "00000000-0000-4000-8000-0000000000cc");
+    // 続きの車（購入の時期が車1を手放す出来事の翌月）に修理費の行は無い
+    expect(repairAdded(wh.request.input.household, "00000000-0000-4000-8000-0000000000cc")).toBe(false);
+  });
+});
+
+/** 周期 every 年の、これから買う車（購入は3年後） */
+function futureCarRepair(every: number): WorkingHousehold {
+  const wh = addCar(open("salariedCoupleTwoKids"), ids(), false);
+  return mutate(wh, (h) => void (h.cars![0]!.purchase!.everyYears = every));
+}
