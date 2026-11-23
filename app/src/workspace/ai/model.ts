@@ -18,6 +18,7 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_NOT_SAVED: "保存していない世帯（見本）は、AIに渡せません。世帯を保存してから使ってください",
   E_AI_ALREADY_SHARED: "この世帯はもう共有中です",
   E_AI_SHARE_LIMIT: "AIに渡せるのは、共有中の世帯と合わせて50件までです。共有中の世帯を取り消してから渡してください",
+  E_AI_LIST_UNREADABLE: "世帯の一覧を読めなかったため、AIに渡しませんでした（ほかの人が開いているかを確かめられません）。少し待ってから、もう一度試してください",
   E_AI_OPEN_BY_OTHERS: "ほかの人（ほかのPC）がこの世帯を開いている間は、AIに渡せません（AIに渡した記録を書くと、相手の保存が分岐になるため）。閉じてから渡してください",
   E_AI_DURATION: "期限の選び方が違います",
   E_AI_DESTINATION: "使うAIのアプリの名前を入れてください（60文字まで）",

@@ -571,7 +571,7 @@ export interface StoreHost {
 
 /** 共有中の世帯（仮名・顧客番号・残り時間） */
 /** まとめて渡すときに渡さなかった世帯の理由（0248） */
-export type AiBulkBlock = "refused" | "withdrawn" | "noBasis" | "sample" | "notSaved" | "readOnly" | "openByOthers" | "unreadable" | "unknown";
+export type AiBulkBlock = "refused" | "withdrawn" | "noBasis" | "sample" | "notSaved" | "readOnly" | "openByOthers" | "unreadable" | "closed" | "unknown";
 
 /** まとめて渡す確かめ・結果（0248）。ready は確かめでは渡せる世帯、渡した後は渡した世帯（alias は渡した後だけ） */
 export interface AiBulkOutcome {

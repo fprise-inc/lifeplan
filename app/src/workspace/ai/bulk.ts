@@ -15,6 +15,7 @@ export const BULK_BLOCK_TEXT: Record<AiBulkBlock, string> = {
   readOnly: "閲覧だけで開く世帯（AIに渡した記録を残せません）",
   openByOthers: "ほかの人（ほかのPC）が開いている世帯（AIに渡した記録を書くと、相手の保存が分岐になるため。閉じてから渡してください）",
   unreadable: "開けなかった世帯",
+  closed: "渡した直後に閉じた世帯（ほかの PC で同意や中身が変わっていたなど。開いて確かめてください）",
   unknown: "見つからない世帯（削除したか、ほかの PC で移した可能性があります）",
 };
 

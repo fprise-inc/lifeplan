@@ -2052,6 +2052,23 @@ impl Store {
         self.open_marked(id, false, true)
     }
 
+    /// 世帯ファイルの今の中身の指紋（読むだけで、復号しない。保存のたびに変わる）。ファイルが無ければ [`StoreError::UNKNOWN_HOUSEHOLD`]。
+    /// AI に渡している世帯の世帯ファイルが変わったかを、見回りで見るために使う（0248 の追記）
+    pub fn household_digest(&self, id: &str) -> Result<String, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        match fs::read(self.hh_path(s, id)) {
+            Ok(b) => Ok(crypto::digest(&b)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                Err(StoreError::UNKNOWN_HOUSEHOLD)
+            }
+            Err(_) => Err(StoreError::IO),
+        }
+    }
+
     /// 開いた印も保存のための状態も作らずに、世帯を読む（まとめて AI に渡す前の確かめ。0248 の追記）。前からある保存の状態は変えない。
     /// この戻り値では保存できない
     pub fn read_unmarked(&self, id: &str) -> Result<Opened, StoreError> {
