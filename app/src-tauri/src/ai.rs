@@ -3758,7 +3758,15 @@ mod tests {
         a.store.set_ai_privacy_policy_confirmed(true).unwrap();
         let x = create(&a, None, false);
         let _ = create(&a, None, false);
-        bulk_grant(&a.ai, &a.store, std::slice::from_ref(&x), 60, "AIのアプリ", &BulkNotes::default()).unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            std::slice::from_ref(&x),
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         let sid = a.ai.registry.active_shares()[0].share_id.clone();
         let mut w = Watch::default();
         a.ai_reads(&sid);
@@ -3795,7 +3803,15 @@ mod tests {
         let x = create(&a, None, false);
         a.record(&x, "given");
         let _ = create(&a, None, false);
-        bulk_grant(&a.ai, &a.store, std::slice::from_ref(&x), 60, "AIのアプリ", &BulkNotes::default()).unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            std::slice::from_ref(&x),
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         let sid = a.ai.registry.active_shares()[0].share_id.clone();
         let mut w = Watch::default();
         tick_now(&a, &mut w);

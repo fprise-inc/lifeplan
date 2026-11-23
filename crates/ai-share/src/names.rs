@@ -12,9 +12,6 @@
 /// 伏せた所に入れる言葉
 pub const NAME_MARK: &str = "（名前）";
 
-/// 切る前に残しておく余り（伏せる前の文を、上限よりこれだけ長く残す。名前らしい語12字と敬称3字が入る長さ）
-pub const CUT_MARGIN: usize = 16;
-
 /// メモと面談の記録の1つの欄の長さの上限（伏せた後に切る）
 pub const NOTE_FIELD_MAX: usize = 4000;
 

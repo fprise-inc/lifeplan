@@ -274,14 +274,10 @@ pub const EXCERPT_ITEM: &str = "meeting.excerpt";
 pub const EXCERPT_DECIDED_MAX: usize = 60;
 pub const EXCERPT_TODO_MAX: usize = 80;
 
-/// 1つの欄の長さの上限（画面の meetings.ts の MEETING_TEXT_MAX と同じ）
-const NOTE_TEXT_MAX: usize = 4000;
-
-/// 切る（名前を伏せる前の下ごしらえ）。伏せた後に `names::mask_and_cut` が上限で切るので、ここでは上限より少し長く残す
-/// （上限の切れ目をまたぐ「名前＋敬称」が、伏せる前に敬称だけ落ちないように。0249 の点検の直し）
-fn cut(s: &str, max: usize) -> String {
-    let t = s.trim();
-    t.chars().take(max + crate::names::CUT_MARGIN).collect()
+/// 前後の空白を除く。ここでは切らない（名前を伏せてから `names::mask_and_cut` が上限で切る。伏せる前に切ると、切れ目で敬称が落ちた名前や、
+/// 伏せて文が縮んだときに上限の中へ入ってきた名前が残るため。0249 の点検の直し）
+fn cut(s: &str) -> String {
+    s.trim().to_owned()
 }
 
 /// 保険の意向の欄（当初・最終・理由のうち書いてある物）
@@ -297,7 +293,7 @@ fn intent_lines(v: Option<&Value>) -> Vec<String> {
     .iter()
     .filter_map(|(k, label)| {
         let t = v.get(*k).and_then(Value::as_str).unwrap_or("").trim();
-        (!t.is_empty()).then(|| format!("{label}: {}", cut(t, NOTE_TEXT_MAX)))
+        (!t.is_empty()).then(|| format!("{label}: {}", cut(t)))
     })
     .collect()
 }
@@ -319,7 +315,7 @@ fn note_texts(body: &Map<String, Value>) -> Vec<SourceText> {
     {
         for line in memo.iter().take(500).filter_map(Value::as_str) {
             if !line.trim().is_empty() {
-                out.push(text("FP（メモ）", "note.fp", cut(line, NOTE_TEXT_MAX)));
+                out.push(text("FP（メモ）", "note.fp", cut(line)));
             }
         }
     }
@@ -373,7 +369,7 @@ fn note_texts(body: &Map<String, Value>) -> Vec<SourceText> {
         .iter()
         .filter_map(|(k, label)| {
             let t = field(&shared, k);
-            (!t.is_empty()).then(|| format!("{label}: {}", cut(&t, NOTE_TEXT_MAX)))
+            (!t.is_empty()).then(|| format!("{label}: {}", cut(&t)))
         })
         .collect();
         if fp_intent.is_none() {
@@ -389,7 +385,7 @@ fn note_texts(body: &Map<String, Value>) -> Vec<SourceText> {
         let mut lines: Vec<String> = Vec::new();
         let note = field(&fp, "note");
         if !note.is_empty() {
-            lines.push(format!("FPのメモ: {}", cut(&note, NOTE_TEXT_MAX)));
+            lines.push(format!("FPのメモ: {}", cut(&note)));
         }
         lines.extend(intent_lines(fp_intent));
         if !lines.is_empty() {
@@ -412,16 +408,10 @@ fn note_texts(body: &Map<String, Value>) -> Vec<SourceText> {
         if !decided.is_empty() || !todo.is_empty() {
             let mut lines = vec![format!("前回の面談（{}）", m["on"].as_str().unwrap_or(""))];
             if !decided.is_empty() {
-                lines.push(format!(
-                    "決めたこと: {}",
-                    cut(&decided, EXCERPT_DECIDED_MAX)
-                ));
+                lines.push(format!("決めたこと: {}", cut(&decided)));
             }
             if !todo.is_empty() {
-                lines.push(format!(
-                    "次までにやること: {}",
-                    cut(&todo, EXCERPT_TODO_MAX)
-                ));
+                lines.push(format!("次までにやること: {}", cut(&todo)));
             }
             out.push(text(
                 "FP（面談の記録の抜き出し）",

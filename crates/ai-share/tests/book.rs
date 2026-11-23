@@ -1004,3 +1004,43 @@ fn excerpt_and_long_fields_are_cut_after_masking() {
         "前回の面談（2026-05-10）\n決めたこと: （名前）さんと決めた\n次までにやること: 源泉徴収票"
     );
 }
+
+/// 前のほうで伏せた長い語が「（名前）」に縮むとき（0249 の2回目の点検の直し）: 伏せる前に切らないので、上限の外にあった名前が上限の中に
+/// 入ってきても伏せてある。切ったときは「…」が付く
+#[test]
+fn shrinking_masks_do_not_pull_names_into_the_excerpt() {
+    use ai_share::registry::masked_text;
+    let excerpt = |decided: &str, todo: &str, words: &[&str]| {
+        let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+        v["meetings"] = json!({ "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+            "shared": { "decided": decided, "todo": todo }, "fpOnly": {} }] });
+        let (b, _) = HouseholdBook::from_opened(HOUSEHOLD_ID, None, 1, &v.to_string()).unwrap();
+        let t = b
+            .source()
+            .unwrap()
+            .texts
+            .into_iter()
+            .find(|t| t.item == "meeting.excerpt")
+            .unwrap();
+        let w: Vec<String> = words.iter().map(|x| (*x).to_owned()).collect();
+        masked_text(&t.item, &t.body, &w).text
+    };
+    // 伏せる言葉（15字）が2回 → 22字縮む。75〜76字目の「田中」（「さん」は77字目から）
+    let co = "株式会社ヤマダコーポレーション";
+    let head = format!("{co}と{co}の件");
+    let n = head.chars().count();
+    let decided = format!("{head}{}田中さんに確認", "あ".repeat(74 - n));
+    let out = excerpt(&decided, "", &[co]);
+    assert!(!out.contains("田中"), "{out}");
+    assert!(out.contains("…"), "切れているのに「…」が無い: {out}");
+    // 伏せる言葉なし: 長い語＋敬称が2つで縮む。95〜96字目の「山田」
+    let head = "保険会社住宅資金担当責任者さんと不動産会社営業担当責任者さんの件";
+    let n = head.chars().count();
+    let todo = format!("{head}{}山田さんに連絡", "い".repeat(94 - n));
+    let out = excerpt("", &todo, &[]);
+    assert!(!out.contains("山田"), "{out}");
+    assert!(out.contains("…"), "{out}");
+    // 上限に収まる文には「…」を付けない
+    let out = excerpt("頭金を増やす", "源泉徴収票", &[]);
+    assert!(!out.contains("…"), "{out}");
+}
