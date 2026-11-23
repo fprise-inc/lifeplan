@@ -12,7 +12,7 @@ FP がお客さまの**保険の書類（保険証券・ご契約内容のお知
 
   ねんきん定期便・源泉徴収票・確定申告書・住宅ローンの書類・控除証明書などは、数字が数個で書類のどこを見ればよいかが決まっているので、FP が書類を見て入力の欄に打ちます（アプリは、ほかの書類の答えを読みません）。FP にそう頼まれたら、その書類は答えの形にせず、読み取りは上の3つだけだと伝えてください。課税明細書・路線価図の読み方は、それぞれの手引き（[property-tax-statement.md](../skills/read-documents/guides/property-tax-statement.md)・[route-price-map.md](../skills/read-documents/guides/route-price-map.md)）にあります。
 
-- AI が返すのは、決まった形 **`document-candidates@1`** の JSON です。アプリはそれを「書類の確かめの画面」に出し、FP が値ごとに書類と比較して承認したものだけが入力に入ります。**AI の答えだけでは、世帯の値は何も変わりません。**
+- AI が返すのは、決まった形 **`document-candidates@1`** の JSON です。アプリはそれを「書類の読み取りの確認画面」に出し、FP が値ごとに書類と比較して承認したものだけが入力に入ります。**AI の答えだけでは、世帯の値は何も変わりません。**
 - 書類ごとの読み方は、スキル [`skills/read-documents/`](../skills/read-documents/SKILL.md) の手引きにあります。入力項目ID・場所・値の書き方の一覧は [`skills/read-documents/fields.md`](../skills/read-documents/fields.md)（入力の画面の定義から作った一覧）です。
 - 答えの見本は、どれもアプリの読み口（`readProposal`）を通ることをテストで確かめています（`app/test/documentGuides.test.ts`）。
 

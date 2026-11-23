@@ -95,7 +95,7 @@ describe("画面の入口", () => {
     expect(stored).toMatch(/data-documents-start-ai[^-]/u);
     expect(stored).toContain("AI と接続する");
     expect(stored).not.toContain("data-documents-start-samples");
-    expect(stored).toContain("書類の名義の人は、確かめの画面で選びます");
+    expect(stored).toContain("書類の名義の人も、その画面で選びます");
     expect(renderToString(h(DocumentStart, { wh, start: policy, ai: { connected: true, onOpen: noop }, onClose: noop }))).toContain("この世帯を AI に渡す");
     // 見本の世帯（保存していない。AI に渡せない）: AI のボタンは出さず、架空の見本で試せる
     const sample = renderToString(h(DocumentStart, { wh, start: policy, onSamples: noop, onClose: noop }));

@@ -1,4 +1,4 @@
-// AI 接続口から発行した Web のヒアリングの URL（0222）: 上の帯「AI が URL を発行しました」と、確かめる画面（事務所の側の記録と、世帯ファイルに
+// AI 接続口から発行した Web のヒアリングの URL（0222）: 上の帯「AI が URL を発行しました」と、AI が発行した URL の確認画面（事務所の側の記録と、世帯ファイルに
 // まだ入っていない依頼）。
 // - 世帯の決まっていない依頼（新しいお客さま向け）は、届いたかを確かめ、「新しい世帯を作って取り込む」か「開いている世帯に取り込む」を選ぶ
 //   （選んだ世帯の「発行した URL」に移り、受け取り・取り込みは今までどおりそこで行う）。取り消し・案内文と URL のコピーもここで
@@ -17,7 +17,7 @@ import { unassignedLink } from "../hearing/issuedUrls.ts";
 import { dateTimeText } from "./model.ts";
 import { listDate } from "../../dates.ts";
 
-/** 帯（FP がまだ確かめていない、AI が発行した URL の数と、確かめる画面を開くボタン） */
+/** 帯（FP がまだ確かめていない、AI が発行した URL の数と、AI が発行した URL の確認画面を開くボタン） */
 export function AiHearingBand({ count, onOpen }: { count: number; onOpen: () => void }) {
   if (count <= 0) return null;
   return (
@@ -213,9 +213,9 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
             </>
           ) : null}
         </div>
-        {/* 取り消すの確かめ（「発行した URL」の確かめと同じ形・同じ言葉。元のボタンと別の段に出す） */}
+        {/* URL の取り消しの確認（「発行した URL」の取り消しの確認と同じ形・同じ言葉。元のボタンと別の段に出す） */}
         {asking === id && r !== undefined && live && p.web !== null ? (
-          <div class="wr-ask" role="alertdialog" aria-label="取り消しの確かめ" data-ai-hearing-cancel-ask>
+          <div class="wr-ask" role="alertdialog" aria-label="URL の取り消しの確認" data-ai-hearing-cancel-ask>
             <span>{CANCEL_ASK_TEXT}</span>
             <span class="wr-ask-acts">
               <button

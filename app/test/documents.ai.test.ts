@@ -1,7 +1,7 @@
 // AI接続口の書類の候補の道具（propose_inputs。0151）:
 // 道具の入力の形と読み口の上限・種類の一覧がそろっていること、接続口のテストと同じ見本が読み口を通ること、届いた候補が
 // 読み取りの記録になるだけで現状を変えないこと、個人番号などの番号が残らないこと。
-// AI の答えを貼り付ける入口は、利用者の判断（2026-11-20）でなくした（0151 の追記）。前に貼り付けで読んだ記録（via: "paste"）は、確かめの画面で今までどおり読めて承認できること
+// AI の答えを貼り付ける入口は、利用者の判断（2026-11-20）でなくした（0151 の追記）。前に貼り付けで読んだ記録（via: "paste"）は、書類の読み取りの確認画面で今までどおり読めて承認できること
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { h } from "preact";
@@ -165,7 +165,7 @@ describe("入口と帯", () => {
     }
   });
 
-  it("AI から届いた未決の書類があれば帯を出し、確かめの画面で AI が読んだことを知らせる", () => {
+  it("AI から届いた未決の書類があれば帯を出し、書類の読み取りの確認画面で AI が読んだことを知らせる", () => {
     const wh0 = open();
     expect(renderToString(h(AiDocumentBand, { wh: wh0, failed: { count: 0, issues: [] }, onOpen: () => undefined, onDismiss: () => undefined }))).toBe("");
     const wh = withDocumentLog(wh0, ingestAiProposals(wh0, [proposal()], newId).log);
@@ -179,7 +179,7 @@ describe("入口と帯", () => {
     expect(review).toContain("AI が読んだ（接続した AI）");
   });
 
-  it("前に貼り付けで読んだ記録（via: paste）は、世帯ファイルに書いて読み戻しても残り、確かめの画面に出て承認できる（入口をなくしても読めるまま）", () => {
+  it("前に貼り付けで読んだ記録（via: paste）は、世帯ファイルに書いて読み戻しても残り、書類の読み取りの確認画面に出て承認できる（入口をなくしても読めるまま）", () => {
     const wh0 = open();
     const pasted = readProposal(answer(), { via: "paste", at: AT, newId, connector: "ウェブの AI", members: members(wh0) }).reading!;
     const saved = JSON.stringify(bodyObject(body(withDocumentLog(wh0, withReading(wh0.documents, pasted)))));

@@ -317,7 +317,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
     if (!settleInput().ok || onStatement === undefined) return;
     onStatement(saveItem(latest.current, itemId));
   };
-  // 書類の読み取りへ進む（0154 の3）。保存していない変更は保存してから進む（読み取りの確かめの画面は現状を直すので、パネルの下書きと食い違わせない）
+  // 書類の読み取りへ進む（0154 の3）。保存していない変更は保存してから進む（書類の読み取りの確認画面は現状を直すので、パネルの下書きと食い違わせない）
   const readDoc = (start: DocStart) => {
     if (onReadDoc === undefined || !settleInput().ok) return;
     onReadDoc(start, dirtyRef.current ? saveItem(latest.current, itemId) : undefined);

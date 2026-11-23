@@ -1,4 +1,4 @@
-// 書類の確かめの画面の中身（0148 の2）: 読み取りの記録1通と今の世帯から、確かめの画面の行（共通の部品 review/rows.ts の形）と
+// 書類の読み取りの確認画面の中身（0148 の2）: 読み取りの記録1通と今の世帯から、書類の読み取りの確認画面の行（共通の部品 review/rows.ts の形）と
 // 新しい物・照合だけの値・知らせを作り、FP の操作（承認・まとめて承認・直す・入れない・物を足す・名義を選ぶ）を世帯と記録に当てる。
 // 行は毎回作る（保存しない）。世帯の値を変える操作は新しい世帯（元に戻せる変更）と新しい記録の両方を返し、呼ぶ側が記録を先に入れる
 // 取り込みを外した書類（0159）の前の記録は見るだけ: 行は承認・直すができず、物は足せない（入れないと、記録を捨てることはできる）
@@ -304,7 +304,7 @@ function linkedName(wh: WorkingHousehold, o: DocObject): string | null {
  */
 export const readDayText = (at: string): string => (isDateTimeText(at) ? proseDate(at) : proseDateWritten(at));
 
-/** 確かめの画面の中身を作る */
+/** 書類の読み取りの確認画面の中身を作る */
 export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chosen = {}, calc: CalcOf | null = null, others: readonly DocumentReading[] = []): DocReview {
   const places = fieldPlaces(wh);
   const groups = new Map<string, RowGroup>();

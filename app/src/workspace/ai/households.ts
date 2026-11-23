@@ -1,7 +1,7 @@
-// AIが組み立てた新しい世帯の候補（接続口の道具 propose_household）の読み口と、確かめの画面に出す中身・作るときの形。
+// AIが組み立てた新しい世帯の候補（接続口の道具 propose_household）の読み口と、AIからの新しい世帯の候補の確認画面に出す中身・作るときの形。
 // - 届いた候補は信用しない（0015・0016）: 読むのは種類・題・推定したこと・計算の入力だけ。文字（題・推定したこと・入力の名前やメモの欄）は、
 //   書類の候補と同じ決まり（documents/privacy.ts）で番号らしい所を消す。名前の欄でない所の番号らしい値（12桁の数・区切りの無い10桁以上の数字）は
-//   値ごと落とす。消した・落とした数を確かめの画面に出す
+//   値ごと落とす。消した・落とした数をAIからの新しい世帯の候補の確認画面に出す
 // - 入力の形と範囲は、本体が受け取るときに計算エンジンで確かめている。消した後の入力も、作る前に画面がもう一度計算して確かめる
 // - 推定の根拠（estimate.basis）も、名前・メモの欄と同じ cleanText で整える（番号らしい所を消し、120字で切る。欄は必須なので空にはしない）
 // - 作るときは、入力の値の出どころを、AI が書いた出どころにかかわらず全部 AI（候補の ID と AI のアプリの名乗り）にし、FP の承認の記録を付ける
@@ -17,7 +17,7 @@ import { roles } from "../roles.ts";
 
 export type HouseholdKind = "fictional" | "client";
 
-/** 種類の言葉（確かめの画面・一覧の印） */
+/** 種類の言葉（AIからの新しい世帯の候補の確認画面・一覧の印） */
 export const KIND_TEXT: Readonly<Record<HouseholdKind, { label: string; long: string; share: string }>> = {
   fictional: {
     label: "架空",
@@ -135,7 +135,7 @@ export function readHouseholdCandidate(c: AiHouseholdCandidate): { candidate: Re
   };
 }
 
-// ---- 確かめの画面に出す中身 ----
+// ---- AIからの新しい世帯の候補の確認画面に出す中身 ----
 
 export interface OverviewRow {
   label: string;
@@ -179,7 +179,7 @@ function countEstimated(v: unknown): number {
   return n;
 }
 
-/** 確かめの画面に出す中身（家族・収入・資産・住まい・ローン・生活費）。名前は持たないので、続柄で呼ぶ */
+/** AIからの新しい世帯の候補の確認画面に出す中身（家族・収入・資産・住まい・ローン・生活費）。名前は持たないので、続柄で呼ぶ */
 export function householdOverview(input: EngineRequest["input"]): HouseholdOverview {
   const req: EngineRequest = { trace: "none", input };
   const h = input.household;
