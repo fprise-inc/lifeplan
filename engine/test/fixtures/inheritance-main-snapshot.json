@@ -1,0 +1,1046 @@
+{
+ "salariedCoupleTwoKids:plain": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+    "status": "ok",
+    "taxablePrice": 10399000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+    "status": "ok",
+    "taxablePrice": 0,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+    "status": "ok",
+    "taxablePrice": 34824000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "salariedCoupleTwoKids:stored": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+    "status": "ok",
+    "taxablePrice": 10399000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+    "status": "ok",
+    "taxablePrice": 0,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+    "status": "ok",
+    "taxablePrice": 34824000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "salariedCoupleTwoKids:settings": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+    "status": "ok",
+    "taxablePrice": 5583000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+    "status": "ok",
+    "taxablePrice": 0,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+    "status": "ok",
+    "taxablePrice": 29791000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "rentalSample:plain": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "8c59e0ed-42c6-4b91-99cd-faab96947438",
+    "status": "ok",
+    "taxablePrice": 47160000,
+    "totalTax": 516000,
+    "spouseReduction": 258000,
+    "payable": 258000,
+    "byHeir": [
+     0,
+     258000
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "b8db3bf3-9e29-4c9f-ae21-cd1e702137d1",
+    "status": "ok",
+    "taxablePrice": 2338000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "b8db3bf3-9e29-4c9f-ae21-cd1e702137d1",
+    "status": "ok",
+    "taxablePrice": 153379000,
+    "totalTax": 29951600,
+    "spouseReduction": 0,
+    "payable": 29951600,
+    "byHeir": [
+     29951600
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "rentalSample:stored": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "8c59e0ed-42c6-4b91-99cd-faab96947438",
+    "status": "ok",
+    "taxablePrice": 47160000,
+    "totalTax": 516000,
+    "spouseReduction": 258000,
+    "payable": 258000,
+    "byHeir": [
+     0,
+     258000
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "b8db3bf3-9e29-4c9f-ae21-cd1e702137d1",
+    "status": "ok",
+    "taxablePrice": 2338000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "b8db3bf3-9e29-4c9f-ae21-cd1e702137d1",
+    "status": "ok",
+    "taxablePrice": 153379000,
+    "totalTax": 29951600,
+    "spouseReduction": 0,
+    "payable": 29951600,
+    "byHeir": [
+     29951600
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "rentalSample:settings": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "8c59e0ed-42c6-4b91-99cd-faab96947438",
+    "status": "ok",
+    "taxablePrice": 34403000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "b8db3bf3-9e29-4c9f-ae21-cd1e702137d1",
+    "status": "ok",
+    "taxablePrice": 338000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "b8db3bf3-9e29-4c9f-ae21-cd1e702137d1",
+    "status": "ok",
+    "taxablePrice": 148005000,
+    "totalTax": 27802000,
+    "spouseReduction": 0,
+    "payable": 27802000,
+    "byHeir": [
+     27802000
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "dualAssetsTwoKids:plain": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+    "status": "ok",
+    "taxablePrice": 63950000,
+    "totalTax": 1594900,
+    "spouseReduction": 797450,
+    "payable": 797400,
+    "byHeir": [
+     0,
+     398700,
+     398700
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+    "status": "ok",
+    "taxablePrice": 9790000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+    "status": "ok",
+    "taxablePrice": 123231000,
+    "totalTax": 12246000,
+    "spouseReduction": 0,
+    "payable": 12246000,
+    "byHeir": [
+     6123000,
+     6123000
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "dualAssetsTwoKids:stored": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+    "status": "ok",
+    "taxablePrice": 63950000,
+    "totalTax": 1594900,
+    "spouseReduction": 797450,
+    "payable": 797400,
+    "byHeir": [
+     0,
+     398700,
+     398700
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+    "status": "ok",
+    "taxablePrice": 9790000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+    "status": "ok",
+    "taxablePrice": 123231000,
+    "totalTax": 12246000,
+    "spouseReduction": 0,
+    "payable": 12246000,
+    "byHeir": [
+     6123000,
+     6123000
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "dualAssetsTwoKids:settings": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+    "status": "ok",
+    "taxablePrice": 56216000,
+    "totalTax": 821600,
+    "spouseReduction": 410800,
+    "payable": 410800,
+    "byHeir": [
+     0,
+     205400,
+     205400
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+    "status": "ok",
+    "taxablePrice": 7790000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+    "status": "ok",
+    "taxablePrice": 114952000,
+    "totalTax": 10590400,
+    "spouseReduction": 0,
+    "payable": 10590400,
+    "byHeir": [
+     5295200,
+     5295200
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "sampleSeniorRental:plain": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "012458c8-5ca9-4268-8d2b-e6bb76dad52c",
+    "status": "ok",
+    "taxablePrice": 71914000,
+    "totalTax": 2489100,
+    "spouseReduction": 1244550,
+    "payable": 1244400,
+    "byHeir": [
+     0,
+     622200,
+     622200
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "45abd9a6-f9df-454a-a0fa-1c0088001b51",
+    "status": "ok",
+    "taxablePrice": 0,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "45abd9a6-f9df-454a-a0fa-1c0088001b51",
+    "status": "ok",
+    "taxablePrice": 130519000,
+    "totalTax": 13703600,
+    "spouseReduction": 0,
+    "payable": 13703600,
+    "byHeir": [
+     6851800,
+     6851800
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "sampleSeniorRental:stored": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "012458c8-5ca9-4268-8d2b-e6bb76dad52c",
+    "status": "ok",
+    "taxablePrice": 71914000,
+    "totalTax": 2489100,
+    "spouseReduction": 1244550,
+    "payable": 1244400,
+    "byHeir": [
+     0,
+     622200,
+     622200
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "45abd9a6-f9df-454a-a0fa-1c0088001b51",
+    "status": "ok",
+    "taxablePrice": 0,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "45abd9a6-f9df-454a-a0fa-1c0088001b51",
+    "status": "ok",
+    "taxablePrice": 130519000,
+    "totalTax": 13703600,
+    "spouseReduction": 0,
+    "payable": 13703600,
+    "byHeir": [
+     6851800,
+     6851800
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "sampleSeniorRental:settings": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "012458c8-5ca9-4268-8d2b-e6bb76dad52c",
+    "status": "ok",
+    "taxablePrice": 65414000,
+    "totalTax": 1741300,
+    "spouseReduction": 870650,
+    "payable": 870600,
+    "byHeir": [
+     0,
+     435300,
+     435300
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   },
+   {
+    "point": "now",
+    "decedent": "45abd9a6-f9df-454a-a0fa-1c0088001b51",
+    "status": "ok",
+    "taxablePrice": 0,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "45abd9a6-f9df-454a-a0fa-1c0088001b51",
+    "status": "ok",
+    "taxablePrice": 123795000,
+    "totalTax": 12358800,
+    "spouseReduction": 0,
+    "payable": 12358800,
+    "byHeir": [
+     6179400,
+     6179400
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "lifetime100Assets:plain": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "6ee666ee-a5ed-48c4-bae9-608a2e6951bd",
+    "status": "ok",
+    "taxablePrice": 6097000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "now",
+    "decedent": "1bfa37c5-4f61-41de-b79f-3499d75cb6fa",
+    "status": "ok",
+    "taxablePrice": 530000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "1bfa37c5-4f61-41de-b79f-3499d75cb6fa",
+    "status": "ok",
+    "taxablePrice": 1151094000,
+    "totalTax": 541301700,
+    "spouseReduction": 0,
+    "payable": 541301700,
+    "byHeir": [
+     541301700
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "lifetime100Assets:stored": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "6ee666ee-a5ed-48c4-bae9-608a2e6951bd",
+    "status": "ok",
+    "taxablePrice": 6097000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "now",
+    "decedent": "1bfa37c5-4f61-41de-b79f-3499d75cb6fa",
+    "status": "ok",
+    "taxablePrice": 530000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "1bfa37c5-4f61-41de-b79f-3499d75cb6fa",
+    "status": "ok",
+    "taxablePrice": 1151094000,
+    "totalTax": 541301700,
+    "spouseReduction": 0,
+    "payable": 541301700,
+    "byHeir": [
+     541301700
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "lifetime100Assets:settings": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "6ee666ee-a5ed-48c4-bae9-608a2e6951bd",
+    "status": "ok",
+    "taxablePrice": 4097000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "now",
+    "decedent": "1bfa37c5-4f61-41de-b79f-3499d75cb6fa",
+    "status": "ok",
+    "taxablePrice": 0,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0,
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "1bfa37c5-4f61-41de-b79f-3499d75cb6fa",
+    "status": "ok",
+    "taxablePrice": 1145231000,
+    "totalTax": 538077000,
+    "spouseReduction": 0,
+    "payable": 538077000,
+    "byHeir": [
+     538077000
+    ],
+    "cautions": [
+     "smallLandSpecial"
+    ]
+   }
+  ]
+ },
+ "parentMoney:plain": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "79398e84-f736-4f5a-8324-194edbd7091e",
+    "status": "ok",
+    "taxablePrice": 8901000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "79398e84-f736-4f5a-8324-194edbd7091e",
+    "status": "ok",
+    "taxablePrice": 7329000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0
+    ],
+    "cautions": []
+   }
+  ]
+ },
+ "parentMoney:stored": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "79398e84-f736-4f5a-8324-194edbd7091e",
+    "status": "ok",
+    "taxablePrice": 8901000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "79398e84-f736-4f5a-8324-194edbd7091e",
+    "status": "ok",
+    "taxablePrice": 7329000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0
+    ],
+    "cautions": []
+   }
+  ]
+ },
+ "parentMoney:settings": {
+  "notIncluded": [
+   "twentyPercentSurcharge",
+   "smallLandSpecial",
+   "landValuationDetail",
+   "primarySecondaryComparison",
+   "calendarGiftAddBack",
+   "successiveInheritanceCredit",
+   "minorCredit",
+   "disabilityCredit",
+   "receivingSideEstimate"
+  ],
+  "points": [
+   {
+    "point": "now",
+    "decedent": "79398e84-f736-4f5a-8324-194edbd7091e",
+    "status": "ok",
+    "taxablePrice": 6901000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0
+    ],
+    "cautions": []
+   },
+   {
+    "point": "bothAfter",
+    "decedent": "79398e84-f736-4f5a-8324-194edbd7091e",
+    "status": "ok",
+    "taxablePrice": 5329000,
+    "totalTax": 0,
+    "spouseReduction": 0,
+    "payable": 0,
+    "byHeir": [
+     0
+    ],
+    "cautions": []
+   }
+  ]
+ }
+}

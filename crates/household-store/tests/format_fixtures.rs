@@ -304,6 +304,31 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 顧客の見本ファイル（A0001）は顧客として戻る"
             );
         }
+        // 0.88 から: 遺産の分け方 inheritanceTax.division と土地を取得する人 lands[].primary.member・secondary.member（0251）。
+        // 変換で書き足さない（前の版の世帯は法定相続分どおり）。0.88 の見本は配偶者60%・子1の割合70%と、二次の自宅・一次の物件の取得する子
+        let tax88 = &now["household"]["request"]["input"]["inheritanceTax"];
+        if migrate::parse(v).unwrap() >= (0, 88) {
+            assert_eq!(
+                tax88["division"]["spouseShare"], "0.6",
+                "{v}: 0.88 からの見本は分け方を持つ"
+            );
+            assert_eq!(
+                tax88["division"]["shares"].as_array().map(Vec::len),
+                Some(1)
+            );
+            assert!(tax88["lands"][0]["secondary"]["member"].is_string());
+            assert!(tax88["lands"][1]["primary"]["member"].is_string());
+        } else {
+            assert!(
+                tax88.get("division").is_none()
+                    && tax88["lands"]
+                        .as_array()
+                        .map(|xs| xs.iter().all(|l| l["primary"].get("member").is_none()
+                            && l["secondary"].get("member").is_none()))
+                        .unwrap_or(true),
+                "{v}: 分け方・取得する人は変換で書き足さない"
+            );
+        }
         // 0.86 から: 相続税の試算の設定 inheritanceTax.detailed・lands（0231）。変換で書き足さない（前の版の世帯は相続税も試算しない）。
         // 0.86 の見本は持ち家（路線価・二次の取得する人）と物件（倍率・貸家建付地・貸付の取得する人）の2件
         let tax = &now["household"]["request"]["input"]["inheritanceTax"];
