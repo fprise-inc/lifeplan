@@ -19,7 +19,7 @@ import { cleanValue, isPersonalNumberValue } from "./privacy.ts";
 import { fieldPlaces, memberIdOf, placeByKey, resolveTarget, type FieldPlace, type Resolution } from "./resolve.ts";
 import { readingScore, scoreTotals } from "./score.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
-import { proseDateWritten } from "../../dates.ts";
+import { isDateTimeText, proseDate, proseDateWritten } from "../../dates.ts";
 import { CONFIDENCE_LABELS, docTypeLabel, isRetired, LIMITS, VIA_LABELS, type CandidateValue, type DocCandidate, type DocObject, type DocumentReading } from "./types.ts";
 
 type Obj = Record<string, unknown>;
@@ -297,6 +297,13 @@ function linkedName(wh: WorkingHousehold, o: DocObject): string | null {
   return x === undefined ? null : existingLabel(wh, o.kind, x);
 }
 
+/**
+ * 書類を読んだ日の文（文の中の形。端末の時刻で。「2026年11月21日」）。読んだ時刻は、AI が読んだ記録は UTC の文字、この PC で読んだ記録は時差つきの文字で
+ * 残している。どちらも端末の時刻に直して、その日を出す（数字をそのまま出すと、日本の時間の 0時〜8時台に AI が読んだ記録が前の日に見える。0241 の追記）。
+ * 日時として読めない文字は、今までと同じく書いてある文字のまま
+ */
+export const readDayText = (at: string): string => (isDateTimeText(at) ? proseDate(at) : proseDateWritten(at));
+
 /** 確かめの画面の中身を作る */
 export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chosen = {}, calc: CalcOf | null = null, others: readonly DocumentReading[] = []): DocReview {
   const places = fieldPlaces(wh);
@@ -353,7 +360,7 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
   if (r.file !== undefined) {
     // 1つのファイルに何通かの証明書が入っていることがあるので、同じ時に読んだ記録どうしは比較しない（0153）
     const dup = others.find((x) => x.id !== r.id && x.file?.sha256 === r.file?.sha256 && x.at !== r.at);
-    if (dup !== undefined) notices.push(`同じファイルを前にも読んでいます（${proseDateWritten(dup.at)}）。`);
+    if (dup !== undefined) notices.push(`同じファイルを前にも読んでいます（${readDayText(dup.at)}）。`);
   }
   if (r.asOf !== undefined && r.asOf < addMonths(wh.request.input.baseMonth, -12)) notices.push(`書類の時点（${formatYearMonth(r.asOf)}）が、計算の基準の月より1年以上前です。新しい書類か確かめてください。`);
   for (const o of objectViews.values())

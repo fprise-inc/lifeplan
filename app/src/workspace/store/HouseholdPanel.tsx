@@ -2,9 +2,10 @@
 // 見本の棚（アプリに入っている見本と、自分で作った見本。顧客番号を持たず、顧客の一覧には混ぜない。0033）。
 // 一覧に出すのは表示用の顧客番号（区分の記号＋通し番号。区分を使わないときは通し番号だけ）と構成の要約（続柄と人数）だけ。氏名は持たない（0012）。
 // 区分を使うかは、初めて世帯の一覧を使うときに1回だけ聞く（区分の設定がまだ一度も決まっていないとき。0033 の追記）
+// 行の操作は「開く」（見本は「この見本をもとに顧客を作る」も）だけを見せ、ほかは「ほかの操作」にたたむ（行を1行にそろえる。0244）
 import { splitSummary } from "../hearing/web.ts";
 import type { ComponentChildren } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { officeShareText, storageText } from "../header/FpMenu.tsx";
@@ -60,7 +61,7 @@ export interface HouseholdPanelProps {
   onOpenSample: (item: ShelfItem) => void;
   /** 見本をもとに顧客を作る（見本は変わらない） */
   onCustomerFromSample: (item: ShelfItem, category: string | undefined) => void;
-  /** 見本を写して手直しする（次の空き番号の新しい見本） */
+  /** 見本を複製する（次の空き番号の新しい見本） */
   onCopySample: (item: ShelfItem) => void;
   onUpdateSample: (id: string, name: string, traits: string[]) => Promise<string | null>;
   onRecovery: () => void;
@@ -81,6 +82,8 @@ export interface HouseholdPanelProps {
   usage?: "personal" | "office" | null;
   /** 保存先と同期の通知 */
   storageNotices?: StorageNotice[];
+  /** 「ほかの操作」を開いた状態で描く行（画面の確かめ用。顧客は `c:<内部ID>`、見本は `s:<app|own>-<ID>`） */
+  initialMore?: string;
   onClose: () => void;
 }
 
@@ -144,11 +147,48 @@ export const SAMPLE_NOTES_TEXT = "メモと面談の履歴は外します（お�
 /** アプリに入っている見本から顧客を作るときの一言（0182 の追記）: 見本のメモ（例の文）は写さない */
 export const APP_SAMPLE_MEMO_TEXT = "見本のメモ（例の文）は写しません";
 
-/** 見本の写しの指定（同じ家族の形・年代。名前に「写し」を付ける） */
+/** 見本を複製するときの指定（同じ家族の形・年代。名前に「（複製）」を付ける。前に付けた「（写し）」の名前はそのまま） */
 export function copyRequest(item: ShelfItem): SampleRequest | null {
   const p = parseSampleNo(item.no);
   if (p === null) return null;
-  return { family: p.family, age: p.age, name: `${item.name}（写し）`.slice(0, 40), traits: [...item.traits] };
+  return { family: p.family, age: p.age, name: `${item.name}（複製）`.slice(0, 40), traits: [...item.traits] };
+}
+
+/** 見本を複製するボタンの説明（見本の行の「ほかの操作」） */
+export const COPY_SAMPLE_TITLE = "同じ家族の形・年代の次の空き番号（10〜）に複製します。メモと面談の履歴は複製しません";
+
+/**
+ * 行の「ほかの操作」: 押すと、すぐ下に操作が並ぶ（行の高さはそのぶん伸びる）。開くのは一覧の中で1つだけ（呼ぶ側が1つの状態で持つ）。
+ * Esc（重ねた順の上の1つ。0239）と、外側を押すと閉じる。Esc で閉じたときは「ほかの操作」に選択を戻す。
+ * 閉じている間も中の操作は描いておく（hidden。Tab では止まらない）
+ */
+function RowMore(p: { id: string; open: boolean; onOpen: (open: boolean) => void; children: ComponentChildren; [attr: `data-${string}`]: string }) {
+  const { id, open, onOpen, children, ...rest } = p;
+  const box = useRef<HTMLSpanElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  useEscClose(() => {
+    onOpen(false);
+    btn.current?.focus();
+  }, open);
+  useEffect(() => {
+    if (!open) return undefined;
+    // 押し終えたとき（click）に閉じる。押し始め（pointerdown）で閉じると、たたんだぶん下の行が上がり、押した物から外れてしまう
+    const outside = (e: MouseEvent) => {
+      if (box.current !== null && e.target instanceof Node && !box.current.contains(e.target)) onOpen(false);
+    };
+    document.addEventListener("click", outside, true);
+    return () => document.removeEventListener("click", outside, true);
+  }, [open, onOpen]);
+  return (
+    <span class="hh-more" ref={box} {...rest}>
+      <button type="button" ref={btn} class={`link-btn hh-more-btn${open ? " on" : ""}`} aria-expanded={open} aria-controls={id} onClick={() => onOpen(!open)}>
+        ほかの操作
+      </button>
+      <span class="hh-more-list" id={id} role="group" aria-label="ほかの操作" hidden={!open}>
+        {children}
+      </span>
+    </span>
+  );
 }
 
 function CategorySelect(p: { categories: readonly Category[]; value: string | undefined; onChange: (v: string) => void; label: string }) {
@@ -333,6 +373,18 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const [fromSample, setFromSample] = useState<{ item: ShelfItem; category: string | undefined } | null>(null);
   const [sampleEdit, setSampleEdit] = useState<{ id: string; name: string; traits: string[]; error: string | null } | null>(null);
   const [sampleDelete, setSampleDelete] = useState<{ id: string; value: string; error: string | null } | null>(null);
+  /** 「ほかの操作」を開いている行（一覧の中で1つだけ。顧客は `c:<内部ID>`、見本は `s:<app|own>-<ID>`） */
+  const [more, setMore] = useState<string | null>(p.initialMore ?? null);
+  const moreOf = (key: string) => ({ id: `hh-more-${key.replace(/[^A-Za-z0-9_-]/g, "_")}`, open: more === key, onOpen: (open: boolean) => setMore(open ? key : null) });
+  /** 「ほかの操作」の中の操作を選んだら、たたんでから進める */
+  const pick = (fn: () => void) => () => {
+    setMore(null);
+    fn();
+  };
+  const switchTab = (t: HouseholdTab) => {
+    setMore(null);
+    setTab(t);
+  };
 
   useEscClose(p.onClose);
 
@@ -577,7 +629,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                             {h.customerNo}
                           </button>
                         )}
-                        {h.serial === undefined || h.id === p.currentId || h.fictional === true ? (
+                        {h.serial === undefined || h.fictional === true ? (
                           <div class="hh-tags">
                             {h.fictional === true ? (
                               <span class="pl-tag hh-fictional-tag" title="AIの候補から作った架空の世帯（お客さまの世帯ではありません。同意の記録が無くても AI に渡せます）" data-household-fictional={h.customerNo}>
@@ -589,7 +641,6 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                                 自由な番号
                               </span>
                             ) : null}
-                            {h.id === p.currentId ? <span class="pl-tag">開いています</span> : null}
                           </div>
                         ) : null}
                         {h.forks > 0 ? (
@@ -600,7 +651,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                         ) : null}
                       </td>
                       {useCats ? <td data-household-category={h.category ?? ""}>{categoryText(p.categories, h.category)}</td> : null}
-                      <td>
+                      <td class="hh-wrap">
                         {((x) => (
                           <>
                             {x.family || "—"}
@@ -616,7 +667,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                       <td class="num">{listDateTime(h.updatedAt, "")}</td>
                       {shared ? <td data-household-editor>{h.updatedBy ?? "—"}</td> : null}
                       {shared ? (
-                        <td data-household-presence={h.openBy.length}>
+                        <td class="hh-wrap" data-household-presence={h.openBy.length}>
                           {h.openBy.length === 0 ? (
                             "—"
                           ) : (
@@ -628,37 +679,43 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                       ) : null}
                       <td>
                         {rowForm(h) ?? (
-                          <span class="pl-ops">
+                          <div class="pl-ops hh-ops">
                             {h.id !== p.currentId ? (
-                              <button type="button" class="link-btn" onClick={() => p.onOpen(h.id)} data-open-household={h.customerNo}>
+                              <button type="button" class="btn small hh-open" onClick={() => p.onOpen(h.id)} data-open-household={h.customerNo}>
                                 開く
                               </button>
-                            ) : null}
-                            {useCats ? (
-                              <button type="button" class="link-btn" onClick={() => setForm({ kind: "category", id: h.id, value: h.category ?? defaultCategory(p.categories) ?? "", error: null })} data-change-category={h.customerNo}>
-                                区分を変える
+                            ) : (
+                              <span class="hh-open hh-open-now" data-household-current>
+                                開いています
+                              </span>
+                            )}
+                            <RowMore {...moreOf(`c:${h.id}`)} data-household-more={h.customerNo}>
+                              {useCats ? (
+                                <button type="button" class="link-btn" onClick={pick(() => setForm({ kind: "category", id: h.id, value: h.category ?? defaultCategory(p.categories) ?? "", error: null }))} data-change-category={h.customerNo}>
+                                  区分を変える
+                                </button>
+                              ) : null}
+                              <button type="button" class="link-btn" onClick={pick(() => setForm({ kind: "rename", id: h.id, value: h.customerNo, error: null }))} data-rename-household={h.customerNo}>
+                                顧客番号を変える
                               </button>
-                            ) : null}
-                            <button type="button" class="link-btn" onClick={() => setForm({ kind: "rename", id: h.id, value: h.customerNo, error: null })}>
-                              顧客番号を変える
-                            </button>
-                            {h.serial === undefined ? (
-                              <button type="button" class="link-btn" onClick={() => run({ kind: "rename", id: h.id, value: h.customerNo, error: null }, () => p.onAssignSerial(h.id))} title={useCats ? "区分の記号＋新しい通し番号に付け替えます（元の番号には戻りません）" : "新しい通し番号に付け替えます（元の番号には戻りません）"} data-assign-serial={h.customerNo}>
-                                通し番号を付ける
+                              {h.serial === undefined ? (
+                                <button type="button" class="link-btn" onClick={pick(() => run({ kind: "rename", id: h.id, value: h.customerNo, error: null }, () => p.onAssignSerial(h.id)))} title={useCats ? "区分の記号＋新しい通し番号に付け替えます（元の番号には戻りません）" : "新しい通し番号に付け替えます（元の番号には戻りません）"} data-assign-serial={h.customerNo}>
+                                  通し番号を付ける
+                                </button>
+                              ) : null}
+                              {h.fictional === true && p.onMakeClient !== undefined ? (
+                                <button type="button" class="link-btn" onClick={pick(() => setForm({ kind: "client", id: h.id, value: false, error: null }))} data-make-client={h.customerNo}>
+                                  お客さまの世帯にする
+                                </button>
+                              ) : null}
+                              <button type="button" class="link-btn" onClick={pick(() => setForm({ kind: "sample", id: h.id, value: { ...(h.id === p.currentId && p.currentShape !== null ? p.currentShape : { family: 3, age: 4 }), name: "", traits: [] }, ok: false, error: null }))} data-make-sample={h.customerNo}>
+                                見本に登録
                               </button>
-                            ) : null}
-                            {h.fictional === true && p.onMakeClient !== undefined ? (
-                              <button type="button" class="link-btn" onClick={() => setForm({ kind: "client", id: h.id, value: false, error: null })} data-make-client={h.customerNo}>
-                                お客さまの世帯にする
+                              <button type="button" class="link-btn danger" onClick={pick(() => setForm({ kind: "delete", id: h.id, value: "", error: null }))} data-delete-household={h.customerNo}>
+                                完全削除
                               </button>
-                            ) : null}
-                            <button type="button" class="link-btn" onClick={() => setForm({ kind: "sample", id: h.id, value: { ...(h.id === p.currentId && p.currentShape !== null ? p.currentShape : { family: 3, age: 4 }), name: "", traits: [] }, ok: false, error: null })} data-make-sample={h.customerNo}>
-                              見本に登録
-                            </button>
-                            <button type="button" class="link-btn danger" onClick={() => setForm({ kind: "delete", id: h.id, value: "", error: null })} data-delete-household={h.customerNo}>
-                              完全削除
-                            </button>
-                          </span>
+                            </RowMore>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -680,7 +737,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
             <button type="button" class="btn" onClick={() => p.onCreate(newCat)} data-create-blank>
               空から作る
             </button>
-            <button type="button" class="link-btn" onClick={() => setTab("samples")}>
+            <button type="button" class="link-btn" onClick={() => switchTab("samples")}>
               見本から作る
             </button>
             <span class="pl-sub">{useCats ? "顧客番号は「区分の記号＋通し番号」で自動で付きます（例 C0042）。区分を変えても通し番号はそのままです。" : "顧客番号は通し番号で自動で付きます（例 0042）。"}</span>
@@ -754,40 +811,48 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
         </form>
       );
     return (
-      <span class="pl-ops">
+      <div class="pl-ops hh-ops">
         {!isCurrent ? (
-          <button type="button" class="link-btn" onClick={() => p.onOpenSample(s)} data-open-sample={s.no}>
+          <button type="button" class="btn small hh-open" onClick={() => p.onOpenSample(s)} data-open-sample={s.no}>
             開く
           </button>
-        ) : null}
+        ) : (
+          <span class="hh-open hh-open-now" data-sample-current>
+            開いています
+          </span>
+        )}
         {ready ? (
-          <>
-            <button type="button" class="link-btn" onClick={() => setFromSample({ item: s, category: defaultCategory(p.categories) })} data-customer-from-sample={s.no}>
-              この見本をもとに顧客を作る
-            </button>
-            <button type="button" class="link-btn" onClick={() => p.onCopySample(s)} title="同じ家族の形・年代の次の空き番号（10〜）で、新しい見本を作ります。メモと面談の履歴は写しません" data-copy-sample={s.no}>
-              写して手直しする
-            </button>
-          </>
+          <button type="button" class="link-btn" onClick={pick(() => setFromSample({ item: s, category: defaultCategory(p.categories) }))} data-customer-from-sample={s.no}>
+            この見本をもとに顧客を作る
+          </button>
         ) : null}
-        {s.kind === "own" ? (
-          <>
-            <button type="button" class="link-btn" onClick={() => setSampleEdit({ id: s.id, name: s.name, traits: [...s.traits], error: null })}>
-              名前と項目を直す
-            </button>
-            <button type="button" class="link-btn danger" onClick={() => setSampleDelete({ id: s.id, value: "", error: null })} data-delete-sample={s.no}>
-              完全削除
-            </button>
-          </>
+        {ready || s.kind === "own" ? (
+          <RowMore {...moreOf(`s:${s.kind}-${s.id}`)} data-sample-more={s.no}>
+            {ready ? (
+              <button type="button" class="link-btn" onClick={pick(() => p.onCopySample(s))} title={COPY_SAMPLE_TITLE} data-copy-sample={s.no}>
+                複製する
+              </button>
+            ) : null}
+            {s.kind === "own" ? (
+              <>
+                <button type="button" class="link-btn" onClick={pick(() => setSampleEdit({ id: s.id, name: s.name, traits: [...s.traits], error: null }))} data-edit-sample={s.no}>
+                  名前と項目を直す
+                </button>
+                <button type="button" class="link-btn danger" onClick={pick(() => setSampleDelete({ id: s.id, value: "", error: null }))} data-delete-sample={s.no}>
+                  完全削除
+                </button>
+              </>
+            ) : null}
+          </RowMore>
         ) : null}
-      </span>
+      </div>
     );
   };
 
   const samples = (
     <>
       <p class="pl-sub hh-shelf-note">
-        見本は架空の世帯です。顧客番号を持たず、顧客の一覧には出ません。番号は「家族の形-本人の年代-順番」で、01〜09 はアプリに入っている見本（直せません）、10〜 は{shared && !personal ? "事務所" : "自分"}で作った見本です。開いて動かしても見本は変わりません（閉じれば元どおり）。
+        見本は架空の世帯です。顧客番号を持たず、顧客の一覧には出ません。番号は「家族の形-本人の年代-順番」で、01〜09 ははじめから入っている見本（直せません）、10〜 は{shared && !personal ? "事務所" : "自分"}で作った見本です。開いて動かしても見本は変わりません（閉じれば元どおり）。
       </p>
       <div class="hh-tools">
         <label>
@@ -840,14 +905,8 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                           {s.no}
                         </button>
                       )}
-                      {s.kind === "app" || isCurrent ? (
-                        <div class="hh-tags">
-                          {s.kind === "app" ? <span class="pl-tag hh-app">アプリ</span> : null}
-                          {isCurrent ? <span class="pl-tag">開いています</span> : null}
-                        </div>
-                      ) : null}
                     </td>
-                    <td>
+                    <td class="hh-wrap">
                       {sampleEdit?.id === s.id ? (
                         <form
                           class="pl-edit"
@@ -894,7 +953,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           </table>
         </div>
       ) : null}
-      <p class="pl-sub">自分で作った世帯を見本にするときは、「顧客」の一覧の「見本に登録」から（中身が架空であることを確かめます）。</p>
+      <p class="pl-sub">自分で作った世帯を見本にするときは、「顧客」の一覧の行の「ほかの操作」の「見本に登録」から（中身が架空であることを確かめます）。</p>
     </>
   );
 
@@ -907,10 +966,10 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
       </div>
       {p.now}
       <div class="tabs hh-tabs" role="tablist" aria-label="世帯の一覧の切り替え">
-        <button type="button" role="tab" aria-selected={tab === "customers"} class={tab === "customers" ? "on" : ""} onClick={() => setTab("customers")} data-hh-tab="customers">
+        <button type="button" role="tab" aria-selected={tab === "customers"} class={tab === "customers" ? "on" : ""} onClick={() => switchTab("customers")} data-hh-tab="customers">
           顧客（{p.list.length}）
         </button>
-        <button type="button" role="tab" aria-selected={tab === "samples"} class={tab === "samples" ? "on" : ""} onClick={() => setTab("samples")} data-hh-tab="samples">
+        <button type="button" role="tab" aria-selected={tab === "samples"} class={tab === "samples" ? "on" : ""} onClick={() => switchTab("samples")} data-hh-tab="samples">
           見本（{p.shelf.length}
           {ownCount > 0 ? `・うち自分で作った見本 ${ownCount}` : ""}）
         </button>

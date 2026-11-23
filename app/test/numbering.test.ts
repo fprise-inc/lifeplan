@@ -102,9 +102,10 @@ describe("見本番号と見本の棚", () => {
     expect(items.filter((i) => i.kind === "own").map((i) => i.no)).toEqual(["3-4-10"]);
     expect(filterShelf(items, { family: 3, age: 4, traits: ["共働き"] }).map((i) => i.no)).toContain("3-4-10");
     expect(filterShelf(items, { family: 1, age: 0, traits: [] }).every((i) => i.no.startsWith("1-"))).toBe(true);
-    // 写すときは同じ家族の形・年代で、名前に「写し」を付ける
+    // 複製するときは同じ家族の形・年代で、名前に「（複製）」を付ける（0244）。前に付けた「（写し）」の名前はそのまま
     const app = items.find((i) => i.kind === "app") as (typeof items)[number];
-    expect(copyRequest(app)).toMatchObject({ family: Number(app.no[0]), age: Number(app.no[2]), name: `${app.name}（写し）` });
+    expect(copyRequest(app)).toMatchObject({ family: Number(app.no[0]), age: Number(app.no[2]), name: `${app.name}（複製）` });
+    expect(copyRequest({ ...app, name: "研修用（写し）" })?.name).toBe("研修用（写し）（複製）");
   });
 });
 
@@ -161,7 +162,7 @@ describe("世帯の一覧の画面", () => {
     expect(html).not.toContain('data-delete-sample="3-4-01"');
     expect(html).toContain('data-delete-sample="2-3-10"');
     expect(html).not.toContain("data-household-row");
-    expect(html).toContain("01〜09 はアプリに入っている見本");
+    expect(html).toContain("01〜09 ははじめから入っている見本（直せません）");
   });
   it("区分を使うかまだ決めていないときは、1回だけ「区分を使いますか？」と聞く（あとから変えられる一文つき）。新しく作るは答えてから", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, list: [], categories: [], categoriesDecided: false }));

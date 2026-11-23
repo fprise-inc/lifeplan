@@ -14,7 +14,7 @@ import { keepSnapshots, makeSnapshot } from "../src/workspace/snapshots/snapshot
 import { BODY_FORMAT_VERSION, bodyObject, bodyOf, EMPTY_CARRY, fromBody, type BodyState } from "../src/workspace/store/body.ts";
 import { mergeForkBodies } from "../src/workspace/store/office.ts";
 import { dropNotesOnPersist, stripNotesBeforeSample, type SampleNotesDeps } from "../src/workspace/store/sampleNotes.ts";
-import { APP_SAMPLE_MEMO_TEXT, SAMPLE_NOTES_TEXT } from "../src/workspace/store/HouseholdPanel.tsx";
+import { APP_SAMPLE_MEMO_TEXT, COPY_SAMPLE_TITLE, SAMPLE_NOTES_TEXT } from "../src/workspace/store/HouseholdPanel.tsx";
 import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
 import { FpTools, meetingForReview } from "../src/workspace/tools/FpTools.tsx";
 import { describeSnap } from "../src/workspace/undo/appHistory.ts";
@@ -322,11 +322,12 @@ describe("見本にするときはメモと面談の履歴を外す（0182 の�
     expect(await stripNotesBeforeSample(deps({ saved: false }).d)).toBe("メモと面談の履歴を外して保存できなかったので、見本にしていません");
   });
 
-  it("画面の一言: 見本に登録するときの確認と、写して手直しするの説明。見本の写しを作るときも外す（App.tsx）", () => {
+  it("画面の一言: 見本に登録するときの確認と、複製するの説明。見本を複製するときも外す（App.tsx）", () => {
     expect(SAMPLE_NOTES_TEXT).toBe("メモと面談の履歴は外します（お客さまの記録を見本に残しません）。");
     const panel = readFileSync(join(REPO_DIR, "app", "src", "workspace", "store", "HouseholdPanel.tsx"), "utf8");
     expect(panel).toContain("data-make-sample-notes>{SAMPLE_NOTES_TEXT}");
-    expect(panel).toContain("メモと面談の履歴は写しません");
+    expect(COPY_SAMPLE_TITLE).toContain("メモと面談の履歴は複製しません");
+    expect(panel).toContain("title={COPY_SAMPLE_TITLE} data-copy-sample");
     const app = readFileSync(join(REPO_DIR, "app", "src", "workspace", "App.tsx"), "utf8");
     expect(app).toMatch(/const strip = await stripNotesForSample\(id\);\s*if \(strip !== null\) return strip;\s*const err = await numberOp\(id, \(\) => host\.store\.makeSample/);
     expect(app).toContain("const stripped = dropNotesOnPersist({ toSample: sample !== undefined, stored: storedRef.current !== null, appSample: o0.demo !== null }, o0.wh);");
