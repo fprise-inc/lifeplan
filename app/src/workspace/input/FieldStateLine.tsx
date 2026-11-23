@@ -24,7 +24,20 @@ export function FieldStateBadge({ f, wh }: { f: FieldDef | undefined; wh: Workin
 }
 
 /**
- * 4つの操作・プランの印（欄の下に置く）。根拠は状態の印（FieldStateBadge）を押すと開く（0077。前は欄の下に1行で出していた）。
+ * 推定の値をそのまま入れる「この値にする」（値の状態の操作の確定と同じ。欄の部品と同じボタン。0041 の追記）。
+ * 置き場所は欄の部品と同じく、欄の外の単位（万円・%・歳など）のさらに右（0254。前は欄の下の操作の行の頭に置いていた）。
+ * 押しても何も変わらない欄（推定の値を書く所が無い欄）・操作を渡さない画面では出さない
+ */
+export function FieldFill({ f, wh, onEdit }: { f: FieldDef | undefined; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+  const stateOps = useContext(FieldStateOps);
+  if (f === undefined || stateOps === null) return null;
+  const s = fieldStatus(f, wh);
+  if (!availableOps(f, wh, s).includes("confirm") || stateOps(wh, f, "confirm") === wh) return null;
+  return <FillButton label={f.label} status={s.status} onFill={() => onEdit(stateOps(wh, f, "confirm"))} />;
+}
+
+/**
+ * 4つの操作・プランの印（欄の下に置く）。「この値にする」は欄の横（FieldFill）。根拠は状態の印（FieldStateBadge）を押すと開く（0077。前は欄の下に1行で出していた）。
  * noBasis は前の形の名残（根拠を専用の部品が別に出しているとき）。compact は表の中（並びを詰める）。
  * ほかの操作は、その欄で意味のある物だけを直接押せるリンクで並べる（欄の部品と同じ StateOpLinks。0041 の 2026-10-29 の追記。前は表の中では「…」の後ろにたたんでいた）
  */
@@ -34,7 +47,7 @@ export function FieldStateLine({ f, wh, onEdit, compact }: { f: FieldDef | undef
   if (f === undefined) return null;
   const s = stateOps !== null ? fieldStatus(f, wh) : null;
   // 押しても何も変わらない操作は出さない（推定の値を書く所が無い欄の「確定」など）
-  const ops = stateOps !== null && s !== null ? availableOps(f, wh, s).filter((o) => o !== "confirm" || stateOps(wh, f, o) !== wh) : [];
+  const ops = stateOps !== null && s !== null ? availableOps(f, wh, s).filter((o) => o !== "confirm") : [];
   const mark = marks?.field(f, wh) ?? null;
   const run = (op: StateOp) => {
     if (stateOps === null) return;
@@ -55,8 +68,7 @@ export function FieldStateLine({ f, wh, onEdit, compact }: { f: FieldDef | undef
           ) : null}
         </div>
       ) : null}
-      {/* 推定の値をそのまま入れる（値の状態の操作の確定と同じ。欄の部品と同じボタン。0041 の追記）は、ほかの操作のリンクの前 */}
-      <StateOpLinks f={f} ops={ops} run={run} lead={ops.includes("confirm") && s !== null ? <FillButton label={f.label} status={s.status} onFill={() => run("confirm")} /> : null} />
+      <StateOpLinks f={f} ops={ops} run={run} />
     </div>
   );
 }
