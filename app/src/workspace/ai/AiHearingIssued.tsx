@@ -213,9 +213,9 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
             </>
           ) : null}
         </div>
-        {/* 取り消すの確かめ（「発行した URL」の確かめと同じ形・同じ言葉。元のボタンと別の段に出す） */}
+        {/* URL の取り消しの確認（「発行した URL」の取り消しの確認と同じ形・同じ言葉。元のボタンと別の段に出す） */}
         {asking === id && r !== undefined && live && p.web !== null ? (
-          <div class="wr-ask" role="alertdialog" aria-label="取り消しの確かめ" data-ai-hearing-cancel-ask>
+          <div class="wr-ask" role="alertdialog" aria-label="URL の取り消しの確認" data-ai-hearing-cancel-ask>
             <span>{CANCEL_ASK_TEXT}</span>
             <span class="wr-ask-acts">
               <button
