@@ -146,6 +146,8 @@ async fn with_ai<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<StoreState>();
         let ai = app.state::<AiState>();
+        // 世帯を開く前に、この PC の ID を共有の台帳に入れる（ほかの PC の共有の記録を閉じないため。0248 の追記）
+        ai.registry().set_device(state.store.pc_id());
         f(&state.store, &ai)
     })
     .await

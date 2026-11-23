@@ -164,6 +164,9 @@ pub struct ShareRegistry {
     office_hearing: Mutex<Option<OfficeHearingSource>>,
     error_log: Mutex<Option<ErrorLogSource>>,
     categories: Mutex<Option<OfficeCategoriesSource>>,
+    /// この PC の ID（アプリ本体が入れる）と、この起動の乱数。記録に残し、ほかの PC の共有を閉じないために使う（0248 の追記）
+    device: Mutex<Option<String>>,
+    launch: String,
 }
 
 /// 事務所の区分の名前（記号 → 名前の物。例 `{"A": "顧問契約"}`。区分を使っていなければ空の物）を読む所。アプリ本体が入れる（0248）。
@@ -216,6 +219,8 @@ impl ShareRegistry {
             office_hearing: Mutex::new(None),
             error_log: Mutex::new(None),
             categories: Mutex::new(None),
+            device: Mutex::new(None),
+            launch: ai_ipc::random_hex(16),
         }
     }
 
@@ -275,6 +280,11 @@ impl ShareRegistry {
             .office_hearing
             .lock()
             .unwrap_or_else(|p| p.into_inner()) = source;
+    }
+
+    /// この PC の ID を入れる（アプリ本体が保存の部品から読んで入れる。0248 の追記）
+    pub fn set_device(&self, device: Option<String>) {
+        *self.device.lock().unwrap_or_else(|p| p.into_inner()) = device;
     }
 
     /// 事務所の区分の名前を読む所を入れる（アプリ本体が起動したときに入れる。0248）。入れなければ、要約の区分は記号だけ
@@ -357,6 +367,12 @@ impl ShareRegistry {
             },
             reads: Vec::new(),
             proposals: Vec::new(),
+            device: self
+                .device
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .clone(),
+            launch: Some(self.launch.clone()),
         };
         st.revision += 1;
         let log = st.logs.entry(source.household_id.clone()).or_default();
@@ -538,6 +554,11 @@ impl ShareRegistry {
     /// 戻り値の記録は、世帯ファイルの記録の追記だけ（`verify_append_only` が通る）
     pub fn load_records(&self, household_id: &str, file: Vec<AiShareRecord>) {
         let now = iso8601(self.now());
+        let device = self
+            .device
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
         let mut st = self.lock();
         let local = st.logs.remove(household_id).unwrap_or_default();
         let mut merged = file;
@@ -557,7 +578,18 @@ impl ShareRegistry {
             if st.shares.contains_key(&r.share_id) {
                 continue;
             }
-            let at = if r.expires_at.as_str() < now.as_str() {
+            let expired = r.expires_at.as_str() < now.as_str();
+            // ほかの PC がいま渡している共有（PC の ID が違う）は、期限内なら閉じない（その PC が記録を足し、閉じる。0248 の追記）。
+            // 期限の過ぎた物は期限切れで閉じる。この PC の前の起動の共有・PC の ID の無い前の版の記録は、今までどおり「アプリの終了」で閉じる
+            let foreign = matches!((&r.device, &device), (Some(d), Some(me)) if d != me);
+            if foreign {
+                if expired {
+                    let at = r.expires_at.clone();
+                    r.end(at, EndReason::Expired);
+                }
+                continue;
+            }
+            let at = if expired {
                 r.expires_at.clone()
             } else {
                 now.clone()
