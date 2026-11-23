@@ -1,10 +1,10 @@
-// 推定の値を1回の操作で欄に入れる（0041 の追記 2026-10-27）: 推定の欄にだけ「この値にする」を出す（数の欄は欄の中、ほかは欄の横）。
+// 推定の値を1回の操作で欄に入れる（0041 の追記 2026-10-27）: 推定の欄にだけ「この値にする」を出す（いつも欄の外で、単位のさらに右。0254）。
 // 押すと「この値にする」と同じ操作（値はそのまま・推定の根拠を残した確定）。プランを直しているときは差分になる。
 // 確定の欄・未入力の欄には出さない。パネルの上の「推定の値をまとめて使う」は、見えている推定の欄の数と同じ
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { Field, FieldStateOps, fillInside } from "../src/workspace/input/FieldViews.tsx";
+import { Field, FieldStateOps } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { householdSize, isPureSplit, LIVING_CATEGORY_ORDER, withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
@@ -33,12 +33,14 @@ const panel = (wh: WorkingHousehold, card: string, level: "simple" | "detail" = 
 const count = (html: string, s: string) => html.split(s).length - 1;
 
 describe("推定の欄の「この値にする」", () => {
-  it("数の欄は、灰色の推定の値と同じ欄の中に置く（欄の下の「この値にする」の行は無い）", () => {
+  it("数の欄も、欄の外の単位（万円・月額）のさらに右に置く（欄の中には入れない。欄の下の「この値にする」の行は無い。0254）", () => {
     const wh = blankHousehold(BASE, ids());
     const f = fieldOf(wh, "living", "/monthly");
     expect(fieldStatus(f, wh).status).toBe("estimated");
     const html = fieldHtml(wh, f);
-    expect(html).toMatch(/<span class="fld-box"><input [^>]*class="num has-fill"[^>]*\/><button type="button" class="fld-fill inside"[^>]*data-op="confirm" data-fill-estimate="true">この値にする<\/button><\/span>/);
+    expect(html).toMatch(/<input [^>]*class="num"[^>]*\/><span class="units">.*?万円.*?月額.*?<\/span><button type="button" class="fld-fill"[^>]*data-op="confirm" data-fill-estimate="true">この値にする<\/button>/);
+    expect(html).not.toContain("fld-box");
+    expect(html).not.toContain(" inside");
     expect(html).toContain('aria-label="基本生活費（月額）: 推定の値をこの欄にそのまま入れます（確定になります）"');
     expect(count(html, "この値にする")).toBe(1);
     // ほかの操作は欄の下に、意味のある物だけを直接押せるリンクで（基本生活費は「わからない」も出さない。0100。開く形の「わからない・該当なしなど」は無い）
@@ -86,17 +88,7 @@ describe("推定の欄の「この値にする」", () => {
     expect(renderToString(h(Field, { f, wh, onEdit: noop }))).not.toContain("data-fill-estimate");
   });
 
-  it("値の文字がボタンと重なる長さなら欄の横に出す", () => {
-    expect(fillInside("num", "14")).toBe(true);
-    expect(fillInside("num", "123.4")).toBe(true);
-    expect(fillInside("num", "1,234")).toBe(true);
-    expect(fillInside("num", "26.4456")).toBe(false);
-    // 「この値にする」の分（欄の左の 5.4em）を空けると、値に使えるのは 3.6em まで
-    expect(fillInside("num", "715.9")).toBe(true);
-    expect(fillInside("num", "12,345")).toBe(false);
-    expect(fillInside("num", "12,345,678")).toBe(false);
-    expect(fillInside("num", "")).toBe(false);
-    expect(fillInside("ym", "1986-04")).toBe(false);
+  it("ボタンの言葉は「この値にする」", () => {
     expect(FILL_LABEL).toBe("この値にする");
   });
 
