@@ -748,6 +748,16 @@ function donorKindText(wh: WorkingHousehold, groupKey: string): string {
 const inheritanceGrandchild = (m: Member): boolean => m.kind === "grandchild" && m.outside !== undefined;
 const groupsOf = (g: GroupDef | null): GroupDef[] => (g !== null ? [g] : []);
 
+/**
+ * 区画「介護の費用」の並び（0257）: 介護を受ける人ごとに続けて並べる（人の順は、その人の介護が最初に出てくる順）。同じ人の段階どうしは世帯の中の並びのまま
+ * （「（1段階目）」「（2段階目）」の数え方〔labels.ts の careStageMark〕と同じ順）。「＋ 次の段階」で足した段階が、ほかの人の介護の後ろでなく、
+ * 押した人の介護のすぐ下に出る
+ */
+export function careByMember<T extends { member?: string }>(list: readonly T[]): T[] {
+  const order = [...new Set(list.map((c) => c.member))];
+  return order.flatMap((who) => list.filter((c) => c.member === who));
+}
+
 export function careStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const outside = outsideMembers(wh);
@@ -775,7 +785,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
       title: "介護の費用",
       note: note ?? "親・ご本人・配偶者の介護を、介護を受ける人ごとに入れます。在宅から施設に移るなどは「＋ 次の段階」で段階を並べます",
       level: "simple",
-      groups: (h.careExpenses ?? []).map((c) => careCostGroup(wh, c)),
+      groups: careByMember(h.careExpenses ?? []).map((c) => careCostGroup(wh, c)),
       actions: [
         ...(adults.length > 0
           ? [
