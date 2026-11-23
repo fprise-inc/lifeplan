@@ -2,6 +2,7 @@
 // - 相続・贈与の「あげる贈与」: 孫のまとまりのすぐ下に、その孫を相手にした行。相手が孫でない行（子・相手なし）は区画の上
 // - 介護・親の「介護の費用」: 介護を受ける人ごとに続けて並べる（「＋ 次の段階」がほかの人の介護の後ろに出ない）
 // - 住まい・ローンの住宅の購入: 「＋ ペアローン（配偶者の2本目）」の2本目が、1本目のすぐ後ろに出る（「住宅ローン」の区画に離れて出ない）
+// - 車: 「＋ この車の続き」は押した車のすぐ後ろ。手放した後の移動の費用・古くなってからの修理費の行は、その車の枠の中
 import { describe, expect, it } from "vitest";
 import { allFields, type FieldDef, type GroupDef, type SectionDef, type StageDef, type StageId } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -10,6 +11,7 @@ import { addMember } from "../src/workspace/input/stages/family.ts";
 import { addCareTemplate } from "../src/workspace/input/fill.ts";
 import { addOutside, careByMember } from "../src/workspace/input/stages/care.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
+import { addAfterCar, addRepair, carRowsByCar } from "../src/workspace/input/stages/cars.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -168,5 +170,88 @@ describe("住まい・ローンの住宅の購入: ペアローンの2本目は1
     // 見出しは「この家の住宅ローン 1」「この家の住宅ローン 2」
     const titles = section("housing", a, "housing/residences").groups.filter((g) => g.key === `housing/debt/${first.id}` || g.key === `housing/debt/${pair.id}`).map((g) => g.title ?? "");
     expect(titles.map((t) => t.replace(/（.*$/, ""))).toEqual(["この家の住宅ローン 1", "この家の住宅ローン 2"]);
+  });
+});
+
+describe("車: 「＋ この車の続き」は押した車のすぐ後ろ、車の出来事から始まる出るお金の行は、その車の枠の中（0257。利用者の判断）", () => {
+  const carsSection = (wh: WorkingHousehold) => section("car", wh, "ev/cars");
+  const heads = (wh: WorkingHousehold) => carsSection(wh).groups.filter((g) => /^ev\/car\/[^/]+$/.test(g.key)).map((g) => g.title ?? "");
+  const carIds = (wh: WorkingHousehold) => (wh.request.input.household.cars ?? []).map((c) => c.id);
+  /** その車の枠（見出しから次の車の見出しの前まで）のまとまりのキー */
+  const frameOf = (wh: WorkingHousehold, carId: string): string[] => {
+    const keys = carsSection(wh).groups.map((g) => g.key);
+    const at = keys.indexOf(`ev/car/${carId}`);
+    const next = keys.findIndex((k, i) => i > at && /^ev\/car\/[^/]+$/.test(k));
+    return keys.slice(at, next < 0 ? undefined : next);
+  };
+  const rowIds = (wh: WorkingHousehold) => (wh.request.input.household.periodicExpenses ?? []).filter((p) => p.kind === "car").map((p) => p.id);
+  const newRow = (before: WorkingHousehold, after: WorkingHousehold) => rowIds(after).find((id) => !rowIds(before).includes(id))!;
+  const moneyKeys = (wh: WorkingHousehold) => buildStage("car", wh).sections.find((s) => s.key === "money/car/out")?.groups.map((g) => g.key) ?? [];
+
+  it("ご本人の車1の続きは車1のすぐ後ろ（車 2）。配偶者の車は車 3 に繰り下がり、出来事の名前の番号も同じ。最後の車の続きはいちばん後ろ", () => {
+    const wh = fromRequest(structuredClone(modelHousehold("dualAssetsTwoKids")));
+    const [c1, c2] = carIds(wh);
+    expect(heads(wh)).toEqual(["車 1（ご本人・今の車）", "車 2（配偶者・今の車）"]);
+    const a = run("car", wh, `ev/car/${c1}/next`);
+    const added = carIds(a).find((id) => id !== c1 && id !== c2)!;
+    expect(carIds(a)).toEqual([c1, added, c2]);
+    expect(heads(a)).toEqual(["車 1（ご本人・今の車）", "車 2（ご本人・これから買う車）", "車 3（配偶者・今の車）"]);
+    // 続きの車の購入の時期は、車1を手放す出来事から（並びを変えても指す車は同じ）
+    const first = a.request.input.household.cars!.find((c) => c.id === added)!.purchase!.first;
+    expect(first.event).toBe(a.request.input.household.cars!.find((c) => c.id === c1)!.until!.event);
+    // 配偶者の車（いちばん後ろ）の続きは、いちばん後ろ
+    const b = run("car", a, `ev/car/${c2}/next`);
+    expect(carIds(b).slice(0, 3)).toEqual([c1, added, c2]);
+    expect(carIds(b)).toHaveLength(4);
+  });
+
+  it("「＋ 手放した後の移動の費用」の行は、その車の枠のいちばん下に出て、区画「出るお金」には出ない。区画の「＋」で足した行は今までどおり「出るお金」", () => {
+    const wh = fromRequest(structuredClone(modelHousehold("dualAssetsTwoKids")));
+    const st = buildStage("car", wh);
+    const a0 = st.sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((x) => x.key.endsWith("/afterCar"))!;
+    const carId = /^ev\/car\/([^/]+)\//.exec(a0.key)![1]!;
+    const a = a0.run(wh);
+    const r = newRow(wh, a);
+    const frame = frameOf(a, carId);
+    expect(frame.at(-1) === `ev/${r}` || frame.at(-1)!.startsWith(`ev/${r}/`)).toBe(true);
+    expect(frame).toContain(`ev/${r}`);
+    expect(moneyKeys(a).some((k) => k.startsWith(`ev/${r}`))).toBe(false);
+    // 押した「手放した後」のまとまり（ボタン）は消え、行がその場所に出る
+    expect(frame.some((k) => k.endsWith("/afterCar"))).toBe(false);
+    // 区画の「＋」の行（年月で入れる）は「出るお金」
+    const b = run("car", a, "money/car/out/add/car");
+    const r2 = newRow(a, b);
+    expect(moneyKeys(b)).toContain(`ev/${r2}`);
+    expect(carsSection(b).groups.some((g) => g.key.startsWith(`ev/${r2}`))).toBe(false);
+  });
+
+  it("「＋ 古くなってからの修理費」の行は、その車の「維持費」の後（「伸び方・万一のとき」の前）。続きの車の修理費は続きの車に、元の車の手放した後の行は元の車に", () => {
+    const w0 = fromRequest(structuredClone(modelHousehold("deferral")));
+    const w1 = run("car", w0, "ev/addCarNew");
+    const st = buildStage("car", w1);
+    const rep = st.sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((x) => x.key.endsWith("/repair"))!;
+    const carId = /^ev\/car\/([^/]+)\//.exec(rep.key)![1]!;
+    const a = rep.run(w1);
+    const r = newRow(w1, a);
+    const frame = frameOf(a, carId);
+    const at = frame.indexOf(`ev/${r}`);
+    expect(at).toBeGreaterThan(frame.findIndex((k) => k.endsWith("/band/upkeep")));
+    const fut = frame.findIndex((k) => k.endsWith("/band/future"));
+    if (fut >= 0) expect(at).toBeLessThan(fut);
+    expect(moneyKeys(a).some((k) => k.startsWith(`ev/${r}`))).toBe(false);
+    // 続きの車: 元の車を手放す出来事から始まる。続きの車の修理費は続きの車の枠、元の車の手放した後の行（同じ出来事の翌月）は元の車の枠
+    const wh = fromRequest(structuredClone(modelHousehold("dualAssetsTwoKids")));
+    const [c1] = carIds(wh);
+    const b = run("car", wh, `ev/car/${c1}/next`);
+    const next = carIds(b)[1]!;
+    const c = addRepair(b, next);
+    const rr = newRow(b, c);
+    const d = addAfterCar(c, c1!);
+    const ra = newRow(c, d);
+    const rows = carRowsByCar(d.request.input.household);
+    expect(rows.upkeep.get(next)!.map((p) => p.id)).toEqual([rr]);
+    expect(rows.after.get(c1!)!.map((p) => p.id)).toEqual([ra]);
+    expect(frameOf(d, next)).toContain(`ev/${rr}`);
+    expect(frameOf(d, c1!)).toContain(`ev/${ra}`);
   });
 });
