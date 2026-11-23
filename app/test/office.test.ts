@@ -372,8 +372,8 @@ describe("入力のパネルの「保存」の知らせ（保存を止めてい�
     expect(panelSaveBlock({ ...none, unsaved: true })).toBe("unsaved");
   });
   it("見本かどうかは、見本の帯の「動かしても見本は変わりません」と同じ条件（見本を開いていて、「この見本を直す」で直していない）", () => {
-    const app: ShelfItem = { kind: "app", id: "m", no: "3-4-01", name: "見本", traits: [] };
-    const own: ShelfItem = { kind: "own", id: "h", no: "3-4-10", name: "見本", traits: [] };
+    const app: ShelfItem = { kind: "app", id: "m", family: 3, age: 4, name: "見本", traits: [] };
+    const own: ShelfItem = { kind: "own", id: "h", family: 3, age: 4, name: "見本", traits: [] };
     expect(sampleNotSaving(app, null)).toBe(true);
     expect(sampleNotSaving(own, "view")).toBe(true);
     expect(sampleNotSaving(own, "edit")).toBe(false);
