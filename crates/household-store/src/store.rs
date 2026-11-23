@@ -1400,10 +1400,51 @@ impl Store {
             if !migration.migrated.is_empty() {
                 self.keep_office_before_migration()?;
             }
-            if rebuilt {
+            let written = if rebuilt {
                 self.write_office(&s)?;
+                true
             } else if !migration.migrated.is_empty() {
-                let _ = self.write_office(&s);
+                self.write_office(&s).is_ok()
+            } else {
+                false
+            };
+            // この版で初めて開いた前の版（0.3 より前）の事務所データでは、一覧が正しいと分かっている今のうちに、一覧の作り直しで見本と顧客が
+            // 入れ替わりうる世帯ファイルだけ meta を書き直す（0247 の8。世帯ファイルに触れない移行の例外。ふつうの保存と同じ差し替えで、
+            // 直前の世代は残る）: meta.sample の無い見本（前の版で作った・登録した見本）と、前の見本番号の形の顧客番号を持つ顧客。
+            // 書けなかった世帯は、次に保存したときに直る
+            // 事務所データを先に 0.3 で書いてから（書けたときだけ）世帯ファイルを書く。次の起動で同じ世帯を書き直し続けないように
+            let first_open = migrate::parse(&office_version).is_none_or(|v| v < (0, 3));
+            let targets: Vec<(String, String, Label)> = if first_open {
+                s.data
+                    .households
+                    .iter()
+                    .filter(|(id, e)| {
+                        migration.migrated.contains(id)
+                            || (!e.label.is_sample()
+                                && numbering::parse_sample_no(&e.customer_no).is_some())
+                    })
+                    .map(|(id, e)| (id.clone(), e.customer_no.clone(), e.label.clone()))
+                    .collect()
+            } else {
+                vec![]
+            };
+            if !targets.is_empty()
+                && (written
+                    || (self.keep_office_before_migration().is_ok()
+                        && self.write_office(&s).is_ok()))
+            {
+                let now = self.now();
+                for (id, no, label) in targets {
+                    // 0.87 からのファイルは、この版が一覧の欄から meta を書いているので触れない
+                    let old_file = fs::read(self.household_path(&id))
+                        .ok()
+                        .and_then(|b| container::read_household_header(&b).ok())
+                        .and_then(|h| migrate::parse(&h.format_version))
+                        .is_some_and(|v| v < (0, 87));
+                    if old_file {
+                        let _ = self.write_meta_of(&s, &id, &no, &label, FailPoint::None, now);
+                    }
+                }
             }
         }
         g.sample_renames = migration.renamed;

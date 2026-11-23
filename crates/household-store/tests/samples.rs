@@ -929,3 +929,71 @@ fn a_household_file_with_meta_sample_opens_as_a_sample() {
     assert_eq!(meta["sample"]["name"], "登録した見本");
     assert!(meta.get("customerNo").is_none());
 }
+
+/// 点検の3（(a) の直し方）: 前の版で「見本に登録」した見本（世帯ファイルの meta.customerNo は登録前の顧客番号のまま）と、前の見本番号の形の
+/// 顧客番号を持つ顧客（0.86）は、新しい版で初めて開いたとき（一覧が正しいと分かっている時）に世帯ファイルの meta を書き直す。
+/// その後に事務所データが無くなって一覧を作り直しても、見本は見本・顧客は顧客のまま。0.87 からのファイルには触れない
+#[test]
+fn first_open_rewrites_meta_of_files_that_would_swap_on_rebuild() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let registered = s.create(req()).unwrap();
+    let customer = s.create(req()).unwrap();
+    let numbered = make(&s, sample(3, 4, "研修用"));
+    let fresh = make(&s, sample(2, 3, "新しい版の見本"));
+    let fresh_digest = file_digest(&s, &fresh.id);
+    for (id, no) in [
+        (&registered.id, registered.customer_no.as_str()),
+        (&customer.id, "3-4-12"),
+        (&numbered.id, "3-4-10"),
+    ] {
+        let mut b: Value = serde_json::from_str(&body()).unwrap();
+        b["meta"] = json!({"format": "lifeplan.household", "formatVersion": "0.86", "customerNo": no, "savedAt": "2026-10-01T00:00:00Z"});
+        s.write_raw_for_test(id, "0.86", &b.to_string(), 3).unwrap();
+    }
+    let mut office = s.office_json_for_test().unwrap();
+    let hh = office["households"].as_object_mut().unwrap();
+    hh[&registered.id]["sample"] = json!({"name": "登録した見本", "traits": []});
+    to_legacy_entry(&mut hh[&registered.id], "1-3-10");
+    hh[&customer.id]["customerNo"] = "3-4-12".into();
+    hh[&customer.id].as_object_mut().unwrap().remove("serial");
+    to_legacy_entry(&mut hh[&numbered.id], "3-4-10");
+    s.write_office_json_for_test(&office, "0.2").unwrap();
+    // 新しい版で初めて開く
+    let s = env.store("pc");
+    s.status().unwrap();
+    let meta = |id: &str| s.raw_body_for_test(id).unwrap()["meta"].clone();
+    assert_eq!(meta(&registered.id)["sample"]["name"], "登録した見本");
+    assert!(meta(&registered.id).get("customerNo").is_none());
+    assert_eq!(meta(&customer.id)["customerNo"], "3-4-12");
+    assert_eq!(meta(&customer.id)["formatVersion"], migrate::CURRENT);
+    assert_eq!(meta(&numbered.id)["sample"]["name"], "研修用");
+    assert_eq!(
+        file_digest(&s, &fresh.id),
+        fresh_digest,
+        "0.87 のファイルには触れない"
+    );
+    // もう一度開いても書き直さない
+    let d = file_digest(&s, &customer.id);
+    let s = env.store("pc");
+    s.status().unwrap();
+    assert_eq!(file_digest(&s, &customer.id), d);
+    // 事務所データが無くなって一覧を作り直す
+    let mut office = s.office_json_for_test().unwrap();
+    office["households"] = json!({});
+    s.write_office_json_for_test(&office, household_store::OFFICE_FORMAT_VERSION)
+        .unwrap();
+    let s = env.store("pc");
+    s.status().unwrap();
+    assert_eq!(
+        customer_ids(&s),
+        std::slice::from_ref(&customer.id),
+        "顧客は顧客のまま"
+    );
+    assert_eq!(s.list().unwrap()[0].customer_no, "3-4-12");
+    let got = shelf(&s);
+    assert_eq!(got[&registered.id].0, "登録した見本");
+    assert_eq!(got[&numbered.id].0, "研修用");
+    assert_eq!(got[&fresh.id].0, "新しい版の見本");
+}
