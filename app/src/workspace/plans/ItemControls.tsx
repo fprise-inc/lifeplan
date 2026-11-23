@@ -9,6 +9,7 @@ import { normalizeNumberText, shiftDecimal } from "../input/units.ts";
 import { BUCKETS, bucketShares, mixFromBuckets, type MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
 import { ageSliderBounds, AMOUNT_STEP, type Catalog, type ItemValue, type MovableItem, type RateShift, type WorkValue } from "./items.ts";
+import { keptText } from "../input/estimateFocus.ts";
 
 // ---- 金額の数値の欄（スライダーの横。万円で直接入れる。1万円単位に丸める）----
 
@@ -32,12 +33,12 @@ export function AmountInput({ value, onCommit, label, per, id }: { value: number
   const [rejected, setRejected] = useState<string | null>(null);
   const shown = manInputText(value);
   const bad = draft !== null && parseManInput(draft) === null;
-  const reason = (t: string) => (/^-/.test(normalizeNumberText(t)) ? "マイナスの額は入れられません" : "0 以上の数字（万円）で入れてください");
+  const reason = (t: string) => (normalizeNumberText(t) === "" ? "空にはできません。値を入れてください" : /^-/.test(normalizeNumberText(t)) ? "マイナスの額は入れられません" : "0 以上の数字（万円）で入れてください");
   const problem = bad ? reason(draft) : rejected;
   const commit = (t: string) => {
     const v = parseManInput(t);
     setDraft(null);
-    if (v === null) setRejected(`「${t}」は入れられないため、前の値のままです。${reason(t)}`);
+    if (v === null) setRejected(keptText(t, reason(t)));
     if (v !== null && v !== value) onCommit(v);
   };
   return (

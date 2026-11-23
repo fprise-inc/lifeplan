@@ -32,6 +32,11 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-acc th, .sv-cls th { font-size: 0.82rem; color: var(--ink-2); background: var(--wash, #f6f7f8); }
 .sv-acc .l, .sv-cls .l { text-align: left; }
 .sv-acc td.l:first-child { white-space: normal; min-width: 12em; max-width: 17em; }
+/* 列の区切り（0255）: 列の間に細い縦線を引き、見出しを列の入力の左端にそろえる（残高・毎月の積立は左寄せ、利回りは数字と同じ右寄せ） */
+.sv-acc th + th, .sv-acc th + td, .sv-acc td + td { border-left: 1px solid var(--line-2); }
+.sv-acc th, .sv-acc td { padding-left: 10px; padding-right: 10px; }
+/* 毎月の積立の列は狭い幅で折り返してよい。ただし「45〜59歳（…）」と「月 [1] 万円」はそれぞれひとかたまり（途中で切らない） */
+.sv-acc td.sv-mon { white-space: normal; }
 .sv-acc tfoot th, .sv-acc tfoot td, .sv-cls tfoot th, .sv-cls tfoot td { font-weight: 700; background: var(--wash, #f6f7f8); color: var(--ink); }
 .sv-acc .nm, .sv-cls .nm { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
 .sv-acc .sw, .sv-cls .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex: none; }
@@ -61,9 +66,10 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-n.bad { border-color: var(--short); background: var(--short-bg); }
 .sv-n:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
 .sv-steps { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
-.sv-st { display: flex; align-items: center; gap: 4px; }
+.sv-st { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.sv-st-age, .sv-st-amt { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .sv-st.past { opacity: 0.55; }
-.sv-st-from { display: inline-block; width: 3.2em; text-align: right; font-weight: 700; }
+.sv-st-from { display: inline-block; font-weight: 700; }
 .sv-st-to { min-width: 4.6em; font-weight: 700; }
 .sv-st-del { border: 0; background: none; font-size: 1rem; cursor: pointer; color: var(--ink-2); padding: 2px 6px; }
 .sv-st-add { border: 0; background: none; color: var(--prop); font-weight: 700; font-size: 0.82rem; cursor: pointer; padding: 2px 0; text-decoration: underline; text-underline-offset: 2px; }
