@@ -2,7 +2,7 @@
 //! 計算ごとに新しい実行環境）で、quickjs-ng の正の計算の時間を測る。
 //! 使い方: engine-bench --engine dist/engine.js --packs packs.json --requests requests.json [--protection protection.json] [--inheritance inheritance.json] [--repeat N] [--threads T]
 //! requests.json は要求の JSON の配列（5案×4想定の20件。案ごとに4件）。protection.json は必要保障額の推移（夫婦2人。0005 の追記 2026-10-09）を
-//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。inheritance.json は相続税も試算する世帯の一次と二次の推移（0250）を
+//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。inheritance.json は相続税も試算する世帯の一次と二次の推移（0251）を
 //! 求める要求1件（あれば inheritance として同じく測る）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す。
 //! --repeat 0 は、バイトコードへの変換・パックの確かめ・温めの1件だけを流す（CI で命令の数を数えるとき。0005 の追記 2026-10-28）。
 //! --time-limit 秒 は1件の計算の時間の上限を置き換える（valgrind の下では10倍以上遅く、製品の上限 10秒に届くため）

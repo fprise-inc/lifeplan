@@ -681,7 +681,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                     ) : null}
                   </div>
                 ) : null}
-                {/* 相続・贈与: 相続税も試算する夫婦の世帯は、目安の下に一次と二次の推移と分け方の比較（読むだけ。0250） */}
+                {/* 相続・贈与: 相続税も試算する夫婦の世帯は、目安の下に一次と二次の推移と分け方の比較（読むだけ。0251） */}
                 {itemId === "inheritance" ? <InheritanceTimeline wh={shown} result={inheritance} /> : null}
                 {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}

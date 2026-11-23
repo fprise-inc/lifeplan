@@ -435,7 +435,7 @@
           }
         },
         "division": {
-          "description": "遺産の分け方（0250。detailed のときだけ読む。省略は法定相続分どおり）。割合は遺産の評価額（小規模宅地等の特例の前。債務・葬式の費用を引いた後）のうち。土地は取得する人（lands の primary・secondary）の分に入れ、特例で減った額もその人の取得から引く。取得する土地の評価が割合の分より大きい人は、その人の分を土地の評価まで増やし、ほかの人の分を割合の比で減らす",
+          "description": "遺産の分け方（0251。detailed のときだけ読む。省略は法定相続分どおり）。割合は遺産の評価額（小規模宅地等の特例の前。債務・葬式の費用を引いた後）のうち。土地は取得する人（lands の primary・secondary）の分に入れ、特例で減った額もその人の取得から引く。取得する土地の評価が割合の分より大きい人は、その人の分を土地の評価まで増やし、ほかの人の分を割合の比で減らす",
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -453,7 +453,7 @@
           }
         },
         "timeline": {
-          "description": "一次と二次の相続税の推移を求める（0250。detailed のときだけ。世帯には保存しない。画面が目安を求める要求に入れる）。先に亡くなる人（lastSurvivor でない人）がその年に亡くなったら、の一次と、後に亡くなる人が表の最後の年の12月に亡くなる二次",
+          "description": "一次と二次の相続税の推移を求める（0251。detailed のときだけ。世帯には保存しない。画面が目安を求める要求に入れる）。先に亡くなる人（lastSurvivor でない人）がその年に亡くなったら、の一次と、後に亡くなる人が表の最後の年の12月に亡くなる二次",
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -951,7 +951,7 @@
       "properties": {
         "acquirer": { "enum": ["spouse", "cohabiting", "noHome", "successor", "other"] },
         "met": { "description": "取得する人が要件（居住・保有・事業の継続、役員であることなど）を満たす。配偶者が自宅を取得するときは読まない（要件なし）", "type": "boolean" },
-        "member": { "description": "取得する人（配偶者のほかの相続人。0250）。分け方で、この土地の評価と特例で減った額をこの人の取得に寄せる。省略は配偶者のほかの相続人で分け方の割合どおり（acquirer が spouse のときは読まない）", "$ref": "urn:financia:schema:common#/$defs/uuid" }
+        "member": { "description": "取得する人（配偶者のほかの相続人。0251）。分け方で、この土地の評価と特例で減った額をこの人の取得に寄せる。省略は配偶者のほかの相続人で分け方の割合どおり（acquirer が spouse のときは読まない）", "$ref": "urn:financia:schema:common#/$defs/uuid" }
       }
     },
     "assetClass": {

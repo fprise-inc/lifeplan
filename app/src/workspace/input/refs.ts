@@ -192,13 +192,13 @@ export function refSites(input: Obj): RefSite[] {
     const homes = new Set(list(h, "residences").map((r) => r.id));
     for (const x of list(it, "lands")) {
       at("inheritanceTax.lands", x.object, homes.has(x.object) ? "residence" : "account", null, dropRow(it, "lands", x));
-      // 土地を取得する人（0250）: 外した人なら、取得する人の種類（同居の親族など）は残して人だけ消す（配偶者のほかの相続人で割合どおりに戻る）
+      // 土地を取得する人（0251）: 外した人なら、取得する人の種類（同居の親族など）は残して人だけ消す（配偶者のほかの相続人で割合どおりに戻る）
       for (const round of ["primary", "secondary"]) {
         const c = isObj(x[round]) ? x[round] : null;
         if (c !== null) at(`inheritanceTax.lands.${round}.member`, c.member, "donor", null, clear(c, "member"));
       }
     }
-    // 遺産の分け方（0250）: 外した人の割合の行を消す（残りの人で割合を分け直す）
+    // 遺産の分け方（0251）: 外した人の割合の行を消す（残りの人で割合を分け直す）
     const dv = isObj(it.division) ? it.division : null;
     if (dv !== null)
       for (const x of list(dv, "shares"))

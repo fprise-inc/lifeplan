@@ -4,7 +4,7 @@
 //   （測り方は scripts/bench-js.js。Node と Bun で同じ手順）
 // - 本体（quickjs-ng。engine-bench）: バイトコードから読み込み、計算ごとに新しい実行環境で、1案×4想定・5案×4想定の正の計算と、
 //   必要保障額の推移（夫婦2人。protection。0005 の追記 2026-10-09 の目安: Apple シリコンで3秒以内）と、相続税も試算する世帯の一次と二次の推移
-//   （inheritance。0250。同じ目安）
+//   （inheritance。0251。同じ目安）
 // 時間のほかに、揺れない物差しを2つ記録する（0005 の追記 2026-10-28）:
 // - 部品の呼び出しの回数（scripts/bench-count.js。決まった値で、OS によらない）
 // - 実行した命令の数（百万）。macOS の /usr/bin/time -l が数えられる所（作業の Mac）では V8 の手順（scripts/bench-js の形を
@@ -53,7 +53,7 @@ const protection = protectionRequest();
 const protectionPath = join(outDir, "protection.json");
 writeFileSync(protectionPath, JSON.stringify(protection));
 (data as Record<string, unknown>).protection = protection;
-// 相続税も試算する世帯の一次と二次の推移（0250）
+// 相続税も試算する世帯の一次と二次の推移（0251）
 const inheritance = inheritanceRequest();
 const inheritancePath = join(outDir, "inheritance.json");
 writeFileSync(inheritancePath, JSON.stringify(inheritance));

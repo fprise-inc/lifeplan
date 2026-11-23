@@ -1,4 +1,4 @@
-# 0250. 相続税の試算の次の回: 遺産の分け方、特例の減額を土地を取得する人に寄せる、一次と二次の相続税の推移、二次の取得する人の選び直しと、世帯ファイルの形式 0.88
+# 0251. 相続税の試算の次の回: 遺産の分け方、特例の減額を土地を取得する人に寄せる、一次と二次の相続税の推移、二次の取得する人の選び直しと、世帯ファイルの形式 0.88
 
 - 状態: 採用（一部未確定）（2026-11-23）
 - 固定の強さ: β公開から変えない（骨格）。要求と世帯の設定の欄（`input.inheritanceTax.division`〔`spouseShare`・`shares[]`〕・`lands[].primary.member`・`lands[].secondary.member`、要求だけの `timeline`〔`alternatives`・`step`〕の名前と意味）、出力の任意の欄（`timeline`・`points[].division`・`points[].successiveCredit`・`byHeir[].landReduction`・`byHeir[].successiveCredit`・`lands[].special.member`。約束の版 1.3）、形式 0.88 は骨格。既定（法定相続分どおり・先に亡くなる人は年上の人・二次の時点は表の最後の年の12月・比較する分け方の4通り・一次で取得したお金は二次まで増減しない）、画面の並び・言葉・表の間引きは後から変えてよい（変えたら追記に書く）

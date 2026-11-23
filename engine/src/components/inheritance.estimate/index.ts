@@ -114,7 +114,7 @@ interface Request {
 }
 
 /**
- * 遺産の分け方（0250。相続税も試算する世帯だけ）。割合は遺産の評価額（小規模宅地等の特例の前。債務・葬式の費用を引いた後）のうち。
+ * 遺産の分け方（0251。相続税も試算する世帯だけ）。割合は遺産の評価額（小規模宅地等の特例の前。債務・葬式の費用を引いた後）のうち。
  * spouseShare は一次の相続（配偶者がいる人の相続）で配偶者が取得する割合（省略は法定相続分）。shares は配偶者のほかの相続人の分け方
  * （配偶者の分を除いた残りのうちの割合。入れていない人は、残りを法定相続分の比で分ける）
  */
@@ -122,7 +122,7 @@ interface Division {
   readonly spouseShare?: string;
   readonly shares?: readonly { readonly member: string; readonly share: string }[];
 }
-/** 一次と二次の推移（0250）: 比較する分け方（key と配偶者の割合。spouseShare の省略は法定相続分）と、年の間引き（step 年ごと） */
+/** 一次と二次の推移（0251）: 比較する分け方（key と配偶者の割合。spouseShare の省略は法定相続分）と、年の間引き（step 年ごと） */
 interface TimelineRequest {
   readonly alternatives?: readonly { readonly key: string; readonly spouseShare?: string }[];
   readonly step?: number;
@@ -132,7 +132,7 @@ type Acquirer = "spouse" | "cohabiting" | "noHome" | "successor" | "other";
 interface Choice {
   readonly acquirer: Acquirer;
   readonly met?: boolean;
-  /** 取得する人（0250。配偶者のほかの相続人。省略は配偶者のほかの相続人で分け方の割合どおりに分ける） */
+  /** 取得する人（0251。配偶者のほかの相続人。省略は配偶者のほかの相続人で分け方の割合どおりに分ける） */
   readonly member?: string;
 }
 type Use = "residence" | "rental" | "business" | "familyCompany" | "none";
@@ -210,7 +210,7 @@ export const NOT_INCLUDED: readonly string[] = [
 
 /**
  * 相続税も試算する世帯（detailed）で含めていない決まり（0231。土地の評価・小規模宅地等の特例・2割加算・未成年者控除を外し、補正の細部を足す。
- * 0250 で一次と二次の分け方の比較を外した〔分け方と推移〕）
+ * 0251 で一次と二次の分け方の比較を外した〔分け方と推移〕）
  */
 export const NOT_INCLUDED_DETAILED: readonly string[] = [
   "landCorrectionDetail",
@@ -332,7 +332,7 @@ type PointResult = {
     refund: Yen;
     surcharge?: Yen;
     minorCredit?: Yen;
-    /** 0250: 取得した土地の小規模宅地等の特例で減った額（相続税も試算する世帯で、特例の減額を取得する人に寄せたとき） */
+    /** 0251: 取得した土地の小規模宅地等の特例で減った額（相続税も試算する世帯で、特例の減額を取得する人に寄せたとき） */
     landReduction?: Yen;
     successiveCredit?: Yen;
   }[];
@@ -341,9 +341,9 @@ type PointResult = {
   minorCredit?: Yen;
   /** 0231: 不動産ごとの評価と小規模宅地等の特例（相続税も試算する世帯だけ） */
   lands?: LandResult[];
-  /** 0250: 相次相続控除の合計（一次と二次の推移の二次だけ） */
+  /** 0251: 相次相続控除の合計（一次と二次の推移の二次だけ） */
   successiveCredit?: Yen;
-  /** 0250: 分け方（相続税も試算する世帯だけ）。配偶者が取得した割合（評価額のうち）と、取得する土地の評価に合わせて割合を直したか */
+  /** 0251: 分け方（相続税も試算する世帯だけ）。配偶者が取得した割合（評価額のうち）と、取得する土地の評価に合わせて割合を直したか */
   division?: { entered: boolean; spouseShare?: string; adjusted?: true };
   payable: Yen;
   payableHousehold: Yen;
@@ -356,7 +356,7 @@ type PointResult = {
   cautions: string[];
 };
 
-/** 一次と二次の推移の1年（0250） */
+/** 一次と二次の推移の1年（0251） */
 type TimelineRow = {
   year: number;
   month: string;
@@ -581,7 +581,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     // 年末の残高の行（plan.cashflow）
     const cashflow = ctx.call<{ annual: readonly AnnualRow[]; flows: readonly Flow[] }>("plan.cashflow", {});
     const annual = cashflow.annual;
-    // 年末の残高の行を年ごとに1回だけ分けておく（一次と二次の推移で年ごとに読むため。0250）
+    // 年末の残高の行を年ごとに1回だけ分けておく（一次と二次の推移で年ごとに読むため。0251）
     const balanceByYear = new Map<number, AnnualRow[]>();
     for (const a of annual) {
       if (!a.row.startsWith("cf.balance.")) continue;
@@ -969,7 +969,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     /**
      * 時点の計算の1件。kind: now（いま亡くなったら）・bothAfter（二人とも亡くなった後）・contingency（万一の想定）は出力の時点。
      * primaryAt（一次と二次の推移の、計算基準年より後の年の12月に先に亡くなる）・secondaryAt（その推移の二次。後に亡くなる人が表の最後の年の12月に亡くなる。
-     * 一次で取得した土地の分を inherit で足す）は推移だけ（0250）
+     * 一次で取得した土地の分を inherit で足す）は推移だけ（0251）
      */
     type Job = {
       point: Point;
@@ -1098,7 +1098,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         return ctx.rate.compare(sum, ctx.rate.of("0")) === 0 ? null : ctx.rate.toString(sum);
       };
       const residenceShare = (object: string | undefined) => residenceShareFor(object, owners);
-      /** 二次（推移）: 先に亡くなった人の名義の不動産のうち、一次で後に亡くなる人が取得した分を足す（0250） */
+      /** 二次（推移）: 先に亡くなった人の名義の不動産のうち、一次で後に亡くなる人が取得した分を足す（0251） */
       const withInherited = (object: string | undefined, member: string | null | undefined, own: string | null): string | null => {
         const inh = job.inherit;
         const f = inh === undefined || object === undefined ? undefined : inh.fraction.get(object);
@@ -1355,7 +1355,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     };
 
     /**
-     * 分け方（0250）: 相続人ごとの、財産の評価額（特例の前。債務を引く前）のうち取得する分 P と、その人が取得する土地の評価 L・特例で減った額 R。
+     * 分け方（0251）: 相続人ごとの、財産の評価額（特例の前。債務を引く前）のうち取得する分 P と、その人が取得する土地の評価 L・特例で減った額 R。
      * 割合は spouseShare（配偶者）と shares（配偶者のほかの相続人の残りの分け方。入れていない人は残りを法定相続分の比で）。土地は取得する人
      * （一次は primary、二次は secondary。配偶者・選んだ人・配偶者のほかの相続人で割合どおり。選んでいない土地は全員で割合どおり）に寄せる。
      * 取得する土地の評価が割合の分より大きい人は、その人の分を土地の評価まで増やし、ほかの人の分を割合の比で減らす（adjusted）。
@@ -1493,7 +1493,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         }
       }
       const totalTax = at.money.round(yen(total), P.totalRound);
-      // 分け方（0250）: 相続税も試算する世帯で、分け方を入れたか、特例の減額を取得する人に寄せるとき。ほかは法定相続分どおり（今まで）
+      // 分け方（0251）: 相続税も試算する世帯で、分け方を入れたか、特例の減額を取得する人に寄せるとき。ほかは法定相続分どおり（今まで）
       const G0 = o.gross ?? g.grossNoRed;
       const useDivision = detailed && (o.division !== undefined || g.reduction > 0);
       const alloc = useDivision ? allocateEstate(g, slots, o.division, Math.max(0, G0)) : null;
@@ -1665,7 +1665,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
       results.push(finish(g, { division: req.division, override: true }).result);
     }
 
-    // ---- 一次と二次の推移（0250。相続税も試算する世帯で、要求に timeline があり、法律婚の夫婦の世帯だけ） ----
+    // ---- 一次と二次の推移（0251。相続税も試算する世帯で、要求に timeline があり、法律婚の夫婦の世帯だけ） ----
     const timeline = ((): Timeline | undefined => {
       if (!detailed || req.timeline === undefined || contingencyDeath !== null || adults.length < 2) return undefined;
       const second = lastOf();

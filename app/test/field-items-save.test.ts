@@ -52,8 +52,8 @@ const NOT_MOVABLE: Record<string, string> = {
   "field:inherit/land/{id}/adjustment": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
   "field:inherit/land/{id}/building": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
   "field:inherit/land/{id}/rentalRatio": "相続税の試算の不動産ごとの設定（inheritanceTax.lands の要素の中の値）。1つの値をそのまま書く読み替えを持たず、プランでは動かさない（入力画面でプランを選んで直す。0231）",
-  "field:inherit/division/spouse": "遺産の分け方（inheritanceTax.division）は、配偶者の割合と子ごとの割合の組で1つの分け方。動かす項目には出さず、入力画面でプランを選んで直す（0043）。分け方の比較は入力項目の下の「一次と二次の相続税の推移」にも出す（0250）",
-  "field:inherit/division/share/{id}": "遺産の分け方の子ごとの割合は、分け方の並び（inheritanceTax.division.shares）の要素の中の値で、入れると並びに行を足す（1つの値をそのまま書かない）。入力画面でプランを選んで直す（0250）",
+  "field:inherit/division/spouse": "遺産の分け方（inheritanceTax.division）は、配偶者の割合と子ごとの割合の組で1つの分け方。動かす項目には出さず、入力画面でプランを選んで直す（0043）。分け方の比較は入力項目の下の「一次と二次の相続税の推移」にも出す（0251）",
+  "field:inherit/division/share/{id}": "遺産の分け方の子ごとの割合は、分け方の並び（inheritanceTax.division.shares）の要素の中の値で、入れると並びに行を足す（1つの値をそのまま書かない）。入力画面でプランを選んで直す（0251）",
   "field:housing/res/{id}/purchase/building": "注文住宅の建物の代金は合計−土地の代金を見せる欄で、直すと合計を書き土地の代金の推定の印を外す（1つの値をそのまま書かない。プランでは合計か土地の代金を動かす。0115）",
 };
 /** 型が NOT_MOVABLE のどれかに当たるか（まだ無い費目の欄は、費目の名前によらず出さない） */

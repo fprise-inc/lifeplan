@@ -320,7 +320,7 @@ pub const CURRENT: &str = "0.88";
 ///   今の版へ変換できることをテストで確かめる。0.86 の段の後に積む
 /// - 0.88: 相続税の目安の設定 `household.request.input.inheritanceTax` に、任意の欄 `division`（遺産の分け方: 一次で配偶者が取得する割合
 ///   `spouseShare`・配偶者のほかの相続人の割合 `shares[]`）と、不動産ごとの設定の取得する人の欄 `lands[].primary.member`・`lands[].secondary.member`
-///   （配偶者のほかの相続人の誰が取得するか。0250）を足した（足すだけの MINOR）。前の版のアプリは計算の要求の知らない欄を読み落として書き戻し、
+///   （配偶者のほかの相続人の誰が取得するか。0251）を足した（足すだけの MINOR）。前の版のアプリは計算の要求の知らない欄を読み落として書き戻し、
 ///   分け方が消えるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり）。
 ///   `sampleInitial` の中は書き換えない（0.87 の決まり）。0.87 の段の後に積む
 pub const KNOWN: &[&str] = &[
@@ -2755,7 +2755,7 @@ fn v0_86_to_0_87(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.87 → 0.88: 遺産の分け方 `inheritanceTax.division`・土地を取得する人 `inheritanceTax.lands[].primary.member`・`secondary.member`（0250）は
+/// 0.87 → 0.88: 遺産の分け方 `inheritanceTax.division`・土地を取得する人 `inheritanceTax.lands[].primary.member`・`secondary.member`（0251）は
 /// 任意の欄なので、形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり。欄を書き足さない。`sampleInitial` の中に触れない）
 fn v0_87_to_0_88(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
@@ -4280,7 +4280,7 @@ mod tests {
 
     #[test]
     fn v0_87_to_0_88_only_bumps_version() {
-        // 遺産の分け方・土地を取得する人（inheritanceTax.division・lands[].primary.member。0250）は足さない（前の版の世帯は法定相続分どおり）。
+        // 遺産の分け方・土地を取得する人（inheritanceTax.division・lands[].primary.member。0251）は足さない（前の版の世帯は法定相続分どおり）。
         // ほかの設定と sampleInitial の中に触れない
         let b = serde_json::json!({
             "meta": {"formatVersion": "0.87"},

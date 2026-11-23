@@ -347,7 +347,7 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
             }),
         }),
       );
-      // 誰が取得するか（0250）: 配偶者のほかの相続人を選んだ土地は、取得する子を選ぶと、その子の取得に土地の評価と特例で減った額を寄せる
+      // 誰が取得するか（0251）: 配偶者のほかの相続人を選んだ土地は、取得する子を選ぶと、その子の取得に土地の評価と特例で減った額を寄せる
       const heirs = childHeirs(h);
       if (choice !== undefined && choice.acquirer !== "spouse" && heirs.length > 0)
         fields.push(
@@ -396,7 +396,7 @@ function landGroup(wh: WorkingHousehold, t: LandTarget, couple: boolean): GroupD
   return { key: k, title: t.title, level: "simple", fields, actions: [] };
 }
 
-// ---- 遺産の分け方と先に亡くなる人（0250） ----
+// ---- 遺産の分け方と先に亡くなる人（0251） ----
 
 /** 取得する子の候補（世帯の子・世帯の外の子。生まれる予定の子は除く） */
 export function childHeirs(h: Household): Member[] {

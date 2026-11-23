@@ -304,7 +304,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 顧客の見本ファイル（A0001）は顧客として戻る"
             );
         }
-        // 0.88 から: 遺産の分け方 inheritanceTax.division と土地を取得する人 lands[].primary.member・secondary.member（0250）。
+        // 0.88 から: 遺産の分け方 inheritanceTax.division と土地を取得する人 lands[].primary.member・secondary.member（0251）。
         // 変換で書き足さない（前の版の世帯は法定相続分どおり）。0.88 の見本は配偶者60%・子1の割合70%と、二次の自宅・一次の物件の取得する子
         let tax88 = &now["household"]["request"]["input"]["inheritanceTax"];
         if migrate::parse(v).unwrap() >= (0, 88) {

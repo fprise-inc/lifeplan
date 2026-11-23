@@ -907,13 +907,13 @@ export interface InheritanceTaxRequest {
   detailed?: boolean;
   /** 相続税の試算の、不動産ごとの設定（0231） */
   lands?: InheritanceLandSetting[];
-  /** 遺産の分け方（0250。相続税も試算する世帯だけ読む） */
+  /** 遺産の分け方（0251。相続税も試算する世帯だけ読む） */
   division?: InheritanceDivision;
-  /** 一次と二次の推移を求める（0250。画面が目安を求める要求にだけ入れる。世帯には保存しない） */
+  /** 一次と二次の推移を求める（0251。画面が目安を求める要求にだけ入れる。世帯には保存しない） */
   timeline?: { alternatives?: { key: string; spouseShare?: string }[]; step?: number };
 }
 
-/** 遺産の分け方（0250。割合は財産の評価額〔小規模宅地等の特例の前〕のうち。shares は配偶者の分を除いた残りのうちの割合） */
+/** 遺産の分け方（0251。割合は財産の評価額〔小規模宅地等の特例の前〕のうち。shares は配偶者の分を除いた残りのうちの割合） */
 export interface InheritanceDivision {
   spouseShare?: string;
   shares?: { member: string; share: string }[];
@@ -923,7 +923,7 @@ export interface InheritanceDivision {
 export interface SmallLandChoice {
   acquirer: "spouse" | "cohabiting" | "noHome" | "successor" | "other";
   met?: boolean;
-  /** 取得する人（配偶者のほかの相続人。0250） */
+  /** 取得する人（配偶者のほかの相続人。0251） */
   member?: string;
 }
 
@@ -987,12 +987,12 @@ export interface InheritancePoint {
   surcharge?: number;
   minorCredit?: number;
   lands?: InheritanceLandResult[];
-  /** 0250: 人ごとの取得と税（分け方。相続税も試算する世帯は分け方と、特例の減額を取得する人に寄せた額） */
+  /** 0251: 人ごとの取得と税（分け方。相続税も試算する世帯は分け方と、特例の減額を取得する人に寄せた額） */
   byHeir?: { member?: string; count?: number; outside: boolean; acquisition: number; tax: number; payable: number; landReduction?: number; successiveCredit?: number }[];
   division?: { entered: boolean; spouseShare?: string; adjusted?: true };
 }
 
-/** 一次と二次の推移の1年（0250） */
+/** 一次と二次の推移の1年（0251） */
 export interface InheritanceTimelineRow {
   year: number;
   month: string;
@@ -1008,7 +1008,7 @@ export interface InheritanceTimelineRow {
   secondaryMinorCredit: number;
 }
 
-/** 一次と二次の推移（0250。相続税も試算する法律婚の夫婦の世帯で、要求に timeline を入れたときだけ） */
+/** 一次と二次の推移（0251。相続税も試算する法律婚の夫婦の世帯で、要求に timeline を入れたときだけ） */
 export interface InheritanceTimeline {
   first: string;
   second: string;

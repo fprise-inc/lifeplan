@@ -8,7 +8,7 @@ import { manText } from "./items.ts";
 import { bothAfterLabel, memberLabel } from "./labels.ts";
 import { divisionText, isDetailed, landTargets, withLandEstimates } from "./inheritanceLand.ts";
 
-/** 一次と二次の推移で比較する分け方（0250。入れた分け方の配偶者の割合だけを替える。spouseShare の省略は法定相続分） */
+/** 一次と二次の推移で比較する分け方（0251。入れた分け方の配偶者の割合だけを替える。spouseShare の省略は法定相続分） */
 export const TIMELINE_ALTERNATIVES = [
   { key: "legal" },
   { key: "spouseAll", spouseShare: "1" },
@@ -17,7 +17,7 @@ export const TIMELINE_ALTERNATIVES = [
 
 /**
  * 相続税の目安を求める要求（今の世帯の写し。万一の想定・必要保障額の推移は外す）。timeline は相続税も試算する世帯で、一次と二次の推移
- * （毎年・比較する分け方つき。0250）も求める（入力項目の下の目安だけ。結果のタブのポイントは求めない）
+ * （毎年・比較する分け方つき。0251）も求める（入力項目の下の目安だけ。結果のタブのポイントは求めない）
  */
 export function inheritanceRequest(req: EngineRequest, o: { timeline?: boolean } = {}): EngineRequest {
   const out = structuredClone(req);
@@ -51,7 +51,7 @@ export function inheritanceTaxNote(r: PreviewResult | null, h: Household): strin
   return p.noTax ? `${head}: かからない見込み` : `${head}: 約${manText(p.payable)}万円`;
 }
 
-/** 相続税の目安の計算（今の世帯が変わったら計算し直す）。計算の道が無ければ null のまま。timeline は一次と二次の推移も求める（相続・贈与の入力項目の中だけ。0250） */
+/** 相続税の目安の計算（今の世帯が変わったら計算し直す）。計算の道が無ければ null のまま。timeline は一次と二次の推移も求める（相続・贈与の入力項目の中だけ。0251） */
 export function useInheritanceEstimate(wh: WorkingHousehold, active: boolean, computeOne: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined, o: { timeline?: boolean } = {}): PreviewResult | null {
   const timeline = o.timeline === true;
   const req = useMemo(() => (active && computeOne !== undefined ? inheritanceRequest(wh.request, { timeline }) : null), [active, computeOne, wh.request, timeline]);
@@ -156,7 +156,7 @@ export const NO_HEIRS_HINT = "兄弟姉妹（亡くなっていれば甥・姪�
 /** 相続税の目安の不動産の評価の割合の既定（計算エンジンの inheritance.estimate の REAL_ESTATE_RATIO と同じ。時価の80%） */
 const REAL_ESTATE_RATIO_DEFAULT = "0.8";
 
-/** 内訳の分け方の言葉（0250）: 入れた分け方・法定相続分どおり（特例の減額は土地を取得する人に）・法定相続分どおり */
+/** 内訳の分け方の言葉（0251）: 入れた分け方・法定相続分どおり（特例の減額は土地を取得する人に）・法定相続分どおり */
 function divisionNote(wh: WorkingHousehold, p: InheritancePoint): string {
   if (p.division?.entered === true) return `入れた分け方（${divisionText(wh) ?? "法定相続分どおり"}）で分けたとして`;
   if (p.division !== undefined) return "法定相続分どおりに分け、特例で減った額は土地を取得する人の分から引いたとして";
@@ -216,7 +216,7 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
         ];
         details.push(`課税遺産総額 ${man(p.taxableEstate ?? 0)} → 税の総額 ${man(p.totalTax)}${minus.length > 0 ? `（${minus.join("・")}）` : ""} → 納める額 ${man(p.payable)}（世帯の人 ${man(p.payableHousehold)}${p.payableOutside > 0 ? `・世帯の外の相続人 ${man(p.payableOutside)}` : ""}。${divisionNote(wh, p)}）`);
       }
-      // 分け方（0250）: 人ごとの取得と納める額（相続税も試算する世帯で、分け方を入れたか、特例の減額を取得する人に寄せたとき）
+      // 分け方（0251）: 人ごとの取得と納める額（相続税も試算する世帯で、分け方を入れたか、特例の減額を取得する人に寄せたとき）
       if (p.division !== undefined && (p.byHeir ?? []).length > 0)
         details.push(
           `人ごと: ${(p.byHeir ?? [])
@@ -231,7 +231,7 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
   return { points: out, notIncluded: (r?.inheritanceTax?.notIncluded ?? []).map((x) => (x === "successiveInheritanceCredit" && hasTimeline ? "相次相続控除（一次と二次の推移の二次には入れています）" : (NOT_INCLUDED_TEXT[x] ?? x))) };
 }
 
-// ---- 一次と二次の相続税の推移（0250。相続税も試算する夫婦の世帯だけ） ----
+// ---- 一次と二次の相続税の推移（0251。相続税も試算する夫婦の世帯だけ） ----
 
 /** 分け方の名前（推移の比較の行） */
 export const SERIES_LABEL: Readonly<Record<string, string>> = {

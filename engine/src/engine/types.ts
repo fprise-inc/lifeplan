@@ -1363,13 +1363,13 @@ export interface InheritanceTaxRequest {
   readonly detailed?: boolean;
   /** 相続税の試算の、不動産ごとの設定（0231） */
   readonly lands?: readonly InheritanceLandSetting[];
-  /** 遺産の分け方（0250。detailed のときだけ読む） */
+  /** 遺産の分け方（0251。detailed のときだけ読む） */
   readonly division?: InheritanceDivision;
-  /** 一次と二次の推移を求める（0250。detailed のときだけ。世帯には保存しない） */
+  /** 一次と二次の推移を求める（0251。detailed のときだけ。世帯には保存しない） */
   readonly timeline?: { readonly alternatives?: readonly { readonly key: string; readonly spouseShare?: string }[]; readonly step?: number };
 }
 
-/** 遺産の分け方（0250。割合は遺産の評価額〔特例の前〕のうち） */
+/** 遺産の分け方（0251。割合は遺産の評価額〔特例の前〕のうち） */
 export interface InheritanceDivision {
   readonly spouseShare?: string;
   readonly shares?: readonly { readonly member: string; readonly share: string }[];
@@ -1379,7 +1379,7 @@ export interface InheritanceDivision {
 export interface SmallLandChoice {
   readonly acquirer: "spouse" | "cohabiting" | "noHome" | "successor" | "other";
   readonly met?: boolean;
-  /** 取得する人（配偶者のほかの相続人。0250） */
+  /** 取得する人（配偶者のほかの相続人。0251） */
   readonly member?: string;
 }
 

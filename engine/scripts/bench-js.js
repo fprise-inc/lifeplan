@@ -46,7 +46,7 @@ export function measure(engine, packsJson, data, repeat) {
       if (r.startsWith('{"error"')) throw new Error(r.slice(0, 200));
     }, repeat, 1);
   }
-  // 相続税も試算する世帯の一次と二次の推移（0250。正と同じ run の入口）
+  // 相続税も試算する世帯の一次と二次の推移（0251。正と同じ run の入口）
   if (data.inheritance !== undefined) {
     const p = JSON.stringify(data.inheritance);
     out.inheritance = time(() => {
