@@ -577,7 +577,8 @@ export type AiBulkBlock = "refused" | "withdrawn" | "noBasis" | "sample" | "notS
 export interface AiBulkOutcome {
   ready: { id: string; customerNo: string; basis: AiUse; alias: string | null }[];
   already: { id: string; customerNo: string }[];
-  blocked: { reason: AiBulkBlock; households: { id: string; customerNo: string }[] }[];
+  /** households の name は見本の世帯だけ（見本は番号を持たないので、名前で出す。0247） */
+  blocked: { reason: AiBulkBlock; households: { id: string; customerNo: string; name?: string }[] }[];
   /** 上限（共有中の世帯と合わせた数） */
   limit: number;
   /** いま共有中の世帯の数（この確かめ・結果の前） */

@@ -24,9 +24,12 @@ export const BULK_MESSAGES: Record<string, string> = {
   E_AI_BULK_EMPTY: "渡す世帯を選んでください",
 };
 
+/** 1件の出し方: 顧客番号。番号の無い見本は「見本「名前」」（0247） */
+export const householdText = (h: { customerNo: string; name?: string }): string => (h.customerNo !== "" ? h.customerNo : h.name !== undefined ? `見本「${h.name}」` : "（番号なし）");
+
 /** 顧客番号を「、」でつなぐ（多いときは先頭だけと件数） */
-export function numbersText(list: readonly { customerNo: string }[], max = 20): string {
-  const head = list.slice(0, max).map((h) => h.customerNo || "（番号なし）");
+export function numbersText(list: readonly { customerNo: string; name?: string }[], max = 20): string {
+  const head = list.slice(0, max).map(householdText);
   return list.length > max ? `${head.join("、")} ほか${list.length - max}件` : head.join("、");
 }
 
