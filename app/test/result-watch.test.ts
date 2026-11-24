@@ -197,7 +197,7 @@ describe("見張りが見張れていること（わざと壊した世帯・結�
   });
 
   it("今住んでいる持ち家が資産に無い・純資産が大きくマイナス", () => {
-    const s0 = subjectOf("見本 3-4-01", modelHousehold("salariedCoupleTwoKids"));
+    const s0 = subjectOf("見本 salariedCoupleTwoKids", modelHousehold("salariedCoupleTwoKids"));
     const s = brokenResult(s0, (t) => t.filter((c) => !c.row.startsWith("cf.balance.account.realEstate")).map((c) => (c.row === "cf.balance.debt.mortgage" && c.year === 2026 ? { ...c, amount: c.amount + 50_000_000 } : c)));
     const found = ruleOf("negativeNetWorthNow").check(s);
     expect(found.some((t) => t.includes("資産に入っていない"))).toBe(true);

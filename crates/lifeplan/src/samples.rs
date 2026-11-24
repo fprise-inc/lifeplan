@@ -1,7 +1,8 @@
 //! 架空の見本の世帯（data/modelHouseholds。CC0。実在の顧客ではない）。
 //!
-//! 一覧（list_sample_households）は FP 向けに短くする（0199）: アプリの見本の棚にある見本だけを、棚と同じ名前・見本番号・目印
-//! （家族の形・年代・絞り込みの項目と、そこから決める場面の目印。app/src/connector/samples.ts を JSON にした物）で返し、目印で絞れる。
+//! 一覧（list_sample_households）は FP 向けに短くする（0199）: アプリの見本の棚にある見本だけを、棚と同じ名前・目印
+//! （家族の形・年代・絞り込みの項目と、そこから決める場面の目印。app/src/connector/samples.ts を JSON にした物）で、棚と同じ順
+//! （セットの定義の順）に返し、目印で絞れる。見本は番号を持たない（0247 の1・12）。
 //! 棚に無いモデル世帯は、制度の計算を確かめるための開発の試験用の見本として「開発の試験用」の目印を付け、既定では出さない。
 
 use crate::engine::assets::{HOUSEHOLDS, SAMPLES_JSON};
@@ -31,12 +32,11 @@ pub struct ListSamplesArgs {
 #[derive(Debug, Deserialize)]
 struct ShelfSample {
     id: String,
-    no: String,
     title: String,
     tags: Vec<String>,
 }
 
-/// アプリの見本の棚の見本（見本番号の順）
+/// アプリの見本の棚の見本（棚と同じ順。セットの定義の順）
 fn shelf() -> &'static [ShelfSample] {
     static SHELF: OnceLock<Vec<ShelfSample>> = OnceLock::new();
     SHELF.get_or_init(|| serde_json::from_str(SAMPLES_JSON).unwrap_or_default())
@@ -130,7 +130,8 @@ fn matches(want: &str, tags: &[String], title: &str) -> bool {
 
 struct Entry {
     id: &'static str,
-    no: Option<&'static str>,
+    /// アプリの見本の棚にある見本か（無ければ開発の試験用）
+    shelf: bool,
     title: String,
     tags: Vec<String>,
     json: &'static str,
@@ -143,7 +144,7 @@ fn entries() -> Vec<Entry> {
             let (id, _, json) = HOUSEHOLDS.iter().find(|(i, _, _)| *i == s.id)?;
             Some(Entry {
                 id,
-                no: Some(s.no.as_str()),
+                shelf: true,
                 title: s.title.clone(),
                 tags: s.tags.clone(),
                 json,
@@ -154,7 +155,7 @@ fn entries() -> Vec<Entry> {
         if !shelf().iter().any(|s| s.id == *id) {
             out.push(Entry {
                 id,
-                no: None,
+                shelf: false,
                 title: short_title(desc),
                 tags: vec![TEST_TAG.to_owned()],
                 json,
@@ -176,7 +177,7 @@ pub fn list(args: &ListSamplesArgs) -> Value {
         args.include_test.unwrap_or(false) || wants.iter().any(|w| TEST_TAG.contains(w.trim()));
     let all = entries();
     let mut tags: Vec<&str> = Vec::new();
-    for e in all.iter().filter(|e| with_test || e.no.is_some()) {
+    for e in all.iter().filter(|e| with_test || e.shelf) {
         for t in &e.tags {
             if !tags.contains(&t.as_str()) {
                 tags.push(t);
@@ -185,7 +186,7 @@ pub fn list(args: &ListSamplesArgs) -> Value {
     }
     let households: Vec<Value> = all
         .iter()
-        .filter(|e| with_test || e.no.is_some())
+        .filter(|e| with_test || e.shelf)
         .filter(|e| wants.iter().all(|w| matches(w, &e.tags, &e.title)))
         .map(|e| {
             let input = &parse(e.json)["input"];
@@ -196,9 +197,6 @@ pub fn list(args: &ListSamplesArgs) -> Value {
                 "members": members(input),
                 "period": period(input),
             });
-            if let Some(no) = e.no {
-                h["no"] = json!(no);
-            }
             if e.tags.iter().any(|t| t == COMBINED_BS_TAG) {
                 h["note"] = json!(COMBINED_BS_NOTE);
             }
@@ -208,7 +206,7 @@ pub fn list(args: &ListSamplesArgs) -> Value {
     let hidden = if with_test {
         0
     } else {
-        all.iter().filter(|e| e.no.is_none()).count()
+        all.iter().filter(|e| !e.shelf).count()
     };
     let mut notice = NOTICE.to_owned();
     if hidden > 0 {
@@ -289,7 +287,13 @@ mod tests {
             .find(|h| h["id"] == "salariedCoupleTwoKids")
             .unwrap();
         assert_eq!(s["title"], "会社員の夫婦と子2人");
-        assert_eq!(s["no"], "3-4-01");
+        // 見本は番号を持たない（0247 の1）。並びは棚と同じ（セットの定義の順）
+        assert!(s.get("no").is_none());
+        assert!(hs.iter().all(|h| h.get("no").is_none()));
+        let order: Vec<&str> = hs.iter().map(|h| h["id"].as_str().unwrap()).collect();
+        let shelf_order: Vec<&str> = shelf().iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(order, shelf_order);
+        assert_eq!(order[0], "salariedCoupleTwoKids");
         assert!(s["members"].as_str().unwrap().starts_with("ご本人 男45歳"));
         let tags: Vec<&str> = s["tags"]
             .as_array()

@@ -65,7 +65,7 @@ describe("ご家族の夢の章", () => {
     expect(input.dreams!.rows.map((r) => r.paid ?? null)).toEqual([null, { count: 1, year: 2030, after: fin(2030), short: false }, null]);
   });
 
-  it("払った後の金融資産（見本 3-4-06）: 何年ごとの夢は払う年のうちいちばん少ない年。計算に入れない3件は null", () => {
+  it("払った後の金融資産（見本 sampleFamilyDreams）: 何年ごとの夢は払う年のうちいちばん少ない年。計算に入れない3件は null", () => {
     const raw = modelHousehold("sampleFamilyDreams");
     const b = bundleOf(raw);
     const rows = buildProposalInput(b).dreams!.rows;

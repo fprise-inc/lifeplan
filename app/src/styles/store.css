@@ -31,6 +31,9 @@
 .hh-cats { max-width: 40em; }
 .hh-cat-list input { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; }
 .hh-shelf-note { margin: 4px 0 8px; }
+/* 見本の棚の種類の見出し（「基本の見本」「自分で作った見本」など。出ている種類が2つ以上のときだけ。0247 の2）: 表の列の見出しより控えめに、上を空けて区切る */
+.hh-shelf .hh-group th { background: none; padding: 14px 8px 4px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); border-bottom: 1.5px solid var(--line); }
+.hh-shelf tbody:first-of-type .hh-group th { padding-top: 6px; }
 /* 見本を開いているときの帯（動かしても見本は変わらない） */
 .sample-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px dashed var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
 .hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }

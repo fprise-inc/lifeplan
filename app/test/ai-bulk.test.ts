@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { AiBulkOutcome, AiHost, AiStatus, StoredHousehold } from "../src/engine/host.ts";
 import { AiBulkShare, BulkOutcomeView } from "../src/workspace/ai/AiBulkShare.tsx";
 import { BULK_BLOCK_TEXT, BULK_LIMIT, BULK_MESSAGES, blockedCount, defaultSelection, householdText, numbersText, overLimit, sharedAmong } from "../src/workspace/ai/bulk.ts";
-import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
+import { SAMPLE_SETS } from "../src/workspace/samples/sets.ts";
 import { HouseholdPanel, type HouseholdPanelProps } from "../src/workspace/store/HouseholdPanel.tsx";
 import { DEFAULT_CATEGORIES, shelfItems } from "../src/workspace/store/numbering.ts";
 
@@ -145,10 +145,7 @@ describe("世帯の一覧への置き方", () => {
     list,
     currentId: null,
     categories: [...DEFAULT_CATEGORIES],
-    shelf: shelfItems(
-      DEMO_HOUSEHOLDS.map((d) => ({ id: d.id, sampleNo: d.sampleNo, title: d.title, traits: d.traits })),
-      [],
-    ),
+    shelf: shelfItems(SAMPLE_SETS, []),
     currentSample: null,
     currentShape: null,
     unsavedTitle: null,
