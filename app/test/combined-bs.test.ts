@@ -120,6 +120,34 @@ describe("資産と負債のタブの見るもの（合算BS）", () => {
     const later = renderToString(h(BalanceTab, { model: model([]), band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { view: "one", year: home.year + 5 } }));
     expect(later).not.toContain("data-bs-guarantee");
   });
+
+  it("時点を並べる: 図の下は「純資産 ○万円」の行（図の幅の中央）と、その下に連帯保証の点線の枠だけ。ひと言の文と「この年を1年ずつ見る →」は出さない", () => {
+    const three = renderToString(h(BalanceTab, { model: model([]), band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { view: "three" } }));
+    const first = three.slice(three.indexOf('class="bs-tcard"'), three.indexOf('class="bs-tcard"', three.indexOf('class="bs-tcard"') + 1));
+    expect(first.indexOf('class="tn"')).toBeGreaterThan(first.indexOf("data-bs-figure"));
+    expect(first.indexOf("data-bs-guarantee")).toBeGreaterThan(first.indexOf('class="tn"'));
+    expect(three).not.toContain("1年ずつ見る →");
+    expect(three).not.toContain("data-bs-go");
+    expect(three).not.toContain('class="ts"');
+    expect(three).not.toMatch(/純資産は今より|前の時点より金融資産|資産のうち換金しにくい資産は/);
+    // プランを比較も同じ順（純資産の行の下に点線の枠）
+    const two = balanceTabModel({ plans: [plan, { ...plan, key: "B", letter: "B", name: "プランB", base: false }], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, guideBasis: defaultGuideBasis(req), pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご本人", customViews: [] });
+    const plans = renderToString(h(BalanceTab, { model: two, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { view: "plans" } }));
+    const pane = plans.slice(plans.indexOf("data-bs-pane="));
+    expect(pane).toContain("data-bs-guarantee");
+    expect(pane.indexOf("data-bs-guarantee")).toBeGreaterThan(pane.indexOf('class="pn"'));
+  });
+
+  it("合算BS の表: どの列にも見出しがある（相殺した4つの組の4列目は「照合の結果」）", () => {
+    const v = combinedBsView(company, home);
+    const heads = (v.sections ?? []).flatMap((x) => (x.table !== undefined ? [x.table.head] : []));
+    expect(heads.length).toBeGreaterThanOrEqual(3);
+    for (const hd of heads) for (const c of hd) expect(c.trim(), JSON.stringify(hd)).not.toBe("");
+    expect(heads[0]).toEqual(["組", "経営者の側", "会社の側", "照合の結果"]);
+    const html = renderToString(h(BalanceTab, { model: model([v]), band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { open: "combined" } }));
+    expect(html).toContain("照合の結果");
+    expect(html).toContain("目安との比較");
+  });
 });
 
 describe("入力欄（万円の文字）", () => {

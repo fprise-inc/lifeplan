@@ -2,6 +2,7 @@
 // - 資産と負債のタブの「見るもの」（0027 の8）に出す値を作る。アプリは、返した値に鍵と入力欄（fields/company.json の宣言と今の値）を足して描く
 // - 値を作るのは combinedBs.ts の部品（提案書の章 chapter.ts と同じ）。ここは見せる形にするだけ
 // - 入力欄の文字の読み方（万円・年月）はアプリが宣言から行う。ここは入力欄の値を受け取るだけ
+// - 表の列にはどれも見出しを付ける（相殺した4つの組の4列目は、両側の額を照合した結果なので「照合の結果」）
 import { man, type BalanceView, type ExtColumn, type ExtInput, type ExtSection } from "@lifeplan/sdk";
 import { COMBINED_KEY, combinedBs, EMPTY_COMBINED_INPUT, hasCompanyAmounts, readCombinedInput, type CombinedColumn } from "./combinedBs.ts";
 
@@ -63,7 +64,7 @@ export function balanceView(input: ExtInput): BalanceView {
     title: "相殺した4つの組",
     note: "両側の額が合わないときは、会社の側の額に合わせて見ています（経営者の側の書き漏れとして直す考え方）。",
     table: {
-      head: ["組", "経営者の側", "会社の側", ""],
+      head: ["組", "経営者の側", "会社の側", "照合の結果"],
       rows: r.pairs.map((p) => ({ cells: [p.label, `${p.ownerLabel} ${mn(p.owner)}`, `${p.companyLabel} ${mn(p.company)}`, Math.round(p.owner / 10000) === Math.round(p.company / 10000) ? (p.owner === 0 ? "なし" : "合っています") : `差 ${mn(Math.abs(p.owner - p.company))}`], ...(p.owner === 0 && p.company === 0 ? { tone: "muted" as const } : {}) })),
     },
   });
@@ -71,7 +72,7 @@ export function balanceView(input: ExtInput): BalanceView {
     key: "net",
     title: "合算の純資産の内訳",
     table: {
-      head: ["", "金額"],
+      head: ["内訳", "金額"],
       rows: [
         { cells: ["会社の財産（剰余金）", mn(r.netWorth.company)] },
         ...(r.netWorth.others !== 0 ? [{ cells: ["ほかの株主の出資", mn(r.netWorth.others)] }] : []),
@@ -86,7 +87,7 @@ export function balanceView(input: ExtInput): BalanceView {
     title: "現預金は毎月の固定の支出の何か月分か",
     note: "目安は6か月分、できれば12か月分。会社の固定の支出は固定費（仕入は含めない）＋借入の返済、個人は生活費＋ローン返済（家賃収入で返す不動産のローンは除く）です。",
     table: {
-      head: ["", "現預金", "毎月の固定の支出", "何か月分", ""],
+      head: ["対象", "現預金", "毎月の固定の支出", "何か月分", "目安との比較"],
       rows: r.indicators.map((x) => ({ cells: [x.label, mn(x.cash), x.monthly === null ? "—" : mn(x.monthly), x.months === null ? "—" : `${x.months.toFixed(1)}か月分`, x.text], ...(x.key === "total" ? { tone: "total" as const } : {}) })),
     },
   });
