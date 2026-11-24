@@ -87,7 +87,7 @@ describe("名前（0192 の追記）", () => {
 });
 
 describe("依頼の行の段階（0192 の追記）", () => {
-  it("届く前: 届いたかを確かめる・延長・案内文をコピー・取り消す。取り消しの確かめは押すまで出さない", async () => {
+  it("届く前: 届いたかを確かめる・延長・案内文をコピー・取り消す。URL の取り消しの確認は押すまで出さない", async () => {
     const { t } = relayFor();
     const wh = blank();
     const r = await issueWeb(wh, { selection: templateSelection("simple", wh), customerNo: "0001", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });

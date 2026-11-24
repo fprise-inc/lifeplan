@@ -259,7 +259,7 @@ describe("読み口: 路線価図", () => {
   });
 });
 
-describe("確かめの画面: 書類の土地を今ある不動産に入れ、FP が承認したものだけが入る", () => {
+describe("書類の読み取りの確認画面: 書類の土地を今ある不動産に入れ、FP が承認したものだけが入る", () => {
   const statementReading = () => read(on, JSON.parse(answerIn("property-tax-statement.md")));
 
   it("書類の土地は新しく足せない。入れられるのは持ち家と住まい以外の不動産（相続税の試算の対象と同じ並び）", () => {
@@ -356,7 +356,7 @@ describe("確かめの画面: 書類の土地を今ある不動産に入れ、FP
   });
 });
 
-describe("確かめの画面: 路線価図", () => {
+describe("書類の読み取りの確認画面: 路線価図", () => {
   const routeReading = () => read(on, JSON.parse(answerIn("route-price-map.md")));
 
   it("貸している物件に入れると、評価の入れ方を承認してから路線価が入り、借地権割合も入る", () => {
@@ -404,7 +404,7 @@ describe("手引きの言葉", () => {
 });
 
 describe("画面と世帯ファイルの記録", () => {
-  it("確かめの画面: 書類の土地は「足す」を出さず、不動産の名前のボタンと「入れない」を出す。入口の見出しは保険・不動産", () => {
+  it("書類の読み取りの確認画面: 書類の土地は「足す」を出さず、不動産の名前のボタンと「入れない」を出す。入口の見出しは保険・不動産", () => {
     const r = read(on, JSON.parse(answerIn("property-tax-statement.md")));
     const w = withDocumentLog(on, withReading(undefined, r));
     expect(pendingTotal(w)).toBe(r.candidates.length + r.objects.length);

@@ -138,7 +138,7 @@ describe("書類の読み取りの「同じファイルを前にも読んでい�
     }
   });
 
-  it("確かめの画面の知らせ: 同じファイルを前に AI が読んだ記録（UTC の文字）の日が、日本の端末で正しい日で出る", () => {
+  it("書類の読み取りの確認画面の知らせ: 同じファイルを前に AI が読んだ記録（UTC の文字）の日が、日本の端末で正しい日で出る", () => {
     const wh: WorkingHousehold = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const members = roles(wh.request).map((r) => ({ key: r.key, id: r.member.id }));
     let n = 0;

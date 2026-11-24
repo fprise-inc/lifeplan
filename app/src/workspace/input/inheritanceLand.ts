@@ -546,6 +546,9 @@ export function divisionText(wh: WorkingHousehold, o: { spouse?: boolean } = {})
   return bits.length > 0 ? bits.join("・") : null;
 }
 
+/** 区画「相続税の試算」の頭の1文（0231 の追記 2026-11-23）。区画「相続税の目安」の見出しの下の1文（inheritanceLine.ts の ESTIMATE_NOTICE）と同じ趣旨 */
+export const SECTION_NOTICE = "ここで試算する相続税も、目安の試算です。正確な額は税理士にご相談ください。";
+
 /** 区画「相続税の試算」: チェックしていない世帯は詳細の1つの欄だけ。チェックした世帯は標準に出し、不動産ごとのまとまりを並べる */
 export function taxDetailSection(wh: WorkingHousehold): SectionDef {
   const h = wh.request.input.household;
@@ -561,6 +564,8 @@ export function taxDetailSection(wh: WorkingHousehold): SectionDef {
   return {
     key: "inherit/detail",
     title: "相続税の試算",
+    // 区画の頭に、目安の試算であること・正確な額は税理士に、をいつも出す（「?」に隠さない。0231 の追記 2026-11-23）
+    lead: SECTION_NOTICE,
     note,
     level,
     groups: [

@@ -1,4 +1,4 @@
-// お客さまの画面（0125・0158。app/src/hearingForm/Form.tsx）: 最初の画面・問いの画面・書類の画面・確かめの画面・送った後・答えの後の書類の画面の中身（見本の形で文字に描く）
+// お客さまの画面（0125・0158。app/src/hearingForm/Form.tsx）: 最初の画面・問いの画面・書類の画面・入力内容の確認画面・送った後・答えの後の書類の画面の中身（見本の形で文字に描く）
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
@@ -108,7 +108,7 @@ describe("お客さまの画面", () => {
     expect(pc).toContain("ファイルを選ぶ");
   });
 
-  it("入力内容の確認の画面: 答え・まだの数・途中まででも送れる・直す・送る・この端末の入力を消す（「まだの問いに答える」は出さない）", async () => {
+  it("入力内容の確認画面: 答え・まだの数・途中まででも送れる・直す・送る・この端末の入力を消す（「まだの問いに答える」は出さない）", async () => {
     const p = await packet();
     const d = { ...initialDraft(p), started: true, gates: { spouse: 0, child: 0 }, answers: { [draftKey("hs.housing.type")]: { status: "value" as const, raw: { kind: "text" as const, text: "rent" } }, [draftKey("hs.housing.rent")]: { status: "value" as const, raw: { kind: "number" as const, text: "９８，０００" } } } };
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "review", now: () => NOW }));

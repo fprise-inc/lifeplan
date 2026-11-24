@@ -78,14 +78,14 @@ export type Screen =
   | { readonly kind: "document"; readonly id: string; readonly section: typeof DOCS_SECTION; readonly gates: readonly GateId[]; readonly fields: readonly ScreenField[]; readonly covers: readonly string[] }
   | { readonly kind: "review" };
 
-/** 書類の画面の区画（進み具合の段と、確かめの画面の見出し） */
+/** 書類の画面の区画（進み具合の段と、入力内容の確認画面の見出し） */
 export const DOCS_SECTION = "@documents";
 export const DOCS_TITLE = "書類";
 
 /** 同意の画面の区画（「はじめに」） */
 export const START_SECTION = "@start";
 export const START_TITLE = "はじめに";
-/** 確かめの画面の名前（進み具合の段・確かめの画面の見出し） */
+/** 入力内容の確認画面の名前（進み具合の段・入力内容の確認画面の見出し） */
 export const REVIEW_TITLE = "入力内容の確認";
 /** お客さまの画面に出さない問い（ご相談したいこと。0138 の追記 2026-11-17） */
 const HIDDEN_KEYS = new Set([CONSULT_KEY]);
@@ -150,7 +150,7 @@ export function gateText(p: QuestionsPacket, g: GateId): { readonly label: strin
   return { label: t.label, lead, options };
 }
 
-/** 分岐の答えの言葉（確かめの画面） */
+/** 分岐の答えの言葉（入力内容の確認画面） */
 export function gateAnswerText(p: QuestionsPacket, g: GateId, v: number | undefined): string {
   if (v === undefined) return "（まだ）";
   return gateText(p, g).options.find((o) => o.value === String(v))?.label ?? String(v);
@@ -707,7 +707,7 @@ const fmt = (n: number) => n.toLocaleString("ja-JP", { maximumFractionDigits: 4 
 /** 月を「わからない」にしたときの月の欄の値 */
 export const MONTH_UNKNOWN = "unknown";
 
-/** 答えを言葉にする（確かめの画面・送った内容・FP の見本） */
+/** 答えを言葉にする（入力内容の確認画面・送った内容・FP の見本） */
 export function answerText(item: WebItem, a: DraftAnswer | undefined): string {
   if (a === undefined) return "（まだ）";
   if (a.status === "later") return "あとで";
