@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.90";
+pub const CURRENT: &str = "0.91";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -344,7 +344,7 @@ pub const KNOWN: &[&str] = &[
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
     "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85",
-    "0.86", "0.87", "0.88", "0.89", "0.90",
+    "0.86", "0.87", "0.88", "0.89", "0.90", "0.91",
 ];
 
 /// 1段分の変換
@@ -800,6 +800,11 @@ pub const STEPS: &[Step] = &[
         from: "0.89",
         to: "0.90",
         apply: v0_89_to_0_90,
+    },
+    Step {
+        from: "0.90",
+        to: "0.91",
+        apply: v0_90_to_0_91,
     },
 ];
 
@@ -3019,6 +3024,16 @@ fn v0_89_to_0_90(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.90 → 0.91: 口座の預金から移す行 `accounts[].fromDeposit`（0258）は任意の欄なので、形式の版だけを書き換える
+/// （前の版の世帯は欄が無い＝移す行なし。欄を書き足さない。控え・`sampleInitial` の中に触れない）
+fn v0_90_to_0_91(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.91".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -4016,7 +4031,8 @@ mod tests {
         assert_eq!(access("0.88").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.89").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.90").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.91").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.91").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.92").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -4029,9 +4045,29 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.91", b.clone()).unwrap(),
+            upgrade("0.92", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
+        );
+    }
+
+    #[test]
+    fn v0_90_to_0_91_only_bumps_version() {
+        // 0258: 預金から移す行は任意の欄。前の版の世帯に書き足さない（口座・控え・最初の状態はそのまま）
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.90"},
+            "household": {"request": {"input": {"household": {"accounts": [{"id": "a", "kind": "taxable", "contributions": []}]}}}},
+            "snapshots": [{"id": "s", "input": {"household": {"accounts": []}}}]
+        });
+        let u = upgrade("0.90", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.91");
+        let mut want = b;
+        want["meta"]["formatVersion"] = "0.91".into();
+        assert_eq!(u, want);
+        assert!(
+            u["household"]["request"]["input"]["household"]["accounts"][0]
+                .get("fromDeposit")
+                .is_none()
         );
     }
 
@@ -4063,7 +4099,7 @@ mod tests {
             "sampleInitial": {"formatVersion": "0.89", "sections": {"household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}}
         });
         let u = upgrade("0.89", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.90");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         let a = &u["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
         assert!(a.get("fee").is_none(), "配分全体の値は外す");
         let fees = a["fees"].as_object().unwrap();
@@ -4134,12 +4170,12 @@ mod tests {
             "household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}]}}}}}}
         });
         let mut want = none.clone();
-        want["meta"]["formatVersion"] = "0.90".into();
+        want["meta"]["formatVersion"] = CURRENT.into();
         assert_eq!(upgrade("0.89", none).unwrap(), want);
         let empty = serde_json::json!({"meta": {"formatVersion": "0.89"}, "household": {"request": {"input": {}}}});
         assert_eq!(
             upgrade("0.89", empty).unwrap()["meta"]["formatVersion"],
-            "0.90"
+            CURRENT
         );
     }
 

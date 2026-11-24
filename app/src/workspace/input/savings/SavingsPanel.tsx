@@ -15,13 +15,20 @@ import { accountHolderRule, accountLabelCloses, accountLabelOf, accountLabelProb
 import { buildStage } from "../stages/index.ts";
 import { accountMoreLabel, dropContributions, flowMatters, MAIN_ADD_KINDS, SETTLEMENT_CONTRIBUTION_UNUSED, SETTLEMENT_SAVES } from "../stages/savings.ts";
 import { revealAdded } from "../../../presentation/revealAdded.ts";
-import { amountText, formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
+import { amountText, formatYen, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct } from "../units.ts";
 import { enterInput, type Settled } from "../pendingInput.ts";
 import { enterEstimateByMouse, estimateSelectText, keptText, selectEstimate } from "../estimateFocus.ts";
 import { FEE_RANGE, outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
 import {
   accountMonthlyAt,
   accountsOf,
+  addMove,
+  canMoveFromDeposit,
+  editMove,
+  MOVE_HELP,
+  moveOverText,
+  moveRowsOf,
+  removeMove,
   addableClasses,
   addClass,
   allocationGaps,
@@ -304,6 +311,124 @@ function StepsEditor(p: { steps: Step[]; now: number; stopAge: number | null; la
   );
 }
 
+/**
+ * 年月の欄（預金から移す行の時期。0258）: 打っている間は下書きだけで、離れたときに年月（2028-12・2028/12・令和10年12月など）として読めれば書く。
+ * 読めない文字は前の値に戻して理由を出す
+ */
+function YmBox(p: { value: string | null; label: string; onCommit: (ym: string) => void; onProblem: (text: string | null) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const el = useRef<HTMLInputElement>(null);
+  const leaveInput = useRef<(() => void) | null>(null);
+  const settleNow = useRef<() => Settled>(() => "none");
+  useEffect(
+    () => () => {
+      leaveInput.current?.();
+      leaveInput.current = null;
+    },
+    [],
+  );
+  const shown = p.value ?? "";
+  const bad = draft !== null && normalizeNumberText(draft) !== "" && parseYearMonth(draft) === null;
+  settleNow.current = () => {
+    const t = el.current?.value ?? draft ?? shown;
+    if (t === shown) return "none";
+    const ym = parseYearMonth(t);
+    if (ym === null) return "rejected";
+    p.onCommit(ym);
+    return "committed";
+  };
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      class={`sv-n ym${bad ? " bad" : ""}`}
+      value={draft ?? shown}
+      placeholder="例: 2028-12"
+      aria-label={p.label}
+      aria-invalid={bad ? true : undefined}
+      data-move-at
+      ref={el}
+      onFocus={() => {
+        setDraft(shown);
+        leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
+      }}
+      onInput={(e) => setDraft((e.currentTarget as HTMLInputElement).value)}
+      onBlur={(e) => {
+        leaveInput.current?.();
+        leaveInput.current = null;
+        const t = (e.currentTarget as HTMLInputElement).value;
+        setDraft(null);
+        if (t === shown) return;
+        const ym = parseYearMonth(t);
+        if (ym !== null) {
+          p.onProblem(null);
+          if (ym !== p.value) p.onCommit(ym);
+        } else p.onProblem(keptText(t, normalizeNumberText(t) === "" ? "空にはできません。時期を入れてください" : "年月（例: 2028-12）で入れてください"));
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+      }}
+    />
+  );
+}
+
+/**
+ * 預金から移す（0258）: 運用する口座ごとに「時期」「額」を1行ずつ（何行でも）。行ごとに「外す」、時期の右に「2年後・ご本人47歳」。
+ * NISA は成長投資枠に入れ、年の枠・生涯の枠を超えた分を預金に残すことを行の下に知らせる。何も入れていない口座は「＋預金から移す」の1行だけ
+ */
+function MoveEditor(p: { req: EngineRequest; a: Account; name: string; ownerName: string; onAdd: (e: Event) => void; onEdit: (id: string, patch: { ym?: string; amount?: number }) => void; onRemove: (id: string) => void }) {
+  const [problems, setProblems] = useState<Record<string, string>>({});
+  const rows = moveRowsOf(p.req, p.a, p.ownerName);
+  const title = p.a.kind === "nisa" ? "預金から移す（成長投資枠）" : "預金から移す";
+  const help = <Help label={`${p.name}の預金から移す`}>{MOVE_HELP}</Help>;
+  const add = (
+    <button type="button" class="sv-st-add" data-move-add onClick={(e) => p.onAdd(e)}>
+      {rows.length === 0 && p.a.kind === "nisa" ? "＋預金から移す（成長投資枠）" : "＋預金から移す"}
+    </button>
+  );
+  if (rows.length === 0)
+    return (
+      <div class="sv-mv empty" data-move>
+        {add}
+        {help}
+      </div>
+    );
+  const problem = (id: string, text: string | null) => setProblems((x) => ({ ...x, [id]: text ?? "" }));
+  return (
+    <div class="sv-mv" data-move>
+      <div class="sv-mv-h">
+        {title}
+        {help}
+      </div>
+      {rows.map((r, j) => (
+        <div class="sv-mv-row" key={r.id} data-move-row={r.id} data-reveal-item>
+          <YmBox value={r.ym} label={`${p.name}の預金から移す${j + 1}行目の時期`} onCommit={(ym) => p.onEdit(r.id, { ym })} onProblem={(t) => problem(r.id, t)} />
+          <span class="sv-mv-when">{r.when}</span>
+          <span class="sv-st-amt">
+            <NumBox value={r.amount} unit="man" size="s" label={`${p.name}の預金から移す${j + 1}行目の額`} onCommit={(v) => typeof v === "number" && p.onEdit(r.id, { amount: v })} />
+            <span>万円</span>
+          </span>
+          <button type="button" class="link-btn danger" aria-label={`${p.name}の預金から移す${j + 1}行目を外す`} data-move-remove onClick={() => p.onRemove(r.id)}>
+            外す
+          </button>
+          {problems[r.id] ? (
+            <p class="fld-help bad sv-mv-msg" role="alert">
+              {problems[r.id]}
+            </p>
+          ) : null}
+          {r.skipped !== null ? <p class="fld-help warn sv-mv-msg">{r.skipped}</p> : null}
+          {r.over !== null && r.skipped === null ? (
+            <div class="sv-mv-over" role="note" data-move-over>
+              {moveOverText(r.over)}
+            </div>
+          ) : null}
+        </div>
+      ))}
+      {add}
+    </div>
+  );
+}
+
 export interface SavingsPanelProps {
   wh: WorkingHousehold;
   level: Level;
@@ -314,7 +439,7 @@ export interface SavingsPanelProps {
 export type FieldMap = ReadonlyMap<string, FieldDef>;
 
 /** 口座の表で入れる欄（口座ごとの詳細の区画には出さない） */
-const IN_TABLE = /\/(kind|label|owner|value|monthly|rate|cost|payout|payoutAge|payoutDest|payoutAt|payoutYears|lumpShare|enrolled)$/;
+const IN_TABLE = /\/(kind|label|owner|value|monthly|rate|cost|payout|payoutAge|payoutDest|payoutAt|payoutYears|lumpShare|enrolled)$|\/move\/[^/]+\/(at|amount)$/;
 
 export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
   const req = wh.request;
@@ -991,7 +1116,7 @@ function AccountsTable(p: {
           <tr>
             <th class="l">口座</th>
             <th class="l">残高</th>
-            <th class="l">毎月の積立</th>
+            <th class="l">{list.some((a) => canMoveFromDeposit(h, a)) ? "毎月の積立・預金から移す" : "毎月の積立"}</th>
             <th>利回り（年）</th>
           </tr>
         </thead>
@@ -1109,6 +1234,26 @@ function AccountsTable(p: {
                   ) : (
                     steps(a, "all", name)
                   )}
+                  {/* ほかの口座に預金から移す行があるときだけ、出す元が収支の入る口座であることを添える（0258） */}
+                  {isSettle && list.some((x) => x !== a && canMoveFromDeposit(h, x) && (x.fromDeposit ?? []).length > 0) ? (
+                    <span class="memo" data-settlement-moves>
+                      ほかの口座へ「預金から移す」額は、この口座から出します
+                    </span>
+                  ) : null}
+                  {canMoveFromDeposit(h, a) ? (
+                    <MoveEditor
+                      req={req}
+                      a={a}
+                      name={name}
+                      ownerName={memberLabel(wh, a.owner)}
+                      onAdd={(e) => {
+                        revealAdded(e.currentTarget as HTMLElement);
+                        editAcc((hh) => void addMove(hh, base, find(hh, a.id)));
+                      }}
+                      onEdit={(id, patch) => editAcc((hh) => editMove(find(hh, a.id), id, patch))}
+                      onRemove={(id) => editAcc((hh) => removeMove(find(hh, a.id), id))}
+                    />
+                  ) : null}
                   {a.kind === "corporateDc" ? <span class="memo">会社の掛金（給与からの上乗せを含む）。退職まで</span> : a.kind === "ideco" ? <span class="memo">国民年金に入っている月など、加入できる月だけ（計算で判定）</span> : null}
                   {isSettle && (a.contributions ?? []).length > 0 ? (
                     <div class="fld-help warn sv-rate-msg" data-settlement-unused>

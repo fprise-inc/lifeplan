@@ -299,6 +299,11 @@ export interface AccountInput {
     readonly tranche?: string;
     readonly payer?: "self" | "employer";
   }[];
+  /**
+   * 預金から移す（時期ごとの額。決済口座からこの器へ移す器の間の移動で、年間収支に入れない。計算基準月より前・表の最後の年より後の行は使わない。
+   * 課税口座・NISA・財形・持株会・外貨預金・暗号資産だけで使う。NISA は成長投資枠に入れ、年の枠・生涯の枠を超えた分は預金に残す。0258）
+   */
+  readonly fromDeposit?: readonly { readonly id?: string; readonly at: Timepoint; readonly amount: Yen }[];
   readonly frame?: { readonly lifetimeUsedCost: Yen; readonly growthUsedCost?: Yen; readonly asOfYear: number };
   readonly lots?: readonly { readonly vintageYear: number; readonly regime: "general" | "tsumitate" | "junior"; readonly costBasis: Yen; readonly marketValue: Yen }[];
   readonly enrolledSince?: string;

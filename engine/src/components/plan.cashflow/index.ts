@@ -81,6 +81,11 @@
 //   年末までの収支（年間収支と本人の掛金から、始まりの月より前の月の分を除く）で見る。前はまる1年の収支で見ていたので、始まりの月より前の
 //   黒字（まだ給与がある月など）が不足を打ち消し、始まりの年の取り崩しが多めに出ていた。始まりの年より後の年と、始まりが1月（計算基準年は
 //   計算基準月）以前の計画の結果は同じ
+// - 改訂30（0258）: 預金から移す（accounts[].fromDeposit。時期ごとの額）。その月に決済口座から器へ移す（器の間の移動。年間収支に入れない。
+//   積立と同じ移動の行・計算式 plan.cashflow.fromDeposit）。使う器は課税口座・NISA・財形・持株会・外貨預金・暗号資産（ほかの器の行は使わない）。
+//   NISA は成長投資枠に入れ、その年の成長投資枠・生涯の枠（成長投資枠の生涯の枠も）の残りを超えた分は、前提 investment.nisaOverflow によらず
+//   預金に残す（知らせ N_LIMIT_APPLIED）。計算基準月より前・表の最後の年より後の行は使わない。同じ年の積立と移す行は月の順に枠を使う
+//   （同じ月は積立が先）。移す行の無い年の積立の順番は今までどおりなので、移す行の無い世帯の結果は同じ
 import {
   inheritanceOf,
   splitEqually,
@@ -175,6 +180,9 @@ const TRANSFER_ROW: Readonly<Record<string, string>> = {
   cryptoAsset: "cf.transfer.savings.cryptoAsset",
 };
 
+/** 預金から移す行（fromDeposit）を使う器（0258）。iDeCo・企業型DC・小規模企業共済は掛金の決まりがあるので使わない */
+const FROM_DEPOSIT_KINDS: ReadonlySet<string> = new Set(["taxable", "nisa", "zaikei", "esop", "fxDeposit", "cryptoAsset"]);
+
 interface Lot {
   readonly vintage: number;
   readonly regime: "general" | "tsumitate" | "junior";
@@ -217,7 +225,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.9",
-  revision: 29,
+  revision: 30,
   requires: {
     "contingency.event": ">=1 <2",
     "plan.flows": ">=1 <2",
@@ -252,6 +260,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.settlement",
     "account.withdrawalLockedUntil",
     "account.contributions",
+    "account.fromDeposit",
     "account.frame",
     "account.lots",
     "account.valueGrowth",
@@ -467,8 +476,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const homes = [...ctx.call<HousingValuationOutput>("housing.valuation", {}).properties, ...rentals].map((p) => ({ p, byYear: new Map(p.years.map((e) => [e.year, e])) }));
     const cars = ctx.call<CarValuationOutput>("asset.car", {}).cars.map((c) => ({ c, byYear: new Map(c.years.map((e) => [e.year, e.value])) }));
 
-    // 積立の予定（器ごと・月ごと）
-    const planned = new Map<number, { acc: Acc; m: MonthIndex; amount: Yen; tranche: string }[]>();
+    // 積立の予定（器ごと・月ごと）と預金から移す行（lump。0258）
+    const planned = new Map<number, { acc: Acc; m: MonthIndex; amount: Yen; tranche: string; lump?: true }[]>();
     for (const x of accs) {
       if (x.input === null || x.input.contributions.length === 0 || x === D) continue;
       for (const c of x.input.contributions) {
@@ -481,6 +490,24 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           planned.set(yearOf(m), list);
         }
       }
+    }
+    // 預金から移す（0258）: 計算基準月から表の最後の月までの行だけ。同じ年の積立と月の順に並べる（同じ月は積立が先。移す行の無い年は並べ替えない）
+    const lumpYears = new Set<number>();
+    for (const x of accs) {
+      if (x.input === null || x === D || !FROM_DEPOSIT_KINDS.has(x.input.kind)) continue;
+      for (const r of x.input.fromDeposit ?? []) {
+        const m = ctx.time.resolve(r.at);
+        if (m < base || m > end || r.amount <= 0) continue;
+        const list = planned.get(yearOf(m)) ?? [];
+        list.push({ acc: x, m, amount: r.amount, tranche: "growth", lump: true });
+        planned.set(yearOf(m), list);
+        lumpYears.add(yearOf(m));
+      }
+    }
+    for (const y of lumpYears) {
+      const list = planned.get(y) ?? [];
+      const order = new Map(list.map((p, i) => [p, i]));
+      list.sort((p, q) => p.m - q.m || (order.get(p) ?? 0) - (order.get(q) ?? 0));
     }
 
     // 取り崩しの順序（旧NISA・ジュニアNISA の移し先に作った課税口座も含めるため、取り崩すたびに器の一覧から決める）
@@ -659,6 +686,19 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       for (const p of planned.get(y) ?? []) {
         const x = p.acc;
         const owner = x.owner as string;
+        if (p.lump === true) {
+          // 預金から移す（0258）: NISA は成長投資枠の残りまで。超えた分は預金に残す（課税口座へは回さない）
+          if (x.kind === "nisa") {
+            const rest = putNisa(x, owner, p.amount, true, p.m, "plan.cashflow.fromDeposit");
+            if (rest > 0) cappedNotice = true;
+            continue;
+          }
+          const row = TRANSFER_ROW[x.kind];
+          // 亡くなった人のこどもNISA・旧NISA など移せない器になったときは移さない（預金に残す）
+          if (row === undefined || x.kind === "deposit") continue;
+          move(x, row, p.m, p.amount, owner, "plan.cashflow.fromDeposit");
+          continue;
+        }
         if (x.kind === "childNisa") {
           const u = usedOf(owner);
           const annualLimit = at.paramYen(N.childAnnual);

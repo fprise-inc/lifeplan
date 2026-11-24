@@ -1013,6 +1013,21 @@
             }
           }
         },
+        "fromDeposit": {
+          "title": "預金から移す（時期ごとに、まとまった額を決済口座からこの口座へ移す。器の間の移動で年間収支に入れない。計算基準月より前・表の最後の年より後の行は計算に入れない。課税口座・NISA・財形・持株会・外貨預金・暗号資産で使い、ほかの器では使わない。NISA は成長投資枠に入れ、年の枠・生涯の枠を超えた分は預金に残す。0258）",
+          "x-item": "account.fromDeposit",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "amount"],
+            "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "at": { "description": "移す月", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+              "amount": { "description": "移す額（円）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+            }
+          }
+        },
         "frame": {
           "title": "NISA の非課税保有限度額の消化（簿価。asOfYear の年末の値）",
           "x-item": "account.frame", "x-pointInTime": true,

@@ -156,6 +156,11 @@ export interface Account {
   /** 資産の配分の行（行の id は 0206。保存した世帯は持つ） */
   assetMix?: { id?: string; assetClass: string; share: string }[];
   contributions?: { from: Timepoint; to: Timepoint | null; monthly: number; tranche?: string; payer?: "self" | "employer"; [key: string]: unknown }[];
+  /**
+   * 預金から移す（時期ごとに、まとまった額を決済口座からこの口座へ移す。課税口座・NISA・財形・持株会・外貨預金・暗号資産だけ。NISA は成長投資枠に入れ、
+   * 年の枠・生涯の枠を超えた分は預金に残す。0258）
+   */
+  fromDeposit?: { id?: string; at: Timepoint; amount: number }[];
   /** 評価額の増減率（年率。不動産・その他の資産だけ） */
   valueGrowth?: string;
   /** FP が入れた器の利回り（年率。0026） */

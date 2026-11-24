@@ -7,6 +7,7 @@ import { addMonths, ageAt, ageReachedMonth, parseYm, readLevers } from "../../le
 import { classRate, DEPOSIT_CLASSES, expectedReturn } from "../../plans/allocation.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
+import { amountText } from "../units.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { investCorrelation, isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { ASSET_CLASSES, RISKY_ASSET_CLASSES, withAccountLabel } from "../labels.ts";
@@ -964,6 +965,150 @@ export function nisaHitOf(req: EngineRequest): NisaHit | null {
     }
   }
   return best;
+}
+
+// ---- 預金から移す（0258） ----
+
+/** 預金から移す行を入れられる口座（エンジンの FROM_DEPOSIT_KINDS と同じ。iDeCo・企業型DC・小規模企業共済は掛金の決まりがあるので出さない） */
+export const FROM_DEPOSIT_KINDS: ReadonlySet<string> = new Set(["taxable", "nisa", "zaikei", "esop", "fxDeposit", "cryptoAsset"]);
+/** 預金から移す行を入れられる口座か（収支が入る口座〔預金から出す元〕は除く） */
+export const canMoveFromDeposit = (h: Household, a: Account): boolean => FROM_DEPOSIT_KINDS.has(a.kind) && a !== settlementOf(h);
+
+/** 「？」の説明（利用者の判断の文） */
+export const MOVE_HELP = "預金から、この口座へまとまった額を移します（時期ごとに1行）。何回かに分けて投資に移すときは、行を足します。NISA は年の枠を超えた分を預金に残すので、超えるときは年を分けて入れてください。";
+
+/** 預金から移す行1つの見せ方 */
+export interface MoveRow {
+  id: string;
+  /** 移す月（読めない時点は null） */
+  ym: string | null;
+  amount: number;
+  /** 時期の右の説明（「今月」「2年後・ご本人47歳」） */
+  when: string;
+  /** 計算に入れない行の理由（計算基準月より前・表の最後の年より後） */
+  skipped: string | null;
+  /** NISA の枠を超えて預金に残す額と、どの枠か（目安。計算はエンジンの制度データ） */
+  over: { kind: "annual" | "lifetime"; amount: number } | null;
+}
+
+/** 計算基準月からの隔たりの言い方（「今月」「5か月後」「2年後」「2年3か月後」「1年前」） */
+function distanceText(base: string, ym: string): string {
+  const b = parseYm(base);
+  const t = parseYm(ym);
+  const n = (t.y - b.y) * 12 + (t.m - b.m);
+  if (n === 0) return "今月";
+  const k = Math.abs(n);
+  const y = Math.floor(k / 12);
+  const m = k % 12;
+  return `${y > 0 ? `${y}年` : ""}${m > 0 ? `${m}か月` : ""}${n > 0 ? "後" : "前"}`;
+}
+
+/** 預金から移す行（時期の順。同じ時期は入れた順） */
+export function moveRowsOf(req: EngineRequest, a: Account, ownerName: string): MoveRow[] {
+  const h = req.input.household;
+  const base = req.input.baseMonth;
+  const end = `${req.input.endYear}-12`;
+  const owner = ownerOf(h, a);
+  const overs = a.kind === "nisa" ? nisaMoveOvers(req, a) : new Map<string, MoveRow["over"]>();
+  const rows = (a.fromDeposit ?? []).map((r, i) => {
+    const ym = resolveTimepoint(h, r.at);
+    const id = r.id ?? `#${i}`;
+    let when = "";
+    let skipped: string | null = null;
+    if (ym !== null) {
+      when = distanceText(base, ym) + (owner !== undefined && ym >= base ? `・${ownerName}${ageAt(owner, ym)}歳` : "");
+      if (ym < base) skipped = "計算基準月より前なので、計算に入れていません（今の残高に入れてください）";
+      else if (ym > end) skipped = `表の最後の年（${req.input.endYear}年）より後なので、計算に入れていません`;
+    }
+    return { id, ym, amount: r.amount, when, skipped, over: overs.get(id) ?? null, i };
+  });
+  rows.sort((x, y) => (x.ym ?? "9999-99").localeCompare(y.ym ?? "9999-99") || x.i - y.i);
+  return rows.map(({ i: _i, ...r }) => r);
+}
+
+/** その年の積立・預金から移す行のうち、行の ID ごとに NISA の枠を超えて預金に残す額（目安。月の順に枠を使う。同じ月は積立が先。エンジンの plan.cashflow と同じ順） */
+export function nisaMoveOvers(req: EngineRequest, a: Account): Map<string, { kind: "annual" | "lifetime"; amount: number }> {
+  const h = req.input.household;
+  const base = req.input.baseMonth;
+  const end = `${req.input.endYear}-12`;
+  const stop = stopMonth(h, stopAgeOrEstimate(req));
+  const out = new Map<string, { kind: "annual" | "lifetime"; amount: number }>();
+  const moves = (a.fromDeposit ?? []).map((r, i) => ({ id: r.id ?? `#${i}`, ym: resolveTimepoint(h, r.at), amount: r.amount })).filter((r) => r.ym !== null && r.ym >= base && r.ym <= end && r.amount > 0) as { id: string; ym: string; amount: number }[];
+  if (moves.length === 0) return out;
+  const last = moves.reduce((x, r) => (r.ym > x ? r.ym : x), base);
+  // 同じ名義の NISA の枠を、この口座の積立と移す行で数える（名義の NISA はふつう1つ）
+  let used = (a.frame as { lifetimeUsedCost?: number } | undefined)?.lifetimeUsedCost ?? a.costBasis?.value ?? valueOf(a);
+  let usedG = (a.frame as { growthUsedCost?: number } | undefined)?.growthUsedCost ?? 0;
+  let year = Number(base.slice(0, 4));
+  let t = 0;
+  let g = 0;
+  const growthRoom = () => Math.max(0, Math.min(NISA.growth - g, NISA.lifetime - used, NISA.growthLifetime - usedG));
+  const putGrowth = (amount: number): number => {
+    const put = Math.min(amount, growthRoom());
+    g += put;
+    used += put;
+    usedG += put;
+    return put;
+  };
+  for (let m = base; m <= last; m = addMonths(m, 1)) {
+    const y = Number(m.slice(0, 4));
+    if (y !== year) {
+      year = y;
+      t = 0;
+      g = 0;
+    }
+    for (const c of a.contributions ?? []) {
+      if (c.payer === "employer" || c.monthly <= 0) continue;
+      const from = resolveTimepoint(h, c.from) ?? base;
+      const to = resolveTimepoint(h, c.to) ?? stop ?? end;
+      if (m < from || m > to) continue;
+      if (trancheOf(c) === "growth") putGrowth(c.monthly);
+      else {
+        const put = Math.max(0, Math.min(c.monthly, NISA.tsumitate - t, NISA.lifetime - used));
+        t += put;
+        used += put;
+        putGrowth(c.monthly - put);
+      }
+    }
+    for (const r of moves) {
+      if (r.ym !== m) continue;
+      const annualRoom = NISA.growth - g;
+      const put = putGrowth(r.amount);
+      if (put < r.amount) out.set(r.id, { kind: annualRoom <= put ? "annual" : "lifetime", amount: r.amount - put });
+    }
+  }
+  return out;
+}
+
+/** NISA の枠を超えた行の知らせ（「この年の枠を超える 260万円は、預金に残しています（成長投資枠は年240万円）」） */
+export function moveOverText(over: { kind: "annual" | "lifetime"; amount: number }): string {
+  return over.kind === "annual"
+    ? `この年の枠を超える ${amountText(over.amount)}は、預金に残しています（成長投資枠は年240万円）`
+    : `生涯の枠を超える ${amountText(over.amount)}は、預金に残しています（生涯の枠は1,800万円、うち成長投資枠は1,200万円）`;
+}
+
+/** 預金から移す行を足す: 1行目は今月、2行目からは前の行（時期のいちばん後の行）の1年後に同じ額 */
+export function addMove(h: Household, base: string, a: Account): string {
+  const list = (a.fromDeposit ??= []);
+  const last = list.map((r) => ({ ym: resolveTimepoint(h, r.at), amount: r.amount })).filter((r) => r.ym !== null).sort((x, y) => (x.ym as string).localeCompare(y.ym as string)).at(-1);
+  const id = newId();
+  list.push({ id, at: { at: last === undefined ? base : addMonths((last.ym as string) < base ? base : (last.ym as string), 12) }, amount: last?.amount ?? 0 });
+  return id;
+}
+
+/** 預金から移す行を書き換える（時期は年月、額は円） */
+export function editMove(a: Account, id: string, patch: { ym?: string; amount?: number }): void {
+  const r = (a.fromDeposit ?? []).find((x, i) => (x.id ?? `#${i}`) === id);
+  if (r === undefined) return;
+  if (patch.ym !== undefined) r.at = { at: patch.ym } as Timepoint;
+  if (patch.amount !== undefined) r.amount = patch.amount;
+}
+
+/** 預金から移す行を外す（全部外したら欄を消す） */
+export function removeMove(a: Account, id: string): void {
+  const next = (a.fromDeposit ?? []).filter((x, i) => (x.id ?? `#${i}`) !== id);
+  if (next.length === 0) delete a.fromDeposit;
+  else a.fromDeposit = next;
 }
 
 // ---- iDeCo・企業型DC の受け取り ----

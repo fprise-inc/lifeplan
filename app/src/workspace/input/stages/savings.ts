@@ -10,7 +10,7 @@ import { accountHolderRule, ACCOUNT_KINDS, accountLabelOf, accountLabelProblem, 
 import { addMonths } from "../../levers.ts";
 import { dropHeldCostRows, heldCostRow, heldEstateCostEstimate, heldEstateTaxInputs, newHeldCostRow, startsHeldEstateCost } from "../heldEstateTax.ts";
 import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
-import { accountName, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeBasis, payoutAgeOf, rateBasisOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf, withdrawableCount } from "../savings/model.ts";
+import { accountName, canMoveFromDeposit, MOVE_HELP, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeBasis, payoutAgeOf, rateBasisOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf, withdrawableCount } from "../savings/model.ts";
 import { allocationStageGroups, returnStageGroups } from "../staged.ts";
 import { FEE_RANGE, RETURN_RANGE } from "../rateRanges.ts";
 import { addRate, cmpRate, divRate, subRate } from "../../plans/decimal.ts";
@@ -520,6 +520,40 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     };
     fields.push(timepointField({ key: `${k}/until`, item: "account.contributions", label: "積立の終わり", level: "detail", find: lastContribution, path: ["to"], startPath: ["from"], ageMeans: "before", optional: true, nullText: "退職の年まで（推定）", ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}) }));
   }
+  // 預金から移す行（0258）: 行ごとに時期と額の欄（入力の画面は口座の表の部品 MoveEditor で描く。欄は値の当て先・プランの差分の見せ方・
+  // 動かす項目の一覧のため）。当て先は口座の中の入力項目 account.fromDeposit の、行の ID の中の at・amount
+  if (canMoveFromDeposit(wh.request.input.household, a))
+    (a.fromDeposit ?? []).forEach((r, j) => {
+      if (r.id === undefined) return;
+      const id = r.id;
+      const findRow: Finder = (h, w) => ((find(h, w) as Account | undefined)?.fromDeposit ?? []).find((x) => x.id === id) as Record<string, unknown> | undefined;
+      const n = (a.fromDeposit ?? []).length > 1 ? `（${j + 1}行目）` : "";
+      fields.push(
+        withAddress(
+          field({
+            key: `${k}/move/${id}/at`,
+            item: "account.fromDeposit",
+            label: `預金から移す${n}の時期`,
+            level: "simple",
+            kind: "ym",
+            help: MOVE_HELP,
+            get: (w) => {
+              const x = findRow(w.request.input.household, w);
+              return { value: x === undefined ? null : resolveTimepoint(w.request.input.household, x.at as Parameters<typeof resolveTimepoint>[1]) };
+            },
+            set: (w, v) =>
+              typeof v !== "string" || !/^\d{4}-\d{2}$/.test(v)
+                ? w
+                : mutate(w, (h) => {
+                    const x = findRow(h, w);
+                    if (x !== undefined) x.at = { at: v };
+                  }),
+          }),
+          onAccount(a.id, "account.fromDeposit", [id, "at"]),
+        ),
+        withAddress(plain({ key: `${k}/move/${id}/amount`, item: "account.fromDeposit", label: `預金から移す${n}の額`, level: "simple", kind: "yen", basis: "once", find: findRow, path: ["amount"], help: MOVE_HELP }), onAccount(a.id, "account.fromDeposit", [id, "amount"])),
+      );
+    });
   // 引き出せない期間の終わり（その月まで取り崩さない）。iDeCo・企業型DC・小規模企業共済は受け取りの決まりで預金に入るので出さない。
   // 雑所得の暗号資産は取り崩さないので出さない（0124）
   if (!DC_KIND.has(a.kind) && a.kind !== "smallBusinessMutualAid" && !(a.kind === "cryptoAsset" && a.cryptoTaxation === "miscellaneous"))
