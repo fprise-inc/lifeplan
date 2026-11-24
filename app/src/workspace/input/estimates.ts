@@ -34,7 +34,7 @@ import {
 } from "../../../../hearing/src/estimates.ts";
 
 export type { Estimate };
-export { careerStartMonth, CAR_ESTIMATE, residentTaxEstimate, residentTaxYear } from "../../../../hearing/src/estimates.ts";
+export { careerStartMonth, CAR_BANDS, CAR_ESTIMATE, carBand, carBandEstimates, carUpkeepEstimates, residentTaxEstimate, residentTaxYear, type CarBand, type CarUpkeepEstimates } from "../../../../hearing/src/estimates.ts";
 
 /**
  * 給与・賞与の目安（hearing/src/estimates.ts の salaryEstimate）。事務所の既定値で給与を「推定で埋めない」欄にしたときは null
