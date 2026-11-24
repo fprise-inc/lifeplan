@@ -43,10 +43,45 @@ entries:
       - cf.balance.account.childNisa
       - cf.balance.nisaFrame
     components:
-      plan.cashflow: 29
+      plan.cashflow: 30
       account.contribution: 2
     related:
       - investment.taxableAccountTax
+      - investment.withdrawalOrder
+
+  - id: investment.fromDeposit
+    title: 預金から移す（まとまった額を何回かに分けて投資に移す）
+    status: included
+    summary: >-
+      入っています。運用する口座ごとに、時期と額を1行ずつ入れると、その月に預金（収支が入る口座）からその口座へ移します。お金の置き場所が
+      変わるだけなので、年間収支には入れません。手元の預金を何回かに分けて投資に移す形を入れられます。
+    how: >-
+      使える口座は、課税口座・NISA・財形・持株会・外貨預金・暗号資産です（iDeCo・企業型DC・小規模企業共済は掛金の決まりがあるので使いません）。
+      NISA は成長投資枠に入れ、その年の成長投資枠（年240万円）と生涯の枠（1,800万円、うち成長投資枠1,200万円）の残りを超えた分は預金に残します
+      （課税口座で続ける前提でも、移す行の超えた分は預金に残します。計算の知らせに出ます）。同じ年の毎月の積立とは月の順に枠を使います（同じ月は積立が先）。
+      計算基準月より前・表の最後の年より後の行は計算に入れません。預金が足りないときは、ほかの赤字と同じく年末に取り崩しの順番で補い、補えなければ資金の不足に出ます。
+    keywords: [預金から移す, 一括投資, 分割投資, まとまった額, 時間分散, 預金を投資に, 成長投資枠]
+    items: [account.fromDeposit, account.kind, assumptions.investment]
+    fields:
+      - 「貯蓄・運用」の入力項目の「＋預金から移す」
+    rules:
+      - 租税特別措置法37条の14
+    regulation:
+      - nisa.annualLimit.growth
+      - nisa.lifetimeLimit
+      - nisa.lifetimeLimit.growth
+    rows:
+      - cf.transfer.investment
+      - cf.transfer.nisa.growth
+      - cf.transfer.savings.zaikei
+      - cf.transfer.savings.esop
+      - cf.transfer.savings.deposit
+      - cf.transfer.savings.cryptoAsset
+      - cf.balance.shortfall
+    components:
+      plan.cashflow: 30
+    related:
+      - investment.nisa
       - investment.withdrawalOrder
 
   - id: investment.ideco
@@ -233,7 +268,7 @@ entries:
       - 「貯蓄・運用」の入力項目の「利回りの変化」
     rows: [cf.balance.return]
     components:
-      plan.cashflow: 29
+      plan.cashflow: 30
       account.ideco: 7
     related:
       - basics.financialAssets
@@ -275,7 +310,7 @@ entries:
       - 「貯蓄・運用」の入力項目の「引き出せない期間の終わり」
     rows: [cf.transfer.withdrawal, cf.expense.living.drawdown, cf.balance.shortfall]
     components:
-      plan.cashflow: 29
+      plan.cashflow: 30
     related:
       - basics.shortfall
       - investment.taxableAccountTax
@@ -307,7 +342,7 @@ entries:
       - incomeTax.defenseSurtax.rate
     rows: [cf.taxSi.incomeTax.capitalGains, cf.taxSi.residentTax.capitalGains, cf.balance.account.taxable, cf.transfer.investment]
     components:
-      plan.cashflow: 29
+      plan.cashflow: 30
     related:
       - investment.withdrawalOrder
       - investment.nisa
@@ -339,7 +374,7 @@ entries:
       - cf.taxSi.incomeTax.cryptoAsset
       - cf.taxSi.residentTax.cryptoAsset
     components:
-      plan.cashflow: 29
+      plan.cashflow: 30
     related:
       - investment.withdrawalOrder
 
@@ -358,6 +393,6 @@ entries:
     items: [account.kind, account.assetMix, account.expectedReturn, assumptions.depositReturn, assumptions.assetReturns]
     rows: [cf.balance.account.fxDeposit, cf.transfer.savings.deposit]
     components:
-      plan.cashflow: 29
+      plan.cashflow: 30
     related:
       - investment.returnSettings

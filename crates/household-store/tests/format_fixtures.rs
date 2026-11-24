@@ -368,6 +368,21 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 信託報酬の無い配分に fees を書き足さない"
             );
         }
+        // 0.91 から: 口座の預金から移す行 accounts[].fromDeposit（0258）。変換で書き足さない（前の版の世帯は移す行なし）。
+        // 0.91 の見本は課税口座に3行（今月・2年後・7年後）と NISA に1行
+        let moves: Vec<&Value> = now["household"]["request"]["input"]["household"]["accounts"]
+            .as_array()
+            .map(|xs| xs.iter().filter_map(|a| a.get("fromDeposit")).collect())
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 91) {
+            assert_eq!(moves.len(), 2, "{v}: 0.91 からの見本は預金から移す行を持つ");
+            assert_eq!(moves[0].as_array().map(Vec::len), Some(1));
+            assert_eq!(moves[1].as_array().map(Vec::len), Some(3));
+            assert_eq!(moves[1][1]["at"]["at"], "2028-10");
+            assert_eq!(moves[1][1]["amount"], 20_000_000);
+        } else {
+            assert!(moves.is_empty(), "{v}: 預金から移す行は変換で書き足さない");
+        }
         // 0.86 から: 相続税の試算の設定 inheritanceTax.detailed・lands（0231）。変換で書き足さない（前の版の世帯は相続税も試算しない）。
         // 0.86 の見本は持ち家（路線価・二次の取得する人）と物件（倍率・貸家建付地・貸付の取得する人）の2件
         let tax = &now["household"]["request"]["input"]["inheritanceTax"];

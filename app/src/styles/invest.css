@@ -76,6 +76,16 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-st-to { min-width: 4.6em; font-weight: 700; }
 .sv-st-del { border: 0; background: none; font-size: 1rem; cursor: pointer; color: var(--ink-2); padding: 2px 6px; }
 .sv-st-add { border: 0; background: none; color: var(--prop); font-weight: 700; font-size: 0.82rem; cursor: pointer; padding: 2px 0; text-decoration: underline; text-underline-offset: 2px; }
+/* 預金から移す（0258）: 積立の下に点線で区切り、時期・説明・額・外すを1行に。NISA の枠を超えた分の知らせは行の下 */
+.sv-mv { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line-2, var(--line)); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.sv-mv.empty { gap: 0; flex-direction: row; align-items: center; }
+.sv-mv-h { font-size: 0.78rem; font-weight: 700; color: var(--ink-2); display: inline-flex; align-items: center; gap: 2px; }
+.sv-mv-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.sv-mv-row .sv-n.ym { width: 6.4em; text-align: left; }
+.sv-mv-when { font-size: 0.78rem; color: var(--ink-2); min-width: 10.5em; white-space: nowrap; }
+.sv-mv-row .link-btn.danger { font-size: 0.8rem; }
+.sv-mv-msg { flex-basis: 100%; margin: 0; font-size: 0.8rem; }
+.sv-mv-over { flex-basis: 100%; font-size: 0.8rem; color: var(--est-ink); background: var(--est-bg); border-radius: 6px; padding: 3px 8px; }
 .sv-add { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; align-items: center; }
 /* 灰色の文字の札（「詳細で直せます」など。推定の「!」の札と見分ける） */
 .sv-tag { display: inline-block; font-size: 0.75rem; font-weight: 400; color: var(--ink-2); border: 1px solid var(--line, #d0d4da); border-radius: 99px; padding: 0 8px; margin-left: 6px; white-space: nowrap; }

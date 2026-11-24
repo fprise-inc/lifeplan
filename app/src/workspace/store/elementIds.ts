@@ -15,7 +15,8 @@ const isObj = (v: unknown): v is Json => typeof v === "object" && v !== null && 
 // 道の "*" は並びの要素ごと（その要素の中の並び）。中の並びは外の並びより先に振る（外の要素に ID が無いときの場所を、決まった ID の作り方とそろえるため）
 const ELEMENT_LISTS: readonly [string, readonly (readonly string[])[]][] = [
   ["livingExpenses", [["stages"], ["categories"]]],
-  ["accounts", [["contributions"], ["returnStages", "*", "assetMix"], ["returnStages"], ["returnExceptions"], ["property", "rental", "stages"], ["property", "rental", "exceptions"], ["property", "expenses", "stages"], ["property", "expenses", "exceptions"], ["assetMix"], ["lots"]]],
+  // 0.91 から（0258）: 預金から移す行 fromDeposit（新しい並び。変換の段で振る古い要素は無い）
+  ["accounts", [["contributions"], ["fromDeposit"], ["returnStages", "*", "assetMix"], ["returnStages"], ["returnExceptions"], ["property", "rental", "stages"], ["property", "rental", "exceptions"], ["property", "expenses", "stages"], ["property", "expenses", "exceptions"], ["assetMix"], ["lots"]]],
   ["debts", [["rateSchedule"], ["prepayments"], ["refinance", "*", "rateSchedule"], ["refinance"]]],
   ["residences", [["purchase", "gifts"], ["purchase", "payments"], ["rent", "stages"], ["rent", "exceptions"], ["maintenance", "stages"], ["maintenance", "exceptions"], ["propertyTax", "stages"], ["propertyTax", "exceptions"]]],
   ["periodicExpenses", [["stages"], ["exceptions"]]],

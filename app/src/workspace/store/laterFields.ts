@@ -103,6 +103,7 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:sav/{object}/lot/{n}/value","until":"0.35","to":{"target":"object","item":"account.lots","at":[{"n":1},"marketValue"]}},
   {"from":"field:sav/{object}/lot/{n}/year","until":"0.35","to":{"target":"object","item":"account.lots","at":[{"n":1},"vintageYear"]}},
   {"from":"field:sav/{object}/lumpShare","until":"0.35","to":{"target":"object","item":"account.payout","at":["lumpShare"]}},
+  {"from":"field:sav/{object}/move/{id}/amount","until":"0.91","to":{"target":"object","item":"account.fromDeposit","at":[{"id":1},"amount"]}},
   {"from":"field:sav/{object}/payoutYears","until":"0.35","to":{"target":"object","item":"account.payout","at":["annuityYears"]}},
   {"from":"field:sav/{object}/property/acqCosts","until":"0.35","to":{"target":"object","item":"account.property","at":["acquisition","costs"]}},
   {"from":"field:sav/{object}/property/commonFee","until":"0.35","to":{"target":"object","item":"account.property","at":["rental","commonFee"]}},

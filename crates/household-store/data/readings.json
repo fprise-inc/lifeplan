@@ -1804,6 +1804,12 @@
     "frame"
    ]
   },
+  "account.fromDeposit": {
+   "collection": "account",
+   "path": [
+    "fromDeposit"
+   ]
+  },
   "account.holdFrom": {
    "collection": "account",
    "path": [

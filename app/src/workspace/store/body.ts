@@ -151,6 +151,9 @@
 //   0.89 から: AI に渡した記録 aiShares[] に、任意の欄 notesPaused（メモと面談の履歴を止めた日時と、何が変わったか）と notesResharedAfter
 //   （止めた後に渡し直した共有）。同意の記録の任意の欄 notes もこの版から（0249 の 11）。どちらも本体だけが書く区画。足すだけ。
 //   本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝止めていない）
+//   0.90 から: 資産配分の資産の種類ごとの信託報酬 allocation.fees と新興国の資産の種類（0252。本体の変換の段が配分全体の信託報酬を移す）
+//   0.91 から: 口座の預金から移す行 accounts[].fromDeposit（時期 at と額 amount。行の ID を持つ。0258）。足すだけ。本体の変換の段は版だけを
+//   書き換える（前の版の世帯は欄が無い＝移す行なし）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -224,7 +227,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.90";
+export const BODY_FORMAT_VERSION = "0.91";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
