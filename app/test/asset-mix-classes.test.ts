@@ -5,7 +5,8 @@
 // - 事務所データの assetMix（形の版 5）
 // 境目: 計算の基準月が1〜3月の世帯・入れ方の違い（口座ごと／資産配分）・空欄・推定のままと FP が入れた値
 import { afterEach, describe, expect, it } from "vitest";
-import { blankHousehold, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { modelHousehold, preview } from "./helpers.ts";
 import {
   addableClasses,
   addClass,
@@ -193,6 +194,24 @@ describe("前の版の配分（0252）", () => {
       expect(investmentOf(wh.request).allocation?.mix, base).toEqual(GPIF_MIX);
       expect(portfolioOf(wh.request).fee, base).toBeCloseTo(portfolioOf(switchMethod(blank(), "allocation").request).fee, 10);
     }
+  });
+});
+
+describe("口座の運用の費用と配分の信託報酬（0252 の点検の直し）", () => {
+  it("口座ごとの入れ方で口座に運用の費用を入れた世帯を資産配分にしても、種類ごとに違う信託報酬と二重に引かない", () => {
+    const base = fromRequest(modelHousehold("investmentCouple"));
+    const withFee = mutate(base, (h) => {
+      for (const a of h.accounts ?? []) if (["nisa", "ideco", "taxable"].includes(a.kind)) a.fee = "0.01";
+    });
+    const alloc = (w: WorkingHousehold) => switchMethod(w, "allocation");
+    const a = alloc(withFee);
+    const b = alloc(base);
+    // 既定（GPIF）の信託報酬は種類ごとに違う（0.15%・0.1%）
+    expect(new Set(Object.values(investmentOf(a.request).allocation?.fees ?? {})).size).toBeGreaterThan(1);
+    expect((a.request.input.household.accounts ?? []).some((x) => x.fee === "0.01")).toBe(true);
+    const last = a.request.input.endYear;
+    const fin = (w: WorkingHousehold) => preview(w.request).table.filter((c) => c.row === "cf.balance.financial" && c.year === last).reduce((s, c) => s + c.amount, 0);
+    expect(fin(a)).toBe(fin(b));
   });
 });
 

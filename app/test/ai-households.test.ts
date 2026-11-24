@@ -1,4 +1,4 @@
-// AIからの新しい世帯の候補（接続口の propose_household）: 読み口（番号らしい所を消す・知らない欄を読まない）・確かめの画面・作るときの形・
+// AIからの新しい世帯の候補（接続口の propose_household）: 読み口（番号らしい所を消す・知らない欄を読まない）・AIからの新しい世帯の候補の確認画面・作るときの形・
 // 「架空」の印・架空の世帯は同意なしで渡せて、お客さまの世帯は今までどおり同意が要ること
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -74,7 +74,7 @@ describe("新しい世帯の候補の読み口", () => {
   });
 });
 
-describe("確かめの画面", () => {
+describe("AIからの新しい世帯の候補の確認画面", () => {
   it("家族・収入・資産・住まい・ローン・生活費と、推定したこと・推定の値の数を出す", () => {
     const ov = householdOverview(fixture.input);
     expect(ov.family.map((r) => `${r.label} ${r.value}`)).toEqual(["ご本人 38歳・男性", "配偶者 36歳・女性"]);

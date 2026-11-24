@@ -9,7 +9,7 @@ import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { investCorrelation, isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
-import { ASSET_CLASSES, withAccountLabel } from "../labels.ts";
+import { ASSET_CLASSES, RISKY_ASSET_CLASSES, withAccountLabel } from "../labels.ts";
 import { officeNow } from "../../office/current.ts";
 import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 
@@ -494,8 +494,8 @@ export const CLASSES: readonly ClassDef[] = [
 ];
 /** 表に無い種類（前の版の配分・段階の配分のバランス型など）の見せ方 */
 export const classDefOf = (key: string): ClassDef => CLASSES.find((c) => c.key === key) ?? def(key, "コモディティ・預金", "#bcbcbc", false);
-/** 相場が下がる場合に下げる資産クラス（株・REIT） */
-export const RISKY_CLASSES: readonly string[] = ["equity.domestic", "equity.global", "equity.emerging", "reit.domestic", "reit.global"];
+/** 相場が下がる場合に下げる資産クラス（株・REIT。labels.ts の1か所） */
+export const RISKY_CLASSES: readonly string[] = RISKY_ASSET_CLASSES;
 
 type MixPart = { assetClass: string; share: string };
 

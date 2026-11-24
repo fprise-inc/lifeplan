@@ -13,7 +13,8 @@
 //   allocation: 運用する器（課税口座・NISA・iDeCo・企業型DC・持株会）に、共通の資産配分と信託報酬を当てる（FP が入れた器の利回りは使わない）。
 //   資産配分の段階（allocation.stages。0040）は、運用する器の利回りの段階（returnStages の資産の配分の段）に写す（器の利回りの段階・例外の年は使わない）
 //   資産の種類ごとの信託報酬（allocation.fees。0252）は、配分（段階の配分も）の行ごとに fee として写す（無い種類は allocation.fee。どちらも無ければ書かない＝0）。
-//   どの行も同じ信託報酬なら、行に書かずに器の信託報酬（fee）にする（前の版の「配分全体で1つ」と同じ計算の道。結果を1円も変えない）
+//   どの行も同じ信託報酬なら、行に書かずに器の信託報酬（fee）にする（前の版の「配分全体で1つ」と同じ計算の道。結果を1円も変えない）。
+//   どちらの形でも、口座に残っている運用の費用（口座ごとの入れ方で入れた fee）は配分の信託報酬で上書きする（行に書いたときは器の費用を0にする。二重に引かない）
 import { addMonths, formatYm, type MonthIndex } from "../time/month.ts";
 import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
 import { yen, type Yen } from "../money/yen.ts";
@@ -114,8 +115,10 @@ function allocationFees(alloc: Allocation): { mixOf: (m: Mix) => Mix; fee: strin
   const used = [alloc.mix, ...(alloc.stages ?? []).map((s) => s.mix)].flatMap((m) => m.map((x) => feeOf(x.assetClass)));
   const first = used[0];
   // 率の文字の書き方の違い（"0.001" と "0.0010"）は同じ値と読む
-  if (used.every((f) => (f === undefined ? first === undefined : first !== undefined && Number(f) === Number(first)))) return { mixOf: (m) => m, fee: first };
-  return { mixOf: (m) => m.map((x) => ({ assetClass: x.assetClass, share: x.share, fee: feeOf(x.assetClass) ?? "0" })), fee: undefined };
+  // 種類ごとの信託報酬がある配分は、口座の「運用の費用」をいつも上書きする（前の版の配分全体の信託報酬と同じ。行に書いたときは器の費用を0にして
+  // 二重に引かない）
+  if (used.every((f) => (f === undefined ? first === undefined : first !== undefined && Number(f) === Number(first)))) return { mixOf: (m) => m, fee: first ?? "0" };
+  return { mixOf: (m) => m.map((x) => ({ assetClass: x.assetClass, share: x.share, fee: feeOf(x.assetClass) ?? "0" })), fee: "0" };
 }
 
 /** 入れ方と既定の値を重ねた入力（重ねるものが無ければ同じ物を返す）と、見出しに出す知らせ */

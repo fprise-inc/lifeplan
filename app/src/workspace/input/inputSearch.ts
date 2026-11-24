@@ -83,7 +83,7 @@ const isRemoval = (label: string, danger: boolean | undefined) => danger === tru
 
 function entriesOfSection(s: SectionDef, push: (label: string, where: string | null, help: string | undefined, target: FindTarget, level: Level | null) => void) {
   const sec = { section: s.key };
-  push(s.title, null, s.note, { kind: "section", key: s.key }, levelOf(s.level));
+  push(s.title, null, s.lead !== undefined ? [s.lead, s.note].filter((x) => x !== undefined).join("") : s.note, { kind: "section", key: s.key }, levelOf(s.level));
   const actions = (list: SectionDef["actions"], where: string, base: readonly Level[], simpleOnly: boolean) => {
     const choices = new Set<string>();
     for (const a of list) {

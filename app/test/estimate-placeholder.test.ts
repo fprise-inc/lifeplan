@@ -1,5 +1,5 @@
 // 空欄の推定の値を欄の中に灰色で見せる（0041 の追記 2026-11-10）: 空欄のまま推定で計算する欄で推定の値を書ける欄（blankEstimate）は、
-// 欄の中に「空欄＝推定」でなく推定の値そのもの（「5.2」「47.2」「55」）を灰色で出し、「この値にする」を欄の中に置き、欄の横は値の繰り返しでなく根拠の短い文。
+// 欄の中に「空欄＝推定」でなく推定の値そのもの（「5.2」「47.2」「55」）を灰色で出し、「この値にする」は単位のさらに右（欄の外。0254）、欄の横は値の繰り返しでなく根拠の短い文。
 // 推定の値を書けない欄（積立をやめる年齢など）・空欄の意味が値でない欄（「空欄＝65歳から」など）は今のまま。
 // 介護の目安の物の期間は空欄＝統計の平均の推定（前は統計の月数を入れた値として書いていた）
 import { readdirSync, readFileSync } from "node:fs";
@@ -58,7 +58,7 @@ describe("根拠の短い文（shortBasis）", () => {
 });
 
 describe("介護の費用の欄: 空欄の推定の値を灰色で", () => {
-  it("月々の費用・一時費用・期間は、欄の中に推定の値（「空欄＝推定」ではない）、「この値にする」は欄の中、推定の出どころは印の吹き出しの頭", () => {
+  it("月々の費用・一時費用・期間は、欄の中に推定の値（「空欄＝推定」ではない）、「この値にする」は単位のさらに右（欄の外）、推定の出どころは印の吹き出しの頭", () => {
     const { wh, id } = withCare();
     const est = careEstimate("home")!;
     const cases: [string, string][] = [
@@ -72,12 +72,13 @@ describe("介護の費用の欄: 空欄の推定の値を灰色で", () => {
       expect(fieldStatus(f, wh).status).toBe("estimated");
       const html = fieldHtml(wh, f);
       expect(placeholderOf(html)).toBe(text);
-      expect(inputOf(html)).toMatch(/class="num has-fill est-ghost"/);
+      expect(inputOf(html)).toMatch(/class="num est-ghost"/);
       // 欄そのものは空（打ち始めると灰色の値は消える）
       expect(inputOf(html)).toMatch(/ value(="")?[ />]/);
       expect(html).not.toContain("空欄＝推定");
-      // 「この値にする」は欄の中（灰色の値の左）に1つ、名前の横に「推定」の印
-      expect(html).toMatch(/<span class="fld-box"><input [^>]*\/><button type="button" class="fld-fill inside"[^>]*data-fill-estimate="true">この値にする<\/button><\/span>/);
+      // 「この値にする」は欄の外に1つ（欄 → 単位 →「この値にする」の並び。0254）、名前の横に「推定」の印
+      expect(html).toMatch(/<input [^>]*\/><span class="(units|suffix)">.*?<\/span><button type="button" class="fld-fill"[^>]*data-fill-estimate="true">この値にする<\/button>/);
+      expect(html).not.toContain("fld-box");
       expect(html).toContain('<div class="fld is-est"');
       expect(html).toMatch(/>推定</);
       // 欄の横に値の繰り返し（「月5.2万円（推定）」）も推定の出どころも出さない。出どころは「推定」の印の吹き出しの頭
@@ -231,7 +232,7 @@ describe("見た目", () => {
   it("灰色の値は、入っている推定の値と同じ文字の色（明るい・暗いとも --base-ink。プレースホルダーの既定の薄さにしない）", () => {
     const css = readFileSync(join(REPO_DIR, "app", "src", "styles", "app.css"), "utf8");
     expect(css).toContain(".fld-c input.est-ghost::placeholder { color: var(--base-ink); opacity: 1; }");
-    expect(css).toMatch(/\.fld\.is-est \.fld-c input\[type="text"\] \{ border-style: dashed;/);
+    expect(css).toMatch(/\.fld\.is-est \.fld-c input\[type="text"\], \.fld\.is-est:not\(\.when\) \.fld-c > select \{ border-style: dashed;/);
   });
 });
 
@@ -408,7 +409,7 @@ describe("推定のままの介護の始まりは元の値についてくる", (
 });
 
 describe("選ぶ欄の空の選択肢（iDeCo・企業型DC の受け取り方）", () => {
-  it("空欄は「（推定: 一時金）」（エンジンは受け取り方が空なら一時金で計算する）", () => {
+  it("空欄は推定の選択肢「一時金」を選ばれた見た目で（点線の枠。一覧には出さない。エンジンは受け取り方が空なら一時金で計算する。0254）", () => {
     const src = readFileSync(join(REPO_DIR, "engine", "src", "components", "account.idecoPayout", "index.ts"), "utf8");
     expect(src).toContain('const method = a.payout?.method ?? "lumpSum";');
     let found = 0;
@@ -418,11 +419,21 @@ describe("選ぶ欄の空の選択肢（iDeCo・企業型DC の受け取り方�
         if (!f.key.endsWith("/payout") || f.kind !== "select" || f.get(wh).value !== null) continue;
         found++;
         const html = fieldHtml(wh, f);
-        expect(html).toMatch(/<option selected value>（推定: 一時金）<\/option>/);
+        expect(html).toMatch(/<option selected value disabled hidden>一時金<\/option>/);
+        expect(html).toMatch(/<select [^>]*data-est-option="lumpSum"/);
+        // カーソルを合わせると推定の根拠（「65歳に一時金で受け取る計算」など）と、押すと確定になること
+        expect(html).toMatch(/<select [^>]*title="推定: [^"]*に一時金で受け取る計算（押すと、この選択で確定します）"/);
+        expect(html).toContain('<div class="fld is-est"');
         expect(html).not.toContain("（選ぶ）");
+        expect(html).not.toContain("（推定:");
         // 選んだ欄は空の選択肢を出さない
         const w1 = f.set(wh, "annuity");
-        expect(fieldHtml(w1, allFields(buildStage("savings", w1)).find((x) => x.key === f.key)!)).not.toContain("（推定:");
+        const picked = fieldHtml(w1, allFields(buildStage("savings", w1)).find((x) => x.key === f.key)!);
+        expect(picked).not.toContain("data-est-option");
+        expect(picked).not.toContain("hidden");
+        // 推定と同じ「一時金」を一覧で選んでも、FP が選んだ確定（推定の印は消える）
+        const w2 = f.set(wh, "lumpSum");
+        expect(fieldStatus(f, w2).status).toBe("confirmed");
       }
     }
     expect(found).toBeGreaterThan(0);

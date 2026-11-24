@@ -228,7 +228,7 @@ export function parseHash(hash: string): {
   bell?: string | null;
   /** #feedback: 「要望・不具合を送る」を開いて開く（画面の確かめ用） */
   feedback?: boolean;
-  /** #documents=sample: 見本の世帯に架空の書類の見本を読み、書類の読み取りの確かめの画面を開いて開く（#documents は開くだけ。画面の確かめ用。0148） */
+  /** #documents=sample: 見本の世帯に架空の書類の見本を読み、書類の読み取りの確認画面を開いて開く（#documents は開くだけ。画面の確かめ用。0148） */
   documents?: "open" | "sample";
   /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
   statement?: "accounts" | "import" | "review" | "result";
@@ -563,9 +563,9 @@ export function App() {
   const [recovery, setRecovery] = useState<RecoveryMode | null>(null);
   /** AI接続口の中央のパネル（事務所の設定・世帯の同意と共有） */
   const [aiPanel, setAiPanel] = useState<null | "connector" | "share">(null);
-  /** AIからの新しい世帯の候補を確かめる画面（開いているときは届いている候補。閉じているときは null） */
+  /** AIからの新しい世帯の候補の確認画面（開いているときは届いている候補。閉じているときは null） */
   const [hhCands, setHhCands] = useState<AiHouseholdCandidate[] | null>(null);
-  /** AI が発行した Web のヒアリングの URL を確かめる画面（0222） */
+  /** AI が発行した URL の確認画面（Web のヒアリングの URL。0222） */
   const [hearingPanel, setHearingPanel] = useState(false);
   // 事務所での共有（0023）
   const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
@@ -620,9 +620,9 @@ export function App() {
   const noticeLocalRef = useRef<LocalState>(EMPTY_LOCAL);
   const [noticeFocus, setNoticeFocus] = useState<{ key: string | null; n: number } | null>(initial.bell !== undefined ? { key: initial.bell, n: 1 } : null);
   const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
-  /** 書類の読み取りの確かめの画面（0148） */
+  /** 書類の読み取りの確認画面（0148） */
   const [docsOpen, setDocsOpen] = useState(initial.documents !== undefined);
-  /** 確かめの画面で初めに開く読み取りの記録（読んだばかりの書類〔XML の読み手。0153〕・AI から届いた帯から開くとき〔0151〕） */
+  /** 書類の読み取りの確認画面で初めに開く読み取りの記録（読んだばかりの書類〔XML の読み手。0153〕・AI から届いた帯から開くとき〔0151〕） */
   const [docsInitial, setDocsInitial] = useState<string | undefined>(undefined);
   /** 「この書類を読む」の入口（書類のお願いの1通・書類待ちの欄・入力項目の見出しから。0154 の3） */
   const [docStart, setDocStart] = useState<DocStart | null>(null);
@@ -1653,7 +1653,7 @@ export function App() {
     openedRef.current = n;
     setOpened(n);
   }, []);
-  /** 書類の確かめの画面の操作: 記録を先に入れ、現状の値は元に戻せる変更として入れる */
+  /** 書類の読み取りの確認画面の操作: 記録を先に入れ、現状の値は元に戻せる変更として入れる */
   const onDocChange = useCallback(
     (c: DocChange) => {
       putDocuments(c.log);
@@ -1962,7 +1962,7 @@ export function App() {
     setHearingPanel(true);
     if (unseenCount(aiHearing.store) > 0) void aiHearing.seen().catch(() => undefined);
   };
-  /** AIからの新しい世帯の候補を確かめる画面を開く（候補は本体から読む） */
+  /** AIからの新しい世帯の候補の確認画面を開く（候補は本体から読む） */
   const openHouseholdCandidates = useCallback(async () => {
     if (host === null) return;
     try {
@@ -2205,7 +2205,7 @@ export function App() {
     if (host === null || storeStatus?.state !== "ready" || host.ai.hearingTemplateCandidates === undefined) return;
     void host.ai.hearingTemplateCandidates().then(setHearingTemplateCands, () => undefined);
   }, [host, storeStatus?.state, hearingTemplateCount, officeSettingsOpen]);
-  // 新しい世帯の候補が届いた・減ったとき、確かめの画面を開いていれば読み直す
+  // 新しい世帯の候補が届いた・減ったとき、AIからの新しい世帯の候補の確認画面を開いていれば読み直す
   const hhCandCount = ai.status?.householdCandidates ?? 0;
   useEffect(() => {
     if (host === null || hhCands === null) return;

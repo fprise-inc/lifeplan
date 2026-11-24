@@ -246,6 +246,24 @@ describe("資産の種類ごとの信託報酬（0252）", () => {
     }
   });
 
+  it("口座に残った運用の費用（口座ごとの入れ方で入れた fee）は、種類ごとの信託報酬が同じでも違っても上書きして二重に引かない", () => {
+    const withFee = (allocation: Obj) =>
+      full(
+        mk([dep(0), { ...tx(10000000), fee: "0.01" }], (_h, input) => {
+          const a = input.assumptions as Obj;
+          a.assetReturns = returns;
+          a.investment = { method: "allocation", allocation };
+        }, 2026),
+      );
+    const mix = [{ assetClass: "equity.global", share: "0.5" }, { assetClass: "bond.domestic", share: "0.5" }];
+    // 6%×0.5＋1%×0.5 = 3.5%。信託報酬 0.3%・0.1% → 割合でならして 0.2% → 3.3%（口座の費用1%は引かない）
+    expect(bal(withFee({ mix, fees: { "equity.global": "0.003", "bond.domestic": "0.001" } }), 2026)).toBe(10330000);
+    expect(bal(withFee({ mix, fees: { "equity.global": "0.002", "bond.domestic": "0.002" } }), 2026)).toBe(10330000);
+    expect(bal(run({ mix, fees: { "equity.global": "0.003", "bond.domestic": "0.001" } }, 2026), 2026)).toBe(10330000);
+    // 種類ごとの信託報酬が1つも無い配分（fees は空）も、口座の費用は使わない
+    expect(bal(withFee({ mix, fees: {} }), 2026)).toBe(10350000);
+  });
+
   it("fees に無い種類は fee を使い、どちらも無ければ引かない。段階の配分は、その段の割合でならす", () => {
     const mix = [{ assetClass: "equity.global", share: "0.5" }, { assetClass: "bond.domestic", share: "0.5" }];
     // 先進国株式 0.4%・国内債券は fee の 0.2% → 0.3%

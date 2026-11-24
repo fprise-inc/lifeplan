@@ -400,8 +400,15 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c input[type="text"], .fld-c select { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--card); min-width: 0; }
 .fld-c input.num { width: 9.5em; text-align: right; font-variant-numeric: tabular-nums; }
 .fld-c input.txt { width: 100%; max-width: 18em; }
+/* 文字を打つ欄の 欄 → 単位 →「この値にする」の1行（0254）。幅の狭い列（3列の並びなど）では欄を縮めて並びを保つ（「この値にする」を次の行へ落とさない） */
+.fld-in { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; max-width: 100%; }
+.fld-in > input.num { flex: 0 1 9.5em; min-width: 4.5em; }
+.fld-in > input.ym { flex: 0 1 8em; min-width: 5.5em; }
+.fld-in > .units, .fld-in > .suffix, .fld-in > .fld-fill { flex: none; }
 .fld-c input.ym { width: 8em; font-variant-numeric: tabular-nums; }
 .fld-c input.when-in { width: 10.5em; max-width: 100%; font-variant-numeric: tabular-nums; }
+/* 時点の欄に数字だけ（「3」＋欄の外の「年後」）を見せているときは、数の欄と同じく右寄せ（0254） */
+.fld-c input.when-in.num-only { text-align: right; }
 .fld-c select.when-mode, .fld-c select.when-who, .fld-c select.when-event { font-size: 0.85rem; padding: 4px 6px; }
 .fld-help.when-read { color: var(--ink); }
 /* 見出しを左の狭い列に寄せる詰めた形（.in-group.compact）は無くした: どのまとまりも、見出しは幅いっぱいの1行・欄は次の行から（0236 の追記） */
@@ -494,7 +501,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c > .seg-g.fld-seg > button + button { border-left: 1.5px solid var(--prop); }
 .fld-c > .seg-g.fld-seg > button:hover { background: var(--prop-bg); }
 .fld-c > .seg-g.fld-seg > button[aria-checked="true"], .fld-c > .seg-g.fld-seg > button[aria-checked="true"]:hover { background: var(--prop); color: var(--on-fill); cursor: default; }
-.fld-c > .seg-g.fld-seg > button.is-est-opt { background: var(--wash, #f7f8fa); color: var(--base-ink); outline: 1.5px dashed var(--base); outline-offset: -4px; }
+/* 推定している選択肢は、点線・薄い色で選ばれた見た目（推定の欄の点線の枠と同じ意味。押すと確定のふつうの塗りになる。0254）。.seg-g の区切りボタンはどこでも同じ */
+.seg-g button.is-est-opt, .fld-c > .seg-g.fld-seg > button.is-est-opt { background: var(--wash, #f7f8fa); color: var(--base-ink); outline: 1.5px dashed var(--base); outline-offset: -4px; }
+.seg-g button.is-est-opt:hover, .fld-c > .seg-g.fld-seg > button.is-est-opt:hover { background: var(--prop-bg); }
 .fld-c > .seg-g.fld-seg > button:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; }
 /* オン・オフを切り替えるボタンをチェックの見た目で（「＋ 〜」のボタンの並びの中。チェックの欄と同じ四角と文字） */
 .act-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.92rem; font-weight: 700; color: var(--ink); cursor: pointer; }
@@ -516,7 +525,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-opened-body > .in-actions { margin-top: 10px; }
 .fld-opened-body > .in-actions:has(+ .fields, + .in-group, + .in-note) { margin-bottom: 20px; }
 .in-group > .fields + .fld-opened, .in-group > .fld-opened + .fields, .fld-opened-body > .fields + .fld-opened { margin-top: 16px; }
-.fld.is-est .fld-c input[type="text"] { border-style: dashed; border-color: var(--base); background: var(--wash, #f7f8fa); color: var(--base-ink); }
+.fld.is-est .fld-c input[type="text"], .fld.is-est:not(.when) .fld-c > select { border-style: dashed; border-color: var(--base); background: var(--wash, #f7f8fa); color: var(--base-ink); }
 /* 空欄の推定の値を欄の中に灰色で見せる（入っている推定の値と同じ文字の色。打ち始めると消える。0041 の追記 2026-11-10） */
 .fld-c input.est-ghost::placeholder { color: var(--base-ink); opacity: 1; }
 .units { display: inline-flex; gap: 4px; }
@@ -563,14 +572,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-ops { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
 .fld-ops .link-btn { font-size: 0.78rem; }
 /* 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。推定の欄にだけ出す小さなボタン。
-   数の欄は欄の中の左（値は右寄せ）に置き、欄に入って打ち始めると隠す（Tab で移れるよう、隠すのは見た目だけ） */
+   置き場所はいつも欄の外で、単位（年ごと・万円など）のさらに右。欄の中には入れない（0254） */
 .fld-fill { border: 1.5px solid var(--prop); background: var(--card); color: var(--prop-ink); border-radius: 999px; padding: 0 8px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; cursor: pointer; }
 .fld-fill:hover, .fld-fill:focus-visible { background: var(--prop-bg); }
-.fld-box { position: relative; display: inline-flex; min-width: 0; }
-.fld-box .fld-fill.inside { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 0.68rem; padding: 0 5px; }
-.fld-c input.num.has-fill { padding-left: 5.4em; padding-right: 6px; }
-.fld-c input.num.has-fill:focus { padding-left: 8px; }
-.fld-box input:focus + .fld-fill.inside { opacity: 0; pointer-events: none; }
 .ip-bulk .fld-fill { font-size: 0.8rem; }
 .ip-bulk { grid-column: 1 / -1; margin-top: 4px; }
 .ip-gaps { grid-column: 1 / -1; margin-top: 6px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--short); background: var(--short-bg); color: var(--short-ink); font-size: 0.86rem; }
@@ -837,6 +841,9 @@ h2 .ih-st { font-size: 0.8rem; }
 .ip-inherit details { margin: 2px 0 4px; }
 .ip-inherit details summary { cursor: pointer; color: var(--ink-2); }
 .ip-inherit-note { margin: 4px 0 0; font-size: 0.8rem; }
+/* 土地の評価を入れて試算する一言とボタン（0231 の追記 2026-11-23。ボタンは .btn.small のまま。余白・文字は上書きしない〔0240〕） */
+.ip-inherit-detail { margin: 8px 0 6px; }
+.ip-inherit-detail p { margin: 0 0 6px; }
 .ip-inherit-caution { font-weight: 600; }
 .ip-lineup { grid-column: 1 / -1; margin-top: 12px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--base-bg); font-size: 0.86rem; }
 .ip-lineup p { margin: 0 0 2px; }

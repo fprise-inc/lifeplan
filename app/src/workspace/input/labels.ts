@@ -582,6 +582,12 @@ export const ASSET_CLASSES: Option[] = [
   { value: "other", label: "その他" },
 ];
 
+/**
+ * 相場が下がる場合に下げる資産の種類（株・REIT。0252 で新興国株式を足した）。貯蓄・運用の資産配分の表の「株などの割合」・ストレステスト・
+ * 万一の「相場が下がったとき」の既定は、どれもこの1か所を読む。債券（新興国債券も）は下げない
+ */
+export const RISKY_ASSET_CLASSES: readonly string[] = ["equity.domestic", "equity.global", "equity.emerging", "reit.domestic", "reit.global"];
+
 export const PERIODIC_ROWS: Option[] = [
   { value: "cf.expense.lumpSum.other", label: "一時的支出" },
   { value: "cf.expense.lumpSum.wedding", label: "結婚の費用" },

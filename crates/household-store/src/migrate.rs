@@ -327,7 +327,8 @@ pub const CURRENT: &str = "0.89";
 ///   資産の種類に新興国（`bond.emerging`・`equity.emerging`）を足した（前の `bond.global`・`equity.global` は先進国と読み替え。キーは変えない）。
 ///   形を変える段: 配分全体の信託報酬 `allocation.fee` を持つ世帯は、その値を資産の割合の表で選べる11種類と配分（段階の配分も）に出てくる
 ///   種類の全部に入れた `fees` に移し、`fee` を外す（計算エンジンは、どの種類も同じ値なら前の版と同じ計算の道を通る。結果は1円も変わらない）。
-///   プランの差分（入力項目 `assumptions.investment`）で `allocation.fee`・`allocation`・前提の資産運用の全体を変える物も、値と前の値を同じく移す。
+///   プランの差分と AI からの候補の差分（入力項目 `assumptions.investment`）で `allocation.fee`・`allocation`・前提の資産運用の全体を変える物も、
+///   値と前の値を同じく移す（差分に出てくる種類〔プランで足した段の配分も〕も `fees` に入れる）。
 ///   控え・`sampleInitial` の中身は変えない（計算エンジンは前の版の `fee` も読む）。前の版のアプリは計算の入力の検査で `fees` と新しい種類を
 ///   通さないので、版を上げて閲覧だけにする。0.88 の段の後に積む
 pub const KNOWN: &[&str] = &[
@@ -2848,22 +2849,91 @@ fn move_allocation_fee(alloc: &mut Value, extra: &[String]) -> bool {
     true
 }
 
-/// 値の箱（`{ value, state, origin }`）の中の値を書き換える（箱でなければ何もしない）
-fn with_box_value(b: &mut Value, f: impl FnOnce(&mut Value)) {
-    if let Some(v) = b.as_object_mut().and_then(|o| o.get_mut("value")) {
-        f(v);
+/// 差分の値を書き換える: 値の箱（`{ value, state, origin }`）なら中の値、箱でなければ値そのもの（AI からの候補の差分は箱に入れずに持つ）
+fn with_diff_value(b: &mut Value, f: impl FnOnce(&mut Value)) {
+    match b.as_object_mut() {
+        Some(o) if o.contains_key("state") && o.contains_key("value") => {
+            if let Some(v) = o.get_mut("value") {
+                f(v);
+            }
+        }
+        _ => f(b),
     }
 }
 
-/// 0.88 → 0.89: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と配分（段階の配分も）に
-/// 出てくる種類の全部に同じ値で入れた `allocation.fees` に移し、`fee` を外す（どの種類も同じ値なので、計算の結果は変わらない）。
+/// 値の中に出てくる資産の種類（`assetClass` の文字。足した段・配分の全体など、どの深さでも）
+fn collect_asset_classes(v: &Value, out: &mut Vec<String>) {
+    match v {
+        Value::Object(o) => {
+            if let Some(c) = o.get("assetClass").and_then(Value::as_str) {
+                if !out.iter().any(|y| y == c) {
+                    out.push(c.to_string());
+                }
+            }
+            for x in o.values() {
+                collect_asset_classes(x, out);
+            }
+        }
+        Value::Array(a) => {
+            for x in a {
+                collect_asset_classes(x, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// プランの差分（`proposals[].diffs`）と AI からの候補の差分（`candidates[].diffs`）の、入力項目 `assumptions.investment` の差分
+fn investment_diffs(obj: &mut Map<String, Value>) -> Vec<&mut Value> {
+    let mut out = Vec::new();
+    for (k, v) in obj.iter_mut() {
+        if k != "proposals" && k != "candidates" {
+            continue;
+        }
+        for x in v.as_array_mut().into_iter().flatten() {
+            for d in x
+                .get_mut("diffs")
+                .and_then(Value::as_array_mut)
+                .into_iter()
+                .flatten()
+            {
+                if d["item"] == "assumptions.investment" {
+                    out.push(d);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// 0.88 → 0.89: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と、配分（段階の配分も）・
+/// 資産運用の差分（プランと AI からの候補。足した段の配分も）に出てくる種類の全部に同じ値で入れた `allocation.fees` に移し、`fee` を外す
+/// （どの種類も同じ値なので、計算の結果は変わらない）。
 /// - 今の世帯（`household.request.input.assumptions.investment.allocation`）
-/// - プランの差分（入力項目 `assumptions.investment`）: 場所 `["allocation", "fee"]` は `["allocation", "fees"]` にし、値と前の値の箱の中の率を
-///   `fees` にする（種類は今の世帯の配分の種類も入れる）。場所 `["allocation"]`・`[]`（資産配分・資産運用の全体）は、値と前の値の中の配分を同じく移す
+/// - プランの差分と AI からの候補の差分（入力項目 `assumptions.investment`。値を変える差分）: 場所 `["allocation", "fee"]` は `["allocation", "fees"]`
+///   にし、値と前の値の中の率を `fees` にする。場所 `["allocation"]`・`[]`（資産配分・資産運用の全体）は、値と前の値の中の配分を同じく移す
+///   （候補の差分は値を箱に入れずに持つので、箱でなければ値そのものを移す）
 /// - 控え（`snapshots`）・自分で作った見本の最初の状態（`sampleInitial`）の中身は変えない（0011 の5・0247）
 fn v0_88_to_0_89(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     let mut base: Vec<String> = Vec::new();
+    if let Some(alloc) = obj
+        .get("household")
+        .and_then(|h| h.get("request"))
+        .and_then(|r| r.get("input"))
+        .and_then(|i| i.get("assumptions"))
+        .and_then(|a| a.get("investment"))
+        .and_then(|v| v.get("allocation"))
+    {
+        allocation_mix_classes(alloc, &mut base);
+    }
+    for d in investment_diffs(obj) {
+        for k in ["value", "before"] {
+            if let Some(v) = d.get(k) {
+                collect_asset_classes(v, &mut base);
+            }
+        }
+    }
     if let Some(alloc) = obj
         .get_mut("household")
         .and_then(|h| h.get_mut("request"))
@@ -2872,63 +2942,55 @@ fn v0_88_to_0_89(mut body: Value) -> Result<Value, StoreError> {
         .and_then(|a| a.get_mut("investment"))
         .and_then(|v| v.get_mut("allocation"))
     {
-        allocation_mix_classes(alloc, &mut base);
-        move_allocation_fee(alloc, &[]);
+        move_allocation_fee(alloc, &base);
     }
-    if let Some(list) = obj.get_mut("proposals").and_then(Value::as_array_mut) {
-        for plan in list {
-            let Some(diffs) = plan.get_mut("diffs").and_then(Value::as_array_mut) else {
-                continue;
-            };
-            for d in diffs.iter_mut() {
-                if d["item"] != "assumptions.investment" || d["op"] != "set" {
-                    continue;
-                }
-                let at: Vec<String> = d["at"]
-                    .as_array()
-                    .map(|a| {
-                        a.iter()
-                            .filter_map(|x| x.as_str().map(str::to_string))
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                let at: Vec<&str> = at.iter().map(String::as_str).collect();
-                match at.as_slice() {
-                    ["allocation", "fee"] => {
-                        d["at"] = serde_json::json!(["allocation", "fees"]);
-                        for k in ["value", "before"] {
-                            if let Some(b) = d.get_mut(k) {
-                                with_box_value(b, |v| {
-                                    if v.is_string() {
-                                        *v = fees_for(v, &base);
-                                    }
-                                });
+    for d in investment_diffs(obj) {
+        if d["op"] != "set" {
+            continue;
+        }
+        let at: Vec<String> = d["at"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let at: Vec<&str> = at.iter().map(String::as_str).collect();
+        match at.as_slice() {
+            ["allocation", "fee"] => {
+                d["at"] = serde_json::json!(["allocation", "fees"]);
+                for k in ["value", "before"] {
+                    if let Some(b) = d.get_mut(k) {
+                        with_diff_value(b, |v| {
+                            if v.is_string() {
+                                *v = fees_for(v, &base);
                             }
-                        }
+                        });
                     }
-                    ["allocation"] => {
-                        for k in ["value", "before"] {
-                            if let Some(b) = d.get_mut(k) {
-                                with_box_value(b, |v| {
-                                    move_allocation_fee(v, &base);
-                                });
-                            }
-                        }
-                    }
-                    [] => {
-                        for k in ["value", "before"] {
-                            if let Some(b) = d.get_mut(k) {
-                                with_box_value(b, |v| {
-                                    if let Some(a) = v.get_mut("allocation") {
-                                        move_allocation_fee(a, &base);
-                                    }
-                                });
-                            }
-                        }
-                    }
-                    _ => {}
                 }
             }
+            ["allocation"] => {
+                for k in ["value", "before"] {
+                    if let Some(b) = d.get_mut(k) {
+                        with_diff_value(b, |v| {
+                            move_allocation_fee(v, &base);
+                        });
+                    }
+                }
+            }
+            [] => {
+                for k in ["value", "before"] {
+                    if let Some(b) = d.get_mut(k) {
+                        with_diff_value(b, |v| {
+                            if let Some(a) = v.get_mut("allocation") {
+                                move_allocation_fee(a, &base);
+                            }
+                        });
+                    }
+                }
+            }
+            _ => {}
         }
     }
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
@@ -3969,7 +4031,12 @@ mod tests {
                 {"id": "d2", "op": "set", "item": "assumptions.investment", "at": ["allocation"], "value": manual(serde_json::json!({"mix": [{"assetClass": "bond.emerging", "share": "1"}], "fee": "0.001"})), "before": null},
                 {"id": "d3", "op": "set", "item": "assumptions.investment", "at": [], "value": manual(serde_json::json!({"method": "allocation", "allocation": {"mix": [{"assetClass": "equity.domestic", "share": "1"}], "fee": "0.002"}})), "before": null},
                 {"id": "d4", "op": "set", "item": "assumptions.investment", "at": ["allocation", "mix"], "value": manual(serde_json::json!([{"assetClass": "equity.domestic", "share": "1"}])), "before": null},
-                {"id": "d5", "op": "set", "item": "livingExpense.monthly", "at": ["allocation", "fee"], "value": manual(serde_json::json!("0.005")), "before": null}
+                {"id": "d5", "op": "set", "item": "livingExpense.monthly", "at": ["allocation", "fee"], "value": manual(serde_json::json!("0.005")), "before": null},
+                {"id": "d6", "op": "add", "item": "assumptions.investment", "at": ["allocation", "stages"], "value": {"id": "s2", "at": {"at": "2050-01"}, "mix": [{"assetClass": "realEstate", "share": "1"}]}, "before": null}
+            ]}],
+            "candidates": [{"id": "c1", "status": "pending", "diffs": [
+                {"id": "c1d1", "op": "set", "item": "assumptions.investment", "target": {"plan": "assumptions"}, "at": ["allocation", "fee"], "value": "0.004"},
+                {"id": "c1d2", "op": "set", "item": "assumptions.investment", "target": {"plan": "assumptions"}, "at": ["allocation"], "value": {"mix": [{"assetClass": "commodity", "share": "1"}], "fee": "0.003"}}
             ]}],
             "snapshots": [{"inputs": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}],
             "sampleInitial": {"formatVersion": "0.88", "sections": {"household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}}
@@ -3979,8 +4046,9 @@ mod tests {
         let a = &u["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
         assert!(a.get("fee").is_none(), "配分全体の値は外す");
         let fees = a["fees"].as_object().unwrap();
-        // 表の11種類＋配分のバランス型＋段階のその他
-        assert_eq!(fees.len(), 13);
+        // 表の11種類＋配分のバランス型＋段階のその他＋プランで足した段の不動産（足した段の種類も0にしない）
+        assert_eq!(fees.len(), 14);
+        assert_eq!(fees["realEstate"], "0.0025");
         assert!(fees.values().all(|v| v == "0.0025"));
         for c in [
             "equity.emerging",
@@ -4023,6 +4091,17 @@ mod tests {
             d[4], b["proposals"][0]["diffs"][4],
             "ほかの入力項目の差分は変えない"
         );
+        assert_eq!(
+            d[5], b["proposals"][0]["diffs"][5],
+            "足す差分そのものは変えない"
+        );
+        // AI からの候補の差分（値は箱に入れない）も同じく移す
+        let c = &u["candidates"][0]["diffs"];
+        assert_eq!(c[0]["at"], serde_json::json!(["allocation", "fees"]));
+        assert_eq!(c[0]["value"]["realEstate"], "0.004");
+        assert_eq!(c[0]["value"]["equity.emerging"], "0.004");
+        assert!(c[1]["value"].get("fee").is_none());
+        assert_eq!(c[1]["value"]["fees"]["commodity"], "0.003");
         assert_eq!(u["snapshots"], b["snapshots"], "控えの中身は変えない");
         assert_eq!(
             u["sampleInitial"], b["sampleInitial"],
