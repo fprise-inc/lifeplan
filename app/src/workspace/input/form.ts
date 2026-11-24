@@ -305,6 +305,11 @@ export interface ActionDef {
   level: Level;
   run: (wh: WorkingHousehold) => WorkingHousehold;
   danger?: boolean;
+  /**
+   * まとまりの見出しの行に、控えめのボタン（下線のリンク）で出す（「外す」の左。車の「購入済みにする」。0253）。
+   * 見出しの無いまとまりでは、ほかのボタンと同じ並びに出す
+   */
+  head?: boolean;
   /** 選んでいる状態を見せるボタン（目安の選択など。aria-pressed） */
   pressed?: boolean;
   /**

@@ -357,7 +357,9 @@ describe("車", () => {
     const c = wh.request.input.household.cars![0]!;
     const head = (w: WorkingHousehold) => groupsOf(car(w)).find((g) => g.key === `ev/car/${c.id}`)!;
     expect(head(wh).title).toBe("車 1（ご本人・今の車）");
-    expect(fieldIn(car(wh), `ev/car/${c.id}/owned`).label).toBe("今の車（外すと「これから買う車」）");
+    // 今の車かのチェックは無くした。今の車には「購入済みにする」も出さない（0253）
+    expect(allFields(car(wh) as Parameters<typeof allFields>[0]).some((f) => f.key === `ev/car/${c.id}/owned`)).toBe(false);
+    expect(head(wh).actions.map((a) => a.label)).toEqual(["外す"]);
     const pay = fieldIn(car(wh), `ev/car/${c.id}/pay`);
     expect(pay.get(wh).hint ?? null).toBeNull();
     wh = pay.set(wh, "loan");
