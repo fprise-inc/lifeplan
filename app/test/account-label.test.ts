@@ -11,7 +11,7 @@ import { REPO_DIR } from "../scripts/lib.ts";
 import type { Account, EngineRequest } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { ACCOUNT_LABEL_MAX, accountLabelOf, accountLabelProblem, cleanAccountLabel, withAccountLabel } from "../src/workspace/input/labels.ts";
+import { ACCOUNT_LABEL_MAX, accountLabelCloses, accountLabelOf, accountLabelProblem, cleanAccountLabel, withAccountLabel } from "../src/workspace/input/labels.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { SavingsPanel } from "../src/workspace/input/savings/SavingsPanel.tsx";
 import { accountName, switchMethod, withdrawViewOf } from "../src/workspace/input/savings/model.ts";
@@ -135,6 +135,52 @@ describe("名前の欄（0223）", () => {
     const detail = renderToString(h(SavingsPanel, { wh: w1, level: "detail", onEdit: () => undefined }));
     expect(detail.match(/架空のさくら銀行/g)?.length).toBeGreaterThanOrEqual(2);
     expect(detail).not.toContain(`id="${`sav/${a.id}/label`}"`);
+  });
+});
+
+describe("名前の欄の「キャンセル」と、何も入れずに離れたとき（0223 の追記 2026-11-24）", () => {
+  it("キャンセル（Esc も同じ）: 保存した名前が無ければ欄を閉じて「名前を付ける」に戻す。名前があれば欄は閉じない（保存した名前に戻す）", () => {
+    expect(accountLabelCloses("", null)).toBe(true);
+    // 空白だけの名前（前の版・取り込みから）も名前なしと同じ
+    expect(accountLabelCloses("  ", null)).toBe(true);
+    expect(accountLabelCloses("架空のさくら銀行", null)).toBe(false);
+  });
+
+  it("離れたとき: 何も入れていない（空・空白・改行だけ）なら閉じる。名前があった口座を空にしたときも閉じる（名前を外す）。何か入れたら閉じない", () => {
+    for (const t of ["", " ", "　", "\n\t "]) {
+      expect(accountLabelCloses("", t)).toBe(true);
+      expect(accountLabelCloses("架空のさくら銀行", t)).toBe(true);
+    }
+    expect(accountLabelCloses("", "架空のさくら銀行")).toBe(false);
+    expect(accountLabelCloses("架空のさくら銀行", "架空のさくら銀行")).toBe(false);
+    expect(accountLabelCloses("架空のさくら銀行", "架空のもみじ銀行")).toBe(false);
+    // 書けない名前（番号らしき数字・長すぎる）は閉じない（理由を欄の下に出したまま、前の名前のまま）
+    expect(accountLabelCloses("", "架空の銀行 1234567")).toBe(false);
+    expect(accountLabelCloses("", "あ".repeat(ACCOUNT_LABEL_MAX + 1))).toBe(false);
+  });
+
+  it("口座の表: 名前のある口座は、打っていない間は「キャンセル」を出さない（名前の無い口座は欄を開くまで欄も「キャンセル」も無い）", () => {
+    const wh = open();
+    const [a, b] = financial(wh) as [Account, Account];
+    const html = renderToString(h(SavingsPanel, { wh, level: "simple", onEdit: () => undefined }));
+    expect(html).not.toContain("data-account-label-cancel=");
+    const w1 = named(wh, a.id, "架空のさくら銀行");
+    const html1 = renderToString(h(SavingsPanel, { wh: w1, level: "detail", onEdit: () => undefined }));
+    expect(html1).toContain(`data-account-label="${a.id}"`);
+    expect(html1).not.toContain(`data-account-label-cancel="${a.id}"`);
+    expect(html1).not.toContain(`data-account-label-cancel="${b.id}"`);
+  });
+
+  it("「キャンセル」の言葉と置き場所: 欄の右に控えめのリンクで置き、押しても欄から離れない（離れると打ちかけが決まる）", () => {
+    const src = readFileSync(join(REPO_DIR, "app", "src", "workspace", "input", "savings", "SavingsPanel.tsx"), "utf-8");
+    const body = src.slice(src.indexOf("function AccountLabel("), src.indexOf("function AccountsTable("));
+    expect(body).toMatch(/class="link-btn sv-lbl-cancel"/);
+    expect(body).toMatch(/>\s*キャンセル\s*</);
+    expect(body).not.toMatch(/>\s*やめる\s*</);
+    expect(body).toMatch(/onMouseDown=\{\(e\) => e\.preventDefault\(\)\}/);
+    // 欄とキャンセルは同じ行（.sv-lbl-row）。キャンセルは欄の後ろ（右）
+    expect(body.indexOf('class="sv-lbl-row"')).toBeLessThan(body.indexOf("<input"));
+    expect(body.indexOf("<input")).toBeLessThan(body.indexOf("sv-lbl-cancel"));
   });
 });
 
