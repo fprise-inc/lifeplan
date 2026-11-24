@@ -10,6 +10,22 @@ import { fromBody } from "../store/body.ts";
 import { sameJson } from "../undo/reopen.ts";
 import { listDateTime, proseDateTime } from "../../dates.ts";
 
+/** 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ AI に渡すのを止めたときの文（0249 の追記） */
+export const NOTES_PAUSED_TEXT =
+  "共有中にメモ・面談の記録が変わったため、メモと面談の履歴は AI に渡すのを止めています（世帯の数字などは、そのまま渡しています）。メモと面談の履歴も渡すときは、共有を取り消し、AI に渡す中身の確認画面を開き直してから、もう一度渡してください。";
+/** 共有中の帯の短い文 */
+export const NOTES_PAUSED_SHORT = "メモと面談の履歴は止めています";
+
+/** AI に渡した記録の、メモと面談の履歴を止めたこと・渡し直したことの文（0249 の 11。中身の文は記録に無い） */
+export function notesRecordText(r: AiShareRecord): string | null {
+  if (r.notesPaused !== undefined) {
+    const what = r.notesPaused.changed.map((c) => (c === "memo" ? "メモ" : "面談の記録")).join("と") || "メモ・面談の記録";
+    return `${dateTimeProse(r.notesPaused.at)} に、共有中に${what}が変わったため、メモと面談の履歴を AI に渡すのを止めました（世帯の数字などは渡したまま）`;
+  }
+  if (r.notesResharedAfter !== undefined) return "メモと面談の履歴を止めた後に、AI に渡す中身の確認画面で見直して、渡し直しました";
+  return null;
+}
+
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
   E_AI_OFF: "AI との接続がオフです。事務所の設定（世帯の一覧の「AI との接続」）でオンにしてください",
@@ -17,6 +33,10 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_NO_CONSENT: "外部AIへの提供の同意が記録されていない世帯は、AIに渡せません",
   E_AI_NOT_SAVED: "保存していない世帯（見本）は、AIに渡せません。世帯を保存してから使ってください",
   E_AI_ALREADY_SHARED: "この世帯はもう共有中です",
+  E_AI_SAMPLE: "見本の世帯は AI に渡せません",
+  E_AI_NOTES_NOT_LOOKED: "メモと面談の履歴を渡す前に、「AI に渡す中身の確認画面を開く」で、いまの中身と伏せる言葉で AI に渡る文を見てください",
+  E_AI_NOT_WRITTEN: "AIに渡した記録を世帯ファイルに書けなかったため、渡すのをやめました（閲覧だけで開いている世帯か、保存できない状態です）",
+  E_AI_NOTES_NOT_ALLOWED: "この世帯は、メモと面談の履歴を AI に渡せません。前の版の説明で同意した世帯は、今の説明で同意を記録し直すと渡せます。同意の記録が無い世帯は、事務所の設定で「面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている」を確かめると渡せます",
   E_AI_SHARE_LIMIT: "AIに渡せるのは、共有中の世帯と合わせて50件までです。共有中の世帯を取り消してから渡してください",
   E_AI_LIST_UNREADABLE: "世帯の一覧を読めなかったため、AIに渡しませんでした（ほかの人が開いているかを確かめられません）。少し待ってから、もう一度試してください",
   E_AI_OPEN_BY_OTHERS: "ほかの人（ほかのPC）がこの世帯を開いている間は、AIに渡せません（AIに渡した記録を書くと、相手の保存が分岐になるため）。閉じてから渡してください",
@@ -111,6 +131,22 @@ export function aiDocumentsUseOf(view: AiHouseholdView): AiUse {
   if (view.aiDocumentsUse !== undefined) return view.aiDocumentsUse;
   const u = aiUseOf(view);
   return u === "consent" && view.consentDocuments !== true ? "consentWithoutDocuments" : u;
+}
+
+/** メモと面談の履歴を AI に渡せるか・その理由（0249。本体の ai_notes_use。返さない本体は渡せない側） */
+export const aiNotesUseOf = (view: AiHouseholdView): AiUse => view.aiNotesUse ?? "none";
+
+/** メモと面談の履歴を渡せないときの文（0249。理由ごと） */
+export const NOTES_BLOCKED_TEXT: Record<string, string> = {
+  consentWithoutNotes: "この世帯の同意は、前の版の説明かヒアリングシートの同意欄でいただいたもので、面談の記録やメモを AI に渡すことは含まれていません（前の版の説明では「FPのメモは渡しません」とお伝えしています）。メモと面談の履歴を AI に渡すには、お客さまに今の説明を見せて、同意を記録し直してください。",
+  none: "同意の記録が無いため、メモと面談の履歴は渡せません。今の説明で同意を記録するか、事務所の設定で「面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている」を確かめると渡せます。",
+  refused: "お客さまが外部AIへの提供に「同意しない」と答えたため、メモと面談の履歴は渡せません。",
+  withdrawn: "お客さまが同意を撤回したため、メモと面談の履歴は渡せません。",
+};
+
+/** 伏せる言葉の欄の文字を言葉の並びに（「、」・読点・空白・改行で区切る。保存しない） */
+export function maskWords(text: string): string[] {
+  return [...new Set(text.split(/[、,，\s]+/u).map((w) => w.trim()).filter((w) => w !== ""))].slice(0, 50);
 }
 
 /** その理由で AI に渡せるか */

@@ -304,6 +304,28 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 顧客の見本ファイル（A0001）は顧客として戻る"
             );
         }
+        // 0.89 から: AI に渡した記録 aiShares[] の、メモと面談の履歴を止めた記録 notesPaused と渡し直した記録 notesResharedAfter（0249 の 11）。
+        // 変換で書き足さない（前の版の記録は止めていない）。0.89 の見本は、メモを止めて取り消した共有と、見直して渡し直した共有の2件
+        if migrate::parse(v).unwrap() >= (0, 89) {
+            assert_eq!(
+                now["aiShares"][0]["notesPaused"]["changed"],
+                serde_json::json!(["memo"]),
+                "{v}: 0.89 からの見本はメモを止めた記録を持つ"
+            );
+            assert_eq!(
+                now["aiShares"][1]["notesResharedAfter"],
+                now["aiShares"][0]["shareId"]
+            );
+        } else {
+            assert!(
+                now["aiShares"].as_array().is_none_or(|xs| xs
+                    .iter()
+                    .all(
+                        |r| r.get("notesPaused").is_none() && r.get("notesResharedAfter").is_none()
+                    )),
+                "{v}: メモを止めた記録は変換で書き足さない"
+            );
+        }
         // 0.88 から: 遺産の分け方 inheritanceTax.division と土地を取得する人 lands[].primary.member・secondary.member（0251）。
         // 変換で書き足さない（前の版の世帯は法定相続分どおり）。0.88 の見本は配偶者60%・子1の割合70%と、二次の自宅・一次の物件の取得する子
         let tax88 = &now["household"]["request"]["input"]["inheritanceTax"];

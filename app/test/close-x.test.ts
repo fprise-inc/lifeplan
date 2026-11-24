@@ -273,7 +273,7 @@ const SCREENS: Screen[] = [
   { name: "分岐の知らせ（同期サービスの写しだけ）", node: (onClose) => h(ForkPanel, { customerNo: "A0001", info: { savedConflict: false, theirsSavedAt: null, theirsBy: null, theirsGeneration: 1, oursGeneration: 1, syncCopies: 2, personal: false }, busy: false, error: null, onChoose: noop, onSyncCopies: noop, onClose }), label: "分岐の知らせを閉じる（Esc）", foot: true },
   { name: "直前の保存で開き直す", node: (onClose) => h(PreviousPanel, { customerNo: "A0001", reason: "", info: { generation: 3, savedAt: null, savedBy: null }, busy: false, error: null, onOpen: noop, onClose }), label: "閉じる（Esc）" },
   { name: "この書類を読む", node: (onClose) => h(DocumentStart, { wh: wh(), start: { title: "保険証券（ご本人）", docType: "insurancePolicy" }, onClose } as never), label: "この書類を読むを閉じる（Esc）", foot: true },
-  { name: "書類の読み取りの確かめ（読んだ書類なし）", node: (onClose) => h(DocumentReview, { wh: wh(), calc: null, onChange: noop, onClose }), label: "書類の読み取りの確かめを閉じる（Esc）", foot: true },
+  { name: "書類の読み取りの確認（読んだ書類なし）", node: (onClose) => h(DocumentReview, { wh: wh(), calc: null, onChange: noop, onClose }), label: "書類の読み取りの確認を閉じる（Esc）", foot: true },
   // AI と接続する画面
   { name: "AI との接続", node: (onClose) => h(AiConnectorPanel, { ai: anyHost, status: null, onStatus: noop, onChanged: noop, onClose }), label: "AI との接続を閉じる（Esc）", foot: true },
   { name: "AIとの共有", node: (onClose) => h(AiSharePanel, { ai: anyHost, householdId: "h", customerNo: "A0001", status: null, view: null, onView: noop, onOpenConnector: noop, onClose }), label: "AIとの共有を閉じる（Esc）", foot: true },

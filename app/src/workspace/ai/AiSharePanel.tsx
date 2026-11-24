@@ -12,7 +12,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { AiConsentDecision, AiConsentMethod, AiHost, AiHouseholdView, AiStatus } from "../../engine/host.ts";
 import { listDateWritten, proseDateWritten } from "../../dates.ts";
-import { aiDocumentsUseOf, aiMessage, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeProse, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
+import { NotesOptions } from "./AiNotesOptions.tsx";
+import { aiDocumentsUseOf, aiMessage, aiNotesUseOf, maskWords, NOTES_BLOCKED_TEXT, NOTES_PAUSED_TEXT, notesRecordText, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeProse, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
 
 export type AiPanelTab = "consent" | "records";
 
@@ -42,6 +43,10 @@ const BLOCKED_TEXT: Record<string, string> = {
   none: "外部AIへの提供の同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確かめると、渡せるようになります。",
 };
 
+/** 同意を得た日が、今の説明（版3）を出した日より前のときの注意（0249。その日付の同意は、メモと面談の記録を含まない同意として記録する） */
+export const CONSENT_BEFORE_NOTES_TEXT =
+  "この日付は、面談の記録やメモを AI に渡すことを含む今の説明を出した日より前のため、メモと面談の履歴を渡すことを含まない同意として記録します。今の説明を見せて同意をいただいたときは、その日付を入れてください。";
+
 /** 事務所のプライバシーポリシーで渡す世帯の注意（0226） */
 const OFFICE_POLICY_NOTE = "この世帯は、事務所のプライバシーポリシーに沿って渡します（同意の記録はありません。お客さまは「同意しない」と答えていません）。";
 
@@ -64,6 +69,11 @@ export function AiSharePanel(p: AiSharePanelProps) {
   const [withdraw, setWithdraw] = useState<{ method: AiConsentMethod; date: string; confirmed: boolean } | null>(null);
   const [destination, setDestination] = useState("");
   const [minutes, setMinutes] = useState(60);
+  // メモと面談の履歴も渡す（0249）: 印は事務所の設定で最初から付けておける。伏せる言葉は保存しない
+  const [notesOn, setNotesOn] = useState(p.status?.notesByDefault === true);
+  const [words, setWords] = useState("");
+  // AI に渡す中身の確認画面を開いたときの伏せる言葉（同じ言葉で見ていなければ、メモと面談の履歴を渡せない。本体も確かめる）
+  const [lookedWords, setLookedWords] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -106,7 +116,9 @@ export function AiSharePanel(p: AiSharePanelProps) {
   const use = v !== null ? aiUseOf(v) : "none";
   const documentsUse = v !== null ? aiDocumentsUseOf(v) : "none";
   // 書類を含まない同意（前の版の説明・ヒアリングシートの同意欄）の世帯: 計算の項目は渡せる。今の説明で取り直せる（0157・0172）
-  const renew = v !== null && v.consentState === "given" && v.consentDocuments !== true;
+  // 今の説明（版3〜。書類と、面談の記録やメモを含む）でない同意は、今の説明で記録し直せる（0157・0249）
+  const notesRenew = v !== null && v.consentState === "given" && v.consentDocuments === true && v.consentNotes === false;
+  const renew = v !== null && v.consentState === "given" && (v.consentDocuments !== true || notesRenew);
   // 取り直すまで書類を渡せない（事務所のプライバシーポリシーを確かめていれば、書類も渡せる。0226）
   const noDocuments = renew && documentsUse === "consentWithoutDocuments";
   // ヒアリングシートの同意欄で記録する（シートの文で、書類を含まない。取り直しでは選べない。0172）
@@ -160,9 +172,14 @@ export function AiSharePanel(p: AiSharePanelProps) {
             ) : (
               <p class="in-note">まだ記録がありません。同意が無い世帯は、AIに渡せません（既定は「渡さない」）。事務所の設定で事務所のプライバシーポリシーを確かめると、同意の答えが無い世帯も渡せます。</p>
             )}
-            {renew && !noDocuments ? (
+            {renew && !noDocuments && !notesRenew ? (
               <p class="in-note" data-ai-consent-renew-office>
                 この世帯の同意は{latest?.method === "hearingSheet" ? "ヒアリングシートの同意欄" : "前の版の説明"}でいただいたもので、書類の読み取りは含まれていませんが、事務所のプライバシーポリシーを確かめているので、書類も AI に渡せます。今の説明で同意を記録し直すこともできます。
+              </p>
+            ) : null}
+            {notesRenew ? (
+              <p class="in-note" data-ai-consent-renew-notes>
+                この世帯の同意は前の版の説明でいただいたもので、面談の記録やメモを AI に渡すことは含まれていません。計算に要る項目と書類は、このまま AI に渡せます。メモと面談の履歴を AI に渡す前に、お客さまに今の説明を見せて、同意を記録し直してください。
               </p>
             ) : null}
             {noDocuments ? (
@@ -207,6 +224,11 @@ export function AiSharePanel(p: AiSharePanelProps) {
                     <input type="date" value={form.date} max={todayText()} onInput={(e) => setForm({ ...form, date: (e.currentTarget as HTMLInputElement).value })} data-ai-date />
                   </label>
                 </div>
+                {!sheet && v.explanationSince !== undefined && form.date !== "" && form.date < v.explanationSince ? (
+                  <p class="in-note" data-ai-consent-before-notes>
+                    {CONSENT_BEFORE_NOTES_TEXT}
+                  </p>
+                ) : null}
                 <fieldset class="ai-scope">
                   <legend>渡してよい範囲</legend>
                   <label>
@@ -216,7 +238,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                     <summary>渡す項目を見る</summary>
                     <p class="ai-fields">{v.fields.map(itemName).filter((x, i, a) => a.indexOf(x) === i).join("・")}</p>
                   </details>
-                  <p class="in-note">お名前・ご住所・お電話番号は持っていません。顧客番号・FPのメモ・相談内容の文章・呼び名・ほかの世帯は渡しません。</p>
+                  <p class="in-note">お名前・ご住所・お電話番号は持っていません。顧客番号・相談内容の文章・呼び名・ほかの世帯は渡しません。FPのメモと面談の記録は、FPが渡すときに印を付けたときだけ、お名前を伏せて渡します。</p>
                   <label>
                     <input type="checkbox" checked={consentCoversDocuments(sheet ? "hearingSheet" : "paper")} disabled data-ai-scope-documents /> 書類の読み取り: 担当のFPが、お名前・ご住所・番号を伏せた書類を、読み取りのために AI に渡すことがあります
                     {sheet ? "（ヒアリングシートの同意欄では含みません）" : "（説明の3段落目）"}
@@ -299,6 +321,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 <p>
                   AIには「<b>{v.share.alias}</b>」として見えています（顧客番号・お名前は渡していません）。{remainingText(v.share.expiresInSec)}。
                 </p>
+                {v.share.notesPaused === true ? <p class="in-note" data-ai-sharing-notes-paused>{NOTES_PAUSED_TEXT}</p> : null}
                 {noDocuments ? <p class="in-note" data-ai-sharing-no-documents>{NO_DOCUMENTS_NOTE}</p> : null}
                 {use === "officePolicy" ? <p class="in-note" data-ai-sharing-office>{OFFICE_POLICY_NOTE}</p> : null}
                 <button type="button" class="btn danger" disabled={busy} onClick={() => void run(() => p.ai.stopShare(p.householdId), "共有を取り消しました")} data-ai-stop>
@@ -314,7 +337,11 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 class="ai-form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void run(() => p.ai.startShare(p.householdId, minutes, destination), "AIに渡しました。期限が来るか取り消すまで、接続した AI から読めます");
+                  const withNotes = v.aiNotesUse !== undefined && notesOn && aiUseAllowed(aiNotesUseOf(v));
+                  void run(
+                    () => (withNotes ? p.ai.startShare(p.householdId, minutes, destination, true, maskWords(words)) : p.ai.startShare(p.householdId, minutes, destination)),
+                    withNotes ? "メモと面談の履歴も一緒に AI に渡しました。期限が来るか取り消すまで、接続した AI から読めます" : "AIに渡しました。期限が来るか取り消すまで、接続した AI から読めます",
+                  );
                 }}
                 data-ai-share-form
               >
@@ -334,15 +361,30 @@ export function AiSharePanel(p: AiSharePanelProps) {
                     </select>
                   </label>
                 </div>
+                {v.aiNotesUse !== undefined ? (
+                  <NotesOptions
+                    ai={p.ai}
+                    ids={[p.householdId]}
+                    on={notesOn}
+                    onToggle={setNotesOn}
+                    words={words}
+                    onWords={setWords}
+                    blocked={aiUseAllowed(aiNotesUseOf(v)) ? null : (NOTES_BLOCKED_TEXT[aiNotesUseOf(v)] ?? NOTES_BLOCKED_TEXT.none!)}
+                    count={v.notesCount}
+                    bulk={false}
+                    onLooked={setLookedWords}
+                    looked={lookedWords === words}
+                  />
+                ) : null}
                 <ul class="ai-limits">
-                  <li>渡すのは計算に要る項目だけ（縮約版）です。物の ID は共有ごとの仮の ID に置き換えます。</li>
+                  <li>渡すのは計算に要る項目だけ（縮約版）です。メモと面談の履歴は、上の印を付けたときだけ渡します。物の ID は共有ごとの仮の ID に置き換えます。</li>
                   <li>許可は「このPCの AI との接続全体」に出すものです。申告したアプリの名前は確かめられません（記録には申告として残ります）。</li>
                   <li>取り消しで止まるのは今後の読み取りだけです。すでに送った内容は、AIの会社の側に残ります。</li>
                   {noDocuments ? <li data-ai-share-no-documents>{NO_DOCUMENTS_NOTE}</li> : null}
                   {use === "officePolicy" ? <li data-ai-share-office>{OFFICE_POLICY_NOTE}</li> : null}
                 </ul>
                 <div class="ai-actions">
-                  <button type="submit" class="btn primary" disabled={busy || destination.trim() === ""} data-ai-share-start>
+                  <button type="submit" class="btn primary" disabled={busy || destination.trim() === "" || (v.aiNotesUse !== undefined && notesOn && aiUseAllowed(aiNotesUseOf(v)) && lookedWords !== words)} data-ai-share-start>
                     この世帯をAIに渡す
                   </button>
                 </div>
@@ -391,6 +433,12 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
             <dd>{readCount(r)}回</dd>
             <dt>プランの候補</dt>
             <dd>{r.proposals.length}件</dd>
+            {notesRecordText(r) !== null ? (
+              <>
+                <dt>メモと面談の履歴</dt>
+                <dd data-ai-record-notes>{notesRecordText(r)}</dd>
+              </>
+            ) : null}
           </dl>
           {r.reads.length > 0 ? (
             <table class="plan-list ai-reads">

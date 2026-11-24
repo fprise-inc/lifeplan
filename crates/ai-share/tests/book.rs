@@ -20,8 +20,9 @@ const HOUSEHOLD_ID: &str = "7d1e4c2a-0b3f-4a6e-9c5d-1f2e3a4b5c6d";
 const CUSTOMER_NO: &str = "Z0099";
 const MEMO: &str = "目印のFPメモ: 来年に転職の予定";
 const LABEL: &str = "目印の呼び名: 上のお子さん";
-const TODAY: &str = "2026-10-19";
-const NOW: &str = "2026-10-19T01:00:00Z";
+/// 今日（版3の説明を出した日。境目の日を直しても通るように、その定数から）
+const TODAY: &str = ai_share::consent::EXTERNAL_AI_EXPLANATION_V3_SINCE;
+const NOW: &str = "2026-11-23T01:00:00Z";
 
 fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -402,7 +403,7 @@ fn consents_on_the_first_explanation_need_renewal_for_documents() {
     let view = b.view(&[], None, false);
     assert_eq!(view.consent_state, "given");
     assert!(!view.consent_documents);
-    assert_eq!(view.explanation_version, 2);
+    assert_eq!(view.explanation_version, 3);
     assert_ne!(view.explanation_ref, v1_ref);
 
     // 計算の項目は渡せる・読める。書類の候補は受けない（共有は閉じない）
@@ -683,6 +684,225 @@ fn followup_facts_carry_dates_and_counts_only() {
     assert_eq!(odd.source().unwrap().followup.unwrap().category, None);
 }
 
+/// 本文に、名前の入ったメモと面談の履歴（両方の欄）を入れる（0249）
+fn body_with_notes() -> Value {
+    let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+    v["household"]["memo"] = json!([
+        "田中さんのご主人は来年転職の予定",
+        "長女の花子ちゃんは私立を希望"
+    ]);
+    v["meetings"] = json!({ "version": 1, "records": [
+        { "id": "mt-1", "on": "2026-05-10",
+          "shared": { "talked": "住宅の買い替え", "decided": "頭金を増やす", "todo": "源泉徴収票を用意", "insurance": { "initial": "", "final": "", "reason": "" } },
+          "fpOnly": { "note": "奥さまは田中様の転職に慎重。目印の秘書のメモ", "insurance": { "initial": "医療保険を見直したい", "final": "", "reason": "" } } },
+        { "id": "mt-0", "on": "2026-01-20", "shared": { "talked": "初回の相談" }, "fpOnly": { "note": "" } }
+    ]});
+    v
+}
+
+fn v2_consent(file: &mut Value) {
+    let v2 = ai_share::consent::EXTERNAL_AI_EXPLANATION_V2;
+    let r = ai_share::consent::explanation_ref(v2);
+    file["consents"] = json!([{
+        "id": "c-v2", "kind": "externalAi", "decision": "given", "obtainedOn": "2026-10-19", "method": "paper",
+        "explanationRef": r, "scope": "reduced", "documents": true, "fpConfirmed": true,
+        "recordedAt": "2026-10-19T00:00:00Z", "origin": "thisOffice"
+    }]);
+    file["consentExplanations"] = json!({ r: v2 });
+}
+
+fn notes_opts(words: &[&str]) -> GrantOptions {
+    GrantOptions {
+        notes: true,
+        mask_words: words.iter().map(|w| (*w).to_owned()).collect(),
+        ..opts()
+    }
+}
+
+/// メモと面談の履歴も渡す（0249）: 印の付いた共有だけ、メモと面談の両方の欄が名前を伏せて包んで渡る。印の無い共有・計算に使う読み取りでは出ない。
+/// 前の版の説明の同意・断った・撤回した世帯は、事務所の2つの確かめがあっても渡せない。同意の答えが無い世帯は、事務所の2つの確かめがあれば渡せる
+#[test]
+fn notes_are_shared_only_with_the_mark_and_the_new_consent() {
+    let (reg, _) = registry();
+    reg.require_consent(true);
+    // 前の版（版2）の同意: 計算の項目は渡せるが、メモと面談の履歴は渡せない
+    let mut file = body_with_notes();
+    v2_consent(&mut file);
+    let (mut b, _) =
+        HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NO.into()), 1, &file.to_string())
+            .unwrap();
+    let view = b.view_with_notes(&[], None, false, false);
+    assert!(!view.consent_notes);
+    assert_eq!(view.ai_notes_use, ai_share::AiUse::ConsentWithoutNotes);
+    assert_eq!(view.notes_count, 5, "メモ2行・面談の欄3つ");
+    assert_eq!(
+        reg.grant(b.source().unwrap(), notes_opts(&[])).unwrap_err(),
+        GrantError::NotesNotAllowed {
+            state: "consentWithoutNotes".into()
+        }
+    );
+    // 印の無い共有: 今までどおり文は出ない
+    let plain = reg.grant(b.source().unwrap(), opts()).unwrap();
+    let out = get(&reg, &plain.share_id).unwrap();
+    for secret in [
+        "田中",
+        "花子",
+        "源泉徴収票",
+        "目印の秘書のメモ",
+        "医療保険を見直したい",
+    ] {
+        assert!(!out.contains(secret), "{secret} が渡っています");
+    }
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["texts"], json!([]));
+    assert_eq!(v["notes"], false);
+    reg.revoke(&plain.share_id);
+
+    // 前の版の同意は、事務所の2つの確かめがあっても渡せない（説明で「FPのメモは渡しません」と約束しているため）
+    reg.set_notes_policy(true);
+    reg.set_office_policy(true);
+    assert_eq!(
+        b.view_with_notes(&[], None, true, true).ai_notes_use,
+        ai_share::AiUse::ConsentWithoutNotes
+    );
+    assert_eq!(
+        reg.grant(b.source().unwrap(), notes_opts(&[])).unwrap_err(),
+        GrantError::NotesNotAllowed {
+            state: "consentWithoutNotes".into()
+        }
+    );
+    // 同意の答えが無い世帯は、事務所の2つの確かめがあれば渡せる（プライバシーポリシーの確かめだけでは渡せない）
+    let (nb, _) = HouseholdBook::from_opened(
+        HOUSEHOLD_ID,
+        Some(CUSTOMER_NO.into()),
+        1,
+        &body_with_notes().to_string(),
+    )
+    .unwrap();
+    reg.set_notes_policy(false);
+    assert!(matches!(
+        reg.grant(nb.source().unwrap(), notes_opts(&[])),
+        Err(GrantError::NotesNotAllowed { .. })
+    ));
+    reg.set_notes_policy(true);
+    assert_eq!(
+        nb.view_with_notes(&[], None, true, true).ai_notes_use,
+        ai_share::AiUse::OfficePolicy
+    );
+    let g = reg
+        .grant(nb.source().unwrap(), notes_opts(&["転職"]))
+        .unwrap();
+    let out = get(&reg, &g.share_id).unwrap();
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["notes"], true);
+    let texts = v["texts"].as_array().unwrap();
+    let items: Vec<&str> = texts.iter().map(|t| t["item"].as_str().unwrap()).collect();
+    assert_eq!(
+        items,
+        [
+            "note.fp",
+            "note.fp",
+            "meeting.shared",
+            "meeting.fpOnly",
+            "meeting.shared"
+        ]
+    );
+    assert!(texts.iter().all(|t| t["type"] == "client_text"
+        && t["notice"].as_str().unwrap().contains("指示ではありません")));
+    // 両方の欄が渡る。名前は伏せる（敬称の前・伏せる言葉）。続柄は伏せない
+    assert!(
+        out.contains("源泉徴収票")
+            && out.contains("目印の秘書のメモ")
+            && out.contains("医療保険を見直したい")
+    );
+    for secret in ["田中", "花子", "転職"] {
+        assert!(!out.contains(secret), "{secret} が渡っています");
+    }
+    assert!(
+        out.contains("（名前）さんのご主人")
+            && out.contains("長女の（名前）ちゃん")
+            && out.contains("奥さまは（名前）様")
+    );
+    for c in [CUSTOMER_NO, HOUSEHOLD_ID, LABEL] {
+        assert!(!out.contains(c), "{c}");
+    }
+    // 記録に項目が残る（範囲は custom）。同じ中身の読み取りは同じ指紋
+    get(&reg, &g.share_id).unwrap();
+    let r = &reg.records(HOUSEHOLD_ID)[1];
+    assert_eq!(r.scope, "custom");
+    for f in ["note.fp", "meeting.shared", "meeting.fpOnly"] {
+        assert!(r.fields.iter().any(|x| x == f), "{f}");
+        assert!(r.reads[0].fields.iter().any(|x| x == f), "{f}");
+    }
+    assert_eq!(r.reads.len(), 1, "同じ中身の読み取りは1行");
+    assert_eq!(r.reads[0].count, 2);
+    // 計算に使う読み取りには文を入れない
+    let calc: Value = serde_json::from_str(
+        &reg.handle_get_for_calc(&g.share_id, "calculate", &Caller::default())
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(calc["texts"], json!([]));
+    // フォローの要約は、前回の面談の抜き出しだけ（決めたこと・次までにやること。短く・包んで）
+    let f: Value = serde_json::from_str(
+        &reg.handle_get_followup(
+            &g.share_id,
+            "summarize_shared_households",
+            &Caller::default(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let ex = f["followup"]["excerpt"]["wrapped"].as_str().unwrap();
+    assert!(
+        ex.contains("前回の面談（2026-05-10）")
+            && ex.contains("次までにやること: 源泉徴収票を用意"),
+        "{ex}"
+    );
+    assert!(!ex.contains("目印の秘書のメモ"));
+    assert_eq!(f["texts"], json!([]));
+    // 確かめを外すと、それを理由に渡していた共有は閉じる
+    assert_eq!(reg.set_notes_policy(false), 1);
+    assert!(get(&reg, &g.share_id).is_err());
+
+    // 今の版の説明で取り直すと、確かめが無くても渡せる。撤回すると渡せない
+    reg.set_office_policy(false);
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    assert!(b.view(&[], None, false).consent_notes);
+    let g = reg.grant(b.source().unwrap(), notes_opts(&[])).unwrap();
+    // 印の無い共有のフォローの要約には抜き出しを入れない
+    let p = reg.grant(b.source().unwrap(), opts()).unwrap();
+    let f: Value = serde_json::from_str(
+        &reg.handle_get_followup(
+            &p.share_id,
+            "summarize_shared_households",
+            &Caller::default(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(f["followup"].get("excerpt").is_none());
+    b.record_consent(&consent(ConsentDecision::Withdrawn), TODAY, NOW, None)
+        .unwrap();
+    assert!(!reg.update_source(&g.share_id, b.source().unwrap()));
+    assert!(matches!(
+        reg.grant(b.source().unwrap(), notes_opts(&[])),
+        Err(GrantError::ConsentMissing { .. })
+    ));
+    // 断った世帯も渡せない（事務所の確かめがあっても）
+    let mut refused = book();
+    refused
+        .record_consent(&consent(ConsentDecision::Refused), TODAY, NOW, None)
+        .unwrap();
+    reg.set_office_policy(true);
+    reg.set_notes_policy(true);
+    assert!(matches!(
+        reg.grant(refused.source().unwrap(), notes_opts(&[])),
+        Err(GrantError::ConsentMissing { .. })
+    ));
+}
+
 /// 世帯を開いたときの記録の読み込み（0248 の追記）: ほかの PC がいま渡している共有の記録は閉じない（期限が過ぎていれば期限切れで閉じる）。
 /// この PC の前の起動の記録・PC の ID の無い前の版の記録は、今までどおり「アプリの終了」で閉じる
 #[test]
@@ -721,4 +941,168 @@ fn records_of_shares_on_another_pc_are_not_closed() {
     // ほかの PC の記録でも、期限が過ぎていれば期限切れ
     clock.advance_ms(61 * 60 * 1000);
     assert_eq!(load(Some("pc-b")), Some(EndReason::Expired));
+}
+
+/// 抜き出しと長い欄の切れ目（0249 の点検の直し）: 名前を伏せてから切るので、切れ目の前後に「名前＋敬称」があっても名前は残らない。
+/// 「（名前）」の途中では切らない
+#[test]
+fn excerpt_and_long_fields_are_cut_after_masking() {
+    use ai_share::registry::masked_text;
+    let excerpt_of = |decided: &str, todo: &str, note: &str| {
+        let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+        v["meetings"] = json!({ "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+            "shared": { "decided": decided, "todo": todo }, "fpOnly": { "note": note } }] });
+        let (b, _) = HouseholdBook::from_opened(HOUSEHOLD_ID, None, 1, &v.to_string()).unwrap();
+        b.source().unwrap().texts
+    };
+    for (field, max) in [("decided", 60usize), ("todo", 80usize)] {
+        for name in ["田中", "山田太郎"] {
+            // 名前の終わりが、上限の1字前・ちょうど・1字後
+            for end in [max - 1, max, max + 1] {
+                let n = name.chars().count();
+                let text = format!("{}{name}さんに確認する", "あ".repeat(end - n));
+                let (d, t) = if field == "decided" {
+                    (text.as_str(), "")
+                } else {
+                    ("", text.as_str())
+                };
+                let texts = excerpt_of(d, t, "");
+                let ex = texts.iter().find(|t| t.item == "meeting.excerpt").unwrap();
+                let out = masked_text(&ex.item, &ex.body, &[]).text;
+                assert!(!out.contains(name), "{field} {name} {end}: {out}");
+                // 伏せる言葉（敬称なし）も同じ
+                let text = format!("{}{name}に確認する", "あ".repeat(end - n));
+                let (d, t) = if field == "decided" {
+                    (text.as_str(), "")
+                } else {
+                    ("", text.as_str())
+                };
+                let texts = excerpt_of(d, t, "");
+                let ex = texts.iter().find(|t| t.item == "meeting.excerpt").unwrap();
+                let out = masked_text(&ex.item, &ex.body, &[name.to_owned()]).text;
+                assert!(
+                    !out.contains(name),
+                    "伏せる言葉 {field} {name} {end}: {out}"
+                );
+                assert!(!out.contains("（名前") || out.contains("（名前）"), "{out}");
+                assert!(!out.contains("（名…") && !out.contains("（…"), "{out}");
+            }
+        }
+    }
+    // 4000字の欄の切れ目
+    for end in [3999usize, 4000, 4001] {
+        let note = format!("{}田中さん", "い".repeat(end - 2));
+        let texts = excerpt_of("", "", &note);
+        let fp = texts.iter().find(|t| t.item == "meeting.fpOnly").unwrap();
+        let out = masked_text(&fp.item, &fp.body, &[]).text;
+        assert!(!out.contains("田中"), "{end}");
+    }
+    // 切らない長さなら、そのまま（伏せた所だけ変わる）
+    let texts = excerpt_of("田中さんと決めた", "源泉徴収票", "");
+    let ex = texts.iter().find(|t| t.item == "meeting.excerpt").unwrap();
+    assert_eq!(
+        masked_text(&ex.item, &ex.body, &[]).text,
+        "前回の面談（2026-05-10）\n決めたこと: （名前）さんと決めた\n次までにやること: 源泉徴収票"
+    );
+}
+
+/// 前のほうで伏せた長い語が「（名前）」に縮むとき（0249 の2回目の点検の直し）: 伏せる前に切らないので、上限の外にあった名前が上限の中に
+/// 入ってきても伏せてある。切ったときは「…」が付く
+#[test]
+fn shrinking_masks_do_not_pull_names_into_the_excerpt() {
+    use ai_share::registry::masked_text;
+    let excerpt = |decided: &str, todo: &str, words: &[&str]| {
+        let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+        v["meetings"] = json!({ "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+            "shared": { "decided": decided, "todo": todo }, "fpOnly": {} }] });
+        let (b, _) = HouseholdBook::from_opened(HOUSEHOLD_ID, None, 1, &v.to_string()).unwrap();
+        let t = b
+            .source()
+            .unwrap()
+            .texts
+            .into_iter()
+            .find(|t| t.item == "meeting.excerpt")
+            .unwrap();
+        let w: Vec<String> = words.iter().map(|x| (*x).to_owned()).collect();
+        masked_text(&t.item, &t.body, &w).text
+    };
+    // 伏せる言葉（15字）が2回 → 22字縮む。75〜76字目の「田中」（「さん」は77字目から）
+    let co = "株式会社ヤマダコーポレーション";
+    let head = format!("{co}と{co}の件");
+    let n = head.chars().count();
+    let decided = format!("{head}{}田中さんに確認", "あ".repeat(74 - n));
+    let out = excerpt(&decided, "", &[co]);
+    assert!(!out.contains("田中"), "{out}");
+    assert!(out.contains("…"), "切れているのに「…」が無い: {out}");
+    // 伏せる言葉なし: 長い語＋敬称が2つで縮む。95〜96字目の「山田」
+    let head = "保険会社住宅資金担当責任者さんと不動産会社営業担当責任者さんの件";
+    let n = head.chars().count();
+    let todo = format!("{head}{}山田さんに連絡", "い".repeat(94 - n));
+    let out = excerpt("", &todo, &[]);
+    assert!(!out.contains("山田"), "{out}");
+    assert!(out.contains("…"), "{out}");
+    // 上限に収まる文には「…」を付けない
+    let out = excerpt("頭金を増やす", "源泉徴収票", &[]);
+    assert!(!out.contains("…"), "{out}");
+}
+
+/// 「決めたこと」「次までにやること」に改行があっても、抜き出しは欄ごとに60字・80字で切る（0249 の3回目の点検の直し）。
+/// 改行のまわりの名前も伏せる
+#[test]
+fn excerpt_fields_with_line_breaks_are_cut_as_a_whole() {
+    use ai_share::registry::masked_text;
+    let excerpt = |decided: &str, todo: &str| {
+        let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+        v["meetings"] = json!({ "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+            "shared": { "decided": decided, "todo": todo }, "fpOnly": {} }] });
+        let (b, _) = HouseholdBook::from_opened(HOUSEHOLD_ID, None, 1, &v.to_string()).unwrap();
+        let t = b
+            .source()
+            .unwrap()
+            .texts
+            .into_iter()
+            .find(|t| t.item == "meeting.excerpt")
+            .unwrap();
+        masked_text(&t.item, &t.body, &[]).text
+    };
+    let decided = format!("1つ目\n{}\n{}", "あ".repeat(300), "い".repeat(300));
+    let todo = format!("{}\n{}", "う".repeat(300), "え".repeat(300));
+    let out = excerpt(&decided, &todo);
+    let n = out.chars().count();
+    // 見出しの行（前回の面談（2026-05-10））と見出しの言葉を足しても、60＋80字と「…」2つに収まる
+    assert!(
+        n <= "前回の面談（2026-05-10）\n決めたこと: \n次までにやること: "
+            .chars()
+            .count()
+            + 60
+            + 80
+            + 2,
+        "{n}: {out}"
+    );
+    assert_eq!(out.matches('…').count(), 2, "{out}");
+    assert!(
+        out.contains("決めたこと: 1つ目 あ") && out.contains("次までにやること: "),
+        "{out}"
+    );
+    // 欄の中に見出しと同じ文字の行が何行あっても、上限は欄ごと（行の数だけ増えない）
+    let many = (0..20)
+        .map(|i| format!("決めたこと: {i}{}", "か".repeat(30)))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let out = excerpt(&many, "");
+    assert!(
+        out.chars().count()
+            <= "前回の面談（2026-05-10）\n決めたこと: ".chars().count() + 60 + 1,
+        "{out}"
+    );
+    // 改行のまわりの名前
+    let out = excerpt("頭金を増やす\n田中さんに確認", "山田様へ連絡\n書類を用意");
+    assert!(!out.contains("田中") && !out.contains("山田"), "{out}");
+    assert!(
+        out.contains("（名前）さんに確認") && out.contains("（名前）様へ連絡"),
+        "{out}"
+    );
+    // 上限の外の2行目にある名前は、切って出さない
+    let out = excerpt(&format!("{}\n田中さんに確認", "お".repeat(70)), "");
+    assert!(!out.contains("田中") && !out.contains("（名前）"), "{out}");
 }

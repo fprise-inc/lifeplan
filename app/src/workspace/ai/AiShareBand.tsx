@@ -2,14 +2,23 @@
 // 顧客に見せる提示の層（src/presentation/）には出さない（0016 の2）。顧客と一緒に見ることのある画面（入力の画面のほか）では、
 // どの世帯かが分かる顧客番号・仮名を出さず、件数と残り時間だけを出す（0015 の8）。
 // 開いている世帯を渡していて、まだ保存していない入力の変更があるときだけ「保存するとAIにも反映されます」を添える
-// （AIに渡すのは保存した世帯。0184 の追記。出すかは model.ts の unsavedForAi）。ほかの人が開いていて自動保存を止めている間（0023 の7）は、
+// （AIに渡すのは保存した世帯。0184 の追記。出すかは model.ts の unsavedForAi）。共有中にメモ・面談の記録が変わって、メモと面談の履歴だけ
+// AI に渡すのを止めた世帯には「メモと面談の履歴は止めています」を添える（0249 の追記）。ほかの人が開いていて自動保存を止めている間（0023 の7）は、
 // 保存するには「編集を始める」が要るので「編集を始めて保存するとAIにも反映されます」にする
 import type { AiShareStatus } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
-import { remainingText } from "./model.ts";
+import { NOTES_PAUSED_SHORT, NOTES_PAUSED_TEXT, remainingText } from "./model.ts";
 
 export function AiShareBand({ shares, detailed, unsaved = false, paused = false, onStop, onOpen }: { shares: readonly AiShareStatus[]; detailed: boolean; unsaved?: boolean; paused?: boolean; onStop: (householdId: string) => void; onOpen: () => void }) {
   if (shares.length === 0) return null;
+  // 共有中にメモ・面談の記録が変わって、メモと面談の履歴だけ止めた世帯（0249 の追記。短い帯は件数だけ）
+  const pausedNotes = shares.filter((s) => s.notesPaused === true).length;
+  const notesNote =
+    pausedNotes > 0 ? (
+      <span class="ai-band-note" title={NOTES_PAUSED_TEXT} data-ai-band-notes-paused>
+        {`${NOTES_PAUSED_SHORT}（${pausedNotes}件）`}
+      </span>
+    ) : null;
   const note = unsaved ? (
     <span class="ai-band-note" title="AIに渡しているのは保存した世帯です。いまの入力の変更は、保存するまでAIの計算に入りません" data-ai-band-unsaved>
       {paused ? "編集を始めて保存するとAIにも反映されます" : "保存するとAIにも反映されます"}
@@ -21,6 +30,7 @@ export function AiShareBand({ shares, detailed, unsaved = false, paused = false,
         <span class="ai-band-mark" aria-hidden="true" />
         <b>AIに渡しています（{shares.length}件）</b>
         <span>{remainingText(Math.min(...shares.map((s) => s.expiresInSec)))}</span>
+        {notesNote}
         {note}
         <button type="button" class="link-btn" onClick={onOpen} data-ai-band-open>
           AI との接続の設定
@@ -35,6 +45,11 @@ export function AiShareBand({ shares, detailed, unsaved = false, paused = false,
       {shares.map((s) => (
         <span key={s.shareId} class="ai-band-item">
           顧客番号 {s.customerNumber ?? "—"}（AIには「{s.alias}」）・{remainingText(s.expiresInSec)}
+          {s.notesPaused === true ? (
+            <span class="ai-band-note" title={NOTES_PAUSED_TEXT} data-ai-band-notes-paused>
+              {NOTES_PAUSED_SHORT}
+            </span>
+          ) : null}
           <button type="button" class="btn small danger" onClick={() => onStop(s.householdId)} data-ai-band-stop>
             取り消す
           </button>

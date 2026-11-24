@@ -36,9 +36,9 @@ use std::time::{Duration, Instant};
 use ai_share::clock::{iso8601, Clock, SystemClock};
 use ai_share::registry::ShareStatus;
 use ai_share::{
-    ai_use, AiUse, AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError, GrantOptions,
-    HearingJob, HearingTemplateCandidate, HouseholdAiView, HouseholdBook, HouseholdCandidate,
-    HouseholdDisplayPending, Scope, ShareRegistry,
+    ai_notes_use, ai_use, AiUse, AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError,
+    GrantOptions, HearingJob, HearingTemplateCandidate, HouseholdAiView, HouseholdBook,
+    HouseholdCandidate, HouseholdDisplayPending, Scope, ShareRegistry,
 };
 use household_store::{CreateOptions, Opened, Store, StoreError};
 use serde::Serialize;
@@ -157,6 +157,8 @@ pub struct AiState {
     books: Mutex<HashMap<String, Entry>>,
     /// 捨てた帳面（`forget`）。次にその世帯を開いたとき、世帯ファイルに無い AI の候補を引き継ぐためだけに持つ（書き戻さない）
     parked: Mutex<HashMap<String, HouseholdBook>>,
+    /// AI に渡す中身の確認画面で見た、メモと面談の履歴の指紋（世帯ごと。伏せる言葉と伏せた後の文から作る。メモリの上だけ。0249 の追記）
+    looked: Mutex<HashMap<String, u64>>,
     /// 共有中なのに世帯の一覧に出なかった回数（2回続けて出ず、世帯ファイルも無ければ完全削除とみる。0248 の追記）
     missing: Mutex<HashMap<String, u8>>,
     /// 画面がいま開いている世帯（最後に画面から開いた・作った世帯）。ほかの帳面（この起動で前に開いた世帯・まとめて渡すときに
@@ -267,6 +269,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
         parked: Mutex::new(HashMap::new()),
         current: Mutex::new(None),
         missing: Mutex::new(HashMap::new()),
+        looked: Mutex::new(HashMap::new()),
         endpoint: Mutex::new(None),
         problem: Mutex::new(None),
         runtime_dir,
@@ -385,6 +388,10 @@ impl AiState {
                 self.registry.update_source(&sid, src.clone());
             }
         }
+        // メモと面談の履歴を止めたら、止めたことをすぐ AI に渡した記録に書く（書けなければ、その共有を取り消す。0249 の 11）
+        if self.registry.has_unwritten_pause(id) {
+            self.persist_locked(store, &mut books);
+        }
         Ok(saved)
     }
 
@@ -455,6 +462,18 @@ impl AiState {
         self.runtime_dir.clone()
     }
 
+    /// 世帯を見本へ移す前: 共有を取り消し、取り消しの記録を世帯ファイルに書く（見本は AI に渡さない。0249 の追記）
+    pub fn on_making_sample(&self, store: &Store, id: &str) {
+        let mut any = false;
+        for sid in self.registry.active_share_ids(id) {
+            any |= self.registry.revoke(&sid);
+        }
+        if any {
+            let mut books = lock(&self.books);
+            self.persist_locked(store, &mut books);
+        }
+    }
+
     /// 世帯を完全削除する前: 共有を取り消し、帳面を捨てる（記録は世帯ファイルごと消える。0013 の5）
     pub fn on_deleting(&self, id: &str) {
         for sid in self.registry.active_share_ids(id) {
@@ -498,6 +517,10 @@ impl AiState {
                     .as_ref()
                     .is_none_or(|b| b.contains(id))
             {
+                // メモを止めた記録を書けないまま10分たった共有は取り消す（数字の共有を記録の無いまま続けない。取り消したことは、
+                // 書けるようになった時に書く。0249 の 11）
+                self.registry
+                    .revoke_pauses_waiting_longer_than(id, PAUSE_RECORD_WAIT_MS);
                 all = false;
                 continue;
             }
@@ -515,6 +538,8 @@ impl AiState {
                 && e.book.only_additions_pending()
             {
                 if self.reload_background(store, id, e).is_err() {
+                    // 読めない世帯は書けない: メモを止めた記録を書けていない共有は、その場で取り消す（0249 の 11）
+                    self.registry.revoke_unwritten_pauses(id);
                     all = false;
                     continue;
                 }
@@ -525,12 +550,48 @@ impl AiState {
             let Ok(composed) = e.book.compose(&records) else {
                 continue; // 追記だけでない記録は書かない（起こらないはずの状態）
             };
-            if let Ok(saved) = store.save(id, &composed, &e.summary) {
-                e.book.mark_saved(&records, saved.generation);
-                e.written_at = Some(Instant::now());
+            match store.save(id, &composed, &e.summary) {
+                Ok(saved) => {
+                    e.book.mark_saved(&records, saved.generation);
+                    e.written_at = Some(Instant::now());
+                    self.registry.pause_written(id);
+                }
+                // 書けなかった記録は、次の見回りで書き直す（0249 の追記）。メモを止めた記録を書けていない共有は、その場で取り消す
+                // （記録なしでメモを止めたまま渡し続けない。記録を書けない世帯は取り消す決まりと同じ。0249 の 11）
+                Err(_) => {
+                    self.registry.revoke_unwritten_pauses(id);
+                    all = false;
+                }
             }
         }
         all
+    }
+
+    /// メモと面談の履歴の指紋（伏せる言葉と、伏せた後の文から作る。AI に渡す中身の確認画面で見た中身と、渡す中身が同じかを見る）
+    fn notes_digest(source: &ai_share::SharedHouseholdSource, words: &[String]) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        let mut w: Vec<String> = words.iter().map(|x| x.trim().to_owned()).collect();
+        w.sort();
+        w.hash(&mut h);
+        for t in &source.texts {
+            if ai_share::book::NOTE_ITEMS.contains(&t.item.as_str()) {
+                ai_share::registry::masked_text(&t.item, &t.body, words)
+                    .text
+                    .hash(&mut h);
+            }
+        }
+        h.finish()
+    }
+
+    /// AI に渡す中身の確認画面で、今の中身と伏せる言葉で見たか
+    fn looked_at(
+        &self,
+        id: &str,
+        source: Option<&ai_share::SharedHouseholdSource>,
+        words: &[String],
+    ) -> bool {
+        source.is_some_and(|s| lock(&self.looked).get(id) == Some(&Self::notes_digest(s, words)))
     }
 
     /// 共有中で、画面がいま開いていない世帯の世帯ファイルを見る（0248 の追記）。一覧から消えた世帯（ほかの PC で完全削除した・見本へ移した）は
@@ -737,10 +798,18 @@ struct Watch {
     files_at: Option<Instant>,
 }
 
+/// ほかのメンバーが開いていてメモを止めた記録を書けないとき、共有を続けて待つ長さ（0249 の 11）
+const PAUSE_RECORD_WAIT_MS: u64 = 10 * 60 * 1000;
+
 #[cfg(test)]
 impl AiState {
     pub(crate) fn for_test(dir: &Path) -> AiState {
-        let registry = Arc::new(ShareRegistry::new());
+        Self::for_test_with_registry(dir, ShareRegistry::new())
+    }
+
+    /// 時計を差し替えた共有の台帳で作る（待つ長さのテスト）
+    pub(crate) fn for_test_with_registry(dir: &Path, registry: ShareRegistry) -> AiState {
+        let registry = Arc::new(registry);
         registry.require_consent(true);
         AiState {
             registry,
@@ -748,6 +817,7 @@ impl AiState {
             parked: Mutex::new(HashMap::new()),
             current: Mutex::new(None),
             missing: Mutex::new(HashMap::new()),
+            looked: Mutex::new(HashMap::new()),
             endpoint: Mutex::new(None),
             problem: Mutex::new(None),
             runtime_dir: dir.join("run"),
@@ -930,6 +1000,10 @@ pub struct AiStatus {
     /// 事務所の設定で FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめた日時（0226。確かめていなければ None）。
     /// 確かめていると、外部AIへの提供の同意の答えが無い世帯も渡せる（「同意しない」と答えた世帯・撤回した世帯は渡せない）
     privacy_policy_confirmed_at: Option<String>,
+    /// 事務所のプライバシーポリシーに「面談の記録やメモを AI で扱うこと」も書いていることを確かめた日時（0249）
+    notes_policy_confirmed_at: Option<String>,
+    /// 「メモと面談の履歴も渡す」の印を最初から付けておくか（0249。既定はオフ）
+    notes_by_default: bool,
     /// アプリ本体の受け口が開いているか
     running: bool,
     problem: Option<String>,
@@ -962,7 +1036,13 @@ fn sync_office_policy(ai: &AiState, store: &Store) -> Option<String> {
     // AIに渡した記録に、どの PC が作った共有かを残す（ほかの PC の共有を閉じないため。0248 の追記）
     ai.registry.set_device(store.pc_id());
     let at = store.ai_privacy_policy_confirmed_at().ok().flatten();
-    if ai.registry.set_office_policy(at.is_some()) > 0 {
+    // 「面談の記録やメモを AI で扱うことも書いている」の確かめも入れる（0249）
+    let notes = store
+        .ai_notes_policy_confirmed_at()
+        .ok()
+        .flatten()
+        .is_some();
+    if ai.registry.set_office_policy(at.is_some()) + ai.registry.set_notes_policy(notes) > 0 {
         ai.persist_all(store);
     }
     at
@@ -981,6 +1061,8 @@ fn status(ai: &AiState, store: &Store) -> AiStatus {
     AiStatus {
         enabled,
         privacy_policy_confirmed_at,
+        notes_policy_confirmed_at: store.ai_notes_policy_confirmed_at().ok().flatten(),
+        notes_by_default: store.ai_notes_by_default().unwrap_or(false),
         running: lock(&ai.endpoint).is_some(),
         problem: lock(&ai.problem).clone(),
         store_ready,
@@ -1018,9 +1100,12 @@ fn view(ai: &AiState, books: &HashMap<String, Entry>, id: &str) -> Result<Househ
         .active_shares()
         .into_iter()
         .find(|s| s.household_id == id);
-    let mut v = e
-        .book
-        .view(&ai.registry.records(id), share, ai.registry.office_policy());
+    let mut v = e.book.view_with_notes(
+        &ai.registry.records(id),
+        share,
+        ai.registry.office_policy(),
+        ai.registry.notes_policy(),
+    );
     v.document_proposals = ai.registry.document_proposals(id);
     v.display_proposals = ai.registry.household_display_candidates(id);
     Ok(v)
@@ -1094,6 +1179,29 @@ pub async fn ai_set_privacy_policy(app: AppHandle, confirmed: bool) -> Result<Ai
     .await
 }
 
+/// 事務所の設定の「面談の記録やメモを AI で扱うことも書いている」を確かめた・外した（0249）。外すと、それを理由にメモと面談の履歴を
+/// 渡していた共有を、その場で取り消す
+#[tauri::command]
+pub async fn ai_set_notes_policy(app: AppHandle, confirmed: bool) -> Result<AiStatus, String> {
+    blocking(app, move |ai, store| {
+        store
+            .set_ai_notes_policy_confirmed(confirmed)
+            .map_err(code)?;
+        Ok(status(ai, store))
+    })
+    .await
+}
+
+/// 「メモと面談の履歴も渡す」の印を最初から付けておくかを変える（0249。世帯ごとに外せる）
+#[tauri::command]
+pub async fn ai_set_notes_default(app: AppHandle, enabled: bool) -> Result<AiStatus, String> {
+    blocking(app, move |ai, store| {
+        store.set_ai_notes_by_default(enabled).map_err(code)?;
+        Ok(status(ai, store))
+    })
+    .await
+}
+
 /// 世帯の「同意とAIの記録」
 #[tauri::command]
 pub async fn ai_household(app: AppHandle, id: String) -> Result<HouseholdAiView, String> {
@@ -1111,30 +1219,44 @@ pub async fn ai_consent_record(
     id: String,
     input: ExternalAiConsentInput,
 ) -> Result<HouseholdAiView, String> {
-    blocking(app, move |ai, store| {
-        let mut books = lock(&ai.books);
-        let e = books
-            .get_mut(&id)
-            .ok_or_else(|| code(StoreError::NOT_OPEN))?;
-        if e.book.generation == 0 {
-            return Err("E_AI_NOT_SAVED".into());
+    blocking(app, move |ai, store| consent_record(ai, store, &id, &input)).await
+}
+
+/// 外部AIへの提供の同意（同意しなかった・撤回）を記録する（命令の中身）
+pub(crate) fn consent_record(
+    ai: &AiState,
+    store: &Store,
+    id: &str,
+    input: &ExternalAiConsentInput,
+) -> Result<HouseholdAiView, String> {
+    let id = id.to_owned();
+    let mut books = lock(&ai.books);
+    let e = books
+        .get_mut(&id)
+        .ok_or_else(|| code(StoreError::NOT_OPEN))?;
+    if e.book.generation == 0 {
+        return Err("E_AI_NOT_SAVED".into());
+    }
+    e.book
+        .record_consent(input, &today_upper(), &now_iso(), author_of(store))
+        .map_err(str::to_owned)?;
+    if input.decision != ai_share::ConsentDecision::Given {
+        ai.registry.withdraw_consent(&id);
+    }
+    // 共有中なら、渡す中身（同意）をその場で置き換える（メモを含まない同意に変わったら、メモと面談の履歴を渡す共有は閉じる。0249）
+    if let Some(src) = books.get(&id).and_then(|e| e.book.source()) {
+        for sid in ai.registry.active_share_ids(&id) {
+            ai.registry.update_source(&sid, src.clone());
         }
-        e.book
-            .record_consent(&input, &today_upper(), &now_iso(), author_of(store))
-            .map_err(str::to_owned)?;
-        if input.decision != ai_share::ConsentDecision::Given {
-            ai.registry.withdraw_consent(&id);
-        }
-        ai.persist_locked(store, &mut books);
-        if books
-            .get(&id)
-            .is_some_and(|e| e.book.is_dirty(&ai.registry.records(&id)))
-        {
-            return Err("E_AI_PERSIST".into());
-        }
-        view(ai, &books, &id)
-    })
-    .await
+    }
+    ai.persist_locked(store, &mut books);
+    if books
+        .get(&id)
+        .is_some_and(|e| e.book.is_dirty(&ai.registry.records(&id)))
+    {
+        return Err("E_AI_PERSIST".into());
+    }
+    view(ai, &books, &id)
 }
 
 /// 世帯をAIに渡す（期限つきの共有を作る）。AI接続口がオンで、渡す理由（同意がある・事務所のプライバシーポリシーを確かめていてお客さまが断っていない・
@@ -1145,6 +1267,8 @@ pub async fn ai_share_start(
     id: String,
     minutes: u32,
     destination: String,
+    notes: Option<bool>,
+    words: Option<Vec<String>>,
 ) -> Result<HouseholdAiView, String> {
     blocking(app, move |ai, store| {
         if !store.ai_connector_enabled().map_err(code)? {
@@ -1154,7 +1278,15 @@ pub async fn ai_share_start(
         if lock(&ai.endpoint).is_none() {
             return Err("E_AI_ENDPOINT".into());
         }
-        share_start(ai, store, &id, minutes, destination)
+        share_start(
+            ai,
+            store,
+            &id,
+            minutes,
+            destination,
+            notes.unwrap_or(false),
+            words.unwrap_or_default(),
+        )
     })
     .await
 }
@@ -1166,6 +1298,8 @@ pub(crate) fn share_start(
     id: &str,
     minutes: u32,
     destination: String,
+    notes: bool,
+    words: Vec<String>,
 ) -> Result<HouseholdAiView, String> {
     let id = id.to_owned();
     if !DURATIONS_MIN.contains(&minutes) {
@@ -1175,6 +1309,13 @@ pub(crate) fn share_start(
     if destination.is_empty() || destination.chars().count() > MAX_DESTINATION_CHARS {
         return Err("E_AI_DESTINATION".into());
     }
+    // 見本の世帯は渡さない（画面に出している見本も。0249 の追記）
+    if store
+        .list_samples()
+        .map_or(true, |l| l.iter().any(|h| h.id == id))
+    {
+        return Err("E_AI_SAMPLE".into());
+    }
     let mut books = lock(&ai.books);
     let e = books.get(&id).ok_or_else(|| code(StoreError::NOT_OPEN))?;
     if e.book.generation == 0 {
@@ -1182,6 +1323,10 @@ pub(crate) fn share_start(
     }
     if !ai.registry.active_share_ids(&id).is_empty() {
         return Err("E_AI_ALREADY_SHARED".into());
+    }
+    // メモと面談の履歴を渡すときは、AI に渡す中身の確認画面で、今の中身と伏せる言葉で一度見ていること（0249 の追記）
+    if notes && !ai.looked_at(&id, e.book.source().as_ref(), &words) {
+        return Err("E_AI_NOTES_NOT_LOOKED".into());
     }
     // ほかのメンバーが開いている世帯は渡さない（AIに渡した記録を書くと、相手の次の保存が分岐になる。0248 の追記）
     match opened_by_others(store) {
@@ -1196,13 +1341,7 @@ pub(crate) fn share_start(
     }
     let source = e.book.source().ok_or("E_AI_BODY")?;
     // 渡せるかは共有の台帳が basis の1か所で決める（同意・事務所のプライバシーポリシー・架空の世帯。0226）
-    ai.registry.set_office_policy(
-        store
-            .ai_privacy_policy_confirmed_at()
-            .ok()
-            .flatten()
-            .is_some(),
-    );
+    sync_office_policy(ai, store);
     ai.registry
         .grant(
             source,
@@ -1211,15 +1350,28 @@ pub(crate) fn share_start(
                 duration: Duration::from_secs(u64::from(minutes) * 60),
                 destination_declared: destination,
                 proceed_without_consent: false,
+                notes,
+                mask_words: words,
             },
         )
         .map_err(|e| match e {
             GrantError::ConsentMissing { .. } => "E_AI_NO_CONSENT".to_owned(),
+            GrantError::NotesNotAllowed { .. } => "E_AI_NOTES_NOT_ALLOWED".to_owned(),
             GrantError::BadDuration => "E_AI_DURATION".to_owned(),
             GrantError::DestinationMissing => "E_AI_DESTINATION".to_owned(),
             GrantError::NotAddable(_) => "E_AI_SCOPE".to_owned(),
         })?;
     ai.persist_locked(store, &mut books);
+    // AIに渡した記録を書けなかったら（閲覧だけ・保存できない）、その場で取り消す（記録なしで渡さない。0249 の追記）
+    if books
+        .get(&id)
+        .is_some_and(|e| e.book.is_dirty(&ai.registry.records(&id)))
+    {
+        for sid in ai.registry.active_share_ids(&id) {
+            ai.registry.revoke(&sid);
+        }
+        return Err("E_AI_NOT_WRITTEN".into());
+    }
     view(ai, &books, &id)
 }
 
@@ -1261,6 +1413,8 @@ pub enum BulkBlock {
     Unreadable,
     /// 渡した直後に閉じた世帯（書き戻しの読み直しで、ほかの PC で変わった同意などに気づいた。0248 の追記）
     Closed,
+    /// AIに渡した記録を世帯ファイルに書けなかった世帯（閲覧だけ・保存できない。その場で取り消した。0249 の追記）
+    NotWritten,
     /// 一覧に無い世帯（消した・ほかの PC で移した）
     Unknown,
 }
@@ -1294,6 +1448,10 @@ pub struct BulkReady {
     basis: AiUse,
     /// 渡した後だけ: AI に見える仮名（例「共有中の世帯A」。FP が AI の答えの仮名と顧客番号を結びつけるため）
     alias: Option<String>,
+    /// メモと面談の履歴を渡せるか・その理由（0249。`ai_notes_use`）。渡した後は、メモと面談の履歴も渡したか
+    notes: AiUse,
+    /// 渡した後だけ: メモと面談の履歴も渡したか（0249）
+    notes_shared: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1323,6 +1481,7 @@ enum Eval {
     Ready {
         h: BulkHousehold,
         basis: AiUse,
+        notes: AiUse,
         /// 画面で開いていない世帯: 開いた印を変えずに開いた中身（渡すときに帳面にする）
         opened: Option<Box<(Opened, String)>>,
     },
@@ -1377,6 +1536,7 @@ fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval
     let customers = store.list().map_err(code)?;
     let samples = store.list_samples().unwrap_or_default();
     let policy = sync_office_policy(ai, store).is_some();
+    let notes_policy = policy && ai.registry.notes_policy();
     let mut out = Vec::with_capacity(ids.len());
     for id in ids {
         let Some(entry) = customers.iter().find(|e| &e.id == id) else {
@@ -1429,9 +1589,10 @@ fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval
                 e.book.generation,
                 e.book.source().is_some(),
                 ai_use(e.book.consent().as_ref(), policy, e.book.fictional),
+                ai_notes_use(e.book.consent().as_ref(), notes_policy, e.book.fictional),
             )
         });
-        if let Some((generation, has_source, basis)) = known {
+        if let Some((generation, has_source, basis, notes)) = known {
             out.push(if generation == 0 {
                 Eval::Blocked(BulkBlock::NotSaved, h)
             } else if !has_source {
@@ -1442,6 +1603,7 @@ fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval
                 Eval::Ready {
                     h,
                     basis,
+                    notes,
                     opened: None,
                 }
             });
@@ -1464,6 +1626,7 @@ fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval
         };
         book.fictional = o.label.fictional;
         let basis = ai_use(book.consent().as_ref(), policy, book.fictional);
+        let notes = ai_notes_use(book.consent().as_ref(), notes_policy, book.fictional);
         out.push(if book.generation == 0 {
             Eval::Blocked(BulkBlock::NotSaved, h)
         } else if book.source().is_none() {
@@ -1474,6 +1637,7 @@ fn bulk_evaluate(ai: &AiState, store: &Store, ids: &[String]) -> Result<Vec<Eval
             Eval::Ready {
                 h,
                 basis,
+                notes,
                 opened: Some(Box::new((o, entry.summary.clone()))),
             }
         });
@@ -1519,11 +1683,15 @@ pub(crate) fn bulk_check(
     let (mut ready, mut already, mut blocked) = (Vec::new(), Vec::new(), Vec::new());
     for e in bulk_evaluate(ai, store, &ids)? {
         match e {
-            Eval::Ready { h, basis, .. } => ready.push(BulkReady {
+            Eval::Ready {
+                h, basis, notes, ..
+            } => ready.push(BulkReady {
                 id: h.id,
                 customer_no: h.customer_no,
                 basis,
                 alias: None,
+                notes,
+                notes_shared: false,
             }),
             Eval::Already(h) => already.push(h),
             Eval::Blocked(r, h) => blocked.push((r, h)),
@@ -1540,6 +1708,7 @@ pub(crate) fn bulk_grant(
     ids: &[String],
     minutes: u32,
     destination: &str,
+    notes: &BulkNotes,
 ) -> Result<BulkOutcome, String> {
     if !DURATIONS_MIN.contains(&minutes) {
         return Err("E_AI_DURATION".into());
@@ -1555,13 +1724,39 @@ pub(crate) fn bulk_grant(
         .iter()
         .filter(|e| matches!(e, Eval::Ready { .. }))
         .count();
+    // メモと面談の履歴を渡す世帯は、AI に渡す中身の確認画面で、今の中身と伏せる言葉で一度見ていること（1件でも見ていなければ渡さない。0249 の追記）
+    for e in &evals {
+        let Eval::Ready {
+            h,
+            notes: n,
+            opened,
+            ..
+        } = e
+        else {
+            continue;
+        };
+        if !notes.ids.contains(&h.id) || !n.allowed() {
+            continue;
+        }
+        let source = match opened {
+            Some(b) => HouseholdBook::from_opened(&b.0.id, None, b.0.generation, &b.0.body)
+                .ok()
+                .and_then(|(bk, _)| bk.source()),
+            None => lock(&ai.books).get(&h.id).and_then(|e| e.book.source()),
+        };
+        if !ai.looked_at(&h.id, source.as_ref(), &notes.words) {
+            return Err("E_AI_NOTES_NOT_LOOKED".into());
+        }
+    }
     if active + new > MAX_BULK_SHARES {
         return Err("E_AI_BULK_LIMIT".into());
     }
     let (mut ready, mut already, mut blocked) = (Vec::new(), Vec::new(), Vec::new());
     for e in evals {
-        let (h, opened) = match e {
-            Eval::Ready { h, opened, .. } => (h, opened),
+        let (h, opened, notes_use) = match e {
+            Eval::Ready {
+                h, opened, notes, ..
+            } => (h, opened, notes),
             Eval::Already(h) => {
                 already.push(h);
                 continue;
@@ -1596,6 +1791,8 @@ pub(crate) fn bulk_grant(
             already.push(h);
             continue;
         }
+        // メモと面談の履歴は、印を付けた世帯のうち渡せる世帯だけ（渡せない世帯は計算の項目だけ渡し、notes に理由を返す。0249）
+        let with_notes = notes.ids.contains(&h.id) && notes_use.allowed();
         match ai.registry.grant(
             source,
             GrantOptions {
@@ -1603,6 +1800,8 @@ pub(crate) fn bulk_grant(
                 duration: Duration::from_secs(u64::from(minutes) * 60),
                 destination_declared: destination.clone(),
                 proceed_without_consent: false,
+                notes: with_notes,
+                mask_words: notes.words.clone(),
             },
         ) {
             Ok(g) => ready.push(BulkReady {
@@ -1610,6 +1809,8 @@ pub(crate) fn bulk_grant(
                 customer_no: h.customer_no,
                 basis: g.basis,
                 alias: Some(g.alias),
+                notes: notes_use,
+                notes_shared: with_notes,
             }),
             Err(GrantError::ConsentMissing { state }) => {
                 let why = match state.as_str() {
@@ -1619,6 +1820,7 @@ pub(crate) fn bulk_grant(
                 };
                 blocked.push((why, h));
             }
+            Err(GrantError::NotesNotAllowed { .. }) => blocked.push((BulkBlock::NoBasis, h)),
             Err(GrantError::BadDuration) => return Err("E_AI_DURATION".into()),
             Err(GrantError::DestinationMissing) => return Err("E_AI_DESTINATION".into()),
             Err(GrantError::NotAddable(_)) => return Err("E_AI_SCOPE".into()),
@@ -1626,7 +1828,36 @@ pub(crate) fn bulk_grant(
     }
     let mut books = lock(&ai.books);
     ai.persist_quiet(store, &mut books);
+    // 記録を書けなかった世帯（ほかの人が開いていて待つ世帯を除く）は、その場で取り消す（記録なしで渡さない。0249 の追記）
+    let busy = opened_by_others(store).unwrap_or_default();
+    let unwritten: Vec<String> = ready
+        .iter()
+        .filter(|r| !busy.contains(&r.id))
+        .filter(|r| {
+            books
+                .get(&r.id)
+                .is_some_and(|e| e.book.is_dirty(&ai.registry.records(&r.id)))
+        })
+        .map(|r| r.id.clone())
+        .collect();
     drop(books);
+    for id in &unwritten {
+        for sid in ai.registry.active_share_ids(id) {
+            ai.registry.revoke(&sid);
+        }
+    }
+    let (ready, not_written): (Vec<BulkReady>, Vec<BulkReady>) =
+        ready.into_iter().partition(|r| !unwritten.contains(&r.id));
+    for r in not_written {
+        blocked.push((
+            BulkBlock::NotWritten,
+            BulkHousehold {
+                id: r.id,
+                customer_no: r.customer_no,
+                name: None,
+            },
+        ));
+    }
     // 書き戻しの読み直しで閉じた共有（ほかの PC で同意が無くなっていた など）は、渡した世帯から外して理由つきで返す（0248 の追記）
     let (still, closed): (Vec<BulkReady>, Vec<BulkReady>) = ready
         .into_iter()
@@ -1654,6 +1885,103 @@ pub(crate) fn bulk_grant(
         ));
     }
     Ok(outcome(still, already, blocked, active))
+}
+
+/// まとめて渡すときのメモと面談の履歴（0249）: 印を付けた世帯と、伏せる言葉（メモリの上だけ）
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct BulkNotes {
+    #[serde(default)]
+    pub ids: Vec<String>,
+    #[serde(default)]
+    pub words: Vec<String>,
+}
+
+/// AI に渡す中身の確認画面の1世帯（0249）: AI に渡る文（名前を伏せた後）と伏せた所、名前らしい所が残っていそうな所
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotesPreview {
+    id: String,
+    customer_no: String,
+    texts: Vec<NotesPreviewText>,
+    /// 名前らしい所が残っていそうな所（目安。短い前後の文）
+    suspects: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotesPreviewText {
+    item: String,
+    author: String,
+    text: String,
+    /// 伏せた所（text の中の文字の位置。始まりと終わり）
+    spans: Vec<(usize, usize)>,
+}
+
+/// AI に渡るメモと面談の履歴を、名前を伏せた形で返す（共有は作らない。世帯ファイルにも書かない。伏せる言葉は保存しない。0249）。
+/// 名前らしい所が残っていそうな世帯を先に並べる
+pub(crate) fn notes_preview(
+    ai: &AiState,
+    store: &Store,
+    ids: &[String],
+    words: &[String],
+) -> Result<Vec<NotesPreview>, String> {
+    let ids = bulk_ids(ids)?;
+    let customers = store.list().map_err(code)?;
+    let mut out = Vec::new();
+    for id in &ids {
+        let Some(entry) = customers.iter().find(|e| &e.id == id) else {
+            continue;
+        };
+        if entry.label.is_sample() {
+            continue;
+        }
+        let source = match lock(&ai.books).get(id).and_then(|e| e.book.source()) {
+            Some(s) => Some(s),
+            None => store.read_unmarked(id).ok().and_then(|o| {
+                HouseholdBook::from_opened(&o.id, None, o.generation, &o.body)
+                    .ok()
+                    .and_then(|(b, _)| b.source())
+            }),
+        };
+        let Some(source) = source else { continue };
+        let mut suspects = Vec::new();
+        let texts: Vec<NotesPreviewText> = source
+            .texts
+            .iter()
+            .filter(|t| ai_share::book::NOTE_ITEMS.contains(&t.item.as_str()))
+            .map(|t| {
+                let m = ai_share::registry::masked_text(&t.item, &t.body, words);
+                suspects.extend(ai_share::names::suspects(&m.text));
+                NotesPreviewText {
+                    item: t.item.clone(),
+                    author: t.author.clone(),
+                    text: m.text,
+                    spans: m.spans,
+                }
+            })
+            .collect();
+        suspects.truncate(10);
+        lock(&ai.looked).insert(id.clone(), AiState::notes_digest(&source, words));
+        out.push(NotesPreview {
+            id: id.clone(),
+            customer_no: entry.customer_no.clone(),
+            texts,
+            suspects,
+        });
+    }
+    // 名前らしい所が残っていそうな世帯を先に（並びはそのほかは選んだ順のまま）
+    out.sort_by_key(|p| p.suspects.is_empty());
+    Ok(out)
+}
+
+/// AI に渡るメモと面談の履歴を、名前を伏せた形で見る（AI に渡す中身の確認画面。0249）
+#[tauri::command]
+pub async fn ai_notes_preview(
+    app: AppHandle,
+    ids: Vec<String>,
+    words: Vec<String>,
+) -> Result<Vec<NotesPreview>, String> {
+    blocking(app, move |ai, store| notes_preview(ai, store, &ids, &words)).await
 }
 
 /// まとめて取り消す（選んだ世帯の共有をすべて。即時）。取り消した世帯の数を返す
@@ -1685,6 +2013,7 @@ pub async fn ai_share_bulk_start(
     ids: Vec<String>,
     minutes: u32,
     destination: String,
+    notes: Option<BulkNotes>,
 ) -> Result<BulkOutcome, String> {
     blocking(app, move |ai, store| {
         if !store.ai_connector_enabled().map_err(code)? {
@@ -1694,7 +2023,14 @@ pub async fn ai_share_bulk_start(
         if lock(&ai.endpoint).is_none() {
             return Err("E_AI_ENDPOINT".into());
         }
-        bulk_grant(ai, store, &ids, minutes, &destination)
+        bulk_grant(
+            ai,
+            store,
+            &ids,
+            minutes,
+            &destination,
+            &notes.unwrap_or_default(),
+        )
     })
     .await
 }
@@ -2123,7 +2459,7 @@ mod tests {
 
     fn consent(decision: &str) -> ExternalAiConsentInput {
         serde_json::from_value(serde_json::json!({
-            "decision": decision, "obtainedOn": "2026-11-01", "method": "paper",
+            "decision": decision, "obtainedOn": ai_share::consent::EXTERNAL_AI_EXPLANATION_V3_SINCE, "method": "paper",
             "company": "A社", "country": "米国", "noTrainingConfirmed": true, "fpConfirmed": true
         }))
         .unwrap()
@@ -2145,7 +2481,7 @@ mod tests {
                 .book
                 .record_consent(
                     &consent(decision),
-                    "2026-11-07",
+                    ai_share::consent::EXTERNAL_AI_EXPLANATION_V3_SINCE,
                     "2026-11-07T00:00:00Z",
                     None,
                 )
@@ -2628,12 +2964,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（遺産の分け方〔0251〕で 0.88 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（AI に渡した記録のメモを止めた欄〔0249 の 11〕で 0.89 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.88");
+        assert_eq!(file["meta"]["formatVersion"], "0.89");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());
@@ -2909,15 +3245,31 @@ mod tests {
 
         // 期限・申告の確かめは1件ずつと同じ
         assert_eq!(
-            bulk_grant(&pc2.ai, &pc2.store, &ids, 7, "AIのアプリ").unwrap_err(),
+            bulk_grant(
+                &pc2.ai,
+                &pc2.store,
+                &ids,
+                7,
+                "AIのアプリ",
+                &BulkNotes::default()
+            )
+            .unwrap_err(),
             "E_AI_DURATION"
         );
         assert_eq!(
-            bulk_grant(&pc2.ai, &pc2.store, &ids, 60, " ").unwrap_err(),
+            bulk_grant(&pc2.ai, &pc2.store, &ids, 60, " ", &BulkNotes::default()).unwrap_err(),
             "E_AI_DESTINATION"
         );
         // 渡す: 渡せる世帯だけ
-        let g = bulk_grant(&pc2.ai, &pc2.store, &ids, 60, "AIのアプリ").unwrap();
+        let g = bulk_grant(
+            &pc2.ai,
+            &pc2.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         assert_eq!(ready_ids(&g), vec![given.clone(), fictional.clone()]);
         assert_eq!(g.ready[1].basis, AiUse::Fictional);
         assert!(g.ready.iter().all(|r| r
@@ -2963,7 +3315,15 @@ mod tests {
         );
 
         // もう一度: 共有中の世帯は「もう共有中」（新しい共有は作らない）
-        let again = bulk_grant(&pc2.ai, &pc2.store, &ids, 60, "AIのアプリ").unwrap();
+        let again = bulk_grant(
+            &pc2.ai,
+            &pc2.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         assert!(again.ready.is_empty());
         assert_eq!(again.already.len(), 2);
         assert_eq!(again.active, 2);
@@ -2971,7 +3331,15 @@ mod tests {
 
         // 事務所のプライバシーポリシーを確かめると、同意の答えが無い世帯も渡せる（断った・撤回した世帯は渡せない）
         pc2.store.set_ai_privacy_policy_confirmed(true).unwrap();
-        let p = bulk_grant(&pc2.ai, &pc2.store, &ids, 60, "AIのアプリ").unwrap();
+        let p = bulk_grant(
+            &pc2.ai,
+            &pc2.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         assert_eq!(ready_ids(&p), vec![none.clone()]);
         assert_eq!(p.ready[0].basis, AiUse::OfficePolicy);
         assert_eq!(
@@ -3020,15 +3388,39 @@ mod tests {
             "E_AI_BULK_LIMIT"
         );
         assert_eq!(
-            bulk_grant(&pc1.ai, &pc1.store, &ids, 60, "AIのアプリ").unwrap_err(),
+            bulk_grant(
+                &pc1.ai,
+                &pc1.store,
+                &ids,
+                60,
+                "AIのアプリ",
+                &BulkNotes::default()
+            )
+            .unwrap_err(),
             "E_AI_BULK_LIMIT"
         );
         assert!(pc1.ai.registry.active_shares().is_empty());
-        let ok = bulk_grant(&pc1.ai, &pc1.store, first, 60, "AIのアプリ").unwrap();
+        let ok = bulk_grant(
+            &pc1.ai,
+            &pc1.store,
+            first,
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         assert_eq!(ok.ready.len(), MAX_BULK_SHARES);
         // 共有中の50件と合わせると超える
         assert_eq!(
-            bulk_grant(&pc1.ai, &pc1.store, last, 60, "AIのアプリ").unwrap_err(),
+            bulk_grant(
+                &pc1.ai,
+                &pc1.store,
+                last,
+                60,
+                "AIのアプリ",
+                &BulkNotes::default()
+            )
+            .unwrap_err(),
             "E_AI_BULK_LIMIT"
         );
         assert_eq!(pc1.ai.registry.active_shares().len(), MAX_BULK_SHARES);
@@ -3037,7 +3429,16 @@ mod tests {
         assert_eq!((c.ready.len(), c.active), (1, MAX_BULK_SHARES));
         // 1件ずつ渡すときも、共有中の世帯と合わせて数える（0248 の追記）
         assert_eq!(
-            share_start(&pc1.ai, &pc1.store, &last[0], 60, "AIのアプリ".into()).unwrap_err(),
+            share_start(
+                &pc1.ai,
+                &pc1.store,
+                &last[0],
+                60,
+                "AIのアプリ".into(),
+                false,
+                vec![]
+            )
+            .unwrap_err(),
             "E_AI_SHARE_LIMIT"
         );
         // まとめて取り消すは、選んだ数で切らずに共有中の世帯から探す（選んだ世帯に共有の無い世帯が混ざっていても）
@@ -3046,10 +3447,17 @@ mod tests {
         // 1件取り消すと渡せる
         assert_eq!(bulk_revoke(&pc1.ai, &pc1.store, &many), 1);
         assert_eq!(
-            bulk_grant(&pc1.ai, &pc1.store, last, 60, "AIのアプリ")
-                .unwrap()
-                .ready
-                .len(),
+            bulk_grant(
+                &pc1.ai,
+                &pc1.store,
+                last,
+                60,
+                "AIのアプリ",
+                &BulkNotes::default()
+            )
+            .unwrap()
+            .ready
+            .len(),
             1
         );
         let _ = std::fs::remove_dir_all(&root);
@@ -3094,7 +3502,15 @@ mod tests {
             reasons(&c),
             vec![(BulkBlock::OpenByOthers, vec![x.clone()])]
         );
-        let g = bulk_grant(&a.ai, &a.store, &ids, 60, "AIのアプリ").unwrap();
+        let g = bulk_grant(
+            &a.ai,
+            &a.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         assert_eq!(ready_ids(&g), vec![y.clone()]);
 
         // 渡した後に B が開いたら、AI に読まれても A は書き戻さない（B の保存は分岐にならない）
@@ -3116,6 +3532,174 @@ mod tests {
         assert_eq!(file["aiShares"][0]["endReason"], "revoked");
         assert_eq!(file["aiShares"][0]["reads"][0]["count"], 1);
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// メモと面談の履歴も渡す（0249）: 印を付けた世帯のうち渡せる世帯だけ文を渡し（名前は伏せる）、渡せない世帯は計算の項目だけ渡して理由を返す。
+    /// AI に渡す中身の確認画面は伏せた文と、名前らしい所が残っていそうな世帯を先に返す。伏せる言葉はどこにも保存しない。見本は出さない
+    #[test]
+    fn bulk_share_with_notes() {
+        let root = root("bulk-notes");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        use_categories(&p);
+        let with_notes = |memo: &[&str]| {
+            serde_json::json!({
+                "household": { "request": { "input": model_input() }, "memo": memo },
+                "meetings": { "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+                    "shared": { "decided": "頭金を増やす", "todo": "源泉徴収票を用意" }, "fpOnly": { "note": "山田様は慎重" } }] }
+            })
+            .to_string()
+        };
+        let mk = |memo: &[&str]| {
+            crate::store::create_household(
+                &p.store,
+                &p.ai,
+                with_notes(memo),
+                "本人".into(),
+                CreateOptions {
+                    category: Some("A".into()),
+                    sample: None,
+                    fictional: false,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .id
+        };
+        let given = mk(&[
+            "田中さんのご主人は来年転職",
+            "携帯090-1234-5678・t@example.com・つくば市竹園1-2-3",
+        ]);
+        let none = mk(&["ケンタが来年入学"]);
+        p.record(&given, "given");
+        p.store.set_ai_privacy_policy_confirmed(true).unwrap();
+        let ids = vec![given.clone(), none.clone()];
+        const WORD: &str = "ゼット商店";
+
+        // 確かめ: 渡す理由とメモの理由
+        let c = bulk_check(&p.ai, &p.store, &ids).unwrap();
+        assert_eq!(c.ready[0].notes, AiUse::Consent);
+        assert_eq!(
+            c.ready[1].notes,
+            AiUse::None,
+            "面談の記録やメモの確かめが無い"
+        );
+        // AI に渡す中身の確認画面: 伏せた文と印。名前らしい所が残っていそうな世帯を先に
+        let pv =
+            notes_preview(&p.ai, &p.store, &ids, &[WORD.to_owned(), "転職".to_owned()]).unwrap();
+        assert_eq!(pv[0].id, none, "ケンタが残っていそう");
+        assert!(!pv[0].suspects.is_empty());
+        let g = pv.iter().find(|x| x.id == given).unwrap();
+        let all: Vec<&str> = g.texts.iter().map(|t| t.text.as_str()).collect();
+        assert!(
+            all.iter()
+                .any(|t| t.contains("（名前）さんのご主人は来年（名前）")),
+            "{all:?}"
+        );
+        assert!(
+            all.iter().any(|t| t.contains("FPのメモ: （名前）様は慎重")),
+            "{all:?}"
+        );
+        assert!(g
+            .texts
+            .iter()
+            .any(|t| t.item == "meeting.fpOnly" && !t.spans.is_empty()));
+        // 電話番号・メールアドレス・住所も、AI に渡す中身の確認画面に置き換えた後の文で出す
+        assert!(
+            all.contains(&"携帯〔電話番号〕・〔メールアドレス〕・〔住所〕"),
+            "{all:?}"
+        );
+        assert!(g.suspects.is_empty());
+
+        // 渡す: 印は両方に付けたが、メモを渡せるのは同意（今の版）のある世帯だけ
+        let notes = BulkNotes {
+            ids: ids.clone(),
+            words: vec![WORD.to_owned()],
+        };
+        // AI に渡す中身の確認画面を、渡す伏せる言葉で見ていないと渡さない（見た後に言葉を変えたら見直す）
+        assert_eq!(
+            bulk_grant(&p.ai, &p.store, &ids, 60, "AIのアプリ", &notes).unwrap_err(),
+            "E_AI_NOTES_NOT_LOOKED"
+        );
+        assert!(p.ai.registry.active_shares().is_empty());
+        notes_preview(&p.ai, &p.store, &ids, &notes.words).unwrap();
+        let o = bulk_grant(&p.ai, &p.store, &ids, 60, "AIのアプリ", &notes).unwrap();
+        assert_eq!(o.ready.len(), 2);
+        let r = |id: &str| o.ready.iter().find(|r| r.id == id).unwrap();
+        assert!(r(&given).notes_shared);
+        assert!(!r(&none).notes_shared);
+        let share_of = |id: &str| {
+            p.ai.registry
+                .active_shares()
+                .into_iter()
+                .find(|s| s.household_id == id)
+                .unwrap()
+                .share_id
+        };
+        let read = |sid: &str| {
+            p.ai.registry
+                .handle_get(sid, "get_shared_household", &Default::default())
+                .unwrap()
+        };
+        let out = read(&share_of(&given));
+        assert!(
+            out.contains("源泉徴収票")
+                && out.contains("（名前）様は慎重")
+                && !out.contains("田中")
+                && !out.contains("山田")
+        );
+        let out = read(&share_of(&none));
+        assert!(
+            !out.contains("ケンタ") && !out.contains("源泉徴収票"),
+            "印があっても渡せない世帯は文を渡さない"
+        );
+        // 伏せる言葉はどこにも保存しない（世帯ファイル・事務所データ）
+        p.ai.persist_all(&p.store);
+        for id in [&given, &none] {
+            assert!(!file_sections(&root, &secrets, id)
+                .to_string()
+                .contains(WORD));
+        }
+        let mut found = false;
+        for e in walkdir(&root) {
+            if std::fs::read(&e).is_ok_and(|b| String::from_utf8_lossy(&b).contains(WORD)) {
+                found = true;
+            }
+        }
+        assert!(!found, "伏せる言葉がファイルに残っています");
+        // 復号した世帯ファイル（ほかの世帯も）と、AIに渡した記録にも残らない
+        for e in p.store.list().unwrap() {
+            assert!(
+                !p.store.read_unmarked(&e.id).unwrap().body.contains(WORD),
+                "{}",
+                e.id
+            );
+            let recs = serde_json::to_string(&p.ai.registry.records(&e.id)).unwrap();
+            assert!(!recs.contains(WORD));
+        }
+        // 記録には、メモと面談の履歴の項目が残る
+        let file = file_sections(&root, &secrets, &given);
+        let fields = file["aiShares"][0]["fields"].to_string();
+        assert!(
+            fields.contains("note.fp") && fields.contains("meeting.fpOnly"),
+            "{fields}"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    fn walkdir(dir: &Path) -> Vec<PathBuf> {
+        let mut out = Vec::new();
+        if let Ok(rd) = std::fs::read_dir(dir) {
+            for e in rd.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    out.extend(walkdir(&p));
+                } else {
+                    out.push(p);
+                }
+            }
+        }
+        out
     }
 
     /// 事務所の共有（A が始め、B が参加する）
@@ -3170,8 +3754,8 @@ mod tests {
         a.record(&x, "given");
         let _ = create(&a, None, false);
         let ids = vec![x.clone()];
-        bulk_grant(&a.ai, &a.store, &ids, 60, "AのAI").unwrap();
-        let gb = bulk_grant(&b.ai, &b.store, &ids, 60, "BのAI").unwrap();
+        bulk_grant(&a.ai, &a.store, &ids, 60, "AのAI", &BulkNotes::default()).unwrap();
+        let gb = bulk_grant(&b.ai, &b.store, &ids, 60, "BのAI", &BulkNotes::default()).unwrap();
         assert_eq!(gb.ready.len(), 1, "{:?}", reasons(&gb));
         let sa = a.ai.registry.active_shares()[0].share_id.clone();
         let sb = b.ai.registry.active_shares()[0].share_id.clone();
@@ -3244,7 +3828,15 @@ mod tests {
         let c = bulk_check(&a.ai, &a.store, &ids).unwrap();
         assert!(c.ready.is_empty());
         assert_eq!(reasons(&c), vec![(BulkBlock::Withdrawn, vec![x.clone()])]);
-        let g = bulk_grant(&a.ai, &a.store, &ids, 60, "AIのアプリ").unwrap();
+        let g = bulk_grant(
+            &a.ai,
+            &a.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         assert!(g.ready.is_empty());
         assert!(a.ai.registry.active_shares().is_empty());
         let _ = std::fs::remove_dir_all(&base);
@@ -3261,7 +3853,15 @@ mod tests {
         let y = create(&a, None, false);
         let _ = create(&a, None, false);
         let ids = vec![x.clone(), y.clone()];
-        bulk_grant(&a.ai, &a.store, &ids, 60, "AIのアプリ").unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         let sid = |id: &str| {
             a.ai.registry
                 .active_shares()
@@ -3307,6 +3907,40 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    /// 事務所の確かめを理由にメモと面談の履歴を渡している世帯に、メモを含まない同意（ヒアリングシートの同意欄）を記録したら、
+    /// その場でメモと面談の履歴を渡す共有を閉じる（0249 の点検の直し）
+    #[test]
+    fn a_consent_without_notes_closes_the_notes_share_at_once() {
+        let root = root("notes-consent");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        let id = create(&p, None, false);
+        p.store.set_ai_privacy_policy_confirmed(true).unwrap();
+        p.store.set_ai_notes_policy_confirmed(true).unwrap();
+        assert_eq!(
+            share_start(&p.ai, &p.store, &id, 60, "AIのアプリ".into(), true, vec![]).unwrap_err(),
+            "E_AI_NOTES_NOT_LOOKED"
+        );
+        notes_preview(&p.ai, &p.store, std::slice::from_ref(&id), &[]).unwrap();
+        share_start(&p.ai, &p.store, &id, 60, "AIのアプリ".into(), true, vec![]).unwrap();
+        assert_eq!(p.ai.registry.active_shares().len(), 1);
+        let input: ExternalAiConsentInput = serde_json::from_value(serde_json::json!({
+            "decision": "given", "obtainedOn": "2026-11-01", "method": "hearingSheet",
+            "noTrainingConfirmed": true, "fpConfirmed": true
+        }))
+        .unwrap();
+        let v = consent_record(&p.ai, &p.store, &id, &input).unwrap();
+        assert_eq!(v.ai_notes_use, AiUse::ConsentWithoutNotes);
+        assert!(
+            p.ai.registry.active_shares().is_empty(),
+            "メモを渡す共有が残っています"
+        );
+        // メモを含まない共有なら、渡したまま
+        share_start(&p.ai, &p.store, &id, 60, "AIのアプリ".into(), false, vec![]).unwrap();
+        assert_eq!(p.ai.registry.active_shares().len(), 1);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// 共有中の世帯を、ほかの PC が見本の棚へ移したとき（0248 の追記）: 共有を取り消し、取り消しの記録とまだ書いていない読み取りを
     /// 世帯ファイルに書いてから帳面を捨てる。一覧に出ない瞬間（読めない・届いていない）は、1回では取り消さない
     #[test]
@@ -3315,7 +3949,15 @@ mod tests {
         a.store.set_ai_privacy_policy_confirmed(true).unwrap();
         let x = create(&a, None, false);
         let _ = create(&a, None, false);
-        bulk_grant(&a.ai, &a.store, std::slice::from_ref(&x), 60, "AIのアプリ").unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            std::slice::from_ref(&x),
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         let sid = a.ai.registry.active_shares()[0].share_id.clone();
         let mut w = Watch::default();
         a.ai_reads(&sid);
@@ -3352,7 +3994,15 @@ mod tests {
         let x = create(&a, None, false);
         a.record(&x, "given");
         let _ = create(&a, None, false);
-        bulk_grant(&a.ai, &a.store, std::slice::from_ref(&x), 60, "AIのアプリ").unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            std::slice::from_ref(&x),
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         let sid = a.ai.registry.active_shares()[0].share_id.clone();
         let mut w = Watch::default();
         tick_now(&a, &mut w);
@@ -3377,7 +4027,15 @@ mod tests {
         let (base, a, b) = office("label-only");
         let x = create(&a, None, true);
         let _ = create(&a, None, false);
-        bulk_grant(&a.ai, &a.store, std::slice::from_ref(&x), 60, "AIのアプリ").unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            std::slice::from_ref(&x),
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        )
+        .unwrap();
         let sid = a.ai.registry.active_shares()[0].share_id.clone();
         let mut w = Watch::default();
         tick_now(&a, &mut w);
@@ -3385,6 +4043,397 @@ mod tests {
         assert!(b.store.make_client(&x).unwrap());
         tick_now(&a, &mut w);
         assert!(!read_ok(&a, &sid), "架空の印が外れたのに共有が残っています");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// 見本の世帯は、1件ずつでも渡さない。共有中の世帯を見本へ移したら（画面に出している世帯でも）、共有を取り消して記録を書く（0249 の追記）
+    #[test]
+    fn samples_are_not_shared_even_one_by_one() {
+        let root = root("sample-single");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        let id = create(&p, None, false);
+        p.record(&id, "given");
+        share_start(&p.ai, &p.store, &id, 60, "AIのアプリ".into(), false, vec![]).unwrap();
+        let sid = p.ai.registry.active_shares()[0].share_id.clone();
+        p.ai_reads(&sid);
+        // store_make_sample と同じ順: 共有を取り消して記録を書いてから見本へ移す
+        p.ai.on_making_sample(&p.store, &id);
+        p.store
+            .make_sample(
+                &id,
+                &household_store::SampleRequest {
+                    family: 1,
+                    age: 3,
+                    name: "移した見本".into(),
+                    traits: vec![],
+                    origin: None,
+                },
+                &[],
+            )
+            .unwrap();
+        assert!(p.ai.registry.active_shares().is_empty());
+        let file = file_sections(&root, &secrets, &id);
+        assert_eq!(file["aiShares"][0]["endReason"], "revoked");
+        assert_eq!(file["aiShares"][0]["reads"][0]["count"], 1);
+        // 見本は1件ずつでも渡さない
+        assert_eq!(
+            share_start(&p.ai, &p.store, &id, 60, "AIのアプリ".into(), false, vec![]).unwrap_err(),
+            "E_AI_SAMPLE"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// AIに渡した記録を書けなかったら（保存できない）、その場で取り消して記録なしで渡さない（1件ずつ・まとめての両方。0249 の追記）
+    #[cfg(unix)]
+    #[test]
+    fn shares_whose_records_cannot_be_written_are_revoked() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = root("not-written");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        p.store.set_ai_privacy_policy_confirmed(true).unwrap();
+        let x = create(&p, None, false);
+        let y = create(&p, None, false);
+        // 世帯ファイルのあるフォルダを書けなくする
+        let dirs: Vec<PathBuf> = walkdir(&root)
+            .into_iter()
+            .filter(|f| {
+                f.file_name()
+                    .is_some_and(|n| n.to_string_lossy().starts_with(&x))
+            })
+            .filter_map(|f| f.parent().map(Path::to_path_buf))
+            .collect();
+        assert!(!dirs.is_empty());
+        for d in &dirs {
+            std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o555)).unwrap();
+        }
+        let r = share_start(&p.ai, &p.store, &y, 60, "AIのアプリ".into(), false, vec![]);
+        let g = bulk_grant(
+            &p.ai,
+            &p.store,
+            std::slice::from_ref(&x),
+            60,
+            "AIのアプリ",
+            &BulkNotes::default(),
+        );
+        for d in &dirs {
+            std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        assert_eq!(r.unwrap_err(), "E_AI_NOT_WRITTEN");
+        let g = g.unwrap();
+        assert!(g.ready.is_empty());
+        assert_eq!(reasons(&g)[0].0, BulkBlock::NotWritten);
+        assert!(p.ai.registry.active_shares().is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 共有中にメモ・面談の記録が変わったら、メモと面談の履歴だけ AI に渡すのを止める（0249 の追記）。世帯の数字は渡したまま。
+    /// 取り消して、AI に渡す中身の確認画面を開き直して渡し直すまで止めたまま（1件ずつ・まとめての両方）。
+    /// 止めたこと（いつ・何が変わったか）と渡し直したことを、世帯ファイルの AI に渡した記録に残す（中身の文は残さない。0249 の 11）
+    #[test]
+    fn notes_changed_while_shared_stop_until_shared_again() {
+        let root = root("notes-paused");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        let body = serde_json::json!({
+            "household": { "request": { "input": model_input() }, "memo": ["頭金を増やす相談"] }
+        })
+        .to_string();
+        let mk = || {
+            crate::store::create_household(
+                &p.store,
+                &p.ai,
+                body.clone(),
+                "本人".into(),
+                CreateOptions {
+                    category: None,
+                    sample: None,
+                    fictional: false,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .id
+        };
+        let one = mk();
+        let two = mk();
+        p.record(&one, "given");
+        p.record(&two, "given");
+        let share_of = |id: &str| {
+            p.ai.registry
+                .active_shares()
+                .into_iter()
+                .find(|s| s.household_id == id)
+                .unwrap()
+        };
+        let read = |sid: &str| {
+            p.ai.registry
+                .handle_get(sid, "get_shared_household", &Default::default())
+                .unwrap()
+        };
+        // 画面と同じく、開いた世帯の本文にメモを1行足して保存する（`line` が空なら、そのまま保存する）
+        let save_with = |id: &str, line: &str| {
+            let o = p.open(id);
+            let mut b: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+            if !line.is_empty() {
+                b["household"]["memo"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(line.into());
+            }
+            p.ai.save(&p.store, id, &b.to_string(), "本人").unwrap();
+        };
+
+        // 1件ずつ渡した世帯
+        notes_preview(&p.ai, &p.store, std::slice::from_ref(&one), &[]).unwrap();
+        share_start(&p.ai, &p.store, &one, 60, "AIのアプリ".into(), true, vec![]).unwrap();
+        assert!(read(&share_of(&one).share_id).contains("頭金"));
+        // メモが変わらない保存では止めない
+        save_with(&one, "");
+        assert!(!share_of(&one).notes_paused);
+        assert!(read(&share_of(&one).share_id).contains("頭金"));
+        // 書き足すと、メモと面談の履歴だけ止める（世帯の数字は渡したまま）
+        save_with(&one, "伊藤健一が相続人");
+        let s = share_of(&one);
+        assert!(s.notes_paused);
+        let out = read(&s.share_id);
+        assert!(!out.contains("頭金") && !out.contains("伊藤"), "{out}");
+        assert!(out.contains("\"notesPaused\":true") && out.contains("\"notes\":false"));
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert!(v["input"].is_object(), "世帯の数字は渡したまま");
+        // 止めたことを、すぐ世帯ファイルの記録に書く（いつ・何が変わったか。中身の文は書かない）
+        let shares_in_file = |id: &str| -> serde_json::Value {
+            let o = p.store.open_unmarked(id).unwrap();
+            let f: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+            f["aiShares"].clone()
+        };
+        let f = shares_in_file(&one);
+        assert_eq!(f[0]["notesPaused"]["changed"], serde_json::json!(["memo"]));
+        assert!(f[0]["notesPaused"]["at"]
+            .as_str()
+            .is_some_and(|t| !t.is_empty()));
+        assert!(f[0].get("notesResharedAfter").is_none());
+        assert!(!f.to_string().contains("伊藤"), "中身の文は記録に書かない");
+        assert!(view(&p.ai, &lock(&p.ai.books), &one)
+            .unwrap()
+            .share
+            .is_some_and(|s| s.notes_paused));
+        // 渡し直す: 取り消して、AI に渡す中身の確認画面を開き直すまで渡せない
+        p.ai.registry.revoke(&s.share_id);
+        assert_eq!(
+            share_start(&p.ai, &p.store, &one, 60, "AIのアプリ".into(), true, vec![]).unwrap_err(),
+            "E_AI_NOTES_NOT_LOOKED"
+        );
+        notes_preview(&p.ai, &p.store, std::slice::from_ref(&one), &[]).unwrap();
+        share_start(&p.ai, &p.store, &one, 60, "AIのアプリ".into(), true, vec![]).unwrap();
+        assert!(!share_of(&one).notes_paused);
+        assert!(read(&share_of(&one).share_id).contains("頭金"));
+        // 渡し直したことも記録に残す（止めた共有の ID）
+        p.ai.persist_all(&p.store);
+        let f = shares_in_file(&one);
+        assert_eq!(f[1]["notesResharedAfter"], s.share_id.as_str());
+        assert!(f[1].get("notesPaused").is_none());
+
+        // まとめて渡した世帯
+        let ids = vec![two.clone()];
+        let notes = BulkNotes {
+            ids: ids.clone(),
+            words: vec![],
+        };
+        notes_preview(&p.ai, &p.store, &ids, &[]).unwrap();
+        bulk_grant(&p.ai, &p.store, &ids, 60, "AIのアプリ", &notes).unwrap();
+        assert!(read(&share_of(&two).share_id).contains("頭金"));
+        save_with(&two, "次回は来月");
+        let s = share_of(&two);
+        assert!(s.notes_paused);
+        let out = read(&s.share_id);
+        assert!(
+            !out.contains("頭金") && !out.contains("次回は来月"),
+            "{out}"
+        );
+        let f = shares_in_file(&two);
+        assert_eq!(f[0]["notesPaused"]["changed"], serde_json::json!(["memo"]));
+        // まとめて渡し直す（取り消して、確認画面を開き直してから）
+        assert_eq!(bulk_revoke(&p.ai, &p.store, &ids), 1);
+        notes_preview(&p.ai, &p.store, &ids, &[]).unwrap();
+        bulk_grant(&p.ai, &p.store, &ids, 60, "AIのアプリ", &notes).unwrap();
+        p.ai.persist_all(&p.store);
+        let f = shares_in_file(&two);
+        assert_eq!(f[1]["notesResharedAfter"], s.share_id.as_str());
+        assert_eq!(
+            f[0]["notesPaused"]["changed"],
+            serde_json::json!(["memo"]),
+            "止めた記録は変えない"
+        );
+        // 渡し直した1件ずつの共有は、ほかの世帯の書き足しでは止まらない
+        assert!(!share_of(&one).notes_paused);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// メモを止めた記録を世帯ファイルに書けなかったら（保存できない）、その共有をその場で取り消す（記録を書けない世帯は取り消す決まりと同じ。
+    /// 0249 の 11）。ほかの PC が書き足して閉じた世帯を、この PC の見回りが読み直したとき
+    #[cfg(unix)]
+    #[test]
+    fn notes_pauses_that_cannot_be_written_revoke_the_share() {
+        use std::os::unix::fs::PermissionsExt;
+        let (base, a, b) = office("pause-not-written");
+        let body = serde_json::json!({
+            "household": { "request": { "input": model_input() }, "memo": ["頭金を増やす相談"] }
+        })
+        .to_string();
+        let x = crate::store::create_household(
+            &a.store,
+            &a.ai,
+            body,
+            "本人".into(),
+            CreateOptions::default(),
+        )
+        .unwrap()
+        .id;
+        let z = create(&a, None, false);
+        a.record(&x, "given");
+        let ids = vec![x.clone()];
+        notes_preview(&a.ai, &a.store, &ids, &[]).unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes {
+                ids: ids.clone(),
+                words: vec![],
+            },
+        )
+        .unwrap();
+        let mut w = Watch::default();
+        a.tick(&mut w);
+        assert_eq!(a.ai.registry.active_shares().len(), 1);
+        // B が面談の記録を足して保存し、別の世帯を開く（x を閉じる）
+        let ob = b.store.open(&x).unwrap();
+        let mut bb: serde_json::Value = serde_json::from_str(&ob.body).unwrap();
+        bb["meetings"] = serde_json::json!({ "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+            "shared": { "decided": "積立を増やす" } }] });
+        b.store.save(&x, &bb.to_string(), "本人").unwrap();
+        b.store.open(&z).unwrap();
+        // 世帯ファイルのあるフォルダを書けなくする
+        let dirs: Vec<PathBuf> = walkdir(&base)
+            .into_iter()
+            .filter(|f| {
+                f.file_name()
+                    .is_some_and(|n| n.to_string_lossy().starts_with(&x))
+            })
+            .filter_map(|f| f.parent().map(Path::to_path_buf))
+            .collect();
+        assert!(!dirs.is_empty());
+        for d in &dirs {
+            std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o555)).unwrap();
+        }
+        w.files_at = None;
+        a.tick(&mut w);
+        let left = a.ai.registry.active_shares().len();
+        for d in &dirs {
+            std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        assert_eq!(left, 0, "止めた記録を書けない共有は取り消す");
+        // 書けるようになった後の見回りで、止めたことと取り消しを書く
+        a.tick(&mut w);
+        let o = a.store.open_unmarked(&x).unwrap();
+        let f: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+        assert_eq!(
+            f["aiShares"][0]["notesPaused"]["changed"],
+            serde_json::json!(["meetings"])
+        );
+        assert_eq!(f["aiShares"][0]["endReason"], "revoked");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// ほかのメンバーが開いていてメモを止めた記録を書けない間は、数字の共有を続けて待つが、10分たっても書けなければ取り消す。
+    /// 止めたことと取り消したことは、書けるようになった時に書く（時計を差し替えて測る。0249 の 11）
+    #[test]
+    fn notes_pauses_waiting_too_long_for_another_pc_revoke_the_share() {
+        let (base, mut a, b) = office("pause-wait");
+        let clock = ai_share::clock::ManualClock::new(
+            u64::try_from(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis(),
+            )
+            .unwrap(),
+        );
+        a.ai = AiState::for_test_with_registry(
+            &base.join("pc-a"),
+            ShareRegistry::with_clock(Arc::new(clock.clone())),
+        );
+        a.ai.registry.set_device(a.store.pc_id());
+        a.ai.registry.require_consent(true);
+        let body = serde_json::json!({
+            "household": { "request": { "input": model_input() }, "memo": ["頭金を増やす相談"] }
+        })
+        .to_string();
+        let x = crate::store::create_household(
+            &a.store,
+            &a.ai,
+            body,
+            "本人".into(),
+            CreateOptions::default(),
+        )
+        .unwrap()
+        .id;
+        let z = create(&a, None, false);
+        a.record(&x, "given");
+        let ids = vec![x.clone()];
+        notes_preview(&a.ai, &a.store, &ids, &[]).unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes {
+                ids: ids.clone(),
+                words: vec![],
+            },
+        )
+        .unwrap();
+        let mut w = Watch::default();
+        a.tick(&mut w);
+        // B がメモを足して保存し、開いたままにする
+        let ob = b.store.open(&x).unwrap();
+        let mut bb: serde_json::Value = serde_json::from_str(&ob.body).unwrap();
+        bb["household"]["memo"] = serde_json::json!(["頭金を増やす相談", "次回は来月"]);
+        b.store.save(&x, &bb.to_string(), "本人").unwrap();
+        let tick = |a: &Pc, w: &mut Watch| {
+            w.files_at = None;
+            a.tick(w);
+        };
+        tick(&a, &mut w);
+        let s = a.ai.registry.active_shares();
+        assert_eq!(s.len(), 1);
+        assert!(s[0].notes_paused, "メモは止める");
+        // 9分では、数字の共有を続けて待つ
+        clock.advance_ms(9 * 60 * 1000);
+        tick(&a, &mut w);
+        assert_eq!(a.ai.registry.active_shares().len(), 1);
+        // 10分たっても書けなければ取り消す
+        clock.advance_ms(60 * 1000);
+        tick(&a, &mut w);
+        assert!(
+            a.ai.registry.active_shares().is_empty(),
+            "10分たっても書けない共有は取り消す"
+        );
+        // B が閉じた後の見回りで、止めたことと取り消したことを書く
+        b.store.open(&z).unwrap();
+        tick(&a, &mut w);
+        let o = a.store.open_unmarked(&x).unwrap();
+        let f: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+        assert_eq!(
+            f["aiShares"][0]["notesPaused"]["changed"],
+            serde_json::json!(["memo"])
+        );
+        assert_eq!(f["aiShares"][0]["endReason"], "revoked");
         let _ = std::fs::remove_dir_all(&base);
     }
 }

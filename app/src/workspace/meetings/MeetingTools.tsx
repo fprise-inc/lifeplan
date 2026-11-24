@@ -3,6 +3,7 @@
 // - 「FP だけの欄を隠す」を入れると、お客さまと一緒に見るときに FP だけの欄（FP のメモ・FP だけにした保険の意向）を画面から外す
 // - 提示層の部品には渡さない（0016 の2）。持ち帰り・提案書・AI にも出さない（お客さまと見てよい欄も、今は画面で一緒に見るだけ）
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { PERSONAL_INFO_NOTE } from "../ai/personalNote.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { listDateTimeWritten, listDateWritten, proseDateWritten } from "../../dates.ts";
@@ -280,7 +281,9 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
               {view.snap.kind === "pick" && !snaps.some((s) => s.id === (view.snap as { id: string }).id) ? <option value={view.snap.id}>（外された控え）</option> : null}
             </select>
           </label>
-          <p class="rp-note">お客さまの名前や連絡先は書かないでください（このソフトは顧客の名前を持ちません）。</p>
+          <p class="rp-note" data-meeting-contacts-note>
+            {PERSONAL_INFO_NOTE}（このソフトは顧客の名前を持ちません）
+          </p>
           <div class="rp-actions">
             <button type="submit" class="btn primary" disabled={busy} data-meeting-save>
               {view.isNew ? "足す" : "直す"}

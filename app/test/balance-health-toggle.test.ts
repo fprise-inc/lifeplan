@@ -95,7 +95,7 @@ describe("保存（世帯ファイルの display.balance.health。形式 0.77）
   const save = (health: boolean) => bodyOf({ wh, workspace: ws, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: { ...DEFAULT_BALANCE_SETTINGS, health, guide: { months: [3, 9], risk: [5, 30], debt: 40 } } }, carry: EMPTY_CARRY });
 
   it("表示しないと選んだら、本文の display.balance.health に false と書き、読み戻すと false。目安の幅も残る", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.88");
+    expect(BODY_FORMAT_VERSION).toBe("0.89");
     const text = save(false);
     const obj = JSON.parse(text) as { display: { balance: Record<string, unknown> } };
     expect(obj.display.balance.health).toBe(false);

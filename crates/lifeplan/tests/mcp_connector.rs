@@ -80,6 +80,7 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
             decision: ConsentDecision::Given,
             record_id: "c-9".into(),
             documents: true,
+            notes: false,
         }),
         fictional: false,
         entered: None,
@@ -1206,6 +1207,7 @@ async fn app_policy_office_privacy_policy_end_to_end() {
             decision,
             record_id: format!("c-{n}"),
             documents: decision == ConsentDecision::Given,
+            notes: false,
         });
         s
     };
@@ -1638,6 +1640,7 @@ async fn propose_inputs_flow() {
         decision: ConsentDecision::Given,
         record_id: "c-old".into(),
         documents: false,
+        notes: false,
     });
     let g = reg.grant(old, grant_opts()).unwrap();
     let before = reg.document_proposals(HOUSEHOLD_ID).len();
@@ -4279,6 +4282,113 @@ async fn summarize_shared_households_for_followup() {
     assert!(err);
     let tools = c.list_all_tools().await.unwrap();
     check_schema_snapshot(&tools, "summarize_shared_households");
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// メモと面談の履歴も渡した共有（0249）: get_shared_household の texts に名前を伏せて包んだメモと面談の記録が入り、
+/// summarize_shared_households の行には前回の面談の短い抜き出しが入る。印の無い共有には入らない
+#[tokio::test(flavor = "multi_thread")]
+async fn notes_reach_the_ai_only_for_marked_shares() {
+    let dir = temp_dir("notes");
+    let reg = Arc::new(ShareRegistry::new());
+    reg.require_consent(true);
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    let mut src = source("dualNoKids", false);
+    src.external_ai_consent.as_mut().unwrap().notes = true;
+    src.texts = vec![
+        SourceText {
+            item: "note.fp".into(),
+            author: "FP（メモ）".into(),
+            body: "田中さんは来年転職".into(),
+            object: None,
+        },
+        SourceText {
+            item: "meeting.fpOnly".into(),
+            author: "FP（面談の記録・FPだけの欄）".into(),
+            body: "面談の日: 2026-05-10\nFPのメモ: 奥さまは慎重".into(),
+            object: None,
+        },
+        SourceText {
+            item: "meeting.excerpt".into(),
+            author: "FP（面談の記録の抜き出し）".into(),
+            body: "前回の面談（2026-05-10）\n次までにやること: 源泉徴収票を用意".into(),
+            object: None,
+        },
+    ];
+    src.followup = Some(FollowupFacts::default());
+    let marked = reg
+        .grant(
+            src.clone(),
+            GrantOptions {
+                notes: true,
+                mask_words: vec!["転職".into()],
+                ..grant_opts()
+            },
+        )
+        .unwrap();
+    let mut other = src;
+    other.household_id = "7d1f0c2a-3b4c-4d5e-8f60-718293a4b5c6".into();
+    let plain = reg.grant(other, grant_opts()).unwrap();
+    let list = call_ok(&c, "list_shared_households", json!({})).await;
+    let notes_of = |id: &str| {
+        list["shares"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["shareId"] == id)
+            .unwrap()["notes"]
+            .clone()
+    };
+    assert_eq!(notes_of(&marked.share_id), true);
+    assert_eq!(notes_of(&plain.share_id), false);
+    let v = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": marked.share_id }),
+    )
+    .await;
+    let text = v.to_string();
+    assert!(
+        text.contains("（名前）さんは来年（名前）") && text.contains("奥さまは慎重"),
+        "{text}"
+    );
+    assert!(!text.contains("田中") && !text.contains("転職"));
+    assert!(!text.contains("源泉徴収票"), "抜き出しは要約だけ");
+    let p = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": plain.share_id }),
+    )
+    .await;
+    assert_eq!(p["texts"], json!([]));
+    let sum = call_ok(&c, "summarize_shared_households", json!({})).await;
+    let rows = sum["rows"].as_array().unwrap();
+    let row = |id: &str| rows.iter().find(|r| r["shareId"] == id).unwrap().clone();
+    let ex = row(&marked.share_id)["notesExcerpt"]["wrapped"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(ex.contains("源泉徴収票を用意"), "{ex}");
+    assert_eq!(row(&plain.share_id)["notesExcerpt"], Value::Null);
+    assert!(
+        !sum.to_string().contains("奥さまは慎重"),
+        "要約にメモの全文は入れない"
+    );
+    // 記録の項目
+    let rec = reg.records(HOUSEHOLD_ID);
+    let tools: Vec<&str> = rec[0].reads.iter().map(|r| r.tool.as_str()).collect();
+    assert!(
+        tools.contains(&"get_shared_household") && tools.contains(&"summarize_shared_households")
+    );
+    assert!(rec[0]
+        .reads
+        .iter()
+        .any(|r| r.tool == "summarize_shared_households"
+            && r.fields.iter().any(|f| f == "meeting.excerpt")));
+    assert!(rec[0].fields.iter().any(|f| f == "meeting.fpOnly"));
     ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);

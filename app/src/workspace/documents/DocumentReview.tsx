@@ -1,4 +1,4 @@
-// 書類の読み取りの確かめの画面（0148 の2）と、入力のホームの「取り込む」の入口。
+// 書類の読み取りの確認画面（0148 の2）と、入力のホームの「取り込む」の入口。
 // - 1画面に1通。左に書類から読んだ所（元の場所と、その所の文字。伏せ字の後）、右に入る欄の行（共通の部品 ReviewTable）。行を押すと左のその所が光る
 // - 1つずつ承認・直す・入れない。まとめて承認は確からしさが高く、今の値が空・推定・書類待ちか同じ値の行だけ（review/rows.ts の bulkEligible）
 // - 新しい物（保険の契約）は、物ごとに「足す」か「今の○○に当てる」を選んでから、その中の値を承認する。同じ物がありそうなら
@@ -77,8 +77,8 @@ export function AiDocumentBand({ wh, failed, onOpen, onDismiss }: { wh: WorkingH
 /**
  * 入力のホームの「取り込む」の中の入口「AI で書類を読み取る」（保険証券・ご契約内容のお知らせ・設計書〔0159〕と、課税明細書・路線価図〔0235〕）。
  * - ai があれば（保存した世帯だけ）、AI と接続する・この世帯を AI に渡すボタンを出す。保存していない世帯（アプリの見本の世帯を含む）は AI に渡せない
- * - 読んだ書類があれば確かめの画面を開くボタン、見本の世帯でだけ架空の見本のボタン（AI に渡さずに確かめの画面を試せる）
- * - AI の答えを貼り付ける入口は、利用者の判断（2026-11-20）でなくした（0151 の追記）。前に貼り付けで読んだ記録も、確かめの画面でそのまま読める
+ * - 読んだ書類があれば書類の読み取りの確認画面を開くボタン、見本の世帯でだけ架空の見本のボタン（AI に渡さずにその画面を試せる）
+ * - AI の答えを貼り付ける入口は、利用者の判断（2026-11-20）でなくした（0151 の追記）。前に貼り付けで読んだ記録も、書類の読み取りの確認画面でそのまま読める
  */
 export function DocumentEntry({ wh, sample, ai, onOpen, onSamples }: { wh: WorkingHousehold; sample: boolean; ai?: { connected: boolean; onOpen: () => void }; onOpen: () => void; onSamples: () => void }) {
   const readings = wh.documents?.readings ?? [];
@@ -105,11 +105,11 @@ export function DocumentEntry({ wh, sample, ai, onOpen, onSamples }: { wh: Worki
         </button>
       ) : null}
       <span class="in-note">
-        お使いの AI（Claude など）をファイナンシアと接続すると、AI が書類を読み、読んだ値（保険の契約の値、相続税の試算の土地・建物の値）が「候補」として届きます。確かめて承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。個人番号などの番号・土地の所在は読みません・残しません。面談の履歴とメモは AI に渡しません。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。
+        お使いの AI（Claude など）をファイナンシアと接続すると、AI が書類を読み、読んだ値（保険の契約の値、相続税の試算の土地・建物の値）が「候補」として届きます。確かめて承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。個人番号などの番号・土地の所在は読みません・残しません。面談の履歴とメモは、世帯を AI に渡すときに「メモと面談の履歴も渡す」の印を付けたときだけ渡します（書類の読み取りでは渡しません）。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。
       </span>
       {ai === undefined ? (
         <span class="in-note" data-imports-ai-unsaved>
-          {sample ? "見本の世帯は AI に渡せません。「架空の保険証券の見本で試す」で、AI が読んだ書類と同じ確かめの画面を試せます。" : "保存していない世帯は AI に渡せません。世帯を保存してから使ってください。"}
+          {sample ? "見本の世帯は AI に渡せません。「架空の保険証券の見本で試す」で、AI が読んだ書類と同じ書類の読み取りの確認画面を試せます。" : "保存していない世帯は AI に渡せません。世帯を保存してから使ってください。"}
         </span>
       ) : null}
     </div>
@@ -146,8 +146,8 @@ export function DocumentReview(p: DocumentReviewProps) {
       <>
         <div class="scrim" aria-hidden="true" onClick={p.onClose} />
         <div ref={panel} class="rk-panel dr-panel" role="dialog" aria-modal="true" aria-labelledby="dr-title" tabIndex={-1} data-documents-panel>
-          <CloseX onClose={p.onClose} what="書類の読み取りの確かめ" />
-          <h2 id="dr-title">書類の読み取りの確かめ</h2>
+          <CloseX onClose={p.onClose} what="書類の読み取りの確認" />
+          <h2 id="dr-title">書類の読み取りの確認</h2>
           <p class="in-note">読んだ書類はありません。</p>
           <div class="dr-foot">
             <button type="button" class="btn" onClick={p.onClose}>
@@ -168,8 +168,8 @@ export function DocumentReview(p: DocumentReviewProps) {
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
       <div ref={panel} class="rk-panel dr-panel" role="dialog" aria-modal="true" aria-labelledby="dr-title" tabIndex={-1} data-documents-panel={reading.id}>
-        <CloseX onClose={p.onClose} what="書類の読み取りの確かめ" />
-        <h2 id="dr-title">書類の読み取りの確かめ</h2>
+        <CloseX onClose={p.onClose} what="書類の読み取りの確認" />
+        <h2 id="dr-title">書類の読み取りの確認</h2>
         {readings.length > 1 ? (
           <nav class="dr-list" aria-label="読んだ書類">
             {readings.map((r) => (

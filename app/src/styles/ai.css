@@ -86,7 +86,7 @@
 .ai-cand-foot label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; font-weight: 700; }
 .ai-cand-foot input { min-width: 22em; }
 
-/* AIからの新しい世帯の候補（確かめの画面） */
+/* AIからの新しい世帯の候補の確認画面 */
 .ai-hh-kind label { display: block; margin: 4px 0; }
 .ai-hh-kind-note { display: block; margin-left: 1.6em; }
 .ai-hh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 18px; margin: 8px 0; }
@@ -108,3 +108,12 @@
 .ai-bulk-list label { display: inline-flex; align-items: center; gap: 4px; }
 .ai-bulk-outcome p { margin: 4px 0; font-size: 0.9rem; }
 .ai-bulk-aliases { margin: 2px 0 6px; padding-left: 1.3em; font-size: 0.88rem; columns: 2 14em; }
+
+/* メモと面談の履歴も渡す（0249） */
+.ai-notes { border-top: 1px dashed var(--field); padding-top: 6px; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; }
+.ai-notes-words { display: flex; flex-direction: column; gap: 3px; font-size: 0.88rem; font-weight: 700; }
+.ai-notes-words input { border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; font: inherit; font-weight: 400; background: var(--card); max-width: 28em; }
+.ai-notes-preview { max-height: 22em; overflow-y: auto; font-size: 0.88rem; }
+.ai-notes-texts { margin: 2px 0 6px; padding-left: 1.2em; }
+.ai-notes-texts li { margin: 3px 0; white-space: pre-wrap; }
+.ai-masked { background: var(--warn-bg, #fff3c4); border-radius: 3px; padding: 0 2px; }

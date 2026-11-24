@@ -53,6 +53,27 @@ pub fn iso8601(ms: u64) -> String {
     )
 }
 
+/// `YYYY-MM-DD` に日数を足した日（テストで、境目の日からの日付を作る。形が違えば None）
+pub fn add_days(date: &str, days: i64) -> Option<String> {
+    let mut it = date.split('-');
+    let y: i64 = it.next()?.parse().ok()?;
+    let m: i64 = it.next()?.parse().ok()?;
+    let d: i64 = it.next()?.parse().ok()?;
+    if it.next().is_some() || !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    // 年月日 → 1970-01-01 からの日数（Howard Hinnant の方法）
+    let yy = if m <= 2 { y - 1 } else { y };
+    let era = yy.div_euclid(400);
+    let yoe = yy.rem_euclid(400);
+    let mp = if m > 2 { m - 3 } else { m + 9 };
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let z = era * 146_097 + doe - 719_468 + days;
+    let (y, m, d) = civil_from_days(z);
+    Some(format!("{y:04}-{m:02}-{d:02}"))
+}
+
 /// 1970-01-01 からの日数 → 年月日（Howard Hinnant の方法）
 fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let z = z + 719_468;
@@ -77,5 +98,14 @@ mod tests {
         // 2026-10-17T01:02:03Z
         assert_eq!(iso8601(1_792_198_923_000), "2026-10-17T01:02:03Z");
         assert_eq!(iso8601(951_782_400_000), "2000-02-29T00:00:00Z");
+    }
+
+    #[test]
+    fn adds_days() {
+        assert_eq!(add_days("2026-11-23", 1).as_deref(), Some("2026-11-24"));
+        assert_eq!(add_days("2026-12-31", 1).as_deref(), Some("2027-01-01"));
+        assert_eq!(add_days("2028-03-01", -1).as_deref(), Some("2028-02-29"));
+        assert_eq!(add_days("2026-11-23", 0).as_deref(), Some("2026-11-23"));
+        assert_eq!(add_days("2026/11/23", 1), None);
     }
 }
