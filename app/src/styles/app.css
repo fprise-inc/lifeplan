@@ -841,6 +841,9 @@ h2 .ih-st { font-size: 0.8rem; }
 .ip-inherit details { margin: 2px 0 4px; }
 .ip-inherit details summary { cursor: pointer; color: var(--ink-2); }
 .ip-inherit-note { margin: 4px 0 0; font-size: 0.8rem; }
+/* 土地の評価を入れて試算する一言とボタン（0231 の追記 2026-11-23。ボタンは .btn.small のまま。余白・文字は上書きしない〔0240〕） */
+.ip-inherit-detail { margin: 8px 0 6px; }
+.ip-inherit-detail p { margin: 0 0 6px; }
 .ip-inherit-caution { font-weight: 600; }
 .ip-lineup { grid-column: 1 / -1; margin-top: 12px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--base-bg); font-size: 0.86rem; }
 .ip-lineup p { margin: 0 0 2px; }

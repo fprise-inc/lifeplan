@@ -1,4 +1,4 @@
-/* 確かめの画面の共通の部品（review/ReviewTable.tsx）と、書類の読み取りの確かめの画面（documents/DocumentReview.tsx）。0148 */
+/* 確認画面の共通の部品（review/ReviewTable.tsx）と、書類の読み取りの確認画面（documents/DocumentReview.tsx）。0148 */
 
 .dr-panel { width: min(1180px, calc(100vw - 32px)); max-height: calc(100vh - 32px); }
 .dr-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }

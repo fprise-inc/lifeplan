@@ -1,5 +1,5 @@
 // 相続税の試算（相続・贈与の入力項目の区画「相続税の試算」。0231）: チェックしない世帯は入力が増えない・チェックした世帯だけ不動産ごとの欄・
-// 建物の固定資産税評価額の推定を計算の要求にだけ足す・「詳しく試算しますか」の一言・内訳の不動産の行・物を外したら設定の行も消す・
+// 建物の固定資産税評価額の推定を計算の要求にだけ足す・土地の評価を入れて試算する一言とボタン・区画の頭の1文・含めていないものの添え書き・内訳の不動産の行・物を外したら設定の行も消す・
 // チェックを外して入れ直すと同じ値で試算する・建てる・買う予定の物件（0232）は画面の推定を足さない
 import { describe, expect, it } from "vitest";
 import type { PreviewResult } from "../src/engine/types.ts";
@@ -7,8 +7,8 @@ import { forEngine } from "../src/engine/moneyRows.ts";
 import { chartRequests, scenarios } from "../src/workspace/contingency/requests.ts";
 import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { buildingEstimateOf, DETAILED_HELP, isDetailed, landTargets, setDetailed, withLandEstimates } from "../src/workspace/input/inheritanceLand.ts";
-import { detailPrompt, inheritanceRequest, inheritanceView } from "../src/workspace/input/inheritanceLine.ts";
+import { buildingEstimateOf, DETAILED_HELP, isDetailed, landTargets, SECTION_NOTICE, setDetailed, withLandEstimates } from "../src/workspace/input/inheritanceLand.ts";
+import { DETAIL_ADDS, DETAIL_ADDS_NOTE, DETAIL_BUTTON, detailPrompt, ESTIMATE_NOTICE, inheritanceRequest, inheritanceView } from "../src/workspace/input/inheritanceLine.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { refSites } from "../src/workspace/input/refs.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -117,17 +117,73 @@ describe("相続税も試算する世帯", () => {
   });
 });
 
-describe("「詳しく試算しますか」の一言", () => {
+describe("土地の評価を入れて試算する一言とボタン（0231 の追記 2026-11-23）", () => {
   it("目安でかかりそうで、不動産を持つ世帯だけ（チェックした世帯には出さない）", () => {
     const r = estimate(rental);
     const likely = (r.inheritanceTax?.points ?? []).some((p) => p.status === "ok" && !p.noTax);
     expect(detailPrompt(rental, r) !== null).toBe(likely);
     expect(detailPrompt(setDetailed(rental, true), r)).toBeNull();
     const fake = { ...r, inheritanceTax: { points: [{ ...(r.inheritanceTax?.points[0] as object), status: "ok", state: "estimated", noTax: false }], notIncluded: [] } } as unknown as PreviewResult;
-    expect(detailPrompt(rental, fake)).toContain("詳しく試算しますか");
+    expect(detailPrompt(rental, fake)).toBe("相続税がかかりそうです。土地の評価や小規模宅地等の特例を入れると、目安をもう一歩くわしく試算できます。");
     const none = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const noLand = { ...none, request: { ...none.request, input: { ...none.request.input, household: { ...none.request.input.household, residences: [], accounts: (none.request.input.household.accounts ?? []).filter((a) => a.kind !== "realEstate") } } } };
     expect(detailPrompt(noLand, fake)).toBeNull();
+  });
+
+  it("かからない見込みの時点・FP が入れた額の時点だけなら出さない（推定のままの時点がかかりそうなときだけ）", () => {
+    const r = estimate(rental);
+    const base = r.inheritanceTax?.points[0] as object;
+    const only = (p: object) => ({ ...r, inheritanceTax: { points: [{ ...base, ...p }], notIncluded: [] } }) as unknown as PreviewResult;
+    expect(detailPrompt(rental, only({ status: "ok", state: "estimated", noTax: true }))).toBeNull();
+    expect(detailPrompt(rental, only({ status: "ok", state: "confirmed", noTax: false }))).toBeNull();
+    expect(detailPrompt(rental, only({ status: "noHeirs", state: "estimated", noTax: false }))).toBeNull();
+    expect(detailPrompt(rental, null)).toBeNull();
+  });
+
+  it("ボタンの言葉に「詳しく」を使わない。目安の1文は正確な額は税理士に、まで書く", () => {
+    expect(DETAIL_BUTTON).toBe("土地の評価を入れて試算する");
+    expect(DETAIL_BUTTON).not.toContain("詳しく");
+    expect(ESTIMATE_NOTICE).toBe("ここに出す相続税は、入力をもとにした目安の試算です。実際の税額は、財産の評価や分け方で変わります。正確な額は税理士にご相談ください。");
+  });
+});
+
+describe("区画「相続税の試算」の頭の1文（0231 の追記 2026-11-23）", () => {
+  it("チェックしていない世帯（詳細）・チェックした世帯・不動産の無いチェックした世帯のどれも、見出しの下に目安の試算であることの1文を出す（「?」の中でなく）", () => {
+    const none = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const noLand = { ...none, request: { ...none.request, input: { ...none.request.input, household: { ...none.request.input.household, residences: [], accounts: (none.request.input.household.accounts ?? []).filter((a) => a.kind !== "realEstate") } } } };
+    for (const wh of [rental, setDetailed(rental, true), setDetailed(noLand, true)]) {
+      const s = buildStage("inheritance", wh).sections.find((x) => x.key === "inherit/detail");
+      expect(s?.lead).toBe(SECTION_NOTICE);
+      expect(s?.note?.includes(SECTION_NOTICE)).toBe(false);
+    }
+    expect(SECTION_NOTICE).toContain("目安の試算");
+    expect(SECTION_NOTICE).toContain("税理士");
+  });
+});
+
+describe("含めていないものに、土地の評価を入れて試算すると入る物を添える（0231 の追記 2026-11-23）", () => {
+  it("チェックしていない世帯は添え、もとの「（…）」の中には「。」でつなぐ。試算しても入らない物には添えない", () => {
+    const v = inheritanceView(rental, estimate(rental));
+    expect(v.notIncluded).toContain("小規模宅地等の特例（土地の評価を入れて試算すると入ります）");
+    expect(v.notIncluded).toContain("土地の評価の細部（路線価・倍率。土地の評価を入れて試算すると入ります）");
+    expect(v.notIncluded).toContain("2割加算（土地の評価を入れて試算すると入ります）");
+    expect(v.notIncluded).toContain("未成年者控除（土地の評価を入れて試算すると入ります）");
+    expect(v.notIncluded).toContain("一次と二次の相続の分け方の比較（土地の評価を入れて試算すると入ります）");
+    expect(v.notIncluded).toContain("亡くなる前の暦年課税の贈与の加算");
+    expect(v.notIncluded).toContain("障害者控除");
+    expect(v.notIncluded.filter((x) => x.includes(DETAIL_ADDS_NOTE))).toHaveLength(DETAIL_ADDS.size);
+  });
+
+  it("試算すると入る物は、エンジンの試算しない一覧にあって、試算する一覧に無い物と同じ", () => {
+    const off = new Set(estimate(rental).inheritanceTax?.notIncluded ?? []);
+    const onList = new Set(estimate(setDetailed(rental, true)).inheritanceTax?.notIncluded ?? []);
+    expect(new Set([...off].filter((x) => !onList.has(x)))).toEqual(DETAIL_ADDS);
+  });
+
+  it("チェックした世帯は添えない", () => {
+    const on = setDetailed(rental, true);
+    const v = inheritanceView(on, estimate(on));
+    expect(v.notIncluded.some((x) => x.includes(DETAIL_ADDS_NOTE))).toBe(false);
   });
 });
 

@@ -135,7 +135,7 @@ const WALKS: { file: string; index: number; household: string; choose?: string; 
 ];
 
 /**
- * FP が確かめの画面でする操作をまねる: 新しい物を足し、当てる欄が何本もある行は最初の選択肢（choose の言葉があればそれを含む物）を選び、
+ * FP が書類の読み取りの確認画面でする操作をまねる: 新しい物を足し、当てる欄が何本もある行は最初の選択肢（choose の言葉があればそれを含む物）を選び、
  * 承認できる行を1つずつ承認する（種類を決める行を承認すると、ほかの行の当て先が変わるので、進まなくなるまで繰り返す）
  */
 function walk(wh0: WorkingHousehold, reading: DocumentReading, choose?: string): { wh: WorkingHousehold; reading: DocumentReading; failed: string[] } {

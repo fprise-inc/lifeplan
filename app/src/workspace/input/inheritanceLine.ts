@@ -119,14 +119,33 @@ const METHOD_TEXT: Readonly<Record<string, string>> = { market: "時価×評価�
 const BUILDING_TEXT: Readonly<Record<string, string>> = { entered: "固定資産税評価額", estimate: "固定資産税評価額の推定", market: "時価×評価の割合" };
 
 /**
- * 「詳しく試算しますか」の一言（0231）: 相続税も試算していない世帯で、目安でかかりそうな時点（FP が入れた額でない）があり、不動産を持つときだけ。
+ * 区画「相続税の目安」の見出しの下にいつも出す1文（0231 の追記 2026-11-23）。目安の試算であること・正確な額は税理士に、を「?」に隠さずに出す
+ */
+export const ESTIMATE_NOTICE = "ここに出す相続税は、入力をもとにした目安の試算です。実際の税額は、財産の評価や分け方で変わります。正確な額は税理士にご相談ください。";
+
+/** 土地の評価を入れて試算するボタンの言葉（0231 の追記 2026-11-23。「詳しく」は、相続税を正確に計算すると受け取られるので使わない） */
+export const DETAIL_BUTTON = "土地の評価を入れて試算する";
+
+/**
+ * 土地の評価を入れて試算するボタンの上の一言（0231）: 相続税も試算していない世帯で、目安でかかりそうな時点（FP が入れた額でない）があり、不動産を持つときだけ。
  * 不動産が無ければ土地の試算は要らないので出さない
  */
 export function detailPrompt(wh: WorkingHousehold, r: PreviewResult | null): string | null {
   if (isDetailed(wh) || landTargets(wh.request.input.household).length === 0) return null;
   const likely = (r?.inheritanceTax?.points ?? []).some((p) => p.status === "ok" && p.state === "estimated" && !p.noTax);
-  return likely ? "相続税がかかりそうです。土地の評価（路線価など）と小規模宅地等の特例を入れて、詳しく試算しますか" : null;
+  return likely ? "相続税がかかりそうです。土地の評価や小規模宅地等の特例を入れると、目安をもう一歩くわしく試算できます。" : null;
 }
+
+/**
+ * 含めていない決まりのうち、相続税も試算する（土地の評価を入れて試算する）と入る物（エンジンの NOT_INCLUDED にあって NOT_INCLUDED_DETAILED に無い物。0231・0251）。
+ * 相次相続控除は、試算しても一次と二次の推移の二次にだけ入るので、ここには入れない
+ */
+export const DETAIL_ADDS: ReadonlySet<string> = new Set(["twentyPercentSurcharge", "smallLandSpecial", "landValuationDetail", "primarySecondaryComparison", "minorCredit"]);
+/** 試算すると入る物に添える言葉（0231 の追記 2026-11-23） */
+export const DETAIL_ADDS_NOTE = "土地の評価を入れて試算すると入ります";
+
+/** 含めていない物の言葉に「（土地の評価を入れて試算すると入ります）」を添える。もとの言葉が「（…）」で終わるときは、その中に「。」でつなぐ */
+const withDetailNote = (text: string): string => (text.endsWith("）") ? `${text.slice(0, -1)}。${DETAIL_ADDS_NOTE}）` : `${text}（${DETAIL_ADDS_NOTE}）`);
 
 const RELATION_TEXT: Readonly<Record<string, string>> = { spouse: "配偶者", child: "子", grandchild: "孫（代襲）", parent: "親", grandparent: "祖父母", sibling: "兄弟姉妹" };
 
@@ -231,7 +250,16 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
     out.push({ title, answer, details, cautions: p.cautions.map((c) => CAUTION_TEXT[c] ?? c) });
   }
   const hasTimeline = r?.inheritanceTax?.timeline !== undefined;
-  return { points: out, notIncluded: (r?.inheritanceTax?.notIncluded ?? []).map((x) => (x === "successiveInheritanceCredit" && hasTimeline ? "相次相続控除（一次と二次の推移の二次には入れています）" : (NOT_INCLUDED_TEXT[x] ?? x))) };
+  // 相続税も試算していない世帯は、試算すると入る物に「（土地の評価を入れて試算すると入ります）」を添える（0231 の追記 2026-11-23）
+  const detailed = isDetailed(wh);
+  return {
+    points: out,
+    notIncluded: (r?.inheritanceTax?.notIncluded ?? []).map((x) => {
+      if (x === "successiveInheritanceCredit" && hasTimeline) return "相次相続控除（一次と二次の推移の二次には入れています）";
+      const text = NOT_INCLUDED_TEXT[x] ?? x;
+      return !detailed && DETAIL_ADDS.has(x) ? withDetailNote(text) : text;
+    }),
+  };
 }
 
 // ---- 一次と二次の相続税の推移（0251。相続税も試算する夫婦の世帯だけ） ----

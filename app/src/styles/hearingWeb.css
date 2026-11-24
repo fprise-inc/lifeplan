@@ -131,7 +131,7 @@ html.doc-side .scrim { right: var(--dv-w); }
 .hs-ai-issued { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; white-space: normal; margin: 8px 0 0; }
 .hs-kind.wr-origin.ai { border-color: var(--prop); color: var(--prop); }
 
-/* 0192 の追記（2026-11-17）: 依頼の行の段階・たたんだ行・書類待ち・取り消しの確かめ・外部 AI の同意を聞くか */
+/* 0192 の追記（2026-11-17）: 依頼の行の段階・たたんだ行・書類待ち・URL の取り消しの確認・外部 AI の同意を聞くか */
 .wr-fold { padding: 5px 10px; gap: 4px; background: var(--base-bg); }
 .wr-fold .wr-h { align-items: center; }
 .wr-fold-acts { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; margin-left: auto; }

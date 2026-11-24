@@ -495,6 +495,8 @@ export interface SectionDef {
   key: string;
   title: string;
   note?: string;
+  /** 見出しの下にいつも出す短い1文（「?」の中に隠さない断り書き。例: 区画「相続税の試算」の目安の試算であること。0231 の追記 2026-11-23） */
+  lead?: string;
   /** 見出しの横に小さく出す要約（GroupDef の summary と同じ。例: 子の「12歳・小6・これからの教育費 約1,480万円」） */
   summary?: string;
   level: Level;

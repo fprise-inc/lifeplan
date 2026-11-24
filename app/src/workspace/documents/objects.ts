@@ -70,7 +70,7 @@ export const objectKindFits = (docType: string, kind: string): boolean => (docTy
 
 /**
  * 取り込みを外した書類（0159）で足せた物の種類。前の記録の物の候補を捨てずに残すためだけに持つ（読み口は受けない・足せない）。
- * 前の記録は確かめの画面で見るだけ
+ * 前の記録は書類の読み取りの確認画面で見るだけ
  */
 export const RETIRED_OBJECT_KINDS: Readonly<Record<string, string>> = {
   "debt:mortgage": "住宅ローン",
