@@ -170,7 +170,7 @@ struct State {
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
     revision: u64,
     /// メモと面談の履歴を止めたが、止めた記録をまだ世帯ファイルに書けていない共有（世帯 → 共有ID。書けなければ取り消す。0249 の 11）
-    pause_unwritten: HashMap<String, Vec<String>>,
+    pause_unwritten: HashMap<String, Vec<(String, u64)>>,
 }
 
 pub struct ShareRegistry {
@@ -526,7 +526,7 @@ impl ShareRegistry {
             st.pause_unwritten
                 .entry(household)
                 .or_default()
-                .push(share_id.to_owned());
+                .push((share_id.to_owned(), now));
         }
         if updated && require && !consent_ok {
             end_share(&mut st, share_id, iso8601(now), EndReason::ConsentWithdrawn);
@@ -556,7 +556,25 @@ impl ShareRegistry {
             .pause_unwritten
             .remove(household_id)
             .unwrap_or_default();
-        ids.iter().filter(|id| self.revoke(id)).count()
+        ids.iter().filter(|(id, _)| self.revoke(id)).count()
+    }
+
+    /// ほかのメンバーが開いていて止めた記録を書けない世帯で、止めてから `wait_ms` より長く書けていない共有を取り消す（数字の共有を
+    /// 記録の無いまま続けない。取り消したことは、書けるようになった時に記録へ書く。0249 の 11）。取り消した数を返す
+    pub fn revoke_pauses_waiting_longer_than(&self, household_id: &str, wait_ms: u64) -> usize {
+        let now = self.now();
+        let old: Vec<String> = {
+            let mut st = self.lock();
+            let Some(v) = st.pause_unwritten.get_mut(household_id) else {
+                return 0;
+            };
+            let (old, keep): (Vec<_>, Vec<_>) = v
+                .drain(..)
+                .partition(|(_, at)| now.saturating_sub(*at) >= wait_ms);
+            *v = keep;
+            old.into_iter().map(|(id, _)| id).collect()
+        };
+        old.iter().filter(|id| self.revoke(id)).count()
     }
 
     /// 世帯の共有中の共有ID（期限内で閉じていないもの）

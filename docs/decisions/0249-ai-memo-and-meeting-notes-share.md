@@ -133,9 +133,17 @@
 
 - 共有中にメモ・面談の記録が変わって、メモと面談の履歴を止めたとき（8）は、世帯ファイルの AI に渡した記録 `aiShares[]` のその共有の行に `notesPaused`（止めた日時 `at` と、何が変わったか `changed`: `memo`＝FP のメモ・`meetings`＝面談の記録）を書く。中身の文は書かない。一度書いたら変えない（追記だけの確かめ `verify_append_only` に足した）。
 - 止めた後に、AI に渡す中身の確認画面で見直してメモと面談の履歴を渡し直したとき（1件ずつ・まとめての両方）は、新しい共有の行に `notesResharedAfter`（止めた共有の ID）を書く。その世帯の記録をさかのぼり、止めた記録の後にメモを渡した共有が無いときだけ書く。
-- 画面の保存で止めたときは、その場で記録を書く。ほかの PC の保存を見回りで読み直して止めたときは、見回りの書き戻しで書く（ほかのメンバーが開いている世帯は、閉じるまで待つ）。**記録を書けなかったら（保存できない・読めない）、その共有をその場で取り消す**（7 の記録を書けない世帯の決まりと同じ）。
+- 画面の保存で止めたときは、その場で記録を書く。ほかの PC の保存を見回りで読み直して止めたときは、見回りの書き戻しで書く（ほかのメンバーが開いている世帯は、閉じるまで待つ。**ただし待つのは10分まで**で、止めてから10分たっても書けなければ、その共有を取り消す〔数字の共有を記録の無いまま続けない。7回目の点検の後の利用者の判断〕。止めたことと取り消したことは、書けるようになった時の書き戻しで書く）。**記録を書けなかったら（保存できない・読めない）、その共有をその場で取り消す**（7 の記録を書けない世帯の決まりと同じ）。
 - 画面の「AI に渡した記録」に、行ごとに「{日時} に、共有中にメモ（と面談の記録）が変わったため、メモと面談の履歴を AI に渡すのを止めました（世帯の数字などは渡したまま）」と「メモと面談の履歴を止めた後に、AI に渡す中身の確認画面で見直して、渡し直しました」を出す。
 - 世帯ファイルの形式の版を `0.89` に上げた（足すだけの MINOR。前の版のアプリは記録の知らない欄を読み落として書き戻し、止めた記録が消えるので、閲覧だけにする。変換の段は版だけ。見本 `0.89/` はメモを止めて取り消した共有と、渡し直した共有の2件を持つ）。同意の記録の任意の欄 `notes`（3）も、この版から書く。
+
+### 12. 7回目の点検で直したこと（2026-11-24 の追記）
+
+- **敬称の付いた名前が伏せられなかった**（重1。`names.rs`）: 前の語と敬称で1つの言葉になる語の一覧（`COMPOUNDS`）を語の終わりで照らしていたため、「井上様」「村上様」「川上様」「健一様」「浩一様」「田中健一様」（名字ごと）「山本殿」「二宮殿」が「上様」「一様」「本殿」「宮殿」と読まれて残った。「上様」「宮殿」「本殿」「神殿」「拝殿」「貴殿」「神様」「仏様」「今様」「摂氏」「華氏」は語の全体が一致するときだけ（`COMPOUNDS_WHOLE`）、「一様」は語の全体が「一」で後ろが「に・な・で・の」のときだけ伏せない。1字の名字「本」の「本殿」は伏せない（社の言葉と同じ形）。
+- **かなの町名の頭が助詞と同じ字**（中1。`contacts.rs`）: 頭の字が助詞と同じでも、次の字がひらがななら町名とみる（もえぎ野・もみの木台・はるひ野・やよい台・にれの木台。「市の説明会」「市は3丁目」は外れたまま）。町名の終わりの助詞と同じ字も、3字からの町名で前がひらがなら町名の字とみる（てりは・みどりの）。市区町村を探し直したときは、その前の都道府県といちばん前の市区町村から伏せる（「横浜市青葉区もえぎ野」の「横浜市」から）。
+- **住所のすぐ後ろの字で住所ごと残った**（中2）: 単位の確かめ（「3-4月」「2-3戸」を外す決まり）を、丁目・番地・番・号の付かない2つの数の形だけにした（3つの数・丁目・番地・号の後ろに「本人名義」「分譲」「月極」「A棟」「JR」が続いても伏せる）。最後の「の」の後の数に単位が続くとき（「1-2-3の3LDK」「4-5-6の2か所」）は、「の」の前までを番地とみる。「2番地の3」の「の3」も番地に入れる。全角ダッシュ「—」の番地・番号も区切りとみる。
+- **住所の伏せすぎ**（中3）: 市・区・町・村・郡の字が言葉の中の字（区分・区域・区画・都市・市場・市街・市役所・区役所・町内会・市民・町長 など）なら、住所の印とみない（「京都市」は前が漢字なので市区町村。「千代田区内幸町」の「内」は町名）。2つの数の後ろの単位に 室・部・行・階・班・筆・区・窓 を足した。名前の伏せすぎで「職人さん」も伏せない語に足した。
+- **ほかの PC が開いている間の記録**（B）: 11 のとおり、待つのは10分まで。
 
 ## 理由
 
@@ -161,6 +169,7 @@
 - 5回目の点検の直し（8）: `names.rs` の `names_are_masked_whatever_follows_the_honorific`・`units_and_common_words_are_not_masked_and_spaces_are_skipped`、`contacts.rs` の `phones_right_after_letters_are_masked_and_dates_in_a_row_are_not`・`counts_after_place_like_words_are_not_addresses`・`more_addresses_with_house_numbers_are_masked`・`places_without_house_numbers_and_counts_stay`（点検で壊れていないと確かめた例をすべて残す）、`app/src-tauri` の `notes_changed_while_shared_stop_until_shared_again`（1件ずつ・まとめての両方）、`clock.rs` の `adds_days`。
 - 伏せ方の考え方の決め直し（10）: `contacts.rs` の `only_addresses_from_a_city_to_a_house_number_are_masked`・`numbers_in_practical_notes_are_not_addresses`（6回目の点検の中1の例をすべて残す）・`phones_with_full_width_marks_and_commas_are_masked`、`names.rs` の `common_words_with_honorifics_are_not_masked`、`app`（`test/ai-notes.test.ts`）の注意の文。
 - メモを止めた記録（11）: `app/src-tauri` の `notes_changed_while_shared_stop_until_shared_again`（1件ずつ・まとめての両方で、止めた記録と渡し直した記録）・`notes_pauses_that_cannot_be_written_revoke_the_share`（書けなければ取り消す）、`crates/household-store` の `v0_88_to_0_89_only_bumps_version` と見本 `0.89/`、`app`（`test/ai-notes.test.ts`）の記録の文。
+- 7回目の点検の直し（12）: `names.rs` の `names_ending_like_compounds_are_masked`、`contacts.rs` の `kana_town_names_starting_like_particles_are_masked`・`words_right_after_an_address_do_not_unmask_it`・`city_letters_inside_common_words_are_not_addresses`、`app/src-tauri` の `notes_pauses_waiting_too_long_for_another_pc_revoke_the_share`（時計を差し替えて10分を測る）。
 - 6回目の点検の直し（9）: `contacts.rs` の `overlapping_addresses_do_not_panic`・`overlapping_spans_are_merged_when_replacing`・`masking_never_panics_on_generated_text`（決まった種から作る10万文で、名前・連絡先を伏せる処理・目安・上限で切る処理が落ちず、伏せた所の範囲が文の中に収まる）、`names.rs` の `hiragana_names_before_common_words_are_masked`。
 
 ## 未確定

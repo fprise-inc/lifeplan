@@ -517,6 +517,10 @@ impl AiState {
                     .as_ref()
                     .is_none_or(|b| b.contains(id))
             {
+                // メモを止めた記録を書けないまま10分たった共有は取り消す（数字の共有を記録の無いまま続けない。取り消したことは、
+                // 書けるようになった時に書く。0249 の 11）
+                self.registry
+                    .revoke_pauses_waiting_longer_than(id, PAUSE_RECORD_WAIT_MS);
                 all = false;
                 continue;
             }
@@ -794,10 +798,18 @@ struct Watch {
     files_at: Option<Instant>,
 }
 
+/// ほかのメンバーが開いていてメモを止めた記録を書けないとき、共有を続けて待つ長さ（0249 の 11）
+const PAUSE_RECORD_WAIT_MS: u64 = 10 * 60 * 1000;
+
 #[cfg(test)]
 impl AiState {
     pub(crate) fn for_test(dir: &Path) -> AiState {
-        let registry = Arc::new(ShareRegistry::new());
+        Self::for_test_with_registry(dir, ShareRegistry::new())
+    }
+
+    /// 時計を差し替えた共有の台帳で作る（待つ長さのテスト）
+    pub(crate) fn for_test_with_registry(dir: &Path, registry: ShareRegistry) -> AiState {
+        let registry = Arc::new(registry);
         registry.require_consent(true);
         AiState {
             registry,
@@ -4332,6 +4344,94 @@ mod tests {
         assert_eq!(
             f["aiShares"][0]["notesPaused"]["changed"],
             serde_json::json!(["meetings"])
+        );
+        assert_eq!(f["aiShares"][0]["endReason"], "revoked");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// ほかのメンバーが開いていてメモを止めた記録を書けない間は、数字の共有を続けて待つが、10分たっても書けなければ取り消す。
+    /// 止めたことと取り消したことは、書けるようになった時に書く（時計を差し替えて測る。0249 の 11）
+    #[test]
+    fn notes_pauses_waiting_too_long_for_another_pc_revoke_the_share() {
+        let (base, mut a, b) = office("pause-wait");
+        let clock = ai_share::clock::ManualClock::new(
+            u64::try_from(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis(),
+            )
+            .unwrap(),
+        );
+        a.ai = AiState::for_test_with_registry(
+            &base.join("pc-a"),
+            ShareRegistry::with_clock(Arc::new(clock.clone())),
+        );
+        a.ai.registry.set_device(a.store.pc_id());
+        a.ai.registry.require_consent(true);
+        let body = serde_json::json!({
+            "household": { "request": { "input": model_input() }, "memo": ["頭金を増やす相談"] }
+        })
+        .to_string();
+        let x = crate::store::create_household(
+            &a.store,
+            &a.ai,
+            body,
+            "本人".into(),
+            CreateOptions::default(),
+        )
+        .unwrap()
+        .id;
+        let z = create(&a, None, false);
+        a.record(&x, "given");
+        let ids = vec![x.clone()];
+        notes_preview(&a.ai, &a.store, &ids, &[]).unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes {
+                ids: ids.clone(),
+                words: vec![],
+            },
+        )
+        .unwrap();
+        let mut w = Watch::default();
+        a.tick(&mut w);
+        // B がメモを足して保存し、開いたままにする
+        let ob = b.store.open(&x).unwrap();
+        let mut bb: serde_json::Value = serde_json::from_str(&ob.body).unwrap();
+        bb["household"]["memo"] = serde_json::json!(["頭金を増やす相談", "次回は来月"]);
+        b.store.save(&x, &bb.to_string(), "本人").unwrap();
+        let tick = |a: &Pc, w: &mut Watch| {
+            w.files_at = None;
+            a.tick(w);
+        };
+        tick(&a, &mut w);
+        let s = a.ai.registry.active_shares();
+        assert_eq!(s.len(), 1);
+        assert!(s[0].notes_paused, "メモは止める");
+        // 9分では、数字の共有を続けて待つ
+        clock.advance_ms(9 * 60 * 1000);
+        tick(&a, &mut w);
+        assert_eq!(a.ai.registry.active_shares().len(), 1);
+        // 10分たっても書けなければ取り消す
+        clock.advance_ms(60 * 1000);
+        tick(&a, &mut w);
+        assert!(
+            a.ai.registry.active_shares().is_empty(),
+            "10分たっても書けない共有は取り消す"
+        );
+        // B が閉じた後の見回りで、止めたことと取り消したことを書く
+        b.store.open(&z).unwrap();
+        tick(&a, &mut w);
+        let o = a.store.open_unmarked(&x).unwrap();
+        let f: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+        assert_eq!(
+            f["aiShares"][0]["notesPaused"]["changed"],
+            serde_json::json!(["memo"])
         );
         assert_eq!(f["aiShares"][0]["endReason"], "revoked");
         let _ = std::fs::remove_dir_all(&base);

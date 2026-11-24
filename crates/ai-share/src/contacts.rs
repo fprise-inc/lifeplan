@@ -112,7 +112,7 @@ fn join_mark(c: char, semi: bool) -> Option<char> {
 }
 
 fn is_dash(c: char) -> bool {
-    matches!(c, '-' | '‐' | '−' | '―' | '–' | 'ー')
+    matches!(c, '-' | '‐' | '−' | '―' | '–' | '—' | 'ー')
 }
 
 /// 範囲を印に置き換える。範囲は前から並んでいる前提だが、前の範囲と重なる範囲は前の範囲にまとめる（落ちないための守り。0249 の6回目の点検）
@@ -254,6 +254,9 @@ fn house_number(chars: &[char], i: usize) -> Option<usize> {
     let mut any = false;
     let mut parts = 0;
     let mut first_len = 0;
+    // 丁目・番地・番・号が付いたか・最後の「の」の区切り（「の」の位置と、その前の数のまとまりの数）
+    let mut suffixed = false;
+    let mut last_no: Option<(usize, usize)> = None;
     loop {
         let e = digits_at(k);
         let (num_end, kanji) = if e > k {
@@ -280,7 +283,15 @@ fn house_number(chars: &[char], i: usize) -> Option<usize> {
         match suffix {
             Some(sfx) => {
                 any = true;
+                suffixed = true;
                 k = num_end + sfx.chars().count();
+                // 「2番地の3」: 番地・番の後の「の＋数字」も続き
+                if chars.get(k) == Some(&'の')
+                    && chars.get(k + 1).is_some_and(|c| c.is_ascii_digit())
+                {
+                    last_no = Some((k, parts));
+                    k += 1;
+                }
             }
             None if kanji => break,
             None => {
@@ -288,6 +299,9 @@ fn house_number(chars: &[char], i: usize) -> Option<usize> {
                 let sep = chars.get(num_end).copied();
                 let next_digit = chars.get(num_end + 1).is_some_and(|c| c.is_ascii_digit());
                 if sep.is_some_and(|s| is_dash(s) || s == 'の') && next_digit {
+                    if sep == Some('の') {
+                        last_no = Some((num_end, parts));
+                    }
                     any = true;
                     k = num_end + 1;
                 } else if any {
@@ -312,12 +326,20 @@ fn house_number(chars: &[char], i: usize) -> Option<usize> {
     if first_len == 4 && parts >= 2 && (head.starts_with("19") || head.starts_with("20")) {
         return None;
     }
-    // 後ろが月・日・年・回・人・歳・円・戸・千・社・か所・英字（LDK）などなら番地ではない（「3-4月」「1-2回」「2-3戸」「3-4千円」「3-4LDK」）
-    let unit = chars.get(k).is_some_and(|c| {
+    // 単位の字（月・日・年・回・人・歳・円・戸・千・社・か所・室・行・階・班・筆・英字〔LDK〕など）
+    let is_unit = |c: &char| {
         c.is_ascii_alphabetic()
             || matches!(
-                c,
-                '月' | '日'
+                *c,
+                '室' | '部'
+                    | '行'
+                    | '階'
+                    | '班'
+                    | '筆'
+                    | '区'
+                    | '窓'
+                    | '月'
+                    | '日'
                     | '年'
                     | '回'
                     | '人'
@@ -356,8 +378,19 @@ fn house_number(chars: &[char], i: usize) -> Option<usize> {
                     | 'カ'
                     | 'ケ'
             )
-    });
-    (any && !unit).then_some(k)
+    };
+    // 「1-2-3の3LDK」「4-5-6の2か所」: 最後の「の」の後の数に単位が続くなら、「の」の前までを番地とみる（7回目の点検）
+    if let Some((no_at, before)) = last_no {
+        if chars.get(k).is_some_and(is_unit) {
+            k = no_at;
+            parts = before;
+        }
+    }
+    // 2つの数だけで丁目・番地・番・号が付かない形（「3-4月」「1-2回」「2-3戸」「3-4千円」「3-4LDK」）は、後ろが単位なら番地ではない。
+    // 3つの数・丁目・番地・番・号の付く番地は、後ろに何が続いても番地とみる（「1-2-3本人名義」「1丁目2番3号名義は妻」「1-2-3A棟」。7回目の点検）
+    let unit = parts == 2 && !suffixed && chars.get(k).is_some_and(is_unit);
+    let enough = suffixed || parts >= 2;
+    (any && enough && !unit).then_some(k)
 }
 
 /// 地名に入る字（漢字・カタカナ・助詞でないひらがな・「ヶ」「ノ」）
@@ -383,6 +416,29 @@ fn place_char(c: char) -> bool {
     (('\u{4E00}'..='\u{9FFF}').contains(&c) || matches!(c, '々' | 'ヶ' | 'ケ' | 'ノ' | '〇'))
         || ('\u{30A1}'..='\u{30FA}').contains(&c)
         || (('\u{3041}'..='\u{3096}').contains(&c) && !particle)
+}
+
+/// その位置の字が、住所の印の市・区・町・村・郡か。言葉の中の字（区分・区域・区画・都市・市場・市街・市役所・区役所・町内会・市民・
+/// 町長 など）は印とみない（伏せすぎを避ける。7回目の点検）。町名の中の「内」（千代田区内幸町）は印のまま
+fn marker_at(chars: &[char], at: usize) -> bool {
+    let c = chars[at];
+    if !matches!(c, '市' | '区' | '町' | '村' | '郡') {
+        return false;
+    }
+    // 「都市」（「京都市」は前が漢字なので市区町村）
+    if c == '市'
+        && at >= 1
+        && chars[at - 1] == '都'
+        && (at < 2 || !('\u{4E00}'..='\u{9FFF}').contains(&chars[at - 2]))
+    {
+        return false;
+    }
+    let rest: String = chars[at + 1..chars.len().min(at + 3)].iter().collect();
+    const WORDS: &[&str] = &[
+        "分", "域", "画", "場", "街", "役", "民", "立", "営", "長", "議", "政", "外", "部", "内会",
+        "内の", "内で", "内に", "内は",
+    ];
+    !WORDS.iter().any(|w| rest.starts_with(w))
 }
 
 /// 地名の字の種類（0 漢字など・1 ひらがな・2 カタカナ）
@@ -436,13 +492,19 @@ fn addresses(chars: &[char]) -> Vec<(usize, usize)> {
             }
         }
         // 都道府県か、市・区・町・村・郡のいちばん前の所から（その所を含む、助詞をはさまない地名の頭から）
-        let place: String = chars[ws..i].iter().collect();
-        let pref = PREFECTURES
-            .iter()
-            .filter_map(|p| place.find(p).map(|b| place[..b].chars().count()))
-            .min();
-        let is_marker = |c: char| matches!(c, '市' | '区' | '町' | '村' | '郡');
-        let mut marker = chars[ws..i].iter().position(|c| is_marker(*c));
+        let pref_in = |from: usize, to: usize| {
+            let place: String = chars[from..to].iter().collect();
+            PREFECTURES
+                .iter()
+                .filter_map(|p| place.find(p).map(|b| place[..b].chars().count()))
+                .min()
+        };
+        let mut pref = pref_in(ws, i);
+        // 市・区・町・村・郡の字（言葉の中の字〔区分・区域・都市・市役所・町内会・市街〕は住所の印とみない。7回目の点検）
+        let is_marker = |at: usize| marker_at(chars, at);
+        let first_marker =
+            |from: usize, to: usize| (from..to).find(|&k| is_marker(k)).map(|k| k - from);
+        let mut marker = first_marker(ws, i);
         // 市区町村の後の町名に、助詞と同じ字を含むかなが入る住所（「牛久市ひたち野東5-3-2」の「た」）: 上の地名の字では「た」で止まるので、
         // 番地のすぐ前から10字まで、かな・漢字の続きをさかのぼって市区町村を探す。町名の頭と終わりが助詞の字なら住所と読まない
         // （「市の説明会」「市役所で」。終わりの「の」は3字からの町名なら町名の字〔みどりの〕）
@@ -460,20 +522,30 @@ fn addresses(chars: &[char]) -> Vec<(usize, usize)> {
                 )
             };
             let mut k = i;
-            while k > floor + 1 && i - k < 10 && town_char(chars[k - 1]) && !is_marker(chars[k - 1])
-            {
+            while k > floor + 1 && i - k < 10 && town_char(chars[k - 1]) && !is_marker(k - 1) {
                 k -= 1;
             }
-            // 町名の終わりの「の」は、3字からの町名なら町名の字とみる（「みどりの」）
-            let end_ok = i > 0 && (!particle(chars[i - 1]) || (chars[i - 1] == 'の' && i - k >= 3));
-            if k > floor && k < i && is_marker(chars[k - 1]) && !particle(chars[k]) && end_ok {
-                // 市区町村の前の地名（同じ種類の字）から
+            // 町名の終わりの助詞と同じ字は、3字からの町名で、その前がひらがな（助詞でない字）なら町名の字とみる（「みどりの」「てりは」）
+            let end_ok = i > 0
+                && (!particle(chars[i - 1])
+                    || (i - k >= 3
+                        && ('\u{3041}'..='\u{3096}').contains(&chars[i - 2])
+                        && !particle(chars[i - 2])));
+            // 町名の頭の字が助詞と同じでも、次の字がひらがななら町名（「もえぎ野」「はるひ野」「やよい台」。「市の説明会」「市は3丁目」は外す）
+            let head_ok = k < i
+                && (!particle(chars[k])
+                    || chars
+                        .get(k + 1)
+                        .is_some_and(|c| k + 1 < i && ('\u{3041}'..='\u{3096}').contains(c)));
+            if k > floor && k < i && is_marker(k - 1) && head_ok && end_ok {
+                // 市区町村の前の地名（地名の字）から。都道府県といちばん前の市区町村を探し直す（「横浜市青葉区もえぎ野」の「横浜市」から）
                 let mut w = k - 1;
                 while w > floor && i - w < 30 && place_char(chars[w - 1]) {
                     w -= 1;
                 }
                 ws = w;
-                marker = Some(k - 1 - ws);
+                pref = pref_in(ws, k);
+                marker = first_marker(ws, k);
             }
         }
         // 都道府県が先なら、その頭から。市・区・町・村・郡が先なら、そのすぐ前の同じ種類の字（漢字4字・かな6字まで）を地名の頭とみる
@@ -704,6 +776,8 @@ mod tests {
             ("牛久市ひたち野東5-3-2", "〔住所〕"),
             ("つくば市みどりの東1-2-3", "〔住所〕"),
             ("つくばみらい市紫峰ヶ丘1-2-3", "〔住所〕"),
+            ("福岡市東区香椎てりは1-2-3", "〔住所〕"),
+            ("東京都港区六本木1—2—3", "〔住所〕"),
             ("つくば市みどりの1-2-3", "〔住所〕"),
             ("実家は牛久市ひたち野東5-3-2です", "実家は〔住所〕です"),
         ] {
@@ -979,5 +1053,86 @@ mod tests {
             let _ = crate::names::suspects(&r.text);
             let _ = crate::names::mask_and_cut(&s, w, &[("決めたこと: ", 6)], 8);
         }
+    }
+
+    /// 7回目の点検の中1: かなの町名の頭の字が助詞と同じでも、次の字がひらがななら町名とみる
+    #[test]
+    fn kana_town_names_starting_like_particles_are_masked() {
+        for t in [
+            "横浜市青葉区もえぎ野1-2-3",
+            "横浜市青葉区もみの木台1-2",
+            "札幌市厚別区もみじ台東1丁目2-3",
+            "川崎市麻生区はるひ野1-2-3",
+            "成田市はなのき台1-2-3",
+            "金沢市もりの里1-23",
+            "つくば市とちの木台1-2-3",
+            "横浜市旭区やよい台1-2",
+            "札幌市清田区にれの木台1-2",
+        ] {
+            assert_eq!(m(t), "〔住所〕", "{t}");
+        }
+        for t in [
+            "市は3丁目の土地を売る",
+            "市の説明会は2026-05-10",
+            "市に3-4回",
+        ] {
+            assert_eq!(m(t), normalize(t), "{t}");
+        }
+    }
+
+    /// 7回目の点検の中2: 住所のすぐ後ろに単位と同じ字で始まる言葉・英字が続いても伏せる（単位の確かめは、丁目・番・号の付かない2つの数だけ）。
+    /// 「の＋数字＋単位」は「の」の前までを番地とみる
+    #[test]
+    fn words_right_after_an_address_do_not_unmask_it() {
+        for (t, want) in [
+            ("つくば市竹園1-2-3本人名義", "〔住所〕本人名義"),
+            ("つくば市竹園1-2-3名義は妻", "〔住所〕名義は妻"),
+            ("つくば市竹園1丁目2番3号名義は妻", "〔住所〕名義は妻"),
+            ("つくば市竹園2丁目本人所有", "〔住所〕本人所有"),
+            ("つくば市竹園1-2-3分譲マンション", "〔住所〕分譲マンション"),
+            ("つくば市竹園1-2-3月極駐車場", "〔住所〕月極駐車場"),
+            ("つくば市竹園1-2-3店舗兼住宅", "〔住所〕店舗兼住宅"),
+            ("つくば市竹園1-2-3個人所有", "〔住所〕個人所有"),
+            ("つくば市竹園1-2-3時価3000万円", "〔住所〕時価3000万円"),
+            ("つくば市竹園1-2-3A棟", "〔住所〕A棟"),
+            (
+                "土浦市桜町1-2-3JR土浦駅から徒歩5分",
+                "〔住所〕JR土浦駅から徒歩5分",
+            ),
+            (
+                "つくば市竹園1-2-3と土浦市桜町4-5-6の2か所",
+                "〔住所〕と〔住所〕の2か所",
+            ),
+            ("つくば市竹園1-2-3の3LDK", "〔住所〕の3LDK"),
+            ("つくば市竹園1-2-3の2人暮らし", "〔住所〕の2人暮らし"),
+            ("つくば市竹園1丁目2番地の3", "〔住所〕"),
+        ] {
+            assert_eq!(m(t), want, "{t}");
+        }
+    }
+
+    /// 7回目の点検の中3: 市・区・町・村の字が言葉の中の字（区分・都市・市役所・町内会・区域・区画・市街）なら、住所の印とみない
+    #[test]
+    fn city_letters_inside_common_words_are_not_addresses() {
+        for t in [
+            "区分マンション1-2室を保有",
+            "区分所有1-2室の賃料",
+            "投資用区分3-4部屋まで",
+            "都市銀行2-3行で仮審査",
+            "地方銀行と都市銀行1-2行に相談",
+            "市役所3番窓口で手続き",
+            "市役所2-3番窓口",
+            "区役所1-2階で手続き",
+            "町内会1-2班の班長",
+            "市街化区域内の生産緑地2-3筆",
+            "市街化調整区域の土地3-4区画",
+            "保留地は区画整理地内12番",
+            "区分1-2の人は対象外",
+            "障害支援区分3-4",
+        ] {
+            assert_eq!(m(t), normalize(t), "{t}");
+        }
+        // 町名の中の「内」（千代田区内幸町）は住所の字
+        assert_eq!(m("千代田区内幸町1-2-3"), "〔住所〕");
     }
 }
