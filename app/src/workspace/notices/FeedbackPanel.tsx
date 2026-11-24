@@ -1,6 +1,7 @@
 // 要望・不具合を送る（0087 の6）。受付番号を大きく出し、「フォームを開く」を押すと、その番号をこの PC に覚えて既定のブラウザで要望のフォームを開く。
 // フォームの URL に差し込むのは受付番号・アプリの版・OS だけ。アプリ自身は送らない。
 // フォームが番号の差し込みに対応していないときのために、番号は「写す」で写せる。別の PC で送った番号は手で入れて覚えられる。
+// 「報告の文を書いて送る」（0259）: FP が書いた文を、AI がまとめた報告と同じ送る報告の確認画面で確かめてから送る（文を写してフォームを開く）。
 // 下に、この PC のエラーの記録（0234）を出す: 見る・写す（文は本体が記録から作る）・消す。記録はどこにも送らない
 import { useEffect, useRef, useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
@@ -16,6 +17,8 @@ export interface FeedbackPanelProps {
   os: string;
   /** 受付番号を覚えて、フォームを開く（開けなかったら投げる） */
   onSend: (code: string) => Promise<void>;
+  /** 送る報告の確認画面で、FP が報告の文を書いて送る（この受付番号で。0259。無い画面では出さない） */
+  onWrite?: ((code: string) => void) | undefined;
   /** 手で入れた受付番号を覚える */
   onAdd: (code: string) => void;
   /** 本体で受付番号を写す（写せたら true。無いときや写せないときは、ブラウザの仕組みで写す） */
@@ -93,7 +96,7 @@ export function FeedbackPanel(p: FeedbackPanelProps) {
         <CloseX onClose={p.onClose} what="要望・不具合を送る" />
         <h2 id="fb-title">要望・不具合を送る</h2>
         <p class="pl-sub">
-          ファイナンシアへの要望や、不具合の知らせを、ブラウザのフォームから送っていただけます。「フォームを開く」を押すと、下の受付番号をこの PC に覚えて、既定のブラウザでフォームを開きます。このアプリ自身は何も送りません。
+          ファイナンシアへの要望や、不具合の知らせを、ブラウザのフォームから送っていただけます。「フォームを開く」を押すと、下の受付番号をこの PC に覚えて、既定のブラウザでフォームを開きます。{p.onWrite !== undefined ? "「報告の文を書いて送る」では、先にこのアプリで文を書いて確かめてから、文を写してフォームを開きます。" : ""}このアプリ自身は何も送りません。
         </p>
         <div class="fb-code" data-feedback-code={code}>
           <span class="fb-code-lbl">受付番号</span>
@@ -111,6 +114,11 @@ export function FeedbackPanel(p: FeedbackPanelProps) {
           <button type="button" class="btn primary" disabled={busy} onClick={() => void send()} data-feedback-send>
             フォームを開く
           </button>
+          {p.onWrite !== undefined ? (
+            <button type="button" class="btn" disabled={busy} onClick={() => p.onWrite?.(code)} data-feedback-write>
+              報告の文を書いて送る
+            </button>
+          ) : null}
           {sent !== undefined ? (
             <button
               type="button"
@@ -246,7 +254,7 @@ function ErrorLogSection({ actions, initial }: { actions: ErrorLogActions; initi
         </ul>
       )}
       <p class="fb-note">
-        不具合を送るときは「記録を写す」を押して、フォームに貼ってください。AI と接続しているときは、AI もこの記録を読めます（読むだけ）。AI のアプリで使い方の例「不具合を調べて報告をまとめる」を選ぶと、AI が世帯を調べて、フォームに貼れる報告の文をまとめます。
+        不具合を送るときは「記録を写す」を押して、フォームに貼ってください。AI と接続しているときは、AI もこの記録を読めます（読むだけ）。AI のアプリで使い方の例「不具合を調べて報告をまとめる」を選ぶと、AI が世帯を調べて報告の文をまとめ、頼むとこのアプリの送る報告の確認画面に出します。
       </p>
       {view !== null && view.aiReads.count > 0 ? (
         <p class="fb-note" data-error-log-ai>

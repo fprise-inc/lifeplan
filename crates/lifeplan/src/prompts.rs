@@ -775,7 +775,7 @@ impl LifeplanMcp {
     #[prompt(
         name = "report_issue",
         title = "不具合を調べて報告をまとめる",
-        description = "FP が「この世帯の計算がおかしい」「計算できない」と言ったときに、calculate・check_inputs・explain_value・get_error_log（アプリのエラーの記録）で調べ、原因を「入力が原因（ここを直せば戻る）」か「計算の仕組みの不具合の疑い」かに見立てて、根拠の道具の結果を示す。再現は見本の世帯に変更を足す形で書き、draft_issue_report で「要望・不具合を送る」のフォームに貼れる報告文にする（お客さまの名前・生年月日・実際の金額・世帯を識別する値は入れない。送るのは FP）"
+        description = "FP が「この世帯の計算がおかしい」「計算できない」と言ったときに、calculate・check_inputs・explain_value・get_error_log（アプリのエラーの記録）で調べ、原因を「入力が原因（ここを直せば戻る）」か「計算の仕組みの不具合の疑い」かに見立てて、根拠の道具の結果を示す。再現は見本の世帯に変更を足す形で書き、draft_issue_report で「要望・不具合を送る」のフォームに貼れる報告文にし、FP に頼まれたら propose_issue_report でアプリの「送る報告の確認画面」に出す（お客さまの名前・生年月日・実際の金額・世帯を識別する値は入れない。送るのは FP）"
     )]
     async fn report_issue(&self, Parameters(a): Parameters<ReportIssueArgs>) -> GetPromptResult {
         let who = given(&a.household).map_or_else(
@@ -795,7 +795,7 @@ impl LifeplanMcp {
                  4. 見立てる: 入力が原因（ここを直せば戻る）か、計算の仕組みの不具合の疑いか。推測で決めつけず、どの道具の答えのどこが根拠かを示す。根拠が足りなければ「まだ分からない」とし、確かめたことを書く。入力が原因なら、どの入力項目のどの欄を直せば戻るかを書き、calculate の changes で直した場合に戻ることを確かめる。\n\
                  5. 再現: list_sample_households・get_sample_household で近い見本の世帯を選び、その input に変更を足して calculate の input で同じことが起きるかを確かめる。お客さまの名前・生年月日・実際の金額・世帯を識別する値は使わない（年齢・金額は見本の値か、丸めた言葉で）。見本で再現できず実際の値が要るときは、そう書いて FP の判断に任せる（自分で実際の値を報告に入れない）。\n\
                  6. draft_issue_report で報告の文を組み立てる（diagnosis・evidence・sample_household_id・reproduce_changes・reproduced・error_log_lines）。返った cautions があれば直してから、text を FP に見せる。\n\
-                 7. FP には、アプリの「要望・不具合を送る」で「フォームを開く」を押し、開いたフォームに文を貼って送るよう伝える。AI からはフォームを開かず、送らず、文を URL に載せない（アプリも何も送らない）。入力が原因だったときは、送らなくても FP がアプリで直せることを先に伝える。"
+                 7. 入力が原因だったときは、送らなくても FP がアプリで直せることを先に伝える。FP が送ると言ったら、propose_issue_report の items に kind: bug・screen・text の1件として渡して（FP がほかにも要望・不具合を話していたら、1件ずつに分けて同じ items に並べ、まとめて1回で）、アプリの「送る報告の確認画面」に出す。FP がその画面で件ごとに確かめて「送る」を押すと、アプリが全件を1つの文にまとめて写して、ブラウザでフォームを開く。FP には、開いたフォームの内容の欄に貼り付けて（Ctrl+V / ⌘V）送るよう伝える。アプリが起動していないか AI接続がオフで出せないときは、FP に「要望・不具合を送る」で「報告の文を書いて送る」を押して文を貼るか、「フォームを開く」を押して開いたフォームに貼るよう伝える。AI からはフォームを開かず、送らず、文を URL に載せない（アプリも何も送らない）。"
             ),
         )
     }

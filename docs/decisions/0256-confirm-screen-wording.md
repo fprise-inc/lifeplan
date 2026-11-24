@@ -19,6 +19,7 @@
 | AIからの新しい世帯の候補の確認画面 | AI が組み立てた新しい世帯の候補を見て「世帯として作る」を押す画面（見出し「AIからの新しい世帯の候補」） | `app/src/workspace/ai/AiHouseholdCandidates.tsx`・`ai/households.ts`・`App.tsx` |
 | AI が発行した URL の確認画面 | AI が発行した Web のヒアリングの URL を見て、取り込み先を選ぶ画面（見出し「AI が発行した URL」） | `app/src/workspace/ai/AiHearingIssued.tsx`・`App.tsx` |
 | 入力内容の確認画面 | Web のヒアリングで、お客さまが答えを送る前に見直す画面（見出し「入力内容の確認」。お客さまに見せる文もこの名前） | `app/src/hearingForm/Form.tsx`・`hearing/src/web/flow.ts`・依頼の文（`app/src/workspace/hearing/web.ts`） |
+| 送る報告の確認画面 | 要望・不具合の報告を、送る前に FP が件ごとに確かめて直す・外す画面（見出し「送る報告の確認」。AI がまとめた報告と「報告の文を書いて送る」の両方。0259 で足した） | `app/src/workspace/notices/ReportConfirm.tsx`・`App.tsx`・接続口の `propose_issue_report` |
 | 他のソフトからの移行の確認画面 | 他のソフトから移す値を承認する画面（0113 の9。まだ作っていない） | `app/src/workspace/review/*` のコメント |
 | 確認画面の共通の部品 | 上の書類の読み取りと移行の確認画面が使う表の部品（画面の名前ではなく部品の名前） | `app/src/workspace/review/*` |
 | 保存していない変更の確認画面 | 世帯を切り替える・閉じる前、プランを帯から外す前に、保存していない変更をどうするか選ぶ画面（保存できなかったときは「保存できなかった変更の確認画面」） | `docs/app-guide/00-overview.md`・テストの見出し |

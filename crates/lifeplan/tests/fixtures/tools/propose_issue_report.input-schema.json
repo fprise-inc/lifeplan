@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "ProposeIssueItem": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "種類: bug（不具合。思ったとおりに動かない）・request（要望。こうしてほしい）・question（質問）",
+          "type": "string"
+        },
+        "screen": {
+          "description": "どの画面のことか（入力・結果・資産と負債・万一のとき・提案書・事務所の設定・保存・AI 接続・URL で答えるヒアリング・その他・分からない のどれか。分からなければ省く）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "description": "内容（不具合なら draft_issue_report の text をそのまま。要望・質問は何をしたら・どうなったか・どうしてほしいかを短く。お客さまの名前・金額は書かない。12,000文字まで）",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "description": "報告の件（1〜20件）。FP が話した要望・不具合・質問を1件ずつに分けて並べ、まとめて1回で渡す",
+      "items": {
+        "$ref": "#/$defs/ProposeIssueItem"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "type": "object"
+}

@@ -775,6 +775,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  * `/__dev/ai/simulate?kind=hearing` で、AI 接続口から Web のヒアリングの発行（世帯の決まっていない依頼。選び方は接続口の見本
  * crates/lifeplan/tests/fixtures/hearing/selection.json）が頼まれたことにする（画面が受け取って発行し、答える。答えは /__dev/ai/hearingAnswers）。
  * `/__dev/ai/simulate?kind=hearingTemplate` で、事務所のひな形の案が届いたことにする（0222）
+ * `/__dev/ai/simulate?kind=issueReport` で、AI がまとめた要望・不具合の報告（見本の3件: 不具合・要望・質問。不具合の文に名前・金額らしい所を1つずつ混ぜた物）が届いたことにする（0259）
  */
 const devAi = {
   enabled: false,
@@ -796,7 +797,29 @@ const devAi = {
   hearingAnswers: [] as { jobId: string; result: unknown }[],
   /** Web のヒアリングの事務所のひな形の案（本体と同じく、メモリの中だけ。0222） */
   hearingTemplates: [] as { candidateId: string; receivedAt: string; connector: string | null; name: string; selection: unknown; note?: string }[],
+  /** AIがまとめた不具合の報告（本体と同じく、メモリの中だけ。FP が送るか捨てるまで。0259） */
+  issueReports: [] as { candidateId: string; receivedAt: string; connector: string | null; items: { kind: string; screen?: string; text: string }[] }[],
 };
+
+/** 開発用の見本の、AIがまとめた不具合の報告（0259。名前・金額らしい所を1つずつ混ぜて、印の出方を見る） */
+const DEV_ISSUE_REPORT = [
+  "【ファイナンシアの不具合の報告】",
+  "アプリの版: 0.1.0",
+  "何が起きたか: 結果のタブで、2041年（15年目）の金融資産が前の年より大きく減った",
+  "場所: 画面 結果・行 金融資産残高・2041年（15年目）",
+  "期待した値: 前の年と同じくらい",
+  "実際の値: 前の年より 800万円 少ない",
+  "AI の見立て: 入力が原因（ここを直せば戻る）",
+  "根拠:",
+  "- check_inputs: 退職金の受け取りの年が空（山田さんの世帯で気づいた）",
+  "直し方: 「退職」の入力項目の退職金の受け取りの年",
+  "再現の手順（見本の世帯で）:",
+  "1. 見本の世帯「会社員の夫婦と子ども2人」（salariedCoupleTwoKids）を開く",
+  "2. 退職金の受け取りの年を空にする",
+  "3. 結果のタブでキャッシュフロー表を開く",
+  "見本での再現: できた",
+  "この報告には、お客さまの名前・生年月日・実際の金額・世帯を識別する値（共有の ID・顧客番号など）を入れていません。",
+].join("\n");
 
 /** 開発用のサーバーの、Web のヒアリングの発行の仕事とひな形の案（本体の ai_hearing_* の代わり。0222） */
 function devHearingOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
@@ -817,6 +840,11 @@ function devHearingOp(op: string, a: Record<string, unknown>): { ok: true; value
     case "takeHearingTemplate":
       devAi.hearingTemplates = devAi.hearingTemplates.filter((c) => c.candidateId !== a.candidate);
       return { ok: true, value: devAi.hearingTemplates };
+    case "issueReports":
+      return { ok: true, value: devAi.issueReports };
+    case "takeIssueReport":
+      devAi.issueReports = devAi.issueReports.filter((c) => c.candidateId !== a.candidate);
+      return { ok: true, value: devAi.issueReports };
   }
   return { ok: false, code: "E_DEV_AI_OP" };
 }
@@ -923,6 +951,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
           displayCandidates: devAi.displays.length,
           hearingJobs: devAi.hearingJobs.length,
           hearingTemplateCandidates: devAi.hearingTemplates.length,
+          issueReportCandidates: devAi.issueReports.length,
           householdDisplayCandidates: devAi.householdDisplays.reduce<{ householdId: string; customerNumber: string | null; alias: string; count: number }[]>((out, c) => {
             const p = out.find((x) => x.householdId === c.householdId);
             if (p !== undefined) p.count += c.changes.length;
@@ -1008,6 +1037,8 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
     case "hearingAnswers":
     case "hearingTemplates":
     case "takeHearingTemplate":
+    case "issueReports":
+    case "takeIssueReport":
       return devHearingOp(op, a);
     case "proposeHousehold":
     case "householdCandidates":
@@ -1042,6 +1073,22 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
         const p = JSON.parse(readFileSync(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-household", "proposal.json"), "utf8")) as { input: { household: { periodicExpenses?: unknown[]; members: { id: string }[] } } };
         p.input.household.periodicExpenses = [{ id: crypto.randomUUID(), row: "cf.expense.lumpSum.other", label: "家族旅行（予約番号 123456789012）", from: { at: "2027-08" }, to: { at: "2047-08" }, everyYears: 2, amount: { value: 300000, state: "estimated", origin: { kind: "manual" }, estimate: { method: "statistic", basis: "2人の国内旅行の平均的な費用" } } }];
         return devHouseholdOp("proposeHousehold", { proposal: p }, now);
+      }
+      if (a.kind === "issueReport") {
+        // AI がまとめた不具合の報告が届いたことにする（0259。共有していなくてよい）
+        if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
+        if (devAi.issueReports.length >= 3) return { ok: false, code: "INVALID" };
+        devAi.issueReports.push({
+          candidateId: crypto.randomUUID(),
+          receivedAt: now,
+          connector: "dev-client 1.0",
+          items: [
+            { kind: "bug", screen: "結果", text: DEV_ISSUE_REPORT },
+            { kind: "request", screen: "入力", text: "住宅ローンの入力項目で、繰上げ返済を年ごとに何回か入れたい。今は1回しか入れられないので、2回目からはメモに書いている。" },
+            { kind: "question", screen: "提案書", text: "提案書の表紙に事務所のロゴと一緒に担当の名前を出せますか。" },
+          ],
+        });
+        return { ok: true };
       }
       if (a.kind === "hearing" || a.kind === "hearingTemplate") {
         // AI 接続口から Web のヒアリングの発行（世帯の決まっていない依頼。0222）か、事務所のひな形の案が届いたことにする（共有していなくてよい）。
@@ -1345,7 +1392,7 @@ function devHost(): Plugin {
         const nm = /^notices\/([A-Za-z]+)$/.exec(path);
         if (nm !== null && req.method === "POST") {
           void (async () => {
-            const args = JSON.parse((await readBody(req)).toString("utf8") || "{}") as { value?: unknown; code?: string };
+            const args = JSON.parse((await readBody(req)).toString("utf8") || "{}") as { value?: unknown; code?: string; via?: string };
             const json = (v: unknown) => {
               res.setHeader("content-type", "application/json; charset=utf-8");
               res.end(JSON.stringify(v));
@@ -1364,7 +1411,8 @@ function devHost(): Plugin {
             }
             if (op === "openForm") {
               if (!/^R-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{4}$/.test(args.code ?? "")) return void ((res.statusCode = 400), res.end("E_RECEIPT"));
-              console.log(`[dev] 要望のフォームを開く（受付番号 ${args.code}。開発用のサーバーでは開きません）`);
+              if (args.via !== undefined && args.via !== "ai") return void ((res.statusCode = 400), res.end("E_FEEDBACK_VIA"));
+              console.log(`[dev] 要望のフォームを開く（受付番号 ${args.code}${args.via === "ai" ? "・AI 経由" : ""}。開発用のサーバーでは開きません）`);
               return json(null);
             }
             res.statusCode = 404;

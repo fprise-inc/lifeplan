@@ -98,7 +98,7 @@ fn line(v: &Value, what: &str, max: usize) -> Result<String, String> {
 }
 
 /// 見えない書式の文字（幅の無い空白・向きを変える印・行の区切りなど。Unicode の Cf と行・段落の区切り）
-fn is_format(c: char) -> bool {
+pub(crate) fn is_format(c: char) -> bool {
     matches!(c,
         '\u{00AD}' | '\u{0600}'..='\u{0605}' | '\u{061C}' | '\u{06DD}' | '\u{070F}' | '\u{180E}'
         | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2028}' | '\u{2029}'

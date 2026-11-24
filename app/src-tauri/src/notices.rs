@@ -6,7 +6,9 @@
 //!   開発用のビルドだけ、`FINANCIA_DEV_NOTICES` に書いた手元のファイル（見本は app/schemas/notices.dev-sample.json）を読む（署名なしを受け付けるのは開発用のビルドだけ）。
 //! - 既読の印と受付番号は、この PC のアプリのデータ（`notices/local.json`）にだけ置く。配信元には何も送り返さない（0087 の4）。
 //! - 要望・不具合のフォームは、配布元の設定のひな形（build.rs が config/distribution.toml から写す）に、受付番号・アプリの版・OS だけを差し込み、
-//!   既定のブラウザで開く。画面からは受付番号しか受け取らない（任意の URL は開かない）。
+//!   既定のブラウザで開く。画面からは受付番号と、AI 経由の印（`via`。`ai` だけ）しか受け取らない（任意の URL は開かない。0259）。
+//! - 送る報告の確認画面（0259）で FP が「送る」を押したときは、報告の文を [`feedback_report_copy`] でクリップボードに写してから、フォームを開く。
+//!   文はフォームの URL に入れない（URL は履歴やログに残るため）。
 use std::path::PathBuf;
 
 use serde_json::Value;
@@ -221,12 +223,32 @@ fn encode(s: &str) -> String {
     out
 }
 
-/// フォームの URL（ひな形に受付番号・アプリの版・OS だけを差し込む。画面の feedbackFormUrl と同じ）
-pub fn form_url(template: &str, code: &str, version: &str, os: &str) -> String {
-    template
+/// AI 経由と分かる印（フォームの隠れた欄 `via` の値。これのほかは受け付けない。0259）
+pub const VIA_AI: &str = "ai";
+
+/// フォームの URL（ひな形に受付番号・アプリの版・OS だけを差し込む。AI 経由なら決まった印 `via=ai` を足す。画面の feedbackFormUrl と同じ）。
+/// 報告の文は入れない（URL は履歴やログに残る。0259）
+pub fn form_url(template: &str, code: &str, version: &str, os: &str, via_ai: bool) -> String {
+    let url = template
         .replace("{受付番号}", &encode(code))
         .replace("{版}", &encode(version))
-        .replace("{OS}", &encode(os))
+        .replace("{OS}", &encode(os));
+    if !via_ai {
+        return url;
+    }
+    // 「#」の後ろ（フラグメント）があれば、その前に足す
+    let (head, frag) = match url.find('#') {
+        Some(i) => (&url[..i], &url[i..]),
+        None => (url.as_str(), ""),
+    };
+    let sep = if !head.contains('?') {
+        "?"
+    } else if head.ends_with('?') || head.ends_with('&') {
+        ""
+    } else {
+        "&"
+    };
+    format!("{head}{sep}via={VIA_AI}{frag}")
 }
 
 /// 既定のブラウザで URL を開く（https だけ）
@@ -247,14 +269,19 @@ fn open_in_browser(url: &str) -> bool {
     status.map(|s| s.success()).unwrap_or(false)
 }
 
-/// 要望・不具合のフォームを既定のブラウザで開く（受付番号だけを受け取る。版と OS は本体が入れる）
+/// 要望・不具合のフォームを既定のブラウザで開く（受付番号と、AI 経由の印だけを受け取る。版と OS は本体が入れる）
 #[tauri::command]
-pub fn feedback_form_open(app: AppHandle, code: String) -> Result<(), String> {
+pub fn feedback_form_open(app: AppHandle, code: String, via: Option<String>) -> Result<(), String> {
     if !valid_receipt(&code) {
         return Err("E_RECEIPT".into());
     }
+    let via_ai = match via.as_deref() {
+        None => false,
+        Some(VIA_AI) => true,
+        Some(_) => return Err("E_FEEDBACK_VIA".into()),
+    };
     let version = app.package_info().version.to_string();
-    let url = form_url(FEEDBACK_FORM, &code, &version, os_name());
+    let url = form_url(FEEDBACK_FORM, &code, &version, os_name(), via_ai);
     if open_in_browser(&url) {
         Ok(())
     } else {
@@ -269,6 +296,24 @@ pub fn feedback_copy(code: String) -> Result<bool, String> {
         return Err("E_RECEIPT".into());
     }
     Ok(crate::ai::copy_to_clipboard(&code))
+}
+
+/// 送る報告の文の長さの上限（文字。AI の報告の上限 12,000 に、受付番号・画面・版の頭の行と FP の書き足しの分を足した）
+const MAX_REPORT_CHARS: usize = 20_000;
+
+/// 送る報告の文をクリップボードに写す（送る報告の確認画面で FP が「送る」を押したとき。0259）。写せたら true。
+/// 空の文と長すぎる文は断る（空の報告は送れない）。文はどこにも残さない・送らない
+#[tauri::command]
+pub fn feedback_report_copy(text: String) -> Result<bool, String> {
+    if !valid_report(&text) {
+        return Err("E_REPORT".into());
+    }
+    Ok(crate::ai::copy_to_clipboard(&text))
+}
+
+/// 送れる報告の文か（空白だけではない・長すぎない）
+fn valid_report(text: &str) -> bool {
+    !text.trim().is_empty() && text.chars().count() <= MAX_REPORT_CHARS
 }
 
 #[cfg(test)]
@@ -355,8 +400,35 @@ mod tests {
             "R-7K2Q",
             "0.1.0",
             "macOS",
+            false,
         );
         assert_eq!(url, "https://example.com/f?no=R-7K2Q&ver=0.1.0&os=macOS");
+        // AI 経由の印（0259）: 決まった via=ai だけを足す。ひな形の形（? の有無・# の後ろ）によらない
+        let t = "https://example.com/f?no={受付番号}&ver={版}&os={OS}";
+        assert_eq!(
+            form_url(t, "R-7K2Q", "0.1.0", "macOS", true),
+            "https://example.com/f?no=R-7K2Q&ver=0.1.0&os=macOS&via=ai"
+        );
+        assert_eq!(
+            form_url(
+                "https://example.com/f#no={受付番号}",
+                "R-7K2Q",
+                "0.1.0",
+                "macOS",
+                true
+            ),
+            "https://example.com/f?via=ai#no=R-7K2Q"
+        );
+        assert_eq!(
+            form_url("https://example.com/f?", "R-7K2Q", "0.1.0", "macOS", true),
+            "https://example.com/f?via=ai"
+        );
+        assert!(form_url(FEEDBACK_FORM, "R-7K2Q", "0.1.0", "macOS", true).ends_with("via=ai"));
+        // 報告の文は受け取らない: 空は断り、長すぎる文も断る
+        assert!(!valid_report(""));
+        assert!(!valid_report(" \n\t "));
+        assert!(valid_report("報告"));
+        assert!(!valid_report(&"あ".repeat(MAX_REPORT_CHARS + 1)));
         assert_eq!(encode("不明 &x"), "%E4%B8%8D%E6%98%8E%20%26x");
         assert!(FEEDBACK_FORM.starts_with("https://"));
         assert!(FEEDBACK_FORM.contains("{受付番号}"));
