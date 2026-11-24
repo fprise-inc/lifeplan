@@ -571,20 +571,32 @@ export const HELD_SALE_TAXATION: Option[] = [
   { value: "miscellaneous", label: "雑所得" },
 ];
 
+/**
+ * 資産の種類（エンジンの資産クラス）。0252: 前の「外国債券」「外国株式」（bond.global・equity.global）は先進国と読み替え、新興国（bond.emerging・
+ * equity.emerging）を足した（キーは変えない。前提条件の利回り・事務所データ・プランの差分・相場の下落の種類がキーで指しているため）
+ */
 export const ASSET_CLASSES: Option[] = [
   { value: "cash.deposit", label: "預金" },
   { value: "cash.foreign", label: "外貨預金" },
   { value: "bond.domestic", label: "国内債券" },
-  { value: "bond.global", label: "外国債券" },
+  { value: "bond.global", label: "先進国債券" },
+  { value: "bond.emerging", label: "新興国債券" },
   { value: "equity.domestic", label: "国内株式" },
-  { value: "equity.global", label: "外国株式" },
+  { value: "equity.global", label: "先進国株式" },
+  { value: "equity.emerging", label: "新興国株式" },
   { value: "reit.domestic", label: "国内REIT" },
   { value: "reit.global", label: "外国REIT" },
   { value: "balanced", label: "バランス型" },
-  { value: "commodity", label: "コモディティ" },
+  { value: "commodity", label: "コモディティ（金など）" },
   { value: "realEstate", label: "不動産" },
   { value: "other", label: "その他" },
 ];
+
+/**
+ * 相場が下がる場合に下げる資産の種類（株・REIT。0252 で新興国株式を足した）。貯蓄・運用の資産配分の表の「株などの割合」・ストレステスト・
+ * 万一の「相場が下がったとき」の既定は、どれもこの1か所を読む。債券（新興国債券も）は下げない
+ */
+export const RISKY_ASSET_CLASSES: readonly string[] = ["equity.domestic", "equity.global", "equity.emerging", "reit.domestic", "reit.global"];
 
 export const PERIODIC_ROWS: Option[] = [
   { value: "cf.expense.lumpSum.other", label: "一時的支出" },

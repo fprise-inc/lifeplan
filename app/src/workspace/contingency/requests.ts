@@ -9,6 +9,7 @@ import { addMonths, ageReachedMonth, derivedId, parseYm } from "../levers.ts";
 import { roles } from "../roles.ts";
 import type { ContingencyPlan, PartnerScene, SurvivorWork } from "./planData.ts";
 import { presetNum, presetRate } from "../../../../hearing/src/presets.ts";
+import { RISKY_ASSET_CLASSES } from "../input/labels.ts";
 
 export type ScenarioKind = "death" | "disability" | "illness" | "income" | "market";
 
@@ -51,7 +52,8 @@ export function illnessOf(plan: ContingencyPlanIllness | undefined): Illness {
 type ContingencyPlanIllness = NonNullable<import("./planData.ts").ContingencyPlan["illness"]>;
 /** 相場が下がったときの下がる幅の既定（3割）と、下げる資産の種類（株・REIT） */
 export const marketDropDefault = (): string => presetRate("preset.stress.marketDrop");
-const RISKY = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
+/** 下げる資産の種類（株・REIT。貯蓄・運用の側と同じ1か所。0252 で新興国株式が入った） */
+const RISKY = RISKY_ASSET_CLASSES;
 /** 下げる資産の印: 資産の種類（器の配分のうちその割合を下げる）と、器の種類（kind:<種類>。器の全体を下げる） */
 export const ESOP = "kind:esop";
 export const FX_DEPOSIT = "kind:fxDeposit";

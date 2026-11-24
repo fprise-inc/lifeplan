@@ -298,7 +298,7 @@ FP が「〇〇するにはどこを押す？」のように画面の操作を�
 - 前提条件の欄の名前（id）は次のとおりです（AI の道具で事務所の既定値を読む・直すときの名前。使い回しません）。表の正は `app/src/workspace/input/premiseDefaults.ts` の `PREMISE_DEFS`、事務所データの置き場所は設計記録 0214 の3。
   - 経済の前提: `inflation`・`wageGrowth`・`investmentReturn`・`depositReturn`・`educationInflation`・`pensionMacroSlide`・`pensionMacroSlideEmployee`（世帯では `assumptions.<id>.default`）
   - 不動産の評価: `realEstateValuation.landGrowth`・`realEstateValuation.landShare`・`realEstateValuation.usefulLife.wood`（`lightSteel`・`steel`・`rc`）・`realEstateValuation.residualFloor`・`realEstateValuation.saleCostRate`（世帯では `assumptions.realEstateValuation.…`。`landShare`・`residualFloor`・`saleCostRate` の事務所データの置き場所は事務所の推定の値 `preset.realEstate.*` ですが、ほかの前提条件と同じく世帯に写します。アプリは新しい世帯を作るときと、値の無い世帯を開いたときに事務所の値を写すので、事務所が後で値を変えても作った世帯の結果は変わらず、確かめの注意に「事務所の既定値が変わりました」と出ます。0218。物件ごとの値があれば、その物件はそちらを使います）
-  - 資産の種類ごとの利回り: `assetReturns.<種類>`（`cash.deposit`・`cash.foreign`・`bond.domestic`・`bond.global`・`equity.domestic`・`equity.global`・`reit.domestic`・`reit.global`・`balanced`・`commodity`・`realEstate`・`other`。世帯では `assumptions.assetReturns.<種類>.default`）
+  - 資産の種類ごとの利回り: `assetReturns.<種類>`（`cash.deposit`・`cash.foreign`・`bond.domestic`・`bond.global`〔先進国債券〕・`bond.emerging`〔新興国債券。0252〕・`equity.domestic`・`equity.global`〔先進国株式〕・`equity.emerging`〔新興国株式。0252〕・`reit.domestic`・`reit.global`・`balanced`・`commodity`・`realEstate`・`other`。世帯では `assumptions.assetReturns.<種類>.default`）
 - 世帯ファイルの仮の印 `assumed["<欄のキー>"]` が「事務所の既定値（年月）」の欄は、事務所の既定値を写した欄です（推定の印ではありません。前の版のアプリでは推定と読まれます）。
 
 ### 計算の前の処理（画面と同じ。0184）

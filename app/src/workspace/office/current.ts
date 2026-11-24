@@ -36,9 +36,14 @@ export interface OfficeNow {
   fee: FeeTable;
   /** 表の最後の年の既定の年齢（若い方の大人がこの年齢になる年まで。90・95・100・105。null は提供元の既定の100歳。0073 の追記 2026-11-05） */
   endAge: number | null;
+  /**
+   * 資産配分の資産の種類ごとの割合の事務所の既定値（0252。種類と割合〔小数の文字。合計は1〕。null は提供元の既定〔GPIF の基本ポートフォリオ〕）。
+   * 新しく資産配分にする世帯（割合をまだ持たない世帯）が、この割合で始める
+   */
+  assetMix: readonly { assetClass: string; share: string }[] | null;
 }
 
-export const STANDARD_OFFICE_NOW: OfficeNow = { inheritLikelihood: "likely", premises: {}, basis: "事務所の既定値", fee: STANDARD_FEE_TABLE, endAge: null };
+export const STANDARD_OFFICE_NOW: OfficeNow = { inheritLikelihood: "likely", premises: {}, basis: "事務所の既定値", fee: STANDARD_FEE_TABLE, endAge: null, assetMix: null };
 
 let now: OfficeNow = STANDARD_OFFICE_NOW;
 

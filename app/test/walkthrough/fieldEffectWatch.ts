@@ -114,6 +114,8 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "assumptions:assume/assetReturns/cash.foreign/default", why: "資産の種類ごとの利回り（0214 で12種類を全部並べた）: その種類を資産配分に入れた口座があるときだけ" },
   { shape: "assumptions:assume/assetReturns/bond.domestic/default", why: "資産の種類ごとの利回り（0214 で12種類を全部並べた）: その種類を資産配分に入れた口座があるときだけ" },
   { shape: "assumptions:assume/assetReturns/bond.global/default", why: "資産の種類ごとの利回り（0214 で12種類を全部並べた）: その種類を資産配分に入れた口座があるときだけ" },
+  { shape: "assumptions:assume/assetReturns/bond.emerging/default", why: "資産の種類ごとの利回り（0252 で新興国を足した）: その種類を資産配分に入れた口座があるときだけ" },
+  { shape: "assumptions:assume/assetReturns/equity.emerging/default", why: "資産の種類ごとの利回り（0252 で新興国を足した）: その種類を資産配分に入れた口座があるときだけ" },
   { shape: "assumptions:assume/assetReturns/equity.domestic/default", why: "資産の種類ごとの利回り（0214 で12種類を全部並べた）: その種類を資産配分に入れた口座があるときだけ" },
   { shape: "assumptions:assume/assetReturns/reit.domestic/default", why: "資産の種類ごとの利回り（0214 で12種類を全部並べた）: その種類を資産配分に入れた口座があるときだけ" },
   { shape: "assumptions:assume/assetReturns/reit.global/default", why: "資産の種類ごとの利回り（0214 で12種類を全部並べた）: その種類を資産配分に入れた口座があるときだけ" },

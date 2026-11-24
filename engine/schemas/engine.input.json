@@ -234,7 +234,13 @@
                     "properties": { "assetClass": { "$ref": "#/$defs/assetClass" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
                   }
                 },
-                "fee": { "description": "信託報酬など（年率。利回りから引く）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "fee": { "description": "信託報酬など（年率。利回りから引く）。資産の種類ごとの信託報酬 fees があれば、fees に無い種類だけに使う（0252。前の版の要求・控えの読み方）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "fees": {
+                  "description": "0252: 資産の種類ごとの信託報酬など（資産の種類 → 年率）。配分の割合でならした値を利回りから引く（段階の配分もその段の割合で。リバランスしないときは、ずれた割合で）。無い種類は fee（無ければ0）",
+                  "type": "object",
+                  "propertyNames": { "$ref": "#/$defs/assetClass" },
+                  "additionalProperties": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+                },
                 "rebalance": { "description": "年に1回、元の割合に戻す（省略は true）", "type": "boolean" },
                 "stages": {
                   "description": "資産配分の段階（0040。その時点の属する年から、運用する器に共通の配分を変える。段の数に上限なし）",
@@ -956,8 +962,8 @@
       }
     },
     "assetClass": {
-      "description": "0008 の9: 資産クラス（公式の一覧）。期待リターンは前提の assetReturns で資産クラスごとに持つ",
-      "enum": ["cash.deposit", "cash.foreign", "bond.domestic", "bond.global", "equity.domestic", "equity.global", "reit.domestic", "reit.global", "balanced", "commodity", "realEstate", "other"]
+      "description": "0008 の9: 資産クラス（公式の一覧）。期待リターンは前提の assetReturns で資産クラスごとに持つ。0252: bond.global・equity.global は先進国の債券・株式（画面の名前は「先進国債券」「先進国株式」）、bond.emerging・equity.emerging は新興国",
+      "enum": ["cash.deposit", "cash.foreign", "bond.domestic", "bond.global", "bond.emerging", "equity.domestic", "equity.global", "equity.emerging", "reit.domestic", "reit.global", "balanced", "commodity", "realEstate", "other"]
     },
     "account": {
       "description": "0008 の9: 資産の器。時価と取得価額は asOf の時点の値（計算基準月の前の月末の値として扱う）",

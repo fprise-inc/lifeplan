@@ -12,7 +12,11 @@ import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { exceptionWhat } from "../src/workspace/input/stages/assumptions.ts";
 import { ZERO_COST_NOTICE } from "../src/workspace/input/stages/savings.ts";
 import { addRentalProperty, rentalProperties } from "../src/workspace/input/stages/rental.ts";
-import { allocationGaps, classReturnKey, classRows, DEFAULT_MIX, defaultFee, fillAllocation, portfolioOf, rateOf, setClassReturn, switchMethod } from "../src/workspace/input/savings/model.ts";
+import { addClass, allocationGaps, classReturnKey, classRows, defaultFees, fillAllocation, GPIF_MIX, portfolioOf, rateOf, setClassReturn, switchMethod } from "../src/workspace/input/savings/model.ts";
+
+const DEFAULT_MIX = GPIF_MIX;
+/** 割合の既定（GPIF）で割合でならした信託報酬の目安（0252） */
+const averageFee = () => Object.values(defaultFees(GPIF_MIX)).reduce((s, f) => s + Number(f) * 0.25, 0);
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { OFFICE_ASSUMPTIONS } from "../src/workspace/office/settings.ts";
@@ -40,13 +44,13 @@ describe("資産配分を計算に渡す（0137）", () => {
     expect(before.request.input.assumptions?.investment?.method).toBeUndefined();
     const wh = switchMethod(before, "allocation");
     const inv = wh.request.input.assumptions?.investment;
-    expect(inv?.allocation).toEqual({ mix: [...DEFAULT_MIX], fee: defaultFee() });
+    expect(inv?.allocation).toEqual({ mix: [...DEFAULT_MIX], fees: defaultFees(DEFAULT_MIX) });
     expect(allocationGaps(wh.request)).toEqual([]);
     // 見本はもう期待リターンを持っている種類がある（FP が入れた値は推定にしない）
     for (const c of ["equity.domestic", "equity.global", "bond.global", "reit.global"]) expect(wh.request.input.assumptions?.assetReturns?.[c]).toBeDefined();
     // 表の組み合わせた期待リターン−信託報酬が、運用する口座の計算の利回り（rateOf は資産配分の当て方の前の値なので、表の値で比較する）
     const port = portfolioOf(wh.request);
-    expect(port.fee).toBeCloseTo(Number(defaultFee()), 10);
+    expect(port.fee).toBeCloseTo(averageFee(), 10);
     // 計算の結果が変わる（切り替えただけで同じ、を戻さない）
     expect(financial(preview(wh.request), last(wh.request))).not.toBe(financial(preview(before.request), last(before.request)));
   });
@@ -99,6 +103,8 @@ describe("資産配分を計算に渡す（0137）", () => {
     wh = setClassReturn(wh, "cash.deposit", "0.002");
     wh = setClassReturn(wh, "cash.deposit", null);
     expect(wh.request.input.assumptions?.assetReturns?.["cash.deposit"]).toBeUndefined();
+    // 預金の行は割合の既定（GPIF）に無いので、足してから見る（0252）
+    wh = mutate(wh, (_h, r) => addClass(r, "cash.deposit"));
     expect(classRows(wh.request).find((r) => r.key === "cash.deposit")?.mu).toBe(DEFAULT_ASSUMPTIONS.depositReturn.default);
   });
 
@@ -108,12 +114,12 @@ describe("資産配分を計算に渡す（0137）", () => {
     });
     expect(allocationGaps(old.request)).toContain("割合と信託報酬");
     // 表の信託報酬は、配分の無い世帯だけ目安を見せる（配分を書いた世帯は書いた値。無ければ引かない）
-    expect(portfolioOf(old.request).fee).toBeCloseTo(Number(defaultFee()), 10);
+    expect(portfolioOf(old.request).fee).toBeCloseTo(averageFee(), 10);
     const fixed = fillAllocation(old);
     expect(allocationGaps(fixed.request)).toEqual([]);
-    expect(fixed.request.input.assumptions?.investment?.allocation?.fee).toBe(defaultFee());
+    expect(fixed.request.input.assumptions?.investment?.allocation?.fees).toEqual(defaultFees(DEFAULT_MIX));
     const noFee = mutate(fixed, (_h, req) => {
-      delete req.input.assumptions!.investment!.allocation!.fee;
+      delete req.input.assumptions!.investment!.allocation!.fees;
     });
     expect(portfolioOf(noFee.request).fee).toBe(0);
   });

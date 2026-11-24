@@ -114,7 +114,7 @@ describe("「＋」で足す所すべてに入れる", () => {
   it("入力のパネルの「＋」（欄の区画・まとまりの操作、貯蓄・運用の口座と積立の期間）・動かす項目・事務所の料金の段階・区分・資産と負債の時点", () => {
     expect(src("workspace/input/FieldViews.tsx")).toMatch(/a\.danger !== true && a\.label\.startsWith\("＋"\)\) revealAdded\(e\.currentTarget\)/);
     const sv = src("workspace/input/savings/SavingsPanel.tsx");
-    expect(sv.match(/revealAdded\(e\.currentTarget\)/g)?.length).toBe(3);
+    expect(sv.match(/revealAdded\(e\.currentTarget\)/g)?.length).toBe(4);
     expect(sv).toContain("data-reveal-item");
     expect(src("workspace/plans/ItemControls.tsx")).toContain("revealAdded(e.currentTarget);\n                  onPick(it.key);");
     expect(src("workspace/office/OfficeSettingsPanel.tsx")).toContain("revealAdded(e.currentTarget);\n                setFee(");

@@ -284,7 +284,8 @@ const ZERO_DEFAULT_KINDS: ReadonlySet<string> = new Set(["cryptoAsset"]);
 /** 運用する器（資産配分・利回りの書き換え（returnShifts）を当てる。まとめた金融資産の器を含む。0026） */
 export const INVEST_KINDS: ReadonlySet<string> = new Set(["taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "pooled"]);
 
-type Mix = readonly { readonly assetClass: string; readonly share: string }[];
+/** 資産クラスの配分（fee は資産の種類ごとの信託報酬。資産配分の入れ方で写したときだけある。0252） */
+type Mix = readonly { readonly assetClass: string; readonly share: string; readonly fee?: string }[];
 
 /** 器の利回りの決め方（器の利回りか資産の配分。段階の1段もこの形） */
 interface ReturnSpec {
@@ -306,7 +307,7 @@ function returnSteps(ctx: Ctx, account: ReturnAccount): StageStep<ReturnSpec>[] 
   return stageSteps(ctx, account.returnStages, (s): ReturnSpec => (s.assetMix !== undefined ? { assetMix: s.assetMix } : { expectedReturn: s.expectedReturn ?? "0" }));
 }
 
-/** 器の決め方 spec のその年の利回り（運用の費用・利回りの書き換えの前）。リバランスしない配分のずれは driftFrom の年から数える */
+/** 器の決め方 spec のその年の利回り（器の運用の費用・利回りの書き換えの前。配分の行の信託報酬〔0252〕は引いた後）。リバランスしない配分のずれは driftFrom の年から数える */
 function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftFrom: number): Rate {
   const classRate = (cls: string, y: number): Rate => {
     // 前提に無い資産クラスの代わり: 不動産は0、預金・外貨預金は預金の利回り（省略は運用利回り。前の版の要求は今までどおり）、ほかは運用利回り
@@ -321,14 +322,16 @@ function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftF
     const cls = CASH_KINDS[kind];
     return cls === undefined ? ctx.assumption("investmentReturn", year) : classRate(cls, year);
   }
-  if (mix.length === 1) return classRate((mix[0] as { assetClass: string }).assetClass, year);
+  // 資産の種類ごとの信託報酬（0252）: 行ごとの利回りから引いてから、割合でならす（＝割合でならした信託報酬を引く）
+  const netRate = (m: Mix[number], y: number): Rate => (m.fee === undefined ? classRate(m.assetClass, y) : ctx.rate.sub(classRate(m.assetClass, y), ctx.rate.of(m.fee)));
+  if (mix.length === 1) return netRate(mix[0] as Mix[number], year);
   const setting = INVEST_KINDS.has(kind) ? ctx.setting<{ method?: string; allocation?: { rebalance?: boolean } }>("investment") : undefined;
   const drift = setting?.method === "allocation" && setting.allocation?.rebalance === false;
   // 重み＝割合（リバランスしないときは×driftFrom の年からの増え方 Π(1＋その年の利回り)）。割合の合計が100%でなくても、合計で割って
   // 按分する（1行だけなら割合にかかわらずその資産クラス。合計が0なら資産の配分が無いのと同じ。0177）
   const weights = mix.map((m) => {
     let w = ctx.rate.of(m.share);
-    if (drift) for (let y = driftFrom; y < year; y++) w = ctx.rate.mul(w, ctx.rate.add(RATE_ONE, classRate(m.assetClass, y)));
+    if (drift) for (let y = driftFrom; y < year; y++) w = ctx.rate.mul(w, ctx.rate.add(RATE_ONE, netRate(m, y)));
     return w;
   });
   let total = RATE_ZERO;
@@ -336,7 +339,7 @@ function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftF
   if (ctx.rate.compare(total, RATE_ZERO) <= 0) return specRate(ctx, kind, { ...spec, assetMix: [] }, year, driftFrom);
   let r = RATE_ZERO;
   mix.forEach((m, i) => {
-    r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass, year), ctx.rate.div(weights[i] as Rate, total)));
+    r = ctx.rate.add(r, ctx.rate.mul(netRate(m, year), ctx.rate.div(weights[i] as Rate, total)));
   });
   return r;
 }
@@ -346,7 +349,8 @@ function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftF
  * 前提に無い資産クラスは運用利回り（assumptions.investmentReturn）、ただし不動産は0、預金・外貨預金（cash.deposit・cash.foreign）は預金の利回り
  * （assumptions.depositReturn。省略は運用利回り）。assetMix を省略した器は、預金・外貨預金・不動産はその資産クラス、暗号資産は0（0122）、
  * ほかは運用利回り。部品の reads に assumptions.investmentReturn・assumptions.depositReturn・assumptions.assetReturns が要る。
- * 0026: FP が入れた器の利回り（expectedReturn）があればそれを使う。運用の費用（fee）を引く。資産配分の入れ方でリバランスしないときは、
+ * 0026: FP が入れた器の利回り（expectedReturn）があればそれを使う。運用の費用（fee）を引く。配分の行に資産の種類ごとの信託報酬（fee。0252）が
+ * あれば、行の利回りから引いてから割合でならす（リバランスしないときのずれの重みも、行の信託報酬を引いた後の利回りで数える）。資産配分の入れ方でリバランスしないときは、
  * 資産クラスごとの増え方で割合がずれる（計算基準年からの資産クラスの増え方で重みを付け直す）。運用する器には利回りの書き換え（returnShifts）を当てる。
  * reads に assumptions.investment と assumptions.returnShifts も要る
  * 0040: 利回りの段階（returnStages）があれば、その年の12月の段（器の利回りか資産の配分。段より前の年は器の欄）を使い、リバランスしない

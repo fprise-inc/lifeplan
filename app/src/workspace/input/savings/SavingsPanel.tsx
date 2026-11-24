@@ -18,16 +18,21 @@ import { revealAdded } from "../../../presentation/revealAdded.ts";
 import { amountText, formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
 import { enterInput, type Settled } from "../pendingInput.ts";
 import { enterEstimateByMouse, estimateSelectText, keptText, selectEstimate } from "../estimateFocus.ts";
-import { outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
+import { FEE_RANGE, outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
 import {
   accountMonthlyAt,
   accountsOf,
+  addableClasses,
+  addClass,
   allocationGaps,
-  CLASSES,
+  classDefOf,
+  classFeePreset,
   classReturnKey,
   classRows,
-  defaultFee,
   fillAllocation,
+  removeClass,
+  setClassFee,
+  setClassWeight,
   setClassReturn,
   DC_KINDS,
   defaultPayoutAge,
@@ -43,7 +48,6 @@ import {
   KIND_INFO,
   methodOf,
   METHODS,
-  mixFromWeights,
   monthlyAt,
   nisaHitOf,
   returnShiftNote,
@@ -1226,19 +1230,91 @@ export function currentMix(req: EngineRequest, by: "account" | "class"): DonutIt
   const total = rows.reduce((s, r) => s + r.weight, 0) || 1;
   const invest = list.filter((a) => INVEST_KINDS.has(a.kind)).reduce((s, a) => s + valueOf(a), 0) + (un?.value ?? 0);
   const cash = list.filter((a) => !INVEST_KINDS.has(a.kind)).reduce((s, a) => s + valueOf(a), 0);
-  return rows.map((r) => ({ label: r.name, amount: Math.round((invest * r.weight) / total) + (r.key === "cash.deposit" ? cash : 0), color: r.color }));
+  const items = rows.map((r) => ({ label: r.name, amount: Math.round((invest * r.weight) / total) + (r.key === "cash.deposit" ? cash : 0), color: r.color }));
+  // 割合の表に預金の行が無いときも、預金の口座は預金に出す（0252）
+  if (cash > 0 && !rows.some((r) => r.key === "cash.deposit")) items.push({ label: "預金", amount: cash, color: "#cfd5dd" });
+  return items;
 }
+
+/** 「＋ 資産の種類を足す」（0252）: 押すと見出し（株式・債券・REIT・コモディティ・預金）ごとの一覧を開き、選ぶと割合0%の行を足す。Esc か「キャンセル」で閉じる */
+function AddClassButton({ req, onAdd }: { req: EngineRequest; onAdd: (key: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const head = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const groups = addableClasses(req);
+  useEffect(() => {
+    if (open) list.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [open]);
+  if (groups.length === 0) return null;
+  const close = () => {
+    setOpen(false);
+    head.current?.focus();
+  };
+  return (
+    <span class="add-choice add-choice-listed" data-add-class>
+      <button type="button" class="add-btn" ref={head} aria-expanded={open} onClick={() => setOpen(!open)}>
+        ＋ 資産の種類を足す
+      </button>
+      {open ? (
+        <div
+          class="add-choice-list"
+          role="group"
+          ref={list}
+          aria-label="資産の種類を足す: どれを足すか"
+          onKeyDown={(e) => {
+            if (e.key !== "Escape") return;
+            e.stopPropagation();
+            close();
+          }}
+        >
+          {groups.map((g) => (
+            <div class="add-choice-sec" key={g.group} role="group" aria-label={g.group} data-choice-heading={g.group}>
+              <div class="add-choice-head" aria-hidden="true">
+                {g.group}
+              </div>
+              <div class="add-choice-items">
+                {g.list.map((c) => (
+                  <button
+                    type="button"
+                    key={c.key}
+                    class="add-btn add-choice-opt"
+                    onClick={(e) => {
+                      revealAdded(e.currentTarget);
+                      setOpen(false);
+                      onAdd(c.key);
+                    }}
+                    data-add-class-opt={c.key}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div class="add-choice-foot">
+            <button type="button" class="link-btn" onClick={close}>
+              キャンセル
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </span>
+  );
+}
+
+/** 信託報酬の率の見せ方（小数第2位まで。例: 0.14） */
+const feePct = (r: number) => (Math.round(r * 10000) / 100).toFixed(2);
 
 function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const req = wh.request;
   const rows = classRows(req);
-  const sumW = rows.reduce((s, r) => s + r.weight, 0);
+  const sumW = Math.round(rows.reduce((s, r) => s + r.weightRaw, 0) * 100) / 100;
   const port = portfolioOf(req);
   const inv = investmentOf(req);
   const [by, setBy] = useState<"account" | "class">("class");
   const edit = (fn: (r: EngineRequest) => void) => onEdit(mutate(wh, (_h, r) => fn(r)));
   // 割合を直したら、新しく割合を持った資産の種類の期待リターンも計算に渡す（目安を推定の印で。0137）
-  const setWeight = (key: string, w: number) => onEdit(fillAllocation(mutate(wh, (_h, r) => editAllocation(r, { mix: mixFromWeights(classRows(r).map((x) => ({ key: x.key, weight: x.key === key ? w : x.weight }))) }))));
+  const editFill = (fn: (r: EngineRequest) => void) => onEdit(fillAllocation(mutate(wh, (_h, r) => fn(r))));
   const setVolatility = (key: string, v: string | null) =>
     edit((r) => {
       const a = (r.input.assumptions ??= { investmentReturn: { default: "0.01" } });
@@ -1248,7 +1324,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
       if (Object.keys(m).length === 0) delete a.assetVolatility;
       else a.assetVolatility = m;
     });
-  // まだ計算に渡っていないもの（前の版で資産配分にした世帯・前提条件で期待リターンを外した種類）
+  // まだ計算に渡っていないもの（前の版で資産配分にした世帯・前提条件で期待リターンを外した種類・信託報酬の無い種類）
   const gaps = allocationGaps(req);
   const panes: DonutPane[] = [{ title: "今の内訳", sub: by === "account" ? "口座ごと" : "資産の種類ごと（運用する口座は下の割合）", items: currentMix(req, by) }];
   return (
@@ -1256,11 +1332,13 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
       <section class="sv-sec" aria-label="資産の種類ごとの割合">
         <h3>
           資産の種類ごとの割合
-          <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金の口座は預金のまま。商品は選ばず、資産の種類で入れます。利回り（期待リターン）は信託報酬を引く前の率で、前提条件の「資産の種類ごとの利回り」と同じ値です（どちらで直しても同じ）。入れなければ目安の値（推定）で計算します。値動きの大きさも、入れなければ目安の値です。</Help>
+          <Help label="資産の種類ごとの割合">
+            運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金の口座は預金のまま。商品は選ばず、資産の種類で入れます。種類は「＋ 資産の種類を足す」で足し、「外す」で外します。信託報酬は種類ごとに入れ、全体の信託報酬は割合でならした値を使います。利回り（期待リターン）は信託報酬を引く前の率で、前提条件の「資産の種類ごとの利回り」と同じ値です（どちらで直しても同じ）。入れなければ目安の値（推定）で計算します。値動きの大きさも、入れなければ目安の値です。
+          </Help>
         </h3>
         {gaps.length > 0 ? (
           <div class="sv-carry" role="status" data-alloc-gap>
-            {gaps.join("・")}が、まだ計算に入っていません（今は運用利回りで計算しています）。{" "}
+            {gaps.join("・")}が、まだ計算に入っていません（{inv.allocation === undefined ? "今は運用利回りで計算しています" : "今は入っている値だけで計算しています"}）。{" "}
             <button type="button" class="link-btn" onClick={() => onEdit(fillAllocation(wh))}>
               表の値で計算する
             </button>
@@ -1273,11 +1351,15 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
                 <th class="l">資産の種類</th>
                 <th>割合</th>
                 <th>
+                  信託報酬（年）<span class="fp">FPが入れる値</span>
+                </th>
+                <th>
                   利回り（年・信託報酬を引く前）<span class="fp">FPが入れる値</span>
                 </th>
                 <th>
                   値動きの大きさ（年）<span class="fp">FPが入れる値</span>
                 </th>
+                <th aria-label="外す" />
               </tr>
             </thead>
             <tbody>
@@ -1290,14 +1372,24 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
                     </span>
                   </td>
                   <td>
-                    <NumBox value={c.weight} unit="num" size="s" label={`${c.name}の割合`} onCommit={(v) => typeof v === "number" && setWeight(c.key, v)} /> %
+                    <NumBox value={c.weight} unit="num" size="s" label={`${c.name}の割合`} onCommit={(v) => typeof v === "number" && editFill((r) => setClassWeight(r, c.key, v))} /> %
+                  </td>
+                  <td data-class-fee={c.key}>
+                    <NumBox value={c.feeOwn ? c.fee : null} unit="pct" size="s" optional range={FEE_RANGE} placeholder={pctFromRate(c.feeOwn ? (classFeePreset(c.key) ?? c.fee) : c.fee)} label={`${c.name}の信託報酬`} onCommit={(v) => editFill((r) => setClassFee(r, c.key, typeof v === "string" ? v : null))} /> %
                   </td>
                   <td>
                     <NumBox value={c.muOwn ? c.mu : null} unit="pct" size="s" optional est={wh.assumed[classReturnKey(c.key)] !== undefined} placeholder={pctFromRate(c.mu)} label={`${c.name}の利回り`} onCommit={(v) => onEdit(setClassReturn(wh, c.key, typeof v === "string" ? v : null))} /> %
                     {wh.assumed[classReturnKey(c.key)] !== undefined ? <EstTag basis={wh.assumed[classReturnKey(c.key)] ?? null} label={`${c.name}の利回り`} /> : null}
                   </td>
                   <td>
-                    <NumBox value={c.sdOwn ? c.sd : null} unit="pct" size="s" optional placeholder={pctFromRate(CLASSES.find((x) => x.key === c.key)?.sd ?? "0")} label={`${c.name}の値動きの大きさ`} onCommit={(v) => setVolatility(c.key, typeof v === "string" ? v : null)} /> %
+                    <NumBox value={c.sdOwn ? c.sd : null} unit="pct" size="s" optional placeholder={pctFromRate(classDefOf(c.key).sd)} label={`${c.name}の値動きの大きさ`} onCommit={(v) => setVolatility(c.key, typeof v === "string" ? v : null)} /> %
+                  </td>
+                  <td>
+                    {rows.length > 1 ? (
+                      <button type="button" class="link-btn" aria-label={`${c.name}を外す`} onClick={() => editFill((r) => removeClass(r, c.key))} data-remove-class={c.key}>
+                        外す
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -1308,11 +1400,13 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
                 <td class={Math.abs(sumW - 100) > 0.05 ? "sum-ng" : ""}>
                   {Math.round(sumW * 10) / 10}%{Math.abs(sumW - 100) > 0.05 ? "（計算は割合で按分）" : ""}
                 </td>
-                <td colSpan={2} />
+                <td data-fee-average>割合でならすと {feePct(port.fee)}%</td>
+                <td colSpan={3} />
               </tr>
             </tfoot>
           </table>
         </div>
+        <AddClassButton req={req} onAdd={(key) => editFill((r) => addClass(r, key))} />
         <div class="sv-allocbar" aria-hidden="true">
           {rows.map((c) => (
             <i key={c.key} style={{ width: `${(c.weight / (sumW || 1)) * 100}%`, background: c.color }} />
@@ -1321,6 +1415,9 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
         <div class="sv-port" data-portfolio>
           <span>
             組み合わせた利回り <b class="num">{pct1(port.expected)}%</b>
+          </span>
+          <span>
+            信託報酬（割合でならすと） <b class="num">{feePct(port.fee)}%</b>
           </span>
           <span>
             信託報酬を引くと <b class="num">{pct1(port.net)}%</b>
@@ -1332,14 +1429,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
             株などの割合 <b class="num">{Math.round(port.risky * 100)}%</b>
           </span>
         </div>
-        <div class="sv-fld">
-          <span class="lbl">信託報酬（年・平均）</span>
-          <div class="ctl">
-            <NumBox value={inv.allocation?.fee ?? null} unit="pct" size="s" optional placeholder={pctFromRate(defaultFee())} label="信託報酬" onCommit={(v) => edit((r) => editAllocation(r, { fee: typeof v === "string" ? v : defaultFee() }))} />
-            <span class="u">%</span>
-          </div>
-          <p class="help">持っている投資信託の平均。商品名からは選ばず、FPが入れます。上の利回りから差し引きます。値動きの大きさは計算には使わず、目減りの扱いは利回りに含めて入れる前提です。</p>
-        </div>
+        <p class="help">信託報酬は、持っている投資信託の資産の種類ごとに FP が入れます（空欄は目安の値）。全体の信託報酬は、種類ごとの値を割合でならして、上の利回りから差し引きます。値動きの大きさは計算には使わず、目減りの扱いは利回りに含めて入れる前提です。</p>
       </section>
       <section class="sv-sec" aria-label="資産の内訳">
         <h3>資産の内訳</h3>

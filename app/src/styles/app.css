@@ -1789,6 +1789,14 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .os-grid.os-compact .os-in input { width: 5em; }
 .os-in input { width: 6em; margin-right: 4px; }
 .os-pct small { color: var(--ink-2); font-size: 0.76rem; }
+/* 資産配分の資産の種類ごとの割合と信託報酬（0252） */
+.os-mix { border-collapse: collapse; font-size: 0.88rem; }
+.os-mix th, .os-mix td { padding: 4px 12px 4px 4px; border-bottom: 1px solid var(--line-2); text-align: right; white-space: nowrap; }
+.os-mix th { font-size: 0.8rem; color: var(--ink-2); font-weight: 600; }
+.os-mix .l { text-align: left; }
+.os-mix .os-in input { width: 5em; }
+.os-mix tfoot th, .os-mix tfoot td { font-weight: 700; color: var(--ink); }
+.os-mix td.sum-ng { color: var(--short-ink); }
 /* 万一のときのタブの既定（0085）: 長い選択肢は欄の幅で切る */
 .os-pct select { max-width: 100%; min-width: 0; }
 [data-office-contingency] .os-lever-group > .os-pct { margin-top: 6px; }

@@ -285,7 +285,11 @@ export interface AccountInput {
    */
   readonly cryptoTaxation?: "separate" | "miscellaneous";
   readonly asOf: string;
-  readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[];
+  /**
+   * 資産クラスの配分。fee は資産の種類ごとの信託報酬など（年率。0252）: 入力の形には無く、資産配分の入れ方の資産の種類ごとの信託報酬（allocation.fees）を
+   * 計算の前に写すときだけ書く（engine/investment.ts）。書いた配分は、割合でならした信託報酬を利回りから引く（sdk の accountReturnRate）
+   */
+  readonly assetMix?: readonly { readonly assetClass: string; readonly share: string; readonly fee?: string }[];
   readonly settlement?: boolean;
   readonly withdrawalLockedUntil?: Timepoint | null;
   readonly contributions: readonly {
@@ -568,7 +572,8 @@ export interface ReturnStageInput {
   readonly id: string;
   readonly at: Timepoint;
   readonly expectedReturn?: string;
-  readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[];
+  /** fee は資産の種類ごとの信託報酬（入力の形には無い。資産配分の入れ方で写すときだけ。0252） */
+  readonly assetMix?: readonly { readonly assetClass: string; readonly share: string; readonly fee?: string }[];
   readonly rampYears?: number;
 }
 
@@ -1433,8 +1438,10 @@ export interface InvestmentSetting {
   /** 資産配分（allocation のときに、運用する器に共通で使う） */
   readonly allocation?: {
     readonly mix: readonly { readonly assetClass: string; readonly share: string }[];
-    /** 信託報酬など（年率。利回りから引く） */
+    /** 信託報酬など（年率。利回りから引く）。資産の種類ごとの信託報酬 fees があれば、fees に無い種類だけに使う（0252。前の版の要求・控え） */
     readonly fee?: string;
+    /** 資産の種類ごとの信託報酬など（資産の種類 → 年率。配分の割合でならした値を利回りから引く。0252） */
+    readonly fees?: Readonly<Record<string, string>>;
     /** 年に1回、元の割合に戻す（省略は true） */
     readonly rebalance?: boolean;
     /** 資産配分の段階（その時点の属する年から、共通の配分を変える。0040） */
