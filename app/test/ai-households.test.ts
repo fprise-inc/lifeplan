@@ -165,7 +165,7 @@ describe("世帯として作るときの形", () => {
     expect(back.wh.memo[0]).toContain("推定したこと");
     expect((JSON.parse(body) as { meta?: { formatVersion?: string } }).meta?.formatVersion ?? BODY_FORMAT_VERSION).toBe(BODY_FORMAT_VERSION);
     // 今の形式の版（明細の行の読み取りが不確かの印〔0221〕で 0.83）。本体は保存のときに同じ版を書く（app/src-tauri の ai.rs のテスト）
-    expect(BODY_FORMAT_VERSION).toBe("0.89");
+    expect(BODY_FORMAT_VERSION).toBe("0.90");
     expect(() => preview(back.wh.request)).not.toThrow();
   });
 });

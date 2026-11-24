@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.89";
+pub const CURRENT: &str = "0.90";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -323,7 +323,7 @@ pub const CURRENT: &str = "0.89";
 ///   （配偶者のほかの相続人の誰が取得するか。0251）を足した（足すだけの MINOR）。前の版のアプリは計算の要求の知らない欄を読み落として書き戻し、
 ///   分け方が消えるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり）。
 ///   `sampleInitial` の中は書き換えない（0.87 の決まり）。0.87 の段の後に積む
-/// - 0.89: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。任意の欄 `assumptions.investment.allocation.fees`（資産の種類 → 年率）を足し、
+/// - 0.90: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。任意の欄 `assumptions.investment.allocation.fees`（資産の種類 → 年率）を足し、
 ///   資産の種類に新興国（`bond.emerging`・`equity.emerging`）を足した（前の `bond.global`・`equity.global` は先進国と読み替え。キーは変えない）。
 ///   形を変える段: 配分全体の信託報酬 `allocation.fee` を持つ世帯は、その値を資産の割合の表で選べる11種類と配分（段階の配分も）に出てくる
 ///   種類の全部に入れた `fees` に移し、`fee` を外す（計算エンジンは、どの種類も同じ値なら前の版と同じ計算の道を通る。結果は1円も変わらない）。
@@ -339,7 +339,7 @@ pub const KNOWN: &[&str] = &[
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
     "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85",
-    "0.86", "0.87", "0.88", "0.89",
+    "0.86", "0.87", "0.88", "0.90",
 ];
 
 /// 1段分の変換
@@ -788,8 +788,8 @@ pub const STEPS: &[Step] = &[
     },
     Step {
         from: "0.88",
-        to: "0.89",
-        apply: v0_88_to_0_89,
+        to: "0.90",
+        apply: v0_89_to_0_90,
     },
 ];
 
@@ -2906,7 +2906,7 @@ fn investment_diffs(obj: &mut Map<String, Value>) -> Vec<&mut Value> {
     out
 }
 
-/// 0.88 → 0.89: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と、配分（段階の配分も）・
+/// 0.88 → 0.90（0.89 は AI にメモを渡す形。0.89 が入ったら 0.89 → 0.90 にする）: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と、配分（段階の配分も）・
 /// 資産運用の差分（プランと AI からの候補。足した段の配分も）に出てくる種類の全部に同じ値で入れた `allocation.fees` に移し、`fee` を外す
 /// （どの種類も同じ値なので、計算の結果は変わらない）。
 /// - 今の世帯（`household.request.input.assumptions.investment.allocation`）
@@ -2914,7 +2914,7 @@ fn investment_diffs(obj: &mut Map<String, Value>) -> Vec<&mut Value> {
 ///   にし、値と前の値の中の率を `fees` にする。場所 `["allocation"]`・`[]`（資産配分・資産運用の全体）は、値と前の値の中の配分を同じく移す
 ///   （候補の差分は値を箱に入れずに持つので、箱でなければ値そのものを移す）
 /// - 控え（`snapshots`）・自分で作った見本の最初の状態（`sampleInitial`）の中身は変えない（0011 の5・0247）
-fn v0_88_to_0_89(mut body: Value) -> Result<Value, StoreError> {
+fn v0_89_to_0_90(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     let mut base: Vec<String> = Vec::new();
     if let Some(alloc) = obj
@@ -2994,7 +2994,7 @@ fn v0_88_to_0_89(mut body: Value) -> Result<Value, StoreError> {
         }
     }
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
-        meta.insert("formatVersion".into(), "0.89".into());
+        meta.insert("formatVersion".into(), "0.90".into());
     }
     Ok(body)
 }
@@ -3994,8 +3994,8 @@ mod tests {
         assert_eq!(access("0.86").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.87").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.88").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.89").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.90").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.90").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.91").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -4008,14 +4008,14 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.90", b.clone()).unwrap(),
+            upgrade("0.91", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
     }
 
     #[test]
-    fn v0_88_to_0_89_moves_allocation_fee_to_each_class() {
+    fn v0_89_to_0_90_moves_allocation_fee_to_each_class() {
         // 0252: 配分全体の信託報酬を、表の11種類と配分（段階も）に出てくる種類の全部に同じ値で入れる。プランの差分も移す。控え・最初の状態は変えない
         let manual = |v: Value| serde_json::json!({"value": v, "state": "confirmed", "origin": {"kind": "manual"}});
         let alloc = serde_json::json!({
@@ -4042,7 +4042,7 @@ mod tests {
             "sampleInitial": {"formatVersion": "0.88", "sections": {"household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}}
         });
         let u = upgrade("0.88", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.89");
+        assert_eq!(u["meta"]["formatVersion"], "0.90");
         let a = &u["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
         assert!(a.get("fee").is_none(), "配分全体の値は外す");
         let fees = a["fees"].as_object().unwrap();
@@ -4113,12 +4113,12 @@ mod tests {
             "household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}]}}}}}}
         });
         let mut want = none.clone();
-        want["meta"]["formatVersion"] = "0.89".into();
+        want["meta"]["formatVersion"] = "0.90".into();
         assert_eq!(upgrade("0.88", none).unwrap(), want);
         let empty = serde_json::json!({"meta": {"formatVersion": "0.88"}, "household": {"request": {"input": {}}}});
         assert_eq!(
             upgrade("0.88", empty).unwrap()["meta"]["formatVersion"],
-            "0.89"
+            "0.90"
         );
     }
 

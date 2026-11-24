@@ -4592,7 +4592,7 @@
       }
     },
     "format": "lifeplan.household",
-    "formatVersion": "0.89",
+    "formatVersion": "0.90",
     "revisions": [
       {
         "count": 3,

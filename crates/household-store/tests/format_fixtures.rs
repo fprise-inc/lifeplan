@@ -329,11 +329,11 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 分け方・取得する人は変換で書き足さない"
             );
         }
-        // 0.89 から: 資産配分の資産の種類ごとの信託報酬 allocation.fees と新興国の資産の種類（0252）。前の版の見本は配分全体の信託報酬
+        // 0.90 から: 資産配分の資産の種類ごとの信託報酬 allocation.fees と新興国の資産の種類（0252）。前の版の見本は配分全体の信託報酬
         // allocation.fee を持たないので、変換で fees を書き足さない（fee を持つ世帯の移し方は migrate の単体のテスト）
         let alloc =
             &now["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
-        if migrate::parse(v).unwrap() >= (0, 89) {
+        if migrate::parse(v).unwrap() >= (0, 90) {
             assert_eq!(
                 alloc["fees"]["equity.emerging"], "0.002",
                 "{v}: 種類ごとの信託報酬"

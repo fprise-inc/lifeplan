@@ -221,7 +221,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.89";
+export const BODY_FORMAT_VERSION = "0.90";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

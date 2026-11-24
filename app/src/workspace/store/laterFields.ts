@@ -4,8 +4,8 @@
 import type { ReadingEntry } from "./readings.ts";
 
 export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
-  {"from":"field:assume/assetReturns/bond.emerging/default","until":"0.89","to":{"target":"assumptions","item":"assumptions.assetReturns","at":["bond.emerging","default"]}},
-  {"from":"field:assume/assetReturns/equity.emerging/default","until":"0.89","to":{"target":"assumptions","item":"assumptions.assetReturns","at":["equity.emerging","default"]}},
+  {"from":"field:assume/assetReturns/bond.emerging/default","until":"0.90","to":{"target":"assumptions","item":"assumptions.assetReturns","at":["bond.emerging","default"]}},
+  {"from":"field:assume/assetReturns/equity.emerging/default","until":"0.90","to":{"target":"assumptions","item":"assumptions.assetReturns","at":["equity.emerging","default"]}},
   {"from":"field:assume/depositReturn","until":"0.67","to":{"target":"assumptions","item":"assumptions.depositReturn","at":["default"]}},
   {"from":"field:assume/pensionMacroSlideEmployee","until":"0.35","to":{"target":"assumptions","item":"assumptions.pensionMacroSlideEmployee","at":["default"]}},
   {"from":"field:edu/{object}/abroad/{id}/amount","until":"0.40","to":{"target":"object","item":"goal.education","at":["abroad",{"id":1},"amount"]}},
