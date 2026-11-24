@@ -81,6 +81,10 @@ pub struct ConsentRef {
     /// false の世帯は、計算に要る項目は渡せるが、書類から読んだ値の候補（`propose_inputs`）は受けない
     #[serde(default)]
     pub documents: bool,
+    /// 面談の記録やメモを AI に渡すことを含む説明（版3〜）での同意か（`given` のときだけ true。0249）。
+    /// false の世帯は、メモと面談の履歴を渡す共有に使わない（事務所のプライバシーポリシーの確かめによるときを除く）
+    #[serde(default)]
+    pub notes: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,4 +1,63 @@
 {
+  "aiShares": [
+    {
+      "allowlistVersion": "reduced@1",
+      "consentAtGrant": {
+        "recordId": null,
+        "state": "given",
+        "warned": false
+      },
+      "destinationDeclared": "AIのアプリ",
+      "endReason": "revoked",
+      "endedAt": "2026-11-24T00:40:00Z",
+      "expiresAt": "2026-11-24T01:00:00Z",
+      "fields": [
+        "note.fp",
+        "meeting.shared",
+        "meeting.fpOnly"
+      ],
+      "grantedAt": "2026-11-24T00:00:00Z",
+      "householdRevision": "1",
+      "id": "00000000-0000-4000-8000-0000000000a1",
+      "kind": "household",
+      "notesPaused": {
+        "at": "2026-11-24T00:30:00Z",
+        "changed": [
+          "memo"
+        ]
+      },
+      "proposals": [],
+      "reads": [],
+      "scope": "custom",
+      "shareId": "s-0000000000000001"
+    },
+    {
+      "allowlistVersion": "reduced@1",
+      "consentAtGrant": {
+        "recordId": null,
+        "state": "given",
+        "warned": false
+      },
+      "destinationDeclared": "AIのアプリ",
+      "endReason": "expired",
+      "endedAt": "2026-11-24T01:45:00Z",
+      "expiresAt": "2026-11-24T01:45:00Z",
+      "fields": [
+        "note.fp",
+        "meeting.shared",
+        "meeting.fpOnly"
+      ],
+      "grantedAt": "2026-11-24T00:45:00Z",
+      "householdRevision": "2",
+      "id": "00000000-0000-4000-8000-0000000000a2",
+      "kind": "household",
+      "notesResharedAfter": "s-0000000000000001",
+      "proposals": [],
+      "reads": [],
+      "scope": "custom",
+      "shareId": "s-0000000000000002"
+    }
+  ],
   "candidates": [
     {
       "decidedAt": null,

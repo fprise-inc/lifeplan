@@ -45,6 +45,7 @@ fn source() -> SharedHouseholdSource {
             decision: ai_share::ConsentDecision::Given,
             record_id: "c".into(),
             documents: true,
+            notes: false,
         }),
         fictional: false,
         entered: None,

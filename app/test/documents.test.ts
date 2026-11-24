@@ -476,7 +476,7 @@ describe("取り込みを外した書類の前の記録（0159）", () => {
   });
 
   it("0.68〜0.90 の見本の世帯ファイルの源泉徴収票の記録は、捨てずに読み、書き戻しても同じ。見るだけで、未決に数えず、承認できない", () => {
-    for (const v of ["0.68", "0.69", "0.70", "0.71", "0.72", "0.73", "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85", "0.86", "0.87", "0.88", "0.90"]) {
+    for (const v of ["0.68", "0.69", "0.70", "0.71", "0.72", "0.73", "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85", "0.86", "0.87", "0.88", "0.89", "0.90"]) {
       const text = readFileSync(join(FIXTURES, v, "body.json"), "utf8");
       const b = fromBody(text);
       const rd = b.wh.documents!.readings[0]!;
@@ -525,7 +525,7 @@ describe("書類の読み取りの確認画面", () => {
     const w = withDocumentLog(wh, log);
     const notice = log!.readings.find((r) => r.objects.length === 0)!;
     const html = renderToString(h(DocumentReview, { wh: w, calc: () => 150000, onChange: () => undefined, onClose: () => undefined, initial: notice.id }));
-    expect(html).toContain("書類の読み取りの確かめ");
+    expect(html).toContain("書類の読み取りの確認");
     expect(html).toContain("保険証券・ご契約内容のお知らせ・設計書");
     expect(html).toContain("架空の見本");
     expect(html).toContain("個人番号などの番号らしい所を");

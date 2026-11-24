@@ -1,7 +1,7 @@
 //! 共有の台帳（0015 の5）。共有が有効かどうかは、アプリ本体のメモリの中のこの台帳だけで決める。
 //! アプリを終了・再起動すると、すべての共有が無効になる（台帳ごと消える）。
 
-use crate::basis::{ai_documents_use, ai_use, AiUse};
+use crate::basis::{ai_documents_use, ai_notes_use, ai_use, AiUse};
 use crate::clock::{iso8601, Clock, SystemClock};
 use crate::display;
 use crate::display_proposals::{
@@ -43,6 +43,10 @@ pub struct GrantOptions {
     pub destination_declared: String,
     /// 外部AIへの提供の同意が無いことの警告を見たうえで続ける（0014 の6）
     pub proceed_without_consent: bool,
+    /// メモと面談の履歴（両方の欄）も渡す（0249。渡せるのは `ai_notes_use` が使える理由を返す世帯だけ）
+    pub notes: bool,
+    /// メモと面談の履歴の中で伏せる言葉（FP が渡すときに入れたお客さまの名字など。メモリの上だけで使い、保存しない。0249）
+    pub mask_words: Vec<String>,
 }
 
 impl Default for GrantOptions {
@@ -52,6 +56,8 @@ impl Default for GrantOptions {
             duration: DEFAULT_DURATION,
             destination_declared: String::new(),
             proceed_without_consent: false,
+            notes: false,
+            mask_words: Vec::new(),
         }
     }
 }
@@ -67,6 +73,9 @@ pub enum GrantError {
     /// AI接続を使える理由が無い（外部AIへの提供の同意が `given` でなく、事務所のプライバシーポリシーも使えない。0226）。
     /// 警告を見せて、FPが続けるなら proceed_without_consent で呼び直す（アプリ本体は `require_consent` で続けさせない）
     ConsentMissing { state: String },
+    /// メモと面談の履歴を渡す理由が無い（前の版の説明の同意で、事務所のプライバシーポリシーの「面談の記録やメモ」の確かめも無い・
+    /// 断った・撤回した。0249）。`state` は `ai_notes_use` の名前
+    NotesNotAllowed { state: String },
 }
 
 /// 共有を作った結果（画面に出す）
@@ -90,9 +99,13 @@ pub struct ShareStatus {
     pub household_id: String,
     pub customer_number: Option<String>,
     pub expires_in_sec: u64,
+    /// 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ渡すのを止めている（0249 の追記。世帯の数字などは渡したまま）
+    pub notes_paused: bool,
 }
 
 struct Share {
+    /// メモと面談の履歴の中で伏せる言葉（メモリの上だけ。0249）
+    mask: Vec<String>,
     alias: String,
     source: SharedHouseholdSource,
     scope: Scope,
@@ -102,6 +115,8 @@ struct Share {
     record_index: usize,
     /// この共有で受け取ったプランの候補の数（上限 `MAX_SCENARIO_PROPOSALS_PER_HOUSEHOLD` の数え方）
     scenario_proposals: usize,
+    /// 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ渡すのを止めた（0249 の追記。取り消して渡し直すまで）
+    notes_paused: bool,
 }
 
 /// 1つの世帯について、開いている共有の間に受け取れるプランの候補の数（開いている共有の合計。書類の候補の世帯ごとの上限と同じ数）。
@@ -130,6 +145,8 @@ struct State {
     shares: HashMap<String, Share>,
     /// 事務所の設定で、FP が「事務所のプライバシーポリシーに AI の利用を書いている」ことを確かめているか（0226。アプリ本体が入れる）
     office_policy: bool,
+    /// 事務所のプライバシーポリシーの確かめに加えて「面談の記録やメモを AI で扱うことも書いている」の確かめもあるか（0249。アプリ本体が入れる）
+    notes_policy: bool,
     issued: u32,
     logs: HashMap<String, Vec<AiShareRecord>>,
     proposals: Vec<PendingProposal>,
@@ -152,6 +169,8 @@ struct State {
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
     revision: u64,
+    /// メモと面談の履歴を止めたが、止めた記録をまだ世帯ファイルに書けていない共有（世帯 → 共有ID。書けなければ取り消す。0249 の 11）
+    pause_unwritten: HashMap<String, Vec<(String, u64)>>,
 }
 
 pub struct ShareRegistry {
@@ -335,15 +354,65 @@ impl ShareRegistry {
                 state: basis.grant_state().to_owned(),
             });
         }
+        // メモと面談の履歴も渡すとき: 渡せる理由は書類と同じ作りの別の判定（0249）
+        let mut scope = opts.scope.clone();
+        if opts.notes {
+            let notes = {
+                let st = self.lock();
+                notes_basis_of(&st, &source)
+            };
+            if !notes.allowed() {
+                return Err(GrantError::NotesNotAllowed {
+                    state: notes.name().to_owned(),
+                });
+            }
+            let mut added = match scope {
+                Scope::Custom { added } => added,
+                Scope::Reduced => Default::default(),
+            };
+            added.extend(crate::book::NOTE_ITEMS.iter().map(|i| (*i).to_owned()));
+            scope = Scope::Custom { added };
+        }
+        let mask: Vec<String> = opts
+            .mask_words
+            .iter()
+            .map(|w| w.trim().chars().take(40).collect::<String>())
+            .filter(|w| !w.is_empty())
+            .take(50)
+            .collect();
         let now = self.now();
         let expires_ms =
             now.saturating_add(u64::try_from(opts.duration.as_millis()).unwrap_or(u64::MAX));
         let mut pseudonyms = Pseudonyms::for_input(&source.input);
-        let reduced = reduce::reduce(&source, &opts.scope, &mut pseudonyms);
+        let reduced = reduce::reduce(&masked(&source, &mask), &scope, &mut pseudonyms);
         let share_id = format!("s-{}", ai_ipc::random_hex(16));
         let mut st = self.lock();
         let alias = format!("共有中の世帯{}", alias_letters(st.issued));
         st.issued += 1;
+        // メモと面談の履歴を渡すとき: 前にこの世帯でメモを止めた共有があり、その後にメモを渡した共有が無ければ、渡し直したことを記録する（0249 の 11）
+        let notes_reshared_after = if has_notes(&scope) {
+            st.logs
+                .get(&source.household_id)
+                .into_iter()
+                .flatten()
+                .rev()
+                .find_map(|r| {
+                    if r.notes_paused.is_some() {
+                        Some(Some(r.share_id.clone()))
+                    } else if r
+                        .fields
+                        .iter()
+                        .any(|f| crate::book::NOTE_ITEMS.contains(&f.as_str()))
+                    {
+                        Some(None)
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+        } else {
+            None
+        };
         let record = AiShareRecord {
             id: reduce::random_uuid_v4(),
             kind: "household".to_owned(),
@@ -352,7 +421,7 @@ impl ShareRegistry {
             expires_at: iso8601(expires_ms),
             ended_at: None,
             end_reason: None,
-            scope: opts.scope.name().to_owned(),
+            scope: scope.name().to_owned(),
             allowlist_version: allowlist().version.clone(),
             fields: reduced.fields.clone(),
             household_revision: source.revision.clone(),
@@ -373,6 +442,8 @@ impl ShareRegistry {
                 .unwrap_or_else(|p| p.into_inner())
                 .clone(),
             launch: Some(self.launch.clone()),
+            notes_paused: None,
+            notes_reshared_after,
         };
         st.revision += 1;
         let log = st.logs.entry(source.household_id.clone()).or_default();
@@ -381,14 +452,16 @@ impl ShareRegistry {
         st.shares.insert(
             share_id.clone(),
             Share {
+                mask,
                 alias: alias.clone(),
                 source,
-                scope: opts.scope,
+                scope,
                 expires_ms,
                 ended: None,
                 pseudonyms,
                 record_index,
                 scenario_proposals: 0,
+                notes_paused: false,
             },
         );
         Ok(Granted {
@@ -406,19 +479,102 @@ impl ShareRegistry {
         let now = self.now();
         let mut st = self.lock();
         let require = st.require_consent;
-        let consent_ok = may_share(&st, &source);
+        let consent_ok = may_share(&st, &source)
+            && (!st.shares.get(share_id).is_some_and(|s| has_notes(&s.scope))
+                || notes_basis_of(&st, &source).allowed());
+        let mut paused: Option<(String, usize, Vec<String>)> = None;
         let updated = match st.shares.get_mut(share_id) {
             Some(s) if s.ended.is_none() && s.source.household_id == source.household_id => {
+                // メモと面談の履歴も渡している共有で、メモ・面談の記録が変わった: AI に渡す中身の確認画面で見ていない文なので、
+                // メモと面談の履歴だけ渡すのを止める（世帯の数字などは渡したまま。取り消して、確認画面を開き直して渡し直すまで。0249 の追記）
+                if has_notes(&s.scope) && note_texts(&s.source) != note_texts(&source) {
+                    s.scope = without_notes(&s.scope);
+                    s.notes_paused = true;
+                    let changed_in = |memo: bool| {
+                        let pick = |src: &SharedHouseholdSource| {
+                            note_texts(src)
+                                .into_iter()
+                                .filter(|(i, _)| (*i == "note.fp") == memo)
+                                .map(|(i, b)| (i.to_owned(), b.to_owned()))
+                                .collect::<Vec<_>>()
+                        };
+                        pick(&s.source) != pick(&source)
+                    };
+                    let mut changed = Vec::new();
+                    if changed_in(true) {
+                        changed.push("memo".to_owned());
+                    }
+                    if changed_in(false) {
+                        changed.push("meetings".to_owned());
+                    }
+                    paused = Some((s.source.household_id.clone(), s.record_index, changed));
+                }
                 s.source = source;
                 true
             }
             _ => false,
         };
+        // 止めたことを AI に渡した記録に残す（いつ・何が変わったか。中身の文は残さない。0249 の 11）。書けたかはアプリ本体が見る
+        if let Some((household, index, changed)) = paused {
+            if let Some(r) = st.logs.get_mut(&household).and_then(|l| l.get_mut(index)) {
+                r.notes_paused = Some(crate::record::NotesPause {
+                    at: iso8601(now),
+                    changed,
+                });
+            }
+            st.revision += 1;
+            st.pause_unwritten
+                .entry(household)
+                .or_default()
+                .push((share_id.to_owned(), now));
+        }
         if updated && require && !consent_ok {
             end_share(&mut st, share_id, iso8601(now), EndReason::ConsentWithdrawn);
             return false;
         }
         updated
+    }
+
+    /// メモと面談の履歴を止めた記録を、まだ世帯ファイルに書けていない共有がある世帯か（0249 の 11）
+    pub fn has_unwritten_pause(&self, household_id: &str) -> bool {
+        self.lock()
+            .pause_unwritten
+            .get(household_id)
+            .is_some_and(|v| !v.is_empty())
+    }
+
+    /// 世帯ファイルに記録を書けた: 止めた記録は書けた（0249 の 11）
+    pub fn pause_written(&self, household_id: &str) {
+        self.lock().pause_unwritten.remove(household_id);
+    }
+
+    /// 世帯ファイルに記録を書けなかった: 止めた記録を書けていない共有を、その場で取り消す（記録なしで渡したままにしない。C の決まりと同じ。
+    /// 0249 の 11）。取り消した数を返す
+    pub fn revoke_unwritten_pauses(&self, household_id: &str) -> usize {
+        let ids = self
+            .lock()
+            .pause_unwritten
+            .remove(household_id)
+            .unwrap_or_default();
+        ids.iter().filter(|(id, _)| self.revoke(id)).count()
+    }
+
+    /// ほかのメンバーが開いていて止めた記録を書けない世帯で、止めてから `wait_ms` より長く書けていない共有を取り消す（数字の共有を
+    /// 記録の無いまま続けない。取り消したことは、書けるようになった時に記録へ書く。0249 の 11）。取り消した数を返す
+    pub fn revoke_pauses_waiting_longer_than(&self, household_id: &str, wait_ms: u64) -> usize {
+        let now = self.now();
+        let old: Vec<String> = {
+            let mut st = self.lock();
+            let Some(v) = st.pause_unwritten.get_mut(household_id) else {
+                return 0;
+            };
+            let (old, keep): (Vec<_>, Vec<_>) = v
+                .drain(..)
+                .partition(|(_, at)| now.saturating_sub(*at) >= wait_ms);
+            *v = keep;
+            old.into_iter().map(|(id, _)| id).collect()
+        };
+        old.iter().filter(|id| self.revoke(id)).count()
     }
 
     /// 世帯の共有中の共有ID（期限内で閉じていないもの）
@@ -460,18 +616,39 @@ impl ShareRegistry {
             return 0;
         }
         self.end_where(EndReason::Revoked, |_, s| {
-            !ai_use(
-                s.source.external_ai_consent.as_ref(),
-                false,
-                s.source.fictional,
-            )
-            .allowed()
+            let c = s.source.external_ai_consent.as_ref();
+            !ai_use(c, false, s.source.fictional).allowed()
+                // メモと面談の履歴を、事務所の確かめを理由に渡していた共有も閉じる（0249）
+                || (has_notes(&s.scope) && !ai_notes_use(c, false, s.source.fictional).allowed())
         })
     }
 
     /// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」を確かめているか（0226）
     pub fn office_policy(&self) -> bool {
         self.lock().office_policy
+    }
+
+    /// 事務所の設定の「面談の記録やメモを AI で扱うことも書いている」の確かめを入れる（0249）。外したときは、それを理由に
+    /// メモと面談の履歴を渡していた共有を、その場で「取り消し」で閉じる。閉じた共有の数を返す
+    pub fn set_notes_policy(&self, on: bool) -> usize {
+        let was = std::mem::replace(&mut self.lock().notes_policy, on);
+        if on || !was {
+            return 0;
+        }
+        self.end_where(EndReason::Revoked, |_, s| {
+            has_notes(&s.scope)
+                && !ai_notes_use(
+                    s.source.external_ai_consent.as_ref(),
+                    false,
+                    s.source.fictional,
+                )
+                .allowed()
+        })
+    }
+
+    /// 「面談の記録やメモを AI で扱うことも書いている」の確かめがあるか（0249）
+    pub fn notes_policy(&self) -> bool {
+        self.lock().notes_policy
     }
 
     /// アプリの終了のときに呼ぶ（すべての共有を閉じる）
@@ -531,6 +708,7 @@ impl ShareRegistry {
                 household_id: s.source.household_id.clone(),
                 customer_number: s.source.customer_number.clone(),
                 expires_in_sec: (s.expires_ms - now) / 1000,
+                notes_paused: s.notes_paused,
             })
             .collect();
         v.sort_by(|a, b| a.alias.cmp(&b.alias));
@@ -1359,6 +1537,10 @@ impl ShareRegistry {
                         "basis": basis.name(),
                         "basisNote": basis.note_for_ai(),
                         "documents": documents_basis_of(&st, &s.source).allowed(),
+                        // メモと面談の履歴も渡されているか（0249。true の共有だけ、get_shared_household の texts に入る）
+                        "notes": has_notes(&s.scope),
+                        // 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ止めている（0249 の追記）
+                        "notesPaused": s.notes_paused,
                     }),
                 )
             })
@@ -1449,7 +1631,14 @@ impl ShareRegistry {
             .map(|s| basis_of(&st, &s.source))
             .ok_or_else(not_shared)?;
         let share = st.shares.get_mut(share_id).ok_or_else(not_shared)?;
-        let reduced = reduce::reduce(&share.source, &share.scope, &mut share.pseudonyms);
+        // 計算に使う読み取りは文を渡さない（接続口は計算にしか使わない。フォローの要約は下で抜き出しだけを添える）
+        let scope = if for_calc {
+            Scope::Reduced
+        } else {
+            share.scope.clone()
+        };
+        let source = masked(&share.source, &share.mask);
+        let reduced = reduce::reduce(&source, &scope, &mut share.pseudonyms);
         let mut payload = json!({
             "shareId": share_id,
             "alias": share.alias,
@@ -1458,6 +1647,9 @@ impl ShareRegistry {
             "expiresAt": iso8601(share.expires_ms),
             "expiresInSec": (share.expires_ms - now) / 1000,
             "notice": SHARED_NOTICE,
+            // メモと面談の履歴も渡されているか（0249）。共有中にメモ・面談の記録が変わって止めているときは notesPaused
+            "notes": has_notes(&share.scope),
+            "notesPaused": share.notes_paused,
             // どの理由で渡されているか（0226。consent・officePolicy・fictional）
             "basis": basis.name(),
             "basisNote": basis.note_for_ai(),
@@ -1477,16 +1669,36 @@ impl ShareRegistry {
             }
         }
         let mut fields = reduced.fields.clone();
-        let mut digest = content_digest(share.scope.name(), &reduced, &share.pseudonyms);
+        let mut digest = content_digest(scope.name(), &reduced, &share.pseudonyms);
         // 顧客のフォローの要約の材料（0248）: 返した材料を記録の項目と指紋に入れる
         if followup {
             let facts = share.source.followup.clone().unwrap_or_default();
-            let facts = serde_json::to_value(&facts).unwrap_or(Value::Null);
+            let mut facts = serde_json::to_value(&facts).unwrap_or(Value::Null);
             fields.extend(FOLLOWUP_FIELDS.iter().map(|f| (*f).to_owned()));
+            // メモと面談の履歴も渡す共有だけ: 前回の面談の短い抜き出し（名前を伏せて包む。0249）
+            if has_notes(&share.scope) {
+                if let Some(t) = source
+                    .texts
+                    .iter()
+                    .find(|t| t.item == crate::book::EXCERPT_ITEM)
+                {
+                    // 指紋には、包む前の文を入れる（包みの境界の印は読むたびに変わる）
+                    facts["excerptText"] = Value::String(t.body.clone());
+                    fields.push(crate::book::EXCERPT_ITEM.to_owned());
+                }
+            }
             digest = format!(
                 "sha256:{:x}",
                 Sha256::digest(format!("{digest}\n{facts}").as_bytes())
             );
+            if let Some(o) = facts.as_object_mut() {
+                if let Some(Value::String(body)) = o.remove("excerptText") {
+                    o.insert(
+                        "excerpt".into(),
+                        crate::wrap::wrap_client_text("FP（面談の記録の抜き出し）", &body),
+                    );
+                }
+            }
             payload["followup"] = facts;
         }
         let household_id = share.source.household_id.clone();
@@ -1574,7 +1786,26 @@ impl ShareRegistry {
 /// 物の ID は仮名を元に戻した形にかける（同じ中身なら同じ指紋。世帯ファイルの改訂から作り直して照らせる）。
 /// 仮名を戻せない値（文章の中の ID の形の文字など）があれば、仮名のままの形にかける
 fn content_digest(scope: &str, reduced: &reduce::Reduced, pseudonyms: &Pseudonyms) -> String {
-    let texts = Value::Array(reduced.texts.clone());
+    // 包んだ文は、境界の印（包むたびに変わる乱数）を外した本文で数える（同じ中身なら同じ指紋。0249）
+    let texts = Value::Array(
+        reduced
+            .texts
+            .iter()
+            .map(|t| {
+                let mut t = t.clone();
+                if let Some(w) = t["wrapped"].as_str() {
+                    let inner = w
+                        .find('>')
+                        .and_then(|a| w.rfind("</client_text").map(|b| (a + 1, b)))
+                        .filter(|(a, b)| a <= b)
+                        .map(|(a, b)| w[a..b].to_owned())
+                        .unwrap_or_default();
+                    t["wrapped"] = Value::String(inner);
+                }
+                t
+            })
+            .collect(),
+    );
     let (input, texts) = match (
         pseudonyms.restore(&reduced.input),
         pseudonyms.restore(&texts),
@@ -1605,6 +1836,86 @@ fn basis_of(st: &State, source: &SharedHouseholdSource) -> AiUse {
         source.fictional,
     )
 }
+
+/// メモと面談の履歴を渡してよい世帯かの理由（0249。事務所の「面談の記録やメモ」の確かめは、プライバシーポリシーの確かめがあるときだけ効く）
+fn notes_basis_of(st: &State, source: &SharedHouseholdSource) -> AiUse {
+    ai_notes_use(
+        source.external_ai_consent.as_ref(),
+        st.office_policy && st.notes_policy,
+        source.fictional,
+    )
+}
+
+/// メモと面談の履歴（と前回の面談の抜き出し）の文。共有中に変わったかを見る
+fn note_texts(source: &SharedHouseholdSource) -> Vec<(&str, &str)> {
+    source
+        .texts
+        .iter()
+        .filter(|t| {
+            crate::book::NOTE_ITEMS.contains(&t.item.as_str())
+                || t.item == crate::book::EXCERPT_ITEM
+        })
+        .map(|t| (t.item.as_str(), t.body.as_str()))
+        .collect()
+}
+
+/// メモと面談の履歴を外した版（ほかに足した項目が無ければ縮約版）
+fn without_notes(scope: &Scope) -> Scope {
+    match scope {
+        Scope::Custom { added } => {
+            let rest: std::collections::BTreeSet<String> = added
+                .iter()
+                .filter(|i| !crate::book::NOTE_ITEMS.contains(&i.as_str()))
+                .cloned()
+                .collect();
+            if rest.is_empty() {
+                Scope::Reduced
+            } else {
+                Scope::Custom { added: rest }
+            }
+        }
+        Scope::Reduced => Scope::Reduced,
+    }
+}
+
+/// メモと面談の履歴も渡す共有か
+fn has_notes(scope: &Scope) -> bool {
+    matches!(scope, Scope::Custom { added } if crate::book::NOTE_ITEMS.iter().any(|i| added.contains(*i)))
+}
+
+/// 渡す前に、メモと面談の履歴の名前を伏せた写し（伏せる言葉と敬称の前の名前らしい語。0249）
+fn masked(source: &SharedHouseholdSource, mask: &[String]) -> SharedHouseholdSource {
+    let mut s = source.clone();
+    for t in &mut s.texts {
+        t.body = masked_text(&t.item, &t.body, mask).text;
+    }
+    s
+}
+
+/// 1つの文を、伏せてから上限で切る（抜き出しは決めたこと60字・次までにやること80字、ほかは欄ごとに4000字。0249）
+pub fn masked_text(item: &str, body: &str, mask: &[String]) -> crate::names::Masked {
+    let excerpt = [
+        ("決めたこと: ", crate::book::EXCERPT_DECIDED_MAX),
+        ("次までにやること: ", crate::book::EXCERPT_TODO_MAX),
+    ];
+    let caps: &[(&str, usize)] = if item == crate::book::EXCERPT_ITEM {
+        &excerpt
+    } else {
+        &[]
+    };
+    // 伏せる処理が思いがけず落ちたときは、その文を渡さない（元の文は出さず、決まった文に置き換える）。落ちて、共有・確認画面・
+    // まとめて渡す処理が途中で止まらないための守り（0249 の6回目の点検）
+    std::panic::catch_unwind(|| {
+        crate::names::mask_and_cut(body, mask, caps, crate::names::NOTE_FIELD_MAX)
+    })
+    .unwrap_or_else(|_| crate::names::Masked {
+        text: UNMASKABLE_TEXT.to_owned(),
+        spans: Vec::new(),
+    })
+}
+
+/// 伏せる処理が落ちた文の代わりに渡す文
+pub const UNMASKABLE_TEXT: &str = "（この欄は、伏せる処理で読めなかったため渡しません）";
 
 /// 渡してよい世帯か: 同意がある・事務所のプライバシーポリシーを確かめていて断られていない・架空の世帯（0226）
 fn may_share(st: &State, source: &SharedHouseholdSource) -> bool {

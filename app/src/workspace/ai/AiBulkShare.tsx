@@ -7,7 +7,8 @@
 import { useEffect, useState } from "preact/hooks";
 import type { AiBulkOutcome, AiHost, AiStatus, StoredHousehold } from "../../engine/host.ts";
 import { BULK_BLOCK_TEXT, BULK_LIMIT, BULK_MESSAGES, blockedCount, defaultSelection, numbersText, overLimit, sharedAmong } from "./bulk.ts";
-import { aiMessage, codeOf, durationText } from "./model.ts";
+import { NotesOptions } from "./AiNotesOptions.tsx";
+import { aiMessage, aiUseAllowed, codeOf, durationText, maskWords } from "./model.ts";
 
 export interface AiBulkShareProps {
   ai: AiHost;
@@ -30,8 +31,11 @@ export interface AiBulkShareProps {
 const bulkMessage = (code: string): string => BULK_MESSAGES[code] ?? aiMessage(code);
 
 /** 確かめ・結果の一覧（渡せる・もう共有中・渡せない理由ごと） */
-export function BulkOutcomeView({ o, done }: { o: AiBulkOutcome; done: boolean }) {
+export function BulkOutcomeView({ o, done, notes = false }: { o: AiBulkOutcome; done: boolean; notes?: boolean }) {
   const blocked = blockedCount(o);
+  // メモと面談の履歴（0249）: 渡した後は渡した世帯、確かめでは渡せない世帯（印を付けたときだけ出す）
+  const notesShared = o.ready.filter((r) => r.notesShared === true);
+  const notesNot = o.ready.filter((r) => r.notes !== undefined && !aiUseAllowed(r.notes) && (!done || r.notesShared !== true));
   return (
     <div class="ai-bulk-outcome" data-ai-bulk-outcome={done ? "done" : "check"}>
       {done ? (
@@ -58,6 +62,14 @@ export function BulkOutcomeView({ o, done }: { o: AiBulkOutcome; done: boolean }
           {o.ready.length > 0 ? `（${numbersText(o.ready)}）` : ""}
         </p>
       )}
+      {done && notesShared.length > 0 ? (
+        <p data-ai-bulk-notes-shared={notesShared.length}>メモと面談の履歴も渡した世帯: {notesShared.length}件（{numbersText(notesShared)}）</p>
+      ) : null}
+      {notes && notesNot.length > 0 ? (
+        <p class="in-note" data-ai-bulk-notes-not={notesNot.length}>
+          メモと面談の履歴は渡{done ? "さなかった" : "せない"}世帯（同意が前の版・同意の記録が無いなど。計算に要る項目だけ渡します）: {notesNot.length}件（{numbersText(notesNot)}）
+        </p>
+      ) : null}
       {o.already.length > 0 ? (
         <p data-ai-bulk-already={o.already.length}>
           もう共有中の世帯: {o.already.length}件（{numbersText(o.already)}）。期限はそのままで、新しく渡しません。
@@ -93,6 +105,11 @@ export function AiBulkShare(p: AiBulkShareProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stopped, setStopped] = useState<string | null>(null);
+  // メモと面談の履歴も渡す（0249）。事務所の設定で最初から付けておける。伏せる言葉は保存しない
+  const [notesOn, setNotesOn] = useState(p.status?.notesByDefault === true);
+  const [words, setWords] = useState("");
+  // AI に渡す中身の確認画面を開いたときの伏せる言葉（同じ言葉で見ていなければ、メモと面談の履歴を渡せない。本体も確かめる）
+  const [lookedWords, setLookedWords] = useState<string | null>(null);
 
   // 絞り込みが変わったら、選び直す（一覧に無い世帯は選ばない）
   useEffect(() => {
@@ -211,7 +228,21 @@ export function AiBulkShare(p: AiBulkShareProps) {
             {over}
           </p>
         ) : null}
-        {done !== null ? <BulkOutcomeView o={done} done /> : check !== null ? <BulkOutcomeView o={check} done={false} /> : null}
+        {done !== null ? <BulkOutcomeView o={done} done notes={notesOn} /> : check !== null ? <BulkOutcomeView o={check} done={false} notes={notesOn} /> : null}
+        {p.ai.notesPreview !== undefined ? (
+          <NotesOptions
+            ai={p.ai}
+            ids={(check?.ready ?? []).filter((r) => r.notes !== undefined && aiUseAllowed(r.notes)).map((r) => r.id)}
+            on={notesOn}
+            onToggle={setNotesOn}
+            words={words}
+            onWords={setWords}
+            blocked={null}
+            bulk
+            onLooked={setLookedWords}
+            looked={lookedWords === words}
+          />
+        ) : null}
         {unsavedNote ? (
           <p class="in-note" data-ai-bulk-unsaved>
             開いている世帯（{current.customerNo}）は、保存した内容を渡します。いまの入力の変更は、保存するまでAIの計算に入りません。
@@ -225,7 +256,8 @@ export function AiBulkShare(p: AiBulkShareProps) {
             if (start === undefined) return;
             setBusy(true);
             setError(null);
-            start(chosen, minutes, destination).then(
+            const notes = notesOn && p.ai.notesPreview !== undefined ? { ids: chosen, words: maskWords(words) } : undefined;
+            (notes !== undefined ? start(chosen, minutes, destination, notes) : start(chosen, minutes, destination)).then(
               (o) => {
                 setBusy(false);
                 setDone(o);
@@ -257,13 +289,13 @@ export function AiBulkShare(p: AiBulkShareProps) {
             </label>
           </div>
           <ul class="ai-limits">
-            <li>1件ずつ渡すときと同じく、渡すのは計算に要る項目だけ（縮約版）です。メモと面談の履歴の文は渡しません。</li>
+            <li>1件ずつ渡すときと同じく、渡すのは計算に要る項目だけ（縮約版）です。メモと面談の履歴は、上の印を付けたときだけ、渡せる世帯の分を渡します。</li>
             <li>同意が無い・お客さまが断った・撤回した世帯と見本の世帯は渡しません。</li>
             <li>許可は「このPCの AI との接続全体」に出すものです。申告したアプリの名前は確かめられません（記録には申告として残ります）。</li>
             <li>取り消しで止まるのは今後の読み取りだけです。すでに送った内容は、AIの会社の側に残ります。</li>
           </ul>
           <div class="ai-actions">
-            <button type="submit" class="btn primary" disabled={busy || destination.trim() === "" || chosen.length === 0 || over !== null || (check !== null && ready === 0)} data-ai-bulk-start>
+            <button type="submit" class="btn primary" disabled={busy || destination.trim() === "" || chosen.length === 0 || over !== null || (check !== null && ready === 0) || (notesOn && p.ai.notesPreview !== undefined && lookedWords !== words)} data-ai-bulk-start>
               選んだ世帯をAIに渡す{check !== null ? `（${ready}件）` : ""}
             </button>
             <button type="button" class="btn" onClick={() => setOpen(false)} data-ai-bulk-close>

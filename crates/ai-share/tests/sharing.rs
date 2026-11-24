@@ -84,6 +84,7 @@ fn source(id: &str) -> SharedHouseholdSource {
             decision: ConsentDecision::Given,
             record_id: "c-1".into(),
             documents: true,
+            notes: false,
         }),
         fictional: false,
         entered: None,

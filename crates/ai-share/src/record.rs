@@ -39,6 +39,22 @@ pub struct AiShareRecord {
     /// 共有を作った起動（起動ごとの乱数）。同じ PC の前の起動の記録だけを「アプリの終了」で閉じる（0248 の追記）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub launch: Option<String>,
+    /// 共有中にメモ・面談の記録が変わったので、メモと面談の履歴だけ渡すのを止めた（いつ・何が変わったか。中身の文は残さない。0249 の 11）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes_paused: Option<NotesPause>,
+    /// メモと面談の履歴を止めた共有の後に、AI に渡す中身の確認画面で見直して、メモと面談の履歴を渡し直した共有（止めた共有の `shareId`。0249 の 11）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes_reshared_after: Option<String>,
+}
+
+/// メモと面談の履歴を止めたこと（0249 の 11）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotesPause {
+    /// 止めた日時
+    pub at: String,
+    /// 何が変わったか（`memo`＝FP のメモ・`meetings`＝面談の記録）
+    pub changed: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -175,10 +191,15 @@ pub fn verify_append_only(before: &[AiShareRecord], after: &[AiShareRecord]) -> 
                 r.household_revision.clone(),
                 r.destination_declared.clone(),
                 r.consent_at_grant.clone(),
+                r.notes_reshared_after.clone(),
             )
         };
         if fixed(b) != fixed(a) {
             return Err(format!("{i} 行目の記録が書き換えられています"));
+        }
+        // メモと面談の履歴を止めた記録は、一度書いたら変えない（0249 の 11）
+        if b.notes_paused.is_some() && b.notes_paused != a.notes_paused {
+            return Err(format!("{i} 行目のメモを止めた記録が書き換えられています"));
         }
         if b.ended_at.is_some() && (b.ended_at != a.ended_at || b.end_reason != a.end_reason) {
             return Err(format!(
@@ -262,6 +283,8 @@ mod tests {
             proposals: vec![],
             device: None,
             launch: None,
+            notes_paused: None,
+            notes_reshared_after: None,
         }
     }
 

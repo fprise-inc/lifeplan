@@ -2,6 +2,7 @@
 // 提示層の部品には渡さない（0016 の2）。開いている間も、グラフや表の上には重ねない（広い画面では本文を左に寄せる）
 // 事務所で共有しているときは、行ごとに書いた人を残し（変わらない行は前の人のまま）、引き出しの下に一覧で出す（0023 の6）
 import { useEffect, useRef, useState } from "preact/hooks";
+import { PERSONAL_INFO_NOTE } from "./ai/personalNote.ts";
 import { CloseX, useEscClose } from "../presentation/CloseX.tsx";
 import type { WorkingHousehold } from "./input/household.ts";
 import { memoAuthors } from "./store/office.ts";
@@ -57,7 +58,8 @@ export function MemoDrawer({ wh, onEdit, onClose, me = null, names = {} }: MemoD
         <CloseX onClose={close} what="メモ" />
       </div>
       <div class="drawer-body">
-        <p class="drawer-note">世帯ごとのメモです。画面には出さず、ここを開いたときだけ見えます。1行に1つ書きます。</p>
+        <p class="drawer-note">世帯ごとのメモです。画面には出さず、ここを開いたときだけ見えます。1行に1つ書きます。お名前の代わりに「ご主人」「長女」のように書いてください。</p>
+        <p class="drawer-note" data-memo-personal-note>{PERSONAL_INFO_NOTE}</p>
         <textarea ref={area} rows={14} value={draft ?? text} aria-label="FP用のメモ" onInput={(e) => setDraft((e.currentTarget as HTMLTextAreaElement).value)} onBlur={commit} data-memo />
         {authors !== null ? (
           <ul class="memo-authors" aria-label="メモの行ごとの書いた人" data-memo-authors>

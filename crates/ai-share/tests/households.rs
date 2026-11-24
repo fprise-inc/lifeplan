@@ -167,6 +167,7 @@ fn source(fictional: bool, consent: Option<ConsentDecision>) -> SharedHouseholdS
             decision,
             record_id: "c-1".into(),
             documents: decision == ConsentDecision::Given,
+            notes: false,
         }),
         fictional,
         entered: None,

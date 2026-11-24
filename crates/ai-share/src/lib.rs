@@ -19,12 +19,14 @@ pub mod basis;
 pub mod book;
 pub mod clock;
 pub mod consent;
+pub mod contacts;
 pub mod display;
 pub mod display_proposals;
 pub mod documents;
 pub mod endpoint;
 pub mod hearing;
 pub mod households;
+pub mod names;
 pub mod proposal;
 pub mod record;
 pub mod reduce;
@@ -33,7 +35,7 @@ mod schema;
 pub mod source;
 pub mod wrap;
 
-pub use basis::{ai_documents_use, ai_use, AiUse};
+pub use basis::{ai_documents_use, ai_notes_use, ai_use, AiUse};
 pub use book::{AiCandidate, CandidateStatus, HouseholdAiView, HouseholdBook};
 pub use consent::{Author, ConsentRecord, ExternalAiConsentInput};
 pub use display_proposals::{

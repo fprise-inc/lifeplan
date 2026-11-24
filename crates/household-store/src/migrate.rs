@@ -323,6 +323,11 @@ pub const CURRENT: &str = "0.90";
 ///   （配偶者のほかの相続人の誰が取得するか。0251）を足した（足すだけの MINOR）。前の版のアプリは計算の要求の知らない欄を読み落として書き戻し、
 ///   分け方が消えるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の世帯は欄が無い＝法定相続分どおり）。
 ///   `sampleInitial` の中は書き換えない（0.87 の決まり）。0.87 の段の後に積む
+/// - 0.89: AI に渡した記録 `aiShares[]` に、任意の欄 `notesPaused`（共有中にメモ・面談の記録が変わって、メモと面談の履歴だけ止めた日時 `at` と、
+///   何が変わったか `changed`〔`memo`・`meetings`〕。中身の文は持たない）と `notesResharedAfter`（止めた後に見直して渡し直した共有の、止めた共有の ID）
+///   を足した。同意の記録 `consents[]` の任意の欄 `notes`（メモと面談の記録を含む同意。0249）も、この版から書く（足すだけの MINOR）。前の版のアプリは
+///   記録の知らない欄を読み落として書き戻し、止めた記録が消えるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の記録は
+///   欄が無い＝止めていない）。`sampleInitial` の中は書き換えない（0.87 の決まり）。0.88 の段の後に積む
 /// - 0.90: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。任意の欄 `assumptions.investment.allocation.fees`（資産の種類 → 年率）を足し、
 ///   資産の種類に新興国（`bond.emerging`・`equity.emerging`）を足した（前の `bond.global`・`equity.global` は先進国と読み替え。キーは変えない）。
 ///   形を変える段: 配分全体の信託報酬 `allocation.fee` を持つ世帯は、その値を資産の割合の表で選べる11種類と配分（段階の配分も）に出てくる
@@ -330,7 +335,7 @@ pub const CURRENT: &str = "0.90";
 ///   プランの差分と AI からの候補の差分（入力項目 `assumptions.investment`）で `allocation.fee`・`allocation`・前提の資産運用の全体を変える物も、
 ///   値と前の値を同じく移す（差分に出てくる種類〔プランで足した段の配分も〕も `fees` に入れる）。
 ///   控え・`sampleInitial` の中身は変えない（計算エンジンは前の版の `fee` も読む）。前の版のアプリは計算の入力の検査で `fees` と新しい種類を
-///   通さないので、版を上げて閲覧だけにする。0.88 の段の後に積む
+///   通さないので、版を上げて閲覧だけにする。0.89 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -339,7 +344,7 @@ pub const KNOWN: &[&str] = &[
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
     "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85",
-    "0.86", "0.87", "0.88", "0.90",
+    "0.86", "0.87", "0.88", "0.89", "0.90",
 ];
 
 /// 1段分の変換
@@ -788,6 +793,11 @@ pub const STEPS: &[Step] = &[
     },
     Step {
         from: "0.88",
+        to: "0.89",
+        apply: v0_88_to_0_89,
+    },
+    Step {
+        from: "0.89",
         to: "0.90",
         apply: v0_89_to_0_90,
     },
@@ -2778,6 +2788,16 @@ fn v0_87_to_0_88(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.88 → 0.89: AI に渡した記録の `notesPaused`・`notesResharedAfter`（0249 の 11）は任意の欄なので、形式の版だけを書き換える
+/// （前の版の記録は欄が無い＝止めていない。欄を書き足さない。`sampleInitial` の中に触れない）
+fn v0_88_to_0_89(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.89".into());
+    }
+    Ok(body)
+}
+
 /// 資産配分の割合の表で選べる資産の種類（app/src/workspace/input/savings/model.ts の CLASSES と同じ。0252）
 const ALLOCATION_CLASSES: &[&str] = &[
     "equity.domestic",
@@ -2906,7 +2926,7 @@ fn investment_diffs(obj: &mut Map<String, Value>) -> Vec<&mut Value> {
     out
 }
 
-/// 0.88 → 0.90（0.89 は AI にメモを渡す形。0.89 が入ったら 0.89 → 0.90 にする）: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と、配分（段階の配分も）・
+/// 0.89 → 0.90: 資産配分の信託報酬を資産の種類ごとに持つ（0252）。配分全体の信託報酬 `allocation.fee` を、表の11種類と、配分（段階の配分も）・
 /// 資産運用の差分（プランと AI からの候補。足した段の配分も）に出てくる種類の全部に同じ値で入れた `allocation.fees` に移し、`fee` を外す
 /// （どの種類も同じ値なので、計算の結果は変わらない）。
 /// - 今の世帯（`household.request.input.assumptions.investment.allocation`）
@@ -3994,6 +4014,7 @@ mod tests {
         assert_eq!(access("0.86").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.87").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.88").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.89").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.90").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.91").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
@@ -4024,7 +4045,7 @@ mod tests {
             "stages": [{"id": "s1", "at": {"at": "2040-01"}, "mix": [{"assetClass": "other", "share": "1"}]}]
         });
         let b = serde_json::json!({
-            "meta": {"formatVersion": "0.88"},
+            "meta": {"formatVersion": "0.89"},
             "household": {"request": {"input": {"assumptions": {"investment": {"method": "allocation", "allocation": alloc}}}}},
             "proposals": [{"diffs": [
                 {"id": "d1", "op": "set", "item": "assumptions.investment", "at": ["allocation", "fee"], "value": manual(serde_json::json!("0.005")), "before": manual(serde_json::json!("0.0025"))},
@@ -4039,9 +4060,9 @@ mod tests {
                 {"id": "c1d2", "op": "set", "item": "assumptions.investment", "target": {"plan": "assumptions"}, "at": ["allocation"], "value": {"mix": [{"assetClass": "commodity", "share": "1"}], "fee": "0.003"}}
             ]}],
             "snapshots": [{"inputs": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}],
-            "sampleInitial": {"formatVersion": "0.88", "sections": {"household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}}
+            "sampleInitial": {"formatVersion": "0.89", "sections": {"household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}], "fee": "0.0025"}}}}}}}}
         });
-        let u = upgrade("0.88", b.clone()).unwrap();
+        let u = upgrade("0.89", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], "0.90");
         let a = &u["household"]["request"]["input"]["assumptions"]["investment"]["allocation"];
         assert!(a.get("fee").is_none(), "配分全体の値は外す");
@@ -4109,15 +4130,15 @@ mod tests {
         );
         // 信託報酬の無い世帯・配分の無い世帯は、形式の版だけ
         let none = serde_json::json!({
-            "meta": {"formatVersion": "0.88"},
+            "meta": {"formatVersion": "0.89"},
             "household": {"request": {"input": {"assumptions": {"investment": {"allocation": {"mix": [{"assetClass": "equity.global", "share": "1"}]}}}}}}
         });
         let mut want = none.clone();
         want["meta"]["formatVersion"] = "0.90".into();
-        assert_eq!(upgrade("0.88", none).unwrap(), want);
-        let empty = serde_json::json!({"meta": {"formatVersion": "0.88"}, "household": {"request": {"input": {}}}});
+        assert_eq!(upgrade("0.89", none).unwrap(), want);
+        let empty = serde_json::json!({"meta": {"formatVersion": "0.89"}, "household": {"request": {"input": {}}}});
         assert_eq!(
-            upgrade("0.88", empty).unwrap()["meta"]["formatVersion"],
+            upgrade("0.89", empty).unwrap()["meta"]["formatVersion"],
             "0.90"
         );
     }
@@ -4619,6 +4640,24 @@ mod tests {
         let up = upgrade("0.81", named.clone()).unwrap();
         assert_eq!(up["household"], named["household"]);
         assert_eq!(up["meta"]["formatVersion"], CURRENT);
+    }
+
+    #[test]
+    fn v0_88_to_0_89_only_bumps_version() {
+        // AI に渡した記録のメモを止めた欄（notesPaused・notesResharedAfter。0249 の 11）は足さない（前の版の記録は止めていない）。
+        // ほかの記録と sampleInitial の中に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.88"},
+            "aiShares": [{"id": "r1", "shareId": "s-1", "scope": "custom", "fields": ["note.fp"]}],
+            "consents": [{"id": "c1", "decision": "given"}],
+            "sampleInitial": {"formatVersion": "0.88", "sections": {"household": {}}},
+            "proposals": []
+        });
+        let u = upgrade("0.88", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["aiShares"], b["aiShares"]);
+        assert_eq!(u["consents"], b["consents"]);
+        assert_eq!(u["sampleInitial"], b["sampleInitial"]);
     }
 
     #[test]

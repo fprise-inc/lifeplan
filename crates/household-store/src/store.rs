@@ -273,6 +273,13 @@ struct AiConnectorSetting {
     /// この欄の無い古い事務所データは確かめていないとして読む。前の版のアプリが書き戻すと欄が落ちるが、落ちると確かめていない側（渡せない側）になる
     #[serde(default, skip_serializing_if = "Option::is_none")]
     privacy_policy_confirmed_at: Option<String>,
+    /// FP が、事務所のプライバシーポリシーに「面談の記録やメモを AI で扱うこと」も書いていることを確かめた日時（0249。無い＝確かめていない）。
+    /// プライバシーポリシーの確かめと両方あるときだけ、前の版の同意の世帯・同意の答えが無い世帯のメモと面談の履歴も渡せる
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    notes_policy_confirmed_at: Option<String>,
+    /// 世帯を AI に渡すとき、「メモと面談の履歴も渡す」の印を最初から付けておく（0249。既定はオフ。世帯ごとに外せる）
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    notes_by_default: bool,
 }
 
 impl OfficeData {
@@ -3216,6 +3223,49 @@ impl Store {
             return Ok(out);
         }
         Ok(at.clone())
+    }
+
+    /// 「面談の記録やメモを AI で扱うことも書いている」を確かめた日時（0249。確かめていなければ None）
+    pub fn ai_notes_policy_confirmed_at(&self) -> Result<Option<String>, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(s.data.ai_connector.notes_policy_confirmed_at.clone())
+    }
+
+    /// 「面談の記録やメモを AI で扱うことも書いている」の確かめを記録する・外す（FP が設定の画面で操作したときだけ。0249）
+    pub fn set_ai_notes_policy_confirmed(
+        &self,
+        confirmed: bool,
+    ) -> Result<Option<String>, StoreError> {
+        let mut g = self.lock();
+        let now = self.now();
+        let s = Self::session(&mut g)?;
+        let at = &mut s.data.ai_connector.notes_policy_confirmed_at;
+        if at.is_some() != confirmed {
+            *at = confirmed.then(|| iso_of(now));
+            let out = at.clone();
+            self.write_office(s)?;
+            return Ok(out);
+        }
+        Ok(at.clone())
+    }
+
+    /// 「メモと面談の履歴も渡す」の印を最初から付けておくか（0249。既定はオフ）
+    pub fn ai_notes_by_default(&self) -> Result<bool, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(s.data.ai_connector.notes_by_default)
+    }
+
+    /// 「メモと面談の履歴も渡す」の印を最初から付けておくかを変える（0249）
+    pub fn set_ai_notes_by_default(&self, on: bool) -> Result<bool, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        if s.data.ai_connector.notes_by_default != on {
+            s.data.ai_connector.notes_by_default = on;
+            self.write_office(s)?;
+        }
+        Ok(on)
     }
 
     /// 「保管した」を記録する
