@@ -305,6 +305,11 @@ export interface ActionDef {
   level: Level;
   run: (wh: WorkingHousehold) => WorkingHousehold;
   danger?: boolean;
+  /**
+   * まとまりの見出しの行に、控えめのボタン（下線のリンク）で出す（「外す」の左。車の「購入済みにする」。0253）。
+   * 見出しの無いまとまりでは、ほかのボタンと同じ並びに出す
+   */
+  head?: boolean;
   /** 選んでいる状態を見せるボタン（目安の選択など。aria-pressed） */
   pressed?: boolean;
   /**
@@ -490,6 +495,8 @@ export interface SectionDef {
   key: string;
   title: string;
   note?: string;
+  /** 見出しの下にいつも出す短い1文（「?」の中に隠さない断り書き。例: 区画「相続税の試算」の目安の試算であること。0231 の追記 2026-11-23） */
+  lead?: string;
   /** 見出しの横に小さく出す要約（GroupDef の summary と同じ。例: 子の「12歳・小6・これからの教育費 約1,480万円」） */
   summary?: string;
   level: Level;

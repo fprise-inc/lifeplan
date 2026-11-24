@@ -506,6 +506,11 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
             {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
           </h3>
         )}
+        {section.lead !== undefined ? (
+          <p class="in-note" data-section-lead>
+            {section.lead}
+          </p>
+        ) : null}
         {sn.state !== null ? <p class="in-note in-empty">{sn.state}</p> : null}
         {shownGroups.map((g) => (placed.has(g.key) || parts.has(g.key) ? null : draw(g, false)))}
         {actions.length > 0 ? <Actions actions={actions} wh={wh} onEdit={onEdit} /> : null}
@@ -792,9 +797,10 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
           </h4>
           <PlanGroupTag group={group} wh={wh} />
           <PinButton group={group} />
-          {actions.filter((a) => a.danger === true).map((a) => (
+          {/* 見出しの行のボタン: 控えめのボタン（head。「購入済みにする」など）の後に「外す」（0253） */}
+          {[...actions.filter((a) => a.head === true && a.danger !== true), ...actions.filter((a) => a.danger === true)].map((a) => (
             <HelpOf key={a.key} help={actionHelp(a)}>
-              <button type="button" class="link-btn danger" onClick={() => onEdit(a.run(wh))}>
+              <button type="button" class={a.danger === true ? "link-btn danger" : "link-btn"} {...(a.danger !== true ? { "data-action": a.key } : {})} onClick={() => onEdit(a.run(wh))}>
                 {a.label}
               </button>
             </HelpOf>
@@ -807,7 +813,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       {inner.length === 0 && fields.length === 0 ? <FieldGrid fields={fields} wh={wh} onEdit={onEdit} /> : mainNodes}
       {/* 中枠（band）は、中のまとまり（金利の段階など）を「＋」のボタンの前に（足した物の並びの後ろに、足すボタン）。自分の「▸」を持つ中枠は、「▸」の後（0237） */}
       {subFirst ? sub : null}
-      {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
+      {actions.some((a) => a.danger !== true && !(a.head === true && group.title !== undefined)) ? <Actions actions={actions.filter((a) => a.danger !== true && !(a.head === true && group.title !== undefined))} wh={wh} onEdit={onEdit} /> : null}
       {moreLast && group.band !== true ? sub : null}
       <EstimateLine group={group} wh={wh} />
       {fold?.closable === true ? <FoldClose groupKey={group.key} label={group.title ?? group.folded?.name ?? "この欄"} onClose={fold.toggle} /> : null}

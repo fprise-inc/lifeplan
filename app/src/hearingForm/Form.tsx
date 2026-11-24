@@ -1,7 +1,7 @@
-// お客さまの画面（0125・0138）: 1画面に小さなまとまりの問い・進み具合・戻る／次へ・「わからない」「あとで」・確かめの画面・送った後の画面。
+// お客さまの画面（0125・0138）: 1画面に小さなまとまりの問い・進み具合・戻る／次へ・「わからない」「あとで」・入力内容の確認画面・送った後の画面。
 // お客さまのページ（main.tsx。live）と、FP のアプリの見本（preview。通信しない・端末に何も残さない）で同じ部品を使う。
 // - 金額は具体額を入れるのが主で、わからなければ「範囲で選ぶ」を開いて範囲で答える（住宅ローンの残高だけ範囲が先。flow.ts の rangeFirst）。空のまま「次へ」は「あとで」と同じ
-// - ご家族の生年月と性別だけは、入れていただくまで先へ進めない（その画面に「あとで」を出さない・確かめの画面から送らない。flow.ts の requiredMissing。0138 の追記 2026-11-18）
+// - ご家族の生年月と性別だけは、入れていただくまで先へ進めない（その画面に「あとで」を出さない・入力内容の確認画面から送らない。flow.ts の requiredMissing。0138 の追記 2026-11-18）
 // - お客さまの画面の言葉は flow.ts の customerText・itemLabel にそろえる（「伺う」・「第一子」・作る側の言葉〔置き場・送った物〕を使わない）
 // - スマホを先に考える（文字は大きめ・押す所は大きく・1列）。外のフォント・画像は読まない（CSP）
 // - 問いの流れは hearing/src/web/flow.ts（答えに合わせて問いを飛ばす・人数で繰り返す・1画面にまとめる）
@@ -468,7 +468,7 @@ const secTitle = (p: QuestionsPacket, id: string) => (id === START_SECTION ? STA
 
 type Row = { readonly i: number; readonly section: string; readonly gate: GateId } | { readonly i: number; readonly section: string; readonly f: ScreenField };
 
-/** 確かめの画面・送った内容の一覧の行（分岐の問いと、画面の中の問いごと）。続けて同じ区画の行をまとめる */
+/** 入力内容の確認画面・送った内容の一覧の行（分岐の問いと、画面の中の問いごと）。続けて同じ区画の行をまとめる */
 function rowsOf(list: readonly Screen[]): { section: string; rows: Row[] }[] {
   const out: { section: string; rows: Row[] }[] = [];
   list.forEach((s, i) => {
@@ -483,7 +483,7 @@ function rowsOf(list: readonly Screen[]): { section: string; rows: Row[] }[] {
   return out;
 }
 
-/** 答えの一覧（確かめの画面は「直す」つき。送った後の画面は見るだけ） */
+/** 答えの一覧（入力内容の確認画面は「直す」つき。送った後の画面は見るだけ） */
 function AnswerList({ p, list, d, itemOf, onFix }: { p: QuestionsPacket; list: readonly Screen[]; d: Draft; itemOf: Map<string, WebItem>; onFix?: (i: number) => void }) {
   return (
     <>
@@ -805,7 +805,7 @@ export function HearingForm(props: FormProps): JSX.Element {
   const [showSent, setShowSent] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
-  /** 確かめの画面で、ご家族の生年月と性別が欠けたまま「この内容で送る」を押した */
+  /** 入力内容の確認画面で、ご家族の生年月と性別が欠けたまま「この内容で送る」を押した */
   const [needShown, setNeedShown] = useState(false);
   /** 送った直後の「書類を続けて送る」の始まりの状態（答えと一緒に送った書類の控え） */
   const [moreAfter, setMoreAfter] = useState<MoreState>(EMPTY_MORE);
@@ -889,11 +889,11 @@ export function HearingForm(props: FormProps): JSX.Element {
       // ご家族の生年月と性別は、入れていただくまで先へ進めない（0138 の追記 2026-11-18）。1画面に何人かいるときは誰の欄かを添える
       const need = requiredMissing(screen, d, clock());
       if (need.length > 0) return setProblem({ text: requiredText(p, need, screen.kind === "document" || new Set(screen.fields.map((f) => f.index)).size > 1), need: true });
-      // 空のまま「次へ」は「あとで」と同じ（確かめの画面で「まだの問い」に出る。続きからは飛ばす）
+      // 空のまま「次へ」は「あとで」と同じ（入力内容の確認画面で「まだの問い」に出る。続きからは飛ばす）
       markLater();
     }
     if (screen.kind === "intro" && d.started) {
-      // 続きから: まだ答えていない最初の問い（無ければ確かめの画面）。「あとで」にした問いは飛ばす（ご家族の生年月と性別が欠けている画面は飛ばさない）
+      // 続きから: まだ答えていない最初の問い（無ければ入力内容の確認画面）。「あとで」にした問いは飛ばす（ご家族の生年月と性別が欠けている画面は飛ばさない）
       const todo = list.find((x) => (x.kind === "item" && x.fields.every((f) => fieldKeys(f).every((k) => d.answers[draftKey(k, f.index)] === undefined))) || (x.kind === "gate" && x.gates.some((g) => d.gates[g] === undefined)) || requiredMissing(x, d, clock()).length > 0);
       return go(todo === undefined ? list.length - 1 : list.indexOf(todo));
     }
@@ -1142,7 +1142,7 @@ export function HearingForm(props: FormProps): JSX.Element {
       </div>
     );
   } else {
-    // 入力内容の確認の画面
+    // 入力内容の確認画面
     nextLabel = sending ? "送っています…" : "この内容で送る";
     const pending = list.reduce((n, s) => n + screenFields(s).filter((f) => !fieldAnswered(d, f)).length, 0);
     const docsPending = p.documents.filter((x) => docShown(d, x) && (d.documents[x.id]?.status ?? "blank") === "blank").length;
@@ -1193,7 +1193,7 @@ export function HearingForm(props: FormProps): JSX.Element {
       {mode === "preview" ? <p class="hf-banner">見本です（お客さまにはこう見えます。答えは送られません）</p> : null}
       <main class="hf-main" ref={mainRef}>{body}</main>
       <nav class="hf-nav">
-        {/* 確かめの画面の「直す」から来たときは、戻る先は確かめの画面だけ（右のボタン）。左には何も出さない */}
+        {/* 入力内容の確認画面の「直す」から来たときは、戻る先は入力内容の確認画面だけ（右のボタン）。左には何も出さない */}
         {at > 0 && !back ? (
           <button type="button" class="hf-back" onClick={() => go(at - 1)}>
             戻る

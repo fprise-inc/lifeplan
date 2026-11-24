@@ -79,6 +79,14 @@ describe("言い換えと欄の名前で当たる", () => {
     expect(tax.target.key).toMatch(/^housing\/res\/.+\/taxe?s?$/);
   });
 
+  it("土地の評価を入れて試算 → 相続・贈与の「相続税も試算する」（相続税の目安の下のボタンと同じ言い方。0231 の追記 2026-11-23）", () => {
+    const rental = open("rentalSample");
+    for (const q of ["土地の評価を入れて試算", "相続税を試算", "とちのひょうか"]) {
+      expect(top(rental, q)).toMatchObject({ card: "inheritance" });
+      expect(top(rental, q).label).toContain("相続税も試算する");
+    }
+  });
+
   it("よく打つ言葉は読み（ひらがな）でも当たる（かな漢字の変換の前に打っている間も。読みの始まりまでも）", () => {
     expect(top(wh, "りゅうがく")).toMatchObject({ card: "education", label: "＋ 留学" });
     expect(top(wh, "リュウガク")).toMatchObject({ card: "education", label: "＋ 留学" });

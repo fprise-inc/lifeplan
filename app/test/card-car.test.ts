@@ -45,12 +45,13 @@ describe("下取りの残価の目安（ひな形）", () => {
     expect(fieldStatus(fieldOf(wh, "/tradeIn"), wh).status).toBe("confirmed");
   });
 
-  it("簡易は名義・買い替え・次の買い替えの時期・周期・手放す時期・価格・買い方・維持費の合計（中枠の順）。下取り・今の車か・入れ方・万一・「○歳まで」を選べる買い替えは詳細", () => {
+  it("簡易は名義・買い替え・次の買い替えの時期・周期・手放す時期・価格・買い方・維持費の合計（中枠の順）。下取り・入れ方・万一・「○歳まで」を選べる買い替えは詳細（今の車かのチェックは無くした。0253）", () => {
     const wh = addCar(open("salariedCoupleTwoKids"), ids());
     const simple = allFields(buildStage("car", wh)).filter((f) => f.level === "simple" && f.key.startsWith("ev/car/")).map((f) => f.key.split("/").at(-1));
     expect(simple).toEqual(["owner", "replace", "first", "every", "untilAge", "price", "pay", "upkeep"]);
     const detail = allFields(buildStage("car", wh)).filter((f) => f.level === "detail" && f.key.startsWith("ev/car/")).map((f) => f.key.split("/").slice(3).join("/"));
-    expect(detail).toEqual(expect.arrayContaining(["replaceAll", "tradeIn", "owned", "upkeepMode", "growth", "on/mode"]));
+    expect(detail).toEqual(expect.arrayContaining(["replaceAll", "tradeIn", "upkeepMode", "growth", "on/mode"]));
+    expect(detail).not.toContain("owned");
   });
 });
 
@@ -60,8 +61,10 @@ describe("維持費の入れ方（合計／内訳。両方の値を残す）", (
     const id = car0(wh).id;
     const before = carRows(wh, id, 2028);
     wh = setUpkeepMode(wh, id, "detail");
-    expect(car0(wh)).toMatchObject({ upkeepMode: "detail", upkeep: { annual: 360000 }, tax: { annual: 36000 }, insurance: { annual: 70000 }, inspection: { amount: 100000 }, fuel: { annual: 204000 } });
-    for (const s of ["/tax", "/insurance", "/inspection", "/fuel"]) expect(fieldStatus(fieldOf(wh, s), wh).status, s).toBe("estimated");
+    // 燃料は帯の目安、残り（点検・タイヤなど）は「その他（まだ分けていない）」の行（0253）
+    expect(car0(wh)).toMatchObject({ upkeepMode: "detail", upkeep: { annual: 360000 }, tax: { annual: 36000 }, insurance: { annual: 70000 }, inspection: { amount: 100000 }, fuel: { annual: 100000 }, upkeepOther: [{ label: REST_LABEL, annual: 104000 }] });
+    expect(breakdownAnnual(car0(wh))).toBe(360000);
+    for (const s of ["/tax", "/insurance", "/inspection", "/fuel", `/other/${car0(wh).upkeepOther![0]!.id}/annual`]) expect(fieldStatus(fieldOf(wh, s), wh).status, s).toBe("estimated");
     // 合計に戻す: 合計の値（36万円）を数え、内訳は残すが数えない
     const back = setUpkeepMode(fieldOf(wh, "/parking").set(wh, 120000), id, "total");
     expect(car0(back).parking).toEqual({ annual: 120000 });
@@ -73,7 +76,8 @@ describe("維持費の入れ方（合計／内訳。両方の値を残す）", (
     let wh = addCar(open("salariedCoupleTwoKids"), ids());
     const id = car0(wh).id;
     wh = setUpkeepMode(wh, id, "detail");
-    const parts = breakdownAnnual(car0(wh));
+    // 初めて分けたときの「その他（まだ分けていない）」の行（0253）を除いた内訳
+    const parts = breakdownAnnual(car0(wh)) - car0(wh).upkeepOther!.find((o) => o.label === REST_LABEL)!.annual;
     wh = setUpkeepMode(wh, id, "total");
     wh = fieldOf(wh, "/upkeep").set(wh, 400000);
     wh = setUpkeepMode(wh, id, "detail");

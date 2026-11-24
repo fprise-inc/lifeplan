@@ -229,7 +229,8 @@ describe("手放した後の移動の費用は世帯が最後に手放す車だ�
     expect(lastCarOfHousehold(wh.request.input.household, b.id)).toBe(false);
     const g = groups(wh).find((x) => x.key.endsWith("/afterCar"))!;
     expect(g.key).toBe(`ev/car/${a.id}/afterCar`);
-    expect(g.title).toBe("手放した後（この後、世帯に車がありません）");
+    // 見出しに、いつのことか（手放す月・名義の人の年齢）を書く（0253。くわしくは car-upkeep-bands.test.ts）
+    expect(g.title).toMatch(/^手放した後（\d{4}年\d{1,2}月・ご本人75歳(〔推定〕)?、買い替えはここまでで、この後は世帯に車がありません）$/);
     expect(g.actions[0]!.label).toBe("＋ 手放した後の移動の費用");
     // 手放す時期の説明に、75歳ごろを目安にする FP が多いこと。足した車の既定は名義の人の75歳（推定）
     expect(fieldOf(wh, `${a.id}/untilAge`).help).toContain("75歳ごろ");

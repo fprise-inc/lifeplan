@@ -1,4 +1,4 @@
-// 入力のホームの 面談の準備（0074）: 世帯の中身の一覧・次の1年に起きること・前回から変わったこと（控え → 過ぎた予定の確かめ → ヒアリングシートの見直し →
+// 入力のホームの 面談の準備（0074）: 世帯の中身の一覧・次の1年に起きること・前回から変わったこと（控え → 過ぎた予定の確認 → ヒアリングシートの見直し →
 // 前回との違い。前の名前は「見直し」。0074 の追記）。どれも読むだけで、押すとそのカードを開く。前回から変わったことの「控えを取る」だけが控えを作る
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
@@ -253,7 +253,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
           ) : null}
         </li>
         <li data-fp-review-past>
-          <b>過ぎた予定の確かめ</b>（計算の基準の月より前に過ぎた1回きりの予定。済んだら外し、受け取ったお金は口座の残高に入れます。まだなら時期を直します）
+          <b>過ぎた予定の確認</b>（計算の基準の月より前に過ぎた1回きりの予定。済んだら外し、受け取ったお金は口座の残高に入れます。まだなら時期を直します）
           {past.length === 0 ? (
             <p class="in-note">過ぎた予定はありません。</p>
           ) : (
