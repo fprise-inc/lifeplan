@@ -15,7 +15,7 @@
 
 | 名前 | どの画面か | 主な場所 |
 |---|---|---|
-| 書類の読み取りの確認画面 | 書類（保険証券・課税明細書・路線価図など）から読んだ値の候補を、FP が1つずつ承認する画面（見出しは今「書類の読み取りの確かめ」） | `app/src/workspace/documents/*`・`app/src/styles/review.css`・`docs/app-guide/03-import.md`・`sdk/`・接続口の `propose_inputs` の答え（`crates/ai-share/src/registry.rs`） |
+| 書類の読み取りの確認画面 | 書類（保険証券・課税明細書・路線価図など）から読んだ値の候補を、FP が1つずつ承認する画面（見出し「書類の読み取りの確認」。0249 の変更〔#589〕で「書類の読み取りの確かめ」から直した） | `app/src/workspace/documents/*`・`app/src/styles/review.css`・`docs/app-guide/03-import.md`・`sdk/`・接続口の `propose_inputs` の答え（`crates/ai-share/src/registry.rs`） |
 | AIからの新しい世帯の候補の確認画面 | AI が組み立てた新しい世帯の候補を見て「世帯として作る」を押す画面（見出し「AIからの新しい世帯の候補」） | `app/src/workspace/ai/AiHouseholdCandidates.tsx`・`ai/households.ts`・`App.tsx` |
 | AI が発行した URL の確認画面 | AI が発行した Web のヒアリングの URL を見て、取り込み先を選ぶ画面（見出し「AI が発行した URL」） | `app/src/workspace/ai/AiHearingIssued.tsx`・`App.tsx` |
 | 入力内容の確認画面 | Web のヒアリングで、お客さまが答えを送る前に見直す画面（見出し「入力内容の確認」。お客さまに見せる文もこの名前） | `app/src/hearingForm/Form.tsx`・`hearing/src/web/flow.ts`・依頼の文（`app/src/workspace/hearing/web.ts`） |
@@ -40,7 +40,7 @@
 
 ### 3. 今回直さない所
 
-- AI に渡すメモと面談の履歴の変更（0249）が同じファイルを直しているので、そちらで直す: `app/src/workspace/documents/DocumentReview.tsx`（見出し「書類の読み取りの確かめ」とコメント・見本の世帯の知らせ）・`app/src/styles/ai.css`・`crates/lifeplan/src/prompts.rs`・`crates/lifeplan/src/server.rs`・`docs/ai-connector.md`。
+- ~~AI に渡すメモと面談の履歴の変更（0249）が同じファイルを直しているので、そちらで直す~~ → **0249 の変更（#589）で直した**（2026-11-24）: `app/src/workspace/documents/DocumentReview.tsx`（見出しと閉じるボタンの説明を「書類の読み取りの確認」に〔利用者の判断〕、コメントと見本の世帯の知らせを「書類の読み取りの確認画面」に）・`app/src/styles/ai.css`（「AIからの新しい世帯の候補の確認画面」）・`crates/lifeplan/src/prompts.rs`・`crates/lifeplan/src/server.rs`（`propose_inputs` の説明と土地の書類の手順を「書類の読み取りの確認画面」に）・`docs/ai-connector.md`（書類の読み取りの確認画面・AIからの新しい世帯の候補の確認画面）。手引き `docs/app-guide/03-import.md` の見出しの名前も合わせた。
 - 過去の設計の記録の本文は書き換えない。
 - 「確かめの一覧」（入力のホームの一覧）と「確かめの注意」（一覧の種類の名前）は、画面の名前の決まりとは別の機能の名前なので、今回は変えない。
 

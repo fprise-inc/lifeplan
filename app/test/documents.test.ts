@@ -525,7 +525,7 @@ describe("書類の読み取りの確認画面", () => {
     const w = withDocumentLog(wh, log);
     const notice = log!.readings.find((r) => r.objects.length === 0)!;
     const html = renderToString(h(DocumentReview, { wh: w, calc: () => 150000, onChange: () => undefined, onClose: () => undefined, initial: notice.id }));
-    expect(html).toContain("書類の読み取りの確かめ");
+    expect(html).toContain("書類の読み取りの確認");
     expect(html).toContain("保険証券・ご契約内容のお知らせ・設計書");
     expect(html).toContain("架空の見本");
     expect(html).toContain("個人番号などの番号らしい所を");

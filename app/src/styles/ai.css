@@ -86,7 +86,7 @@
 .ai-cand-foot label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; font-weight: 700; }
 .ai-cand-foot input { min-width: 22em; }
 
-/* AIからの新しい世帯の候補（確かめの画面） */
+/* AIからの新しい世帯の候補の確認画面 */
 .ai-hh-kind label { display: block; margin: 4px 0; }
 .ai-hh-kind-note { display: block; margin-left: 1.6em; }
 .ai-hh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 18px; margin: 8px 0; }
