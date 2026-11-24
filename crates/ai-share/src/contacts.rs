@@ -441,9 +441,41 @@ fn addresses(chars: &[char]) -> Vec<(usize, usize)> {
             .iter()
             .filter_map(|p| place.find(p).map(|b| place[..b].chars().count()))
             .min();
-        let marker = chars[ws..i]
-            .iter()
-            .position(|c| matches!(c, '市' | '区' | '町' | '村' | '郡'));
+        let is_marker = |c: char| matches!(c, '市' | '区' | '町' | '村' | '郡');
+        let mut marker = chars[ws..i].iter().position(|c| is_marker(*c));
+        // 市区町村の後の町名に、助詞と同じ字を含むかなが入る住所（「牛久市ひたち野東5-3-2」の「た」）: 上の地名の字では「た」で止まるので、
+        // 番地のすぐ前から10字まで、かな・漢字の続きをさかのぼって市区町村を探す。町名の頭と終わりが助詞の字なら住所と読まない
+        // （「市の説明会」「市役所で」。終わりの「の」は3字からの町名なら町名の字〔みどりの〕）
+        if pref.is_none() && marker.is_none() {
+            let town_char = |c: char| {
+                ('\u{4E00}'..='\u{9FFF}').contains(&c)
+                    || ('\u{3041}'..='\u{3096}').contains(&c)
+                    || ('\u{30A1}'..='\u{30FA}').contains(&c)
+                    || matches!(c, '々' | 'ー')
+            };
+            let particle = |c: char| {
+                matches!(
+                    c,
+                    'の' | 'は' | 'が' | 'を' | 'に' | 'へ' | 'で' | 'と' | 'も' | 'や'
+                )
+            };
+            let mut k = i;
+            while k > floor + 1 && i - k < 10 && town_char(chars[k - 1]) && !is_marker(chars[k - 1])
+            {
+                k -= 1;
+            }
+            // 町名の終わりの「の」は、3字からの町名なら町名の字とみる（「みどりの」）
+            let end_ok = i > 0 && (!particle(chars[i - 1]) || (chars[i - 1] == 'の' && i - k >= 3));
+            if k > floor && k < i && is_marker(chars[k - 1]) && !particle(chars[k]) && end_ok {
+                // 市区町村の前の地名（同じ種類の字）から
+                let mut w = k - 1;
+                while w > floor && i - w < 30 && place_char(chars[w - 1]) {
+                    w -= 1;
+                }
+                ws = w;
+                marker = Some(k - 1 - ws);
+            }
+        }
         // 都道府県が先なら、その頭から。市・区・町・村・郡が先なら、そのすぐ前の同じ種類の字（漢字4字・かな6字まで）を地名の頭とみる
         // （「来月引越し先つくば市」の「来月引越し先」は飲み込まない）
         let start = match (pref, marker) {
@@ -662,6 +694,28 @@ mod tests {
             ("土浦市中央一丁目メゾン101", "〔住所〕メゾン101"),
         ] {
             assert_eq!(m(t), want, "{t}");
+        }
+    }
+
+    /// 市区町村の後の町名・市区町村の名前にかな（助詞と同じ字も）が入る住所も伏せる（ひたち野東・みどりの・つくばみらい市）。市区町村のすぐ後が助詞の文は住所と読まない
+    #[test]
+    fn town_names_with_kana_after_a_city_are_masked() {
+        for (t, want) in [
+            ("牛久市ひたち野東5-3-2", "〔住所〕"),
+            ("つくば市みどりの東1-2-3", "〔住所〕"),
+            ("つくばみらい市紫峰ヶ丘1-2-3", "〔住所〕"),
+            ("つくば市みどりの1-2-3", "〔住所〕"),
+            ("実家は牛久市ひたち野東5-3-2です", "実家は〔住所〕です"),
+        ] {
+            assert_eq!(m(t), want, "{t}");
+        }
+        for t in [
+            "市の説明会は2026-05-10",
+            "大阪市の病院3-4月",
+            "横浜市に住んで3-4年",
+            "市役所で1-2-3",
+        ] {
+            assert_eq!(m(t), normalize(t), "{t}");
         }
     }
 
