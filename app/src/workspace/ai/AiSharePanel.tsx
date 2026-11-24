@@ -13,7 +13,7 @@ import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import type { AiConsentDecision, AiConsentMethod, AiHost, AiHouseholdView, AiStatus } from "../../engine/host.ts";
 import { listDateWritten, proseDateWritten } from "../../dates.ts";
 import { NotesOptions } from "./AiNotesOptions.tsx";
-import { aiDocumentsUseOf, aiMessage, aiNotesUseOf, maskWords, NOTES_BLOCKED_TEXT, NOTES_PAUSED_TEXT, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeProse, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
+import { aiDocumentsUseOf, aiMessage, aiNotesUseOf, maskWords, NOTES_BLOCKED_TEXT, NOTES_PAUSED_TEXT, notesRecordText, aiUseAllowed, aiUseOf, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeProse, dateTimeText, durationText, END_REASONS, grantStateText, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
 
 export type AiPanelTab = "consent" | "records";
 
@@ -433,6 +433,12 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
             <dd>{readCount(r)}回</dd>
             <dt>プランの候補</dt>
             <dd>{r.proposals.length}件</dd>
+            {notesRecordText(r) !== null ? (
+              <>
+                <dt>メモと面談の履歴</dt>
+                <dd data-ai-record-notes>{notesRecordText(r)}</dd>
+              </>
+            ) : null}
           </dl>
           {r.reads.length > 0 ? (
             <table class="plan-list ai-reads">

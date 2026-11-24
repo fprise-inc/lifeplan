@@ -16,6 +16,16 @@ export const NOTES_PAUSED_TEXT =
 /** 共有中の帯の短い文 */
 export const NOTES_PAUSED_SHORT = "メモと面談の履歴は止めています";
 
+/** AI に渡した記録の、メモと面談の履歴を止めたこと・渡し直したことの文（0249 の 11。中身の文は記録に無い） */
+export function notesRecordText(r: AiShareRecord): string | null {
+  if (r.notesPaused !== undefined) {
+    const what = r.notesPaused.changed.map((c) => (c === "memo" ? "メモ" : "面談の記録")).join("と") || "メモ・面談の記録";
+    return `${dateTimeProse(r.notesPaused.at)} に、共有中に${what}が変わったため、メモと面談の履歴を AI に渡すのを止めました（世帯の数字などは渡したまま）`;
+  }
+  if (r.notesResharedAfter !== undefined) return "メモと面談の履歴を止めた後に、AI に渡す中身の確認画面で見直して、渡し直しました";
+  return null;
+}
+
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
   E_AI_OFF: "AI との接続がオフです。事務所の設定（世帯の一覧の「AI との接続」）でオンにしてください",

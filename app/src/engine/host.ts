@@ -728,6 +728,10 @@ export interface AiShareRecord {
   consentAtGrant: { state: string; recordId: string | null; warned: boolean };
   reads: AiReadEntry[];
   proposals: { candidateId: string; at: string }[];
+  /** 共有中にメモ・面談の記録が変わって、メモと面談の履歴だけ止めた（いつ・何が変わったか。0249 の 11。前の版の記録には無い） */
+  notesPaused?: { at: string; changed: ("memo" | "meetings")[] };
+  /** 止めた後に、AI に渡す中身の確認画面で見直して渡し直した共有（止めた共有の ID。0249 の 11） */
+  notesResharedAfter?: string;
 }
 
 export interface AiProposedDiff {

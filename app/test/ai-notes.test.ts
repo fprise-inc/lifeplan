@@ -5,10 +5,11 @@ import { describe, expect, it } from "vitest";
 import type { AiHost, AiHouseholdView, AiNotesPreview, AiStatus } from "../src/engine/host.ts";
 import { MASK_WORDS_NOTE, MaskedText, NOTES_LOOK_FIRST, NOTES_OPTION_TEXT, NotesOptions, NotesPreviewList } from "../src/workspace/ai/AiNotesOptions.tsx";
 import { AiConnectorPanel } from "../src/workspace/ai/AiConnectorPanel.tsx";
-import { AiSharePanel, CONSENT_BEFORE_NOTES_TEXT } from "../src/workspace/ai/AiSharePanel.tsx";
+import { AiRecords, AiSharePanel, CONSENT_BEFORE_NOTES_TEXT } from "../src/workspace/ai/AiSharePanel.tsx";
 import { BulkOutcomeView } from "../src/workspace/ai/AiBulkShare.tsx";
-import { aiMessage, maskWords, NOTES_BLOCKED_TEXT, NOTES_PAUSED_SHORT, NOTES_PAUSED_TEXT } from "../src/workspace/ai/model.ts";
+import { aiMessage, maskWords, NOTES_BLOCKED_TEXT, NOTES_PAUSED_SHORT, NOTES_PAUSED_TEXT, notesRecordText } from "../src/workspace/ai/model.ts";
 import { AiShareBand } from "../src/workspace/ai/AiShareBand.tsx";
+import { PERSONAL_INFO_NOTE } from "../src/workspace/ai/personalNote.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { APP_DIR } from "../scripts/lib.ts";
@@ -96,10 +97,13 @@ describe("1件ずつ渡す画面と事務所の設定", () => {
 });
 
 describe("名前・連絡先を書かない案内・確認画面を見てから渡す・同意の日付（0249 の追記）", () => {
-  it("メモと面談の記録の欄の近くに、電話番号・メールアドレス・住所を書かない案内を出す", () => {
+  it("メモと面談の記録の欄の近くと AI に渡す中身の確認画面に、名前・電話番号・メールアドレス・住所を書かない注意を出す（0249 の 10）", () => {
+    expect(PERSONAL_INFO_NOTE).toBe("お客さまの名前・電話番号・メールアドレス・住所（番地）は書かないでください。AI に渡すときに一部は自動で伏せますが、伏せきれないことがあります。");
     for (const f of ["src/workspace/MemoDrawer.tsx", "src/workspace/meetings/MeetingTools.tsx"]) {
-      expect(readFileSync(join(APP_DIR, f), "utf8"), f).toContain("電話番号・メールアドレス・住所は書かないでください（AI に渡すときに伏せます）");
+      expect(readFileSync(join(APP_DIR, f), "utf8"), f).toContain("{PERSONAL_INFO_NOTE}");
     }
+    const list: AiNotesPreview[] = [{ id: "a", customerNo: "A0001", texts: [{ item: "note.fp", author: "FP（メモ）", text: "頭金の相談", spans: [] }], suspects: [] }];
+    expect(renderToString(h(NotesPreviewList, { list, showNo: false }))).toContain(PERSONAL_INFO_NOTE);
   });
   it("AI に渡す中身の確認画面を、いまの伏せる言葉で開くまでは、メモと面談の履歴を渡せない", () => {
     const html = renderToString(h(NotesOptions, { ...base, looked: false }));
@@ -127,6 +131,16 @@ describe("名前・連絡先を書かない案内・確認画面を見てから�
     const brief = renderToString(h(AiShareBand, { shares: [{ ...share, notesPaused: true }], detailed: false, onStop: () => undefined, onOpen: () => undefined }));
     expect(brief).toContain(`${NOTES_PAUSED_SHORT}（1件）`);
     expect(brief).not.toContain("A0001");
+  });
+  it("AI に渡した記録に、メモと面談の履歴を止めたこと（いつ・何が変わったか）と渡し直したことを出す（0249 の 11）", () => {
+    const rec = { id: "r", kind: "household", shareId: "s-1", grantedAt: "2026-11-24T00:00:00Z", expiresAt: "2026-11-24T01:00:00Z", endedAt: null, endReason: null, scope: "reduced", allowlistVersion: "reduced@1", fields: [], householdRevision: "1", destinationDeclared: "AIのアプリ", consentAtGrant: { state: "given", recordId: null, warned: false }, reads: [], proposals: [] };
+    const paused = { ...rec, notesPaused: { at: "2026-11-24T00:30:00Z", changed: ["memo", "meetings"] as ("memo" | "meetings")[] } };
+    expect(notesRecordText(paused)).toContain("共有中にメモと面談の記録が変わったため、メモと面談の履歴を AI に渡すのを止めました（世帯の数字などは渡したまま）");
+    const again = { ...rec, id: "r2", shareId: "s-2", notesResharedAfter: "s-1" };
+    expect(notesRecordText(again)).toBe("メモと面談の履歴を止めた後に、AI に渡す中身の確認画面で見直して、渡し直しました");
+    expect(notesRecordText(rec)).toBeNull();
+    const html = renderToString(h(AiRecords, { view: view({ records: [paused, again] }) }));
+    expect(html.match(/data-ai-record-notes/g)).toHaveLength(2);
   });
   it("見本・記録を書けなかった・確認画面を見ていないときの文", () => {
     expect(aiMessage("E_AI_SAMPLE")).toBe("見本の世帯は AI に渡せません");

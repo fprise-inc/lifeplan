@@ -3,6 +3,7 @@
 // - 渡す前に本体が名前を伏せる（伏せる言葉と、敬称の前の名前らしい語）。伏せる言葉はこの画面と本体のメモリの上だけで使い、保存しない
 // - AI に渡す中身の確認画面は、AI に渡る文（伏せた後）を伏せた所に印を付けて見せ、名前らしい所が残っていそうな世帯を先に出す
 import { useState } from "preact/hooks";
+import { PERSONAL_INFO_NOTE } from "./personalNote.ts";
 import type { AiHost, AiNotesPreview } from "../../engine/host.ts";
 import { aiMessage, codeOf, maskWords } from "./model.ts";
 
@@ -44,6 +45,7 @@ export function NotesPreviewList({ list, showNo }: { list: readonly AiNotesPrevi
   return (
     <div class="ai-notes-preview" data-ai-notes-preview>
       <p class="pl-sub">AI に渡す中身の確認画面です。伏せた所に印があります。名前・電話番号などが残っていたら、伏せる言葉に足してください。</p>
+      <p class="in-note" data-ai-notes-personal-note>{PERSONAL_INFO_NOTE}</p>
       {list.map((p) => (
         <details key={p.id} open={p.suspects.length > 0} data-ai-notes-household={p.customerNo}>
           <summary>

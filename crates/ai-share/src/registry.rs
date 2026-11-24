@@ -169,6 +169,8 @@ struct State {
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
     revision: u64,
+    /// メモと面談の履歴を止めたが、止めた記録をまだ世帯ファイルに書けていない共有（世帯 → 共有ID。書けなければ取り消す。0249 の 11）
+    pause_unwritten: HashMap<String, Vec<String>>,
 }
 
 pub struct ShareRegistry {
@@ -387,6 +389,30 @@ impl ShareRegistry {
         let mut st = self.lock();
         let alias = format!("共有中の世帯{}", alias_letters(st.issued));
         st.issued += 1;
+        // メモと面談の履歴を渡すとき: 前にこの世帯でメモを止めた共有があり、その後にメモを渡した共有が無ければ、渡し直したことを記録する（0249 の 11）
+        let notes_reshared_after = if has_notes(&scope) {
+            st.logs
+                .get(&source.household_id)
+                .into_iter()
+                .flatten()
+                .rev()
+                .find_map(|r| {
+                    if r.notes_paused.is_some() {
+                        Some(Some(r.share_id.clone()))
+                    } else if r
+                        .fields
+                        .iter()
+                        .any(|f| crate::book::NOTE_ITEMS.contains(&f.as_str()))
+                    {
+                        Some(None)
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+        } else {
+            None
+        };
         let record = AiShareRecord {
             id: reduce::random_uuid_v4(),
             kind: "household".to_owned(),
@@ -416,6 +442,8 @@ impl ShareRegistry {
                 .unwrap_or_else(|p| p.into_inner())
                 .clone(),
             launch: Some(self.launch.clone()),
+            notes_paused: None,
+            notes_reshared_after,
         };
         st.revision += 1;
         let log = st.logs.entry(source.household_id.clone()).or_default();
@@ -454,6 +482,7 @@ impl ShareRegistry {
         let consent_ok = may_share(&st, &source)
             && (!st.shares.get(share_id).is_some_and(|s| has_notes(&s.scope))
                 || notes_basis_of(&st, &source).allowed());
+        let mut paused: Option<(String, usize, Vec<String>)> = None;
         let updated = match st.shares.get_mut(share_id) {
             Some(s) if s.ended.is_none() && s.source.household_id == source.household_id => {
                 // メモと面談の履歴も渡している共有で、メモ・面談の記録が変わった: AI に渡す中身の確認画面で見ていない文なので、
@@ -461,17 +490,73 @@ impl ShareRegistry {
                 if has_notes(&s.scope) && note_texts(&s.source) != note_texts(&source) {
                     s.scope = without_notes(&s.scope);
                     s.notes_paused = true;
+                    let changed_in = |memo: bool| {
+                        let pick = |src: &SharedHouseholdSource| {
+                            note_texts(src)
+                                .into_iter()
+                                .filter(|(i, _)| (*i == "note.fp") == memo)
+                                .map(|(i, b)| (i.to_owned(), b.to_owned()))
+                                .collect::<Vec<_>>()
+                        };
+                        pick(&s.source) != pick(&source)
+                    };
+                    let mut changed = Vec::new();
+                    if changed_in(true) {
+                        changed.push("memo".to_owned());
+                    }
+                    if changed_in(false) {
+                        changed.push("meetings".to_owned());
+                    }
+                    paused = Some((s.source.household_id.clone(), s.record_index, changed));
                 }
                 s.source = source;
                 true
             }
             _ => false,
         };
+        // 止めたことを AI に渡した記録に残す（いつ・何が変わったか。中身の文は残さない。0249 の 11）。書けたかはアプリ本体が見る
+        if let Some((household, index, changed)) = paused {
+            if let Some(r) = st.logs.get_mut(&household).and_then(|l| l.get_mut(index)) {
+                r.notes_paused = Some(crate::record::NotesPause {
+                    at: iso8601(now),
+                    changed,
+                });
+            }
+            st.revision += 1;
+            st.pause_unwritten
+                .entry(household)
+                .or_default()
+                .push(share_id.to_owned());
+        }
         if updated && require && !consent_ok {
             end_share(&mut st, share_id, iso8601(now), EndReason::ConsentWithdrawn);
             return false;
         }
         updated
+    }
+
+    /// メモと面談の履歴を止めた記録を、まだ世帯ファイルに書けていない共有がある世帯か（0249 の 11）
+    pub fn has_unwritten_pause(&self, household_id: &str) -> bool {
+        self.lock()
+            .pause_unwritten
+            .get(household_id)
+            .is_some_and(|v| !v.is_empty())
+    }
+
+    /// 世帯ファイルに記録を書けた: 止めた記録は書けた（0249 の 11）
+    pub fn pause_written(&self, household_id: &str) {
+        self.lock().pause_unwritten.remove(household_id);
+    }
+
+    /// 世帯ファイルに記録を書けなかった: 止めた記録を書けていない共有を、その場で取り消す（記録なしで渡したままにしない。C の決まりと同じ。
+    /// 0249 の 11）。取り消した数を返す
+    pub fn revoke_unwritten_pauses(&self, household_id: &str) -> usize {
+        let ids = self
+            .lock()
+            .pause_unwritten
+            .remove(household_id)
+            .unwrap_or_default();
+        ids.iter().filter(|id| self.revoke(id)).count()
     }
 
     /// 世帯の共有中の共有ID（期限内で閉じていないもの）

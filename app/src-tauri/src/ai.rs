@@ -388,6 +388,10 @@ impl AiState {
                 self.registry.update_source(&sid, src.clone());
             }
         }
+        // メモと面談の履歴を止めたら、止めたことをすぐ AI に渡した記録に書く（書けなければ、その共有を取り消す。0249 の 11）
+        if self.registry.has_unwritten_pause(id) {
+            self.persist_locked(store, &mut books);
+        }
         Ok(saved)
     }
 
@@ -530,6 +534,8 @@ impl AiState {
                 && e.book.only_additions_pending()
             {
                 if self.reload_background(store, id, e).is_err() {
+                    // 読めない世帯は書けない: メモを止めた記録を書けていない共有は、その場で取り消す（0249 の 11）
+                    self.registry.revoke_unwritten_pauses(id);
                     all = false;
                     continue;
                 }
@@ -544,9 +550,14 @@ impl AiState {
                 Ok(saved) => {
                     e.book.mark_saved(&records, saved.generation);
                     e.written_at = Some(Instant::now());
+                    self.registry.pause_written(id);
                 }
-                // 書けなかった記録は、次の見回りで書き直す（0249 の追記）
-                Err(_) => all = false,
+                // 書けなかった記録は、次の見回りで書き直す（0249 の追記）。メモを止めた記録を書けていない共有は、その場で取り消す
+                // （記録なしでメモを止めたまま渡し続けない。記録を書けない世帯は取り消す決まりと同じ。0249 の 11）
+                Err(_) => {
+                    self.registry.revoke_unwritten_pauses(id);
+                    all = false;
+                }
             }
         }
         all
@@ -2941,12 +2952,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（遺産の分け方〔0251〕で 0.88 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（AI に渡した記録のメモを止めた欄〔0249 の 11〕で 0.89 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.88");
+        assert_eq!(file["meta"]["formatVersion"], "0.89");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());
@@ -4106,7 +4117,8 @@ mod tests {
     }
 
     /// 共有中にメモ・面談の記録が変わったら、メモと面談の履歴だけ AI に渡すのを止める（0249 の追記）。世帯の数字は渡したまま。
-    /// 取り消して、AI に渡す中身の確認画面を開き直して渡し直すまで止めたまま（1件ずつ・まとめての両方）
+    /// 取り消して、AI に渡す中身の確認画面を開き直して渡し直すまで止めたまま（1件ずつ・まとめての両方）。
+    /// 止めたこと（いつ・何が変わったか）と渡し直したことを、世帯ファイルの AI に渡した記録に残す（中身の文は残さない。0249 の 11）
     #[test]
     fn notes_changed_while_shared_stop_until_shared_again() {
         let root = root("notes-paused");
@@ -4178,6 +4190,19 @@ mod tests {
         assert!(out.contains("\"notesPaused\":true") && out.contains("\"notes\":false"));
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert!(v["input"].is_object(), "世帯の数字は渡したまま");
+        // 止めたことを、すぐ世帯ファイルの記録に書く（いつ・何が変わったか。中身の文は書かない）
+        let shares_in_file = |id: &str| -> serde_json::Value {
+            let o = p.store.open_unmarked(id).unwrap();
+            let f: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+            f["aiShares"].clone()
+        };
+        let f = shares_in_file(&one);
+        assert_eq!(f[0]["notesPaused"]["changed"], serde_json::json!(["memo"]));
+        assert!(f[0]["notesPaused"]["at"]
+            .as_str()
+            .is_some_and(|t| !t.is_empty()));
+        assert!(f[0].get("notesResharedAfter").is_none());
+        assert!(!f.to_string().contains("伊藤"), "中身の文は記録に書かない");
         assert!(view(&p.ai, &lock(&p.ai.books), &one)
             .unwrap()
             .share
@@ -4192,6 +4217,11 @@ mod tests {
         share_start(&p.ai, &p.store, &one, 60, "AIのアプリ".into(), true, vec![]).unwrap();
         assert!(!share_of(&one).notes_paused);
         assert!(read(&share_of(&one).share_id).contains("頭金"));
+        // 渡し直したことも記録に残す（止めた共有の ID）
+        p.ai.persist_all(&p.store);
+        let f = shares_in_file(&one);
+        assert_eq!(f[1]["notesResharedAfter"], s.share_id.as_str());
+        assert!(f[1].get("notesPaused").is_none());
 
         // まとめて渡した世帯
         let ids = vec![two.clone()];
@@ -4210,8 +4240,100 @@ mod tests {
             !out.contains("頭金") && !out.contains("次回は来月"),
             "{out}"
         );
+        let f = shares_in_file(&two);
+        assert_eq!(f[0]["notesPaused"]["changed"], serde_json::json!(["memo"]));
+        // まとめて渡し直す（取り消して、確認画面を開き直してから）
+        assert_eq!(bulk_revoke(&p.ai, &p.store, &ids), 1);
+        notes_preview(&p.ai, &p.store, &ids, &[]).unwrap();
+        bulk_grant(&p.ai, &p.store, &ids, 60, "AIのアプリ", &notes).unwrap();
+        p.ai.persist_all(&p.store);
+        let f = shares_in_file(&two);
+        assert_eq!(f[1]["notesResharedAfter"], s.share_id.as_str());
+        assert_eq!(
+            f[0]["notesPaused"]["changed"],
+            serde_json::json!(["memo"]),
+            "止めた記録は変えない"
+        );
         // 渡し直した1件ずつの共有は、ほかの世帯の書き足しでは止まらない
         assert!(!share_of(&one).notes_paused);
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// メモを止めた記録を世帯ファイルに書けなかったら（保存できない）、その共有をその場で取り消す（記録を書けない世帯は取り消す決まりと同じ。
+    /// 0249 の 11）。ほかの PC が書き足して閉じた世帯を、この PC の見回りが読み直したとき
+    #[cfg(unix)]
+    #[test]
+    fn notes_pauses_that_cannot_be_written_revoke_the_share() {
+        use std::os::unix::fs::PermissionsExt;
+        let (base, a, b) = office("pause-not-written");
+        let body = serde_json::json!({
+            "household": { "request": { "input": model_input() }, "memo": ["頭金を増やす相談"] }
+        })
+        .to_string();
+        let x = crate::store::create_household(
+            &a.store,
+            &a.ai,
+            body,
+            "本人".into(),
+            CreateOptions::default(),
+        )
+        .unwrap()
+        .id;
+        let z = create(&a, None, false);
+        a.record(&x, "given");
+        let ids = vec![x.clone()];
+        notes_preview(&a.ai, &a.store, &ids, &[]).unwrap();
+        bulk_grant(
+            &a.ai,
+            &a.store,
+            &ids,
+            60,
+            "AIのアプリ",
+            &BulkNotes {
+                ids: ids.clone(),
+                words: vec![],
+            },
+        )
+        .unwrap();
+        let mut w = Watch::default();
+        a.tick(&mut w);
+        assert_eq!(a.ai.registry.active_shares().len(), 1);
+        // B が面談の記録を足して保存し、別の世帯を開く（x を閉じる）
+        let ob = b.store.open(&x).unwrap();
+        let mut bb: serde_json::Value = serde_json::from_str(&ob.body).unwrap();
+        bb["meetings"] = serde_json::json!({ "version": 1, "records": [{ "id": "m1", "on": "2026-05-10",
+            "shared": { "decided": "積立を増やす" } }] });
+        b.store.save(&x, &bb.to_string(), "本人").unwrap();
+        b.store.open(&z).unwrap();
+        // 世帯ファイルのあるフォルダを書けなくする
+        let dirs: Vec<PathBuf> = walkdir(&base)
+            .into_iter()
+            .filter(|f| {
+                f.file_name()
+                    .is_some_and(|n| n.to_string_lossy().starts_with(&x))
+            })
+            .filter_map(|f| f.parent().map(Path::to_path_buf))
+            .collect();
+        assert!(!dirs.is_empty());
+        for d in &dirs {
+            std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o555)).unwrap();
+        }
+        w.files_at = None;
+        a.tick(&mut w);
+        let left = a.ai.registry.active_shares().len();
+        for d in &dirs {
+            std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        assert_eq!(left, 0, "止めた記録を書けない共有は取り消す");
+        // 書けるようになった後の見回りで、止めたことと取り消しを書く
+        a.tick(&mut w);
+        let o = a.store.open_unmarked(&x).unwrap();
+        let f: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+        assert_eq!(
+            f["aiShares"][0]["notesPaused"]["changed"],
+            serde_json::json!(["meetings"])
+        );
+        assert_eq!(f["aiShares"][0]["endReason"], "revoked");
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
