@@ -19,6 +19,8 @@ import { roles } from "../roles.ts";
 import { OfficeTextsContext } from "../office/customTextsContext.ts";
 import { wordingOf } from "../resultTexts.ts";
 import { CURRENT } from "../plans/band.ts";
+import { pctText } from "../plans/decimal.ts";
+import { investDefaultSource } from "../input/savings/model.ts";
 import { sceneView, YearSweep, type ContingencyEngine } from "./engine.ts";
 import { premiseItems, SCENE_NOTES } from "./inputs.ts";
 import { pickScene, premiseStartKinds, protectionOf, protectionText, sameProtection, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "./premiseChoice.ts";
@@ -328,6 +330,15 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
     </p>
   );
 
+  // 必要保障額を逆算方式で出す世帯（見ているプランの前提）: 遺族の資金を伸ばす運用の利回り（配分も利回りも入れていない運用の口座の率。世帯の前提条件の
+  // 画面には出さないので、ここで値と出どころを見せる。0260）
+  const reverseRate = protectionOf(edited.contingency).protection?.method === "reverse" ? wh.request.input.assumptions?.investmentReturn?.default : undefined;
+  const reverseFoot =
+    reverseRate === undefined ? null : (
+      <p class="in-note cg-reverse-return" data-cg-reverse-return>
+        遺族の資金の運用の利回り: 年{pctText(reverseRate)}（{investDefaultSource(edited)}）。必要保障額の逆算方式で、遺族の金融資産をこの率で伸ばして数えます（配分も利回りも入れていない運用の口座と同じ率で、事務所の既定値の画面で決めます）。
+      </p>
+    );
   const chartProps = { model, mode, pinnedYear: chartYear, onPinYear: setChartYear, onPick: pick };
   const last = engine?.openings.at(-1);
   const previews = engine?.sweep.timings.filter((t) => t.kind === "preview") ?? [];
@@ -355,7 +366,14 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
         onRemove={(k) => onUi({ ...ui, premiseAdded: added.filter((x) => x !== k) })}
         onDraft={setDraft}
         onCommit={commit}
-        foot={protFoot}
+        foot={
+          reverseFoot === null && protFoot === null ? null : (
+            <>
+              {reverseFoot}
+              {protFoot}
+            </>
+          )
+        }
         {...(initialPremiseMenu === true ? { initialMenu: true } : {})}
         plan={
           planId === CURRENT

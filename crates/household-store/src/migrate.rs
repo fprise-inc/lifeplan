@@ -11,8 +11,13 @@ use serde_json::{Map, Value};
 use crate::readings;
 use crate::StoreError;
 
+/// 前提と推定の一覧の「お客さまと確かめた」記録 `household.agreed` をなくした版（0260）。ほかの変更と版の番号がぶつかったら、
+/// この1つの定数と、見本のフォルダ（`tests/fixtures/household-format/<版>/`）の名前と、テスト・画面の版の確かめの数を付け直す
+/// （変換の段 `drop_agreed_marks` は版の番号を持たない）
+pub const AGREED_DROPPED: &str = "0.92";
+
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.91";
+pub const CURRENT: &str = AGREED_DROPPED;
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -336,15 +341,104 @@ pub const CURRENT: &str = "0.91";
 ///   値と前の値を同じく移す（差分に出てくる種類〔プランで足した段の配分も〕も `fees` に入れる）。
 ///   控え・`sampleInitial` の中身は変えない（計算エンジンは前の版の `fee` も読む）。前の版のアプリは計算の入力の検査で `fees` と新しい種類を
 ///   通さないので、版を上げて閲覧だけにする。0.89 の段の後に積む
+/// - 0.91: 口座の預金から移す行 `accounts[].fromDeposit`（0258）を足した（足すだけの MINOR。変換の段は形式の版だけを書き換える）
+/// - 0.92（`AGREED_DROPPED`）: 前提と推定の一覧の「お客さまと確かめた」記録 `household.agreed`（0.27 から。計算・提案書・持ち帰り用のレポート・
+///   AI接続口には使っていなかった）をなくした（0260。利用者の判断）。形を変える段: 本文の `household.agreed` を外す。控え（`snapshots`）・
+///   自分で作った見本の最初の状態（`sampleInitial`）の中は書き換えない（0.87 の決まり。`sampleInitial` は使うときにこの段を通るので外れる）。
+///   前の版のアプリは欄が無くても読めるが、新しい版の世帯を開くと閲覧だけになる（ほかの版上げと同じ）。0.91 の段の後に積む
 pub const KNOWN: &[&str] = &[
-    "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
-    "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
-    "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
-    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
-    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74", "0.75", "0.76", "0.77", "0.78", "0.79", "0.80", "0.81", "0.82", "0.83", "0.84", "0.85",
-    "0.86", "0.87", "0.88", "0.89", "0.90", "0.91",
+    "0.1",
+    "0.2",
+    "0.3",
+    "0.4",
+    "0.5",
+    "0.6",
+    "0.7",
+    "0.8",
+    "0.9",
+    "0.10",
+    "0.11",
+    "0.12",
+    "0.13",
+    "0.14",
+    "0.15",
+    "0.16",
+    "0.17",
+    "0.18",
+    "0.19",
+    "0.20",
+    "0.21",
+    "0.22",
+    "0.23",
+    "0.24",
+    "0.25",
+    "0.26",
+    "0.27",
+    "0.28",
+    "0.29",
+    "0.30",
+    "0.31",
+    "0.32",
+    "0.33",
+    "0.34",
+    "0.35",
+    "0.36",
+    "0.37",
+    "0.38",
+    "0.39",
+    "0.40",
+    "0.41",
+    "0.42",
+    "0.43",
+    "0.44",
+    "0.45",
+    "0.46",
+    "0.47",
+    "0.48",
+    "0.49",
+    "0.50",
+    "0.51",
+    "0.52",
+    "0.53",
+    "0.54",
+    "0.55",
+    "0.56",
+    "0.57",
+    "0.58",
+    "0.59",
+    "0.60",
+    "0.61",
+    "0.62",
+    "0.63",
+    "0.64",
+    "0.65",
+    "0.66",
+    "0.67",
+    "0.68",
+    "0.69",
+    "0.70",
+    "0.71",
+    "0.72",
+    "0.73",
+    "0.74",
+    "0.75",
+    "0.76",
+    "0.77",
+    "0.78",
+    "0.79",
+    "0.80",
+    "0.81",
+    "0.82",
+    "0.83",
+    "0.84",
+    "0.85",
+    "0.86",
+    "0.87",
+    "0.88",
+    "0.89",
+    "0.90",
+    "0.91",
+    AGREED_DROPPED,
 ];
 
 /// 1段分の変換
@@ -805,6 +899,11 @@ pub const STEPS: &[Step] = &[
         from: "0.90",
         to: "0.91",
         apply: v0_90_to_0_91,
+    },
+    Step {
+        from: "0.91",
+        to: AGREED_DROPPED,
+        apply: drop_agreed_marks,
     },
 ];
 
@@ -3034,6 +3133,19 @@ fn v0_90_to_0_91(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.91 → `AGREED_DROPPED`（0.92）: 前提と推定の一覧の「お客さまと確かめた」記録 `household.agreed` を外す（0260）。
+/// 控え・`sampleInitial` の中に触れない（`sampleInitial` は最初の状態に戻すときにこの段を通る）。ほかの区画・欄は変えない
+fn drop_agreed_marks(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(h) = obj.get_mut("household").and_then(Value::as_object_mut) {
+        h.remove("agreed");
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), AGREED_DROPPED.into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -4032,7 +4144,8 @@ mod tests {
         assert_eq!(access("0.89").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.90").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.91").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.92").unwrap(), Access::ReadOnly);
+        assert_eq!(access(AGREED_DROPPED).unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.93").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -4045,10 +4158,48 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.92", b.clone()).unwrap(),
+            upgrade("0.93", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
+    }
+
+    #[test]
+    fn drop_agreed_marks_removes_only_household_agreed() {
+        // 0260: 前提と推定の一覧の「お客さまと確かめた」記録を外す。ほかの画面の側の値・控え・sampleInitial の中はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.91"},
+            "household": {
+                "request": {"input": {"assumptions": {"inflation": {"default": "0.01"}}}},
+                "agreed": {"current": {"field:assume/inflation": {"on": "2026-10-20", "note": "面談で確かめた"}}, "plan-b": {"cg:market/drop": {"on": "2026-11-01"}}},
+                "recheck": [{"id": "row-1", "on": "2026-11-01"}],
+                "assumed": {"assume/inflation": "事務所の既定値（2026-11）"}
+            },
+            "snapshots": [{"id": "s", "input": {"household": {}}, "agreed": {"current": {}}}],
+            "sampleInitial": {"formatVersion": "0.91", "sections": {"household": {"agreed": {"current": {"field:assume/inflation": {"on": "2026-10-20"}}}}}}
+        });
+        let u = upgrade("0.91", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], AGREED_DROPPED);
+        assert!(u["household"].get("agreed").is_none());
+        let mut want = b.clone();
+        want["meta"]["formatVersion"] = AGREED_DROPPED.into();
+        want["household"].as_object_mut().unwrap().remove("agreed");
+        assert_eq!(u, want, "ほかの欄・控え・sampleInitial は変えない");
+        // 記録の無い世帯は版だけ
+        let none = serde_json::json!({"meta": {"formatVersion": "0.91"}, "household": {"request": {"input": {}}}});
+        let mut want = none.clone();
+        want["meta"]["formatVersion"] = AGREED_DROPPED.into();
+        assert_eq!(upgrade("0.91", none).unwrap(), want);
+        // sampleInitial を最初の状態に戻すとき（その版から変換の段を通す）も記録は外れる
+        let initial = serde_json::json!({"meta": {"formatVersion": "0.91"}, "household": b["sampleInitial"]["sections"]["household"].clone()});
+        assert!(upgrade("0.91", initial).unwrap()["household"]
+            .get("agreed")
+            .is_none());
+        // 0.27 の頃の記録（前の版から通しても）も外れる
+        let old = serde_json::json!({"meta": {"formatVersion": "0.90"}, "household": {"request": {"input": {}}, "agreed": {"current": {"x": {"on": "2026-10-01"}}}}});
+        assert!(upgrade("0.90", old).unwrap()["household"]
+            .get("agreed")
+            .is_none());
     }
 
     #[test]
@@ -4060,9 +4211,9 @@ mod tests {
             "snapshots": [{"id": "s", "input": {"household": {"accounts": []}}}]
         });
         let u = upgrade("0.90", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.91");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         let mut want = b;
-        want["meta"]["formatVersion"] = "0.91".into();
+        want["meta"]["formatVersion"] = CURRENT.into();
         assert_eq!(u, want);
         assert!(
             u["household"]["request"]["input"]["household"]["accounts"][0]
@@ -5192,7 +5343,10 @@ mod tests {
                 {"target": {"object": "g1"}, "item": "account.valueGrowth", "at": []}
             ])
         );
-        let agreed = u["household"]["agreed"]["current"].as_object().unwrap();
+        // 確かめた記録は 0.92 の段（0260）で外れるので、この段だけを通した形で鍵を確かめる
+        assert!(u["household"].get("agreed").is_none());
+        let one = v0_59_to_0_60(b.clone()).unwrap();
+        let agreed = one["household"]["agreed"]["current"].as_object().unwrap();
         assert!(agreed.contains_key("field:sav/c1/rate"));
         assert!(!agreed.contains_key("field:sav/c1/growth"));
         assert!(!agreed.contains_key("field:sav/c1/subtype"));

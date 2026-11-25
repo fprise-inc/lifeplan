@@ -343,8 +343,7 @@ function sample027(): BodyState {
   const box = (value: unknown) => ({ value, state: "confirmed", origin: { kind: "manual" } });
   const diff = { id: "00000000-0000-4000-8000-00000000a027", op: "set" as const, target: { plan: "contingency" as const }, item: "contingencyPremise.survivor", at: ["livingRatio", "beforeIndependence"], value: box("0.6"), before: box(null), enabled: true, origin: { kind: "manual" as const }, note: null };
   const proposals = s.wh.proposals.map((p, i) => (i === 0 ? { ...p, diffs: [...p.diffs, diff] } : p));
-  const agreed = { current: { "field:assume/inflation": { on: "2026-10-20", note: "面談で確かめた" } } };
-  return { ...s, wh: { ...s.wh, request: req, contingency: c, proposals, agreed } };
+  return { ...s, wh: { ...s.wh, request: req, contingency: c, proposals } };
 }
 
 /**
@@ -1400,7 +1399,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.91");
+    expect(BODY_FORMAT_VERSION).toBe("0.92");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1780,12 +1779,16 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     preview(back.wh.request);
   });
 
-  it("0.27 の形（0070・0071）: 万一の前提の任意の欄・前提の例外の年・確かめた記録・万一の前提を上書きする差分を保存して読み戻し、差分はそのプランの万一の前提に当たる", () => {
+  it("0.27 の形（0070・0071）: 万一の前提の任意の欄・前提の例外の年・万一の前提を上書きする差分を保存して読み戻し、差分はそのプランの万一の前提に当たる。確かめた記録（0.27〜0.91）は読まない・書かない（0260）", () => {
     const s = sample027();
     const stored = bodyObject(s) as unknown as { household: { contingency: Record<string, unknown>; agreed?: unknown } };
     expect(stored.household.contingency).toMatchObject({ protection: { method: "reverse", reverseUntilAge: 90 }, incomeDrop: { member: "both" }, stackMarket: true });
-    expect(stored.household.agreed).toEqual({ current: { "field:assume/inflation": { on: "2026-10-20", note: "面談で確かめた" } } });
-    const back = fromBody(JSON.stringify(stored));
+    expect(stored.household.agreed).toBeUndefined();
+    // 前の版の本文（変換の段を通らない本文）に確かめた記録があっても、作業中の世帯に持たず、書き戻さない
+    const old = { ...stored, household: { ...stored.household, agreed: { current: { "field:assume/inflation": { on: "2026-10-20", note: "面談で確かめた" } } } } };
+    const back = fromBody(JSON.stringify(old));
+    expect("agreed" in back.wh).toBe(false);
+    expect((bodyObject(back) as unknown as { household: Record<string, unknown> }).household.agreed).toBeUndefined();
     expect(bodyObject(back)).toEqual(bodyObject(s));
     const self = roles(back.wh.request).find((r) => r.key === "self")!.member;
     const cat = buildCatalog(back.wh, self.id, null);

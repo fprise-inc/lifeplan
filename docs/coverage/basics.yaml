@@ -15,12 +15,12 @@ entries:
       載ります。たとえば公的年金は偶数月に前の2か月分を受け取るので、12月分は翌年2月の受け取りとして翌年の欄に入ります。住民税は前の年の所得に
       かかり6月から翌年5月に払う、確定申告の精算は翌年3月、というように、税・保険料もそれぞれの納める月の年に入ります。
       計算の基準の月が年の途中のときは、その年は数か月分しかないので、表は翌年から見せます。
-      数え方は「前提条件」の入力項目の「計算の決まり: お金の数え方」に表示しています（変えられません）。
+      数え方は「前提条件」の入力項目の「お金の数え方」（詳細の「計算の基準の月と計算の決まり」）に表示しています（変えられません）。
     keywords: [月単位, 月ごと, 支払月, 現金主義, 受け取った年, 払った年, 偶数月, 年の集計, 計算の基準の月, お金の数え方]
     items: [plan.baseMonth, employment.salary.bonusMonths]
     fields:
       - 「前提条件」の入力項目の「計算の基準の月」
-      - "「前提条件」の入力項目の「計算の決まり: お金の数え方」"
+      - 「前提条件」の入力項目の「お金の数え方」
     rows: [cf.net, cf.income.pension]
     components:
       plan.flows: 15
@@ -64,8 +64,8 @@ entries:
     fields:
       - 「前提条件」の入力項目の「物価の上昇率」
       - 「前提条件」の入力項目の「給与の上昇率」
-      - 「前提条件」の入力項目の「教育費の上昇率（年）」
-      - 「前提条件」の入力項目の「例外の年（経済の前提）」
+      - 「前提条件」の入力項目の「教育費の上昇率」
+      - 「前提条件」の入力項目の「＋ 例外の年」
     components:
       expense.living: 4
       income.salary: 8
@@ -91,7 +91,7 @@ entries:
     items: [account.settlement, account.marketValue, assumptions.investmentReturn, assumptions.depositReturn]
     fields:
       - 「貯蓄・運用」の入力項目の「収支が入る口座（決済口座）」
-      - "「前提条件」の入力項目の「計算の決まり: 運用益の数え方」"
+      - 「前提条件」の入力項目の「運用益の数え方」
     rows: [cf.net, cf.balance.return, cf.balance.financial, cf.balance.account]
     components:
       plan.cashflow: 30

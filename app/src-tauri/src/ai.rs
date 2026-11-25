@@ -2991,12 +2991,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（預金から移す行〔0258〕で 0.91 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（前提と推定の一覧の確かめた記録をなくして〔0260〕0.92 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.91");
+        assert_eq!(file["meta"]["formatVersion"], "0.92");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());

@@ -744,8 +744,8 @@ describe("要約の数字1つ", () => {
     // 私立になる最初の段（前の「私立あり」は既定の型でどの子も同じになり、何も伝えなかった。0041 の追記 2026-11-06）
     expect(sumText(byId(items, "education"))).toBe("2人・高校から私立 1人");
     expect(sumText(byId(items, "housing"))).toBe("残高 2,240万円");
-    // お客さまと確かめる前提の4つ（0214 の追記 2026-11-16）。見本の表の最後の年はご本人が100歳の年（既定は若い方の配偶者が100歳の年）
-    expect(sumText(byId(items, "assumptions"))).toBe("物価 1.0%・給与 1.0%・運用 1.0%・100歳まで（この世帯だけ）");
+    // 標準の前提の3つ（0214 の追記 2026-11-16。運用の利回りは 0260 で外した）。見本の表の最後の年はご本人が100歳の年（既定は若い方の配偶者が100歳の年）
+    expect(sumText(byId(items, "assumptions"))).toBe("物価 1.0%・給与 1.0%・100歳まで（この世帯だけ）");
   });
   it("車・介護・親・相続・贈与・ほかの型", () => {
     expect(sumText(byId(inputItems(open("unexplainedSpending")), "car"))).toBe("1台・維持費 年18.6万円");

@@ -155,9 +155,9 @@ describe("パネルの「推定のままの値を「この値にする」」", (
     for (const level of ["simple", "detail"] as const) {
       const html = panel(wh, "assumptions", level);
       expect(html, level).not.toContain("data-confirm-all");
-      // 見本は外国株式の利回りをこの世帯だけ入れている（細かい前提のたたんだ1行は詳細だけ。0214 の追記 2026-11-16）
-      if (level === "detail") expect(html, level).toContain("細かい前提: 事務所の既定値と、この世帯だけ変えた所 1件");
-      else expect(html, level).not.toContain("data-premise-fold");
+      // 見本は外国株式の利回りをこの世帯だけ入れている（詳細の資産の種類ごとの利回りの欄に「この世帯だけ」。たたむ1行は無い。0260）
+      if (level === "detail") expect(html, level).toContain('data-premise="household"');
+      expect(html, level).not.toContain("data-premise-fold");
     }
   });
 

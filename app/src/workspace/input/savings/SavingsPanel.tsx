@@ -90,6 +90,8 @@ import {
   type Step,
   type StopEstimate,
   type Tranche,
+  investDefaultSource,
+  rateSourceOf,
 } from "./model.ts";
 
 const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa", "cryptoAsset"]);
@@ -800,6 +802,12 @@ function AccountRate(p: { a: Account; name: string; f: FieldDef | undefined; wh:
           {problem}
         </div>
       ) : null}
+      {/* 空欄の利回りの出どころ（「空欄: 事務所の既定値」。運用の利回りは世帯の前提条件の画面に出さないので、ここで言う。0260） */}
+      {a.expectedReturn === undefined ? (
+        <div class="fld-help sv-rate-src" data-rate-source>
+          空欄: {rateSourceOf(wh, a)}
+        </div>
+      ) : null}
       <RateWarn f={f} wh={wh} />
       <FieldStateLine f={f} wh={wh} onEdit={p.onEdit} compact />
     </>
@@ -814,7 +822,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
   const fValue = p === undefined ? undefined : fields.get(`sav/${p.id}/value`);
   const fRate = p === undefined ? undefined : fields.get(`sav/${p.id}/rate`);
   const fUn = p === undefined ? undefined : fields.get(`sav/${p.id}/uninvested`);
-  // 平均の利回りは率をそのまま入れる（名前の付いた選び方は置かない。空欄は前提条件の運用利回り。0050 の 2026-10-31 の追記）
+  // 平均の利回りは率をそのまま入れる（名前の付いた選び方は置かない。空欄は運用の利回り〔事務所の既定値〕。0050 の 2026-10-31 の追記・0260）
   const ownRate = p === undefined ? t.rate : (p.expectedReturn ?? null);
   const [rateProblem, setRateProblem] = useState<string | null>(null);
   const setRate = (rate: string | null) => {
@@ -877,7 +885,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
         <p class="help">
           {t.uninvested !== null ? "運用しない分を除いた、運用する分の平均。" : "預金も含めた全体の平均。迷ったら、預金が多いほど低めに。"}
           長い期間の平均の年率を、{rangeText(RETURN_RANGE)}の範囲で入れます。
-          {ownRate === null ? `入れていないので、前提条件の運用利回り（年${pct1(Number(t.rate))}%）で計算しています。` : ""}
+          {ownRate === null ? `入れていないので、${investDefaultSource(wh)}（年${pct1(Number(t.rate))}%）で計算しています。` : ""}
         </p>
       </div>
       {level === "detail" ? (
@@ -1483,7 +1491,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
         </h3>
         {gaps.length > 0 ? (
           <div class="sv-carry" role="status" data-alloc-gap>
-            {gaps.join("・")}が、まだ計算に入っていません（{inv.allocation === undefined ? "今は運用利回りで計算しています" : "今は入っている値だけで計算しています"}）。{" "}
+            {gaps.join("・")}が、まだ計算に入っていません（{inv.allocation === undefined ? "今は事務所の既定値の利回りで計算しています" : "今は入っている値だけで計算しています"}）。{" "}
             <button type="button" class="link-btn" onClick={() => onEdit(fillAllocation(wh))}>
               表の値で計算する
             </button>

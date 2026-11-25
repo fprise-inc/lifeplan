@@ -1,18 +1,22 @@
-// 10. 前提条件（0070）: 物価上昇率・賃金上昇率・運用利回り・教育費の上昇率・年金のマクロ経済スライド（基礎・厚生）の年ごとの列の既定の値と
-// 例外の年（0008 の8・0040）、資産の種類ごとの利回り（と例外の年）、持ち家の評価の前提（土地の上昇率の例外の年を含む）、表の最後の年
+// 10. 前提条件（0070）: 物価の上昇率・給与の上昇率・預金の利回り・教育費の上昇率・年金のマクロ経済スライド（基礎・厚生）の年ごとの列の既定の値と
+// 例外の年（0008 の8・0040）、資産の種類ごとの利回り（と例外の年）、不動産の評価の前提（土地の上昇率の例外の年を含む）、表の最後の年
 // （年か人の年齢で）・計算の基準の月と計算の決まり（読むだけ）、FP顧問料（単発・継続・料金の段階。stages/fees.ts）。
-// - 前提条件の既定の値のある欄（経済の前提・不動産の評価・資産の種類ごとの利回り）は、事務所の既定値と比較して「事務所の既定値」
-//   「この世帯だけ」と見せる（推定にしない。0214。input/premiseDefaults.ts）。空欄にすると事務所の既定値に戻る
-// - 高すぎる値の注意の線（運用利回りが年5%を超える・物価が0%未満か4%を超える・賃金が物価を2ポイント超えて上回る・資産の種類ごとの
+// - ほかの入力項目と同じ「区画＋欄」の形（0260。前の「お客さまと確かめる前提」の見出しと、細かい前提をたたむ1行はやめた）:
+//   計算の期間（表を何歳まで見るか）・経済の前提（標準は物価・給与の上昇率、詳細は預金の利回り・教育費の上昇率・年金の調整率も）・
+//   結果のタブで動かした利回り・金利（ある世帯だけ）・資産の種類ごとの利回り・不動産の評価・計算の基準の月と計算の決まり（どれも詳細。たたまない）・FP顧問料
+// - 前提条件の既定の値のある欄は、事務所の既定値と比較して、違う欄だけ「この世帯だけ」（と「戻す」）・「既定値が変わりました」（と「今の既定値にする」）を出す
+//   （事務所の既定値どおりの欄には印を出さない。0214・0260。input/premiseDefaults.ts）。空欄にすると事務所の既定値に戻る
+// - 例外の年は、欄の下の小さな「＋ 例外の年」（詳細）で足し、足した例外の年は区画の欄の並びの下のまとまりで直す（0260）
+// - 運用の利回り（配分も利回りも入れていない運用の口座の率）は、世帯の入力の画面に出さない（事務所の既定値の画面で決める）。前の世帯で「この世帯だけ」の
+//   値などがある世帯だけ、詳細の資産の種類ごとの利回りの区画の最後に1行（investmentReturnShown。計算は変えない。0260）
+// - 高すぎる値の注意の線（運用の利回りが年5%を超える・物価が0%未満か4%を超える・給与が物価を2ポイント超えて上回る・資産の種類ごとの
 //   利回りが年8%を超える）は、欄の知らせと確かめの一覧の注意に出す（値は変えない）
-// - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳〔事務所の既定値で選んだ年齢〕になる年）と同じなら「事務所の既定値」（推定にしない。
+// - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳〔事務所の既定値で選んだ年齢〕になる年）と同じなら事務所の既定値（推定にしない。
 //   0214 の追記 2026-11-16 の2）、人と年齢で選んだ・年で決めたなら「この世帯だけ」。年で決めたら家族の生年月を直しても追いかけない。
 //   古い世帯で若い方が表の最後の年に105歳を超える（か85歳に届かない）ときは、確かめの注意に「標準にする」を出す（押したときだけ直す）
 // - 表の最後の年はどのプランにも共通（世帯で1つ。プランの差分にしない。0043 の追記 2026-11-05）。何歳まで見るかは、標準の1つの欄
 //   「表を何歳まで見るか」で「ご本人が95歳まで」「配偶者が100歳まで（既定）」「年で決める…」のように選ぶ（0070 の追記 2026-11-13）
-// - お客さまと確かめる前提（物価の上昇率・給与の上昇率・運用の利回り・表を何歳まで見るか）は最初の区画に、標準・詳細のどちらでもたたまずに出し、
-//   欄の下に FP がお客さまに話すときの一言（欄の値で言い換わる）を添える。FP が決める細かい前提と計算の決まりは詳細だけで、入力のパネルが
-//   1行にたたむ（PREMISE_FOLD_SECTIONS。0214 の追記 2026-11-16）
+// - 物価・給与の上昇率は、欄の下に「例」の1行（お客さまに話すときの言い方の例。欄の値で言い換わる）。長い言い方は欄の「?」の中（0260）
 // 黒字のうち貯まる割合（0031）は、顧客と一緒に見る基本生活費のカードへ移した（stages/surplusSaving.ts。0031 の追記）
 import type { Household, Member, ReturnShift, YearSeries } from "../../../engine/types.ts";
 import { ageInYear } from "../../roles.ts";
@@ -25,7 +29,7 @@ import { putRow } from "../rows.ts";
 import { sameRate, ymWithEra } from "../units.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
-import { followsHint, ownsRealEstate, PREMISE_DEFS, premiseAddress, TALK_PREMISE_SECTION, TALK_PREMISES, premiseMark, premiseOfKey, premiseShown, premiseValue, resetPremise, typePremise, type PremiseDef } from "../premiseDefaults.ts";
+import { followsHint, followsValue, INVESTMENT_RETURN_LABEL, ownsRealEstate, PREMISE_DEFS, premiseAddress, premiseMark, premiseOfKey, premiseShown, premiseState, premiseValue, resetPremise, typePremise, type PremiseDef } from "../premiseDefaults.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../rateRanges.ts";
 import { presetNum } from "../../../../../hearing/src/presets.ts";
 
@@ -117,14 +121,16 @@ function writeSeries(wh: WorkingHousehold, sp: SeriesPlace, next: YearSeries | u
   return { ...wh, request };
 }
 
-// ---- お客さまと確かめる前提の一言（0214 の追記 2026-11-16）: FP がお客さまに話すときの言葉。欄の値で言い換わる ----
+// ---- 欄の下の例（0214 の追記 2026-11-16・0260）: お客さまに話すときの例の1行。欄の値で言い換わる。長い言い方は欄の「?」の中 ----
 
 /** 率の文字の大きさ（符号を外す） */
 const absRate = (r: string): string => r.replace(/^-/, "");
 /** 100万円を年 r で n 年伸ばした額（万円。丸めた整数） */
 const grown = (base: number, r: number, n: number): number => Math.round(base * Math.pow(1 + r, n));
+/** 物価の上昇率との差（ポイント。小数2桁まで） */
+const gapOf = (r: string, inflation: string): number => Math.round((Number(r) - Number(inflation)) * 10000) / 100;
 
-/** 物価の上昇率の一言（30年後の100万円が今のいくらの値打ちか） */
+/** 物価の上昇率の話し方の例（「?」の中。30年後の100万円が今のいくらの値打ちか） */
 export function inflationTalk(r: string): string {
   const v = Number(r);
   if (v === 0) return "物価が変わらないとすると、30年後の100万円も、今の100万円と同じ値打ちです";
@@ -132,43 +138,58 @@ export function inflationTalk(r: string): string {
   return `物価が年${pctText(absRate(r))}${v > 0 ? "上がる" : "下がる"}と、30年後の100万円は、今の約${now}万円の値打ちになります`;
 }
 
-/** 給与の上昇率の一言（今の年収500万円が20年後にいくらか。物価の上昇率と比較して、暮らし向きがどうなる計算か） */
+/** 物価の上昇率の欄の下の例（1行） */
+export function inflationExample(r: string): string {
+  const v = Number(r);
+  if (v === 0) return "例 30年後の100万円も、今の100万円と同じ値打ち";
+  return `例 30年後の100万円は、今の約${Math.round(100 / Math.pow(1 + v, 30))}万円の値打ち`;
+}
+
+/** 給与の上昇率の話し方の例（「?」の中。今の年収500万円が20年後にいくらか。物価の上昇率と比較して、暮らし向きがどうなる計算か） */
 export function wageTalk(r: string, inflation: string | null): string {
   const v = Number(r);
   const head = v === 0 ? "給与が変わらないとすると、今の年収500万円は20年後も500万円のままです" : `給与が年${pctText(absRate(r))}${v > 0 ? "上がる" : "下がる"}と、今の年収500万円は20年後に約${grown(500, v, 20)}万円になります`;
   if (inflation === null) return head;
-  const gap = Math.round((v - Number(inflation)) * 10000) / 100;
+  const gap = gapOf(r, inflation);
   if (gap === 0) return `${head}（物価の上昇率と同じなので、暮らし向きは今と同じ計算です）`;
   return `${head}（物価の上昇率より${String(Math.abs(gap))}ポイント${gap > 0 ? "高いので、暮らし向きは少しずつ良くなる" : "低いので、暮らし向きは少しずつ苦しくなる"}計算です）`;
 }
 
-/** 運用の利回りの一言（100万円が10年後・20年後にいくらか。運用の費用を引いた後の率で、税は計算で引く） */
-export function returnTalk(r: string): string {
+/** 給与の上昇率の欄の下の例（1行。物価の上昇率との差を括弧で） */
+export function wageExample(r: string, inflation: string | null): string {
   const v = Number(r);
-  if (v === 0) return "運用で増えないとすると、100万円は10年後も20年後も100万円のままです";
-  return `年${pctText(absRate(r))}${v > 0 ? "で運用できる" : "ずつ減る"}と、100万円は10年後に約${grown(100, v, 10)}万円、20年後に約${grown(100, v, 20)}万円になります（運用の費用を引いた後、税を引く前の額）`;
+  const head = v === 0 ? "例 年収500万円は、20年後も500万円" : `例 年収500万円は、20年後に約${grown(500, v, 20)}万円`;
+  if (inflation === null) return head;
+  const gap = gapOf(r, inflation);
+  return `${head}（${gap === 0 ? "物価と同じ" : `物価より${String(Math.abs(gap))}ポイント${gap > 0 ? "高い" : "低い"}`}）`;
 }
 
-/** 表を何歳まで見るかの一言（何年分のお金の流れを見るか） */
+/** 表を何歳まで見るかの話し方の例（「?」の中。何年分のお金の流れを見るか） */
 export function endYearTalk(wh: WorkingHousehold): string {
   const first = firstTableYear(wh.request.input.baseMonth);
   const end = wh.request.input.endYear;
   return `${String(first)}年から${String(end)}年まで、${String(Math.max(1, end - first + 1))}年分のお金の流れを見ます。長生きしても、暮らしのお金が足りるかを確かめるためです`;
 }
 
-/** 欄の一言（お客さまと確かめる前提の3つの率だけ。ほかは無し） */
-function talkOf(name: string, rate: string, wh: WorkingHousehold): { talk?: string } {
-  if (name === "inflation") return { talk: inflationTalk(rate) };
-  if (name === "wageGrowth") return { talk: wageTalk(rate, (getPath(assumptionsOf(wh), ["inflation", "default"]) as string | undefined) ?? null) };
-  if (name === "investmentReturn") return { talk: returnTalk(rate) };
+/** 欄の下の例と「?」の中の話し方（物価・給与の上昇率だけ。ほかは無し） */
+function talkOf(name: string, rate: string, wh: WorkingHousehold): { talk?: string; talkHelp?: string } {
+  if (name === "inflation") return { talk: inflationExample(rate), talkHelp: inflationTalk(rate) };
+  if (name === "wageGrowth") {
+    const inf = (getPath(assumptionsOf(wh), ["inflation", "default"]) as string | undefined) ?? null;
+    return { talk: wageExample(rate, inf), talkHelp: wageTalk(rate, inf) };
+  }
   return {};
 }
 
+/** 例外の年のある列の、欄の下の知らせ（例外の年は区画の下のまとまりで直す） */
+const exceptionNote = (n: number): string | null => (n > 0 ? `例外の年 ${String(n)}年あり（詳細の「例外の年」で直します）` : null);
+
 /**
- * 年ごとの列の既定の値（default）の欄（経済の前提）。値は事務所の既定値（0214）と比較して「事務所の既定値」「この世帯だけ」と見せ、推定にしない。
- * 空欄にすると事務所の既定値に戻る（教育費・厚生年金の調整率は、事務所で決めていなければ物価・基礎年金の調整率と同じ）
+ * 年ごとの列の既定の値（default）の欄（経済の前提・運用の利回り）。値は事務所の既定値（0214）と比較して、違うときだけ「この世帯だけ」と見せ、推定にしない。
+ * 空欄にすると事務所の既定値に戻る（教育費・厚生年金の調整率は、事務所で決めていなければ物価・基礎年金の調整率と同じで、空欄の欄の中に薄くその値）。
+ * links は欄の下の小さなリンク（「＋ 例外の年」。0260）
  */
-function seriesField(name: string, label: string, help: string, level: "simple" | "detail"): FieldDef {
+function seriesField(name: string, help: string, level: "simple" | "detail", links: readonly ActionDef[]): FieldDef {
   const sp: SeriesPlace = { path: [name], item: `assumptions.${name}` };
   const def = premiseOfKey(`assume/${name}`) as PremiseDef;
   const follows = FOLLOWS[name];
@@ -176,31 +197,31 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
   const seriesState = (wh: WorkingHousehold): FieldState => {
     const s = seriesAt(wh, sp);
     const a = assumptionsOf(wh);
-    const ex = s?.byYear !== undefined ? Object.keys(s.byYear).length : 0;
-    const derived = ex > 0 ? `例外の年 ${ex}年（「詳細」の「例外の年」で直します）` : null;
+    const derived = exceptionNote(s?.byYear !== undefined ? Object.keys(s.byYear).length : 0);
     const warn = rateWarning(name, a);
     const mark = premiseMark(def, wh);
     const premise = mark !== null ? { premise: mark } : {};
-    // ほかの前提と同じ値になる前提（教育費・厚生年金の調整率）で値が無い: 空欄で、横に「物価上昇率と同じ（1.0%）」
-    if (follows !== undefined && s === undefined) return { value: null, hint: followsHint(def, wh), derived, warn, ...premise };
-    // 預金の利回りの無い前の要求（変換の段を通らない計算の要求の写しなど）は空欄で、計算は運用利回りと同じと添える（入れるとその率。0137）
+    // ほかの前提と同じ値になる前提（教育費・厚生年金の調整率）で値が無い: 空欄の中に薄くその値、下に「空欄: 物価の上昇率と同じ」
+    if (follows !== undefined && s === undefined) return { value: null, hint: followsHint(def, wh), blankShown: followsValue(def, wh), derived, warn, ...premise };
+    // 預金の利回りの無い前の要求（変換の段を通らない計算の要求の写しなど）は空欄で、計算は運用の利回りと同じと添える（入れるとその率。0137）
     if (s === undefined && name === "depositReturn") {
       const inv = (getPath(a, ["investmentReturn", "default"]) as string | undefined) ?? null;
-      return { value: null, hint: `空欄（運用利回りと同じ${inv !== null ? ` ${pctText(inv)}` : ""}で計算しています）`, derived, warn, ...premise };
+      return { value: null, hint: "空欄: 事務所の運用の利回りと同じ", blankShown: inv, derived, warn, ...premise };
     }
-    if (s === undefined) return { value: null, hint: "入れない（0%で計算）", derived, warn, ...premise, ...talkOf(name, "0", wh) };
+    if (s === undefined) return { value: null, hint: "空欄: 0%", derived, warn, ...premise, ...talkOf(name, "0", wh) };
     return { value: s.default, derived, warn, ...premise, ...talkOf(name, s.default, wh) };
   };
   return field({
     key: `assume/${name}`,
     item: sp.item,
-    label,
+    label: def.label,
     level,
     kind: "pct",
     ...SERIES_RANGES[name],
     optional: true,
     help,
     address,
+    ...(links.length > 0 ? { links } : {}),
     get: (wh): FieldState => {
       const st = seriesState(wh);
       // 預金の利回り: 資産の種類ごとの利回りに預金・外貨預金があれば、その種類はそちらで計算する（0137）
@@ -208,7 +229,7 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
       const own = name === "depositReturn" ? ASSET_CLASSES.filter((o) => o.value.startsWith("cash.") && a?.assetReturns?.[o.value] !== undefined) : [];
       return own.length === 0 ? st : { ...st, hint: `${own.map((o) => `${o.label}は「資産の種類ごとの利回り」の${o.label}（${pctText(a?.assetReturns?.[o.value]?.default ?? "0")}）`).join("、")}で計算しています` };
     },
-    // 空欄: 事務所の既定値に戻す。打った値: 事務所の既定値と同じなら「事務所の既定値」、違えば「この世帯だけ」（premiseDefaults.ts）
+    // 空欄: 事務所の既定値に戻す。打った値: 事務所の既定値と同じなら事務所の既定値、違えば「この世帯だけ」（premiseDefaults.ts）
     set: (wh, v) => (v === null ? resetPremise(def, wh) : typePremise(def, wh, String(v))),
   });
 }
@@ -340,6 +361,7 @@ function exceptionGroups(wh: WorkingHousehold, key: string, sp: SeriesPlace, wha
   const add: ActionDef = {
     key: `${key}/ex/add`,
     label: `＋ 例外の年（${what}）`,
+    linkLabel: "＋ 例外の年",
     level: "detail",
     run: (w) => rewriteRange(w, sp, Number.MAX_SAFE_INTEGER, { from, to: from, rate: seriesAt(w, sp)?.default ?? fallback }, fallback),
   };
@@ -348,9 +370,13 @@ function exceptionGroups(wh: WorkingHousehold, key: string, sp: SeriesPlace, wha
 
 /**
  * 例外の年の見出し・足すボタンの括弧の中の名前: 欄の名前から「（年）」を外す。括弧の中に区別がある欄（年金の調整率の基礎年金・厚生年金）は
- * 区別を残す（「年金の調整率（基礎年金・年）」→「年金の調整率・基礎年金」）
+ * 区別を残す（「年金の調整率（基礎年金・年）」「年金の調整率（基礎年金）」→「年金の調整率・基礎年金」）
  */
-export const exceptionWhat = (label: string): string => label.replace(/（年）$/, "").replace(/（(.+)・年）$/, "・$1");
+export const exceptionWhat = (label: string): string =>
+  label
+    .replace(/（年）$/, "")
+    .replace(/（(.+)・年）$/, "・$1")
+    .replace(/（([^（）]+)）$/, "・$1");
 
 /** 率の幅の見せ方（足す幅なので、プラスにも符号を付ける） */
 const signedPct = (r: string): string => (cmpRate(r, "0") > 0 ? `+${pctText(r, 1)}` : pctText(r, 1));
@@ -390,13 +416,20 @@ function shiftFields(wh: WorkingHousehold): FieldDef[] {
 }
 
 /**
- * 資産の種類ごとの利回り（0214 の4）: 12種類を全部、不動産の評価と同じ3列の小さな欄の並びで出す。空欄は計算と同じ値（預金・外貨預金は預金の利回り、
- * 不動産は0%、ほかは運用利回り）を見せ、空にすると事務所の既定値に戻る。この世帯だけ値を入れた種類には例外の年を足せる
+ * 資産の種類ごとの利回り（0214 の4・0260）: 12種類を全部、4列の小さな欄の並びで出す。空欄は計算と同じ値（預金・外貨預金は預金の利回り、
+ * 不動産は0%、ほかは事務所の既定値の運用の利回り）を欄の中に薄く見せ、空にすると事務所の既定値に戻る。この世帯だけ値を入れた種類には、
+ * 欄の下の「＋ 例外の年」で例外の年を足せる（足した例外の年は並びの下のまとまり）。
+ * 運用の利回り（配分も利回りも入れていない運用の口座。事務所の既定値の画面で決める）は、前の世帯で「この世帯だけ」の値・例外の年がある・
+ * 事務所の既定値が後で変わった世帯だけ、並びの下に1行で出す（ほかの世帯は出さない。計算は変えない。0260）
  */
 function assetReturnSection(wh: WorkingHousehold): { groups: GroupDef[]; actions: ActionDef[] } {
   const defs = PREMISE_DEFS.filter((d) => d.section === "assetReturns");
+  const exGroups: GroupDef[] = [];
   const fields = defs.map((def) => {
     const cls = def.path[1] as string;
+    const own = premiseValue(def, wh) !== null;
+    const ex = own ? exceptionGroups(wh, `assume/assetReturns/${cls}`, { path: ["assetReturns", cls], item: "assumptions.assetReturns" }, def.label, premiseShown(def, wh) ?? "0", RETURN_RANGE) : null;
+    if (ex !== null) exGroups.push(...ex.groups);
     return field({
       key: def.key,
       item: "assumptions.assetReturns",
@@ -406,27 +439,43 @@ function assetReturnSection(wh: WorkingHousehold): { groups: GroupDef[]; actions
       ...RETURN_RANGE,
       optional: true,
       address: () => premiseAddress(def),
+      ...(ex !== null ? { links: [ex.add] } : {}),
       // 不動産は、資産配分の種類でなく、貸していない不動産（空き家・土地・別荘）の値動きに使う（事務所の既定値で写すこともある。0073 の追記 2026-11-07）
       ...(cls === "realEstate" ? { help: "貯蓄・運用の貸していない不動産（空き家・土地・別荘など）の値動きです（外すと0%）。貯蓄・運用の入力項目で、物ごとに「評価額の増減率（年）」を入れると、その物はそちらを使います。入れていない物は、この値を使います。持ち家・収益不動産には使いません" } : { help: `資産の配分に${def.label}を入れた口座の、${def.label}の利回りです${cls.startsWith("cash.") ? `（配分の無い${def.label}の口座にも使います）` : ""}。貯蓄・運用の入力項目で、口座ごとに「利回り（年）」を入れると、その口座はそちらを使います。入れていない口座は、この値を使います` }),
       get: (w): FieldState => {
         const shown = premiseShown(def, w);
         const mark = premiseMark(def, w);
         const high = shown !== null && Number(shown) > 0.08 ? "年8%を超えています（事務所の注意の線）" : null;
-        return { value: shown, hint: high ?? followsHint(def, w), ...(mark !== null ? { premise: mark } : {}) };
+        // 空欄の種類: 欄の中に計算と同じ値を薄く（預金の種類は、下に「空欄: 預金の利回りと同じ」も）
+        return { value: shown, hint: high ?? followsHint(def, w), blankShown: followsValue(def, w), ...(mark !== null ? { premise: mark } : {}) };
       },
       set: (w, v) => (v === null ? resetPremise(def, w) : typePremise(def, w, String(v))),
     });
   });
-  const groups: GroupDef[] = [{ key: "assume/assetReturns/grid", level: "detail", fields, actions: [] }];
-  const actions: ActionDef[] = [];
-  for (const def of defs) {
-    if (premiseValue(def, wh) === null) continue;
-    const cls = def.path[1] as string;
-    const ex = exceptionGroups(wh, `assume/assetReturns/${cls}`, { path: ["assetReturns", cls], item: "assumptions.assetReturns" }, def.label, premiseShown(def, wh) ?? "0", RETURN_RANGE);
-    groups.push(...ex.groups);
-    actions.push(ex.add);
+  const groups: GroupDef[] = [{ key: "assume/assetReturns/grid", level: "detail", fields, actions: [] }, ...exGroups];
+  // 運用の利回り（前の世帯の「この世帯だけ」の値など。ある世帯だけ1行）
+  if (investmentReturnShown(wh)) {
+    const name = "investmentReturn";
+    const sp: SeriesPlace = { path: [name], item: `assumptions.${name}` };
+    const ex = exceptionGroups(wh, `assume/${name}`, sp, INVESTMENT_RETURN_LABEL, (getPath(wh.request.input.assumptions, [name, "default"]) as string | undefined) ?? STANDARD[name] ?? "0", RETURN_RANGE);
+    groups.push({ key: "assume/assetReturns/invest", level: "detail", fields: [seriesField(name, INVESTMENT_RETURN_HELP, "detail", [ex.add])], actions: [] }, ...ex.groups);
   }
-  return { groups, actions };
+  return { groups, actions: [] };
+}
+
+/** 運用の利回りの欄の説明（「?」の中） */
+const INVESTMENT_RETURN_HELP =
+  "資産の配分も口座の利回りも入れていない運用の口座（NISA・課税口座・iDeCo など）と、資産の種類ごとの利回りが空欄の種類に使う率です（運用の費用を引いた後。税は計算で引きます）。ふだんは事務所の既定値の画面で決め、世帯の画面には出しません。この世帯だけ違う値が入っているので、ここに出しています。「戻す」で事務所の既定値にすると、この欄は出なくなります。口座ごとに変えるときは、貯蓄・運用の入力項目で口座の「利回り（年）」に入れます";
+
+/**
+ * 運用の利回りを世帯の入力の画面に出すか（0260）: 事務所の既定値どおりなら出さない。前の世帯で「この世帯だけ」の値がある・事務所の既定値が後で変わった
+ * （確かめの一覧の知らせから移れるように）・例外の年がある世帯だけ出す
+ */
+export function investmentReturnShown(wh: WorkingHousehold): boolean {
+  const def = premiseOfKey("assume/investmentReturn") as PremiseDef;
+  const st = premiseState(def, wh);
+  const ex = wh.request.input.assumptions?.investmentReturn?.byYear;
+  return st === null || st.state !== "office" || (ex !== undefined && Object.keys(ex).length > 0);
 }
 
 /** 不動産（持ち家・購入の予定・収益不動産・貸していない不動産）を持つ世帯か。無ければ不動産の評価の区画を出さない（premiseDefaults.ts） */
@@ -434,7 +483,8 @@ export { ownsRealEstate };
 
 /**
  * 不動産の評価の前提（assumptions.realEstateValuation。持ち家・収益不動産・貸していない不動産の計算に使う。0025）。値は事務所の既定値（0214）と
- * 比較して見せ、空欄は事務所の既定値に戻る（土地の割合・建物の残りの価値の下限・売却の費用は、置き場所が事務所の推定の値〔0111〕で、空欄にすると事務所の今の値を書く。0218）
+ * 比較して見せ、空欄は事務所の既定値に戻る（土地の割合・建物の残りの価値の下限・売却の費用は、置き場所が事務所の推定の値〔0111〕で、空欄にすると事務所の今の値を書く。0218）。
+ * 4列の欄の並び（土地の上昇率・土地の割合・建物の残りの価値の下限・売却の費用）と、その下に耐用年数の4つ（構造ごと。見出し「耐用年数」）。0260
  */
 function valuationGroups(wh: WorkingHousehold): GroupDef[] {
   const find = (_h: Household, w: WorkingHousehold) => w.request.input.assumptions as Record<string, unknown> | undefined;
@@ -443,6 +493,11 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
   const def = (key: string) => premiseOfKey(key) as PremiseDef;
   const ex = exceptionGroups(wh, "assume/realEstate/landGrowth", { path: [R, "landGrowth"], item }, "土地の上昇率", wh.request.input.assumptions?.inflation?.default ?? "0", GROWTH_RANGE);
   const landGrowth = def("assume/realEstate/landGrowth");
+  const pct = (key: string, path: string, fallback: string, help: string) =>
+    premised(
+      plain({ key, item, label: def(key).label, level: "detail", kind: "pct", min: 0, max: 100, find, path: [R, path], optional: true, fallback, help }),
+      def(key),
+    );
   return [
     {
       key: "assume/realEstate/fields",
@@ -451,94 +506,43 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
         field({
           key: "assume/realEstate/landGrowth",
           item,
-          label: "土地の上昇率（年）",
+          label: landGrowth.label,
           level: "detail",
           kind: "pct",
           ...GROWTH_RANGE,
           optional: true,
-          help: "持ち家・収益不動産の土地の値動きです（入れなければ物価上昇率と同じ）。収益不動産の入力項目で、物件ごとに「土地の評価額の増減率（年）」を入れると、その物件はそちらを使います。入れていない物件（持ち家はすべて）は、この値を使います。貸していない土地・別荘・空き家には使いません",
+          help: "持ち家・収益不動産の土地の値動きです（入れなければ物価の上昇率と同じ）。収益不動産の入力項目で、物件ごとに「土地の評価額の増減率（年）」を入れると、その物件はそちらを使います。入れていない物件（持ち家はすべて）は、この値を使います。貸していない土地・別荘・空き家には使いません",
           address: () => premiseAddress(landGrowth),
-          // 値が無ければ物価上昇率と同じ（見せる値は物価上昇率）
+          links: [ex.add],
+          // 値が無ければ物価の上昇率と同じ（欄の中に薄く物価の上昇率）
           get: (w) => {
-            const raw = w.request.input.assumptions?.realEstateValuation?.landGrowth?.default;
+            const raw = w.request.input.assumptions?.realEstateValuation?.landGrowth;
             const mark = premiseMark(landGrowth, w);
-            return { value: raw ?? null, hint: followsHint(landGrowth, w), ...(mark !== null ? { premise: mark } : {}) };
+            const n = raw?.byYear !== undefined ? Object.keys(raw.byYear).length : 0;
+            return { value: raw?.default ?? null, hint: followsHint(landGrowth, w), blankShown: followsValue(landGrowth, w), derived: exceptionNote(n), ...(mark !== null ? { premise: mark } : {}) };
           },
           set: (w, v) => (v === null ? resetPremise(landGrowth, w) : typePremise(landGrowth, w, String(v))),
         }),
-        premised(
-          plain({
-            key: "assume/realEstate/landShare",
-            item,
-            label: "土地の割合",
-            level: "detail",
-            kind: "pct",
-            min: 0,
-            max: 100,
-            find,
-            path: [R, "landShare"],
-            optional: true,
-            fallback: VALUATION_DEFAULTS.landShare,
-            help: "物件の価値のうち土地の割合です。住まい・収益不動産の入力項目で、物件ごとに「土地の割合」（購入の予定は「うち土地の値段」）を入れると、その物件はそちらを使います。入れていない物件は、この値を使います",
-          }),
-          def("assume/realEstate/landShare"),
-        ),
-        ...BUILDING_STRUCTURES.map((o) =>
-          premised(
-            plain({
-              key: `assume/realEstate/life/${o.value}`,
-              item,
-              label: `耐用年数: ${o.label}`,
-              level: "detail",
-              kind: "int",
-              suffix: "年",
-              min: 1,
-              max: 100,
-              find,
-              path: [R, "usefulLife", o.value],
-              optional: true,
-              fallback: USEFUL_LIFE[o.value] ?? 22,
-              help: "建物の価値を定額で減らす年数です。どの年数を使うかは、住まい・収益不動産の入力項目の物件ごとの「建物の構造」で決まります。年数は物件ごとには入れられないので、この構造のすべての物件にこの値を使います。収益不動産の減価償却には使いません",
-            }),
-            def(`assume/realEstate/life/${o.value}`),
-          ),
-        ),
-        premised(
-          plain({
-            key: "assume/realEstate/floor",
-            item,
-            label: "建物の残りの価値の下限",
-            level: "detail",
-            kind: "pct",
-            min: 0,
-            max: 100,
-            find,
-            path: [R, "residualFloor"],
-            optional: true,
-            fallback: VALUATION_DEFAULTS.residualFloor,
-            help: "古くなった建物の価値を、これより下げない割合です（建てた時の価値に対して）。物件ごとには入れられないので、すべての物件にこの値を使います",
-          }),
-          def("assume/realEstate/floor"),
-        ),
-        premised(
-          plain({
-            key: "assume/realEstate/saleCost",
-            item,
-            label: "売却の費用（売却価格に対する割合）",
-            level: "detail",
-            kind: "pct",
-            min: 0,
-            max: 100,
-            find,
-            path: [R, "saleCostRate"],
-            optional: true,
-            fallback: VALUATION_DEFAULTS.saleCostRate,
-            help: "売るときに売却価格から引く費用（仲介手数料・印紙税など）の割合です。住まい・収益不動産・貯蓄・運用の入力項目で、物件ごとに「売却の費用（売却価格に対する割合）」を入れると、その物件はそちらを使います。入れていない物件は、この値を使います",
-          }),
-          def("assume/realEstate/saleCost"),
-        ),
+        pct("assume/realEstate/landShare", "landShare", VALUATION_DEFAULTS.landShare, "物件の価値のうち土地の割合です。住まい・収益不動産の入力項目で、物件ごとに「土地の割合」（購入の予定は「うち土地の値段」）を入れると、その物件はそちらを使います。入れていない物件は、この値を使います"),
+        pct("assume/realEstate/floor", "residualFloor", VALUATION_DEFAULTS.residualFloor, "古くなった建物の価値を、これより下げない割合です（建てた時の価値に対して）。物件ごとには入れられないので、すべての物件にこの値を使います"),
+        pct("assume/realEstate/saleCost", "saleCostRate", VALUATION_DEFAULTS.saleCostRate, "売るときに売却価格から引く費用（仲介手数料・印紙税など）の、売却価格に対する割合です。住まい・収益不動産・貯蓄・運用の入力項目で、物件ごとに「売却の費用（売却価格に対する割合）」を入れると、その物件はそちらを使います。入れていない物件は、この値を使います"),
       ],
-      actions: [ex.add],
+      actions: [],
+    },
+    // 耐用年数（構造ごと）: 同じ枠の中の小さな見出しと4つの欄。確かめの一覧などでは「不動産の評価（…）: 耐用年数: 木造」と言う
+    {
+      key: "assume/realEstate/fields/life",
+      title: "耐用年数",
+      where: `${REAL_ESTATE_SECTION}: 耐用年数`,
+      note: "建物の価値を定額で減らす年数です。どの年数を使うかは、住まい・収益不動産の入力項目の物件ごとの「建物の構造」で決まります。年数は物件ごとには入れられないので、この構造のすべての物件にこの値を使います。収益不動産の減価償却には使いません",
+      level: "detail",
+      fields: BUILDING_STRUCTURES.map((o) =>
+        premised(
+          plain({ key: `assume/realEstate/life/${o.value}`, item, label: o.label, level: "detail", kind: "int", suffix: "年", min: 1, max: 100, find, path: [R, "usefulLife", o.value], optional: true, fallback: USEFUL_LIFE[o.value] ?? 22 }),
+          def(`assume/realEstate/life/${o.value}`),
+        ),
+      ),
+      actions: [],
     },
     ...ex.groups,
   ];
@@ -684,7 +688,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
   const firstYear = firstTableYear(wh.request.input.baseMonth);
   const agesText = (w: WorkingHousehold, v: number) =>
     adultsOf(w.request.input.household)
-      .map((m) => `${memberLabel(w, m.id)} ${ageInYear(m, v)}歳`)
+      .map((m) => `${memberLabel(w, m.id)}${ageInYear(m, v)}歳`)
       .join("・");
   // 何歳まで見るか（0070 の追記 2026-11-05・2026-11-13）: 前は「若い方の年齢」の選び方・年の欄・人ごとの年齢の欄の4つで同じ値を入れていたのを、
   // 人と年齢で選ぶ1つの欄にした。選んだ人と年齢は世帯に持ち（endYearChoice）、その人の生年月を直しても同じ年齢のまま付いていく（followStandards）。
@@ -705,10 +709,12 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
       const ages = agesText(w, v);
       const notice = endYearNotice(w);
       const std = standardEndYear(w.request.input.household, w.request.input.baseMonth);
+      const first = firstTableYear(w.request.input.baseMonth);
       return {
         value: ruleValue(w, rule),
-        hint: `${v}年まで${ages !== "" ? `（${ages}の年）` : ""}`,
-        talk: endYearTalk(w),
+        // 何年分の表か（「2027年〜2083年の57年分（ご本人102歳・配偶者100歳の年まで）」）。お客さまへの話し方の例は「?」の中
+        hint: `${String(first)}年〜${String(v)}年の${String(Math.max(1, v - first + 1))}年分${ages !== "" ? `（${ages}の年まで）` : ""}`,
+        talkHelp: endYearTalk(w),
         premise: endYearMark(w, rule),
         ...(notice !== null
           ? {
@@ -765,13 +771,13 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
 /** 計算の決まり（読むだけ。0003 の7） */
 function conventionFields(): FieldDef[] {
   const AGG: Record<string, string> = {
-    cash: "お金が出入りした月で数える（現金の出入り）",
+    cash: "出入りした月で数える（現金の出入り）",
     accrual: "発生した月で数える",
   };
   const TIMING: Record<string, string> = {
-    midYear: "1年の運用益は、その年の出入りが年の真ん中にあったとして計算する",
-    beginning: "年の初めにあったとして計算する",
-    end: "年の終わりにあったとして計算する",
+    midYear: "出入りは年の真ん中にあったとして計算",
+    beginning: "出入りは年の初めにあったとして計算",
+    end: "出入りは年の終わりにあったとして計算",
   };
   const ro = (key: string, label: string, read: (w: WorkingHousehold) => string) =>
     field({
@@ -790,25 +796,23 @@ function conventionFields(): FieldDef[] {
       investmentTiming?: string;
     };
   return [
-    ro("assume/conv/aggregation", "計算の決まり: お金の数え方", (w) => AGG[conv(w).aggregation ?? ""] ?? conv(w).aggregation ?? "—"),
-    ro("assume/conv/timing", "計算の決まり: 運用益の数え方", (w) => TIMING[conv(w).investmentTiming ?? ""] ?? conv(w).investmentTiming ?? "—"),
+    ro("assume/conv/aggregation", "お金の数え方", (w) => AGG[conv(w).aggregation ?? ""] ?? conv(w).aggregation ?? "—"),
+    ro("assume/conv/timing", "運用益の数え方", (w) => TIMING[conv(w).investmentTiming ?? ""] ?? conv(w).investmentTiming ?? "—"),
   ];
 }
 
-/** お客さまと確かめる前提の率（物価・給与・運用の利回り。表を何歳まで見るかと同じ最初の区画に出す） */
-const TALK: ReadonlySet<string> = new Set(TALK_PREMISES);
+/** 経済の前提の欄（区画の中の並び。物価・給与は標準から、ほかは詳細だけ）と「?」の中の説明 */
+const ECONOMY_FIELDS: readonly [string, string, "simple" | "detail"][] = [
+  ["inflation", "今の値段で入れた額（基本生活費など）を伸ばす率です。各入力項目で、行ごとに「伸び方」を「決まった率で」か「変えない」にすると、その行はそちらを使います。「物価に合わせる」のままの行は、この値を使います", "simple"],
+  ["wageGrowth", "給与・事業所得を伸ばす率（名目）です。働き方と収入の入力項目で、働き方ごとに「増減率（年）」を入れると、その働き方はそちらを使います。入れていない働き方は、この値を使います（昇給カーブを使う働き方にも、この率を掛けます）", "simple"],
+  ["depositReturn", "預金・外貨預金と、合計の入れ方の運用しない分の利回りです（資産配分の現金も同じ）。「資産の種類ごとの利回り」に預金・外貨預金を入れると、その種類はそちらを使います（口座ごとに「利回り（年）」を入れた口座も、そちら）。入れていない物は、この値を使います", "detail"],
+  ["educationInflation", "教育費（学費・学校外の費用など）を伸ばす率です。入れなければ物価の上昇率と同じ", "detail"],
+  ["pensionMacroSlide", "マクロ経済スライドの率。将来の年金額の伸びから差し引く率です", "detail"],
+  ["pensionMacroSlideEmployee", "厚生年金の調整率です。入れなければ基礎年金と同じ", "detail"],
+];
 
-/** 前提条件の入力項目で、詳細のときに1行にたたむ区画（FP が決める細かい前提と計算の決まり。0214 の4・その追記 2026-11-16） */
-export const PREMISE_FOLD_SECTIONS: ReadonlySet<string> = new Set(["assume/fine", "assume/exceptions", "assume/realEstate", "assume/assetReturns", "assume/conv"]);
-
-/** お客さまと確かめる前提の区画・まとまり・欄のキー（たたまない） */
-const TALK_KEY = /^assume\/(main(\/fields)?|inflation|wageGrowth|investmentReturn|endYear(\/year)?)$/;
-
-/**
- * たたむ区画の中の欄・まとまり・区画のキーか（確かめの一覧・検索・前提と推定の一覧からそこへ移るときは、たたんだ1行を開いて出す）。
- * お客さまと確かめる前提・結果のタブで動かした前提・FP顧問料はたたまない
- */
-export const inPremiseFold = (key: string | undefined): boolean => key !== undefined && key.startsWith("assume/") && !TALK_KEY.test(key) && !/^assume\/(shifts|returnShifts|loanRateShifts)/.test(key);
+/** 前提条件の入力項目の頭の1文（パネルの名前の下。0260） */
+export const PREMISE_HEAD_NOTE = "値は事務所の既定値です。この世帯だけ変えるときは欄を直します（「この世帯だけ」と出て、いつでも戻せます）。";
 
 export function assumptionsStage(wh: WorkingHousehold): StageDef {
   const baseMonth = field({
@@ -823,43 +827,35 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     get: (w) => ({ value: ymWithEra(w.request.input.baseMonth) }),
     set: (w) => w,
   });
-  const series: [string, string, string, "simple" | "detail"][] = [
-    ["inflation", "物価の上昇率", "今の値段で入れた額（基本生活費など）を伸ばす率です。各入力項目で、行ごとに「伸び方」を「決まった率で」か「変えない」にすると、その行はそちらを使います。「物価に合わせる」のままの行は、この値を使います", "simple"],
-    ["wageGrowth", "給与の上昇率", "給与・事業所得を伸ばす率（名目）です。働き方と収入の入力項目で、働き方ごとに「増減率（年）」を入れると、その働き方はそちらを使います。入れていない働き方は、この値を使います（昇給カーブを使う働き方にも、この率を掛けます）", "simple"],
-    ["investmentReturn", "運用の利回り", "預金以外の口座の利回りです（運用の費用を引いた後。税は計算で引きます）。貯蓄・運用の入力項目で、口座ごとに「利回り（年）」か資産の配分を入れると、その口座はそちらを使います。入れていない口座は、この値を使います", "simple"],
-    ["depositReturn", "預金の利回り（年）", "預金・外貨預金と、合計の入れ方の運用しない分の利回りです（資産配分の現金も同じ）。「資産の種類ごとの利回り」に預金・外貨預金を足すと、その種類はそちらを使います（口座ごとに「利回り（年）」を入れた口座も、そちら）。入れていない物は、この値を使います", "detail"],
-    ["educationInflation", "教育費の上昇率（年）", "入れなければ物価上昇率と同じ", "detail"],
-    ["pensionMacroSlide", "年金の調整率（基礎年金・年）", "マクロ経済スライドの率。将来の年金額の伸びから差し引く率", "detail"],
-    ["pensionMacroSlideEmployee", "年金の調整率（厚生年金・年）", "入れなければ基礎年金の調整率と同じ", "detail"],
-  ];
+  // 経済の前提の欄と、欄ごとの例外の年（欄の下の「＋ 例外の年」と、足した例外の年のまとまり。区画の欄の並びの下）
   const exGroups: GroupDef[] = [];
-  const exAdds: ActionDef[] = [];
-  for (const [name, label] of series) {
+  const economy = ECONOMY_FIELDS.map(([name, help, level]) => {
     const fol = FOLLOWS[name];
     const fb = fol !== undefined ? ((getPath(wh.request.input.assumptions, [fol.name, "default"]) as string | undefined) ?? "0") : (STANDARD[name] ?? "0");
+    const label = (premiseOfKey(`assume/${name}`) as PremiseDef).label;
     const ex = exceptionGroups(wh, `assume/${name}`, { path: [name], item: `assumptions.${name}` }, exceptionWhat(label), fb, SERIES_RANGES[name] ?? GROWTH_RANGE);
     exGroups.push(...ex.groups);
-    exAdds.push(ex.add);
-  }
+    return seriesField(name, help, level, [ex.add]);
+  });
   const shifts = shiftFields(wh);
   const assetReturns = assetReturnSection(wh);
-  const seriesField1 = ([n, l, h, lv]: (typeof series)[number]) => seriesField(n, l, h, lv);
   const sections: SectionDef[] = [
-    // お客さまと確かめる前提（物価・給与・運用の利回り・表を何歳まで見るか）: 標準・詳細のどちらでも、たたまずにいつも出す（0214 の追記 2026-11-16）
+    // 計算の期間（表を何歳まで見るか）
     {
-      key: TALK_PREMISE_SECTION,
-      title: "お客さまと確かめる前提",
-      note: "面談でお客さまと一緒に見て、この世帯で変えるべき所があれば、話しながら変えます。値は事務所の既定値の画面で決めた値です（欄の横に「事務所の既定値」）。この世帯だけ変えた欄は「この世帯だけ」と出て、「事務所の既定値に戻す」で戻せます。欄の下の一言は、お客さまに話すときの言い方の例です（値を変えると、その値で言い換わります）。入れる額は計算の基準の年の値段で、物価で伸びます",
+      key: "assume/period",
+      title: "計算の期間",
+      note: "表を何歳まで見るかです。既定は、ご本人・配偶者のうち若い方が事務所の既定値の年齢になる年です。どのプランにも共通です",
       level: "simple",
-      groups: [
-        {
-          key: "assume/main/fields",
-          level: "simple",
-          // 運用利回りは率をそのまま入れる（名前の付いた選び方のボタンは置かない。0070 の 2026-10-31 の追記）
-          fields: [...series.filter(([n]) => TALK.has(n)).map(seriesField1), ...endYearFields(wh)],
-          actions: [],
-        },
-      ],
+      groups: [{ key: "assume/period/fields", level: "simple", fields: endYearFields(wh), actions: [] }],
+      actions: [],
+    },
+    // 経済の前提: 標準は物価・給与の上昇率、詳細は預金の利回り・教育費の上昇率・年金の調整率も（たたまない。0260）
+    {
+      key: "assume/economy",
+      title: "経済の前提",
+      note: "物価・給与などの、毎年の伸び方の前提です。値は事務所の既定値の画面で決めた値で、この世帯だけ変えた欄は「この世帯だけ」と出ます（「戻す」で事務所の既定値に戻ります）。欄の下の「例」は、お客さまに話すときの言い方の例です（値を変えると言い換わります。長い言い方は欄の「?」の中）。決まった年だけ違う率にするときは、欄の下の「＋ 例外の年」（詳細）で足します",
+      level: "simple",
+      groups: [{ key: "assume/economy/fields", level: "simple", fields: economy, actions: [], noMore: true }, ...exGroups],
       actions: [],
     },
     ...(shifts.length > 0
@@ -874,22 +870,14 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
           },
         ]
       : []),
-    // ここから下（FP が決める細かい前提と計算の決まり）は、詳細のときだけ、ふだんは1行にたたんで出す（PREMISE_FOLD_SECTIONS。入力のパネル）
     {
-      key: "assume/fine",
-      title: "預金の利回り・年金の調整率など",
-      note: "FP が決める前提です。値は事務所の既定値の画面で決めた値で、この世帯だけ変えた欄は「この世帯だけ」と出ます",
+      key: "assume/assetReturns",
+      title: "資産の種類ごとの利回り",
+      lead: "資産の配分を入れた口座の利回りです（信託報酬を引く前の年率）。利回りを入れた口座は、口座の値が先です。",
+      note: "貯蓄・運用の項目の資産配分と同じ値です（どちらで直しても同じ）。信託報酬などの運用の費用を引く前の年率で、費用は資産配分の信託報酬で引きます（税は計算で引きます）。空欄の種類は、欄の中に薄く出した値で計算します（預金・外貨預金は預金の利回り、不動産は0%、ほかは事務所の既定値）",
       level: "detail",
-      groups: [{ key: "assume/fine/fields", level: "detail", fields: series.filter(([n]) => !TALK.has(n)).map(seriesField1), actions: [] }],
-      actions: [],
-    },
-    {
-      key: "assume/exceptions",
-      title: "例外の年（経済の前提）",
-      note: "決まった年だけ違う率にします（例: 2026〜2028年は物価3%）。続いた年で同じ率は1つの範囲にまとめて見せます。ふだんの年の率を直しても、例外の年はそのままです",
-      level: "detail",
-      groups: exGroups,
-      actions: exAdds,
+      groups: assetReturns.groups,
+      actions: assetReturns.actions,
     },
     // 持ち家・収益不動産・貸していない不動産のどれも無い世帯では出さない（使わない前提を見せない）
     ...(ownsRealEstate(wh)
@@ -905,16 +893,9 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
         ]
       : []),
     {
-      key: "assume/assetReturns",
-      title: "資産の種類ごとの利回り",
-      note: "貯蓄・運用の項目の資産配分と同じ値です（どちらで直しても同じ）。資産の種類ごとの利回りは、信託報酬などの運用の費用を引く前の年率です（費用は資産配分の信託報酬で引きます。税は計算で引きます）。運用利回り・預金の利回りは費用を引いた後の率です",
-      level: "detail",
-      groups: assetReturns.groups,
-      actions: assetReturns.actions,
-    },
-    {
       key: "assume/conv",
       title: "計算の基準の月と計算の決まり",
+      note: "計算の決まりは変えられません",
       level: "detail",
       groups: [{ key: "assume/conv/fields", level: "detail", fields: [baseMonth, ...conventionFields()], actions: [] }],
       actions: [],
@@ -924,7 +905,8 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
   return {
     id: "assumptions",
     label: "前提条件",
-    lead: "お客さまと面談で一緒に確かめる前提（物価・給与・運用の利回り・表を何歳まで見るか）と、FP が決める細かい前提（詳細）、FP顧問料。値は事務所の既定値で、この世帯で変えるべき所があれば話しながら変えます。入れる額は計算の基準の年の値段です。",
+    lead: "計算の期間・経済の前提（標準は物価と給与の上昇率。詳細は預金の利回り・年金の調整率・資産の種類ごとの利回り・不動産の評価・計算の決まりも）と、FP顧問料。値は事務所の既定値で、この世帯で変えるべき所があれば話しながら変えます。入れる額は計算の基準の年の値段です。",
+    headNote: PREMISE_HEAD_NOTE,
     sections,
   };
 }

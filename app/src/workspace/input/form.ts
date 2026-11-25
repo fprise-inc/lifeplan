@@ -66,10 +66,17 @@ export interface FieldState {
   /** 欄の横に添える補助（年齢・和暦など） */
   hint?: string | null;
   /**
-   * 欄の下に添える、FP がお客さまに話すときの一言（前提条件のお客さまと確かめる前提だけ。例: 「物価が年1%上がると、30年後の100万円は、今の約74万円の
-   * 値打ちになります」。欄の値で言い換わる。0214 の追記 2026-11-16）
+   * 欄の下に添える、お客さまに話すときの言い方の例の1行（前提条件の物価・給与の上昇率だけ。例: 「例 30年後の100万円は、今の約74万円の値打ち」。
+   * 欄の値で言い換わる。0214 の追記 2026-11-16・0260）
    */
   talk?: string | null;
+  /** 欄の「?」の中に足す、お客さまへの長い言い方の例（「物価が年1%上がると、30年後の100万円は、今の約74万円の値打ちになります」。0260） */
+  talkHelp?: string | null;
+  /**
+   * 空欄のときに計算に使う値（前提条件の空欄の欄。欄の中に薄く見せる。推定ではないので「推定」の印・「この値にする」は出さない。
+   * 例: 資産の種類ごとの利回りの空欄の種類の、事務所の既定値の率。0260）
+   */
+  blankShown?: Val;
   /**
    * 空欄の推定の値（blankEstimate）を欄の中に灰色で見せているときの、根拠の短い文（hint の「月5.2万円（推定）」は欄の中の値の繰り返しになるので出さない）。
    * 推定の出どころ（「統計の平均（○○の調査）」など。placeholder.ts の splitEstimateHint）は欄の横に出さず「推定」の印の吹き出しの頭に置き、
@@ -91,7 +98,7 @@ export interface FieldState {
   when?: WhenState;
   /**
    * 前提条件の事務所の既定値の見せ方（0214。input/premiseDefaults.ts）。ある欄は値の状態を確定と読み、推定の印と「この値にする」を出さず、
-   * 欄の名前の横に「事務所の既定値」「この世帯だけ」「事務所の既定値が変わりました」を出す
+   * 事務所の既定値と違うときだけ、欄の名前の横に「この世帯だけ」「既定値が変わりました」を出す（事務所の既定値どおりは印なし。0260）
    */
   premise?: PremiseMark;
 }
@@ -104,6 +111,10 @@ export interface PremiseMark {
   state: "office" | "household" | "officeChanged";
   /** 事務所の今の既定値の言葉（例: 「1.0%」「物価上昇率と同じ」） */
   officeText: string;
+  /** 戻したときの値の言葉（ほかの値と同じになる物はその値。例: 「1%」。決まらなければ無し。「戻す」のリンクに出す。0260） */
+  officeValue?: string;
+  /** 戻すリンクを短く「戻す」にする（資産の種類ごとの利回りの4列の小さな欄。0260） */
+  short?: boolean;
   /** この世帯の値の言葉（事務所の既定値と違うときだけ） */
   wasText?: string;
   /** 事務所の既定値の画面で決めた値か（決めていなければ提供元の既定の値） */
@@ -268,6 +279,8 @@ interface FieldBase {
   write?: (wh: WorkingHousehold, v: Val) => WorkingHousehold;
   /** 値の箱（0008 の2）の欄の、箱そのものの読み書き（yenBox・rateBox が付ける。値の状態の操作が使う） */
   boxed?: { read: (wh: WorkingHousehold) => unknown; write: (wh: WorkingHousehold, box: Record<string, unknown> | undefined) => WorkingHousehold };
+  /** 欄の下の小さなリンク（前提条件の「＋ 例外の年」など。押すと run。詳細だけの物は level で分ける。0260） */
+  links?: readonly ActionDef[];
   /** 欄の当て先（0036 の2）。省くと 0.16 の欄のキーから読み替え表で引く（valueState.ts の fieldAddress） */
   address?: (wh: WorkingHousehold) => Address | null;
   /**
@@ -319,6 +332,8 @@ export interface ActionDef {
   check?: { label: string; on: boolean };
   /** ボタンに添える補足（ツールチップ） */
   title?: string;
+  /** 欄の下の小さなリンク（FieldDef の links）で見せる短い名前（「＋ 例外の年」。label は読み上げと検索に使う。0260） */
+  linkLabel?: string;
   /** ボタンの横の「?」の中の説明（何が足されるか・どう計算するか。ボタンの名前には書かない。0077 の追記） */
   help?: string;
   /**
@@ -388,6 +403,11 @@ export interface GroupDef {
    * 見出しを幅いっぱいの1行に描く（0236 の追記）。指定は残っていても何も変わらない
    */
   wideHead?: boolean;
+  /**
+   * 標準で「▸ 続きを見る」を出さない（詳細だけの欄は「詳細」に切り替えて見る。標準と詳細で同じ枠に欄が足されるだけのまとまり。
+   * 前提条件の経済の前提。0260）
+   */
+  noMore?: boolean;
   /** ひな形の小さなボタンの並び（ボタンの chip の group ごとに1行。title は並びの上の1行の案内。0068 の追記 2026-10-31） */
   chips?: boolean;
   /** ひな形のボタンを、ほかの「＋ 〇〇を足す」のボタンと同じ大きさで描く（小さな丸いボタンにしない。夢プランのひな形。0103 の追記 2026-11-01 の3） */
@@ -483,6 +503,9 @@ export interface StageTableRow {
   note: string | null;
 }
 
+/** まとまりの操作の全部（まとまりのボタンと、欄の下の小さなリンク〔FieldDef の links〕。探して開く・書類の読み取りの当て先が使う。0260） */
+export const groupActions = (g: Pick<GroupDef, "actions" | "fields">): ActionDef[] => [...g.actions, ...g.fields.flatMap((f) => f.links ?? [])];
+
 /** まとまりをその入れ方で出すか（標準は標準のまとまりだけ、詳細は標準だけのまとまりを除く全部） */
 export const groupShown = (level: Level, g: Pick<GroupDef, "level" | "simpleOnly">): boolean => (level === "detail" ? g.simpleOnly !== true : g.level === "simple");
 
@@ -511,6 +534,8 @@ export interface StageDef {
   id: StageId;
   label: string;
   lead: string;
+  /** パネルの名前の下にいつも出す1文（「?」の中に隠さない。前提条件の「値は事務所の既定値です。…」。0260） */
+  headNote?: string;
   sections: SectionDef[];
 }
 

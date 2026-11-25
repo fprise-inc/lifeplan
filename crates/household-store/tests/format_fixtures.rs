@@ -294,6 +294,11 @@ fn every_format_version_has_a_fixture_and_opens() {
             let up = migrate::upgrade(initial["formatVersion"].as_str().unwrap(), as_body).unwrap();
             assert_eq!(up["meta"]["formatVersion"], migrate::CURRENT);
             assert!(up["household"]["request"]["input"]["household"]["members"].is_array());
+            // 最初の状態に戻しても、前提と推定の一覧の確かめた記録（0.92 で外した。0260）は残らない
+            assert!(
+                up["household"].get("agreed").is_none(),
+                "{v}: 最初の状態に戻しても確かめた記録は残らない"
+            );
         } else {
             assert!(
                 now["meta"].get("sample").is_none() && now.get("sampleInitial").is_none(),
@@ -485,10 +490,12 @@ fn every_format_version_has_a_fixture_and_opens() {
         }
         if migrate::parse(v).unwrap() >= (0, 76) {
             assert_eq!(refis, 1, "{v}: 0.76 の見本は借り換えを持つ");
-            assert_eq!(
-                now["household"], expected["household"],
-                "{v}: 今の版は変換しない"
-            );
+            // 世帯の区画は変換しない（確かめた記録 agreed は 0.92 の段で外す。0260）
+            let mut want = expected["household"].clone();
+            if let Some(h) = want.as_object_mut() {
+                h.remove("agreed");
+            }
+            assert_eq!(now["household"], want, "{v}: 今の版は変換しない");
         }
         // 0.75 から: 外から来た候補の変更の場所 at・lever（0201）。変換で中身を変えない。前の版の見本には候補の区画が無い。
         // 場所を添えない候補（前の版と同じ形）と、場所（lever・at）を添えた候補を持つ
@@ -1729,9 +1736,21 @@ fn every_format_version_has_a_fixture_and_opens() {
                     && cg["stackMarket"] == true,
                 "{v}: 万一の前提の任意の欄"
             );
+            // 前提と推定の一覧の確かめた記録は 0.27〜0.91 の見本にあり、0.92（0260）の変換の段で外す
+            if migrate::parse(v).unwrap() < migrate::parse(migrate::AGREED_DROPPED).unwrap() {
+                assert!(
+                    expected["household"]["agreed"]["current"].is_object(),
+                    "{v}: 前提と推定の一覧の確かめた記録（見本の本文）"
+                );
+            } else {
+                assert!(
+                    expected["household"].get("agreed").is_none(),
+                    "{v}: 0.92 からの見本に確かめた記録は無い"
+                );
+            }
             assert!(
-                now["household"]["agreed"]["current"].is_object(),
-                "{v}: 前提と推定の一覧の確かめた記録"
+                now["household"].get("agreed").is_none(),
+                "{v}: 確かめた記録は今の版に残らない（0260）"
             );
             assert!(
                 now["proposals"]

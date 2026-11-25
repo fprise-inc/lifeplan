@@ -13,6 +13,7 @@ import { selectChapters } from "./chapters.ts";
 import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, OTHER_ASSET_LINES, otherAssetLine, type BsGroup, type BsHousehold } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
 import { carPurchaseMonths } from "../../engine/src/sdk/cars.ts";
+import { investmentReturnUsed } from "../../engine/src/sdk/returnUse.ts";
 import { dreamIncluded, dreamList, dreamPaid, dreamSummary } from "./dreams.ts";
 import { addMonths, monthOfTimepoint, parseYm, ym, yearOfTimepoint } from "./timepoint.ts";
 import {
@@ -1241,7 +1242,10 @@ function assumptions(ctx: Ctx): ProposalInput["assumptions"] {
     if (s === undefined) return;
     rates.push({ label, value: `年${percent(s.default)}${s.byYear !== undefined && Object.keys(s.byYear).length > 0 ? "（年により変わる）" : ""}` });
   };
-  rate("運用利回り（資産の器ごとの指定が無いもの）", a.investmentReturn);
+  // 運用利回り（配分も利回りも入れていない運用の口座の率）は、その率を使う口座・資産の種類・保険の積立・逆算方式の必要保障額があるときだけ出す（0260）
+  const req = ctx.bundle.proposal.request;
+  const used = [req, ...(ctx.bundle.comparison?.plans ?? []).map((p) => p.run.request), ...(ctx.bundle.protection !== undefined ? [ctx.bundle.protection.request] : [])].some((r) => investmentReturnUsed(r.input));
+  if (used) rate("運用利回り（資産の器ごとの指定が無いもの）", a.investmentReturn);
   for (const [k, v] of Object.entries(a.assetReturns ?? {})) rate(`運用利回り（${k}）`, v);
   rate("物価上昇率", a.inflation);
   rate("賃金上昇率", a.wageGrowth);

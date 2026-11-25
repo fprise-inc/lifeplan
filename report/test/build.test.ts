@@ -9,6 +9,7 @@ import type { ProposalInput } from "../src/input.ts";
 import { modelHousehold, REPO_DIR, REPORT_DIR, run } from "../scripts/engine.ts";
 import { SAMPLES } from "../scripts/sampleBundles.ts";
 import { byYear, ROWS, UUID } from "./helpers.ts";
+import { investmentReturnUsed } from "../../engine/src/sdk/returnUse.ts";
 
 const schema = JSON.parse(readFileSync(join(REPORT_DIR, "schema", "proposal-input.schema.json"), "utf8")) as object;
 const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
@@ -446,5 +447,44 @@ describe("表に載る年が無い世帯", () => {
     const input = buildProposalInput({ document: { issuedOn: "2026-10-31", preparedBy: null }, current: r, proposal: r, targetAge: 95 });
     expect(input.basis.years).toEqual([req.input.endYear]);
     expect(validate(input)).toBe(true);
+  });
+});
+
+describe("前提の一覧の運用利回り（配分も利回りも入れていない運用の口座の率）は、その率を使う物があるときだけ（0260）", () => {
+  // 運用の利回りを使う見本（利回りも配分も入れていない口座のある見本）と、使わない見本
+  const bundles = SAMPLES.map((s) => s.bundle());
+  const base = bundles.find((b) => investmentReturnUsed(b.proposal.request.input))!;
+  const rates = (b: ProposalBundle) => buildProposalInput(b).assumptions.rates.map((r) => r.label);
+  const LABEL = "運用利回り（資産の器ごとの指定が無いもの）";
+  /** どの口座にも利回りを入れ、保険の貯蓄型を外した要求（運用の利回りを使う物が無い） */
+  const noUse = (): EngineRequest => {
+    const r = structuredClone(base.proposal.request);
+    const hh = r.input.household as unknown as { accounts?: unknown[]; insuranceContracts?: unknown[] };
+    hh.accounts = (r.input.household.accounts ?? []).map((a) => (a.kind === "deposit" || a.kind === "realEstate" || a.kind === "otherAsset" ? a : { ...a, expectedReturn: a.expectedReturn ?? "0.02", assetMix: undefined, returnStages: undefined }));
+    hh.insuranceContracts = [];
+    // 預金の利回りの無い前の要求は、預金も運用の利回りで伸びる（0137）ので、預金の利回りを入れる
+    const asm = r.input.assumptions as { investment?: { method?: string }; depositReturn?: { default: string } };
+    asm.depositReturn ??= { default: "0.001" };
+    if (asm.investment !== undefined) asm.investment = { ...asm.investment, method: "accounts" };
+    return r;
+  };
+
+  it("見本ごと: 提案・比較・必要保障額のどれかで使えば出し、どれも使わなければ出さない", () => {
+    expect(base).toBeDefined();
+    for (const b of bundles) {
+      const used = [b.proposal.request, ...(b.comparison?.plans ?? []).map((p) => p.run.request), ...(b.protection !== undefined ? [b.protection.request] : [])].some((r) => investmentReturnUsed(r.input));
+      expect(rates(b).includes(LABEL)).toBe(used);
+    }
+  });
+
+  it("どの口座にも利回りを入れた（使う物が無い）提案では出さない。比較・必要保障額（逆算方式）で使えば出す。ほかの前提の行はそのまま", () => {
+    const req = noUse();
+    const b: ProposalBundle = { ...base, proposal: run(req), comparison: undefined, protection: undefined };
+    const got = rates(b);
+    expect(got).not.toContain(LABEL);
+    expect(got).toContain("物価上昇率");
+    const reverse = structuredClone(req);
+    (reverse.input as { protection?: unknown }).protection = { members: [req.input.household.members.find((m) => m.kind === "self")!.id], method: "reverse" };
+    expect(rates({ ...b, protection: run(reverse) })).toContain(LABEL);
   });
 });

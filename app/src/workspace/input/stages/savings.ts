@@ -10,7 +10,7 @@ import { accountHolderRule, ACCOUNT_KINDS, accountLabelOf, accountLabelProblem, 
 import { addMonths } from "../../levers.ts";
 import { dropHeldCostRows, heldCostRow, heldEstateCostEstimate, heldEstateTaxInputs, newHeldCostRow, startsHeldEstateCost } from "../heldEstateTax.ts";
 import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
-import { accountName, canMoveFromDeposit, MOVE_HELP, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeBasis, payoutAgeOf, rateBasisOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf, withdrawableCount } from "../savings/model.ts";
+import { accountName, canMoveFromDeposit, MOVE_HELP, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeBasis, payoutAgeOf, rateBasisOf, rateOf, rateSourceOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf, withdrawableCount } from "../savings/model.ts";
 import { allocationStageGroups, returnStageGroups } from "../staged.ts";
 import { FEE_RANGE, RETURN_RANGE } from "../rateRanges.ts";
 import { addRate, cmpRate, divRate, subRate } from "../../plans/decimal.ts";
@@ -484,12 +484,12 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           a.kind === "cryptoAsset"
             ? "1年あたりの評価額の増え方の見込みです。入れなければ0（今の評価額のまま）で計算します。値動きが大きいので、ふつうは入れずに見ます"
             : "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。入れなければ、資産の配分や前提条件の利回りで計算します（費用を別に入れる形は「詳細」で）",
-        // 空欄は前提条件の運用利回り・預金の利回り・資産の配分から計算する値（推定の印と、どこから来た値か）。前提の値なので確かめの一覧・
+        // 空欄は運用の利回り（事務所の既定値。0260）・預金の利回り・資産の配分から計算する値（推定の印と、どこから来た値か）。前提の値なので確かめの一覧・
         // 「推定の値をまとめて使う」には数えない（quietEstimate）。打つと確定
         quietEstimate: "前提条件・資産の配分から計算する利回り",
         get: (w) => {
           const x = find(w.request.input.household, w) as Account | undefined;
-          return { value: x?.expectedReturn ?? null, ...(x !== undefined && x.expectedReturn === undefined ? { hint: `空欄: 年${(Number(rateOf(w.request, x)) * 100).toFixed(1)}%`, estimated: rateBasisOf(w.request, x) } : {}) };
+          return { value: x?.expectedReturn ?? null, ...(x !== undefined && x.expectedReturn === undefined ? { hint: `空欄: 年${(Number(rateOf(w.request, x)) * 100).toFixed(1)}%（${rateSourceOf(w, x)}）`, estimated: rateBasisOf(w.request, x) } : {}) };
         },
         set: (w, v) =>
           mutate(w, (h) => {
@@ -615,7 +615,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   groups.push({
     key: `${k}/addMix`,
     level: "detail",
-    note: (a.assetMix ?? []).length === 0 ? "資産の配分を入れないときは、預金・外貨預金は預金の利回り、ほかは前提条件の運用利回りで計算します" : undefined,
+    note: (a.assetMix ?? []).length === 0 ? "資産の配分を入れないときは、預金・外貨預金は預金の利回り、ほかは配分も利回りも入れていない運用の口座の利回り（事務所の既定値）で計算します" : undefined,
     fields: [],
     actions: [{ key: `${k}/addMixRow`, label: "＋ 資産の配分", level: "detail", run: (w) => mutate(w, (h) => void ((find(h, w) as Account).assetMix ??= []).push({ assetClass: "equity.global", share: (a.assetMix ?? []).length === 0 ? "1" : "0" })) }],
   });
