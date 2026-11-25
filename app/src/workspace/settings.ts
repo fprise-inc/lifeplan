@@ -58,7 +58,7 @@ export interface BalanceSettings {
 export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = { health: true, guide: DEFAULT_BS_GUIDE, points: DEFAULT_BS_POINTS, columns: null, moneyThree: DEFAULT_MONEY_THREE };
 
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
-  { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる（既定）" },
+  { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる" },
   { key: "side", label: "左右に並べる", note: "基準のプランと選んだプランを2つのグラフにして並べる。縦の目盛りはそろえる" },
   { key: "all", label: "全部のプランを色分けで重ねる", note: "帯に並べた全部のプラン（現状を含め最大6本）を1つのグラフに、色で描き分ける（プランごとに色が決まっています）。収支は年間収支の線で比較する" },
 ];
