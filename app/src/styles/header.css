@@ -19,8 +19,14 @@
 /* 世帯の選択（押すと、開いている世帯の状態と世帯の一覧が開く） */
 .hh-btn { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; padding: 3px 10px; font-size: 0.88rem; cursor: pointer; max-width: 24em; flex: none; }
 .hh-btn[aria-expanded="true"] { border-color: var(--prop); background: var(--prop-bg); }
-.hh-btn .hh-no { font-weight: 700; white-space: nowrap; }
-.hh-btn .hh-sub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* 名前（顧客番号・見本「名前」）と要約: 入らないときは要約から先に縮め、次に名前のかぎかっこの中（.hh-q）を「…」で縮める。
+   かぎかっこ（.hh-qm）・▼・ボタンの右の余白は縮めない（全部の名前はカーソルを合わせると出る） */
+/* 要約に3文字分の幅も残らないときは、要約を2行目に回して隠す（.hh-txt は1行の高さだけ見せる）。切れ端だけを出さない */
+.hh-btn .hh-txt { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; min-width: 0; flex: 0 1 auto; max-height: 1.6em; line-height: 1.6; overflow: hidden; }
+.hh-btn .hh-no { font-weight: 700; white-space: nowrap; display: inline-flex; min-width: 0; flex: 0 1 auto; }
+.hh-btn .hh-qm, .hh-btn .hh-txt > .pl-tag { flex: none; }
+.hh-btn .hh-q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 1.5em; }
+.hh-btn .hh-sub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 3em; flex: 0 1000 auto; }
 .hh-btn .caret { font-size: 0.7em; color: var(--ink-2); flex: none; }
 
 /* 急ぎの札（保存の失敗・保存を止めている・AIと共有中）。ふだんは出ない */

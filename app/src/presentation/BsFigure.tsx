@@ -7,8 +7,11 @@
 // - 純資産のマイナスは左の下に点線・灰色の斜線（ほかの箱と意味が違うので、ここだけ点線の枠）、資金の不足は右（その他の負債）に薄い赤の斜線
 // - 狭い画面（スマホ。narrow.ts）では、図の外の左右の札（名前と金額・金融資産のかっこ）を描かず、柱を幅いっぱいにして、
 //   名前と金額は箱の中と図の下の一覧（HTML。折り返すので画面の端で切れない）に出す
-// - 箱の中の名前と金額は、1行で間が取れるときだけ1行（名前は左・金額は右）。取れなければ金額を名前の下の行に回し、
-//   それも入らない小さな箱は、狭い画面では金額だけ（名前は図の下の一覧）、広い画面では名前だけ（金額は図の外の札）にする（boxTextFit）
+// - 箱の中の名前と金額は、箱の高さと幅で入る分を入れる（boxTextLayout）: 名前と金額を2行（名前が長ければ名前を2行に分けて金額を3行目）→
+//   1行（名前は左・金額は右。間を文字1つ分ほど空けられるとき）→ 名前だけ（1行・2行に分けて・「…」で縮めて）→ 何も入れない。
+//   狭い画面では、名前だけの代わりに金額だけ（名前は図の下の一覧）。細い柱では左右の余白を詰める（boxPad）
+// - 図の外の見出し（名前と合計）は、まとまりの上端から下端までの括弧を柱の横に引き、その真ん中に置く（どの箱からどの箱までの合計か分かるように）
+// - 下の線（0 の線）は、左の柱の左端から目盛りの「0」の印まで（図の左にはみ出さない）
 // - 縮尺（scale）を渡さなければその年がいっぱいの高さ。年を変えると、箱と縮尺が前の形から行き過ぎなく動く（tween.ts）
 // - 箱を押すと内訳の小窓（もう一度押す・×・Esc・外を押すと閉じる）
 // - 箱（項目）にカーソルを合わせると、名前・金額・どの分け方のうちかの札（FigTip.tsx）。キーボードで箱のまとまりを選んだときは、
@@ -57,6 +60,9 @@ export const BOX_GAP = 2;
 /** 薄い項目の見えない当たりの帯の高さ */
 const HIT_H = 9;
 export const BOX_RADIUS = 4;
+/** 図の外の見出しの括弧: 柱からの距離と、上下の端を箱の端から内へ寄せる量（隣の括弧と重ならないように） */
+const BRACKET_OFF = 6;
+const BRACKET_INSET = 1;
 
 /** 文字の幅の目安（全角1・半角0.6） */
 const textW = (s: string, f: number) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? 1 : 0.6), 0) * f;
@@ -68,25 +74,90 @@ const fmt = (yen: Yen) => group(Math.round(yen / 10000));
  */
 export const boxTextW = (s: string, f: number) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? 1 : /[0-9]/.test(c) ? 0.78 : /[,.]/.test(c) ? 0.36 : /[IJijl]/.test(c) ? 0.45 : /[A-Z]/.test(c) ? 0.84 : 0.68), 0) * f;
 
+/** 箱の中の文字の左右の余白（細い柱では詰める） */
+export const boxPad = (colW: number) => (colW < 120 ? 6 : 10);
+/** 箱の中の文字の行の高さ（文字の大きさに対する割合）と、n 行を入れるのに要る箱の高さ */
+const BOX_LH = 1.2;
+export const boxLinesH = (n: number, f: number) => f * (BOX_LH * n + 0.35);
+
 /**
- * 箱の中の名前と金額の置き方:
- * - "one": 名前を左・金額を右の1行（間を文字1つ分ほど空けられるとき）
- * - "two": 名前の下の行に金額（1行では詰まるが、箱に2行分の高さがあるとき）
- * - "value": 金額だけ（狭い画面で箱が小さいとき。名前は図の下の一覧に出す）
- * - "name": 名前だけ（広い画面で箱が小さいとき。金額は図の外の札に出す）
- * - "none": 何も入れない
+ * 名前を、箱の幅に入る1行か2行に分ける（分けても入らなければ null）。
+ * 分ける所は「（」の前・「・」の後ろを先に試し、無ければ2つの行の長さが近くなる所で分ける
  */
-export type BoxTextFit = "one" | "two" | "value" | "name" | "none";
+export function boxNameLines(name: string, maxW: number, f: number): string[] | null {
+  if (boxTextW(name, f) <= maxW) return [name];
+  const cs = [...name];
+  const split = (i: number) => [cs.slice(0, i).join(""), cs.slice(i).join("")] as const;
+  const fits = (i: number) => {
+    const [a, b] = split(i);
+    return boxTextW(a, f) <= maxW && boxTextW(b, f) <= maxW;
+  };
+  const byMiddle = (a: number, b: number) => Math.abs(cs.length / 2 - a) - Math.abs(cs.length / 2 - b);
+  // 区切りのよい所（「（」の前・「・」の後ろ）で分けられれば、そこで分ける
+  const nice = cs.flatMap((c, i) => (c === "（" && i > 0 ? [i] : c === "・" && i + 1 < cs.length ? [i + 1] : [])).filter(fits).sort(byMiddle)[0];
+  if (nice !== undefined) return [...split(nice)];
+  // 無ければ、2つの行の長さが近くなる所で分ける（1文字だけの行は作らない）
+  const any = cs.map((_, i) => i).filter((i) => i >= 2 && cs.length - i >= 2 && fits(i)).sort(byMiddle)[0];
+  return any !== undefined ? [...split(any)] : null;
+}
+
+/** 入らない名前を、頭から入るだけ残して「…」で縮める（2文字も残らなければ null）。かっこの中の途中で切るときは、かっこの前で切る */
+export function boxNameCut(name: string, maxW: number, f: number): string | null {
+  const cs = [...name];
+  for (let i = cs.length - 1; i >= 2; i--) {
+    const open = cs.slice(0, i).lastIndexOf("（");
+    const end = open >= 2 && !cs.slice(open, i).includes("）") ? open : i;
+    const t = `${cs.slice(0, end).join("")}…`;
+    if (boxTextW(t, f) <= maxW) return t;
+  }
+  return null;
+}
+
+/**
+ * 箱の中の名前と金額の置き方（箱の高さと幅で入る分を入れる。入る順に試す）:
+ * - "two": 名前の下の行に金額（2行）。名前が1行に入らなければ、名前を2行に分けて金額を3行目に（"three"）
+ * - "one": 名前を左・金額を右の1行（2行分の高さが無く、1行で間を文字1つ分ほど空けられるとき）
+ * - "value": 金額だけ（狭い画面で箱が小さいとき。名前は図の下の一覧に出す）
+ * - "name": 名前だけ（広い画面。1行・入らなければ2行に分けて "name2"・それも入らなければ「…」で縮めて "cut"。金額は図の外の見出しと、カーソルを合わせると出る小さな表示）
+ * - "none": 何も入れない（小さすぎる箱だけ。中身はカーソルを合わせると見られる）
+ * 名前と金額を上下に並べる形（"two"・"three"）は、ふつうの大きさで入らなければ、文字を少し小さく（BOX_SHRINK）して入れる（1行は小さくしない）
+ */
+export type BoxTextFit = "two" | "three" | "one" | "value" | "name" | "name2" | "cut" | "none";
 export function boxTextFit(name: string, value: string, colW: number, h: number, f: number, narrow: boolean): BoxTextFit {
-  if (h < f * 1.55) return "none";
-  const pad = 10;
-  const nmW = boxTextW(name, f);
-  const vW = boxTextW(value, f);
-  const gap = Math.max(10, f * 0.9);
-  if (pad + nmW + gap + vW + pad <= colW) return "one";
-  if (h >= f * 3 && Math.max(nmW, vW) + 2 * pad <= colW) return "two";
-  if (narrow) return vW + 2 * pad <= colW ? "value" : "none";
-  return nmW + 2 * pad <= colW ? "name" : "none";
+  return boxTextLayout(name, value, colW, h, f, narrow).fit;
+}
+
+/** 名前と金額を両方入れられないとき、文字を少し小さくして入れ直す割合（これより小さくはしない） */
+export const BOX_SHRINK = 0.9;
+
+/** 箱の中の文字の置き方と、行ごとの文字（上から。value は金額の行）と文字の大きさ */
+export function boxTextLayout(name: string, value: string, colW: number, h: number, f: number, narrow: boolean): { fit: BoxTextFit; lines: { text: string; value: boolean }[]; f: number } {
+  const both = (ff: number) => {
+    const room = colW - 2 * boxPad(colW);
+    const nmW = boxTextW(name, ff);
+    const vW = boxTextW(value, ff);
+    const v = { text: value, value: true };
+    if (h >= boxLinesH(2, ff) && nmW <= room && vW <= room) return { fit: "two" as const, lines: [nm(name), v], f: ff };
+    const wrapped = boxNameLines(name, room, ff);
+    if (wrapped !== null && wrapped.length === 2 && h >= boxLinesH(3, ff) && vW <= room) return { fit: "three" as const, lines: [...wrapped.map(nm), v], f: ff };
+    // 1行は小さくしない（小さくして横に並べると、名前と金額が詰まって見える）
+    if (ff === f && h >= boxLinesH(1, ff) && nmW + Math.max(10, ff * 0.9) + vW <= room) return { fit: "one" as const, lines: [nm(name), v], f: ff };
+    return null;
+  };
+  const nm = (text: string) => ({ text, value: false });
+  const none = { fit: "none" as const, lines: [], f };
+  if (h < boxLinesH(1, f * BOX_SHRINK)) return none;
+  // 名前と金額の両方: ふつうの大きさで入らなければ、少し小さくして入れる
+  const b = (h >= boxLinesH(1, f) ? both(f) : null) ?? both(f * BOX_SHRINK);
+  if (b !== null) return b;
+  if (h < boxLinesH(1, f)) return none;
+  const room = colW - 2 * boxPad(colW);
+  if (narrow) return boxTextW(value, f) <= room ? { fit: "value", lines: [{ text: value, value: true }], f } : none;
+  if (boxTextW(name, f) <= room) return { fit: "name", lines: [nm(name)], f };
+  const wrapped = boxNameLines(name, room, f);
+  if (wrapped !== null && h >= boxLinesH(2, f)) return { fit: "name2", lines: wrapped.map(nm), f };
+  const cut = boxNameCut(name, room, f);
+  return cut !== null ? { fit: "cut", lines: [nm(cut)], f } : none;
 }
 
 export interface BsFigureProps {
@@ -355,12 +426,14 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   // 純資産の箱の中は、広い図では「資産 − 負債」の説明（名前と金額は図の外の札）。狭い画面ではほかの箱と同じく名前と金額
                   const showText = (!isNw || narrow) && !isNeg;
                   const tf = boxInk(q.key);
-                  const ty = q.y + q.h / 2 + subF * 0.36;
-                  // 名前と金額: 1行で間が取れれば1行、取れなければ金額を名前の下の行に、それも入らなければ金額だけ（狭い画面）か名前だけ
-                  const fit = showText ? boxTextFit(name, fmt(q.value), colW, q.h, subF, narrow) : "none";
-                  const two = fit === "two";
+                  // 名前と金額: 2行 → 名前を2行に分けて金額を3行目 → 1行 → 名前だけ（狭い画面は金額だけ）→ 何も入れない（boxTextLayout）
+                  const lay = showText ? boxTextLayout(name, fmt(q.value), colW, q.h, subF, narrow) : { fit: "none" as const, lines: [], f: subF };
+                  const pad = boxPad(colW);
+                  const lhB = lay.f * BOX_LH;
+                  const cy = q.y + q.h / 2 + lay.f * 0.36;
+                  const one = lay.fit === "one";
                   return (
-                    <g key={q.key} {...(open === null ? figTip.hover(partTip(d, q)) : {})} data-bs-part={q.key}>
+                    <g key={q.key} {...(open === null ? figTip.hover(partTip(d, q)) : {})} data-bs-part={q.key} data-bs-fit={lay.fit}>
                       <rect
                         class="bsf-seg"
                         x={d.x + inset}
@@ -373,21 +446,16 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                         stroke-width={isNeg ? 1.8 : undefined}
                         stroke-dasharray={isNeg ? "6 4" : undefined}
                       />
-                      {fit === "one" || fit === "two" || fit === "name" ? (
-                        <text x={d.x + 10} y={two ? ty - subF * 0.62 : ty} font-size={subF} font-weight="700" fill={tf} data-bs-text="name">
-                          {name}
-                        </text>
-                      ) : null}
-                      {two || fit === "value" ? (
-                        <text x={d.x + 10} y={two ? ty + subF * 0.62 : ty} font-size={subF} font-weight="700" fill={tf} class="num" data-bs-text="value">
-                          {fmt(q.value)}
-                        </text>
-                      ) : null}
-                      {fit === "one" ? (
-                        <text x={d.x + colW - 10} y={ty} text-anchor="end" font-size={subF} font-weight="700" fill={tf} class="num" data-bs-text="value">
-                          {fmt(q.value)}
-                        </text>
-                      ) : null}
+                      {lay.lines.map((ln, i) => {
+                        const n = one ? 1 : lay.lines.length;
+                        const ty = cy + ((one ? 0 : i) - (n - 1) / 2) * lhB;
+                        const right = one && ln.value;
+                        return (
+                          <text key={i} x={right ? d.x + colW - pad : d.x + pad} y={ty} text-anchor={right ? "end" : undefined} font-size={lay.f} font-weight="700" fill={tf} class={ln.value ? "num" : undefined} data-bs-text={ln.value ? "value" : "name"}>
+                            {ln.text}
+                          </text>
+                        );
+                      })}
                     </g>
                   );
                 })}
@@ -431,7 +499,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
             : null}
           {/* 下の線（0 の線）: 箱の後に1本で描く。箱の白い縁の下に隠れて、柱の間・両端だけが太く・点のように見えないように。
               右端は目盛りの「0」の印まで延ばす（印は描かない） */}
-          <line data-bs-baseline x1={Math.max(0.5, xL - 8)} x2={axL + 5} y1={base + 0.6} y2={base + 0.6} stroke="#9aa3ae" stroke-width="1.2" />
+          <line data-bs-baseline x1={xL} x2={axL + 5} y1={base + 0.6} y2={base + 0.6} stroke="#9aa3ae" stroke-width="1.2" />
           {!compact && !noTag && !narrow ? (
             <g data-bs-kind={est ? "est" : "fact"}>
               <rect x="2" y="2" width={tagW} height={fs * 1.55} rx="4" fill={est ? "var(--card)" : "var(--ink)"} stroke={est ? "var(--ink-2)" : "var(--ink)"} stroke-width="1.5" />
@@ -459,14 +527,19 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                 );
               })()
             : null}
-          {/* 外側の大きな名前と金額（引き出し線つき） */}
+          {/* 外側の大きな名前と金額: どの箱からどの箱までの合計かが分かるよう、まとまりの上端から下端までの括弧（縦の線と上下の短い横線）を
+              柱の横に引き、見出しを括弧の真ん中に置く（左右とも同じ形）。見出しが混んでずれたときだけ、括弧の真ん中から見出しへ短い線でつなぐ */}
           {labels.map(({ d, y }) => {
             const Ls = d.box.side === "L";
-            const ex = Ls ? xL : xR + colW;
+            const bx = Ls ? xL - BRACKET_OFF : xR + colW + BRACKET_OFF;
+            const dir = Ls ? 1 : -1; // 括弧の上下の横線の向き（柱の側）
             const tx = Ls ? xL - 16 : xR + colW + 16;
             const anc = Ls ? "end" : "start";
-            const by = Math.min(Math.max(y, d.top + 1), d.bot - 1);
-            // 札が枠の外で欠けないよう、入る幅（左は枠の左端まで、右は目盛りまで）に収まらなければ文字を小さくする（純資産のマイナスの「▲」など）
+            const bt = d.top + BOX_GAP / 2 + BRACKET_INSET;
+            const bb = d.bot - BOX_GAP / 2 - BRACKET_INSET;
+            const mid = (d.top + d.bot) / 2;
+            const stub = bx - dir * 4;
+            // 見出しが枠の外で欠けないよう、入る幅（左は枠の左端まで、右は目盛りまで）に収まらなければ文字を小さくする（純資産のマイナスの「▲」など）
             const room = Ls ? tx - 2 : axL - tx - 4;
             const need = Math.max(textW(nameOf(d.box), fs * (compact ? 0.8 : 1.0)), textW(`${d.box.key === "neg" ? "▲" : ""}${fmt(d.box.value)}`, fs * (compact ? 1.1 : 1.6)) + textW("万円", fs * (compact ? 1.1 : 1.6) * 0.55));
             const fit = Math.max(0.6, Math.min(1, room / Math.max(need, 1)));
@@ -474,7 +547,14 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
             const aF = fs * (compact ? 1.1 : 1.6) * fit;
             return (
               <g key={`lb-${d.box.key}`} class="bsf-label" data-bs-label={d.box.key}>
-                <path d={`M${ex + (Ls ? -2 : 2)} ${by} L${tx + (Ls ? 5 : -5)} ${y}`} stroke="#9aa3ae" fill="none" />
+                <path
+                  data-bs-bracket={d.box.key}
+                  d={bb - bt >= 6 ? `M${bx + dir * 4} ${bt} L${bx} ${bt} L${bx} ${bb} L${bx + dir * 4} ${bb} M${bx} ${mid} L${stub} ${mid}` : `M${bx + dir * 4} ${mid} L${stub} ${mid}`}
+                  stroke="#9aa3ae"
+                  stroke-width="1.2"
+                  fill="none"
+                />
+                {Math.abs(y - mid) > 1 ? <path d={`M${stub} ${mid} L${tx + dir * 3} ${y}`} stroke="#9aa3ae" fill="none" /> : null}
                 <text x={tx} y={y - lh * 0.2} text-anchor={anc} font-size={nF} font-weight="700" fill="var(--ink-2)">
                   {nameOf(d.box)}
                 </text>
