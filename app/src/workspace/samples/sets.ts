@@ -24,68 +24,6 @@ export interface SampleSet {
 /** ファイナンシアの見本（全員に入っている。並びは棚の順。0247 の9 の12件。名前は相談の場面が分かる短い名前で、家族の形・年代・項目は family・age・traits で持つ） */
 const BASIC: readonly DemoHousehold[] = [
   {
-    id: "sampleCoupleNoKids",
-    family: 2,
-    age: 3,
-    rev: 1,
-    title: "住宅を買う前の共働き・30代（子なし）",
-    traits: ["会社員", "共働き", "賃貸"],
-    targetAge: 95,
-    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 30000, 50000, 80000], livingMonthly: [290000, 310000, 330000, 350000] },
-    firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 50000, livingMonthly: 310000 },
-    notes: { retireAge: "妻は60歳まで働く想定", nisaMonthly: "夫の分（妻も月2万円を積み立てている）", livingMonthly: "家賃（月14万円）は別。退職後は85%、80歳から75%" },
-    memo: ["5年以内に住宅の購入を考えている（架空の例）", "妻は60歳で退職する意向（架空の例）", "次回: 購入の予算と頭金を相談"],
-  },
-  {
-    id: "lifetime100Plan",
-    family: 3,
-    age: 3,
-    rev: 1,
-    title: "共働き・子1人・30代",
-    traits: ["会社員", "共働き", "賃貸", "住宅ローン", "教育費", "資産運用"],
-    targetAge: 95,
-    steps: {
-      retireAge: [60, 62, 65, 68, 70],
-      pensionAge: [60, 65, 68, 70, 75],
-      nisaMonthly: [0, 10000, 30000, 50000],
-      livingMonthly: [220000, 240000, 260000, 280000],
-    },
-    firstProposal: { nisaMonthly: 50000, livingMonthly: 240000 },
-    notes: { retireAge: "夫婦とも65歳まで正社員で働く想定", nisaMonthly: "夫の分（妻も月2万円を積み立てている）", livingMonthly: "家賃・住宅の費用は別。子の独立後は85%、退職後は75%、80歳から65%" },
-    memo: [
-      "今は賃貸（家賃 月11万円）。2029年4月に新築の戸建て（4,200万円）を買い、住宅ローン3,800万円を夫婦の連帯債務・変動金利で借りる予定（架空の例）",
-      "長女（0歳）は保育園から、私立高校・私立大学の理科系（自宅外）まで見込む（架空の例）",
-      "次回: 購入の予算と頭金、2041年に予定している繰上返済（200万円）の考え方を相談",
-    ],
-    plans: [
-      { name: "プランB NISA を月5万円に増やす", tags: ["運用"], values: { "lever:nisaMonthly": 50000 } },
-      { name: "プランC 生活費を月24万円に", tags: ["老後"], values: { "lever:livingMonthly": 240000 } },
-    ],
-  },
-  {
-    id: "sampleCoupleTwoKidsPeak",
-    family: 3,
-    age: 4,
-    rev: 1,
-    title: "会社員の夫婦と子2人・40代（教育費のピーク）",
-    traits: ["会社員", "片働き", "持ち家", "住宅ローン", "教育費"],
-    targetAge: 95,
-    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 30000, 50000], livingMonthly: [260000, 280000, 300000, 320000] },
-    firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 30000, livingMonthly: 280000 },
-    reemployment: { fromAge: 60, type: "contract", annualSalary: 4200000, standardMonthlyRemuneration: 360000 },
-    notes: { retireAge: "60歳から再雇用（年収420万円）", nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "子の独立後は85%、退職後は80%、80歳から70%" },
-    memo: [
-      "退職金1,800万円は規程の確認待ち（架空の例）",
-      "配偶者は扶養内のパートを60歳まで続ける意向（架空の例）",
-      "夢は7件を聞き取った。家族で海外旅行・キャンプは最初から計算に入れ、車の買い替え・リフォーム・長女の結婚の援助・退職後のゴルフ・二拠点の暮らしは「最初から計算に入れない」で置いた（架空の例）",
-      "次回: 長男の進路の希望を確認",
-    ],
-    plans: [
-      { name: "プランB 65歳まで働く（60歳から再雇用）", tags: ["老後"], values: { "lever:retireAge": 65 } },
-      { name: "プランC NISA を月3万円に増やす", tags: ["運用"], values: { "lever:nisaMonthly": 30000 } },
-    ],
-  },
-  {
     id: "sampleDualAssetsInvest",
     family: 3,
     age: 4,
@@ -148,6 +86,68 @@ const BASIC: readonly DemoHousehold[] = [
           "f219eceb-c600-449c-9f42-de1997fe7037": 23900000, "9f29a302-6059-4f50-bb21-b05379a27a5c": 1500000,
         },
       },
+    ],
+  },
+  {
+    id: "sampleCoupleNoKids",
+    family: 2,
+    age: 3,
+    rev: 1,
+    title: "住宅を買う前の共働き・30代（子なし）",
+    traits: ["会社員", "共働き", "賃貸"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 30000, 50000, 80000], livingMonthly: [290000, 310000, 330000, 350000] },
+    firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 50000, livingMonthly: 310000 },
+    notes: { retireAge: "妻は60歳まで働く想定", nisaMonthly: "夫の分（妻も月2万円を積み立てている）", livingMonthly: "家賃（月14万円）は別。退職後は85%、80歳から75%" },
+    memo: ["5年以内に住宅の購入を考えている（架空の例）", "妻は60歳で退職する意向（架空の例）", "次回: 購入の予算と頭金を相談"],
+  },
+  {
+    id: "lifetime100Plan",
+    family: 3,
+    age: 3,
+    rev: 1,
+    title: "共働き・子1人・30代",
+    traits: ["会社員", "共働き", "賃貸", "住宅ローン", "教育費", "資産運用"],
+    targetAge: 95,
+    steps: {
+      retireAge: [60, 62, 65, 68, 70],
+      pensionAge: [60, 65, 68, 70, 75],
+      nisaMonthly: [0, 10000, 30000, 50000],
+      livingMonthly: [220000, 240000, 260000, 280000],
+    },
+    firstProposal: { nisaMonthly: 50000, livingMonthly: 240000 },
+    notes: { retireAge: "夫婦とも65歳まで正社員で働く想定", nisaMonthly: "夫の分（妻も月2万円を積み立てている）", livingMonthly: "家賃・住宅の費用は別。子の独立後は85%、退職後は75%、80歳から65%" },
+    memo: [
+      "今は賃貸（家賃 月11万円）。2029年4月に新築の戸建て（4,200万円）を買い、住宅ローン3,800万円を夫婦の連帯債務・変動金利で借りる予定（架空の例）",
+      "長女（0歳）は保育園から、私立高校・私立大学の理科系（自宅外）まで見込む（架空の例）",
+      "次回: 購入の予算と頭金、2041年に予定している繰上返済（200万円）の考え方を相談",
+    ],
+    plans: [
+      { name: "プランB NISA を月5万円に増やす", tags: ["運用"], values: { "lever:nisaMonthly": 50000 } },
+      { name: "プランC 生活費を月24万円に", tags: ["老後"], values: { "lever:livingMonthly": 240000 } },
+    ],
+  },
+  {
+    id: "sampleCoupleTwoKidsPeak",
+    family: 3,
+    age: 4,
+    rev: 1,
+    title: "会社員の夫婦と子2人・40代（教育費のピーク）",
+    traits: ["会社員", "片働き", "持ち家", "住宅ローン", "教育費"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 30000, 50000], livingMonthly: [260000, 280000, 300000, 320000] },
+    firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 30000, livingMonthly: 280000 },
+    reemployment: { fromAge: 60, type: "contract", annualSalary: 4200000, standardMonthlyRemuneration: 360000 },
+    notes: { retireAge: "60歳から再雇用（年収420万円）", nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "子の独立後は85%、退職後は80%、80歳から70%" },
+    memo: [
+      "退職金1,800万円は規程の確認待ち（架空の例）",
+      "配偶者は扶養内のパートを60歳まで続ける意向（架空の例）",
+      "夢は7件を聞き取った。家族で海外旅行・キャンプは最初から計算に入れ、車の買い替え・リフォーム・長女の結婚の援助・退職後のゴルフ・二拠点の暮らしは「最初から計算に入れない」で置いた（架空の例）",
+      "次回: 長男の進路の希望を確認",
+    ],
+    plans: [
+      { name: "プランB 65歳まで働く（60歳から再雇用）", tags: ["老後"], values: { "lever:retireAge": 65 } },
+      { name: "プランC NISA を月3万円に増やす", tags: ["運用"], values: { "lever:nisaMonthly": 30000 } },
     ],
   },
   {
@@ -530,8 +530,8 @@ export function sampleSetShown(set: Pick<SampleSet, "feature">, features: Featur
 /** 今出すセット（定義の順） */
 export const shownSampleSets = (sets: readonly SampleSet[], features: FeatureStatus, office: OfficeFeatures): SampleSet[] => sets.filter((set) => sampleSetShown(set, features, office));
 
-/** はじめて起動したとき（前回の世帯が無いとき）に開く見本の ID（並びの3「会社員の夫婦と子2人・40代（教育費のピーク）」。0247 の9） */
-export const FIRST_SAMPLE_ID = "sampleCoupleTwoKidsPeak";
+/** はじめて起動したとき（前回の世帯が無いとき）に開く見本の ID（並びの1「共働き・子2人・40代（資産運用）」。FP が扱う世帯として一般的なため。0247 の9 の追記） */
+export const FIRST_SAMPLE_ID = "sampleDualAssetsInvest";
 
 /** 起動のときに開く見本: FIRST_SAMPLE_ID が出せる見本の中にあればそれ、無ければ並びの先頭（出せる見本が無ければ undefined） */
 export function firstSampleId(available: readonly { id: string }[]): string | undefined {

@@ -285,8 +285,8 @@ mod tests {
         let order: Vec<&str> = hs.iter().map(|h| h["id"].as_str().unwrap()).collect();
         let shelf_order: Vec<&str> = shelf().iter().map(|s| s.id.as_str()).collect();
         assert_eq!(order, shelf_order);
-        assert_eq!(order[0], "sampleCoupleNoKids");
-        assert_eq!(order[2], "sampleCoupleTwoKidsPeak");
+        assert_eq!(order[0], "sampleDualAssetsInvest");
+        assert_eq!(order[3], "sampleCoupleTwoKidsPeak");
         // 棚から外した見本は既定の一覧に出ない（モデル世帯としては ID で取り出せる）
         for id in [
             "salariedCoupleTwoKids",

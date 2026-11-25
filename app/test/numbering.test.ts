@@ -201,10 +201,9 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
   });
 
   it("起動のときに開く見本は ID で決める（並びの先頭ではない）。無ければ並びの先頭", () => {
-    expect(FIRST_SAMPLE_ID).toBe("sampleCoupleTwoKidsPeak");
-    expect(DEMO_HOUSEHOLDS[0]!.id).not.toBe(FIRST_SAMPLE_ID);
-    expect(firstSampleId(DEMO_HOUSEHOLDS)).toBe("sampleCoupleTwoKidsPeak");
-    expect(firstSampleId([{ id: "sampleCoupleNoKids" }, { id: "sampleCoupleTwoKidsPeak" }])).toBe("sampleCoupleTwoKidsPeak");
+    expect(FIRST_SAMPLE_ID).toBe("sampleDualAssetsInvest");
+    expect(firstSampleId(DEMO_HOUSEHOLDS)).toBe("sampleDualAssetsInvest");
+    expect(firstSampleId([{ id: "sampleCoupleNoKids" }, { id: "sampleDualAssetsInvest" }])).toBe("sampleDualAssetsInvest");
     expect(firstSampleId([{ id: "sampleCoupleNoKids" }])).toBe("sampleCoupleNoKids");
     expect(firstSampleId([])).toBeUndefined();
   });

@@ -29,12 +29,12 @@ import { modelHousehold, preview } from "./helpers.ts";
 
 const BASIC = SAMPLE_SETS.find((s) => s.id === "official.basic")!.samples;
 
-/** ファイナンシアの見本12件（0247 の9 の表。並び・名前・家族の形・年代） */
+/** ファイナンシアの見本12件（0247 の9 の表。並び・名前・家族の形・年代。はじめて起動したときに開く「共働き・子2人・40代（資産運用）」を先頭に置く。利用者の判断） */
 const LINEUP: readonly [string, string, string][] = [
+  ["sampleDualAssetsInvest", "共働き・子2人・40代（資産運用）", "夫婦と子・40代"],
   ["sampleCoupleNoKids", "住宅を買う前の共働き・30代（子なし）", "夫婦のみ・30代"],
   ["lifetime100Plan", "共働き・子1人・30代", "夫婦と子・30代"],
   ["sampleCoupleTwoKidsPeak", "会社員の夫婦と子2人・40代（教育費のピーク）", "夫婦と子・40代"],
-  ["sampleDualAssetsInvest", "共働き・子2人・40代（資産運用）", "夫婦と子・40代"],
   ["sampleSelfEmployedFamily", "自営業の夫婦と子2人・40代", "夫婦と子・40代"],
   ["sampleSingleParent", "ひとり親と子2人・30代", "ひとり親・30代"],
   ["sampleSingle50sRenter", "おひとり様・50代（賃貸）", "単身・50代"],
@@ -101,12 +101,13 @@ describe("ファイナンシアの見本の顔ぶれ（12件。0247 の9）", ()
     for (const d of BASIC) expect(reserved.has(d.title), d.id).toBe(true);
   });
 
-  it("はじめて起動したときに開く見本は、並びの3「会社員の夫婦と子2人・40代（教育費のピーク）」（法人経営者の見本のコードの有無によらない）", () => {
-    expect(FIRST_SAMPLE_ID).toBe("sampleCoupleTwoKidsPeak");
-    expect(BASIC.findIndex((d) => d.id === FIRST_SAMPLE_ID)).toBe(2);
+  it("はじめて起動したときに開く見本は、一覧の先頭の「共働き・子2人・40代（資産運用）」（法人経営者の見本のコードの有無によらない）", () => {
+    expect(FIRST_SAMPLE_ID).toBe("sampleDualAssetsInvest");
+    expect(BASIC[0]!.id).toBe(FIRST_SAMPLE_ID);
     const off = shownSampleSets(SAMPLE_SETS, NO_FEATURES, DEFAULT_FEATURES).flatMap((s) => s.samples);
-    expect(firstSampleId(off)).toBe("sampleCoupleTwoKidsPeak");
-    expect(firstSampleId(DEMO_HOUSEHOLDS)).toBe("sampleCoupleTwoKidsPeak");
+    expect(firstSampleId(off)).toBe("sampleDualAssetsInvest");
+    expect(off[0]!.id).toBe("sampleDualAssetsInvest");
+    expect(firstSampleId(DEMO_HOUSEHOLDS)).toBe("sampleDualAssetsInvest");
   });
 
   it("起動のときに前回・開発用の入口の世帯が棚から外した見本を指していても開ける（起動の一覧は棚から外した見本も持つ。棚に出すのはセットの見本だけ）", () => {

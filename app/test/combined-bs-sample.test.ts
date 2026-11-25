@@ -102,7 +102,7 @@ describe("法人経営者の見本のセット（0247 の7）", () => {
       expect(sampleSetShown(BASIC, c.features, c.office)).toBe(true);
       expect(ids(shownSampleSets(SAMPLE_SETS, c.features, c.office))).toEqual(c.shown ? ["official.basic", "official.corporateOwner"] : ["official.basic"]);
       // 起動のときに開く見本は、どちらでもファイナンシアの見本の決まった見本
-      expect(firstSampleId(shownSampleSets(SAMPLE_SETS, c.features, c.office).flatMap((s) => s.samples))).toBe("sampleCoupleTwoKidsPeak");
+      expect(firstSampleId(shownSampleSets(SAMPLE_SETS, c.features, c.office).flatMap((s) => s.samples))).toBe("sampleDualAssetsInvest");
     });
   }
 

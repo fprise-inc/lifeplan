@@ -19,7 +19,7 @@ describe("AI接続口の見本の一覧の目印", () => {
   it("ファイナンシアの見本を、棚と同じ名前・家族の形と年代・項目で、棚と同じ順（セットの定義の順）に返す。番号は持たない", () => {
     expect(list.map((s) => s.id)).toEqual(BASIC.map((d) => d.id));
     expect(list).toHaveLength(12);
-    expect(list[0]?.id).toBe("sampleCoupleNoKids");
+    expect(list[0]?.id).toBe("sampleDualAssetsInvest");
     for (const s of list) expect(Object.keys(s).sort()).toEqual(["id", "tags", "title"]);
     for (const d of BASIC) {
       const s = list.find((x) => x.id === d.id);
