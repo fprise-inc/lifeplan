@@ -919,7 +919,8 @@ export function BalanceSettingsPanel({
   onPointDefaults: (k: BsPointKey[]) => void;
   /** お金の3つの分け方の呼び方（0032） */
   moneyThree?: { value: MoneyThreeWording; choices: readonly MoneyThreeNameChoice[]; onChange: (n: MoneyThreeWording) => void };
-  /** 設定ごとの「事務所の既定値」「この世帯だけ」の印（0213 の段C。省略すると出さない） */
+  /** 設定ごとの「事務所の既定値」「この世帯だけ」の印（0213 の段C。省略すると出さない）。数を入れる・並びを組む設定（時点を並べるの既定・目安の幅・何か月分・何年先まで）にだけ出す。
+   *  家計の体力の目安（出す・出さない）とお金の3つの分け方の呼び方（選ぶだけ）は、戻すのも1回で済むので出さない（利用者の判断） */
   office?: OfficeMarks;
   onClose: () => void;
 }) {
@@ -945,7 +946,7 @@ export function BalanceSettingsPanel({
       </div>
       <div class="ds-layout ds-bspoints" data-bs-guide-setting>
         <span class="ds-k">
-          家計の体力の目安{mark(["balance.health"])}
+          家計の体力の目安
         </span>
         {onHealth !== undefined ? (
           <label class={`ds-item${model.health ? " on" : ""}`}>
@@ -965,7 +966,7 @@ export function BalanceSettingsPanel({
       </div>
       {moneyThree !== undefined ? (
         <div class="ds-layout" role="radiogroup" aria-label="お金の3つの分け方の呼び方" data-m3-names-setting>
-          <span class="ds-k">お金の3つの分け方の呼び方{mark(["balance.moneyThree.wording"])}</span>
+          <span class="ds-k">お金の3つの分け方の呼び方</span>
           {moneyThree.choices.map((c) => (
             <label key={c.key} class={`ds-item${moneyThree.value === c.key ? " on" : ""}`}>
               <input type="radio" name="m3-names" value={c.key} checked={moneyThree.value === c.key} onChange={() => moneyThree.onChange(c.key)} data-m3-names={c.key} />

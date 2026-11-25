@@ -144,8 +144,9 @@ const OFFICE = "世帯の一覧の「事務所の既定値」";
 const OFFICE_DISPLAY = `${OFFICE}の区画「結果のタブ・資産と負債のタブの表示の設定」`;
 /** 事務所の既定値を持てる表示の設定の、世帯の値の補い */
 const FOLLOW_NOTE = "事務所の既定値に従う世帯（新しく作る世帯）は事務所の既定値を読みます。その世帯で値を変えると、その世帯だけの値になります（表示の設定に「この世帯だけ」と「事務所の既定値に戻す」）。前からある世帯は、その世帯の値のままです";
-/** 比較の仕方の世帯の値の補い（比較の仕方は表示の設定に印を出さない。0213 の段C） */
-const LAYOUT_FOLLOW_NOTE = "事務所の既定値に従う世帯（新しく作る世帯）は事務所の既定値を読みます。その世帯で値を変えると、その世帯だけの値になります（比較の仕方は、表示の設定に「この世帯だけ」の印と「事務所の既定値に戻す」を出しません）。前からある世帯は、その世帯の値のままです";
+/** 選ぶだけ・印を付けるだけの設定の世帯の値の補い（出す数字・比較の仕方・口座の内訳を表示・運用の期間を表示・家計の体力の目安・
+ *  お金の3つの分け方の呼び方は、表示の設定に印を出さない。戻すのも1回で済むため。0213 の段C） */
+const SIMPLE_FOLLOW_NOTE = "事務所の既定値に従う世帯（新しく作る世帯）は事務所の既定値を読みます。その世帯で値を変えると、その世帯だけの値になります（この設定は、表示の設定に「事務所の既定値」「この世帯だけ」の印と「事務所の既定値に戻す」を出しません）。前からある世帯は、その世帯の値のままです";
 const RESULT_SETTINGS = "結果のタブのグラフの右上の「表示の設定」";
 const BALANCE_SETTINGS = "資産と負債のタブの図の見出しの右の「表示の設定」";
 const NO_OUTPUT = { proposal: false, takeaway: false } as const;
@@ -276,7 +277,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       type: "kinds",
       choices: METRIC_CHOICES.map((c) => ({ value: c.key, label: c.label, note: c.note })),
       default: [...DEFAULT_DISPLAY_SETTINGS.metrics],
-      note: `既定では何も足しません。「FP顧問料の一文」は顧問料の契約がある世帯で選べます。${FOLLOW_NOTE}`,
+      note: `既定では何も足しません。「FP顧問料の一文」は顧問料の契約がある世帯で選べます。${SIMPLE_FOLLOW_NOTE}`,
     },
     {
       id: "result.atAge",
@@ -306,7 +307,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       type: "choice",
       choices: LAYOUT_CHOICES.map((c) => ({ value: c.key, label: c.label, note: c.note })),
       default: DEFAULT_DISPLAY_SETTINGS.layout,
-      note: LAYOUT_FOLLOW_NOTE,
+      note: SIMPLE_FOLLOW_NOTE,
     },
     {
       id: "result.invBreakdown",
@@ -324,7 +325,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_DISPLAY_SETTINGS.invBreakdown,
-      note: FOLLOW_NOTE,
+      note: SIMPLE_FOLLOW_NOTE,
     },
     {
       id: "result.invPeriods",
@@ -343,7 +344,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_DISPLAY_SETTINGS.invPeriods,
-      note: FOLLOW_NOTE,
+      note: SIMPLE_FOLLOW_NOTE,
     },
     {
       id: "contingency.premises",
@@ -407,7 +408,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_BALANCE_SETTINGS.health,
-      note: `表示しないと、区画ごと出しません（目安の幅の欄も出しません）。値も計算の結果も変わりません。${FOLLOW_NOTE}`,
+      note: `表示しないと、区画ごと出しません（目安の幅の欄も出しません）。値も計算の結果も変わりません。${SIMPLE_FOLLOW_NOTE}`,
     },
     {
       id: "balance.guide",
@@ -475,7 +476,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       type: "choice",
       choices: MONEY_THREE_NAME_CHOICES.map((c) => ({ value: c.key, label: c.names.join("・"), note: c.note })),
       default: DEFAULT_MONEY_THREE.wording,
-      note: FOLLOW_NOTE,
+      note: SIMPLE_FOLLOW_NOTE,
     },
     {
       id: "balance.moneyThree.months",
