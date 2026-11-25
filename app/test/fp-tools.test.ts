@@ -134,7 +134,7 @@ describe("ポイント（0074 の追記 2026-11-12 の見直し）", () => {
     expect(keys.some((k) => k === "eduCare" || k.startsWith("nisa"))).toBe(false);
   });
 
-  it("大きな支出が重なる年の決め方は3つの案から選べ、見本 3-4-06 では案ごとに出る年が違う（採用は案2）", () => {
+  it("大きな支出が重なる年の決め方は3つの案から選べ、見本 sampleFamilyDreams では案ごとに出る年が違う（採用は案2）", () => {
     const q = modelHousehold("sampleFamilyDreams");
     const r = preview(q);
     const yearsOf = (rule: OverlapRule) => bigSpendOverlaps(q, r.table, rule).map((y) => y.year);
@@ -149,7 +149,7 @@ describe("ポイント（0074 の追記 2026-11-12 の見直し）", () => {
     expect(insights(q, r, { overlapRule: OVERLAP_RULES.count }).find((x) => x.key === "bigSpend")!.text).toContain("（ほかに2033〜2035年）");
   });
 
-  it("退職から年金までの空白・退職後もローンが残る（見本 3-4-01。配偶者の働く収入がある間はそう書く。繰上返済の予定も入った完済の年）", () => {
+  it("退職から年金までの空白・退職後もローンが残る（見本 salariedCoupleTwoKids。配偶者の働く収入がある間はそう書く。繰上返済の予定も入った完済の年）", () => {
     const r = preview(req);
     const list = insights(req, r);
     const gap = list.filter((x) => x.key.startsWith("retireGap:"));
@@ -162,7 +162,7 @@ describe("ポイント（0074 の追記 2026-11-12 の見直し）", () => {
     expect(loan.title).toBe("退職後もローンが残る");
     expect(loan.text).toBe("住宅ローン（ご本人）の完済は70歳（2051年）で、退職後も10年返済が続きます");
     expect(loan.year).toBe(2051);
-    // 働く最後の年に年金が始まる・年金の後も働く人は出さない（見本 3-4-04 のご本人は70歳まで働き65歳から年金）
+    // 働く最後の年に年金が始まる・年金の後も働く人は出さない（見本 sampleSelfEmployedFamily のご本人は70歳まで働き65歳から年金）
     const se = modelHousehold("sampleSelfEmployedFamily");
     expect(insights(se, preview(se)).some((x) => x.key.startsWith("retireGap:"))).toBe(false);
   });

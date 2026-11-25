@@ -201,7 +201,7 @@ describe("見本の棚", () => {
   it("どの見本にも赤い未入力（0円の所あり）の入力項目が無い", () => {
     for (const d of DEMO_HOUSEHOLDS) {
       const miss = inputItems(open(d.id)).filter((i) => i.status === "missing").map((i) => i.id);
-      expect(miss, `${d.sampleNo} ${d.id}`).toEqual([]);
+      expect(miss, d.id).toEqual([]);
     }
   });
 

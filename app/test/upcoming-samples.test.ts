@@ -1,4 +1,4 @@
-// 見本の棚にまだ出していない新しい見本の世帯4件（data/modelHouseholds。すべて架空）: 基本の見本の顔ぶれを入れ替えるときに棚に出す。
+// 見本の棚にまだ出していない新しい見本の世帯4件（data/modelHouseholds。すべて架空）: ファイナンシアの見本の顔ぶれを入れ替えるときに棚に出す。
 // - sampleSingle50sRenter（おひとり様・50代・賃貸）・samplePensionerCouple（もう働いていない年金生活の夫婦）は新しく作った世帯
 // - sampleCoupleTwoKidsPeak は salariedCoupleTwoKids に sampleFamilyDreams の夢7件を写した世帯、sampleDualAssetsInvest は dualAssetsTwoKids に
 //   investmentCouple の NISA の入れ方（つみたて投資枠を年齢で3つの期間に分ける）を写した世帯。元の世帯は多くのテストの入力なので書き換えない
@@ -19,7 +19,7 @@ import { financialOf } from "../src/workspace/present.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
-type Upcoming = Omit<DemoHousehold, "sampleNo"> & {
+type Upcoming = Omit<DemoHousehold, "family" | "age" | "rev"> & {
   /** 家族の形・本人の年代（棚の見出し・絞り込みに使う予定の値） */
   family: "単身" | "夫婦のみ" | "夫婦と子" | "ひとり親" | "シニア";
   age: number;
@@ -286,7 +286,7 @@ describe.each(UPCOMING_SAMPLES)("$id（$title）", (s) => {
   it("入れておくプランは動かす項目で、どれも現状と違う結果になる", () => {
     const re = s.reemployment;
     const wh = fromRequest(req, { memo: s.memo, ...(re !== undefined ? { postRetirement: { [self.id]: { ...re, type: re.type as "contract" } } } : {}) });
-    const cat = buildCatalog(wh, self.id, { ...s, sampleNo: "" });
+    const cat = buildCatalog(wh, self.id, { ...s, family: 0, age: 0, rev: 0 });
     for (const p of s.plans ?? []) {
       for (const k of Object.keys(p.values)) expect(cat.byKey.has(k), `${p.name}: ${k}`).toBe(true);
       const values = normalizeValues(p.values, {}, wh, cat);

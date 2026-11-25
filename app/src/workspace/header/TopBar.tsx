@@ -84,18 +84,7 @@ export function TopBar<T extends string>(p: TopBarProps<T>) {
       <div class="top-l">
         <Brand brand={p.brand ?? null} />
         {p.household !== null ? (
-          <button type="button" class="hh-btn" aria-expanded={p.household.open} aria-haspopup="dialog" aria-label={`世帯の選択（${p.household.no}${p.household.fictional === true ? "・架空の世帯" : ""}）`} title={p.household.sub !== "" ? `${p.household.no} ${p.household.sub}` : p.household.no} onClick={p.household.onToggle} data-household-button>
-            <span class="hh-no">{p.household.no}</span>
-            {p.household.fictional === true ? (
-              <span class="pl-tag hh-fictional-tag" title="AIの候補から作った架空の世帯（お客さまの世帯ではありません）" data-household-fictional>
-                架空
-              </span>
-            ) : null}
-            {p.household.sub !== "" ? <span class="hh-sub">{p.household.sub}</span> : null}
-            <span class="caret" aria-hidden="true">
-              {p.household.open ? "▲" : "▼"}
-            </span>
-          </button>
+          <HouseholdButton h={p.household} />
         ) : null}
         {p.alerts.map((a) => (
           <button type="button" key={a.id} class={`bar-alert t-${a.tone}`} title={a.title} onClick={a.onClick} aria-label={a.text} data-bar-alert={a.id}>
@@ -121,6 +110,51 @@ export function TopBar<T extends string>(p: TopBarProps<T>) {
         <NoticeCenter {...p.notices} />
       </div>
     </header>
+  );
+}
+
+/**
+ * 世帯の名前を、かぎかっこの前・中・後ろに分ける（例: 「見本「名前」」→ 見本「 / 名前 / 」）。かぎかっこが無ければ null。
+ * 長い名前は中だけを「…」で縮め、かぎかっこの前後は必ず残すため（header.css の .hh-q）
+ */
+export function splitQuoted(no: string): { before: string; inner: string; after: string } | null {
+  const m = /^(.*?「)(.+)(」)$/.exec(no);
+  return m === null ? null : { before: m[1] as string, inner: m[2] as string, after: m[3] as string };
+}
+
+/**
+ * 世帯の選択のボタン: 名前（顧客番号、または「見本「名前」」）・世帯の要約・▼。
+ * 狭いときは要約から先に縮め（3文字分も残らなければ出さない）、次に名前のかぎかっこの中を「…」で縮める（閉じかぎ・▼・ボタンの右の余白は残す）。
+ * 全部の名前はカーソルを合わせると出る（title）。見本は要約が名前と同じなので、要約を出さない
+ */
+function HouseholdButton({ h }: { h: NonNullable<TopBarProps<string>["household"]> }) {
+  const q = splitQuoted(h.no);
+  const sub = q !== null && h.sub === q.inner ? "" : h.sub;
+  return (
+    <button type="button" class="hh-btn" aria-expanded={h.open} aria-haspopup="dialog" aria-label={`世帯の選択（${h.no}${h.fictional === true ? "・架空の世帯" : ""}）`} title={sub !== "" ? `${h.no} ${sub}` : h.no} onClick={h.onToggle} data-household-button>
+      <span class="hh-txt">
+        <span class="hh-no" data-household-name>
+          {q === null ? (
+            <span class="hh-q">{h.no}</span>
+          ) : (
+            <>
+              <span class="hh-qm">{q.before}</span>
+              <span class="hh-q">{q.inner}</span>
+              <span class="hh-qm">{q.after}</span>
+            </>
+          )}
+        </span>
+        {h.fictional === true ? (
+          <span class="pl-tag hh-fictional-tag" title="AIの候補から作った架空の世帯（お客さまの世帯ではありません）" data-household-fictional>
+            架空
+          </span>
+        ) : null}
+        {sub !== "" ? <span class="hh-sub">{sub}</span> : null}
+      </span>
+      <span class="caret" aria-hidden="true">
+        {h.open ? "▲" : "▼"}
+      </span>
+    </button>
   );
 }
 

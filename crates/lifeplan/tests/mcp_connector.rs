@@ -236,7 +236,8 @@ async fn standalone_tools_work_without_the_app() {
     let shelf = list["households"].as_array().unwrap();
     assert!(shelf.len() >= 15 && shelf.len() < model_ids().len());
     assert!(list["notice"].as_str().unwrap().contains("架空"));
-    assert!(shelf.iter().all(|h| h["no"].is_string()
+    // 見本は番号を持たない（0247 の1・12）
+    assert!(shelf.iter().all(|h| h.get("no").is_none()
         && h["tags"].as_array().is_some_and(|t| !t.is_empty())
         && h["tags"] != json!(["開発の試験用"])));
     let all = call_ok(

@@ -78,7 +78,7 @@ describe("仮の値（生年月など）は推定と分ける", () => {
 });
 
 describe("前提条件の標準の値は推定の数とまとめての操作から外す", () => {
-  it("見本 3-4-01: 推定の行に前提条件が無く、いちばん下の「前提条件の標準の値」にまとめる。耐用年数は木造の家だけ", () => {
+  it("見本 salariedCoupleTwoKids: 推定の行に前提条件が無く、いちばん下の「前提条件の標準の値」にまとめる。耐用年数は木造の家だけ", () => {
     const wh = open("salariedCoupleTwoKids");
     const rows = checkList(wh);
     expect(rows.filter((r) => r.kind === "estimated" && r.card === "assumptions")).toEqual([]);

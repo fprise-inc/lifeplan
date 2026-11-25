@@ -84,7 +84,7 @@ export default tseslint.config(
     // 0194: 計算の答えの主な数字（summary）は、プランを比較する表の数え方（plans/compare）と構成員の呼び方（roles）を読む。
     // 0195: プランの動かす項目（plan）は、画面の結果のタブのプランの部品（plans/candidates・items・plans）と、作業中の世帯を作る所
     // （input/household）・役割（roles）・見本の目盛り（catalog）を読む。画面の状態（帯・選んだプラン）を持つ部品は読まない。
-    // 0199: 見本の世帯の一覧（samples）は、見本の棚と同じ名前と絞り込みの項目（catalog・store/numbering）を読む。
+    // 0199: 見本の世帯の一覧（samples）は、見本の棚と同じ名前と絞り込みの項目（catalog・見本のセットの定義 samples/sets・store/numbering）を読む。
     // 0210: 計算のお知らせ（notices）は、画面の知らせの文の表（engineNotices）と入力項目の名前（input/stageOrder）を、入力の確かめ（check）は
     // 画面の確かめの一覧（input/checkRows）と、入力項目の名前（input/items）を読む。
     // 0213: 表示の設定（displayCatalog・display）は、画面の表示の設定の定数と読み方（settings・balanceTab・moneyThree・plans/leverChoice・
@@ -96,7 +96,7 @@ export default tseslint.config(
         "error",
         {
           patterns: [
-            { regex: "(^|/)workspace/(?!(evidence|present|engineNotices|office/(estimates|livingLayout)|catalog|roles|settings|balanceTab|moneyThree|store/numbering|contingency/premiseChoice|input/(household|pensionLines|stageOrder|checkRows|items|itemChoice|form)|invest/present|plans/(candidates|items|plans|compare|decimal|leverChoice)|hearing/(aiSelection|selection|entered))\\.ts$)", message: "AI接続口の根拠の読み方・計算の前の処理・プランの動かす項目・主な数字・グラフ・表示の設定・ヒアリングの選び方は、作業の層のうち evidence・present・office/estimates・office/livingLayout・catalog・roles・settings・balanceTab・moneyThree・input/household・input/pensionLines・input/itemChoice・input/form・invest/present・plans/candidates・plans/items・plans/plans・plans/compare・plans/decimal・plans/leverChoice・contingency/premiseChoice・store/numbering・engineNotices・input/stageOrder・input/checkRows・input/items・hearing/aiSelection・hearing/selection・hearing/entered だけを読める（0183・0184・0194・0195・0199・0203・0210・0213・0222）" },
+            { regex: "(^|/)workspace/(?!(evidence|present|engineNotices|office/(estimates|livingLayout)|catalog|samples/sets|roles|settings|balanceTab|moneyThree|store/numbering|contingency/premiseChoice|input/(household|pensionLines|stageOrder|checkRows|items|itemChoice|form)|invest/present|plans/(candidates|items|plans|compare|decimal|leverChoice)|hearing/(aiSelection|selection|entered))\\.ts$)", message: "AI接続口の根拠の読み方・計算の前の処理・プランの動かす項目・主な数字・グラフ・表示の設定・ヒアリングの選び方は、作業の層のうち evidence・present・office/estimates・office/livingLayout・catalog・samples/sets・roles・settings・balanceTab・moneyThree・input/household・input/pensionLines・input/itemChoice・input/form・invest/present・plans/candidates・plans/items・plans/plans・plans/compare・plans/decimal・plans/leverChoice・contingency/premiseChoice・store/numbering・engineNotices・input/stageOrder・input/checkRows・input/items・hearing/aiSelection・hearing/selection・hearing/entered だけを読める（0183・0184・0194・0195・0199・0203・0210・0213・0222）" },
             { regex: "^preact", message: "AI接続口の根拠の読み方は、画面の部品を読めない（0183）" },
             { regex: "(^|/)engine/(host|dual)(\\.ts)?$", message: "AI接続口の根拠の読み方は、本体の命令・二本立ての部品を読めない（0183）" },
             { regex: "(^|/)App(\\.tsx)?$", message: "AI接続口の根拠の読み方は、画面の大枠を読み込めない（0183）" },
