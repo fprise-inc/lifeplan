@@ -83,6 +83,9 @@ const COMMANDS: &[&str] = &[
     "ai_hearing_job_done",
     "ai_hearing_template_candidates",
     "ai_hearing_template_take",
+    // 0259: AIがまとめた不具合の報告（承認待ち）を見る・外す（送るのは画面の送る報告の確認画面で FP が押したとき）
+    "ai_issue_report_candidates",
+    "ai_issue_report_take",
     // 渡された世帯ごとの表示の設定の案（承認待ち）を設定ごとに外す（反映は画面がその世帯に書く。0213 の段B の後半）
     "ai_household_display_take",
     // 0023: 事務所での共有（共有フォルダは本体のダイアログで選ばせる。パスも鍵も受け取らない・返さない）
@@ -143,6 +146,8 @@ const COMMANDS: &[&str] = &[
     "notice_local_put",
     "feedback_form_open",
     "feedback_copy",
+    // 0259: 送る報告の確認画面で FP が「送る」を押したとき、報告の文をクリップボードに写す（文はフォームの URL に入れない）
+    "feedback_report_copy",
     // 0234: エラーの記録（この PC の中だけ。画面からは種類・画面・操作・文だけを受け取り、本体が削ってから残す。写す文は本体が記録から作る）
     "error_log_add",
     "error_log_get",

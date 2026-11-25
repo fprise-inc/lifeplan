@@ -11,6 +11,7 @@
 //! - 表示の設定の切り出し（`display`。0213）: 事務所の既定値と渡された世帯の、見せ方だけの設定を読む依頼に答える所（読むだけ）
 //! - 表示の設定の案（`display_proposals`。0215）: AIが出した事務所の既定値の見せ方の案をメモリの中に承認待ちで置くだけ。反映するのは FP が画面で押したとき
 //! - Web のヒアリング（`hearing`。0222）: AIが決めた選び方で URL の発行を画面に頼む所（鍵は画面だけが作る）と、事務所のひな形の案をメモリの中に承認待ちで置く所
+//! - 不具合の報告（`issue_report`。0259）: AIがまとめた報告の文をメモリの中に承認待ちで置くだけ。送るのは FP が「送る報告の確認画面」で押したときの画面
 //! - 受け口（`AppEndpoint`）: 接続口（`lifeplan mcp`）からの依頼を受ける。復号はアプリ本体だけが行い、接続口は鍵も世帯ファイルも扱わない
 //!
 //! このクレートはアプリ本体に組み込む。接続口（crates/lifeplan）は依存しない（テストを除く）。
@@ -26,6 +27,7 @@ pub mod documents;
 pub mod endpoint;
 pub mod hearing;
 pub mod households;
+pub mod issue_report;
 pub mod names;
 pub mod proposal;
 pub mod record;
@@ -47,6 +49,7 @@ pub use hearing::{
     HearingIssuer, HearingJob, HearingTemplateCandidate, JobHousehold, OfficeHearingSource,
 };
 pub use households::HouseholdCandidate;
+pub use issue_report::{IssueReportCandidate, IssueReportItem};
 pub use proposal::PendingProposal;
 pub use record::{verify_append_only, AiShareRecord, EndReason};
 pub use reduce::Scope;

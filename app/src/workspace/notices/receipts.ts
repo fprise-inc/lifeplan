@@ -66,9 +66,16 @@ export function osName(ua: string = typeof navigator !== "undefined" ? navigator
 export const FORM_MARKS = { receipt: "{受付番号}", version: "{版}", os: "{OS}" } as const;
 
 /**
- * フォームの URL（ひな形の印に、受付番号・アプリの版・OS を URL の形に直して差し込む）。
- * 引数はこの3つだけ（世帯の情報を渡す口を作らない）。本体（notices.rs の feedback_form_open）も同じひな形に同じ決まりで差し込んで開く
+ * フォームの URL（ひな形の印に、受付番号・アプリの版・OS を URL の形に直して差し込む）。AI がまとめた報告（0259）のときだけ、決まった印 via=ai を足す。
+ * 引数はこの3つと印だけ（世帯の情報・報告の文を渡す口を作らない。文は URL に入れない）。本体（notices.rs の feedback_form_open）も同じひな形に同じ決まりで差し込んで開く
  */
-export function feedbackFormUrl(template: string, p: { code: string; appVersion: string; os: string }): string {
-  return template.replaceAll(FORM_MARKS.receipt, encodeURIComponent(p.code)).replaceAll(FORM_MARKS.version, encodeURIComponent(p.appVersion)).replaceAll(FORM_MARKS.os, encodeURIComponent(p.os));
+export function feedbackFormUrl(template: string, p: { code: string; appVersion: string; os: string; via?: "ai" | undefined }): string {
+  const url = template.replaceAll(FORM_MARKS.receipt, encodeURIComponent(p.code)).replaceAll(FORM_MARKS.version, encodeURIComponent(p.appVersion)).replaceAll(FORM_MARKS.os, encodeURIComponent(p.os));
+  if (p.via !== "ai") return url;
+  // 「#」の後ろ（フラグメント）があれば、その前に足す（本体の form_url と同じ）
+  const i = url.indexOf("#");
+  const head = i < 0 ? url : url.slice(0, i);
+  const frag = i < 0 ? "" : url.slice(i);
+  const sep = !head.includes("?") ? "?" : head.endsWith("?") || head.endsWith("&") ? "" : "&";
+  return `${head}${sep}via=ai${frag}`;
 }

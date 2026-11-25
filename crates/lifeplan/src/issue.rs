@@ -3,6 +3,8 @@
 //!
 //! - 報告文は AI が渡した見立て・根拠・見本の世帯での再現の手順を、決まった見出しで並べるだけ。どこにも送らない・フォームを開かない・
 //!   URL に載せない（0087 の6 の骨格。アプリもこの道具も何も送らない。送るのは FP がフォームに貼って行う）
+//! - 組み立てた文は、propose_issue_report でアプリの「送る報告の確認画面」に出せる（0259。アプリが起動していて AI接続がオンのとき）。
+//!   FP が画面で中身を確かめて「送る」を押すと、アプリが文をクリップボードに写してフォームを開く（文は URL に入れない）
 //! - お客さまの名前・生年月日・実際の金額・世帯を識別する値は入れない決まりを文で伝え、共有の ID の形の値は報告文から伏せ、
 //!   生年月日のような日付には注意（cautions）を添える（名前は形で見分けられないので、AI と FP が確かめる）
 
@@ -17,8 +19,11 @@ pub const NOT_RUNNING_ERROR_LOG: &str = "アプリが起動していないか、
 /// エラーの記録の読み方（AI に添える）
 const ERROR_LOG_NOTE: &str = "この PC のアプリで起きたエラーの記録です（新しい順。同じエラーは1件にまとめ、count が回数）。日時・アプリの版・OS・画面（place）・操作（action）・種類（kindLabel）・文（message）だけで、お客さまの名前・金額・生年月日・メモ・ファイルの場所は入っていません（文の中の日本語・数字・引用符の中・場所はアプリが伏せています: … # <場所>）。どの世帯で起きたかは分かりません。報告に入れるときは line をそのまま写してください。";
 
-/// 報告文の最後に添える、FP の送り方
-pub const HOW_TO_SEND: &str = "送り方: アプリの「要望・不具合を送る」を開き、「フォームを開く」を押して、ブラウザで開いたフォームにこの文を貼ってください（受付番号・アプリの版・OS はフォームに入ります。入っていないときは受付番号を「写す」で写して入れてください）。アプリと AI は何も送りません。";
+/// FP の送り方（報告文には入れず、答えの `howToSend` で AI に渡す。報告文はフォームの内容の欄に貼る物なので、送り方の案内は混ぜない。0259）
+pub const HOW_TO_SEND: &str = "送り方: アプリが起動していて AI接続がオンなら、propose_issue_report の items に kind: bug・screen・text（この文）の1件として入れ（ほかに話された要望・不具合があれば、1件ずつに分けて同じ items に並べ）、アプリの「送る報告の確認画面」に出せます。FP が中身を確かめて「送る」を押すと、アプリが文をクリップボードに写して、ブラウザでフォームを開きます（FP はフォームの内容の欄に貼り付けて送ります）。出せないときは、FP がアプリの「要望・不具合を送る」で「報告の文を書いて送る」を押し、この文を貼ります。アプリと AI は何も送りません。";
+
+/// propose_issue_report を呼べないとき（アプリが起動していない・AI接続がオフ）
+pub const NOT_RUNNING_PROPOSE: &str = "アプリが起動していないか、AI接続がオフのため、送る報告の確認画面に出せませんでした（何も送っていません）。報告の文を FP に見せ、アプリの「要望・不具合を送る」で「報告の文を書いて送る」を押して、この文を貼ってもらってください。";
 
 /// 報告文に入れない値の決まり（報告文の終わりと道具の説明で同じ文）
 pub const PRIVACY_LINE: &str = "この報告には、お客さまの名前・生年月日・実際の金額・世帯を識別する値（共有の ID・顧客番号など）を入れていません。";
@@ -66,6 +71,27 @@ pub struct IssueReportArgs {
     /// エラーの記録（get_error_log の line）のうち、関係する行。20件まで
     pub error_log_lines: Option<Vec<String>>,
 }
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProposeIssueReportArgs {
+    /// 報告の件（1〜20件）。FP が話した要望・不具合・質問を1件ずつに分けて並べ、まとめて1回で渡す
+    pub items: Vec<ProposeIssueItem>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProposeIssueItem {
+    /// 種類: bug（不具合。思ったとおりに動かない）・request（要望。こうしてほしい）・question（質問）
+    pub kind: String,
+    /// どの画面のことか（入力・結果・資産と負債・万一のとき・提案書・事務所の設定・保存・AI 接続・URL で答えるヒアリング・その他・分からない のどれか。分からなければ省く）
+    pub screen: Option<String>,
+    /// 内容（不具合なら draft_issue_report の text をそのまま。要望・質問は何をしたら・どうなったか・どうしてほしいかを短く。お客さまの名前・金額は書かない。12,000文字まで）
+    pub text: String,
+}
+
+/// 件の種類（道具の引数）
+pub const ISSUE_KINDS: [&str; 3] = ["bug", "request", "question"];
 
 fn clean(s: &str) -> String {
     let t: String = s
@@ -295,8 +321,6 @@ pub fn draft(a: &IssueReportArgs, version: &str) -> Result<Value, String> {
         }
     }
     t.push_str(PRIVACY_LINE);
-    t.push_str("\n\n");
-    t.push_str(HOW_TO_SEND);
     let written: Vec<String> = [
         given(&a.screen),
         given(&a.row),
@@ -322,7 +346,8 @@ pub fn draft(a: &IssueReportArgs, version: &str) -> Result<Value, String> {
     Ok(json!({
         "text": t,
         "cautions": cautions,
-        "next": "text をそのまま FP に見せ、中身を確かめてもらってください。FP がアプリの「要望・不具合を送る」で「フォームを開く」を押し、フォームに貼って送ります（この道具も AI も送りません。フォームも開きません）。",
+        "howToSend": HOW_TO_SEND,
+        "next": "text をそのまま FP に見せ、中身を確かめてもらってください。cautions があれば直してから。FP に送るよう頼まれたら、propose_issue_report の items に kind: bug・screen・text の1件として渡し（ほかの要望・不具合も1件ずつに分けて同じ items に並べ、まとめて1回で）、アプリの「送る報告の確認画面」に出します。FP がその画面で確かめて「送る」を押し、開いたフォームに貼って送ります（この道具も AI も送りません。フォームも開きません。文を URL に載せません）。",
     }))
 }
 
@@ -367,12 +392,18 @@ mod tests {
             "（salariedCoupleTwoKids）を開く\n2. 退職金の受け取りの年を空にする\n3. 結果のタブで",
             "見本での再現: できた",
             PRIVACY_LINE,
-            "「要望・不具合を送る」",
-            "「フォームを開く」",
         ] {
             assert!(t.contains(w), "{w} がありません: {t}");
         }
-        assert!(t.ends_with(HOW_TO_SEND));
+        // 報告文はフォームの内容の欄に貼る物なので、送り方の案内は入れず、howToSend で AI に渡す（0259）
+        assert!(t.ends_with(PRIVACY_LINE), "{t}");
+        assert!(!t.contains("送り方"), "{t}");
+        assert_eq!(v["howToSend"], HOW_TO_SEND);
+        assert!(
+            HOW_TO_SEND.contains("propose_issue_report")
+                && HOW_TO_SEND.contains("「送る報告の確認画面」")
+        );
+        assert!(v["next"].as_str().unwrap().contains("propose_issue_report"));
         assert_eq!(v["cautions"], json!([]));
     }
 

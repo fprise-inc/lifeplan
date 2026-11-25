@@ -24,6 +24,8 @@
 //!   鍵の組・合言葉は画面が FP の画面と同じ部品で作り、世帯ファイルか事務所データ（`office_hearing_put`）にだけ置く（本体の受け口は鍵を持たない）。
 //!   画面は3秒ごとの読み直しで `hearingJobs` の数を見て、`ai_hearing_jobs` で仕事を受け取り、`ai_hearing_job_done` で答える。事務所のひな形の案は
 //!   メモリの中に承認待ちで置くだけ（`ai_hearing_template_candidates`・`ai_hearing_template_take`）。保存は画面が事務所の既定値に書く
+//! - **不具合の報告**（0259）: 接続口の `propose_issue_report` で届いた報告の文は、メモリの中に承認待ちで置くだけ（`ai_issue_report_candidates`・
+//!   `ai_issue_report_take`）。送るのは、画面の送る報告の確認画面で FP が「送る」を押したとき（画面が文を写してフォームを開く。文は URL に入れない）
 //!
 //! 画面（WebView）には、鍵・パス（データフォルダ・作業フォルダ・接続口の実行ファイル）を渡さない（0016 の1）。
 //! 接続の設定の文面は、場所を `<接続口の場所>` に伏せた形で見せ、本物の場所の入った文面は本体が OS のクリップボードに写す。
@@ -38,7 +40,7 @@ use ai_share::registry::ShareStatus;
 use ai_share::{
     ai_notes_use, ai_use, AiUse, AppEndpoint, DisplayCandidate, ExternalAiConsentInput, GrantError,
     GrantOptions, HearingJob, HearingTemplateCandidate, HouseholdAiView, HouseholdBook,
-    HouseholdCandidate, HouseholdDisplayPending, Scope, ShareRegistry,
+    HouseholdCandidate, HouseholdDisplayPending, IssueReportCandidate, Scope, ShareRegistry,
 };
 use household_store::{CreateOptions, Opened, Store, StoreError};
 use serde::Serialize;
@@ -1028,6 +1030,8 @@ pub struct AiStatus {
     hearing_jobs: usize,
     /// AIから届いた、Web のヒアリングの事務所のひな形の案の数（承認待ち。中身は ai_hearing_template_candidates で読む。0222）
     hearing_template_candidates: usize,
+    /// AIから届いた、送る報告の数（承認待ち。中身は ai_issue_report_candidates で読む。0259）
+    issue_report_candidates: usize,
 }
 
 /// 事務所の設定の「事務所のプライバシーポリシーに AI の利用を書いている」の確かめを、共有の台帳に入れる（0226）。
@@ -1090,6 +1094,7 @@ fn status(ai: &AiState, store: &Store) -> AiStatus {
         household_display_candidates: ai.registry.household_display_pending(),
         hearing_jobs: ai.hearing.len(),
         hearing_template_candidates: ai.registry.hearing_template_candidates().len(),
+        issue_report_candidates: ai.registry.issue_report_candidates().len(),
     }
 }
 
@@ -1143,6 +1148,7 @@ pub async fn ai_set_enabled(app: AppHandle, enabled: bool) -> Result<AiStatus, S
             ai.registry.clear_household_candidates();
             ai.registry.clear_display_candidates();
             ai.registry.clear_hearing_templates();
+            ai.registry.clear_issue_reports();
             ai.hearing
                 .fail_all("アプリの AI接続口がオフになりました（URL は発行していません）。");
             ai.persist_all(store);
@@ -2180,6 +2186,27 @@ pub async fn ai_hearing_template_take(
     blocking(app, move |ai, _| {
         ai.registry.take_hearing_template(&candidate);
         Ok(ai.registry.hearing_template_candidates())
+    })
+    .await
+}
+
+/// AIからの不具合の報告（承認待ち。0259）
+#[tauri::command]
+pub async fn ai_issue_report_candidates(
+    app: AppHandle,
+) -> Result<Vec<IssueReportCandidate>, String> {
+    blocking(app, |ai, _| Ok(ai.registry.issue_report_candidates())).await
+}
+
+/// 不具合の報告を承認待ちから外す（FP が送る報告の確認画面で「送る」を押した後か、「捨てる」を押したとき。何も送らない）
+#[tauri::command]
+pub async fn ai_issue_report_take(
+    app: AppHandle,
+    candidate: String,
+) -> Result<Vec<IssueReportCandidate>, String> {
+    blocking(app, move |ai, _| {
+        ai.registry.take_issue_report(&candidate);
+        Ok(ai.registry.issue_report_candidates())
     })
     .await
 }
