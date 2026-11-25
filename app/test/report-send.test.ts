@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FEEDBACK_FORM } from "../src/generated/distribution.ts";
 import { feedbackFormUrl } from "../src/workspace/notices/receipts.ts";
-import { canSend, composeReport, itemFromAi, markedParts, reportMarks, REPORT_SCREENS, screenChoice, sendReport, type ReportDraft, type ReportItem, type ReportMarkKind } from "../src/workspace/notices/reportSend.ts";
+import { canSend, composeReport, formKindGuide, itemFromAi, markedParts, reportMarks, REPORT_SCREENS, screenChoice, sendReport, type ReportDraft, type ReportItem, type ReportMarkKind } from "../src/workspace/notices/reportSend.ts";
 import { AiIssueReportBand, ReportConfirm } from "../src/workspace/notices/ReportConfirm.tsx";
 
 const noop = () => undefined;
@@ -159,6 +159,16 @@ describe("送り方（1か所。0259）", () => {
     expect(opened[0]!.length).toBeLessThan(120);
   });
 
+  it("フォームの「どれに当たりますか」の案内: 2件以上は「いくつか（まとめて）」、1件はその件の種類（送った結果にも付く）", async () => {
+    expect(formKindGuide([BUG, REQUEST])).toBe("フォームの「どれに当たりますか」は「いくつか（まとめて）」を選んでください。");
+    expect(formKindGuide([REQUEST])).toBe("フォームの「どれに当たりますか」は「要望」を選んでください。");
+    expect(formKindGuide([QUESTION])).toContain("「質問」");
+    expect(formKindGuide([BUG])).toContain("「不具合」");
+    const deps = { copy: async () => true, openForm: async () => undefined, remember: noop, today: () => "2026-11-25" };
+    expect((await sendReport(draft(), deps)).kindGuide).toContain("「いくつか（まとめて）」");
+    expect((await sendReport(draft({ items: [QUESTION] }), deps)).kindGuide).toContain("「質問」");
+  });
+
   it("FP が書いた報告は via を付けない。写せなくてもフォームは開き、文を返す。開けなければ opened が false", async () => {
     const vias: (string | undefined)[] = [];
     const r = await sendReport(draft({ viaAi: false }), { copy: async () => false, openForm: async (_c, via) => void vias.push(via), remember: noop, today: () => "2026-11-24" });
@@ -197,7 +207,7 @@ describe("送り方（1か所。0259）", () => {
 });
 
 describe("送る報告の確認画面（0259）", () => {
-  const props = { code: "R-7K2Q", appVersion: "0.1.0", os: "macOS", onSend: async () => ({ text: "", copied: true, opened: true }), onClose: noop };
+  const props = { code: "R-7K2Q", appVersion: "0.1.0", os: "macOS", onSend: async () => ({ text: "", copied: true, opened: true, kindGuide: "" }), onClose: noop };
 
   it("件の一覧（件ごとに種類・どの画面か・内容と外す）・アプリの版・OS・受付番号と、世帯の情報が入っていないことを確かめる文を出す", () => {
     const html = renderToString(h(ReportConfirm, { ...props, source: "ai", initialItems: [BUG, REQUEST, QUESTION], connector: "Claude 1.0", onDiscard: async () => undefined }));
@@ -224,6 +234,7 @@ describe("送る報告の確認画面（0259）", () => {
     expect(html).toContain("フォームを1回だけ開きます");
     expect(html).toContain("URL には入れません");
     expect(html).toContain("Ctrl+V / ⌘V");
+    expect(html).toContain("「どれに当たりますか」は「いくつか（まとめて）」を選んでください");
     // 印の無い件では、印の一覧を出さない
     expect((html.match(/data-report-marks-none/g) ?? []).length).toBe(3);
     expect(html).not.toContain("data-report-mark=");
@@ -253,6 +264,8 @@ describe("送る報告の確認画面（0259）", () => {
     expect(html).not.toContain("AI がまとめた報告");
     expect(html).not.toContain("data-report-discard");
     expect(html).toContain("data-report-add");
+    expect(html).toContain("「どれに当たりますか」は「不具合」を選んでください");
+    expect(html).not.toContain("いくつか（まとめて）");
     // 件が無いときも送れない
     const none = renderToString(h(ReportConfirm, { ...props, source: "fp", initialItems: [] }));
     expect(none).toMatch(/<button[^>]*disabled[^>]*data-report-send|<button[^>]*data-report-send[^>]*disabled/);

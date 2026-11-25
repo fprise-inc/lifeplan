@@ -220,13 +220,22 @@ export function canSend(items: readonly ReportItem[]): boolean {
 
 /**
  * クリップボードに写す文（フォームの内容の欄に貼る物）。頭に受付番号・版と OS・件数を付け、件ごとに番号・種類・どの画面かの見出しを付ける。
- * フォームの「どれに当たりますか」「どの画面のことですか」は1つしか選べないので、件ごとの種類と画面は本文に書く
+ * フォームの「どれに当たりますか」「どの画面のことですか」は1つしか選べないので、件ごとの種類と画面は本文に書く（2件以上は「どれに当たりますか」で「いくつか（まとめて）」を選んでもらう）
  */
 export function composeReport(d: ReportDraft): string {
   const n = d.items.length;
   const head = [`受付番号: ${d.code}`, `アプリの版: ${d.appVersion}（${d.os}）`, `件数: ${n}件${d.viaAi ? "（AI がまとめ、FP が確かめて送りました）" : ""}`];
   const body = d.items.map((it, i) => [`━━ ${i + 1}件目／${n}件（${KIND_LABEL[it.kind]}）どの画面か: ${it.screen} ━━`, it.text.trim()].join("\n"));
   return [...head, "", body.join("\n\n")].join("\n");
+}
+
+/** 受け付けのフォームの「どれに当たりますか」で、2件以上をまとめて送るときに選ぶ選択肢（利用者の判断。0259 の追記） */
+export const FORM_KIND_MANY = "いくつか（まとめて）";
+
+/** フォームの「どれに当たりますか」の案内（2件以上は「いくつか（まとめて）」、1件はその件の種類） */
+export function formKindGuide(items: readonly ReportItem[]): string {
+  const one = items.length === 1 ? items[0] : undefined;
+  return `フォームの「どれに当たりますか」は「${one !== undefined ? KIND_LABEL[one.kind] : FORM_KIND_MANY}」を選んでください。`;
 }
 
 /** 送り方の道具（本体の命令。開発用のサーバーでは代わりの物） */
@@ -247,6 +256,8 @@ export interface ReportSendResult {
   text: string;
   copied: boolean;
   opened: boolean;
+  /** フォームの「どれに当たりますか」の案内（formKindGuide） */
+  kindGuide: string;
 }
 
 /**
@@ -265,5 +276,5 @@ export async function sendReport(d: ReportDraft, deps: ReportSendDeps): Promise<
   } catch {
     opened = false;
   }
-  return { text, copied, opened };
+  return { text, copied, opened, kindGuide: formKindGuide(d.items) };
 }

@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { dateTimeText } from "../ai/model.ts";
-import { canSend, KIND_LABEL, markedParts, MARK_LABEL, REPORT_KINDS, REPORT_SCREENS, reportMarks, type ReportDraft, type ReportItem, type ReportKind, type ReportScreen, type ReportSendResult } from "./reportSend.ts";
+import { canSend, formKindGuide, KIND_LABEL, markedParts, MARK_LABEL, REPORT_KINDS, REPORT_SCREENS, reportMarks, type ReportDraft, type ReportItem, type ReportKind, type ReportScreen, type ReportSendResult } from "./reportSend.ts";
 
 /** 上の帯（届いている報告の数と、確認画面を開くボタン。中身は出さない） */
 export function AiIssueReportBand({ count, onOpen }: { count: number; onOpen: () => void }) {
@@ -125,7 +125,7 @@ export function ReportConfirm(p: ReportConfirmProps) {
           </button>
         ) : null}
         <p class="fb-note">
-          「送る」を押すと、全件を1つの文（頭に受付番号・アプリの版・OS、件ごとに番号・種類・どの画面か）にまとめてクリップボードに写し、既定のブラウザでフォームを1回だけ開きます。文はフォームの URL には入れません（URL は履歴に残るため）。フォームの「内容」の欄に貼り付けて（Ctrl+V / ⌘V）送ってください。フォームの「どれに当たりますか」「どの画面のことですか」は、いちばん近いものを1つ選べば足ります（件ごとの種類と画面は文に書いてあります）。このアプリ自身は何も送りません。
+          「送る」を押すと、全件を1つの文（頭に受付番号・アプリの版・OS、件ごとに番号・種類・どの画面か）にまとめてクリップボードに写し、既定のブラウザでフォームを1回だけ開きます。文はフォームの URL には入れません（URL は履歴に残るため）。フォームの「内容」の欄に貼り付けて（Ctrl+V / ⌘V）送ってください。{items.length > 0 ? formKindGuide(items) : ""}{items.length > 1 ? "「どの画面のことですか」は、いちばん近いものを1つ選べば足ります（件ごとの種類と画面は文に書いてあります）。" : ""}このアプリ自身は何も送りません。
         </p>
         {done === null ? (
           <div class="fb-actions">
@@ -230,11 +230,11 @@ function SentMessage({ done, onClose }: { done: ReportSendResult; onClose: () =>
       {done.opened ? (
         done.copied ? (
           <p class="fb-msg" role="status">
-            報告の文を写して、ブラウザでフォームを開きました。フォームの「内容」の欄に貼り付けて（Ctrl+V / ⌘V）送ってください。
+            報告の文を写して、ブラウザでフォームを開きました。フォームの「内容」の欄に貼り付けて（Ctrl+V / ⌘V）送ってください。{done.kindGuide}
           </p>
         ) : (
           <p class="fb-msg err" role="status">
-            ブラウザでフォームを開きましたが、文を写せませんでした。下の文を選んで写し、フォームの「内容」の欄に貼り付けてください。
+            ブラウザでフォームを開きましたが、文を写せませんでした。下の文を選んで写し、フォームの「内容」の欄に貼り付けてください。{done.kindGuide}
           </p>
         )
       ) : (
