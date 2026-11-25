@@ -204,6 +204,7 @@ async fn standalone_tools_work_without_the_app() {
         "propose_display_settings",
         "get_error_log",
         "draft_issue_report",
+        "propose_issue_report",
     ] {
         assert!(names.contains(&n.to_owned()), "{n} がありません: {names:?}");
     }
@@ -714,7 +715,13 @@ async fn prompts_list_and_expand() {
                 "お客さまの名前・生年月日・実際の金額・世帯を識別する値は使わない",
                 "FP の判断に任せる",
                 "draft_issue_report",
+                "propose_issue_report",
+                "「送る報告の確認画面」",
+                "「送る」を押す",
+                "Ctrl+V / ⌘V",
                 "「要望・不具合を送る」",
+                "「報告の文を書いて送る」",
+                "1件ずつに分けて",
                 "「フォームを開く」",
                 "URL に載せない",
             ],
@@ -7470,10 +7477,15 @@ async fn error_log_and_issue_report() {
         "（salariedCoupleTwoKids）を開く",
         "見本での再現: できた",
         "エラーの記録:\n- 2026-11-20 10:03",
-        "「要望・不具合を送る」",
     ] {
         assert!(t.contains(w), "{w}: {t}");
     }
+    // 送り方は文に入れず howToSend で返す（文はフォームの内容の欄に貼る物。0259）
+    assert!(!t.contains("送り方"), "{t}");
+    assert!(v["howToSend"]
+        .as_str()
+        .unwrap()
+        .contains("propose_issue_report"));
     assert_eq!(v["cautions"], json!([]));
     let (err, msg) = call(
         &c,
@@ -7482,4 +7494,145 @@ async fn error_log_and_issue_report() {
     )
     .await;
     assert!(err && msg.contains("input・calculation・unknown"), "{msg}");
+}
+
+/// 報告を送る報告の確認画面に出す（propose_issue_report。0259）: FP が話した要望・不具合を1件ずつに分けた items を、アプリが起動していて
+/// AI接続がオンのときだけ、アプリの台帳に承認待ちで置くだけ（送らない・フォームを開かない）。空の報告・空の件・知らない種類は断る。
+/// 同じ報告は1回分にまとめる。上限の3回分を超えると断る。知らない引数は断る
+#[tokio::test(flavor = "multi_thread")]
+async fn propose_issue_report_puts_the_report_on_the_send_screen() {
+    let dir = temp_dir("issuesend");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "propose_issue_report");
+    let t = tools
+        .iter()
+        .find(|t| t.name == "propose_issue_report")
+        .unwrap();
+    let ann = t.annotations.as_ref().unwrap();
+    assert_eq!(ann.read_only_hint, Some(false));
+    assert_eq!(ann.destructive_hint, Some(false));
+    let d = t.description.as_deref().unwrap_or("");
+    for w in [
+        "「送る報告の確認画面」",
+        "話された内容を1件ずつに分けてまとめ",
+        "まとめて1回で渡す",
+        "何も送らず、フォームも開かない",
+        "「送る」を押したときだけ",
+        "フォームを1回だけ開き",
+        "URL に入れない",
+        "名前らしい所・金額らしい所",
+        "文を理由に呼ばない",
+    ] {
+        assert!(d.contains(w), "{w}: {d}");
+    }
+    assert!(!d.contains("接続口"), "{d}");
+
+    let bug = "【ファイナンシアの不具合の報告】\nアプリの版: 0.1.0\n何が起きたか: 結果のタブで計算できませんでしたと出る";
+    let items = json!([
+        { "kind": "bug", "screen": "結果", "text": bug },
+        { "kind": "request", "screen": "入力", "text": "住宅ローンの入力項目で、繰上げ返済を年ごとに入れたい" },
+        { "kind": "question", "text": "提案書の表紙の色は変えられますか" },
+    ]);
+    // アプリが起動していない（AI接続がオフも同じ）: 出せず、FP に貼ってもらう案内
+    let (err, msg) = call(&c, "propose_issue_report", json!({ "items": items })).await;
+    assert!(err, "{msg}");
+    assert!(
+        msg.contains("AI接続がオフ")
+            && msg.contains("「報告の文を書いて送る」")
+            && msg.contains("何も送っていません"),
+        "{msg}"
+    );
+
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    // 空の報告・空の件・知らない種類は出せない（接続口でも、アプリでも）
+    for bad in [
+        json!({ "items": [] }),
+        json!({ "items": [{ "kind": "bug", "text": "" }] }),
+        json!({ "items": [{ "kind": "request", "text": "x" }, { "kind": "bug", "text": "  \n\t " }] }),
+        json!({ "items": [{ "kind": "bug", "text": "\u{200B}\u{202E}" }] }),
+        json!({ "items": [{ "kind": "other", "text": "x" }] }),
+    ] {
+        let (err, msg) = call(&c, "propose_issue_report", bad.clone()).await;
+        assert!(
+            err && (msg.contains("空") || msg.contains("bug（不具合）")),
+            "{bad}: {msg}"
+        );
+    }
+    assert!(reg.issue_report_candidates().is_empty());
+    // 知らない引数は断る（何も出さない）
+    for bad in [
+        json!({ "items": items, "url": "https://example.com/?body=x" }),
+        json!({ "items": [{ "kind": "bug", "text": "x", "url": "u" }] }),
+        json!({ "text": bug }),
+    ] {
+        let (err, msg) = call(&c, "propose_issue_report", bad.clone()).await;
+        assert!(err, "{bad}: {msg}");
+    }
+    assert!(reg.issue_report_candidates().is_empty());
+
+    // 出す: 3件まとめて1回分が承認待ちに入るだけ
+    let v = call_ok(&c, "propose_issue_report", json!({ "items": items })).await;
+    assert_eq!(v["status"], "pendingReview");
+    assert_eq!(v["items"], 3);
+    let m = v["message"].as_str().unwrap();
+    assert!(
+        m.contains("3件の報告")
+            && m.contains("「送る報告の確認画面」")
+            && m.contains("「送る」を押したときだけ")
+            && m.contains("1回だけ開きます")
+            && m.contains("何も送られません"),
+        "{m}"
+    );
+    let list = reg.issue_report_candidates();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].candidate_id, v["candidateId"].as_str().unwrap());
+    let got: Vec<(&str, Option<&str>, &str)> = list[0]
+        .items
+        .iter()
+        .map(|i| (i.kind.as_str(), i.screen.as_deref(), i.text.as_str()))
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            ("bug", Some("結果"), bug),
+            (
+                "request",
+                Some("入力"),
+                "住宅ローンの入力項目で、繰上げ返済を年ごとに入れたい"
+            ),
+            ("question", None, "提案書の表紙の色は変えられますか"),
+        ]
+    );
+    // 同じ報告は1回分にまとめる
+    let again = call_ok(&c, "propose_issue_report", json!({ "items": items })).await;
+    assert_eq!(again["candidateId"], v["candidateId"]);
+    assert_eq!(reg.issue_report_candidates().len(), 1);
+    // 上限の3回分まで。超えると断る
+    for i in 2..=3 {
+        call_ok(
+            &c,
+            "propose_issue_report",
+            json!({ "items": [{ "kind": "request", "text": format!("要望{i}") }] }),
+        )
+        .await;
+    }
+    let (err, msg) = call(
+        &c,
+        "propose_issue_report",
+        json!({ "items": [{ "kind": "request", "text": "4回目" }] }),
+    )
+    .await;
+    assert!(err && msg.contains("3件まで"), "{msg}");
+    // FP が送るか捨てると外れる
+    assert!(reg
+        .take_issue_report(v["candidateId"].as_str().unwrap())
+        .is_some());
+    assert_eq!(reg.issue_report_candidates().len(), 2);
+    reg.clear_issue_reports();
+    assert!(reg.issue_report_candidates().is_empty());
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
 }

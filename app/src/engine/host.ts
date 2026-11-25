@@ -644,6 +644,17 @@ export interface AiStatus {
   hearingJobs?: number;
   /** AIから届いた、Web のヒアリングの事務所のひな形の案の数（承認待ち。中身は hearingTemplateCandidates で読む。無い本体は0。0222） */
   hearingTemplateCandidates?: number;
+  /** AIから届いた、送る報告の数（承認待ち。中身は issueReportCandidates で読む。無い本体は0。0259） */
+  issueReportCandidates?: number;
+}
+
+/** AIがまとめた要望・不具合の報告（0259。1回に何件か。接続口の propose_issue_report。値は信用しない: 送る報告の確認画面で FP が確かめて直す） */
+export interface AiIssueReportCandidate {
+  candidateId: string;
+  receivedAt: string;
+  connector?: string | null;
+  /** FP が話した内容を AI が1件ずつに分けた物（kind は bug・request・question） */
+  items: { kind: string; screen?: string | null; text: string }[];
 }
 
 /** AI接続口から頼まれた Web のヒアリングの発行の仕事（0222）。issue は接続口が FP の画面と同じ関数で確かめた選び方（画面も確かめ直す）と、任意の何のための問いか */
@@ -959,6 +970,10 @@ export interface AiHost {
   hearingTemplateCandidates?(): Promise<AiHearingTemplateCandidate[]>;
   /** ひな形の案を承認待ちから外す（保存した後か「捨てる」を押したとき。事務所の既定値は変えない） */
   takeHearingTemplate?(candidate: string): Promise<AiHearingTemplateCandidate[]>;
+  /** AIがまとめた不具合の報告（承認待ち。0259。無い本体は使えない） */
+  issueReportCandidates?(): Promise<AiIssueReportCandidate[]>;
+  /** 報告を承認待ちから外す（送った後か「送らずに捨てる」を押したとき。何も送らない） */
+  takeIssueReport?(candidate: string): Promise<AiIssueReportCandidate[]>;
   /** 表示の設定の案の1つの設定を承認待ちから外す（FP が「反映する」で事務所の既定値に書いた後か、「捨てる」を押したとき。設定は変えない） */
   takeDisplayChange(candidate: string, setting: string): Promise<AiDisplayCandidate[]>;
   /** 世帯ごとの表示の設定の案の1つの設定を承認待ちから外す（FP が「反映する」でその世帯に書いた後か、「捨てる」を押したとき。設定は変えない） */
@@ -978,8 +993,10 @@ export interface NoticesHost {
   /** 手元の状態（既読の印と受付番号。この PC のアプリのデータ） */
   local(): Promise<unknown>;
   putLocal(value: unknown): Promise<void>;
-  /** 要望・不具合のフォームを既定のブラウザで開く（受付番号だけを渡す。版と OS は本体が入れる） */
-  openForm(code: string): Promise<void>;
+  /** 要望・不具合のフォームを既定のブラウザで開く（受付番号と、AI がまとめた報告なら印 via=ai だけを渡す。版と OS は本体が入れる。報告の文は渡さない。0259） */
+  openForm(code: string, via?: "ai"): Promise<void>;
+  /** 送る報告の文をクリップボードに写す（送る報告の確認画面の「送る」。写せたら true。無い本体はブラウザの仕組みで写す。0259） */
+  copyReport?(text: string): Promise<boolean>;
   /** 受付番号を写す（クリップボード。写せたら true） */
   copy(code: string): Promise<boolean>;
 }
@@ -1229,8 +1246,9 @@ export function tauriHost(): HostApi {
       feed: () => invoke<string | null>("notices_feed"),
       local: () => invoke<unknown>("notice_local_get"),
       putLocal: (value) => invoke<void>("notice_local_put", { value }),
-      openForm: (code) => invoke<void>("feedback_form_open", { code }),
+      openForm: (code, via) => invoke<void>("feedback_form_open", via === "ai" ? { code, via } : { code }),
       copy: (code) => invoke<boolean>("feedback_copy", { code }),
+      copyReport: (text) => invoke<boolean>("feedback_report_copy", { text }),
     },
     errors: {
       add: (entry) => invoke<void>("error_log_add", { entry }),
@@ -1265,6 +1283,8 @@ export function tauriHost(): HostApi {
       hearingJobDone: (job, result) => invoke<boolean>("ai_hearing_job_done", { job, result }),
       hearingTemplateCandidates: () => invoke<AiHearingTemplateCandidate[]>("ai_hearing_template_candidates"),
       takeHearingTemplate: (candidate) => invoke<AiHearingTemplateCandidate[]>("ai_hearing_template_take", { candidate }),
+      issueReportCandidates: () => invoke<AiIssueReportCandidate[]>("ai_issue_report_candidates"),
+      takeIssueReport: (candidate) => invoke<AiIssueReportCandidate[]>("ai_issue_report_take", { candidate }),
       takeDisplayChange: (candidate, setting) => invoke<AiDisplayCandidate[]>("ai_display_change_take", { candidate, setting }),
       takeHouseholdDisplayChange: (id, candidate, setting) => invoke<AiHouseholdView>("ai_household_display_take", { id, candidate, setting }),
       createFromCandidate: (candidate, kind, body, summary, category) => invoke<StoredOpened>("ai_household_candidate_create", { candidate, kind, body, summary, category }),
@@ -1517,7 +1537,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       feed: async () => devJson<string | null>(await devNotices("feed")),
       local: async () => devJson<unknown>(await devNotices("local")),
       putLocal: async (value) => void (await devJson<unknown>(await devNotices("putLocal", { value }))),
-      openForm: async (code) => void (await devJson<unknown>(await devNotices("openForm", { code }))),
+      openForm: async (code, via) => void (await devJson<unknown>(await devNotices("openForm", via === "ai" ? { code, via } : { code }))),
       // 開発用のサーバーでは本体で写さない（画面がブラウザの仕組みで写す）
       copy: async () => false,
     },
@@ -1542,6 +1562,8 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       hearingJobDone: async (job, result) => devJson<boolean>(await devAi("hearingJobDone", { job, result })),
       hearingTemplateCandidates: async () => devJson<AiHearingTemplateCandidate[]>(await devAi("hearingTemplates")),
       takeHearingTemplate: async (candidate) => devJson<AiHearingTemplateCandidate[]>(await devAi("takeHearingTemplate", { candidate })),
+      issueReportCandidates: async () => devJson<AiIssueReportCandidate[]>(await devAi("issueReports")),
+      takeIssueReport: async (candidate) => devJson<AiIssueReportCandidate[]>(await devAi("takeIssueReport", { candidate })),
       takeDisplayChange: async (candidate, setting) => devJson<AiDisplayCandidate[]>(await devAi("takeDisplayChange", { candidate, setting })),
       takeHouseholdDisplayChange: async (id, candidate, setting) => devJson<AiHouseholdView>(await devAi("takeHouseholdDisplayChange", { id, candidate, setting })),
       createFromCandidate: async (candidate, kind, body, summary, category) => devJson<StoredOpened>(await devAi("createFromCandidate", { candidate, kind, body, summary, ...(category !== undefined ? { category } : {}) })),

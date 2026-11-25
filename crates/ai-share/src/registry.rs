@@ -12,6 +12,7 @@ use crate::hearing::{
     self, HearingIssuer, HearingJob, HearingTemplateCandidate, JobHousehold, OfficeHearingSource,
 };
 use crate::households::{self, HouseholdCandidate};
+use crate::issue_report::{self, IssueReportCandidate};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
 use crate::record::{
     verify_append_only, AiShareRecord, Caller, ConsentAtGrant, EndReason, ProposalEntry,
@@ -165,6 +166,8 @@ struct State {
     hearing_in_flight: usize,
     /// AIが出した Web のヒアリングの事務所のひな形の案（承認待ち。アプリのメモリの中だけ。FPが画面で保存するか捨てるまで。0222）
     hearing_templates: Vec<HearingTemplateCandidate>,
+    /// AIがまとめた不具合の報告の文（承認待ち。アプリのメモリの中だけ。FPが「送る報告の確認画面」で送るか捨てるまで。0259）
+    issue_reports: Vec<IssueReportCandidate>,
     /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
@@ -918,6 +921,26 @@ impl ShareRegistry {
         self.lock().hearing_templates.clear();
     }
 
+    /// AIがまとめた不具合の報告（承認待ち。0259）
+    pub fn issue_report_candidates(&self) -> Vec<IssueReportCandidate> {
+        self.lock().issue_reports.clone()
+    }
+
+    /// 不具合の報告を承認待ちから外す（FP が「送る報告の確認画面」で送った後か、「捨てる」を押したとき）
+    pub fn take_issue_report(&self, candidate_id: &str) -> Option<IssueReportCandidate> {
+        let mut st = self.lock();
+        let at = st
+            .issue_reports
+            .iter()
+            .position(|c| c.candidate_id == candidate_id)?;
+        Some(st.issue_reports.remove(at))
+    }
+
+    /// AI接続口をオフにしたとき: 送っていない報告を消す
+    pub fn clear_issue_reports(&self) {
+        self.lock().issue_reports.clear();
+    }
+
     pub fn clear_display_candidates(&self) {
         let mut st = self.lock();
         st.display_candidates.clear();
@@ -1444,6 +1467,49 @@ impl ShareRegistry {
             .clone();
         let office = source.and_then(|f| f()).unwrap_or(Value::Null);
         Ok(json!({ "office": office }).to_string())
+    }
+
+    /// AIがまとめた要望・不具合の報告（何件か）を、承認待ちに入れる（送らない・フォームを開かない。0259）。世帯を渡していなくてよく、
+    /// 世帯の中身ではないので AIに渡した記録には残さない。同じ件の並びの報告が既にあれば、それを返す
+    pub fn handle_propose_issue_report(
+        &self,
+        report: &Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let items = issue_report::validate(report).map_err(|m| (ErrorCode::Invalid, m))?;
+        let now = self.now();
+        let mut st = self.lock();
+        let same = st
+            .issue_reports
+            .iter()
+            .find(|c| c.items == items)
+            .map(|c| c.candidate_id.clone());
+        let id = match same {
+            Some(id) => id,
+            None => {
+                if st.issue_reports.len() >= issue_report::MAX_PENDING {
+                    return Err((
+                        ErrorCode::Invalid,
+                        format!("送っていない報告が多すぎます（{}件まで）。FPがアプリの「送る報告の確認画面」で今の報告を送るか捨てるまで、新しい報告は出せません。", issue_report::MAX_PENDING),
+                    ));
+                }
+                let id = reduce::random_uuid_v4();
+                st.issue_reports.push(IssueReportCandidate {
+                    candidate_id: id.clone(),
+                    received_at: iso8601(now),
+                    connector: households::clean_connector(caller.mcp_client_declared.as_deref()),
+                    items: items.clone(),
+                });
+                id
+            }
+        };
+        Ok(json!({
+            "candidateId": id,
+            "status": "pendingReview",
+            "items": items.len(),
+            "message": format!("{}件の報告を、アプリの「送る報告の確認画面」に出しました（上の帯の「AIから、送る報告が届いています」から開きます）。FPが件ごとに中身（種類・どの画面か・内容）とアプリの版・OS を確かめて直し・外し、「送る」を押したときだけ、アプリが全件を1つの文にまとめてクリップボードに写し、既定のブラウザで要望・不具合のフォームを1回だけ開きます。FPはフォームの内容の欄に貼り付けて送ります。この道具では何も送られません（フォームも開きません）。", items.len()),
+        })
+        .to_string())
     }
 
     /// この PC のアプリのエラーの記録（読むだけ。0234）。世帯を渡していなくてよく、世帯の中身ではないので AIに渡した記録には残さない

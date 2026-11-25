@@ -74,7 +74,7 @@ import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "./o
 import { wordingOf } from "./resultTexts.ts";
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
 import { previewOfficeChange } from "./office/estimatePreview.ts";
-import type { AiDisplayCandidate, AiHearingTemplateCandidate, AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";
+import type { AiDisplayCandidate, AiHearingTemplateCandidate, AiHouseholdCandidate, AiIssueReportCandidate, CustomTextsStatus } from "../engine/host.ts";
 import { TEMPLATE_MAX, templateForSave } from "./hearing/selection.ts";
 import { OFFICIAL_EXTENSIONS } from "./extensions/official.ts";
 import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues } from "./extensions/run.ts";
@@ -153,7 +153,9 @@ import { barAlerts, barNotices, saveText, unsavedNewHousehold, type AlertKind, t
 import { FEEDBACK_FORM } from "../generated/distribution.ts";
 import { EMPTY_LOCAL, feedKey, householdKey, localDate, markRead, parseFeed, readLocal, visibleFeed, type CenterItem, type LocalState } from "./notices/center.ts";
 import { FeedbackPanel } from "./notices/FeedbackPanel.tsx";
-import { addReceipt, osName } from "./notices/receipts.ts";
+import { addReceipt, newReceiptCode, osName } from "./notices/receipts.ts";
+import { AiIssueReportBand, ReportConfirm } from "./notices/ReportConfirm.tsx";
+import { itemFromAi, sendReport, type ReportDraft } from "./notices/reportSend.ts";
 import { PLACE_OF_TAB, recordError, setErrorPlace, setErrorSink, utcOffsetMinutes } from "./notices/errorLog.ts";
 import { TopBar } from "./header/TopBar.tsx";
 
@@ -2208,6 +2210,35 @@ export function App() {
     if (host === null || storeStatus?.state !== "ready" || host.ai.hearingTemplateCandidates === undefined) return;
     void host.ai.hearingTemplateCandidates().then(setHearingTemplateCands, () => undefined);
   }, [host, storeStatus?.state, hearingTemplateCount, officeSettingsOpen]);
+  // AIがまとめた要望・不具合の報告（0259。接続口の propose_issue_report。1回に何件か）: 上の帯に数を出し、「送る報告の確認画面を開く」で最初の1回分を出す。
+  // 「要望・不具合を送る」の「報告の文を書いて送る」も同じ確認画面を通る（FP が書く。via は付けない）
+  const issueReportCount = ai.status?.issueReportCandidates ?? 0;
+  const [reportConfirm, setReportConfirm] = useState<{ source: "fp"; code: string } | { source: "ai"; code: string; candidate: AiIssueReportCandidate } | null>(null);
+  const openAiIssueReport = () => {
+    if (host?.ai.issueReportCandidates === undefined) return;
+    void host.ai.issueReportCandidates().then((l) => {
+      const c = l[0];
+      if (c !== undefined) setReportConfirm({ source: "ai", code: newReceiptCode(), candidate: c });
+    }, () => undefined);
+  };
+  /** 送る（送り方は reportSend.ts の sendReport の1か所。文を写して、受付番号を覚えて、フォームを開く。AI の報告は承認待ちから外す） */
+  const sendIssueReport = async (d: ReportDraft, candidateId: string | null) => {
+    const res = await sendReport(d, {
+      copy: async (t) => {
+        if ((await host?.notices.copyReport?.(t).catch(() => false)) === true) return true;
+        await navigator.clipboard.writeText(t);
+        return true;
+      },
+      openForm: async (code, via) => {
+        if (host === null) throw new Error("E_NO_HOST");
+        await host.notices.openForm(code, via);
+      },
+      remember: (r) => updateLocal((st) => ({ ...st, receipts: addReceipt(st.receipts, r) })),
+      today: localDate,
+    });
+    if (candidateId !== null) await host?.ai.takeIssueReport?.(candidateId).catch(() => undefined);
+    return res;
+  };
   // 新しい世帯の候補が届いた・減ったとき、AIからの新しい世帯の候補の確認画面を開いていれば読み直す
   const hhCandCount = ai.status?.householdCandidates ?? 0;
   useEffect(() => {
@@ -3066,6 +3097,7 @@ export function App() {
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} paused={presence !== null && storedInfo !== null} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
       <AiHearingTemplateBand count={officeSettingsOpen ? 0 : hearingTemplateCount} onOpen={() => setOfficeSettingsOpen(true)} />
+      <AiIssueReportBand count={reportConfirm !== null ? 0 : issueReportCount} onOpen={openAiIssueReport} />
       <AiDisplayCandidateBand
         office={officeSettingsOpen ? 0 : displayCandCount}
         households={ai.status?.householdDisplayCandidates ?? []}
@@ -3870,6 +3902,10 @@ export function App() {
             await host.notices.openForm(code);
           }}
           onAdd={(code) => updateLocal((st) => ({ ...st, receipts: addReceipt(st.receipts, { code, on: localDate(), manual: true }) }))}
+          onWrite={(code) => {
+            setFeedbackOpen(false);
+            setReportConfirm({ source: "fp", code });
+          }}
           onCopy={host !== null ? (code) => host.notices.copy(code) : undefined}
           onClose={() => setFeedbackOpen(false)}
           errorLog={
@@ -3877,6 +3913,27 @@ export function App() {
               ? { load: () => host.errors!.get(utcOffsetMinutes()), clear: () => host.errors!.clear(), copy: host.kind === "tauri" ? () => host.errors!.copy() : undefined }
               : undefined
           }
+        />
+      ) : null}
+      {reportConfirm !== null ? (
+        <ReportConfirm
+          key={reportConfirm.source === "ai" ? reportConfirm.candidate.candidateId : reportConfirm.code}
+          source={reportConfirm.source}
+          code={reportConfirm.code}
+          appVersion={APP_VERSION}
+          os={osName()}
+          initialItems={reportConfirm.source === "ai" ? reportConfirm.candidate.items.map(itemFromAi) : [{ kind: "bug", screen: "その他・分からない", text: "" }]}
+          connector={reportConfirm.source === "ai" ? (reportConfirm.candidate.connector ?? null) : null}
+          receivedAt={reportConfirm.source === "ai" ? reportConfirm.candidate.receivedAt : undefined}
+          onSend={(d) => sendIssueReport(d, reportConfirm.source === "ai" ? reportConfirm.candidate.candidateId : null)}
+          onDiscard={
+            reportConfirm.source === "ai" && host?.ai.takeIssueReport !== undefined
+              ? async () => {
+                  await host.ai.takeIssueReport!(reportConfirm.candidate.candidateId);
+                }
+              : undefined
+          }
+          onClose={() => setReportConfirm(null)}
         />
       ) : null}
       {officeSettingsOpen && officeLoaded && host !== null ? (

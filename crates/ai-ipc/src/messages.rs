@@ -84,6 +84,10 @@ pub enum Request {
     /// この PC のアプリのエラーの記録（日時・版・OS・画面・操作・種類・削った文。世帯の中身・ファイルの場所は入っていない）を返す
     /// （読むだけ。0234）。世帯を渡していなくてよい。世帯の中身ではないので「AIに渡した記録」には残さず、アプリが読まれた回数を記録の中に残す
     GetErrorLog,
+    /// AI がまとめた要望・不具合の報告（`report` は `{ items: [{ kind, screen?, text }] }`。FP が話した内容を1件ずつに分けた物）を、アプリの「送る報告の確認画面」に承認待ちで出す（送らない・
+    /// フォームを開かない。FP が画面で中身を確かめて「送る」を押したときだけ、アプリが文を写してフォームを開く。0259）。世帯を渡していなくてよい。
+    /// 世帯の中身ではないので「AIに渡した記録」には残さない
+    ProposeIssueReport { report: Value },
 }
 
 /// 失敗のコード（0015 の4）
@@ -291,6 +295,14 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&Request::GetErrorLog).unwrap(),
             r#"{"op":"getErrorLog"}"#
+        );
+        // 送る報告の確認画面に出す（0259）
+        assert_eq!(
+            serde_json::to_string(&Request::ProposeIssueReport {
+                report: serde_json::json!({ "items": [] }),
+            })
+            .unwrap(),
+            r#"{"op":"proposeIssueReport","report":{"items":[]}}"#
         );
     }
 

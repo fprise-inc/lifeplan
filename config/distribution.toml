@@ -29,8 +29,9 @@ feature_code_revocations = "https://updates.fprise.com/v1/revocations/feature-co
 [feedback]
 # 「要望・不具合を送る」のフォームの URL のひな形（0087 の6）。押すと既定のブラウザでこのフォームを開く（アプリ自身は送らない・通信しない）。
 # 差し込む印は {受付番号}・{版}・{OS} の3つだけ（世帯の情報・FP や PC を識別する値は入れない。0012）。https のみ。
-# 受け付けのページ（financia.jp の転送のページ。受付番号・版・OS だけを付けてフォームへ移す。フォームを替えるときは転送のページだけを直す）。画面には app/ の prepare-assets が、本体には build.rs が、ここから写す
-form = "https://financia.jp/feedback/?no={受付番号}&ver={版}&os={OS}"
+# 非公開の試用の間は、受け付けのフォーム（Tally。隠れた欄 no・ver・os・via）を直接開く（利用者の判断。0259）。AI 経由の報告のときだけ、アプリが決まった印 via=ai を足す（ひな形には書かない）。
+# 報告の文は URL に入れない（FP がクリップボードから内容の欄に貼る）。financia.jp の転送のページ（0087 の追記 2026-10-30）ができたら、そちらに戻す（via も渡す）。画面には app/ の prepare-assets が、本体には build.rs が、ここから写す
+form = "https://tally.so/r/laBDzo?no={受付番号}&ver={版}&os={OS}"
 
 [keys]
 # 本番の公開鍵（それぞれ現用＋次期の2本まで。0017 の5・0117 の2）。秘密鍵はどのリポジトリにも置かない（0017 の5・0021）。

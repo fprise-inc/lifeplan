@@ -205,6 +205,9 @@ async fn serve(
             }
             Request::GetOfficeHearing => registry.handle_office_hearing(),
             Request::GetErrorLog => registry.handle_error_log(),
+            Request::ProposeIssueReport { report } => {
+                registry.handle_propose_issue_report(report, &caller)
+            }
             Request::ProposeHearingTemplate { proposal } => {
                 registry.handle_propose_hearing_template(proposal, &caller)
             }
