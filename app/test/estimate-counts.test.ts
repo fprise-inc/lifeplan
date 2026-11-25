@@ -102,7 +102,7 @@ describe("前提条件の標準の値は推定の数とまとめての操作か�
     expect(structuresInUse(blankHousehold("2026-11", seq()).request.input.household).size).toBe(0);
   });
 
-  it("前提条件の札: 事務所の既定値どおりなら「事務所の既定値どおり」、この世帯だけの値を入れると「入力済み」、戻すとまた既定値どおり。要約は標準の前提の3つ（運用の利回りは 0260 で外した）", () => {
+  it("前提条件の入力項目の状態: 事務所の既定値どおりなら「事務所の既定値どおり」、この世帯だけの値を入れると「入力済み」、戻すとまた既定値どおり。要約は標準の前提の3つ（運用の利回りは 0260 で外した）", () => {
     const wh = blankHousehold("2026-11", seq());
     const a = itemOf(wh, "assumptions");
     expect(a?.status).toBe("std");

@@ -503,7 +503,7 @@ export interface StageTableRow {
   note: string | null;
 }
 
-/** まとまりの操作の全部（まとまりのボタンと、欄の下の小さなリンク〔FieldDef の links〕。探して開く・書類の読み取りの当て先が使う。0260） */
+/** まとまりの操作の全部（まとまりのボタンと、欄の下の小さなリンク〔FieldDef の links〕。探して開く・書類の読み取りが操作を探すのに使う。0260） */
 export const groupActions = (g: Pick<GroupDef, "actions" | "fields">): ActionDef[] => [...g.actions, ...g.fields.flatMap((f) => f.links ?? [])];
 
 /** まとまりをその入れ方で出すか（標準は標準のまとまりだけ、詳細は標準だけのまとまりを除く全部） */
