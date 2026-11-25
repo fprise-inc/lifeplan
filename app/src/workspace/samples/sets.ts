@@ -3,14 +3,14 @@
 // 出ている種類が2つ以上のときだけ見出しを出す（0247 の2。store/numbering.ts の shelfSections）。
 // - セットの ID は「作成者.名前」（作成者 official は提供元だけ）。見本の ID はセットの中で重ならず、アプリのセットではモデル世帯の名前
 // - 見本は番号を持たない。家族の形・本人の年代は family・age に持つ（絞り込み・AI接続口の目印に使う）。rev は見本の中身の版（中身を直したら上げる）
-// - 顔ぶれは、今は全部を「基本の見本」に入れている（セットを分ける・顔ぶれを入れ替えるのは後の段。0247 の作る順）
+// - 顔ぶれは、今は全部を「ファイナンシアの見本」に入れている（セットを分ける・顔ぶれを入れ替えるのは後の段。0247 の作る順）
 import type { DemoHousehold } from "../catalog.ts";
 import type { FeatureId } from "../office/featureCodes.ts";
 
 export interface SampleSet {
   /** セットの ID（例 official.basic） */
   id: string;
-  /** 見本の棚の見出し（「基本の見本」など） */
+  /** 見本の棚の見出し（「ファイナンシアの見本」など） */
   name: string;
   /** 機能を有効にするコードの機能の名前（0110）。無ければ全員に出す */
   feature?: FeatureId;
@@ -18,7 +18,7 @@ export interface SampleSet {
   samples: readonly DemoHousehold[];
 }
 
-/** 基本の見本（全員に入っている。並びは棚の順） */
+/** ファイナンシアの見本（全員に入っている。並びは棚の順） */
 const BASIC: readonly DemoHousehold[] = [
   {
     id: "salariedCoupleTwoKids",
@@ -366,7 +366,7 @@ const BASIC: readonly DemoHousehold[] = [
 ];
 
 /** アプリに入っている見本のセット（この順に並べる） */
-export const SAMPLE_SETS: readonly SampleSet[] = [{ id: "official.basic", name: "基本の見本", samples: BASIC }];
+export const SAMPLE_SETS: readonly SampleSet[] = [{ id: "official.basic", name: "ファイナンシアの見本", samples: BASIC }];
 
 /** はじめて起動したとき（前回の世帯が無いとき）に開く見本の ID */
 export const FIRST_SAMPLE_ID = "salariedCoupleTwoKids";

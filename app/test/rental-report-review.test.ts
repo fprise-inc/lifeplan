@@ -48,7 +48,7 @@ function idsOf(rq: EngineRequest): string[] {
 describe("見本の一覧の「収益不動産を持つ会社員の夫婦と子1人（見本）」", () => {
   const demo = DEMO_HOUSEHOLDS.find((d) => d.id === ID) as DemoHousehold;
 
-  it("基本の見本として一覧に1件あり（夫婦と子・40代）、ID は UUID 第4版でほかのモデル世帯と重ならない。物件名・メモは架空", () => {
+  it("ファイナンシアの見本として一覧に1件あり（夫婦と子・40代）、ID は UUID 第4版でほかのモデル世帯と重ならない。物件名・メモは架空", () => {
     expect(demo).toMatchObject({ family: 3, age: 4 });
     expect(SAMPLE_SETS.find((set) => set.id === "official.basic")?.samples.filter((d) => d.id === ID).length).toBe(1);
     const mine = idsOf(req);

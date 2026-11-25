@@ -137,7 +137,7 @@ export interface ShelfSection {
 
 /**
  * 見本の棚を種類ごとに分ける（0247 の2）。並びは items のまま（shelfItems の順）。行の無い種類は出さない（絞り込みで0件になった種類の見出しも出さない）。
- * 見出しは、出ている種類が2つ以上のときだけ出す（はじめて使う人〔基本の見本だけ〕には見出しを出さない）。headings はセットの ID と OWN_GROUP → 見出し
+ * 見出しは、出ている種類が2つ以上のときだけ出す（はじめて使う人〔ファイナンシアの見本だけ〕には見出しを出さない）。headings はセットの ID と OWN_GROUP → 見出し
  */
 export function shelfSections(items: readonly ShelfItem[], headings: Readonly<Record<string, string>>): ShelfSection[] {
   const out: ShelfSection[] = [];

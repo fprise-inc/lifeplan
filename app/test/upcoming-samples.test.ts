@@ -1,4 +1,4 @@
-// 見本の棚にまだ出していない新しい見本の世帯4件（data/modelHouseholds。すべて架空）: 基本の見本の顔ぶれを入れ替えるときに棚に出す。
+// 見本の棚にまだ出していない新しい見本の世帯4件（data/modelHouseholds。すべて架空）: ファイナンシアの見本の顔ぶれを入れ替えるときに棚に出す。
 // - sampleSingle50sRenter（おひとり様・50代・賃貸）・samplePensionerCouple（もう働いていない年金生活の夫婦）は新しく作った世帯
 // - sampleCoupleTwoKidsPeak は salariedCoupleTwoKids に sampleFamilyDreams の夢7件を写した世帯、sampleDualAssetsInvest は dualAssetsTwoKids に
 //   investmentCouple の NISA の入れ方（つみたて投資枠を年齢で3つの期間に分ける）を写した世帯。元の世帯は多くのテストの入力なので書き換えない

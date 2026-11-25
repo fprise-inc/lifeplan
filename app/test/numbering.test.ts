@@ -77,7 +77,7 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
   const own = [ownRow("own-b", "研修用", 3, 4, ["共働き"]), ownRow("own-a", "あいう研修", 1, 2), row("C0001", { category: "C", serial: 1 })];
   /** 2つ目のセット（配られたセットの形の確かめ用。架空） */
   const extra: ShelfSet = { id: "official.extra", name: "配られた見本", samples: [{ id: "x1", title: "配られた見本の世帯", traits: ["役員"], family: 3, age: 5 }] };
-  const headings = { "official.basic": "基本の見本", "official.extra": "配られた見本", [OWN_GROUP]: ownSampleHeading(false) };
+  const headings = { "official.basic": "ファイナンシアの見本", "official.extra": "配られた見本", [OWN_GROUP]: ownSampleHeading(false) };
 
   it("家族の形・本人の年代の説明。見本の名前の比べ方。アプリのすべてのセットの見本の名前は使えない名前として本体へ渡す", () => {
     expect(shapeText(4, 3)).toBe("ひとり親・30代");
@@ -90,8 +90,8 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
     expect(reservedSampleNames([...SAMPLE_SETS, extra])).toContain("配られた見本の世帯");
   });
 
-  it("セットの定義: ID は「作成者.名前」、今は基本の見本だけで、今の見本を全部入れる（顔ぶれは変えない）。見本の ID はセットの中で重ならない", () => {
-    expect(SAMPLE_SETS.map((set) => [set.id, set.name, set.feature])).toEqual([["official.basic", "基本の見本", undefined]]);
+  it("セットの定義: ID は「作成者.名前」、今はファイナンシアの見本だけで、今の見本を全部入れる（顔ぶれは変えない）。見本の ID はセットの中で重ならない", () => {
+    expect(SAMPLE_SETS.map((set) => [set.id, set.name, set.feature])).toEqual([["official.basic", "ファイナンシアの見本", undefined]]);
     for (const set of SAMPLE_SETS) {
       expect(set.id).toMatch(/^[a-z][a-z0-9]*\.[a-z][A-Za-z0-9]*$/);
       expect(new Set(set.samples.map((d) => d.id)).size, set.id).toBe(set.samples.length);
@@ -169,24 +169,24 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
   });
 
   it("見出し: 出ている種類が2つ以上のときだけ。行の無い種類は出さない。自分で作った見本の見出しは事務所の共有で「事務所で作った見本」", () => {
-    // 自分で作った見本が無い（基本の見本だけ）: 見出しなし
+    // 自分で作った見本が無い（ファイナンシアの見本だけ）: 見出しなし
     const basic = shelfSections(shelfItems(SAMPLE_SETS, []), headings);
     expect(basic.map((s) => [s.group, s.heading, s.items.length])).toEqual([["official.basic", null, DEMO_HOUSEHOLDS.length]]);
     // ある: 見出し2つ
     const items = shelfItems(SAMPLE_SETS, own);
     expect(shelfSections(items, headings).map((s) => [s.heading, s.items.length])).toEqual([
-      ["基本の見本", DEMO_HOUSEHOLDS.length],
+      ["ファイナンシアの見本", DEMO_HOUSEHOLDS.length],
       ["自分で作った見本", 2],
     ]);
-    expect(shelfSections(items, { ...headings, [OWN_GROUP]: ownSampleHeading(true) }).map((s) => s.heading)).toEqual(["基本の見本", "事務所で作った見本"]);
+    expect(shelfSections(items, { ...headings, [OWN_GROUP]: ownSampleHeading(true) }).map((s) => s.heading)).toEqual(["ファイナンシアの見本", "事務所で作った見本"]);
     expect(ownSampleHeading(false)).toBe("自分で作った見本");
     // 絞り込みで片方が0件: その種類の見出しを出さず、残りが1つなら見出しなし
     expect(shelfSections(filterShelf(items, { family: 0, age: 0, traits: [], name: "研修" }), headings).map((s) => [s.group, s.heading])).toEqual([[OWN_GROUP, null]]);
     expect(shelfSections(filterShelf(items, { family: 4, age: 0, traits: [] }), headings).map((s) => [s.group, s.heading])).toEqual([["official.basic", null]]);
     expect(shelfSections([], headings)).toEqual([]);
     // 3つの種類（配られたセットがあるとき）: 定義の順
-    expect(shelfSections(shelfItems([...SAMPLE_SETS, extra], own), headings).map((s) => s.heading)).toEqual(["基本の見本", "配られた見本", "自分で作った見本"]);
-    expect(shelfSections(shelfItems([...SAMPLE_SETS, extra], []), headings).map((s) => s.heading)).toEqual(["基本の見本", "配られた見本"]);
+    expect(shelfSections(shelfItems([...SAMPLE_SETS, extra], own), headings).map((s) => s.heading)).toEqual(["ファイナンシアの見本", "配られた見本", "自分で作った見本"]);
+    expect(shelfSections(shelfItems([...SAMPLE_SETS, extra], []), headings).map((s) => s.heading)).toEqual(["ファイナンシアの見本", "配られた見本"]);
   });
 
   it("起動のときに開く見本は ID で決める（並びの先頭ではない）。無ければ並びの先頭", () => {
@@ -255,25 +255,25 @@ describe("世帯の一覧の画面", () => {
     expect(html).toContain("<td class=\"hh-nowrap\">夫婦のみ・30代</td>");
     expect(html).toContain("はじめから入っている見本は直せません");
   });
-  it("見本の一覧の見出し: 種類が2つ以上のときだけ（基本の見本と自分で作った見本）。事務所の共有では「事務所で作った見本」。名前で探す欄", () => {
+  it("見本の一覧の見出し: 種類が2つ以上のときだけ（ファイナンシアの見本と自分で作った見本）。事務所の共有では「事務所で作った見本」。名前で探す欄", () => {
     const heads = (html: string) => [...html.matchAll(/data-shelf-heading[^>]*>([^<]*)</g)].map((m) => m[1]);
     const withOwn = renderToString(h(HouseholdPanel, { ...base, initialTab: "samples" }));
-    expect(heads(withOwn)).toEqual(["基本の見本", "自分で作った見本"]);
+    expect(heads(withOwn)).toEqual(["ファイナンシアの見本", "自分で作った見本"]);
     expect(withOwn).toContain('data-shelf-group="official.basic"');
     expect(withOwn).toContain(`data-shelf-group="${OWN_GROUP}"`);
     expect(withOwn).toContain("data-shelf-name");
     expect(withOwn).toContain("名前で探す");
-    // 自分で作った見本の行は、見出しの下（基本の見本の後）
+    // 自分で作った見本の行は、見出しの下（ファイナンシアの見本の後）
     expect(withOwn.indexOf('data-sample-row="own-1"')).toBeGreaterThan(withOwn.indexOf("自分で作った見本<"));
     expect(withOwn.indexOf('data-sample-row="sampleFamilyDreams"')).toBeLessThan(withOwn.indexOf("自分で作った見本<"));
     // 自分で作った見本が無い（はじめて使う人）: 見出しを出さない
     const basicOnly = renderToString(h(HouseholdPanel, { ...base, initialTab: "samples", shelf: shelfItems(SAMPLE_SETS, []) }));
     expect(heads(basicOnly)).toEqual([]);
-    expect(basicOnly).not.toContain("基本の見本");
+    expect(basicOnly).not.toContain("ファイナンシアの見本");
     expect(basicOnly).toContain(`見本（${DEMO_HOUSEHOLDS.length}）`);
     // 事務所の共有・1人で複数の PC の同期フォルダ
-    expect(heads(renderToString(h(HouseholdPanel, { ...base, initialTab: "samples", officeState: "member", usage: "office" })))).toEqual(["基本の見本", "事務所で作った見本"]);
-    expect(heads(renderToString(h(HouseholdPanel, { ...base, initialTab: "samples", officeState: "member", usage: "personal" })))).toEqual(["基本の見本", "自分で作った見本"]);
+    expect(heads(renderToString(h(HouseholdPanel, { ...base, initialTab: "samples", officeState: "member", usage: "office" })))).toEqual(["ファイナンシアの見本", "事務所で作った見本"]);
+    expect(heads(renderToString(h(HouseholdPanel, { ...base, initialTab: "samples", officeState: "member", usage: "personal" })))).toEqual(["ファイナンシアの見本", "自分で作った見本"]);
   });
   it("見本の完全削除の確かめは見本の名前。見本に登録の文に番号の話を書かない。名前と項目を直すで家族の形・年代も直せる", () => {
     const panel = readFileSync(new URL("../src/workspace/store/HouseholdPanel.tsx", import.meta.url), "utf8");
