@@ -4,6 +4,8 @@
 //! （家族の形・年代・絞り込みの項目と、そこから決める場面の目印。app/src/connector/samples.ts を JSON にした物）で、棚と同じ順
 //! （セットの定義の順）に返し、目印で絞れる。見本は番号を持たない（0247 の1・12）。
 //! 棚に無いモデル世帯は、制度の計算を確かめるための開発の試験用の見本として「開発の試験用」の目印を付け、既定では出さない。
+//! 一覧に載せるのはファイナンシアの見本だけ。コードで出す見本のセット（法人経営者の見本）は載せない（接続口はコードの状態を知らない。
+//! モデル世帯としては ID で取り出せ、開発の試験用と同じ扱いになる。0247 の7・12）。
 
 use crate::engine::assets::{HOUSEHOLDS, SAMPLES_JSON};
 use rmcp::schemars;
@@ -13,10 +15,6 @@ use std::sync::OnceLock;
 
 /// 開発の試験用の見本の目印
 pub const TEST_TAG: &str = "開発の試験用";
-
-/// 合算BS の見本の目印と、その見本に添える一言（会社の数字は計算の入力ではないので、接続口からは見えない。0197）
-const COMBINED_BS_TAG: &str = "合算BS";
-const COMBINED_BS_NOTE: &str = "会社の数字（合算BS）は、アプリの画面でこの見本を開くと見られます。この接続口で計算するのは家計の側だけです。";
 
 const NOTICE: &str = "すべて架空の世帯です（実在の顧客ではありません）。アプリの見本の棚と同じ名前・目印です。get_sample_household で計算の入力を取り出すか、calculate の sample_household_id に id を渡して計算できます。tags で目印を絞れます（目印の一部でもよい）。家を買う・子が生まれるなどの場面は、近い見本に get_input_recipe の手本を重ねて作れます。";
 
@@ -190,17 +188,13 @@ pub fn list(args: &ListSamplesArgs) -> Value {
         .filter(|e| wants.iter().all(|w| matches(w, &e.tags, &e.title)))
         .map(|e| {
             let input = &parse(e.json)["input"];
-            let mut h = json!({
+            json!({
                 "id": e.id,
                 "title": e.title,
                 "tags": e.tags,
                 "members": members(input),
                 "period": period(input),
-            });
-            if e.tags.iter().any(|t| t == COMBINED_BS_TAG) {
-                h["note"] = json!(COMBINED_BS_NOTE);
-            }
-            h
+            })
         })
         .collect();
     let hidden = if with_test {
@@ -244,9 +238,6 @@ pub fn get(id: &str) -> Option<Value> {
         Some(s) => {
             v["title"] = json!(s.title);
             v["tags"] = json!(s.tags);
-            if s.tags.iter().any(|t| t == COMBINED_BS_TAG) {
-                v["note"] = json!(COMBINED_BS_NOTE);
-            }
         }
         None => v["tags"] = json!([TEST_TAG]),
     }
@@ -335,18 +326,23 @@ mod tests {
         );
         assert!(pick(&["自営業"]).contains(&"sampleSelfEmployedFamily".to_owned()));
         assert!(pick(&["役員"]).contains(&"sampleExecutive".to_owned()));
-        // 合算BS の見本: 会社の数字は画面で見られることだけを添え、コードの話は出さない
-        let v = list(&ListSamplesArgs {
+        // 法人経営者の見本（コードで出すセット）は一覧に載せない。目印「合算BS」も無い（0247 の7・12）
+        let v = list(&ListSamplesArgs::default());
+        assert!(!ids(&v).contains(&"sampleOwnerCompany".to_owned()));
+        let text = v.to_string();
+        for w in ["合算BS", "法人経営者", "会社を経営する"] {
+            assert!(!text.contains(w), "{w}: {text}");
+        }
+        assert!(ids(&list(&ListSamplesArgs {
             tags: Some(vec!["合算BS".into()]),
             include_test: None,
-        });
-        assert_eq!(ids(&v), vec!["sampleOwnerCompany".to_owned()]);
-        let text = v.to_string();
-        assert!(text.contains("アプリの画面でこの見本を開くと見られます"));
-        assert!(!text.contains("コード"), "{text}");
+        }))
+        .is_empty());
+        // モデル世帯としては ID で取り出せる（開発の試験用と同じ扱い。添える一言は無い）
         let got = get("sampleOwnerCompany").unwrap();
-        assert!(got["note"].is_string());
-        assert!(!got["note"].as_str().unwrap().contains("コード"));
+        assert!(got["input"]["household"].is_object());
+        assert_eq!(got["tags"], json!([TEST_TAG]));
+        assert!(got.get("note").is_none());
         // 当てはまらないとき
         let none = list(&ListSamplesArgs {
             tags: Some(vec!["宇宙飛行士".into()]),

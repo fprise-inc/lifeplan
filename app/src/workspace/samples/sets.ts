@@ -3,9 +3,12 @@
 // 出ている種類が2つ以上のときだけ見出しを出す（0247 の2。store/numbering.ts の shelfSections）。
 // - セットの ID は「作成者.名前」（作成者 official は提供元だけ）。見本の ID はセットの中で重ならず、アプリのセットではモデル世帯の名前
 // - 見本は番号を持たない。家族の形・本人の年代は family・age に持つ（絞り込み・AI接続口の目印に使う）。rev は見本の中身の版（中身を直したら上げる）
-// - 顔ぶれは、今は全部を「ファイナンシアの見本」に入れている（セットを分ける・顔ぶれを入れ替えるのは後の段。0247 の作る順）
+// - feature のあるセット（法人経営者の見本）は、その機能の公式の拡張（合算BS）が出るのと同じ条件のときだけ出す（sampleSetShown。0247 の7）。
+//   出さないときは、見出し・行・数・名前を画面のどこにも出さない（見本の棚・開く・起動のときの最初の見本が、この1つの関数で決める）
+// - 顔ぶれを12件に入れ替えるのは後の段（0247 の作る順）
 import type { DemoHousehold } from "../catalog.ts";
-import type { FeatureId } from "../office/featureCodes.ts";
+import { featureOn, type FeatureId, type FeatureStatus } from "../office/featureCodes.ts";
+import type { OfficeFeatures } from "../office/settings.ts";
 
 export interface SampleSet {
   /** セットの ID（例 official.basic） */
@@ -292,14 +295,43 @@ const BASIC: readonly DemoHousehold[] = [
     notes: { retireAge: "60歳で定年、今は再雇用（年収350万円）。配偶者はパート（年収100万円）" },
     memo: ["確定給付企業年金を65歳から年60万円・10年で受け取る（架空の例）", "持ち家は完済（1995年築）。区分マンション1室を月7万円で貸している（2010年に1,800万円で取得。架空の例）", "預金2,500万円・課税口座800万円・NISA（月1万円）（架空の例）", "母（89歳）の在宅の介護を月8万円で払う。母からの相続（1,500万円）の見込み（架空の例）"],
   },
-  // 2026-11-11 に足した見本（架空）: 合算BS（会社と合わせたバランスシート）を見せる世帯。会社の数字も入れておく。
-  // 見本の世帯は、機能を有効にするコードが無くても合算BS を見られる（0197）。会社の名前は出さない（数字だけ）
+  // 2026-11-12 に足した見本（架空）: 夢プラン（0103）の入った世帯。結果の画面の「ご家族の夢」の区画・提案書の「ご家族の夢」の章の見え方を見る。
+  // 夢は7件で、計算に入れる物（4件）と最初から計算に入れない物（3件）、額のある物と未入力の物、1回・何年ごと・毎年を混ぜている
+  {
+    id: "sampleFamilyDreams",
+    family: 3,
+    age: 4,
+    rev: 1,
+    title: "共働きの夫婦と子2人・40代（夢プランの見本）",
+    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [65, 68, 70, 72, 75], nisaMonthly: [0, 30000, 50000, 70000], livingMonthly: [300000, 320000, 340000, 360000] },
+    firstProposal: { nisaMonthly: 50000, livingMonthly: 320000 },
+    notes: { retireAge: "ご本人は65歳まで正社員（配偶者は60歳まで）", nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "子の独立後は85%、退職後は80%、80歳から70%" },
+    memo: [
+      "夢は7件を聞き取った。家族旅行・車の買い替え・リフォーム・キャンプは最初から計算に入れ、長女の結婚の援助・退職後のゴルフ・二拠点の暮らしは「最初から計算に入れない」で置いた（架空の例）",
+      "キャンプと二拠点の暮らしは額が未入力（次回に聞く）。長女の結婚の援助は、本人たちが望めば（架空の例）",
+      "下の子の私立高校・自宅外の大学（2036〜2039年）と、リフォーム（2040年）の間が金融資産のいちばん少ない時期（架空の例）",
+    ],
+    plans: [
+      { name: "プランB NISA を月5万円に増やす", tags: ["運用"], values: { "lever:nisaMonthly": 50000 } },
+      { name: "プランC 68歳まで働く", tags: ["老後"], values: { "lever:retireAge": 68 } },
+    ],
+  },
+];
+
+/**
+ * 法人経営者の見本（合算BS と同じコードで出す。0247 の7）。会社の数字は見本の定義の extValues に置く（モデル世帯のファイルには入れない。0197 の1）
+ */
+const CORPORATE_OWNER: readonly DemoHousehold[] = [
+  // 2026-11-11 に足した見本（架空）: 合算BS（会社と合わせたバランスシート）を見せる世帯。会社の数字も入れておく（0197 の1）。
+  // 会社の名前は出さない（数字だけ）
   {
     id: "sampleOwnerCompany",
     family: 3,
     age: 5,
     rev: 1,
-    title: "会社を経営する夫婦と子1人・50代（合算BS の見本）",
+    title: "会社を経営する夫婦と子1人・50代",
     traits: ["役員", "片働き", "持ち家", "教育費", "資産運用"],
     targetAge: 95,
     steps: { retireAge: [65, 68, 70, 72, 75], pensionAge: [65, 68, 70, 72, 75], nisaMonthly: [0, 50000, 100000, 200000], livingMonthly: [480000, 520000, 550000, 600000] },
@@ -340,33 +372,26 @@ const BASIC: readonly DemoHousehold[] = [
       },
     },
   },
-  // 2026-11-12 に足した見本（架空）: 夢プラン（0103）の入った世帯。結果の画面の「ご家族の夢」の区画・提案書の「ご家族の夢」の章の見え方を見る。
-  // 夢は7件で、計算に入れる物（4件）と最初から計算に入れない物（3件）、額のある物と未入力の物、1回・何年ごと・毎年を混ぜている
-  {
-    id: "sampleFamilyDreams",
-    family: 3,
-    age: 4,
-    rev: 1,
-    title: "共働きの夫婦と子2人・40代（夢プランの見本）",
-    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費"],
-    targetAge: 95,
-    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [65, 68, 70, 72, 75], nisaMonthly: [0, 30000, 50000, 70000], livingMonthly: [300000, 320000, 340000, 360000] },
-    firstProposal: { nisaMonthly: 50000, livingMonthly: 320000 },
-    notes: { retireAge: "ご本人は65歳まで正社員（配偶者は60歳まで）", nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "子の独立後は85%、退職後は80%、80歳から70%" },
-    memo: [
-      "夢は7件を聞き取った。家族旅行・車の買い替え・リフォーム・キャンプは最初から計算に入れ、長女の結婚の援助・退職後のゴルフ・二拠点の暮らしは「最初から計算に入れない」で置いた（架空の例）",
-      "キャンプと二拠点の暮らしは額が未入力（次回に聞く）。長女の結婚の援助は、本人たちが望めば（架空の例）",
-      "下の子の私立高校・自宅外の大学（2036〜2039年）と、リフォーム（2040年）の間が金融資産のいちばん少ない時期（架空の例）",
-    ],
-    plans: [
-      { name: "プランB NISA を月5万円に増やす", tags: ["運用"], values: { "lever:nisaMonthly": 50000 } },
-      { name: "プランC 68歳まで働く", tags: ["老後"], values: { "lever:retireAge": 68 } },
-    ],
-  },
 ];
 
 /** アプリに入っている見本のセット（この順に並べる） */
-export const SAMPLE_SETS: readonly SampleSet[] = [{ id: "official.basic", name: "ファイナンシアの見本", samples: BASIC }];
+export const SAMPLE_SETS: readonly SampleSet[] = [
+  { id: "official.basic", name: "ファイナンシアの見本", samples: BASIC },
+  { id: "official.corporateOwner", name: "法人経営者の見本", feature: "combinedBs", samples: CORPORATE_OWNER },
+];
+
+/**
+ * セットを今出すか（0247 の7）。feature の無いセットはいつも出す。feature のあるセットは、その機能のコード（0110）が今使えて、
+ * 事務所の既定値の印（defaults.features）が付いているときだけ。公式の拡張が出る条件（extensions/run.ts の activeExtensions）と同じ
+ * （世帯の条件 activation.households は見本のセットには使わない。0114 の追記）
+ */
+export function sampleSetShown(set: Pick<SampleSet, "feature">, features: FeatureStatus, office: OfficeFeatures): boolean {
+  const f = set.feature;
+  return f === undefined || (featureOn(features, f) && office[f] === true);
+}
+
+/** 今出すセット（定義の順） */
+export const shownSampleSets = (sets: readonly SampleSet[], features: FeatureStatus, office: OfficeFeatures): SampleSet[] => sets.filter((set) => sampleSetShown(set, features, office));
 
 /** はじめて起動したとき（前回の世帯が無いとき）に開く見本の ID */
 export const FIRST_SAMPLE_ID = "salariedCoupleTwoKids";
