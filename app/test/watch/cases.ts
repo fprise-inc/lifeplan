@@ -19,7 +19,7 @@ import { modelHousehold } from "../helpers.ts";
 
 /** 見張る世帯の作り方 */
 export interface WatchCase {
-  /** 見分ける名前（直す待ちの一覧の鍵。見本は「見本 3-4-01」、モデル世帯は「モデル salariedCoupleTwoKids」、操作は「操作 …」） */
+  /** 見分ける名前（直す待ちの一覧の鍵。見本は「見本 salariedCoupleTwoKids」〔見本の ID〕、モデル世帯は「モデル salariedCoupleTwoKids」、操作は「操作 …」） */
   name: string;
   /** 取り込んだ世帯（ヒアリングシートから）。取り込みの形だけで見る決まりがある */
   imported?: boolean;
@@ -80,7 +80,7 @@ const OPERATIONS: readonly WatchCase[] = [
     },
   },
   {
-    // 見本 5-6-01（シニアの夫婦）の配偶者を「会社員として入れる」
+    // 見本 sampleSeniorCouple（シニアの夫婦）の配偶者を「会社員として入れる」
     name: "操作 シニアの夫婦の配偶者を会社員として入れる",
     build: () => {
       const wh = open("sampleSeniorCouple");
@@ -113,17 +113,17 @@ const OPERATIONS: readonly WatchCase[] = [
     },
   },
   {
-    // 見本 3-4-03（持ち家・2012年から）に「＋ 住宅購入の予定」
+    // 見本 dualAssetsTwoKids（持ち家・2012年から）に「＋ 住宅購入の予定」
     name: "操作 持ち家の世帯に住宅購入の予定を足す",
     build: () => press(open("dualAssetsTwoKids"), "housing", "housing/addPurchase"),
   },
   {
-    // 見本 3-4-01 の持ち家に住み終わり（2050年3月）を入れる（住み終わりの後は既定の「そのまま持つ」）
+    // 見本 salariedCoupleTwoKids の持ち家に住み終わり（2050年3月）を入れる（住み終わりの後は既定の「そのまま持つ」）
     name: "操作 持ち家に住み終わりを入れる",
     build: () => put(open("salariedCoupleTwoKids"), "housing", (f) => /^housing\/res\/[^/]+\/to$/.test(f.key), "2050-03"),
   },
   {
-    // 見本 3-4-01 の持ち家を2035年3月に売る（住宅ローンが残る）
+    // 見本 salariedCoupleTwoKids の持ち家を2035年3月に売る（住宅ローンが残る）
     name: "操作 住宅ローンの残る持ち家を売る",
     build: () => {
       const wh = put(open("salariedCoupleTwoKids"), "housing", (f) => /^housing\/res\/[^/]+\/to$/.test(f.key), "2035-03");
@@ -169,12 +169,12 @@ const OPERATIONS: readonly WatchCase[] = [
     },
   },
   {
-    // 見本 3-4-02（資産運用の見本）の運用の入れ方を「資産配分」に切り替える
+    // 見本 investmentCouple（資産運用の見本）の運用の入れ方を「資産配分」に切り替える
     name: "操作 運用の入れ方を資産配分に切り替える",
     build: () => withRefreshedEstimates(switchMethod(open("investmentCouple"), "allocation")),
   },
   {
-    // 見本 3-4-01 に NISA と課税口座を足して、今の残高を入れる
+    // 見本 salariedCoupleTwoKids に NISA と課税口座を足して、今の残高を入れる
     name: "操作 NISA と課税口座を足して残高を入れる",
     build: () => {
       let wh = open("salariedCoupleTwoKids");
@@ -218,7 +218,7 @@ const OPERATIONS: readonly WatchCase[] = [
 
 // ---- 見本の棚とモデル世帯 ----
 
-const DEMOS: readonly WatchCase[] = DEMO_HOUSEHOLDS.map((d) => ({ name: `見本 ${d.sampleNo}`, build: () => fromRequest(modelHousehold(d.id)) }));
+const DEMOS: readonly WatchCase[] = DEMO_HOUSEHOLDS.map((d) => ({ name: `見本 ${d.id}`, build: () => fromRequest(modelHousehold(d.id)) }));
 const SHELF = new Set(DEMO_HOUSEHOLDS.map((d) => d.id));
 const MODELS: readonly WatchCase[] = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
   .filter((f) => f.endsWith(".json"))

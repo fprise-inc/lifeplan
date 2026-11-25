@@ -1,5 +1,6 @@
 // 世帯の一覧（上の帯の世帯の箱から、下へ伸びて開く。出方は header/HouseholdDrop.tsx。頭に「世帯を選ぶ」と ×）: 顧客の世帯を開く・新しく作る・顧客番号と区分を変える・完全削除（0013 の5）と、
-// 見本の棚（アプリに入っている見本と、自分で作った見本。顧客番号を持たず、顧客の一覧には混ぜない。0033）。
+// 見本の棚（アプリに入っている見本のセットと、自分で作った見本。顧客番号を持たず、顧客の一覧には混ぜない。0033）。見本は種類ごとに並べ、
+// 出ている種類が2つ以上のときだけ見出しを出す。名前の一部・家族の形・年代・項目で探す（0247 の2）。
 // 一覧に出すのは表示用の顧客番号（区分の記号＋通し番号。区分を使わないときは通し番号だけ）と構成の要約（続柄と人数）だけ。氏名は持たない（0012）。
 // 区分を使うかは、初めて世帯の一覧を使うときに1回だけ聞く（区分の設定がまだ一度も決まっていないとき。0033 の追記）
 // 行の操作は「開く」（見本は「この見本をもとに顧客を作る」も）だけを見せ、ほかは「ほかの操作」にたたむ（行を1行にそろえる。0244）
@@ -10,7 +11,8 @@ import { PopIcon } from "../../presentation/icons.tsx";
 import { CloseX, useEscClose } from "../../presentation/CloseX.tsx";
 import { officeShareText, storageText } from "../header/FpMenu.tsx";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
-import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, sampleNameKey, shapeText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
+import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, OWN_GROUP, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, ownSampleHeading, sampleNameKey, shapeText, shelfSections, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
+import { SAMPLE_SETS } from "../samples/sets.ts";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
 import { storageNoticeText } from "./storage.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
@@ -34,7 +36,7 @@ export interface HouseholdPanelProps {
   categories: Category[];
   /** 区分を使うかを決めたか（false なら「区分を使いますか？」を1回だけ聞く。省略は決めたもの） */
   categoriesDecided?: boolean;
-  /** 見本の棚（アプリの見本〔定義の順〕と自分で作った見本〔名前の順〕。見本は番号を持たない。0247） */
+  /** 見本の棚（出せるセットの見本〔定義の順〕と自分で作った見本〔名前の順〕。numbering.ts の shelfItems。見本は番号を持たない。0247） */
   shelf: ShelfItem[];
   /** 開いている見本（アプリの見本の名前か、自分で作った見本の内部ID） */
   currentSample: string | null;
@@ -382,6 +384,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const [shelfFamily, setShelfFamily] = useState(0);
   const [shelfAge, setShelfAge] = useState(0);
   const [shelfTraits, setShelfTraits] = useState<string[]>([]);
+  const [shelfName, setShelfName] = useState("");
   const [fromSample, setFromSample] = useState<{ item: ShelfItem; category: string | undefined } | null>(null);
   const [sampleEdit, setSampleEdit] = useState<{ id: string; name: string; traits: string[]; family: number; age: number; error: string | null } | null>(null);
   const [sampleDelete, setSampleDelete] = useState<{ id: string; value: string; error: string | null } | null>(null);
@@ -409,8 +412,10 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const storageLabel = storageText(p.officeState, personal);
   const shown = filterCustomers(p.list, query, catFilter);
   const inUse = new Set(p.list.flatMap((h) => (h.category !== undefined ? [h.category] : [])));
-  const shelf = filterShelf(p.shelf, { family: shelfFamily, age: shelfAge, traits: shelfTraits });
-  const ownCount = p.shelf.filter((i) => i.kind === "own").length;
+  const shelf = filterShelf(p.shelf, { family: shelfFamily, age: shelfAge, traits: shelfTraits, name: shelfName });
+  /** 見本の種類の見出し（セットの名前と、自分で作った見本。出ている種類が2つ以上のときだけ出す。0247 の2） */
+  const shelfHeadings: Record<string, string> = { ...Object.fromEntries(SAMPLE_SETS.map((set) => [set.id, set.name])), [OWN_GROUP]: ownSampleHeading(shared && !personal) };
+  const sections = shelfSections(shelf, shelfHeadings);
   /** 行の操作の共通の流れ（失敗したら、その欄に理由を出す） */
   const run = (f: RowForm, fn: () => Promise<string | null>) => {
     setBusy(true);
@@ -869,6 +874,10 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
       </p>
       <div class="hh-tools">
         <label>
+          名前で探す{" "}
+          <input type="search" value={shelfName} placeholder="名前の一部" onInput={(e) => setShelfName((e.currentTarget as HTMLInputElement).value)} data-shelf-name />
+        </label>
+        <label>
           家族の形{" "}
           <select class="hh-sel" value={shelfFamily} onChange={(e) => setShelfFamily(Number((e.currentTarget as HTMLSelectElement).value))} data-shelf-family>
             <option value={0}>すべて</option>
@@ -904,55 +913,64 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                 <th />
               </tr>
             </thead>
-            <tbody>
-              {shelf.map((s) => {
-                const isCurrent = p.currentSample === s.id;
-                return (
-                  <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.id}>
-                    <td class="hh-wrap">
-                      {sampleEdit?.id === s.id ? (
-                        <form
-                          class="pl-edit"
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const name = sampleEdit.name.trim();
-                            if (name === "") return setSampleEdit({ ...sampleEdit, error: storeMessage("E_STORE_SAMPLE") });
-                            setBusy(true);
-                            void p.onUpdateSample(s.id, name, sampleEdit.traits, sampleEdit.family, sampleEdit.age).then((err) => {
-                              setBusy(false);
-                              if (err === null) setSampleEdit(null);
-                              else setSampleEdit({ ...sampleEdit, error: err });
-                            });
-                          }}
-                        >
-                          <SampleFields value={{ family: sampleEdit.family, age: sampleEdit.age, name: sampleEdit.name, traits: sampleEdit.traits }} onChange={(v) => setSampleEdit({ ...sampleEdit, name: v.name, traits: v.traits, family: v.family, age: v.age, error: null })} />
-                          <button type="submit" class="btn" disabled={busy}>
-                            直す
-                          </button>
-                          <button type="button" class="link-btn" onClick={() => setSampleEdit(null)}>
-                            キャンセル
-                          </button>
-                          {sampleEdit.error !== null ? <span class="hh-err">{sampleEdit.error}</span> : null}
-                        </form>
-                      ) : (
-                        <span data-sample-name-cell>{s.name}</span>
-                      )}
-                    </td>
-                    <td class="hh-nowrap">{shapeText(s.family, s.age)}</td>
-                    <td>
-                      <span class="hh-tags">
-                        {s.traits.map((t) => (
-                          <span key={t} class="hh-tag">
-                            {t}
-                          </span>
-                        ))}
-                      </span>
-                    </td>
-                    <td>{sampleOps(s, isCurrent)}</td>
+            {sections.map((sec) => (
+              <tbody key={sec.group} data-shelf-group={sec.group}>
+                {sec.heading !== null ? (
+                  <tr class="hh-group">
+                    <th colSpan={4} scope="colgroup" data-shelf-heading>
+                      {sec.heading}
+                    </th>
                   </tr>
-                );
-              })}
-            </tbody>
+                ) : null}
+                {sec.items.map((s) => {
+                  const isCurrent = p.currentSample === s.id;
+                  return (
+                    <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.id}>
+                      <td class="hh-wrap">
+                        {sampleEdit?.id === s.id ? (
+                          <form
+                            class="pl-edit"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const name = sampleEdit.name.trim();
+                              if (name === "") return setSampleEdit({ ...sampleEdit, error: storeMessage("E_STORE_SAMPLE") });
+                              setBusy(true);
+                              void p.onUpdateSample(s.id, name, sampleEdit.traits, sampleEdit.family, sampleEdit.age).then((err) => {
+                                setBusy(false);
+                                if (err === null) setSampleEdit(null);
+                                else setSampleEdit({ ...sampleEdit, error: err });
+                              });
+                            }}
+                          >
+                            <SampleFields value={{ family: sampleEdit.family, age: sampleEdit.age, name: sampleEdit.name, traits: sampleEdit.traits }} onChange={(v) => setSampleEdit({ ...sampleEdit, name: v.name, traits: v.traits, family: v.family, age: v.age, error: null })} />
+                            <button type="submit" class="btn" disabled={busy}>
+                              直す
+                            </button>
+                            <button type="button" class="link-btn" onClick={() => setSampleEdit(null)}>
+                              キャンセル
+                            </button>
+                            {sampleEdit.error !== null ? <span class="hh-err">{sampleEdit.error}</span> : null}
+                          </form>
+                        ) : (
+                          <span data-sample-name-cell>{s.name}</span>
+                        )}
+                      </td>
+                      <td class="hh-nowrap">{shapeText(s.family, s.age)}</td>
+                      <td>
+                        <span class="hh-tags">
+                          {s.traits.map((t) => (
+                            <span key={t} class="hh-tag">
+                              {t}
+                            </span>
+                          ))}
+                        </span>
+                      </td>
+                      <td>{sampleOps(s, isCurrent)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            ))}
           </table>
         </div>
       ) : null}
@@ -973,8 +991,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           顧客（{p.list.length}）
         </button>
         <button type="button" role="tab" aria-selected={tab === "samples"} class={tab === "samples" ? "on" : ""} onClick={() => switchTab("samples")} data-hh-tab="samples">
-          見本（{p.shelf.length}
-          {ownCount > 0 ? `・うち自分で作った見本 ${ownCount}` : ""}）
+          見本（{p.shelf.length}）
         </button>
       </div>
       {p.unavailable !== null ? <p class="hh-warn">{p.unavailable}</p> : null}

@@ -8,8 +8,8 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it, vi } from "vitest";
 import type { StoredHousehold } from "../src/engine/host.ts";
-import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
 import { COPY_SAMPLE_TITLE, HouseholdPanel, copyRequest, type HouseholdPanelProps } from "../src/workspace/store/HouseholdPanel.tsx";
+import { SAMPLE_SETS } from "../src/workspace/samples/sets.ts";
 import { DEFAULT_CATEGORIES, shelfItems } from "../src/workspace/store/numbering.ts";
 
 /** 描いている間に重ねると言った Esc の受け手（出している物だけを見る。close-x.test.ts と同じ見方） */
@@ -26,10 +26,7 @@ const row = (customerNo: string, label: Partial<StoredHousehold> = {}): StoredHo
 const list = [row("A0042", { category: "A", serial: 42 }), row("A0042-1", { category: "A", serial: 42, branch: "1" }), row("K-2019-42", { category: "A" }), row("C0007", { category: "C", serial: 7, fictional: true })];
 // 見本は番号を持たない（表示の番号は空。行の目印は見本の ID。0247）
 const own = { ...row("", { sample: { name: "夫婦のみ・研修用", traits: [], family: 2, age: 3 } }), id: "own-1" };
-const shelf = shelfItems(
-  DEMO_HOUSEHOLDS.map((d) => ({ id: d.id, sampleNo: d.sampleNo, title: d.title, traits: d.traits })),
-  [own],
-);
+const shelf = shelfItems(SAMPLE_SETS, [own]);
 const base: HouseholdPanelProps = {
   status: { state: "ready", firstRun: false, recoveryAcknowledged: true, recoveryVerifiedAt: null, lastOpened: null, deletionsPending: 0, deletionsCompleted: 0 },
   unavailable: null,

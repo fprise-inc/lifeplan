@@ -324,7 +324,7 @@ describe("夢プランの見本の世帯（sampleFamilyDreams。架空）", () =
   const h = raw.input.household;
 
   it("見本の棚にあり、夢は7件（計算に入れる4件・入れない3件、額の無い夢・何年ごと・毎年の夢を混ぜる）。ふつうの出るお金の行も1件ある", () => {
-    expect(DEMO_HOUSEHOLDS.find((d) => d.id === "sampleFamilyDreams")).toMatchObject({ sampleNo: "3-4-06", title: "共働きの夫婦と子2人・40代（夢プランの見本）" });
+    expect(DEMO_HOUSEHOLDS.find((d) => d.id === "sampleFamilyDreams")).toMatchObject({ family: 3, age: 4, title: "共働きの夫婦と子2人・40代（夢プランの見本）" });
     const list = dreamRows(h);
     expect(list.map((p) => [p.label, p.dream?.include !== false, p.amount.value])).toEqual([
       ["家族で海外旅行", true, 1200000],

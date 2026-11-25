@@ -45,6 +45,7 @@ import { AiSharePanel } from "./ai/AiSharePanel.tsx";
 import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, savedInputOf, shareState, SHARE_STATE_TEXT, unsavedForAi } from "./ai/model.ts";
 import { AI_POLL_MS, useAi } from "./ai/useAi.ts";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
+import { firstSampleId, SAMPLE_SETS } from "./samples/sets.ts";
 import { seedDemo } from "./demoSeed.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
@@ -159,8 +160,8 @@ import { TopBar } from "./header/TopBar.tsx";
 /** 機能を有効にするコードの状態を読み直す間隔（提供元が止めた・外したを、本体の裏の確かめのあとに画面へ出す） */
 const FEATURE_POLL_MS = 60_000;
 
-/** 見本の名前に使えない名前（アプリに入っているすべての見本の名前。本体が自分で作った見本の名前と重ならないよう確かめる。0247 の1） */
-const RESERVED_SAMPLE_NAMES = reservedSampleNames(DEMO_HOUSEHOLDS);
+/** 見本の名前に使えない名前（アプリに入っているすべてのセットの見本の名前。本体が自分で作った見本の名前と重ならないよう確かめる。0247 の1） */
+const RESERVED_SAMPLE_NAMES = reservedSampleNames(SAMPLE_SETS);
 
 type Tab = "input" | "main" | "balance" | "rental" | "contingency" | "report";
 /** FP のメニューから開く、入力のホームの中身 */
@@ -1426,7 +1427,7 @@ export function App() {
   useEffect(() => {
     if (host === null || households.length === 0 || !storeChecked || initialOnce.current) return;
     initialOnce.current = true;
-    const id = initial.household === "blank" ? BLANK : initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (households[0] as DemoHousehold).id;
+    const id = initial.household === "blank" ? BLANK : initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (firstSampleId(households) as string);
     const dev = initial.household !== undefined || initial.selfcheck || initial.seed === true;
     const last = !dev && storeStatus?.state === "ready" ? storeStatus.lastOpened : null;
     if (last !== null)
@@ -1535,7 +1536,8 @@ export function App() {
         if (isOpen) {
           storedRef.current = null;
           setStoredInfo(null);
-          if (households.length > 0) await open((households[0] as DemoHousehold).id);
+          const first = firstSampleId(households);
+          if (first !== undefined) await open(first);
         }
         await refreshStore();
         say("削除しました。アプリのバックアップからも完全に読めなくなるのは30日後です");
@@ -2788,8 +2790,8 @@ export function App() {
     } else closePip();
   }, [tab]);
 
-  // 見本の棚（アプリの見本と自分で作った見本）と、いま開いている見本（0033）
-  const shelf = useMemo(() => shelfItems(households, storedSamples), [households, storedSamples]);
+  // 見本の棚（出せるセットの見本〔本体が持つモデル世帯だけ〕と自分で作った見本。0247 の2）と、いま開いている見本（0033）
+  const shelf = useMemo(() => shelfItems(SAMPLE_SETS.map((set) => ({ ...set, samples: set.samples.filter((d) => households.includes(d)) })), storedSamples), [households, storedSamples]);
   const currentSample = storedInfo?.sample !== undefined ? storedInfo.id : storedInfo === null && opened?.demo != null ? opened.demo.id : null;
   const sampleItem: ShelfItem | null = currentSample === null ? null : (shelf.find((i) => i.id === currentSample) ?? null);
   /** 保存している（見本を保存しないで開いているときは、保存していない扱い） */

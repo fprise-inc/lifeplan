@@ -1,11 +1,12 @@
 // 見本の世帯7件（data/modelHouseholds/sample*.json。架空）: 面談で打ち手（働く最後の年齢・年金の受け取り開始・NISA の積立・生活費）を
 // 動かして見せる見本。計算でき、数字が現実的で、打ち手を動かすと最後の金融資産が変わることを確かめる。
-// 目盛り・最初の提案などの見本の設定は、見本の一覧（src/workspace/catalog.ts）から読む
+// 目盛り・最初の提案などの見本の設定は、見本のセットの定義（src/workspace/samples/sets.ts）から読む
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { DEMO_HOUSEHOLDS, type DemoHousehold } from "../src/workspace/catalog.ts";
+import { guessShape, sampleNameKey } from "../src/workspace/store/numbering.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { addMonths, ageReachedMonth, applyLevers, LEVER_KEYS, readLevers } from "../src/workspace/levers.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -18,8 +19,6 @@ import { modelHousehold, preview } from "./helpers.ts";
 const SAMPLES: readonly DemoHousehold[] = DEMO_HOUSEHOLDS.filter((d) => d.id.startsWith("sample"));
 
 const TRAITS = new Set(["会社員", "公務員", "自営業", "役員", "年金生活", "共働き", "片働き", "持ち家", "賃貸", "住宅ローン", "教育費", "資産運用", "収益不動産", "親の介護・相続"]);
-/** 既存の見本の番号（夫婦と子・40代の3件と、夫婦と子・30代の1件） */
-const TAKEN = ["3-4-01", "3-4-02", "3-4-03", "3-3-01"];
 const UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 /** 要求の中の ID（members・物の id） */
@@ -39,17 +38,21 @@ const finalOf = (req: EngineRequest) => {
   return fin.get(req.input.endYear) as number;
 };
 
-describe("見本の番号と絞り込みの項目", () => {
-  it("番号は 家族の形-本人の年代-順番 の形で、重ならない（既存の見本の番号とも）", () => {
-    const nos = SAMPLES.map((s) => s.sampleNo);
-    for (const n of nos) expect(n).toMatch(/^[1-5]-[2-7]-\d{2}$/);
-    expect(new Set([...nos, ...TAKEN]).size).toBe(nos.length + TAKEN.length);
+describe("見本の家族の形・年代と絞り込みの項目（見本は番号を持たない。0247）", () => {
+  it("家族の形・本人の年代（セットの定義の family・age）が、世帯の中身と合う。年代は計算基準の月の満年齢から", () => {
     for (const s of SAMPLES) {
       const req = modelHousehold(s.id);
+      expect(guessShape(req), s.id).toEqual({ family: s.family, age: s.age });
       const self = req.input.household.members.find((m) => m.kind === "self")!;
       const age = 2026 - Number(self.birth.birthYearMonth.slice(0, 4)) - (Number(self.birth.birthYearMonth.slice(5)) > 10 ? 1 : 0);
-      expect(Number(s.sampleNo.split("-")[1]), s.id).toBe(Math.floor(age / 10));
+      expect(s.age, s.id).toBe(Math.floor(age / 10));
     }
+  });
+
+  it("名前はアプリのすべての見本の間で重ならない（前後の空白を除き NFC で比べる。自分で作った見本の名前と重ならないよう本体に渡す）", () => {
+    const keys = DEMO_HOUSEHOLDS.map((d) => sampleNameKey(d.title));
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const d of DEMO_HOUSEHOLDS) expect(d.title, d.id).toBe(d.title.trim());
   });
 
   it("絞り込みの項目は決まった語から選ぶ", () => {
