@@ -18,7 +18,8 @@ describe("AI接続口の見本の一覧の目印", () => {
 
   it("ファイナンシアの見本を、棚と同じ名前・家族の形と年代・項目で、棚と同じ順（セットの定義の順）に返す。番号は持たない", () => {
     expect(list.map((s) => s.id)).toEqual(BASIC.map((d) => d.id));
-    expect(list[0]?.id).toBe("salariedCoupleTwoKids");
+    expect(list).toHaveLength(12);
+    expect(list[0]?.id).toBe("sampleCoupleNoKids");
     for (const s of list) expect(Object.keys(s).sort()).toEqual(["id", "tags", "title"]);
     for (const d of BASIC) {
       const s = list.find((x) => x.id === d.id);
@@ -35,7 +36,7 @@ describe("AI接続口の見本の一覧の目印", () => {
     for (const s of list) for (const t of s.tags) expect(known.has(t), `${s.id}: ${t}`).toBe(true);
     const tagged = (t: string) => list.filter((s) => s.tags.includes(t)).map((s) => s.id);
     expect(new Set(tagged("子育て"))).toEqual(new Set(BASIC.filter((d) => d.traits.includes("教育費")).map((d) => d.id)));
-    expect(tagged("シニア")).toContain("sampleSeniorCouple");
+    expect(tagged("シニア")).toContain("samplePensionerCouple");
     expect(tagged("シニア")).toContain("sampleSeniorRental");
     for (const s of list) expect(new Set(s.tags).size, s.id).toBe(s.tags.length);
   });
@@ -46,7 +47,8 @@ describe("AI接続口の見本の一覧の目印", () => {
     for (const d of corporate.flatMap((set) => set.samples)) expect(list.some((s) => s.id === d.id), d.id).toBe(false);
     expect(DEMO_HOUSEHOLDS.length).toBe(list.length + corporate.flatMap((set) => set.samples).length);
     const text = JSON.stringify(list);
-    for (const w of ["合算BS", "法人経営者", "sampleOwnerCompany", "会社を経営する"]) expect(text).not.toContain(w);
+    // 法人経営者の見本の名前も出さない（ファイナンシアの見本の「会社を経営する夫婦・50代」は家計の側だけの見本で、名前が違う）
+    for (const w of ["合算BS", "法人経営者", "sampleOwnerCompany", ...corporate.flatMap((set) => set.samples.map((d) => d.title))]) expect(text).not.toContain(w);
   });
 
   it("接続口に埋め込む JSON は、この一覧と同じ（まとめる道具が作った物）", () => {

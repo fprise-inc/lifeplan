@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EngineRequest } from "../../src/engine/types.ts";
-import { DEMO_HOUSEHOLDS } from "../../src/workspace/catalog.ts";
+import { KNOWN_DEMOS } from "../../src/workspace/catalog.ts";
 import { applyImport, approvalTime, importSheet } from "../../src/workspace/hearing/sheet.ts";
 import { withRefreshedEstimates } from "../../src/workspace/input/estimates.ts";
 import { allFields, type FieldDef, type StageId, type Val } from "../../src/workspace/input/form.ts";
@@ -218,8 +218,9 @@ const OPERATIONS: readonly WatchCase[] = [
 
 // ---- 見本の棚とモデル世帯 ----
 
-const DEMOS: readonly WatchCase[] = DEMO_HOUSEHOLDS.map((d) => ({ name: `見本 ${d.id}`, build: () => fromRequest(modelHousehold(d.id)) }));
-const SHELF = new Set(DEMO_HOUSEHOLDS.map((d) => d.id));
+// 見本の設定を持つ世帯は、棚に出す見本と棚から外した見本の両方を「見本 <ID>」で回す（外した見本も、前に見本から作った世帯の出発点に残る。0247 の9）
+const DEMOS: readonly WatchCase[] = KNOWN_DEMOS.map((d) => ({ name: `見本 ${d.id}`, build: () => fromRequest(modelHousehold(d.id)) }));
+const SHELF = new Set(KNOWN_DEMOS.map((d) => d.id));
 const MODELS: readonly WatchCase[] = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
   .filter((f) => f.endsWith(".json"))
   .map((f) => f.replace(/\.json$/, ""))

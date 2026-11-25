@@ -105,7 +105,9 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
       expect(set.id).toMatch(/^[a-z][a-z0-9]*\.[a-z][A-Za-z0-9]*$/);
       expect(new Set(set.samples.map((d) => d.id)).size, set.id).toBe(set.samples.length);
     }
-    expect(DEMO_HOUSEHOLDS).toHaveLength(16);
+    // ファイナンシアの見本12件（0247 の9）と法人経営者の見本1件
+    expect(SAMPLE_SETS.map((set) => set.samples.length)).toEqual([12, 1]);
+    expect(DEMO_HOUSEHOLDS).toHaveLength(13);
     expect(DEMO_HOUSEHOLDS.map((d) => d.id)).toEqual(SAMPLE_SETS.flatMap((set) => set.samples.map((d) => d.id)));
   });
 
@@ -168,7 +170,7 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
     // 名前で探す: 名前の一部。全角と半角・大文字と小文字・前後の空白は問わない。空白で区切るとどれも入っている物だけ
     expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "研修" }).map((i) => i.id)).toEqual(["own-a", "own-b"]);
     expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "  ひとり親 " }).map((i) => i.id)).toEqual(["sampleSingleParent"]);
-    expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "４０代　会社員" }).map((i) => i.id)).toEqual(["sampleSingle40s"]);
+    expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "４０代　会社員" }).map((i) => i.id)).toEqual(["sampleCoupleTwoKidsPeak"]);
     expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "" })).toHaveLength(items.length);
     expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "宇宙飛行士" })).toEqual([]);
     expect(matchesSampleName("合算BS の見本", "bs")).toBe(true);
@@ -199,10 +201,11 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
   });
 
   it("起動のときに開く見本は ID で決める（並びの先頭ではない）。無ければ並びの先頭", () => {
-    expect(FIRST_SAMPLE_ID).toBe("salariedCoupleTwoKids");
-    expect(firstSampleId(DEMO_HOUSEHOLDS)).toBe("salariedCoupleTwoKids");
-    expect(firstSampleId([{ id: "sampleSingle20s" }, { id: "salariedCoupleTwoKids" }])).toBe("salariedCoupleTwoKids");
-    expect(firstSampleId([{ id: "sampleSingle20s" }])).toBe("sampleSingle20s");
+    expect(FIRST_SAMPLE_ID).toBe("sampleCoupleTwoKidsPeak");
+    expect(DEMO_HOUSEHOLDS[0]!.id).not.toBe(FIRST_SAMPLE_ID);
+    expect(firstSampleId(DEMO_HOUSEHOLDS)).toBe("sampleCoupleTwoKidsPeak");
+    expect(firstSampleId([{ id: "sampleCoupleNoKids" }, { id: "sampleCoupleTwoKidsPeak" }])).toBe("sampleCoupleTwoKidsPeak");
+    expect(firstSampleId([{ id: "sampleCoupleNoKids" }])).toBe("sampleCoupleNoKids");
     expect(firstSampleId([])).toBeUndefined();
   });
 });
@@ -253,10 +256,12 @@ describe("世帯の一覧の画面", () => {
   });
   it("見本の一覧: 見本番号の列は無く、名前・家族と年代・項目。アプリの見本は直せない（消す・名前を直すは自分で作った見本だけ）", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, initialTab: "samples" }));
-    expect(html).toContain('data-sample-row="salariedCoupleTwoKids"');
-    expect(html).toContain('data-customer-from-sample="salariedCoupleTwoKids"');
-    expect(html).toContain('data-copy-sample="salariedCoupleTwoKids"');
-    expect(html).not.toContain('data-delete-sample="salariedCoupleTwoKids"');
+    expect(html).toContain('data-sample-row="sampleCoupleTwoKidsPeak"');
+    expect(html).toContain('data-customer-from-sample="sampleCoupleTwoKidsPeak"');
+    expect(html).toContain('data-copy-sample="sampleCoupleTwoKidsPeak"');
+    expect(html).not.toContain('data-delete-sample="sampleCoupleTwoKidsPeak"');
+    // 棚から外した見本は一覧に出ない
+    expect(html).not.toContain('data-sample-row="salariedCoupleTwoKids"');
     expect(html).toContain('data-delete-sample="own-1"');
     expect(html).not.toContain("data-household-row");
     expect(html).not.toContain("見本番号");

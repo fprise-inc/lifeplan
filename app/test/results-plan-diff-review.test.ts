@@ -208,7 +208,7 @@ describe("見本の棚", () => {
   it("親の介護と相続・収益不動産の見本が棚にあり、絞り込みの項目を持つ", () => {
     const ids = DEMO_HOUSEHOLDS.filter((d) => d.traits.includes("親の介護・相続")).map((d) => d.id);
     expect(ids).toEqual(["sampleParentsCare", "sampleSeniorRental"]);
-    expect(DEMO_HOUSEHOLDS.filter((d) => d.traits.includes("収益不動産")).map((d) => d.id).sort()).toEqual(["dualAssetsTwoKids", "rentalSample", "sampleSeniorRental"]);
+    expect(DEMO_HOUSEHOLDS.filter((d) => d.traits.includes("収益不動産")).map((d) => d.id).sort()).toEqual(["rentalSample", "sampleDualAssetsInvest", "sampleSeniorRental"]);
     expect(DEMO_HOUSEHOLDS.every((d) => !d.title.includes("（見本）"))).toBe(true);
     const senior = modelHousehold("sampleSeniorRental").input.household;
     expect(senior.members.some((m) => m.kind === "parent" && m.outside !== undefined)).toBe(true);

@@ -44,7 +44,7 @@ import { approvalAt, noteMemo, withAiOrigin, type HouseholdKind, type ReadHouseh
 import { AiSharePanel } from "./ai/AiSharePanel.tsx";
 import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, savedInputOf, shareState, SHARE_STATE_TEXT, unsavedForAi } from "./ai/model.ts";
 import { AI_POLL_MS, useAi } from "./ai/useAi.ts";
-import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
+import { demoHousehold, KNOWN_DEMOS, type DemoHousehold } from "./catalog.ts";
 import { firstSampleId, SAMPLE_SETS, shownSampleSets } from "./samples/sets.ts";
 import { seedDemo } from "./demoSeed.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
@@ -829,7 +829,8 @@ export function App() {
           session.current = s.status().startsWith('{"error"') ? null : s;
         }
         const ids = new Set(await h.listHouseholds());
-        const list = DEMO_HOUSEHOLDS.filter((d) => ids.has(d.id));
+        // 棚に出す見本と、棚から外した見本（開発用の入口 #household= で開く。棚に出すのは shownSets だけ）
+        const list = KNOWN_DEMOS.filter((d) => ids.has(d.id));
         setHouseholds(list);
         // 世帯の保存: 初回はここで事務所の鍵と鍵置き場を作る（本体）
         try {
