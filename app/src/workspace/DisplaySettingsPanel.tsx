@@ -60,15 +60,9 @@ export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable, f
         })}
       </div>
       <div class="ds-layout" role="radiogroup" aria-label="比較の仕方" data-layout-choices>
-        <span class="ds-k">
-          比較の仕方
-          {office !== undefined ? (
-            <>
-              {" "}
-              <OfficeMark marks={office} ids={["result.layout"]} />
-            </>
-          ) : null}
-        </span>
+        {/* 比較の仕方は「事務所の既定値」「この世帯だけ」の印を出さない（選択肢が3つだけで迷わないため。利用者の判断。0213 の段C）。
+            その世帯で値を変えたら世帯の値になる動きは、ほかの設定と同じ */}
+        <span class="ds-k">比較の仕方</span>
         {LAYOUT_CHOICES.map((c) => (
           <label key={c.key} class={`ds-item${value.layout === c.key ? " on" : ""}`}>
             <input type="radio" name="chart-layout" value={c.key} checked={value.layout === c.key} onChange={() => onChange({ ...value, layout: c.key })} data-layout={c.key} />

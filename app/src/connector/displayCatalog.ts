@@ -148,6 +148,8 @@ const officeAt = (page: keyof typeof OFFICE_PAGE_NAMES, section: string): string
 const OFFICE_DISPLAY = officeAt("results", "結果のタブ・資産と負債のタブの表示の設定");
 /** 事務所の既定値を持てる表示の設定の、世帯の値の補い */
 const FOLLOW_NOTE = "事務所の既定値に従う世帯（新しく作る世帯）は事務所の既定値を読みます。その世帯で値を変えると、その世帯だけの値になります（表示の設定に「この世帯だけ」と「事務所の既定値に戻す」）。前からある世帯は、その世帯の値のままです";
+/** 比較の仕方の世帯の値の補い（比較の仕方は表示の設定に印を出さない。0213 の段C） */
+const LAYOUT_FOLLOW_NOTE = "事務所の既定値に従う世帯（新しく作る世帯）は事務所の既定値を読みます。その世帯で値を変えると、その世帯だけの値になります（比較の仕方は、表示の設定に「この世帯だけ」の印と「事務所の既定値に戻す」を出しません）。前からある世帯は、その世帯の値のままです";
 const RESULT_SETTINGS = "結果のタブのグラフの右上の「表示の設定」";
 const BALANCE_SETTINGS = "資産と負債のタブの図の見出しの右の「表示の設定」";
 const NO_OUTPUT = { proposal: false, takeaway: false } as const;
@@ -308,7 +310,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       type: "choice",
       choices: LAYOUT_CHOICES.map((c) => ({ value: c.key, label: c.label, note: c.note })),
       default: DEFAULT_DISPLAY_SETTINGS.layout,
-      note: FOLLOW_NOTE,
+      note: LAYOUT_FOLLOW_NOTE,
     },
     {
       id: "result.invBreakdown",
