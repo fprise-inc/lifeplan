@@ -45,7 +45,7 @@ import { AiSharePanel } from "./ai/AiSharePanel.tsx";
 import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, savedInputOf, shareState, SHARE_STATE_TEXT, unsavedForAi } from "./ai/model.ts";
 import { AI_POLL_MS, useAi } from "./ai/useAi.ts";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
-import { firstSampleId, SAMPLE_SETS } from "./samples/sets.ts";
+import { firstSampleId, SAMPLE_SETS, shownSampleSets } from "./samples/sets.ts";
 import { seedDemo } from "./demoSeed.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
@@ -77,7 +77,7 @@ import { previewOfficeChange } from "./office/estimatePreview.ts";
 import type { AiDisplayCandidate, AiHearingTemplateCandidate, AiHouseholdCandidate, AiIssueReportCandidate, CustomTextsStatus } from "../engine/host.ts";
 import { TEMPLATE_MAX, templateForSave } from "./hearing/selection.ts";
 import { OFFICIAL_EXTENSIONS } from "./extensions/official.ts";
-import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues, SAMPLE_SAVED_TEXT, sampleExtensions, savedSampleNotice } from "./extensions/run.ts";
+import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues } from "./extensions/run.ts";
 import type { ExtValue } from "../../../report/src/index.ts";
 import { combinedHiddenText, expiredFor, featureOn, NO_FEATURES, type FeatureStatus } from "./office/featureCodes.ts";
 import { FpTools } from "./tools/FpTools.tsx";
@@ -555,10 +555,6 @@ export function App() {
   const [storedSamples, setStoredSamples] = useState<StoredHousehold[]>([]);
   /** 自分で作った見本を開いている: view＝動かしても保存しない（閉じれば元どおり）、edit＝「この見本を直す」で保存している */
   const [sampleMode, setSampleMode] = useState<null | "view" | "edit">(null);
-  /** 見本の世帯でだけ見せている公式の拡張の束の id（保存したときの知らせに使う。0197） */
-  const previewRef = useRef<ReadonlySet<string>>(new Set());
-  /** 今のコードの状態（見本から作ったときの知らせを、コードを持つ FP にだけ出すため。0197） */
-  const featuresRef = useRef<FeatureStatus>(NO_FEATURES);
   /** 開いたときに見せる世帯の一覧のタブ */
   const [hhTab, setHhTab] = useState<"customers" | "samples">("customers");
   const [hhOpen, setHhOpen] = useState(false);
@@ -596,6 +592,12 @@ export function App() {
     featureStatusRef.current = st;
     setFeatureStatus(st);
   };
+  /**
+   * 今出す見本のセットと、その中の見本（本体が持つモデル世帯だけ）。コードで出すセット（法人経営者の見本）は、合算BS が出るのと同じ条件のときだけ
+   * （0247 の7。samples/sets.ts の sampleSetShown）。見本の棚（見出し・行・数）・棚から開く・起動のときの最初の見本は、これだけを使う
+   */
+  const shownSets = useMemo(() => shownSampleSets(SAMPLE_SETS, featureStatus, officeSettings.features).map((set) => ({ ...set, samples: set.samples.filter((d) => households.includes(d)) })), [featureStatus, officeSettings.features, households]);
+  const shownDemos = useMemo(() => shownSets.flatMap((set) => set.samples), [shownSets]);
   /**
    * カスタム層の説明の文（0016 の追記 2026-11-02）: 本体が確かめた状態。画面に当てるのは、FP が承認した中身から本体が作った文だけ
    * （AI がカスタム層のファイルを書いても、承認するまでここには入らない）
@@ -1306,7 +1308,8 @@ export function App() {
   }, [host, prevOffer, leaveCurrent, forgetUnsavedScreen, loadStored, say]);
 
   /** 見本を開く（アプリの見本は保存しない世帯として、自分で作った見本は保存しないで開く。動かしても見本は変わらない。0033） */
-  const openSample = useCallback(async (item: ShelfItem) => (item.kind === "app" ? open(item.id) : openStored(item.id)), [open, openStored]);
+  // セットの見本は、今出しているセットの物だけを開く（出していないセットの見本は棚に無いが、念のためここでも断る。0247 の7）
+  const openSample = useCallback(async (item: ShelfItem) => (item.kind === "app" ? shownDemos.some((d) => d.id === item.id) && (await open(item.id)) : openStored(item.id)), [open, openStored, shownDemos]);
 
   /** ほかのメンバーが開いている世帯で「編集を始める」（自動保存を始める。分岐になりうることは帯に書いてある） */
   const startEditing = useCallback(() => {
@@ -1395,9 +1398,6 @@ export function App() {
       // 見本として作るとき・アプリに入っている見本の世帯から顧客を作るときは、メモ（見本のメモは例の文）と面談の履歴を写さない
       // （0182 の追記）。画面の中身は、作った世帯に切り替えた後で外す（先に外すと、元の世帯の自動保存に外した中身が入る）
       const stripped = dropNotesOnPersist({ toSample: sample !== undefined, stored: storedRef.current !== null, appSample: o0.demo !== null }, o0.wh);
-      // 見本の世帯でだけ見せていた束の値（合算BS の会社の数字など）は写すが、保存した世帯では 0110 の条件のまま。
-      // 知らせは、コードを持ち印を外している FP にだけ出す（コードの無い FP には黙って写す。0197）
-      const keptHidden = storedRef.current === null && savedSampleNotice(OFFICIAL_EXTENSIONS, { previews: previewRef.current, features: featuresRef.current, values: o0.wh.extValues });
       const o: Opened = stripped ? { ...o0, wh: withoutNotes(o0.wh) } : o0;
       const body = bodyFor(o, workRef.current, shownRef.current, dispRef.current, EMPTY_CARRY);
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
@@ -1419,7 +1419,7 @@ export function App() {
       setStoredList(await host.store.list());
       void host.store.listSamples().then(setStoredSamples, () => undefined);
       // 見本として作るのは、見本を複製するときだけ（見本に登録は別の命令。0244）
-      say((r.sample !== undefined ? `見本「${r.sample.name}」として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`) + (keptHidden ? `。${SAMPLE_SAVED_TEXT}` : ""));
+      say(r.sample !== undefined ? `見本「${r.sample.name}」として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`);
     },
     [host, say, history],
   );
@@ -1429,7 +1429,8 @@ export function App() {
   useEffect(() => {
     if (host === null || households.length === 0 || !storeChecked || initialOnce.current) return;
     initialOnce.current = true;
-    const id = initial.household === "blank" ? BLANK : initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (firstSampleId(households) as string);
+    // 開発用の入口（#household=）は、出していないセットの見本も開く（保存しない。合算BS は activeExtensions の条件のまま）
+    const id = initial.household === "blank" ? BLANK : initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (firstSampleId(shownDemos) as string);
     const dev = initial.household !== undefined || initial.selfcheck || initial.seed === true;
     const last = !dev && storeStatus?.state === "ready" ? storeStatus.lastOpened : null;
     if (last !== null)
@@ -1438,7 +1439,7 @@ export function App() {
         void open(id, initial.levers);
       });
     else void open(id, initial.levers);
-  }, [host, households, open, openStored, initial, storeChecked, storeStatus]);
+  }, [host, households, shownDemos, open, openStored, initial, storeChecked, storeStatus]);
 
   // 自動保存: 保存した世帯の現状・案・帯の並び・足した項目・表示の設定が変わったら、少し待って保存する
   useEffect(() => {
@@ -1538,7 +1539,7 @@ export function App() {
         if (isOpen) {
           storedRef.current = null;
           setStoredInfo(null);
-          const first = firstSampleId(households);
+          const first = firstSampleId(shownDemos);
           if (first !== undefined) await open(first);
         }
         await refreshStore();
@@ -1549,7 +1550,7 @@ export function App() {
         return storeMessage(codeOf(e));
       }
     },
-    [host, households, open, refreshStore, say, opened, history],
+    [host, shownDemos, open, refreshStore, say, opened, history],
   );
 
   /** 作業の状態を新しい世帯（案の一覧）に合わせる: 消えた案を帯から外し、保存していない変更を整える */
@@ -2555,15 +2556,8 @@ export function App() {
   // 拡張の束（0114）: 同梱の公式の拡張のうち、今使えるもの（合算BS は、コードで有効〔0110〕かつ事務所の設定の印かつ役員として働く人のいる世帯のときだけ。
   // 印は、コードが無い・切れたときも残すが、出さない）。家計の側は現状のプランの今の年（入力した値から出した事実）
   const household = opened?.wh.request.input.household ?? null;
-  const usableExts = useMemo(() => activeExtensions(OFFICIAL_EXTENSIONS, { features: featureStatus, office: officeSettings.features, household }), [featureStatus, officeSettings.features, household]);
-  // アプリの見本の世帯（架空。保存していないもの）では、コードが無くても公式の拡張を見せる（見本の印を付ける。0197）。
-  // 保存した世帯・FP が作った見本では出さない（お客さまの情報が入りうるため。上の usableExts の条件だけ）
-  const appSample = storedInfo === null && opened?.demo != null;
-  const previewExts = useMemo(() => sampleExtensions(OFFICIAL_EXTENSIONS, { features: featureStatus, office: officeSettings.features, household, appSample }), [featureStatus, officeSettings.features, household, appSample]);
-  const previewIds = useMemo(() => new Set(previewExts.map((x) => x.manifest.id)), [previewExts]);
-  previewRef.current = previewIds;
-  featuresRef.current = featureStatus;
-  const activeExts = useMemo(() => (previewExts.length === 0 ? usableExts : [...usableExts, ...previewExts]), [usableExts, previewExts]);
+  // 見本の世帯でも同じ条件（コードの無いときは見本でも出さない。見本の世帯でだけコードなしで見せる扱いは 0247 の7 で外した）
+  const activeExts = useMemo(() => activeExtensions(OFFICIAL_EXTENSIONS, { features: featureStatus, office: officeSettings.features, household }), [featureStatus, officeSettings.features, household]);
   // コードの期限が切れた・止めた: 束の値の入っている世帯では、見られなくなった旨と入れ直せば戻ることを知らせる（データは消さない。0110 の3）
   const extHidden = (() => {
     if (household === null || opened === null) return null;
@@ -2577,9 +2571,9 @@ export function App() {
   const extViews = useMemo(() => {
     if (activeExts.length === 0 || opened === null || bsPlans === null) return [];
     const home = bsPlans.find((p) => p.key === (letters.get(CURRENT)?.letter ?? "A"))?.years[0];
-    return extensionViews(activeExts, opened.wh.extValues, home, previewIds);
-  }, [activeExts, previewIds, opened?.wh.extValues, bsPlans, letters]);
-  const extChapters = useMemo(() => extensionChapters(activeExts, previewIds), [activeExts, previewIds]);
+    return extensionViews(activeExts, opened.wh.extValues, home);
+  }, [activeExts, opened?.wh.extValues, bsPlans, letters]);
+  const extChapters = useMemo(() => extensionChapters(activeExts), [activeExts]);
   const onCustomField = useCallback(
     (view: string, id: string, value: string): boolean => {
       const o = openedRef.current;
@@ -2821,8 +2815,8 @@ export function App() {
     } else closePip();
   }, [tab]);
 
-  // 見本の棚（出せるセットの見本〔本体が持つモデル世帯だけ〕と自分で作った見本。0247 の2）と、いま開いている見本（0033）
-  const shelf = useMemo(() => shelfItems(SAMPLE_SETS.map((set) => ({ ...set, samples: set.samples.filter((d) => households.includes(d)) })), storedSamples), [households, storedSamples]);
+  // 見本の棚（今出すセットの見本〔本体が持つモデル世帯だけ〕と自分で作った見本。0247 の2・7）と、いま開いている見本（0033）
+  const shelf = useMemo(() => shelfItems(shownSets, storedSamples), [shownSets, storedSamples]);
   const currentSample = storedInfo?.sample !== undefined ? storedInfo.id : storedInfo === null && opened?.demo != null ? opened.demo.id : null;
   const sampleItem: ShelfItem | null = currentSample === null ? null : (shelf.find((i) => i.id === currentSample) ?? null);
   /** 保存している（見本を保存しないで開いているときは、保存していない扱い） */
@@ -3510,7 +3504,6 @@ export function App() {
             moneyThree={bsSettings.moneyThree}
             extChapters={extChapters}
             extensions={activeExts}
-            sampleExtensions={previewIds}
             onSnapshot={takeSnapshot}
             {...(initial.reportMode !== undefined ? { initialMode: initial.reportMode } : {})}
           />

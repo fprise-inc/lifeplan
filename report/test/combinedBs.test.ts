@@ -152,26 +152,17 @@ describe("提案書の章（会社と合わせたバランスシート）", () =
     expect(chapter({ values: { [ID]: null }, balance: { now: household } })).toBeNull();
     expect(chapter({ values: { [ID]: company as unknown as Record<string, unknown> } })).toBeNull();
   });
-  it("見本の世帯でだけ載せた章（0197）: 材料のある章の id だけを extensionSamples に渡し、章を外すと印も外す。印が無ければ null", () => {
-    expect(input.extensionSamples).toBeNull();
-    const sample = buildProposalInput({ ...bundle, extensionSamples: [ID, ID, "ext.official.nope"] });
-    expect(sample.extensionSamples).toEqual([ID]);
-    expect(validate(sample), JSON.stringify(validate.errors)).toBe(true);
-    expect(selectChapters(sample, ["summary"]).extensionSamples).toBeNull();
-    expect(buildProposalInput({ ...salariedCoupleBundle(), extensionSamples: [ID] }).extensionSamples).toBeNull();
+  it("帳票の入力に見本の印の欄（extensionSamples）は無い（0197 の2〜4 は 0247 の7 で外した）。欄を足した入力は JSON Schema に合わない", () => {
+    expect(Object.keys(input)).not.toContain("extensionSamples");
+    expect(Object.keys(buildProposalInput({ ...bundle, extensionSamples: [ID] } as typeof bundle))).not.toContain("extensionSamples");
+    expect(validate({ ...input, extensionSamples: [ID] })).toBe(false);
   });
   const bin = reportPdfBin();
-  it.skipIf(bin === null)("見本の世帯でだけ載せた章は、見出しの下に「見本」の印が付く（0197）。印の無い章には付かない", () => {
-    const sample = buildProposalInput({ ...bundle, extensionSamples: [ID] });
-    const pages = (b: typeof input) => renderAndExtract(bin as string, b, sampleFrame(bundle, b)).pages.map(normalize);
-    const mark = normalize("見本の世帯（架空）の数字で作った章です");
-    const withMark = pages(sample);
-    const start = withMark.findIndex((p) => p.includes(normalize("相殺した4つの組")));
-    expect(withMark[start]).toContain(mark);
-    expect(withMark.filter((p) => p.includes(mark))).toHaveLength(1);
-    // コードの無い FP にも出る印なので、コードのことは書かない（0197 の追記）
-    expect(withMark[start]).not.toContain(normalize("コード"));
-    expect(pages(input).some((p) => p.includes(mark))).toBe(false);
+  it.skipIf(bin === null)("合算BS の章に「見本」の印は付かない（0247 の7）", () => {
+    const pages = renderAndExtract(bin as string, input, sampleFrame(bundle, input)).pages.map(normalize);
+    const start = pages.findIndex((p) => p.includes(normalize("相殺した4つの組")));
+    expect(start).toBeGreaterThan(0);
+    expect(pages.some((p) => p.includes(normalize("見本の世帯（架空）の数字で作った章です")))).toBe(false);
   });
   it.skipIf(bin === null)("PDF に章の見出し・3枚の図・相殺の組・何か月分・段階の1文が載る", () => {
     const r = renderAndExtract(bin as string, input, sampleFrame(bundle, input));
