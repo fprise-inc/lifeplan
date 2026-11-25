@@ -300,6 +300,8 @@ describe("世帯の表示の設定の画面の「事務所の既定値」「こ�
 
   it("事務所の既定値の画面の区画: 11件を決められる（並べる時点・対策に足した項目は出さない）", () => {
     const html = renderToString(h(DisplayDefaultsSection, { value: OFFICE_PAIR, onChange: () => undefined }));
+    // 比較の仕方は世帯の表示の設定に「事務所の既定値に戻す」を出さないので、説明でも除く
+    expect(html).toContain("「事務所の既定値に戻す」で従うようにできます。比較の仕方を除く）");
     expect(html).toContain("結果のタブ・資産と負債のタブの表示の設定");
     for (const k of ["data-office-display-metrics", "data-office-display-age", "data-office-display-layout", "data-office-inv-breakdown", "data-office-inv-periods", "data-office-display-points", "data-office-health", "data-guide-basis", "data-office-m3-names", "data-office-m3-months", "data-office-m3-years"]) expect(html).toContain(k);
     expect(html).toContain("世帯から決める");
