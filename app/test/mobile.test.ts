@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { boxTextFit, boxTextW, BsFigure } from "../src/presentation/BsFigure.tsx";
+import { BOX_SHRINK, boxLinesH, boxNameLines, boxPad, boxTextFit, boxTextLayout, boxTextW, BsFigure } from "../src/presentation/BsFigure.tsx";
 import { MainChart, MainLegend } from "../src/presentation/MainChart.tsx";
 import type { BsYearModel } from "../src/presentation/model.ts";
 import { NARROW_QUERY } from "../src/presentation/narrow.ts";
@@ -250,19 +250,25 @@ describe("バランスシートの図: 箱の中の名前と金額を詰めな�
     for (const [s, em] of Object.entries(measured)) expect(boxTextW(s, 1), s).toBeGreaterThanOrEqual(em);
   });
 
-  it("1行に置くのは、実際の幅で名前と金額の間が文字の大きさの0.6倍以上あるときだけ。入らなければ2行・金額だけ（狭い画面）・名前だけ（広い画面）", () => {
+  it("入れる順: 名前と金額を2行 → 1行（実際の幅で間が文字の大きさの0.6倍以上あるときだけ）→ 金額だけ（狭い画面）・名前だけ（広い画面）→ 何も入れない", () => {
     const f = 11.5;
     for (const [name, value] of [["NISA", "3,940"], ["iDeCo", "951"], ["預金", "12,345"], ["返戻金", "1,234"], ["DC", "8,274"]] as const) {
       for (let colW = 30; colW <= 200; colW += 1) {
+        const room = colW - 2 * boxPad(colW);
         for (const narrow of [true, false]) {
-          const fit = boxTextFit(name, value, colW, f * 2.2, f, narrow);
-          if (fit === "one") expect(colW - 20 - ((measured[name] as number) + (measured[value] as number)) * f, `${name}|${value} ${colW}`).toBeGreaterThanOrEqual(f * 0.6);
-          expect(fit).not.toBe("two"); // 1行分の高さでは2行にしない
-          if (fit !== "one") expect(fit).toBe(narrow ? (boxTextW(value, f) + 20 <= colW ? "value" : "none") : boxTextW(name, f) + 20 <= colW ? "name" : "none");
+          const lay = boxTextLayout(name, value, colW, f * 2.2, f, narrow);
+          if (lay.fit === "one") expect(room - ((measured[name] as number) + (measured[value] as number)) * lay.f, `${name}|${value} ${colW}`).toBeGreaterThanOrEqual(lay.f * 0.6);
+          expect(lay.fit).not.toBe("two"); // 1行分の高さでは2行にしない
+          if (lay.fit !== "one") {
+            if (narrow) expect(lay.fit).toBe(boxTextW(value, f) <= room ? "value" : "none");
+            else expect(["name", "name2", "cut", "none"]).toContain(lay.fit);
+          }
+          // 名前だけ・金額だけのときは、元の大きさ
+          if (lay.fit !== "one") expect(lay.f).toBe(f);
         }
-        // 2行分の高さがあれば、名前の下の行に金額
-        const tall = boxTextFit(name, value, colW, f * 3.2, f, true);
-        if (tall !== "one" && Math.max(boxTextW(name, f), boxTextW(value, f)) + 20 <= colW) expect(tall).toBe("two");
+        // 2行分の高さがあり、名前も金額も1行に入れば、名前の下の行に金額（1行に入る幅でも2行が先）
+        const tall = boxTextLayout(name, value, colW, f * 3.2, f, true);
+        if (Math.max(boxTextW(name, f), boxTextW(value, f)) <= room) expect(tall.fit).toBe("two");
       }
     }
     // 前に詰まって見えた幅（375px の「3時点を並べる」の柱の幅）: 1行にしない
@@ -271,6 +277,31 @@ describe("バランスシートの図: 箱の中の名前と金額を詰めな�
     expect(boxTextFit("NISA", "3,940", 95, 25, 11.5, true)).toBe("value");
     expect(boxTextFit("NISA", "3,940", 95, 25, 11.5, false)).toBe("name");
     expect(boxTextFit("NISA", "3,940", 95, 15, 11.5, true)).toBe("none");
+  });
+
+  it("名前が長いとき: 「（」の前で2行に分けて金額を3行目に → 名前だけ2行 → 「…」で縮める（かっこの途中では切らない）。小さすぎる箱だけ何も入れない", () => {
+    const f = 11.5;
+    // 合算BS の細い柱（幅 89）: 「売上債権（会社）」は1行に入らない
+    expect(boxTextLayout("売上債権（会社）", "2,500", 89, boxLinesH(3, f), f, false)).toMatchObject({ fit: "three", lines: [{ text: "売上債権" }, { text: "（会社）" }, { text: "2,500", value: true }] });
+    expect(boxTextLayout("売上債権（会社）", "2,500", 89, boxLinesH(2, f), f, false)).toMatchObject({ fit: "name2", lines: [{ text: "売上債権" }, { text: "（会社）" }] });
+    expect(boxTextLayout("建物など（会社）", "1,800", 89, boxLinesH(1, f), f, false)).toMatchObject({ fit: "cut", lines: [{ text: "建物など…" }] });
+    expect(boxTextLayout("小規模企業共済", "1,221", 60, boxLinesH(1, f), f, false).lines[0]?.text).toMatch(/^小規模.*…$/);
+    expect(boxTextLayout("小規模企業共済", "1,221", 60, f * 1.2, f, false).fit).toBe("none");
+    // 区切りが無い名前は、2つの行の長さが近い所で分ける（1文字だけの行は作らない）
+    const lines = boxNameLines("長期借入金", 48, f);
+    expect(lines).not.toBeNull();
+    for (const l of lines ?? []) expect([...l].length).toBeGreaterThanOrEqual(2);
+    // 名前と金額は、ふつうの大きさで入らなければ少し小さく（BOX_SHRINK）して入れる。それより小さくはしない
+    const sh = boxTextLayout("預金", "15,310", 60, f * 4, f, false);
+    expect(sh.fit).toBe("two");
+    expect(sh.f).toBeGreaterThanOrEqual(f * BOX_SHRINK - 1e-9);
+    // 箱の幅に入る（どの行も）
+    for (const [n, v, w, hh] of [["経営者からの借入金（会社）", "600", 89, 60], ["会社の財産（剰余金）", "4,000", 89, 59], ["長期借入金（会社）", "6,000", 60, 89], ["その他の負債（会社）", "1,700", 89, 34]] as const) {
+      const lay = boxTextLayout(n, v, w, hh, f, false);
+      const room = w - 2 * boxPad(w);
+      for (const l of lay.lines) expect(boxTextW(l.text, lay.f), `${n} ${l.text}`).toBeLessThanOrEqual(room + 1e-9);
+      expect(boxLinesH(lay.lines.length === 2 && lay.fit === "one" ? 1 : lay.lines.length, lay.f)).toBeLessThanOrEqual(hh + 1e-9);
+    }
   });
 
   it("描いた図でも、1行の名前と金額の間が空き、2行のときは上下に重ならない（広い・並べる・狭い・狭い並べる）", () => {
@@ -306,7 +337,7 @@ describe("バランスシートの図: 箱の中の名前と金額を詰めな�
           ones++;
           expect(same.x - boxTextW(same.s, same.f) - (n.x + boxTextW(n.s, n.f)), `${n.s}|${same.s}`).toBeGreaterThanOrEqual(Math.max(10, n.f * 0.9) - 0.01);
         }
-        if (below !== undefined) expect(below.y - n.y, `${n.s}|${below.s}`).toBeGreaterThanOrEqual(n.f * 1.2);
+        if (below !== undefined) expect(below.y - n.y, `${n.s}|${below.s}`).toBeGreaterThanOrEqual(n.f * 1.2 - 1e-6);
       }
     }
     expect(ones).toBeGreaterThan(0);

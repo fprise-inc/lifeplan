@@ -277,7 +277,9 @@ html.dark {
 .bs-tcard .tn, .bs-pane .pn { font-weight: 700; margin-top: 4px; }
 .bs-tcard .tn .num, .bs-pane .pn .num { font-size: 1.3rem; color: var(--prop-ink); }
 .bs-pane .pn small { font-weight: 400; color: var(--ink-2); margin-left: 8px; font-size: 0.82rem; }
-.bs-tcard .ts { font-size: 0.84rem; color: var(--ink-2); margin: 4px 0; }
+/* 時点を並べる: 図の下の「純資産 ○万円」は図の幅の中央に。会社の借入の連帯保証の点線の枠はその下（プランを比較も同じ順） */
+.bs-tcard .tn { text-align: center; }
+.bs-tcard .tn + .bs-guarantee, .bs-pane .pn + .bs-guarantee { margin-top: 8px; }
 .bs-tab .num.neg { color: var(--ink-2) !important; }
 .bs-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .bs-pick .k { font-weight: 700; }

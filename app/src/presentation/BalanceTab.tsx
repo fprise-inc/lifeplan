@@ -9,6 +9,7 @@ import { OfficeMark, type OfficeMarks } from "./OfficeMark.tsx";
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BsFigure, useBoxSize } from "./BsFigure.tsx";
+import { useAlignFigures } from "./alignFigures.ts";
 import { BsTrend, TrendLegend, trendRange } from "./BsTrend.tsx";
 import { healthOf, monthsValue, scaleFor, type HealthItem } from "./bsLayout.ts";
 import { FALLBACK, colsOf, resolveColumns, nextColumns, type ResolvedColumn } from "./bsColumns.ts";
@@ -268,7 +269,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onHealth, onColumns, 
             {view === "one" ? (
               <OneYear model={model} plan={plan} year={year} yi={yi} onPick={pick} onAdjusted={setAdjusted} height={fitMain} />
             ) : view === "three" ? (
-              <ThreeView model={model} plan={plan} cols={cols} onGo={(i) => pick(i)} onColumns={onColumns} onEditDefaults={openSettings} height={FIG_H.compact} />
+              <ThreeView model={model} plan={plan} cols={cols} onColumns={onColumns} onEditDefaults={openSettings} height={FIG_H.compact} />
             ) : view === "plans" ? (
               <PlansView model={model} lr={lr} onLr={setLr} yi={yi} height={fitPlans} part="figs" />
             ) : (
@@ -702,8 +703,10 @@ function YearBar({ plan, yi, onYear, play, onPlay, onStop, barRef }: { plan: BsP
 
 const MIN_COLS = 2;
 const MAX_COLS = 4;
-function ThreeView({ model, plan, cols, onGo, onColumns, onEditDefaults, height }: { model: BalanceTabModel; plan: BsPlanModel; cols: ResolvedColumn[]; onGo: (i: number) => void; onColumns: (c: BsColumn[] | null) => void; onEditDefaults: () => void; height: number }) {
+function ThreeView({ model, plan, cols, onColumns, onEditDefaults, height }: { model: BalanceTabModel; plan: BsPlanModel; cols: ResolvedColumn[]; onColumns: (c: BsColumn[] | null) => void; onEditDefaults: () => void; height: number }) {
   const [open, setOpen] = useState<number | null>(null);
+  const row = useRef<HTMLDivElement>(null);
+  useAlignFigures(row);
   const ys = cols.map((p) => plan.years[p.index] as BsYearModel);
   const sc = scaleFor(ys);
   const raw = colsOf(model.columns, model.pointDefaults);
@@ -750,10 +753,9 @@ function ThreeView({ model, plan, cols, onGo, onColumns, onEditDefaults, height 
           </button>
         </span>
       </div>
-      <div class={`bs-three n${cols.length}`} data-bs-three={cols.length}>
+      <div class={`bs-three n${cols.length}`} data-bs-three={cols.length} ref={row}>
         {cols.map((p, k) => {
           const y = ys[k] as BsYearModel;
-          const prev = k > 0 ? (ys[k - 1] as BsYearModel) : null;
           return (
             <div class="bs-tcard-wrap" key={p.pos} data-reveal-item>
               {k > 0 ? (
@@ -775,14 +777,10 @@ function ThreeView({ model, plan, cols, onGo, onColumns, onEditDefaults, height 
                 />
                 {p.note !== null ? <p class="bs-colnote">{p.note}</p> : null}
                 <BsFigure year={y} groups={model.groups} scale={sc} compact height={cols.length >= 4 ? Math.round(height * 0.9) : height} label={`${p.label}（${y.year}年）のバランスシート`} />
-                {y.guarantee > 0 ? <GuaranteeNote year={y} compact /> : null}
                 <div class="tn">
                   純資産 <span class={`num${y.netWorth < 0 ? " neg" : ""}`}>{mn(y.netWorth)}</span>
                 </div>
-                <p class="ts">{threeSentence(y, prev)}</p>
-                <button type="button" class="link-btn go" onClick={() => onGo(p.index)} data-bs-go={p.index}>
-                  この年を1年ずつ見る →
-                </button>
+                {y.guarantee > 0 ? <GuaranteeNote year={y} compact /> : null}
               </div>
             </div>
           );
@@ -1023,20 +1021,6 @@ export function PointDefaultsEditor({ choices, value, available, onChange }: { c
   );
 }
 
-function threeSentence(y: BsYearModel, prev: BsYearModel | null): string {
-  const mort = g(y, "mortgage");
-  if (prev === null) return `${mort > 0 ? `ローンの残り${mn(mort)}。` : ""}資産のうち換金しにくい資産は${mn(g(y, "illiquid"))}で、すぐ使えるお金は${mn(g(y, "liquid"))}。`;
-  // 金融資産が残っていても、残りが引き出せない器（60歳前の iDeCo など）・取り崩さない器だけなら資金の不足が出る（結論の「○歳まで持ちます」と同じ判断。0179）
-  if (y.shortfall > 0)
-    return y.financial > 0
-      ? `取り崩せるお金が尽き、資金の不足が${mn(y.shortfall)}（残りの金融資産${mn(y.financial)}は、iDeCo など今は取り崩せないお金です）。純資産は${mn(y.netWorth)}。`
-      : `金融資産が尽き、資金の不足が${mn(y.shortfall)}。純資産は${mn(y.netWorth)}。`;
-  const dn = y.netWorth - prev.netWorth;
-  if (prev.fact) return `純資産は今より${mn(Math.abs(dn))}${dn >= 0 ? "増え" : "減り"}ます。ローンの残りは${mort > 0 ? mn(mort) : "なし"}。`;
-  const df = y.financial - prev.financial;
-  return `前の時点より金融資産が${mn(Math.abs(df))}${df < 0 ? "減り" : "増え"}、${mn(y.financial)}。ローンは${mort > 0 ? `残り${mn(mort)}` : "返し終わっています"}。`;
-}
-
 // ---- プランを並べる ----
 
 /** プランを並べる。part="figs" は選ぶ欄と2つの図、part="diff" は差の1文（年のつまみの下に置く） */
@@ -1055,6 +1039,8 @@ function PlansView({ model, lr, onLr, yi, height, part }: { model: BalanceTabMod
       ))}
     </select>
   );
+  const pair = useRef<HTMLDivElement>(null);
+  useAlignFigures(pair);
   const d = yr.netWorth - yl.netWorth;
   const df = yr.financial - yl.financial;
   const dl = yr.totalLiabilities - yl.totalLiabilities;
@@ -1086,7 +1072,7 @@ function PlansView({ model, lr, onLr, yi, height, part }: { model: BalanceTabMod
         {sel("r", lr.r)}
         <span class="note">同じ年のバランスシートを左右に並べます。下のつまみで年を動かせます</span>
       </div>
-      <div class="bs-pair">
+      <div class="bs-pair" ref={pair}>
         {[
           { p: pl, y: yl },
           { p: pr, y: yr },
@@ -1100,13 +1086,13 @@ function PlansView({ model, lr, onLr, yi, height, part }: { model: BalanceTabMod
               <KindTag fact={y.fact} year={y.year} />
             </div>
             <BsFigure year={y} groups={model.groups} scale={sc} compact height={height} label={`${p.name}の${y.year}年のバランスシート`} />
-            {y.guarantee > 0 ? <GuaranteeNote year={y} compact /> : null}
             <div class="pn">
               純資産 <span class={`num${y.netWorth < 0 ? " neg" : ""}`}>{mn(y.netWorth)}</span>
               <small>
                 金融資産 {mn(y.financial)}・負債 {mn(y.totalLiabilities)}
               </small>
             </div>
+            {y.guarantee > 0 ? <GuaranteeNote year={y} compact /> : null}
           </div>
         ))}
       </div>
@@ -1119,6 +1105,8 @@ function PlansView({ model, lr, onLr, yi, height, part }: { model: BalanceTabMod
 function PrevView({ model, choice, onChoice }: { model: BalanceTabModel; choice: string | null; onChoice: (k: string) => void }) {
   const pm = model.prev.model !== null && model.prev.model.key === choice ? model.prev.model : null;
   const loading = model.prev.status === "loading" || pm === null;
+  const pair = useRef<HTMLDivElement>(null);
+  useAlignFigures(pair);
   return (
     <div class="bs-prev" data-bs-prev>
       <div class="bs-pick">
@@ -1136,7 +1124,7 @@ function PrevView({ model, choice, onChoice }: { model: BalanceTabModel; choice:
         <p class="loading">控えの内容で計算しています…</p>
       ) : (
         <>
-          <div class="bs-pair">
+          <div class="bs-pair" ref={pair}>
             {(() => {
               const sc = scaleFor(pm.expected !== null ? [pm.expected, pm.actual] : [pm.actual]);
               const pane = (y: BsYearModel | null, head: ComponentChildren, key: string) => (
@@ -1270,6 +1258,8 @@ function CustomView({ model, view: cv, onField }: { model: BalanceTabModel; view
   const [stepKey, setStep] = useState<string | null>(null);
   const step = steps.find((x) => x.key === stepKey) ?? steps.at(-1) ?? null;
   const columns = step?.columns ?? cv.columns;
+  const pair = useRef<HTMLDivElement>(null);
+  useAlignFigures(pair);
   const sc = cv.scale ?? scaleFor(columns.map((c) => c.at));
   const groups = { ...model.groups, ...cv.groups };
   const notices = cv.notices ?? [];
@@ -1310,7 +1300,7 @@ function CustomView({ model, view: cv, onField }: { model: BalanceTabModel; view
         </p>
       ) : (
         <>
-          <div class={`bs-pair${columns.length > 2 ? " many" : ""}`}>
+          <div class={`bs-pair${columns.length > 2 ? " many" : ""}`} ref={pair}>
             {columns.map((c) => (
               <div class="bs-pane" key={c.name} data-bs-custom-col={c.name}>
                 <div class="ph">

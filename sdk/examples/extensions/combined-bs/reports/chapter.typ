@@ -65,7 +65,7 @@
   section("合算の純資産の内訳")
   data-table(
     columns: (2fr, 1fr),
-    header: ("", "金額"),
+    header: ("内訳", "金額"),
     (
       ("会社の財産（剰余金）", man-unit(cb.netWorth.company)),
       ..if cb.netWorth.others != 0 { (("ほかの株主の出資", man-unit(cb.netWorth.others)),) } else { () },
@@ -76,7 +76,7 @@
   section("現預金は毎月の固定の支出の何か月分か")
   data-table(
     columns: (1fr, 1fr, 1.1fr, 0.9fr, 2.4fr),
-    header: ("", "現預金", "毎月の固定の支出", "何か月分", ""),
+    header: ("対象", "現預金", "毎月の固定の支出", "何か月分", "目安との比較"),
     align: (x, y) => if x == 0 or x == 4 { left + horizon } else { right + horizon },
     cb.indicators.map(i => (i.label, man-unit(i.cash), man-unit(i.monthly), if i.months == none { "—" } else { months-text(i.months) }, text(size: 7.5pt, i.text))).flatten(),
   )
