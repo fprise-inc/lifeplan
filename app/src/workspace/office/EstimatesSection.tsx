@@ -1,13 +1,14 @@
-// 事務所の既定値の画面の区画「推定の値（統計・目安）」（0111）: 空欄・「わからない」を補う推定の元になるマスタデータの値と、
+// 事務所の既定値の画面「推定の値（統計・目安）」（0111・0261）: 空欄・「わからない」を補う推定の元になるマスタデータの値と、
 // コードの中の目安（ボタンで足すときの初めの値・計算のときにエンジンが引く目安。hearing/src/presets.ts。0111 の2回目）を、事務所の値に変える。
-// - 値の名前・値ID で探す、事務所で変えた値だけを見る、まとまりで絞る
+// - 2つのタブ: 値の一覧（値の名前・値ID で探す、事務所で変えた値だけを見る、まとまりで絞る）と、推定で埋めない入力欄
 // - 定数は1つの欄、表（世帯人員別・年齢別など）は段ごとの欄（空欄の段は公式の値。表の一部だけ変えられる）
 // - 根拠の文（書いた文はそのまま出す。書かなければ自動の文「事務所の目安（変えた年月）」。空にはならない）
 // - 変える前に、代表の世帯（見本の世帯）で主な結果の差を見る
 // - 公式の値が新しくなった値の知らせ（前の公式・新しい公式・今の事務所の値・出典と、押したらどうなるかを並べる。このまま／公式に戻す。
 //   値が同じで出典だけが新しくなったときは軽い知らせ〔確かめた／公式に戻す〕）
-// - 推定で埋めない入力欄
-// 押した結果はすぐ事務所データに保存し、どの世帯にもすぐ効く（パネルの「保存」は要らない）
+// - 前提条件の既定値の画面で変える値（土地の割合・建物の残りの価値の下限・売却の費用・資産の種類の信託報酬と期待リターンの目安）は、読むだけにして
+//   「前提条件の既定値で変える」で移る（置き場所はここのまま。変える所を1つにする。0261）
+// 押した結果は画面の下書きに入れ、ほかの画面と同じく下の帯の「保存」でまとめて事務所データに保存する（0261。前は押すとすぐ保存していた）
 import { useMemo, useState } from "preact/hooks";
 import { FILL_TARGETS } from "../../../../hearing/src/estimates.ts";
 import type { BracketStep } from "../../../../hearing/src/statistics.ts";
@@ -17,15 +18,22 @@ import { AUTO_BASIS, BASIS_TEXT_MAX, basisOf, cleanBasisText, keepOfficeValue, o
 import { PREVIEW_AGE, type PreviewRow } from "./estimatePreview.ts";
 import { Help } from "../../presentation/Help.tsx";
 import { PREMISE_DEFS } from "../input/premiseDefaults.ts";
+import { CheckField } from "./OfficeFields.tsx";
+import { premisePageField } from "./pages.ts";
 
 export interface EstimatesSectionProps {
+  /** 変えている途中の値 */
   value: OfficeEstimates;
-  /** 保存する（すぐ事務所データへ。失敗したら投げる） */
-  onChange: (next: OfficeEstimates) => Promise<void>;
+  /** 保存した値（行の「保存していない」の印に使う。無ければ印を出さない） */
+  saved?: OfficeEstimates;
+  /** 変えた（画面の下書きに入れる。保存は下の帯の「保存」） */
+  onChange: (next: OfficeEstimates) => void;
   /** 代表の世帯で、今の値（before）と変えようとしている値（after）の主な結果を比較する（無ければ「差を見る」を出さない） */
   preview?: (before: OfficeEstimates, after: OfficeEstimates) => Promise<PreviewRow[]>;
   /** 今日（YYYY-MM-DD） */
   today: () => string;
+  /** 前提条件の既定値の画面で変える値の「前提条件の既定値で変える」（その画面の欄の名前を渡す。無ければリンクを出さない） */
+  onGoPremise?: (field: string) => void;
 }
 
 /** コードの中の目安の効く所の文 */
@@ -96,7 +104,7 @@ const metricLine = (r: PreviewRow) => {
 };
 
 /** 公式の値が新しくなった値の知らせの1件（何がどう変わったかを開いて見られる。数が少なければ初めから開く） */
-function UpdateNotice({ u, open, busy, onKeep, onReedit, onRevert }: { u: OfficialUpdate; open: boolean; busy: boolean; onKeep: () => void; onReedit: () => void; onRevert: () => void }) {
+function UpdateNotice({ u, open, busy, onKeep, onReedit, onRevert, onGo }: { u: OfficialUpdate; open: boolean; busy: boolean; onKeep: () => void; onReedit: () => void; onRevert: () => void; onGo?: (() => void) | undefined }) {
   const head = u.kind === "broken" ? "公式の表の段の分け方が変わり、事務所の値を使えなくなりました" : u.kind === "source" ? "公式の値の出典が新しくなりました。値は変わっていません" : "公式の値が新しくなりました";
   return (
     <div class={`os-est-update ${u.kind}`} data-office-estimate-update={u.id} data-office-estimate-update-kind={u.kind}>
@@ -193,23 +201,33 @@ function UpdateNotice({ u, open, busy, onKeep, onReedit, onRevert }: { u: Offici
       </details>
       <p class="os-est-actions">
         {u.kind === "broken" ? (
-          <button type="button" class="link-btn" disabled={busy} onClick={onReedit} data-office-estimate-reedit={u.id}>
-            値を入れ直す
-          </button>
+          onGo === undefined ? (
+            <button type="button" class="link-btn" disabled={busy} onClick={onReedit} data-office-estimate-reedit={u.id}>
+              値を入れ直す
+            </button>
+          ) : null
         ) : (
           <button type="button" class="link-btn" disabled={busy} onClick={onKeep} data-office-estimate-keep={u.id}>
             {u.kind === "source" ? "確かめた（事務所の値のまま）" : "このまま（事務所の値を使う）"}
           </button>
         )}
-        <button type="button" class="link-btn" disabled={busy} onClick={onRevert} data-office-estimate-revert-update={u.id}>
-          公式に戻す
-        </button>
+        {onGo !== undefined ? (
+          <button type="button" class="link-btn" onClick={onGo} data-office-estimate-go-premise={u.id}>
+            前提条件の既定値で変える
+          </button>
+        ) : (
+          <button type="button" class="link-btn" disabled={busy} onClick={onRevert} data-office-estimate-revert-update={u.id}>
+            公式に戻す
+          </button>
+        )}
       </p>
     </div>
   );
 }
 
-export function EstimatesSection({ value, onChange, preview, today }: EstimatesSectionProps) {
+
+export function EstimatesSection({ value, saved, onChange, preview, today, onGoPremise }: EstimatesSectionProps) {
+  const [tab, setTab] = useState<"values" | "noFill">("values");
   const [query, setQuery] = useState("");
   const [onlyOffice, setOnlyOffice] = useState(false);
   const [group, setGroup] = useState<string>("");
@@ -217,10 +235,10 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
   const [draft, setDraft] = useState<Draft>({});
   const [text, setText] = useState("");
   const [rows, setRows] = useState<PreviewRow[] | null | "busy">(null);
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string; id?: string } | null>(null);
   const updates = useMemo(() => officialUpdates(value), [value]);
   const changedCount = Object.keys(value.values).length;
+  const all = useMemo(() => estimateEntries().filter((e) => e.legacy !== true || value.values[e.id] !== undefined), [value]);
   const list = useMemo(() => {
     let l = searchEstimates(query);
     // 前の分け方の値（今は使わない）は、探したとき・事務所で変えてあるときだけ出す
@@ -234,20 +252,16 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
   const draftValue = entry === undefined ? null : valueOf(entry, draft);
   const next = entry === undefined || draftValue === null ? null : withOfficeValue(value, entry.id, draftValue, text, today());
   const unchanged = next !== null && entry !== undefined && JSON.stringify(next.values[entry.id] ?? null) === JSON.stringify(value.values[entry.id] ?? null);
+  const unsaved = (id: string): boolean => saved !== undefined && JSON.stringify(value.values[id] ?? null) !== JSON.stringify(saved.values[id] ?? null);
+  /** 前提条件の既定値の画面で変える値の、その画面へ移る（無ければ null） */
+  const goOf = (id: string): (() => void) | undefined => {
+    const f = premisePageField(id);
+    return f === null || onGoPremise === undefined ? undefined : () => onGoPremise(f);
+  };
 
-  const save = async (n: OfficeEstimates, done: string, id?: string) => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      await onChange(n);
-      setMsg({ ok: true, text: done, ...(id !== undefined ? { id } : {}) });
-      return true;
-    } catch (e) {
-      setMsg({ ok: false, text: `保存できませんでした（${typeof e === "string" ? e : e instanceof Error ? e.message : "E_OFFICE_SETTINGS"}）` });
-      return false;
-    } finally {
-      setBusy(false);
-    }
+  const put = (n: OfficeEstimates, done: string, id?: string) => {
+    onChange(n);
+    setMsg({ ok: true, text: done, ...(id !== undefined ? { id } : {}) });
   };
   const open = (e: EstimateEntry) => {
     const v = value.values[e.id];
@@ -270,26 +284,20 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
       setRows([]);
     }
   };
-  const apply = async () => {
+  const apply = () => {
     if (entry === undefined || next === null) return;
     const v = next.values[entry.id];
-    const ok = await save(next, v === undefined ? `${entry.name}は公式の値と同じなので、公式の値に戻しました。` : `${entry.name}を事務所の値にしました（根拠「${basisOf(v)}」）。どの世帯の推定と計算にもすぐ効きます。`, entry.id);
-    if (ok) close();
+    put(next, v === undefined ? `${entry.name}は公式の値と同じなので、公式の値に戻しました。` : `${entry.name}を事務所の値にしました（根拠「${basisOf(v)}」）。下の「保存」で、どの世帯の推定と計算にも効きます。`, entry.id);
+    close();
   };
-  const revert = async (id: string) => {
+  const revert = (id: string) => {
     const e = estimateEntry(id);
-    const ok = await save(withoutOfficeValue(value, id), `${e?.name ?? id}を公式の値に戻しました。`, id);
-    if (ok && editing === id) close();
+    put(withoutOfficeValue(value, id), `${e?.name ?? id}を公式の値に戻しました。`, id);
+    if (editing === id) close();
   };
 
   return (
-    <section class="os-sec" aria-labelledby="os-estimates" data-office-estimates>
-      <h3 id="os-estimates">推定の値（統計・目安）</h3>
-      <p class="pl-sub">
-        空欄・「わからない」を補う推定の元になる統計の値（基本生活費・給与・退職金・学校の費用・介護の費用と期間・ローンの金利・平均余命など）と、出典の無いよくある額・割合の目安（家賃・物件の価格・車の費用・遺族の生活費の割合・ボタンで足すときの初めの値など）を、事務所の値に変えられます。
-        変えた値は、これから入れる推定と、計算のときに使う目安に、どの世帯にもすぐ効きます。世帯に入れてある推定のままの値は、その世帯の入力を直したときに新しい値で入れ直します（FP が入れた値・確定にした値は変わりません。世帯ごとに直せます）。持ち家・不動産の評価の土地の割合・建物の残りの価値の下限・売却の費用は前提条件の事務所の既定値でもあり、ほかの前提条件と同じく作った世帯は変わりません。
-        税・社会保険・年金など法令で決まる値は変えられません。押した結果はすぐ保存します。
-      </p>
+    <div class="os-est" data-office-estimates>
       {updates.length > 0 ? (
         <div class="os-custom-box pending" role="status" data-office-estimate-updates>
           {updates.map((u) => (
@@ -297,192 +305,214 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
               key={u.id}
               u={u}
               open={updates.length <= 3}
-              busy={busy}
-              onKeep={() => void save(keepOfficeValue(value, u.id), u.kind === "source" ? `${u.name}の出典の更新を確かめました（事務所の値のまま使います）。` : `${u.name}は事務所の値のまま使います。`, u.id)}
-              onReedit={() => open(estimateEntry(u.id) as EstimateEntry)}
-              onRevert={() => void revert(u.id)}
+              busy={false}
+              onKeep={() => put(keepOfficeValue(value, u.id), u.kind === "source" ? `${u.name}の出典の更新を確かめました（事務所の値のまま使います）。` : `${u.name}は事務所の値のまま使います。`, u.id)}
+              onReedit={() => {
+                setTab("values");
+                open(estimateEntry(u.id) as EstimateEntry);
+              }}
+              onRevert={() => revert(u.id)}
+              onGo={goOf(u.id)}
             />
           ))}
         </div>
       ) : null}
-      <div class="os-est-find">
-        <input type="search" value={query} placeholder="値の名前・値ID で探す（例: 基本生活費、家賃、介護、care.statistics）" aria-label="推定の値を探す" onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)} data-office-estimate-search />
-        <select value={group} aria-label="まとまりで絞る" onChange={(e) => setGroup((e.currentTarget as HTMLSelectElement).value)} data-office-estimate-group>
-          <option value="">すべてのまとまり</option>
-          {ESTIMATE_GROUPS.filter((g) => estimateEntries().some((e) => e.group === g)).map((g) => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </select>
-        <label class="os-show">
-          <input type="checkbox" checked={onlyOffice} onChange={(e) => setOnlyOffice((e.currentTarget as HTMLInputElement).checked)} data-office-estimate-only />
-          事務所で変えた値だけ（{changedCount}件）
-        </label>
+      <div class="os-tabs" role="tablist" aria-label="推定の値の見るもの">
+        <button type="button" role="tab" id="os-est-tab-values" aria-controls="os-est-panel-values" aria-selected={tab === "values"} tabIndex={tab === "values" ? 0 : -1} onClick={() => setTab("values")} data-office-estimate-tab="values">
+          値の一覧（{all.length}）
+        </button>
+        <button type="button" role="tab" id="os-est-tab-nofill" aria-controls="os-est-panel-nofill" aria-selected={tab === "noFill"} tabIndex={tab === "noFill" ? 0 : -1} onClick={() => setTab("noFill")} data-office-estimate-tab="noFill">
+          推定で埋めない入力欄（{FILL_TARGETS.length}）
+        </button>
       </div>
-      {msg !== null && editing === null ? (
-        <p class={`fld-help${msg.ok ? "" : " bad"}`} role={msg.ok ? "status" : "alert"} data-office-estimate-msg>
-          {msg.text}
-        </p>
-      ) : null}
-      <ul class="os-est-list">
-        {shown.map((e) => {
-          const v = value.values[e.id];
-          const isOpen = editing === e.id;
-          return (
-            <li key={e.id} class={v !== undefined ? "office" : ""} data-office-estimate={e.id}>
-              <div class="os-est-row">
-                <div class="os-est-name">
-                  <span>{e.name}</span>
-                  {/* 値ID（内部の名前）は「?」の中（探す欄では値ID でも探せる） */}
-                  <Help label={e.name} data={{ "data-office-estimate-id": e.id }}>
-                    値ID: <code class="os-est-id">{e.id}</code>
-                  </Help>
-                </div>
-                <div class="os-est-vals">
-                  <span>公式: {summaryText(e, e.official.value)}</span>
-                  {v !== undefined ? (
-                    <span class="os-est-office" data-office-estimate-value={e.id}>
-                      事務所: {summaryText(e, v.value)}（{basisOf(v)}）
+      <div role="tabpanel" id="os-est-panel-values" aria-labelledby="os-est-tab-values" hidden={tab !== "values"}>
+        <div class="os-est-find">
+          <input type="search" value={query} placeholder="値の名前・値ID で探す（例: 基本生活費、家賃、介護、care.statistics）" aria-label="推定の値を探す" onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)} data-office-estimate-search />
+          <label class="os-show">
+            <input type="checkbox" checked={onlyOffice} onChange={(e) => setOnlyOffice((e.currentTarget as HTMLInputElement).checked)} data-office-estimate-only />
+            事務所で変えた値だけ（{changedCount}件）
+          </label>
+        </div>
+        <div class="os-chips" role="group" aria-label="まとまりで絞る" data-office-estimate-groups>
+          {ESTIMATE_GROUPS.map((g) => ({ g, n: all.filter((e) => e.group === g).length }))
+            .filter((x) => x.n > 0)
+            .map(({ g, n }) => (
+              <button key={g} type="button" class="add-btn chip-btn" aria-pressed={group === g} onClick={() => setGroup(group === g ? "" : g)} data-office-estimate-group={g}>
+                {g} {n}
+              </button>
+            ))}
+        </div>
+        {msg !== null && editing === null ? (
+          <p class={`fld-help${msg.ok ? "" : " bad"}`} role={msg.ok ? "status" : "alert"} data-office-estimate-msg>
+            {msg.text}
+          </p>
+        ) : null}
+        <div class="os-est-head" aria-hidden="true">
+          <span>名前</span>
+          <span>公式の値・事務所の値</span>
+          <span />
+        </div>
+        <ul class="os-est-list">
+          {shown.map((e) => {
+            const v = value.values[e.id];
+            const isOpen = editing === e.id;
+            const go = goOf(e.id);
+            return (
+              <li key={e.id} class={v !== undefined ? "office" : ""} data-office-estimate={e.id}>
+                <div class="os-est-row">
+                  <div class="os-est-name">
+                    <span>
+                      {e.name}
+                      {/* 値ID（内部の名前）は「?」の中（探す欄では値ID でも探せる） */}
+                      <Help label={e.name} data={{ "data-office-estimate-id": e.id }}>
+                        値ID: <code class="os-est-id">{e.id}</code>
+                      </Help>
                     </span>
-                  ) : null}
-                </div>
-                {!isOpen ? (
-                  <button type="button" class="link-btn" onClick={() => open(e)} data-office-estimate-edit={e.id}>
-                    {v !== undefined ? "直す" : "変える"}
-                  </button>
-                ) : null}
-              </div>
-              {isOpen ? (
-                <div class="os-est-editor" data-office-estimate-editor={e.id}>
-                  <p class="pl-sub">
-                    出典: {sourceText(e.official.title)}
-                    {e.use !== undefined ? <span data-office-estimate-use={e.use}>（効く所: {useTextOf(e)}）</span> : null}
-                  </p>
-                  {!Array.isArray(e.official.value) ? (
-                    <label class="os-pct">
-                      <span>事務所の値（空欄は公式の値 {formatNumber(e.unit, e.official.value as number | string)}）</span>
-                      <span class="os-in">
-                        <input inputMode="decimal" value={draft.c ?? ""} placeholder={editText(e.unit, e.official.value as number | string)} aria-invalid={draftValue === null} onInput={(x) => setDraft({ ...draft, c: (x.currentTarget as HTMLInputElement).value })} data-office-estimate-input="c" />
-                        {UNIT_SUFFIX[e.unit] ?? ""}
+                    {unsaved(e.id) ? <span class="fld-premise officeChanged" data-office-estimate-unsaved={e.id}>保存していない</span> : null}
+                  </div>
+                  <div class="os-est-vals">
+                    <span>公式: {summaryText(e, e.official.value)}</span>
+                    {v !== undefined ? (
+                      <span class="os-est-office" data-office-estimate-value={e.id}>
+                        事務所: {summaryText(e, v.value)}（{basisOf(v)}）
                       </span>
-                    </label>
-                  ) : (
-                    <>
-                      <p class="pl-sub">表の一部の段だけ変えられます（空欄の段は公式の値のまま）。{e.points === true ? "値はその年齢ちょうどの値で、間の年齢は前後の段の値から直線で補います（最後の年齢から上は最後の段の値）。" : ""}</p>
-                      <table class="os-code-diff os-est-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">{e.axis ?? "段"}</th>
-                            <th scope="col">公式</th>
-                            <th scope="col">事務所</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(e.official.value as readonly BracketStep[]).map((s, i) => (e.points === true && s.upTo === null ? null : (
-                            <tr key={i}>
-                              <th scope="row">{stepLabel(e.axis, e.official.value as readonly BracketStep[], i, e.points)}</th>
-                              <td>{formatNumber(e.unit, stepValue(s))}</td>
-                              <td>
-                                <input inputMode="decimal" value={draft[String(i)] ?? ""} placeholder={editText(e.unit, stepValue(s))} aria-label={`${stepLabel(e.axis, e.official.value as readonly BracketStep[], i, e.points)}の事務所の値`} onInput={(x) => setDraft({ ...draft, [String(i)]: (x.currentTarget as HTMLInputElement).value })} data-office-estimate-input={String(i)} />
-                              </td>
-                            </tr>
-                          )))}
-                        </tbody>
-                      </table>
-                    </>
-                  )}
-                  {draftValue === null ? (
-                    <p class="fld-help bad" role="alert" data-office-estimate-problem>
-                      読めない数があります（{e.unit === "pct" ? "％の数（例: 1.25）" : e.unit === "yen" ? "円の整数（例: 250000）" : e.unit === "months" ? "月数の整数" : "0以上の数"}で入れてください）
-                    </p>
-                  ) : null}
-                  <label class="os-pct">
-                    <span>根拠の文（書いた文をそのまま出します。年月を入れたいときは文に書いてください。書かなければ「{AUTO_BASIS}（変えた年月）」）</span>
-                    <input type="text" value={text} maxLength={BASIS_TEXT_MAX} placeholder="例: 当事務所のお客さまの平均（2026年調べ）" onInput={(x) => setText((x.currentTarget as HTMLInputElement).value)} data-office-estimate-basis />
-                    <small data-office-estimate-basis-preview>
-                      推定の根拠に出る文: {basisOf({ ...(cleanBasisText(text) !== null ? { text } : {}), changedOn: today() })}
-                    </small>
-                  </label>
-                  {preview !== undefined ? (
-                    <div class="os-est-preview" data-office-estimate-preview>
-                      <button type="button" class="link-btn" disabled={next === null || unchanged || rows === "busy"} onClick={() => void runPreview()} data-office-estimate-preview-run>
-                        代表の世帯で差を見る
-                      </button>
-                      {rows === "busy" ? <p class="pl-sub">計算しています…</p> : null}
-                      {Array.isArray(rows) ? (
-                        rows.length === 0 ? (
-                          <p class="pl-sub">代表の世帯を計算できませんでした。</p>
-                        ) : (
-                          <ul class="os-est-preview-rows">
-                            {rows.map((r) => (
-                              <li key={r.id} data-office-estimate-preview-row={r.id}>
-                                <strong>{r.title}</strong>（見本の世帯。推定で埋まる欄が空欄だったとき）:{" "}
-                                {r.changed ? metricLine(r) : e.use === "template" ? "主な結果は変わりません（ボタンで足すときの初めの値なので、足してある行は変わりません）" : "主な結果は変わりません（この世帯ではこの値を使っていません）"}
-                              </li>
-                            ))}
-                          </ul>
-                        )
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {msg !== null ? (
-                    <p class={`fld-help${msg.ok ? "" : " bad"}`} role={msg.ok ? "status" : "alert"}>
-                      {msg.text}
-                    </p>
-                  ) : null}
-                  <p class="os-est-actions">
-                    <button type="button" class="btn primary" disabled={busy || next === null || unchanged} onClick={() => void apply()} data-office-estimate-apply>
-                      この値にする
-                    </button>
-                    {value.values[e.id] !== undefined ? (
-                      <button type="button" class="link-btn" disabled={busy} onClick={() => void revert(e.id)} data-office-estimate-revert>
-                        公式の値に戻す
-                      </button>
                     ) : null}
-                    <button type="button" class="link-btn" onClick={close} data-office-estimate-cancel>
-                      キャンセル
+                  </div>
+                  {go !== undefined ? (
+                    <button type="button" class="link-btn" onClick={go} data-office-estimate-go-premise={e.id} title="この値は「前提条件の既定値」の画面で変えます（ここには読むだけで出します）">
+                      前提条件の既定値で変える
                     </button>
-                  </p>
+                  ) : !isOpen ? (
+                    <button type="button" class="link-btn" onClick={() => open(e)} data-office-estimate-edit={e.id}>
+                      {v !== undefined ? "直す" : "変える"}
+                    </button>
+                  ) : null}
                 </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-      {shown.length < list.length ? (
-        <p class="pl-sub" data-office-estimate-more>
-          ほか{list.length - shown.length}件（名前・値ID で探すか、まとまりで絞ってください）
-        </p>
-      ) : null}
-      {shown.length === 0 ? <p class="pl-sub">当てはまる値がありません。</p> : null}
-      <div class="os-lever-group" data-office-nofill>
-        <h4>推定で埋めない入力欄</h4>
-        <p class="pl-sub">
-          選んだ欄は、新しく入れるとき（新しい世帯・家族や働き方を足したとき・ヒアリングシートの空欄と「わからない」）に推定で埋めず、空欄のまま「未入力（0円で計算中）」にします（確かめの一覧に出ます。そこから「推定で埋める」もできます）。入れてある値は変えません。
-          「計算のときの統計の目安」の欄は、空欄のときに計算で目安を引かず、0円で計算して「入力が足りない」に出します（どの世帯の計算にもすぐ効きます）。
-        </p>
-        <ul class="os-est-nofill">
-          {FILL_TARGETS.map((t) => (
-            <li key={t.id} data-office-nofill-item={t.id}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={value.noFill.includes(t.id)}
-                  disabled={busy}
-                  onChange={(x) => {
-                    const on = (x.currentTarget as HTMLInputElement).checked;
-                    void save(withNoFill(value, t.id, on), on ? `${t.label}を推定で埋めないようにしました。` : `${t.label}を推定で埋めるようにしました。`);
-                  }}
-                  data-office-nofill={t.id}
-                />
-                <span>{t.label}</span>
-              </label>
-              <small>{t.note}</small>
-            </li>
-          ))}
+                {isOpen && go === undefined ? (
+                  <div class="os-est-editor" data-office-estimate-editor={e.id}>
+                    <p class="pl-sub">
+                      出典: {sourceText(e.official.title)}
+                      {e.use !== undefined ? <span data-office-estimate-use={e.use}>（効く所: {useTextOf(e)}）</span> : null}
+                    </p>
+                    {!Array.isArray(e.official.value) ? (
+                      <div class="fld">
+                        <div class="fld-l">
+                          <label for={`os-est-c-${e.id}`}>事務所の値（空欄は公式の値 {formatNumber(e.unit, e.official.value as number | string)}）</label>
+                        </div>
+                        <div class="fld-c">
+                          <span class="fld-in">
+                            <input id={`os-est-c-${e.id}`} type="text" class={`num${draftValue === null ? " bad" : ""}`} inputMode="decimal" value={draft.c ?? ""} placeholder={editText(e.unit, e.official.value as number | string)} aria-invalid={draftValue === null} onInput={(x) => setDraft({ ...draft, c: (x.currentTarget as HTMLInputElement).value })} data-office-estimate-input="c" />
+                            {(UNIT_SUFFIX[e.unit] ?? "") !== "" ? <span class="suffix">{UNIT_SUFFIX[e.unit]}</span> : null}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p class="pl-sub">表の一部の段だけ変えられます（空欄の段は公式の値のまま）。{e.points === true ? "値はその年齢ちょうどの値で、間の年齢は前後の段の値から直線で補います（最後の年齢から上は最後の段の値）。" : ""}</p>
+                        <table class="os-code-diff os-est-table">
+                          <thead>
+                            <tr>
+                              <th scope="col">{e.axis ?? "段"}</th>
+                              <th scope="col">公式</th>
+                              <th scope="col">事務所</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(e.official.value as readonly BracketStep[]).map((s, i) => (e.points === true && s.upTo === null ? null : (
+                              <tr key={i}>
+                                <th scope="row">{stepLabel(e.axis, e.official.value as readonly BracketStep[], i, e.points)}</th>
+                                <td>{formatNumber(e.unit, stepValue(s))}</td>
+                                <td>
+                                  <input type="text" class="num" inputMode="decimal" value={draft[String(i)] ?? ""} placeholder={editText(e.unit, stepValue(s))} aria-label={`${stepLabel(e.axis, e.official.value as readonly BracketStep[], i, e.points)}の事務所の値`} onInput={(x) => setDraft({ ...draft, [String(i)]: (x.currentTarget as HTMLInputElement).value })} data-office-estimate-input={String(i)} />
+                                </td>
+                              </tr>
+                            )))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                    {draftValue === null ? (
+                      <p class="fld-help bad" role="alert" data-office-estimate-problem>
+                        読めない数があります（{e.unit === "pct" ? "％の数（例: 1.25）" : e.unit === "yen" ? "円の整数（例: 250000）" : e.unit === "months" ? "月数の整数" : "0以上の数"}で入れてください）
+                      </p>
+                    ) : null}
+                    <div class="fld">
+                      <div class="fld-l">
+                        <label for={`os-est-basis-${e.id}`}>根拠の文</label>
+                        <Help label="根拠の文">書いた文をそのまま出します。年月を入れたいときは文に書いてください。書かなければ「{AUTO_BASIS}（変えた年月）」です。</Help>
+                      </div>
+                      <div class="fld-c">
+                        <input id={`os-est-basis-${e.id}`} type="text" class="txt os-wide" value={text} maxLength={BASIS_TEXT_MAX} placeholder="例: 当事務所のお客さまの平均（2026年調べ）" onInput={(x) => setText((x.currentTarget as HTMLInputElement).value)} data-office-estimate-basis />
+                      </div>
+                      <div class="fld-help" data-office-estimate-basis-preview>
+                        推定の根拠に出る文: {basisOf({ ...(cleanBasisText(text) !== null ? { text } : {}), changedOn: today() })}
+                      </div>
+                    </div>
+                    {preview !== undefined ? (
+                      <div class="os-est-preview" data-office-estimate-preview>
+                        <button type="button" class="link-btn" disabled={next === null || unchanged || rows === "busy"} onClick={() => void runPreview()} data-office-estimate-preview-run>
+                          代表の世帯で差を見る
+                        </button>
+                        {rows === "busy" ? <p class="pl-sub">計算しています…</p> : null}
+                        {Array.isArray(rows) ? (
+                          rows.length === 0 ? (
+                            <p class="pl-sub">代表の世帯を計算できませんでした。</p>
+                          ) : (
+                            <ul class="os-est-preview-rows">
+                              {rows.map((r) => (
+                                <li key={r.id} data-office-estimate-preview-row={r.id}>
+                                  <strong>{r.title}</strong>（見本の世帯。推定で埋まる欄が空欄だったとき）:{" "}
+                                  {r.changed ? metricLine(r) : e.use === "template" ? "主な結果は変わりません（ボタンで足すときの初めの値なので、足してある行は変わりません）" : "主な結果は変わりません（この世帯ではこの値を使っていません）"}
+                                </li>
+                              ))}
+                            </ul>
+                          )
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {msg !== null ? (
+                      <p class={`fld-help${msg.ok ? "" : " bad"}`} role={msg.ok ? "status" : "alert"}>
+                        {msg.text}
+                      </p>
+                    ) : null}
+                    <p class="os-est-actions">
+                      <button type="button" class="btn small primary" disabled={next === null || unchanged} onClick={apply} data-office-estimate-apply>
+                        この値にする
+                      </button>
+                      {value.values[e.id] !== undefined ? (
+                        <button type="button" class="link-btn" onClick={() => revert(e.id)} data-office-estimate-revert>
+                          公式の値に戻す
+                        </button>
+                      ) : null}
+                      <button type="button" class="link-btn" onClick={close} data-office-estimate-cancel>
+                        キャンセル
+                      </button>
+                    </p>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
+        {shown.length < list.length ? (
+          <p class="pl-sub" data-office-estimate-more>
+            ほか{list.length - shown.length}件（名前・値ID で探すか、まとまりで絞ってください）
+          </p>
+        ) : null}
+        {shown.length === 0 ? <p class="pl-sub">探した言葉・まとまりに合う値がありません。</p> : null}
+        <p class="os-note-line">土地の割合・建物の残りの価値の下限・売却の費用と、資産の種類の信託報酬・期待リターンの目安は「前提条件の既定値」の画面で変えます（ここには読むだけで出します）。</p>
       </div>
-    </section>
+      <div role="tabpanel" id="os-est-panel-nofill" aria-labelledby="os-est-tab-nofill" hidden={tab !== "noFill"} data-office-nofill>
+        <p class="os-lead">
+          選んだ欄は、新しく入れるとき（新しい世帯・家族や働き方を足したとき・ヒアリングシートの空欄と「わからない」）に推定で埋めず、空欄のまま「未入力（0円で計算中）」にします。
+          <Help label="推定で埋めない入力欄">確かめの一覧に出ます。そこから「推定で埋める」もできます。入れてある値は変えません。「計算のときの統計の目安」の欄は、空欄のときに計算で目安を引かず、0円で計算して「入力が足りない」に出します（どの世帯の計算にもすぐ効きます）。</Help>
+        </p>
+        <div class="os-checks os-checks-wide">
+          {FILL_TARGETS.map((t) => (
+            <CheckField key={t.id} name={`nofill.${t.id}`} label={t.label} note={t.note} checked={value.noFill.includes(t.id)} onChange={(on) => onChange(withNoFill(value, t.id, on))} data={{ "data-office-nofill": t.id }} wrapData={{ "data-office-nofill-item": t.id }} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

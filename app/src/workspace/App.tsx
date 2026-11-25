@@ -65,10 +65,11 @@ import { settleBeforeLeave, settleInput } from "./input/pendingInput.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { withOfficeSources } from "./input/officeSource.ts";
 import { applyLook, brandOf, EMPTY_BRANDING, readBranding, resolveMode, setBrandingNow, usesStandardColor, type Appearance, type OfficeBranding } from "./office/branding.ts";
-import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withHearingTemplates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withHearingTemplates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { checkBase } from "../presentation/theme.ts";
 import { keepWebLog } from "./hearing/web.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
+import { isOfficePage, type OfficePageId } from "./office/pages.ts";
 import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, officeFieldsFrom, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
 import { OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext } from "./office/customTextsContext.ts";
 import { wordingOf } from "./resultTexts.ts";
@@ -224,7 +225,7 @@ export function parseHash(hash: string): {
   /** #premisemenu: 万一のタブの想定の前提の「＋ 動かす項目を追加」の一覧を開いて開く（画面の確かめ用） */
   premiseMenu?: boolean;
   /** #officedefaults: 事務所の既定値のパネルを開いて開く（画面の確かめ用。本体か開発用のサーバーがあるとき） */
-  officeDefaults?: boolean;
+  officeDefaults?: boolean | OfficePageId;
   /** 結果のタブの計算の知らせを開いた状態で開く（#notices） */
   notices?: boolean;
   /** #bell: 上の帯のお知らせの一覧を開いて開く（#bell=鍵 はその1件の詳しい中身。画面の確かめ用。0087） */
@@ -308,7 +309,7 @@ export function parseHash(hash: string): {
     else if (k === "meetings") out.meetings = true;
     else if (k === "fpmenu") out.fpMenu = true;
     else if (k === "choose") out.choose = true;
-    else if (k === "officedefaults") out.officeDefaults = true;
+    else if (k === "officedefaults") out.officeDefaults = isOfficePage(v) ? v : true;
     else if (k === "premisemenu") out.premiseMenu = true;
     else if (k === "notices") out.notices = true;
     else if (k === "bell") out.bell = v !== undefined && v !== "" ? decodeURIComponent(v) : null;
@@ -572,7 +573,8 @@ export function App() {
   /** 事務所の既定値（0073。事務所データから読む。新しい世帯に写す・ホームの並び） */
   const [officeSettings, setOfficeSettings] = useState<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const officeSettingsRef = useRef<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
-  const [officeSettingsOpen, setOfficeSettingsOpen] = useState(initial.officeDefaults === true);
+  // 事務所の既定値の画面（true は前回の画面で開く。画面の id はその画面で開く。0261）
+  const [officeSettingsOpen, setOfficeSettingsOpen] = useState<boolean | OfficePageId>(initial.officeDefaults ?? false);
   /** 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値（0213 の段C。全部の欄を埋めた値） */
   const officeDisplayKey = JSON.stringify(officeSettings.display ?? null);
   const officeDisp = useMemo(() => officeDisplayOf(officeSettings.display), [officeDisplayKey]);
@@ -2918,9 +2920,9 @@ export function App() {
         read: noticeLocal.read[key] !== undefined,
       };
     }),
-    ...[...[customTexts, customTerms, customFields].flatMap(customCenterNotice), ...estimateCenterNotice(officeSettings.estimates)].map((n): CenterItem => ({
+    ...[...[customTexts, customTerms, customFields].flatMap(customCenterNotice).map((n) => ({ n, page: "custom" as const })), ...estimateCenterNotice(officeSettings.estimates).map((n) => ({ n, page: "estimates" as const }))].map(({ n, page }): CenterItem => ({
       ...n,
-      action: { label: "事務所の既定値", run: () => setOfficeSettingsOpen(true) },
+      action: { label: "事務所の既定値", run: () => setOfficeSettingsOpen(page) },
       read: noticeLocal.read[n.key] !== undefined,
     })),
     // Web のヒアリングの届いた知らせ（0192 の追記 2026-11-18）: まだ受け取っていない答え・書類のある依頼ごとに1件（開いていない世帯も）。受け取れば消える
@@ -3095,16 +3097,16 @@ export function App() {
         brand={brandOf(look)}
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} paused={presence !== null && storedInfo !== null} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
-      <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
-      <AiHearingTemplateBand count={officeSettingsOpen ? 0 : hearingTemplateCount} onOpen={() => setOfficeSettingsOpen(true)} />
+      <AiCodeCandidateBand count={officeSettingsOpen !== false ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen("look")} />
+      <AiHearingTemplateBand count={officeSettingsOpen !== false ? 0 : hearingTemplateCount} onOpen={() => setOfficeSettingsOpen("input")} />
       <AiIssueReportBand count={reportConfirm !== null ? 0 : issueReportCount} onOpen={openAiIssueReport} />
       <AiDisplayCandidateBand
-        office={officeSettingsOpen ? 0 : displayCandCount}
+        office={officeSettingsOpen !== false ? 0 : displayCandCount}
         households={ai.status?.householdDisplayCandidates ?? []}
         openedId={storedInfo?.id ?? null}
         detailed={tab === "input" || opened === null}
         openedShown={tab === "main" && (ai.view?.displayProposals ?? []).length > 0}
-        onOpenOffice={() => setOfficeSettingsOpen(true)}
+        onOpenOffice={() => setOfficeSettingsOpen("results")}
         onShowOpened={() => {
           setTab("main");
           requestAnimationFrame(() => document.querySelector("[data-ai-display-proposals]")?.scrollIntoView({ block: "start", behavior: "smooth" }));
@@ -3936,13 +3938,20 @@ export function App() {
           onClose={() => setReportConfirm(null)}
         />
       ) : null}
-      {officeSettingsOpen && officeLoaded && host !== null ? (
+      {officeSettingsOpen !== false && officeLoaded && host !== null ? (
         <OfficeSettingsPanel
           value={officeSettings}
           shared={officeStatus?.state === "member"}
+          {...(typeof officeSettingsOpen === "string" ? { initialPage: officeSettingsOpen } : {})}
           onSave={async (v) => {
+            // 全部の画面をまとめて保存する（0261）。推定の値（0111）が変わったときは、推定の目安と計算の要求に入れて、開いている世帯を計算し直す
+            const estimatesChanged = JSON.stringify(v.estimates ?? null) !== JSON.stringify(officeSettingsRef.current.estimates ?? null);
             await host.office.putDefaults(v as unknown as Record<string, unknown>);
             putOfficeSettings(v);
+            if (estimatesChanged) {
+              reqCache.current.clear();
+              putWorkRaw(workRef.current, openedRef.current, "set");
+            }
           }}
           onClose={() => {
             setOfficeSettingsOpen(false);
@@ -3966,15 +3975,8 @@ export function App() {
               return v === null ? null : (readBranding({ logo: v }).logo ?? null);
             },
           }}
-          onEstimates={async (n) => {
-            // 事務所の推定の値（0111）: すぐ事務所データに保存し、推定の目安と計算の要求に入れて、開いている世帯を計算し直す
-            const next = withEstimates(officeSettingsRef.current, n);
-            await host.office.putDefaults(next as unknown as Record<string, unknown>);
-            putOfficeSettings(next);
-            reqCache.current.clear();
-            putWorkRaw(workRef.current, openedRef.current, "set");
-          }}
-          previewEstimates={(before, after) =>
+          estimates={{
+            preview: (before, after) =>
             previewOfficeChange(
               {
                 open: (id) => host.openHousehold(id),
@@ -3988,8 +3990,8 @@ export function App() {
               },
               before,
               after,
-            )
-          }
+            ),
+          }}
           {...(host.custom !== undefined ? { custom: { host: host.custom, status: customTexts, onStatus: setCustomTexts, terms: customTerms, fields: customFields, onKindStatus: putCustomStatus } } : {})}
           display={{
             candidates: displayCands,

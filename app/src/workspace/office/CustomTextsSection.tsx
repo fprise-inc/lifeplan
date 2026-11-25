@@ -1,4 +1,4 @@
-// 事務所の既定値の画面の「説明の文（カスタム層）」（0016 の3・4・6。2026-11-02 の追記）:
+// 事務所の既定値の「カスタム層」の画面の「説明の文（カスタム層）」（0016 の3・4・6。2026-11-02 の追記）:
 // カスタム層の settings/texts.json（FP の AI が書く）を、本体が確かめた状態で見せ、FP が「承認する」「承認しない」「公式の文に戻す」を押す。
 // - 承認するまで、画面の文は前に承認した文（無ければ公式の文）のまま。計算の結果は変わらない
 // - 承認の画面は行ごとに「公式の文／今の事務所の文／新しい文」を並べる。誤りがあれば承認できない
@@ -9,10 +9,13 @@
 import { useState } from "preact/hooks";
 import type { CustomHost, CustomKind, CustomRowText, CustomTextsStatus } from "../../engine/host.ts";
 import { proseDate } from "../../dates.ts";
+import { Help } from "../../presentation/Help.tsx";
 
 /** 種類ごとの言葉 */
 export interface KindWords {
   title: string;
+  /** 区画の頭の1文（長い説明は見出しの「?」の中。0261） */
+  short: string;
   lead: string;
   file: string;
   /** 「事務所の文」など */
@@ -26,6 +29,7 @@ export interface KindWords {
 export const KIND_WORDS: Readonly<Record<CustomKind, KindWords>> = {
   texts: {
     title: "説明の文（カスタム層）",
+    short: "入力の欄の「?」の説明や、結果の画面の文を、事務所の言い方に直せます。",
     lead: "入力の欄の「?」の説明と、結果のタブの計算のお知らせの文、推定の根拠の文、結果の画面の文（結論の1文・取り崩しの条件・グラフの注・ポイント・夢と予定・万一のときの結論の1文。年齢・額などの数字は計算した値が入ります）を、事務所の言い方に直せます。直した文はカスタム層のフォルダの settings/texts.json に書きます（FP の AI に頼めます）。アプリの外で書き換えた文は、ここで承認するまで画面に出ません。計算の結果は変わりません。",
     file: "settings/texts.json",
     office: "事務所の文",
@@ -34,6 +38,7 @@ export const KIND_WORDS: Readonly<Record<CustomKind, KindWords>> = {
   },
   terms: {
     title: "名前（カスタム層）",
+    short: "入力の欄・表の行・「夢と予定」の名前を、事務所の言い方に変えられます。",
     lead: "入力の欄の名前と、キャッシュフロー表の行の名前と、結果のタブの「夢と予定」のまとまり・列などの名前を、事務所の言い方に変えられます。表の行の名前は、FP の画面・お客さまに見せる画面・提案書・持ち帰り用のレポートのどこでも同じ名前になります。カスタム層のフォルダの settings/terms.json に書きます（FP の AI に頼めます）。ここで承認するまで画面に出ません。計算の結果は変わりません。公式の名前は、入力の欄の「?」と、この区画の一覧でいつでも見られます。",
     file: "settings/terms.json",
     office: "事務所の名前",
@@ -42,7 +47,8 @@ export const KIND_WORDS: Readonly<Record<CustomKind, KindWords>> = {
   },
   fields: {
     title: "入力の欄の見せ方（カスタム層）",
-    lead: "入力の欄ごとに、隠す・まとまりの中で何番目に出すかを決められます。カスタム層のフォルダの settings/fields.json に書きます（FP の AI に頼めます）。値が入っている欄は、隠す設定でも出します。隠しても計算は変わりません。欄の既定の値は、この画面の上の事務所の既定値で変えます（カスタム層のファイルには書けません）。",
+    short: "入力の欄ごとに、隠す・まとまりの中で何番目に出すかを決められます。",
+    lead: "入力の欄ごとに、隠す・まとまりの中で何番目に出すかを決められます。カスタム層のフォルダの settings/fields.json に書きます（FP の AI に頼めます）。値が入っている欄は、隠す設定でも出します。隠しても計算は変わりません。欄の既定の値は、事務所の既定値のほかの画面（前提条件の既定値など）で変えます（カスタム層のファイルには書けません）。",
     file: "settings/fields.json",
     office: "事務所の見せ方",
     official: "公式の名前",
@@ -146,7 +152,7 @@ export function CustomTextsSection({ host, status, onStatus, kind: given }: { ho
   if (status === null) {
     return (
       <section class="os-sec" aria-labelledby={sid} data-custom-texts="loading" data-custom-kind={kind}>
-        <h3 id={sid}>{w.title}</h3>
+        <h4 id={sid} class="os-h">{w.title}</h4>
         <p class="pl-sub">読み込んでいます…</p>
       </section>
     );
@@ -156,8 +162,11 @@ export function CustomTextsSection({ host, status, onStatus, kind: given }: { ho
   const inUse = st.rows.filter((r) => r.current !== null && !r.unused);
   return (
     <section class="os-sec" aria-labelledby={sid} data-custom-texts={st.state} data-custom-kind={kind}>
-      <h3 id={sid}>{w.title}</h3>
-      <p class="pl-sub">{w.lead}</p>
+      <h4 id={sid} class="os-h">
+        {w.title}
+        <Help label={w.title}>{w.lead}</Help>
+      </h4>
+      <p class="os-lead">{w.short}</p>
       {kind === "texts" ? (
       <p class="pl-sub" data-custom-dir>
         カスタム層のフォルダ: <code>{st.dir}</code>
