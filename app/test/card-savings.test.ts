@@ -313,7 +313,7 @@ describe("合計の入れ方の平均の利回り（名前の付いた選び方�
     expect((w.request.input.household.accounts ?? []).find((a) => a.kind === "pooled")?.expectedReturn).toBe("0.03");
   });
 
-  it("空欄にすると前提条件の運用利回りで計算し、その率を欄の薄い字と説明に出す（2% と決めて見せない）", () => {
+  it("空欄にすると運用の利回り（事務所の既定値・この世帯の値）で計算し、その率を欄の薄い字と説明に出す（2% と決めて見せない。0260）", () => {
     const { t, p } = total();
     let w = fieldOf(t, `sav/${p.id}/rate`).set(t, null);
     w = mutate(w, (_h, req) => void (req.input.assumptions = { ...req.input.assumptions, investmentReturn: { default: "0.035" } }));
@@ -321,7 +321,10 @@ describe("合計の入れ方の平均の利回り（名前の付いた選び方�
     expect(totalViewOf(w.request).rate).toBe("0.035");
     const out = html(w, "simple");
     expect(out).toContain('placeholder="3.5"');
-    expect(out).toContain("入れていないので、前提条件の運用利回り（年3.5%）で計算しています。");
+    // 運用の利回りを 3.5% にした前の世帯（事務所の既定値 1% と違う）: 前提条件のこの世帯の値
+    expect(out).toContain("入れていないので、前提条件のこの世帯の値（年3.5%）で計算しています。");
+    const office = html(fieldOf(t, `sav/${p.id}/rate`).set(t, null), "simple");
+    expect(office).toContain("入れていないので、事務所の既定値（年1.0%）で計算しています。");
   });
 });
 

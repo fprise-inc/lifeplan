@@ -3,7 +3,7 @@
 //   言い換えの辞書（searchWords.ts）。世帯の今の中身から作る（子が2人なら、子の区画が2つ。物がまだ無ければ、その物を足すボタン）
 // - 言葉は、ひらがな・カタカナ・全角半角・大文字小文字・空白と区切りの記号の違いをそろえてから比較する（foldText）
 // - 結果は「入力項目の名前 › 欄の名前」と、どの物の欄か（区画・まとまりの名前。人の名前など）。同じ入力項目・同じ名前・同じ物は1つにまとめる
-import type { Level, SectionDef, StageDef, StageId } from "./form.ts";
+import { groupActions, type Level, type SectionDef, type StageDef, type StageId } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { itemStage, type InputItem } from "./items.ts";
 import { SEARCH_WORDS, type SearchWord } from "./searchWords.ts";
@@ -110,7 +110,8 @@ function entriesOfSection(s: SectionDef, push: (label: string, where: string | n
     if (g.title !== undefined) push(g.title, g.band === true && g.where !== undefined ? where : s.title, g.note ?? g.info?.text, { kind: "group", key: g.key, ...sec }, simpleOnly ? "simple" : levelOf(s.level, g.level));
     else if (g.info !== undefined) push(g.info.title, s.title, g.info.text, { kind: "group", key: g.key, ...sec }, levelOf(s.level, g.level));
     for (const f of g.fields) push(f.label, where, f.help, { kind: "field", key: f.key, ...sec }, simpleOnly || f.simpleOnly === true ? "simple" : levelOf(s.level, g.level, f.level));
-    actions(g.actions, where, [s.level, g.level], simpleOnly);
+    // 欄の下の小さなリンク（「＋ 例外の年」など）も、まとまりの操作として探せる
+    actions(groupActions(g), where, [s.level, g.level], simpleOnly);
   }
   actions(s.actions, s.title, [s.level], false);
 }

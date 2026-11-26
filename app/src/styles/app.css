@@ -558,11 +558,10 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-premise { font-size: 0.7rem; font-weight: 700; border-radius: 3px; padding: 0 5px; white-space: nowrap; color: var(--ink-2); background: var(--line-2); }
 .fld-premise.household { color: var(--prop-ink); background: var(--prop-bg); }
 .fld-premise.officeChanged { color: var(--est-ink); background: var(--est-bg); }
-/* お客さまに話すときの一言（前提条件のお客さまと確かめる前提。0214 の追記 2026-11-16）: 欄の下に、左の細い線つきで */
-.fld-talk { font-size: 0.82rem; line-height: 1.5; color: var(--ink); margin-top: 4px; padding-left: 8px; border-left: 3px solid var(--line-2); overflow-wrap: anywhere; }
-.ip-premise-fold { margin: 4px 0 12px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 6px; background: var(--card); }
-.ip-premise-fold > .link-btn { font-weight: 700; color: var(--ink); text-align: left; }
-.ip-premise-fold-act { font-weight: 400; color: var(--ink-2); margin-left: 4px; }
+/* 前提と推定の一覧の状態の印（欄の印と同じ見た目。推定は注意の色、決まりは控えめ。0260） */
+.fld-premise.estimated { color: var(--est-ink); background: var(--est-bg); }
+/* お客さまに話すときの言い方の例（前提条件の物価・給与の上昇率。「例 …」の1行。0214 の追記 2026-11-16・0260）: 欄の下に、説明と同じ小さな灰の字 */
+.fld-talk { font-size: 0.8rem; line-height: 1.5; color: var(--ink-2); margin-top: 4px; overflow-wrap: anywhere; }
 .fld-premise-act { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
 .fld.is-missing .fld-c input[type="text"] { border-color: var(--short); }
 .fld.is-na .fld-c input[type="text"] { background: var(--base-bg); }
@@ -878,6 +877,8 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .ip-tools > .help { margin-left: -4px; }
 .ip-tools .help-btn { font-size: 0.78rem; }
 .ip-lead { margin: 0; color: var(--ink-2); font-size: 0.88rem; grid-column: 2 / 4; }
+/* パネルの頭の1文（入力項目の定義の headNote。前提条件の「値は事務所の既定値です。…」。0260）: 名前の下に小さな灰の字で1行 */
+.ip-headnote { margin: 0; color: var(--ink-2); font-size: 0.8rem; grid-column: 2 / 4; }
 /* Tab・「＋」で移った欄が、動く所の下の端（下の帯のすぐ上）やパネルの上の端にくっついて半分隠れないように、余白を取って見える所まで動かす */
 .ip-body { flex: 1; overflow-y: auto; padding: 4px 18px 20px; overscroll-behavior: contain; scroll-padding: 56px 0 72px; }
 .ip-foot { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--card); box-shadow: 0 -6px 16px rgba(20, 30, 50, 0.06); }
@@ -903,7 +904,52 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .link-btn { background: none; border: 0; padding: 0; font-size: 0.82rem; font-weight: 700; color: var(--prop); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .link-btn.danger { color: var(--short-ink); }
 .link-btn:disabled { color: var(--field); text-decoration: none; cursor: not-allowed; }
-@media (max-width: 640px) { .ip-head { grid-template-columns: minmax(0, 1fr) auto; } .ip-thumb { display: none; } .ip-lead { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .ip-head { grid-template-columns: minmax(0, 1fr) auto; } .ip-thumb { display: none; } .ip-lead, .ip-headnote { grid-column: 1 / -1; } }
+/*
+ * 前提条件の入力項目（0260。案の6の方針）: 文字は5段＋印にそろえる（段1 パネルの名前 20px 太・段2 区画の見出し 16px 太・左の線・
+ * 段3 まとまり・表の見出し 14.7px 太・段4 欄の名前〔太〕・値・本文 14.4px・段5 説明・空欄のときの値・例・出典・リンク 12.8px 灰・印 11.8px 太。
+ * 文字の大きさ「中」〔16px〕のとき）。余白は区画の間 24px・見出しと中身 8px・欄の間 縦14px 横24px・枠の内側 12〜16px。
+ * 欄・選ぶ欄・ボタンは入力項目の部品（0236・0240）のまま。率の欄は経済の前提が3列、資産の種類ごとの利回り・不動産の評価が4列（狭いときは2列）。
+ * 5段の値は事務所の既定値の画面（.os-panel の段の変数）と同じ値にそろえる（どちらかを変えるときは両方。共通の変数にまとめるのは後の回）
+ */
+.ipanel[data-item="assumptions"] { --t1: 1.25rem; --t2: 1rem; --t3: 0.92rem; --t4: 0.9rem; --t5: 0.8rem; --tm: 0.74rem; }
+.ipanel[data-item="assumptions"] .ip-head h2 { font-size: var(--t1); }
+.ipanel[data-item="assumptions"] .ip-headnote { font-size: var(--t5); }
+.ipanel[data-item="assumptions"] .ip-body > .in-section { margin-top: 24px; }
+.ipanel[data-item="assumptions"] .ip-body > .in-section:first-of-type { margin-top: 14px; }
+.ipanel[data-item="assumptions"] .in-section > h3, .ipanel[data-item="assumptions"] .in-section-h > h3 { font-size: var(--t2); margin-bottom: 8px; }
+.ipanel[data-item="assumptions"] .in-note { font-size: var(--t5); margin: -4px 0 8px; }
+.ipanel[data-item="assumptions"] .in-group { padding: 12px 16px 14px; }
+.ipanel[data-item="assumptions"] .in-group-h h4, .ipanel[data-item="assumptions"] .in-group .in-group .in-group-h h4, .ipanel[data-item="assumptions"] .in-group.in-sub .in-group-h h4 { font-size: var(--t3); color: var(--ink); }
+.ipanel[data-item="assumptions"] .in-group .in-group, .ipanel[data-item="assumptions"] .in-group.in-sub { margin-top: 14px; padding: 12px 0 4px; }
+/* 欄の下の言葉（「空欄: 物価の上昇率と同じ」など）は、欄の横に並べず欄の下の1行に */
+.ipanel[data-item="assumptions"] .fld-c > .fld-hint { flex-basis: 100%; }
+.ipanel[data-item="assumptions"] .fields { gap: 14px 24px; }
+.ipanel[data-item="assumptions"] .fld-l { font-size: var(--t4); color: var(--ink); }
+.ipanel[data-item="assumptions"] .fld-c, .ipanel[data-item="assumptions"] .fld-c input[type="text"], .ipanel[data-item="assumptions"] .fld-c select, .ipanel[data-item="assumptions"] .suffix, .ipanel[data-item="assumptions"] .ro { font-size: var(--t4); }
+.ipanel[data-item="assumptions"] .fld-hint, .ipanel[data-item="assumptions"] .fld-help, .ipanel[data-item="assumptions"] .fld-talk, .ipanel[data-item="assumptions"] .fld-help .link-btn, .ipanel[data-item="assumptions"] .in-actions .link-btn { font-size: var(--t5); }
+.ipanel[data-item="assumptions"] .fld-premise, .ipanel[data-item="assumptions"] .badge { font-size: var(--tm); }
+.ipanel[data-item="assumptions"] .help-btn { font-size: var(--t5); }
+.ipanel[data-item="assumptions"] .add-btn { font-size: var(--t4); }
+/* 欄の下のリンクの1行（「事務所の既定値（1%）に戻す」「＋ 例外の年」）: 小さな灰の字の段で、リンクの間を少し空ける */
+.ipanel[data-item="assumptions"] .fld-premise-act { gap: 2px 12px; margin-top: 4px; }
+.ipanel[data-item="assumptions"] .fld-c input.num { width: 6.5em; }
+.ipanel[data-item="assumptions"] .fld-in > input.num { flex: 0 1 6.5em; }
+.ipanel[data-item="assumptions"] [data-group="assume/economy/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/conv/fields"] > .fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* 計算の期間（表を何歳まで見るか）と、運用の利回りの1行は、欄の下の言葉が折れないように幅いっぱい */
+.ipanel[data-item="assumptions"] [data-group="assume/period/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/assetReturns/invest"] > .fields { grid-template-columns: minmax(0, 1fr); }
+.ipanel[data-item="assumptions"] [data-group="assume/assetReturns/grid"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields/life"] > .fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ipanel[data-item="assumptions"] [data-group="assume/assetReturns/grid"] .fld-c input.num, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields"] .fld-c input.num, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields/life"] .fld-c input.num { width: 5em; }
+@media (max-width: 760px) {
+  .ipanel[data-item="assumptions"] [data-group="assume/economy/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/conv/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/assetReturns/grid"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields/life"] > .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* 前提と推定の一覧（前提条件のパネルの下）: 本文は段4、出典・補足・区分の切り替えは段5、区分の見出しの行は段3 */
+.ipanel[data-item="assumptions"] .ip-assume-list { font-size: var(--t4); }
+.ipanel[data-item="assumptions"] .ip-assume-list .as-head b { font-size: var(--t3); }
+.ipanel[data-item="assumptions"] .ip-assume-list thead th, .ipanel[data-item="assumptions"] .ip-assume-list .as-src, .ipanel[data-item="assumptions"] .ip-assume-list .sub, .ipanel[data-item="assumptions"] .ip-assume-list .as-head .link-btn { font-size: var(--t5); }
+.ipanel[data-item="assumptions"] .ip-assume-list td:nth-child(1) .link-btn { font-size: var(--t4); font-weight: 400; }
+.ipanel[data-item="assumptions"] .ip-assume-list tr.as-group > th { font-size: var(--t3); }
+
 
 /* お知らせ（保存した直後） */
 .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: var(--ink); color: var(--on-fill); padding: 10px 18px; border-radius: 10px; font-weight: 700; z-index: 60; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; max-width: 92vw; }
@@ -987,6 +1033,9 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-check { display: flex; gap: 6px; align-items: center; }
 .cg-check input { width: 16px; height: 16px; accent-color: var(--prop); }
 .cg-prot-diff { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
+/* 必要保障額の逆算方式の、遺族の資金の運用の利回り（0260）。数え方の違いの1行と続くときは、線を1本に */
+.cg-reverse-return { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
+.cg-reverse-return + .cg-prot-diff { margin-top: 4px; padding-top: 0; border-top: 0; }
 .cg-prot-diff .link-btn { margin-left: 6px; }
 /* 想定の前提の並びは対策と同じ 4 → 2 → 1 列（大きな文字は 2 → 1。0084） */
 .cg-premises .lv-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -998,21 +1047,20 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-premises .lever.field .fld-c select { max-width: 100%; font-weight: 700; }
 .cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
 /* 0071: 前提を直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
-.ip-assume-list td:nth-child(4), .ip-assume-list th:nth-child(4) { white-space: nowrap; }
 /* 前提と推定の一覧の区分の切り替え: どの幅でも、1行に入らなければ折り返す（最後のボタンがパネルの右にはみ出さない）。
    折り返しても各ボタンは文字の幅のまま左に寄せ、どの行のボタンも同じ枠と角の丸みにする（外の枠は付けず、ボタンごとに枠を付けて少し離す） */
 .ip-assume-list .seg-g { display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 4px 0 6px; border: 0; border-radius: 0; overflow: visible; background: none; }
 .ip-assume-list .seg-g button, .ip-assume-list .seg-g button + button { flex: 0 0 auto; margin: 0; border: 2px solid var(--prop); border-radius: 8px; }
-/* 表: 見出しは1文字ずつ縦に折れない（折り返さない）。区分・項目・値・出典・根拠の長い文はセルの中で折り返し、列は狭くなりすぎない。
-   「確かめた」の列は見出しの幅で止める（チェックと日付だけ） */
+/* 表（0260）: 区分は見出しの行（列にしない）、項目・値・状態・出典の4列。見出しは1文字ずつ縦に折れない（折り返さない）。
+   項目・値・出典の長い文はセルの中で折り返し、列は狭くなりすぎない。状態は欄と同じ印（事務所の既定値どおりは空） */
 .ip-assume-list th { white-space: nowrap; }
 .ip-assume-list td { overflow-wrap: anywhere; }
-.ip-assume-list td:nth-child(1) { min-width: 8.5em; }
-.ip-assume-list td:nth-child(2) { min-width: 8em; }
-.ip-assume-list td:nth-child(3) { min-width: 6em; }
-.ip-assume-list td:nth-child(5) { min-width: 10em; }
-.ip-assume-list td:nth-child(6), .ip-assume-list th:nth-child(6) { width: 1%; white-space: nowrap; }
-.ip-assume-list td:nth-child(2) .link-btn { text-align: left; padding-left: 0; }
+.ip-assume-list td:nth-child(1) { min-width: 9em; }
+.ip-assume-list td:nth-child(2) { min-width: 6em; }
+.ip-assume-list td:nth-child(3) { width: 1%; white-space: nowrap; }
+.ip-assume-list td:nth-child(4) { min-width: 10em; }
+.ip-assume-list td:nth-child(1) .link-btn { text-align: left; padding-left: 0; }
+.ip-assume-list tr.as-group > th { padding-top: 8px; border-bottom: 1px solid var(--line); background: var(--line-2); color: var(--ink); }
 .ip-assume-list .sub.warn { display: block; color: var(--warn, #9a3412); }
 .cg-plan-to { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; font-size: 0.9rem; }
 .cg-premises .lv-grid > .lever.plan-diff { border-left: 4px solid var(--prop); padding-left: 9px; }

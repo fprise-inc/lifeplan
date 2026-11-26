@@ -5,7 +5,7 @@
 // - 入れない: 世帯は変えない。読み取りの記録に残す
 // 書類待ち（状態 unknown）の欄は、承認で確定になるので書類待ちが消え、書類のお願いの一覧からも消える（0102 の決まりのまま）
 import { buildStage } from "../input/stages/index.ts";
-import { sameVal, type FieldDef, type Val } from "../input/form.ts";
+import { groupActions, sameVal, type FieldDef, type Val } from "../input/form.ts";
 import { mutate, type WorkingHousehold } from "../input/household.ts";
 import { putRow, rowAt, type StateRow } from "../input/rows.ts";
 import { parseInteger, parseYearMonth, rateFromPct, readYen } from "../input/units.ts";
@@ -171,7 +171,7 @@ export function createObject(wh: WorkingHousehold, kind: string): { wh: WorkingH
   // 今ある物に入れるだけの種類（書類の土地。0235）は足せない
   if (k === undefined || k.linkOnly !== undefined) return null;
   const stage = buildStage(k.stage, wh);
-  const action = stage.sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => g.actions)]).find((a) => a.key === k.action);
+  const action = stage.sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => groupActions(g))]).find((a) => a.key === k.action);
   if (action === undefined) return null;
   const list = (wh: WorkingHousehold): Obj[] => {
     const v = (wh.request.input.household as unknown as Obj)[k.collection];

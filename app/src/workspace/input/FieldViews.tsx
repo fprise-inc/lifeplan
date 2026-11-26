@@ -112,6 +112,9 @@ function PlanGroupTag({ group, wh }: { group: GroupDef; wh: WorkingHousehold }) 
 /** 開いたときに移る欄のキー（確かめの一覧から「開く」で来たとき） */
 export const FocusField = createContext<string | null>(null);
 
+/** 欄の下の小さなリンク（FieldDef の links）を出す入れ方（まとまりの今の入れ方。詳細だけのリンクは標準で出さない。0260） */
+const FieldLinkLevel = createContext<Level>("detail");
+
 /**
  * 書類待ちの欄の「この書類を読む」（0154 の3）: 欄のキーを渡すと、その欄の書類（書類のお願いの1通）の読み取りへ進む。読める書類（保険証券。0159）の欄だけに出す。
  * 入力のパネルが置く（プランの編集中・読み取りの入口の無い画面では null で、ボタンを出さない）
@@ -401,7 +404,8 @@ export function headsWithMore(groups: readonly GroupDef[]): Set<string> {
   const out = new Set<string>();
   for (const g of groups) {
     const h = units.get(g.key);
-    if (h !== undefined && hiddenIn(g, h !== g.key)) out.add(h);
+    // 「▸ 続きを見る」を出さないまとまり（noMore。詳細の欄は「詳細」に切り替えて見る）
+    if (h !== undefined && groups.find((x) => x.key === h)?.noMore !== true && hiddenIn(g, h !== g.key)) out.add(h);
   }
   return out;
 }
@@ -786,6 +790,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   // 見出しに太字で出す名前（headName があればそれ。title に額や時期まで入っているお金の行・夢は、名前だけを太字にして、額と時期は要約に分ける）
   const head = group.headName ?? group.title;
   return (
+    <FieldLinkLevel.Provider value={level}>
     <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
       {group.title !== undefined ? (
         <div class="in-group-h">
@@ -826,6 +831,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       ) : null}
       {moreLast || subFirst ? null : sub}
     </div>
+    </FieldLinkLevel.Provider>
   );
 }
 
@@ -1119,27 +1125,47 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
   }
 }
 
-/** 前提条件の事務所の既定値の印（0214 の4。欄の名前の横の小さな文字）: 「事務所の既定値」「この世帯だけ」「既定値が変わりました」。推定の印ではない */
+/**
+ * 前提条件の事務所の既定値の印（0214 の4・0260。欄の名前の横の小さな文字）: 事務所の既定値と違う欄だけ「この世帯だけ」「既定値が変わりました」。
+ * 事務所の既定値どおりの欄には出さない（パネルの頭の1文で「値は事務所の既定値です」と言う）。推定の印ではない
+ */
 export function PremiseTag({ mark }: { mark: PremiseMark }) {
-  const text = mark.state === "office" ? "事務所の既定値" : mark.state === "household" ? "この世帯だけ" : "既定値が変わりました";
-  const title = mark.state === "office" ? (mark.decided ? "事務所の既定値の画面で決めた値です" : "提供元の既定の値です（事務所の既定値の画面で変えられます）") : mark.state === "household" ? `この世帯だけの値です（事務所の既定値は ${mark.officeText}）` : `事務所の既定値が ${mark.wasText ?? "—"} から ${mark.officeText} に変わりました（この世帯は前の値のまま）`;
+  if (mark.state === "office") return null;
+  const own = mark.state === "household";
+  const title = own ? `この世帯だけの値です（事務所の既定値は ${mark.officeValue ?? mark.officeText}）` : `事務所の既定値が ${mark.wasText ?? "—"} から ${mark.officeText} に変わりました（この世帯は前の値のまま）`;
   return (
     <span class={`fld-premise ${mark.state}`} title={title} data-premise={mark.state}>
-      {text}
+      {own ? "この世帯だけ" : "既定値が変わりました"}
     </span>
   );
 }
 
-/** 欄の下の、事務所の既定値に戻すリンク（この世帯だけ・事務所の既定値が変わった欄だけ。0214 の4・5） */
-export function PremiseReset({ mark, wh, onEdit }: { mark: PremiseMark; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
-  if (mark.state === "office") return null;
-  const own = mark.state === "household";
+/** 戻すリンクの名前（「事務所の既定値（1%）に戻す」。4列の小さな欄は「戻す」。事務所の既定値が後で変わった欄は「今の既定値（0.2%）にする」） */
+export function premiseResetLabel(mark: PremiseMark): string {
+  const v = mark.officeValue !== undefined ? `（${mark.officeValue}）` : "";
+  if (mark.state === "officeChanged") return mark.short === true ? "今の既定値にする" : `今の既定値${v}にする`;
+  return mark.short === true ? "戻す" : `事務所の既定値${v}に戻す`;
+}
+
+/**
+ * 欄の下の小さなリンクの1行（0214 の4・5・0260）: 事務所の既定値と違う欄の「戻す」と、欄の links（「＋ 例外の年」など）。どちらも無ければ出さない。
+ * 押しても欄のフォーカスを動かさない（動かすと、欄の値が入れ直されて「保存していない変更」になるため）
+ */
+export function PremiseReset({ mark, links = [], wh, onEdit }: { mark: PremiseMark | undefined; links?: readonly ActionDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+  const reset = mark !== undefined && mark.state !== "office" ? mark : null;
+  if (reset === null && links.length === 0) return null;
   return (
-    <div class="fld-help fld-premise-act" data-premise-act={mark.state}>
-      {own ? null : <span>事務所の既定値が変わりました（{mark.wasText ?? "—"}→{mark.officeText}）</span>}
-      <button type="button" class="link-btn" title={`事務所の今の既定値（${mark.officeText}）にします`} onMouseDown={(e) => e.preventDefault()} onClick={() => onEdit(mark.reset(wh))} data-premise-reset>
-        {own ? "事務所の既定値に戻す" : "今の既定値にする"}
-      </button>
+    <div class="fld-help fld-premise-act" {...(reset !== null ? { "data-premise-act": reset.state } : {})}>
+      {reset !== null ? (
+        <button type="button" class="link-btn" title={`事務所の今の既定値（${reset.officeValue ?? reset.officeText}）にします`} onMouseDown={(e) => e.preventDefault()} onClick={() => onEdit(reset.reset(wh))} data-premise-reset>
+          {premiseResetLabel(reset)}
+        </button>
+      ) : null}
+      {links.map((a) => (
+        <button key={a.key} type="button" class="link-btn" aria-label={a.label} {...(a.title !== undefined ? { title: a.title } : {})} onMouseDown={(e) => e.preventDefault()} onClick={() => onEdit(a.run(wh))} data-action={a.key} data-field-link>
+          {a.linkLabel ?? a.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -1493,6 +1519,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const f: FieldDef = named !== null && named.office !== null ? { ...given, label: named.name, officialLabel: given.label } : given;
   const state = f.get(wh);
   const sug = useContext(FieldSuggestions)[f.key];
+  const linkLevel = useContext(FieldLinkLevel);
   const inSection = useContext(InSection);
   const stateOps = useContext(FieldStateOps);
   const status = stateOps !== null ? fieldStatus(f, wh) : null;
@@ -1690,6 +1717,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     const blankMeans = f.blankMeans ?? (state.estimated != null ? "推定" : null);
     const blankText = blankMeans !== null ? `空欄＝${blankMeans}` : null;
     const example = f.example ?? (f.kind === "ym" ? (f.ageInput === true ? "例: 1988-05" : "例: 2020-04") : null);
+    // 前提条件の空欄の欄（blankShown）: 空欄のときに計算に使う値を、欄の中に薄く見せる（推定ではないので推定の見た目にしない。0260）
+    const premiseGhost = f.kind !== "text" && state.value === null && state.blankShown !== undefined && state.blankShown !== null ? textOf(state.blankShown) : null;
     const placeholder =
       f.kind === "text"
         ? fittingPlaceholder("txt", f.placeholder, example)
@@ -1699,7 +1728,9 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
             ? "未入力"
             : ghosted
               ? (ghost as string)
-              : fittingPlaceholder(inputClass, blankText, example);
+              : premiseGhost !== null && premiseGhost !== "" && fitsIn(inputClass, premiseGhost)
+                ? premiseGhost
+                : fittingPlaceholder(inputClass, blankText, example);
     blankLine = (draft ?? shown) === "" && f.blankMeans !== undefined ? blankLineFor(inputClass, f.blankMeans) : null;
     const input = (
       <input
@@ -1800,8 +1831,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
       {isCheck ? null : (
         <div class="fld-l">
           {nameLabel}
-          {/* 欄の説明の「?」は欄の名前のすぐ右（状態の印はその後ろ。0077 の 2026-10-29 の追記） */}
-          <FieldHelp f={f} wh={wh} />
+          {/* 欄の説明の「?」は欄の名前のすぐ右（状態の印はその後ろ。0077 の 2026-10-29 の追記）。お客さまへの長い言い方の例も「?」の中（0260） */}
+          <FieldHelp f={f} wh={wh} extra={state.talkHelp != null ? [`お客さまへの話し方の例: ${state.talkHelp}`] : []} />
           {nameMarks}
         </div>
       )}
@@ -1842,7 +1873,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         ) : null}
         {partLine !== null ? <StateMark status="estimated" basis={partLine} text="推定" label={`${f.label}の内訳`} /> : null}
       </div>
-      {/* お客さまに話すときの一言（前提条件のお客さまと確かめる前提。0214 の追記 2026-11-16） */}
+      {/* お客さまに話すときの言い方の例の1行（前提条件の物価・給与の上昇率。長い言い方は「?」の中。0214 の追記 2026-11-16・0260） */}
       {state.talk != null ? (
         <div class="fld-talk" data-field-talk={f.key}>
           {state.talk}
@@ -1888,7 +1919,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
           {told.warn}
         </div>
       ) : null}
-      {state.premise !== undefined ? <PremiseReset mark={state.premise} wh={wh} onEdit={onEdit} /> : null}
+      <PremiseReset mark={state.premise} links={(f.links ?? []).filter((a) => visible(linkLevel, a.level))} wh={wh} onEdit={onEdit} />
       {state.derived != null ? <div class="fld-help warn">{state.derived}</div> : null}
       {state.warn != null ? <WarnLine f={f} text={state.warn} fix={state.warnFix ?? null} wh={wh} onEdit={onEdit} /> : null}
       {stateLines}

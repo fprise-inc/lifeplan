@@ -1,6 +1,6 @@
 // 前提条件の事務所の既定値（0214）: 前提条件の欄のうち既定の値のある物の表（PREMISE_DEFS）と、世帯での見せ方の判定。
 // - 事務所の既定値の画面・世帯の前提条件の欄・確かめの一覧・前提と推定の一覧・AI接続口の説明は、この表から作る（欄を足すときは表に1行足す）
-// - 世帯の値が事務所の既定値（事務所で決めていなければ提供元の既定の値）と同じなら「事務所の既定値」（決まった値。推定にしない）、
+// - 世帯の値が事務所の既定値（事務所で決めていなければ提供元の既定の値）と同じなら「事務所の既定値」（決まった値。推定にしない。欄には印を出さない。0260）、
 //   この世帯だけ違う値なら「この世帯だけ」（事務所の既定値に戻すリンク）、事務所の既定値を使っていた値で、その後に事務所の既定値が
 //   変わった物は「事務所の既定値が変わりました（前→今）」（確かめの一覧の知らせ。値は黙って変えない。0073 の3）
 // - 「事務所の既定値を使っていた」は、写したときの仮の印（assumed[欄のキー] が「事務所の既定値（年月）」）か、提供元の既定の値のまま触っていない欄
@@ -53,8 +53,11 @@ export interface PremiseDef {
   standard: string | null;
   /** 世帯に値が無いとき計算が使う決まった値（無ければ null。ほかの値と同じになる物・決まらない物） */
   absent: () => string | null;
-  /** 値が無いときにほかの値と同じになる物の言葉と、その値（「物価上昇率と同じ」） */
-  follows?: { text: string; value: (a: Assumptions | undefined) => string | null };
+  /**
+   * 値が無いときにほかの値と同じになる物の言葉と、その値（「物価上昇率と同じ」。事務所の既定値の画面・知らせの言葉）。hint は世帯の欄の下の短い言い方
+   * （「物価の上昇率と同じ」。無ければ欄の下に出さず、欄の中に薄く値だけ。0260）
+   */
+  follows?: { text: string; hint?: string; value: (a: Assumptions | undefined) => string | null };
   /**
    * 事務所の推定の値（0111）の値ID。ある物は、事務所の既定値の置き場所が事務所の推定の値で、世帯に値が無いと計算がその場の事務所の値を使う。
    * そのため世帯には必ず値を書く（新しい世帯・値の無い世帯を開いたとき。fillLivePremises。0218）
@@ -63,23 +66,31 @@ export interface PremiseDef {
 }
 
 const seriesDefault = (a: Assumptions | undefined, name: string): string | null => (getPath(a, [name, "default"]) as string | undefined) ?? null;
-const followsOf = (name: string, text: string) => ({ text, value: (a: Assumptions | undefined) => seriesDefault(a, name) });
+const followsOf = (name: string, text: string, hint?: string) => ({ text, ...(hint !== undefined ? { hint } : {}), value: (a: Assumptions | undefined) => seriesDefault(a, name) });
+
+/**
+ * 運用の利回り（assumptions.investmentReturn）の名前。資産の配分も口座の利回りも入れていない運用の口座と、資産の種類ごとの利回りの空欄の種類
+ * （預金の種類・不動産を除く）に使う率で、事務所の既定値の画面でもこの名前（0260。前の名前は「運用利回り（年）」「運用の利回り」）
+ */
+export const INVESTMENT_RETURN_LABEL = "配分も利回りも入れていない運用の口座";
 
 /** 経済の前提（年ごとの列 assumptions.<名前>） */
 const ECONOMY: PremiseDef[] = [
   { id: "inflation", key: "assume/inflation", label: "物価の上昇率", officeLabel: "物価上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["inflation"], series: true, standard: DEFAULT_ASSUMPTIONS.inflation.default, absent: () => null },
   { id: "wageGrowth", key: "assume/wageGrowth", label: "給与の上昇率", officeLabel: "賃金上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["wageGrowth"], series: true, standard: DEFAULT_ASSUMPTIONS.wageGrowth.default, absent: () => null },
-  { id: "investmentReturn", key: "assume/investmentReturn", label: "運用の利回り", officeLabel: "運用利回り（年）", section: "economy", kind: "pct", ...RETURN_RANGE, path: ["investmentReturn"], series: true, standard: DEFAULT_ASSUMPTIONS.investmentReturn.default, absent: () => null },
-  { id: "depositReturn", key: "assume/depositReturn", label: "預金の利回り（年）", section: "economy", kind: "pct", ...RETURN_RANGE, path: ["depositReturn"], series: true, standard: DEFAULT_ASSUMPTIONS.depositReturn.default, absent: () => null },
-  { id: "educationInflation", key: "assume/educationInflation", label: "教育費の上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["educationInflation"], series: true, standard: null, absent: () => null, follows: followsOf("inflation", "物価上昇率と同じ") },
-  { id: "pensionMacroSlide", key: "assume/pensionMacroSlide", label: "年金の調整率（基礎年金・年）", section: "economy", kind: "pct", ...SLIDE_RANGE, path: ["pensionMacroSlide"], series: true, standard: DEFAULT_ASSUMPTIONS.pensionMacroSlide.default, absent: () => null },
-  { id: "pensionMacroSlideEmployee", key: "assume/pensionMacroSlideEmployee", label: "年金の調整率（厚生年金・年）", section: "economy", kind: "pct", ...SLIDE_RANGE, path: ["pensionMacroSlideEmployee"], series: true, standard: null, absent: () => null, follows: followsOf("pensionMacroSlide", "基礎年金の調整率と同じ") },
+  // 運用の利回り: 配分も利回りも入れていない運用の口座と、資産の種類ごとの利回りの空欄の種類の率。世帯の入力の画面には出さない（この世帯だけの値・
+  // 例外の年・事務所の既定値が変わった知らせのある世帯だけ、詳細の資産の種類ごとの利回りの区画の最後に1行。0260）。名前は事務所の既定値の画面と同じ
+  { id: "investmentReturn", key: "assume/investmentReturn", label: INVESTMENT_RETURN_LABEL, section: "economy", kind: "pct", ...RETURN_RANGE, path: ["investmentReturn"], series: true, standard: DEFAULT_ASSUMPTIONS.investmentReturn.default, absent: () => null },
+  { id: "depositReturn", key: "assume/depositReturn", label: "預金の利回り", officeLabel: "預金の利回り（年）", section: "economy", kind: "pct", ...RETURN_RANGE, path: ["depositReturn"], series: true, standard: DEFAULT_ASSUMPTIONS.depositReturn.default, absent: () => null },
+  { id: "educationInflation", key: "assume/educationInflation", label: "教育費の上昇率", officeLabel: "教育費の上昇率（年）", section: "economy", kind: "pct", ...GROWTH_RANGE, path: ["educationInflation"], series: true, standard: null, absent: () => null, follows: followsOf("inflation", "物価上昇率と同じ", "物価の上昇率と同じ") },
+  { id: "pensionMacroSlide", key: "assume/pensionMacroSlide", label: "年金の調整率（基礎年金）", officeLabel: "年金の調整率（基礎年金・年）", section: "economy", kind: "pct", ...SLIDE_RANGE, path: ["pensionMacroSlide"], series: true, standard: DEFAULT_ASSUMPTIONS.pensionMacroSlide.default, absent: () => null },
+  { id: "pensionMacroSlideEmployee", key: "assume/pensionMacroSlideEmployee", label: "年金の調整率（厚生年金）", officeLabel: "年金の調整率（厚生年金・年）", section: "economy", kind: "pct", ...SLIDE_RANGE, path: ["pensionMacroSlideEmployee"], series: true, standard: null, absent: () => null, follows: followsOf("pensionMacroSlide", "基礎年金の調整率と同じ", "基礎年金と同じ") },
 ];
 
 const R = "realEstateValuation";
 /** 不動産の評価（assumptions.realEstateValuation） */
 const REAL_ESTATE: PremiseDef[] = [
-  { id: `${R}.landGrowth`, key: "assume/realEstate/landGrowth", label: "土地の上昇率（年）", section: "realEstate", kind: "pct", ...GROWTH_RANGE, path: [R, "landGrowth"], series: true, standard: null, absent: () => null, follows: followsOf("inflation", "物価上昇率と同じ") },
+  { id: `${R}.landGrowth`, key: "assume/realEstate/landGrowth", label: "土地の上昇率", officeLabel: "土地の上昇率（年）", section: "realEstate", kind: "pct", ...GROWTH_RANGE, path: [R, "landGrowth"], series: true, standard: null, absent: () => null, follows: followsOf("inflation", "物価上昇率と同じ", "物価の上昇率と同じ") },
   { id: `${R}.landShare`, key: "assume/realEstate/landShare", label: "土地の割合", section: "realEstate", kind: "pct", min: 0, max: 100, path: [R, "landShare"], series: false, standard: "0.3", absent: () => VALUATION_DEFAULTS.landShare, live: "preset.realEstate.landShare" },
   ...BUILDING_STRUCTURES.map(
     (o): PremiseDef => ({
@@ -97,13 +108,16 @@ const REAL_ESTATE: PremiseDef[] = [
     }),
   ),
   { id: `${R}.residualFloor`, key: "assume/realEstate/floor", label: "建物の残りの価値の下限", section: "realEstate", kind: "pct", min: 0, max: 100, path: [R, "residualFloor"], series: false, standard: "0.2", absent: () => VALUATION_DEFAULTS.residualFloor, live: "preset.realEstate.residualFloor" },
-  { id: `${R}.saleCostRate`, key: "assume/realEstate/saleCost", label: "売却の費用（売却価格に対する割合）", section: "realEstate", kind: "pct", min: 0, max: 100, path: [R, "saleCostRate"], series: false, standard: "0.04", absent: () => VALUATION_DEFAULTS.saleCostRate, live: "preset.realEstate.saleCostRate" },
+  { id: `${R}.saleCostRate`, key: "assume/realEstate/saleCost", label: "売却の費用", officeLabel: "売却の費用（売却価格に対する割合）", section: "realEstate", kind: "pct", min: 0, max: 100, path: [R, "saleCostRate"], series: false, standard: "0.04", absent: () => VALUATION_DEFAULTS.saleCostRate, live: "preset.realEstate.saleCostRate" },
 ];
 
 /** 預金の種類（空欄なら預金の利回り） */
 const isDepositClass = (cls: string) => cls.startsWith("cash.");
 
-/** 資産の種類ごとの利回り（assumptions.assetReturns.<種類>）。空欄は計算と同じ: 預金・外貨預金は預金の利回り、不動産は0%、ほかは運用利回り */
+/**
+ * 資産の種類ごとの利回り（assumptions.assetReturns.<種類>）。空欄は計算と同じ: 預金・外貨預金は預金の利回り、不動産は0%、ほかは運用の利回り
+ * （配分も利回りも入れていない運用の口座の率。世帯の欄の中に薄くその値）
+ */
 const ASSET_RETURNS: PremiseDef[] = ASSET_CLASSES.map(
   (o): PremiseDef => ({
     id: `assetReturns.${o.value}`,
@@ -120,8 +134,8 @@ const ASSET_RETURNS: PremiseDef[] = ASSET_CLASSES.map(
     ...(o.value === "realEstate"
       ? {}
       : isDepositClass(o.value)
-        ? { follows: { text: "預金の利回りと同じ", value: (a: Assumptions | undefined) => seriesDefault(a, "depositReturn") ?? seriesDefault(a, "investmentReturn") } }
-        : { follows: followsOf("investmentReturn", "運用利回りと同じ") }),
+        ? { follows: { text: "預金の利回りと同じ", hint: "預金の利回りと同じ", value: (a: Assumptions | undefined) => seriesDefault(a, "depositReturn") ?? seriesDefault(a, "investmentReturn") } }
+        : { follows: followsOf("investmentReturn", "運用の既定の利回りと同じ") }),
   }),
 );
 
@@ -249,7 +263,7 @@ export function typePremise(d: PremiseDef, wh: WorkingHousehold, v: string): Wor
   return w;
 }
 
-/** 事務所の今の既定値にする（「事務所の既定値に戻す」「今の既定値にする」・確かめの一覧の「この世帯に当てる」・欄を空にしたとき） */
+/** 事務所の今の既定値にする（「事務所の既定値に戻す」「今の既定値にする」・確かめの一覧の「この世帯に反映する」・欄を空にしたとき） */
 export function resetPremise(d: PremiseDef, wh: WorkingHousehold): WorkingHousehold {
   const off = officeDefault(d);
   let w = withRow(d, withoutMark(wh, d.key), undefined);
@@ -265,7 +279,19 @@ export function resetPremise(d: PremiseDef, wh: WorkingHousehold): WorkingHouseh
 export function premiseMark(d: PremiseDef, wh: WorkingHousehold): PremiseMark | null {
   const s = premiseState(d, wh);
   if (s === null) return null;
-  return { id: d.id, state: s.state, officeText: premiseText(d, s.now), ...(s.state !== "office" ? { wasText: premiseText(d, s.was) } : {}), decided: officeDecided(d), reset: resetterOf(d) };
+  // 戻した後の値（ほかの値と同じになる物は、その値。「戻す」のリンクと「この世帯だけ」の印の説明に出す）
+  const back = s.now ?? d.follows?.value(assumptionsOf(wh)) ?? null;
+  return {
+    id: d.id,
+    state: s.state,
+    officeText: premiseText(d, s.now),
+    ...(back !== null ? { officeValue: premiseText(d, back) } : {}),
+    ...(s.state !== "office" ? { wasText: premiseText(d, s.was) } : {}),
+    decided: officeDecided(d),
+    // 資産の種類ごとの利回りは4列の小さな欄なので、戻すリンクを短く（「戻す」）
+    ...(d.section === "assetReturns" ? { short: true } : {}),
+    reset: resetterOf(d),
+  };
 }
 
 /** 欄ごとに1つの「事務所の既定値にする」（同じ欄の見せ方を比較できるように、毎回作らない） */
@@ -283,16 +309,11 @@ function resetterOf(d: PremiseDef): (wh: WorkingHousehold) => WorkingHousehold {
 export const shownPremise = (d: PremiseDef, wh: WorkingHousehold): boolean => d.section !== "realEstate" || ownsRealEstate(wh);
 
 /**
- * お客さまと確かめる前提（前提条件の入力項目の最初の区画に、たたまずにいつも出す。0214 の追記 2026-11-16）。
- * 表を何歳まで見るかも同じ区画に出すが、事務所の既定値の欄の表（PREMISE_DEFS）には無い（既定の年齢だけが事務所の既定値）
+ * お客さまと一緒に確かめる前提（前提条件の入力項目の標準に出す率。物価・給与の上昇率。0214 の追記 2026-11-16・0260）。
+ * 表を何歳まで見るかも標準に出すが、事務所の既定値の欄の表（PREMISE_DEFS）には無い（既定の年齢だけが事務所の既定値）。
+ * 運用の利回りは 0260 で外した（世帯の入力の画面に出さない。stages/assumptions.ts の investmentReturnShown）
  */
-export const TALK_PREMISES: readonly string[] = ["inflation", "wageGrowth", "investmentReturn"];
-
-/**
- * お客さまと確かめる前提の区画のキー（前提条件の入力項目の最初の区画。物価・給与・運用の利回りと表を何歳まで見るか）。区画の中身の正は
- * stages/assumptions.ts の区画の定義で、確かめの一覧の行（checkRows.ts の section）と AI接続口の入力の確かめ（connector/check.ts）もこのキーで見分ける
- */
-export const TALK_PREMISE_SECTION = "assume/main";
+export const TALK_PREMISES: readonly string[] = ["inflation", "wageGrowth"];
 
 /** お客さまと確かめる前提の欄か（無ければ FP が決める細かい前提） */
 export const talkPremise = (d: PremiseDef): boolean => TALK_PREMISES.includes(d.id);
@@ -302,7 +323,7 @@ export type PremiseScope = "all" | "talk" | "fine";
 
 const inScope = (d: PremiseDef, scope: PremiseScope): boolean => scope === "all" || (scope === "talk") === talkPremise(d);
 
-/** たたんだ1行の数（この世帯だけ・事務所の既定値が変わった所） */
+/** この世帯だけの欄の数・事務所の既定値が変わった欄の数（入力のホームの要約の小さな1行） */
 export function premiseCounts(wh: WorkingHousehold, scope: PremiseScope = "all"): { own: number; changed: number } {
   let own = 0;
   let changed = 0;
@@ -313,34 +334,6 @@ export function premiseCounts(wh: WorkingHousehold, scope: PremiseScope = "all")
     else if (s?.state === "officeChanged") changed++;
   }
   return { own, changed };
-}
-
-/** 例外の年の数（年ごとの列の byYear を、続いた年で同じ率のまとまりで数える。前提条件の入力項目の「例外の年」のまとまりの数と同じ） */
-export function exceptionCount(wh: WorkingHousehold): number {
-  let n = 0;
-  for (const d of PREMISE_DEFS) {
-    if (!d.series || !shownPremise(d, wh)) continue;
-    const by = (getPath(assumptionsOf(wh), d.path) as { byYear?: Record<string, string> } | undefined)?.byYear ?? {};
-    let last: { y: number; r: string } | null = null;
-    for (const y of Object.keys(by).map(Number).sort((a, b) => a - b)) {
-      const r = by[String(y)] as string;
-      if (last === null || last.y !== y - 1 || !sameRate(last.r, r)) n++;
-      last = { y, r };
-    }
-  }
-  return n;
-}
-
-/**
- * たたんだ1行の文（FP が決める細かい前提。「細かい前提: 事務所の既定値どおり（この世帯だけ変えた所 0件）」）。
- * 事務所の既定値が変わった所・例外の年があれば、その数も添える（どれもたたんだ中にあり、開くまで見えないため）
- */
-export function premiseSummary(wh: WorkingHousehold): string {
-  const { own, changed } = premiseCounts(wh, "fine");
-  const ex = exceptionCount(wh);
-  const extra = [...(changed > 0 ? [`事務所の既定値が変わった所 ${changed}件`] : []), ...(ex > 0 ? [`例外の年 ${ex}件`] : [])];
-  if (own === 0) return `細かい前提: 事務所の既定値どおり（${["この世帯だけ変えた所 0件", ...extra].join("・")}）`;
-  return `細かい前提: 事務所の既定値と、この世帯だけ変えた所 ${own}件${extra.length > 0 ? `（${extra.join("・")}）` : ""}`;
 }
 
 /** 新しい世帯に、事務所で決めた前提条件を写す（写した欄に「事務所の既定値（年月）」の印。0073 の3・0214 の6） */
@@ -360,17 +353,22 @@ export function premiseShown(d: PremiseDef, wh: WorkingHousehold): string | null
   return premiseValue(d, wh) ?? d.absent();
 }
 
-/** ほかの値と同じになる物の、値が無いときの欄の横の言葉（「物価上昇率と同じ（1.0%）」。値があれば null） */
+/** ほかの値と同じになる物の、値が無いときの欄の下の言葉（「空欄: 物価の上昇率と同じ」。値は欄の中に薄く出す。値がある・短い言い方の無い物は null） */
 export function followsHint(d: PremiseDef, wh: WorkingHousehold): string | null {
+  if (d.follows?.hint === undefined || premiseValue(d, wh) !== null) return null;
+  return `空欄: ${d.follows.hint}`;
+}
+
+/** ほかの値と同じになる物の、値が無いときに計算に使う値（欄の中に薄く見せる。値がある・決まらない物は null） */
+export function followsValue(d: PremiseDef, wh: WorkingHousehold): string | null {
   if (d.follows === undefined || premiseValue(d, wh) !== null) return null;
-  const v = d.follows.value(assumptionsOf(wh));
-  return v === null ? d.follows.text : `${d.follows.text}（${pctText(v)}）`;
+  return d.follows.value(assumptionsOf(wh));
 }
 
 
 /**
  * 土地の割合・建物の残りの価値の下限・売却の費用（事務所の推定の値の物）で世帯に値の無い欄に、今の事務所の値を写し、「事務所の既定値（年月）」の印を
- * 付ける（0218）。新しい世帯を作るとき（事務所の既定値の写し）と、世帯を開いたとき（値の無い前の世帯）に当てる。値の無い欄は計算がその場の
+ * 付ける（0218）。新しい世帯を作るとき（事務所の既定値の写し）と、世帯を開いたとき（値の無い前の世帯）に使う。値の無い欄は計算がその場の
  * 事務所の値を使っているので、写しても計算の結果は変わらない。写した後に事務所の値を変えても世帯は変わらず、確かめの一覧に
  * 「事務所の既定値が変わりました」と出る（ほかの前提条件と同じ）。値のある欄・変えなかった世帯は同じものを返す。
  * value は事務所の値（新しい世帯に写すときの事務所データの値。省けば今の事務所の値）

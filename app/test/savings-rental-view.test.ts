@@ -137,13 +137,13 @@ describe("貯蓄・運用: 推定の印と言葉", () => {
     const f = fieldOf(wh, `sav/${nisa.id}/rate`);
     const s = fieldStatus(f, wh);
     expect(s.status).toBe("estimated");
-    expect(s.basis).toMatch(/^既定の値（(資産の配分|前提条件の運用利回り)/);
+    expect(s.basis).toMatch(/^既定の値（(資産の配分|配分も利回りも入れていない運用の口座の利回り)/);
     expect(estimatedFields(wh, "savings").some((x) => x.key === f.key)).toBe(false);
     // 預金は前提条件の預金の利回り
     const dep = { ...accOf(wh, "deposit"), expectedReturn: undefined, assetMix: undefined } as Account;
     expect(rateBasisOf(wh.request, dep)).toMatch(/預金の利回り 0\.1%/);
     const ideco = { ...accOf(open("investmentCouple"), "ideco"), expectedReturn: undefined, assetMix: undefined } as Account;
-    expect(rateBasisOf(wh.request, ideco)).toMatch(/前提条件の運用利回り/);
+    expect(rateBasisOf(wh.request, ideco)).toMatch(/配分も利回りも入れていない運用の口座の利回り .*（事務所の既定値の画面で決める率）/);
   });
 
   it("資産配分の表の資産の種類の名前は、前提条件の資産の種類ごとの利回りと同じ。列は「利回り（年・信託報酬を引く前）」", () => {

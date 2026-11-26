@@ -52,7 +52,7 @@ describe("選択肢", () => {
     expect(labels(wh)).toEqual(["ご本人が90歳まで", "ご本人が95歳まで", "ご本人が100歳まで", "ご本人が105歳まで", "配偶者が90歳まで", "配偶者が95歳まで", "配偶者が100歳まで（既定）", "配偶者が105歳まで", "年で決める…"]);
     expect(labels(wh).some((l) => l.includes("若い方"))).toBe(false);
     expect(endField(wh).get(wh).value).toBe("default");
-    expect(endField(wh).get(wh).hint).toBe("2083年まで（ご本人 102歳・配偶者 100歳の年）");
+    expect(endField(wh).get(wh).hint).toBe("2027年〜2083年の57年分（ご本人102歳・配偶者100歳の年まで）");
     expect(fieldStatus(endField(wh), wh).premise?.state).toBe("office");
   });
 
@@ -60,7 +60,7 @@ describe("選択肢", () => {
     // ご本人 1983年8月・配偶者 1981年4月
     const wh = open("advisoryFeeProposal");
     expect(labels(wh).filter((l) => l.includes("（既定）"))).toEqual(["ご本人が100歳まで（既定）"]);
-    expect(endField(wh).get(wh).hint).toBe("2083年まで（ご本人 100歳・配偶者 102歳の年）");
+    expect(endField(wh).get(wh).hint).toBe("2027年〜2083年の57年分（ご本人100歳・配偶者102歳の年まで）");
   });
 
   it("単身: ご本人の選択肢だけ", () => {
@@ -106,7 +106,7 @@ describe("選択肢", () => {
     expect(year.get(byYear).value).toBe(2083);
     const typed = year.set(byYear, 2090);
     expect(typed.request.input.endYear).toBe(2090);
-    expect(endField(typed).get(typed).hint).toBe("2090年まで（ご本人 109歳・配偶者 107歳の年）");
+    expect(endField(typed).get(typed).hint).toBe("2027年〜2090年の64年分（ご本人109歳・配偶者107歳の年まで）");
     // 前の版の世帯で、選択肢の外の年（決め方を持たない）
     const old = mutate(wh, (_h, req) => void (req.input.endYear = 2083 - 1));
     expect(endField(old).get(old).value).toBe("year");

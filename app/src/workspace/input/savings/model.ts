@@ -12,6 +12,7 @@ import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHous
 import { investCorrelation, isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { ASSET_CLASSES, RISKY_ASSET_CLASSES, withAccountLabel } from "../labels.ts";
 import { officeNow } from "../../office/current.ts";
+import { premiseOfKey, premiseState } from "../premiseDefaults.ts";
 import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 
 export type Method = "total" | "accounts" | "allocation";
@@ -264,8 +265,32 @@ const ACCOUNT_CASH_CLASS: Readonly<Record<string, string>> = { deposit: "cash.de
 const classLabel = (assetClass: string): string => ASSET_CLASSES.find((o) => o.value === assetClass)?.label ?? assetClass;
 
 /**
+ * 運用の利回り（配分も利回りも入れていない運用の口座の率。0260）の出どころの短い言葉: 事務所の既定値どおりなら「事務所の既定値」、
+ * 前の世帯の「この世帯だけ」の値なら「前提条件のこの世帯の値」、事務所の既定値が後で変わった値なら「前の事務所の既定値」
+ */
+export function investDefaultSource(wh: WorkingHousehold): string {
+  const d = premiseOfKey("assume/investmentReturn");
+  const st = d === undefined ? null : premiseState(d, wh);
+  return st === null || st.state === "office" ? "事務所の既定値" : st.state === "officeChanged" ? "前の事務所の既定値" : "前提条件のこの世帯の値";
+}
+
+/**
+ * 利回りを入れていない口座の、空欄の利回りの出どころの短い言葉（欄の下の「空欄: 年1.0%（事務所の既定値）」。0260）: 資産の配分があれば「資産の配分から」、
+ * 預金・外貨預金は「預金の利回り」（資産の種類ごとの利回りにあれば「資産の種類ごとの利回りの外貨預金」）、暗号資産は「今の評価額のまま」、
+ * ほかは運用の利回りの出どころ（investDefaultSource）。値は rateOf と同じ決まり
+ */
+export function rateSourceOf(wh: WorkingHousehold, a: Account): string {
+  if ((a.assetMix ?? []).length > 0) return "資産の配分から";
+  if (a.kind === "cryptoAsset") return "今の評価額のまま";
+  const cls = ACCOUNT_CASH_CLASS[a.kind];
+  if (cls !== undefined) return wh.request.input.assumptions?.assetReturns?.[cls] !== undefined ? `資産の種類ごとの利回りの${classLabel(cls)}` : "預金の利回り";
+  return investDefaultSource(wh);
+}
+
+/**
  * 利回りを入れていない口座の利回りの根拠の文（推定の印の中身。どこから来た値か）: 資産の配分があれば配分、預金・外貨預金は前提条件の
- * 預金の利回り（資産の種類ごとの利回りにあればそちら）、暗号資産は0%、ほかは前提条件の運用利回り。値は rateOf と同じ決まり
+ * 預金の利回り（資産の種類ごとの利回りにあればそちら）、暗号資産は0%、ほかは運用の利回り（配分も利回りも入れていない運用の口座の率。
+ * 事務所の既定値の画面で決める。0260）。値は rateOf と同じ決まり
  */
 export function rateBasisOf(req: EngineRequest, a: Account): string {
   const year = parseYm(req.input.baseMonth).y + 1;
@@ -278,7 +303,7 @@ export function rateBasisOf(req: EngineRequest, a: Account): string {
     if (classRate(req, cls, year).fromAssumption) return presetBasis(`前提条件の資産の種類ごとの利回りの${classLabel(cls)} ${rate}`);
     if (req.input.assumptions?.depositReturn !== undefined) return presetBasis(`前提条件の預金の利回り ${rate}`);
   }
-  return presetBasis(`前提条件の運用利回り ${rate}`);
+  return presetBasis(`配分も利回りも入れていない運用の口座の利回り ${rate}（事務所の既定値の画面で決める率）`);
 }
 
 // ---- 合計の入れ方とまだ分けていない分 ----

@@ -22,7 +22,7 @@
 //   0.26 から: 車のカード（0069。車の維持費の入れ方 cars[].upkeepMode と内訳の名前つきの行 cars[].upkeepOther。どれも任意）
 //   0.27 から: 前提条件と万一のタブの前提（0070・0071。万一の前提 contingency の子の独立とみなす年齢・業務上の死亡・必要保障額の出し方 protection・
 //   働き方を変える時点 work.<人>.from・復帰の後の働き方・収入が減る incomeDrop・下げる資産と戻り方・重ねる印 stackMarket、前提と推定の一覧の
-//   確かめた記録 agreed。どれも任意。万一の前提のプランごとの上書きは、向き先 {plan: "contingency"} の差分）
+//   確かめた記録 agreed〔0.92 でなくした〕。どれも任意。万一の前提のプランごとの上書きは、向き先 {plan: "contingency"} の差分）
 //   0.28 から: 年金のカード（0066・0067。入るお金の行の受給中の遺族年金・障害年金の種類 incomeFlows[].pensionType と、画面の側の
 //   年金の入れ方を切り替えたときに残した前の記録 pensionKept。どれも任意）
 //   0.29 から: 確かめの一覧の「次回確かめる」の印 recheck（0072。行の ID・付けたときのカードと見出し・付けた日。任意。印が無ければ欄を作らない）
@@ -154,6 +154,8 @@
 //   0.90 から: 資産配分の資産の種類ごとの信託報酬 allocation.fees と新興国の資産の種類（0252。本体の変換の段が配分全体の信託報酬を移す）
 //   0.91 から: 口座の預金から移す行 accounts[].fromDeposit（時期 at と額 amount。行の ID を持つ。0258）。足すだけ。本体の変換の段は版だけを
 //   書き換える（前の版の世帯は欄が無い＝移す行なし）
+//   0.92 から: 前提と推定の一覧の「お客さまと確かめた」記録 household.agreed（0.27 から）をなくした（0260）。本体の変換の段が外す（控え・
+//   sampleInitial の中は変えない。sampleInitial は使うときに変換の段を通る）。画面も読まない・書かない
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -227,7 +229,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.91";
+export const BODY_FORMAT_VERSION = "0.92";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -338,7 +340,9 @@ export function fromBody(json: string): BodyState {
   if (!isObj(raw) || !isObj(raw.household) || !isObj(raw.household.request)) throw new Error("E_BODY_SHAPE");
   const b = fromStoredBody(raw);
   if (!isObj(b.household) || !isObj(b.household.request)) throw new Error("E_BODY_SHAPE");
-  const { snapshots: _inHousehold, statements: _st, migrations: _mg, documents: _dc, meetings: _mt, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
+  // 前提と推定の一覧の「お客さまと確かめた」記録 agreed（0.27〜0.91。0260 でなくした）は読まない（本体の変換の段が 0.92 で外す。変換の段を通らない本文でも残さない）
+  const { snapshots: _inHousehold, statements: _st, migrations: _mg, documents: _dc, meetings: _mt, agreed: _agreed, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest; agreed?: unknown };
+  void _agreed;
   void _inHousehold;
   void _mt;
   void _st;

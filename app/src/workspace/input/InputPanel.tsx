@@ -46,8 +46,6 @@ import { nurseryMethodNote } from "./stages/education.ts";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
 import { deepEqual, UndoHistory } from "../undo/history.ts";
 import { guardPanel, settleInput } from "./pendingInput.ts";
-import { premiseSummary } from "./premiseDefaults.ts";
-import { inPremiseFold, PREMISE_FOLD_SECTIONS } from "./stages/assumptions.ts";
 import { LevelScroll } from "./levelScroll.ts";
 
 export interface InputPanelProps {
@@ -121,26 +119,8 @@ function jumpTo(el: HTMLElement): void {
   box.classList.add("jumped");
 }
 
-/**
- * 前提条件のたたんだ1行（「細かい前提: 事務所の既定値どおり（この世帯だけ変えた所 0件）」）と開け閉め。詳細のときだけ、FP が決める細かい前提と
- * 計算の決まりの区画（stages/assumptions.ts の PREMISE_FOLD_SECTIONS）の前に出す。お客さまと確かめる前提・結果のタブで動かした前提・FP顧問料はたたまない
- * （0214 の4・その追記 2026-11-16）
- */
-function PremiseFoldLine({ wh, open, onToggle }: { wh: WorkingHousehold; open: boolean; onToggle: () => void }) {
-  return (
-    <div class="ip-premise-fold" data-premise-fold={open ? "open" : "closed"}>
-      <button type="button" class="link-btn" aria-expanded={open} onClick={onToggle} data-premise-fold-toggle>
-        <span aria-hidden="true">{open ? "▾" : "▸"}</span> <span data-premise-summary>{premiseSummary(wh)}</span>
-        <span class="ip-premise-fold-act">{open ? "（閉じる）" : "（開いて全部の欄を見る）"}</span>
-      </button>
-    </div>
-  );
-}
-
 export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, onReadDoc, focusKey, focusAt, plan, groupOpen, docs }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(wh);
-  // 前提条件の細かい前提の区画は、ふだん1行にたたむ（0214 の4・その追記 2026-11-16）。確かめの一覧・検索からその欄へ来たときは開いて出す
-  const [premiseOpen, setPremiseOpen] = useState(() => itemId === "assumptions" && (inPremiseFold(focusKey) || inPremiseFold(focusAt?.key) || inPremiseFold(focusAt?.section)));
   const [dirty, setDirty] = useState(false);
   /** 保存していない変更があるか（描く前にも読めるように。閉じる前に打ちかけの値を決めた直後など） */
   const dirtyRef = useRef(false);
@@ -447,6 +427,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
         aria-labelledby="ip-title"
         style={{ "--c": item.color, ...(plan !== undefined ? { "--plan-c": plan.color } : {}) }}
         data-plan-edit={plan?.id}
+        data-item={itemId}
         onKeyDown={(e) => {
           if (e.key !== "Tab" || panel.current === null) return;
           const els = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.offsetParent !== null);
@@ -500,6 +481,12 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
             </Help>
             <CloseX onClose={tryClose} />
           </div>
+          {/* パネルの頭の1文（いつも出す。前提条件の「値は事務所の既定値です。…」。0260） */}
+          {stage.headNote !== undefined ? (
+            <p class="ip-headnote" data-panel-head-note>
+              {stage.headNote}
+            </p>
+          ) : null}
           {stageStart !== undefined ? (
             <p class="ip-docread" data-panel-read-doc={itemId}>
               <span>書類から読む: {stageStart.line}。</span>
@@ -603,12 +590,9 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
               <SectionLinks.Provider value={links}>
                 {/* 収益不動産: 上に物件の一覧（読むだけ。入力から出せる数字だけ。0079） */}
                 {itemId === "rental" ? <RentalOverview wh={shown} figures={rentalFig} /> : null}
-                {sections.map((s, i) => {
-                  const folded = itemId === "assumptions" && PREMISE_FOLD_SECTIONS.has(s.key);
-                  // たたんだ1行は、たたむ区画の最初の物の前に1つ（標準ではたたむ区画を出さないので、1行も出ない）
-                  const head = folded && sections.findIndex((x) => PREMISE_FOLD_SECTIONS.has(x.key)) === i ? <PremiseFoldLine key="premise-fold" wh={shown} open={premiseOpen} onToggle={() => setPremiseOpen(!premiseOpen)} /> : null;
-                  return [head, folded && !premiseOpen ? null : <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />];
-                })}
+                {sections.map((s) => (
+                  <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
+                ))}
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます</p> : null}
                 {/* 子ども・教育: 保育料を自動で計算している段の、年ごとの月の平均（読むだけ。0029 の追記 2026-10-30） */}
                 {itemId === "education" && nurseryFee.length > 0 ? (
@@ -690,10 +674,8 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                 {itemId === "inheritance" ? <InheritanceTimeline wh={shown} result={inheritance} /> : null}
                 {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
-                {/* 前提条件: 前提と推定の一覧（確かめた記録はプランごと。値は変えないので、プランを直していても差分にしない。0070） */}
-                {itemId === "assumptions" ? <AssumptionList wh={shown} planId={plan?.id ?? null} onAgree={(f) => commit({ ...latest.current, agreed: f(latest.current).agreed })} onLevel={(l) => switchLevel(l, false)} onReveal={(key) => {
-                  if (inPremiseFold(key)) setPremiseOpen(true);
-                }} /> : null}
+                {/* 前提条件: 前提と推定の一覧（読むだけ。行から前提条件の欄へ移れる。0070・0260） */}
+                {itemId === "assumptions" ? <AssumptionList wh={shown} onLevel={(l) => switchLevel(l, false)} /> : null}
                 {/* 年金: カードの下に年金の見込み（読むだけ。0067） */}
                 {itemId === "pension" ? <PensionEstimate wh={shown} est={pensionEst} /> : null}
               </SectionLinks.Provider>
