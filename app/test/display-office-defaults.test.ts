@@ -235,16 +235,48 @@ describe("世帯の表示の設定の画面の「事務所の既定値」「こ�
     const html = renderToString(h(DisplaySettingsPanel, { value: resolveDisplay(d, OFFICE_PAIR).result, onChange: () => undefined, onClose: () => undefined, feeAvailable: false, office: marks(d) }));
     expect(html).toContain('data-display-office="result.metrics"');
     expect(html).toContain('data-display-office="result.invPeriods"');
-    for (const id of ["result.atAge", "result.layout", "result.invBreakdown"]) {
+    for (const id of ["result.atAge", "result.invBreakdown"]) {
       expect(html).toContain(`data-display-household="${id}"`);
       expect(html).toContain(`data-display-reset="${id}"`);
     }
+    // 比較の仕方は印を出さない（この世帯だけの値でも）
+    expect(html).not.toContain('data-display-household="result.layout"');
+    expect(html).not.toContain('data-display-reset="result.layout"');
     expect(html).not.toContain('data-display-reset="result.metrics"');
     expect(html).toContain("事務所の既定値に戻す");
     // 事務所の今の既定値を説明に出す
     expect(html).toContain("事務所の既定値は 80歳");
     // 印を渡さなければ出さない（今までどおり）
     expect(renderToString(h(DisplaySettingsPanel, { value: OWN.result, onChange: () => undefined, onClose: () => undefined, feeAvailable: false }))).not.toContain("この世帯だけ");
+  });
+
+  it("比較の仕方: 事務所の既定値に従っていても、この世帯だけの値でも印を出さない（選択肢と、変えたら世帯の値になる動きはそのまま）", () => {
+    const panel = (d: StoredDisplay) =>
+      renderToString(h(DisplaySettingsPanel, { value: resolveDisplay(d, OFFICE_PAIR).result, onChange: () => undefined, onClose: () => undefined, feeAvailable: false, office: marks(d) }));
+    const all = [...OFFICE_DISPLAY_IDS];
+    // 全部が事務所の既定値に従う（新しく作る世帯）: ほかの4つは「事務所の既定値」、比較の仕方だけ印なし
+    const follows = panel({ ...OWN, followOffice: all });
+    for (const id of ["result.metrics", "result.atAge", "result.invBreakdown", "result.invPeriods"]) expect(follows).toContain(`data-display-office="${id}"`);
+    expect(follows).not.toContain("result.layout");
+    // 全部がこの世帯だけ（前からある世帯）: ほかの4つは「この世帯だけ」と「事務所の既定値に戻す」、比較の仕方だけ印なし
+    const own = panel({ ...OWN, followOffice: [] });
+    for (const id of ["result.metrics", "result.atAge", "result.invBreakdown", "result.invPeriods"]) expect(own).toContain(`data-display-reset="${id}"`);
+    expect(own).not.toContain("result.layout");
+    // 「重ねる（既定）」の説明の文の終わりに「（既定）」を重ねて書かない（見出しにあるため）
+    expect(follows).toContain("重ねる（既定）<small>1つのグラフに基準のプラン（点線）と選んだプランを重ねる</small>");
+    // 選択肢は3つのまま
+    for (const key of ["overlay", "side", "all"]) expect(follows).toContain(`data-layout="${key}"`);
+    // その世帯で比較の仕方を変えると、比較の仕方だけがこの世帯だけの値になる（ほかの設定は従うまま。印は出さないまま）
+    const d: StoredDisplay = { ...OWN, followOffice: all };
+    const before = resolveDisplay(d, OFFICE_PAIR);
+    const pick = before.result.layout === "all" ? "overlay" : "all";
+    const after = withOwnChange(d, before, { ...before, result: { ...before.result, layout: pick } });
+    expect(followsOffice(after, "result.layout")).toBe(false);
+    for (const id of ["result.metrics", "result.atAge", "result.invBreakdown", "result.invPeriods"] as const) expect(followsOffice(after, id)).toBe(true);
+    expect(resolveDisplay(after, OFFICE_PAIR).result.layout).toBe(pick);
+    const afterHtml = panel(after);
+    expect(afterHtml).not.toContain("result.layout");
+    expect(afterHtml).not.toContain("この世帯だけ");
   });
 
   it("資産と負債のタブ: 既定の時点・家計の体力の目安・目安の幅・お金の3つの分け方の4つの設定に印を出す", () => {
@@ -268,6 +300,8 @@ describe("世帯の表示の設定の画面の「事務所の既定値」「こ�
 
   it("事務所の既定値の画面の区画: 11件を決められる（並べる時点・対策に足した項目は出さない）", () => {
     const html = renderToString(h(DisplayDefaultsSection, { value: OFFICE_PAIR, onChange: () => undefined }));
+    // 比較の仕方は世帯の表示の設定に「事務所の既定値に戻す」を出さないので、説明でも除く
+    expect(html).toContain("「事務所の既定値に戻す」で従うようにできます。比較の仕方を除く）");
     expect(html).toContain("結果のタブ・資産と負債のタブの表示の設定");
     for (const k of ["data-office-display-metrics", "data-office-display-age", "data-office-display-layout", "data-office-inv-breakdown", "data-office-inv-periods", "data-office-display-points", "data-office-health", "data-guide-basis", "data-office-m3-names", "data-office-m3-months", "data-office-m3-years"]) expect(html).toContain(k);
     expect(html).toContain("世帯から決める");
