@@ -446,10 +446,10 @@ describe("見本の世帯の計算の結果は変わらない（0214 の6）", (
 });
 
 describe("事務所の既定値の画面の前提条件（0214 の1・4）", () => {
-  it("経済の前提・不動産の評価・資産の種類ごとの利回りの3つの区画。不動産の評価と資産の種類ごとの利回りは小さな欄の並び", () => {
+  it("経済の前提・不動産の評価・資産の種類ごとの利回りの3つの区画。資産の種類ごとの利回りと耐用年数は4列の小さな欄の並び", () => {
     const html = renderToString(h(OfficeSettingsPanel, { value: OFFICE, onSave: async () => undefined, shared: false, onClose: noop }));
     for (const sec of ["economy", "realEstate", "assetReturns"]) expect(html).toContain(`data-office-premises="${sec}"`);
-    expect(html.match(/class="os-grid os-compact"/g)).toHaveLength(2);
+    expect(html.match(/class="os-fields os-cols4"/g)).toHaveLength(2);
     for (const d of PREMISE_DEFS) expect(html, d.id).toContain(`data-office-setting="${d.id}"`);
     // 決めた値は欄に入っている（％・年）
     expect(html).toMatch(/value="30"[^>]*data-office-setting="realEstateValuation.usefulLife.wood"/);

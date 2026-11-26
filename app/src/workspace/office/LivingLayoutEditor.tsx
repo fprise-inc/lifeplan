@@ -3,6 +3,7 @@
 import { livingCategoryAverages } from "../../../../hearing/src/estimates.ts";
 import { apportion, hiddenCategories, LIVING_LABEL_MAX, LIVING_PARTS_MAX, LIVING_PARTS_MIN, partShares, readLivingLayout, rowCategories, rowLabel, rowMembers, STANDARD_LIVING_LAYOUT, STANDARD_LIVING_NAMES, type LivingLayout, type LivingRow, type LivingRowCategory } from "./livingLayout.ts";
 import { LIVING_CATEGORY_ORDER } from "../input/estimates.ts";
+import { OfficeSection } from "./OfficeFields.tsx";
 
 export interface LivingLayoutEditorProps {
   /** 今の並べ方（無ければ標準） */
@@ -135,12 +136,13 @@ export function LivingLayoutEditor({ value, onChange }: LivingLayoutEditorProps)
   };
   const preview = previewRows(readLivingLayout(layout) ?? STANDARD_LIVING_LAYOUT);
   return (
-    <section class="os-sec" aria-labelledby="os-living" data-office-living>
-      <h3 id="os-living">基本生活費の内訳の並べ方</h3>
-      <p class="pl-sub">
-        基本生活費の入力項目の「内訳（月額）」に出す行です。名前を変える・まとめる（例: 水道・光熱費と通信費を「固定費」の1行に）・隠す・1つの内訳を分ける（例: 食費を自炊と外食に）ができます。どの世帯にもすぐ効きます。
-        計算は10の内訳のまま、推定も同じで、並べ方を変えただけでは世帯の値も結果も変わりません。まとめた行に入れた額は、今の内訳の額の割合（どれも0円なら同じ人数の世帯の平均の割合）で分けて計算します。隠した内訳は「その他」の行に入れます。
-      </p>
+    <OfficeSection
+      id="os-living"
+      title="基本生活費の内訳の並べ方"
+      help="名前を変える・まとめる（例: 水道・光熱費と通信費を「固定費」の1行に）・隠す・1つの内訳を分ける（例: 食費を自炊と外食に）ができます。計算は10の内訳のまま、推定も同じで、並べ方を変えただけでは世帯の値も結果も変わりません。まとめた行に入れた額は、今の内訳の額の割合（どれも0円なら同じ人数の世帯の平均の割合）で分けて計算します。隠した内訳は「その他」の行に入れます。"
+      lead="基本生活費の入力項目の「内訳（月額）」に出す行です。どの世帯にもすぐ効きます。"
+      data={{ "data-office-living": "" }}
+    >
       <div class="os-lv">
         <ol class="os-lv-rows">
           {rows.map((r, i) => {
@@ -152,7 +154,8 @@ export function LivingLayoutEditor({ value, onChange }: LivingLayoutEditorProps)
               <li key={key} class="os-lv-row" data-office-living-row={key}>
                 <div class="os-lv-head">
                   <input
-                    class="os-lv-name"
+                    type="text"
+                    class="txt os-lv-name"
                     value={r.kind === "group" ? r.label : (r.label ?? "")}
                     placeholder={r.kind === "group" ? "まとめた行の名前" : STANDARD_LIVING_NAMES[r.category]}
                     maxLength={LIVING_LABEL_MAX}
@@ -200,11 +203,12 @@ export function LivingLayoutEditor({ value, onChange }: LivingLayoutEditorProps)
                   <div class="os-lv-parts" data-office-living-parts={key}>
                     {r.parts.map((p, k) => (
                       <div class="os-lv-part" key={k}>
-                        <input value={p.label} maxLength={LIVING_LABEL_MAX} aria-label={`${nameOf(r)}の分けた行 ${k + 1} の名前`} onInput={(e) => setPart(i, k, { label: (e.currentTarget as HTMLInputElement).value })} data-office-living-part={`${key}:${k}`} />
-                        <span class="os-in">
-                          <input inputMode="numeric" size={3} value={p.share === undefined ? "" : String(p.share)} placeholder={String(partShares(r.parts)[k] ?? "")} aria-label={`${p.label}の割合`} onInput={(e) => setPart(i, k, { share: (e.currentTarget as HTMLInputElement).value })} data-office-living-share={`${key}:${k}`} />%
+                        <input type="text" class="txt" value={p.label} maxLength={LIVING_LABEL_MAX} aria-label={`${nameOf(r)}の分けた行 ${k + 1} の名前`} onInput={(e) => setPart(i, k, { label: (e.currentTarget as HTMLInputElement).value })} data-office-living-part={`${key}:${k}`} />
+                        <span class="fld-in">
+                          <input type="text" class="num os-num-xs" inputMode="numeric" value={p.share === undefined ? "" : String(p.share)} placeholder={String(partShares(r.parts)[k] ?? "")} aria-label={`${p.label}の割合`} onInput={(e) => setPart(i, k, { share: (e.currentTarget as HTMLInputElement).value })} data-office-living-share={`${key}:${k}`} />
+                          <span class="suffix">%</span>
                         </span>
-                        <button type="button" class="link-btn" disabled={r.parts.length <= LIVING_PARTS_MIN} onClick={() => dropPart(i, k)}>
+                        <button type="button" class="link-btn danger" disabled={r.parts.length <= LIVING_PARTS_MIN} onClick={() => dropPart(i, k)}>
                           外す
                         </button>
                       </div>
@@ -229,7 +233,7 @@ export function LivingLayoutEditor({ value, onChange }: LivingLayoutEditorProps)
           })}
         </ol>
         <div class="os-lv-preview" data-office-living-preview>
-          <h4>見え方（{PREVIEW_SIZE}人の世帯の平均の額で）</h4>
+          <h5 class="os-grp-h">見え方（{PREVIEW_SIZE}人の世帯の平均の額で）</h5>
           <table>
             <tbody>
               {preview.map((p, i) => (
@@ -259,11 +263,11 @@ export function LivingLayoutEditor({ value, onChange }: LivingLayoutEditorProps)
           ))}
         </p>
       ) : null}
-      <p class="pl-sub">
+      <p class="os-acts">
         <button type="button" class="link-btn" onClick={() => onChange(undefined)} data-office-living-reset>
           既定の並べ方に戻す（10の内訳を標準の名前で）
         </button>
       </p>
-    </section>
+    </OfficeSection>
   );
 }

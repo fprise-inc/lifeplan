@@ -1,4 +1,4 @@
-// 事務所の既定値の画面の「AIからの表示の設定の案」（0215。接続口の propose_display_settings）: AI が出した案を設定ごとに「今 → 案」で並べ、
+// 事務所の既定値の「結果と万一の画面」のいちばん上の「AIからの表示の設定の案」（0215。接続口の propose_display_settings）: AI が出した案を設定ごとに「今 → 案」で並べ、
 // FP が「反映する」か「捨てる」を選ぶ。反映した設定は、すぐ事務所の既定値に保存する（パネルの「保存」は要らない）。
 // 「前の値に戻す」: 反映する前の値（事務所データの前の値。office/displayHistory.ts）を、設定ごとに新しい順に出し、押すとその値に戻す。
 // - AI が書いた理由は、信用しない文章として文字のまま出す（AIからの候補の画面と同じ）。案の値は画面が確かめ直し、確かめられない案は「捨てる」だけ
@@ -60,7 +60,7 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
   };
   return (
     <section class="os-sec" aria-labelledby="os-ai-display" data-office-ai-display>
-      <h3 id="os-ai-display">AIからの表示の設定の案</h3>
+      <h4 id="os-ai-display" class="os-h">AIからの表示の設定の案</h4>
       {candidates.length > 0 ? (
         <p class="pl-sub">
           AIが出したのは案だけです。設定ごとに今と案を確かめて、「反映する」を押した設定だけが事務所の既定値に入ります（すぐ保存します。パネルの「保存」は要りません）。見せ方だけの設定なので、世帯の値も計算の結果も変わりません。反映した後も「前の値に戻す」で戻せます。
@@ -154,7 +154,7 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
       ))}
       {restorable.length > 0 ? (
         <div class="os-lever-group" data-display-history>
-          <h4>前の値に戻す</h4>
+          <h5 class="os-grp-h">前の値に戻す</h5>
           <p class="pl-sub">AIの案を反映する前の値です（設定ごとに新しい方から{DISPLAY_HISTORY_MAX}件まで）。戻すと、戻す前の値もここに残ります。</p>
           {restorable.map((id) => {
             const { label } = labelOf(id);
