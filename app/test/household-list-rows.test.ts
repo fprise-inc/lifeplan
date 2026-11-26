@@ -173,11 +173,11 @@ describe("顧客の一覧の行（0244）", () => {
 describe("見本の一覧の行（0244）", () => {
   it("行に見せるのは「開く」「この見本をもとに顧客を作る」「ほかの操作」。はじめから入っている見本の「ほかの操作」は「複製する」だけ", () => {
     const { html } = render({ initialTab: "samples" });
-    const r = rowHtml(html, "data-sample-row", "salariedCoupleTwoKids");
+    const r = rowHtml(html, "data-sample-row", "sampleCoupleTwoKidsPeak");
     expect(shown(r)).toEqual(["開く", "この見本をもとに顧客を作る", "ほかの操作"]);
     expect(inside(r)).toEqual(["複製する"]);
     expect(moreHidden(r)).toBe(true);
-    expect(r).toContain(`title="${COPY_SAMPLE_TITLE}" data-copy-sample="salariedCoupleTwoKids"`);
+    expect(r).toContain(`title="${COPY_SAMPLE_TITLE}" data-copy-sample="sampleCoupleTwoKidsPeak"`);
   });
 
   it("自分で作った見本の「ほかの操作」は 複製する・名前と項目を直す・完全削除（危ない段）", () => {
@@ -189,13 +189,13 @@ describe("見本の一覧の行（0244）", () => {
   });
 
   it("「アプリ」の印を出さない。開いている見本は「開く」の場所に「開いています」（番号の右には出さない）", () => {
-    const { html } = render({ initialTab: "samples", currentSample: "salariedCoupleTwoKids" });
+    const { html } = render({ initialTab: "samples", currentSample: "sampleCoupleTwoKidsPeak" });
     expect(html).not.toContain("hh-app");
     expect(html).not.toMatch(/>アプリ<\/span>/);
-    const r = rowHtml(html, "data-sample-row", "salariedCoupleTwoKids");
+    const r = rowHtml(html, "data-sample-row", "sampleCoupleTwoKidsPeak");
     // 見本番号の列は無い（行は名前から始まる。0247）
     expect(r).not.toContain("3-4-01");
-    expect(r).toMatch(/<td class="hh-wrap"><span data-sample-name-cell[^>]*>会社員の夫婦と子2人<\/span><\/td>/);
+    expect(r).toMatch(/<td class="hh-wrap"><span data-sample-name-cell[^>]*>会社員の夫婦と子2人・40代（教育費のピーク）<\/span><\/td>/);
     expect(shown(r)).toEqual(["開いています", "この見本をもとに顧客を作る", "ほかの操作"]);
     expect(r).toContain("data-sample-current");
     for (const id of shelf.map((s) => s.id)) expect(rowHtml(html, "data-sample-row", id)).not.toContain("hh-tags\"><span class=\"pl-tag");
@@ -203,7 +203,7 @@ describe("見本の一覧の行（0244）", () => {
 
   it("保存の部品を使えないとき: はじめからの見本は「開く」だけ（ほかの操作も無い）。自分で作った見本は「ほかの操作」に 名前と項目を直す・完全削除", () => {
     const { html } = render({ initialTab: "samples", unavailable: "保存の部品を使えません" });
-    const app = rowHtml(html, "data-sample-row", "salariedCoupleTwoKids");
+    const app = rowHtml(html, "data-sample-row", "sampleCoupleTwoKidsPeak");
     expect(shown(app)).toEqual(["開く"]);
     expect(inside(app)).toBeNull();
     expect(inside(rowHtml(html, "data-sample-row", "own-1"))).toEqual(["名前と項目を直す", "完全削除"]);

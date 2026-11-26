@@ -17,6 +17,7 @@ import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { bigMoneyOf } from "../src/workspace/bigMoney.ts";
 import { BigMoneyCard } from "../src/workspace/BigMoneyCard.tsx";
 import { DEMO_HOUSEHOLDS } from "../src/workspace/catalog.ts";
+import { OFF_SHELF_DEMOS } from "../src/workspace/samples/sets.ts";
 import { addMonths } from "../src/workspace/levers.ts";
 import { dreamSummary } from "../../report/src/dreams.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -323,8 +324,9 @@ describe("夢プランの見本の世帯（sampleFamilyDreams。架空）", () =
   const raw = modelHousehold("sampleFamilyDreams");
   const h = raw.input.household;
 
-  it("見本の棚にあり、夢は7件（計算に入れる4件・入れない3件、額の無い夢・何年ごと・毎年の夢を混ぜる）。ふつうの出るお金の行も1件ある", () => {
-    expect(DEMO_HOUSEHOLDS.find((d) => d.id === "sampleFamilyDreams")).toMatchObject({ family: 3, age: 4, title: "共働きの夫婦と子2人・40代（夢プランの見本）" });
+  it("見本の設定が残り（棚からは外した。教育費のピークの見本が同じ夢7件を持つ。0247 の9）、夢は7件（計算に入れる4件・入れない3件、額の無い夢・何年ごと・毎年の夢を混ぜる）。ふつうの出るお金の行も1件ある", () => {
+    expect(DEMO_HOUSEHOLDS.some((d) => d.id === "sampleFamilyDreams")).toBe(false);
+    expect(OFF_SHELF_DEMOS.find((d) => d.id === "sampleFamilyDreams")).toMatchObject({ family: 3, age: 4, title: "共働きの夫婦と子2人・40代（夢プランの見本）" });
     const list = dreamRows(h);
     expect(list.map((p) => [p.label, p.dream?.include !== false, p.amount.value])).toEqual([
       ["家族で海外旅行", true, 1200000],

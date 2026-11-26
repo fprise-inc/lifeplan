@@ -24,8 +24,9 @@ const r = preview(req);
 const plan = bsPlan({ key: "A", letter: "A", name: "プランA", title: "現状", base: true, req, table: r.table });
 
 describe("入力の中身（BS・資産運用・資産と負債のタブの機能が全部働く）", () => {
-  it("見本の一覧から選べる。架空の世帯（氏名・識別子を持たない）", () => {
-    expect(DEMO_HOUSEHOLDS.map((d) => d.id)).toContain(ID);
+  it("見本の設定が残る（棚からは外し、同じ中身に運用の入れ方を寄せた見本を棚に出した。0247 の9）。架空の世帯（氏名・識別子を持たない）", () => {
+    expect(DEMO_HOUSEHOLDS.map((d) => d.id)).not.toContain(ID);
+    expect(DEMO_HOUSEHOLDS.map((d) => d.id)).toContain("sampleDualAssetsInvest");
     expect(demo.title).toBe("共働きの夫婦と子2人（資産が多め）");
     const text = JSON.stringify(req);
     expect(text).not.toMatch(/"(name|fullName|kana|address|phone|email)"/);
