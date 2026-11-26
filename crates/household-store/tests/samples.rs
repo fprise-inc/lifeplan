@@ -1686,3 +1686,101 @@ fn sample_groups_are_kept_on_every_path() {
     assert_eq!(group_of(&s, &x.id).as_deref(), Some("セミナー用"));
     assert_eq!(group_of(&s, &c.id).as_deref(), Some("相談会"));
 }
+
+/// 見本のグループの欄（0247 の追記 2026-11-26）: 事務所データの形式の版 0.4。0.3 の事務所データ（前の版のアプリが書いた、グループの欄の無い形）は
+/// ふつうに開けて（閲覧だけにしない・移行の写しも作らない）、次に書くときに 0.4 で書く。一覧の欄の見本はグループの欄を持つ
+#[test]
+fn office_data_0_3_opens_and_is_written_as_0_4_with_groups() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let own = make(&s, sample(3, 4, "前からの見本"));
+    let e = make(&s, edited("sampleSingleParent", "ひとり親と子2人・30代"));
+    let office = s.office_json_for_test().unwrap();
+    assert!(office["households"][&own.id]["sample"]
+        .get("group")
+        .is_none());
+    s.write_office_json_for_test(&office, "0.3").unwrap();
+    let s = env.store("pc");
+    let st = s.status().unwrap();
+    assert!(!st.office_too_new);
+    assert!(st.sample_renames.is_empty());
+    assert_eq!(s.office_before_migration_for_test().unwrap(), None);
+    assert_eq!(
+        s.office_version_for_test().unwrap(),
+        "0.3",
+        "開いただけでは書かない"
+    );
+    assert_eq!(shelf(&s)[&own.id].0, "前からの見本");
+    assert_eq!(shelf(&s)[&e.id].0, "ひとり親と子2人・30代");
+    // 次に書くとき（見本を作る）に 0.4 で書き、一覧の欄にグループの欄が入る
+    let g = make(
+        &s,
+        SampleRequest {
+            group: Some("セミナー用".into()),
+            ..sample(3, 4, "グループの見本")
+        },
+    );
+    assert_eq!(
+        s.office_version_for_test().unwrap(),
+        household_store::OFFICE_FORMAT_VERSION
+    );
+    assert_eq!(household_store::OFFICE_FORMAT_VERSION, "0.4");
+    let office = s.office_json_for_test().unwrap();
+    assert_eq!(office["households"][&g.id]["sample"]["group"], "セミナー用");
+    assert!(office["households"][&own.id]["sample"]
+        .get("group")
+        .is_none());
+    // 開き直しても残る
+    let s = env.store("pc");
+    s.status().unwrap();
+    let listed = s.list_samples().unwrap();
+    let gi = listed.iter().find(|x| x.id == g.id).unwrap();
+    assert_eq!(
+        gi.label.sample.as_ref().unwrap().group.as_deref(),
+        Some("セミナー用")
+    );
+}
+
+/// 見本のグループの欄（0247 の追記 2026-11-26）: 事務所の共有（共有フォルダの形式 0.3）でも、一覧の欄のファイルにグループの欄を書き、
+/// ほかのメンバーの一覧・名前と項目を直す・保存のどの道でも落とさない
+#[test]
+fn sample_groups_are_shared_by_the_office() {
+    let env = Env::new();
+    let (a, b) = office_pair(&env);
+    let x = make(
+        &a,
+        SampleRequest {
+            group: Some("セミナー用".into()),
+            ..sample(3, 4, "事務所の研修用")
+        },
+    );
+    let group_of = |store: &Store| {
+        store
+            .list_samples()
+            .unwrap()
+            .into_iter()
+            .find(|e| e.id == x.id)
+            .unwrap()
+            .label
+            .sample
+            .unwrap()
+            .group
+    };
+    assert_eq!(group_of(&b).as_deref(), Some("セミナー用"));
+    assert_eq!(
+        a.card_json_for_test(&x.id).unwrap()["sample"]["group"],
+        "セミナー用"
+    );
+    b.update_sample(&x.id, "事務所の研修用・直した", &[], 2, 5, &[])
+        .unwrap();
+    let o = b.open(&x.id).unwrap();
+    let c = changed_body(&o, |v| v["proposals"][0]["title"] = "C案".into());
+    b.save(&x.id, &c, "本人").unwrap();
+    assert_eq!(group_of(&a).as_deref(), Some("セミナー用"));
+    assert_eq!(group_of(&b).as_deref(), Some("セミナー用"));
+    assert_eq!(
+        b.raw_body_for_test(&x.id).unwrap()["meta"]["sample"]["group"],
+        "セミナー用"
+    );
+}

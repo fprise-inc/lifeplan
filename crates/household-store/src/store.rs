@@ -64,7 +64,7 @@ const OFFICE_FORMAT: &str = "lifeplan.officeData";
 /// この PC の事務所データ（officeData）の形式の版。読む側の決まり（0222 で決めた）: このアプリが知らない新しい版（MINOR を含む）の事務所データは、
 /// 読んで使うが書かない（閲覧だけ。世帯ファイルの新しい版と同じ考え方）。前の版のアプリは知らない欄を読み落として書き戻し、新しい版が足した欄
 /// （鍵を含む Web のヒアリングの依頼など）を消すため
-pub const OFFICE_FORMAT_VERSION: &str = "0.3";
+pub const OFFICE_FORMAT_VERSION: &str = "0.4";
 
 /// これまでの事務所データの形式の版（古い順）。消さない
 /// - 0.1: 最初の版
@@ -73,7 +73,11 @@ pub const OFFICE_FORMAT_VERSION: &str = "0.3";
 ///   最初の状態から変わっているか `changed`）を持つ形にした。見本の表示の番号は空（0247 の1）。前の形の見本は開いたときに1回だけ直す
 ///   （番号を外し、家族の形・年代を番号から読み、名前の重なりに「（2）」を付ける。0247 の8）。0.2 までのアプリは `no` の無い見本を
 ///   読めないので、見本のある 0.3 の事務所データは開けない（更新の後に前の版へ戻すときは、更新の前の毎日の写しから戻す）
-pub const OFFICE_KNOWN: &[&str] = &["0.1", "0.2", "0.3"];
+/// - 0.4: 一覧の欄の見本 `sample` に、任意の欄 `group`（FP が名前を付けた見本のグループの名前。前後の空白を除き、空なら持たない。セットの見本を
+///   直した版は持たない。0247 の追記 2026-11-26）を足した（足すだけの MINOR。世帯ファイルの 0.93・共有フォルダの形式の 0.3 と同じ欄）。読む側の
+///   変換は無い（0.3 までの見本は欄が無い＝グループに入っていない。次に事務所データを書くときに 0.4 で書く）。0.3 のアプリは新しい版の事務所データを
+///   閲覧だけで開くので、欄を落として書き戻さない
+pub const OFFICE_KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4"];
 
 /// 事務所データの形式の版が、このアプリの知っている版より新しいか（形の読めない版も新しいとみなす: 書かない側に倒す）
 pub fn office_version_too_new(v: &str) -> bool {
@@ -1102,6 +1106,15 @@ impl Store {
         let bytes = container::seal(OFFICE_MAGIC, &container::header_json(&h), &k, &nonce, &body);
         atomic::replace(&self.office_data_path(), &bytes, FailPoint::None)?;
         Ok(())
+    }
+
+    /// 試験用: 今の事務所データのファイルの形式の版（見出しの版）
+    #[doc(hidden)]
+    pub fn office_version_for_test(&self) -> Result<String, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let b = fs::read(self.office_data_path()).map_err(|_| StoreError::IO)?;
+        Ok(decode_office_versioned(&b, &s.master)?.1)
     }
 
     /// 試験用: 移行の前の事務所データの写しの中身（JSON）と形式の版（無ければ None）

@@ -36,6 +36,8 @@ const MEMBER_E: &str = "0f0f0f0f-0000-4000-8000-0000000000e1";
 const HOUSEHOLD: &str = "0f0f0f0f-0000-4000-8000-000000000101";
 /// 見本の世帯（0.2 から。見本の一覧の欄のファイルの形を固定する。0247）
 const SAMPLE_HOUSEHOLD: &str = "0f0f0f0f-0000-4000-8000-000000000102";
+/// グループに入った自分で作った見本の世帯（0.3 から。見本のグループの欄の形を固定する。0247 の追記 2026-11-26）
+const GROUP_SAMPLE_HOUSEHOLD: &str = "0f0f0f0f-0000-4000-8000-000000000103";
 const HOUSEHOLD_KEY: &str = "0f0f0f0f-0000-4000-8000-000000000201";
 const HOUSEHOLD_KEY_OLD: &str = "0f0f0f0f-0000-4000-8000-000000000202";
 const DEVICE: &str = "0f0f0f0f-0000-4000-8000-000000000301";
@@ -153,6 +155,10 @@ fn open_all(dir: &Path) -> Value {
     let sample_card = std::fs::read(p.card(SAMPLE_HOUSEHOLD))
         .ok()
         .map(|b| office::open_card(&b, SAMPLE_HOUSEHOLD, lookup).unwrap());
+    // 0.3 から: グループに入った自分で作った見本の一覧の欄のファイル（0247 の追記 2026-11-26）
+    let group_card = std::fs::read(p.card(GROUP_SAMPLE_HOUSEHOLD))
+        .ok()
+        .map(|b| office::open_card(&b, GROUP_SAMPLE_HOUSEHOLD, lookup).unwrap());
     let mut out = json!({
         "officeFile": of,
         "roster": roster_view(&r),
@@ -166,6 +172,9 @@ fn open_all(dir: &Path) -> Value {
     });
     if let Some(c) = sample_card {
         out["sampleCard"] = serde_json::to_value(c).unwrap();
+    }
+    if let Some(c) = group_card {
+        out["groupSampleCard"] = serde_json::to_value(c).unwrap();
     }
     out
 }
@@ -240,6 +249,28 @@ fn every_shared_format_version_has_a_fixture_and_opens() {
             assert_eq!(sc["sample"]["origin"]["set"], "official.basic");
         } else {
             assert!(got.get("sampleCard").is_none());
+        }
+        // 0.3 から: 自分で作った見本の一覧の欄のファイルは、見本のグループ group を持てる（0247 の追記 2026-11-26）。前の版の見本は欄が無い
+        if migrate::parse(v).unwrap() >= (0, 3) {
+            let gc = &got["groupSampleCard"];
+            assert_eq!(gc["sample"]["group"], "セミナー用", "{v}: 見本のグループ");
+            assert!(gc["sample"].get("origin").is_none());
+            let c = office::open_card(
+                &std::fs::read(p.card(GROUP_SAMPLE_HOUSEHOLD)).unwrap(),
+                GROUP_SAMPLE_HOUSEHOLD,
+                lookup,
+            )
+            .unwrap();
+            let again = office::open_card(
+                &office::encode_card(OFFICE, MASTER_ID, GROUP_SAMPLE_HOUSEHOLD, &c, &master),
+                GROUP_SAMPLE_HOUSEHOLD,
+                lookup,
+            )
+            .unwrap();
+            assert_eq!(again, c, "{v}: グループの欄を書き直しても落とさない");
+        } else {
+            assert!(got.get("groupSampleCard").is_none());
+            assert!(got["sampleCard"]["sample"].get("group").is_none());
         }
     }
 }
@@ -429,6 +460,43 @@ fn regenerate_shared_fixture() {
     std::fs::write(
         p.card(SAMPLE_HOUSEHOLD),
         office::encode_card(OFFICE, MASTER_ID, SAMPLE_HOUSEHOLD, &sample_card, &master),
+    )
+    .unwrap();
+    // グループに入った自分で作った見本の一覧の欄のファイル（0.3 から。0247 の追記 2026-11-26）
+    let group_card = Card {
+        customer_no: String::new(),
+        summary: "本人・配偶者・子2".into(),
+        created_at: "2026-11-26T10:00:00Z".into(),
+        updated_at: "2026-11-26T11:00:00Z".into(),
+        updated_by: Some(Author {
+            member_id: MEMBER_B.into(),
+            name: "見本の担当B".into(),
+        }),
+        generation: 3,
+        label: Label {
+            sample: Some(SampleInfo {
+                name: "セミナー用の見本".into(),
+                traits: vec!["会社員".into()],
+                family: 3,
+                age: 4,
+                origin: None,
+                group: Some("セミナー用".into()),
+                changed: true,
+                legacy_no: None,
+            }),
+            ..Label::default()
+        },
+        extra: Default::default(),
+    };
+    std::fs::write(
+        p.card(GROUP_SAMPLE_HOUSEHOLD),
+        office::encode_card(
+            OFFICE,
+            MASTER_ID,
+            GROUP_SAMPLE_HOUSEHOLD,
+            &group_card,
+            &master,
+        ),
     )
     .unwrap();
     let presence = office::Presence {
