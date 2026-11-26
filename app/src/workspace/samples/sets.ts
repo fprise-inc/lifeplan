@@ -462,22 +462,24 @@ export const OFF_SHELF_DEMOS: readonly DemoHousehold[] = [
  */
 const CORPORATE_OWNER: readonly DemoHousehold[] = [
   // 2026-11-11 に足した見本（架空）: 合算BS（会社と合わせたバランスシート）を見せる世帯。会社の数字も入れておく（0197 の1）。
-  // 会社の名前は出さない（数字だけ）
+  // 会社の名前は出さない（数字だけ）。2026-11-26 に「平均的な中小企業の経営者」の数字に直した（rev 2。0247 の10）。
+  // 会社の試算表は中小企業庁「中小企業実態基本調査」令和7年確報（令和6年度決算）の売上高1億円超〜5億円の法人の1社あたりの額を丸めた値。
+  // 根拠の一覧は data/modelHouseholds/README.md
   {
     id: "sampleOwnerCompany",
     family: 3,
     age: 5,
-    rev: 1,
-    title: "会社を経営する夫婦と子1人・50代",
+    rev: 2,
+    title: "社員15人の会社を経営する夫婦と子1人・50代",
     traits: ["役員", "片働き", "持ち家", "教育費", "資産運用"],
     targetAge: 95,
-    steps: { retireAge: [65, 68, 70, 72, 75], pensionAge: [65, 68, 70, 72, 75], nisaMonthly: [0, 50000, 100000, 200000], livingMonthly: [480000, 520000, 550000, 600000] },
-    firstProposal: { retireAge: 72, pensionAge: 70, nisaMonthly: 100000, livingMonthly: 520000 },
-    notes: { retireAge: "代表を退く年齢（退くときに役員退職慰労金）", pensionAge: "役員報酬が高い間は、在職老齢年金で止まる分がある", livingMonthly: "子の独立後は85%、退任後は85%、80歳から75%" },
+    steps: { retireAge: [65, 68, 70, 72, 75], pensionAge: [65, 68, 70, 72, 75], nisaMonthly: [0, 30000, 50000, 100000], livingMonthly: [360000, 380000, 400000, 440000] },
+    firstProposal: { retireAge: 72, pensionAge: 70, nisaMonthly: 100000, livingMonthly: 380000 },
+    notes: { retireAge: "代表を退く年齢（退くときに役員退職慰労金）", pensionAge: "代表を続けて役員報酬を受け取る間は、在職老齢年金で一部が止まる", livingMonthly: "子の独立後は85%、退任後は85%、80歳から75%" },
     memo: [
-      "2010年に自分で作った会社（社員40人ほど）の代表。役員報酬は年1,800万円、自社株は出資額1,000万円で全部を持つ（架空の例）",
+      "2010年に自分で作った会社（社員15人ほど・売上高は年2億2,000万円ほど）の代表。役員報酬は年780万円（月65万円）、自社株は出資額1,000万円で全部を持つ（架空の例）",
       "会社に500万円を貸している。会社の試算表では「役員からの借入金」が600万円（家計の側の書き漏れの見本。合算BS のお知らせに出る。架空の例）",
-      "会社の長期借入金6,000万円のうち5,000万円を連帯保証。役員退職慰労金（最終報酬月額150万円×在任年数×1.5倍）は、会社の保険積立金などで準備している（架空の例）",
+      "会社の長期借入金6,600万円の全額を連帯保証。役員退職慰労金（最終報酬月額65万円×在任年数×3.0倍）は、会社の保険積立金などで準備している（架空の例）",
     ],
     plans: [
       { name: "プランB 年金を70歳から受け取る", tags: ["老後"], values: { "lever:pensionAge": 70 } },
@@ -486,26 +488,27 @@ const CORPORATE_OWNER: readonly DemoHousehold[] = [
     extValues: {
       "ext.official.combinedBs": {
         asOf: "2026-09",
+        // 借入の返済（monthlyLoanPay）は、統計に返済の額が無いので入れていない
         amounts: {
-          cash: 40_000_000,
-          receivables: 25_000_000,
-          inventory: 6_000_000,
-          otherCurrent: 4_000_000,
-          land: 25_000_000,
-          buildings: 18_000_000,
+          cash: 67_000_000,
+          receivables: 24_000_000,
+          inventory: 15_000_000,
+          otherCurrent: 16_000_000,
+          land: 41_000_000,
+          buildings: 43_000_000,
           investments: 30_000_000,
-          otherFixed: 7_000_000,
-          shortDebt: 15_000_000,
-          longDebt: 60_000_000,
+          otherFixed: 2_000_000,
+          shortDebt: 11_000_000,
+          longDebt: 66_000_000,
           loanFromOwner: 6_000_000,
-          otherLiabilities: 24_000_000,
+          otherLiabilities: 52_000_000,
           capital: 10_000_000,
-          retained: 40_000_000,
-          monthlyFixed: 8_000_000,
-          monthlyLoanPay: 1_200_000,
+          retained: 93_000_000,
+          monthlyFixed: 6_000_000,
         },
         stage: "mature",
-        restated: { inventory: 4_500_000, buildings: 12_000_000, land: 35_000_000 },
+        // 実力に直す点検: 統計は無い。前の版と同じ割合（在庫75%・建物など67%・土地140%）を丸めた見本の設定
+        restated: { inventory: 11_000_000, buildings: 29_000_000, land: 57_000_000 },
       },
     },
   },

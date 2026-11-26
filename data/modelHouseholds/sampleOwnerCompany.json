@@ -22,7 +22,7 @@
           "leaves": null,
           "expected": false,
           "companyGuarantee": {
-            "value": 50000000,
+            "value": 66000000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -146,12 +146,12 @@
           },
           "pensionCategory": "employee1",
           "employer": {
-            "size": 45,
+            "size": 15,
             "weeklyHours": "40"
           },
           "salary": {
             "annual": {
-              "value": 18000000,
+              "value": 7800000,
               "state": "confirmed",
               "origin": {
                 "kind": "manual"
@@ -167,7 +167,7 @@
           },
           "standardMonthlyRemuneration": {
             "health": {
-              "value": 1390000,
+              "value": 650000,
               "state": "confirmed",
               "origin": {
                 "kind": "manual"
@@ -189,7 +189,7 @@
           "kind": "deposit",
           "owner": "6bc66807-09c5-4103-9dad-e3f6e5e7b8cc",
           "marketValue": {
-            "value": 30000000,
+            "value": 14000000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -204,7 +204,7 @@
           "kind": "deposit",
           "owner": "fdf66a64-f702-4fff-b3b8-a87947fc63da",
           "marketValue": {
-            "value": 8000000,
+            "value": 4600000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -218,7 +218,7 @@
           "kind": "nisa",
           "owner": "6bc66807-09c5-4103-9dad-e3f6e5e7b8cc",
           "marketValue": {
-            "value": 9000000,
+            "value": 10500000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -315,7 +315,7 @@
           "member": "6bc66807-09c5-4103-9dad-e3f6e5e7b8cc",
           "fiscalYear": 2026,
           "amount": {
-            "value": 1550000,
+            "value": 315000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -477,7 +477,7 @@
           "id": "4675817e-d17d-40f6-85ed-97a9e941c21d",
           "mode": "total",
           "monthly": {
-            "value": 550000,
+            "value": 400000,
             "state": "confirmed",
             "origin": {
               "kind": "manual"
@@ -556,8 +556,8 @@
           "kind": "officerAllowance",
           "employment": "77dd3907-96b6-4b18-9211-d06e3eefb727",
           "estimate": {
-            "finalMonthly": 1500000,
-            "multiplier": "1.5"
+            "finalMonthly": 650000,
+            "multiplier": "3.0"
           }
         }
       ],

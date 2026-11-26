@@ -14,6 +14,7 @@ import { COMBINED_BS_EXTENSION, OFFICIAL_EXTENSIONS } from "../src/workspace/ext
 import * as run from "../src/workspace/extensions/run.ts";
 import { activeExtensions, chapterMaterials, demoExtValues, extensionChapters, extensionViews } from "../src/workspace/extensions/run.ts";
 import { hasExecutive } from "../src/workspace/input/officer.ts";
+import { applyLevers } from "../src/workspace/levers.ts";
 import { NO_FEATURES } from "../src/workspace/office/featureCodes.ts";
 import { DEFAULT_OFFICE_SETTINGS } from "../src/workspace/office/settings.ts";
 import { firstSampleId, SAMPLE_SETS, sampleSetShown, shownSampleSets } from "../src/workspace/samples/sets.ts";
@@ -78,6 +79,35 @@ describe("合算BS の見本の世帯（架空）", () => {
   });
 });
 
+describe("法人経営者の見本の家計の数字（平均的な中小企業の経営者。0247 の10。根拠は data/modelHouseholds/README.md）", () => {
+  const self = hh.members.find((m) => m.kind === "self")!;
+  const exec = hh.employmentPeriods?.find((p) => p.type === "executive");
+  const amounts = (values?.[COMBINED_BS_EXTENSION] as { amounts: Record<string, number> }).amounts;
+
+  it("役員報酬 年780万円（標準報酬月額は健康保険・厚生年金とも65万円）、役員退職慰労金は最終報酬月額65万円×在任年数×3.0倍", () => {
+    expect(exec?.salary?.annual?.value).toBe(780 * M);
+    expect(exec?.salary?.bonus?.value).toBe(0);
+    expect(exec?.standardMonthlyRemuneration?.health?.value).toBe(65 * M);
+    expect(exec?.standardMonthlyRemuneration?.pension?.value).toBe(65 * M);
+    const allowance = hh.retirementBenefits?.find((b) => b.kind === "officerAllowance");
+    expect(allowance?.estimate).toEqual({ finalMonthly: 65 * M, multiplier: "3.0" });
+  });
+
+  it("連帯保証は会社の長期借入金の全額。自社株は会社の資本金と同じ出資額", () => {
+    expect(self.companyGuarantee?.value).toBe(amounts.longDebt);
+    const shares = hh.accounts?.find((a) => a.kind === "otherAsset" && a.subtype === "ownCompanyShares");
+    expect(shares?.marketValue?.value).toBe(amounts.capital);
+  });
+
+  it("代表を続けて役員報酬を受け取る間は、在職老齢年金で一部が止まる（65歳で退くと、その間の年金は多い）", () => {
+    const pension = (r: typeof req, year: number) => preview(r).table.filter((c) => c.row === "cf.income.pension" && c.year === year).reduce((t, c) => t + c.amount, 0);
+    const working = pension(req, 2036);
+    const retired = pension(applyLevers(req, self.id, { retireAge: 65 }), 2036);
+    expect(working).toBeGreaterThan(0);
+    expect(working).toBeLessThan(retired);
+  });
+});
+
 describe("法人経営者の見本のセット（0247 の7）", () => {
   it("セット official.corporateOwner（「法人経営者の見本」）は合算BS と同じ機能の名前で、合算BS の見本の世帯だけを持つ。ファイナンシアの見本には入れない", () => {
     expect(SAMPLE_SETS.map((s) => [s.id, s.name, s.feature])).toEqual([
@@ -88,7 +118,9 @@ describe("法人経営者の見本のセット（0247 の7）", () => {
     expect(ids(BASIC.samples)).not.toContain(ID);
     expect(OFFICIAL_EXTENSIONS.find((x) => x.manifest.id === COMBINED_BS_EXTENSION)?.manifest.activation?.feature).toBe(OWNER.feature);
     // 名前に機能の名前（「（合算BS の見本）」）を付けない
-    expect(OWNER.samples[0]?.title).toBe("会社を経営する夫婦と子1人・50代");
+    // 名前はファイナンシアの見本の「会社を経営する夫婦・50代」と取り違えない形（会社の大きさを入れる。0247 の10）
+    expect(OWNER.samples[0]?.title).toBe("社員15人の会社を経営する夫婦と子1人・50代");
+    expect(OWNER.samples[0]?.rev).toBe(2);
     for (const d of DEMO_HOUSEHOLDS) expect(d.title, d.id).not.toContain("合算BS");
     // 見本の名前に使えない名前は、出していないセットの見本も含む（0247 の1）
     expect(reservedSampleNames(SAMPLE_SETS)).toContain(OWNER.samples[0]!.title);
@@ -245,6 +277,39 @@ describe("コードと印があるときの、法人経営者の見本の合算B
     expect(v.notices?.some((n) => n.includes("会社への貸付金") && n.includes("500万円") && n.includes("600万円"))).toBe(true);
     expect(v.notices?.some((n) => n.includes("二重には数えません"))).toBe(true);
     expect(JSON.stringify(v.sections)).toContain("成熟期");
+  });
+
+  it("平均的な中小企業の経営者の数字（0247 の10）: 組の照合・お知らせ・何か月分・純資産の内訳の固定値", () => {
+    const rows = (key: string) => (v.sections?.find((s) => s.key === key)?.table?.rows ?? []).map((r) => r.cells);
+    // 自社株と資本金の組は合い、会社への貸付金（500万円）と会社の経営者からの借入金（600万円）は合わない（書き漏れの見本）
+    expect(rows("pairs").slice(0, 2)).toEqual([
+      ["自社株と資本金", "自社株（出資額） 1,000万円", "資本金（ほかの株主の分を除く） 1,000万円", "合っています"],
+      ["会社への貸付金と、会社の経営者からの借入金", "会社への貸付金 500万円", "経営者からの借入金 600万円", "差 100万円"],
+    ]);
+    expect(v.notices).toEqual([
+      "会社への貸付金と、会社の経営者からの借入金: 経営者の側は500万円、会社の側は600万円です。合算では会社の側の額に合わせて見ています。家計の入力に書き漏れがあれば、直してください。",
+      "経営者の連帯保証（6,600万円）は、会社の借入金として合算の負債に入っているので、二重には数えません。",
+    ]);
+    // 会社の現預金は毎月の固定費の11.2か月分（目安の6か月分に届く。統計の平均の会社は現預金が厚い）。家計の現預金はそれより厚い
+    const months = rows("months");
+    expect(months.find((c) => c[0] === "会社")).toEqual(["会社", "6,700万円", "600万円", "11.2か月分", "目安の6か月分に届いています。できれば12か月分を目指しましょう。"]);
+    const owner = months.find((c) => c[0] === "個人（家計）")!;
+    expect(Number.parseFloat(owner[3]!)).toBeGreaterThan(12);
+    // 合算の純資産は「会社の財産（剰余金）」と「個人の財産」に分かれる
+    const net = rows("net");
+    expect(net.map((c) => c[0])).toEqual(["会社の財産（剰余金）", "個人の財産", "合算の純資産"]);
+    expect(net[0]![1]).toBe("9,300万円");
+  });
+
+  it("会社の数字のお知らせと会社の何か月分は、計算基準月（1〜3月・誕生月の前後）で変わらない", () => {
+    for (const baseMonth of ["2027-01", "2027-02", "2027-03", "2027-06", "2027-07"]) {
+      const moved = { ...req, input: { ...req.input, baseMonth } };
+      const p = bsPlan({ key: "A", letter: "A", name: "現状", title: "", base: true, req: moved, table: preview(moved).table });
+      const w = extensionViews(ext, values, p.years[0]!)[0]!;
+      expect(w.notices, baseMonth).toEqual(v.notices);
+      const co = w.sections?.find((s) => s.key === "months")?.table?.rows.find((r) => r.cells[0] === "会社")?.cells;
+      expect(co?.[3], baseMonth).toBe("11.2か月分");
+    }
   });
 
   it("見るものに「見本」の印と案内が無い。見るものの形に見本の欄が無い", () => {
