@@ -109,12 +109,12 @@ describe("説明のページ（h/about/index.html）", () => {
     expect(`/${HEARING_PAGES.about}`.replace(/index\.html$/, "")).toBe(ABOUT_PATH);
   });
 
-  it("運営者の名前・送られる情報・送り先・目的・送らないもの。決まっていない所（問い合わせ・制定日）は印", () => {
+  it("運営者の名前・送られる情報・送り先・目的・送らないもの。問い合わせの窓口。決まっていない制定日は印", () => {
     expect(about).toContain(`<title>${ABOUT_LINK_TEXT}</title>`);
     expect(about).toContain(`<h1>${ABOUT_LINK_TEXT}</h1>`);
     for (const t of [OPERATOR_NAME, "ご回答と、添付していただいた書類", "リンクから作られる番号と合言葉", "通信のときに自動で届く情報", "送り先（情報を取り扱う者）", "目的", "Cloudflare, Inc.", "広告や利用状況の解析のための送信はしていません", "鍵をかけて残します（送りません）", "受け取られないまま期限を過ぎたときも消えます"]) expect(about).toContain(t);
     expect(about.match(/data-ab-row=/g)?.length).toBe(3);
-    expect(about).toContain('<dd data-ab-pending="contact">【決まったら入れる】</dd>');
+    expect(about).toContain("<dd data-ab-contact>info@fprise.com</dd>");
     expect(about).toContain('<dd data-ab-pending="date">【決まったら入れる】</dd>');
     // 入れていない部品（Turnstile）は書かない
     expect(about).not.toContain("Turnstile");
