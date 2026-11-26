@@ -44,6 +44,7 @@
     "allow-store-make-sample",
     "allow-store-update-sample",
     "allow-store-sample-reset",
+    "allow-store-sample-set-initial",
     "allow-store-categories",
     "allow-store-set-categories",
     "allow-store-make-client",

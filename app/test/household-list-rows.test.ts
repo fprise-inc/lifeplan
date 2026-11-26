@@ -227,7 +227,7 @@ describe("見本の「複製する」（0244）", () => {
     expect(copyRequest(app!)?.name).toBe(`${app!.name}（複製）`);
     expect(copyRequest({ ...app!, name: "あ".repeat(40) })?.name).toHaveLength(40);
     expect(copyRequest({ ...app!, name: "研修用（写し）" })?.name).toBe("研修用（写し）（複製）");
-    expect(COPY_SAMPLE_TITLE).toBe("同じ家族の形・年代の新しい見本に複製します。メモと面談の履歴は複製しません");
+    expect(COPY_SAMPLE_TITLE).toBe("同じ家族の形・年代の新しい見本に複製します。メモと面談の履歴・お客さまから受け取った物の記録は複製しません");
     // 見本の名前は重ならない決まりなので（0247）、同じ名前があれば「（複製2）」…
     expect(copyRequest(app!, [`${app!.name}（複製）`])?.name).toBe(`${app!.name}（複製2）`);
     expect(copyRequest(app!, [`${app!.name}（複製）`, ` ${app!.name}（複製2） `])?.name).toBe(`${app!.name}（複製3）`);
@@ -237,7 +237,7 @@ describe("見本の「複製する」（0244）", () => {
   it("見本の帯のボタンも「複製する」。複製した後の知らせは「見本「名前」として複製しました」", () => {
     const app = read("workspace", "App.tsx");
     expect(app).toMatch(/title=\{COPY_SAMPLE_TITLE\} data-band-copy>\s*複製する\s*</);
-    expect(app).toContain('`見本「${r.sample.name}」として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します`');
+    expect(app).toContain('`見本「${r.sample.name}」として複製しました${stripped ? "（メモと面談の履歴・お客さまから受け取った物の記録は複製していません）" : ""}。手直しは自動で保存します`');
   });
 
   it("画面に「写して手直しする」「（写し）」を付ける所が残っていない", () => {

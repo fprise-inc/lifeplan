@@ -58,10 +58,11 @@ function devHearingFormCsp(): Plugin {
 }
 
 /** 開発用のサーバーの世帯の保存（メモリの中だけ。再起動で消える） */
-type DevSample = { name: string; traits: string[]; family: number; age: number; origin?: { set: string; id: string; rev: number }; changed?: boolean };
+type DevSample = { name: string; traits: string[]; family: number; age: number; origin?: { set: string; id: string; rev: number }; group?: string; changed?: boolean };
 type DevLabel = { category?: string; serial?: number; branch?: string; sample?: DevSample; fictional?: boolean };
 const devStore = {
-  households: new Map<string, { customerNo: string; summary: string; createdAt: string; updatedAt: string; body: string; generation: number; updatedBy?: string | null; openBy?: { name: string; since: string }[]; forks?: number; conflict?: boolean; label: DevLabel }>(),
+  /** initial は自分で作った見本の最初の状態（本体の sampleInitial の代わり。本文の文字列。0247 の6） */
+  households: new Map<string, { customerNo: string; summary: string; createdAt: string; updatedAt: string; body: string; generation: number; updatedBy?: string | null; openBy?: { name: string; since: string }[]; forks?: number; conflict?: boolean; label: DevLabel; initial?: string }>(),
   // 顧客番号の区分と次の通し番号（本体の numbering と同じ決まり。0033）。区分は最初から入れず、初めに「区分を使いますか？」と聞く
   categories: [] as { code: string; name: string }[],
   categoriesDecided: false,
@@ -120,13 +121,23 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
     return p < 0x20 || (p >= 0x7f && p <= 0x9f) || p === 0xad || p === 0x180e || (p >= 0x200b && p <= 0x200f) || (p >= 0x202a && p <= 0x202e) || (p >= 0x2060 && p <= 0x206f) || p === 0xfeff;
   };
   const validName = (n: string) => n.trim() === n && n !== "" && [...n].length <= 40 && ![...n].some(hidden);
+  // 自分で作った見本の最初の状態と比較する形（本体と同じく meta・sampleInitial・同意と AI の記録を除き、対の順は問わない。0247 の6）
+  const canon = (v: unknown): unknown => (Array.isArray(v) ? v.map(canon) : v !== null && typeof v === "object" ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, x]) => [k, canon(x)])) : v);
+  const sectionsKey = (body: string) => {
+    const { meta: _m, sampleInitial: _i, consents: _c, consentExplanations: _e, aiShares: _a, candidates: _d, ...rest } = JSON.parse(body) as Record<string, unknown>;
+    void [_m, _i, _c, _e, _a, _d];
+    return JSON.stringify(canon(rest));
+  };
+  const changedFrom = (body: string, initial: string | undefined) => initial !== undefined && sectionsKey(body) !== sectionsKey(initial);
   const newSample = (raw: string | undefined, reservedRaw: string | undefined): DevLabel | string => {
-    const r = JSON.parse(raw ?? "null") as { family: number; age: number; name: string; traits: string[]; origin?: { set: string; id: string; rev: number } } | null;
+    const r = JSON.parse(raw ?? "null") as { family: number; age: number; name: string; traits: string[]; origin?: { set: string; id: string; rev: number }; group?: string } | null;
     if (r === null || !validShape(r.family, r.age) || !validName(r.name)) return "E_STORE_SAMPLE";
+    const group = r.group?.trim() ?? "";
+    if (group !== "" && (r.origin !== undefined || !validName(group))) return "E_STORE_SAMPLE";
     if (r.origin !== undefined) {
       if ([...s.households.values()].some((e) => e.label.sample?.origin?.set === r.origin?.set && e.label.sample?.origin?.id === r.origin?.id)) return "E_STORE_SAMPLE_EXISTS";
     } else if (nameTaken(r.name, JSON.parse(reservedRaw ?? "[]") as string[])) return "E_STORE_SAMPLE_NAME";
-    return { sample: { name: nameKey(r.name), traits: r.traits, family: r.family, age: r.age, ...(r.origin !== undefined ? { origin: r.origin, changed: true } : {}) } };
+    return { sample: { name: nameKey(r.name), traits: r.traits, family: r.family, age: r.age, ...(group !== "" ? { group } : {}), ...(r.origin !== undefined ? { origin: r.origin, changed: true } : {}) } };
   };
   switch (op) {
     case "status":
@@ -159,7 +170,9 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       }
       // 見本は顧客番号も番号も持たない（表示の番号は空。0247 の1）
       const customerNo = label.sample !== undefined ? "" : fmt(label.category, label.serial as number);
-      const e = { customerNo, summary: a.summary ?? "", createdAt: now, updatedAt: now, body: a.body ?? "{}", generation: 1, updatedBy: me, label };
+      const body = a.body ?? "{}";
+      // 自分で作った見本（複製・見本として新しく作る）は、作る本文が最初の状態（0247 の6）
+      const e = { customerNo, summary: a.summary ?? "", createdAt: now, updatedAt: now, body, generation: 1, updatedBy: me, label, ...(label.sample !== undefined && label.sample.origin === undefined ? { initial: body } : {}) };
       s.households.set(id, e);
       s.lastOpened = id;
       return { ok: true, value: opened(id, e) };
@@ -229,6 +242,8 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       if (typeof l === "string") return { ok: false, code: l };
       h.label = l;
       h.customerNo = "";
+      // 登録したときの本文が最初の状態（0247 の6）
+      h.initial = h.body;
       return { ok: true, value: { customerNo: h.customerNo, duplicate: false } };
     }
     case "makeClient": {
@@ -247,21 +262,40 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       h.label.sample = { ...h.label.sample, name: nameKey(name), traits: JSON.parse(a.traits ?? "[]") as string[], family, age };
       return { ok: true };
     }
-    // 見本を最初の状態に戻す（本体の store_sample_reset と同じ。出どころのある見本〔セットの見本を直した版〕だけを消す。0247 の6）
+    // 見本を最初の状態に戻す（本体の store_sample_reset と同じ。出どころのある見本〔セットの見本を直した版〕は消す。自分で作った見本は
+    // 最初の状態に置き換えて保存する。0247 の6）
     case "sampleReset":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       if (h.label.sample === undefined) return { ok: false, code: "E_STORE_SAMPLE" };
-      if (h.label.sample.origin === undefined) return { ok: false, code: "E_STORE_SAMPLE_NOT_CHANGED" };
+      if (h.label.sample.origin === undefined) {
+        if (h.initial === undefined || !changedFrom(h.body, h.initial)) return { ok: false, code: "E_STORE_SAMPLE_NOT_CHANGED" };
+        Object.assign(h, { body: h.initial, updatedAt: now, generation: h.generation + 1, updatedBy: me });
+        h.label.sample = { ...h.label.sample, changed: false };
+        return { ok: true, value: { kind: "restored", opened: opened(a.id as string, h) } };
+      }
       s.lastReset = { body: h.body, summary: h.summary, label: h.label };
       s.households.delete(a.id as string);
       if (s.lastOpened === a.id) s.lastOpened = null;
       s.deletions++;
       return { ok: true, value: { kind: "removed" } };
-    case "save":
+    // 自分で作った見本の「今の状態を最初の状態にする」（本体の store_sample_set_initial と同じ。中身は変えない。0247 の6）
+    case "sampleSetInitial":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (h.label.sample === undefined || h.label.sample.origin !== undefined) return { ok: false, code: "E_STORE_SAMPLE" };
+      Object.assign(h, { initial: h.body, updatedAt: now, generation: h.generation + 1, updatedBy: me });
+      h.label.sample = { ...h.label.sample, changed: false };
+      return { ok: true, value: { generation: h.generation, savedAt: now, sampleChanged: false } };
+    case "save": {
       if (h === undefined) return { ok: false, code: "E_STORE_NOT_OPEN" };
       if (h.conflict === true) return { ok: false, code: "E_STORE_CONFLICT" };
+      // 見本: 最初の状態から変わっているか（最初の状態を持たない自分で作った見本は、保存する前の本文を最初の状態にする。0247 の6）
+      const sample = h.label.sample;
+      if (sample !== undefined && sample.origin === undefined && h.initial === undefined) h.initial = h.body;
       Object.assign(h, { body: a.body, summary: a.summary, updatedAt: now, generation: h.generation + 1, updatedBy: me });
-      return { ok: true, value: { generation: h.generation, savedAt: now } };
+      const sampleChanged = sample === undefined ? undefined : sample.origin !== undefined || changedFrom(h.body, h.initial);
+      if (sample !== undefined) h.label.sample = { ...sample, changed: sampleChanged === true };
+      return { ok: true, value: { generation: h.generation, savedAt: now, ...(sampleChanged !== undefined ? { sampleChanged } : {}) } };
+    }
     case "forkInfo":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       return { ok: true, value: { savedConflict: h.conflict === true, theirsSavedAt: h.updatedAt, theirsBy: h.updatedBy ?? null, theirsGeneration: h.generation, oursGeneration: h.conflict === true ? h.generation : null, syncCopies: h.forks ?? 0, personal: devOffice.usage === "personal" } };

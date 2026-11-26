@@ -92,7 +92,7 @@ import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
 import { advisoryFeeState, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { MeetingTools } from "./meetings/MeetingTools.tsx";
-import { latestMeeting, withMeetings, withoutNotes, type Meeting } from "./meetings/meetings.ts";
+import { latestMeeting, withMeetings, type Meeting } from "./meetings/meetings.ts";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, hideFromBand, MAX_BAND, planLetters, planLinesModel, removeFromBand, unsavedRemoval, type UnsavedRemoval } from "./plans/band.ts";
 import { BandDropDialog, type BandDropChoice } from "./plans/BandDropDialog.tsx";
@@ -122,12 +122,12 @@ import { Autosaver, saveBeforeLeave, type SaveState } from "./store/autosave.ts"
 import { LeaveDialog, type LeaveDialogChoice } from "./store/LeaveDialog.tsx";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
-import { dropNotesOnPersist, stripNotesBeforeSample } from "./store/sampleNotes.ts";
+import { dropNotesOnPersist, strippedForPersist, stripNotesBeforeSample } from "./store/sampleNotes.ts";
 import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory, APP_SAMPLE_MEMO_TEXT, COPY_SAMPLE_TITLE } from "./store/HouseholdPanel.tsx";
 import { PreviousPanel, offersPrevious } from "./store/PreviousPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
 import { editedCountsOf, editedVersionOf, guessShape, reservedSampleNames, shapeText, shelfItemOf, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleOrigin, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
-import { SAMPLE_BAND_TEXT, SAMPLE_STALE_TEXT, SampleExistsDialog, SampleResetDialog, type SampleExistsChoice, type SampleResetChoice } from "./store/SampleDialogs.tsx";
+import { SAMPLE_BAND_TEXT, SAMPLE_STALE_TEXT, SampleExistsDialog, SampleResetDialog, SampleSetInitialDialog, type SampleExistsChoice, type SampleResetChoice, type SampleSetInitialChoice } from "./store/SampleDialogs.tsx";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
@@ -576,6 +576,8 @@ export function App() {
   const [samplePending, setSamplePending] = useState<{ blocked: string | null } | null>(null);
   /** 見本を最初の状態に戻す確認画面（0247 の6） */
   const [sampleReset, setSampleReset] = useState<{ item: ShelfItem; busy: boolean; error: string | null } | null>(null);
+  /** 自分で作った見本の「今の状態を最初の状態にする」確認画面（0247 の6） */
+  const [sampleSetInitial, setSampleSetInitial] = useState<{ item: ShelfItem; busy: boolean; error: string | null } | null>(null);
   /** ほかの人が先にこの見本を直していたときに選ぶ画面（id は先にある版の内部ID） */
   const [sampleExists, setSampleExists] = useState<{ name: string; by: string | null; id: string | null; busy: boolean; error: string | null } | null>(null);
   /** 開いたときに見せる世帯の一覧のタブ */
@@ -891,9 +893,11 @@ export function App() {
           // セットの見本を最初に変えたとき: 直した版を作り、その世帯に切り替える（0247 の5）
           if (sr === null && o !== null && pendingSample.current !== null) return createEdited.current(body);
           if (sr === null || o === null) throw "E_STORE_NOT_OPEN";
-          const at = (await h.store.save(sr.id, body, listSummary(summaryOf(o.wh.request), o.wh))).savedAt;
+          const r = await h.store.save(sr.id, body, listSummary(summaryOf(o.wh.request), o.wh));
           savedBodies.current.set(sr.id, body);
-          return at;
+          // 見本: 保存した後に最初の状態から変わっているか（帯と一覧の「最初の状態に戻す」を出すか。0247 の6）
+          if (r.sampleChanged !== undefined) sampleChangedRef.current(sr.id, r.sampleChanged);
+          return r.savedAt;
         }, setSaveState);
         setStoreChecked(true);
         // エラーの記録（0234）: 起動の途中に覚えたエラーも、ここから本体に渡す
@@ -937,6 +941,20 @@ export function App() {
   }, [currentBody]);
   /** ほかの人が先に直していたときに選ぶ画面を開く（下で定める。離れる前の確かめから呼ぶ） */
   const openSampleExistsRef = useRef<() => void>(() => undefined);
+  /**
+   * 保存した見本の「最初の状態から変わっている」を、開いている世帯の情報と見本の棚の一覧に入れる（保存の答え・最初の状態に戻した・今の状態を
+   * 最初の状態にした後。0247 の6）
+   */
+  const sampleChangedRef = useRef<(id: string, changed: boolean) => void>(() => undefined);
+  sampleChangedRef.current = (id, changed) => {
+    const sr = storedRef.current;
+    if (sr !== null && sr.id === id && sr.sample !== undefined && sr.sample.changed !== changed) {
+      const sample = { ...sr.sample, changed };
+      storedRef.current = { ...sr, sample };
+      setStoredInfo((i) => (i !== null && i.id === id ? { ...i, sample } : i));
+    }
+    setStoredSamples((l) => (l.some((e) => e.id === id && e.sample !== undefined && e.sample.changed !== changed) ? l.map((e) => (e.id === id && e.sample !== undefined ? { ...e, sample: { ...e.sample, changed } } : e)) : l));
+  };
   /** 保存した世帯を開く（下で定める openStored。セットの見本を開くときに、直した版があれば開くため） */
   const openStoredRef = useRef<(id: string) => Promise<boolean>>(async () => false);
   /**
@@ -1470,8 +1488,10 @@ export function App() {
       // 見本として作るとき・セットの見本（アプリの中の見本と、それを直した版）から顧客を作るときは、メモ（見本のメモは例の文）と面談の履歴を
       // 写さない（0182 の追記・0247 の5）。画面の中身は、作った世帯に切り替えた後で外す（先に外すと、元の世帯の自動保存に外した中身が入る）
       const sr0 = storedRef.current;
-      const stripped = dropNotesOnPersist({ toSample: sample !== undefined, setSample: sr0 === null ? o0.demo !== null : sr0.sample?.origin !== undefined }, o0.wh);
-      const o: Opened = stripped ? { ...o0, wh: withoutNotes(o0.wh) } : o0;
+      // 見本の複製では、お客さまから受け取った物の記録（Web のヒアリング・明細・読み取った書類）も写さない（0247 の6）
+      const strip = dropNotesOnPersist({ toSample: sample !== undefined, setSample: sr0 === null ? o0.demo !== null : sr0.sample?.origin !== undefined }, o0.wh);
+      const stripped = strip !== null;
+      const o: Opened = stripped ? { ...o0, wh: strippedForPersist(strip, o0.wh) } : o0;
       const body = bodyFor(o, workRef.current, shownRef.current, dispRef.current, EMPTY_CARRY);
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
       const r = await host.store.create(body, summaryOf(o.wh.request), { ...(category !== undefined ? { category } : {}), ...(sample !== undefined ? { sample, reservedNames: RESERVED_SAMPLE_NAMES } : {}) });
@@ -1494,7 +1514,7 @@ export function App() {
       setStoredList(await host.store.list());
       void host.store.listSamples().then(setStoredSamples, () => undefined);
       // 見本として作るのは、見本を複製するときだけ（見本に登録は別の命令。0244）
-      say(r.sample !== undefined ? `見本「${r.sample.name}」として複製しました${stripped ? "（メモと面談の履歴は複製していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`);
+      say(r.sample !== undefined ? `見本「${r.sample.name}」として複製しました${stripped ? "（メモと面談の履歴・お客さまから受け取った物の記録は複製していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`);
     },
     [host, say, history],
   );
@@ -1611,8 +1631,24 @@ export function App() {
     }
   };
   /**
-   * 見本を最初の状態に戻す（確認画面で「最初の状態に戻す」を選んだ。0247 の6）: セットの見本を直した版を消す（本体が出どころのある見本だけを消す）。
-   * 開いていたら、アプリの中の見本を開き直す（元に戻すの履歴は新しく始まる）
+   * 開いている保存した見本の、保存していない変更を先に保存して自動保存を止める（最初の状態に戻す・今の状態を最初の状態にするの前。0247 の6）。
+   * 保存できなかったら止めずに例外（変更は残る。黙って捨てない。0096）。止めたら true
+   */
+  const saveAndPause = async (): Promise<boolean> => {
+    const a = autosaver.current;
+    if (a === null) return false;
+    const b = currentBody();
+    if (b !== null) a.change(b);
+    await a.flush();
+    if (a.unsaved) throw a.failure ?? "E_STORE";
+    a.reset(null);
+    return true;
+  };
+  /**
+   * 見本を最初の状態に戻す（確認画面で「最初の状態に戻す」を選んだ。0247 の6）:
+   * - セットの見本を直した版: 直した版を消す（本体が出どころのある見本だけを消す）。開いていたら、アプリの中の見本を開き直す
+   * - 自分で作った見本: 本体が中身を最初の状態に置き換えて保存する。開いていたら、戻した後の中身で開き直す
+   * どちらも、開いていれば保存していない変更を先に保存し、元に戻すの履歴は新しく始まる
    */
   const chooseSampleReset = async (c: SampleResetChoice) => {
     const rs = sampleReset;
@@ -1622,16 +1658,21 @@ export function App() {
     if (id === null) return setSampleReset(null);
     setSampleReset({ ...rs, busy: true, error: null });
     const isOpen = storedRef.current?.id === id;
+    let paused = false;
     try {
-      // 待っている保存を先に済ませてから止める（消した後に保存が走らないように）
-      if (isOpen) {
-        await autosaver.current?.flush();
-        autosaver.current?.reset(null);
-      }
-      await host.store.sampleReset(id);
+      // 待っている保存を先に済ませてから止める（戻した後に前の中身の保存が走らないように）
+      if (isOpen) paused = await saveAndPause();
+      const out = await host.store.sampleReset(id);
       savedBodies.current.delete(id);
       history.drop(`stored:${id}`);
       setSampleReset(null);
+      if (out.kind === "restored") {
+        if (isOpen) await loadStored(out.opened);
+        else sampleChangedRef.current(id, false);
+        setStoredSamples(await host.store.listSamples());
+        say(`見本「${rs.item.name}」を最初の状態に戻しました。戻す前の中身は、直前の世代として1つだけ残っています`);
+        return;
+      }
       if (isOpen) {
         storedRef.current = null;
         setStoredInfo(null);
@@ -1640,11 +1681,40 @@ export function App() {
       setStoredSamples(await host.store.listSamples());
       say(`見本「${rs.item.name}」を最初の状態に戻しました`);
     } catch (e) {
-      if (isOpen) {
+      // 止めた自動保存を戻す（止める前に保存できなかったときは止めていないので、変更はそのまま残る）
+      if (paused) {
         const b = currentBody();
         if (b !== null) autosaver.current?.reset(b);
       }
       setSampleReset({ ...rs, busy: false, error: storeMessage(codeOf(e)) });
+    }
+  };
+  /**
+   * 自分で作った見本の「今の状態を最初の状態にする」（確認画面で選んだ。0247 の6）: 開いていれば保存していない変更を先に保存してから、
+   * 本体が今の中身で最初の状態を書き直す（中身は変えない。元に戻すの履歴も続ける）
+   */
+  const chooseSampleSetInitial = async (c: SampleSetInitialChoice) => {
+    const st = sampleSetInitial;
+    if (host === null || st === null) return;
+    if (c === "cancel") return setSampleSetInitial(null);
+    const id = st.item.id;
+    setSampleSetInitial({ ...st, busy: true, error: null });
+    const isOpen = storedRef.current?.id === id;
+    let paused = false;
+    try {
+      if (isOpen) paused = await saveAndPause();
+      const r = await host.store.sampleSetInitial(id);
+      sampleChangedRef.current(id, r.sampleChanged ?? false);
+      setSampleSetInitial(null);
+      say(`見本「${st.item.name}」の今の状態を、最初の状態にしました`);
+    } catch (e) {
+      setSampleSetInitial({ ...st, busy: false, error: storeMessage(codeOf(e)) });
+    } finally {
+      // 自動保存を続ける（本体は中身を変えずに書き直し、保存の起点〔指紋・世代〕も本体の側でそろえてある。元に戻すの履歴も続く）
+      if (paused) {
+        const b = currentBody();
+        if (b !== null) autosaver.current?.reset(b);
+      }
     }
   };
 
@@ -3033,6 +3103,8 @@ export function App() {
   const currentSample = sampleItem?.id ?? (storedSample !== undefined ? (storedInfo?.id ?? null) : null);
   /** セットの見本を直した版を開いている（帯に「最初の状態に戻す」を出す。同じ出どころの2つ目の版・セットの定義に無い版は出さない。0247 の6） */
   const editedOpen = storedSample?.origin !== undefined && sampleItem?.versionOf === undefined;
+  /** 自分で作った見本を開いていて、最初の状態から変わっている（帯に「最初の状態に戻す」「今の状態を最初の状態にする」を出す。0247 の6） */
+  const ownChangedOpen = storedSample !== undefined && storedSample.origin === undefined && storedSample.changed === true;
   /** 直した版を作れない見本（閲覧だけなど。変えても保存しない） */
   const sampleBlocked = storedInfo === null ? (samplePending?.blocked ?? null) : null;
   /** 保存している世帯（保存した世帯。直した版をまだ作っていないセットの見本は、変えたら保存する） */
@@ -3383,6 +3455,16 @@ export function App() {
                     最初の状態に戻す
                   </button>
                 ) : null}
+                {ownChangedOpen && storedInfo !== null ? (
+                  <>
+                    <button type="button" class="btn small" onClick={() => setSampleReset({ item: { ...sampleItem, kind: "own", id: storedInfo.id, changed: true }, busy: false, error: null })} data-band-reset>
+                      最初の状態に戻す
+                    </button>
+                    <button type="button" class="link-btn" onClick={() => setSampleSetInitial({ item: { ...sampleItem, kind: "own", id: storedInfo.id, changed: true }, busy: false, error: null })} data-band-set-initial>
+                      今の状態を最初の状態にする
+                    </button>
+                  </>
+                ) : null}
               </>
             ) : null}
             {sampleBlocked !== null ? (
@@ -3479,6 +3561,7 @@ export function App() {
               onDelete={deleteStored}
               onOpenSample={(item) => void guard(() => openSample(item), openMessage)}
               onResetSample={(item) => setSampleReset({ item, busy: false, error: null })}
+              onSetSampleInitial={(item) => setSampleSetInitial({ item, busy: false, error: null })}
               editableNotice={sampleEditableNotice ? () => updateLocal((st) => markRead(st, [SAMPLE_EDITABLE_NOTICE_KEY], localDate())) : null}
               onCustomerFromSample={(item, category) =>
                 void guard(async () => {
@@ -4430,7 +4513,8 @@ export function App() {
         />
       ) : null}
       {bandDrop !== null ? <BandDropDialog removal={bandDrop} onChoose={chooseBandDrop} /> : null}
-      {sampleReset !== null ? <SampleResetDialog name={sampleReset.item.name} busy={sampleReset.busy} error={sampleReset.error} onChoose={(c) => void chooseSampleReset(c)} /> : null}
+      {sampleReset !== null ? <SampleResetDialog name={sampleReset.item.name} own={sampleReset.item.kind === "own"} busy={sampleReset.busy} error={sampleReset.error} onChoose={(c) => void chooseSampleReset(c)} /> : null}
+      {sampleSetInitial !== null ? <SampleSetInitialDialog name={sampleSetInitial.item.name} busy={sampleSetInitial.busy} error={sampleSetInitial.error} onChoose={(c) => void chooseSampleSetInitial(c)} /> : null}
       {sampleExists !== null ? <SampleExistsDialog name={sampleExists.name} by={sampleExists.by} busy={sampleExists.busy} error={sampleExists.error} onChoose={(c) => void chooseSampleExists(c)} /> : null}
       {leaveDrafts !== null ? <DraftsLeaveDialog names={leaveDrafts.names} action={leaveDrafts.action} onChoose={(c) => draftsAnswer.current?.(c)} /> : null}
       {leave !== null ? (

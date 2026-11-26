@@ -64,6 +64,8 @@ export interface HouseholdPanelProps {
   onOpenSample: (item: ShelfItem) => void;
   /** 見本を最初の状態に戻す（確認画面を出す。最初の状態から変わっている行だけ。0247 の6） */
   onResetSample?: (item: ShelfItem) => void;
+  /** 自分で作った見本の「今の状態を最初の状態にする」（確認画面を出す。最初の状態から変わっている自分で作った見本の行だけ。0247 の6） */
+  onSetSampleInitial?: (item: ShelfItem) => void;
   /** 「見本は直せるようになりました」の知らせを出す（閉じたときに呼ぶ。出さないときは null。前の版を使っていた人に1回だけ。0247 の4） */
   editableNotice?: (() => void) | null;
   /** 見本をもとに顧客を作る（見本は変わらない） */
@@ -112,6 +114,7 @@ export const STORE_MESSAGES: Record<string, string> = {
   E_STORE_SAMPLE_NAME: "同じ名前の見本があります。別の名前にしてください",
   E_STORE_SAMPLE_EXISTS: "ほかの人が先にこの見本を直した版があります",
   E_STORE_SAMPLE_NOT_CHANGED: "この見本は最初の状態から変わっていません",
+  E_STORE_SAMPLE_INITIAL: "この見本の最初の状態を、この版のアプリで読める形に直せなかったため、戻していません（今の中身はそのままです）。アプリを更新してください",
   E_STORE_CONFIRM: "確認の番号（見本は見本の名前）が違います",
   E_STORE_CONFLICT: "ほかの人（ほかのPC）がこの世帯を先に保存していました。上書きせず、今の内容はこのPCの中に残しました。どちらを残すか選んでください",
   E_STORE_READ_ONLY: "新しい版のアプリで保存された世帯のため、閲覧だけできます（保存はできません）",
@@ -154,8 +157,8 @@ export const defaultCategory = (cats: readonly Category[]): string | undefined =
 /** 初めの「区分を使いますか？」の、あとから変えられることの一文 */
 export const CATEGORY_LATER = "あとから世帯の一覧の下の「区分を設定する」でいつでも変えられます。番号の数字（通し番号）は変わりません。";
 
-/** 見本にするときの一言（0182 の追記）: メモと面談の履歴は外す */
-export const SAMPLE_NOTES_TEXT = "メモと面談の履歴は外します（お客さまの記録を見本に残しません）。";
+/** 見本にするときの一言（0182 の追記・0247 の6）: メモと面談の履歴と、お客さまから受け取った物の記録は外す */
+export const SAMPLE_NOTES_TEXT = "メモと面談の履歴は外します（お客さまの記録を見本に残しません）。お客さまから受け取った物の記録（Web のヒアリングの答え・明細の取り込み・書類の読み取り）も外します。";
 
 /** アプリに入っている見本から顧客を作るときの一言（0182 の追記）: 見本のメモ（例の文）は写さない */
 export const APP_SAMPLE_MEMO_TEXT = "見本のメモ（例の文）は写しません";
@@ -175,7 +178,7 @@ export function copyRequest(item: ShelfItem, taken: readonly string[] = []): Sam
 }
 
 /** 見本を複製するボタンの説明（見本の行の「ほかの操作」） */
-export const COPY_SAMPLE_TITLE = "同じ家族の形・年代の新しい見本に複製します。メモと面談の履歴は複製しません";
+export const COPY_SAMPLE_TITLE = "同じ家族の形・年代の新しい見本に複製します。メモと面談の履歴・お客さまから受け取った物の記録は複製しません";
 
 /**
  * 行の「ほかの操作」: 押すと、すぐ下に操作が並ぶ（行の高さはそのぶん伸びる）。開くのは一覧の中で1つだけ（呼ぶ側が1つの状態で持つ）。
@@ -862,6 +865,11 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                 最初の状態に戻す
               </button>
             ) : null}
+            {ready && s.kind === "own" && s.versionOf === undefined && s.changed === true && p.onSetSampleInitial !== undefined ? (
+              <button type="button" class="link-btn" onClick={pick(() => p.onSetSampleInitial?.(s))} data-set-sample-initial={s.id}>
+                今の状態を最初の状態にする
+              </button>
+            ) : null}
             {s.kind === "own" ? (
               <>
                 {s.versionOf === undefined ? (
@@ -977,7 +985,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                         ) : (
                           <>
                             <span data-sample-name-cell>{s.name}</span>
-                            {s.edited !== undefined ? (
+                            {s.edited !== undefined || (s.kind === "own" && s.versionOf === undefined && s.changed === true) ? (
                               <span class="hh-tag hh-changed" data-sample-changed>
                                 {SAMPLE_CHANGED_MARK}
                               </span>

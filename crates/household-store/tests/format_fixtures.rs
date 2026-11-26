@@ -281,13 +281,23 @@ fn every_format_version_has_a_fixture_and_opens() {
                 now["meta"]["sample"], expected["meta"]["sample"],
                 "{v}: 見本の中身は変えない"
             );
-            assert_eq!(now["meta"]["sample"]["origin"]["set"], "official.basic");
             assert_eq!(
                 now["sampleInitial"], expected["sampleInitial"],
                 "{v}: 最初の状態は変換で変えない"
             );
             let info = label.sample.expect("一覧の作り直しで見本として戻る");
             assert_eq!((shown.as_str(), info.family, info.age), ("", 3, 6));
+            // 0.93 から: 見本のグループ meta.sample.group（0247 の追記 2026-11-26）。0.93 の見本は自分で作った見本（出どころなし）で、
+            // グループ「セミナー用」に入っている。一覧の作り直しでもグループごと戻る。前の版の見本は欄が無い（変換で書き足さない）
+            if migrate::parse(v).unwrap() >= migrate::parse(migrate::SAMPLE_GROUP).unwrap() {
+                assert!(now["meta"]["sample"].get("origin").is_none());
+                assert_eq!(now["meta"]["sample"]["group"], "セミナー用");
+                assert_eq!(info.group.as_deref(), Some("セミナー用"));
+                assert!(info.origin.is_none());
+            } else {
+                assert_eq!(now["meta"]["sample"]["origin"]["set"], "official.basic");
+                assert!(now["meta"]["sample"].get("group").is_none() && info.group.is_none());
+            }
             let initial = &expected["sampleInitial"];
             let mut as_body = initial["sections"].clone();
             as_body["meta"] = serde_json::json!({ "formatVersion": initial["formatVersion"] });

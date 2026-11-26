@@ -86,6 +86,7 @@ fn sample(family: u8, age: u8, name: &str) -> SampleRequest {
         name: name.into(),
         traits: vec!["会社員".into()],
         origin: None,
+        group: None,
     }
 }
 
@@ -398,7 +399,8 @@ fn household_files_carry_the_sample_in_meta() {
     );
 }
 
-/// (g): 本体が持つ区画 sampleInitial は、画面に渡さず、画面が渡さなくても・違う物を渡しても、保存で開いたファイルの物が残る
+/// (g): 本体が持つ区画 sampleInitial は、画面に渡さず、画面が渡さなくても・違う物を渡しても、保存で開いたファイルの物が残る。
+/// 作るときも画面が渡した区画は使わない
 #[test]
 fn sample_initial_is_carried_by_the_store() {
     let env = Env::new();
@@ -424,11 +426,14 @@ fn sample_initial_is_carried_by_the_store() {
             },
         )
         .unwrap();
-    assert!(s
-        .raw_body_for_test(&y.id)
-        .unwrap()
-        .get("sampleInitial")
-        .is_none());
+    // 自分で作った見本は、作る本文が最初の状態になる（0247 の6。画面が渡した区画ではなく本体が作る）
+    let made = s.raw_body_for_test(&y.id).unwrap()["sampleInitial"].clone();
+    assert_eq!(made["formatVersion"], migrate::CURRENT);
+    assert!(made["sections"].get("forged").is_none());
+    assert_eq!(
+        made["sections"]["proposals"],
+        json!([{"id": "p1", "title": "B案"}])
+    );
     assert!(serde_json::from_str::<Value>(&y.body)
         .unwrap()
         .get("sampleInitial")
@@ -1066,10 +1071,10 @@ fn resetting_an_edited_set_sample_removes_only_that_version() {
     );
     assert!(s.open(&customer.id).is_ok() && s.open(&own.id).is_ok());
     // 直した版を戻す
-    assert_eq!(
+    assert!(matches!(
         s.sample_reset(&e.id).unwrap(),
         household_store::SampleReset::Removed
-    );
+    ));
     assert!(!p.exists());
     assert!(!household_store::atomic::prev_path(&p).exists());
     for d in &backups {
@@ -1131,10 +1136,10 @@ fn edited_set_samples_are_shared_by_the_office() {
         Some(StoreError::SAMPLE_EXISTS)
     );
     // B が戻すと、A の棚からも消える
-    assert_eq!(
+    assert!(matches!(
         b.sample_reset(&e.id).unwrap(),
         household_store::SampleReset::Removed
-    );
+    ));
     assert!(edited_ids(&a).is_empty());
     assert_eq!(a.open(&e.id).err(), Some(StoreError::UNKNOWN_HOUSEHOLD));
     make(&b, edited("sampleCoupleNoKids", name));
@@ -1181,9 +1186,601 @@ fn edited_set_samples_move_with_the_shared_folder() {
         edited_ids(&a),
         vec![(e.id.clone(), "sampleSingleParent".to_owned())]
     );
-    assert_eq!(
+    assert!(matches!(
         a.sample_reset(&e.id).unwrap(),
         household_store::SampleReset::Removed
-    );
+    ));
     assert!(edited_ids(&a).is_empty());
+}
+
+// ---- 自分で作った見本の最初の状態（0247 の6。作る順の5段目）と、見本のグループの欄（0247 の追記 2026-11-26）----
+
+/// 世帯ファイルの本文の、最初の状態に入れる区画（meta・sampleInitial・同意と AI の記録を除く）
+fn sections_of(v: &Value) -> Value {
+    let mut m = v.as_object().unwrap().clone();
+    for k in [
+        "meta",
+        "sampleInitial",
+        "consents",
+        "consentExplanations",
+        "aiShares",
+        "candidates",
+    ] {
+        m.remove(k);
+    }
+    Value::Object(m)
+}
+
+/// 開いた本文の一部を変えた本文
+fn changed_body(o: &household_store::Opened, f: impl FnOnce(&mut Value)) -> String {
+    let mut b: Value = serde_json::from_str(&o.body).unwrap();
+    f(&mut b);
+    b.to_string()
+}
+
+/// 一覧の欄の「最初の状態から変わっている」
+fn listed_changed(store: &Store, id: &str) -> bool {
+    store
+        .list_samples()
+        .unwrap()
+        .into_iter()
+        .find(|e| e.id == id)
+        .unwrap()
+        .label
+        .sample
+        .unwrap()
+        .changed
+}
+
+fn restored(r: household_store::SampleReset) -> household_store::Opened {
+    match r {
+        household_store::SampleReset::Restored { opened } => *opened,
+        household_store::SampleReset::Removed => panic!("自分で作った見本は消さない"),
+    }
+}
+
+/// 自分で作った見本: 作った本文が最初の状態。変えると一覧と保存の答えに「変わっている」が出る（対の順だけの違いは変わっていない。null の欄の有無は
+/// 変わっているに倒す）。戻すと本文の区画が最初の状態と同じになり、誰が直したかの記録は残る。戻した直後なら前の世代で戻す前が開ける。
+/// 変わっていなければ戻さない
+#[test]
+fn own_samples_reset_to_their_first_state() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let x = make(&s, sample(3, 4, "研修用"));
+    let first = sections_of(&s.raw_body_for_test(&x.id).unwrap());
+    assert_eq!(
+        s.raw_body_for_test(&x.id).unwrap()["sampleInitial"]["sections"],
+        first
+    );
+    assert!(!listed_changed(&s, &x.id));
+    assert_eq!(
+        s.sample_reset(&x.id).err(),
+        Some(StoreError::SAMPLE_NOT_CHANGED),
+        "変わっていなければ戻さない"
+    );
+    let o = s.open(&x.id).unwrap();
+    // 対の順だけが違う本文は変わっていない
+    let reordered: Value = serde_json::from_str(&o.body).unwrap();
+    let mut keys: Vec<(&String, &Value)> = reordered.as_object().unwrap().iter().collect();
+    keys.reverse();
+    let text = format!(
+        "{{{}}}",
+        keys.iter()
+            .map(|(k, v)| format!("{}:{}", serde_json::to_string(k).unwrap(), v))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    assert_eq!(
+        s.save(&x.id, &text, "本人").unwrap().sample_changed,
+        Some(false)
+    );
+    // 空の値（null）の欄が足されただけでも、変わっているに倒す
+    let with_null = changed_body(&o, |b| b["display"]["bsGuide"] = Value::Null);
+    assert_eq!(
+        s.save(&x.id, &with_null, "本人").unwrap().sample_changed,
+        Some(true)
+    );
+    assert!(listed_changed(&s, &x.id));
+    // プランの名前を変えて保存（2回）
+    let c1 = changed_body(&o, |b| b["proposals"][0]["title"] = "C案".into());
+    s.save(&x.id, &c1, "本人").unwrap();
+    let c2 = changed_body(&o, |b| {
+        b["proposals"][0]["title"] = "D案".into();
+        b["workspace"]["band"] = json!(["p1"]);
+    });
+    let saved = s.save(&x.id, &c2, "本人").unwrap();
+    assert_eq!(saved.sample_changed, Some(true));
+    assert!(listed_changed(&s, &x.id));
+    let before = s.raw_body_for_test(&x.id).unwrap();
+    let revisions = before["meta"]["revisions"].clone();
+    // 戻す
+    let back = restored(s.sample_reset(&x.id).unwrap());
+    let shown: Value = serde_json::from_str(&back.body).unwrap();
+    assert!(shown.get("sampleInitial").is_none(), "画面に渡さない");
+    assert_eq!(sections_of(&shown), first);
+    let after = s.raw_body_for_test(&x.id).unwrap();
+    assert_eq!(sections_of(&after), first, "本文の区画が最初の状態と同じ");
+    assert_eq!(after["sampleInitial"], before["sampleInitial"]);
+    // 誰が直したかの記録は残る（同じ人の続けての保存は1行にまとまり、戻した保存も数に入る）
+    assert_eq!(after["meta"]["revisions"][0]["from"], revisions[0]["from"]);
+    assert_eq!(
+        after["meta"]["revisions"][0]["count"].as_u64(),
+        revisions[0]["count"].as_u64().map(|n| n + 1)
+    );
+    assert!(!listed_changed(&s, &x.id));
+    assert!(!back.label.sample.as_ref().unwrap().changed);
+    // 戻した後もふつうに保存できる（開いた状態の指紋・世代がそろっている）
+    assert_eq!(
+        s.save(&x.id, &back.body, "本人").unwrap().sample_changed,
+        Some(false)
+    );
+    // 戻す前の中身は直前の世代に残る（今のファイルが開けないとき、前の世代で開く）
+    let mut raw = s.raw_body_for_test(&x.id).unwrap();
+    raw["proposals"][0]["title"] = "E案".into();
+    s.write_raw_for_test(&x.id, migrate::CURRENT, &raw.to_string(), 20)
+        .unwrap();
+    let s2 = env.store("pc");
+    s2.status().unwrap();
+    let back = restored(s2.sample_reset(&x.id).unwrap());
+    assert_eq!(
+        serde_json::from_str::<Value>(&back.body).unwrap()["proposals"][0]["title"],
+        "B案"
+    );
+    std::fs::write(s2.household_path_for_test(&x.id), b"broken").unwrap();
+    assert!(s2.previous_generation(&x.id).unwrap().is_some());
+    let prev = s2.open_previous(&x.id).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&prev.body).unwrap()["proposals"][0]["title"],
+        "E案",
+        "戻す前の中身を前の世代で開ける"
+    );
+    assert!(
+        listed_changed(&s2, &x.id),
+        "前の世代で開くと一覧も変わっているに"
+    );
+}
+
+/// 「今の状態を最初の状態にする」: 今の本文で最初の状態を書き直し、変わっていないになる。後から戻すと新しい最初の状態に戻る。
+/// 顧客の世帯・セットの見本を直した版にはできない
+#[test]
+fn the_current_state_can_become_the_first_state() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let x = make(&s, sample(3, 4, "研修用"));
+    let o = s.open(&x.id).unwrap();
+    let c = changed_body(&o, |b| b["proposals"][0]["title"] = "C案".into());
+    s.save(&x.id, &c, "本人").unwrap();
+    assert!(listed_changed(&s, &x.id));
+    let saved = s.sample_set_initial(&x.id).unwrap();
+    assert_eq!(saved.sample_changed, Some(false));
+    assert!(!listed_changed(&s, &x.id));
+    let raw = s.raw_body_for_test(&x.id).unwrap();
+    assert_eq!(raw["sampleInitial"]["sections"], sections_of(&raw));
+    assert_eq!(raw["proposals"][0]["title"], "C案", "中身は変えない");
+    assert_eq!(
+        s.sample_reset(&x.id).err(),
+        Some(StoreError::SAMPLE_NOT_CHANGED)
+    );
+    // 開いていた画面の保存は続けられる（分岐にならない）
+    let d = changed_body(&o, |b| b["proposals"][0]["title"] = "D案".into());
+    assert_eq!(s.save(&x.id, &d, "本人").err(), None);
+    let back = restored(s.sample_reset(&x.id).unwrap());
+    assert_eq!(
+        serde_json::from_str::<Value>(&back.body).unwrap()["proposals"][0]["title"],
+        "C案"
+    );
+    // できない相手
+    let customer = s.create(req()).unwrap();
+    assert_eq!(
+        s.sample_set_initial(&customer.id).err(),
+        Some(StoreError::SAMPLE)
+    );
+    let e = make(&s, edited("sampleSingleParent", "ひとり親と子2人・30代"));
+    assert_eq!(s.sample_set_initial(&e.id).err(), Some(StoreError::SAMPLE));
+    assert!(s
+        .raw_body_for_test(&customer.id)
+        .unwrap()
+        .get("sampleInitial")
+        .is_none());
+    assert!(s
+        .raw_body_for_test(&e.id)
+        .unwrap()
+        .get("sampleInitial")
+        .is_none());
+    assert_eq!(
+        s.sample_set_initial("not-a-uuid").err(),
+        Some(StoreError::UNKNOWN_HOUSEHOLD)
+    );
+}
+
+/// 見本に登録: 登録したときのファイルの本文（画面がメモ・お客さまから受け取った物の記録を外して保存した後）が最初の状態。
+/// 同意と AI の記録（本体だけが書く・追記だけ）は最初の状態に入れず、比較にも使わず、戻しても消えない
+#[test]
+fn registered_samples_start_from_the_saved_body_and_keep_the_records() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let c = s.create(req()).unwrap();
+    let mut raw = s.raw_body_for_test(&c.id).unwrap();
+    raw["consents"] = json!([{"id": "consent-1", "state": "given"}]);
+    raw["aiShares"] = json!([{"shareId": "share-1", "endReason": "revoked"}]);
+    s.write_raw_for_test(&c.id, migrate::CURRENT, &raw.to_string(), 2)
+        .unwrap();
+    let s = env.store("pc");
+    s.status().unwrap();
+    s.make_sample(&c.id, &sample(3, 4, "登録した見本"), &[])
+        .unwrap();
+    let raw = s.raw_body_for_test(&c.id).unwrap();
+    let initial = &raw["sampleInitial"];
+    assert_eq!(initial["sections"], sections_of(&raw));
+    assert!(initial["sections"].get("consents").is_none());
+    assert!(initial["sections"].get("aiShares").is_none());
+    assert!(!listed_changed(&s, &c.id));
+    // 記録が増えても（本体の AI の記録）変わったことにならない
+    let o = s.open(&c.id).unwrap();
+    let more =
+        changed_body(
+            &o,
+            |b| {
+                b["aiShares"] =
+                    json!([{"shareId": "share-1", "endReason": "revoked"}, {"shareId": "share-2"}])
+            },
+        );
+    assert_eq!(
+        s.save(&c.id, &more, "本人").unwrap().sample_changed,
+        Some(false)
+    );
+    let ch = changed_body(&o, |b| {
+        b["proposals"][0]["title"] = "C案".into();
+        b["aiShares"] =
+            json!([{"shareId": "share-1", "endReason": "revoked"}, {"shareId": "share-2"}]);
+    });
+    s.save(&c.id, &ch, "本人").unwrap();
+    restored(s.sample_reset(&c.id).unwrap());
+    let raw = s.raw_body_for_test(&c.id).unwrap();
+    assert_eq!(raw["proposals"][0]["title"], "B案");
+    assert_eq!(
+        raw["aiShares"].as_array().map(Vec::len),
+        Some(2),
+        "記録は戻して消さない"
+    );
+    assert_eq!(raw["consents"][0]["id"], "consent-1");
+}
+
+/// 最初の状態を書く版より前に作った見本（最初の状態を持たない）: 次に保存するときに、保存する前のファイルの本文が最初の状態になる
+/// （それまでは戻すを出さない）。分岐の保存では相手の本文を最初の状態にしない
+#[test]
+fn older_samples_get_their_first_state_on_the_next_save() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let x = make(&s, sample(3, 4, "前からの見本"));
+    let mut raw = s.raw_body_for_test(&x.id).unwrap();
+    raw.as_object_mut().unwrap().remove("sampleInitial");
+    let before_edit = sections_of(&raw);
+    s.write_raw_for_test(&x.id, migrate::CURRENT, &raw.to_string(), 3)
+        .unwrap();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let o = s.open(&x.id).unwrap();
+    assert!(!listed_changed(&s, &x.id));
+    assert_eq!(
+        s.sample_reset(&x.id).err(),
+        Some(StoreError::SAMPLE_NOT_CHANGED)
+    );
+    // 分岐（開いた後にほかの保存が先にあった）では、最初の状態を書かない
+    let mut theirs = raw.clone();
+    theirs["proposals"][0]["title"] = "相手の案".into();
+    s.write_raw_for_test(&x.id, migrate::CURRENT, &theirs.to_string(), 4)
+        .unwrap();
+    let c = changed_body(&o, |b| b["proposals"][0]["title"] = "C案".into());
+    assert_eq!(s.save(&x.id, &c, "本人").err(), Some(StoreError::CONFLICT));
+    let o = s
+        .resolve_fork(&x.id, household_store::ForkChoice::Theirs)
+        .unwrap();
+    assert!(s
+        .raw_body_for_test(&x.id)
+        .unwrap()
+        .get("sampleInitial")
+        .is_none());
+    // ふつうの保存: 保存する前のファイルの本文（相手の案）が最初の状態
+    let c = changed_body(&o, |b| b["proposals"][0]["title"] = "C案".into());
+    assert_eq!(
+        s.save(&x.id, &c, "本人").unwrap().sample_changed,
+        Some(true)
+    );
+    let raw = s.raw_body_for_test(&x.id).unwrap();
+    assert_eq!(raw["sampleInitial"]["proposals"], Value::Null);
+    assert_eq!(
+        raw["sampleInitial"]["sections"]["proposals"][0]["title"],
+        "相手の案"
+    );
+    assert_ne!(raw["sampleInitial"]["sections"], before_edit);
+    let back = restored(s.sample_reset(&x.id).unwrap());
+    assert_eq!(
+        serde_json::from_str::<Value>(&back.body).unwrap()["proposals"][0]["title"],
+        "相手の案"
+    );
+}
+
+/// 古い形式の版の最初の状態は、変換の段に通してから戻す（0.87 の見本ファイルの最初の状態・前提と推定の一覧の確かめた記録を持つ 0.91 の
+/// 最初の状態）。このアプリより新しい版の最初の状態は戻さない（今の中身はそのまま）
+#[test]
+fn old_first_states_are_converted_and_newer_ones_are_not_used() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let x = make(&s, sample(3, 6, "研修用"));
+    let fixture: Value = serde_json::from_slice(
+        &std::fs::read(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/household-format/0.93/body.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(fixture["sampleInitial"]["formatVersion"], "0.87");
+    let mut raw = s.raw_body_for_test(&x.id).unwrap();
+    raw["sampleInitial"] = fixture["sampleInitial"].clone();
+    s.write_raw_for_test(&x.id, migrate::CURRENT, &raw.to_string(), 2)
+        .unwrap();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let back = restored(s.sample_reset(&x.id).unwrap());
+    let b: Value = serde_json::from_str(&back.body).unwrap();
+    assert_eq!(b["meta"]["formatVersion"], migrate::CURRENT);
+    assert!(b["household"]["request"]["input"]["household"]["members"]
+        .as_array()
+        .is_some_and(|m| !m.is_empty()));
+    assert!(!listed_changed(&s, &x.id), "変換した最初の状態と同じ");
+    // 0.91 の最初の状態（確かめた記録つき）: 戻すと記録は外れる（0.92 の段）
+    let mut raw = s.raw_body_for_test(&x.id).unwrap();
+    raw["sampleInitial"] = json!({"formatVersion": "0.91", "sections": {
+        "household": {"request": {"input": {}}, "agreed": {"current": {"x": {"on": "2026-10-20"}}}, "memo": ["最初"]},
+        "proposals": []}});
+    s.write_raw_for_test(&x.id, migrate::CURRENT, &raw.to_string(), 30)
+        .unwrap();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let back = restored(s.sample_reset(&x.id).unwrap());
+    let b: Value = serde_json::from_str(&back.body).unwrap();
+    assert!(b["household"].get("agreed").is_none());
+    assert_eq!(b["household"]["memo"], json!(["最初"]));
+    // 新しい版（0.99）の最初の状態: 戻さない。一覧は「変わっている」（戻せないことを隠さない）
+    let mut raw = s.raw_body_for_test(&x.id).unwrap();
+    raw["sampleInitial"] = json!({"formatVersion": "0.99", "sections": {"household": {}}});
+    s.write_raw_for_test(&x.id, migrate::CURRENT, &raw.to_string(), 40)
+        .unwrap();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let o = s.open(&x.id).unwrap();
+    assert!(listed_changed(&s, &x.id));
+    assert_eq!(
+        s.sample_reset(&x.id).err(),
+        Some(StoreError::SAMPLE_INITIAL)
+    );
+    assert_eq!(
+        sections_of(&s.raw_body_for_test(&x.id).unwrap()),
+        sections_of(&serde_json::from_str(&o.body).unwrap()),
+        "今の中身は変えない"
+    );
+}
+
+/// 事務所の共有: 戻すと全員の一覧で「変わっていない」に。ほかの人が開いていた画面の次の保存は分岐になる（黙って上書きしない）。
+/// 分岐で「こちらを残す」を選ぶと、こちらが最初の状態を持っていなくても相手の最初の状態は落ちない
+#[test]
+fn resetting_a_shared_sample_makes_the_others_save_a_fork() {
+    let env = Env::new();
+    let (a, b) = office_pair(&env);
+    let x = make(&a, sample(3, 4, "事務所の研修用"));
+    let oa = a.open(&x.id).unwrap();
+    let c = changed_body(&oa, |v| v["proposals"][0]["title"] = "C案".into());
+    a.save(&x.id, &c, "本人").unwrap();
+    assert!(listed_changed(&b, &x.id));
+    let ob = b.open(&x.id).unwrap();
+    restored(a.sample_reset(&x.id).unwrap());
+    assert!(!listed_changed(&b, &x.id));
+    let d = changed_body(&ob, |v| v["proposals"][0]["title"] = "D案".into());
+    assert_eq!(b.save(&x.id, &d, "本人").err(), Some(StoreError::CONFLICT));
+    let kept = b
+        .resolve_fork(&x.id, household_store::ForkChoice::Ours)
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&kept.body).unwrap()["proposals"][0]["title"],
+        "D案"
+    );
+    assert!(b.raw_body_for_test(&x.id).unwrap()["sampleInitial"].is_object());
+    assert!(listed_changed(&a, &x.id));
+}
+
+/// 見本のグループの欄（0247 の追記 2026-11-26。画面はまだ出さない）: 自分で作った見本は持てる（前後の空白を除く・空は持たない）。
+/// 一覧の欄と世帯ファイルの meta.sample に書き、保存・名前と項目を直す・登録・一覧の作り直し・共有フォルダとの行き来で落ちない。
+/// セットの見本を直した版は持てない
+#[test]
+fn sample_groups_are_kept_on_every_path() {
+    let env = Env::new();
+    let folder = env.base.join("共有フォルダ");
+    std::fs::create_dir_all(&folder).unwrap();
+    let s = env.store("a");
+    s.status().unwrap();
+    s.acknowledge_recovery().unwrap();
+    let grouped = |name: &str, g: &str| SampleRequest {
+        group: Some(g.into()),
+        ..sample(3, 4, name)
+    };
+    let x = make(&s, grouped("研修用", " セミナー用 "));
+    let empty = make(&s, grouped("グループなし", "  "));
+    let group_of = |store: &Store, id: &str| {
+        store
+            .list_samples()
+            .unwrap()
+            .into_iter()
+            .find(|e| e.id == id)
+            .unwrap()
+            .label
+            .sample
+            .unwrap()
+            .group
+    };
+    assert_eq!(group_of(&s, &x.id).as_deref(), Some("セミナー用"));
+    assert_eq!(group_of(&s, &empty.id), None);
+    assert_eq!(
+        s.raw_body_for_test(&x.id).unwrap()["meta"]["sample"]["group"],
+        "セミナー用"
+    );
+    assert!(s.raw_body_for_test(&empty.id).unwrap()["meta"]["sample"]
+        .get("group")
+        .is_none());
+    assert_eq!(
+        x.label.sample.as_ref().unwrap().group.as_deref(),
+        Some("セミナー用")
+    );
+    // セットの見本を直した版は持てない
+    assert_eq!(
+        s.create_with(
+            req(),
+            CreateOptions {
+                sample: Some(SampleRequest {
+                    group: Some("セミナー用".into()),
+                    ..edited("sampleSingleParent", "ひとり親と子2人・30代")
+                }),
+                ..Default::default()
+            }
+        )
+        .err(),
+        Some(StoreError::SAMPLE)
+    );
+    // 保存・名前と項目を直す・見本に登録
+    let o = s.open(&x.id).unwrap();
+    s.save(&x.id, &o.body, "本人").unwrap();
+    s.update_sample(&x.id, "研修用・直した", &[], 2, 5, &[])
+        .unwrap();
+    assert_eq!(group_of(&s, &x.id).as_deref(), Some("セミナー用"));
+    assert_eq!(
+        s.raw_body_for_test(&x.id).unwrap()["meta"]["sample"]["group"],
+        "セミナー用"
+    );
+    let c = s.create(req()).unwrap();
+    s.make_sample(&c.id, &grouped("登録した見本", "相談会"), &[])
+        .unwrap();
+    assert_eq!(group_of(&s, &c.id).as_deref(), Some("相談会"));
+    // 一覧の作り直し（事務所データが古い世代に戻った）
+    let mut office = s.office_json_for_test().unwrap();
+    office["households"] = json!({});
+    s.write_office_json_for_test(&office, household_store::OFFICE_FORMAT_VERSION)
+        .unwrap();
+    let s = env.store("a");
+    s.status().unwrap();
+    assert_eq!(group_of(&s, &x.id).as_deref(), Some("セミナー用"));
+    assert_eq!(group_of(&s, &c.id).as_deref(), Some("相談会"));
+    assert_eq!(group_of(&s, &empty.id), None);
+    // 共有フォルダへ移して戻す
+    s.sync_start(&folder, "事務所のPC", true, &[]).unwrap();
+    assert_eq!(group_of(&s, &x.id).as_deref(), Some("セミナー用"));
+    let o = s.open(&x.id).unwrap();
+    s.save(&x.id, &o.body, "本人").unwrap();
+    assert_eq!(group_of(&s, &x.id).as_deref(), Some("セミナー用"));
+    s.sync_end("事務所のPC").unwrap();
+    assert_eq!(group_of(&s, &x.id).as_deref(), Some("セミナー用"));
+    assert_eq!(group_of(&s, &c.id).as_deref(), Some("相談会"));
+}
+
+/// 見本のグループの欄（0247 の追記 2026-11-26）: 事務所データの形式の版 0.4。0.3 の事務所データ（前の版のアプリが書いた、グループの欄の無い形）は
+/// ふつうに開けて（閲覧だけにしない・移行の写しも作らない）、次に書くときに 0.4 で書く。一覧の欄の見本はグループの欄を持つ
+#[test]
+fn office_data_0_3_opens_and_is_written_as_0_4_with_groups() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let own = make(&s, sample(3, 4, "前からの見本"));
+    let e = make(&s, edited("sampleSingleParent", "ひとり親と子2人・30代"));
+    let office = s.office_json_for_test().unwrap();
+    assert!(office["households"][&own.id]["sample"]
+        .get("group")
+        .is_none());
+    s.write_office_json_for_test(&office, "0.3").unwrap();
+    let s = env.store("pc");
+    let st = s.status().unwrap();
+    assert!(!st.office_too_new);
+    assert!(st.sample_renames.is_empty());
+    assert_eq!(s.office_before_migration_for_test().unwrap(), None);
+    assert_eq!(
+        s.office_version_for_test().unwrap(),
+        "0.3",
+        "開いただけでは書かない"
+    );
+    assert_eq!(shelf(&s)[&own.id].0, "前からの見本");
+    assert_eq!(shelf(&s)[&e.id].0, "ひとり親と子2人・30代");
+    // 次に書くとき（見本を作る）に 0.4 で書き、一覧の欄にグループの欄が入る
+    let g = make(
+        &s,
+        SampleRequest {
+            group: Some("セミナー用".into()),
+            ..sample(3, 4, "グループの見本")
+        },
+    );
+    assert_eq!(
+        s.office_version_for_test().unwrap(),
+        household_store::OFFICE_FORMAT_VERSION
+    );
+    assert_eq!(household_store::OFFICE_FORMAT_VERSION, "0.4");
+    let office = s.office_json_for_test().unwrap();
+    assert_eq!(office["households"][&g.id]["sample"]["group"], "セミナー用");
+    assert!(office["households"][&own.id]["sample"]
+        .get("group")
+        .is_none());
+    // 開き直しても残る
+    let s = env.store("pc");
+    s.status().unwrap();
+    let listed = s.list_samples().unwrap();
+    let gi = listed.iter().find(|x| x.id == g.id).unwrap();
+    assert_eq!(
+        gi.label.sample.as_ref().unwrap().group.as_deref(),
+        Some("セミナー用")
+    );
+}
+
+/// 見本のグループの欄（0247 の追記 2026-11-26）: 事務所の共有（共有フォルダの形式 0.3）でも、一覧の欄のファイルにグループの欄を書き、
+/// ほかのメンバーの一覧・名前と項目を直す・保存のどの道でも落とさない
+#[test]
+fn sample_groups_are_shared_by_the_office() {
+    let env = Env::new();
+    let (a, b) = office_pair(&env);
+    let x = make(
+        &a,
+        SampleRequest {
+            group: Some("セミナー用".into()),
+            ..sample(3, 4, "事務所の研修用")
+        },
+    );
+    let group_of = |store: &Store| {
+        store
+            .list_samples()
+            .unwrap()
+            .into_iter()
+            .find(|e| e.id == x.id)
+            .unwrap()
+            .label
+            .sample
+            .unwrap()
+            .group
+    };
+    assert_eq!(group_of(&b).as_deref(), Some("セミナー用"));
+    assert_eq!(
+        a.card_json_for_test(&x.id).unwrap()["sample"]["group"],
+        "セミナー用"
+    );
+    b.update_sample(&x.id, "事務所の研修用・直した", &[], 2, 5, &[])
+        .unwrap();
+    let o = b.open(&x.id).unwrap();
+    let c = changed_body(&o, |v| v["proposals"][0]["title"] = "C案".into());
+    b.save(&x.id, &c, "本人").unwrap();
+    assert_eq!(group_of(&a).as_deref(), Some("セミナー用"));
+    assert_eq!(group_of(&b).as_deref(), Some("セミナー用"));
+    assert_eq!(
+        b.raw_body_for_test(&x.id).unwrap()["meta"]["sample"]["group"],
+        "セミナー用"
+    );
 }

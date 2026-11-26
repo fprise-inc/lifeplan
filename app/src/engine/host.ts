@@ -195,13 +195,23 @@ export interface SampleInfo {
   age: number;
   /** セットの見本を直した版のときだけ */
   origin?: SampleOrigin;
+  /** FP が名前を付けた見本のグループ（任意。後でグループを作れるように欄だけ先に持つ。画面はまだ出さない。0247 の追記 2026-11-26） */
+  group?: string;
   /** 最初の状態から変わっているか（無ければ false） */
   changed?: boolean;
 }
 
-/** 見本を最初の状態に戻した結果（removed: セットの見本を直した版を消した。次に開くとアプリの中の見本が開く） */
-export interface SampleResetOutcome {
-  kind: "removed";
+/**
+ * 見本を最初の状態に戻した結果（0247 の6）: removed＝セットの見本を直した版を消した（次に開くとアプリの中の見本が開く）、
+ * restored＝自分で作った見本の中身を最初の状態に置き換えて保存した（opened は戻した後の世帯）
+ */
+export type SampleResetOutcome = { kind: "removed" } | { kind: "restored"; opened: StoredOpened };
+
+/** 保存の結果（sampleChanged は見本のときだけ: 保存した後、最初の状態から変わっているか。0247 の6） */
+export interface StoreSaved {
+  generation: number;
+  savedAt: string;
+  sampleChanged?: boolean;
 }
 
 /** 見本を作る・登録するときの指定 */
@@ -531,7 +541,7 @@ export interface StoreHost {
   previousGeneration(id: string): Promise<PreviousGeneration | null>;
   /** 開けなかった世帯を、直前の世代で開き直す（開けなかったファイルは本体がこの PC の中に別名で残す） */
   openPrevious(id: string): Promise<StoredOpened>;
-  save(id: string, body: string, summary: string): Promise<{ generation: number; savedAt: string }>;
+  save(id: string, body: string, summary: string): Promise<StoreSaved>;
   rename(id: string, customerNo: string): Promise<{ customerNo: string; duplicate: boolean }>;
   /** 完全削除（confirm は FP が打った顧客番号。見本は見本の名前。0247） */
   remove(id: string, confirm: string): Promise<void>;
@@ -569,9 +579,16 @@ export interface StoreHost {
   updateSample(id: string, name: string, traits: string[], family: number, age: number, reservedNames?: string[]): Promise<void>;
   /**
    * 見本を最初の状態に戻す（0247 の6）。セットの見本を直した版（出どころのある見本）は、直した版を消す（完全削除と同じ消し方。取り消せない）。
-   * 顧客の世帯は E_STORE_SAMPLE、自分で作った見本は E_STORE_SAMPLE_NOT_CHANGED で断る（本体が確かめる）
+   * 自分で作った見本は、中身を最初の状態に置き換えて保存する（戻す前の中身は直前の世代に1つだけ残る）。保存していない変更は先に保存してから呼ぶ。
+   * 顧客の世帯は E_STORE_SAMPLE、変わっていない見本は E_STORE_SAMPLE_NOT_CHANGED、最初の状態を今の版に直せないときは E_STORE_SAMPLE_INITIAL
+   * （本体が確かめる）
    */
   sampleReset(id: string): Promise<SampleResetOutcome>;
+  /**
+   * 自分で作った見本の「今の状態を最初の状態にする」（0247 の6）。中身は変えない。保存していない変更は先に保存してから呼ぶ。
+   * セットの見本を直した版・顧客の世帯は E_STORE_SAMPLE
+   */
+  sampleSetInitial(id: string): Promise<StoreSaved>;
   categories(): Promise<CategorySettings>;
   /** 区分の設定を変える（空は「区分を使わない」。初めの「区分を使いますか？」の答えもこれで書く） */
   setCategories(edits: CategoryEdit[]): Promise<CategorySettings>;
@@ -1197,7 +1214,7 @@ export function tauriHost(): HostApi {
       peekHearing: (id) => invoke<unknown>("store_peek_hearing", { id }),
       previousGeneration: (id) => invoke<PreviousGeneration | null>("store_previous_generation", { id }),
       openPrevious: (id) => invoke<StoredOpened>("store_open_previous", { id }),
-      save: (id, body, summary) => invoke<{ generation: number; savedAt: string }>("store_save", { id, body, summary }),
+      save: (id, body, summary) => invoke<StoreSaved>("store_save", { id, body, summary }),
       rename: (id, customerNo) => invoke<{ customerNo: string; duplicate: boolean }>("store_rename", { id, customerNo }),
       remove: (id, confirm) => invoke<void>("store_delete", { id, confirm }),
       recoveryKey: () => invoke<string>("recovery_key_show"),
@@ -1219,6 +1236,7 @@ export function tauriHost(): HostApi {
       updateSample: (id, name, traits, family, age, reservedNames) =>
         invoke<void>("store_update_sample", { id, name, traits, family, age, reservedNames: reservedNames ?? null }),
       sampleReset: (id) => invoke<SampleResetOutcome>("store_sample_reset", { id }),
+      sampleSetInitial: (id) => invoke<StoreSaved>("store_sample_set_initial", { id }),
       categories: () => invoke<CategorySettings>("store_categories"),
       setCategories: (edits) => invoke<CategorySettings>("store_set_categories", { edits }),
     },
@@ -1484,7 +1502,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       peekHearing: async (id) => devJson<unknown>(await devStore("peekHearing", { id })),
       previousGeneration: async (id) => devJson<PreviousGeneration | null>(await devStore("previousGeneration", { id })),
       openPrevious: async (id) => devJson<StoredOpened>(await devStore("openPrevious", { id })),
-      save: async (id, body, summary) => devJson<{ generation: number; savedAt: string }>(await devStore("save", { id, body, summary })),
+      save: async (id, body, summary) => devJson<StoreSaved>(await devStore("save", { id, body, summary })),
       rename: async (id, customerNo) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("rename", { id, customerNo })),
       remove: async (id, confirm) => void (await devJson<unknown>(await devStore("delete", { id, confirm }))),
       recoveryKey: async () => devJson<string>(await devStore("recoveryKey")),
@@ -1509,6 +1527,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
           await devStore("updateSample", { id, name, traits: JSON.stringify(traits), family: String(family), age: String(age), reserved: JSON.stringify(reservedNames ?? []) }),
         )),
       sampleReset: async (id) => devJson<SampleResetOutcome>(await devStore("sampleReset", { id })),
+      sampleSetInitial: async (id) => devJson<StoreSaved>(await devStore("sampleSetInitial", { id })),
       categories: async () => devJson<CategorySettings>(await devStore("categories")),
       setCategories: async (edits) => devJson<CategorySettings>(await devStore("setCategories", { edits: JSON.stringify(edits) })),
     },

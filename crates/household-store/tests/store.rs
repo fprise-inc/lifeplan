@@ -862,7 +862,7 @@ fn newer_office_data_is_opened_view_only() {
     assert!(!household_store::office_version_too_new(
         household_store::OFFICE_FORMAT_VERSION
     ));
-    assert!(household_store::office_version_too_new("0.4"));
+    assert!(household_store::office_version_too_new("0.5"));
     assert!(household_store::office_version_too_new("1.0"));
     assert!(household_store::office_version_too_new("x"));
     let env = Env::new();
@@ -882,7 +882,7 @@ fn newer_office_data_is_opened_view_only() {
         .set_office_defaults(serde_json::json!({ "version": 4 }))
         .unwrap();
     // 新しい版のアプリが書いた事務所データ
-    store.write_office_version_for_test("0.4").unwrap();
+    store.write_office_version_for_test("0.5").unwrap();
     let path = env.root.join("office.lpod");
     let before = std::fs::read(&path).ok();
     let store = env.store();

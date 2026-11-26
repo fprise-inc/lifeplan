@@ -16,8 +16,13 @@ use crate::StoreError;
 /// （変換の段 `drop_agreed_marks` は版の番号を持たない）
 pub const AGREED_DROPPED: &str = "0.92";
 
+/// 見本の中身 `meta.sample` に、FP が名前を付けた見本のグループの欄 `group` を足した版（0247 の追記 2026-11-26）。ほかの変更と版の番号が
+/// ぶつかったら、この1つの定数と、見本のフォルダ（`tests/fixtures/household-format/<版>/`）の名前と、テスト・画面の版の確かめの数を付け直す
+/// （変換の段 `add_sample_group` は版の番号を持たない）
+pub const SAMPLE_GROUP: &str = "0.93";
+
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = AGREED_DROPPED;
+pub const CURRENT: &str = SAMPLE_GROUP;
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -346,6 +351,11 @@ pub const CURRENT: &str = AGREED_DROPPED;
 ///   AI接続口には使っていなかった）をなくした（0260。利用者の判断）。形を変える段: 本文の `household.agreed` を外す。控え（`snapshots`）・
 ///   自分で作った見本の最初の状態（`sampleInitial`）の中は書き換えない（0.87 の決まり。`sampleInitial` は使うときにこの段を通るので外れる）。
 ///   前の版のアプリは欄が無くても読めるが、新しい版の世帯を開くと閲覧だけになる（ほかの版上げと同じ）。0.91 の段の後に積む
+/// - 0.93（`SAMPLE_GROUP`）: 見本の中身 `meta.sample` に、任意の欄 `group`（FP が名前を付けた見本のグループの名前。前後の空白を除き、空なら
+///   持たない。セットの見本を直した版〔`origin` あり〕は持たない。0247 の追記 2026-11-26）を足した（足すだけの MINOR。画面はまだ出さない）。
+///   前の版のアプリは、世帯を保存するときに一覧の欄から `meta.sample` を書き直して欄を落とすので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える（前の版の見本は欄が無い＝グループに入っていない）。`sampleInitial` の中は書き換えない（0.87 の決まり）。
+///   0.92 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1",
     "0.2",
@@ -439,6 +449,7 @@ pub const KNOWN: &[&str] = &[
     "0.90",
     "0.91",
     AGREED_DROPPED,
+    SAMPLE_GROUP,
 ];
 
 /// 1段分の変換
@@ -904,6 +915,11 @@ pub const STEPS: &[Step] = &[
         from: "0.91",
         to: AGREED_DROPPED,
         apply: drop_agreed_marks,
+    },
+    Step {
+        from: AGREED_DROPPED,
+        to: SAMPLE_GROUP,
+        apply: add_sample_group,
     },
 ];
 
@@ -3146,6 +3162,16 @@ fn drop_agreed_marks(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// `AGREED_DROPPED`（0.92）→ `SAMPLE_GROUP`（0.93）: 見本のグループの欄 `meta.sample.group`（0247 の追記 2026-11-26）は任意なので、
+/// 形式の版だけを書き換える（前の版の見本は欄が無い＝グループに入っていない。欄を書き足さない。控え・`sampleInitial` の中に触れない）
+fn add_sample_group(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), SAMPLE_GROUP.into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -4145,7 +4171,8 @@ mod tests {
         assert_eq!(access("0.90").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.91").unwrap(), Access::ReadWrite);
         assert_eq!(access(AGREED_DROPPED).unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.93").unwrap(), Access::ReadOnly);
+        assert_eq!(access(SAMPLE_GROUP).unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.94").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -4158,7 +4185,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.93", b.clone()).unwrap(),
+            upgrade("0.94", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4179,16 +4206,16 @@ mod tests {
             "sampleInitial": {"formatVersion": "0.91", "sections": {"household": {"agreed": {"current": {"field:assume/inflation": {"on": "2026-10-20"}}}}}}
         });
         let u = upgrade("0.91", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], AGREED_DROPPED);
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert!(u["household"].get("agreed").is_none());
         let mut want = b.clone();
-        want["meta"]["formatVersion"] = AGREED_DROPPED.into();
+        want["meta"]["formatVersion"] = CURRENT.into();
         want["household"].as_object_mut().unwrap().remove("agreed");
         assert_eq!(u, want, "ほかの欄・控え・sampleInitial は変えない");
         // 記録の無い世帯は版だけ
         let none = serde_json::json!({"meta": {"formatVersion": "0.91"}, "household": {"request": {"input": {}}}});
         let mut want = none.clone();
-        want["meta"]["formatVersion"] = AGREED_DROPPED.into();
+        want["meta"]["formatVersion"] = CURRENT.into();
         assert_eq!(upgrade("0.91", none).unwrap(), want);
         // sampleInitial を最初の状態に戻すとき（その版から変換の段を通す）も記録は外れる
         let initial = serde_json::json!({"meta": {"formatVersion": "0.91"}, "household": b["sampleInitial"]["sections"]["household"].clone()});
@@ -4200,6 +4227,26 @@ mod tests {
         assert!(upgrade("0.90", old).unwrap()["household"]
             .get("agreed")
             .is_none());
+    }
+
+    #[test]
+    fn add_sample_group_only_bumps_the_version() {
+        // 0247 の追記 2026-11-26: 見本のグループの欄は任意。前の版の見本は欄が無いまま（書き足さない）。控え・sampleInitial の中も変えない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": AGREED_DROPPED, "sample": {"name": "研修用", "traits": [], "family": 3, "age": 4}},
+            "household": {"request": {"input": {}}},
+            "snapshots": [{"id": "s", "input": {"household": {}}}],
+            "sampleInitial": {"formatVersion": "0.87", "sections": {"household": {"memo": ["最初"]}}}
+        });
+        let u = upgrade(AGREED_DROPPED, b.clone()).unwrap();
+        let mut want = b.clone();
+        want["meta"]["formatVersion"] = SAMPLE_GROUP.into();
+        assert_eq!(u, want);
+        assert!(u["meta"]["sample"].get("group").is_none());
+        // グループを持つ見本（この版から）はそのまま
+        let mut g = want.clone();
+        g["meta"]["sample"]["group"] = "セミナー用".into();
+        assert_eq!(upgrade(SAMPLE_GROUP, g.clone()).unwrap(), g);
     }
 
     #[test]

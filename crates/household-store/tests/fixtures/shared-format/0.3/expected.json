@@ -1,0 +1,201 @@
+{
+  "card": {
+    "category": "A",
+    "createdAt": "2026-10-19T10:00:00Z",
+    "customerNo": "A0042",
+    "generation": 3,
+    "serial": 42,
+    "summary": "本人・配偶者・子1",
+    "updatedAt": "2026-10-21T10:00:00Z",
+    "updatedBy": {
+      "memberId": "0f0f0f0f-0000-4000-8000-0000000000b1",
+      "name": "見本の担当B"
+    }
+  },
+  "groupSampleCard": {
+    "createdAt": "2026-11-26T10:00:00Z",
+    "customerNo": "",
+    "generation": 3,
+    "sample": {
+      "age": 4,
+      "changed": true,
+      "family": 3,
+      "group": "セミナー用",
+      "name": "セミナー用の見本",
+      "traits": [
+        "会社員"
+      ]
+    },
+    "summary": "本人・配偶者・子2",
+    "updatedAt": "2026-11-26T11:00:00Z",
+    "updatedBy": {
+      "memberId": "0f0f0f0f-0000-4000-8000-0000000000b1",
+      "name": "見本の担当B"
+    }
+  },
+  "keys": {
+    "current": "d7f2bec8c69ce41a7f4ba40f88775127ca2f38cedaf1083b7b35af5924ef8183",
+    "currentId": "0f0f0f0f-0000-4000-8000-000000000201",
+    "previous": [
+      [
+        "0f0f0f0f-0000-4000-8000-000000000202",
+        "27fedd4b0a544ba59224926df308910dd3511140e230b6f7abee6136e7a05f6c"
+      ]
+    ]
+  },
+  "officeCode": "FKW5-JJGV-R458-WA20",
+  "officeFile": {
+    "format": "lifeplan.sharedOffice",
+    "formatVersion": "0.3",
+    "officeId": "0f0f0f0f-0000-4000-8000-000000000001"
+  },
+  "presence": {
+    "deviceId": "0f0f0f0f-0000-4000-8000-000000000301",
+    "displayName": "見本の担当B",
+    "heartbeatAt": 1792400060,
+    "memberId": "0f0f0f0f-0000-4000-8000-0000000000b1",
+    "openedAt": 1792400000
+  },
+  "previousEpochKeys": {
+    "current": "27fedd4b0a544ba59224926df308910dd3511140e230b6f7abee6136e7a05f6c",
+    "currentId": "0f0f0f0f-0000-4000-8000-000000000202",
+    "previous": []
+  },
+  "request": {
+    "displayName": "見本の担当E",
+    "format": "lifeplan.joinRequest",
+    "formatVersion": "0.3",
+    "memberId": "0f0f0f0f-0000-4000-8000-0000000000e1",
+    "officeId": "0f0f0f0f-0000-4000-8000-000000000001",
+    "publicKey": "1b47e2aba5c2423986f13f629e911fc683217341ee3d75a6cd4aca8cb4cbe213",
+    "requestedAt": "2026-10-22T09:00:00Z"
+  },
+  "roster": {
+    "categories": [
+      {
+        "code": "A",
+        "name": "顧問契約"
+      },
+      {
+        "code": "C",
+        "name": "見込み客"
+      }
+    ],
+    "closed": null,
+    "events": [
+      {
+        "at": "2026-10-21T09:00:00Z",
+        "displayName": "見本の担当D",
+        "kind": "recoveryJoin",
+        "memberId": "0f0f0f0f-0000-4000-8000-0000000000d1"
+      }
+    ],
+    "extra": {},
+    "masterKeyId": "0f0f0f0f-0000-4000-8000-000000000002",
+    "members": [
+      {
+        "approvedBy": null,
+        "displayName": "見本の担当A",
+        "fingerprint": "V32J-XQ4B-1X10-GWNW",
+        "joinedAt": "2026-10-19T09:00:00Z",
+        "memberId": "0f0f0f0f-0000-4000-8000-0000000000a1",
+        "publicKey": "ce99340cd690008a84a9724d0e5e7dbde11292b99d7b6c40ec80780e4cf4e977",
+        "role": "member"
+      },
+      {
+        "approvedBy": "0f0f0f0f-0000-4000-8000-0000000000a1",
+        "displayName": "見本の担当B",
+        "fingerprint": "8TH9-P064-3MC8-RH6C",
+        "joinedAt": "2026-10-19T09:00:00Z",
+        "memberId": "0f0f0f0f-0000-4000-8000-0000000000b1",
+        "publicKey": "615cb4b0f2b6ef03cf20eb889025b260b0d21c5830450c979fdedcdc2ff0c966",
+        "role": "member"
+      },
+      {
+        "approvedBy": null,
+        "displayName": "見本の担当D",
+        "fingerprint": "QRS6-RVZ1-ZPF2-ZQMN",
+        "joinedAt": "2026-10-19T09:00:00Z",
+        "memberId": "0f0f0f0f-0000-4000-8000-0000000000d1",
+        "publicKey": "9ce2fdf232b79d0dcf365dd079486c02d911c91f4a39c4ea54560fb1d7eed337",
+        "role": "member"
+      }
+    ],
+    "officeId": "0f0f0f0f-0000-4000-8000-000000000001",
+    "previous": [
+      {
+        "key": "ae81232d37fbe32c041efa33a473a77b7e216226def26ab3c00a6879b9bd60b1",
+        "masterKeyId": "0f0f0f0f-0000-4000-8000-000000000003",
+        "retiredAt": "2026-10-20T09:00:00Z"
+      }
+    ],
+    "recovery": {
+      "acknowledgedAt": "2026-10-20T09:05:00Z",
+      "acknowledgedBy": "0f0f0f0f-0000-4000-8000-0000000000a1",
+      "masterKeyId": "0f0f0f0f-0000-4000-8000-000000000002",
+      "verifiedAt": "2026-10-21T09:00:00Z",
+      "verifiedBy": "0f0f0f0f-0000-4000-8000-0000000000d1"
+    },
+    "removed": [
+      {
+        "displayName": "見本の担当C",
+        "memberId": "0f0f0f0f-0000-4000-8000-0000000000c1",
+        "removedAt": "2026-10-20T09:00:00Z",
+        "removedBy": "0f0f0f0f-0000-4000-8000-0000000000a1"
+      }
+    ],
+    "updatedAt": "2026-10-21T09:00:00Z",
+    "updatedBy": "0f0f0f0f-0000-4000-8000-0000000000d1",
+    "usage": "office"
+  },
+  "sampleCard": {
+    "createdAt": "2026-11-20T10:00:00Z",
+    "customerNo": "",
+    "generation": 2,
+    "sample": {
+      "age": 6,
+      "changed": true,
+      "family": 3,
+      "name": "退職前後の夫婦・60代",
+      "origin": {
+        "id": "sampleSeniorRental",
+        "rev": 1,
+        "set": "official.basic"
+      },
+      "traits": [
+        "会社員",
+        "持ち家"
+      ]
+    },
+    "summary": "本人・配偶者",
+    "updatedAt": "2026-11-21T10:00:00Z",
+    "updatedBy": {
+      "memberId": "0f0f0f0f-0000-4000-8000-0000000000a1",
+      "name": "見本の担当A"
+    }
+  },
+  "statementDictionary": {
+    "dictionary": [
+      {
+        "at": "2026-10-21T11:00:00Z",
+        "by": "0f0f0f0f-0000-4000-8000-0000000000a1",
+        "category": "food",
+        "key": "架空ノ店"
+      }
+    ],
+    "formats": [
+      {
+        "at": "2026-10-21T11:00:00Z",
+        "by": "0f0f0f0f-0000-4000-8000-0000000000a1",
+        "fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+        "kind": "card",
+        "label": "架空のカード",
+        "mapping": {
+          "amount": 2,
+          "date": 0,
+          "payee": 1
+        }
+      }
+    ]
+  }
+}
