@@ -3,7 +3,7 @@
 お客さまが答えた Web のヒアリングの**暗号文だけ**を預かる Cloudflare Workers のサーバー。決まりは [設計記録 0125](../../docs/decisions/0125-web-hearing-e2e.md) と [0158](../../docs/decisions/0158-web-hearing-documents-expiry-gates.md)（書類の送り・期限30日と延長・毎日の掃除）。
 
 - `handler.ts` … API の処理（Web 標準の Request と Response だけ。試し・開発用のサーバーでも同じものを動かす）
-- `worker.ts` … Workers の入口（API と、お客さまのページ `/h/` の静的なファイル。どの答えにも守りの見出しを付ける。毎日決まった時刻に、期限を過ぎた依頼を消す `scheduled`）
+- `worker.ts` … Workers の入口（API と、お客さまのページ `/h/` と説明のページ `/h/about/` の静的なファイル。どの答えにも守りの見出しを付ける。毎日決まった時刻に、期限を過ぎた依頼を消す `scheduled`）
 - `r2.ts`・`store.ts` … 置き場（本番は R2、試しはメモリ）
 - `wrangler.toml` … 設定（**値はすべて仮の値**。「置き換える」の印の所を本番の前に置き換える）
 
@@ -31,9 +31,14 @@ cd hearing && node --disable-warning=ExperimentalWarning scripts/relay-smoke.ts 
 `npm run build:hearing-form` は `app/dist-hearing-form/h/fingerprints.json` に、配るファイルの SHA-256 を書く（HTML の script・link には完全性の印も付ける）。リリースのときにこの指紋を公開しておけば、配られているページがすり替えられていないかを、誰でも次のように確かめられる。
 
 ```sh
-curl -s https://<受け付けのホスト>/h/ | shasum -a 256
+curl -s https://<受け付けのホスト>/h/ | shasum -a 256        # "/h/index.html" の値と同じか
+curl -s https://<受け付けのホスト>/h/about/ | shasum -a 256  # "/h/about/index.html" の値と同じか
 curl -s https://<受け付けのホスト>/h/fingerprints.json
 ```
+
+## 説明のページ（`/h/about/`）
+
+お客さまのページの最初の画面のいちばん下の「このページの運営: 株式会社ＦＰライズ ｜ このページの仕組みと送られる情報」の後半のリンクの先（[設計記録 0138](../../docs/decisions/0138-web-hearing-customer-screens.md) の追記 2026-11-26。電気通信事業法の外部送信の規律に合わせる）。中身は `app/h/about/index.html`（スクリプトを持たない。CSP はお客さまのページと同じ）で、`npm run build:hearing-form` が同じ所に作り、配るファイルの指紋にも入る。
 
 ## 本番に出す（利用者の手作業）
 
@@ -43,3 +48,10 @@ curl -s https://<受け付けのホスト>/h/fingerprints.json
 - R2 のバケットに期限の決まり（**置いてから91日で消す**。バケット全体）を足す。延長した依頼は作った日から90日まで残るので、問いが期限より先に消えないように。期限どおりに消すのは毎日の掃除（`wrangler.toml` の `[triggers]`）で、91日は掃除が止まったときの備え。
 - 毎日の掃除（`[triggers]` の `crons`）が動いていることを、Workers の画面の決まった時刻の呼び出しの記録で確かめる。
 - `config/distribution.toml` の `[hearing_web]` の `relay`・`page` が、置いた場所と同じかを確かめる（アプリは build.rs がここから写す）。
+- 説明のページ（`app/h/about/index.html`）の「【決まったら入れる】」の印（問い合わせの窓口・制定日）を置き換えてからビルドする。印が残ったまま配らない。お客さまが最初にページを開く前（URL を発行する前）に、説明のページを置いておく。
+- `financia.jp` のゾーン（Cloudflare の管理画面）で、ページに部品を差し込む機能をすべて切る。お客さまのページと説明のページに、コードに無い外への送信が入らないようにするため（電気通信事業法の外部送信の規律。公表した送られる情報と食い違わないように）。CSP の `'self'` は同じホストの `/cdn-cgi/` から読む部品を止めきれないので、CSP だけに頼らない。
+  - Web Analytics の自動設定（解析の部品。`static.cloudflareinsights.com` へ送る）
+  - Bot Fight Mode・JavaScript detections（機械の判定の部品）
+  - Zaraz（タグの管理）
+  - Email Address Obfuscation・Rocket Loader・そのほか HTML を書き換える機能（Speed・Scrape Shield などの画面にあるもの）
+- 置いた後に、配られているページを、そのリリースで公開した指紋（`fingerprints.json`）と比べる（上の「配るファイルの指紋」の `curl … | shasum -a 256`）。`/h/` と `/h/about/` の両方の HTML が一致すれば、差し込まれていない。一致しなければ、上の機能が入っていないかを見直す。

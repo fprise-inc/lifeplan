@@ -613,6 +613,24 @@
   margin: 6px 0 0;
   padding-left: 1.2em;
 }
+.hf-about a,
+.hf-operator a {
+  color: var(--hf-accent);
+  text-decoration: underline;
+}
+/* 運営者の1行（「このページの仕組み」の下。0138 の追記 2026-11-26）。開かなくても読める大きさ（本文 18px に近い 16px）。
+   外部送信の規律で、運営者の名前と送られる情報の説明に容易にたどれるように。見本ではリンクを開かないので、同じ見え方の文字 */
+.hf-operator {
+  margin: 14px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--hf-sub);
+  overflow-wrap: anywhere;
+}
+.hf-about-link {
+  color: var(--hf-accent);
+  text-decoration: underline;
+}
 .hf-sent .hf-about,
 .hf-sent .hf-sent-list {
   text-align: left;

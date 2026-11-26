@@ -1,0 +1,79 @@
+/* 説明のページ（h/about/index.html。0138 の追記 2026-11-26）。お客さまのページと同じ落ち着いた色・文字の大きさ。外のフォントを読まない（端末の文字を使う） */
+/* お客さまのページと1つの CSS にまとまる（build-hearing-form.ts の cssCodeSplit: false）ので、説明のページの body の印 .ab-page の下だけに効かせる */
+.ab-page {
+  --ab-accent: #2b4c8c;
+  --ab-ink: #1d2433;
+  --ab-sub: #5a6375;
+  --ab-line: #d9dee8;
+  --ab-bg: #f6f7f9;
+}
+body.ab-page {
+  margin: 0;
+  background: var(--ab-bg);
+}
+.ab {
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic UI", "Noto Sans JP", "Meiryo", sans-serif;
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--ab-ink);
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 18px 40px;
+  box-sizing: border-box;
+  border-top: 5px solid var(--ab-accent);
+  overflow-wrap: anywhere;
+}
+.ab h1 {
+  font-size: 22px;
+  line-height: 1.45;
+  margin: 4px 0 14px;
+}
+.ab h2 {
+  font-size: 19px;
+  margin: 28px 0 10px;
+  padding-left: 10px;
+  border-left: 4px solid var(--ab-accent);
+}
+.ab h3 {
+  font-size: 17px;
+  margin: 0 0 4px;
+}
+.ab p {
+  margin: 0 0 10px;
+}
+.ab ul {
+  padding-left: 1.2em;
+  margin: 0;
+}
+.ab li {
+  margin-bottom: 6px;
+}
+.ab-item {
+  background: #fff;
+  border: 1px solid var(--ab-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+}
+.ab-note {
+  color: var(--ab-sub);
+  font-size: 16px;
+}
+.ab dl {
+  margin: 0;
+}
+.ab dt {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ab-sub);
+  margin-top: 6px;
+}
+.ab dd {
+  margin: 0;
+}
+.ab-op {
+  background: #fff;
+  border: 1px solid var(--ab-line);
+  border-radius: 12px;
+  padding: 8px 14px 12px;
+}
