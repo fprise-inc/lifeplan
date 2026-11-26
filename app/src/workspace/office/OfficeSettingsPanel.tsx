@@ -42,6 +42,8 @@ export { OFFICE_PAGES, type OfficePageId } from "./pages.ts";
 
 export interface OfficeSettingsPanelProps extends CodeActions {
   value: OfficeSettings;
+  /** 出していないセットの見本を直した版の数（コードの知らせに「消していません」を足す。0247 の7） */
+  keptSamples?: readonly { name: string; count: number }[];
   /** 保存する（本体の事務所データへ） */
   onSave: (next: OfficeSettings) => Promise<void>;
   /** 事務所で共有しているか（今は PC ごとの設定であることを知らせる） */
@@ -341,6 +343,7 @@ export function OfficeSettingsPanel(p: OfficeSettingsPanelProps) {
             shared={shared}
             features={features}
             combinedBs={d.s.features.combinedBs}
+            keptSamples={p.keptSamples ?? []}
             onCombinedBs={(on) => setS((x) => ({ ...x, features: { ...x.features, combinedBs: on } }))}
             {...(p.onAddCode !== undefined ? { onAddCode: p.onAddCode } : {})}
             {...(p.onRemoveCode !== undefined ? { onRemoveCode: p.onRemoveCode } : {})}

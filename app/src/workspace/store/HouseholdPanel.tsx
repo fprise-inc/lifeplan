@@ -13,6 +13,7 @@ import { officeShareText, storageText } from "../header/FpMenu.tsx";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
 import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, OWN_GROUP, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, ownSampleHeading, sampleNameKey, shapeText, shelfSections, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
 import { SAMPLE_SETS } from "../samples/sets.ts";
+import { SAMPLE_CHANGED_MARK, SAMPLE_EDITABLE_NOTICE, SAMPLE_STALE_TEXT } from "./SampleDialogs.tsx";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
 import { storageNoticeText } from "./storage.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
@@ -59,8 +60,12 @@ export interface HouseholdPanelProps {
   onMakeClient?: (id: string) => Promise<string | null>;
   onSaveCategories: (edits: CategoryEdit[]) => Promise<string | null>;
   onDelete: (id: string, confirm: string) => Promise<string | null>;
-  /** 見本を開く（動かしても見本は変わらない） */
+  /** 見本を開く（どの見本も、変えると自動で保存する。セットの見本は最初に変えたときに直した版を作る。0247 の4・5） */
   onOpenSample: (item: ShelfItem) => void;
+  /** 見本を最初の状態に戻す（確認画面を出す。最初の状態から変わっている行だけ。0247 の6） */
+  onResetSample?: (item: ShelfItem) => void;
+  /** 「見本は直せるようになりました」の知らせを出す（閉じたときに呼ぶ。出さないときは null。前の版を使っていた人に1回だけ。0247 の4） */
+  editableNotice?: (() => void) | null;
   /** 見本をもとに顧客を作る（見本は変わらない） */
   onCustomerFromSample: (item: ShelfItem, category: string | undefined) => void;
   /** 見本を複製する（同じ家族の形・年代の新しい見本） */
@@ -103,9 +108,10 @@ export const STORE_MESSAGES: Record<string, string> = {
   E_STORE_CUSTOMER_NO: "顧客番号は英数字・ハイフン・下線の16字までです（お名前は入れないでください）",
   E_STORE_CATEGORY: "区分の記号は英大文字1〜2字、名前は20字までで、記号は重ねられません",
   E_STORE_CATEGORY_IN_USE: "世帯が使っている区分は消せません（記号や名前を変えるのはできます）",
-  E_STORE_SAMPLE: "見本の指定を確かめてください（家族の形・本人の年代と、40字までの名前を入れてください。はじめから入っている見本は直せません）",
+  E_STORE_SAMPLE: "見本の指定を確かめてください（家族の形・本人の年代と、40字までの名前を入れてください。はじめから入っている見本の名前と項目は変えられません）",
   E_STORE_SAMPLE_NAME: "同じ名前の見本があります。別の名前にしてください",
   E_STORE_SAMPLE_EXISTS: "ほかの人が先にこの見本を直した版があります",
+  E_STORE_SAMPLE_NOT_CHANGED: "この見本は最初の状態から変わっていません",
   E_STORE_CONFIRM: "確認の番号（見本は見本の名前）が違います",
   E_STORE_CONFLICT: "ほかの人（ほかのPC）がこの世帯を先に保存していました。上書きせず、今の内容はこのPCの中に残しました。どちらを残すか選んでください",
   E_STORE_READ_ONLY: "新しい版のアプリで保存された世帯のため、閲覧だけできます（保存はできません）",
@@ -162,7 +168,7 @@ export function copyRequest(item: ShelfItem, taken: readonly string[] = []): Sam
   const used = new Set(taken.map(sampleNameKey));
   for (let n = 1; n < 1000; n++) {
     const tail = n === 1 ? "（複製）" : `（複製${n}）`;
-    const name = `${[...item.name].slice(0, 40 - tail.length).join("").trimEnd()}${tail}`;
+    const name = `${[...(item.baseName ?? item.name)].slice(0, 40 - tail.length).join("").trimEnd()}${tail}`;
     if (!used.has(sampleNameKey(name))) return { family: item.family, age: item.age, name, traits: [...item.traits] };
   }
   return null;
@@ -816,10 +822,10 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           }}
         >
           <label>
-            確認のため見本の名前（{s.name}）を入れてください{" "}
+            確認のため見本の名前（{s.baseName ?? s.name}）を入れてください{" "}
             <input value={sampleDelete.value} aria-label="確認の見本の名前" onInput={(e) => setSampleDelete({ ...sampleDelete, value: (e.currentTarget as HTMLInputElement).value, error: null })} />
           </label>
-          <button type="submit" class="btn danger" disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.name)}>
+          <button type="submit" class="btn danger" disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.baseName ?? s.name)}>
             完全に削除する
           </button>
           <button type="button" class="link-btn" onClick={() => setSampleDelete(null)}>
@@ -851,11 +857,18 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                 複製する
               </button>
             ) : null}
+            {ready && s.changed === true && p.onResetSample !== undefined ? (
+              <button type="button" class="link-btn danger" onClick={pick(() => p.onResetSample?.(s))} data-reset-sample={s.id}>
+                最初の状態に戻す
+              </button>
+            ) : null}
             {s.kind === "own" ? (
               <>
-                <button type="button" class="link-btn" onClick={pick(() => setSampleEdit({ id: s.id, name: s.name, traits: [...s.traits], family: s.family, age: s.age, error: null }))} data-edit-sample={s.id}>
-                  名前と項目を直す
-                </button>
+                {s.versionOf === undefined ? (
+                  <button type="button" class="link-btn" onClick={pick(() => setSampleEdit({ id: s.id, name: s.name, traits: [...s.traits], family: s.family, age: s.age, error: null }))} data-edit-sample={s.id}>
+                    名前と項目を直す
+                  </button>
+                ) : null}
                 <button type="button" class="link-btn danger" onClick={pick(() => setSampleDelete({ id: s.id, value: "", error: null }))} data-delete-sample={s.id}>
                   完全削除
                 </button>
@@ -870,8 +883,18 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const samples = (
     <>
       <p class="pl-sub hh-shelf-note">
-        見本は架空の世帯です。顧客番号を持たず、顧客の一覧には出ません。はじめから入っている見本は直せません。{shared && !personal ? "事務所" : "自分"}で作った見本は、名前・家族の形・項目を直せます。開いて動かしても見本は変わりません（閉じれば元どおり）。
+        見本は架空の世帯です。顧客番号を持たず、顧客の一覧には出ません。どの見本も、開いて数字を変えると、変えた内容はその見本に残ります（元の内容に戻すときは「最初の状態に戻す」）。
+        {shared && !personal ? "はじめから入っている見本を直した内容は、事務所の全員に同じものが出ます。" : ""}
+        {shared && !personal ? "事務所" : "自分"}で作った見本は、名前・家族の形・項目も直せます。
       </p>
+      {p.editableNotice !== undefined && p.editableNotice !== null ? (
+        <p class="rp-note hh-editable-notice" role="status" data-sample-editable-notice>
+          {SAMPLE_EDITABLE_NOTICE}
+          <button type="button" class="link-btn" onClick={p.editableNotice} data-sample-editable-close>
+            閉じる
+          </button>
+        </p>
+      ) : null}
       <div class="hh-tools">
         <label>
           名前で探す{" "}
@@ -925,7 +948,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                 {sec.items.map((s) => {
                   const isCurrent = p.currentSample === s.id;
                   return (
-                    <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.id}>
+                    <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.id} {...(s.edited !== undefined ? { "data-sample-edited": s.edited.id } : {})}>
                       <td class="hh-wrap">
                         {sampleEdit?.id === s.id ? (
                           <form
@@ -952,7 +975,19 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                             {sampleEdit.error !== null ? <span class="hh-err">{sampleEdit.error}</span> : null}
                           </form>
                         ) : (
-                          <span data-sample-name-cell>{s.name}</span>
+                          <>
+                            <span data-sample-name-cell>{s.name}</span>
+                            {s.edited !== undefined ? (
+                              <span class="hh-tag hh-changed" data-sample-changed>
+                                {SAMPLE_CHANGED_MARK}
+                              </span>
+                            ) : null}
+                            {s.edited?.stale === true ? (
+                              <span class="pl-sub hh-stale" data-sample-stale>
+                                {SAMPLE_STALE_TEXT}
+                              </span>
+                            ) : null}
+                          </>
                         )}
                       </td>
                       <td class="hh-nowrap">{shapeText(s.family, s.age)}</td>

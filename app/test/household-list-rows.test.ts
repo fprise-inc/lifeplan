@@ -209,9 +209,11 @@ describe("見本の一覧の行（0244）", () => {
     expect(inside(rowHtml(html, "data-sample-row", "own-1"))).toEqual(["名前と項目を直す", "完全削除"]);
   });
 
-  it("一覧の上の説明は「はじめから入っている見本」（「アプリ」と書かない）。見本に登録の案内は「ほかの操作」の中を指す", () => {
+  it("一覧の上の説明は「はじめから入っている見本」（「アプリ」と書かない）。どの見本も直せて「最初の状態に戻す」で戻せる（0247 の4）。見本に登録の案内は「ほかの操作」の中を指す", () => {
     const { html } = render({ initialTab: "samples" });
-    expect(html).toContain("はじめから入っている見本は直せません。自分で作った見本は、名前・家族の形・項目を直せます。");
+    expect(html).toContain("どの見本も、開いて数字を変えると、変えた内容はその見本に残ります（元の内容に戻すときは「最初の状態に戻す」）。");
+    expect(html).toContain("自分で作った見本は、名前・家族の形・項目も直せます。");
+    expect(html).not.toContain("直せません");
     expect(html).not.toContain("01〜09");
     expect(html).not.toContain("アプリに入っている見本");
     expect(html).toContain("「顧客」の一覧の行の「ほかの操作」の「見本に登録」から");

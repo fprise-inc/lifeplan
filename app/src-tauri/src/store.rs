@@ -17,8 +17,8 @@ use std::sync::Arc;
 
 use household_store::{
     CategoryEdit, CategorySettings, CreateOptions, CreateRequest, HearingPeek, HouseholdEntry,
-    Opened, OsSecretStore, PreviousGeneration, RenameOutcome, SampleRequest, Saved, SecretStore,
-    Status, Store, StoreError, SystemClock,
+    Opened, OsSecretStore, PreviousGeneration, RenameOutcome, SampleRequest, SampleReset, Saved,
+    SecretStore, Status, Store, StoreError, SystemClock,
 };
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -293,6 +293,24 @@ pub async fn store_update_sample(
     let reserved = reserved_names.unwrap_or_default();
     blocking(app, move |s| {
         s.update_sample(&id, &name, &traits, family, age, &reserved)
+    })
+    .await
+}
+
+/// 見本を最初の状態に戻す（0247 の6）。セットの見本を直した版は、直した版を消す（完全削除と同じ消し方。削除の記録を残す）。
+/// 消すのは出どころのある見本だけ（顧客の世帯・自分で作った見本は本体が断る）。見本は AI に渡さない決まりだが、念のため先に共有を取り消す
+#[tauri::command]
+pub async fn store_sample_reset(app: AppHandle, id: String) -> Result<SampleReset, String> {
+    with_ai(app, move |s, ai| {
+        let is_edited_set_sample = s
+            .list_samples()
+            .ok()
+            .and_then(|l| l.into_iter().find(|e| e.id == id))
+            .is_some_and(|e| e.label.sample.is_some_and(|x| x.origin.is_some()));
+        if is_edited_set_sample {
+            ai.on_deleting(&id);
+        }
+        s.sample_reset(&id).map_err(code)
     })
     .await
 }

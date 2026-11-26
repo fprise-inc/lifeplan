@@ -3,7 +3,7 @@
 import type { Category, NumberLabel } from "../../engine/host.ts";
 import type { EngineRequest } from "../../engine/types.ts";
 
-export type { Category, CategoryEdit, CategorySettings, NumberLabel, SampleInfo, SampleRequest } from "../../engine/host.ts";
+export type { Category, CategoryEdit, CategorySettings, NumberLabel, SampleInfo, SampleOrigin, SampleRequest } from "../../engine/host.ts";
 
 export const CATEGORY_CODE = /^[A-Z]{1,2}$/;
 
@@ -31,15 +31,6 @@ export const familyName = (n: number) => FAMILY_SHAPES.find((f) => f.n === n)?.n
 
 /** 見本の絞り込みの項目（働き方・稼ぎ方・住まいなど） */
 export const SAMPLE_TRAITS: readonly string[] = ["会社員", "公務員", "自営業", "役員", "年金生活", "共働き", "片働き", "持ち家", "賃貸", "住宅ローン", "教育費", "資産運用", "収益不動産", "親の介護・相続"];
-
-/**
- * 見本を開いていて、動かしても保存しない（見本の帯の「動かしても見本は変わりません」と同じ条件。0033）。
- * item は見本の棚の今開いている見本（見本でなければ null）、mode は自分で作った見本の開き方（「この見本を直す」で edit）。
- * アプリに入っている見本は mode が null で、いつも保存しない
- */
-export function sampleNotSaving(item: ShelfItem | null, mode: null | "view" | "edit"): boolean {
-  return item !== null && mode !== "edit";
-}
 
 /** 家族の形と本人の年代の説明（例: 夫婦と子・40代） */
 export function shapeText(family: number, age: number): string {
@@ -98,29 +89,115 @@ export interface ShelfItem {
   family: number;
   /** 本人の年代（2〜7） */
   age: number;
+  /** 一覧に出す名前（同じ出どころの2つ目の版などは「（別の版）」を足した名前） */
   name: string;
+  /** 本体が持つ見本の名前（完全削除の確かめ・複製の名前の元。name と同じなら無い） */
+  baseName?: string;
   traits: readonly string[];
-  /** FP の見本の最後の保存 */
+  /** FP の見本の最後の保存（アプリの見本は、直した版の最後の保存） */
   updatedAt?: string;
+  /**
+   * アプリの見本を直した版（0247 の5。棚に1つ。行を開くとこの版が開く）。stale はセットの定義の中身の版（rev）が直した版の出どころの版より新しい
+   * （「元の見本が新しくなっています」）
+   */
+  edited?: { id: string; stale: boolean };
+  /** 最初の状態から変わっている（「最初の状態に戻す」を出す。アプリの見本は直した版があるとき） */
+  changed?: boolean;
+  /**
+   * 自分で作った見本の所に出す、セットの見本を直した版（表示だけの決まり。0247 の5）: other＝同じ出どころの2つ目の版（同期の遅れでできた）、
+   * former＝セットの定義から無くなった見本の直した版。どちらも最初の状態に戻すは出さない
+   */
+  versionOf?: "other" | "former";
 }
 
-/** 見本の棚に並べるセット（samples/sets.ts の SampleSet のうち、棚に要る所） */
+/** 見本の棚に並べるセット（samples/sets.ts の SampleSet のうち、棚に要る所。rev は見本の中身の版） */
 export interface ShelfSet {
   id: string;
   name: string;
-  samples: readonly { id: string; title: string; traits: readonly string[]; family: number; age: number }[];
+  samples: readonly { id: string; title: string; traits: readonly string[]; family: number; age: number; rev?: number }[];
 }
+
+type ShelfOwn = { id: string; customerNo: string; createdAt?: string; updatedAt: string } & NumberLabel;
+
+/** 一覧に出す名前（別の版は「（別の版）」、セットの定義から無くなった見本の直した版は名前が重なるときだけ「（前の版）」） */
+const OTHER_VERSION = "（別の版）";
+const FORMER_VERSION = "（前の版）";
 
 /**
  * 見本の棚の並び（0247 の2）: セット（定義の順。セットの中も定義の順）→ 自分で作った見本（名前の順。本体の一覧と同じ）。
- * 家族の形・年代は、アプリの見本はセットの定義の family・age、自分で作った見本は一覧の欄の sample から読む
+ * 家族の形・年代は、アプリの見本はセットの定義の family・age、自分で作った見本は一覧の欄の sample から読む。
+ * セットの見本を直した版（出どころ origin のある見本。0247 の5）は、アプリの見本の行に入れる（行を開くと直した版が開く）。同じ出どころの版が
+ * 2つあるときは、作った日時の早い方（同じなら内部ID の小さい方）をその行に入れ、ほかは「自分で作った見本」の所に「（別の版）」として出す。
+ * all はアプリに入っているすべてのセットの定義（出していないセットも）: 出していないセットの見本を直した版は出さない（消さない。0247 の7）。
+ * どのセットの定義にも無い見本を直した版は「自分で作った見本」の所に出す（名前が重なるときは「（前の版）」）
  */
-export function shelfItems(sets: readonly ShelfSet[], own: readonly ({ id: string; customerNo: string; updatedAt: string } & NumberLabel)[]): ShelfItem[] {
-  const apps = sets.flatMap((set) => set.samples.map((d): ShelfItem => ({ kind: "app", group: set.id, id: d.id, family: d.family, age: d.age, name: d.title, traits: d.traits })));
+export function shelfItems(sets: readonly ShelfSet[], own: readonly ShelfOwn[], all: readonly ShelfSet[] = sets): ShelfItem[] {
+  const edits = editedVersions(sets, own, all);
+  const apps = sets.flatMap((set) =>
+    set.samples.map((d): ShelfItem => {
+      const e = edits.primary.get(`${set.id}\n${d.id}`);
+      const base: ShelfItem = { kind: "app", group: set.id, id: d.id, family: d.family, age: d.age, name: d.title, traits: d.traits };
+      return e === undefined ? base : { ...base, edited: { id: e.id, stale: (e.sample?.origin?.rev ?? 0) < (d.rev ?? 0) }, changed: true, updatedAt: e.updatedAt };
+    }),
+  );
+  const taken = new Set([...apps.map((i) => sampleNameKey(i.name)), ...own.flatMap((h) => (h.sample !== undefined && h.sample.origin === undefined ? [sampleNameKey(h.sample.name)] : []))]);
   const owns = own
-    .flatMap((h): ShelfItem[] => (h.sample === undefined ? [] : [{ kind: "own", group: OWN_GROUP, id: h.id, family: h.sample.family, age: h.sample.age, name: h.sample.name, traits: h.sample.traits, updatedAt: h.updatedAt }]))
+    .flatMap((h): ShelfItem[] => {
+      const s = h.sample;
+      if (s === undefined) return [];
+      const item: ShelfItem = { kind: "own", group: OWN_GROUP, id: h.id, family: s.family, age: s.age, name: s.name, traits: s.traits, updatedAt: h.updatedAt };
+      if (s.origin === undefined) return [s.changed === true ? { ...item, changed: true } : item];
+      const how = edits.shelved.get(h.id);
+      if (how === undefined) return [];
+      const name = how === "other" ? `${s.name}${OTHER_VERSION}` : taken.has(sampleNameKey(s.name)) ? `${s.name}${FORMER_VERSION}` : s.name;
+      return [{ ...item, name, ...(name !== s.name ? { baseName: s.name } : {}), versionOf: how }];
+    })
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   return [...apps, ...owns];
+}
+
+/**
+ * セットの見本を直した版の振り分け: primary は「セットの ID\n見本の ID」→ 行に入れる版、shelved は自分で作った見本の所に出す版。
+ * どちらにも無い直した版は、出していないセットの物（出さない）
+ */
+function editedVersions(sets: readonly ShelfSet[], own: readonly ShelfOwn[], all: readonly ShelfSet[]): { primary: Map<string, ShelfOwn>; shelved: Map<string, "other" | "former"> } {
+  const primary = new Map<string, ShelfOwn>();
+  const shelved = new Map<string, "other" | "former">();
+  const early = (a: ShelfOwn, b: ShelfOwn) => ((a.createdAt ?? "") !== (b.createdAt ?? "") ? ((a.createdAt ?? "") < (b.createdAt ?? "") ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  for (const h of [...own].sort(early)) {
+    const o = h.sample?.origin;
+    if (o === undefined) continue;
+    const defined = all.some((set) => set.id === o.set && set.samples.some((d) => d.id === o.id)) || sets.some((set) => set.id === o.set && set.samples.some((d) => d.id === o.id));
+    if (!defined) {
+      shelved.set(h.id, "former");
+      continue;
+    }
+    if (!sets.some((set) => set.id === o.set && set.samples.some((d) => d.id === o.id))) continue;
+    const key = `${o.set}\n${o.id}`;
+    if (primary.has(key)) shelved.set(h.id, "other");
+    else primary.set(key, h);
+  }
+  return { primary, shelved };
+}
+
+/** セットごとの、そのセットの見本を直した版の数（セットの名前ごと。0件のセットは入れない。事務所の既定値の知らせで消していないことを伝える。0247 の7） */
+export function editedCountsOf(sets: readonly Pick<ShelfSet, "id" | "name">[], own: readonly ShelfOwn[]): { name: string; count: number }[] {
+  return sets.flatMap((set) => {
+    const count = own.filter((h) => h.sample?.origin?.set === set.id).length;
+    return count > 0 ? [{ name: set.name, count }] : [];
+  });
+}
+
+/** セットの見本を直した版（同じ出どころの版が2つあるときは、作った日時の早い方〔同じなら内部ID の小さい方〕。棚の行に入れる版と同じ。0247 の5） */
+export function editedVersionOf<T extends ShelfOwn>(own: readonly T[], set: string, id: string): T | undefined {
+  return own
+    .filter((h) => h.sample?.origin?.set === set && h.sample.origin.id === id)
+    .sort((a, b) => ((a.createdAt ?? "") !== (b.createdAt ?? "") ? ((a.createdAt ?? "") < (b.createdAt ?? "") ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
+}
+
+/** いま開いている保存した見本の、見本の棚の行（アプリの見本を直した版なら、そのアプリの見本の行） */
+export function shelfItemOf(shelf: readonly ShelfItem[], storedId: string): ShelfItem | null {
+  return shelf.find((i) => i.edited?.id === storedId) ?? shelf.find((i) => i.kind === "own" && i.id === storedId) ?? null;
 }
 
 /** 自分で作った見本の見出し（事務所の共有では「事務所で作った見本」。PC の中だけと、1人で複数の PC の同期フォルダは「自分で作った見本」。0247 の2） */

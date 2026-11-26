@@ -34,8 +34,16 @@
 /* 見本の棚の種類の見出し（「ファイナンシアの見本」「自分で作った見本」など。出ている種類が2つ以上のときだけ。0247 の2）: 表の列の見出しより控えめに、上を空けて区切る */
 .hh-shelf .hh-group th { background: none; padding: 14px 8px 4px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); border-bottom: 1.5px solid var(--line); }
 .hh-shelf tbody:first-of-type .hh-group th { padding-top: 6px; }
-/* 見本を開いているときの帯（動かしても見本は変わらない） */
+/* 見本を開いているときの帯（変えた内容は見本に残る。直した版なら「最初の状態に戻す」。0247 の4〜6） */
 .sample-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px dashed var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
+/* 帯の下の一行（閲覧だけで保存しない・元の見本が新しくなった・保存できなかった）は、行を変えて帯の幅いっぱいに */
+.sample-band-note { flex-basis: 100%; }
+.sample-band-error { color: var(--short-ink); font-weight: 700; }
+.sample-band-error .link-btn { margin-left: 8px; font-weight: 400; }
+/* 見本の一覧の、直した見本の印と、元の見本が新しくなった一言（名前の右・下） */
+.hh-shelf .hh-changed { margin-left: 6px; vertical-align: 1px; }
+.hh-shelf .hh-stale { display: block; margin-top: 2px; white-space: normal; }
+.hh-editable-notice { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; }
 .hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }
 /* 一覧の行を1行にそろえる（0244）。顧客番号の右の印（架空・自由な番号）は番号の右に並べ、隣の列に重ねない。
    幅が足りないときは、番号は折らずに印だけを番号の下へ送る（長い自由な番号で番号の欄が広がり、ほかの欄を押さないように） */

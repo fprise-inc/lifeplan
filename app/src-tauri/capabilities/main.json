@@ -43,6 +43,7 @@
     "allow-store-assign-serial",
     "allow-store-make-sample",
     "allow-store-update-sample",
+    "allow-store-sample-reset",
     "allow-store-categories",
     "allow-store-set-categories",
     "allow-store-make-client",
