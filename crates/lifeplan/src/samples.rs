@@ -342,7 +342,11 @@ mod tests {
         assert!(!ids(&v).contains(&"sampleOwnerCompany".to_owned()));
         let text = v.to_string();
         // 法人経営者の見本の名前も出さない（ファイナンシアの見本の「会社を経営する夫婦・50代」は家計の側だけの見本で、名前が違う）
-        for w in ["合算BS", "法人経営者", "社員15人の会社を経営する夫婦と子1人"] {
+        for w in [
+            "合算BS",
+            "法人経営者",
+            "社員15人の会社を経営する夫婦と子1人",
+        ] {
             assert!(!text.contains(w), "{w}: {text}");
         }
         assert!(ids(&list(&ListSamplesArgs {
