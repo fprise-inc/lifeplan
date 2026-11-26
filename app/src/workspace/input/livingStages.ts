@@ -6,7 +6,7 @@
 //   FP が外した推定の段は「該当なし」の行で覚えて、入れ直しで足し直さない
 // - 新しい世帯は最初から入れる（household.ts の blankHousehold）。古い世帯は、FP が「推定で入れる」を押したときだけ（黙って書き換えない。0035 の11）
 import type { Box, Household, LivingExpense, Member, Timepoint } from "../../engine/types.ts";
-import { addMonths, ageAt, ageReachedMonth, derivedId, parseYm } from "../levers.ts";
+import { addMonths, ageAt, ageReachedMonth, derivedId, livingTotalOf, parseYm } from "../levers.ts";
 import { schoolEntryYear } from "../present.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { livingEstimate as livingBySize, livingStatistic } from "../../../../hearing/src/estimates.ts";
@@ -276,7 +276,8 @@ const stageMonth = (h: Household, s: Stage): string => resolveTimepoint(h, s.at)
 function stageRatio(l: LivingExpense, s: Stage): number | null {
   if (s.ratio !== undefined) return Number(s.ratio);
   const m = (s.monthly as Box<number> | undefined)?.value;
-  const base = l.mode === "byCategory" ? (l.categories ?? []).reduce((t, c) => t + (c.monthly.value ?? 0), 0) : (l.monthly?.value ?? 0);
+  // 今の額は計算に使う最初の月額（内訳の合計をそろえているときは、そろえた額。0262）
+  const base = livingTotalOf(l) ?? 0;
   return m == null || base <= 0 ? null : m / base;
 }
 

@@ -10,7 +10,7 @@
 // FP顧問料は「前提条件」のカードの中の欄のまとまり（stages/assumptions.ts）。車は「車」のカードの中で1台ずつ足す（stages/cars.ts）
 import type { AdvisoryFee, Car, CareExpense, Household, Member, PeriodicExpense } from "../../engine/types.ts";
 import { careEstimate } from "../../../../hearing/src/estimates.ts";
-import { addMonths, ageAt } from "../levers.ts";
+import { addMonths, ageAt, livingTotalOf } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { allFields, type FieldDef, type SectionDef, type StageDef, type StageId } from "./form.ts";
 import { ADULT_CARE_NONE, educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
@@ -279,7 +279,8 @@ function workSummary(h: Household, baseMonth: string): Summary | null {
 function livingSummary(h: Household): Summary | null {
   const l = (h.livingExpenses ?? [])[0];
   if (l === undefined) return null;
-  const monthly = l.mode === "total" ? (l.monthly?.value ?? 0) : (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+  // 計算に使う最初の月額（内訳の合計をそろえているときは、そろえた額。0262）
+  const monthly = livingTotalOf(l) ?? 0;
   return { pre: "月", main: manText(monthly), unit: "万円" };
 }
 

@@ -954,6 +954,8 @@ export interface LivingExpenseInput {
   readonly to?: Timepoint | null;
   readonly monthly?: ValueBox<Yen>;
   readonly categories?: readonly { readonly category: LivingCategory; readonly monthly: ValueBox<Yen> }[];
+  /** 内訳の合計をそろえる月額（入れ方が内訳のときだけ。各費目は内訳の割合で分け直す。結果の対策「毎月の生活費」。0262） */
+  readonly categoryTotal?: ValueBox<Yen>;
   readonly growth?: GrowthInput;
   readonly stages?: readonly { readonly at: Timepoint; readonly label?: string; readonly ratio?: string; readonly monthly?: ValueBox<Yen> }[];
   readonly onContingency?: OnContingencyInput;

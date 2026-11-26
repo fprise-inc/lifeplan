@@ -57,7 +57,7 @@ entries:
       - "「基本生活費」などの入力項目の「万一のときの扱い」"
     rows: [cf.expense.living, cf.expense.housing]
     components:
-      expense.living: 4
+      expense.living: 5
       housing.residence: 9
       debt.creditLifeEvents: 1
     related: [housing.creditLife, contingency.protectionNeed]

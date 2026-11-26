@@ -291,6 +291,8 @@ export interface LivingExpense {
   mode: string;
   monthly?: Box<number>;
   categories?: { id?: string; category: string; monthly: Box<number> }[];
+  /** 内訳の合計をそろえる月額（入れ方が内訳のときだけ。計算のときだけ各費目を内訳の割合で分け直す。結果の対策「毎月の生活費」が書く。0262） */
+  categoryTotal?: Box<number>;
   growth?: { kind: string; rate?: string };
   stages?: { id?: string; at: Timepoint; label: string; ratio?: string; monthly?: Box<number> }[];
   from?: Timepoint;

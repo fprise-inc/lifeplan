@@ -89,7 +89,7 @@ import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
 import { bandShown, donutPanes, donutShown, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
 import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
 import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
-import { advisoryFeeState, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
+import { advisoryFeeState, feeSummary, hasAdvisoryFee, LEVER_KEYS, livingLeverBlock, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { MeetingTools } from "./meetings/MeetingTools.tsx";
 import { latestMeeting, withMeetings, type Meeting } from "./meetings/meetings.ts";
@@ -107,7 +107,7 @@ import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
 import { leverView, visibleKeys } from "./plans/leverChoice.ts";
 import { ageSliderBounds, amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
-import { acknowledge, applyValues, backToCurrent, changesOf, changesOfValues, copyPlan, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, movedValues, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
+import { acknowledge, applyValues, backToCurrent, changesOf, changesOfValues, copyPlan, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, movedValues, normalizeValues, overwritePlan, planLabel, planValueOf, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
 import { cashflowTable, displayYears, eventsOf, firstAgeOf, toPresentation, withDiff } from "./present.ts";
 import { withoutRemovedAssumptions } from "./surplus.ts";
 import { roles } from "./roles.ts";
@@ -2030,7 +2030,8 @@ export function App() {
       // 最初から出さない項目を動かしたら、足した項目にする（値が入っていて出していた項目を現状の値に戻しても、動かしている途中で消えないように）
       if (!fixedRef.current.has(key)) setShown((s) => (s.includes(key) ? s : [...s, key]));
       const cur = valuesOf(o.wh, w, w.sel);
-      const prev = valueOf(it, cur, o.wh);
+      // 対策の固定の項目は、そのプランを反映した世帯の値と比較する（0262）
+      const prev = planValueOf(it, cur, o.wh, o.catalog, it.phase === "lever" ? rawReqOf(o, cur) : undefined);
       if (it.same(prev, v) && mode === "slide") return;
       const saved = savedValues(o.wh, w.sel);
       const nv = normalizeValues({ ...cur, [key]: v }, saved, o.wh, o.catalog);
@@ -2039,7 +2040,7 @@ export function App() {
       else drafts[w.sel] = nv;
       putWork({ ...w, drafts }, o, mode);
     },
-    [putWork],
+    [putWork, rawReqOf],
   );
 
   const leverItemsOf = (o: Opened) => o.catalog.items.filter((it) => it.phase === "lever");
@@ -2048,10 +2049,13 @@ export function App() {
     (key: LeverKey, v: number) => {
       const o = openedRef.current;
       const it = o?.catalog.byKey.get(`lever:${key}`);
-      if (it === undefined || (it.control.kind !== "age" && it.control.kind !== "range")) return;
+      if (o === null || o === undefined || it === undefined || (it.control.kind !== "age" && it.control.kind !== "range")) return;
+      // 選んだプランで生活費のつまみが効かない形なら、値を記録しない（押せない形にして理由を出している。0262 の A）
+      const w = workRef.current;
+      if (key === "livingMonthly" && w.sel !== CURRENT && livingLeverBlock(rawReqOf(o, valuesOf(o.wh, w, w.sel))) !== null) return;
       setValue(it.key, v);
     },
-    [setValue],
+    [setValue, rawReqOf],
   );
   const release = useCallback(() => void dual.current?.release(), []);
   /** 運用の期間の帯の切れ目を動かした: 選んだプランの「積立をやめる年齢」「取り崩しを始める年齢」を動かす（対策に出す。0026） */
@@ -2992,11 +2996,14 @@ export function App() {
       : leverItemsOf(opened).filter((it) => onTop.has(it.key)).flatMap((it): LeverRow[] => {
           const c = it.control;
           if (c.kind !== "age" && c.kind !== "range") return [];
-          const v = valueOf(it, selValues, opened.wh);
-          const b = valueOf(it, baseValues, opened.wh);
+          // 値・基準・下の文は、選んだプラン・基準のプランを反映した世帯から（0262）
+          const selRaw = rawReqOf(opened, selValues);
+          const v = planValueOf(it, selValues, opened.wh, opened.catalog, selRaw);
+          const b = planValueOf(it, baseValues, opened.wh, opened.catalog, rawReqOf(opened, baseValues));
           const vn = typeof v === "number" ? v : undefined;
           const bn = typeof b === "number" ? b : undefined;
-          const common = { key: it.key.slice(6) as LeverKey, label: it.label, valueText: it.text(v), baseText: it.text(b), note: it.note?.(v) ?? null, removable: levView?.fixed.has(it.key) !== true };
+          const blocked = it.key === "lever:livingMonthly" && work.sel !== CURRENT ? livingLeverBlock(selRaw) : null;
+          const common = { key: it.key.slice(6) as LeverKey, label: it.label, valueText: it.text(v), baseText: it.text(b), note: it.note?.(v, { view: { ...opened.wh, request: selRaw } }) ?? null, removable: levView?.fixed.has(it.key) !== true, blocked };
           if (c.kind === "age") {
             // 年齢: 1歳ずつ。今の値・基準の値が上の端より上なら広げる（入力で直接入れたとき）。下の端は広げない（過ぎた年齢を選べないように）
             const { min, max } = ageSliderBounds(c, vn, bn);

@@ -1,7 +1,7 @@
 // 打ち手（主画面の右のスライダー）を世帯の入力に当てはめる。
 // いまは「現状の世帯に打ち手を当てた要求」を直接作る。0008 の5 のプランの層（提案＝差分の列）ができたら、
 // ここは「打ち手 → 差分」を作る部品に置き換える（作る差分の中身はここと同じ）。
-import type { EmploymentPeriod, EngineRequest, Household, Member, Timepoint } from "../engine/types.ts";
+import type { EmploymentPeriod, EngineRequest, Household, LivingExpense, Member, Timepoint } from "../engine/types.ts";
 import { group } from "../presentation/format.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 
@@ -90,9 +90,62 @@ export function readLevers(req: EngineRequest, memberId: string): Partial<LeverV
   out.pensionAge = claim === null ? 65 : ageAt(member, addMonths(claim, -1));
   const nisa = (h.accounts ?? []).find((a) => a.kind === "nisa" && a.owner === memberId);
   if (nisa !== undefined) out.nisaMonthly = (nisa.contributions ?? []).filter((c) => c.tranche !== "growth").sort((x, y) => ((atOf(h, x.from) ?? "") < (atOf(h, y.from) ?? "") ? -1 : 1))[0]?.monthly ?? 0;
-  const living = (h.livingExpenses ?? []).find((l) => l.mode === "total");
-  if (living?.monthly?.value != null) out.livingMonthly = living.monthly.value;
+  const living = leverLivingOf(h, req.input.baseMonth);
+  const lm = living === undefined ? null : livingTotalOf(living);
+  if (lm !== null) out.livingMonthly = lm;
   return out;
+}
+
+// ---- 対策「毎月の生活費」が動かす生活費の行（0262） ----
+
+/** 内訳の合計（内訳が1つも無ければ null） */
+export function categorySum(l: LivingExpense): number | null {
+  const cs = l.categories ?? [];
+  return cs.length === 0 ? null : cs.reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+}
+
+/**
+ * 生活費の1行の、計算に使う最初の月額（計算基準年の価格）: 総額の入れ方は月額、内訳の入れ方は内訳の合計をそろえる月額（categoryTotal）か
+ * 内訳の合計（0262）。分からない（総額の月額が空・内訳が1つも無い）ときは null
+ */
+export function livingTotalOf(l: LivingExpense): number | null {
+  if (l.mode !== "byCategory") return l.monthly?.value ?? null;
+  const sum = categorySum(l);
+  return sum === null ? null : (l.categoryTotal?.value ?? sum);
+}
+
+/**
+ * 対策「毎月の生活費」が動かす行（0262）: 計算基準月に当てはまる行（2つ以上なら総額の入れ方の行を先に、同じなら並びの順）。
+ * 当てはまる行が無ければ、これから始まる最初の行。入れ方は総額・内訳のどちらでもよい
+ */
+export function leverLivingOf(h: Household, baseMonth: string): LivingExpense | undefined {
+  const list = h.livingExpenses ?? [];
+  const fromOf = (l: LivingExpense) => (l.from === undefined ? null : atOf(h, l.from));
+  const toOf = (l: LivingExpense) => (l.to === undefined || l.to === null ? null : atOf(h, l.to));
+  const now = list.filter((l) => {
+    const from = fromOf(l);
+    const to = toOf(l);
+    return (from === null || from <= baseMonth) && (to === null || to >= baseMonth);
+  });
+  const hit = now.find((l) => l.mode !== "byCategory") ?? now[0];
+  if (hit !== undefined) return hit;
+  return list
+    .map((l) => ({ l, from: fromOf(l) }))
+    .filter((x): x is { l: LivingExpense; from: string } => x.from !== null && x.from > baseMonth)
+    .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0))[0]?.l;
+}
+
+/**
+ * 対策「毎月の生活費」が、この要求（選んだプランを反映した世帯）では効かないときの理由（効くなら null）。理由があるときは、つまみを押せない形にして
+ * この文を出し、値は記録しない（0262 の A）
+ */
+export function livingLeverBlock(req: EngineRequest): string | null {
+  const h = req.input.household;
+  const l = leverLivingOf(h, req.input.baseMonth);
+  if (l === undefined)
+    return (h.livingExpenses ?? []).length === 0 ? "毎月の生活費が入っていないので動かせません（入力の画面の基本生活費で入れます）" : "計算の期間に当てはまる毎月の生活費が無いので動かせません（入力の画面の基本生活費で、始まり・終わりを確かめてください）";
+  if (livingTotalOf(l) !== null) return null;
+  return l.mode === "byCategory" ? "内訳が1つも入っていないので動かせません（入力の画面の基本生活費で内訳を入れます）" : "基本生活費（月額）が空なので動かせません（入力の画面の基本生活費で入れます）";
 }
 
 /** 年金の受け取りの開始の月（その年齢に達した月の翌月。下の applyLevers と同じ決まり） */
@@ -241,8 +294,18 @@ function applyRest(req: EngineRequest, memberId: string, values: Partial<LeverVa
   }
 
   if (values.livingMonthly !== undefined && values.livingMonthly !== current.livingMonthly) {
-    const l = (h.livingExpenses ?? []).find((x) => x.mode === "total");
-    if (l !== undefined) l.monthly = box(values.livingMonthly);
+    // 計算基準月に当てはまる行を動かす（0262）。総額の入れ方は月額を、内訳の入れ方は内訳の合計をそろえる月額を書く（費目の値と推定の印はそのまま。
+    // 内訳の合計と同じ額にしたときは、そろえる月額を外す）。月額で入れた段階も同じ割合で動かす
+    const l = leverLivingOf(h, req.input.baseMonth);
+    const now = l === undefined ? null : livingTotalOf(l);
+    if (l !== undefined && now !== null) {
+      const next = values.livingMonthly;
+      if (l.mode === "byCategory") {
+        if (next === categorySum(l)) delete l.categoryTotal;
+        else l.categoryTotal = box(next);
+      } else l.monthly = box(next);
+      if (now > 0) for (const st of l.stages ?? []) if (st.monthly?.value != null) st.monthly = box(Math.round((st.monthly.value * next) / now));
+    }
   }
   return req;
 }

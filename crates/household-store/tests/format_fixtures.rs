@@ -383,6 +383,29 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 信託報酬の無い配分に fees を書き足さない"
             );
         }
+        // 0.94 から: 生活費の内訳の合計をそろえる月額 livingExpenses[].categoryTotal（0262）。変換で書き足さない（前の版の世帯は内訳の合計で計算）。
+        // 0.94 の見本は内訳の行（内訳の合計 月33万円）を月30万円にそろえている
+        let category_total = now["household"]["request"]["input"]["household"]["livingExpenses"]
+            .as_array()
+            .map(|xs| {
+                xs.iter()
+                    .filter_map(|l| l.get("categoryTotal"))
+                    .collect::<Vec<&Value>>()
+            })
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= migrate::parse(migrate::LIVING_CATEGORY_TOTAL).unwrap() {
+            assert_eq!(
+                category_total.len(),
+                1,
+                "{v}: 0.94 からの見本は内訳の合計をそろえる月額を持つ"
+            );
+            assert_eq!(category_total[0]["value"], 300_000);
+        } else {
+            assert!(
+                category_total.is_empty(),
+                "{v}: 内訳の合計をそろえる月額は変換で書き足さない"
+            );
+        }
         // 0.91 から: 口座の預金から移す行 accounts[].fromDeposit（0258）。変換で書き足さない（前の版の世帯は移す行なし）。
         // 0.91 の見本は課税口座に3行（今月・2年後・7年後）と NISA に1行
         let moves: Vec<&Value> = now["household"]["request"]["input"]["household"]["accounts"]

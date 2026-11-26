@@ -43,6 +43,8 @@ export interface LeverRow {
   note: string | null;
   /** 外せる（最初から出す項目でない。足した・値が入っているので出している） */
   removable?: boolean;
+  /** 選んだプランでは効かないときの理由（つまみと数の欄を押せない形にし、下の文の代わりに出す。値は記録しない。0262） */
+  blocked?: string | null;
 }
 
 const changedOf = (l: LeverRow) => l.slider.value !== l.slider.base;
@@ -270,7 +272,7 @@ export function LeverCard(p: LeverCardProps) {
         {p.levers.map((l) => {
           const sl = l.slider;
           return (
-            <div class={`lever${changedOf(l) ? " changed" : ""}`} key={l.key} data-lever-kind={sl.kind} data-lever-row={l.key} data-reveal-item>
+            <div class={`lever${changedOf(l) ? " changed" : ""}${l.blocked != null ? " is-blocked" : ""}`} key={l.key} data-lever-kind={sl.kind} data-lever-row={l.key} data-reveal-item>
               <div class="lever-head">
                 <label for={`lv-${l.key}`}>{l.label}</label>
                 {sl.kind === "amount" ? (
@@ -278,6 +280,7 @@ export function LeverCard(p: LeverCardProps) {
                     value={sl.value}
                     per={sl.per}
                     label={l.label}
+                    disabled={l.blocked != null}
                     onCommit={(v) => {
                       p.onSlide(l.key, v);
                       p.onRelease();
@@ -333,6 +336,8 @@ export function LeverCard(p: LeverCardProps) {
                     max={sl.max}
                     step={sl.step}
                     value={sl.value}
+                    disabled={l.blocked != null}
+                    aria-describedby={l.blocked != null ? `lv-${l.key}-blocked` : undefined}
                     data-lever={l.key}
                     aria-valuetext={l.valueText}
                     onInput={(e) => p.onSlide(l.key, Number((e.currentTarget as HTMLInputElement).value))}
@@ -348,7 +353,15 @@ export function LeverCard(p: LeverCardProps) {
                 </>
               )}
               <div class="lever-note">
-                {l.note !== null ? <span>{l.note}</span> : <span />}
+                {l.blocked != null ? (
+                  <span class="lever-blocked" id={`lv-${l.key}-blocked`} data-lever-blocked={l.key}>
+                    {l.blocked}
+                  </span>
+                ) : l.note !== null ? (
+                  <span>{l.note}</span>
+                ) : (
+                  <span />
+                )}
                 <span class="base-tag">{baseTag(l.baseText)}</span>
                 {l.removable === true && p.onRemove !== undefined ? (
                   <button type="button" class="link-btn" onClick={() => p.onRemove?.(l.key)} title="この項目を対策から外す（動かした値は現状に戻す）" data-lever-remove={l.key}>

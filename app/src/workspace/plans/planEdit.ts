@@ -8,7 +8,7 @@
 // - どのプランにも共通の項目（表の最後の年。0043 の追記 2026-11-05）は差分にせず、現状に書く（sharedToCurrent）
 import type { Proposal } from "./plans.ts";
 import { acknowledge, applyDiffs, applyPlan, chainOf, diffKey, dropChange, effectiveDiffs, findPlan, rowKeyOf, setPlanValue, supersededIn, type Review } from "./plans.ts";
-import { addressOf, boxAt, isLever, sameJson, type DiffBox, type PlanDiff } from "./diffs.ts";
+import { addressOf, boxAt, isLever, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
 import { fieldText, type Catalog, type ItemValue } from "./items.ts";
 import { COLLECTIONS, ITEM_PLACES } from "../../generated/readings.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
@@ -1219,10 +1219,20 @@ function subFieldTexts(index: PlanIndex, a: Address, now: Obj, value: unknown, w
   for (const [k, e] of index.fields) if (k.startsWith(head) && k.length > head.length) subs.push({ field: e.field, at: k.slice(head.length).split("/") });
   if (subs.length === 0) return null;
   const inner = unbox(value);
-  const rows = subs.map(({ field, at }) => ({ label: field.label, from: boxText(field, boxAt(now, { ...a, at: [...a.at, ...at] }), wh), to: boxText(field, getPath(inner, at), view) }));
+  // 変えた後の値は、この差分の値を現状の写しに書いてから、その欄の場所で読む（並びの要素は ID で指すので、値の中を道でたどると見つからない。
+  // 生活費の内訳の月額が「食費: なし」と出ていた。0262）
+  const after = structuredClone(now);
+  const wrote = writeAt(after, a, value as DiffBox);
+  const rows = subs.map(({ field, at }) => {
+    const sub = { ...a, at: [...a.at, ...at] };
+    return { label: field.label, from: boxText(field, boxAt(now, sub), wh), to: boxText(field, wrote ? boxAt(after, sub) : getPath(inner, at), view) };
+  });
   const changed = rows.filter((r) => r.from !== r.to);
   const shown = changed.length > 0 ? changed : rows;
-  return { from: shown.map((r) => `${r.label}: ${r.from}`).join("・"), to: shown.map((r) => `${r.label}: ${r.to}`).join("・") };
+  // 前が全部「なし」（総額で入れていた生活費を内訳にしたなど）は、欄ごとに並べず「なし」の1つにする（0262）
+  const none = (side: "from" | "to") => shown.every((r) => r[side] === "なし");
+  const text = (side: "from" | "to") => (none(side) ? "なし" : shown.map((r) => `${r.label}: ${r[side]}`).join("・"));
+  return { from: text("from"), to: text("to") };
 }
 
 /** 並びの要素の呼び名（その要素の欄のまとまりの見出し。例: 「退職後」） */

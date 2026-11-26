@@ -2129,6 +2129,7 @@
             "properties": { "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "category": { "$ref": "#/$defs/livingCategory" }, "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" } }
           }
         },
+        "categoryTotal": { "title": "内訳の合計をそろえる月額（入れ方が内訳のときだけ。各費目の値はそのままにして、計算のときだけ内訳の割合で分け直し、合計をこの額にする。結果の対策「毎月の生活費」で動かした値。0262）", "x-item": "livingExpense.categoryTotal", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "livingExpense.growth", "$ref": "#/$defs/growth" },
         "stages": {
           "title": "段階（子の独立・退職後・70代・80代など）。その月から、最初の額に対する割合か、月額（計算基準年の価格）に変える",

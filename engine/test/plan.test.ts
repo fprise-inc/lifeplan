@@ -74,6 +74,48 @@ describe("生活費（expense.living）", () => {
     expect(sumFlows(fs, (f) => f.ym === "2027-03")).toBe((1000 * keys.length * (keys.length + 1)) / 2);
     expect(() => full(req)).not.toThrow();
   });
+
+  it("内訳の合計をそろえる月額（0262）: 各費目を内訳の割合で分け直して合計をその額にする（端数は最初の費目）。割合・月額の段階もそろえた額から", () => {
+    const base = (o: Obj) =>
+      edit(quiet(), (h) => {
+        h.livingExpenses = [
+          {
+            id: uid("lv"),
+            mode: "byCategory",
+            categories: [
+              { category: "food", monthly: box(60000) },
+              { category: "utilities", monthly: box(20000) },
+              { category: "other", monthly: box(10001) },
+            ],
+            stages: [
+              { at: at("2028-01"), label: "childIndependence", ratio: "0.5" },
+              { at: at("2029-01"), label: "retirement", monthly: box(40000) },
+            ],
+            growth: { kind: "none" },
+            ...o,
+          },
+        ];
+      });
+    const month = (req: Req, ym: string, row?: string) => sumFlows(call<{ flows: Flow[] }>(req, "expense.living", {}).flows, (f) => f.ym === ym && (row === undefined || f.row === row));
+    // 書いていなければ今までどおり（内訳の合計 90,001）
+    expect(month(base({}), "2027-03")).toBe(90001);
+    const req = base({ categoryTotal: box(120000) });
+    expect(month(req, "2027-03")).toBe(120000);
+    // 60000:20000:10001 で 120,000 を分ける（端数は最初の費目）
+    expect(month(req, "2027-03", "cf.expense.living.utilities")).toBe(Math.floor((120000 * 20000) / 90001));
+    expect(month(req, "2027-03", "cf.expense.living.other")).toBe(Math.floor((120000 * 10001) / 90001));
+    expect(month(req, "2028-03")).toBe(60000);
+    // 月額の段階は書いた額のまま（そろえた後の内訳の割合で分ける）
+    expect(month(req, "2029-03")).toBe(40000);
+    // 総額の入れ方では読まない
+    const total = edit(quiet(), (h) => (h.livingExpenses = [{ id: uid("lv"), mode: "total", monthly: box(100000), categoryTotal: box(50000), growth: { kind: "none" } }]));
+    expect(month(total, "2027-03")).toBe(100000);
+    // 内訳の合計が0なら全部を最初の費目
+    const zero = edit(quiet(), (h) => (h.livingExpenses = [{ id: uid("lv"), mode: "byCategory", categories: [{ category: "food", monthly: box(0) }, { category: "other", monthly: box(0) }], categoryTotal: box(70000), growth: { kind: "none" } }]));
+    expect(month(zero, "2027-03", "cf.expense.living.food")).toBe(70000);
+    expect(month(zero, "2027-03", "cf.expense.living.other")).toBe(0);
+    expect(() => full(req)).not.toThrow();
+  });
 });
 
 describe("周期的な支出・車（expense.periodic・expense.car）", () => {

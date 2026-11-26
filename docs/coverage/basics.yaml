@@ -67,7 +67,7 @@ entries:
       - 「前提条件」の入力項目の「教育費の上昇率」
       - 「前提条件」の入力項目の「＋ 例外の年」
     components:
-      expense.living: 4
+      expense.living: 5
       income.salary: 8
       income.business: 4
     related:

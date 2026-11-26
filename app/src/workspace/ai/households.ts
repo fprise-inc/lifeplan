@@ -12,7 +12,7 @@ import type { EngineRequest, Member } from "../../engine/types.ts";
 import { group, monthlyMan } from "../../presentation/format.ts";
 import { cleanText, hasPersonalNumber, isPersonalNumberValue } from "../documents/privacy.ts";
 import { ACCOUNT_KINDS, DEBT_KINDS, EMPLOYMENT_TYPES, RESIDENCE_KINDS, withAccountLabel } from "../input/labels.ts";
-import { ageAt } from "../levers.ts";
+import { ageAt, livingTotalOf } from "../levers.ts";
 import { roles } from "../roles.ts";
 
 export type HouseholdKind = "fictional" | "client";
@@ -222,11 +222,12 @@ export function householdOverview(input: EngineRequest["input"]): HouseholdOverv
       ...(isEstimated(d.balance) ? { estimated: true } : {}),
     };
   });
-  const living: OverviewRow[] = (h.livingExpenses ?? []).map((l) => ({
-    label: "毎月の生活費",
-    value: l.monthly !== undefined ? `月${monthlyMan(boxValue(l.monthly) ?? 0)}` : yenText(null),
-    ...(isEstimated(l.monthly) ? { estimated: true } : {}),
-  }));
+  // 内訳で入れた行は内訳の合計（そろえる月額があればその額。0262）。前は内訳の行でも総額の欄（使っていない古い値）を出していた
+  const living: OverviewRow[] = (h.livingExpenses ?? []).map((l) => {
+    const v = l.mode === "byCategory" ? livingTotalOf(l) : l.monthly !== undefined ? (boxValue(l.monthly) ?? 0) : null;
+    const estimated = l.mode === "byCategory" ? l.categoryTotal === undefined && (l.categories ?? []).some((c) => isEstimated(c.monthly)) : isEstimated(l.monthly);
+    return { label: "毎月の生活費", value: v !== null ? `月${monthlyMan(v)}` : yenText(null), ...(estimated ? { estimated: true } : {}) };
+  });
   return {
     family,
     income,

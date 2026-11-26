@@ -1535,6 +1535,9 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .lv-grid .lever input[type="range"] { margin: 6px 0 0; height: 26px; }
 .lv-grid .tick { font-size: 0.8rem; min-width: 26px; padding: 1px 3px; }
 .lv-grid .lever-note { font-size: 0.8rem; margin-top: 3px; align-items: center; }
+/* 選んだプランでは効かない対策（0262 の A）: つまみと数の欄は押せない形、下の文の代わりに理由を太字で */
+.lv-grid .lever.is-blocked input[type="range"] { opacity: 0.45; cursor: not-allowed; }
+.lever-blocked { font-weight: 700; color: var(--ink); }
 /* 年齢のスライダー（1歳ずつ）: 目盛りの数字は値の位置に置く。--thumb はつまみの幅（線の端からつまみの中心までの分を除く） */
 .age-ticks { position: relative; display: block; height: 1.7em; margin: 0; --thumb: 16px; }
 .age-ticks .tick { position: absolute; top: 0; transform: translateX(-50%); min-width: 0; }

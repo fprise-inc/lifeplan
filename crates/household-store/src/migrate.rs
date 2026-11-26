@@ -21,8 +21,13 @@ pub const AGREED_DROPPED: &str = "0.92";
 /// （変換の段 `add_sample_group` は版の番号を持たない）
 pub const SAMPLE_GROUP: &str = "0.93";
 
+/// 生活費の内訳の合計をそろえる月額 `livingExpenses[].categoryTotal` を足した版（0262）。ほかの変更と版の番号がぶつかったら、この1つの定数と、
+/// 見本のフォルダ（`tests/fixtures/household-format/<版>/`）の名前と、テスト・画面の版の確かめの数を付け直す
+/// （変換の段 `add_living_category_total` は版の番号を持たない）
+pub const LIVING_CATEGORY_TOTAL: &str = "0.94";
+
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = SAMPLE_GROUP;
+pub const CURRENT: &str = LIVING_CATEGORY_TOTAL;
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -356,6 +361,10 @@ pub const CURRENT: &str = SAMPLE_GROUP;
 ///   前の版のアプリは、世帯を保存するときに一覧の欄から `meta.sample` を書き直して欄を落とすので、版を上げて閲覧だけにする。
 ///   変換の段は形式の版だけを書き換える（前の版の見本は欄が無い＝グループに入っていない）。`sampleInitial` の中は書き換えない（0.87 の決まり）。
 ///   0.92 の段の後に積む
+/// - 0.94（`LIVING_CATEGORY_TOTAL`）: 生活費の行に、任意の欄 `categoryTotal`（入れ方が内訳の行の、内訳の合計をそろえる月額。値の箱。
+///   結果の対策「毎月の生活費」を内訳の入れ方の行で動かすと入る。各費目の値はそのままで、計算のときだけ内訳の割合で分け直す。0262）を足した
+///   （足すだけの MINOR）。前の版のアプリはこの欄を知らず、計算に入れないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える
+///   （前の版の世帯は欄が無い＝内訳の合計で計算）。控え・`sampleInitial` の中は書き換えない（0.87 の決まり）。0.93 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1",
     "0.2",
@@ -450,6 +459,7 @@ pub const KNOWN: &[&str] = &[
     "0.91",
     AGREED_DROPPED,
     SAMPLE_GROUP,
+    LIVING_CATEGORY_TOTAL,
 ];
 
 /// 1段分の変換
@@ -920,6 +930,11 @@ pub const STEPS: &[Step] = &[
         from: AGREED_DROPPED,
         to: SAMPLE_GROUP,
         apply: add_sample_group,
+    },
+    Step {
+        from: SAMPLE_GROUP,
+        to: LIVING_CATEGORY_TOTAL,
+        apply: add_living_category_total,
     },
 ];
 
@@ -3172,6 +3187,16 @@ fn add_sample_group(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// `SAMPLE_GROUP`（0.93）→ `LIVING_CATEGORY_TOTAL`（0.94）: 生活費の内訳の合計をそろえる月額 `livingExpenses[].categoryTotal`（0262）は
+/// 任意の欄なので、形式の版だけを書き換える（前の版の世帯は欄が無い＝内訳の合計で計算。欄を書き足さない。控え・`sampleInitial` の中に触れない）
+fn add_living_category_total(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), LIVING_CATEGORY_TOTAL.into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -4172,7 +4197,8 @@ mod tests {
         assert_eq!(access("0.91").unwrap(), Access::ReadWrite);
         assert_eq!(access(AGREED_DROPPED).unwrap(), Access::ReadWrite);
         assert_eq!(access(SAMPLE_GROUP).unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.94").unwrap(), Access::ReadOnly);
+        assert_eq!(access(LIVING_CATEGORY_TOTAL).unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.95").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -4185,7 +4211,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.94", b.clone()).unwrap(),
+            upgrade("0.95", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4240,13 +4266,33 @@ mod tests {
         });
         let u = upgrade(AGREED_DROPPED, b.clone()).unwrap();
         let mut want = b.clone();
-        want["meta"]["formatVersion"] = SAMPLE_GROUP.into();
+        want["meta"]["formatVersion"] = CURRENT.into();
         assert_eq!(u, want);
         assert!(u["meta"]["sample"].get("group").is_none());
         // グループを持つ見本（この版から）はそのまま
         let mut g = want.clone();
         g["meta"]["sample"]["group"] = "セミナー用".into();
-        assert_eq!(upgrade(SAMPLE_GROUP, g.clone()).unwrap(), g);
+        assert_eq!(upgrade(CURRENT, g.clone()).unwrap(), g);
+    }
+
+    #[test]
+    fn add_living_category_total_only_bumps_the_version() {
+        // 0262: 内訳の合計をそろえる月額は任意の欄。前の版の世帯に書き足さない（生活費・控え・最初の状態はそのまま）
+        let b = serde_json::json!({
+            "meta": {"formatVersion": SAMPLE_GROUP},
+            "household": {"request": {"input": {"household": {"livingExpenses": [{"id": "l", "mode": "byCategory", "categories": []}]}}}},
+            "snapshots": [{"id": "s", "input": {"household": {"livingExpenses": []}}}],
+            "sampleInitial": {"formatVersion": "0.93", "sections": {"household": {"memo": ["最初"]}}}
+        });
+        let u = upgrade(SAMPLE_GROUP, b.clone()).unwrap();
+        let mut want = b;
+        want["meta"]["formatVersion"] = LIVING_CATEGORY_TOTAL.into();
+        assert_eq!(u, want);
+        assert!(
+            u["household"]["request"]["input"]["household"]["livingExpenses"][0]
+                .get("categoryTotal")
+                .is_none()
+        );
     }
 
     #[test]
