@@ -345,10 +345,10 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
   // 見本の棚の主な世帯: 全部の入力項目のパネルを開いて閉じ、結果のタブまで出す（見本は保存しないので、世帯の中身の確かめはしない）
   // 見本は名前で開く（見本は番号を持たない。0247）
   describe.each([
-    { no: "会社員の夫婦と子2人", level: "標準" as const },
+    { no: "会社員の夫婦と子2人・40代（教育費のピーク）", level: "標準" as const },
     { no: "ひとり親と子2人・30代", level: "詳細" as const },
-    { no: "シニア夫婦・60代（年金の繰下げ）", level: "詳細" as const },
-    { no: "会社の役員の夫婦と子1人・50代", level: "標準" as const },
+    { no: "年金生活の夫婦", level: "詳細" as const },
+    { no: "会社を経営する夫婦・50代", level: "標準" as const },
   ])("見本「$no」（$level）", ({ no, level }) => {
     let n: Notes;
     let rows: string[];

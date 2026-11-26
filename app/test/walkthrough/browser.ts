@@ -282,6 +282,18 @@ export class Page {
     return this.eval<string>("return w.panelText()");
   }
 
+  /** 画面の大きさを変える（狭い幅の見え方を確かめる。既定は 1440×1000） */
+  async viewport(width: number, height: number): Promise<void> {
+    await this.cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, this.session);
+    await this.settle(`画面の大きさ ${width}×${height}`);
+  }
+
+  /** Esc を押す（いま選択のある所で） */
+  async escape(): Promise<void> {
+    await this.key("Escape", "Escape", 27);
+    await this.settle("Esc");
+  }
+
   async shot(dir: string | undefined, name: string): Promise<void> {
     if (dir === undefined || dir === "") return;
     mkdirSync(dir, { recursive: true });

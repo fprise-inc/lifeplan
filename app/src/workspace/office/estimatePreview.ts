@@ -11,11 +11,14 @@ import { sampleRequest } from "../input/household.ts";
 import { metricsOf, type PlanMetrics } from "../plans/compare.ts";
 import { engineNoFillOf, engineValuesOf, overridesOf, type OfficeEstimates } from "./estimates.ts";
 
-/** 代表の世帯（アプリの見本。data/modelHouseholds の架空の世帯） */
+/**
+ * 代表の世帯（data/modelHouseholds の架空の世帯）。モデル世帯を ID で読むので、見本の棚の顔ぶれに左右されない（0247 の13）。
+ * 表示の名前は見本の棚の名前の付け方（相談の場面と年代）にそろえる。棚に出している見本は棚と同じ名前、棚から外した見本は棚の名前と重ならない名前
+ */
 export const PREVIEW_HOUSEHOLDS: readonly { id: string; title: string }[] = [
-  { id: "salariedCoupleTwoKids", title: "会社員の夫婦と子2人" },
-  { id: "sampleSelfEmployedFamily", title: "自営業の夫婦と子2人" },
-  { id: "sampleSeniorCouple", title: "シニア夫婦・60代" },
+  { id: "salariedCoupleTwoKids", title: "会社員の夫婦と子2人・40代" },
+  { id: "sampleSelfEmployedFamily", title: "自営業の夫婦と子2人・40代" },
+  { id: "sampleSeniorCouple", title: "働きながら年金を受け取る夫婦・60代" },
 ];
 
 /** 主な結果を見る年齢（本人） */

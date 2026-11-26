@@ -11,7 +11,8 @@ describe.runIf(RUN)("事務所の既定値の文字の欄を続けて打つ", ()
   let s: Session;
   beforeAll(async () => {
     s = await start();
-    await s.page.eval(`location.hash = "officedefaults"; location.reload(); return true`).catch(() => undefined);
+    // 事務所の名前の欄は「事務所の見た目と機能」の画面（0261）
+    await s.page.eval(`location.hash = "officedefaults=look"; location.reload(); return true`).catch(() => undefined);
     await s.page.until(`document.querySelector("[data-office-settings] [data-branding-name]")`, "事務所の既定値のパネルが出る", 60_000);
     await s.page.settle();
   }, 240_000);
@@ -53,6 +54,8 @@ describe.runIf(RUN)("事務所の既定値の文字の欄を続けて打つ", ()
   });
 
   it("ほかの文字の欄（前提条件の％・料金表の金額）も続けて打てる", async () => {
+    // 前提条件の既定値の画面へ移る（左の目次）
+    await s.page.click("前提条件の既定値", { within: "panel" });
     const sels = await s.page.eval<string[]>(
       `return [...document.querySelectorAll("[data-office-settings] input[type=text]:not([data-branding-name]):not([disabled])")].filter((e) => e.offsetParent !== null).slice(0, 4).map((e, i) => { e.setAttribute("data-typing-test", String(i)); return "[data-typing-test='" + i + "']"; })`,
     );

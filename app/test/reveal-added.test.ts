@@ -117,7 +117,7 @@ describe("「＋」で足す所すべてに入れる", () => {
     expect(sv.match(/revealAdded\(e\.currentTarget\)/g)?.length).toBe(4);
     expect(sv).toContain("data-reveal-item");
     expect(src("workspace/plans/ItemControls.tsx")).toContain("revealAdded(e.currentTarget);\n                  onPick(it.key);");
-    expect(src("workspace/office/OfficeSettingsPanel.tsx")).toContain("revealAdded(e.currentTarget);\n                setFee(");
+    expect(src("workspace/office/FeePage.tsx")).toContain("revealAdded(e.currentTarget);\n                onFee(");
     expect(src("workspace/store/HouseholdPanel.tsx")).toContain("revealAdded(e.currentTarget);\n            setRows(");
     expect(src("presentation/BalanceTab.tsx")).toContain("revealAdded(e.currentTarget);\n                add();");
     expect(REVEAL_ITEMS).toBe(".in-section, .in-group, tr, li, [data-reveal-item]");
