@@ -269,22 +269,33 @@ mod tests {
         let v = list(&ListSamplesArgs::default());
         let hs = v["households"].as_array().unwrap();
         assert_eq!(hs.len(), shelf().len());
-        assert!(shelf().len() >= 15, "{}", shelf().len());
+        // ファイナンシアの見本12件（0247 の9）
+        assert_eq!(shelf().len(), 12);
         // 数KB に収める（0199。前は約30KB）
         let bytes = v.to_string().len();
         assert!(bytes <= 8 * 1024, "{bytes}");
         let s = hs
             .iter()
-            .find(|h| h["id"] == "salariedCoupleTwoKids")
+            .find(|h| h["id"] == "sampleCoupleTwoKidsPeak")
             .unwrap();
-        assert_eq!(s["title"], "会社員の夫婦と子2人");
+        assert_eq!(s["title"], "会社員の夫婦と子2人・40代（教育費のピーク）");
         // 見本は番号を持たない（0247 の1）。並びは棚と同じ（セットの定義の順）
         assert!(s.get("no").is_none());
         assert!(hs.iter().all(|h| h.get("no").is_none()));
         let order: Vec<&str> = hs.iter().map(|h| h["id"].as_str().unwrap()).collect();
         let shelf_order: Vec<&str> = shelf().iter().map(|s| s.id.as_str()).collect();
         assert_eq!(order, shelf_order);
-        assert_eq!(order[0], "salariedCoupleTwoKids");
+        assert_eq!(order[0], "sampleDualAssetsInvest");
+        assert_eq!(order[3], "sampleCoupleTwoKidsPeak");
+        // 棚から外した見本は既定の一覧に出ない（モデル世帯としては ID で取り出せる）
+        for id in [
+            "salariedCoupleTwoKids",
+            "sampleSeniorCouple",
+            "sampleFamilyDreams",
+        ] {
+            assert!(!order.contains(&id), "{id}");
+            assert!(get(id).is_some(), "{id}");
+        }
         assert!(s["members"].as_str().unwrap().starts_with("ご本人 男45歳"));
         let tags: Vec<&str> = s["tags"]
             .as_array()
@@ -314,7 +325,7 @@ mod tests {
         let singles = pick(&["単身"]);
         assert!(!singles.is_empty());
         assert!(singles.iter().all(|id| id.starts_with("sampleSingle")));
-        assert!(pick(&["シニア"]).contains(&"sampleSeniorCouple".to_owned()));
+        assert!(pick(&["シニア"]).contains(&"samplePensionerCouple".to_owned()));
         assert!(pick(&["シニア"]).contains(&"sampleSeniorRental".to_owned()));
         // 目印の一部（「介護」は「親の介護・相続」）
         assert_eq!(pick(&["介護"]), pick(&["相続"]));
@@ -330,7 +341,8 @@ mod tests {
         let v = list(&ListSamplesArgs::default());
         assert!(!ids(&v).contains(&"sampleOwnerCompany".to_owned()));
         let text = v.to_string();
-        for w in ["合算BS", "法人経営者", "会社を経営する"] {
+        // 法人経営者の見本の名前も出さない（ファイナンシアの見本の「会社を経営する夫婦・50代」は家計の側だけの見本で、名前が違う）
+        for w in ["合算BS", "法人経営者", "会社を経営する夫婦と子1人"] {
             assert!(!text.contains(w), "{w}: {text}");
         }
         assert!(ids(&list(&ListSamplesArgs {

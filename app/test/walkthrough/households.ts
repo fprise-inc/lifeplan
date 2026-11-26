@@ -37,7 +37,7 @@ const cardText = (p: Page, card: string) => p.eval<string>(`return w.all("button
 /** パネルの中の欄の今の値（欄の名前で探す。nth は同じ名前の何番目か） */
 const fieldValue = (p: Page, label: string, nth = 0) => p.eval<string>(`const f = w.all(".fld", w.panel()).filter((x) => w.txt(x).startsWith(${JSON.stringify(label)}))[${nth}]; return f?.querySelector("input,select")?.value ?? "（欄なし）"`);
 
-/** 上の帯の世帯の名前（「見本「会社員の夫婦と子2人」…▼」「0001 …▼」）を押して、世帯を選ぶ画面を開く。開いた直後は描き直しで外れることがあるので、開くまで押し直す */
+/** 上の帯の世帯の名前（「見本「会社員の夫婦と子2人・40代（教育費のピーク）」…▼」「0001 …▼」）を押して、世帯を選ぶ画面を開く。開いた直後は描き直しで外れることがあるので、開くまで押し直す */
 async function openPicker(p: Page): Promise<void> {
   // 前の世帯の途中で落ちたときに開いたままのパネルを閉じる（入れかけの変更は捨てる）
   if (await p.eval<boolean>("return !!w.panel()")) {

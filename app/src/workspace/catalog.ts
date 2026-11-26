@@ -3,7 +3,7 @@
 import type { LeverValues, Reemployment } from "./levers.ts";
 import type { Values } from "./plans/plans.ts";
 import type { SnapshotTrigger } from "./snapshots/snapshots.ts";
-import { SAMPLE_SETS } from "./samples/sets.ts";
+import { OFF_SHELF_DEMOS, SAMPLE_SETS } from "./samples/sets.ts";
 
 export interface LeverSteps {
   retireAge: number[];
@@ -70,10 +70,16 @@ export interface DemoHousehold {
   extValues?: Readonly<Record<string, Record<string, unknown>>>;
 }
 
-/** アプリに入っているすべての見本（セットの定義の順。0247 の3） */
+/** アプリに入っているすべての見本（セットの定義の順。0247 の3）。棚に出す見本だけ（棚から外した見本は入らない） */
 export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = SAMPLE_SETS.flatMap((s) => s.samples);
 
-/** アプリに入っている見本を ID（モデル世帯の名前）で探す */
+/** 見本の設定を持つすべての世帯（セットの見本 → 棚から外した見本 OFF_SHELF_DEMOS の順）。開発用の入口（#household=）で開ける世帯 */
+export const KNOWN_DEMOS: readonly DemoHousehold[] = [...DEMO_HOUSEHOLDS, ...OFF_SHELF_DEMOS];
+
+/**
+ * 見本の設定を ID（モデル世帯の名前）で探す。棚から外した見本も探す（0247 の9）: 保存した世帯の workspace.template（出発点にした見本）が
+ * 外した見本を指していても、打ち手の目盛り・既定の値が読める
+ */
 export function demoHousehold(id: string): DemoHousehold | undefined {
-  return DEMO_HOUSEHOLDS.find((d) => d.id === id);
+  return KNOWN_DEMOS.find((d) => d.id === id);
 }
