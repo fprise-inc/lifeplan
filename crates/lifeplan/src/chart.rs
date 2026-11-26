@@ -105,7 +105,7 @@ pub struct ChartArgs {
     /// 題（作るグラフが1枚のときだけ。省くと種類ごとの既定の題。お客さまの名前を書かない）
     pub title: Option<String>,
     /// true なら、注に「ファイナンシアで試算」の出典を入れる（既定 false＝入れない。ブログ・セミナーの資料に FP の名前で使うときは入れなくてよい）。
-    /// 前提の注（物価上昇率・運用利回り・相場の想定）・試算の時点・将来の結果を約束するものではない旨は、どちらでもいつも入る
+    /// 前提の注（物価上昇率・運用利回り〔その率を使う物があるときだけ〕・相場の想定）・試算の時点・将来の結果を約束するものではない旨は、どちらでもいつも入る
     pub credit: Option<bool>,
     /// 色の明るさ: light（既定。白地。印刷・資料向け）か dark（暗い地）
     #[schemars(extend("enum" = ["light", "dark", null]))]
@@ -284,8 +284,9 @@ pub fn age_outside(results: &[Value]) -> Option<String> {
     })
 }
 
-/// 比較する答えの通り（results の1つ）と、その通りの前提（assumptions）から、chart.ts に渡す通り（名前と数字だけ）を作る
-pub fn variant_of(r: &Value, assumptions: &Value) -> Value {
+/// 比較する答えの通り（results の1つ）と、その通りの前提（assumptions）から、chart.ts に渡す通り（名前と数字だけ）を作る。
+/// return_used は、その通りに運用利回りを計算に使う物があるか（return_used の答え）。無ければ運用利回りを渡さない（注に書かない。0260 の追記）
+pub fn variant_of(r: &Value, assumptions: &Value, return_used: bool) -> Value {
     let series: Vec<Value> = r["series"]
         .as_array()
         .map(|l| {
@@ -322,7 +323,7 @@ pub fn variant_of(r: &Value, assumptions: &Value) -> Value {
         "planChanges": plan,
         "assumptions": {
             "inflation": assumptions["inflation"],
-            "investmentReturn": assumptions["investmentReturn"],
+            "investmentReturn": if return_used { assumptions["investmentReturn"].clone() } else { Value::Null },
         },
     });
     if let Some(s) = stress {
@@ -330,6 +331,17 @@ pub fn variant_of(r: &Value, assumptions: &Value) -> Value {
     }
     strip_nulls(&mut v);
     v
+}
+
+/// 通りごとの要求（計算しなかった通りは null）で、運用利回り（配分も利回りも入れていない運用の口座の率）を計算に使う物があるか
+/// （提案書の前提の一覧と同じ関数を同梱した JS で動かす。0260 の追記）。重いので、呼ぶ側は spawn_blocking の中で。
+/// 調べられないとき・数が合わないときは、どの通りも「使う」（注に書いておけば前提を隠さない）
+pub fn return_used(requests: &[Value]) -> Vec<bool> {
+    engine::return_used(&Value::Array(requests.to_vec()).to_string())
+        .ok()
+        .and_then(|s| serde_json::from_str::<Vec<bool>>(&s).ok())
+        .filter(|v| v.len() == requests.len())
+        .unwrap_or_else(|| vec![true; requests.len()])
 }
 
 /// null の欄を落とす（chart.ts は欄が無いことで「無い」と読む）
@@ -409,7 +421,7 @@ pub fn png(svg: &str, scale: f32) -> Result<Vec<u8>, String> {
 pub const PUBLISH_NOTE: &str = "セミナーの資料・ブログなどに使うときは、実在のお客さまの世帯なら、金額を丸める・珍しい組み合わせ（家族・職業・地域など）を変える・お客さまに一言ことわる、のどれかをしてから使ってください（見本の世帯はすべて架空です）。グラフにはお客さまの名前・ID は入りませんが、通りの名前・題に書いた文字はそのまま入ります。";
 
 /// グラフの答えに添える説明
-pub const NOTE: &str = "グラフは、比較の道具（compare）と同じ道で計算した数字を、アプリの画面のグラフと同じ目盛り・色で描いた物です（数字は AI から受け取っていません）。どのグラフにも、題・凡例（通りの文字と名前）・単位（万円。金利の推移は %）・前提の短い注（物価上昇率・運用利回り・相場の想定）・試算の時点と「将来の結果を約束するものではない」旨が入っています。「ファイナンシアで試算」の出典は credit が true のときだけ入ります。PNG は image、SVG は image/svg+xml の埋め込みで返します。figures の数字は keyFigures と同じ、series のグラフの数字は compare の series と同じです。";
+pub const NOTE: &str = "グラフは、比較の道具（compare）と同じ道で計算した数字を、アプリの画面のグラフと同じ目盛り・色で描いた物です（数字は AI から受け取っていません）。どのグラフにも、題・凡例（通りの文字と名前）・単位（万円。金利の推移は %）・前提の短い注（物価上昇率・運用利回り〔その率を計算に使う物があるときだけ〕・相場の想定）・試算の時点と「将来の結果を約束するものではない」旨が入っています。「ファイナンシアで試算」の出典は credit が true のときだけ入ります。PNG は image、SVG は image/svg+xml の埋め込みで返します。figures の数字は keyFigures と同じ、series のグラフの数字は compare の series と同じです。";
 
 #[cfg(test)]
 mod tests {
@@ -477,7 +489,7 @@ mod tests {
             "members": [{ "key": "self", "label": "ご本人" }],
             "stressTest": "rateRise",
         });
-        let v = variant_of(&r, &json!({ "inflation": { "default": "0.01" } }));
+        let v = variant_of(&r, &json!({ "inflation": { "default": "0.01" } }), true);
         assert_eq!(v["label"], "10年で+1%");
         // 年と数字だけ（家族の年齢は渡さない）
         assert_eq!(

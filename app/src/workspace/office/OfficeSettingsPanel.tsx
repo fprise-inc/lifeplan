@@ -365,7 +365,7 @@ export function OfficeSettingsPanel(p: OfficeSettingsPanelProps) {
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={tryClose} />
-      <div ref={panel} class="ipanel os-panel" role="dialog" aria-modal="true" aria-labelledby="os-title" tabIndex={-1} data-office-settings data-office-page-now={page}>
+      <div ref={panel} class="ipanel os-panel type-scale" role="dialog" aria-modal="true" aria-labelledby="os-title" tabIndex={-1} data-office-settings data-office-page-now={page}>
         <div class="ip-band" />
         <div class="os-head">
           <h2 id="os-title">

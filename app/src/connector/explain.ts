@@ -16,7 +16,7 @@ import { displayYears, rowDefs, type RowDef } from "../workspace/present.ts";
 
 export { prepare } from "./prepare.ts";
 export { pensionRequests, summarize } from "./summary.ts";
-export { chart } from "./chart.ts";
+export { chart, returnUsed } from "./chart.ts";
 export { table } from "./table.ts";
 
 export interface ExplainArgs {
