@@ -13,6 +13,8 @@ import { subjectOf, watch } from "../watch/rules.ts";
 import { browserPath, start, type Session } from "./browser.ts";
 import { WALKTHROUGH } from "./fieldEffect.ts";
 import { household1, household2, household3, household4, household5, openSample, walkPanels, type Notes } from "./households.ts";
+import { SAMPLE_SETS } from "../../src/workspace/samples/sets.ts";
+import { AUTOSAVE_MS } from "../../src/workspace/store/autosave.ts";
 
 const SHOTS = process.env.WALKTHROUGH_SHOTS;
 const RUN = WALKTHROUGH && browserPath() !== null;
@@ -342,7 +344,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     watchChecks(() => d, []);
   });
 
-  // 見本の棚の主な世帯: 全部の入力項目のパネルを開いて閉じ、結果のタブまで出す（見本は保存しないので、世帯の中身の確かめはしない）
+  // 見本の棚の主な世帯: 全部の入力項目のパネルを開いて閉じ、結果のタブまで出す（パネルを開いて閉じるだけでは見本は変わらないので、世帯の中身の確かめはしない）
   // 見本は名前で開く（見本は番号を持たない。0247）
   describe.each([
     { no: "会社員の夫婦と子2人・40代（教育費のピーク）", level: "標準" as const },
@@ -366,6 +368,65 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(rows.some((r) => r.includes("年間収支"))).toBe(true);
     });
     panelChecks(() => n);
+  });
+
+  // 直せる見本（0247 の5・6）: 見本を開いて入力項目のパネルを開いて閉じるだけ・棚の見本を開いただけでは、直した版はできない。
+  // 1つ変える（入力のパネルで保存する）とでき、帯に「最初の状態に戻す」が出て、戻すと消える。開発用のサーバーは毎回新しいメモリの置き場で動くので、
+  // 前の回の直した版は残っていない（上の見本の通しも、この確かめの前に流れる）
+  describe("直せる見本", () => {
+    const edited = () => s.page.eval<{ name: string; origin: string | null }[]>(`const l = await (await fetch("/__dev/store/listSamples", { method: "POST", body: "{}" })).json(); return l.map((x) => ({ name: x.sample.name, origin: x.sample.origin?.id ?? null }))`);
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const names = (SAMPLE_SETS.find((set) => set.id === "official.basic")?.samples ?? []).map((d) => d.title);
+    const target = "共働き・子2人・40代（資産運用）";
+    let afterWalk: { name: string; origin: string | null }[] = [];
+    let afterOpenAll: { name: string; origin: string | null }[] = [];
+    let afterChange: { name: string; origin: string | null }[] = [];
+    let bandBefore = "";
+    let bandAfter = "";
+    let afterReset: { name: string; origin: string | null }[] = [];
+    let bandReset = "";
+    beforeAll(async () => {
+      await wait(AUTOSAVE_MS + 1000);
+      afterWalk = await edited();
+      for (const name of names) await openSample(s.page, name);
+      await wait(AUTOSAVE_MS + 1000);
+      afterOpenAll = await edited();
+      await openSample(s.page, target);
+      bandBefore = await s.page.eval<string>(`return document.querySelector("[data-sample-band]")?.innerText ?? ""`);
+      await s.page.click("基本生活費", { exact: false });
+      await s.page.until("w.panel()", "基本生活費のパネルが開く");
+      await s.page.type("基本生活費（月額）", "47");
+      await s.page.click("保存", { within: "panel", exact: true });
+      await s.page.until("!w.panel()", "基本生活費のパネルが閉じる");
+      await wait(AUTOSAVE_MS + 1500);
+      afterChange = await edited();
+      bandAfter = await s.page.eval<string>(`return document.querySelector("[data-sample-band]")?.innerText ?? ""`);
+      await s.page.shot(SHOTS, "直した見本の帯");
+      await s.page.eval<boolean>(`document.querySelector("[data-band-reset]").click(); return true`);
+      await s.page.until(`document.querySelector('[data-choice-panel="sample-reset"]')`, "最初の状態に戻す確認画面");
+      await s.page.shot(SHOTS, "最初の状態に戻す確認画面");
+      await s.page.eval<boolean>(`document.querySelector('[data-choice-panel="sample-reset"] [data-choice="reset"]').click(); return true`);
+      await s.page.until(`!document.querySelector('[data-choice-panel="sample-reset"]')`, "確認画面が閉じる");
+      await s.page.settle("最初の状態に戻す");
+      afterReset = await edited();
+      bandReset = await s.page.eval<string>(`return document.querySelector("[data-sample-band]")?.innerText ?? ""`);
+    }, 600_000);
+    it("見本を開いて入力項目のパネルを開いて閉じるだけ・棚の見本を全部開いただけでは、直した版はできない", () => {
+      expect(names).toHaveLength(12);
+      expect(afterWalk).toEqual([]);
+      expect(afterOpenAll).toEqual([]);
+      expect(bandBefore).toContain("数字を変えると、変えた内容はこの見本に残ります。元の内容に戻したいときは「最初の状態に戻す」を押してください。");
+      expect(bandBefore).not.toContain("最初の状態に戻す\n");
+    });
+    it("入力のパネルで変えて保存すると、その見本を直した版ができ、帯に「最初の状態に戻す」が出る", () => {
+      expect(afterChange).toEqual([{ name: target, origin: "sampleDualAssetsInvest" }]);
+      expect(bandAfter).toMatch(/最初の状態に戻す\s*$/);
+    });
+    it("「最初の状態に戻す」で直した版が消え、アプリの中の見本が開く（帯のボタンも消える）", () => {
+      expect(afterReset).toEqual([]);
+      expect(bandReset).toContain(`見本「${target}」`);
+      expect(bandReset).not.toMatch(/最初の状態に戻す\s*$/);
+    });
   });
 
   it("画面で JavaScript の例外が出ない", () => {

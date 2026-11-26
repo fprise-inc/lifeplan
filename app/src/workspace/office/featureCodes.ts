@@ -66,6 +66,13 @@ export const expiredText = (c: FeatureCodeView): string =>
     ? `${featureNames(c)}のコード（${c.name}さん向け）は、提供元が止めました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。提供元が止めるのをやめると、次に確かめたときに自動で戻ります（コードを入れ直す必要はありません）。分からないときは、コードを受け取った所に問い合わせてください。`
     : `${featureNames(c)}のコード（${c.name}さん向け）は ${proseDateWritten(c.expires)} で期限が切れました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。新しいコードを入れると、また見られます。`;
 
+/** 出していないセットの見本を直した版を消していないことの一文（「法人経営者の見本を直した版 2件も、消していません。」。無ければ空。0247 の7） */
+export const keptSamplesText = (kept: readonly { name: string; count: number }[]): string =>
+  kept
+    .filter((k) => k.count > 0)
+    .map((k) => `${k.name}を直した版 ${k.count}件も、消していません。`)
+    .join("");
+
 /** 事務所の既定値の画面で、切れた・止めたの知らせに添える一言 */
 export const NOTICE_FADE_TEXT = "この知らせは7日たつと消えます。";
 

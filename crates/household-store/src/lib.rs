@@ -43,8 +43,8 @@ pub use store::{
 pub use store::{
     Clock, CreateOptions, CreateRequest, ForkChoice, ForkInfo, HearingPeek, HouseholdEntry,
     MemberView, NoticeView, OfficeStatus, Opened, PresenceView, PreviousGeneration, RemovedView,
-    RenameOutcome, RequestView, SampleRename, Saved, Status, StatusState, StorageNotice, Store,
-    SystemClock,
+    RenameOutcome, RequestView, SampleRename, SampleReset, Saved, Status, StatusState,
+    StorageNotice, Store, SystemClock,
 };
 
 #[cfg(feature = "os-keyring")]
@@ -118,6 +118,8 @@ impl StoreError {
     pub const SAMPLE_NAME: StoreError = StoreError("E_STORE_SAMPLE_NAME");
     /// 同じ出どころ（セットの見本）の直した版が、もう棚にある（0247 の5）
     pub const SAMPLE_EXISTS: StoreError = StoreError("E_STORE_SAMPLE_EXISTS");
+    /// 最初の状態から変わっていない見本（戻す物が無い。自分で作った見本の最初の状態はまだ持たない。0247 の6）
+    pub const SAMPLE_NOT_CHANGED: StoreError = StoreError("E_STORE_SAMPLE_NOT_CHANGED");
     /// 完全削除の確認（顧客番号の入力。見本は見本の名前）が合わない
     pub const CONFIRM: StoreError = StoreError("E_STORE_CONFIRM");
     /// 復元キーの打ち間違い（確かめ用の4バイトが合わない・文字数が違う・使えない文字）

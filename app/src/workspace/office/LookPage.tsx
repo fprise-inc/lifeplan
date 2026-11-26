@@ -5,7 +5,7 @@ import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import { BrandingSection } from "./BrandingSection.tsx";
 import type { OfficeBranding, OfficeLogo } from "./branding.ts";
-import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NOTICE_FADE_TEXT, noticeCodes, receivedAtText, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
+import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, keptSamplesText, NOTICE_FADE_TEXT, noticeCodes, receivedAtText, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 import { CheckField, OfficeGroup, OfficeSection } from "./OfficeFields.tsx";
 
 export interface CodeActions {
@@ -28,6 +28,8 @@ export interface LookPageProps extends CodeActions {
   features: FeatureStatus;
   /** 「合算BS を使う」の印（保存前の値） */
   combinedBs: boolean;
+  /** 出していないセットの見本を直した版の数（セットの名前ごと。消していないことを知らせに足す。0247 の7） */
+  keptSamples?: readonly { name: string; count: number }[];
   onCombinedBs: (on: boolean) => void;
 }
 
@@ -42,6 +44,8 @@ export function LookPage(p: LookPageProps) {
   const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const combinedCode = codeFor(features, "combinedBs");
+  /** 出していないセットの見本を直した版を消していないこと（コードの知らせ・印を外したときに足す） */
+  const keptText = keptSamplesText(p.keptSamples ?? []);
   const addCode = async () => {
     setCodeBusy(true);
     setCodeMsg(null);
@@ -127,6 +131,11 @@ export function LookPage(p: LookPageProps) {
             <div class="os-checks os-checks-wide">
               <CheckField name="combinedBs" label="合算BS（経営者個人と会社のバランスシート）を使う" checked={p.combinedBs} onChange={p.onCombinedBs} data={{ "data-office-feature": "combinedBs" }} />
             </div>
+            {!p.combinedBs && keptText !== "" ? (
+              <p class="pl-sub" data-feature-kept-samples>
+                印を外している間は、世帯の一覧の見本に法人経営者の見本は出ません。{keptText}
+              </p>
+            ) : null}
             {combinedCode !== null ? (
               <p class="os-feat-on" data-feature-enabled="combinedBs">
                 {enabledLine(combinedCode)}
@@ -222,6 +231,7 @@ export function LookPage(p: LookPageProps) {
               <div class="pl-sub os-code-expired" key={c.ref} data-feature-expired={c.ref} {...(c.state === "revoked" ? { "data-feature-revoked": c.ref } : {})}>
                 <p>
                   {expiredText(c)}
+                  {keptText}
                   {NOTICE_FADE_TEXT}
                 </p>
                 <span class="os-code-expired-actions">

@@ -126,7 +126,8 @@ import { dropNotesOnPersist, stripNotesBeforeSample } from "./store/sampleNotes.
 import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory, APP_SAMPLE_MEMO_TEXT, COPY_SAMPLE_TITLE } from "./store/HouseholdPanel.tsx";
 import { PreviousPanel, offersPrevious } from "./store/PreviousPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
-import { guessShape, reservedSampleNames, sampleNotSaving, shapeText, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
+import { editedCountsOf, editedVersionOf, guessShape, reservedSampleNames, shapeText, shelfItemOf, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleOrigin, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
+import { SAMPLE_BAND_TEXT, SAMPLE_STALE_TEXT, SampleExistsDialog, SampleResetDialog, type SampleExistsChoice, type SampleResetChoice } from "./store/SampleDialogs.tsx";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
@@ -150,7 +151,7 @@ import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
 import { HouseholdDrop } from "./header/HouseholdDrop.tsx";
 import { BasisLine, HouseholdNow } from "./header/HouseholdNow.tsx";
-import { barAlerts, barNotices, saveText, unsavedNewHousehold, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
+import { barAlerts, barNotices, pendingSampleSaveText, saveText, unsavedNewHousehold, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
 import { FEEDBACK_FORM } from "../generated/distribution.ts";
 import { EMPTY_LOCAL, feedKey, householdKey, localDate, markRead, parseFeed, readLocal, visibleFeed, type CenterItem, type LocalState } from "./notices/center.ts";
 import { FeedbackPanel } from "./notices/FeedbackPanel.tsx";
@@ -165,6 +166,18 @@ const FEATURE_POLL_MS = 60_000;
 
 /** 見本の名前に使えない名前（アプリに入っているすべてのセットの見本の名前。本体が自分で作った見本の名前と重ならないよう確かめる。0247 の1） */
 const RESERVED_SAMPLE_NAMES = reservedSampleNames(SAMPLE_SETS);
+
+/** アプリに入っている見本（セットの見本）の、入っているセット（棚から外した見本・空の世帯は無い） */
+const setOfSample = (id: string) => SAMPLE_SETS.find((set) => set.samples.some((d) => d.id === id));
+
+/** 直した版を作れない・保存できない理由のうち、閲覧だけになるもの（変えても保存しない。離れるときに聞かない） */
+const SAMPLE_BLOCKED_CODES = new Set(["E_OFFICE_VIEW_ONLY", "E_STORE_OFFICE_DATA_TOO_NEW", "E_STORE_READ_ONLY"]);
+
+/** 複製するときに使えない名前（棚の見本の名前〔別の版などは本体の名前も〕と、アプリのセットの見本の名前） */
+const copyTaken = (shelf: readonly ShelfItem[]) => [...shelf.flatMap((i) => [i.name, i.baseName ?? i.name]), ...RESERVED_SAMPLE_NAMES];
+
+/** 「見本は直せるようになりました」の知らせを閉じた印（手元の既読の印。はじめて使う人には最初から付ける。0247 の4） */
+const SAMPLE_EDITABLE_NOTICE_KEY = "app:sampleEditable";
 
 type Tab = "input" | "main" | "balance" | "rental" | "contingency" | "report";
 /** FP のメニューから開く、入力のホームの中身 */
@@ -554,8 +567,17 @@ export function App() {
     setCategoriesDecided(c.decided);
   }, []);
   const [storedSamples, setStoredSamples] = useState<StoredHousehold[]>([]);
-  /** 自分で作った見本を開いている: view＝動かしても保存しない（閉じれば元どおり）、edit＝「この見本を直す」で保存している */
-  const [sampleMode, setSampleMode] = useState<null | "view" | "edit">(null);
+  /**
+   * セットの見本（アプリの中の見本）を開いていて、まだ直した版を作っていない（0247 の5）: 最初に変えたときに直した版を作る。base は開いて
+   * 入れ直しが済んだ後の本文（比較の基準。開いただけで直した版ができないように）
+   */
+  const pendingSample = useRef<{ demo: DemoHousehold; origin: SampleOrigin; base: string } | null>(null);
+  /** 画面に出す、直した版をまだ作っていないセットの見本の状態（blocked は作れない理由〔閲覧だけ・事務所データが新しい版〕。変えても保存しない） */
+  const [samplePending, setSamplePending] = useState<{ blocked: string | null } | null>(null);
+  /** 見本を最初の状態に戻す確認画面（0247 の6） */
+  const [sampleReset, setSampleReset] = useState<{ item: ShelfItem; busy: boolean; error: string | null } | null>(null);
+  /** ほかの人が先にこの見本を直していたときに選ぶ画面（id は先にある版の内部ID） */
+  const [sampleExists, setSampleExists] = useState<{ name: string; by: string | null; id: string | null; busy: boolean; error: string | null } | null>(null);
   /** 開いたときに見せる世帯の一覧のタブ */
   const [hhTab, setHhTab] = useState<"customers" | "samples">("customers");
   const [hhOpen, setHhOpen] = useState(false);
@@ -624,6 +646,8 @@ export function App() {
   // お知らせの一覧（0087）: 配信元のお知らせ（本体が確かめた一覧）と、手元の既読の印・受付番号（この PC のアプリのデータ。何も送り返さない）
   const [feedText, setFeedText] = useState<string | null>(null);
   const [noticeLocal, setNoticeLocal] = useState<LocalState>(EMPTY_LOCAL);
+  /** 手元の既読の印を読み終わった（読む前は、1回だけの知らせを出すかを決めない） */
+  const [noticeLocalLoaded, setNoticeLocalLoaded] = useState(false);
   const noticeLocalRef = useRef<LocalState>(EMPTY_LOCAL);
   const [noticeFocus, setNoticeFocus] = useState<{ key: string | null; n: number } | null>(initial.bell !== undefined ? { key: initial.bell, n: 1 } : null);
   const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
@@ -854,6 +878,7 @@ export function App() {
         void h.notices.local().then((v) => {
           noticeLocalRef.current = readLocal(v);
           setNoticeLocal(noticeLocalRef.current);
+          setNoticeLocalLoaded(true);
         }, () => undefined);
         void h.store.devFileKeys().then((dev) => {
           setDevKeys(dev);
@@ -863,6 +888,8 @@ export function App() {
         autosaver.current = new Autosaver(async (body) => {
           const sr = storedRef.current;
           const o = openedRef.current;
+          // セットの見本を最初に変えたとき: 直した版を作り、その世帯に切り替える（0247 の5）
+          if (sr === null && o !== null && pendingSample.current !== null) return createEdited.current(body);
           if (sr === null || o === null) throw "E_STORE_NOT_OPEN";
           const at = (await h.store.save(sr.id, body, listSummary(summaryOf(o.wh.request), o.wh))).savedAt;
           savedBodies.current.set(sr.id, body);
@@ -889,13 +916,29 @@ export function App() {
   const overwriteOnLeave = useRef<(ids: string[]) => void>(() => undefined);
   /** 分岐を選ぶ画面を開く（下で定める openFork。離れる前の確かめから呼ぶ） */
   const openForkRef = useRef<(id: string) => void>(() => undefined);
-  /** 今の世帯を、自動保存に今すぐ渡す（打ちかけの値を決めた直後。描くのを待たずに、参照の今の値で） */
-  const pushLatest = useCallback(() => {
+  /**
+   * 自動保存に渡す今の本文（保存した世帯か、直した版をまだ作っていないセットの見本。どちらでもない・閲覧だけなら null）。
+   * 直した版をまだ作っていない見本は、開いた直後と中身が同じなら開いた直後の本文（欄の並びの違いだけで直した版を作らない。0247 の5）
+   */
+  const currentBody = useCallback((): string | null => {
     const o = openedRef.current;
     const sr = storedRef.current;
-    if (o === null || sr === null || sr.readOnly) return;
-    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, dispRef.current, sr.carry));
+    if (o === null) return null;
+    if (sr !== null) return sr.readOnly ? null : bodyFor(o, workRef.current, shownRef.current, dispRef.current, sr.carry);
+    const p = pendingSample.current;
+    if (p === null) return null;
+    const b = bodyFor(o, workRef.current, shownRef.current, dispRef.current, EMPTY_CARRY);
+    return sameBodyContent(b, p.base) ? p.base : b;
   }, []);
+  /** 今の世帯を、自動保存に今すぐ渡す（打ちかけの値を決めた直後。描くのを待たずに、参照の今の値で） */
+  const pushLatest = useCallback(() => {
+    const b = currentBody();
+    if (b !== null) autosaver.current?.change(b);
+  }, [currentBody]);
+  /** ほかの人が先に直していたときに選ぶ画面を開く（下で定める。離れる前の確かめから呼ぶ） */
+  const openSampleExistsRef = useRef<() => void>(() => undefined);
+  /** 保存した世帯を開く（下で定める openStored。セットの見本を開くときに、直した版があれば開くため） */
+  const openStoredRef = useRef<(id: string) => Promise<boolean>>(async () => false);
   /**
    * 世帯を離れる前（切り替える・アプリを閉じる）: 自動保存の残りを待たずに書く。保存できなかったら黙って捨てずに、
    * 保存し直す・変更を捨てて離れる・やめるを選ばせる。離れてよければ true。onAsk は初めて聞く前に呼ぶ（閉じるときは本体に待ってもらう）
@@ -933,11 +976,7 @@ export function App() {
         if (c === "overwrite") overwriteOnLeave.current([...modified]);
       }
     }
-    const current = () => {
-      const o = openedRef.current;
-      const sr = storedRef.current;
-      return o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, dispRef.current, sr.carry) : null;
-    };
+    const current = currentBody;
     try {
       return await saveBeforeLeave(
         autosaver.current,
@@ -952,6 +991,8 @@ export function App() {
           if (c === "fork") {
             const sr = storedRef.current;
             if (sr !== null) openForkRef.current(sr.id);
+            // 直した版を作れなかった見本（ほかの人が先に直していた）: 先にある版を開くか・複製するかを選ぶ画面
+            else if (pendingSample.current !== null) openSampleExistsRef.current();
             return "cancel";
           }
           if (c === "retry") setLeave((l) => (l === null ? l : { ...l, busy: true }));
@@ -962,7 +1003,7 @@ export function App() {
     } finally {
       setLeave(null);
     }
-  }, []);
+  }, [currentBody]);
 
   // アプリを閉じる前に、自動保存の残りを書く（本体が閉じるときに呼ぶ。済んだら本体に知らせる）。
   // 保存できなかったら、本体に待ってもらって FP に聞く（「やめる」なら閉じない）
@@ -1132,10 +1173,23 @@ export function App() {
     if (last === undefined || !sameBodyContent(last, now)) savedBodies.current.delete(sr.id);
   }, []);
 
-  /** 見本・空の世帯を開く（保存しない。保存するときは persistCurrent）。開いたら true（離れるのをやめた・開けなかったら false） */
+  /**
+   * 見本・空の世帯を開く（まだ保存しない。空の世帯を保存するときは persistCurrent）。セットの見本は、最初に変えたときに直した版を作って
+   * 保存を始める（0247 の5）。dev は開発用の入口で開いたとき（写しを作らない）。開いたら true（離れるのをやめた・開けなかったら false）
+   */
   const open = useCallback(
-    async (id: string, hashLevers?: number[]): Promise<boolean> => {
+    async (id: string, hashLevers?: number[], dev = false): Promise<boolean> => {
       if (host === null) return false;
+      // セットの見本を直した版が棚にあれば、それを開く（起動のとき・完全削除の後に開く見本も。棚の一覧が古くても、ここで読み直して確かめる。0247 の5）
+      const setOfId = id !== BLANK && !dev ? setOfSample(id) : undefined;
+      if (setOfId !== undefined) {
+        const list = await host.store.listSamples().catch(() => null);
+        if (list !== null) {
+          setStoredSamples(list);
+          const edited = editedVersionOf(list, setOfId.id, id);
+          if (edited !== undefined) return openStoredRef.current(edited.id);
+        }
+      }
       if (!(await leaveCurrent("switch"))) return false;
       forgetUnsavedScreen();
       setInputPlanOn(false);
@@ -1144,7 +1198,8 @@ export function App() {
       storedRef.current = null;
       setStoredInfo(null);
       setPresence(null);
-      setSampleMode(null);
+      pendingSample.current = null;
+      setSamplePending(null);
       autosaver.current?.reset(null);
       let o: Opened | null;
       // 新しい世帯には事務所の既定値を写す（本人・配偶者の介護・前提条件の標準値・不動産の評価の割合。0073）
@@ -1206,8 +1261,17 @@ export function App() {
       const pickSel = initial.sel !== undefined ? slotOfLetter(letters, slots, initial.sel) : initial.seedOpen === true ? band[1] : band[0];
       const pickBase = initial.base !== undefined ? slotOfLetter(letters, slots, initial.base) : undefined;
       const w: Work = { band, base: pickBase ?? CURRENT, sel: pickSel ?? band[0] ?? CURRENT, drafts: {} };
-      // 見本・空の世帯は保存しないので、開くたびに最初の中身から（前に動かした履歴は続けない）
-      await install(o, w, shownKeys, id, false, "見本は開くたびに最初の中身から始まります。元に戻す（↶）の履歴も、ここからです");
+      // セットの見本は、最初に変えたときに直した版を作る（0247 の5）。比較の基準は、開いて入れ直し（推定の値・事務所の値の写し・要素の ID）が
+      // 済んだ後の本文。開発用の入口で開いた見本・棚から外した見本・空の世帯は作らない（保存しない）
+      const set = o.demo !== null && !dev ? setOfSample(o.demo.id) : undefined;
+      if (o.demo !== null && set !== undefined) {
+        const base = bodyFor(o, w, shownKeys, dispRef.current, EMPTY_CARRY);
+        pendingSample.current = { demo: o.demo, origin: { set: set.id, id: o.demo.id, rev: o.demo.rev }, base };
+        setSamplePending({ blocked: null });
+        autosaver.current?.reset(base);
+      }
+      // まだ保存していない世帯は、開くたびに最初の中身から（前に動かした履歴は続けない）
+      await install(o, w, shownKeys, id, false, "開き直したため、元に戻す（↶）の履歴はここから始めます");
       return true;
     },
     [host, install, initial, leaveCurrent, forgetUnsavedScreen],
@@ -1220,6 +1284,8 @@ export function App() {
   const loadStored = useCallback(
     async (r: StoredOpened, stored?: string) => {
       const st = fromBody(r.body);
+      pendingSample.current = null;
+      setSamplePending(null);
       const demo = st.workspace.template !== null ? (demoHousehold(st.workspace.template) ?? null) : null;
       // 土地の割合など3つの前提条件の値が無い世帯は、開いたときに今の事務所の値を写し、自動保存で世帯に書く（0218。計算の結果は変わらない）
       const filled = fillLivePremises(st.wh);
@@ -1246,20 +1312,17 @@ export function App() {
       // 本体は本文を読み直して書くので欄の並びが変わる。文字列ではなく中身で比較する（0097）
       const keep = reopenHistory(savedBodies.current.get(r.id), loaded) === "continue";
       savedBodies.current.set(r.id, loaded);
-      // ほかのメンバーが開いているときは、自動保存を止めた状態で開く（「編集を始める」で始める。0023 の7）
+      // ほかのメンバーが開いているときは、自動保存を止めた状態で開く（「編集を始める」で始める。0023 の7）。見本も顧客の世帯と同じ（0247 の4）
       const others = r.othersOpen.length > 0 && !r.readOnly;
-      // 自分で作った見本は、開いても保存しない（動かしても見本は変わらない。「この見本を直す」で保存を始める。0033）
-      const viewSample = sample !== undefined;
-      setSampleMode(viewSample ? "view" : null);
-      setPresence(others && !viewSample ? r.othersOpen : null);
-      pausedBody.current = others || viewSample ? (stored ?? loaded) : null;
+      setPresence(others ? r.othersOpen : null);
+      pausedBody.current = others ? (stored ?? loaded) : null;
       // 写した値（0218）は、読んだ本文を保存済みとして、違いを自動保存で書く（書かないと、次に開いたときの事務所の値をまた写すことになる）
       const wrote = stored === undefined && filled !== st.wh ? r.body : undefined;
-      autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? wrote ?? loaded));
+      autosaver.current?.reset(r.readOnly || others ? null : (stored ?? wrote ?? loaded));
       // 事務所データが新しい版のときは、その理由で閲覧だけ（0222）
       if (r.readOnly) setSaveState({ kind: "error", code: r.viewOnly === true ? (storeTooNewRef.current ? "E_STORE_OFFICE_DATA_TOO_NEW" : "E_OFFICE_VIEW_ONLY") : "E_STORE_READ_ONLY" });
       await install(o, w, shownKeys, `stored:${r.id}`, keep, "前にこの世帯を開いていたときと中身が違うため、元に戻す（↶）の履歴はここから始めます");
-      if ((stored ?? wrote) !== undefined && (stored ?? wrote) !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
+      if ((stored ?? wrote) !== undefined && (stored ?? wrote) !== loaded && !others) autosaver.current?.change(loaded);
     },
     [host, install],
   );
@@ -1288,6 +1351,7 @@ export function App() {
     [host, loadStored, leaveCurrent, forgetUnsavedScreen],
   );
 
+  openStoredRef.current = openStored;
   /** 開けなかった世帯を、直前の保存で開き直す（開けなかったファイルは本体がこの PC の中に別名で残す。0011 の7） */
   const openPrevious = useCallback(async () => {
     if (host === null || prevOffer === null) return;
@@ -1310,9 +1374,15 @@ export function App() {
     }
   }, [host, prevOffer, leaveCurrent, forgetUnsavedScreen, loadStored, say]);
 
-  /** 見本を開く（アプリの見本は保存しない世帯として、自分で作った見本は保存しないで開く。動かしても見本は変わらない。0033） */
+  /**
+   * 見本を開く（0247 の4・5）: セットの見本は、直した版があればそれを（保存した世帯として）、無ければアプリの中の見本を開く。自分で作った見本は
+   * 顧客の世帯と同じ道で開く。どの見本も、変えると自動で保存する
+   */
   // セットの見本は、今出しているセットの物だけを開く（出していないセットの見本は棚に無いが、念のためここでも断る。0247 の7）
-  const openSample = useCallback(async (item: ShelfItem) => (item.kind === "app" ? shownDemos.some((d) => d.id === item.id) && (await open(item.id)) : openStored(item.id)), [open, openStored, shownDemos]);
+  const openSample = useCallback(
+    async (item: ShelfItem) => (item.kind === "app" ? (item.edited !== undefined ? openStored(item.edited.id) : shownDemos.some((d) => d.id === item.id) && (await open(item.id))) : openStored(item.id)),
+    [open, openStored, shownDemos],
+  );
 
   /** ほかのメンバーが開いている世帯で「編集を始める」（自動保存を始める。分岐になりうることは帯に書いてある） */
   const startEditing = useCallback(() => {
@@ -1320,7 +1390,6 @@ export function App() {
     const sr = storedRef.current;
     const base = pausedBody.current;
     setPresence(null);
-    setSampleMode((m) => (m === "view" ? "edit" : m));
     pausedBody.current = null;
     if (o === null || sr === null || base === null) return;
     autosaver.current?.reset(base);
@@ -1398,9 +1467,10 @@ export function App() {
       const o0 = openedRef.current;
       if (host === null || o0 === null) return;
       await autosaver.current?.flush();
-      // 見本として作るとき・アプリに入っている見本の世帯から顧客を作るときは、メモ（見本のメモは例の文）と面談の履歴を写さない
-      // （0182 の追記）。画面の中身は、作った世帯に切り替えた後で外す（先に外すと、元の世帯の自動保存に外した中身が入る）
-      const stripped = dropNotesOnPersist({ toSample: sample !== undefined, stored: storedRef.current !== null, appSample: o0.demo !== null }, o0.wh);
+      // 見本として作るとき・セットの見本（アプリの中の見本と、それを直した版）から顧客を作るときは、メモ（見本のメモは例の文）と面談の履歴を
+      // 写さない（0182 の追記・0247 の5）。画面の中身は、作った世帯に切り替えた後で外す（先に外すと、元の世帯の自動保存に外した中身が入る）
+      const sr0 = storedRef.current;
+      const stripped = dropNotesOnPersist({ toSample: sample !== undefined, setSample: sr0 === null ? o0.demo !== null : sr0.sample?.origin !== undefined }, o0.wh);
       const o: Opened = stripped ? { ...o0, wh: withoutNotes(o0.wh) } : o0;
       const body = bodyFor(o, workRef.current, shownRef.current, dispRef.current, EMPTY_CARRY);
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
@@ -1410,7 +1480,9 @@ export function App() {
       setStoredInfo(info);
       setPresence(null);
       pausedBody.current = null;
-      setSampleMode(r.sample !== undefined ? "edit" : null);
+      pendingSample.current = null;
+      setSamplePending(null);
+      setSampleExists(null);
       if (stripped) {
         openedRef.current = o;
         setOpened(o);
@@ -1434,22 +1506,147 @@ export function App() {
     initialOnce.current = true;
     // 開発用の入口（#household=）は、出していないセットの見本も開く（保存しない。合算BS は activeExtensions の条件のまま）
     const id = initial.household === "blank" ? BLANK : initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (firstSampleId(shownDemos) as string);
-    const dev = initial.household !== undefined || initial.selfcheck || initial.seed === true;
+    // 開発用の入口で開いた見本は、変えても直した版を作らない（画面の確かめとテストの結果が、前に動かした中身に左右されないように。0247 の5）
+    const dev = initial.household !== undefined || initial.selfcheck || initial.seed === true || initial.documents !== undefined;
     const last = !dev && storeStatus?.state === "ready" ? storeStatus.lastOpened : null;
     if (last !== null)
       void openStored(last).catch((e: unknown) => {
         setHhError(openMessage(codeOf(e)));
         void open(id, initial.levers);
       });
-    else void open(id, initial.levers);
+    else void open(id, initial.levers, dev);
   }, [host, households, shownDemos, open, openStored, initial, storeChecked, storeStatus]);
 
-  // 自動保存: 保存した世帯の現状・案・帯の並び・足した項目・表示の設定が変わったら、少し待って保存する
+  // 自動保存: 保存した世帯の現状・案・帯の並び・足した項目・表示の設定が変わったら、少し待って保存する。直した版をまだ作っていないセットの見本は、
+  // 開いた直後と変わったら直した版を作る（0247 の5。保存していないプランの変更〔つまみを動かしただけ〕は本文に入らないので作らない）
   useEffect(() => {
     const sr = storedRef.current;
-    if (opened === null || sr === null || sr.readOnly) return;
+    if (opened === null) return;
+    if (sr === null) {
+      const p = pendingSample.current;
+      if (p === null) return;
+      const b = bodyFor(opened, workRef.current, shown, disp, EMPTY_CARRY);
+      autosaver.current?.change(sameBodyContent(b, p.base) ? p.base : b);
+      return;
+    }
+    if (sr.readOnly) return;
     autosaver.current?.change(bodyFor(opened, workRef.current, shown, disp, sr.carry));
   }, [opened, work.band, work.base, work.sel, shown, disp]);
+
+  /**
+   * セットの見本を最初に変えたとき（自動保存から呼ぶ）: 直した版を作り、その場で保存した世帯に切り替える（画面は離れない・元に戻すの履歴は続ける。
+   * 0247 の5）。作れなかったら例外（自動保存の失敗として残る。離れるときに確かめる。0096）。ほかの人が先に直していたら選ぶ画面を出す。
+   * 閲覧だけなどで作れないときは、変えても保存しない見本として続ける
+   */
+  const createEdited = useRef<(body: string) => Promise<string>>(async () => {
+    throw "E_STORE_NOT_OPEN";
+  });
+  createEdited.current = async (body: string): Promise<string> => {
+    const p = pendingSample.current;
+    const o = openedRef.current;
+    if (host === null || p === null || o === null) throw "E_STORE_NOT_OPEN";
+    const d = p.demo;
+    let r: StoredOpened;
+    try {
+      r = await host.store.create(body, summaryOf(o.wh.request), { sample: { name: d.title, traits: [...d.traits], family: d.family, age: d.age, origin: p.origin } });
+    } catch (e) {
+      const code = codeOf(e);
+      if (code === "E_STORE_SAMPLE_EXISTS") void showSampleExists(d.title, p.origin);
+      else if (SAMPLE_BLOCKED_CODES.has(code) && pendingSample.current === p) {
+        pendingSample.current = null;
+        setSamplePending({ blocked: code });
+        // 変えても保存しない見本にする（閲覧だけの世帯と同じく、離れるときに聞かない）。失敗の知らせを書いた後に止める
+        setTimeout(() => autosaver.current?.reset(null), 0);
+      }
+      throw code;
+    }
+    void host.store.listSamples().then(setStoredSamples, () => undefined);
+    // 作っている間に別の世帯へ移った（顧客を作った・複製した）ときは切り替えない（直した版は棚に残る）
+    if (pendingSample.current !== p) return nowIso();
+    pendingSample.current = null;
+    setSamplePending(null);
+    const info = { id: r.id, customerNo: r.customerNo, readOnly: false, ...(r.sample !== undefined ? { sample: r.sample } : {}) };
+    storedRef.current = { ...info, carry: EMPTY_CARRY };
+    setStoredInfo(info);
+    savedBodies.current.set(r.id, body);
+    // 元に戻すの履歴は、直した版の履歴として続ける（開き直したときに続きから使う。0097）
+    history.rename(`stored:${r.id}`);
+    return nowIso();
+  };
+  /** ほかの人が先にこの見本を直していた: 棚を読み直して先にある版を探し、選ぶ画面を出す */
+  const showSampleExists = async (name: string, origin: SampleOrigin) => {
+    if (host === null) return;
+    const list = await host.store.listSamples().catch(() => null);
+    if (list !== null) setStoredSamples(list);
+    const first = editedVersionOf(list ?? [], origin.set, origin.id);
+    setSampleExists({ name, by: first?.updatedBy ?? null, id: first?.id ?? null, busy: false, error: null });
+  };
+  openSampleExistsRef.current = () => {
+    const p = pendingSample.current;
+    if (p !== null) void showSampleExists(p.demo.title, p.origin);
+  };
+  /** ほかの人が先に直していたときに選ぶ: 先にある版を開く（この画面で変えた内容は捨てる）・今の中身を複製する・あとで選ぶ（変えた内容は残す） */
+  const chooseSampleExists = async (c: SampleExistsChoice) => {
+    const ex = sampleExists;
+    const p = pendingSample.current;
+    if (host === null || ex === null) return;
+    if (c === "later") return setSampleExists(null);
+    setSampleExists({ ...ex, busy: true, error: null });
+    try {
+      if (c === "open") {
+        if (ex.id === null) throw "E_STORE_UNKNOWN_HOUSEHOLD";
+        // FP が捨てると選んだので、離れる前の確かめを出さずに開く
+        autosaver.current?.reset(null);
+        await loadStored(await host.store.open(ex.id));
+        say(`ほかの人が先に直した見本「${ex.name}」を開きました`);
+      } else {
+        const item: ShelfItem = p !== null ? { kind: "app", group: p.origin.set, id: p.demo.id, family: p.demo.family, age: p.demo.age, name: p.demo.title, traits: p.demo.traits } : { kind: "app", group: "", id: "", family: 3, age: 4, name: ex.name, traits: [] };
+        const req = copyRequest(item, copyTaken(shelf));
+        if (req === null) throw "E_STORE_SAMPLE_NAME";
+        await persistCurrent(undefined, req);
+      }
+      setSampleExists(null);
+    } catch (e) {
+      setSampleExists({ ...ex, busy: false, error: storeMessage(codeOf(e)) });
+    }
+  };
+  /**
+   * 見本を最初の状態に戻す（確認画面で「最初の状態に戻す」を選んだ。0247 の6）: セットの見本を直した版を消す（本体が出どころのある見本だけを消す）。
+   * 開いていたら、アプリの中の見本を開き直す（元に戻すの履歴は新しく始まる）
+   */
+  const chooseSampleReset = async (c: SampleResetChoice) => {
+    const rs = sampleReset;
+    if (host === null || rs === null) return;
+    if (c === "cancel") return setSampleReset(null);
+    const id = rs.item.edited?.id ?? (rs.item.kind === "own" ? rs.item.id : null);
+    if (id === null) return setSampleReset(null);
+    setSampleReset({ ...rs, busy: true, error: null });
+    const isOpen = storedRef.current?.id === id;
+    try {
+      // 待っている保存を先に済ませてから止める（消した後に保存が走らないように）
+      if (isOpen) {
+        await autosaver.current?.flush();
+        autosaver.current?.reset(null);
+      }
+      await host.store.sampleReset(id);
+      savedBodies.current.delete(id);
+      history.drop(`stored:${id}`);
+      setSampleReset(null);
+      if (isOpen) {
+        storedRef.current = null;
+        setStoredInfo(null);
+        if (rs.item.kind === "app") await open(rs.item.id);
+      }
+      setStoredSamples(await host.store.listSamples());
+      say(`見本「${rs.item.name}」を最初の状態に戻しました`);
+    } catch (e) {
+      if (isOpen) {
+        const b = currentBody();
+        if (b !== null) autosaver.current?.reset(b);
+      }
+      setSampleReset({ ...rs, busy: false, error: storeMessage(codeOf(e)) });
+    }
+  };
 
   // ---- 世帯の一覧の操作 ----
   const refreshStore = useCallback(async () => {
@@ -2819,13 +3016,27 @@ export function App() {
   }, [tab]);
 
   // 見本の棚（今出すセットの見本〔本体が持つモデル世帯だけ〕と自分で作った見本。0247 の2・7）と、いま開いている見本（0033）
-  const shelf = useMemo(() => shelfItems(shownSets, storedSamples), [shownSets, storedSamples]);
-  const currentSample = storedInfo?.sample !== undefined ? storedInfo.id : storedInfo === null && opened?.demo != null ? opened.demo.id : null;
-  const sampleItem: ShelfItem | null = currentSample === null ? null : (shelf.find((i) => i.id === currentSample) ?? null);
-  /** 保存している（見本を保存しないで開いているときは、保存していない扱い） */
-  const savingStored = storedInfo !== null && sampleMode !== "view";
-  /** 見本を開いていて、動かしても保存しない（見本の帯の文と、入力のパネルの「保存」の後の知らせで同じ条件） */
-  const sampleView = sampleNotSaving(sampleItem, sampleMode);
+  // セットの見本を直した版は、アプリの見本の行に入る（出していないセットの直した版は出さない。0247 の5・7）
+  const shelf = useMemo(() => shelfItems(shownSets, storedSamples, SAMPLE_SETS), [shownSets, storedSamples]);
+  /**
+   * コードで出すセットの見本を直した版の数（コードが切れた・止めた・印を外したときも消していないことを、事務所の既定値の知らせに足す。0247 の7）。
+   * 印を外す前（保存の前）にも出せるよう、今出しているかによらず数える
+   */
+  const featureSetEdits = useMemo(() => editedCountsOf(SAMPLE_SETS.filter((set) => set.feature !== undefined), storedSamples), [storedSamples]);
+  const storedSample = storedInfo?.sample;
+  const sampleItem: ShelfItem | null =
+    storedInfo !== null && storedSample !== undefined
+      ? (shelfItemOf(shelf, storedInfo.id) ?? (storedSample.origin !== undefined ? (shelf.find((i) => i.kind === "app" && i.group === storedSample.origin?.set && i.id === storedSample.origin.id) ?? null) : null))
+      : storedInfo === null && opened?.demo != null
+        ? (shelf.find((i) => i.kind === "app" && i.id === opened.demo?.id) ?? null)
+        : null;
+  const currentSample = sampleItem?.id ?? (storedSample !== undefined ? (storedInfo?.id ?? null) : null);
+  /** セットの見本を直した版を開いている（帯に「最初の状態に戻す」を出す。同じ出どころの2つ目の版・セットの定義に無い版は出さない。0247 の6） */
+  const editedOpen = storedSample?.origin !== undefined && sampleItem?.versionOf === undefined;
+  /** 直した版を作れない見本（閲覧だけなど。変えても保存しない） */
+  const sampleBlocked = storedInfo === null ? (samplePending?.blocked ?? null) : null;
+  /** 保存している世帯（保存した世帯。直した版をまだ作っていないセットの見本は、変えたら保存する） */
+  const savingStored = storedInfo !== null;
   /** まだ世帯として保存していない新しい世帯（世帯の選択のメニューの「この世帯を保存して使う」と、入力のパネルの「保存」の後の知らせで同じ条件） */
   const unsavedNew = unsavedNewHousehold({ opened: opened !== null, stored: storedInfo !== null, sample: opened?.demo != null });
   const drawer = memoOpen || evidence !== null;
@@ -2836,7 +3047,7 @@ export function App() {
   // 上の帯の札と通知（ふだんは出さない。header/status.ts）
   const barIn: BarInputs = {
     opened: opened !== null,
-    stored: savingStored,
+    stored: savingStored || (storedInfo === null && samplePending !== null && samplePending.blocked === null),
     save: saveState,
     paused: presence !== null,
     aiSharing: aiShare === "sharing",
@@ -2901,6 +3112,13 @@ export function App() {
     setNoticeLocal(next);
     void host?.notices.putLocal(next).catch(() => undefined);
   };
+  // 「見本は直せるようになりました」（0247 の4）: 前の版を使っていた人に、世帯の一覧の見本の所に1回だけ（閉じたら次からは出さない）。
+  // 前の版を使っていたかは「この起動で事務所データを初めて作ったのではない」で見分ける。はじめて使う人には、初めての起動で閉じた印を付ける
+  const firstRun = storeStatus?.firstRun === true;
+  const sampleEditableNotice = noticeLocalLoaded && storeStatus?.state === "ready" && !firstRun && noticeLocal.read[SAMPLE_EDITABLE_NOTICE_KEY] === undefined;
+  useEffect(() => {
+    if (noticeLocalLoaded && firstRun && noticeLocalRef.current.read[SAMPLE_EDITABLE_NOTICE_KEY] === undefined) updateLocal((st) => markRead(st, [SAMPLE_EDITABLE_NOTICE_KEY], localDate()));
+  }, [noticeLocalLoaded, firstRun]);
   // お知らせの一覧の中身: 事務所・世帯の知らせ（文と開く画面は前のまま）と、配信元のお知らせ（版の範囲・受付番号で絞る）
   const hhLabel = storedInfo !== null ? (storedInfo.sample !== undefined ? `見本「${storedInfo.sample.name}」` : storedInfo.customerNo) : opened?.demo != null ? `見本「${opened.demo.title}」` : "この世帯";
   const hhId = storedInfo?.id ?? opened?.demo?.id ?? "unsaved";
@@ -3023,7 +3241,7 @@ export function App() {
       save: saveNow,
       message: (e) => storeMessage(codeOf(e)),
     });
-  const save = saveText(savingStored, saveState, storeMessage, presence !== null);
+  const save = storedInfo === null && samplePending !== null ? pendingSampleSaveText(samplePending.blocked, saveState, storeMessage) : saveText(savingStored, saveState, storeMessage, presence !== null);
   /** 見本の世帯か（保存していない見本・保存した見本の棚の世帯）。架空の書類の見本はここでだけ読む（0148） */
   const sampleHousehold = opened !== null && ((storedInfo === null && opened.demo !== null) || storedInfo?.sample !== undefined);
   const loadDocSamples = () => {
@@ -3145,29 +3363,49 @@ export function App() {
           </div>
         ) : null}
         {sampleItem !== null && opened !== null && host !== null ? (
-          <div class="sample-band" role="status" data-sample-band={sampleItem.id}>
+          <div class="sample-band" role="status" data-sample-band={sampleItem.id} {...(editedOpen ? { "data-sample-edited": "" } : {})}>
             <span>
               <b>
                 見本「{sampleItem.name}」
               </b>
-              （{shapeText(sampleItem.family, sampleItem.age)}・架空）を開いています。{!sampleView ? "手直しは自動で保存します。" : "動かしても見本は変わりません（閉じれば元どおり。「最初に戻す」も使えます）。"}
+              （{shapeText(sampleItem.family, sampleItem.age)}・架空）を開いています。{SAMPLE_BAND_TEXT}
             </span>
             {storeStatus?.state === "ready" && storeUnavailable === null ? (
               <>
                 <button type="button" class="btn small" onClick={() => void guard(() => persistCurrent(defaultCategory(categories)))} {...(sampleItem.kind === "app" ? { title: APP_SAMPLE_MEMO_TEXT } : {})} data-band-customer>
                   この見本をもとに顧客を作る
                 </button>
-                {sampleMode !== "edit" ? (
-                  <button type="button" class="link-btn" onClick={() => void guard(async () => { const req = copyRequest(sampleItem, [...shelf.map((i) => i.name), ...RESERVED_SAMPLE_NAMES]); if (req !== null) await persistCurrent(undefined, req); })} title={COPY_SAMPLE_TITLE} data-band-copy>
-                    複製する
-                  </button>
-                ) : null}
-                {sampleItem.kind === "own" && sampleMode === "view" ? (
-                  <button type="button" class="link-btn" onClick={startEditing} data-band-edit>
-                    この見本を直す
+                <button type="button" class="link-btn" onClick={() => void guard(async () => { const req = copyRequest(sampleItem, copyTaken(shelf)); if (req !== null) await persistCurrent(undefined, req); })} title={COPY_SAMPLE_TITLE} data-band-copy>
+                  複製する
+                </button>
+                {editedOpen ? (
+                  <button type="button" class="btn small" onClick={() => setSampleReset({ item: storedInfo !== null ? { ...sampleItem, edited: { id: storedInfo.id, stale: sampleItem.edited?.stale ?? false } } : sampleItem, busy: false, error: null })} data-band-reset>
+                    最初の状態に戻す
                   </button>
                 ) : null}
               </>
+            ) : null}
+            {sampleBlocked !== null ? (
+              <span class="pl-sub sample-band-note" data-sample-band-blocked>
+                {storeMessage(sampleBlocked)}。数字を変えても、この見本には残りません。
+              </span>
+            ) : storedInfo === null && samplePending !== null && saveState.kind === "error" ? (
+              <span class="sample-band-note sample-band-error" data-sample-band-error>
+                変えた内容を、この見本に保存できませんでした（{storeMessage(saveState.code)}）。このまま別の世帯を開くと、変えた内容はなくなります。
+                {saveState.code !== "E_STORE_SAMPLE_EXISTS" ? (
+                  <button type="button" class="link-btn" onClick={() => void autosaver.current?.retry(currentBody() ?? undefined)} data-band-retry>
+                    保存し直す
+                  </button>
+                ) : (
+                  <button type="button" class="link-btn" onClick={() => openSampleExistsRef.current()} data-band-exists>
+                    どうするか選ぶ
+                  </button>
+                )}
+              </span>
+            ) : editedOpen && sampleItem.edited?.stale === true ? (
+              <span class="pl-sub sample-band-note" data-sample-band-stale>
+                {SAMPLE_STALE_TEXT}
+              </span>
             ) : null}
           </div>
         ) : null}
@@ -3182,7 +3420,7 @@ export function App() {
                     fictional={currentFictional}
                     members={basis?.members ?? null}
                     asOf={basis?.asOf ?? null}
-                    save={{ ...save, state: !savingStored ? "unsaved" : presence !== null ? "paused" : saveState.kind }}
+                    save={{ ...save, state: !savingStored ? (storedInfo === null && samplePending !== null && samplePending.blocked === null && saveState.kind !== "idle" ? saveState.kind : "unsaved") : presence !== null ? "paused" : saveState.kind }}
                     ai={ai.status?.enabled === true ? { text: SHARE_STATE_TEXT[aiShare].long, sharing: aiShare === "sharing", onOpen: storedInfo !== null ? openAiShare : null } : null}
                   />
                 ) : null
@@ -3216,7 +3454,7 @@ export function App() {
                 const strip = await stripNotesForSample(id);
                 if (strip !== null) return strip;
                 const err = await numberOp(id, () => host.store.makeSample(id, req, RESERVED_SAMPLE_NAMES), () => `見本「${req.name}」として見本の棚へ移しました`);
-                // 開いている世帯を見本にしたときは、見本として開き直す（動かしても保存しない）
+                // 開いている世帯を見本にしたときは、見本として開き直す（見本も変えると自動で保存する。0247 の4）
                 if (err === null && storedRef.current?.id === id) await openStored(id).catch(() => undefined);
                 return err;
               }}
@@ -3240,6 +3478,8 @@ export function App() {
               }}
               onDelete={deleteStored}
               onOpenSample={(item) => void guard(() => openSample(item), openMessage)}
+              onResetSample={(item) => setSampleReset({ item, busy: false, error: null })}
+              editableNotice={sampleEditableNotice ? () => updateLocal((st) => markRead(st, [SAMPLE_EDITABLE_NOTICE_KEY], localDate())) : null}
               onCustomerFromSample={(item, category) =>
                 void guard(async () => {
                   if (!(await openSample(item))) return false;
@@ -3248,7 +3488,7 @@ export function App() {
               }
               onCopySample={(item) =>
                 void guard(async () => {
-                  const req = copyRequest(item, [...shelf.map((i) => i.name), ...RESERVED_SAMPLE_NAMES]);
+                  const req = copyRequest(item, copyTaken(shelf));
                   if (req === null) return;
                   if (!(await openSample(item))) return false;
                   await persistCurrent(undefined, req);
@@ -3317,8 +3557,7 @@ export function App() {
               wh={opened.wh}
               onSave={edit}
               paused={presence !== null && storedInfo !== null}
-              viewOnly={viewOnly}
-              sample={sampleView}
+              viewOnly={viewOnly || sampleBlocked !== null}
               unsaved={unsavedNew}
               calcNotices={currentNotices}
               layout={layoutOf(officeSettings)}
@@ -3793,7 +4032,7 @@ export function App() {
               />
             ) : null}
             <div class="foot footnote">
-              <span>{opened.demo !== null && storedInfo === null ? "架空のモデル世帯を" : "入力した世帯を"}、ファイナンシアの計算エンジン（開発版）で計算した結果です。制度データには原本での確認待ちの行があります。</span>
+              <span>{sampleHousehold ? "架空の見本の世帯を" : "入力した世帯を"}、ファイナンシアの計算エンジン（開発版）で計算した結果です。制度データには原本での確認待ちの行があります。</span>
               {import.meta.env.DEV ? (
                 <span class="perf">
                   計算の速さ: 先出し {last !== undefined ? `${last.ms.toFixed(0)}ms` : "—"}／正の計算 {lastCanon !== undefined ? `${lastCanon.ms.toFixed(0)}ms（本体 ${lastCanon.hostMs?.toFixed(0) ?? "—"}ms）` : "—"}／{host?.kind}
@@ -3942,6 +4181,7 @@ export function App() {
       {officeSettingsOpen !== false && officeLoaded && host !== null ? (
         <OfficeSettingsPanel
           value={officeSettings}
+          keptSamples={featureSetEdits}
           shared={officeStatus?.state === "member"}
           {...(typeof officeSettingsOpen === "string" ? { initialPage: officeSettingsOpen } : {})}
           onSave={async (v) => {
@@ -4190,10 +4430,14 @@ export function App() {
         />
       ) : null}
       {bandDrop !== null ? <BandDropDialog removal={bandDrop} onChoose={chooseBandDrop} /> : null}
+      {sampleReset !== null ? <SampleResetDialog name={sampleReset.item.name} busy={sampleReset.busy} error={sampleReset.error} onChoose={(c) => void chooseSampleReset(c)} /> : null}
+      {sampleExists !== null ? <SampleExistsDialog name={sampleExists.name} by={sampleExists.by} busy={sampleExists.busy} error={sampleExists.error} onChoose={(c) => void chooseSampleExists(c)} /> : null}
       {leaveDrafts !== null ? <DraftsLeaveDialog names={leaveDrafts.names} action={leaveDrafts.action} onChoose={(c) => draftsAnswer.current?.(c)} /> : null}
       {leave !== null ? (
         <LeaveDialog
           customerNo={storedInfo?.customerNo ?? ""}
+          {...(sampleItem !== null ? { label: `見本「${sampleItem.name}」` } : {})}
+          {...(storedInfo === null && samplePending !== null ? { discardNote: "見本は元の中身のままです" } : {})}
           code={leave.code}
           action={leave.action}
           busy={leave.busy}

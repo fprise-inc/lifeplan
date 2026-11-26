@@ -292,6 +292,16 @@ export function unsavedNewHousehold(i: { opened: boolean; stored: boolean; sampl
   return i.opened && !i.stored && !i.sample;
 }
 
+/**
+ * 直した版をまだ作っていないセットの見本を開いているときの、保存の状態の文（0247 の5）。blocked は作れない理由（閲覧だけなど。変えても保存しない）
+ */
+export function pendingSampleSaveText(blocked: string | null, st: SaveState, message: (code: string) => string): { text: string; cls: string } {
+  if (blocked !== null) return { text: `${message(blocked)}（見本を変えても保存しません）`, cls: "unsaved" };
+  if (st.kind === "pending" || st.kind === "saving") return { text: "保存しています…", cls: "" };
+  if (st.kind === "error") return { text: message(st.code), cls: "err" };
+  return { text: "数字を変えると、変えた内容をこの見本に保存します", cls: "unsaved" };
+}
+
 /** 世帯の選択のメニューに出す保存の状態の文 */
 export function saveText(stored: boolean, st: SaveState, message: (code: string) => string, paused = false): { text: string; cls: string } {
   if (!stored) return { text: "保存していません（見本・新しい世帯は、「この世帯を保存」で保存できます）", cls: "unsaved" };

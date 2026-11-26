@@ -366,6 +366,7 @@ pub fn run() {
             store::store_assign_serial,
             store::store_make_sample,
             store::store_update_sample,
+            store::store_sample_reset,
             store::store_categories,
             store::store_set_categories,
             store::store_make_client,

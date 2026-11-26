@@ -997,3 +997,193 @@ fn first_open_rewrites_meta_of_files_that_would_swap_on_rebuild() {
     assert_eq!(got[&numbered.id].0, "研修用");
     assert_eq!(got[&fresh.id].0, "新しい版の見本");
 }
+
+/// セットの見本を直した版を作る指定（出どころつき。名前は元の見本と同じ）
+fn edited(id: &str, name: &str) -> SampleRequest {
+    SampleRequest {
+        origin: Some(SampleOrigin {
+            set: "official.basic".into(),
+            id: id.into(),
+            rev: 1,
+        }),
+        ..sample(3, 4, name)
+    }
+}
+
+/// 見本の棚の出どころつきの見本の (内部ID, 見本の ID)
+fn edited_ids(store: &Store) -> Vec<(String, String)> {
+    store
+        .list_samples()
+        .unwrap()
+        .into_iter()
+        .filter_map(|e| {
+            let o = e.label.sample?.origin?;
+            Some((e.id, o.id))
+        })
+        .collect()
+}
+
+/// 0247 の6（PR の4段目）: セットの見本を最初の状態に戻すと、直した版を完全削除と同じ消し方で消す（世帯ファイル・直前の世代・毎日の写し・鍵。
+/// 削除の記録が残る）。消すのは出どころのある見本だけで、顧客の世帯と自分で作った見本は消えない。戻した後は同じ見本をまた直せる
+#[test]
+fn resetting_an_edited_set_sample_removes_only_that_version() {
+    let env = Env::new();
+    let s = env.store("pc");
+    s.status().unwrap();
+    let name = "共働き・子2人・40代（資産運用）";
+    let e = make(&s, edited("sampleDualAssetsInvest", name));
+    let own = make(&s, sample(3, 4, "自分で作った見本"));
+    let customer = s.create(req()).unwrap();
+    // 次の日に開いて保存し、毎日の写しと直前の世代を作る
+    env.clock.0.fetch_add(86_400, Ordering::SeqCst);
+    let s = env.store("pc");
+    s.status().unwrap();
+    let o = s.open(&e.id).unwrap();
+    s.save(&e.id, &o.body, "本人").unwrap();
+    let p = s.household_path_for_test(&e.id);
+    assert!(household_store::atomic::prev_path(&p).exists());
+    let backups: Vec<PathBuf> = std::fs::read_dir(env.base.join("pc").join("backups"))
+        .unwrap()
+        .map(|d| d.unwrap().path())
+        .collect();
+    assert!(backups
+        .iter()
+        .any(|d| d.join("households").join(format!("{}.lphf", e.id)).exists()));
+    let before = s.status().unwrap().deletions_pending;
+    // 顧客の世帯・自分で作った見本は戻せない（消えない）
+    assert_eq!(s.sample_reset(&customer.id).err(), Some(StoreError::SAMPLE));
+    assert_eq!(
+        s.sample_reset(&own.id).err(),
+        Some(StoreError::SAMPLE_NOT_CHANGED)
+    );
+    assert_eq!(
+        s.sample_reset("not-a-uuid").err(),
+        Some(StoreError::UNKNOWN_HOUSEHOLD)
+    );
+    assert_eq!(
+        s.sample_reset(&crypto::new_uuid()).err(),
+        Some(StoreError::UNKNOWN_HOUSEHOLD)
+    );
+    assert!(s.open(&customer.id).is_ok() && s.open(&own.id).is_ok());
+    // 直した版を戻す
+    assert_eq!(
+        s.sample_reset(&e.id).unwrap(),
+        household_store::SampleReset::Removed
+    );
+    assert!(!p.exists());
+    assert!(!household_store::atomic::prev_path(&p).exists());
+    for d in &backups {
+        assert!(
+            !d.join("households").join(format!("{}.lphf", e.id)).exists(),
+            "毎日の写しも消える"
+        );
+    }
+    assert_eq!(s.open(&e.id).unwrap_err(), StoreError::UNKNOWN_HOUSEHOLD);
+    assert!(edited_ids(&s).is_empty());
+    assert_eq!(s.status().unwrap().deletions_pending, before + 1);
+    assert!(
+        s.any_managed_vault_has_key(&e.id),
+        "鍵の日ごとの世代は30日まで残る（完全削除と同じ）"
+    );
+    // 顧客の世帯と自分で作った見本は残る
+    assert_eq!(customer_ids(&s), std::slice::from_ref(&customer.id));
+    assert_eq!(shelf(&s)[&own.id].0, "自分で作った見本");
+    assert!(s.open(&own.id).is_ok());
+    // 2回目は見つからない。また直せる（同じ出どころで作れる）
+    assert_eq!(
+        s.sample_reset(&e.id).err(),
+        Some(StoreError::UNKNOWN_HOUSEHOLD)
+    );
+    let again = make(&s, edited("sampleDualAssetsInvest", name));
+    assert_eq!(
+        edited_ids(&s),
+        vec![(again.id.clone(), "sampleDualAssetsInvest".to_owned())]
+    );
+}
+
+/// 事務所の共有: セットの見本を直した版は棚に1つで、全員に出る。ほかの PC が先に直していれば作れない（一覧を読み直してから確かめる）。
+/// だれでも最初の状態に戻せ、戻すと全員の棚から消える（閲覧だけの役割の人は tests/office.rs）
+#[test]
+fn edited_set_samples_are_shared_by_the_office() {
+    let env = Env::new();
+    let (a, b) = office_pair(&env);
+    let name = "住宅を買う前の共働き・30代（子なし）";
+    let e = make(&a, edited("sampleCoupleNoKids", name));
+    assert_eq!(
+        edited_ids(&b),
+        vec![(e.id.clone(), "sampleCoupleNoKids".to_owned())]
+    );
+    let shown = b.list_samples().unwrap();
+    let info = shown[0].label.sample.as_ref().unwrap();
+    assert_eq!(info.name, name);
+    assert!(info.changed);
+    assert_eq!(shown[0].customer_no, "");
+    // B はまだ一覧を読んでいなくても、作る前に読み直して断る
+    assert_eq!(
+        b.create_with(
+            req(),
+            CreateOptions {
+                sample: Some(edited("sampleCoupleNoKids", name)),
+                ..Default::default()
+            }
+        )
+        .err(),
+        Some(StoreError::SAMPLE_EXISTS)
+    );
+    // B が戻すと、A の棚からも消える
+    assert_eq!(
+        b.sample_reset(&e.id).unwrap(),
+        household_store::SampleReset::Removed
+    );
+    assert!(edited_ids(&a).is_empty());
+    assert_eq!(a.open(&e.id).err(), Some(StoreError::UNKNOWN_HOUSEHOLD));
+    make(&b, edited("sampleCoupleNoKids", name));
+    assert_eq!(edited_ids(&a).len(), 1);
+    assert_eq!(edited_ids(&a).len(), 1);
+}
+
+/// PC の中と同期フォルダの間で移しても、直した版は出どころごと移る（戻せる・同じ出どころは作れない）
+#[test]
+fn edited_set_samples_move_with_the_shared_folder() {
+    let env = Env::new();
+    let folder = env.base.join("共有フォルダ");
+    std::fs::create_dir_all(&folder).unwrap();
+    let a = env.other_pc("a");
+    a.status().unwrap();
+    a.acknowledge_recovery().unwrap();
+    let e = make(&a, edited("sampleSingleParent", "ひとり親と子2人・30代"));
+    a.sync_start(&folder, "事務所のPC", true, &[]).unwrap();
+    assert_eq!(
+        edited_ids(&a),
+        vec![(e.id.clone(), "sampleSingleParent".to_owned())]
+    );
+    assert!(
+        a.list_samples().unwrap()[0]
+            .label
+            .sample
+            .as_ref()
+            .unwrap()
+            .changed
+    );
+    assert_eq!(
+        a.create_with(
+            req(),
+            CreateOptions {
+                sample: Some(edited("sampleSingleParent", "ひとり親と子2人・30代")),
+                ..Default::default()
+            }
+        )
+        .err(),
+        Some(StoreError::SAMPLE_EXISTS)
+    );
+    a.sync_end("事務所のPC").unwrap();
+    assert_eq!(
+        edited_ids(&a),
+        vec![(e.id.clone(), "sampleSingleParent".to_owned())]
+    );
+    assert_eq!(
+        a.sample_reset(&e.id).unwrap(),
+        household_store::SampleReset::Removed
+    );
+    assert!(edited_ids(&a).is_empty());
+}

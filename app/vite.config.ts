@@ -72,6 +72,10 @@ const devStore = {
   // 見本の復元キー（開発用。本物の親鍵ではない）
   recoveryKey: Array.from({ length: 58 }, (_, i) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(i * 7 + 3) % 32]).join("").replace(/(.{4})(?=.)/g, "$1-"),
   deletions: 0,
+  /** 最後に最初の状態に戻した（消した）見本の直した版（画面の確かめ用の simulate=sampleOther で、ほかの人が直した版として戻す） */
+  lastReset: null as null | { body: string; summary: string; label: DevLabel },
+  /** 次にセットの見本を直した版を作るときに返す失敗（画面の確かめ用の simulate=sampleFail。1回だけ） */
+  failNextEdited: null as string | null,
 };
 
 /** 開発用のサーバーの、覚えた明細の辞書と形（メモリの中だけ。本体の事務所データの代わり。0034） */
@@ -142,6 +146,11 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       if (a.sample !== undefined) {
         const l = newSample(a.sample, a.reserved);
         if (typeof l === "string") return { ok: false, code: l };
+        if (l.sample?.origin !== undefined && s.failNextEdited !== null) {
+          const code = s.failNextEdited;
+          s.failNextEdited = null;
+          return { ok: false, code };
+        }
         label = l;
       } else {
         const code = a.category ?? (s.categories.some((c) => c.code === "C") ? "C" : s.categories[0]?.code);
@@ -238,6 +247,16 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       h.label.sample = { ...h.label.sample, name: nameKey(name), traits: JSON.parse(a.traits ?? "[]") as string[], family, age };
       return { ok: true };
     }
+    // 見本を最初の状態に戻す（本体の store_sample_reset と同じ。出どころのある見本〔セットの見本を直した版〕だけを消す。0247 の6）
+    case "sampleReset":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (h.label.sample === undefined) return { ok: false, code: "E_STORE_SAMPLE" };
+      if (h.label.sample.origin === undefined) return { ok: false, code: "E_STORE_SAMPLE_NOT_CHANGED" };
+      s.lastReset = { body: h.body, summary: h.summary, label: h.label };
+      s.households.delete(a.id as string);
+      if (s.lastOpened === a.id) s.lastOpened = null;
+      s.deletions++;
+      return { ok: true, value: { kind: "removed" } };
     case "save":
       if (h === undefined) return { ok: false, code: "E_STORE_NOT_OPEN" };
       if (h.conflict === true) return { ok: false, code: "E_STORE_CONFLICT" };
@@ -311,7 +330,9 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
 /**
  * 開発用のサーバーの事務所での共有（本体の office_* の代わり。メモリの中だけ）。フォルダのダイアログは出さず、架空の共有フォルダを選んだことにする。
  * 決まり（承認は指紋の入力が必須・申請の指紋は承認する人に返さない・外すときは表示名の確認）は本体（household-store）と同じにしてある。
- * `/__dev/office/simulate?kind=request|approved|presence|conflict|editor|fork|recoveryJoin|others|personalOthers|pcJoin|otherPcOpen|longAbsence` で、他の PC の操作が届いたことにする
+ * `/__dev/office/simulate?kind=request|approved|presence|conflict|editor|fork|recoveryJoin|others|personalOthers|pcJoin|otherPcOpen|longAbsence|sampleOther` で、他の PC の操作が届いたことにする
+ * （sampleOther は、ほかの人がセットの見本を先に直した版を保存したことにする。最後に最初の状態に戻した直した版か、開いている直した版を写す。
+ * sampleFail は、次にセットの見本を直した版を作るときを1回だけ失敗させる〔code に符号。無ければ E_STORE_IO〕。0247 の5）
  * （longAbsence は、30日より長く開かなかった間に鍵が入れ替わり、名簿をたどれなくなったことにする。番号は 7K2M-QX9P-4HDN-R8VT、復元キーは今の架空の復元キーを返す）
  * （others は架空の事務所の復元キー、personalOthers は1台目の PC が同期フォルダを始めたことにして、その架空の復元キーを返す。0024）
  */
@@ -753,7 +774,14 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
         target.updatedBy = "担当B";
         target.updatedAt = ago(1);
       } else if (kind === "fork" && target !== undefined) target.forks = 1;
-      else return { ok: false, code: "E_DEV_SIMULATE" };
+      else if (kind === "sampleFail") devStore.failNextEdited = typeof a.code === "string" && a.code !== "" ? a.code : "E_STORE_IO";
+      else if (kind === "sampleOther") {
+        const src = devStore.lastReset ?? (target?.label.sample?.origin !== undefined ? { body: target.body, summary: target.summary, label: target.label } : null);
+        if (src === null) return { ok: false, code: "E_DEV_SIMULATE" };
+        devStore.lastReset = null;
+        const at = ago(30);
+        devStore.households.set(crypto.randomUUID(), { customerNo: "", summary: src.summary, createdAt: at, updatedAt: at, body: src.body, generation: 1, updatedBy: "担当B", label: structuredClone(src.label) });
+      } else return { ok: false, code: "E_DEV_SIMULATE" };
       return { ok: true, value: status() };
     }
   }

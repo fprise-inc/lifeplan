@@ -199,6 +199,11 @@ export interface SampleInfo {
   changed?: boolean;
 }
 
+/** 見本を最初の状態に戻した結果（removed: セットの見本を直した版を消した。次に開くとアプリの中の見本が開く） */
+export interface SampleResetOutcome {
+  kind: "removed";
+}
+
 /** 見本を作る・登録するときの指定 */
 export interface SampleRequest {
   family: number;
@@ -562,6 +567,11 @@ export interface StoreHost {
   makeClient(id: string): Promise<boolean>;
   /** 見本の名前・項目・家族の形・本人の年代を直す（セットの見本を直した版は直せない。0247） */
   updateSample(id: string, name: string, traits: string[], family: number, age: number, reservedNames?: string[]): Promise<void>;
+  /**
+   * 見本を最初の状態に戻す（0247 の6）。セットの見本を直した版（出どころのある見本）は、直した版を消す（完全削除と同じ消し方。取り消せない）。
+   * 顧客の世帯は E_STORE_SAMPLE、自分で作った見本は E_STORE_SAMPLE_NOT_CHANGED で断る（本体が確かめる）
+   */
+  sampleReset(id: string): Promise<SampleResetOutcome>;
   categories(): Promise<CategorySettings>;
   /** 区分の設定を変える（空は「区分を使わない」。初めの「区分を使いますか？」の答えもこれで書く） */
   setCategories(edits: CategoryEdit[]): Promise<CategorySettings>;
@@ -1208,6 +1218,7 @@ export function tauriHost(): HostApi {
       makeClient: (id) => invoke<boolean>("store_make_client", { id }),
       updateSample: (id, name, traits, family, age, reservedNames) =>
         invoke<void>("store_update_sample", { id, name, traits, family, age, reservedNames: reservedNames ?? null }),
+      sampleReset: (id) => invoke<SampleResetOutcome>("store_sample_reset", { id }),
       categories: () => invoke<CategorySettings>("store_categories"),
       setCategories: (edits) => invoke<CategorySettings>("store_set_categories", { edits }),
     },
@@ -1497,6 +1508,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
         void (await devJson<unknown>(
           await devStore("updateSample", { id, name, traits: JSON.stringify(traits), family: String(family), age: String(age), reserved: JSON.stringify(reservedNames ?? []) }),
         )),
+      sampleReset: async (id) => devJson<SampleResetOutcome>(await devStore("sampleReset", { id })),
       categories: async () => devJson<CategorySettings>(await devStore("categories")),
       setCategories: async (edits) => devJson<CategorySettings>(await devStore("setCategories", { edits: JSON.stringify(edits) })),
     },
