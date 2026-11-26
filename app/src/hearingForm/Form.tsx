@@ -13,6 +13,7 @@ import { MONTH_LABELS, yearLabel } from "../../../hearing/src/definition.ts";
 import { DOCUMENT_LIMITS, hideTip, PHOTO_TIPS } from "../../../hearing/src/web/documents.ts";
 import { answerText, coverLine, coverSummary, customerDocTitle, customerText, docShown, DOCS_SECTION, DOCS_TITLE, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, insteadLine, itemGuide, itemLabel, markSent, MONTH_UNKNOWN, normNumber, progress, rangeFirst, requiredKey, requiredMissing, requiredText, requiredWhat, requiredWho, REVIEW_TITLE, screenFields, screenGates, screenId, screens, START_SECTION, START_TITLE, unknownShown, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
 import type { GateId, PacketDocument, QuestionsPacket, WebItem } from "../../../hearing/src/web/packet.ts";
+import { ABOUT_LINK_TEXT, ABOUT_PATH, OPERATOR_NAME } from "./operator.ts";
 import { prepareFile } from "./photo.ts";
 import { listDateTime, proseDate, proseDateTime } from "../dates.ts";
 
@@ -248,10 +249,26 @@ function Office({ p }: { p: QuestionsPacket }) {
 const dateText = (iso: string) => proseDate(iso);
 
 /**
- * 「このページの仕組み」（最初の画面と、答えを送った後に開き直した「書類を送る」の画面の一番下に小さく。専門用語・作る側の言葉を避けて短く。
- * 提供元の名前と窓口は、配る所の説明のページに置く）
+ * 説明のページ（運営者の名前・送られる情報・送り先・目的）へのリンク。お客さまのページでは別のタブで開く（回答の途中の画面を残す）。
+ * FP のアプリの見本では開かない（アプリの画面から外のページへ移らない）ので、同じ見え方の文字だけ
  */
-function About({ p }: { p: QuestionsPacket }) {
+function AboutLink({ mode }: { mode: FormProps["mode"] }) {
+  return mode === "live" ? (
+    <a href={ABOUT_PATH} target="_blank" rel="noopener noreferrer" data-hf-about-link>
+      {ABOUT_LINK_TEXT}
+    </a>
+  ) : (
+    <span class="hf-about-link" data-hf-about-link>
+      {ABOUT_LINK_TEXT}
+    </span>
+  );
+}
+
+/**
+ * 「このページの仕組み」（最初の画面と、答えを送った後に開き直した「書類を送る」の画面の一番下に小さく。専門用語・作る側の言葉を避けて短く）。
+ * 運営者の名前と説明のページへのリンクも入れる（0138 の追記 2026-11-26。外部送信の規律に合わせる）
+ */
+function About({ p, mode }: { p: QuestionsPacket; mode: FormProps["mode"] }) {
   const who = p.office.name !== "" ? `${p.office.name}の担当の FP` : "担当の FP";
   return (
     <details class="hf-about" data-hf-about>
@@ -260,8 +277,23 @@ function About({ p }: { p: QuestionsPacket }) {
         <li>回答と書類は、この端末の中で鍵をかけて（暗号化して）から送ります。開けるのは、{who}のアプリだけです。</li>
         <li>回答と書類は、担当の FP が受け取ると、このページからは消えます（受け取られないまま回答の期限〔{dateText(p.expiresAt)}〕を過ぎたときも消えます）。</li>
         <li>途中の回答は、この端末のこのブラウザの中に鍵をかけて残します。送ると消えます。「この端末の入力を消す」でも消せます。</li>
+        <li>
+          このページの運営は{OPERATOR_NAME}です。送られる情報と送り先は「<AboutLink mode={mode} />」に載せています。
+        </li>
       </ul>
     </details>
+  );
+}
+
+/**
+ * 運営者の1行（最初の画面と「書類を送る」の画面のいちばん下。「このページの仕組み」の下）。開かなくても読めるように、文字は本文に近い大きさ（16px）。
+ * 0138 の追記 2026-11-26（電気通信事業法の外部送信の規律に合わせる。利用者の判断）
+ */
+function OperatorLine({ mode }: { mode: FormProps["mode"] }) {
+  return (
+    <p class="hf-operator" data-hf-operator>
+      このページの運営: {OPERATOR_NAME} ｜ <AboutLink mode={mode} />
+    </p>
   );
 }
 
@@ -774,7 +806,8 @@ function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProp
             </ul>
           </section>
         ) : null}
-        <About p={p} />
+        <About p={p} mode={mode} />
+        <OperatorLine mode={mode} />
       </main>
       <nav class="hf-nav">
         <span />
@@ -1062,7 +1095,8 @@ export function HearingForm(props: FormProps): JSX.Element {
         </ul>
         {p.office.privacyContact !== "" ? <p class="hf-note">個人情報のお問い合わせ: {p.office.privacyContact}</p> : null}
         {d.started ? <ClearDraft onClear={clear} /> : null}
-        <About p={p} />
+        <About p={p} mode={mode} />
+        <OperatorLine mode={mode} />
       </div>
     );
   } else if (screen.kind === "consent") {
