@@ -5246,10 +5246,11 @@ async fn chart_any_series_and_expense_breakdown() {
             );
         }
         assert!(texts.iter().any(|x| x == "（万円）"), "{i}: 単位");
+        // この世帯は運用の口座にすべて利回りが入っていて、運用利回りを計算に使わないので、注に書かない（0260 の追記）
         assert!(
             texts.iter().any(|x| x.starts_with("前提")
                 && x.contains("物価上昇率")
-                && x.contains("運用利回り")),
+                && !x.contains("運用利回り")),
             "{i}: 前提の注"
         );
         assert!(
@@ -5733,6 +5734,56 @@ async fn chart_compares_three_rate_paths() {
 }
 
 /// 年ごとの表の道具を呼ぶ: (失敗か, 文章の欄ごと)
+/// 表・グラフの前提の注の運用利回り（0260 の追記）: 提案書の前提の一覧と同じく、その率を計算に使う物（利回りを入れていない運用の口座など）が
+/// ある通りだけ書く。利回りを入れていない iDeCo のある世帯（A）と、運用の口座にすべて利回りを入れた別の世帯（B）を並べる
+#[tokio::test(flavor = "multi_thread")]
+async fn return_note_only_when_used() {
+    let dir = temp_dir("return-note");
+    let (c, _) = connect(&dir).await;
+    let args = json!({
+        "sample_household_id": "single45",
+        "label": "利回りを入れていない口座あり",
+        "variants": [{ "label": "口座にすべて利回り", "sample_household_id": "investmentCouple" }],
+    });
+    let mut chart_args = args.clone();
+    chart_args["charts"] = json!(["assets"]);
+    chart_args["format"] = json!("svg");
+    let (err, text, _, svgs, _) = call_blocks(&c, "chart", chart_args).await;
+    assert!(!err, "{text}");
+    let texts = svg_texts(&svgs[0]);
+    let note = texts
+        .iter()
+        .find(|x| x.starts_with("前提"))
+        .cloned()
+        .unwrap_or_default();
+    let (a, b) = note.split_once('／').unwrap_or((&note, ""));
+    assert!(
+        a.contains("運用利回り 年") && a.contains("資産ごとの指定が無いもの"),
+        "{note}"
+    );
+    assert!(
+        b.starts_with("B: 物価上昇率") && !b.contains("運用利回り"),
+        "{note}"
+    );
+    // 年ごとの表の注も同じ
+    let mut table_args = args.clone();
+    table_args["rows"] = json!(["net"]);
+    let (err, out) = call_table(&c, table_args).await;
+    assert!(!err, "{out:?}");
+    let (_, _, notes) = csv_parts(&out[1]);
+    let pre = notes
+        .iter()
+        .find(|n| n.starts_with("※ 前提"))
+        .cloned()
+        .unwrap_or_default();
+    let (a, b) = pre.split_once('／').unwrap_or((&pre, ""));
+    assert!(a.contains("運用利回り 年"), "{pre}");
+    assert!(
+        b.starts_with("口座にすべて利回り: ") && !b.contains("運用利回り"),
+        "{pre}"
+    );
+}
+
 async fn call_table(c: &Client, args: Value) -> (bool, Vec<String>) {
     let mut p = CallToolRequestParams::new("table".to_owned());
     if let Value::Object(m) = args {

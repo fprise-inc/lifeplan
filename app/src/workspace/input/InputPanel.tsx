@@ -421,7 +421,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
       <div class="scrim" onClick={tryClose} aria-hidden="true" />
       <div
         ref={panel}
-        class={`ipanel${itemId === "savings" ? " wide" : ""}${plan !== undefined ? " plan-mode" : ""}`}
+        class={`ipanel type-scale${itemId === "savings" ? " wide" : ""}${plan !== undefined ? " plan-mode" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ip-title"

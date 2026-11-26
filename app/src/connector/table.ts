@@ -12,6 +12,7 @@
 import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
 import { group, toMan } from "../presentation/format.ts";
 import { pctText } from "../workspace/plans/decimal.ts";
+import { investmentReturnUsed } from "../../../engine/src/sdk/returnUse.ts";
 import { displayYears, yearsWithin } from "../workspace/present.ts";
 import { EXPENSE_KEYS, INCOME_KEYS, SERIES, SERIES_KEYS, type SeriesKey } from "./chart.ts";
 import { FLOW_FIELDS, summaryOf } from "./summary.ts";
@@ -288,7 +289,8 @@ export function tableNotes(a: TableArgs, cols: readonly Column[]): string[] {
         }
       | undefined;
     const inf = rateNote(asm?.inflation);
-    const ret = rateNote(asm?.investmentReturn);
+    // 運用利回りは、その率を計算に使う物（配分も利回りも入れていない運用の口座など）がある通りだけ書く（提案書の前提の一覧と同じ判定。0260 の追記）
+    const ret = investmentReturnUsed(v.request.input) ? rateNote(asm?.investmentReturn) : null;
     return [inf !== null ? `物価上昇率 ${inf}` : null, ret !== null ? `運用利回り ${ret}（資産ごとの指定が無いもの）` : null].filter((x) => x !== null).join("・");
   };
   const pres = a.variants.map(pre);

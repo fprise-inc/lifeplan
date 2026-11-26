@@ -15,6 +15,7 @@ import { domainOf, FRAME, linePath, scaleOf, spreadX, type Frame, type Scale } f
 import { group, man } from "../presentation/format.ts";
 import { colorStyle, PLAN_COLOR_DARK } from "../presentation/planColors.ts";
 import { mulRate, pctText } from "../workspace/plans/decimal.ts";
+import { investmentReturnUsed, type ReturnUseInput } from "../../../engine/src/sdk/returnUse.ts";
 
 /**
  * グラフの種類: 金融資産の推移（折れ線）・住宅ローンの返済額の推移（折れ線）・主な数字の比較（棒）・住宅ローンの利息の推移（折れ線。年額）・
@@ -99,7 +100,7 @@ export interface ChartVariant {
   };
   /** 当てたプランの変更（compare の planChanges。項目の名前と後の値の文） */
   planChanges?: { label: string; to: string }[];
-  /** 計算の前提（当てた後の要求の assumptions のうち、物価と運用利回り） */
+  /** 計算の前提（反映した後の要求の assumptions のうち、物価と運用利回り）。運用利回りは、その率を計算に使う物がある通りだけ（接続口が returnUsed で決める。0260 の追記） */
   assumptions?: { inflation?: { default: string; byYear?: Record<string, string> }; investmentReturn?: { default: string; byYear?: Record<string, string> } };
   /** 重ねた相場の想定・ストレステストの文 */
   stress?: string;
@@ -236,7 +237,8 @@ export function chartNotes(a: ChartArgs): string[] {
     return `${letterOf(i)}: ${list.length > 0 ? list.join("・") : "変更なし"}`;
   });
   if (a.variants.some((v) => (v.planChanges ?? []).length > 0)) notes.push(`通りの違い\u3000${changes.join("／")}`);
-  // 物価上昇率は省くと 0（エンジンの入力の決まり）。運用利回りは入力に必ずある
+  // 物価上昇率は省くと 0（エンジンの入力の決まり）。運用利回りは入力に必ずあるが、その率を使う物（配分も利回りも入れていない運用の口座など）が
+  // 無い通りは、接続口が渡さない（提案書の前提の一覧と同じ。0260 の追記）。渡さなければ注に書かない
   const pre = (v: ChartVariant) =>
     [`物価上昇率 ${rateNote(v.assumptions?.inflation ?? { default: "0" })}`, rateNote(v.assumptions?.investmentReturn) !== null ? `運用利回り ${rateNote(v.assumptions?.investmentReturn)}（資産ごとの指定が無いもの）` : null]
       .filter((x) => x !== null)
@@ -516,6 +518,25 @@ function altText(a: ChartArgs, title: string): string {
 }
 
 /** グラフの SVG（argsJson は ChartArgs。戻り値は JSON の文字 ChartOut） */
+/**
+ * 通りごとの要求（JSON の配列の文字。計算しなかった通りは null）で、運用利回り（配分も利回りも入れていない運用の口座の率）を計算に使う物があるか。
+ * 接続口（crates/lifeplan の chart.rs）が、グラフの注に運用利回りを書く通りを決めるのに使う（提案書の前提の一覧と同じ関数。0260 の追記）。
+ * 分からない通り（null・読めない形）は「使う」。戻り値は真偽の配列の JSON の文字
+ */
+export function returnUsed(reqsJson: string, _a: string, _b: string): string {
+  void _a;
+  void _b;
+  const reqs = JSON.parse(reqsJson) as unknown;
+  if (!Array.isArray(reqs)) return JSON.stringify([]);
+  return JSON.stringify(
+    reqs.map((r: unknown) => {
+      const input = (r as { input?: unknown } | null)?.input;
+      if (typeof input !== "object" || input === null || typeof (input as { household?: unknown }).household !== "object") return true;
+      return investmentReturnUsed(input as ReturnUseInput);
+    }),
+  );
+}
+
 export function chart(argsJson: string, _a: string, _b: string): string {
   void _a;
   void _b;
