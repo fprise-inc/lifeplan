@@ -297,6 +297,9 @@ describe("率の欄の範囲（0098）", () => {
     expect(html).toMatch(/data-office-setting-problem="investmentReturn"[^>]*>15%より大きい値は設定できません。</);
     expect(html).toMatch(/data-office-setting-problem="wageGrowth"[^>]*>-10%より小さい値は設定できません。</);
     expect(html).not.toContain('data-office-setting-problem="inflation"');
-    expect(html).toContain("運用利回りは -10〜15%");
+    // 範囲は欄の「?」の中（配分も利回りも入れていない運用の口座〔前の運用利回り〕は -10〜15%）。直す所があるあいだは保存できない
+    expect(html).toContain("-10%〜15%の範囲で入れます。");
+    expect(html).toContain("data-office-problems");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*data-office-settings-save/);
   });
 });

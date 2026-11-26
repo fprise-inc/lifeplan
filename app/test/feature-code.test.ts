@@ -17,14 +17,15 @@ const panel = (features: FeatureStatus, combinedBs = true) =>
   renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, features: { combinedBs } }, onSave: async () => undefined, shared: false, onClose: () => undefined, features, onAddCode: async () => features, onRemoveCode: async () => features, onDismissNotice: async () => features, onCheckCodes: async () => features, onDecideCandidate: async () => features }));
 
 describe("区画の出し方", () => {
-  it("コードを入れていないと、法人経営者向けの区画を出さない（印が付いたままの古い設定でも）。いちばん下に小さな入れ口だけ", () => {
+  it("コードを入れていないと、法人経営者向けの区画を出さない（印が付いたままの古い設定でも）。「事務所の見た目と機能」の画面に入れ口だけ", () => {
     for (const html of [panel(NO_FEATURES, false), panel(NO_FEATURES, true)]) {
       expect(html).not.toContain("data-office-features");
       expect(html).not.toContain("合算BS（経営者個人と会社のバランスシート）を使う");
       expect(html).toContain("data-feature-code-open");
       expect(html).toContain("機能を有効にするコードを入れる");
-      // 入れ口は保存のボタンより後ろ（いちばん下）
-      expect(html.indexOf("data-feature-code-open")).toBeGreaterThan(html.indexOf("data-office-settings-save"));
+      // 入れ口は「事務所の見た目と機能」の画面の中（0261）
+      const look = html.slice(html.indexOf('data-office-page="look"'));
+      expect(look.slice(0, look.indexOf('data-office-page="custom"') >= 0 ? look.indexOf('data-office-page="custom"') : undefined)).toContain("data-feature-code-open");
     }
   });
 

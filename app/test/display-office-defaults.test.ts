@@ -230,29 +230,23 @@ describe("世帯の表示の設定の画面の「事務所の既定値」「こ�
     onReset: (ids) => seen.push([...ids]),
   });
 
-  it("結果のタブ: 従う設定は「事務所の既定値」、この世帯だけの設定は「この世帯だけ」と「事務所の既定値に戻す」", () => {
-    const d: StoredDisplay = { ...OWN, followOffice: ["result.metrics", "result.invPeriods"] };
-    const html = renderToString(h(DisplaySettingsPanel, { value: resolveDisplay(d, OFFICE_PAIR).result, onChange: () => undefined, onClose: () => undefined, feeAvailable: false, office: marks(d) }));
-    expect(html).toContain('data-display-office="result.metrics"');
-    expect(html).toContain('data-display-office="result.invPeriods"');
-    for (const id of ["result.atAge", "result.layout", "result.invBreakdown"]) {
-      expect(html).toContain(`data-display-household="${id}"`);
-      expect(html).toContain(`data-display-reset="${id}"`);
-    }
-    expect(html).not.toContain('data-display-reset="result.metrics"');
-    expect(html).toContain("事務所の既定値に戻す");
-    // 事務所の今の既定値を説明に出す
-    expect(html).toContain("事務所の既定値は 80歳");
-    // 印を渡さなければ出さない（今までどおり）
-    expect(renderToString(h(DisplaySettingsPanel, { value: OWN.result, onChange: () => undefined, onClose: () => undefined, feeAvailable: false }))).not.toContain("この世帯だけ");
-  });
-
-  it("資産と負債のタブ: 既定の時点・家計の体力の目安・目安の幅・お金の3つの分け方の4つの設定に印を出す", () => {
-    const d: StoredDisplay = { ...OWN, followOffice: ["balance.points", "balance.moneyThree.months"] };
+  /** 印を出さない設定（選ぶだけ・印を付けるだけで、戻すのも1回で済む。利用者の判断。0213 の段C） */
+  const RESULT_NO_MARK = ["result.metrics", "result.layout", "result.invBreakdown", "result.invPeriods"] as const;
+  const BALANCE_NO_MARK = ["balance.health", "balance.moneyThree.wording"] as const;
+  /** 印を残す設定（数を入れる・並びを組む） */
+  const BALANCE_MARK = ["balance.points", "balance.guide", "balance.moneyThree.months", "balance.moneyThree.years"] as const;
+  const noMark = (html: string, id: string) => {
+    expect(html, id).not.toContain(`data-display-office="${id}"`);
+    expect(html, id).not.toContain(`data-display-household="${id}"`);
+    expect(html, id).not.toContain(`data-display-reset="${id}"`);
+  };
+  const resultPanel = (d: StoredDisplay) =>
+    renderToString(h(DisplaySettingsPanel, { value: resolveDisplay(d, OFFICE_PAIR).result, onChange: () => undefined, onClose: () => undefined, feeAvailable: false, office: marks(d) }));
+  const balancePanel = (d: StoredDisplay, health?: boolean) => {
     const b = resolveDisplay(d, OFFICE_PAIR).balance;
-    const html = renderToString(
+    return renderToString(
       h(BalanceSettingsPanel, {
-        model: { health: b.health, guide: b.guide, guideBasis: "living", pointDefaults: b.points, pointChoices: [] } as unknown as Parameters<typeof BalanceSettingsPanel>[0]["model"],
+        model: { health: health ?? b.health, guide: b.guide, guideBasis: "living", pointDefaults: b.points, pointChoices: [] } as unknown as Parameters<typeof BalanceSettingsPanel>[0]["model"],
         onGuide: () => undefined,
         onHealth: () => undefined,
         onPointDefaults: () => undefined,
@@ -261,13 +255,107 @@ describe("世帯の表示の設定の画面の「事務所の既定値」「こ�
         onClose: () => undefined,
       }),
     );
+  };
+
+  it("結果のタブ: 印は「○歳時点」の年齢にだけ出す（従うなら「事務所の既定値」、この世帯だけなら「この世帯だけ」と「事務所の既定値に戻す」）", () => {
+    const follows = resultPanel({ ...OWN, followOffice: [...OFFICE_DISPLAY_IDS] });
+    expect(follows).toContain('data-display-office="result.atAge"');
+    expect(follows).not.toContain("この世帯だけ");
+    const own = resultPanel({ ...OWN, followOffice: [] });
+    expect(own).toContain('data-display-household="result.atAge"');
+    expect(own).toContain('data-display-reset="result.atAge"');
+    expect(own).toContain("事務所の既定値に戻す");
+    // 事務所の今の既定値を説明に出す
+    expect(own).toContain("事務所の既定値は 80歳");
+    // 出す数字・比較の仕方・口座の内訳を表示・運用の期間を表示は、従っていても、この世帯だけの値でも印を出さない
+    for (const html of [follows, own]) for (const id of RESULT_NO_MARK) noMark(html, id);
+    // 資産の推移のグラフの上のチェックの印の行ごと出さない（中身が無くなるため）
+    expect(own).not.toContain('data-display-marks="result.inv"');
+    expect(own).not.toContain("資産の推移のグラフの上のチェック");
+    // 選択肢・チェックはそのまま
+    for (const key of ["overlay", "side", "all"]) expect(own).toContain(`data-layout="${key}"`);
+    expect(own).toContain("data-metric=");
+    // 印を渡さなければ出さない（今までどおり）
+    expect(renderToString(h(DisplaySettingsPanel, { value: OWN.result, onChange: () => undefined, onClose: () => undefined, feeAvailable: false }))).not.toContain("事務所の既定値");
+  });
+
+  it("結果のタブ: 印を外した設定も、その世帯で変えたらその設定だけがこの世帯だけの値になる（印は出さないまま）", () => {
+    const all = [...OFFICE_DISPLAY_IDS];
+    const d: StoredDisplay = { ...OWN, followOffice: all };
+    const before = resolveDisplay(d, OFFICE_PAIR);
+    // 「重ねる（既定）」の説明の文の終わりに「（既定）」を重ねて書かない（見出しにあるため）
+    expect(resultPanel(d)).toContain("重ねる（既定）<small>1つのグラフに基準のプラン（点線）と選んだプランを重ねる</small>");
+    const changes: { id: (typeof RESULT_NO_MARK)[number]; next: typeof before.result }[] = [
+      { id: "result.metrics", next: { ...before.result, metrics: [] } },
+      { id: "result.layout", next: { ...before.result, layout: before.result.layout === "all" ? "overlay" : "all" } },
+      { id: "result.invBreakdown", next: { ...before.result, invBreakdown: !before.result.invBreakdown } },
+      { id: "result.invPeriods", next: { ...before.result, invPeriods: !before.result.invPeriods } },
+    ];
+    for (const { id, next } of changes) {
+      const after = withOwnChange(d, before, { ...before, result: next });
+      expect(followsOffice(after, id), id).toBe(false);
+      for (const other of OFFICE_DISPLAY_IDS) if (other !== id) expect(followsOffice(after, other), `${id} → ${other}`).toBe(true);
+      expect(resolveDisplay(after, OFFICE_PAIR).result, id).toEqual(next);
+      const html = resultPanel(after);
+      for (const x of RESULT_NO_MARK) noMark(html, x);
+      expect(html, id).not.toContain("この世帯だけ");
+      expect(html, id).toContain('data-display-office="result.atAge"');
+    }
+    // 残した「○歳時点」の年齢を変えると「この世帯だけ」（今までどおり）
+    const aged = withOwnChange(d, before, { ...before, result: { ...before.result, atAge: 95 } });
+    expect(followsOffice(aged, "result.atAge")).toBe(false);
+    expect(resultPanel(aged)).toContain('data-display-reset="result.atAge"');
+  });
+
+  it("資産と負債のタブ: 印は時点を並べるの既定・目安の幅・何か月分・何年先までに出し、家計の体力の目安とお金の3つの分け方の呼び方には出さない", () => {
+    const d: StoredDisplay = { ...OWN, followOffice: ["balance.points", "balance.moneyThree.months", "balance.health"] };
+    // 事務所の既定値は家計の体力の目安を出さない。目安の幅の欄を見るため、出す形で描く
+    const html = balancePanel(d, true);
     expect(html).toContain('data-display-office="balance.points"');
     expect(html).toContain('data-display-office="balance.moneyThree.months"');
-    for (const id of ["balance.health", "balance.guide", "balance.moneyThree.wording", "balance.moneyThree.years"]) expect(html).toContain(`data-display-household="${id}"`);
+    for (const id of ["balance.guide", "balance.moneyThree.years"]) {
+      expect(html).toContain(`data-display-household="${id}"`);
+      expect(html).toContain(`data-display-reset="${id}"`);
+    }
+    // 外した2つは、従っていても（家計の体力の目安）、この世帯だけでも（呼び方）印を出さない
+    for (const id of BALANCE_NO_MARK) noMark(html, id);
+    // 全部が従う・全部がこの世帯だけ のどちらでも同じ
+    const follows = balancePanel({ ...OWN, followOffice: [...OFFICE_DISPLAY_IDS] }, true);
+    const own = balancePanel({ ...OWN, followOffice: [] }, true);
+    for (const id of BALANCE_MARK) {
+      expect(follows).toContain(`data-display-office="${id}"`);
+      expect(own).toContain(`data-display-reset="${id}"`);
+    }
+    for (const x of [follows, own]) for (const id of BALANCE_NO_MARK) noMark(x, id);
+    // 家計の体力の目安を出さないときは目安の幅の欄ごと出さない（今までどおり）。外した設定の印も出さないまま
+    const off = balancePanel({ ...OWN, followOffice: [] }, false);
+    expect(off).not.toContain("balance.guide");
+    for (const id of BALANCE_NO_MARK) noMark(off, id);
+  });
+
+  it("資産と負債のタブ: 印を外した設定も、その世帯で変えたらその設定だけがこの世帯だけの値になる", () => {
+    const all = [...OFFICE_DISPLAY_IDS];
+    const d: StoredDisplay = { ...OWN, followOffice: all };
+    const before = resolveDisplay(d, OFFICE_PAIR);
+    const health = withOwnChange(d, before, { ...before, balance: { ...before.balance, health: !before.balance.health } });
+    expect(followsOffice(health, "balance.health")).toBe(false);
+    expect(followsOffice(health, "balance.guide")).toBe(true);
+    const wording = withOwnChange(d, before, { ...before, balance: { ...before.balance, moneyThree: { ...before.balance.moneyThree, wording: before.balance.moneyThree.wording === "use" ? "time" : "use" } } });
+    expect(followsOffice(wording, "balance.moneyThree.wording")).toBe(false);
+    // 呼び方を変えても、何か月分・何年先までは従うまま
+    expect(followsOffice(wording, "balance.moneyThree.months")).toBe(true);
+    expect(followsOffice(wording, "balance.moneyThree.years")).toBe(true);
+    for (const x of [balancePanel(health, true), balancePanel(wording)]) {
+      for (const id of BALANCE_NO_MARK) noMark(x, id);
+      expect(x).not.toContain("この世帯だけ");
+    }
   });
 
   it("事務所の既定値の画面の区画: 11件を決められる（並べる時点・対策に足した項目は出さない）", () => {
     const html = renderToString(h(DisplayDefaultsSection, { value: OFFICE_PAIR, onChange: () => undefined }));
+    // 世帯の表示の設定に「事務所の既定値に戻す」が出る設定と出ない設定を、説明で分かるようにする（0213 の段C）
+    expect(html).toContain("「事務所の既定値に戻す」が出るのは、「○歳時点」の年齢・「時点を並べる」の既定・目安の幅・「何か月分」・「何年先まで」です");
+    expect(html).toContain("出す数字・比較の仕方・口座の内訳を表示・運用の期間を表示・家計の体力の目安・お金の3つの分け方の呼び方は、世帯で選び直します");
     expect(html).toContain("結果のタブ・資産と負債のタブの表示の設定");
     for (const k of ["data-office-display-metrics", "data-office-display-age", "data-office-display-layout", "data-office-inv-breakdown", "data-office-inv-periods", "data-office-display-points", "data-office-health", "data-guide-basis", "data-office-m3-names", "data-office-m3-months", "data-office-m3-years"]) expect(html).toContain(k);
     expect(html).toContain("世帯から決める");

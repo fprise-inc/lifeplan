@@ -216,8 +216,8 @@ describe("「やめる」のままにする所（消す・外す・捨てる・�
       "workspace/notices/FeedbackPanel.tsx": 1,
       // 説明の文（カスタム層）の「公式に戻す」
       "workspace/office/CustomTextsSection.tsx": 1,
-      // 機能のコードを「外す」
-      "workspace/office/OfficeSettingsPanel.tsx": 1,
+      // 機能のコードを「外す」（事務所の見た目と機能の画面）
+      "workspace/office/LookPage.tsx": 1,
       // プランを帯から外すとき・世帯を離れるときの3択の問い
       "workspace/plans/BandDropDialog.tsx": 2,
       "workspace/plans/DraftsLeaveDialog.tsx": 1,

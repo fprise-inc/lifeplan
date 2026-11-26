@@ -139,11 +139,18 @@ export interface DisplayCatalog {
   pending: { id: string; label: string; note: string }[];
 }
 
-const OFFICE = "世帯の一覧の「事務所の既定値」";
+const OFFICE_ROOT = "FP のメニュー（世帯の一覧）の「事務所の既定値」";
+/** 事務所の既定値の7つの画面のうち、表示の設定のある画面の名前（0261。workspace/office/pageNames.ts の名前と同じ。テストで確かめる） */
+export const OFFICE_PAGE_NAMES = { input: "入力の画面", results: "結果と万一の画面", look: "事務所の見た目と機能" } as const;
+/** 事務所の既定値の画面の中の区画の場所 */
+const officeAt = (page: keyof typeof OFFICE_PAGE_NAMES, section: string): string => `${OFFICE_ROOT}の「${OFFICE_PAGE_NAMES[page]}」の画面の区画「${section}」`;
 /** 結果のタブ・資産と負債のタブの表示の設定の事務所の既定値の区画（0213 の段C） */
-const OFFICE_DISPLAY = `${OFFICE}の区画「結果のタブ・資産と負債のタブの表示の設定」`;
+const OFFICE_DISPLAY = officeAt("results", "結果のタブ・資産と負債のタブの表示の設定");
 /** 事務所の既定値を持てる表示の設定の、世帯の値の補い */
 const FOLLOW_NOTE = "事務所の既定値に従う世帯（新しく作る世帯）は事務所の既定値を読みます。その世帯で値を変えると、その世帯だけの値になります（表示の設定に「この世帯だけ」と「事務所の既定値に戻す」）。前からある世帯は、その世帯の値のままです";
+/** 選ぶだけ・印を付けるだけの設定の世帯の値の補い（出す数字・比較の仕方・口座の内訳を表示・運用の期間を表示・家計の体力の目安・
+ *  お金の3つの分け方の呼び方は、表示の設定に印を出さない。戻すのも1回で済むため。0213 の段C） */
+const SIMPLE_FOLLOW_NOTE = "事務所の既定値に従う世帯（新しく作る世帯）は事務所の既定値を読みます。その世帯で値を変えると、その世帯だけの値になります（この設定は、表示の設定に「事務所の既定値」「この世帯だけ」の印と「事務所の既定値に戻す」を出しません）。前からある世帯は、その世帯の値のままです";
 const RESULT_SETTINGS = "結果のタブのグラフの右上の「表示の設定」";
 const BALANCE_SETTINGS = "資産と負債のタブの図の見出しの右の「表示の設定」";
 const NO_OUTPUT = { proposal: false, takeaway: false } as const;
@@ -181,7 +188,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       label: "入力のホームの入力項目の並び",
       scope: "office",
       screen: "入力のタブの入力のホーム（入力項目の並び）",
-      change: { office: `${OFFICE}の区画「入力のホームの入力項目の並び」（↑↓で並べ替える。「既定の並びに戻す」）` },
+      change: { office: `${officeAt("input", "入力のホームの入力項目の並び")}（↑↓で並べ替える。「既定の並びに戻す」）` },
       stored: { office: "defaults.layout.order" },
       officeEffect: "live",
       proposable: true,
@@ -197,7 +204,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       scope: "both",
       screen: "入力のタブの入力のホーム（出す入力項目）と、入力項目を開いたときの入れ方（標準／詳細）",
       change: {
-        office: `${OFFICE}の区画「新しい世帯で出す入力項目と、開いたときの入れ方」（「既定に戻す」で全部出す・全部「標準」）`,
+        office: `${officeAt("input", "新しい世帯で出す入力項目と、開いたときの入れ方")}（「既定に戻す」で全部出す・全部「標準」）`,
         household: "入力のタブの入力のホームの「入力項目を選ぶ ▾」（その一覧の下の「この選び方を事務所の既定にする」「事務所の既定にそろえる」も）",
       },
       stored: { office: "defaults.items", household: "household.itemChoice" },
@@ -215,7 +222,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       label: "基本生活費の内訳の並べ方",
       scope: "office",
       screen: "入力のタブの「基本生活費」の内訳（月額）の行",
-      change: { office: `${OFFICE}の区画「基本生活費の内訳の並べ方」` },
+      change: { office: officeAt("input", "基本生活費の内訳の並べ方") },
       stored: { office: "defaults.living" },
       officeEffect: "live",
       proposable: true,
@@ -239,7 +246,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       label: "対策に最初から出す項目",
       scope: "office",
       screen: "結果のタブの対策",
-      change: { office: `${OFFICE}の区画「対策に最初から出す項目」（見出しごとのチェック。「既定に戻す」）` },
+      change: { office: `${officeAt("results", "対策に最初から出す項目")}（見出しごとのチェック。「既定に戻す」）` },
       stored: { office: "defaults.levers（既定の組み合わせとの違いだけ: shown＝足した種類・hidden＝外した種類）" },
       officeEffect: "live",
       proposable: true,
@@ -274,7 +281,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       type: "kinds",
       choices: METRIC_CHOICES.map((c) => ({ value: c.key, label: c.label, note: c.note })),
       default: [...DEFAULT_DISPLAY_SETTINGS.metrics],
-      note: `既定では何も足しません。「FP顧問料の一文」は顧問料の契約がある世帯で選べます。${FOLLOW_NOTE}`,
+      note: `既定では何も足しません。「FP顧問料の一文」は顧問料の契約がある世帯で選べます。${SIMPLE_FOLLOW_NOTE}`,
     },
     {
       id: "result.atAge",
@@ -304,7 +311,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       type: "choice",
       choices: LAYOUT_CHOICES.map((c) => ({ value: c.key, label: c.label, note: c.note })),
       default: DEFAULT_DISPLAY_SETTINGS.layout,
-      note: FOLLOW_NOTE,
+      note: SIMPLE_FOLLOW_NOTE,
     },
     {
       id: "result.invBreakdown",
@@ -322,7 +329,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_DISPLAY_SETTINGS.invBreakdown,
-      note: FOLLOW_NOTE,
+      note: SIMPLE_FOLLOW_NOTE,
     },
     {
       id: "result.invPeriods",
@@ -341,14 +348,14 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_DISPLAY_SETTINGS.invPeriods,
-      note: FOLLOW_NOTE,
+      note: SIMPLE_FOLLOW_NOTE,
     },
     {
       id: "contingency.premises",
       label: "想定の前提に最初から出す項目",
       scope: "office",
       screen: "万一のときのタブの想定の前提（選んでいる場面の項目だけ）",
-      change: { office: `${OFFICE}の区画「万一のときのタブ」の「想定の前提に最初から出す項目」（場面ごとのチェック。「場面と項目を既定に戻す」）` },
+      change: { office: `${officeAt("results", "万一のときのタブ")}の「想定の前提に最初から出す項目」（場面ごとのチェック。「場面と項目を既定に戻す」）` },
       stored: { office: "defaults.premises（既定の組み合わせとの違いだけ: shown・hidden）" },
       officeEffect: "live",
       proposable: true,
@@ -363,7 +370,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       label: "場面の帯に並べる場面",
       scope: "office",
       screen: "万一のときのタブの場面の帯",
-      change: { office: `${OFFICE}の区画「万一のときのタブ」の「場面の帯に並べる場面」` },
+      change: { office: `${officeAt("results", "万一のときのタブ")}の「場面の帯に並べる場面」` },
       stored: { office: "defaults.scenes.hidden（並べない種類）" },
       officeEffect: "live",
       proposable: true,
@@ -379,7 +386,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       label: "開いたときに選んでおく場面",
       scope: "office",
       screen: "万一のときのタブを開いたとき",
-      change: { office: `${OFFICE}の区画「万一のときのタブ」の「開いたときに選んでおく場面」` },
+      change: { office: `${officeAt("results", "万一のときのタブ")}の「開いたときに選んでおく場面」` },
       stored: { office: "defaults.scenes.open" },
       officeEffect: "live",
       proposable: true,
@@ -405,7 +412,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
         { value: false, label: "表示しない" },
       ],
       default: DEFAULT_BALANCE_SETTINGS.health,
-      note: `表示しないと、区画ごと出しません（目安の幅の欄も出しません）。値も計算の結果も変わりません。${FOLLOW_NOTE}`,
+      note: `表示しないと、区画ごと出しません（目安の幅の欄も出しません）。値も計算の結果も変わりません。${SIMPLE_FOLLOW_NOTE}`,
     },
     {
       id: "balance.guide",
@@ -473,7 +480,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       type: "choice",
       choices: MONEY_THREE_NAME_CHOICES.map((c) => ({ value: c.key, label: c.names.join("・"), note: c.note })),
       default: DEFAULT_MONEY_THREE.wording,
-      note: FOLLOW_NOTE,
+      note: SIMPLE_FOLLOW_NOTE,
     },
     {
       id: "balance.moneyThree.months",
@@ -512,7 +519,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
       label: "合算BS（経営者個人と会社のバランスシート）を使う",
       scope: "office",
       screen: "資産と負債のタブの見るもの「合算BS」（役員として働く人のいる世帯だけ）と、提案書の章",
-      change: { office: `${OFFICE}の区画「法人経営者向けの機能」（機能を有効にするコードが入っているときだけ出る）` },
+      change: { office: `${officeAt("look", "法人経営者向けの機能")}（機能を有効にするコードが入っているときだけ出る）` },
       stored: { office: "defaults.features.combinedBs" },
       officeEffect: "live",
       reaches: { proposal: true, takeaway: false, note: "提案書の合算BS の章" },
