@@ -42,6 +42,8 @@ const COMMANDS: &[&str] = &[
     "store_assign_serial",
     "store_make_sample",
     "store_update_sample",
+    // 0247 の6: セットの見本を直した版を最初の状態に戻す（直した版を消す。出どころのある見本だけ）
+    "store_sample_reset",
     "store_categories",
     "store_set_categories",
     // 架空の世帯をお客さまの世帯にする（一方向。お客さまの世帯を架空にする命令は無い）

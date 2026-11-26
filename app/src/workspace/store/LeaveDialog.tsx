@@ -8,6 +8,10 @@ export type LeaveDialogChoice = "retry" | "discard" | "cancel" | "fork";
 
 export interface LeaveDialogProps {
   customerNo: string;
+  /** 見出しの世帯の呼び方（見本は「見本「名前」」。無ければ「世帯 顧客番号」） */
+  label?: string;
+  /** 「変更を捨てて…」の説明（無ければ「最後に保存できたところまでの内容が残ります」。直した版をまだ作っていない見本は、見本が元の中身のまま） */
+  discardNote?: string;
   /** 保存の失敗の符号 */
   code: string;
   /** 世帯を切り替える・アプリを閉じる */
@@ -24,17 +28,20 @@ export interface LeaveDialogProps {
 export function LeaveDialog(p: LeaveDialogProps) {
   const verb = p.action === "close" ? "閉じる" : "切り替える";
   const stem = p.action === "close" ? "閉じ" : "切り替え";
+  // ほかの人が先に見本を直していた（0247 の5）ときも、保存し直しても同じなので、先にある版を開くか・複製するかを選ぶ画面へ案内する
   const keep: Choice<LeaveDialogChoice> =
     p.code === "E_STORE_CONFLICT"
       ? { key: "fork", label: "分岐を選ぶ", note: `どちらの内容を残すかを選びます（${verb}のはやめます）`, primary: true }
-      : { key: "retry", label: "保存し直す", note: `もう一度保存して、保存できたら${stem}ます`, primary: true };
+      : p.code === "E_STORE_SAMPLE_EXISTS"
+        ? { key: "fork", label: "どうするか選ぶ", note: `先にある版を開くか、今の中身を複製するかを選びます（${verb}のはやめます）`, primary: true }
+        : { key: "retry", label: "保存し直す", note: `もう一度保存して、保存できたら${stem}ます`, primary: true };
   const choices: Choice<LeaveDialogChoice>[] = [
     keep,
-    { key: "discard", label: `変更を捨てて${verb}`, note: "最後に保存できたところまでの内容が残ります" },
+    { key: "discard", label: `変更を捨てて${verb}`, note: p.discardNote ?? "最後に保存できたところまでの内容が残ります" },
     { key: "cancel", label: "やめる", note: "この世帯を開いたままにします（あとで保存し直せます）" },
   ];
   return (
-    <ChoicePanel name="leave" title={`世帯 ${p.customerNo} の変更を保存できていません`} choices={choices} cancel="cancel" busy={p.busy} busyLabel={{ retry: "保存しています…" }} onChoose={p.onChoose}>
+    <ChoicePanel name="leave" title={p.label !== undefined ? `${p.label}の変更を保存できていません` : `世帯 ${p.customerNo} の変更を保存できていません`} choices={choices} cancel="cancel" busy={p.busy} busyLabel={{ retry: "保存しています…" }} onChoose={p.onChoose}>
       <p data-leave-dialog={p.action}>
         {p.message(p.code)}。このまま{verb}と、保存できていない変更はなくなります。
       </p>

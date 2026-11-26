@@ -7,7 +7,6 @@ import { readFileSync } from "node:fs";
 import { panelSaveBlock, panelSavedToast } from "../src/workspace/input/InputView.tsx";
 import { okToast, toastClass, toastMs } from "../src/workspace/toast.ts";
 import { barAlerts, unsavedNewHousehold, type BarInputs } from "../src/workspace/header/status.ts";
-import { sampleNotSaving, type ShelfItem } from "../src/workspace/store/numbering.ts";
 import type { ForkInfo, OfficeHost, OfficeStatus, StoredHousehold } from "../src/engine/host.ts";
 import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
 import { HouseholdPanel } from "../src/workspace/store/HouseholdPanel.tsx";
@@ -335,13 +334,17 @@ describe("入力のパネルの「保存」の知らせ（保存を止めてい�
     }
     expect(panelSavedToast(undefined, null, "paused").text).not.toContain("保存しました");
   });
-  it("見本を保存しないで開いているときは「保存しました」と言わず、見本のため保存しないことと顧客を作れば保存できることを伝える注意の知らせにする", () => {
-    expect(panelSavedToast("働き方と収入", null, "sample")).toEqual({ tone: "warn", text: "「働き方と収入」を直しました。見本のため保存しません（「この見本をもとに顧客を作る」で保存できます）" });
-    expect(panelSavedToast("働き方と収入", "プランB", "sample")).toEqual({ tone: "warn", text: "「働き方と収入」をプランBで直しました。見本のため保存しません（「この見本をもとに顧客を作る」で保存できます）" });
-    expect(panelSavedToast(undefined, null, "sample").text).not.toContain("保存しました");
-    expect(toastClass(panelSavedToast("働き方と収入", null, "sample"))).toBe("toast on warn");
-    // ボタンの名前は見本の帯のボタンと同じ
+  it("見本は、どの見本も変えると自動で保存するので「保存しない」に当たらない（0247 の4）。前の「見本のため保存しません」の知らせ・「この見本を直す」は無い", () => {
+    const none = { paused: false, viewOnly: false, unsaved: false };
+    expect(panelSaveBlock(none)).toBe(null);
+    expect(panelSavedToast("働き方と収入", null, panelSaveBlock(none))).toEqual(okToast("「働き方と収入」を保存しました"));
     const app = readFileSync(new URL("../src/workspace/App.tsx", import.meta.url), "utf8");
+    const input = readFileSync(new URL("../src/workspace/input/InputView.tsx", import.meta.url), "utf8");
+    for (const w of ["見本のため保存しません", "この見本を直す", "動かしても見本は変わりません", "sampleNotSaving", "sampleMode", "sampleView"]) {
+      expect(app, w).not.toContain(w);
+      expect(input, w).not.toContain(w);
+    }
+    // 帯のボタンの名前は今までどおり
     expect(app).toMatch(/data-band-customer>\s*この見本をもとに顧客を作る\s*</);
   });
   it("まだ世帯として保存していない新しい世帯では「保存しました」と言わず、世帯の選択から保存できることを伝える注意の知らせにする", () => {
@@ -363,22 +366,17 @@ describe("入力のパネルの「保存」の知らせ（保存を止めてい�
     expect(unsavedNewHousehold({ opened: true, stored: false, sample: true })).toBe(false);
     expect(unsavedNewHousehold({ opened: false, stored: false, sample: false })).toBe(false);
   });
-  it("保存しない理由が重なるときは、止めている間 → 閲覧だけ → 見本 → 保存していない新しい世帯 の順。どれでもなければ保存する", () => {
-    const none = { paused: false, viewOnly: false, sample: false, unsaved: false };
+  it("保存しない理由が重なるときは、止めている間 → 閲覧だけ → 保存していない新しい世帯 の順。どれでもなければ保存する", () => {
+    const none = { paused: false, viewOnly: false, unsaved: false };
     expect(panelSaveBlock(none)).toBe(null);
-    expect(panelSaveBlock({ paused: true, viewOnly: true, sample: true, unsaved: true })).toBe("paused");
-    expect(panelSaveBlock({ ...none, viewOnly: true, sample: true, unsaved: true })).toBe("viewOnly");
-    expect(panelSaveBlock({ ...none, sample: true, unsaved: true })).toBe("sample");
+    expect(panelSaveBlock({ paused: true, viewOnly: true, unsaved: true })).toBe("paused");
+    expect(panelSaveBlock({ ...none, viewOnly: true, unsaved: true })).toBe("viewOnly");
     expect(panelSaveBlock({ ...none, unsaved: true })).toBe("unsaved");
   });
-  it("見本かどうかは、見本の帯の「動かしても見本は変わりません」と同じ条件（見本を開いていて、「この見本を直す」で直していない）", () => {
-    const app: ShelfItem = { kind: "app", group: "official.basic", id: "m", family: 3, age: 4, name: "見本", traits: [] };
-    const own: ShelfItem = { kind: "own", group: "own", id: "h", family: 3, age: 4, name: "見本", traits: [] };
-    expect(sampleNotSaving(app, null)).toBe(true);
-    expect(sampleNotSaving(own, "view")).toBe(true);
-    expect(sampleNotSaving(own, "edit")).toBe(false);
-    expect(sampleNotSaving(null, null)).toBe(false);
-    expect(sampleNotSaving(null, "edit")).toBe(false);
+  it("直した版を作れない見本（閲覧だけの役割・事務所データが新しい版）は、入力のパネルの「保存」の後に閲覧だけの知らせを出す（0247 の5）", () => {
+    const app = readFileSync(new URL("../src/workspace/App.tsx", import.meta.url), "utf8");
+    expect(app).toContain("viewOnly={viewOnly || sampleBlocked !== null}");
+    expect(app).toContain('const SAMPLE_BLOCKED_CODES = new Set(["E_OFFICE_VIEW_ONLY", "E_STORE_OFFICE_DATA_TOO_NEW", "E_STORE_READ_ONLY"]);');
   });
   it("閲覧だけのときは「保存しました」と言わず、保存しないことを伝える注意の知らせにする", () => {
     expect(panelSavedToast("働き方と収入", null, "viewOnly")).toEqual({ tone: "warn", text: "「働き方と収入」を直しました。閲覧だけで開いているため、保存しません" });

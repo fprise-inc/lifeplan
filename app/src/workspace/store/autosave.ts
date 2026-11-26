@@ -18,8 +18,8 @@ const realTimers: Timers = { set: (fn, ms) => setTimeout(fn, ms), clear: (h) => 
 /** 変更から保存までの待ち（ミリ秒） */
 export const AUTOSAVE_MS = 1500;
 
-/** 保存を続けても直らない失敗（自動保存を止める）: 分岐・閲覧だけ・開いていない・鍵が無い */
-const STOP_CODES = new Set(["E_STORE_CONFLICT", "E_STORE_READ_ONLY", "E_OFFICE_VIEW_ONLY", "E_STORE_OFFICE_DATA_TOO_NEW", "E_STORE_NOT_OPEN", "E_STORE_NO_KEY", "E_STORE_UNKNOWN_HOUSEHOLD", "E_STORE_NEEDS_RECOVERY"]);
+/** 保存を続けても直らない失敗（自動保存を止める）: ほかの人が先に見本を直していた（0247 の5）・分岐・閲覧だけ・開いていない・鍵が無い */
+const STOP_CODES = new Set(["E_STORE_SAMPLE_EXISTS", "E_STORE_CONFLICT", "E_STORE_READ_ONLY", "E_OFFICE_VIEW_ONLY", "E_STORE_OFFICE_DATA_TOO_NEW", "E_STORE_NOT_OPEN", "E_STORE_NO_KEY", "E_STORE_UNKNOWN_HOUSEHOLD", "E_STORE_NEEDS_RECOVERY"]);
 
 export class Autosaver {
   private saved: string | null = null;

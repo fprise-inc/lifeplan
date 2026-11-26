@@ -253,7 +253,7 @@ describe("世帯の一覧の画面", () => {
     expect(html).toContain(`見本（${base.shelf.length}）`);
     expect(html).not.toContain("うち自分で作った見本");
   });
-  it("見本の一覧: 見本番号の列は無く、名前・家族と年代・項目。アプリの見本は直せない（消す・名前を直すは自分で作った見本だけ）", () => {
+  it("見本の一覧: 見本番号の列は無く、名前・家族と年代・項目。消す・名前を直すは自分で作った見本だけ（はじめから入っている見本も中身は直せる。0247 の4）", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, initialTab: "samples" }));
     expect(html).toContain('data-sample-row="sampleCoupleTwoKidsPeak"');
     expect(html).toContain('data-customer-from-sample="sampleCoupleTwoKidsPeak"');
@@ -266,7 +266,7 @@ describe("世帯の一覧の画面", () => {
     expect(html).not.toContain("見本番号");
     expect(html).not.toMatch(/\d-\d-\d{2}/);
     expect(html).toContain("<td class=\"hh-nowrap\">夫婦のみ・30代</td>");
-    expect(html).toContain("はじめから入っている見本は直せません");
+    expect(html).not.toContain("はじめから入っている見本は直せません");
   });
   it("見本の一覧の見出し: 種類が2つ以上のときだけ（ファイナンシアの見本と自分で作った見本）。事務所の共有では「事務所で作った見本」。名前で探す欄", () => {
     const heads = (html: string) => [...html.matchAll(/data-shelf-heading[^>]*>([^<]*)</g)].map((m) => m[1]);
@@ -290,10 +290,11 @@ describe("世帯の一覧の画面", () => {
   });
   it("見本の完全削除の確かめは見本の名前。見本に登録の文に番号の話を書かない。名前と項目を直すで家族の形・年代も直せる", () => {
     const panel = readFileSync(new URL("../src/workspace/store/HouseholdPanel.tsx", import.meta.url), "utf8");
-    expect(panel).toContain("確認のため見本の名前（{s.name}）を入れてください");
+    // 同じ出どころの2つ目の版（「（別の版）」を名前に足して出す）は、本体の名前を入れる（0247 の5）
+    expect(panel).toContain("確認のため見本の名前（{s.baseName ?? s.name}）を入れてください");
     // 入力欄で字数を切らない（maxLength は UTF-16 の数で、名前の上限〔40字〕と数え方が違う。合うまで押せないので足りる。0247）
     expect(panel).toContain('<input value={sampleDelete.value} aria-label="確認の見本の名前"');
-    expect(panel).toContain('disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.name)}');
+    expect(panel).toContain('disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.baseName ?? s.name)}');
     expect(panel).not.toContain("見本番号");
     expect(panel).not.toContain("shapeFixed />");
     expect(panel).toContain("p.onUpdateSample(s.id, name, sampleEdit.traits, sampleEdit.family, sampleEdit.age)");
