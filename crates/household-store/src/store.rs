@@ -443,6 +443,9 @@ fn hearing_peeks(body: &Value) -> Vec<HearingPeek> {
 pub struct Saved {
     pub generation: u64,
     pub saved_at: String,
+    /// 見本のときだけ: 保存した後、最初の状態から変わっているか（一覧の欄の `sample.changed` と同じ。画面が「最初の状態に戻す」を出す。0247 の6）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_changed: Option<bool>,
 }
 
 /// 今の世帯ファイルが開けないときに残っている、直前の世代（`.prev`。0011 の7）の時点。戻す前に FP に見せる
@@ -464,12 +467,15 @@ pub struct RenameOutcome {
     pub duplicate: bool,
 }
 
-/// 見本を最初の状態に戻した結果（0247 の6）。セットの見本を直した版は、直した版を消す（次に開くとアプリの中の見本が開く）
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// 見本を最初の状態に戻した結果（0247 の6）。セットの見本を直した版は、直した版を消す（次に開くとアプリの中の見本が開く）。
+/// 自分で作った見本は、本文の区画を最初の状態に置き換えて保存し、戻した後の世帯を返す
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SampleReset {
     /// 直した版を消した
     Removed,
+    /// 自分で作った見本を最初の状態に戻した（戻した後の世帯。本体が持つ区画は入らない）
+    Restored { opened: Box<Opened> },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -528,6 +534,76 @@ const META_WRITTEN: [&str; 9] = [
 /// 本体が持つ本文の区画（画面に渡さない・画面から受け取らない。開いたファイルから持ち越して保存のたびに書き戻す）。
 /// 自分で作った見本の最初の状態（0247 の6）
 const SAMPLE_INITIAL: &str = "sampleInitial";
+
+/// 本文の区画のうち、アプリ本体だけが書く同意と AI の記録（追記だけの決まり。0014・0016）。自分で作った見本の最初の状態に入れず、
+/// 変わったかの比較にも使わず、最初の状態に戻すときは今の記録をそのまま残す（記録を戻して消さない）
+const LEDGER_SECTIONS: [&str; 4] = ["consents", "consentExplanations", "aiShares", "candidates"];
+
+/// 本文の区画のうち、自分で作った見本の最初の状態に入れる物（`meta`・`sampleInitial`・同意と AI の記録を除くすべて。0247 の6）
+fn initial_sections(body: &serde_json::Map<String, Value>) -> serde_json::Map<String, Value> {
+    body.iter()
+        .filter(|(k, _)| {
+            k.as_str() != "meta"
+                && k.as_str() != SAMPLE_INITIAL
+                && !LEDGER_SECTIONS.contains(&k.as_str())
+        })
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
+}
+
+/// 最初の状態の区画を、今の形式の版の形で返す（0247 の6）。古い版の最初の状態は `{ meta: { formatVersion }, ...sections }` を本文として
+/// 変換の段に通す（変換の段は `sampleInitial` の中を書き換えないので、使うときに変換する）。形が違う・このアプリより新しい版・
+/// 変換できないときは None（戻さない）
+fn initial_sections_now(initial: &Value) -> Option<serde_json::Map<String, Value>> {
+    let version = initial.get("formatVersion")?.as_str()?;
+    let sections = initial.get("sections")?.as_object()?;
+    if version == migrate::CURRENT {
+        return Some(initial_sections(sections));
+    }
+    if migrate::access(version).ok()? != Access::ReadWrite {
+        return None;
+    }
+    let mut body = sections.clone();
+    body.insert(
+        "meta".into(),
+        serde_json::json!({ "formatVersion": version }),
+    );
+    match migrate::upgrade(version, Value::Object(body)).ok()? {
+        Value::Object(m) => Some(initial_sections(&m)),
+        _ => None,
+    }
+}
+
+/// 自分で作った見本が最初の状態から変わっているか（0247 の6）。本文の区画と最初の状態の区画を JSON の値として比較する（対の順は問わない。
+/// 空の区画・null の欄の有無の違いも「変わっている」）。最初の状態が無ければ false、読めなければ「変わっている」に倒す（戻せないほうが困る）
+fn sample_changed(body: &serde_json::Map<String, Value>, initial: Option<&Value>) -> bool {
+    let Some(initial) = initial else {
+        return false;
+    };
+    initial_sections_now(initial).is_none_or(|s| s != initial_sections(body))
+}
+
+/// 世帯ファイルの本文の、本体が持つ区画を外した文字列（画面に返す本文。0247 の6）
+fn without_sample_initial(plain: &[u8]) -> String {
+    match serde_json::from_slice::<Value>(plain) {
+        Ok(Value::Object(mut m)) if m.contains_key(SAMPLE_INITIAL) => {
+            m.remove(SAMPLE_INITIAL);
+            serde_json::to_string(&Value::Object(m)).expect("本文の JSON")
+        }
+        _ => String::from_utf8_lossy(plain).into_owned(),
+    }
+}
+
+/// 一覧の欄を書き直すときの最初の状態の扱い（[`Store::write_meta_of`]）
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum InitialEdit {
+    /// 開いたファイルの物をそのまま持ち越す
+    Keep,
+    /// 今のファイルの本文で最初の状態を書く（見本に登録したとき）
+    FromBody,
+    /// 最初の状態を外す（見本に登録できなかったので顧客の世帯に戻すとき）
+    Clear,
+}
 
 /// 開いた世帯の本文から持ち越す meta: 「誰が直したか」の記録（0023 の6）と、変換の段が書いた記録
 /// （合算BS の引き継ぎ `extTransfers`。0011 の4）・このアプリが知らない欄（捨てない決まり）。
@@ -610,7 +686,18 @@ fn catalog_from_body(v: &Value) -> CatalogEntry {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_owned();
-    let (customer_no, label) = numbering::label_from_meta(meta);
+    let (customer_no, mut label) = numbering::label_from_meta(meta);
+    // 自分で作った見本は、本文と最初の状態を比較して「変わっている」を決め直す（変換の前の本文なので、今の版へ変換してから。0247 の6）
+    if let Some(info) = label.sample.as_mut().filter(|i| i.origin.is_none()) {
+        let version = meta
+            .and_then(|m| m.get("formatVersion"))
+            .and_then(Value::as_str)
+            .unwrap_or("0.1");
+        info.changed = match migrate::upgrade(version, v.clone()) {
+            Ok(Value::Object(m)) => sample_changed(&m, m.get(SAMPLE_INITIAL)),
+            _ => v.get(SAMPLE_INITIAL).is_some(),
+        };
+    }
     CatalogEntry {
         label,
         customer_no,
@@ -1457,7 +1544,15 @@ impl Store {
                         .and_then(|h| migrate::parse(&h.format_version))
                         .is_some_and(|v| v < (0, 87));
                     if old_file {
-                        let _ = self.write_meta_of(&s, &id, &no, &label, FailPoint::None, now);
+                        let _ = self.write_meta_of(
+                            &s,
+                            &id,
+                            &no,
+                            &label,
+                            FailPoint::None,
+                            now,
+                            InitialEdit::Keep,
+                        );
                     }
                 }
             }
@@ -1798,6 +1893,7 @@ impl Store {
                     traits: req.traits.clone(),
                     family: req.family,
                     age: req.age,
+                    group: numbering::normalize_group(req.group.as_deref(), req.origin.as_ref()),
                     origin: req.origin.clone(),
                     // 直した版は、ある間は最初の状態から変わっている（0247 の6）
                     changed: req.origin.is_some(),
@@ -1806,6 +1902,16 @@ impl Store {
                 ..Label::default()
             },
         ))
+    }
+
+    /// 自分で作った見本の最初の状態（本文の区画 `sampleInitial`。0247 の6）: 区画・書いた日時・書いたアプリの版・形式の版
+    fn new_initial(&self, sections: serde_json::Map<String, Value>, at: &str) -> Value {
+        serde_json::json!({
+            "at": at,
+            "appVersion": self.app_version,
+            "formatVersion": migrate::CURRENT,
+            "sections": sections,
+        })
     }
 
     /// 本文の meta（形式名・形式の版・保存日時・保存したアプリの版・表示用の顧客番号。見本では顧客番号の代わりに見本の中身 `sample`）を
@@ -1963,6 +2069,10 @@ impl Store {
             };
             let saved_at = iso_of(now);
             let mut carry = MetaCarry::default();
+            // 自分で作った見本（複製・見本として新しく作る）は、作る本文をそのまま最初の状態にする（0247 の6。画面から届いた区画は使わない）
+            if label.sample.as_ref().is_some_and(|x| x.origin.is_none()) {
+                carry.sample_initial = Some(self.new_initial(initial_sections(&body), &saved_at));
+            }
             let plain = Zeroizing::new(self.with_meta(
                 body,
                 &customer_no,
@@ -2037,7 +2147,8 @@ impl Store {
         Ok(Opened {
             id,
             customer_no,
-            body: String::from_utf8_lossy(&plain).into_owned(),
+            // 本体が持つ区画は画面に渡さない（0247 の6）
+            body: without_sample_initial(&plain),
             read_only: false,
             view_only: false,
             generation: 1,
@@ -2148,6 +2259,20 @@ impl Store {
                 }
             }
             let carry = MetaCarry::from_body(&value);
+            // 自分で作った見本は、開いた本文と最初の状態を比較して「変わっている」を一覧の欄に合わせる（前の世代で開いた・分岐で相手を
+            // 残した・同期の写しを使った後など、一覧の欄と中身がずれたとき。書けないときは答えだけ直す。0247 の6）
+            if let (Some(info), Some(m)) = (
+                label.sample.as_mut().filter(|i| i.origin.is_none()),
+                value.as_object(),
+            ) {
+                let changed = sample_changed(m, carry.sample_initial.as_ref());
+                if changed != info.changed {
+                    info.changed = changed;
+                    if Self::writable(s).is_ok() && access == Access::ReadWrite {
+                        let _ = self.put_label(s, id, &customer_no, label.clone());
+                    }
+                }
+            }
             // 本体が持つ区画は画面に渡さない（0247 の6）
             if let Some(o) = value.as_object_mut() {
                 o.remove(SAMPLE_INITIAL);
@@ -2305,6 +2430,17 @@ impl Store {
     /// 開いた後に別の保存が先にあった（今のファイルの指紋が開いたときと違う）ときは、上書きせず、こちらの内容を
     /// `conflicts/` に別のファイルとして残して [`StoreError::CONFLICT`] を返す（0011 の7）
     pub fn save(&self, id: &str, body: &str, summary: &str) -> Result<Saved, StoreError> {
+        self.save_with(id, body, summary, false)
+    }
+
+    /// [`Store::save`] の中身。`set_initial` のときは、保存する本文で自分で作った見本の最初の状態を書き直す（「今の状態を最初の状態にする」。0247 の6）
+    fn save_with(
+        &self,
+        id: &str,
+        body: &str,
+        summary: &str,
+        set_initial: bool,
+    ) -> Result<Saved, StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
@@ -2331,7 +2467,7 @@ impl Store {
             self.refresh_shared(s)?;
             Self::writable(s)?;
             let author = s.shared.as_ref().map(|sh| sh.me.clone());
-            let (customer_no, label, card) = match &s.shared {
+            let (customer_no, mut label, card) = match &s.shared {
                 Some(sh) => {
                     let c = sh.read_card(id)?;
                     (c.customer_no.clone(), c.label.clone(), Some(c))
@@ -2350,6 +2486,38 @@ impl Store {
                 _ => self.keys_for_read(s, id)?,
             };
             let saved_at = iso_of(now);
+            let path = self.hh_path(s, id);
+            let current_bytes = fs::read(&path).ok();
+            let current = current_bytes.as_deref().map(crypto::digest);
+            // 開いた後にほかの保存が先にあったか（あれば上書きせず分岐として残す）
+            let forked = current.as_deref() != Some(parent.as_str());
+            // 見本: 最初の状態から変わっているかを決める（0247 の6）。セットの見本を直した版は、ある間は変わっている
+            let sample_changed_now = match label.sample.as_mut() {
+                Some(info) if info.origin.is_none() => {
+                    if set_initial {
+                        carry.sample_initial =
+                            Some(self.new_initial(initial_sections(&body), &saved_at));
+                    } else if carry.sample_initial.is_none() && !forked {
+                        // 最初の状態をまだ持たない見本（最初の状態を書く版より前に作った見本）は、保存する前のファイルの本文を最初の状態にする
+                        // （更新の後、はじめて直す直前の中身。利用者の判断）。分岐のときは相手の本文なので使わない
+                        if let Some((_, Value::Object(m), _)) = current_bytes
+                            .as_deref()
+                            .and_then(|b| self.decode_household(s, id, b).ok())
+                        {
+                            carry.sample_initial =
+                                Some(self.new_initial(initial_sections(&m), &saved_at));
+                        }
+                    }
+                    let changed = sample_changed(&body, carry.sample_initial.as_ref());
+                    info.changed = changed;
+                    Some(changed)
+                }
+                Some(info) => {
+                    info.changed = true;
+                    Some(true)
+                }
+                None => None,
+            };
             let plain = Zeroizing::new(self.with_meta(
                 body,
                 &customer_no,
@@ -2373,9 +2541,7 @@ impl Store {
                 parent_revision: Some(parent.clone()),
             };
             let bytes = container::seal_household(header, &keys.current, &plain);
-            let path = self.hh_path(s, id);
-            let current = fs::read(&path).ok().map(|b| crypto::digest(&b));
-            if current.as_deref() != Some(parent.as_str()) {
+            if forked {
                 // 同じ分岐でもう写しを残していれば、その写しを最後の中身で置き換える（試すたびに写しを増やさない）
                 let aside =
                     earlier_aside.unwrap_or_else(|| self.aside_path(id, generation + 1, "ours"));
@@ -2389,6 +2555,7 @@ impl Store {
                         c.updated_by = author;
                         c.summary = summary.to_owned();
                         c.generation = generation + 1;
+                        c.label = label;
                         sh.write_card(id, &c)?;
                         sh.touch(id, now);
                     }
@@ -2396,12 +2563,13 @@ impl Store {
                         if let Some(e) = s.data.households.get_mut(id) {
                             e.updated_at = saved_at.clone();
                             e.summary = summary.to_owned();
+                            e.label = label;
                         }
                         self.write_office(s)?;
                     }
                 }
                 self.daily_backup(s);
-                Ok((crypto::digest(&bytes), saved_at))
+                Ok((crypto::digest(&bytes), saved_at, sample_changed_now))
             }
         };
         match outcome {
@@ -2411,7 +2579,7 @@ impl Store {
                 }
                 Err(StoreError::CONFLICT)
             }
-            Ok((digest, saved_at)) => {
+            Ok((digest, saved_at, sample_changed_now)) => {
                 g.opened.insert(
                     id.to_owned(),
                     OpenState {
@@ -2425,6 +2593,7 @@ impl Store {
                 Ok(Saved {
                     generation: generation + 1,
                     saved_at,
+                    sample_changed: sample_changed_now,
                 })
             }
         }
@@ -2658,11 +2827,12 @@ impl Store {
         }
         let (old_no, old_label) = Self::label_of(s, id)?;
         let (no, label) = Self::new_sample(&Self::all_labels(s), req, reserved)?;
-        // 先に世帯ファイルの meta を書き、後で一覧を書く（一覧を書けなければ meta を前に戻す。失敗＝何も変わらない）
-        self.rewrite_meta(&mut g, id, &no, &label)?;
+        // 先に世帯ファイルの meta を書き、後で一覧を書く（一覧を書けなければ meta を前に戻す。失敗＝何も変わらない）。
+        // 世帯ファイルには、今の本文（画面がメモと面談の履歴・お客さまから受け取った物の記録を外して保存した後の本文）を最初の状態として書く（0247 の6）
+        self.rewrite_meta(&mut g, id, &no, &label, InitialEdit::FromBody)?;
         let s = Self::session(&mut g)?;
         if let Err(e) = self.put_label(s, id, &no, label) {
-            let _ = self.rewrite_meta(&mut g, id, &old_no, &old_label);
+            let _ = self.rewrite_meta(&mut g, id, &old_no, &old_label, InitialEdit::Clear);
             return Err(e);
         }
         Ok(RenameOutcome {
@@ -2682,11 +2852,19 @@ impl Store {
         id: &str,
         customer_no: &str,
         label: &Label,
+        initial: InitialEdit,
     ) -> Result<(), StoreError> {
         let fail = g.fail;
         let now = self.now();
-        let Some((old_digest, new_digest, generation, carry)) =
-            self.write_meta_of(Self::session(g)?, id, customer_no, label, fail, now)?
+        let Some((old_digest, new_digest, generation, carry)) = self.write_meta_of(
+            Self::session(g)?,
+            id,
+            customer_no,
+            label,
+            fail,
+            now,
+            initial,
+        )?
         else {
             return Ok(());
         };
@@ -2701,7 +2879,7 @@ impl Store {
     }
 
     /// [`Store::rewrite_meta`] の中身（書いたら (前の指紋, 新しい指紋, 新しい世代, 持ち越し)、書かなければ None）
-    #[allow(clippy::type_complexity)]
+    #[allow(clippy::type_complexity, clippy::too_many_arguments)]
     fn write_meta_of(
         &self,
         s: &Session,
@@ -2710,6 +2888,7 @@ impl Store {
         label: &Label,
         fail: FailPoint,
         now: i64,
+        initial: InitialEdit,
     ) -> Result<Option<(String, String, u64, MetaCarry)>, StoreError> {
         if let Some(sh) = &s.shared {
             if sh.presence_map(now).get(id).is_some_and(|v| !v.is_empty()) {
@@ -2731,6 +2910,14 @@ impl Store {
             let Value::Object(body) = value else {
                 return Err(StoreError::CORRUPT);
             };
+            match initial {
+                InitialEdit::Keep => {}
+                InitialEdit::FromBody => {
+                    carry.sample_initial =
+                        Some(self.new_initial(initial_sections(&body), &iso_of(now)));
+                }
+                InitialEdit::Clear => carry.sample_initial = None,
+            }
             let author = s.shared.as_ref().map(|sh| sh.me.clone());
             let card = match &s.shared {
                 Some(sh) => Some(sh.read_card(id)?),
@@ -2825,6 +3012,7 @@ impl Store {
             name: name.to_owned(),
             traits: traits.to_vec(),
             origin: None,
+            group: None,
         })?;
         Self::check_sample_name(&Self::all_labels(s), name, reserved, Some(id))?;
         let old_label = Self::label_of(s, id)?.1;
@@ -2833,10 +3021,10 @@ impl Store {
         info.family = family;
         info.age = age;
         // 先に世帯ファイルの meta を書き、後で一覧を書く（一覧を書けなければ meta を前に戻す）
-        self.rewrite_meta(&mut g, id, &no, &label)?;
+        self.rewrite_meta(&mut g, id, &no, &label, InitialEdit::Keep)?;
         let s = Self::session(&mut g)?;
         if let Err(e) = self.put_label(s, id, &no, label) {
-            let _ = self.rewrite_meta(&mut g, id, &no, &old_label);
+            let _ = self.rewrite_meta(&mut g, id, &no, &old_label, InitialEdit::Keep);
             return Err(e);
         }
         Ok(())
@@ -2947,16 +3135,22 @@ impl Store {
         Ok(())
     }
 
-    /// 見本を最初の状態に戻す（0247 の6）。セットの見本を直した版（出どころのある見本）は、完全削除と同じ消し方で直した版を消す
-    /// （次に開くとアプリの中の見本が開く。削除の記録を残す）。消すのは出どころのある見本だけで、顧客の世帯は `SAMPLE`、自分で作った見本は
-    /// まだ最初の状態を持たないので `SAMPLE_NOT_CHANGED`（取り違えて消さないよう、画面の条件だけに頼らずここで確かめる）
+    /// 見本を最初の状態に戻す（0247 の6）。
+    /// - セットの見本を直した版（出どころあり）: 直した版を完全削除と同じ消し方で消す（答え `Removed`）
+    /// - 自分で作った見本: 本文の区画を最初の状態（`sampleInitial`。古い形式の版なら変換の段に通してから）で置き換え、ふつうの保存と同じ道で書く
+    ///   （直前の世代に戻す前の中身が残る。`meta` の「誰が直したか」の記録・同意と AI の記録・`sampleInitial` はそのまま）。答えは戻した後の世帯
+    ///   （`Restored`。開いた印〔前回開いた世帯・事務所の共有の「開いている」〕は変えない）。最初の状態を持たない・変わっていなければ
+    ///   [`StoreError::SAMPLE_NOT_CHANGED`]、最初の状態を今の版へ変換できなければ [`StoreError::SAMPLE_INITIAL`]（今の中身は変えない）
+    /// - 顧客の世帯は [`StoreError::SAMPLE`]
+    ///
+    /// 画面は、保存していない変更を先に保存してから呼ぶ
     pub fn sample_reset(&self, id: &str) -> Result<SampleReset, StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
-        let mut g = self.lock();
-        let now = self.now();
         {
+            let mut g = self.lock();
+            let now = self.now();
             let s = Self::session(&mut g)?;
             Self::usable(s)?;
             // 共有では一覧の欄を読み直してから確かめる（ほかの PC が先に戻した・見本でなくなった）
@@ -2964,13 +3158,95 @@ impl Store {
             Self::writable(s)?;
             let (_, label) = Self::label_of(s, id)?;
             let info = label.sample.as_ref().ok_or(StoreError::SAMPLE)?;
-            if info.origin.is_none() {
-                return Err(StoreError::SAMPLE_NOT_CHANGED);
+            if info.origin.is_some() {
+                self.erase(s, id, now)?;
+                g.opened.remove(id);
+                return Ok(SampleReset::Removed);
             }
-            self.erase(s, id, now)?;
         }
-        g.opened.remove(id);
-        Ok(SampleReset::Removed)
+        let opened = self.restore_initial(id)?;
+        Ok(SampleReset::Restored {
+            opened: Box::new(opened),
+        })
+    }
+
+    /// 自分で作った見本の本文の区画を最初の状態で置き換えて保存し、戻した後の世帯を返す（[`Store::sample_reset`]）
+    fn restore_initial(&self, id: &str) -> Result<Opened, StoreError> {
+        // 今のファイルで開き直して、保存の起点（指紋・世代・持ち越し）をそろえる（開いた印は変えない）
+        let o = self.open_marked(id, false, true)?;
+        if o.read_only {
+            return Err(StoreError::READ_ONLY);
+        }
+        let initial = self
+            .lock()
+            .opened
+            .get(id)
+            .and_then(|st| st.carry.sample_initial.clone())
+            .ok_or(StoreError::SAMPLE_NOT_CHANGED)?;
+        let sections = initial_sections_now(&initial).ok_or(StoreError::SAMPLE_INITIAL)?;
+        let Ok(Value::Object(now)) = serde_json::from_str::<Value>(&o.body) else {
+            return Err(StoreError::CORRUPT);
+        };
+        if initial_sections(&now) == sections {
+            return Err(StoreError::SAMPLE_NOT_CHANGED);
+        }
+        // 戻した本文: 最初の状態の区画＋今の meta（誰が直したかの記録）＋今の同意と AI の記録（追記だけの決まり。戻して消さない）
+        let mut body = sections;
+        for k in std::iter::once("meta").chain(LEDGER_SECTIONS) {
+            if let Some(v) = now.get(k) {
+                body.insert(k.to_owned(), v.clone());
+            }
+        }
+        let summary = {
+            let mut g = self.lock();
+            let s = Self::session(&mut g)?;
+            match &s.shared {
+                Some(sh) => sh.read_card(id)?.summary,
+                None => s
+                    .data
+                    .households
+                    .get(id)
+                    .map(|e| e.summary.clone())
+                    .unwrap_or_default(),
+            }
+        };
+        self.save(
+            id,
+            &serde_json::to_string(&Value::Object(body)).expect("本文の JSON"),
+            &summary,
+        )?;
+        self.open_marked(id, false, true)
+    }
+
+    /// 自分で作った見本の「今の状態を最初の状態にする」（0247 の6）: 今保存してある本文の区画で最初の状態（`sampleInitial`）を書き直す
+    /// （ふつうの保存と同じ道で書く。中身は変えない）。答えの `sample_changed` は false。セットの見本を直した版・顧客の世帯は
+    /// [`StoreError::SAMPLE`]。画面は、保存していない変更を先に保存してから呼ぶ
+    pub fn sample_set_initial(&self, id: &str) -> Result<Saved, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let summary = {
+            let mut g = self.lock();
+            let s = self.ready_session(&mut g)?;
+            let (_, label) = Self::label_of(s, id)?;
+            if label.sample.as_ref().is_none_or(|x| x.origin.is_some()) {
+                return Err(StoreError::SAMPLE);
+            }
+            match &s.shared {
+                Some(sh) => sh.read_card(id)?.summary,
+                None => s
+                    .data
+                    .households
+                    .get(id)
+                    .map(|e| e.summary.clone())
+                    .unwrap_or_default(),
+            }
+        };
+        let o = self.open_marked(id, false, true)?;
+        if o.read_only {
+            return Err(StoreError::READ_ONLY);
+        }
+        self.save_with(id, &o.body, &summary, true)
     }
 
     /// 世帯を消す（完全削除と、セットの見本を最初の状態に戻すときの共通の消し方。0013 の5）。確かめは呼ぶ側が済ませる

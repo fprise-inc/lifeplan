@@ -135,7 +135,7 @@ describe("世帯の一覧の見本の行と説明（0247 の4・6）", () => {
     expect(i, id).toBeGreaterThan(-1);
     return html.slice(i, html.indexOf("</tr>", i));
   };
-  it("直した行には「変えた内容あり」と「最初の状態に戻す」。直していない行・自分で作った見本（まだ最初の状態を持たない）には出さない。完全削除は自分で作った見本だけ", () => {
+  it("直した行には「変えた内容あり」と「最初の状態に戻す」。直していない行・最初の状態から変わっていない自分で作った見本には出さない。完全削除は自分で作った見本だけ", () => {
     const html = renderToString(h(HouseholdPanel, base));
     const edited = rowOf(html, first.id);
     expect(edited).toContain(`data-sample-edited="e1"`);
@@ -224,8 +224,8 @@ describe("見本の帯（2026-11-25 の利用者の判断の文とボタン）",
   });
   it("直した版・セットの見本から顧客を作るときは、メモと面談の履歴を写さない（直した版でも同じ。0182 の追記）", () => {
     const wh = { memo: ["例の文"], meetings: [] };
-    expect(dropNotesOnPersist({ toSample: false, setSample: true }, wh)).toBe(true);
-    expect(dropNotesOnPersist({ toSample: false, setSample: false }, wh)).toBe(false);
+    expect(dropNotesOnPersist({ toSample: false, setSample: true }, wh)).toBe("notes");
+    expect(dropNotesOnPersist({ toSample: false, setSample: false }, wh)).toBeNull();
   });
 });
 

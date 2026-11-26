@@ -1,5 +1,7 @@
 // 見本を直せるようにしたときの中央のパネル（0247 の5・6）:
-// - 見本を最初の状態に戻す確認画面（セットの見本を直した版は、直した版を消す。取り消せない）
+// - 見本を最初の状態に戻す確認画面（セットの見本を直した版は、直した版を消す。取り消せない。自分で作った見本は、中身を最初の状態に置き換える。
+//   戻す前の中身は直前の世代に1つだけ残る）
+// - 自分で作った見本の「今の状態を最初の状態にする」確認画面（中身は変えない。前の最初の状態には戻せなくなる）
 // - ほかの人が先にこの見本を直していたときに選ぶ画面（先にある版を開く・今の中身を複製する・あとで選ぶ。今の変更は黙って捨てない）
 import { ChoicePanel, type Choice } from "../ChoicePanel.tsx";
 
@@ -23,14 +25,42 @@ export type SampleResetChoice = "reset" | "cancel";
 /** 見本を最初の状態に戻す確認画面の文（セットの見本を直した版。0247 の6） */
 export const SAMPLE_RESET_TEXT = "この見本を最初の状態に戻します。直した中身（プラン・控え・面談の履歴・メモ・読み取った書類）は消えます。取り消せません。残したいときは、先に「複製する」で自分の見本にしてください。";
 
-export function SampleResetDialog(p: { name: string; busy: boolean; error: string | null; onChoose: (c: SampleResetChoice) => void }) {
+/**
+ * 見本を最初の状態に戻す確認画面の文（自分で作った見本。0247 の6）。「取り消せません」の代わりに、戻す前の中身が直前の世代に1つだけ残ること
+ * （次に保存すると入れ替わる）を書く
+ */
+export const OWN_SAMPLE_RESET_TEXT = "この見本を最初の状態（見本に登録・複製したとき、または「今の状態を最初の状態にする」を押したときの中身）に戻します。直した中身（プラン・控え・面談の履歴・メモ・読み取った書類）は消えます。戻す前の中身は、直前の世代として1つだけ残ります（次に保存すると入れ替わります）。残したいときは、先に「複製する」で別の見本にしてください。";
+
+export function SampleResetDialog(p: { name: string; own?: boolean; busy: boolean; error: string | null; onChoose: (c: SampleResetChoice) => void }) {
   const choices: Choice<SampleResetChoice>[] = [
-    { key: "reset", label: "最初の状態に戻す", note: "直した中身を消し、アプリに入っている見本の中身に戻します" },
+    { key: "reset", label: "最初の状態に戻す", note: p.own === true ? "直した中身を、この見本の最初の状態の中身に置き換えます" : "直した中身を消し、アプリに入っている見本の中身に戻します" },
     { key: "cancel", label: "やめる", note: "直した中身のまま残します" },
   ];
   return (
     <ChoicePanel name="sample-reset" title={`見本「${p.name}」を最初の状態に戻す`} choices={choices} cancel="cancel" busy={p.busy} busyLabel={{ reset: "戻しています…" }} onChoose={p.onChoose}>
-      <p data-sample-reset-text>{SAMPLE_RESET_TEXT}</p>
+      <p data-sample-reset-text>{p.own === true ? OWN_SAMPLE_RESET_TEXT : SAMPLE_RESET_TEXT}</p>
+      {p.error !== null ? (
+        <p class="fatal" role="status">
+          {p.error}
+        </p>
+      ) : null}
+    </ChoicePanel>
+  );
+}
+
+export type SampleSetInitialChoice = "set" | "cancel";
+
+/** 「今の状態を最初の状態にする」確認画面の文（自分で作った見本。0247 の6） */
+export const SAMPLE_SET_INITIAL_TEXT = "この見本の今の中身を、最初の状態にします。これからは「最初の状態に戻す」を押すと、今の中身に戻ります。今までの最初の状態には戻せなくなります。";
+
+export function SampleSetInitialDialog(p: { name: string; busy: boolean; error: string | null; onChoose: (c: SampleSetInitialChoice) => void }) {
+  const choices: Choice<SampleSetInitialChoice>[] = [
+    { key: "set", label: "今の状態を最初の状態にする", note: "見本の中身は変えません" },
+    { key: "cancel", label: "やめる", note: "最初の状態はそのままです" },
+  ];
+  return (
+    <ChoicePanel name="sample-set-initial" title={`見本「${p.name}」の今の状態を最初の状態にする`} choices={choices} cancel="cancel" busy={p.busy} busyLabel={{ set: "書いています…" }} onChoose={p.onChoose}>
+      <p data-sample-set-initial-text>{SAMPLE_SET_INITIAL_TEXT}</p>
       {p.error !== null ? (
         <p class="fatal" role="status">
           {p.error}

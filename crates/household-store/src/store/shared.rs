@@ -2297,10 +2297,12 @@ impl Store {
                     .unwrap_or_default(),
             };
             let mut carry = MetaCarry::from_meta(cv.get("meta"));
-            // 本体が持つ区画（自分で作った見本の最初の状態。0247 の6）は、残すこちらの中身の物を持ち越す
+            // 本体が持つ区画（自分で作った見本の最初の状態。0247 の6）は、残すこちらの中身の物を持ち越す。こちらが持たない（最初の状態を書く前に
+            // 開いて保存した）ときは、相手の物を持ち越す（相手が書いた最初の状態を黙って落とさない）
             carry.sample_initial = serde_json::from_slice::<Value>(&plain)
                 .ok()
-                .and_then(|v| v.get(super::SAMPLE_INITIAL).cloned());
+                .and_then(|v| v.get(super::SAMPLE_INITIAL).cloned())
+                .or_else(|| cv.get(super::SAMPLE_INITIAL).cloned());
             if let Some(st) = g.opened.get_mut(id) {
                 st.parent_revision = crypto::digest(&current);
                 st.generation = ch.generation;

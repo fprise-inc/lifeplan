@@ -298,7 +298,9 @@ pub async fn store_update_sample(
 }
 
 /// 見本を最初の状態に戻す（0247 の6）。セットの見本を直した版は、直した版を消す（完全削除と同じ消し方。削除の記録を残す）。
-/// 消すのは出どころのある見本だけ（顧客の世帯・自分で作った見本は本体が断る）。見本は AI に渡さない決まりだが、念のため先に共有を取り消す
+/// 消すのは出どころのある見本だけ（顧客の世帯は本体が断る）。見本は AI に渡さない決まりだが、念のため先に共有を取り消す。
+/// 自分で作った見本は、本体が本文の区画を最初の状態で置き換えて保存する。戻した後の世帯で帳面を作り直し（帳面に残った戻す前の本文を
+/// 裏の見回りが書き戻さないように）、画面に返す本文からアプリだけが書く区画を外す
 #[tauri::command]
 pub async fn store_sample_reset(app: AppHandle, id: String) -> Result<SampleReset, String> {
     with_ai(app, move |s, ai| {
@@ -310,9 +312,25 @@ pub async fn store_sample_reset(app: AppHandle, id: String) -> Result<SampleRese
         if is_edited_set_sample {
             ai.on_deleting(&id);
         }
-        s.sample_reset(&id).map_err(code)
+        match s.sample_reset(&id).map_err(code)? {
+            SampleReset::Restored { opened } => {
+                let summary = summary_of(s, &id);
+                let opened = ai.on_restored(*opened, summary)?;
+                Ok(SampleReset::Restored {
+                    opened: Box::new(opened),
+                })
+            }
+            r => Ok(r),
+        }
     })
     .await
+}
+
+/// 自分で作った見本の「今の状態を最初の状態にする」（0247 の6）。中身は変えない（本体が最初の状態だけを書き直す）。
+/// セットの見本を直した版・顧客の世帯は本体が断る
+#[tauri::command]
+pub async fn store_sample_set_initial(app: AppHandle, id: String) -> Result<Saved, String> {
+    blocking(app, move |s| s.sample_set_initial(&id)).await
 }
 
 /// 区分の設定（区分の一覧と、区分を使うかを決めたか。0033）

@@ -318,6 +318,13 @@ impl AiState {
         self.on_opened_background(o, summary)
     }
 
+    /// 自分で作った見本を最初の状態に戻した後（0247 の6）: 持っている帳面（戻す前の本文）を捨て、戻した後の世帯ファイルの中身で作り直す
+    /// （裏の見回りが戻す前の本文を書き戻さないように）。画面がいま開いている世帯は変えない（一覧の行から戻したときは、開いていない世帯）
+    pub fn on_restored(&self, o: Opened, summary: String) -> Result<Opened, String> {
+        self.forget(&o.id);
+        self.on_opened_background(o, summary)
+    }
+
     /// 画面に出さずに世帯の帳面を作る（まとめて渡すとき。0248）。画面がいま開いている世帯は変えない
     fn on_opened_background(&self, mut o: Opened, summary: String) -> Result<Opened, String> {
         let (mut book, screen) =
@@ -2719,6 +2726,7 @@ mod tests {
                         name: "研修用".into(),
                         traits: vec![],
                         origin: None,
+                        group: None,
                     }),
                     ..Default::default()
                 },
@@ -2991,12 +2999,12 @@ mod tests {
         assert_eq!(file["meta"]["origin"]["createdAs"], "fictional");
         assert_eq!(file["meta"]["origin"]["connector"], "test-ai 1.0");
         assert_eq!(file["meta"]["origin"]["approvedBy"], "fp");
-        // 今の形式の版で書く（前提と推定の一覧の確かめた記録をなくして〔0260〕0.92 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
+        // 今の形式の版で書く（見本のグループの欄を足して〔0247 の追記〕0.93 になった。版を上げたら、この確かめの数も上げる）。開き直しても閲覧だけにならない
         assert_eq!(
             file["meta"]["formatVersion"],
             household_store::migrate::CURRENT
         );
-        assert_eq!(file["meta"]["formatVersion"], "0.92");
+        assert_eq!(file["meta"]["formatVersion"], "0.93");
         assert!(!pc1.store.open(&o.id).unwrap().read_only);
         assert!(file.get("consents").is_none());
         assert_eq!(file["household"]["request"]["input"], model_input());
@@ -3205,6 +3213,7 @@ mod tests {
                         name: "見本".into(),
                         traits: vec![],
                         origin: None,
+                        group: None,
                     }),
                     fictional: false,
                     ..Default::default()
@@ -3999,6 +4008,7 @@ mod tests {
                     name: "移した見本".into(),
                     traits: vec![],
                     origin: None,
+                    group: None,
                 },
                 &[],
             )
@@ -4095,6 +4105,7 @@ mod tests {
                     name: "移した見本".into(),
                     traits: vec![],
                     origin: None,
+                    group: None,
                 },
                 &[],
             )
@@ -4462,5 +4473,57 @@ mod tests {
         );
         assert_eq!(f["aiShares"][0]["endReason"], "revoked");
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// 自分で作った見本を最初の状態に戻した後（0247 の6）: 帳面を戻した後の世帯ファイルの中身で作り直す。画面に返す本文は戻した後の中身で、
+    /// その後の画面の保存（帳面を通す）・帳面の書き戻しで、戻す前の中身が書き戻されない。同意の記録（本体だけが書く区画）は戻しても残る
+    #[test]
+    fn resetting_an_own_sample_rebuilds_the_book() {
+        let root = root("sample-reset");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        let id = p
+            .store
+            .create_with(
+                CreateRequest {
+                    body: body(),
+                    summary: "本人".into(),
+                },
+                CreateOptions {
+                    sample: Some(household_store::SampleRequest {
+                        family: 1,
+                        age: 3,
+                        name: "研修用".into(),
+                        traits: vec![],
+                        origin: None,
+                        group: None,
+                    }),
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .id;
+        let o = p.open(&id);
+        p.record(&id, "given");
+        let mut b: serde_json::Value = serde_json::from_str(&o.body).unwrap();
+        b["household"]["memo"] = serde_json::json!(["セミナーで変えた"]);
+        let saved = p.ai.save(&p.store, &id, &b.to_string(), "本人").unwrap();
+        assert_eq!(saved.sample_changed, Some(true));
+        let household_store::SampleReset::Restored { opened } = p.store.sample_reset(&id).unwrap()
+        else {
+            panic!("自分で作った見本は消さずに戻す");
+        };
+        let shown = p.ai.on_restored(*opened, "本人".into()).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&shown.body).unwrap();
+        assert!(v["household"].get("memo").is_none(), "戻した後の中身");
+        assert!(v.get("consents").is_none() && v.get("sampleInitial").is_none());
+        // 帳面の書き戻し・画面の保存（帳面を通す）でも、戻す前の中身にならない
+        p.ai.persist_locked(&p.store, &mut lock(&p.ai.books));
+        let saved = p.ai.save(&p.store, &id, &shown.body, "本人").unwrap();
+        assert_eq!(saved.sample_changed, Some(false));
+        let file = file_sections(&root, &secrets, &id);
+        assert!(file["household"].get("memo").is_none());
+        assert_eq!(decisions(&file), ["given"], "同意の記録は戻しても残る");
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

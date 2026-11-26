@@ -418,6 +418,7 @@ fn regenerate_shared_fixture() {
                     id: "sampleSeniorRental".into(),
                     rev: 1,
                 }),
+                group: None,
                 changed: true,
                 legacy_no: None,
             }),

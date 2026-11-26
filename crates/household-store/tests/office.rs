@@ -1251,6 +1251,7 @@ fn a_role_this_version_does_not_know_is_view_only() {
             id: id.into(),
             rev: 1,
         }),
+        group: None,
     };
     let edited = a
         .create_with(

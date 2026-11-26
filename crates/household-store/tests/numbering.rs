@@ -78,6 +78,7 @@ fn sample(family: u8, age: u8, name: &str) -> SampleRequest {
         name: name.into(),
         traits: vec!["共働き".into(), "会社員".into()],
         origin: None,
+        group: None,
     }
 }
 

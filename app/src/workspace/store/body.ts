@@ -156,6 +156,8 @@
 //   書き換える（前の版の世帯は欄が無い＝移す行なし）
 //   0.92 から: 前提と推定の一覧の「お客さまと確かめた」記録 household.agreed（0.27 から）をなくした（0260）。本体の変換の段が外す（控え・
 //   sampleInitial の中は変えない。sampleInitial は使うときに変換の段を通る）。画面も読まない・書かない
+//   0.93 から: 見本の中身 meta.sample に、FP が名前を付けた見本のグループの欄 group（0247 の追記 2026-11-26。本体だけが書く meta の欄で、
+//   画面はまだ出さない）。足すだけ。本体の変換の段は版だけを書き換える（前の版の見本は欄が無い＝グループに入っていない）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -229,7 +231,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { readDisplayPair, readFollowOffice, type StoredDisplay } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.92";
+export const BODY_FORMAT_VERSION = "0.93";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

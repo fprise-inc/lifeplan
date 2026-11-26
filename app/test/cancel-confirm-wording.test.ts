@@ -224,8 +224,8 @@ describe("「やめる」のままにする所（消す・外す・捨てる・�
       // 明細の口座・カードを「外す」、取り込んだ明細を「外す」、「同じ明細ではありませんか？」
       "workspace/statement/StatementPanel.tsx": 3,
       "workspace/store/LeaveDialog.tsx": 1,
-      // 見本を最初の状態に戻す確認画面（直した中身を消す。0247 の6）
-      "workspace/store/SampleDialogs.tsx": 1,
+      // 見本を最初の状態に戻す確認画面（直した中身を消す）・今の状態を最初の状態にする確認画面（前の最初の状態に戻せなくなる。0247 の6）
+      "workspace/store/SampleDialogs.tsx": 2,
     });
   });
 });

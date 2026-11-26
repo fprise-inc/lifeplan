@@ -32,6 +32,8 @@ pub const MAX_TRAITS: usize = 12;
 pub const MAX_TRAIT: usize = 12;
 /// 見本のセットの ID・セットの中の見本の ID の長さの上限（0247 の3）
 pub const MAX_ORIGIN_ID: usize = 64;
+/// FP が名前を付けた見本のグループの名前の長さの上限（文字。0247 の追記 2026-11-26）
+pub const MAX_SAMPLE_GROUP: usize = 40;
 
 /// 区分（記号と名前）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,6 +90,10 @@ pub struct SampleInfo {
     pub age: u8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<SampleOrigin>,
+    /// FP が名前を付けた見本のグループ（任意。0247 の追記 2026-11-26）。後でグループを作れるように欄だけ先に持つ（画面はまだ出さない）。
+    /// 前後の空白を除いた名前で、空なら持たない。セットの見本を直した版（`origin` あり）は持たない（セットの定義が正）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
     /// 最初の状態から変わっているか（無ければ false。0247 の6）
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub changed: bool,
@@ -112,7 +118,20 @@ struct SampleInfoRead {
     #[serde(default)]
     origin: Option<SampleOrigin>,
     #[serde(default)]
+    group: Option<String>,
+    #[serde(default)]
     changed: bool,
+}
+
+/// 見本のグループの名前を読む形にそろえる（前後の空白を除き、空なら持たない。セットの見本を直した版は持たない）
+pub fn normalize_group(group: Option<&str>, origin: Option<&SampleOrigin>) -> Option<String> {
+    if origin.is_some() {
+        return None;
+    }
+    group
+        .map(str::trim)
+        .filter(|g| !g.is_empty())
+        .map(str::to_owned)
 }
 
 impl From<SampleInfoRead> for SampleInfo {
@@ -123,6 +142,7 @@ impl From<SampleInfoRead> for SampleInfo {
             traits: r.traits,
             family: r.family.or(from_no.map(|x| x.0)).unwrap_or(3),
             age: r.age.or(from_no.map(|x| x.1)).unwrap_or(4),
+            group: normalize_group(r.group.as_deref(), r.origin.as_ref()),
             origin: r.origin,
             changed: r.changed,
             // 新しい形の欄（家族の形）があれば移行は済んでいる
@@ -138,8 +158,9 @@ impl SampleInfo {
     }
 }
 
-/// 見本を作る・登録するときの指定（名前・絞り込みの項目・家族の形 1〜5・本人の年代 2〜7・セットの見本を直した版なら出どころ）
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+/// 見本を作る・登録するときの指定（名前・絞り込みの項目・家族の形 1〜5・本人の年代 2〜7・セットの見本を直した版なら出どころ・
+/// FP が名前を付けた見本のグループ〔任意。画面はまだ渡さない。出どころのある見本には付けられない〕）
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SampleRequest {
     pub family: u8,
@@ -149,6 +170,8 @@ pub struct SampleRequest {
     pub traits: Vec<String>,
     #[serde(default)]
     pub origin: Option<SampleOrigin>,
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 /// 世帯の番号の中身（一覧の札・事務所データに持つ）。
@@ -325,7 +348,19 @@ pub fn check_sample_request(r: &SampleRequest) -> Result<(), StoreError> {
             return Err(StoreError::SAMPLE);
         }
     }
+    check_group(r.group.as_deref(), r.origin.is_some())?;
     check_traits(&r.traits)
+}
+
+/// 見本のグループの名前の検査（空・空白だけは「持たない」と読むので通す。出どころのある見本は持てない。0247 の追記 2026-11-26）
+pub fn check_group(group: Option<&str>, has_origin: bool) -> Result<(), StoreError> {
+    let Some(g) = group.map(str::trim).filter(|g| !g.is_empty()) else {
+        return Ok(());
+    };
+    if has_origin || !valid_text(g, MAX_SAMPLE_GROUP) {
+        return Err(StoreError::SAMPLE);
+    }
+    Ok(())
 }
 
 /// 家族の形（1〜5）・本人の年代（2〜7）の検査
@@ -437,6 +472,7 @@ pub fn label_from_meta(meta: Option<&serde_json::Value>) -> (String, Label) {
             family: 3,
             age: 4,
             origin: None,
+            group: None,
             changed: false,
             legacy_no: None,
         });
@@ -449,6 +485,9 @@ pub fn label_from_meta(meta: Option<&serde_json::Value>) -> (String, Label) {
         }
         if check_traits(&info.traits).is_err() {
             info.traits = vec![];
+        }
+        if check_group(info.group.as_deref(), info.origin.is_some()).is_err() {
+            info.group = None;
         }
         // 直した版は、ファイルがある間は最初の状態から変わっている（0247 の6）
         info.changed = info.origin.is_some();
@@ -476,6 +515,7 @@ pub fn label_from_meta(meta: Option<&serde_json::Value>) -> (String, Label) {
                         family,
                         age,
                         origin: None,
+                        group: None,
                         changed: false,
                         legacy_no: None,
                     }),
@@ -607,8 +647,17 @@ mod tests {
             name: "夫婦と子・研修用".into(),
             traits: vec!["共働き".into()],
             origin: None,
+            group: None,
         };
         assert!(check_sample_request(&ok).is_ok());
+        // 見本のグループ（任意。0247 の追記 2026-11-26）: 空・空白だけは持たないと読む。40字まで
+        for g in ["セミナー用", " 研修 ", "", "  "] {
+            let r = SampleRequest {
+                group: Some(g.into()),
+                ..ok.clone()
+            };
+            assert!(check_sample_request(&r).is_ok(), "{g:?}");
+        }
         let with_origin = SampleRequest {
             origin: Some(SampleOrigin {
                 set: "official.corporateOwner".into(),
@@ -650,6 +699,19 @@ mod tests {
             SampleRequest {
                 traits: vec!["".into()],
                 ..ok.clone()
+            },
+            SampleRequest {
+                group: Some("あ".repeat(41)),
+                ..ok.clone()
+            },
+            SampleRequest {
+                group: Some("改行\nあり".into()),
+                ..ok.clone()
+            },
+            // セットの見本を直した版はグループを持てない（セットの定義が正）
+            SampleRequest {
+                group: Some("セミナー用".into()),
+                ..with_origin.clone()
             },
             origin("basic", "x"),
             origin("official.basic", "a.b"),
@@ -735,6 +797,28 @@ mod tests {
         let info = l.sample.unwrap();
         assert_eq!((info.family, info.age), (3, 4));
         assert_eq!(info.name, "見本（夫婦と子・40代）");
+        // 見本のグループ（0247 の追記 2026-11-26）: 自分で作った見本は持ち、前後の空白を除く。出どころのある見本・空・読めない名前は持たない
+        let own = |g: Value| {
+            label_from_meta(Some(&json!({"formatVersion": "0.93", "sample": {"name": "研修用", "family": 3, "age": 4, "group": g}})))
+                .1
+                .sample
+                .unwrap()
+                .group
+        };
+        use serde_json::Value;
+        assert_eq!(own(json!(" セミナー用 ")), Some("セミナー用".to_owned()));
+        assert_eq!(own(json!("")), None);
+        assert_eq!(own(json!("あ".repeat(41))), None);
+        let (_, l) = label_from_meta(Some(&json!({"formatVersion": "0.93", "sample": {
+            "name": "研修用", "family": 3, "age": 4, "group": "セミナー用",
+            "origin": {"set": "official.basic", "id": "sampleSeniorRental", "rev": 1}}})));
+        assert_eq!(l.sample.unwrap().group, None);
+        // 書くときは欄ごと持たない（グループの無い見本）・持つ
+        let mut info: SampleInfo =
+            serde_json::from_value(json!({"name": "a", "family": 1, "age": 2})).unwrap();
+        assert!(serde_json::to_value(&info).unwrap().get("group").is_none());
+        info.group = Some("セミナー用".into());
+        assert_eq!(serde_json::to_value(&info).unwrap()["group"], "セミナー用");
     }
 
     #[test]
