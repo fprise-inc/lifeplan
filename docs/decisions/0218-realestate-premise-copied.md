@@ -61,3 +61,7 @@
 - `app/src/workspace/input/premiseDefaults.ts`（`fillLivePremises`・3つの欄も写す・空欄で値を外さない・事務所で決めたかの読み方）、`office/settings.ts`（新しい世帯に3つを写す。`officeLiveValue`）、`App.tsx`（開いたときに写し、保存した世帯は自動保存で書く）、`engine/moneyRows.ts`（`withoutDefaultLandShare`）、`office/OfficeSettingsPanel.tsx`・`office/EstimatesSection.tsx`（説明の文）、`office/current.ts`・`input/stages/assumptions.ts`（コメント）。
 - `docs/ai-connector.md`（前提条件の id の説明）。
 - 計算エンジン・世帯ファイルの形式の版・事務所データの形の版は変えない。見本の世帯の計算の結果は変わらない。
+
+## 追記
+
+- 2026-11-25（0260）: 世帯の前提条件の不動産の評価の区画を4列の欄の並び（土地の上昇率・土地の割合・建物の残りの価値の下限・売却の費用）と、同じ枠の中の小さな見出し「耐用年数」の4つの欄にした。欄の名前は「土地の上昇率」「売却の費用」（「（年）」「（売却価格に対する割合）」を外した。説明は「?」の中）。事務所の既定値どおりの欄には印を出さない。3つの値を世帯に写す決まり（この記録）は変えない。

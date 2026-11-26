@@ -102,7 +102,7 @@ describe("法人経営者の見本のセット（0247 の7）", () => {
       expect(sampleSetShown(BASIC, c.features, c.office)).toBe(true);
       expect(ids(shownSampleSets(SAMPLE_SETS, c.features, c.office))).toEqual(c.shown ? ["official.basic", "official.corporateOwner"] : ["official.basic"]);
       // 起動のときに開く見本は、どちらでもファイナンシアの見本の決まった見本
-      expect(firstSampleId(shownSampleSets(SAMPLE_SETS, c.features, c.office).flatMap((s) => s.samples))).toBe("salariedCoupleTwoKids");
+      expect(firstSampleId(shownSampleSets(SAMPLE_SETS, c.features, c.office).flatMap((s) => s.samples))).toBe("sampleDualAssetsInvest");
     });
   }
 
@@ -196,8 +196,8 @@ describe("見本の世帯でだけコードなしで見せる扱いは無い（0
     for (const w of ["sampleExtensions", "previewExts", "previewIds", "previewRef", "featuresRef", "appSample =", "SAMPLE_SAVED_TEXT", "keptHidden"]) expect(app, w).not.toContain(w);
     // 見本の棚・開く・起動のときの最初の見本は、今出すセット（shownSampleSets）だけを使う
     expect(app).toContain("shownSampleSets(SAMPLE_SETS, featureStatus, officeSettings.features)");
-    expect(app).toContain("shelfItems(shownSets, storedSamples)");
-    expect(app).toContain('item.kind === "app" ? shownDemos.some((d) => d.id === item.id) && (await open(item.id))');
+    expect(app).toContain("shelfItems(shownSets, storedSamples, SAMPLE_SETS)");
+    expect(app).toContain('item.kind === "app" ? (item.edited !== undefined ? openStored(item.edited.id) : shownDemos.some((d) => d.id === item.id) && (await open(item.id)))');
     expect(app).toContain("firstSampleId(shownDemos)");
     expect(app).not.toContain("firstSampleId(households)");
     const report = readFileSync(new URL("../src/workspace/report/assemble.ts", import.meta.url), "utf8");

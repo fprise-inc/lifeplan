@@ -216,14 +216,16 @@ describe("「やめる」のままにする所（消す・外す・捨てる・�
       "workspace/notices/FeedbackPanel.tsx": 1,
       // 説明の文（カスタム層）の「公式に戻す」
       "workspace/office/CustomTextsSection.tsx": 1,
-      // 機能のコードを「外す」
-      "workspace/office/OfficeSettingsPanel.tsx": 1,
+      // 機能のコードを「外す」（事務所の見た目と機能の画面）
+      "workspace/office/LookPage.tsx": 1,
       // プランを帯から外すとき・世帯を離れるときの3択の問い
       "workspace/plans/BandDropDialog.tsx": 2,
       "workspace/plans/DraftsLeaveDialog.tsx": 1,
       // 明細の口座・カードを「外す」、取り込んだ明細を「外す」、「同じ明細ではありませんか？」
       "workspace/statement/StatementPanel.tsx": 3,
       "workspace/store/LeaveDialog.tsx": 1,
+      // 見本を最初の状態に戻す確認画面（直した中身を消す。0247 の6）
+      "workspace/store/SampleDialogs.tsx": 1,
     });
   });
 });

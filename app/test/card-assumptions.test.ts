@@ -1,12 +1,13 @@
 // 前提条件のカードの中身（0070）: 既定の値（仮の値）の推定・空欄で標準に戻す・確定、ほかの前提と同じ値になる前提（教育費・厚生年金の
 // 調整率）、高すぎる値の注意の線、例外の年（範囲で入れる）、表の最後の年（推定・人の年齢で入れる・確定したら追いかけない・古い世帯の注意）、
-// 運用利回りは率をそのまま入れる（選び方のボタンを置かない）、計算の基準の月と計算の決まり（読むだけ）、FP顧問料の料金の段階、前提と推定の一覧と確かめた記録
+// 運用の利回りは世帯の画面に出さない（この世帯だけの値がある世帯だけ詳細に1行。率をそのまま入れる。0260）、計算の基準の月と計算の決まり（読むだけ）、
+// FP顧問料の料金の段階、前提と推定の一覧（確かめた記録はなくした。0260）
 import { describe, expect, it } from "vitest";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
-import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
+import { allFields, groupActions, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, endYearRuleOf, firstTableYear, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { assumptionRows, setAgreed } from "../src/workspace/input/assumptionList.ts";
+import { assumptionRows } from "../src/workspace/input/assumptionList.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { endYearNotice, rateWarning, yearRanges } from "../src/workspace/input/stages/assumptions.ts";
 import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
@@ -27,7 +28,7 @@ const fieldOf = (wh: WorkingHousehold, key: string): FieldDef => {
 };
 const action = (wh: WorkingHousehold, key: string) => {
   const a = stage(wh)
-    .sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => g.actions)])
+    .sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => groupActions(g))])
     .find((x) => x.key === key);
   if (a === undefined) throw new Error(`操作が無い: ${key}`);
   return a;
@@ -55,13 +56,14 @@ describe("経済の前提: 事務所の既定値（0214。推定にしない）"
     const wh = open();
     const edu = fieldOf(wh, "assume/educationInflation");
     expect(wh.request.input.assumptions?.educationInflation).toBeUndefined();
-    expect(edu.get(wh)).toMatchObject({ value: null, hint: "物価上昇率と同じ（1%）", premise: { state: "office", officeText: "物価上昇率と同じ" } });
+    // 空欄: 欄の中に薄く物価の上昇率（blankShown）、下に「空欄: 物価の上昇率と同じ」（0260）
+    expect(edu.get(wh)).toMatchObject({ value: null, hint: "空欄: 物価の上昇率と同じ", blankShown: "0.01", premise: { state: "office", officeText: "物価上昇率と同じ" } });
     const c = edu.set(wh, "0.01");
     expect(c.request.input.assumptions?.educationInflation).toEqual({ default: "0.01" });
     expect(fieldStatus(edu, c).premise?.state).toBe("household");
     expect(preview(c.request).table).toEqual(preview(wh.request).table);
     const emp = fieldOf(wh, "assume/pensionMacroSlideEmployee");
-    expect(emp.get(wh)).toMatchObject({ value: null, hint: "基礎年金の調整率と同じ（0.4%）" });
+    expect(emp.get(wh)).toMatchObject({ value: null, hint: "空欄: 基礎年金と同じ", blankShown: "0.004" });
     // 厚生年金だけ調整率を変えると、年金の額が変わる
     const w2 = emp.set(wh, "0.01");
     expect(w2.request.input.assumptions?.pensionMacroSlideEmployee).toEqual({ default: "0.01" });
@@ -76,19 +78,30 @@ describe("経済の前提: 事務所の既定値（0214。推定にしない）"
     expect(rateWarning("investmentReturn", a({ investmentReturn: "0.05" }))).toBeNull();
     expect(rateWarning("inflation", a({ inflation: "-0.01" }))).toContain("0%未満");
     expect(rateWarning("wageGrowth", a({ inflation: "0.01", wageGrowth: "0.04" }))).toContain("2ポイント");
-    const wh = fieldOf(open(), "assume/investmentReturn").set(open(), "0.07");
+    // 運用の利回りは、この世帯だけの値（前の世帯）のときだけ画面に出る。高すぎれば欄と確かめの一覧に注意（0260）
+    const wh = mutate(open(), (_h, req) => void (req.input.assumptions!.investmentReturn = { default: "0.07" }));
     expect(checkList(wh).find((r) => r.fieldKey === "assume/investmentReturn")).toMatchObject({ kind: "notice" });
   });
 
-  it("運用利回りは率をそのまま入れる。名前の付いた選び方のボタンは置かない（0070 の 2026-10-31 の追記）", () => {
+  it("運用の利回りは世帯の画面に出さない。この世帯だけの値がある世帯だけ、詳細の資産の種類ごとの利回りの最後に1行（率をそのまま入れる。0260）", () => {
     const wh = open();
     const keys = stage(wh).sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => g.actions)]).map((a) => `${a.key} ${a.label}`);
     expect(keys.filter((k) => k.includes("investmentReturn/preset") || /控えめ|ふつう|積極的/.test(k))).toEqual([]);
-    const f = fieldOf(wh, "assume/investmentReturn");
+    expect(allFields(stage(wh)).some((f) => f.key === "assume/investmentReturn")).toBe(false);
+    const own = mutate(wh, (_h, req) => void (req.input.assumptions!.investmentReturn = { default: "0.03" }));
+    const sec = stage(own).sections.find((s) => s.key === "assume/assetReturns")!;
+    expect(sec.groups.find((g) => g.key === "assume/assetReturns/invest")?.fields.map((f) => f.key)).toEqual(["assume/investmentReturn"]);
+    const f = fieldOf(own, "assume/investmentReturn");
+    expect(f.level).toBe("detail");
+    expect(f.label).toBe("配分も利回りも入れていない運用の口座");
     expect(f.kind === "pct" ? [f.min, f.max] : null).toEqual([-10, 15]);
-    const w = f.set(wh, "0.025");
+    const w = f.set(own, "0.025");
     expect(w.request.input.assumptions?.investmentReturn?.default).toBe("0.025");
     expect(rejectReason(f, "16")).toBe("15%より大きい値は設定できません。");
+    // 戻すと事務所の既定値になり、画面から外れる。計算の要求は元と同じ
+    const back = f.get(w).premise!.reset(w);
+    expect(back.request).toEqual(wh.request);
+    expect(allFields(stage(back)).some((x) => x.key === "assume/investmentReturn")).toBe(false);
   });
 });
 
@@ -230,25 +243,35 @@ describe("FP顧問料の料金の段階", () => {
 });
 
 describe("前提と推定の一覧", () => {
-  it("経済の前提・計算の範囲・推定の目安（各カード）・万一の前提を並べる。確かめた記録はプランごと", () => {
+  it("経済の前提・計算の範囲・不動産の評価・資産の種類ごとの利回り・推定の目安（各入力項目）・万一の前提を並べる。読むだけ（確かめた記録はなくした。0260）", () => {
     const wh = open();
     const rows = assumptionRows(wh);
-    // 前提条件の既定の値は「事務所の既定値」（推定と言わない）。お客さまと確かめる値ではないので確かめた印を出さない（0214 の7）
-    expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "事務所の既定値", value: "1%", source: "提供元の既定の値（事務所の既定値の画面で変えられます）", agreeable: false });
+    // 前提条件の既定の値は事務所の既定値（推定と言わない）。印は出さない（tone null）。出典は短く（0260）
+    expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "事務所の既定値", tone: null, value: "1%", source: "事務所の既定値" });
     const own = fieldOf(wh, "assume/inflation").set(wh, "0.02");
-    expect(assumptionRows(own).find((r) => r.id === "field:assume/inflation")).toMatchObject({ state: "この世帯だけ", value: "2%", agreeable: true });
-    expect(assumptionRows(wh).filter((r) => r.group === "assetReturns")).toHaveLength(14);
+    expect(assumptionRows(own).find((r) => r.id === "field:assume/inflation")).toMatchObject({ state: "この世帯だけ", tone: "household", value: "2%", source: "この世帯で入れた値（事務所は 1%）" });
+    // 空欄で物価と同じになる前提は短い言葉で
+    expect(rows.find((r) => r.id === "field:assume/educationInflation")).toMatchObject({ value: "物価と同じ" });
+    expect(rows.find((r) => r.id === "field:assume/pensionMacroSlideEmployee")).toMatchObject({ value: "基礎年金と同じ" });
+    // 運用の利回りは画面に出さないので一覧にも無い（この世帯だけの値の世帯は資産の種類ごとの利回りの区分に出る）
+    expect(rows.some((r) => r.id === "field:assume/investmentReturn")).toBe(false);
+    const invOwn = mutate(wh, (_h, req) => void (req.input.assumptions!.investmentReturn = { default: "0.03" }));
+    expect(assumptionRows(invOwn).find((r) => r.id === "field:assume/investmentReturn")).toMatchObject({ group: "assetReturns", tone: "household", value: "3%" });
+    // 事務所の既定値どおりの資産の種類は1行にまとめ、違う物だけ1行ずつ
+    const classes = rows.filter((r) => r.group === "assetReturns");
+    const merged = classes.filter((r) => r.id === "group:assume/assetReturns");
+    expect(merged).toHaveLength(1);
+    const n = Number(/（(\d+)）$/.exec(merged[0]!.label)?.[1]);
+    expect(classes.length - 1 + n).toBe(14);
+    expect(merged[0]!.source).toContain("預金・外貨預金は預金の利回り、不動産は0%");
     expect(rows.find((r) => r.id === "field:assume/endYear")).toMatchObject({ group: "range" });
-    expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "基本生活費")).toBe(true);
+    // 計算の決まりは「決まり」の印
+    expect(rows.find((r) => r.id === "field:assume/conv/timing")).toMatchObject({ group: "range", state: "決まり", tone: "rule" });
+    expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "基本生活費" && r.tone === "estimated")).toBe(true);
     // 仮の値（新しい顧客の生年月）は推定の根拠に並べない（推定と分けて未入力の側。0041 の追記 2026-11-06）
     expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "家族")).toBe(false);
-    expect(rows.find((r) => r.id === "cg:living/before")).toMatchObject({ group: "contingency", value: "70%" });
-    const a = setAgreed(wh, null, "field:assume/inflation", "2026-10-27");
-    expect(a.agreed).toEqual({ current: { "field:assume/inflation": { on: "2026-10-27" } } });
-    const b = setAgreed(a, "plan-b", "field:assume/inflation", "2026-10-28");
-    expect(Object.keys(b.agreed ?? {})).toEqual(["current", "plan-b"]);
-    expect(setAgreed(setAgreed(b, "plan-b", "field:assume/inflation", null), null, "field:assume/inflation", null).agreed).toBeUndefined();
-    // 計算には使わない
-    expect(preview(b.request).table).toEqual(preview(wh.request).table);
+    expect(rows.find((r) => r.id === "cg:living/before")).toMatchObject({ group: "contingency", value: "70%", tone: "estimated" });
+    // 行の形に確かめた記録の印は無い
+    expect(rows.every((r) => !("agreeable" in r))).toBe(true);
   });
 });

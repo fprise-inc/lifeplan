@@ -1028,7 +1028,7 @@ const MIX_KINDS = new Set(["deposit", "taxable", "nisa", "childNisa", "juniorNis
 export function mixText(req: EngineRequest, kind: string, mix: readonly MixPart[] | null): string {
   const year = parseYm(req.input.baseMonth).y + 1;
   const r = pctText(expectedReturn(req, { kind, ...(mix !== null ? { assetMix: [...mix] } : {}) }, year));
-  if (mix === null || mix.length === 0) return kind === "deposit" ? `預金100%（年${r}）` : `配分なし・運用利回り（年${r}）`;
+  if (mix === null || mix.length === 0) return kind === "deposit" ? `預金100%（年${r}）` : `配分なし・事務所の既定値（年${r}）`;
   const b = bucketShares(mix, kind);
   const parts = [b.equity > 0 ? `株式${b.equity}%` : "", b.bond > 0 ? `債券${b.bond}%` : "", b.cash > 0 ? `預金${b.cash}%` : "", b.other > 0 ? `その他${b.other}%` : ""].filter((x) => x !== "");
   return `${parts.join("・")}（年${r}）`;
@@ -1073,7 +1073,7 @@ function mixItems(wh: WorkingHousehold): MovableItem[] {
           }),
         text: (v: ItemValue) => mixText(req, a.kind, Array.isArray(v) ? (v as MixPart[]) : null),
         same: (x: ItemValue, y: ItemValue) => jsonSame(Array.isArray(x) && x.length === 0 ? null : x, Array.isArray(y) && y.length === 0 ? null : y),
-        note: () => `残高 ${manText(a.marketValue?.value ?? 0)}。利回りは「前提条件」の資産の種類ごとの利回り（無い種類は運用利回り）`,
+        note: () => `残高 ${manText(a.marketValue?.value ?? 0)}。利回りは「前提条件」の資産の種類ごとの利回り（無い種類は事務所の既定値）`,
       };
     });
 }

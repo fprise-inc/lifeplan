@@ -105,7 +105,9 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
       expect(set.id).toMatch(/^[a-z][a-z0-9]*\.[a-z][A-Za-z0-9]*$/);
       expect(new Set(set.samples.map((d) => d.id)).size, set.id).toBe(set.samples.length);
     }
-    expect(DEMO_HOUSEHOLDS).toHaveLength(16);
+    // ファイナンシアの見本12件（0247 の9）と法人経営者の見本1件
+    expect(SAMPLE_SETS.map((set) => set.samples.length)).toEqual([12, 1]);
+    expect(DEMO_HOUSEHOLDS).toHaveLength(13);
     expect(DEMO_HOUSEHOLDS.map((d) => d.id)).toEqual(SAMPLE_SETS.flatMap((set) => set.samples.map((d) => d.id)));
   });
 
@@ -168,7 +170,7 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
     // 名前で探す: 名前の一部。全角と半角・大文字と小文字・前後の空白は問わない。空白で区切るとどれも入っている物だけ
     expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "研修" }).map((i) => i.id)).toEqual(["own-a", "own-b"]);
     expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "  ひとり親 " }).map((i) => i.id)).toEqual(["sampleSingleParent"]);
-    expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "４０代　会社員" }).map((i) => i.id)).toEqual(["sampleSingle40s"]);
+    expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "４０代　会社員" }).map((i) => i.id)).toEqual(["sampleCoupleTwoKidsPeak"]);
     expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "" })).toHaveLength(items.length);
     expect(filterShelf(items, { family: 0, age: 0, traits: [], name: "宇宙飛行士" })).toEqual([]);
     expect(matchesSampleName("合算BS の見本", "bs")).toBe(true);
@@ -199,10 +201,10 @@ describe("見本の棚（見本は番号を持たない。セットと見出し�
   });
 
   it("起動のときに開く見本は ID で決める（並びの先頭ではない）。無ければ並びの先頭", () => {
-    expect(FIRST_SAMPLE_ID).toBe("salariedCoupleTwoKids");
-    expect(firstSampleId(DEMO_HOUSEHOLDS)).toBe("salariedCoupleTwoKids");
-    expect(firstSampleId([{ id: "sampleSingle20s" }, { id: "salariedCoupleTwoKids" }])).toBe("salariedCoupleTwoKids");
-    expect(firstSampleId([{ id: "sampleSingle20s" }])).toBe("sampleSingle20s");
+    expect(FIRST_SAMPLE_ID).toBe("sampleDualAssetsInvest");
+    expect(firstSampleId(DEMO_HOUSEHOLDS)).toBe("sampleDualAssetsInvest");
+    expect(firstSampleId([{ id: "sampleCoupleNoKids" }, { id: "sampleDualAssetsInvest" }])).toBe("sampleDualAssetsInvest");
+    expect(firstSampleId([{ id: "sampleCoupleNoKids" }])).toBe("sampleCoupleNoKids");
     expect(firstSampleId([])).toBeUndefined();
   });
 });
@@ -251,18 +253,20 @@ describe("世帯の一覧の画面", () => {
     expect(html).toContain(`見本（${base.shelf.length}）`);
     expect(html).not.toContain("うち自分で作った見本");
   });
-  it("見本の一覧: 見本番号の列は無く、名前・家族と年代・項目。アプリの見本は直せない（消す・名前を直すは自分で作った見本だけ）", () => {
+  it("見本の一覧: 見本番号の列は無く、名前・家族と年代・項目。消す・名前を直すは自分で作った見本だけ（はじめから入っている見本も中身は直せる。0247 の4）", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, initialTab: "samples" }));
-    expect(html).toContain('data-sample-row="salariedCoupleTwoKids"');
-    expect(html).toContain('data-customer-from-sample="salariedCoupleTwoKids"');
-    expect(html).toContain('data-copy-sample="salariedCoupleTwoKids"');
-    expect(html).not.toContain('data-delete-sample="salariedCoupleTwoKids"');
+    expect(html).toContain('data-sample-row="sampleCoupleTwoKidsPeak"');
+    expect(html).toContain('data-customer-from-sample="sampleCoupleTwoKidsPeak"');
+    expect(html).toContain('data-copy-sample="sampleCoupleTwoKidsPeak"');
+    expect(html).not.toContain('data-delete-sample="sampleCoupleTwoKidsPeak"');
+    // 棚から外した見本は一覧に出ない
+    expect(html).not.toContain('data-sample-row="salariedCoupleTwoKids"');
     expect(html).toContain('data-delete-sample="own-1"');
     expect(html).not.toContain("data-household-row");
     expect(html).not.toContain("見本番号");
     expect(html).not.toMatch(/\d-\d-\d{2}/);
     expect(html).toContain("<td class=\"hh-nowrap\">夫婦のみ・30代</td>");
-    expect(html).toContain("はじめから入っている見本は直せません");
+    expect(html).not.toContain("はじめから入っている見本は直せません");
   });
   it("見本の一覧の見出し: 種類が2つ以上のときだけ（ファイナンシアの見本と自分で作った見本）。事務所の共有では「事務所で作った見本」。名前で探す欄", () => {
     const heads = (html: string) => [...html.matchAll(/data-shelf-heading[^>]*>([^<]*)</g)].map((m) => m[1]);
@@ -286,10 +290,11 @@ describe("世帯の一覧の画面", () => {
   });
   it("見本の完全削除の確かめは見本の名前。見本に登録の文に番号の話を書かない。名前と項目を直すで家族の形・年代も直せる", () => {
     const panel = readFileSync(new URL("../src/workspace/store/HouseholdPanel.tsx", import.meta.url), "utf8");
-    expect(panel).toContain("確認のため見本の名前（{s.name}）を入れてください");
+    // 同じ出どころの2つ目の版（「（別の版）」を名前に足して出す）は、本体の名前を入れる（0247 の5）
+    expect(panel).toContain("確認のため見本の名前（{s.baseName ?? s.name}）を入れてください");
     // 入力欄で字数を切らない（maxLength は UTF-16 の数で、名前の上限〔40字〕と数え方が違う。合うまで押せないので足りる。0247）
     expect(panel).toContain('<input value={sampleDelete.value} aria-label="確認の見本の名前"');
-    expect(panel).toContain('disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.name)}');
+    expect(panel).toContain('disabled={busy || sampleDelete.value.trim() === "" || sampleNameKey(sampleDelete.value) !== sampleNameKey(s.baseName ?? s.name)}');
     expect(panel).not.toContain("見本番号");
     expect(panel).not.toContain("shapeFixed />");
     expect(panel).toContain("p.onUpdateSample(s.id, name, sampleEdit.traits, sampleEdit.family, sampleEdit.age)");

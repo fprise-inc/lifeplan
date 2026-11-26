@@ -169,13 +169,15 @@ describe("資産と負債の図の科目の色は、事務所の色で変えな�
 
 describe("事務所の既定値のパネルの区画「事務所の見た目」", () => {
   it("見本の色・自由な色・ロゴを選ぶ・使えない色の知らせ", () => {
-    const props = { onPreview: () => undefined, onSave: async () => ({}), onPickLogo: async () => null, shared: true };
-    const html = renderToString(h(BrandingSection, { ...props, value: {} }));
+    // 変えている途中の見た目（draft）と保存した見た目（saved）はパネルが持つ。保存はパネルの下の帯の「保存」（0261）
+    const props = { saved: {}, onDraft: () => undefined, onPickLogo: async () => null, shared: true };
+    const html = renderToString(h(BrandingSection, { ...props, draft: {} }));
     for (const s of BASE_SAMPLES) expect(html).toContain(`data-branding-color="${s.color}"`);
     expect(html).toContain("data-branding-color-free");
     expect(html).toContain("data-branding-logo-pick");
     expect(html).toContain("事務所で共有していても、この PC の設定です。");
-    const bad = renderToString(h(BrandingSection, { ...props, value: { color: "#c00000" } }));
+    expect(html).not.toContain("data-branding-save");
+    const bad = renderToString(h(BrandingSection, { ...props, draft: { color: "#c00000" } }));
     expect(bad).toContain('data-branding-notes="refused"');
     expect(bad).toContain("不足の赤と見分けにくい");
   });

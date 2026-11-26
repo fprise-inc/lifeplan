@@ -162,7 +162,8 @@ describe("持ち帰り用のレポート: 内部情報を入れない", () => {
     for (const id of ["advisoryFeeProposal", "salariedCoupleTwoKids"]) {
       const o = openHousehold(id, { marks: true });
       const le = o.wh.request.input.household.livingExpenses?.[0];
-      o.wh.agreed = { current: { "row-1": { on: "2026-10-01", note: `${MARK}-agreed` } } };
+      // 前の版の確かめた記録（0260 でなくした household.agreed）が残っていても、持ち帰り用のレポートに入らない
+      Object.assign(o.wh, { agreed: { current: { "row-1": { on: "2026-10-01", note: `${MARK}-agreed` } } } });
       o.wh.assumed = { "living.monthly": `${MARK}-assumed` };
       o.wh.recheck = [{ id: "row-1", card: "living", cardLabel: `${MARK}-card`, label: `${MARK}-recheck`, on: "2026-10-01" }];
       if (le !== undefined) o.wh.livingParts = { [le.id]: [{ label: `${MARK}-part`, monthly: 1000 }] };

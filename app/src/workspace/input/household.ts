@@ -78,11 +78,6 @@ export interface WorkingHousehold {
    */
   loanEntry?: Record<string, LoanEntry>;
   /**
-   * 前提と推定の一覧で「お客さまと確かめた」記録（0070。プランごと: 現状は "current"、プランはプランの ID → 一覧の行の印 → 確かめた日と
-   * メモ）。画面の側の値で、計算の要求には入れない
-   */
-  agreed?: Record<string, Record<string, { on: string; note?: string }>>;
-  /**
    * 年金の入れ方を切り替えたときに残した前の記録（0066。構成員の ID → 入れ方〔書類から・加入歴から〕ごとに1件）。「推計」に戻しても
    * 書類の数字を消さず、その入れ方に戻すと戻る（隠すだけで消さない）。画面の側の値で、計算の要求には入れない
    */

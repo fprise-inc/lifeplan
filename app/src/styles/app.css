@@ -40,6 +40,13 @@
   --lw-prop: 3.5px;
   --lw-base: 3px;
   --font: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+  /* 文字の5段＋印（0261 の追記 2026-11-26）: 入力項目のパネルと事務所の既定値の画面（.type-scale）で使う大きさの1か所。使い方は「文字の5段＋印」の区切り */
+  --type-1: 1.25rem; /* 段1 パネル・画面の名前（太） */
+  --type-2: 1rem; /* 段2 区画の見出し（太・左の線） */
+  --type-3: 0.92rem; /* 段3 まとまり・表の見出し（太） */
+  --type-4: 0.9rem; /* 段4 欄の名前（太）・値・本文 */
+  --type-5: 0.8rem; /* 段5 説明・空欄のときの値・例・出典・欄の下のリンク（灰） */
+  --type-mark: 0.74rem; /* 印（太） */
 }
 /* 暗い画面（0121）: 地を暗く・文字を明るくし、塗りの強い色（基調の色・墨・不足・注意・済み）は明るくして、その上の文字を暗くする。
    不足・注意・済みの色は同じ色相のまま明るさだけを変える（意味は変えない）。基調の色は画面が事務所の色から導いて上書きする */
@@ -483,12 +490,13 @@ html.big .lever input[type="range"] { height: 36px; }
 /* チェックの欄: 四角を左、名前を右の1行。名前を押しても切り替わる。
    ほかの欄と並んだときは、名前の行の分だけ下げて、四角の行を隣の入力の行と同じ高さにする（下端がそろう）。
    チェックだけの並び・1つだけの並びでは下げない */
-/* プルダウン・区切りボタンの欄も、数字の欄と同じ高さの行の中央に置く（隣のチェック・数字の欄と縦の位置がそろう） */
-.fld-c:has(> select:first-child), .fld-c:has(> .seg-g.fld-seg) { min-height: calc(1.55rem + 13px); }
-.fld-c.fld-check { min-height: calc(1.55rem + 13px); gap: 2px 8px; }
+/* プルダウン・区切りボタンの欄も、数字の欄と同じ高さの行の中央に置く（隣のチェック・数字の欄と縦の位置がそろう）。
+   高さは欄の文字の大きさから計算する（--fld-value-size・--fld-name-size・--fld-check-size。文字の5段の .type-scale の中は段4） */
+.fld-c:has(> select:first-child), .fld-c:has(> .seg-g.fld-seg) { min-height: calc(var(--fld-value-size, 1rem) * 1.55 + 13px); }
+.fld-c.fld-check { min-height: calc(var(--fld-value-size, 1rem) * 1.55 + 13px); gap: 2px 8px; }
 .fld-check-main { display: inline-flex; align-items: flex-start; gap: 8px; min-width: 0; }
 /* 名前が折れても崩れないように: 四角は1行目の高さにそろえ、「?」は名前の最後の字のすぐ後ろに続ける */
-.fld-check-main > input[type="checkbox"] { flex: none; margin: calc((0.92rem * 1.55 - 20px) / 2) 0 0; cursor: pointer; }
+.fld-check-main > input[type="checkbox"] { flex: none; margin: calc((var(--fld-check-size, 0.92rem) * 1.55 - 20px) / 2) 0 0; cursor: pointer; }
 .fld-check-name { min-width: 0; font-size: 0.92rem; line-height: 1.55; }
 .fld-check-name > label { font-weight: 700; color: var(--ink); cursor: pointer; }
 .fld-check-q { white-space: nowrap; }
@@ -508,7 +516,7 @@ html.big .lever input[type="range"] { height: 36px; }
 /* オン・オフを切り替えるボタンをチェックの見た目で（「＋ 〜」のボタンの並びの中。チェックの欄と同じ四角と文字） */
 .act-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.92rem; font-weight: 700; color: var(--ink); cursor: pointer; }
 .act-check > input[type="checkbox"] { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--prop); cursor: pointer; }
-.fields > .fld.is-check { padding-top: calc(0.86rem * 1.55 + 3px); }
+.fields > .fld.is-check { padding-top: calc(var(--fld-name-size, 0.86rem) * 1.55 + 3px); }
 .fields:not(:has(> .fld:not(.is-check))) > .fld.is-check { padding-top: 0; }
 /* 並びにチェックが1つだけなら、行の幅いっぱいに置く（名前が長くても折れにくい） */
 .fields > .fld.is-check:only-child { grid-column: 1 / -1; }
@@ -558,11 +566,10 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-premise { font-size: 0.7rem; font-weight: 700; border-radius: 3px; padding: 0 5px; white-space: nowrap; color: var(--ink-2); background: var(--line-2); }
 .fld-premise.household { color: var(--prop-ink); background: var(--prop-bg); }
 .fld-premise.officeChanged { color: var(--est-ink); background: var(--est-bg); }
-/* お客さまに話すときの一言（前提条件のお客さまと確かめる前提。0214 の追記 2026-11-16）: 欄の下に、左の細い線つきで */
-.fld-talk { font-size: 0.82rem; line-height: 1.5; color: var(--ink); margin-top: 4px; padding-left: 8px; border-left: 3px solid var(--line-2); overflow-wrap: anywhere; }
-.ip-premise-fold { margin: 4px 0 12px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 6px; background: var(--card); }
-.ip-premise-fold > .link-btn { font-weight: 700; color: var(--ink); text-align: left; }
-.ip-premise-fold-act { font-weight: 400; color: var(--ink-2); margin-left: 4px; }
+/* 前提と推定の一覧の状態の印（欄の印と同じ見た目。推定は注意の色、決まりは控えめ。0260） */
+.fld-premise.estimated { color: var(--est-ink); background: var(--est-bg); }
+/* お客さまに話すときの言い方の例（前提条件の物価・給与の上昇率。「例 …」の1行。0214 の追記 2026-11-16・0260）: 欄の下に、説明と同じ小さな灰の字 */
+.fld-talk { font-size: 0.8rem; line-height: 1.5; color: var(--ink-2); margin-top: 4px; overflow-wrap: anywhere; }
 .fld-premise-act { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
 .fld.is-missing .fld-c input[type="text"] { border-color: var(--short); }
 .fld.is-na .fld-c input[type="text"] { background: var(--base-bg); }
@@ -868,6 +875,9 @@ h2 .ih-st { font-size: 0.8rem; }
 .scrim { position: fixed; inset: 0; background: rgba(20, 26, 38, 0.48); z-index: 40; }
 .ipanel { --c: var(--prop); position: fixed; z-index: 50; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(880px, calc(100vw - 32px)); max-height: min(90vh, 960px); background: var(--card); border-radius: 14px; overflow: hidden; box-shadow: 0 20px 60px rgba(10, 20, 40, 0.35); display: flex; flex-direction: column; }
 html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
+/* 文字の5段（0261 の追記 2026-11-26）で欄の名前が 0.86rem→0.9rem になったぶん、文字「大」の入力項目のパネルを少し広げる（1000→1040px）。
+   3列の欄の名前・欄の下の1行が、前と同じ所で1行に収まるように（広い画面のとき。狭い幅・明細のパネル・資料を並べる形は今のまま） */
+html.big:not(.doc-side) .ipanel[data-item]:not(.wide) { width: min(1040px, calc(100vw - 32px)); }
 .ip-band { height: 6px; background: var(--c); flex: none; }
 .ip-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 12px 18px 10px; border-bottom: 1px solid var(--line-2); flex: none; }
 .ip-thumb { width: 84px; height: 56px; border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--c) 11%, var(--card)); grid-row: span 2; }
@@ -878,6 +888,8 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .ip-tools > .help { margin-left: -4px; }
 .ip-tools .help-btn { font-size: 0.78rem; }
 .ip-lead { margin: 0; color: var(--ink-2); font-size: 0.88rem; grid-column: 2 / 4; }
+/* パネルの頭の1文（入力項目の定義の headNote。前提条件の「値は事務所の既定値です。…」。0260）: 名前の下に小さな灰の字で1行 */
+.ip-headnote { margin: 0; color: var(--ink-2); font-size: 0.8rem; grid-column: 2 / 4; }
 /* Tab・「＋」で移った欄が、動く所の下の端（下の帯のすぐ上）やパネルの上の端にくっついて半分隠れないように、余白を取って見える所まで動かす */
 .ip-body { flex: 1; overflow-y: auto; padding: 4px 18px 20px; overscroll-behavior: contain; scroll-padding: 56px 0 72px; }
 .ip-foot { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--card); box-shadow: 0 -6px 16px rgba(20, 30, 50, 0.06); }
@@ -903,7 +915,70 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .link-btn { background: none; border: 0; padding: 0; font-size: 0.82rem; font-weight: 700; color: var(--prop); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .link-btn.danger { color: var(--short-ink); }
 .link-btn:disabled { color: var(--field); text-decoration: none; cursor: not-allowed; }
-@media (max-width: 640px) { .ip-head { grid-template-columns: minmax(0, 1fr) auto; } .ip-thumb { display: none; } .ip-lead { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .ip-head { grid-template-columns: minmax(0, 1fr) auto; } .ip-thumb { display: none; } .ip-lead, .ip-headnote { grid-column: 1 / -1; } }
+/*
+ * 文字の5段＋印（0261 の追記 2026-11-26）: 入力項目のパネルと事務所の既定値の画面（どちらも頭の要素に .type-scale）で、同じ段を使う。値は :root の --type-* の1か所。
+ * 段1 パネル・画面の名前（20px）／段2 区画の見出し（16px 太・左の線）／段3 まとまり・表の見出し（14.7px 太）／段4 欄の名前〔太〕・値・本文（14.4px）／
+ * 段5 説明・空欄のときの値・例・出典・欄の下のリンク（12.8px 灰）／印（11.8px 太）。px は文字の大きさ「中」〔16px〕のとき（rem なので「大」は約2割大きい）。
+ * ボタン（.btn・.add-btn・.seg-g・.level-switch・.fld-fill・.unit-btn）と「▸ 詳しく」（.grp-more-btn。0078）の文字は、ボタンの決まり（0236・0240）と前のまま。
+ * 事務所の既定値の画面だけの部品（.os-*）は、下の「事務所の既定値の画面」の区切りで同じ変数を使う
+ */
+/* 段1・段2 */
+.type-scale .ip-head h2 { font-size: var(--type-1); }
+.type-scale :is(.in-section > h3, .in-section-h > h3, .sv-sec > h3) { font-size: var(--type-2); }
+/* 段3: まとまりの見出し（物1件の中のまとまり・中枠も同じ大きさ。色は前のまま）・説明の欄の見出し・表の見出しの行 */
+.type-scale .in-group-h h4, .type-scale .in-group .in-group .in-group-h h4, .type-scale .in-group.in-sub .in-group-h h4, .type-scale .in-group.in-sub.in-band > .in-group-h h4 { font-size: var(--type-3); }
+.type-scale :is(.info-note-h, .sv-dc h4) { font-size: var(--type-3); }
+/* 段4: 欄の名前（太・墨）・値（欄の中の文字は欄の箱の大きさを継ぐ）・単位・読むだけの値・チェックの名前・本文 */
+.type-scale .fld-l { font-size: var(--type-4); color: var(--ink); }
+.type-scale :is(.fld-c, .suffix, .ro, .fld-check-name, .act-check, .info-note-body, .stage-table-name, .ip-inherit, .ip-lineup, .ip-gaps, .sv-carry, .sv-nisa .nc, .sv-per .pv) { font-size: var(--type-4); }
+.type-scale :is(.ip-rental table, .sv-acc, .sv-cls) { font-size: var(--type-4); }
+/* 貯蓄・運用の口座の表: 口座の列は前と同じ幅を保つ（段4にすると列の幅の分け方が少し変わり、「▸ 残高の時点・配分などを入れる」が2行に折れるため） */
+.type-scale .sv-acc > tbody > tr > td:first-child { min-width: 14.2em; }
+/* 段5: 説明・空欄のときの値・例・出典・欄の下の1行とリンク・見出しの横の要約・表の列の見出し */
+.type-scale :is(.ip-headnote, .in-note, .in-sum, .fld-hint, .fld-help, .fld-talk, .in-est-line, .grp-more-swap, .est-office, .fld-suggest, .in-chips-lead, .in-chips-h, .in-chip-added, .ip-gap-what, .ip-gaps.quiet, .ip-ask, .ip-inherit-note, .ip-lineup .sub, .ip-rental-status, .stage-table-line, .stage-table-lead, .stage-row-note, .stage-row-ramp, .stage-row-more, .in-section-link) { font-size: var(--type-5); }
+.type-scale :is(.fld-help .link-btn, .fld-ops .link-btn, .fld-premise-act .link-btn, .in-actions .link-btn, .fld-suggest summary) { font-size: var(--type-5); }
+.type-scale .stage-row-main > .fld > .fld-c > .fld-hint { font-size: var(--type-5); }
+.type-scale :is(.sv-note, .sv-sub, .sv-tr, .sv-fld .help, .sv-howto .d, .sv-port, .sv-acc .memo, .sv-acc .own, .sv-acc .calc small, .sv-mv-h, .sv-mv-msg, .sv-mv-over, .sv-state.compact, .sv-order.acc .sv-keep) { font-size: var(--type-5); }
+.type-scale :is(.sv-acc th, .sv-cls th) { font-size: var(--type-5); }
+/* 印 */
+.type-scale :is(.badge, .fld-premise, .sv-tag, .sv-st-end, .sv-cls .fp) { font-size: var(--type-mark); }
+/* 欄の高さの計算も段4の文字で（チェックの四角を隣の入力の行にそろえる・選ぶ欄と区切りボタンの行を数の欄と同じ高さに。0236 の決まりが読む変数） */
+.type-scale { --fld-name-size: var(--type-4); --fld-value-size: var(--type-4); --fld-check-size: var(--type-4); }
+/*
+ * 前提条件の入力項目（0260。案の6の方針）: 文字は上の「文字の5段＋印」のまま（前提条件だけの大きさは持たない）。ここは余白と欄の並びだけ:
+ * 区画の間 24px・見出しと中身 8px・欄の間 縦14px 横24px・枠の内側 12〜16px。欄・選ぶ欄・ボタンは入力項目の部品（0236・0240）のまま。
+ * 率の欄は経済の前提が3列、資産の種類ごとの利回り・不動産の評価が4列（狭いときは2列）
+ */
+.ipanel[data-item="assumptions"] .ip-body > .in-section { margin-top: 24px; }
+.ipanel[data-item="assumptions"] .ip-body > .in-section:first-of-type { margin-top: 14px; }
+.ipanel[data-item="assumptions"] .in-section > h3, .ipanel[data-item="assumptions"] .in-section-h > h3 { margin-bottom: 8px; }
+.ipanel[data-item="assumptions"] .in-note { margin: -4px 0 8px; }
+.ipanel[data-item="assumptions"] .in-group { padding: 12px 16px 14px; }
+.ipanel[data-item="assumptions"] .in-group-h h4, .ipanel[data-item="assumptions"] .in-group .in-group .in-group-h h4, .ipanel[data-item="assumptions"] .in-group.in-sub .in-group-h h4 { color: var(--ink); }
+.ipanel[data-item="assumptions"] .in-group .in-group, .ipanel[data-item="assumptions"] .in-group.in-sub { margin-top: 14px; padding: 12px 0 4px; }
+/* 欄の下の言葉（「空欄: 物価の上昇率と同じ」など）は、欄の横に並べず欄の下の1行に */
+.ipanel[data-item="assumptions"] .fld-c > .fld-hint { flex-basis: 100%; }
+.ipanel[data-item="assumptions"] .fields { gap: 14px 24px; }
+/* 欄の下のリンクの1行（「事務所の既定値（1%）に戻す」「＋ 例外の年」）: 小さな灰の字の段で、リンクの間を少し空ける */
+.ipanel[data-item="assumptions"] .fld-premise-act { gap: 2px 12px; margin-top: 4px; }
+.ipanel[data-item="assumptions"] .fld-c input.num { width: 6.5em; }
+.ipanel[data-item="assumptions"] .fld-in > input.num { flex: 0 1 6.5em; }
+.ipanel[data-item="assumptions"] [data-group="assume/economy/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/conv/fields"] > .fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* 計算の期間（表を何歳まで見るか）と、運用の利回りの1行は、欄の下の言葉が折れないように幅いっぱい */
+.ipanel[data-item="assumptions"] [data-group="assume/period/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/assetReturns/invest"] > .fields { grid-template-columns: minmax(0, 1fr); }
+.ipanel[data-item="assumptions"] [data-group="assume/assetReturns/grid"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields/life"] > .fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ipanel[data-item="assumptions"] [data-group="assume/assetReturns/grid"] .fld-c input.num, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields"] .fld-c input.num, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields/life"] .fld-c input.num { width: 5em; }
+@media (max-width: 760px) {
+  .ipanel[data-item="assumptions"] [data-group="assume/economy/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/conv/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/assetReturns/grid"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields"] > .fields, .ipanel[data-item="assumptions"] [data-group="assume/realEstate/fields/life"] > .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* 前提と推定の一覧（前提条件のパネルの下）: 本文は段4、出典・補足・区分の切り替えは段5、区分の見出しの行は段3（文字の5段＋印の変数） */
+.ipanel[data-item="assumptions"] .ip-assume-list { font-size: var(--type-4); }
+.ipanel[data-item="assumptions"] .ip-assume-list .as-head b { font-size: var(--type-3); }
+.ipanel[data-item="assumptions"] .ip-assume-list thead th, .ipanel[data-item="assumptions"] .ip-assume-list .as-src, .ipanel[data-item="assumptions"] .ip-assume-list .sub, .ipanel[data-item="assumptions"] .ip-assume-list .as-head .link-btn { font-size: var(--type-5); }
+.ipanel[data-item="assumptions"] .ip-assume-list td:nth-child(1) .link-btn { font-size: var(--type-4); font-weight: 400; }
+.ipanel[data-item="assumptions"] .ip-assume-list tr.as-group > th { font-size: var(--type-3); }
+
 
 /* お知らせ（保存した直後） */
 .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: var(--ink); color: var(--on-fill); padding: 10px 18px; border-radius: 10px; font-weight: 700; z-index: 60; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; max-width: 92vw; }
@@ -987,6 +1062,9 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-check { display: flex; gap: 6px; align-items: center; }
 .cg-check input { width: 16px; height: 16px; accent-color: var(--prop); }
 .cg-prot-diff { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
+/* 必要保障額の逆算方式の、遺族の資金の運用の利回り（0260）。数え方の違いの1行と続くときは、線を1本に */
+.cg-reverse-return { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
+.cg-reverse-return + .cg-prot-diff { margin-top: 4px; padding-top: 0; border-top: 0; }
 .cg-prot-diff .link-btn { margin-left: 6px; }
 /* 想定の前提の並びは対策と同じ 4 → 2 → 1 列（大きな文字は 2 → 1。0084） */
 .cg-premises .lv-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -998,21 +1076,20 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-premises .lever.field .fld-c select { max-width: 100%; font-weight: 700; }
 .cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
 /* 0071: 前提を直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
-.ip-assume-list td:nth-child(4), .ip-assume-list th:nth-child(4) { white-space: nowrap; }
 /* 前提と推定の一覧の区分の切り替え: どの幅でも、1行に入らなければ折り返す（最後のボタンがパネルの右にはみ出さない）。
    折り返しても各ボタンは文字の幅のまま左に寄せ、どの行のボタンも同じ枠と角の丸みにする（外の枠は付けず、ボタンごとに枠を付けて少し離す） */
 .ip-assume-list .seg-g { display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 4px 0 6px; border: 0; border-radius: 0; overflow: visible; background: none; }
 .ip-assume-list .seg-g button, .ip-assume-list .seg-g button + button { flex: 0 0 auto; margin: 0; border: 2px solid var(--prop); border-radius: 8px; }
-/* 表: 見出しは1文字ずつ縦に折れない（折り返さない）。区分・項目・値・出典・根拠の長い文はセルの中で折り返し、列は狭くなりすぎない。
-   「確かめた」の列は見出しの幅で止める（チェックと日付だけ） */
+/* 表（0260）: 区分は見出しの行（列にしない）、項目・値・状態・出典の4列。見出しは1文字ずつ縦に折れない（折り返さない）。
+   項目・値・出典の長い文はセルの中で折り返し、列は狭くなりすぎない。状態は欄と同じ印（事務所の既定値どおりは空） */
 .ip-assume-list th { white-space: nowrap; }
 .ip-assume-list td { overflow-wrap: anywhere; }
-.ip-assume-list td:nth-child(1) { min-width: 8.5em; }
-.ip-assume-list td:nth-child(2) { min-width: 8em; }
-.ip-assume-list td:nth-child(3) { min-width: 6em; }
-.ip-assume-list td:nth-child(5) { min-width: 10em; }
-.ip-assume-list td:nth-child(6), .ip-assume-list th:nth-child(6) { width: 1%; white-space: nowrap; }
-.ip-assume-list td:nth-child(2) .link-btn { text-align: left; padding-left: 0; }
+.ip-assume-list td:nth-child(1) { min-width: 9em; }
+.ip-assume-list td:nth-child(2) { min-width: 6em; }
+.ip-assume-list td:nth-child(3) { width: 1%; white-space: nowrap; }
+.ip-assume-list td:nth-child(4) { min-width: 10em; }
+.ip-assume-list td:nth-child(1) .link-btn { text-align: left; padding-left: 0; }
+.ip-assume-list tr.as-group > th { padding-top: 8px; border-bottom: 1px solid var(--line); background: var(--line-2); color: var(--ink); }
 .ip-assume-list .sub.warn { display: block; color: var(--warn, #9a3412); }
 .cg-plan-to { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; font-size: 0.9rem; }
 .cg-premises .lv-grid > .lever.plan-diff { border-left: 4px solid var(--prop); padding-left: 9px; }
@@ -1756,65 +1833,132 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .ih-imports-list .hs-tools { justify-content: flex-start; flex-wrap: wrap; }
 .ih-imports-list { margin: 0 0 12px; }
 .ih-imports-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-/* 事務所の既定値（0073） */
-.os-panel { max-width: 720px; }
-.os-sec { margin: 14px 0 0; }
-/* 目次: 意味のまとまりの組ごとに見出しを付けてリンクを縦に並べる。広い幅では組を横に並べ、狭い幅では1列 */
-.os-toc { margin: 8px 0 4px; padding: 8px 12px; border: 1px solid var(--line-2); border-radius: var(--radius); font-size: 0.86rem; }
-.os-toc-title { margin: 0 0 4px; font-weight: 700; font-size: 0.88rem; }
-.os-toc-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 8px 20px; }
-.os-toc-h { margin: 0 0 2px; font-size: 0.8rem; font-weight: 700; color: var(--ink-2); }
-.os-toc-group ul { list-style: none; margin: 0; padding: 0; }
-.os-toc-group li { margin: 1px 0; line-height: 1.35; }
-.os-toc-group .link-btn { text-align: left; }
-.os-sec h3 { font-size: 0.96rem; margin: 0 0 6px; }
-.os-cards { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 20px; }
-.os-cards li { display: flex; gap: 8px; align-items: center; padding: 3px 0; break-inside: avoid; font-size: 0.88rem; }
+/* 事務所の既定値の画面（0073・0261）: 7つの画面を左の目次で行き来する中央のパネル（入力項目のパネルと同じ形の頭・下の帯）。
+   文字は入力項目のパネルと同じ5段＋印（:root の --type-*。0261 の追記。欄の部品の大きさは「文字の5段＋印」の区切りの .type-scale の決まり）。欄は入力項目の部品（.fld・.seg-g.fld-seg・.fld.is-check。0236・0240）をそのまま使う。
+   余白: 区画の間 24px・見出しと中身 8px・欄の間 縦14px 横24px・枠の内側 12〜16px */
+.os-panel { width: min(1080px, calc(100vw - 32px)); height: min(92vh, 980px); max-height: none; }
+html.big .os-panel { width: min(1180px, calc(100vw - 32px)); }
+.os-panel:focus { outline: none; }
+.os-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 14px; align-items: center; padding: 12px 18px 10px; border-bottom: 1px solid var(--line-2); flex: none; }
+.os-head h2 { margin: 0; font-size: var(--type-1); display: flex; align-items: center; gap: 8px; }
+.os-head > .x-btn { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+.os-head-lead { margin: 0; grid-column: 1; font-size: var(--type-5); color: var(--ink-2); }
+.os-wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
+/* 左の目次: 画面の名前（段4）と今の値の要約。保存していない画面は橙の点、直す所のある画面は赤の点 */
+.os-nav { overflow-y: auto; background: var(--base-bg); border-right: 1px solid var(--line-2); padding: 12px 10px; }
+.os-nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.os-nav li.os-nav-sep { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.os-nav-item { display: grid; gap: 2px; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 8px; padding: 8px 10px; color: var(--ink); cursor: pointer; font: inherit; }
+.os-nav-item:hover { background: var(--card); }
+.os-nav-item.on { background: var(--card); box-shadow: inset 4px 0 0 var(--prop); }
+.os-nav-item:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; }
+.os-nav-name { display: flex; align-items: center; gap: 6px; font-size: var(--type-4); font-weight: 700; }
+.os-nav-item.on .os-nav-name { color: var(--prop-ink); }
+.os-nav-sum { font-size: 0.76rem; line-height: 1.45; color: var(--ink-2); }
+.os-nav-badge { justify-self: start; margin-top: 2px; font-size: var(--type-mark); font-weight: 700; border-radius: 3px; padding: 0 5px; color: var(--est-ink); background: var(--est-bg); }
+.os-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--est); }
+.os-dot.bad { background: var(--short); }
+.os-nav-row { display: none; }
+.os-main { overflow-y: auto; min-width: 0; padding: 4px 22px 24px; overscroll-behavior: contain; scroll-padding: 24px 0 72px; }
+.os-page-h { margin: 14px 0 0; }
+.os-page-title { margin: 0; font-size: var(--type-1); display: flex; align-items: center; gap: 8px; }
+.os-lead { margin: 4px 0 0; font-size: var(--type-5); line-height: 1.55; color: var(--ink-2); }
+/* 区画（段2。左の線＋太字）とまとまり（段3。枠） */
+.os-sec { margin: 24px 0 0; }
+.os-h { margin: 0; font-size: var(--type-2); font-weight: 700; border-left: 4px solid var(--prop); padding-left: 8px; display: flex; align-items: center; gap: 8px; }
+.os-grp { border: 1px solid var(--card-line); border-radius: 9px; padding: 12px 16px 14px; margin: 8px 0 0; background: var(--wash, #fcfcfb); }
+.os-grp-h { margin: 0 0 8px; font-size: var(--type-3); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.os-sub-h { margin: 14px 0 8px; font-size: var(--type-5); font-weight: 700; color: var(--ink-2); }
+.os-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; }
+.os-fields.os-cols3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.os-fields.os-cols4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 20px; }
+.os-fields.os-sep { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--card-line); }
+.os-gap-top { margin-top: 14px; }
+/* 欄（入力項目の部品）の文字は段4・欄の下の1行は段5。名前が2行に折れても欄の高さをそろえる */
+.os-panel .fld-l { min-height: 1.5em; }
+.os-panel .fld-help { margin-top: 4px; }
+.os-panel .fld-c input.num { width: 6.5em; }
+.os-panel .fld-in > input.num { flex: 0 1 6.5em; min-width: 4em; }
+.os-fields.os-cols4 .fld-c input.num, .os-fields.os-cols4 .fld-in > input.num { width: 5em; flex-basis: 5em; }
+/* 文字の欄・選ぶ欄は、どれも入力項目の欄と同じ枠・角・高さにする（ブラウザの素の形にしない） */
+.os-panel :is(input[type="text"], input[type="search"], input[type="number"], input:not([type]), select, textarea) { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--card); color: var(--ink); font: inherit; font-size: var(--type-4); min-width: 0; max-width: 100%; }
+.os-panel input.num { text-align: right; font-variant-numeric: tabular-nums; }
+.os-panel input.num.os-num-xs { width: 3.6em; }
+.os-panel input.num.os-num-s { width: 5em; }
+.os-panel input.txt.os-wide { width: 100%; max-width: none; }
+.os-panel :is(input[type="text"], input[type="search"], input[type="number"], input:not([type])).bad { border-color: var(--short); background: var(--short-bg); }
+.os-panel input[type="checkbox"], .os-panel input[type="radio"] { width: 18px; height: 18px; accent-color: var(--prop); }
+.os-note { display: block; font-size: var(--type-5); font-weight: 400; color: var(--ink-2); }
+.os-note-line { margin: 8px 0 0; font-size: var(--type-5); color: var(--ink-2); }
+.os-note-line.bad { color: var(--short-ink); font-weight: 700; }
+.os-muted { font-size: var(--type-5); color: var(--ink-2); }
+.os-acts { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.os-page-reset { margin: 28px 0 0; padding-top: 12px; border-top: 1px solid var(--line-2); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.os-page-reset .os-note { display: inline; }
+/* チェックの並び（対策・場面・想定の前提・推定で埋めない欄）: 入力項目のチェックの欄（四角が左・名前が右）を並べる */
+.os-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 24px; }
+.os-checks.os-checks-wide { grid-template-columns: minmax(0, 1fr); }
+.os-checks .fld-c.fld-check { min-height: 0; }
+.os-check-group + .os-check-group { margin-top: 4px; }
+/* 並べ替えと、新しい世帯で出す入力項目の一覧（名前は縮めず、右の切り替えが入らないときは名前の下の行へ回す） */
+.os-cards { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 24px; }
+.os-cards li { display: flex; gap: 8px; align-items: center; padding: 4px 0; break-inside: avoid; font-size: var(--type-4); border-bottom: 1px solid var(--line-2); }
 .os-name { flex: 1; }
-/* 事務所の既定値のチェックボックスの一覧（対策・想定の前提・入力項目）: 名前は縮めず、チェックボックスと同じ行に置く。
-   右の説明・切り替えが同じ行に入らないときは、名前の下の行へ回して説明の側を折り返す（文字の大きさ「大」・狭い幅でも崩さない） */
 .os-items li { flex-wrap: wrap; row-gap: 2px; }
 .os-items .os-show { flex: 1 0 auto; max-width: 100%; flex-wrap: nowrap; }
 .os-items .os-show > input { flex: none; }
 .os-items .os-show > .os-name { flex: 0 1 auto; min-width: 0; }
 .os-items li > .os-note { flex: 0 1 auto; min-width: 0; margin-left: auto; text-align: right; }
 .os-items li > .level-switch { flex: none; margin-left: auto; }
-.os-radio { display: flex; gap: 6px; align-items: baseline; font-size: 0.88rem; margin: 3px 0; }
-.os-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 16px; }
-.os-pct { display: grid; gap: 2px; font-size: 0.88rem; }
-/* 前提条件の既定値の不動産の評価・資産の種類ごとの利回り: 世帯の前提条件と同じ3列の小さな欄の並び（0214 の4） */
-.os-premise + .os-premise { margin-top: 12px; }
-.os-premise h4 { font-size: 0.9rem; margin: 8px 0 2px; }
-.os-grid.os-compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 14px; }
-.os-grid.os-compact .os-in input { width: 5em; }
-.os-in input { width: 6em; margin-right: 4px; }
-.os-pct small { color: var(--ink-2); font-size: 0.76rem; }
-/* 資産配分の資産の種類ごとの割合と信託報酬（0252） */
-.os-mix { border-collapse: collapse; font-size: 0.88rem; }
-.os-mix th, .os-mix td { padding: 4px 12px 4px 4px; border-bottom: 1px solid var(--line-2); text-align: right; white-space: nowrap; }
-.os-mix th { font-size: 0.8rem; color: var(--ink-2); font-weight: 600; }
+/* 前提条件の既定値: 資産配分の割合と目安の表（0252。狭い幅では横に動かして見る） */
+.os-mix-wrap { overflow-x: auto; }
+.os-mix { width: 100%; max-width: 680px; border-collapse: collapse; font-size: var(--type-4); }
+.os-mix th, .os-mix td { padding: 5px 4px; border-bottom: 1px solid var(--line-2); text-align: right; white-space: nowrap; }
+.os-mix thead th { font-size: var(--type-5); font-weight: 700; color: var(--ink-2); vertical-align: bottom; white-space: normal; }
 .os-mix .l { text-align: left; }
-.os-mix .os-in input { width: 5em; }
-.os-mix tfoot th, .os-mix tfoot td { font-weight: 700; color: var(--ink); }
-.os-mix td.sum-ng { color: var(--short-ink); }
-/* 万一のときのタブの既定（0085）: 長い選択肢は欄の幅で切る */
-.os-pct select { max-width: 100%; min-width: 0; }
-[data-office-contingency] .os-lever-group > .os-pct { margin-top: 6px; }
-@media (max-width: 640px) { .os-cards { columns: 1; } }
-/* 機能を有効にするコード（0110）: 区画の「○○さん向けに有効」と、いちばん下の目立たない入れ口 */
-.os-feat-on { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 0.86rem; font-weight: 700; margin: 6px 0 2px; }
+.os-mix tbody th.l { font-weight: 700; color: var(--ink-2); white-space: normal; }
+.os-mix .fld-in { justify-content: flex-end; }
+.os-panel .os-mix input.num { width: 4.4em; padding: 4px 6px; }
+/* FP顧問料の料金の段階 */
+.os-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.os-steps li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+/* 推定の値の2つのタブ・まとまりで絞るボタン */
+.os-tabs { display: flex; flex-wrap: wrap; gap: 2px; margin: 16px 0 0; border-bottom: 2px solid var(--line-2); }
+.os-tabs [role="tab"] { border: 0; background: transparent; padding: 8px 14px 7px; margin-bottom: -2px; border-bottom: 3px solid transparent; font: inherit; font-size: var(--type-4); font-weight: 700; color: var(--ink-2); cursor: pointer; }
+.os-tabs [role="tab"][aria-selected="true"] { color: var(--prop-ink); border-bottom-color: var(--prop); }
+.os-tabs [role="tab"]:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; }
+.os-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+/* 下の帯（保存していない変更・キャンセル・保存） */
+.os-foot .ip-note { font-size: var(--type-5); }
+.os-foot-bad { display: block; color: var(--short-ink); font-weight: 700; }
+/* アプリの幅が狭いとき: 左の目次を上の1行（選ぶ欄）にたたむ */
+@media (max-width: 860px) {
+  .os-wrap { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .os-nav { display: none; }
+  .os-nav-row { display: flex; align-items: center; gap: 8px; padding: 8px 18px; border-bottom: 1px solid var(--line-2); background: var(--base-bg); }
+  .os-nav-row label { font-size: var(--type-5); font-weight: 700; color: var(--ink-2); }
+  .os-nav-row select { flex: 1; }
+  .os-main { padding: 0 16px 20px; }
+  .os-fields.os-cols3, .os-fields.os-cols4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .os-fields, .os-fields.os-cols3, .os-fields.os-cols4 { grid-template-columns: minmax(0, 1fr); }
+  .os-cards { columns: 1; }
+}
+/* 機能を有効にするコード（0110）: 区画の「○○さん向けに有効」と入れ口 */
+.os-feat-on { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 0.86rem; font-weight: 700; margin: 10px 0 2px; }
 .os-feat-on .link-btn { font-weight: 400; font-size: 0.8rem; }
 /* 文の後ろに続く確かめ（コードを外す・公式に戻す。0243）: 文と2つのボタンの間を空け、ボタンは2つ一緒に折り返す */
 .os-ask { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
 .os-ask-acts { display: inline-flex; gap: 12px; white-space: nowrap; }
-.os-code { margin: 18px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
-.os-code-link { font-size: 0.78rem; color: var(--ink-2); }
+.os-code { margin: 8px 0 0; }
 .os-code-expired { display: block; margin: 6px 0; }
 .os-code-expired > p { margin: 0; }
 p.os-code-expired .link-btn { margin-left: 6px; }
 /* 切れた・止めたの知らせの「閉じる」「このコードを外す」は、文の下に並べる（0110 の追記 2026-11-02） */
 .os-code-expired-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 2px; }
-.os-code-label { display: grid; gap: 4px; font-size: 0.86rem; }
+.os-code-form { display: grid; gap: 10px; margin-top: 8px; }
+.os-panel textarea.os-code-text { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; word-break: break-all; }
 /* 止めた一覧の確かめの様子と、AIからのコードの候補（0110 の追記・0015 の追記の2段目）: 入れる前と後を並べる */
 .os-code-check { display: block; }
 .os-code-check .link-btn { margin-left: 6px; }
@@ -1842,21 +1986,22 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-custom-diff td, .os-custom-diff th { vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
 .os-custom-box { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 6px; }
 .os-custom-box.pending { border-color: var(--est-band); background: var(--est-bg); }
-/* 事務所の推定の値（0111。office/EstimatesSection.tsx） */
-.os-est-find { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 6px 0; }
+/* 事務所の推定の値（0111。office/EstimatesSection.tsx）: 名前・値・操作の3列の一覧（狭い幅では縦に） */
+.os-est-find { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin: 12px 0 0; }
 .os-est-find input[type="search"] { flex: 1 1 260px; min-width: 0; }
-.os-est-find select { max-width: 100%; }
-.os-est-find .os-show { flex: 0 1 auto; white-space: nowrap; }
-.os-est-list { list-style: none; margin: 4px 0 0; padding: 0; }
-.os-est-list > li { padding: 5px 0; border-bottom: 1px solid var(--line-2); font-size: 0.86rem; }
+.os-est-find .os-show { flex: 0 1 auto; white-space: nowrap; font-size: var(--type-5); }
+.os-est-head, .os-est-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 11em; gap: 4px 16px; align-items: baseline; }
+.os-est-head { margin: 10px 0 0; padding: 0 0 4px; border-bottom: 1px solid var(--line); font-size: var(--type-5); font-weight: 700; color: var(--ink-2); }
+.os-est-list { list-style: none; margin: 0; padding: 0; }
+.os-est-list > li { padding: 7px 0; border-bottom: 1px solid var(--line-2); font-size: var(--type-4); }
 .os-est-list > li.office { border-left: 3px solid var(--est-band); padding-left: 8px; }
-.os-est-row { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; }
-.os-est-name { flex: 1 1 260px; min-width: 0; display: grid; }
+.os-est-row > .link-btn { justify-self: end; text-align: right; }
+.os-est-name { min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
+.os-est-name .help { margin-left: 4px; }
 .os-est-id { color: var(--ink-2); font-size: 0.72rem; overflow-wrap: anywhere; }
-.os-est-vals { flex: 1 1 220px; min-width: 0; display: grid; color: var(--ink-2); font-size: 0.8rem; }
+.os-est-vals { min-width: 0; display: grid; color: var(--ink-2); font-size: var(--type-5); font-variant-numeric: tabular-nums; }
 .os-est-office { color: var(--ink); font-weight: 700; }
-.os-est-editor { margin: 6px 0 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); display: grid; gap: 6px; }
-.os-est-editor .os-pct input[type="text"] { width: 100%; }
+.os-est-editor { margin: 8px 0 4px; padding: 12px 16px; border: 1px solid var(--card-line); border-radius: 9px; background: var(--wash, #fcfcfb); display: grid; gap: 10px; }
 .os-est-table input { width: 9em; }
 .os-est-actions { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 2px 0 0; }
 .os-est-update p { margin: 0 0 2px; font-size: 0.84rem; }
@@ -1870,17 +2015,13 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-est-update-effects { margin: 2px 0 0; padding-left: 1.2em; }
 .os-est-muted { color: var(--ink-2); font-size: 0.8rem; }
 .os-est-preview-rows { margin: 4px 0 0; padding-left: 1.2em; font-size: 0.82rem; }
-.os-est-nofill { list-style: none; margin: 0; padding: 0; }
-.os-est-nofill li { padding: 4px 0; border-bottom: 1px solid var(--line-2); font-size: 0.86rem; }
-.os-est-nofill label { display: flex; gap: 6px; align-items: baseline; }
-.os-est-nofill small { display: block; margin-left: 1.7em; color: var(--ink-2); font-size: 0.76rem; }
+@media (max-width: 700px) { .os-est-head { display: none; } .os-est-row { grid-template-columns: minmax(0, 1fr); } .os-est-row > .link-btn { justify-self: start; } }
 .os-custom-issues { margin: 4px 0; padding-left: 1.2em; }
 .os-custom-stop { display: block; font-weight: 400; }
 /* AIからのコードの候補が届いている帯（画面の上） */
 .ai-code-band { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--card); font-size: 0.86rem; }
 /* 資産と負債のタブ: コードの期限が切れて見られなくなった見るものの知らせ（0110） */
 .bs-hidden-note { margin: 0 0 10px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 0.86rem; color: var(--ink-2); }
-.os-code-label textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; word-break: break-all; }
 /* 面談の準備（世帯の中身の一覧・次の1年・前回から変わったこと）と結果のタブのポイント（0074。前の名前は気づき） */
 .fp-tools { justify-content: flex-start; }
 .fp-panel { flex-basis: 100%; margin-top: 6px; }
@@ -1983,16 +2124,15 @@ html.big .help-pop { font-size: 0.92rem; }
 .os-lv { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px 18px; align-items: start; }
 @media (max-width: 640px) { .os-lv { grid-template-columns: minmax(0, 1fr); } }
 .os-lv-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.os-lv-row { border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 8px; display: grid; gap: 4px; font-size: 0.88rem; }
+.os-lv-row { border: 1px solid var(--card-line); border-radius: 9px; padding: 8px 12px; display: grid; gap: 6px; font-size: var(--type-4); background: var(--wash, #fcfcfb); }
 .os-lv-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
 .os-lv-name { flex: 1 1 9em; min-width: 0; }
 .os-lv-btns { display: flex; flex-wrap: wrap; gap: 2px 8px; }
 .os-lv-parts { display: grid; gap: 4px; padding-left: 1.2em; border-left: 2px solid var(--line-2); }
 .os-lv-part { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
 .os-lv-part > input { flex: 1 1 8em; min-width: 0; }
-.os-lv-part .os-in input { width: 3.5em; }
-.os-lv-preview { font-size: 0.86rem; position: sticky; top: 0; }
-.os-lv-preview h4 { margin: 0 0 4px; font-size: 0.88rem; }
+.os-lv-preview { font-size: var(--type-4); position: sticky; top: 0; }
+.os-lv-preview h5 { margin: 0 0 4px; }
 .os-lv-preview table { width: 100%; border-collapse: collapse; }
 .os-lv-preview th, .os-lv-preview td { padding: 2px 4px; border-bottom: 1px solid var(--line-2); text-align: left; font-weight: 400; }
 .os-lv-preview td { text-align: right; white-space: nowrap; }
@@ -2005,9 +2145,6 @@ html.big .help-pop { font-size: 0.92rem; }
 .ds-office .link-btn { font-size: 0.78rem; }
 .ds-marks { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 8px; font-size: 0.85rem; color: var(--ink-2); }
 .ds-marks > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
-.os-sec h4.os-sub { margin: 12px 0 4px; font-size: 0.92rem; }
-[data-office-display] .os-pct select { justify-self: start; width: auto; }
-[data-office-display] .os-pct { flex: 1 1 260px; }
 
 /* 打って一覧から選ぶ欄（学校名など。FieldViews.tsx の SearchPicker。0217） */
 .pick { position: relative; display: inline-block; width: min(26em, 100%); }

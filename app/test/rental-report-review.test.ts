@@ -1,4 +1,4 @@
-// 収益不動産を持つ見本の世帯（見本「収益不動産を持つ会社員の夫婦と子1人」。data/modelHouseholds/rentalSample.json。架空）と、その見本で見つかった画面の直し（0127）:
+// 収益不動産を持つ見本の世帯（見本「収益不動産を持つ会社員の夫婦」。data/modelHouseholds/rentalSample.json。架空）と、その見本で見つかった画面の直し（0127）:
 // 見本の一覧に入っていること、表の行で住まいのローンと不動産のローンを分ける、収支の推移の「不動産」の色、数字の根拠の物件ごとの内訳と
 // 使った制度の値、収益不動産のタブの減価償却が終わる年と残りの耐用年数、ライフイベントの物件の売却・大きな修繕
 import { readdirSync } from "node:fs";
@@ -45,7 +45,7 @@ function idsOf(rq: EngineRequest): string[] {
   return out;
 }
 
-describe("見本の一覧の「収益不動産を持つ会社員の夫婦と子1人（見本）」", () => {
+describe("見本の一覧の「収益不動産を持つ会社員の夫婦」", () => {
   const demo = DEMO_HOUSEHOLDS.find((d) => d.id === ID) as DemoHousehold;
 
   it("ファイナンシアの見本として一覧に1件あり（夫婦と子・40代）、ID は UUID 第4版でほかのモデル世帯と重ならない。物件名・メモは架空", () => {
@@ -80,7 +80,7 @@ describe("見本の一覧の「収益不動産を持つ会社員の夫婦と子1
 
 describe("世帯ファイルの形式の今の版で開ける", () => {
   it("見本を開いて世帯ファイルの本文にし、読み戻すと同じ（今の版。変換の段を通らずに読める）", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.91");
+    expect(BODY_FORMAT_VERSION).toBe("0.92");
     const wh = fromRequest(req);
     const text = bodyOf({ wh, workspace: { template: ID, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY });
     const back = fromBody(text);

@@ -105,7 +105,6 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "rental:rental/taxReturn/*/blueDeduction", why: "青色申告特別控除の55万円・65万円は、事業的規模か事業所得があるときだけ" },
   { shape: "inheritance:inherit/tax/unassignedShare", why: "名義を入れていない財産があるときだけ" },
   { shape: "inheritance:inherit/tax/override/contingency/*", why: "万一のタブの相続税の目安だけ" },
-  { shape: "assumptions:assume/investmentReturn", why: "自分の利回りも資産の配分も無い口座があるときだけ" },
   { shape: "assumptions:assume/realEstate/landShare", why: "物件ごとの土地の割合が無い持ち家・物件があるときだけ" },
   { shape: "assumptions:assume/realEstate/life/lightSteel", why: "その構造の持ち家があるときだけ" },
   { shape: "assumptions:assume/realEstate/life/steel", why: "その構造の持ち家があるときだけ" },

@@ -23,6 +23,7 @@ import { ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS } from "../src/workspace/off
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold, preview } from "./helpers.ts";
+import { INVESTMENT_RETURN_LABEL } from "../src/workspace/input/premiseDefaults.ts";
 
 const IDS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
   .filter((f) => f.endsWith(".json"))
@@ -32,13 +33,14 @@ const IDS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
 const BY_LABEL: Readonly<Record<string, PctRange>> = {
   "物価の上昇率": GROWTH_RANGE,
   "給与の上昇率": GROWTH_RANGE,
-  "教育費の上昇率（年）": GROWTH_RANGE,
-  "運用の利回り": RETURN_RANGE,
-  "年金の調整率（基礎年金・年）": SLIDE_RANGE,
-  "年金の調整率（厚生年金・年）": SLIDE_RANGE,
+  教育費の上昇率: GROWTH_RANGE,
+  // 運用の利回り（0260 で世帯の画面から外した。例外の年のある世帯には詳細に1行で出る）
+  [INVESTMENT_RETURN_LABEL]: RETURN_RANGE,
+  "年金の調整率（基礎年金）": SLIDE_RANGE,
+  "年金の調整率（厚生年金）": SLIDE_RANGE,
   // 資産の種類ごとの利回り（0214 で種類の名前の欄の並びにした）
   国内株式: RETURN_RANGE,
-  "土地の上昇率（年）": GROWTH_RANGE,
+  土地の上昇率: GROWTH_RANGE,
   "利回り（年）": RETURN_RANGE,
   "平均の利回り（年）": RETURN_RANGE,
   "評価額の増減率（年）": RETURN_RANGE,
@@ -295,6 +297,9 @@ describe("率の欄の範囲（0098）", () => {
     expect(html).toMatch(/data-office-setting-problem="investmentReturn"[^>]*>15%より大きい値は設定できません。</);
     expect(html).toMatch(/data-office-setting-problem="wageGrowth"[^>]*>-10%より小さい値は設定できません。</);
     expect(html).not.toContain('data-office-setting-problem="inflation"');
-    expect(html).toContain("運用利回りは -10〜15%");
+    // 範囲は欄の「?」の中（配分も利回りも入れていない運用の口座〔前の運用利回り〕は -10〜15%）。直す所があるあいだは保存できない
+    expect(html).toContain("-10%〜15%の範囲で入れます。");
+    expect(html).toContain("data-office-problems");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*data-office-settings-save/);
   });
 });

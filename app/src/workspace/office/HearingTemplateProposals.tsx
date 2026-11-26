@@ -1,4 +1,4 @@
-// AIからの Web のヒアリングのひな形の案（0222。接続口の propose_hearing_template）: 事務所の既定値の画面のいちばん上に、案ごとに名前・票・聞く項目・
+// AIからの Web のヒアリングのひな形の案（0222。接続口の propose_hearing_template）: 事務所の既定値の「入力の画面」のいちばん上に、案ごとに名前・票・聞く項目・
 // 独自の質問・頼む書類と AI の理由を出し、「ひな形として保存する」か「捨てる」を選ぶ。保存したときだけ事務所のひな形（hearingTemplates）に入る。
 // AI が書いた名前・独自の質問・理由は信用しない文章として文字のまま出す（番号らしい所は書類の候補と同じ決まりで消してある）
 import type { AiHearingTemplateCandidate } from "../../engine/host.ts";
@@ -33,7 +33,7 @@ export function HearingTemplateProposals({ candidates, templates, onSave, onDisc
   if (candidates.length === 0) return null;
   return (
     <section class="os-sec" aria-labelledby="os-hearing-proposals" data-ai-hearing-templates>
-      <h3 id="os-hearing-proposals">AIからのヒアリングのひな形の案</h3>
+      <h4 id="os-hearing-proposals" class="os-h">AIからのヒアリングのひな形の案</h4>
       <p class="pl-sub">URL で聞くときの「カスタム」に入る組み合わせの案です。「ひな形として保存する」を押したときだけ、事務所のひな形に入ります（{TEMPLATE_MAX}件まで）。</p>
       {candidates.map((c) => {
         const v = readTemplateProposal(c, templates, TEMPLATE_MAX);

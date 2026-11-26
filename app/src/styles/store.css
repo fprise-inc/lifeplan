@@ -34,8 +34,16 @@
 /* 見本の棚の種類の見出し（「ファイナンシアの見本」「自分で作った見本」など。出ている種類が2つ以上のときだけ。0247 の2）: 表の列の見出しより控えめに、上を空けて区切る */
 .hh-shelf .hh-group th { background: none; padding: 14px 8px 4px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); border-bottom: 1.5px solid var(--line); }
 .hh-shelf tbody:first-of-type .hh-group th { padding-top: 6px; }
-/* 見本を開いているときの帯（動かしても見本は変わらない） */
+/* 見本を開いているときの帯（変えた内容は見本に残る。直した版なら「最初の状態に戻す」。0247 の4〜6） */
 .sample-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px dashed var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
+/* 帯の下の一行（閲覧だけで保存しない・元の見本が新しくなった・保存できなかった）は、行を変えて帯の幅いっぱいに */
+.sample-band-note { flex-basis: 100%; }
+.sample-band-error { color: var(--short-ink); font-weight: 700; }
+.sample-band-error .link-btn { margin-left: 8px; font-weight: 400; }
+/* 見本の一覧の、直した見本の印と、元の見本が新しくなった一言（名前の右・下） */
+.hh-shelf .hh-changed { margin-left: 6px; vertical-align: 1px; }
+.hh-shelf .hh-stale { display: block; margin-top: 2px; white-space: normal; }
+.hh-editable-notice { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; }
 .hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }
 /* 一覧の行を1行にそろえる（0244）。顧客番号の右の印（架空・自由な番号）は番号の右に並べ、隣の列に重ねない。
    幅が足りないときは、番号は折らずに印だけを番号の下へ送る（長い自由な番号で番号の欄が広がり、ほかの欄を押さないように） */
@@ -138,22 +146,17 @@ html.big .rk-key { font-size: 1.45rem; }
 .sp-second { border: 2px solid var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 12px; margin: 6px 0 10px; }
 .sp-second p { margin: 4px 0; }
 
-/* 事務所の既定値の「対策に最初から出す項目」（0084。パネルのほかの区画は app.css の .os-） */
-.os-lever-group h4 { font-size: 0.84rem; font-weight: 700; color: var(--ink-2); margin: 8px 0 2px; }
-.os-lever-group .os-note { color: var(--ink-2); font-size: 0.76rem; }
-
-/* 事務所の見た目（0121。事務所の既定値のパネルの区画） */
+/* 事務所の見た目（0121。事務所の既定値の「事務所の見た目と機能」の区画） */
 .os-brand-logo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 36px; }
 .os-logo-prev { border: 1px dashed var(--line); border-radius: 4px; }
 .os-logo-none { color: var(--ink-2); font-size: 0.88rem; }
-.os-brand-colors { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin: 10px 0 4px; }
-.os-brand-k { font-weight: 700; font-size: 0.9rem; margin-right: 4px; }
+.os-brand-colors { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
 .os-swatch { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 0.86rem; font-weight: 700; cursor: pointer; }
 .os-swatch[aria-checked="true"] { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink); }
 .os-swatch-c { width: 1.3em; height: 1.3em; border-radius: 50%; display: inline-block; border: 1px solid rgba(0, 0, 0, 0.15); }
 .os-swatch-free { cursor: default; padding: 2px 6px 2px 4px; }
 .os-swatch-free input[type="color"] { width: 1.9em; height: 1.6em; border: 0; padding: 0; background: none; cursor: pointer; }
-.os-hex { width: 6.2em; font-family: ui-monospace, monospace; font-size: 0.85rem; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; background: var(--card); }
+.os-panel input.os-hex { width: 6.2em; font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 1px 6px; }
 .os-brand-notes { margin: 6px 0; padding: 6px 10px 6px 26px; border-radius: 8px; background: var(--est-bg); color: var(--est-ink); font-size: 0.86rem; }
 .os-brand-notes.bad { background: var(--short-bg); color: var(--short-ink); font-weight: 700; }
-.os-in .os-brand-name { width: 16em; max-width: 100%; text-align: left; }
+.os-panel .fld-c input.os-brand-name { width: 18em; max-width: 100%; }

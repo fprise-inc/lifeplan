@@ -1,6 +1,6 @@
-// 前提条件は事務所の既定値で決め、世帯では「事務所の既定値」か「この世帯だけ」と見せる（0214）:
-// 事務所データの形（版 2・版 1 も読む）、新しい世帯に写す、欄の印と「事務所の既定値に戻す」、たたんだ1行の数、事務所の既定値を変えたときの知らせ、
-// 古い世帯の読み方、見本の世帯の計算の結果が変わらないこと、事務所の既定値の画面の3つの区画
+// 前提条件は事務所の既定値で決め、世帯では違う欄だけ「この世帯だけ」と見せる（0214・0260）:
+// 事務所データの形（版 2・版 1 も読む）、新しい世帯に写す、欄の印と「事務所の既定値に戻す」、ふつうの欄の形（区画・標準と詳細・例外の年のリンク）、
+// 事務所の既定値を変えたときの知らせ、古い世帯の読み方、見本の世帯の計算の結果が変わらないこと、事務所の既定値の画面の3つの区画
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { h } from "preact";
@@ -12,9 +12,9 @@ import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { inputItems } from "../src/workspace/input/items.ts";
-import { PREMISE_DEFS, premiseCounts, premiseOfId, premiseSummary } from "../src/workspace/input/premiseDefaults.ts";
+import { INVESTMENT_RETURN_LABEL, PREMISE_DEFS, premiseCounts, premiseOfId } from "../src/workspace/input/premiseDefaults.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { assumptionsStage, inPremiseFold } from "../src/workspace/input/stages/assumptions.ts";
+import { assumptionsStage, investmentReturnShown, PREMISE_HEAD_NOTE } from "../src/workspace/input/stages/assumptions.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { setOfficeNow, STANDARD_OFFICE_NOW } from "../src/workspace/office/current.ts";
 import { OfficeSettingsPanel } from "../src/workspace/office/OfficeSettingsPanel.tsx";
@@ -119,17 +119,18 @@ describe("新しい世帯に写す・欄の印", () => {
       expect(wh.assumed[key], key).toBe("事務所の既定値（2026-11）");
       expect(fieldStatus(fieldOf(wh, key), wh), key).toMatchObject({ status: "confirmed", basis: null, premise: { state: "office", decided: true } });
     }
-    expect(premiseSummary(wh)).toBe("細かい前提: 事務所の既定値どおり（この世帯だけ変えた所 0件）");
+    expect(premiseCounts(wh)).toEqual({ own: 0, changed: 0 });
     expect(inputItems(wh).find((i) => i.id === "assumptions")?.status).toBe("std");
     // 耐用年数 30年は計算に効く（22年と違う）
     const base = withHome(blankHousehold("2026-11", ids()));
     expect(JSON.stringify(preview(wh.request).table)).not.toBe(JSON.stringify(preview(base.request).table));
   });
 
-  it("欄に「事務所の既定値」。値を変えると「この世帯だけ」と「事務所の既定値に戻す」。戻すと元の形", () => {
+  it("事務所の既定値どおりの欄に印を出さない。値を変えると「この世帯だけ」と「事務所の既定値に戻す」。戻すと元の形（0260）", () => {
     const wh = withHome(blankHousehold("2026-11", ids()));
     let html = panel(wh, { focusKey: "assume/realEstate/life/wood" });
-    expect(html).toContain('data-premise="office"');
+    expect(html).not.toContain('data-premise="office"');
+    expect(html).not.toContain(">事務所の既定値<");
     // 耐用年数の欄には「この値にする」が無い（推定でない）
     const at = html.indexOf('data-field="assume/realEstate/life/wood"');
     expect(html.slice(at, html.indexOf("data-field=", at + 10))).not.toContain("data-fill-estimate");
@@ -140,7 +141,7 @@ describe("新しい世帯に写す・欄の印", () => {
     html = panel(own, { focusKey: "assume/realEstate/life/wood" });
     expect(html).toContain('data-premise="household"');
     expect(html).toContain(">この世帯だけ<");
-    expect(html).toContain("事務所の既定値に戻す");
+    expect(html).toContain("事務所の既定値（22年）に戻す");
     const back = premiseOf(own, "assume/realEstate/life/wood")!.reset(own);
     expect(back.request).toEqual(wh.request);
     expect(back.assumed).toEqual(wh.assumed);
@@ -161,98 +162,111 @@ describe("新しい世帯に写す・欄の印", () => {
   });
 });
 
-describe("お客さまと確かめる前提とたたんだ1行（0214 の4・その追記 2026-11-16）", () => {
-  const TALK = ["assume/inflation", "assume/wageGrowth", "assume/investmentReturn", "assume/endYear"];
+describe("ふつうの欄の形（0260。前の「お客さまと確かめる前提」の見出しと、細かい前提をたたむ1行をやめた）", () => {
   const at = (html: string, key: string) => html.indexOf(`data-field="${key}"`);
+  const box = (html: string, key: string) => html.slice(at(html, key), html.indexOf("data-field=", at(html, key) + 12));
 
-  it("お客さまと確かめる前提の4つは、標準・詳細のどちらでもたたまずに最初の区画に出し、欄の下に一言", () => {
+  it("標準: 計算の期間（表を何歳まで見るか）・経済の前提（物価・給与の上昇率）・FP顧問料・一覧。運用の利回りと細かい前提は出さない。頭に1文", () => {
     const wh = blankHousehold("2026-11", ids());
-    for (const level of ["simple", "detail"] as const) {
-      const html = panel(wh, { level });
-      expect(html, level).toContain('data-section="assume/main"');
-      expect(html, level).toContain("お客さまと確かめる前提");
-      for (const k of TALK) {
-        expect(at(html, k), `${level} ${k}`).toBeGreaterThan(0);
-        expect(html, `${level} ${k}`).toContain(`data-field-talk="${k}"`);
-      }
-      // 名前はお客さまの前で読める言葉
-      for (const name of ["物価の上昇率", "給与の上昇率", "運用の利回り", "表を何歳まで見るか"]) expect(html, level).toContain(`>${name}</label>`);
-      expect(html, level).toContain("物価が年1%上がると、30年後の100万円は、今の約74万円の値打ちになります");
-      expect(html, level).toContain("給与が年1%上がると、今の年収500万円は20年後に約610万円になります（物価の上昇率と同じなので、暮らし向きは今と同じ計算です）");
-      expect(html, level).toContain("年1%で運用できると、100万円は10年後に約110万円、20年後に約122万円になります（運用の費用を引いた後、税を引く前の額）");
-      // FP顧問料はたたまない
-      expect(html, level).toContain("FP顧問料");
-    }
-    // 標準: 細かい前提は出さず、たたんだ1行も出さない
-    const simple = panel(wh, { level: "simple" });
-    expect(simple).not.toContain("data-premise-fold");
-    expect(simple).not.toContain('data-field="assume/depositReturn"');
-    expect(simple).not.toContain("預金の利回り・調整率などを決める");
+    const html = panel(wh, { level: "simple" });
+    expect(html).toContain(PREMISE_HEAD_NOTE);
+    for (const k of ["assume/period", "assume/economy"]) expect(html, k).toContain(`data-section="${k}"`);
+    for (const k of ["assume/endYear", "assume/inflation", "assume/wageGrowth"]) expect(at(html, k), k).toBeGreaterThan(0);
+    for (const k of ["assume/investmentReturn", "assume/depositReturn", "assume/educationInflation", "assume/pensionMacroSlide"]) expect(at(html, k), k).toBeLessThan(0);
+    expect(html).not.toContain("お客さまと確かめる前提");
+    expect(html).not.toContain("data-premise-fold");
+    expect(html).not.toContain("細かい前提");
+    // 標準では「▸ 続きを見る」も「＋ 例外の年」も出さない（詳細に切り替えて見る）
+    expect(html).not.toContain('data-group-more="assume/economy/fields"');
+    expect(html).not.toContain(">＋ 例外の年<");
+    expect(html).not.toContain("/ex/add");
+    expect(html).toContain("FP顧問料");
+    // 名前はお客さまの前で読める言葉
+    for (const name of ["物価の上昇率", "給与の上昇率", "表を何歳まで見るか"]) expect(html).toContain(`>${name}</label>`);
+    // 欄の下は「例」の1行（長い言い方は「?」の中）。表を何歳まで見るかは、何年分の表か
+    expect(box(html, "assume/inflation")).toContain("例 30年後の100万円は、今の約74万円の値打ち");
+    expect(box(html, "assume/wageGrowth")).toContain("例 年収500万円は、20年後に約610万円（物価と同じ）");
+    expect(fieldOf(wh, "assume/inflation").get(wh).talkHelp).toBe("物価が年1%上がると、30年後の100万円は、今の約74万円の値打ちになります");
+    expect(fieldOf(wh, "assume/endYear").get(wh)).toMatchObject({ hint: expect.stringMatching(/^2027年〜\d{4}年の\d+年分（ご本人\d+歳の年まで）$/), talkHelp: expect.stringContaining("長生きしても") });
+    expect(fieldOf(wh, "assume/endYear").get(wh).talk).toBeUndefined();
   });
 
-  it("詳細: 細かい前提（預金の利回り・調整率など・例外の年・不動産の評価・資産の種類ごとの利回り・計算の決まり）は1行にたたむ。この世帯だけの数・変わった数を数える", () => {
-    let wh = withHome(blankHousehold("2026-11", ids()));
+  it("詳細: たたまずに全部（経済の前提の6つ・資産の種類ごとの利回り・不動産の評価・計算の基準の月と計算の決まり）。例外の年は欄の下の小さなリンク", () => {
+    const wh = withHome(blankHousehold("2026-11", ids()));
     const html = panel(wh);
-    expect(html).toContain('data-premise-fold="closed"');
-    expect(html).toContain("細かい前提: 事務所の既定値どおり（この世帯だけ変えた所 0件）");
-    for (const k of ["assume/fine", "assume/exceptions", "assume/realEstate", "assume/assetReturns", "assume/conv"]) expect(html, k).not.toContain(`data-section="${k}"`);
-    // たたんだ1行は、お客さまと確かめる前提の区画の後ろ
-    expect(html.indexOf("data-premise-fold")).toBeGreaterThan(at(html, "assume/endYear"));
-    // お客さまと確かめる前提を変えても、たたんだ1行の数には入れない（欄の横の「この世帯だけ」で見える）
-    wh = fieldOf(wh, "assume/inflation").set(wh, "0.02");
-    expect(premiseSummary(wh)).toBe("細かい前提: 事務所の既定値どおり（この世帯だけ変えた所 0件）");
-    expect(premiseCounts(wh)).toEqual({ own: 1, changed: 0 });
-    expect(premiseCounts(wh, "talk")).toEqual({ own: 1, changed: 0 });
-    wh = fieldOf(wh, "assume/assetReturns/equity.global/default").set(wh, "0.06");
-    wh = fieldOf(wh, "assume/depositReturn").set(wh, "0.005");
-    expect(premiseCounts(wh, "fine")).toEqual({ own: 2, changed: 0 });
-    expect(premiseSummary(wh)).toBe("細かい前提: 事務所の既定値と、この世帯だけ変えた所 2件");
-    publishOfficeSettings({ ...DEFAULT_OFFICE_SETTINGS, assumptions: { pensionMacroSlide: "0.005" }, changedOn: "2026-11-14" });
-    expect(premiseSummary(wh)).toBe("細かい前提: 事務所の既定値と、この世帯だけ変えた所 2件（事務所の既定値が変わった所 1件）");
-    // 開くと全部の欄
-    const open = panel(wh, { focusKey: "assume/depositReturn" });
-    expect(open).toContain('data-premise-fold="open"');
-    for (const k of ["assume/fine", "assume/exceptions", "assume/realEstate", "assume/assetReturns", "assume/conv"]) expect(open, k).toContain(`data-section="${k}"`);
+    for (const k of ["assume/period", "assume/economy", "assume/assetReturns", "assume/realEstate", "assume/conv"]) expect(html, k).toContain(`data-section="${k}"`);
+    for (const k of ["assume/fine", "assume/exceptions", "assume/main"]) expect(html, k).not.toContain(`data-section="${k}"`);
+    for (const k of ["assume/inflation", "assume/wageGrowth", "assume/depositReturn", "assume/educationInflation", "assume/pensionMacroSlide", "assume/pensionMacroSlideEmployee"]) {
+      expect(at(html, k), k).toBeGreaterThan(0);
+      // 例外の年のボタンの並び（区画）はやめ、欄の下に「＋ 例外の年」
+      expect(box(html, k), k).toContain(`data-action="${k}/ex/add"`);
+      expect(box(html, k), k).toContain(">＋ 例外の年<");
+    }
+    // 経済の前提は1つの枠（標準の2つと詳細の4つが同じ並び）
+    expect(html.match(/data-group="assume\/economy\/fields"/g)).toHaveLength(1);
+    // 耐用年数は不動産の評価の枠の中の小さな見出し
+    expect(html).toContain('data-group="assume/realEstate/fields/life"');
+    expect(at(html, "assume/investmentReturn")).toBeLessThan(0);
+    // 空欄は欄の中に薄く値（推定の見た目にしない）、下に「空欄: …」
+    expect(box(html, "assume/educationInflation")).toContain('placeholder="1"');
+    expect(box(html, "assume/educationInflation")).toContain("空欄: 物価の上昇率と同じ");
+    expect(box(html, "assume/educationInflation")).not.toContain("est-ghost");
+    expect(box(html, "assume/assetReturns/equity.domestic/default")).toContain('placeholder="1"');
+    expect(box(html, "assume/assetReturns/cash.foreign/default")).toContain("空欄: 預金の利回りと同じ");
+    // どの欄にも「事務所の既定値」の印は出ない
+    expect(html).not.toContain('data-premise="office"');
   });
 
-  it("4つのどれかを「この世帯だけ」に変えると、欄の横の印と一言がその値で言い換わる。戻すと元の形", () => {
+  it("違う欄だけ「この世帯だけ」と「事務所の既定値（1%）に戻す」。資産の種類ごとの利回りは「戻す」と「＋ 例外の年」。戻すと元の形", () => {
     const wh = blankHousehold("2026-11", ids());
-    const f = fieldOf(wh, "assume/investmentReturn");
-    const own = f.set(wh, "0.03");
-    expect(f.get(own)).toMatchObject({ premise: { state: "household" }, talk: "年3%で運用できると、100万円は10年後に約134万円、20年後に約181万円になります（運用の費用を引いた後、税を引く前の額）" });
+    const f = fieldOf(wh, "assume/wageGrowth");
+    const own = f.set(wh, "0.015");
+    expect(f.get(own)).toMatchObject({ premise: { state: "household", officeValue: "1%" }, talk: "例 年収500万円は、20年後に約673万円（物価より0.5ポイント高い）" });
     const html = panel(own, { level: "simple" });
-    const box = html.slice(at(html, "assume/investmentReturn"), at(html, "assume/endYear"));
-    expect(box).toContain(">この世帯だけ<");
-    expect(box).toContain("事務所の既定値に戻す");
+    expect(box(html, "assume/wageGrowth")).toContain(">この世帯だけ<");
+    expect(box(html, "assume/wageGrowth")).toContain(">事務所の既定値（1%）に戻す<");
+    expect(box(html, "assume/inflation")).not.toContain("data-premise-reset");
     const back = f.get(own).premise!.reset(own);
     expect(back.request).toEqual(wh.request);
-    expect(f.get(back).talk).toBe("年1%で運用できると、100万円は10年後に約110万円、20年後に約122万円になります（運用の費用を引いた後、税を引く前の額）");
-    // 給与の一言は物価の上昇率と比較する（物価を変えても言い換わる）
-    const w = fieldOf(wh, "assume/wageGrowth");
-    expect(w.get(w.set(wh, "0.015")).talk).toBe("給与が年1.5%上がると、今の年収500万円は20年後に約673万円になります（物価の上昇率より0.5ポイント高いので、暮らし向きは少しずつ良くなる計算です）");
-    const hi = fieldOf(wh, "assume/inflation").set(wh, "0.02");
-    expect(w.get(hi).talk).toBe("給与が年1%上がると、今の年収500万円は20年後に約610万円になります（物価の上昇率より1ポイント低いので、暮らし向きは少しずつ苦しくなる計算です）");
-    expect(fieldOf(hi, "assume/inflation").get(hi).talk).toBe("物価が年2%上がると、30年後の100万円は、今の約55万円の値打ちになります");
-    // 0%・マイナス
-    expect(fieldOf(wh, "assume/inflation").get(fieldOf(wh, "assume/inflation").set(wh, "0")).talk).toBe("物価が変わらないとすると、30年後の100万円も、今の100万円と同じ値打ちです");
-    expect(f.get(f.set(wh, "-0.01")).talk).toBe("年1%ずつ減ると、100万円は10年後に約90万円、20年後に約82万円になります（運用の費用を引いた後、税を引く前の額）");
+    const cls = fieldOf(wh, "assume/assetReturns/equity.global/default");
+    const c = cls.set(wh, "0.06");
+    const detail = panel(c);
+    expect(box(detail, "assume/assetReturns/equity.global/default")).toContain(">戻す<");
+    expect(box(detail, "assume/assetReturns/equity.global/default")).toContain('data-action="assume/assetReturns/equity.global/ex/add"');
+    // 事務所の既定値どおりの種類には例外の年のリンクを出さない（前のとおり、値を入れた種類だけ）
+    expect(box(detail, "assume/assetReturns/equity.domestic/default")).not.toContain("ex/add");
+    expect(cls.get(c).premise?.officeValue).toBe("1%");
   });
 
-  it("例外の年がある世帯: お客さまと確かめる前提の欄の下に例外の年の数、たたんだ1行に例外の年の数", () => {
+  it("欄の下の例は値で言い換わる（物価の上昇率と比較。0%・マイナスも）", () => {
+    const wh = blankHousehold("2026-11", ids());
+    const w = fieldOf(wh, "assume/wageGrowth");
+    expect(w.get(w.set(wh, "0.015")).talkHelp).toBe("給与が年1.5%上がると、今の年収500万円は20年後に約673万円になります（物価の上昇率より0.5ポイント高いので、暮らし向きは少しずつ良くなる計算です）");
+    const hi = fieldOf(wh, "assume/inflation").set(wh, "0.02");
+    expect(w.get(hi).talk).toBe("例 年収500万円は、20年後に約610万円（物価より1ポイント低い）");
+    expect(fieldOf(hi, "assume/inflation").get(hi).talk).toBe("例 30年後の100万円は、今の約55万円の値打ち");
+    const zero = fieldOf(wh, "assume/inflation").set(wh, "0");
+    expect(fieldOf(zero, "assume/inflation").get(zero).talk).toBe("例 30年後の100万円も、今の100万円と同じ値打ち");
+    expect(fieldOf(wh, "assume/inflation").get(fieldOf(wh, "assume/inflation").set(wh, "-0.01")).talk).toBe("例 30年後の100万円は、今の約135万円の値打ち");
+    expect(w.get(w.set(wh, "0")).talk).toBe("例 年収500万円は、20年後も500万円（物価より1ポイント低い）");
+  });
+
+  it("例外の年がある世帯: 欄の下に例外の年の数、区画の欄の並びの下に例外の年のまとまり（詳細）", () => {
     let wh = blankHousehold("2026-11", ids());
-    const st = assumptionsStage(wh);
-    const add = st.sections.flatMap((s) => s.actions).find((a) => a.key === "assume/inflation/ex/add")!;
+    const add = allFields(assumptionsStage(wh)).flatMap((f) => f.links ?? []).find((a) => a.key === "assume/inflation/ex/add")!;
+    expect(add).toMatchObject({ level: "detail", linkLabel: "＋ 例外の年" });
     wh = add.run(wh);
     expect(fieldOf(wh, "assume/inflation").get(wh).derived).toContain("例外の年 1年");
-    expect(premiseSummary(wh)).toBe("細かい前提: 事務所の既定値どおり（この世帯だけ変えた所 0件・例外の年 1件）");
+    const sec = assumptionsStage(wh).sections.find((s) => s.key === "assume/economy")!;
+    expect(sec.groups.map((g) => g.key)).toEqual(["assume/economy/fields", "assume/inflation/ex/0"]);
     const html = panel(wh);
-    expect(html).toContain('data-premise-fold="closed"');
+    expect(html).toContain('data-group="assume/inflation/ex/0"');
     expect(html).toContain("例外の年 1年");
-    // 例外の年の欄へ来たときは開く
-    expect(panel(wh, { focusKey: "assume/inflation/ex/0/rate" })).toContain('data-premise-fold="open"');
+    // 例外の年の欄へ来たときも、たたむ物が無いのでそのまま出ている
+    expect(panel(wh, { focusKey: "assume/inflation/ex/0/rate" })).toContain('data-field="assume/inflation/ex/0/rate"');
   });
 
-  it("表の最後の年を年で決めた世帯: 年の欄もお客さまと確かめる前提の区画に出し、一言はその年で", () => {
+  it("表の最後の年を年で決めた世帯: 年の欄も計算の期間の区画に出し、何年分かはその年で", () => {
     const wh = blankHousehold("2026-11", ids());
     const choice = fieldOf(wh, "assume/endYear");
     const byYear = choice.set(wh, "year");
@@ -260,22 +274,31 @@ describe("お客さまと確かめる前提とたたんだ1行（0214 の4・そ
     const w = year.set(byYear, 2080);
     const html = panel(w, { level: "simple" });
     expect(at(html, "assume/endYear/year")).toBeGreaterThan(0);
-    expect(fieldOf(w, "assume/endYear").get(w).talk).toBe("2027年から2080年まで、54年分のお金の流れを見ます。長生きしても、暮らしのお金が足りるかを確かめるためです");
+    expect(fieldOf(w, "assume/endYear").get(w).hint).toMatch(/^2027年〜2080年の54年分/);
+    expect(fieldOf(w, "assume/endYear").get(w).talkHelp).toBe("2027年から2080年まで、54年分のお金の流れを見ます。長生きしても、暮らしのお金が足りるかを確かめるためです");
   });
 
-  it("確かめの一覧・検索から前提条件の欄へ来たとき: 細かい前提の欄なら開いて出す。お客さまと確かめる前提の欄なら、たたんだまま", () => {
+  it("運用の利回り: 事務所の既定値どおりなら出さない。この世帯だけ・事務所の既定値が変わった・例外の年のある世帯だけ詳細に1行（計算は変えない）", () => {
     const wh = blankHousehold("2026-11", ids());
-    expect(panel(wh, { focusKey: "assume/depositReturn" })).toContain('data-premise-fold="open"');
-    expect(panel(wh, { focusAt: { kind: "field", key: "assume/assetReturns/equity.global/default" } })).toContain('data-premise-fold="open"');
-    expect(panel(wh, { focusAt: { kind: "section", key: "assume/conv" } })).toContain('data-premise-fold="open"');
-    const talk = panel(wh, { focusKey: "assume/inflation" });
-    expect(talk).toContain('data-premise-fold="closed"');
-    expect(talk).toContain('data-field="assume/inflation"');
-    expect(inPremiseFold("assume/endYear/year")).toBe(false);
-    expect(inPremiseFold("assume/main")).toBe(false);
-    expect(inPremiseFold("assume/returnShifts/0")).toBe(false);
-    expect(inPremiseFold("assume/baseMonth")).toBe(true);
-    expect(inPremiseFold("assume/wageGrowth/ex/add")).toBe(true);
+    expect(investmentReturnShown(wh)).toBe(false);
+    expect(allFields(assumptionsStage(wh)).some((f) => f.key === "assume/investmentReturn")).toBe(false);
+    const own = mutate(wh, (_h, req) => void (req.input.assumptions!.investmentReturn = { default: "0.03" }));
+    expect(investmentReturnShown(own)).toBe(true);
+    const html = panel(own);
+    expect(at(html, "assume/investmentReturn")).toBeGreaterThan(html.indexOf('data-section="assume/assetReturns"'));
+    expect(box(html, "assume/investmentReturn")).toContain(`>${INVESTMENT_RETURN_LABEL}</label>`);
+    expect(box(html, "assume/investmentReturn")).toContain(">この世帯だけ<");
+    expect(at(panel(own, { level: "simple" }), "assume/investmentReturn")).toBeLessThan(0);
+    // 入力のホームの要約は、下の小さな1行に数える
+    expect(inputItems(own).find((i) => i.id === "assumptions")?.summary?.note).toContain("細かい前提: この世帯だけ変えた所 1件");
+    // 事務所の既定値を後で変えた世帯（触っていない値）: 知らせから移れるように出す
+    publishOfficeSettings({ ...DEFAULT_OFFICE_SETTINGS, assumptions: { investmentReturn: "0.02" }, changedOn: "2026-11-14" });
+    expect(investmentReturnShown(wh)).toBe(true);
+    expect(checkList(wh).find((r) => r.fieldKey === "assume/investmentReturn")).toMatchObject({ kind: "notice", actions: [expect.objectContaining({ label: "この世帯に反映する" })] });
+    setOfficeNow(STANDARD_OFFICE_NOW);
+    // 例外の年だけある世帯
+    const ex = mutate(wh, (_h, req) => void (req.input.assumptions!.investmentReturn = { default: "0.01", byYear: { "2027": "0.03" } }));
+    expect(investmentReturnShown(ex)).toBe(true);
   });
 });
 
@@ -293,7 +316,8 @@ describe("表を何歳まで見るかの見せ方をほかの3つにそろえる
       const html = panel(wh, { level });
       const at = html.indexOf(`data-field="${END}"`);
       const field = html.slice(at, html.indexOf("data-field=", at + 20));
-      expect(field, level).toContain('data-premise="office"');
+      // 事務所の既定値どおりは印を出さない（0260）。推定の印・「この値にする」も出さない
+      expect(field, level).not.toContain("data-premise=");
       expect(field, level).not.toContain("data-fill-estimate");
       expect(field, level).not.toContain("data-premise-reset");
       expect(html, level).not.toContain("推定のままの値を「この値にする」");
@@ -302,10 +326,10 @@ describe("表を何歳まで見るかの見せ方をほかの3つにそろえる
     const row = checkList(wh).find((r) => r.fieldKey === END);
     expect(row).toMatchObject({ kind: "premise", detail: "事務所の既定値（提供元の既定の値のまま）", actions: [] });
     expect(checkList(wh).some((r) => r.kind === "estimated" && r.card === "assumptions")).toBe(false);
-    // 前提と推定の一覧: ほかの3つと同じ状態と出典。事務所の既定値どおりなので「お客さまと確かめた」の印は出さない
-    expect(assumptionRows(wh).find((r) => r.id === `field:${END}`)).toMatchObject({ state: "事務所の既定値", agreeable: false });
+    // 前提と推定の一覧: ほかの前提と同じ状態と出典（事務所の既定値どおりは印なし）
+    expect(assumptionRows(wh).find((r) => r.id === `field:${END}`)).toMatchObject({ state: "事務所の既定値", tone: null });
     expect(inputItems(wh).find((i) => i.id === "assumptions")?.status).toBe("std");
-    expect(summaryOf(wh)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・100歳まで");
+    expect(summaryOf(wh)).toBe("物価 1.0%・給与 1.0%・100歳まで");
   });
 
   it("既存の世帯（既定の年齢のまま保存したもの）を開いても同じ見た目。計算の要求は変えない", () => {
@@ -342,11 +366,11 @@ describe("表を何歳まで見るかの見せ方をほかの3つにそろえる
       expect(back.request.input.endYear, name).toBe(std);
       expect(back.endYearChoice, name).toBeUndefined();
       expect(fieldStatus(fieldOf(back, END), back).premise?.state, name).toBe("office");
-      expect(assumptionRows(w).find((r) => r.id === `field:${END}`), name).toMatchObject({ state: "この世帯だけ", agreeable: true });
+      expect(assumptionRows(w).find((r) => r.id === `field:${END}`), name).toMatchObject({ state: "この世帯だけ", tone: "household" });
     }
     // 入力のホームの要約は今までどおり
-    expect(summaryOf(byMember)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・95歳まで（この世帯だけ）");
-    expect(summaryOf(byYear)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・2080年まで（この世帯だけ）");
+    expect(summaryOf(byMember)).toBe("物価 1.0%・給与 1.0%・95歳まで（この世帯だけ）");
+    expect(summaryOf(byYear)).toBe("物価 1.0%・給与 1.0%・2080年まで（この世帯だけ）");
   });
 
   it("事務所の既定値の年齢を決めた・後で変えた: 新しい世帯は「事務所の既定値」（決めた値）。前の年齢の年の世帯は「この世帯だけ」で、戻すと今の年齢の年", () => {
@@ -354,7 +378,7 @@ describe("表を何歳まで見るかの見せ方をほかの3つにそろえる
     publishOfficeSettings(s95);
     const fresh = applyOfficeDefaults(blankHousehold("2026-11", ids()), s95);
     expect(premiseOf(fresh, END)).toMatchObject({ state: "office", decided: true });
-    expect(summaryOf(fresh)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・95歳まで");
+    expect(summaryOf(fresh)).toBe("物価 1.0%・給与 1.0%・95歳まで");
     expect(checkList(fresh).find((r) => r.fieldKey === END)).toMatchObject({ kind: "premise", detail: "事務所の既定値" });
     // 100歳の年のまま作った世帯（事務所の年齢を後で95歳にした）: 値は変えず、人と年齢（若い方の100歳）で選んだ年と同じに見せる
     setOfficeNow(STANDARD_OFFICE_NOW);
@@ -364,16 +388,15 @@ describe("表を何歳まで見るかの見せ方をほかの3つにそろえる
     expect(old.request.input.endYear).toBe(end100);
     const mark = premiseOf(old, END)!;
     expect(mark.state).toBe("household");
-    expect(summaryOf(old)).toBe("物価 1.0%・給与 1.0%・運用 1.0%・100歳まで（この世帯だけ）");
+    expect(summaryOf(old)).toBe("物価 1.0%・給与 1.0%・100歳まで（この世帯だけ）");
     expect(mark.reset(old).request.input.endYear).toBe(fresh.request.input.endYear);
     expect(checkList(old).some((r) => r.fieldKey === END && (r.kind === "estimated" || r.kind === "notice"))).toBe(false);
   });
 
-  it("確かめの一覧・検索から表を何歳まで見るかの欄へ来たとき: たたんだまま（お客さまと確かめる前提の区画）", () => {
+  it("確かめの一覧・検索から表を何歳まで見るかの欄へ来たとき: 計算の期間の区画の欄（たたむ物は無い）", () => {
     const wh = blankHousehold("2026-11", ids());
-    expect(inPremiseFold(END)).toBe(false);
     const html = panel(wh, { focusKey: END });
-    expect(html).toContain('data-premise-fold="closed"');
+    expect(html).not.toContain("data-premise-fold");
     expect(html).toContain(`data-field="${END}"`);
   });
 });
@@ -392,7 +415,7 @@ describe("事務所の既定値を後で変えたとき（0214 の5）", () => {
     expect(premiseOf(wh, "assume/realEstate/life/wood")?.state).toBe("officeChanged");
     expect(panel(wh, { focusKey: "assume/realEstate/life/wood" })).toContain("今の既定値にする");
     const next = life.actions.find((a) => a.key === "office")!.run(wh);
-    expect(life.actions[0]!.label).toBe("この世帯に当てる");
+    expect(life.actions[0]!.label).toBe("この世帯に反映する");
     expect(next.request.input.assumptions?.realEstateValuation?.usefulLife).toEqual({ wood: 25 });
     expect(next.assumed["assume/realEstate/life/wood"]).toBe("事務所の既定値（2026-12）");
     expect(premiseOf(next, "assume/realEstate/life/wood")?.state).toBe("office");
@@ -418,7 +441,7 @@ describe("事務所の既定値を後で変えたとき（0214 の5）", () => {
     // 前提と推定の一覧の状態と出典
     const rows = assumptionRows(wh);
     expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ state: "事務所の既定値が変わりました", source: "前の事務所の既定値（今は 2%）" });
-    expect(rows.find((r) => r.id === "field:assume/wageGrowth")).toMatchObject({ state: "この世帯だけ", agreeable: true });
+    expect(rows.find((r) => r.id === "field:assume/wageGrowth")).toMatchObject({ state: "この世帯だけ", tone: "household" });
   });
 
   it("資産配分の期待リターンの目安（推定の目安から書いた値）は推定のまま（0214 の4 の例外）", () => {
@@ -446,10 +469,10 @@ describe("見本の世帯の計算の結果は変わらない（0214 の6）", (
 });
 
 describe("事務所の既定値の画面の前提条件（0214 の1・4）", () => {
-  it("経済の前提・不動産の評価・資産の種類ごとの利回りの3つの区画。不動産の評価と資産の種類ごとの利回りは小さな欄の並び", () => {
+  it("経済の前提・不動産の評価・資産の種類ごとの利回りの3つの区画。資産の種類ごとの利回りと耐用年数は4列の小さな欄の並び", () => {
     const html = renderToString(h(OfficeSettingsPanel, { value: OFFICE, onSave: async () => undefined, shared: false, onClose: noop }));
     for (const sec of ["economy", "realEstate", "assetReturns"]) expect(html).toContain(`data-office-premises="${sec}"`);
-    expect(html.match(/class="os-grid os-compact"/g)).toHaveLength(2);
+    expect(html.match(/class="os-fields os-cols4"/g)).toHaveLength(2);
     for (const d of PREMISE_DEFS) expect(html, d.id).toContain(`data-office-setting="${d.id}"`);
     // 決めた値は欄に入っている（％・年）
     expect(html).toMatch(/value="30"[^>]*data-office-setting="realEstateValuation.usefulLife.wood"/);

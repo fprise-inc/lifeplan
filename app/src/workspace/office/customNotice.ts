@@ -5,6 +5,7 @@
 import type { CustomTextsStatus } from "../../engine/host.ts";
 import type { CenterItem } from "../notices/center.ts";
 import { officialUpdates, sourceChangeText, type OfficeEstimates, type OfficialUpdate } from "./estimates.ts";
+import { premisePageField } from "./pages.ts";
 
 export type CustomCenterNotice = Omit<CenterItem, "action" | "read">;
 
@@ -87,6 +88,7 @@ function noticeBody(u: OfficialUpdate): string {
     } else if (u.change !== null) parts.push(`公式の値: ${u.change}。`);
   }
   parts.push(u.sameAsOfficial ? "新しい公式の値は事務所の値と同じです。" : "今は事務所の値を使い続けています。");
-  parts.push(`${WHERE}で、「このまま」か「公式に戻す」を選んでください。`);
+  // 前提条件の既定値の画面で変える値（土地の割合など・資産の種類の目安。0261）は、戻す・直すのはその画面
+  parts.push(premisePageField(u.id) !== null ? `${WHERE}で「このまま」を選ぶか、「前提条件の既定値」の画面で値を直してください。` : `${WHERE}で、「このまま」か「公式に戻す」を選んでください。`);
   return parts.join("");
 }

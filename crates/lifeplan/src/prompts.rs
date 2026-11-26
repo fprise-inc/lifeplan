@@ -401,7 +401,7 @@ impl LifeplanMcp {
                  1. check_inputs を呼ぶ。プランを確かめるなら、list_plan_items で動かす項目の target・item を確かめて plan_changes に入れる（家を買う・子が生まれるなどの場面は get_input_recipe の changes）。truncated が true なら、max_items を増やすか kinds で種類を絞って呼び直す。\n\
                  2. 返った行（groups の items）を、テーマに関係の深い順に並べ直し、多くても10問ほどに絞る。同じことを聞く行（同じ人のねんきん定期便と年金の額など）は1問にまとめる。\n\
                  3. 「お客さまに聞くこと」として、1問ごとに: 聞く文（question をもとに、お客さまに分かる丁寧な言葉で）・なぜ聞くか（reason を一言で）・持ってきてもらうとよい書類（ねんきん定期便・源泉徴収票・保険証券・住宅ローンの返済予定表など、行から分かる物だけ）。\n\
-                 4. 入力項目が「前提条件」の行は、行の premise（kinds に premise を選んだとき）か欄の区画で分ける: 「お客さまと確かめる前提」の区画の欄（物価の上昇率・給与の上昇率・運用の利回り・表を何歳まで見るか。premise が client）は、面談でお客さまと一緒に確かめる物なので、「お客さまと一緒に確かめること」として分けて書く（事務所の既定値に従っている欄も同じ）。ほかの前提条件（預金の利回り・年金の調整率・不動産の評価・資産の種類ごとの利回りなど。premise が fp）は、お客さまに聞かず FP が決める物なので、「FP が確かめること」として分けて書く。\n\
+                 4. 入力項目が「前提条件」の行は、行の premise（kinds に premise を選んだとき）で分ける: お客さまと確かめる前提（前提条件の入力項目の標準に出す欄。表を何歳まで見るか・物価の上昇率・給与の上昇率。premise が client）は、面談でお客さまと一緒に確かめる物なので、「お客さまと一緒に確かめること」として分けて書く（事務所の既定値に従っている欄も同じ）。ほかの前提条件（詳細だけの欄。預金の利回り・年金の調整率・不動産の評価・資産の種類ごとの利回りなど。premise が fp）は、お客さまに聞かず FP が決める物なので、「FP が確かめること」として分けて書く。\n\
                  5. 今の値（value）・推定の値は答えのまま書き、推測で数字を足さない。お名前・番号は扱わない。question は案なので、FP が面談の前に確かめて直すよう添える。"
             ),
         )
@@ -488,7 +488,7 @@ impl LifeplanMcp {
                  - 退職の年齢（例 60・65・70歳）: 「ご本人が働く最後の年齢」（item が employment.to）。series は financialAssets・net・takeHome\n\
                  - 子の進路（例 今のまま・すべて公立・中学から私立）: 子ごとの「第1子の進路の型」（lever が educationCourse・kind が choice）。value は options の型の名前（allPublic＝すべて公立・juniorPrivate＝中学から私立など）。子が2人以上なら、通りごとに子の数だけ plan_changes に入れる。「今のまま」は基本にして plan_changes を書かない。changes で教育の段を書き換えない（グラフの注に進路の違いが出なくなる）。series は expenseEducation・financialAssets、charts に expenseBreakdown\n\
                  - 家の値段（例 3,500万・4,500万・5,500万円）: get_input_recipe の buyHome を値段ごとに作り、返った changes を通りの changes に入れる。series は financialAssets・loanBalance・expenseHousing\n\
-                 - 物価上昇率（例 0%・1%・2%）: 「お客さまと確かめる前提: 物価の上昇率」（item が assumptions.inflation。group に 前提条件）。series は financialAssets・expense\n\
+                 - 物価上昇率（例 0%・1%・2%）: 「経済の前提: 物価の上昇率」（item が assumptions.inflation。group に 前提条件）。series は financialAssets・expense\n\
                  - 運用の利回り（例 2%・4%・6%）: 「運用の利回り（預金を除く）」（item が assumptions.returnShifts）。series は financialAssets\n\
                  - 年金の受け取り開始（例 65・70・75歳）: 「ご本人の年金の受け取り開始」（item が pensionRecord.claim）。series は pension・financialAssets\n\
                  - NISA の毎月の積立（例 1万・3万・5万円）: 「NISAの積立額（月）」（item が account.contributions）。series は financialAssets・net",
@@ -571,7 +571,7 @@ impl LifeplanMcp {
                  2. 直す文ごとに、公式の文と直した案を並べて FP に見せ、どれを直すか確かめる。年齢・年・額・率・プランの名前は、差し込みの印（例 {{age}}・{{plan}}）のまま残す（数字を文に書き込まない。差し込む値は単位まで入るので、{{age}}歳 のように単位を重ねない）。vars に無い印は使わない。お客さまに見える文（audience が customer）は、お客さまに断定しすぎない言い方にする。\n\
                  3. FP が決めた分だけ、答えの howTo の形で settings/texts.json（文）・settings/terms.json（名前）の下書きを作る。basedOn には一覧の hash をそのまま写す。すでにファイルがあれば、ほかの行を消さずに足す・直す。\n\
                  4. 下書きは、カスタム層のフォルダ（アプリの事務所の既定値の画面に場所が出る）の settings/ に置く。この接続口はファイルを書かないので、あなたがそのフォルダに書けなければ、中身を FP に渡して置いてもらう。\n\
-                 5. 置いたら、アプリの事務所の既定値の画面の「説明の文（カスタム層）」「名前（カスタム層）」で中身を確かめて承認するよう FP に伝える。承認するまで画面は公式の文のままで、計算の結果はどの文でも変わらない。注意（数字の入る印が無い など）が出たら、その行を直す。",
+                 5. 置いたら、アプリの事務所の既定値の「カスタム層」の画面の「説明の文（カスタム層）」「名前（カスタム層）」で中身を確かめて承認するよう FP に伝える。承認するまで画面は公式の文のままで、計算の結果はどの文でも変わらない。注意（数字の入る印が無い など）が出たら、その行を直す。",
             ),
         )
     }

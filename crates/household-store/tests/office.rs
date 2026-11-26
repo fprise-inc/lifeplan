@@ -1240,6 +1240,30 @@ fn a_role_this_version_does_not_know_is_view_only() {
     let (a, b, c) = (pa.store(), pb.store(), pc.store());
     start_and_join(&o, &a, &b);
     let h = create(&a, 1);
+    // セットの見本を直した版（閲覧だけの人は最初の状態に戻せない・新しく直した版も作れない。0247 の5・6）
+    let origin = |id: &str| household_store::SampleRequest {
+        family: 3,
+        age: 4,
+        name: "共働き・子2人・40代（資産運用）".into(),
+        traits: vec![],
+        origin: Some(household_store::SampleOrigin {
+            set: "official.basic".into(),
+            id: id.into(),
+            rev: 1,
+        }),
+    };
+    let edited = a
+        .create_with(
+            CreateRequest {
+                body: body(1),
+                summary: "本人".into(),
+            },
+            household_store::CreateOptions {
+                sample: Some(origin("sampleDualAssetsInvest")),
+                ..Default::default()
+            },
+        )
+        .unwrap();
     let b_id = b.current_author().unwrap().member_id;
     let master = master_of(&pa, &office_id_of(&o));
     // 新しい版のアプリが、B に「閲覧だけ」の役割（この版の知らない値）を付けた
@@ -1289,6 +1313,25 @@ fn a_role_this_version_does_not_know_is_view_only() {
         b.delete(&h.id, &no).unwrap_err(),
         StoreError::OFFICE_VIEW_ONLY
     );
+    assert_eq!(
+        b.sample_reset(&edited.id).unwrap_err(),
+        StoreError::OFFICE_VIEW_ONLY
+    );
+    assert_eq!(
+        b.create_with(
+            CreateRequest {
+                body: body(1),
+                summary: "本人".into(),
+            },
+            household_store::CreateOptions {
+                sample: Some(origin("sampleCoupleNoKids")),
+                ..Default::default()
+            },
+        )
+        .unwrap_err(),
+        StoreError::OFFICE_VIEW_ONLY
+    );
+    assert!(a.open(&edited.id).is_ok(), "閲覧だけの人の操作では消えない");
     c.status().unwrap();
     c.office_join(&o.shared, "担当C", true, &[]).unwrap();
     let rid = b.office_status().unwrap().requests[0].request_id.clone();

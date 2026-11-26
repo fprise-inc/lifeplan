@@ -23,7 +23,6 @@ import { ackOf, ackToday, setNoticeAck } from "./noticeAck.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf, rowAt } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, endedLongAgo, fieldAddress, fieldStatus, holderOfField, isPremiseField, substituteText, type FieldStatus } from "./valueState.ts";
-import { TALK_PREMISE_SECTION } from "./premiseDefaults.ts";
 import { fieldValueText } from "../plans/planEdit.ts";
 import { PRESET_HEAD } from "./household.ts";
 import { ageAt } from "../levers.ts";
@@ -88,11 +87,12 @@ export interface CheckAction {
 }
 
 /**
- * 前提条件の行を、お客さまと一緒に確かめる前提（前提条件の入力項目の「お客さまと確かめる前提」の区画の欄: 物価の上昇率・給与の上昇率・
- * 運用の利回り・表を何歳まで見るか）と、FP が決める細かい前提（ほかの区画の欄）に分ける。区画の中身の正は画面の区画の定義（TALK_PREMISE_SECTION）。
+ * 前提条件の行を、お客さまと一緒に確かめる前提（前提条件の入力項目の標準に出す欄: 表を何歳まで見るか・物価の上昇率・給与の上昇率）と、
+ * FP が決める細かい前提（詳細だけの欄: 預金の利回り・年金の調整率・資産の種類ごとの利回り・不動産の評価など）に分ける。正は画面の欄の定義の
+ * 入れ方（標準か詳細か。0260。前は「お客さまと確かめる前提」の区画で分けていた。0214 の追記 2026-11-16 の3）。
  * AI接続口の入力の確かめ（connector/check.ts）が、聞く文と行の印を分けるのに使う
  */
-export const premiseWithClient = (row: Pick<CheckRow, "card" | "section">): boolean => row.card === "assumptions" && row.section === TALK_PREMISE_SECTION;
+export const premiseWithClient = (row: Pick<CheckRow, "card" | "level">): boolean => row.card === "assumptions" && row.level === "simple";
 
 export interface CheckRow {
   id: string;
@@ -121,7 +121,7 @@ export interface CheckRow {
   holder?: string | null;
   /** 欄の入力項目ID（欄の定義の item。欄の行だけ。AI接続口の入力の確かめが、聞くことの決まりを引くのに使う。0210） */
   item?: string;
-  /** 欄のある入力項目の区画のキー（欄の行だけ。AI接続口の入力の確かめが、お客さまと確かめる前提か FP が決める前提かを見分けるのに使う） */
+  /** 欄のある入力項目の区画のキー（欄の行だけ） */
   section?: string;
   /**
    * 書類待ちの行だけ: 確かめる書類（欄の定義の docCheck）・書類の持ち主（docFor か当て先の物）・欄の名前（まとまりの名前を付けない）。
@@ -379,7 +379,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
             kind: "notice",
             detail: `事務所の既定値が変わりました（${p.wasText ?? "—"}→${p.officeText}）。この世帯は前の値で計算しています`,
             impact: 0,
-            actions: [{ key: "office", label: "この世帯に当てる", title: `この世帯の値を、事務所の今の既定値（${p.officeText}）にします`, run: (w) => p.reset(w) }],
+            actions: [{ key: "office", label: "この世帯に反映する", title: `この世帯の値を、事務所の今の既定値（${p.officeText}）にします`, run: (w) => p.reset(w) }],
           });
         else if (p.state === "office" && item.id === "assumptions") {
           const life = lifeStructure(f);

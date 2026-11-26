@@ -97,7 +97,7 @@ describe("面談の記録の形（0182）", () => {
 
 describe("世帯ファイルの本文の区画 meetings（形式 0.74）", () => {
   it("形式の版は 0.74", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.91");
+    expect(BODY_FORMAT_VERSION).toBe("0.92");
   });
 
   it("保存→読み込みで同じ。household の区画には書かない。記録が無ければ区画を作らない", () => {
@@ -330,26 +330,28 @@ describe("見本にするときはメモと面談の履歴を外す（0182 の�
     expect(panel).toContain("title={COPY_SAMPLE_TITLE} data-copy-sample");
     const app = readFileSync(join(REPO_DIR, "app", "src", "workspace", "App.tsx"), "utf8");
     expect(app).toMatch(/const strip = await stripNotesForSample\(id\);\s*if \(strip !== null\) return strip;\s*const err = await numberOp\(id, \(\) => host\.store\.makeSample/);
-    expect(app).toContain("const stripped = dropNotesOnPersist({ toSample: sample !== undefined, stored: storedRef.current !== null, appSample: o0.demo !== null }, o0.wh);");
+    expect(app).toContain("const stripped = dropNotesOnPersist({ toSample: sample !== undefined, setSample: sr0 === null ? o0.demo !== null : sr0.sample?.origin !== undefined }, o0.wh);");
   });
 });
 
-describe("アプリに入っている見本の世帯から顧客を作るときは、見本のメモ（例の文）を写さない（0182 の追記）", () => {
+describe("セットの見本の世帯（アプリに入っている見本と、それを直した版）から顧客を作るときは、見本のメモ（例の文）を写さない（0182 の追記・0247 の5）", () => {
   const memo = { ...wh0(), memo: ["退職金は規程の確認待ち（架空の例）"] };
-  it("アプリの見本（保存していない）から顧客を作る: 外す。自分で作った見本（保存した見本）から・空の世帯・外す物が無いとき: 外さない。見本の写しを作る: 外す", () => {
-    expect(dropNotesOnPersist({ toSample: false, stored: false, appSample: true }, memo)).toBe(true);
-    expect(dropNotesOnPersist({ toSample: false, stored: true, appSample: true }, memo)).toBe(false);
-    expect(dropNotesOnPersist({ toSample: false, stored: false, appSample: false }, memo)).toBe(false);
-    expect(dropNotesOnPersist({ toSample: false, stored: false, appSample: true }, { ...memo, memo: [] })).toBe(false);
-    expect(dropNotesOnPersist({ toSample: true, stored: true, appSample: false }, memo)).toBe(true);
-    expect(dropNotesOnPersist({ toSample: true, stored: false, appSample: true }, { memo: [], meetings: markedMeetings() })).toBe(true);
+  it("セットの見本（直していない見本も、直した版も）から顧客を作る: 外す。自分で作った見本から・空の世帯・外す物が無いとき: 外さない。見本の複製を作る: 外す", () => {
+    expect(dropNotesOnPersist({ toSample: false, setSample: true }, memo)).toBe(true);
+    expect(dropNotesOnPersist({ toSample: false, setSample: false }, memo)).toBe(false);
+    expect(dropNotesOnPersist({ toSample: false, setSample: true }, { ...memo, memo: [] })).toBe(false);
+    expect(dropNotesOnPersist({ toSample: true, setSample: false }, memo)).toBe(true);
+    expect(dropNotesOnPersist({ toSample: true, setSample: true }, { memo: [], meetings: markedMeetings() })).toBe(true);
+    // 画面は、保存していないアプリの中の見本と、出どころのある保存した見本（直した版）を「セットの見本」として渡す
+    const app = readFileSync(join(REPO_DIR, "app", "src", "workspace", "App.tsx"), "utf8");
+    expect(app).toContain("setSample: sr0 === null ? o0.demo !== null : sr0.sample?.origin !== undefined");
   });
 
   it("アプリの見本の世帯はメモ（例の文）を持つ。外すと、作る顧客の本文にメモも面談の履歴も入らない", () => {
     const demo = DEMO_HOUSEHOLDS.find((d) => d.memo.length > 0);
     expect(demo).toBeDefined();
     const wh = fromRequest(modelHousehold(demo!.id), { memo: [...demo!.memo] });
-    expect(dropNotesOnPersist({ toSample: false, stored: false, appSample: true }, wh)).toBe(true);
+    expect(dropNotesOnPersist({ toSample: false, setSample: true }, wh)).toBe(true);
     const body = bodyOf(state(withoutNotes(wh)));
     for (const line of demo!.memo) expect(body).not.toContain(line);
   });

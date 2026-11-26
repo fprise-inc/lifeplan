@@ -36,13 +36,13 @@ export async function stripNotesBeforeSample(d: SampleNotesDeps): Promise<string
 }
 
 /**
- * 今の画面の中身を新しい世帯として保存するとき（persistCurrent）に、メモと面談の履歴を外すか（0182 の追記）:
- * - 見本として作る（見本の写し）とき: 外す
- * - アプリに入っている見本の世帯（保存していない見本）から顧客を作るとき: 外す（見本のメモは例の文で、お客さまの記録ではない）
- * - 自分で作った見本（保存した見本）から顧客を作るとき・空の世帯: 外さない（見本にするときに外してある・何も無い）
- * 外す物が無ければ false
+ * 今の画面の中身を新しい世帯として保存するとき（persistCurrent）に、メモと面談の履歴を外すか（0182 の追記・0247 の5）:
+ * - 見本として作る（見本の複製）とき: 外す
+ * - セットの見本（アプリに入っている見本と、それを直した版）から顧客を作るとき: 外す（見本のメモは例の文で、お客さまの記録ではない。直した版でも同じ）
+ * - 自分で作った見本から顧客を作るとき・空の世帯: 外さない（見本にするときに外してある・何も無い）
+ * setSample は、開いているのがセットの見本か（保存していないアプリの中の見本、または出どころのある見本）。外す物が無ければ false
  */
-export function dropNotesOnPersist(o: { toSample: boolean; stored: boolean; appSample: boolean }, wh: Pick<WorkingHousehold, "memo" | "meetings">): boolean {
+export function dropNotesOnPersist(o: { toSample: boolean; setSample: boolean }, wh: Pick<WorkingHousehold, "memo" | "meetings">): boolean {
   if (!hasNotes(wh)) return false;
-  return o.toSample || (!o.stored && o.appSample);
+  return o.toSample || o.setSample;
 }

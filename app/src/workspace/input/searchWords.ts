@@ -142,7 +142,10 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   // 前提条件
   { words: ["インフレ", "物価", "物価上昇", "物価上昇率"], card: "assumptions", to: ["物価の上昇率"] },
   { words: ["昇給", "賃上げ", "ベースアップ", "賃金", "賃金上昇率", "給与の伸び"], card: "assumptions", to: ["給与の上昇率"] },
-  { words: ["運用利回り", "期待利回り"], card: "assumptions", to: ["運用の利回り"] },
+  // 運用の利回り（配分も利回りも入れていない運用の口座の率）は世帯の画面に出さない（事務所の既定値の画面で決める。0260）: 世帯では口座ごとの利回りか、
+  // 資産の種類ごとの利回りで変える
+  { words: ["運用利回り", "運用の利回り", "期待利回り"], card: "savings", to: ["利回り（年）"] },
+  { words: ["期待リターン"], card: "assumptions", to: ["資産の種類ごとの利回り"] },
   { words: ["マクロ経済スライド"], card: "assumptions", to: ["年金の調整率"] },
   { words: ["顧問料", "相談料", "FPへの報酬"], card: "assumptions", to: ["FP顧問料"] },
   { words: ["何歳まで", "表の最後", "寿命"], card: "assumptions", to: ["表を何歳まで見るか"] },

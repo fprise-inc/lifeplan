@@ -125,8 +125,10 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
 
   it("事務所の既定値の画面の「前提条件の既定値」に2つの欄が出る（入れなければ既定の値）", () => {
     const html = renderToString(h(OfficeSettingsPanel, { value: SETTINGS, onSave: async () => undefined, shared: false, onClose: () => undefined }));
-    expect(html).toContain("預金の利回り（年）");
-    expect(html).toContain("不動産（貸していない不動産の値動き）");
+    // 欄の名前は「（年）」を外した短い名前。不動産は「?」の中で貸していない不動産の値動きと書く（0261）
+    expect(html).toContain(">預金の利回り</label>");
+    expect(html).toContain(">不動産</label>");
+    expect(html).toContain("貸していない不動産（空き家・土地・別荘）の値動きです");
     expect(html).toContain('data-office-setting="depositReturn"');
     // 置き場所は版 1 からの assumptions.heldEstateGrowth（id は assetReturns.realEstate。0214 の2）
     expect(html).toContain('data-office-setting="assetReturns.realEstate"');

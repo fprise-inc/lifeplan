@@ -310,8 +310,8 @@ entries:
     keywords: [マクロ経済スライド, 年金額の改定, 改定率, 年金の伸び, 物価スライド, 賃金スライド, 年金の目減り, 調整率]
     items: [assumptions.inflation, assumptions.wageGrowth, assumptions.pensionMacroSlide, assumptions.pensionMacroSlideEmployee]
     fields:
-      - 「前提条件」の入力項目の「年金の調整率（基礎年金・年）」
-      - 「前提条件」の入力項目の「年金の調整率（厚生年金・年）」
+      - 「前提条件」の入力項目の「年金の調整率（基礎年金）」
+      - 「前提条件」の入力項目の「年金の調整率（厚生年金）」
     rules:
       - 国民年金法27条の2
       - 国民年金法27条の4

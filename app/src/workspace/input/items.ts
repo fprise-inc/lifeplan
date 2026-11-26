@@ -541,8 +541,9 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritanceTax: string |
 }
 
 /**
- * 前提条件の要約: お客さまと確かめる前提の4つ（「物価 1.0%・給与 1.0%・運用 3.0%・95歳まで」）。この世帯だけ変えた物は値の後ろに「（この世帯だけ）」、
- * 事務所の既定値が後で変わった物は「（前の既定値）」。下の小さな1行に、FP が決める細かい前提でこの世帯だけ変えた所の数と FP顧問料（0214 の追記 2026-11-16）
+ * 前提条件の要約: 標準に出す前提の3つ（「物価 1.0%・給与 1.0%・95歳まで」。運用の利回りは 0260 で外した）。この世帯だけ変えた物は値の後ろに
+ * 「（この世帯だけ）」、事務所の既定値が後で変わった物は「（前の既定値）」。下の小さな1行に、詳細の細かい前提（運用の利回りを含む）でこの世帯だけ
+ * 変えた所の数と FP顧問料（0214 の追記 2026-11-16）
  */
 function assumptionsSummary(wh: WorkingHousehold): Summary {
   const a = wh.request.input.assumptions;
@@ -552,7 +553,7 @@ function assumptionsSummary(wh: WorkingHousehold): Summary {
     const st = d === undefined ? null : premiseState(d, wh)?.state;
     return st === "household" ? "（この世帯だけ）" : st === "officeChanged" ? "（前の既定値）" : "";
   };
-  const rate = (name: string, id: "inflation" | "wageGrowth" | "investmentReturn"): string | null => {
+  const rate = (name: string, id: "inflation" | "wageGrowth"): string | null => {
     const v = a?.[id]?.default;
     return v === undefined ? null : `${name} ${pct(v)}%${mark(id)}`;
   };
@@ -563,7 +564,7 @@ function assumptionsSummary(wh: WorkingHousehold): Summary {
   const notes = [...(fine > 0 ? [`細かい前提: この世帯だけ変えた所 ${String(fine)}件`] : []), ...(fee !== null ? [fee] : [])];
   const note = notes.length > 0 ? { note: notes.join("。") } : {};
   const inf = a?.inflation?.default;
-  const rest = [rate("給与", "wageGrowth"), rate("運用", "investmentReturn"), end].filter((x) => x !== null);
+  const rest = [rate("給与", "wageGrowth"), end].filter((x) => x !== null);
   // 大きく見せるのは物価の値（物価が無い前の世帯は、並びをそのまま）
   if (inf !== undefined) return { pre: "物価 ", main: pct(inf), unit: `%${mark("inflation")}・${rest.join("・")}`, ...note };
   return { main: rest.join("・"), ...note };

@@ -464,6 +464,14 @@ pub struct RenameOutcome {
     pub duplicate: bool,
 }
 
+/// 見本を最初の状態に戻した結果（0247 の6）。セットの見本を直した版は、直した版を消す（次に開くとアプリの中の見本が開く）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum SampleReset {
+    /// 直した版を消した
+    Removed,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateRequest {
@@ -2929,71 +2937,95 @@ impl Store {
             Self::usable(s)?;
             self.refresh_shared(s)?;
             Self::writable(s)?;
-            if let Some(sh) = &s.shared {
-                let card = sh.read_card(id)?;
-                if !delete_confirmed(confirm, &card.customer_no, &card.label) {
-                    return Err(StoreError::CONFIRM);
-                }
-                sh.delete_household(id)?;
-            } else {
-                let entry = s
-                    .data
-                    .households
-                    .get(id)
-                    .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?;
-                if !delete_confirmed(confirm, &entry.customer_no, &entry.label) {
-                    return Err(StoreError::CONFIRM);
-                }
-                // 1. 世帯ファイル・直前の世代・一時ファイル
-                let path = self.household_path(id);
-                for p in [path.clone(), atomic::prev_path(&path)]
-                    .into_iter()
-                    .chain(atomic::temp_files(&path))
-                {
-                    remove_if_exists(&p)?;
-                }
-                // 2. 今の鍵置き場から鍵を消す。直前の世代（.prev）にも鍵が残るので、新しい鍵置き場が開けることを確かめてから消す
-                s.vault.remove(id);
-                self.write_vault(s)?;
-                let check = fs::read(self.vault_path()).map_err(|_| StoreError::IO)?;
-                let v = Vault::decode(&check, &s.master)?;
-                if v.contains(id) {
-                    return Err(StoreError::CORRUPT);
-                }
-                remove_if_exists(&atomic::prev_path(&self.vault_path()))?;
+            let (customer_no, label) = Self::label_of(s, id)?;
+            if !delete_confirmed(confirm, &customer_no, &label) {
+                return Err(StoreError::CONFIRM);
             }
-            // 分岐の写し（PCの中）
-            for p in files_starting_with(&self.root.join(CONFLICTS_DIR), id) {
-                remove_if_exists(&p)?;
-            }
-            // 3. アプリが管理するバックアップの写し
-            for dir in backup_dirs(&self.root.join(BACKUPS_DIR)) {
-                remove_if_exists(
-                    &dir.join(HOUSEHOLDS_DIR)
-                        .join(format!("{id}.{HOUSEHOLD_EXT}")),
-                )?;
-            }
-            for dir in backup_dirs(
-                &self
-                    .root
-                    .join(KEYS_DIR)
-                    .join(KEY_BACKUPS_DIR)
-                    .join(SHARED_KEY_BACKUPS),
-            ) {
-                remove_if_exists(&dir.join(format!("{id}.lphk")))?;
-            }
-            // 4. 削除の記録
-            s.data.households.remove(id);
-            s.data.deletions.push(Deletion {
-                household_id: id.to_owned(),
-                on: date_of(now),
-            });
-            if s.data.last_opened.as_deref() == Some(id) {
-                s.data.last_opened = None;
-            }
-            self.write_office(s)?;
+            self.erase(s, id, now)?;
         }
         g.opened.remove(id);
+        Ok(())
+    }
+
+    /// 見本を最初の状態に戻す（0247 の6）。セットの見本を直した版（出どころのある見本）は、完全削除と同じ消し方で直した版を消す
+    /// （次に開くとアプリの中の見本が開く。削除の記録を残す）。消すのは出どころのある見本だけで、顧客の世帯は `SAMPLE`、自分で作った見本は
+    /// まだ最初の状態を持たないので `SAMPLE_NOT_CHANGED`（取り違えて消さないよう、画面の条件だけに頼らずここで確かめる）
+    pub fn sample_reset(&self, id: &str) -> Result<SampleReset, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let now = self.now();
+        {
+            let s = Self::session(&mut g)?;
+            Self::usable(s)?;
+            // 共有では一覧の欄を読み直してから確かめる（ほかの PC が先に戻した・見本でなくなった）
+            self.refresh_shared(s)?;
+            Self::writable(s)?;
+            let (_, label) = Self::label_of(s, id)?;
+            let info = label.sample.as_ref().ok_or(StoreError::SAMPLE)?;
+            if info.origin.is_none() {
+                return Err(StoreError::SAMPLE_NOT_CHANGED);
+            }
+            self.erase(s, id, now)?;
+        }
+        g.opened.remove(id);
+        Ok(SampleReset::Removed)
+    }
+
+    /// 世帯を消す（完全削除と、セットの見本を最初の状態に戻すときの共通の消し方。0013 の5）。確かめは呼ぶ側が済ませる
+    fn erase(&self, s: &mut Session, id: &str, now: i64) -> Result<(), StoreError> {
+        if let Some(sh) = &s.shared {
+            sh.delete_household(id)?;
+        } else {
+            // 1. 世帯ファイル・直前の世代・一時ファイル
+            let path = self.household_path(id);
+            for p in [path.clone(), atomic::prev_path(&path)]
+                .into_iter()
+                .chain(atomic::temp_files(&path))
+            {
+                remove_if_exists(&p)?;
+            }
+            // 2. 今の鍵置き場から鍵を消す。直前の世代（.prev）にも鍵が残るので、新しい鍵置き場が開けることを確かめてから消す
+            s.vault.remove(id);
+            self.write_vault(s)?;
+            let check = fs::read(self.vault_path()).map_err(|_| StoreError::IO)?;
+            let v = Vault::decode(&check, &s.master)?;
+            if v.contains(id) {
+                return Err(StoreError::CORRUPT);
+            }
+            remove_if_exists(&atomic::prev_path(&self.vault_path()))?;
+        }
+        // 分岐の写し（PCの中）
+        for p in files_starting_with(&self.root.join(CONFLICTS_DIR), id) {
+            remove_if_exists(&p)?;
+        }
+        // 3. アプリが管理するバックアップの写し
+        for dir in backup_dirs(&self.root.join(BACKUPS_DIR)) {
+            remove_if_exists(
+                &dir.join(HOUSEHOLDS_DIR)
+                    .join(format!("{id}.{HOUSEHOLD_EXT}")),
+            )?;
+        }
+        for dir in backup_dirs(
+            &self
+                .root
+                .join(KEYS_DIR)
+                .join(KEY_BACKUPS_DIR)
+                .join(SHARED_KEY_BACKUPS),
+        ) {
+            remove_if_exists(&dir.join(format!("{id}.lphk")))?;
+        }
+        // 4. 削除の記録
+        s.data.households.remove(id);
+        s.data.deletions.push(Deletion {
+            household_id: id.to_owned(),
+            on: date_of(now),
+        });
+        if s.data.last_opened.as_deref() == Some(id) {
+            s.data.last_opened = None;
+        }
+        self.write_office(s)?;
         Ok(())
     }
 

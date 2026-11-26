@@ -288,7 +288,7 @@ describe("事務所の既定値の画面の「名前」「入力の欄の見せ�
     const html = renderToString(h(CustomTextsSection, { host, kind: "fields", status: st({ kind: "fields", state: "pending" }), onStatus: noop }));
     expect(html).toContain("入力の欄の見せ方（カスタム層）");
     expect(html).toContain("値が入っている欄は、隠す設定でも出します");
-    expect(html).toContain("既定の値は、この画面の上の事務所の既定値で変えます");
+    expect(html).toContain("既定の値は、事務所の既定値のほかの画面（前提条件の既定値など）で変えます");
     expect(rowTextLabel({ do: "hide", text: null }, "fields")).toBe("隠す（値が入っていれば出します）");
     expect(rowTextLabel({ do: "order", text: null, order: 3 }, "fields")).toBe("まとまりの中で 3 番目に出す");
   });
