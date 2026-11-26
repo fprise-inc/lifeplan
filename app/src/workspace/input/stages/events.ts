@@ -373,7 +373,8 @@ export const EVENT_ROW = "cf.expense.lumpSum.other";
 export function livingMonthlyNow(wh: WorkingHousehold): number {
   const h = wh.request.input.household;
   const l = (h.livingExpenses ?? [])[0];
-  const v = l === undefined ? null : l.mode === "total" ? (l.monthly?.value ?? null) : (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+  // 内訳の合計をそろえているときは、そろえた額（0262）
+  const v = l === undefined ? null : l.mode === "total" ? (l.monthly?.value ?? null) : (l.categoryTotal?.value ?? (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0));
   return v !== null && v > 0 ? v : livingEstimate(h, wh.request.input.baseMonth).value;
 }
 

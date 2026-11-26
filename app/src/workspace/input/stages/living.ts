@@ -6,7 +6,7 @@
 //   実際に貯められている額（答え合わせ。savingsChecks）
 // - 医療費の窓口負担（70歳・75歳）は自動で変えない。年をとった後の生活費は、推定の段階（70歳・80歳）で生活費の全体が下がる（0106）
 import type { Box, Household, LivingExpense, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
-import { addMonths, ageAt, ageReachedMonth, readLevers } from "../../levers.ts";
+import { addMonths, ageAt, ageReachedMonth, categorySum, livingTotalOf, readLevers } from "../../levers.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
 import { livingCategoryAverages, splitTransport } from "../../../../../hearing/src/estimates.ts";
 import { presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
@@ -240,6 +240,7 @@ function categoryGroup(l: LivingExpense, find: Finder): GroupDef {
     }
   if (hasLegacyAllowance(l)) fields.push(categoryField(l, find, LEGACY_ALLOWANCE, "simple", catLabel(LEGACY_ALLOWANCE)));
   fields.push(totalField(l, find));
+  if (l.categoryTotal != null) fields.push(categoryTotalField(l, find));
   const moved = ["other", "otherConsumption"].map((c) => (catOf(l, c)?.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis).find((b) => b !== undefined && b.startsWith("総額で"));
   const notes = [CATEGORY_GROUP_HELP];
   if (layout !== null) notes.push(LAYOUT_NOTE);
@@ -495,13 +496,43 @@ function totalField(l: LivingExpense, find: Finder): FieldDef {
     level: "simple",
     kind: "yen",
     basis: "monthly",
-    readOnly: "内訳の合計です。内訳の欄を直すと、自動で変わります（この額で計算します）",
+    readOnly: "内訳の合計です。内訳の欄を直すと、自動で変わります（下の「計算でそろえる合計」が無ければ、この額で計算します）",
     get: (w) => {
       const v = sum(w);
-      return { value: v, hint: v === null ? null : amountText(v * 12, "year") };
+      const t = (find(w.request.input.household, w) as unknown as LivingExpense | undefined)?.categoryTotal?.value;
+      const year = v === null ? null : amountText(v * 12, "year");
+      // 結果の対策「毎月の生活費」で合計をそろえているときは、そう添える（0262）
+      return { value: v, hint: t != null && v !== null ? `${year}。計算は${amountText(t, "month")}にそろえています` : year };
     },
     set: (w) => w,
   });
+}
+
+/**
+ * 内訳の合計をそろえる月額（0262）: 内訳の入れ方の世帯で結果の対策「毎月の生活費」を動かすと入る。入っているときだけ出す（結果に効く値を隠さない）。
+ * 内訳の値と推定の印はそのままで、計算のときだけ内訳の割合で分け直す。空にすると、そろえるのをやめて内訳の合計で計算する
+ */
+function categoryTotalField(l: LivingExpense, find: Finder): FieldDef {
+  return withAddress(
+    yenBox({
+      key: `living/${l.id}/categoryTotal`,
+      item: "livingExpense.categoryTotal",
+      label: "計算でそろえる合計（月額）",
+      level: "simple",
+      basis: "monthly",
+      find,
+      path: ["categoryTotal"],
+      optional: true,
+      help: "結果の対策「毎月の生活費」で動かした額です。内訳の値と推定の印はそのままにして、計算のときだけ内訳の割合で分け直し、合計をこの額にします。空にすると、内訳の合計で計算します",
+      hint: (w) => {
+        const t = find(w.request.input.household, w) as unknown as LivingExpense | undefined;
+        const sum = t === undefined ? null : categorySum(t);
+        const v = t?.categoryTotal?.value;
+        return sum === null || v == null || sum <= 0 ? null : `内訳の合計（${amountText(sum, "month")}）の${Math.round((v / sum) * 100)}%`;
+      },
+    }),
+    addr(l.id, "livingExpense.categoryTotal"),
+  );
 }
 
 /** 入れ方を切り替えたときの始末（総額と費目は両方持ち、片方を消さない。0048 の2） */
@@ -548,7 +579,8 @@ function stageTitles(wh: WorkingHousehold, l: LivingExpense): Map<string, string
   return out;
 }
 
-const baseMonthly = (l: LivingExpense | undefined): number => (l === undefined ? 0 : l.mode === "byCategory" ? (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0) : (l.monthly?.value ?? 0));
+/** 段階の「今の額」: 計算に使う最初の月額（内訳の合計をそろえているときは、そろえた額。0262） */
+const baseMonthly = (l: LivingExpense | undefined): number => (l === undefined ? 0 : (livingTotalOf(l) ?? 0));
 
 /** 段の今の額に対する割合（割合の段はその値、月額の段は今の額で割った値） */
 const ratioOfStage = (s: Stage, base: number): number | null => (s.ratio !== undefined ? Number(s.ratio) : s.monthly?.value != null && base > 0 ? s.monthly.value / base : null);

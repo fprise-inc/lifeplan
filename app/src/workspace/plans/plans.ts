@@ -413,6 +413,23 @@ export function valueOf(item: MovableItem, values: Values, wh: WorkingHousehold)
 }
 
 /**
+ * 対策の固定の項目の、そのプランでの値（動かした値が無いとき）: キーに戻せない差分（`@plan`。入力の画面でプランの生活費の入れ方を内訳にしたなど）が
+ * あれば、そのプランを反映した世帯から読む（現状から読むと、プランの中身と違う値を見せ、その値に動かしても「現状と同じ」として消えてしまう。0262）。
+ * 無ければ現状から読む（今までどおり）。view を渡せば、それから読む（画面が計算に使った要求の写し）
+ */
+export function naturalValue(item: MovableItem, values: Values, wh: WorkingHousehold, cat: Catalog, view?: EngineRequest): ItemValue {
+  if (item.phase !== "lever" || typeof values[PLAN_SLOT] !== "string") return item.read(wh);
+  const { [item.key]: _drop, ...rest } = values;
+  void _drop;
+  return item.read({ ...wh, request: view ?? applyValues(wh, rest, cat) });
+}
+
+/** 項目の、そのプランでの今の値（動かした値があればそれ、無ければ naturalValue） */
+export function planValueOf(item: MovableItem, values: Values, wh: WorkingHousehold, cat: Catalog, view?: EngineRequest): ItemValue {
+  return Object.hasOwn(values, item.key) ? (values[item.key] ?? null) : naturalValue(item, values, wh, cat, view);
+}
+
+/**
  * 動かした値を整える: 現状と同じ値の項目を外す（土台が動かした項目は、現状に戻した値として残す）。一覧に無い項目は外すが、
  * `@plan`（キーに戻せない差分を持つプラン）と、当て先に読める鍵（一覧に無い欄の差分）は残す（外すと、その差分を当てずに計算する）
  */
@@ -424,7 +441,7 @@ export function normalizeValues(values: Values, baseValues: Values, wh: WorkingH
       if (k === PLAN_SLOT || resolveKey(k, inputOf(wh))?.kind === "address") out[k] = v;
       continue;
     }
-    if (!Object.hasOwn(baseValues, k) && it.same(v, it.read(wh))) continue;
+    if (!Object.hasOwn(baseValues, k) && it.same(v, naturalValue(it, values, wh, cat))) continue;
     out[k] = v;
   }
   return out;

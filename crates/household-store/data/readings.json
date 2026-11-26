@@ -2995,6 +2995,12 @@
     "categories"
    ]
   },
+  "livingExpense.categoryTotal": {
+   "collection": "livingExpense",
+   "path": [
+    "categoryTotal"
+   ]
+  },
   "livingExpense.from": {
    "collection": "livingExpense",
    "path": [

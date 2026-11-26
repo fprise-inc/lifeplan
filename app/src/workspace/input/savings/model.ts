@@ -909,7 +909,8 @@ export const kindShort = (kind: string): string => (KIND_INFO[kind]?.name ?? "�
 export function livingMonthlyOf(h: Household): number | null {
   const l = (h.livingExpenses ?? [])[0];
   if (l === undefined) return null;
-  return l.mode === "total" ? (l.monthly?.value ?? null) : (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+  // 内訳の合計をそろえているときは、そろえた額（0262）
+  return l.mode === "total" ? (l.monthly?.value ?? null) : (l.categoryTotal?.value ?? (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0));
 }
 
 /** 預金に残しておく額の目安（押した時の基本生活費の月数分。生活費を追いかけない）。基本生活費が無ければ null */

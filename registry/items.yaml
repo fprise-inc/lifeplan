@@ -1638,6 +1638,14 @@ entries:
     replacedBy: null
     collection: livingExpense
     path: [categories]
+  - id: livingExpense.categoryTotal
+    status: active
+    label: "内訳の合計をそろえる月額（入れ方が内訳のときだけ。各費目の値はそのままにして、計算のときだけ内訳の割合で分け直し、合計をこの額にする。結果の対策「毎月の生活費」で動かした値。0262）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: livingExpense
+    path: [categoryTotal]
   - id: livingExpense.from
     status: active
     label: "始まり（省略は計算基準月）"

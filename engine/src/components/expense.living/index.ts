@@ -8,6 +8,9 @@
 //   末子の独立は、子の leaves があればその月、無ければ独立とみなす年齢（survivor.independenceAge。省略は22）に達した後の最初の3月31日の翌月
 // 改訂3: 世帯の外の家族（0035 の4）の子は遺族の生活費の子に数えない
 // 改訂4（0100）: 内訳に通信費・交通費（車を除く）・こづかいと交際費・その他を足した（計算は内訳の合計のまま。前の分け方の交通・通信とその他の消費支出も同じ）
+// 改訂5（0262）: 内訳の合計をそろえる月額（livingExpense.categoryTotal。入れ方が内訳のときだけ）。書いてあれば、各費目の最初の月額を
+//   内訳の割合で分け直して合計をこの額にする（端数は最初の費目。内訳の合計が0なら全部を最初の費目）。費目の値そのものは変えない
+//   （結果の対策「毎月の生活費」が書く。推定の費目は推定のまま）。書いていない世帯の結果は同じ
 import {
   addMonths,
   boxValue,
@@ -53,7 +56,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.living",
   title: "生活費",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -67,6 +70,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     "livingExpense.to",
     "livingExpense.monthly",
     "livingExpense.categories",
+    "livingExpense.categoryTotal",
     "livingExpense.growth",
     "livingExpense.stages",
     "assumptions.inflation",
@@ -110,10 +114,17 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       const to = e.to === undefined || e.to === null ? end : ctx.time.resolve(e.to);
       if (to < base || from > end) continue;
       // 費目（総額の入れ方は1つの行）と、計算基準年の価格の最初の月額
-      const items: { row: string; monthly: Yen }[] =
+      let items: { row: string; monthly: Yen }[] =
         e.mode === "byCategory"
           ? (e.categories ?? []).map((c) => ({ row: ROW[c.category], monthly: boxValue(c.monthly) ?? yen(0) }))
           : [{ row: "cf.expense.living", monthly: boxValue(e.monthly) ?? yen(0) }];
+      // 内訳の合計をそろえる月額（改訂5。0262）: 内訳の割合で分け直す（内訳の合計が0なら全部を最初の費目）
+      const target = e.mode === "byCategory" ? boxValue(e.categoryTotal) : null;
+      if (target !== null && target !== undefined && items.length > 0) {
+        const sum = items.reduce((t, x) => t + x.monthly, 0);
+        const shares = sum > 0 ? ctx.money.allocate(target, items.map((x) => x.monthly as number), "conv.expense.share", "first") : items.map((_, i) => (i === 0 ? target : yen(0)));
+        items = items.map((x, i) => ({ ...x, monthly: shares[i] as Yen }));
+      }
       const total0 = items.reduce((s, x) => s + x.monthly, 0);
       // 段階（月の順）: 各段階の、費目ごとの計算基準年の価格の月額
       const stages = (e.stages ?? [])

@@ -17,7 +17,7 @@ import type { Option } from "../input/form.ts";
 import type { Box, EmploymentPeriod, Household, Member, Timepoint } from "../../engine/types.ts";
 import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
 import { amountText, pctFromRate, sameRate } from "../input/units.ts";
-import { addMonths, advisoryFeeState, feeStateText, hasAdvisoryFee, LEVER_KEYS, parseYm, pensionClaimMonth, pensionStarted, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
+import { addMonths, advisoryFeeState, categorySum, feeStateText, hasAdvisoryFee, LEVER_KEYS, leverLivingOf, parseYm, pensionClaimMonth, pensionStarted, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
 import { roles } from "../roles.ts";
 import { keyOf, resolveKey, type Reading } from "../store/readings.ts";
 import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
@@ -129,7 +129,8 @@ export interface MovableItem {
    * スライダーの下の補足。forCustomer は顧客に渡すファイル（持ち帰り用のレポート）に入れる文: FP が付けた呼び名を使わず続柄だけで書く
    * （0030 の2「入れないもの」）
    */
-  note?: (v: ItemValue, o?: { forCustomer?: boolean }) => string | null;
+  /** 項目の下の文。view は選んだプランを反映した世帯（省略は現状。対策の生活費の文が使う。0262） */
+  note?: (v: ItemValue, o?: { forCustomer?: boolean; view?: WorkingHousehold }) => string | null;
 }
 
 export interface Catalog {
@@ -250,7 +251,11 @@ export const leverValueText = (k: LeverKey, v: number): string =>
 const leverTick = (k: LeverKey, v: number): string => (k === "nisaMonthly" || k === "livingMonthly" ? (v === 0 ? "0" : `${v / 10000}万`) : String(v));
 const pct = (r: string) => `${Math.round(Number(r) * 100)}%`;
 
-function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null, v: number | undefined, forCustomer = false): string | null {
+/**
+ * 対策の下の文。view は選んだプランを反映した世帯（省略は現状）。生活費の文は、その世帯の動かす行から作る（0262: どの行を動かすか〔生活費が2つ以上のとき〕・
+ * 内訳の割合のまま合計をそろえること・段階〔割合・月額・節目が「その他」の段も〕）
+ */
+function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null, v: number | undefined, forCustomer = false, view?: WorkingHousehold): string | null {
   const h = wh.request.input.household;
   if (k === "retireAge") {
     const p = wh.postRetirement[selfId];
@@ -271,19 +276,51 @@ function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: Demo
     return v === 65 ? "原則の65歳" : null;
   }
   if (k === "nisaMonthly") return demo?.notes?.nisaMonthly ?? "働いている間、毎月積み立てる";
-  const l = (h.livingExpenses ?? []).find((x) => x.mode === "total");
-  const st = l?.stages ?? [];
+  const vw = view ?? wh;
+  const hv = vw.request.input.household;
+  const l = leverLivingOf(hv, vw.request.input.baseMonth);
+  if (l === undefined) return null;
+  const st = l.stages ?? [];
   const names: Record<string, string> = { childIndependence: "子の独立後は", retirement: "退職後は", age70: "70歳から", age80: "80歳から" };
+  const ymText = (ym: string) => `${Number(ym.slice(0, 4))}年${Number(ym.slice(5, 7))}月`;
   // 子の独立の段が2つ以上なら、どの子の独立かを書く（「第1子の独立後は94%、第2子の独立後は85%」）
   const several = st.filter((s) => s.label === "childIndependence").length >= 2;
-  const nameOf = (s: (typeof st)[number]): string => {
-    if (s.label !== "childIndependence" || !several || l === undefined) return names[s.label] as string;
-    const kids = independenceOf(h, wh.request.input.baseMonth, wh.request.input.endYear, l, s);
+  const nameOf = (s: (typeof st)[number]): string | null => {
+    // 節目が「その他」の段（と名前の無い段）は、その段の年月で言う（「2030年4月から」。0262）
+    if (names[s.label] === undefined) {
+      const at = resolveTimepoint(hv, s.at);
+      return at === null ? null : `${ymText(at)}から`;
+    }
+    if (s.label !== "childIndependence" || !several) return names[s.label] as string;
+    const kids = independenceOf(hv, vw.request.input.baseMonth, vw.request.input.endYear, l, s);
     // 顧客に渡すファイルには呼び名を入れない（「第2子の独立後は」。0030 の2）
-    return kids.length > 0 ? `${kids.map((id) => memberLabel(wh, id, { nicknames: !forCustomer })).join("・")}の独立後は` : (names[s.label] as string);
+    return kids.length > 0 ? `${kids.map((id) => memberLabel(vw, id, { nicknames: !forCustomer })).join("・")}の独立後は` : (names[s.label] as string);
   };
-  const parts = st.filter((s) => s.ratio !== undefined && names[s.label] !== undefined).map((s) => `${nameOf(s)}${pct(s.ratio as string)}`);
-  return parts.length > 0 ? parts.join("、") : null;
+  // 段階: 割合の段は割合、月額で入れた段は月額（つまみと同じ割合で動く。0262）
+  const stages = st.flatMap((s) => {
+    const name = nameOf(s);
+    if (name === null) return [];
+    if (s.ratio !== undefined) return [`${name}${pct(s.ratio)}`];
+    const m = s.monthly?.value;
+    return m != null ? [`${name}${amountText(m, "month")}`] : [];
+  });
+  const lines: string[] = [];
+  // 毎月の生活費が2つ以上なら、どの行を動かすか（計算基準月に当てはまる行。0262）
+  const list = hv.livingExpenses ?? [];
+  if (list.length >= 2) {
+    const i = list.indexOf(l);
+    const from = l.from === undefined ? null : resolveTimepoint(hv, l.from);
+    const to = l.to === undefined || l.to === null ? null : resolveTimepoint(hv, l.to);
+    const span = from !== null || to !== null ? `（${from !== null ? `${ymText(from)}から` : ""}${to !== null ? `${ymText(to)}まで` : ""}）` : "";
+    lines.push(`${i === 0 ? "毎月の生活費" : `毎月の生活費 ${i + 1}`}${span}だけを動かします`);
+  }
+  // 内訳の入れ方: 費目の値はそのままにして、割合のまま合計をそろえる（0262）
+  if (l.mode === "byCategory") {
+    const sum = categorySum(l);
+    lines.push(sum !== null && v !== undefined && v !== sum ? `内訳（合計${amountText(sum, "month")}）を割合のまま${amountText(v, "month")}にそろえます` : "内訳の割合のまま合計を動かします");
+  }
+  if (stages.length > 0) lines.push(stages.join("、"));
+  return lines.length > 0 ? lines.join("。") : null;
 }
 
 function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null): MovableItem[] {
@@ -297,7 +334,7 @@ function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | 
       if (a !== undefined) return { object: a.id };
     }
     if (k === "livingMonthly") {
-      const l = (h.livingExpenses ?? []).find((x) => x.mode === "total");
+      const l = leverLivingOf(h, wh.request.input.baseMonth);
       if (l !== undefined) return { object: l.id };
     }
     return { member: selfId };
@@ -330,7 +367,7 @@ function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | 
     apply: (w: WorkingHousehold) => w,
     text: (v: ItemValue) => (typeof v === "number" ? leverValueText(k, v) : "—"),
     same: jsonSame,
-    note: (v: ItemValue, o?: { forCustomer?: boolean }) => leverNote(k, wh, selfId, demo, typeof v === "number" ? v : undefined, o?.forCustomer === true),
+    note: (v: ItemValue, o?: { forCustomer?: boolean; view?: WorkingHousehold }) => leverNote(k, wh, selfId, demo, typeof v === "number" ? v : undefined, o?.forCustomer === true, o?.view),
   }));
 }
 
@@ -1200,7 +1237,7 @@ export function fieldSkips(wh: WorkingHousehold, selfId: string): Set<string> {
   const h = wh.request.input.household;
   const base = readLevers(wh.request, selfId);
   const skip = new Set<string>();
-  const living = (h.livingExpenses ?? []).find((l) => l.mode === "total");
+  const living = leverLivingOf(h, wh.request.input.baseMonth);
   if (living !== undefined && base.livingMonthly !== undefined) skip.add(`living/${living.id}/monthly`);
   const nisa = (h.accounts ?? []).find((a) => a.kind === "nisa" && a.owner === selfId);
   if (nisa !== undefined && base.nisaMonthly !== undefined) skip.add(`sav/${nisa.id}/monthly`);

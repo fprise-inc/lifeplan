@@ -27,7 +27,7 @@ export function manInputText(yen: number): string {
 }
 
 /** スライダーの横の数値の欄。打って Enter か欄を離れたら確定（正の計算）。per は「月」「年」 */
-export function AmountInput({ value, onCommit, label, per, id }: { value: number; onCommit: (yen: number) => void; label: string; per: "月" | "年" | ""; id?: string }) {
+export function AmountInput({ value, onCommit, label, per, id, disabled }: { value: number; onCommit: (yen: number) => void; label: string; per: "月" | "年" | ""; id?: string; disabled?: boolean }) {
   const [draft, setDraft] = useState<string | null>(null);
   /** 使えない文字のまま離れたときの知らせ（前の値のままにしたこと） */
   const [rejected, setRejected] = useState<string | null>(null);
@@ -50,6 +50,7 @@ export function AmountInput({ value, onCommit, label, per, id }: { value: number
         class={`num${bad ? " bad" : ""}`}
         id={id}
         value={draft ?? shown}
+        disabled={disabled === true}
         aria-label={`${label}（万円で入れる。1万円単位）`}
         aria-invalid={bad ? true : undefined}
         data-amount-input

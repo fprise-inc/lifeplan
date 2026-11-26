@@ -89,6 +89,7 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:ins/{object}/sv/pt/{id}/age","until":"0.52","to":{"target":"object","item":"insurance.simple","at":["returnRatePoints",{"id":1},"age"]}},
   {"from":"field:ins/{object}/sv/pt/{id}/rate","until":"0.52","to":{"target":"object","item":"insurance.simple","at":["returnRatePoints",{"id":1},"rate"]}},
   {"from":"field:ins/{object}/sv/rate","until":"0.35","to":{"target":"object","item":"insurance.simple","at":["returnRate"]}},
+  {"from":"field:living/{object}/categoryTotal","until":"0.94","to":{"target":"object","item":"livingExpense.categoryTotal","at":[]}},
   {"from":"field:retirement/{object}/amount","until":"0.35","to":{"target":"object","item":"retirementBenefit.amount","at":[]}},
   {"from":"field:retirement/{object}/annual","until":"0.35","to":{"target":"object","item":"retirementBenefit.receipt","at":["annualAmount"]}},
   {"from":"field:retirement/{object}/finalMonthly","until":"0.35","to":{"target":"object","item":"retirementBenefit.estimate","at":["finalMonthly"]}},
