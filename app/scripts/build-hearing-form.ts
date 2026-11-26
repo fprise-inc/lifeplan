@@ -1,5 +1,6 @@
 // お客さまのページ（0125。Web のヒアリング）を、受け付けのサーバーが配る静的なファイルにまとめる（dist-hearing-form/h/）。
 // - 入口は h/index.html（src/hearingForm/main.tsx）。外のスクリプト・フォント・画像を読まない形（CSP の meta はそのまま。サーバーも同じ見出しを付ける）
+// - 説明のページ h/about/index.html（運営者の名前・送られる情報・送り先・目的。スクリプトを持たない。0138 の追記 2026-11-26）も同じ所に配る
 // - 配るファイルの指紋（SHA-256）を fingerprints.json に書き、HTML の script・link には完全性の印（integrity）を付ける。
 //   公開した指紋と配られているファイルを比べれば、ページがすり替えられていないかを誰でも確かめられる（0125 の決定の5）
 // - まとめた JS に入った npm の依存のライセンスの文を licenses.txt にまとめる
@@ -11,6 +12,9 @@ import { build } from "vite";
 import { APP_DIR, REPO_DIR } from "./lib.ts";
 
 export const FORM_OUT = join(APP_DIR, "dist-hearing-form");
+
+/** 配るページ（app/ からの場所）。説明のページはお客さまのページの「このページの仕組みと送られる情報」のリンクの先（src/hearingForm/operator.ts の ABOUT_PATH） */
+export const HEARING_PAGES = { index: "h/index.html", about: "h/about/index.html" } as const;
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -45,7 +49,7 @@ export async function buildHearingForm(): Promise<void> {
       minify: true,
       sourcemap: false,
       reportCompressedSize: false,
-      rollupOptions: { input: join(APP_DIR, "h", "index.html") },
+      rollupOptions: { input: Object.fromEntries(Object.entries(HEARING_PAGES).map(([k, v]) => [k, join(APP_DIR, v)])) },
     },
   });
   const outputs = (Array.isArray(out) ? out : [out]) as { output?: { moduleIds?: string[] }[] }[];
@@ -60,19 +64,26 @@ export async function buildHearingForm(): Promise<void> {
     notices.push(`${name}@${version}\n\n${readFileSync(file, "utf8").trim()}`);
   }
   writeFileSync(join(FORM_OUT, "h", "licenses.txt"), notices.join("\n\n----\n\n") + "\n");
-  // HTML の script・link に完全性の印を付ける
-  const htmlPath = join(FORM_OUT, "h", "index.html");
-  let html = readFileSync(htmlPath, "utf8");
-  html = html.replace(/<(script|link)([^>]*?)(src|href)="(\/h\/assets\/[^"]+)"([^>]*)>/g, (_m, tag: string, a: string, attr: string, url: string, b: string) => {
-    const bytes = readFileSync(join(FORM_OUT, url.slice(1)));
-    return `<${tag}${a}${attr}="${url}" integrity="${sri(bytes)}"${b}>`;
-  });
-  writeFileSync(htmlPath, html);
+  // HTML の script・link に完全性の印を付ける（どのページも）。外の物を読む書き方（http で始まる・// で始まる src・href）があれば止める
+  for (const page of Object.values(HEARING_PAGES)) {
+    const htmlPath = join(FORM_OUT, page);
+    if (!existsSync(htmlPath)) throw new Error(`${page} が作られていません`);
+    let html = readFileSync(htmlPath, "utf8");
+    html = html.replace(/<(script|link)([^>]*?)(src|href)="(\/h\/assets\/[^"]+)"([^>]*)>/g, (_m, tag: string, a: string, attr: string, url: string, b: string) => {
+      const bytes = readFileSync(join(FORM_OUT, url.slice(1)));
+      return `<${tag}${a}${attr}="${url}" integrity="${sri(bytes)}"${b}>`;
+    });
+    if (/\s(?:src|href)="(?!\/h\/)[^"]*"/i.test(html)) throw new Error(`${page} に、/h/ の外の物を読む・開く書き方があります`);
+    writeFileSync(htmlPath, html);
+  }
+  // 説明のページはスクリプトを持たない
+  if (/<script/i.test(readFileSync(join(FORM_OUT, HEARING_PAGES.about), "utf8"))) throw new Error("説明のページにスクリプトがあります");
   const js = walk(join(FORM_OUT, "h", "assets")).filter((f) => f.endsWith(".js")).map((f) => readFileSync(f, "utf8")).join("\n");
   if (/\bimport\s*\(/.test(js) || /https?:\/\/(?!www\.w3\.org)/.test(js.replace(/"[^"]*licen[^"]*"/gi, ""))) throw new Error("お客さまのページに、外のファイルを読む書き方があります");
   const files = walk(FORM_OUT).filter((f) => !f.endsWith("fingerprints.json"));
   const prints = Object.fromEntries(files.map((f): [string, string] => [`/${relative(FORM_OUT, f).replaceAll("\\", "/")}`, createHash("sha256").update(readFileSync(f)).digest("hex")]).sort((x, y) => (x[0] < y[0] ? -1 : 1)));
   writeFileSync(join(FORM_OUT, "h", "fingerprints.json"), JSON.stringify({ files: prints }, null, 2) + "\n");
+  for (const page of Object.values(HEARING_PAGES)) if (prints[`/${page}`] === undefined) throw new Error(`${page} が配るファイルの指紋に入っていません`);
   console.log(`お客さまのページ: ${files.length} ファイル（${relative(REPO_DIR, FORM_OUT)}/h/）`);
 }
 
