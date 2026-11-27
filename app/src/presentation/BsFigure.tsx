@@ -10,7 +10,10 @@
 // - 箱の中の名前と金額は、箱の高さと幅で入る分を入れる（boxTextLayout）: 名前と金額を2行（名前が長ければ名前を2行に分けて金額を3行目）→
 //   1行（名前は左・金額は右。間を文字1つ分ほど空けられるとき）→ 名前だけ（1行・2行に分けて・「…」で縮めて）→ 何も入れない。
 //   狭い画面では、名前だけの代わりに金額だけ（名前は図の下の一覧）。細い柱では左右の余白を詰める（boxPad）
-// - 図の外の見出し（名前と合計）は、まとまりの上端から下端までの括弧を柱の横に引き、その真ん中に置く（どの箱からどの箱までの合計か分かるように）
+// - 図の外の見出し（名前と合計）は、まとまりの上端から下端までの括弧を柱の横に引き、その真ん中に置く（どの箱からどの箱までの合計か分かるように）。
+//   出すのは要る所だけ（sideLabelNeeded）: まとまりの中に箱が2つ以上あるとき（合計が箱の中の数字だけでは分からない）と、
+//   箱の中に名前と金額が入らないとき。箱が1つで中に名前と金額が入っているまとまり（住宅ローン・純資産など）は出さない（左右とも同じ）
+// - 純資産の箱の中も、ほかの箱と同じく名前と金額（「資産 − 負債」の説明はカーソルを合わせると出る小さな表示）
 // - 下の線（0 の線）は、左の柱の左端から目盛りの「0」の印まで（図の左にはみ出さない）
 // - 縮尺（scale）を渡さなければその年がいっぱいの高さ。年を変えると、箱と縮尺が前の形から行き過ぎなく動く（tween.ts）
 // - 箱を押すと内訳の小窓（もう一度押す・×・Esc・外を押すと閉じる）
@@ -160,6 +163,19 @@ export function boxTextLayout(name: string, value: string, colW: number, h: numb
   return cut !== null ? { fit: "cut", lines: [nm(cut)], f } : none;
 }
 
+/** 名前と金額の両方が箱の中に入った置き方 */
+const BOTH_FITS: readonly BoxTextFit[] = ["two", "three", "one"];
+
+/**
+ * 図の外の見出し（括弧と名前・合計）が要るか: まとまりの中に額のある箱が2つ以上（合計が箱の中の数字だけでは分からない）か、
+ * 箱の中に名前と金額の両方は入らないとき（名前だけ・何も入れない・純資産のマイナスの「足りない分」）。
+ * parts はまとまりの中の箱（額と、箱の中の文字の置き方）
+ */
+export function sideLabelNeeded(parts: readonly { value: number; fit: BoxTextFit }[]): boolean {
+  const ps = parts.filter((p) => p.value > 0.5);
+  return ps.length !== 1 || !BOTH_FITS.includes((ps[0] as { fit: BoxTextFit }).fit);
+}
+
 export interface BsFigureProps {
   year: BsYearModel;
   /** 分け方の名前と短い名前 */
@@ -303,9 +319,14 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   const amF = amF0 * Math.max(0.62, Math.min(1, headRoom / Math.max(headW(A), headW(L + Math.max(0, nw)), 1)));
   const subF = fs * (compact ? 0.78 : 0.86);
   const lh = fs * (compact ? 2.5 : 3.2);
+  // 箱の中の文字の置き方（箱ごと）。図の外の見出しを出すかもこれで決める
+  const nameIn = (key: string, label: string) => (short && key === "insurance" ? "返戻金" : short && key === "corporateDc" ? "DC" : label);
+  const layOf = (q: Drawn["parts"][number]) =>
+    q.key === "neg" ? { fit: "none" as const, lines: [] as { text: string; value: boolean }[], f: subF } : boxTextLayout(nameIn(q.key, q.label), fmt(q.value), colW, q.h, subF, narrow);
+  const needLabel = (d: Drawn) => sideLabelNeeded(d.parts.map((q) => ({ value: q.value, fit: layOf(q).fit })));
   const fg = drawn.filter((d) => FINANCIAL_GROUPS.includes(d.box.key as BsGroupKey) && d.bot - d.top >= 0.3);
   const labels = (narrow ? [] : (["L", "R"] as const)).flatMap((side) => {
-    const ls = drawn.filter((d) => d.box.side === side && d.box.value >= 5000 && d.bot - d.top >= 0.3);
+    const ls = drawn.filter((d) => d.box.side === side && d.box.value >= 5000 && d.bot - d.top >= 0.3 && needLabel(d));
     const ys = spreadLabels(
       ls.map((d) => (d.top + d.bot) / 2),
       colTop + lh * 0.3,
@@ -422,12 +443,10 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   // 箱の間の余白（上下に半分ずつ）。ごく薄い箱は余白で消えないよう、余白なしで描く
                   const g2 = q.h > BOX_GAP * 2.5 ? BOX_GAP / 2 : 0;
                   const rh = Math.max(0, q.h - 2 * inset - 2 * g2);
-                  const name = short && q.key === "insurance" ? "返戻金" : short && q.key === "corporateDc" ? "DC" : q.label;
-                  // 純資産の箱の中は、広い図では「資産 − 負債」の説明（名前と金額は図の外の札）。狭い画面ではほかの箱と同じく名前と金額
-                  const showText = (!isNw || narrow) && !isNeg;
                   const tf = boxInk(q.key);
-                  // 名前と金額: 2行 → 名前を2行に分けて金額を3行目 → 1行 → 名前だけ（狭い画面は金額だけ）→ 何も入れない（boxTextLayout）
-                  const lay = showText ? boxTextLayout(name, fmt(q.value), colW, q.h, subF, narrow) : { fit: "none" as const, lines: [], f: subF };
+                  // 名前と金額: 2行 → 名前を2行に分けて金額を3行目 → 1行 → 名前だけ（狭い画面は金額だけ）→ 何も入れない（boxTextLayout）。
+                  // 純資産もほかの箱と同じ。純資産のマイナスは「足りない分」の文だけ（下）
+                  const lay = layOf(q);
                   const pad = boxPad(colW);
                   const lhB = lay.f * BOX_LH;
                   const cy = q.y + q.h / 2 + lay.f * 0.36;
@@ -459,11 +478,6 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                     </g>
                   );
                 })}
-                {d.box.key === "netWorth" && d.bot - d.top >= fs * 2.4 && !compact && !narrow ? (
-                  <text x={d.x + colW / 2} y={(d.top + d.bot) / 2 + fs * 0.32} text-anchor="middle" font-size={fs * 0.86} fill="#fff" font-weight="700">
-                    資産 − 負債
-                  </text>
-                ) : null}
                 {d.box.key === "neg" && d.bot - d.top >= fs * 1.6 ? (
                   <text x={d.x + colW / 2} y={(d.top + d.bot) / 2 + fs * 0.3} text-anchor="middle" font-size={fs * 0.8} fill="var(--ink-2)" font-weight="700" paint-order="stroke" stroke="var(--card)" stroke-width="4">
                     足りない分

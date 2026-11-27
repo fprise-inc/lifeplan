@@ -84,7 +84,8 @@ describe("図の外の見出しの括弧", () => {
       for (const html of draws(y)) {
         const bx = boxes(html);
         const bs = brackets(html);
-        expect(bs.length).toBeGreaterThanOrEqual(4);
+        // 見出しは要る所だけ（箱が2つ以上・中に名前と金額が入らないまとまり。0027 の追記 2026-11-27。bs-side-labels.test.ts）
+        expect(bs.length).toBeGreaterThanOrEqual(y === combined ? 4 : 1);
         for (const b of bs) {
           const box = bx.get(b.key)!;
           expect(b.top, b.key).toBeGreaterThanOrEqual(box.top - 0.01);
@@ -97,15 +98,17 @@ describe("図の外の見出しの括弧", () => {
           const s = [...side].sort((a, c) => a.top - c.top);
           for (let i = 1; i < s.length; i++) expect(s[i]!.top, `${s[i - 1]!.key}→${s[i]!.key}`).toBeGreaterThan(s[i - 1]!.bot);
         }
-        // 左（資産）と右（負債＋純資産）の両方にある
-        expect(bs.some((b) => b.key === "liquid")).toBe(true);
-        expect(bs.some((b) => b.key === "netWorth")).toBe(true);
+        // 合算BS（どちらの側にも箱が2つ以上のまとまりがある）は、左（資産）と右（負債＋純資産）の両方にある
+        if (y === combined) {
+          expect(bs.some((b) => b.key === "liquid")).toBe(true);
+          expect(bs.some((b) => b.key === "netWorth")).toBe(true);
+        }
       }
     }
   });
 
   it("見出しは括弧の真ん中に置く（混んでずれたときだけ、括弧の真ん中から短い線でつなぐ）", () => {
-    const html = draws(home)[0]!;
+    const html = draws(combined)[0]!;
     const bs = brackets(html);
     const nw = bs.find((b) => b.key === "netWorth")!;
     const lab = html.slice(html.indexOf('data-bs-label="netWorth"'));
