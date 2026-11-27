@@ -298,9 +298,10 @@ describe("相続・贈与のカード: 相続税の目安（区画D）", () => {
     expect(p.details[1]).toMatch(/^法定相続人 \d+人.*基礎控除 /);
     // 持ち家があるので小規模宅地等の特例の注意
     expect(view.points.some((x) => x.cautions.includes(CAUTION_TEXT.smallLandSpecial!))).toBe(true);
-    // 相続税も試算していない世帯: 試算すると入る物には「（土地の評価を入れて試算すると入ります）」を添える（0231 の追記 2026-11-23）
-    expect(view.notIncluded).toContain(`${NOT_INCLUDED_TEXT.twentyPercentSurcharge}（土地の評価を入れて試算すると入ります）`);
-    expect(view.notIncluded).toContain(NOT_INCLUDED_TEXT.calendarGiftAddBack);
+    // 相続税も試算していない世帯: 試算すると入る物と、試算しても含めていない物の2行（0039 の追記 2026-11-27）
+    expect(view.notIncluded[0]?.items).toContain(NOT_INCLUDED_TEXT.twentyPercentSurcharge);
+    expect(view.notIncluded[1]).toEqual(expect.objectContaining({ label: "試算しても含めていないもの" }));
+    expect(view.notIncluded[1]?.items).toContain(NOT_INCLUDED_TEXT.calendarGiftAddBack);
     expect(inheritanceView(wh, null).points).toEqual([]);
   });
 

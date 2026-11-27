@@ -8,7 +8,7 @@ import { chartRequests, scenarios } from "../src/workspace/contingency/requests.
 import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildingEstimateOf, DETAILED_HELP, isDetailed, landTargets, SECTION_NOTICE, setDetailed, withLandEstimates } from "../src/workspace/input/inheritanceLand.ts";
-import { DETAIL_ADDS, DETAIL_ADDS_NOTE, DETAIL_BUTTON, detailPrompt, ESTIMATE_NOTICE, inheritanceRequest, inheritanceView } from "../src/workspace/input/inheritanceLine.ts";
+import { DETAIL_ADDS, DETAIL_BUTTON, detailPrompt, ESTIMATE_NOTICE, inheritanceRequest, inheritanceView, NOT_INCLUDED_LABEL, NOT_INCLUDED_TEXT } from "../src/workspace/input/inheritanceLine.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { refSites } from "../src/workspace/input/refs.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -161,29 +161,41 @@ describe("区画「相続税の試算」の頭の1文（0231 の追記 2026-11-2
   });
 });
 
-describe("含めていないものに、土地の評価を入れて試算すると入る物を添える（0231 の追記 2026-11-23）", () => {
-  it("チェックしていない世帯は添え、もとの「（…）」の中には「。」でつなぐ。試算しても入らない物には添えない", () => {
-    const v = inheritanceView(rental, estimate(rental));
-    expect(v.notIncluded).toContain("小規模宅地等の特例（土地の評価を入れて試算すると入ります）");
-    expect(v.notIncluded).toContain("土地の評価の細部（路線価・倍率。土地の評価を入れて試算すると入ります）");
-    expect(v.notIncluded).toContain("2割加算（土地の評価を入れて試算すると入ります）");
-    expect(v.notIncluded).toContain("未成年者控除（土地の評価を入れて試算すると入ります）");
-    expect(v.notIncluded).toContain("一次と二次の相続の分け方の比較（土地の評価を入れて試算すると入ります）");
-    expect(v.notIncluded).toContain("亡くなる前の暦年課税の贈与の加算");
-    expect(v.notIncluded).toContain("障害者控除");
-    expect(v.notIncluded.filter((x) => x.includes(DETAIL_ADDS_NOTE))).toHaveLength(DETAIL_ADDS.size);
+describe("含めていないものを、試算すると入る物と試算しても含めていない物の2行に分ける（0039 の追記 2026-11-27）", () => {
+  it("チェックしていない世帯で、ボタンが出るときは1行目が「土地の評価を入れて試算すると入るもの」。添え書き「（土地の評価を入れて試算すると入ります）」は無い", () => {
+    const r = estimate(rental);
+    expect(detailPrompt(rental, r)).not.toBeNull();
+    const v = inheritanceView(rental, r);
+    expect(v.notIncluded.map((l) => l.label)).toEqual([NOT_INCLUDED_LABEL.addsWithButton, NOT_INCLUDED_LABEL.others]);
+    expect(v.notIncluded[0]?.items).toEqual(["2割加算", "小規模宅地等の特例", "土地の評価の細部（路線価・倍率）", "一次と二次の相続の分け方の比較", "未成年者控除"]);
+    expect(v.notIncluded[1]?.items).toContain("亡くなる前の暦年課税の贈与の加算");
+    expect(v.notIncluded[1]?.items).toContain("障害者控除");
+    expect(v.notIncluded.flatMap((l) => l.items).some((x) => x.includes("試算すると入ります"))).toBe(false);
+  });
+
+  it("ボタンが無い（どの時点も基礎控除以下）ときは、1行目を「「相続税も試算する」（詳細）にすると入るもの」にする", () => {
+    const r = estimate(rental);
+    const base = r.inheritanceTax?.points[0] as object;
+    const none = { ...r, inheritanceTax: { ...r.inheritanceTax, points: [{ ...base, status: "ok", state: "estimated", noTax: true, payable: 0, assets: { taxablePrice: 30_000_000 }, basicDeduction: 42_000_000 }] } } as unknown as PreviewResult;
+    expect(detailPrompt(rental, none)).toBeNull();
+    expect(inheritanceView(rental, none).notIncluded[0]?.label).toBe("「相続税も試算する」（詳細）にすると入るもの");
+    // 不動産の無い世帯も、ボタンが無いので同じ
+    const plain = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const noLand = { ...plain, request: { ...plain.request, input: { ...plain.request.input, household: { ...plain.request.input.household, residences: [], accounts: (plain.request.input.household.accounts ?? []).filter((a) => a.kind !== "realEstate") } } } };
+    expect(inheritanceView(noLand, estimate(noLand)).notIncluded[0]?.label).toBe(NOT_INCLUDED_LABEL.addsNoButton);
   });
 
   it("試算すると入る物は、エンジンの試算しない一覧にあって、試算する一覧に無い物と同じ", () => {
     const off = new Set(estimate(rental).inheritanceTax?.notIncluded ?? []);
     const onList = new Set(estimate(setDetailed(rental, true)).inheritanceTax?.notIncluded ?? []);
     expect(new Set([...off].filter((x) => !onList.has(x)))).toEqual(DETAIL_ADDS);
+    expect(inheritanceView(rental, estimate(rental)).notIncluded[0]?.items).toEqual([...off].filter((x) => DETAIL_ADDS.has(x)).map((x) => NOT_INCLUDED_TEXT[x]));
   });
 
-  it("チェックした世帯は添えない", () => {
+  it("チェックした世帯は1行（「含めていないもの」）", () => {
     const on = setDetailed(rental, true);
     const v = inheritanceView(on, estimate(on));
-    expect(v.notIncluded.some((x) => x.includes(DETAIL_ADDS_NOTE))).toBe(false);
+    expect(v.notIncluded.map((l) => l.label)).toEqual([NOT_INCLUDED_LABEL.detailed]);
   });
 });
 
