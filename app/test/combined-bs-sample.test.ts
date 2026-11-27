@@ -64,7 +64,10 @@ describe("合算BS の見本の世帯（架空）", () => {
     const assets = ["cash", "receivables", "inventory", "otherCurrent", "land", "buildings", "investments", "otherFixed"].reduce((s, k) => s + (a[k] ?? 0), 0);
     const rest = ["shortDebt", "longDebt", "loanFromOwner", "otherLiabilities", "capital", "retained"].reduce((s, k) => s + (a[k] ?? 0), 0);
     expect(assets).toBe(rest);
-    for (const v of Object.values(a)) expect(v % (10 * M)).toBe(0);
+    for (const [k, v] of Object.entries(a)) if (k !== "monthlyLoanPay") expect(v % (10 * M), k).toBe(0);
+    // 毎月の借入の返済は、長期借入金を10年（120か月）で返す前提の額（統計に無いので利用者の判断）
+    expect(a.monthlyLoanPay).toBe(55 * M);
+    expect(a.monthlyLoanPay).toBe((a.longDebt ?? 0) / 120);
   });
 
   it("宣言に合わない値・宣言の無いキーは、開くときに捨てる", () => {
@@ -120,7 +123,7 @@ describe("法人経営者の見本のセット（0247 の7）", () => {
     // 名前に機能の名前（「（合算BS の見本）」）を付けない
     // 名前はファイナンシアの見本の「会社を経営する夫婦・50代」と取り違えない形（会社の大きさを入れる。0247 の10）
     expect(OWNER.samples[0]?.title).toBe("社員15人の会社を経営する夫婦と子1人・50代");
-    expect(OWNER.samples[0]?.rev).toBe(2);
+    expect(OWNER.samples[0]?.rev).toBe(3);
     for (const d of DEMO_HOUSEHOLDS) expect(d.title, d.id).not.toContain("合算BS");
     // 見本の名前に使えない名前は、出していないセットの見本も含む（0247 の1）
     expect(reservedSampleNames(SAMPLE_SETS)).toContain(OWNER.samples[0]!.title);
@@ -290,9 +293,9 @@ describe("コードと印があるときの、法人経営者の見本の合算B
       "会社への貸付金と、会社の経営者からの借入金: 経営者の側は500万円、会社の側は600万円です。合算では会社の側の額に合わせて見ています。家計の入力に書き漏れがあれば、直してください。",
       "経営者の連帯保証（6,600万円）は、会社の借入金として合算の負債に入っているので、二重には数えません。",
     ]);
-    // 会社の現預金は毎月の固定費の11.2か月分（目安の6か月分に届く。統計の平均の会社は現預金が厚い）。家計の現預金はそれより厚い
+    // 会社の現預金は毎月の固定費600万円と借入の返済55万円の10.2か月分（目安の6か月分に届く。統計の平均の会社は現預金が厚い）。家計の現預金はそれより厚い
     const months = rows("months");
-    expect(months.find((c) => c[0] === "会社")).toEqual(["会社", "6,700万円", "600万円", "11.2か月分", "目安の6か月分に届いています。できれば12か月分を目指しましょう。"]);
+    expect(months.find((c) => c[0] === "会社")).toEqual(["会社", "6,700万円", "655万円", "10.2か月分", "目安の6か月分に届いています。できれば12か月分を目指しましょう。"]);
     const owner = months.find((c) => c[0] === "個人（家計）")!;
     expect(Number.parseFloat(owner[3]!)).toBeGreaterThan(12);
     // 合算の純資産は「会社の財産（剰余金）」と「個人の財産」に分かれる
@@ -308,7 +311,7 @@ describe("コードと印があるときの、法人経営者の見本の合算B
       const w = extensionViews(ext, values, p.years[0]!)[0]!;
       expect(w.notices, baseMonth).toEqual(v.notices);
       const co = w.sections?.find((s) => s.key === "months")?.table?.rows.find((r) => r.cells[0] === "会社")?.cells;
-      expect(co?.[3], baseMonth).toBe("11.2か月分");
+      expect(co?.[3], baseMonth).toBe("10.2か月分");
     }
   });
 
