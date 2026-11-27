@@ -34,7 +34,7 @@ export interface Estimate {
   readonly basis: string;
 }
 
-const PENDING = "（原本での確かめ前）";
+const PENDING = "（原本での確認前）";
 const pendingOf = (id: string): string => (masterValue(id)?.reviewed === true ? "" : PENDING);
 /** 値の題名（画面の根拠の文に出すので、データの読み方の注記〔upTo の説明など〕は外す） */
 const titleOf = (id: string): string =>
@@ -55,7 +55,7 @@ export function livingStatistic(size: number): Estimate {
   const table = masterValue(LIVING_ID)?.value;
   const amount = Array.isArray(table) ? bracketStep(table as readonly BracketStep[], n)?.amount : undefined;
   if (amount === undefined)
-    return { value: presetNum(LIVING_SINGLE), basis: presetText(LIVING_SINGLE, () => `${n}人の世帯の基本生活費の目安（仮の値。家計調査の単身世帯の表で確かめる前）`) };
+    return { value: presetNum(LIVING_SINGLE), basis: presetText(LIVING_SINGLE, () => `${n}人の世帯の基本生活費の目安（仮の値。家計調査の単身世帯の表で確認する前）`) };
   return { value: amount, basis: officeBasisOf(LIVING_ID) ?? `${titleOf(LIVING_ID)}・${n >= 6 ? "6人以上" : `${n}人`}の世帯${pendingOf(LIVING_ID)}` };
 }
 
@@ -533,7 +533,7 @@ export function healthRateEstimate(kind: "union" | "mutualAid", options: { month
   const fallback = presetRate(RATE_ID);
   // 事務所の推定の値なら事務所の根拠の文そのもの、そうでなければ今までの文（仮の値）
   const office = officeBasisOf(RATE_ID);
-  if (kind === "mutualAid") return { value: fallback, basis: office ?? "共済組合の保険料率の目安（仮の値。給与明細の短期掛金で確かめてください）" };
+  if (kind === "mutualAid") return { value: fallback, basis: office ?? "共済組合の保険料率の目安（仮の値。給与明細の短期掛金で確認してください）" };
   const branch = options.branch ?? "kyokaikenpo.13";
   const rate = regulationValue("socialInsurance.health.kyokaikenpo.rate", options.month === undefined ? null : `${options.month}-01`, branch);
   const note = "健康保険組合の料率を入れてください（給与明細の健康保険料÷標準報酬月額で逆算できます）";
@@ -547,7 +547,7 @@ export function healthRateEstimate(kind: "union" | "mutualAid", options: { month
  * 車の目安（1台。計算基準年の価格）。買い替えの周期・車両の価格（下取りを引く前）・維持費の年額。自動車税のほかは仮の値。
  * 値は presets.ts の preset.car.*（自動車税は法令の値なのでここに置く。駐車場は「自宅に置く」の0円）。事務所の推定の値なら、根拠は事務所の根拠の文
  */
-const CAR_BASIS = "自動車の保有・維持費の目安（仮の値。原本での確かめ前）";
+const CAR_BASIS = "自動車の保有・維持費の目安（仮の値。原本での確認前）";
 const car = (id: string, what: string): Estimate => ({ value: presetNum(id), basis: presetText(id, () => `${CAR_BASIS}・${what}`) });
 
 /**

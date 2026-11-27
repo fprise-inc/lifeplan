@@ -85,10 +85,10 @@ export const csvReader: StatementReader = {
       if (e instanceof CsvError) return { table: { cells: [], lines: [], masked: 0 }, encoding: dec.encoding, issues: [issue("error", "S_TOO_MANY_ROWS", "行か列が多すぎるため読みませんでした（2万行・100列まで）")] };
       throw e;
     }
-    if (dec.text.includes("�")) issues.push(issue("warning", "S_ENCODING", "読めない文字がありました。文字コードを確かめてください"));
+    if (dec.text.includes("�")) issues.push(issue("warning", "S_ENCODING", "読めない文字がありました。文字コードを確認してください"));
     if (parsed.unclosedQuote !== undefined) {
       const at = parsed.unclosedQuote;
-      issues.push(issue("warning", "S_CSV_QUOTE", `${at}行目の二重引用符（"）が閉じていないため、その行から後ろの行を読めていません。元のファイルを確かめてください`, at));
+      issues.push(issue("warning", "S_CSV_QUOTE", `${at}行目の二重引用符（"）が閉じていないため、その行から後ろの行を読めていません。元のファイルを確認してください`, at));
     }
     const m = maskTable(parsed.cells);
     return { table: { cells: m.cells, lines: parsed.lines, masked: m.masked }, encoding: dec.encoding, issues };
@@ -327,7 +327,7 @@ export async function readStatement(bytes: Uint8Array, ctx: ReadContext): Promis
   const unsure = new Set([...(rt.uncertain ?? []), ...why.keys()]);
   const rows = unsure.size === 0 ? tr.rows : tr.rows.map((r) => (unsure.has(r.line) ? { ...r, readUncertain: true as const } : r));
   const nUnsure = rows.filter((r) => r.readUncertain === true).length;
-  if (nUnsure > 0) issues.push(issue("warning", "S_OCR_UNCERTAIN", `読み取りが不確かな行が ${nUnsure}行あります。画像と照らし合わせて確かめてください（確かめないで取り込むと、ヒアリングの迷う行に残ります）`));
+  if (nUnsure > 0) issues.push(issue("warning", "S_OCR_UNCERTAIN", `読み取りが不確かな行が ${nUnsure}行あります。画像と照らし合わせて確認してください（確認しないで取り込むと、ヒアリングの迷う行に残ります）`));
   const needsMapping = source === "guessed" || tr.rows.length === 0;
   const yearless =
     tr.yearless !== undefined && rt.statementDate === undefined

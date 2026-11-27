@@ -51,7 +51,7 @@ export function AiDisplayProposals({ candidates, state, blocked, onApply, onDisc
     <section class="card ai-cands ai-display-cands" aria-label="AIからの表示の設定の案" data-ai-display-proposals>
       <div class="card-h">
         <h2>AIからの表示の設定の案（{total}件）</h2>
-        <span class="aside">この世帯の見せ方の案です。設定ごとに今と案を確かめて、「反映する」を押した設定だけが、この世帯だけの値になります。世帯の入力も計算の結果も変わりません。反映した後は「元に戻す」で戻せます。</span>
+        <span class="aside">この世帯の見せ方の案です。設定ごとに今と案を確認して、「反映する」を押した設定だけが、この世帯だけの値になります。世帯の入力も計算の結果も変わりません。反映した後は「元に戻す」で戻せます。</span>
       </div>
       {blocked !== null ? (
         <p class="pl-sub" data-ai-display-blocked>
@@ -63,7 +63,7 @@ export function AiDisplayProposals({ candidates, state, blocked, onApply, onDisc
           <p class="os-code-cand-title">
             <b>表示の設定の案（{c.changes.length}件）</b>
             <span class="pl-sub">
-              {dateTimeProse(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
+              {dateTimeProse(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確認できない参考の情報です）` : ""}
             </span>
           </p>
           {c.changes.map((ch) => {

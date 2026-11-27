@@ -23,9 +23,9 @@ export function AiHearingBand({ count, onOpen }: { count: number; onOpen: () => 
   return (
     <div class="ai-code-band" role="status" data-ai-hearing-band>
       <b>AI が URL を発行しました（{count}件）</b>
-      <span class="pl-sub">ヒアリングの URL です。中身を確かめ、要らなければ取り消せます</span>
+      <span class="pl-sub">ヒアリングの URL です。中身を確認し、要らなければ取り消せます</span>
       <button type="button" class="link-btn" onClick={onOpen} data-ai-hearing-band-open>
-        確かめる
+        AI が発行した URL の確認画面を開く
         <PopIcon />
       </button>
     </div>
@@ -183,7 +183,7 @@ export function AiHearingPanel(p: AiHearingPanelProps) {
                 }
                 data-ai-hearing-check
               >
-                届いたかを確かめる
+                届いたかを確認する
               </button>
               {r.householdId === null ? (
                 <>

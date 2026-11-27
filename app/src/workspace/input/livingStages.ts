@@ -38,7 +38,7 @@ const AGE_LEVELS = {
 export const ageLevelBasis = (): string => {
   const t = `退職後${pctText(AGE_LEVELS.retired)}・70歳から${pctText(AGE_LEVELS.age70)}・80歳から${pctText(AGE_LEVELS.age80)}の目安`;
   // 事務所の推定の値なら、事務所の根拠の文そのもの（0111。完全に同じ文で見分ける）
-  return officeBasisOf("preset.living.stage.retirement", "preset.living.stage.age70", "preset.living.stage.age80") ?? `${t}（年齢階級別の統計で確かめる前）`;
+  return officeBasisOf("preset.living.stage.retirement", "preset.living.stage.age70", "preset.living.stage.age80") ?? `${t}（年齢階級別の統計で確認する前）`;
 };
 
 // ---- 人数の数え方 ----

@@ -560,8 +560,8 @@ describe("書類の読み取りの確認画面", () => {
     expect(sample).not.toContain("XML");
     expect(sample).not.toContain("貼り付け");
     const w = withDocumentLog(wh, withSamples(wh, AT, newId).log);
-    expect(renderToString(h(DocumentEntry, { wh: w, sample: true, onOpen: noop, onSamples: noop }))).toMatch(/読んだ書類を確かめる（未決 \d+件）/u);
-    expect(renderToString(h(DocumentEntry, { wh: w, sample: false, ai, onOpen: noop, onSamples: noop }))).toMatch(/読んだ書類を確かめる（未決 \d+件）/u);
+    expect(renderToString(h(DocumentEntry, { wh: w, sample: true, onOpen: noop, onSamples: noop }))).toMatch(/書類の読み取りの確認画面を開く（未決 \d+件）/u);
+    expect(renderToString(h(DocumentEntry, { wh: w, sample: false, ai, onOpen: noop, onSamples: noop }))).toMatch(/書類の読み取りの確認画面を開く（未決 \d+件）/u);
     // 保存した世帯: AI と接続していなければ「AI と接続する」、接続していれば「この世帯を AI に渡す」
     expect(renderToString(h(DocumentEntry, { wh, sample: false, ai, onOpen: noop, onSamples: noop }))).toContain("AI と接続する");
     expect(renderToString(h(DocumentEntry, { wh, sample: false, ai: { connected: true, onOpen: noop }, onOpen: noop, onSamples: noop }))).toContain("この世帯を AI に渡す");

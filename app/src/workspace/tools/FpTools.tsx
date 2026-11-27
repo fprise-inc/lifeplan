@@ -232,7 +232,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
   const meeting = meetingForReview(wh.meetings ?? [], snap?.id ?? null);
   return (
     <section class="card fp-panel" aria-label="前回から変わったこと" data-fp-review>
-      <Head title="前回から変わったこと" note="控えを取り、過ぎた予定・ヒアリングシート・前回の控えとの違いを確かめて、見直しの面談に進みます" onClose={onClose} />
+      <Head title="前回から変わったこと" note="控えを取り、過ぎた予定・ヒアリングシート・前回の控えとの違いを確認して、見直しの面談に進みます" onClose={onClose} />
       <ol class="fp-steps">
         <li>
           <b>控えを取る</b>（比較する前の今の入力と結果を残します）
@@ -273,7 +273,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
           )}
         </li>
         <li>
-          <b>ヒアリングシートの見直し</b>（「事前ヒアリング・取り込む」で{HEARING_EXCEL_SHOWN ? "「見直し」の Excel を書き出すか URL生成で URL を作り" : "URL生成で「見直し」の URL を作り"}、届いた答えを取り込みます。確かめの一覧で「次回確かめる」の印を付けた所は、印の行を写して面談に使えます）
+          <b>ヒアリングシートの見直し</b>（「事前ヒアリング・取り込む」で{HEARING_EXCEL_SHOWN ? "「見直し」の Excel を書き出すか URL生成で URL を作り" : "URL生成で「見直し」の URL を作り"}、届いた答えを取り込みます。確認の一覧で「次の面談で確認」の印を付けた所は、印の行を写して面談に使えます）
           <GateNotes wh={wh} />
         </li>
         <li data-fp-review-diff>
@@ -343,7 +343,7 @@ function GateNotes({ wh }: { wh: WorkingHousehold }) {
       {consult}
       <div class="fp-gates" data-fp-gates>
         <p class="fp-sub">
-          Web のヒアリングで届いた人数など（{g.requestId}・{proseDate(g.receivedAt)} に受け取り）{diff > 0 ? `。今の世帯と違うもの ${diff}件は面談で確かめてください` : ""}
+          Web のヒアリングで届いた人数など（{g.requestId}・{proseDate(g.receivedAt)} に受け取り）{diff > 0 ? `。今の世帯と違うもの ${diff}件は面談で確認してください` : ""}
         </p>
         <ul class="fp-list">
           {g.lines.map((l) => (

@@ -115,7 +115,7 @@ describe("値は同じで出典だけが新しくなった", () => {
     const e = older(LIVING, { officialSource: { title: official.title, retrievedAt: "2025-10-01", reviewed: false } }, base);
     const [u] = officialUpdates(e);
     expect(u).toMatchObject({ kind: "source", change: null, steps: [], sourceChanges: ["取得日", "原本との照らし合わせ"] });
-    expect(u?.keepText).toBe("「確かめた」: 事務所の値を使い続けます。今の計算は変わりません。");
+    expect(u?.keepText).toBe("「確認した」: 事務所の値を使い続けます。今の計算は変わりません。");
     const [n] = estimateCenterNotice(e);
     expect(n).toMatchObject({ urgency: "info", title: "基本生活費（月額・世帯人員別）: 公式の値の出典が新しくなりました（値は変わっていません）" });
     expect(n?.body).toContain("取得日: 前 2025年10月1日 → 新しい 2026年10月26日。原本との照らし合わせが済みました。出典は同じ「家計調査（総務省）2025年");
@@ -182,7 +182,7 @@ describe("区画の見せ方", () => {
     const base = withOfficeValue(EMPTY_ESTIMATES, CARE_MONTHS, 60, null, "2026-01-10");
     const src = render(older(CARE_MONTHS, {}, base));
     expect(src).toContain('data-office-estimate-update-kind="source"');
-    expect(src).toContain("確かめた（事務所の値のまま）");
+    expect(src).toContain("確認した（事務所の値のまま）");
     expect(src).toContain("値は変わっていません。");
     expect(src).toContain("公式に戻す");
     const oldTable = living().slice(1);

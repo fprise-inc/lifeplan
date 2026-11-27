@@ -118,7 +118,7 @@ pub fn lookup(id: &str, as_of: &str) -> Option<Value> {
         "asOf": as_of,
         "pack": { "packId": e.pack_id, "version": e.pack_version },
         "entries": entries_on(d, as_of),
-        "note": "entries はその日に当たる行（条件・管轄ごと）。checked が reviewed なら原本で確かめた値、それ以外は確認待ち。値の単位は unit、率は10進の文字列。",
+        "note": "entries はその日に当たる行（条件・管轄ごと）。checked が reviewed なら原本で確認した値、それ以外は確認待ち。値の単位は unit、率は10進の文字列。",
     }))
 }
 

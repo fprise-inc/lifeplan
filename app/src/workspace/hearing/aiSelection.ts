@@ -144,7 +144,7 @@ export function hearingOptions(a: HearingOptionsArgs = {}): Record<string, unkno
         : t === "detail"
           ? "詳細の票の全部の項目"
           : t === "review"
-            ? "詳細の票の全部の項目で、今の世帯に値のある項目を「確かめてもらう」（confirm。今の値を見せる）にする。渡された世帯（share_id）があるときだけ。URL は AI に返さない（アプリでコピー）"
+            ? "詳細の票の全部の項目で、今の世帯に値のある項目を「確認してもらう」（confirm。今の値を見せる）にする。渡された世帯（share_id）があるときだけ。URL は AI に返さない（アプリでコピー）"
             : "詳細の票の項目のうち、今の世帯に値の無い項目だけを聞く（ask）。渡された世帯（share_id）があるときだけ。check_inputs の一覧と合わせて、ほかの項目を items で足せる";
     const needs = t === "review" || t === "missing";
     let counts: Record<string, unknown> | null = null;
@@ -264,7 +264,7 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
       }
       sheet = sh;
       if ((kind === "review" || kind === "missing") && filled === null) {
-        problems.push(`template ${show(t)}は、渡された世帯（share_id）があるときだけ使えます（今の世帯の値で、確かめてもらう項目・聞く項目を決めるため）`);
+        problems.push(`template ${show(t)}は、渡された世帯（share_id）があるときだけ使えます（今の世帯の値で、確認してもらう項目・聞く項目を決めるため）`);
         return fail();
       }
       if (kind === "missing") {
@@ -355,20 +355,20 @@ export function aiSelection(raw: AiSelectionArgs | Record<string, unknown>, ctx:
       seen.add(key);
       const mode = (x as AiItemArg).mode ?? "ask";
       if (mode !== "ask" && mode !== "confirm") {
-        problems.push(`${at}.mode ${show(mode)}は選べません。ask（空欄から聞く）か confirm（今の値を見せて確かめてもらう）です`);
+        problems.push(`${at}.mode ${show(mode)}は選べません。ask（空欄から聞く）か confirm（今の値を見せて確認してもらう）です`);
         return;
       }
       if (mode === "confirm") {
         if (useDef.sheetId !== "full") {
-          problems.push(`${at}: 確かめてもらう（confirm）にできるのは詳細の票だけです`);
+          problems.push(`${at}: 確認してもらう（confirm）にできるのは詳細の票だけです`);
           return;
         }
         if (filled === null) {
-          problems.push(`${at}: 確かめてもらう（confirm）は、渡された世帯（share_id）があるときだけ使えます`);
+          problems.push(`${at}: 確認してもらう（confirm）は、渡された世帯（share_id）があるときだけ使えます`);
           return;
         }
         if (!filled.has(key)) {
-          problems.push(`${at}: ${show(key)}は今の世帯に値が無いので、確かめてもらう（confirm）にできません（ask にしてください）`);
+          problems.push(`${at}: ${show(key)}は今の世帯に値が無いので、確認してもらう（confirm）にできません（ask にしてください）`);
           return;
         }
       }

@@ -63,7 +63,7 @@ const featureNames = (c: { features: readonly string[] }): string => c.features.
 /** 期限の切れた・提供元が止めたコードの知らせ（事務所の既定値の画面） */
 export const expiredText = (c: FeatureCodeView): string =>
   c.state === "revoked"
-    ? `${featureNames(c)}のコード（${c.name}さん向け）は、提供元が止めました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。提供元が止めるのをやめると、次に確かめたときに自動で戻ります（コードを入れ直す必要はありません）。分からないときは、コードを受け取った所に問い合わせてください。`
+    ? `${featureNames(c)}のコード（${c.name}さん向け）は、提供元が止めました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。提供元が止めるのをやめると、次に確認したときに自動で戻ります（コードを入れ直す必要はありません）。分からないときは、コードを受け取った所に問い合わせてください。`
     : `${featureNames(c)}のコード（${c.name}さん向け）は ${proseDateWritten(c.expires)} で期限が切れました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。新しいコードを入れると、また見られます。`;
 
 /** 出していないセットの見本を直した版を消していないことの一文（「法人経営者の見本を直した版 2件も、消していません。」。無ければ空。0247 の7） */
@@ -97,11 +97,11 @@ const jstDate = (iso: string): string => {
  */
 export function checkText(ch: FeatureCheckView | undefined): string | null {
   if (ch === undefined) return null;
-  if (ch.checkedAt === null) return "提供元が止めたコードの一覧は、まだ確かめていません（起動したときと、1日1回確かめます）。";
+  if (ch.checkedAt === null) return "提供元が止めたコードの一覧は、まだ確認していません（起動したときと、1日1回確認します）。";
   const at = jstDate(ch.checkedAt);
-  if (ch.result === "ok") return `提供元が止めたコードの一覧は ${at} に確かめました。`;
+  if (ch.result === "ok") return `提供元が止めたコードの一覧は ${at} に確認しました。`;
   const basis = ch.okAt === null ? "まだ一度も一覧を取れていないので、どのコードも止めていません（今のまま使えます）。" : `${jstDate(ch.okAt)} に取れた一覧で判断しています（次に取れるまで、今の状態のままです）。`;
-  return ch.result === "offline" ? `提供元が止めたコードの一覧を ${at} に確かめに行きましたが、つながりませんでした。${basis}` : `${at} に取れた一覧は、正しい形・署名ではなかったので使っていません。${basis}`;
+  return ch.result === "offline" ? `提供元が止めたコードの一覧を ${at} に取りに行きましたが、つながりませんでした。${basis}` : `${at} に取れた一覧は、正しい形・署名ではなかったので使っていません。${basis}`;
 }
 
 /**
@@ -121,11 +121,11 @@ export function featureErrorText(e: unknown): string {
   const code = typeof e === "string" ? e : e instanceof Error ? e.message : "";
   switch (code) {
     case "E_FEATURE_CODE_FORMAT":
-      return "コードの形が違います。途中で切れていないか、ほかの文字が混ざっていないかを確かめて、もう一度貼り付けてください。";
+      return "コードの形が違います。途中で切れていないか、ほかの文字が混ざっていないかを確認して、もう一度貼り付けてください。";
     case "E_FEATURE_CODE_KEY":
-      return "このアプリでは確かめられないコードです（発行した鍵が違います）。アプリを新しくするか、コードを受け取った所に問い合わせてください。";
+      return "このアプリでは確認できないコードです（発行した鍵が違います）。アプリを新しくするか、コードを受け取った所に問い合わせてください。";
     case "E_FEATURE_CODE_SIGNATURE":
-      return "コードが正しくありません。写し間違いがないかを確かめてください（一部を書き換えたコードは使えません）。";
+      return "コードが正しくありません。写し間違いがないかを確認してください（一部を書き換えたコードは使えません）。";
     case "E_FEATURE_CODE_EXPIRED":
       return "このコードは期限が切れています。新しいコードを受け取ってください。";
     case "E_FEATURE_CODE_REVOKED":

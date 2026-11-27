@@ -26,7 +26,7 @@ describe("要確認の印", () => {
     expect(b).toContain('type="button"');
     expect(b).toContain('aria-expanded="false"');
     expect(b).toContain(`title="${reviewMarkTitle(2)}"`);
-    expect(reviewMarkTitle(2)).toBe("確かめること 2件。押すと一覧");
+    expect(reviewMarkTitle(2)).toBe("確認すること 2件。押すと一覧");
     expect(html).toMatch(/! 要確認 (<!-- -->)?2/);
     expect(html).not.toContain("data-plan-review-pop");
   });
@@ -36,7 +36,7 @@ describe("要確認の印", () => {
     expect(tag(html)).toContain('aria-expanded="true"');
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-label="プランBの要確認"');
-    expect(html).toMatch(/確かめること（(<!-- -->)?2(<!-- -->)?件）/);
+    expect(html).toMatch(/確認すること（(<!-- -->)?2(<!-- -->)?件）/);
     expect(html.match(/data-plan-review-row/g)?.length).toBe(2);
     for (const r of rows) {
       expect(html).toContain(r.label);
@@ -44,7 +44,7 @@ describe("要確認の印", () => {
     }
     expect(html).toContain("data-plan-review-close");
     expect(html).toContain('aria-label="要確認の一覧を閉じる（Esc）"');
-    expect(html).toContain("対策で確かめる");
+    expect(html).toContain("対策で確認する");
   });
 
   it("入力で直せないとき（onShow なし）は、対策へ移るボタンを出さない", () => {

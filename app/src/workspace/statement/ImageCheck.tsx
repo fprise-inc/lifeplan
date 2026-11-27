@@ -80,7 +80,7 @@ export function ImageCheck({ items, index, kind, busy, onIndex, onRows }: { item
         </div>
       ) : null}
       <p class="rp-note">
-        画像と照らし合わせて、日付・店・金額を確かめてください。違うところは直し、明細でない行は消し、読めていない行は足します。
+        画像と照らし合わせて、日付・店・金額を確認してください。違うところは直し、明細でない行は消し、読めていない行は足します。
         {unsure > 0 ? `「読み取りが不確か」の印の行（${unsure}行）は、特によく照らし合わせてください。` : ""}
       </p>
       {strictWin ? <p class="rp-note warn">Windows で写真・スキャンを読むと、数字を読み違えやすいため、「読み取りが不確か」の印を多めに付けています。</p> : null}
@@ -117,7 +117,7 @@ export function ImageCheck({ items, index, kind, busy, onIndex, onRows }: { item
                         <span class="st-unsure">
                           読み取りが不確か
                           <button type="button" class="btn small" disabled={busy} onClick={() => set(r.key, { uncertain: false })} data-statement-edit-ok>
-                            確かめた
+                            確認した
                           </button>
                           {r.why !== undefined ? (
                             <small class="st-unsure-why" data-statement-edit-why>

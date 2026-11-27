@@ -36,16 +36,16 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_SAMPLE: "見本の世帯は AI に渡せません",
   E_AI_NOTES_NOT_LOOKED: "メモと面談の履歴を渡す前に、「AI に渡す中身の確認画面を開く」で、いまの中身と伏せる言葉で AI に渡る文を見てください",
   E_AI_NOT_WRITTEN: "AIに渡した記録を世帯ファイルに書けなかったため、渡すのをやめました（閲覧だけで開いている世帯か、保存できない状態です）",
-  E_AI_NOTES_NOT_ALLOWED: "この世帯は、メモと面談の履歴を AI に渡せません。前の版の説明で同意した世帯は、今の説明で同意を記録し直すと渡せます。同意の記録が無い世帯は、事務所の設定で「面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている」を確かめると渡せます",
+  E_AI_NOTES_NOT_ALLOWED: "この世帯は、メモと面談の履歴を AI に渡せません。前の版の説明で同意した世帯は、今の説明で同意を記録し直すと渡せます。同意の記録が無い世帯は、事務所の設定で「面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている」を確認すると渡せます",
   E_AI_SHARE_LIMIT: "AIに渡せるのは、共有中の世帯と合わせて50件までです。共有中の世帯を取り消してから渡してください",
-  E_AI_LIST_UNREADABLE: "世帯の一覧を読めなかったため、AIに渡しませんでした（ほかの人が開いているかを確かめられません）。少し待ってから、もう一度試してください",
+  E_AI_LIST_UNREADABLE: "世帯の一覧を読めなかったため、AIに渡しませんでした（ほかの人が開いているかを確認できません）。少し待ってから、もう一度試してください",
   E_AI_OPEN_BY_OTHERS: "ほかの人（ほかのPC）がこの世帯を開いている間は、AIに渡せません（AIに渡した記録を書くと、相手の保存が分岐になるため）。閉じてから渡してください",
   E_AI_DURATION: "期限の選び方が違います",
   E_AI_DESTINATION: "使うAIのアプリの名前を入れてください（60文字まで）",
   E_AI_CONSENT_DATE: "日付の書き方が違います",
   E_AI_CONSENT_DATE_FUTURE: "未来の日付は記録できません",
   E_AI_CONSENT_METHOD: "同意の取り方を選んでください",
-  E_AI_CONSENT_FP_CONFIRM: "説明して同意（撤回）を確かめたことの確認に印を付けてください",
+  E_AI_CONSENT_FP_CONFIRM: "説明して同意（撤回）を確認したことの確認に印を付けてください",
   E_AI_CONSENT_ALREADY: "すでに同意が記録されています",
   E_AI_CONSENT_NOT_GIVEN: "同意が記録されていないので、撤回は記録できません",
   E_AI_CANDIDATE_DECIDED: "この候補はもう判断済みです",
@@ -56,7 +56,7 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_PERSIST: "記録を世帯ファイルに書けませんでした。もう一度試してください",
   E_AI_RECORDS: "同意とAIの記録が書き換えられていたため、保存を止めました",
   E_AI_CONNECTOR_MISSING: "AI と接続する道具の実行ファイルが見つかりません",
-  E_AI_DEV_BROWSER: "開発用のブラウザでは AI との接続を使えません（アプリで確かめてください）",
+  E_AI_DEV_BROWSER: "開発用のブラウザでは AI との接続を使えません（アプリで確認してください）",
   E_STORE_NOT_OPEN: "世帯を開き直してください",
 };
 
@@ -139,7 +139,7 @@ export const aiNotesUseOf = (view: AiHouseholdView): AiUse => view.aiNotesUse ??
 /** メモと面談の履歴を渡せないときの文（0249。理由ごと） */
 export const NOTES_BLOCKED_TEXT: Record<string, string> = {
   consentWithoutNotes: "この世帯の同意は、前の版の説明かヒアリングシートの同意欄でいただいたもので、面談の記録やメモを AI に渡すことは含まれていません（前の版の説明では「FPのメモは渡しません」とお伝えしています）。メモと面談の履歴を AI に渡すには、お客さまに今の説明を見せて、同意を記録し直してください。",
-  none: "同意の記録が無いため、メモと面談の履歴は渡せません。今の説明で同意を記録するか、事務所の設定で「面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている」を確かめると渡せます。",
+  none: "同意の記録が無いため、メモと面談の履歴は渡せません。今の説明で同意を記録するか、事務所の設定で「面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている」を確認すると渡せます。",
   refused: "お客さまが外部AIへの提供に「同意しない」と答えたため、メモと面談の履歴は渡せません。",
   withdrawn: "お客さまが同意を撤回したため、メモと面談の履歴は渡せません。",
 };
@@ -173,7 +173,7 @@ export function shareState(status: AiStatus | null, view: AiHouseholdView | null
 export const SHARE_STATE_TEXT: Record<ShareState, { short: string; long: string }> = {
   off: { short: "AI: 使わない", long: "AI との接続はオフです（事務所の設定）。この世帯はAIに渡りません" },
   unsaved: { short: "AI: 共有しない", long: "保存していない世帯はAIに渡せません" },
-  none: { short: "AI: 共有しない", long: "外部AIへの提供の同意が記録されていません。同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確かめるまで、AIに渡せません" },
+  none: { short: "AI: 共有しない", long: "外部AIへの提供の同意が記録されていません。同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確認するまで、AIに渡せません" },
   refused: { short: "AI: 共有しない（同意なし）", long: "お客さまが外部AIへの提供に「同意しない」と答えました。事務所の設定にかかわらず、AIに渡せません" },
   withdrawn: { short: "AI: 共有しない（撤回）", long: "お客さまが外部AIへの提供の同意を撤回しました。事務所の設定にかかわらず、AIに渡せません" },
   given: { short: "AI: 同意あり・共有していない", long: "同意があります。いまはAIに渡していません" },

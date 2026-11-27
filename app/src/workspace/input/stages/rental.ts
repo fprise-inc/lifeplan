@@ -1080,7 +1080,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
                   ...parkingExtra,
                   get: (w: WorkingHousehold) => {
                     const st = parkingExtra.get(w);
-                    return typeof st.value === "number" && st.value > 0 ? { ...st, warn: "種類が駐車場なので、駐車料はふつう「満車時の駐車料（合計）」に入れます。この欄の額も足して計算しています（同じ収入を両方に入れていないか確かめてください。分ける必要が無ければ、満車時の駐車料に足してこの欄を空にします）" } : st;
+                    return typeof st.value === "number" && st.value > 0 ? { ...st, warn: "種類が駐車場なので、駐車料はふつう「満車時の駐車料（合計）」に入れます。この欄の額も足して計算しています（同じ収入を両方に入れていないか確認してください。分ける必要が無ければ、満車時の駐車料に足してこの欄を空にします）" } : st;
                   },
                 }
               : parkingExtra,
@@ -1384,7 +1384,7 @@ export function addRepair(w: WorkingHousehold, accountId: string, id: () => stri
 
 /** 物件のローンの団信の対象の「?」（住宅ローン向けの文ではなく、収益物件のローン向け） */
 export const RENTAL_CREDIT_LIFE_HELP =
-  "亡くなったとき・高度障害のとき、この人の負担分の残高が消え、その後の返済と利息がなくなります（家賃収入はそのまま家族に残ります）。アパートローンなど収益物件のローンでは、団信の加入を条件にするかどうかが金融機関や商品で分かれ、保険料が金利に上乗せされることもあります。契約の書類で確かめてください";
+  "亡くなったとき・高度障害のとき、この人の負担分の残高が消え、その後の返済と利息がなくなります（家賃収入はそのまま家族に残ります）。アパートローンなど収益物件のローンでは、団信の加入を条件にするかどうかが金融機関や商品で分かれ、保険料が金利に上乗せされることもあります。契約の書類で確認してください";
 
 /** この物件のローン（負債の型。借入先・借入額・借りた年月・金利・返済の方法・期間・団信と、詳細の金利の段階・繰上返済・借り換え。0080） */
 function propertyLoanGroups(wh: WorkingHousehold, d: Debt, head: string): GroupDef[] {

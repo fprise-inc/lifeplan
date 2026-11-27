@@ -7,9 +7,9 @@ export function AiCodeCandidateBand({ count, onOpen }: { count: number; onOpen: 
   return (
     <div class="ai-code-band" role="status" data-ai-code-band>
       <b>AIから、機能を有効にするコードの候補が届いています（{count}件）</b>
-      <span class="pl-sub">確かめて押すまで、コードは入りません</span>
+      <span class="pl-sub">確認して押すまで、コードは入りません</span>
       <button type="button" class="link-btn" onClick={onOpen} data-ai-code-band-open>
-        事務所の既定値で確かめる
+        事務所の既定値で確認する
         <PopIcon />
       </button>
     </div>

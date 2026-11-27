@@ -294,7 +294,7 @@ const SCREENS: Screen[] = [
   { name: "面談の履歴", node: (onClose) => h(MeetingTools, { wh: wh(), onSave: noop, onClose, result: null, onOpen: noop }), label: "面談の履歴を閉じる（Esc）" },
   { name: "事前ヒアリング・取り込む", node: (onClose) => h(ImportMenu, { button: false, open: true, onOpen: onClose }, h("span", null, "中身")), label: "事前ヒアリング・取り込むを閉じる（Esc）" },
   { name: "URL生成", node: (onClose) => h(WebBuilder, { wh: wh(), web: anyHost, office: { name: "", color: null }, templates: [], onTemplates: async () => undefined, customerNo: "B0007", persisted: true, onSave: noop, saveNow: async () => true, onClose }), label: "URL生成を閉じる（Esc）" },
-  { name: "確かめの一覧", node: (onClose) => h(CheckList, { wh: wh(), onEdit: noop, onOpen: noop, onClose }), label: "確かめの一覧を閉じる（Esc）" },
+  { name: "確認の一覧", node: (onClose) => h(CheckList, { wh: wh(), onEdit: noop, onOpen: noop, onClose }), label: "確認の一覧を閉じる（Esc）" },
   { name: "書類のお願い", node: (onClose) => h(DocRequests, { wh: wh(), onOpen: noop, onClose }), label: "書類のお願いを閉じる（Esc）" },
   { name: "受け取った書類", node: (onClose) => h(ReceivedDocs, { rd: rd({ setListOpen: onClose }) }), label: "受け取った書類を閉じる（Esc）" },
   { name: "プランの一覧", node: planList, label: "プランの一覧を閉じる（Esc）" },

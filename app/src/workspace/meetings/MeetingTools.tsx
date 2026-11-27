@@ -244,7 +244,7 @@ export function MeetingTools({ wh, onSave, onSnapshot, onClose, result, computeO
             hideFp && cur.fpOnly ? null : (
               <fieldset class={`mt-group${cur.fpOnly ? " mt-fp" : ""}`} data-meeting-intent-form>
                 <legend>保険の意向（どれも任意）</legend>
-                <p class="rp-note">保険をおすすめするときに、最初にうかがった意向と、申し込む前に確かめた意向を残します。</p>
+                <p class="rp-note">保険をおすすめするときに、最初にうかがった意向と、申し込む前に確認した意向を残します。</p>
                 <IntentArea intent={cur.intent} onInput={(next) => setView({ ...view, draft: withIntent(view.draft, next, cur.fpOnly) })} />
                 {!hideFp ? (
                   <label class="mt-check">

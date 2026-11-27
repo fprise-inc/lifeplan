@@ -37,7 +37,7 @@ export function AiCandidates(p: AiCandidatesProps) {
     <section class="card ai-cands" aria-label="AIからの候補" data-ai-candidates>
       <div class="card-h">
         <h2>AIからの候補（{pending.length}件）</h2>
-        <span class="aside">AI が作ったプランの候補です。中身を確かめて、プランとして保存するか捨ててください。保存するまで、世帯にもプランにも入りません。</span>
+        <span class="aside">AI が作ったプランの候補です。中身を確認して、プランとして保存するか捨ててください。保存するまで、世帯にもプランにも入りません。</span>
       </div>
       {shown.map((x, i) => (
         <CandidateCard key={x.c.id} {...p} {...x} name={names[i] as string} onName={(name) => setEdited((m) => ({ ...m, [x.c.id]: name }))} />

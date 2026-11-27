@@ -42,9 +42,9 @@ const view = (over: Partial<AiHouseholdView> = {}): AiHouseholdView => ({
 /** 本体が返す4通り（同意の状態と、本体が決めた判定） */
 const CASES: { name: string; v: AiHouseholdView; use: AiUse }[] = [
   { name: "同意あり", v: view({ consentState: "given", consentDocuments: true, aiUse: "consent", aiDocumentsUse: "consent" }), use: "consent" },
-  { name: "答え無し＋確かめ済み", v: view({ aiUse: "officePolicy", aiDocumentsUse: "officePolicy" }), use: "officePolicy" },
+  { name: "答え無し＋確認済み", v: view({ aiUse: "officePolicy", aiDocumentsUse: "officePolicy" }), use: "officePolicy" },
   { name: "答え無し＋未確認", v: view({ aiUse: "none", aiDocumentsUse: "none" }), use: "none" },
-  { name: "同意しない＋確かめ済み", v: view({ consentState: "refused", aiUse: "refused", aiDocumentsUse: "refused" }), use: "refused" },
+  { name: "同意しない＋確認済み", v: view({ consentState: "refused", aiUse: "refused", aiDocumentsUse: "refused" }), use: "refused" },
 ];
 
 const panel = (v: AiHouseholdView) => renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status(), view: v, onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
@@ -109,11 +109,11 @@ describe("事務所の設定のプライバシーポリシーの確かめ（0226
   it("確かめた印と日時を出す。未確認なら「まだ確かめていません」。画面に「接続口」の言葉を新しく出さない", () => {
     const off = connector(status({ privacyPolicyConfirmedAt: null }));
     expect(off).toContain("data-ai-privacy-policy");
-    expect(off).toContain("事務所のプライバシーポリシーに、お客さまの情報を外部の AI サービスで扱うこと（AI を使った資料の読み取りや分析）を書いていることを確かめました");
-    expect(off).toContain("まだ確かめていません。");
-    expect(off).toContain("お客さまが「同意しない」と答えた世帯と、同意を撤回した世帯は、確かめた後も渡せません。");
+    expect(off).toContain("事務所のプライバシーポリシーに、お客さまの情報を外部の AI サービスで扱うこと（AI を使った資料の読み取りや分析）を書いていることを確認しました");
+    expect(off).toContain("まだ確認していません。");
+    expect(off).toContain("お客さまが「同意しない」と答えた世帯と、同意を撤回した世帯は、確認した後も渡せません。");
     const on = connector(status({ privacyPolicyConfirmedAt: "2026-11-18T01:00:00Z" }));
-    expect(on).toMatch(/確かめた日時: 2026年11月18日 \d\d:00/);
+    expect(on).toMatch(/確認した日時: 2026年11月18日 \d\d:00/);
     // 新しく足した区画（見出しから共有中の世帯の前まで）の言葉
     const section = on.slice(on.indexOf("<h3>事務所のプライバシーポリシー</h3>"), on.indexOf("<h3>共有中の世帯</h3>"));
     expect(section).not.toContain("接続口");

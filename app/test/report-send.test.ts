@@ -128,7 +128,7 @@ describe("AI が書いた件をそろえる", () => {
 describe("送り方（1か所。0259）", () => {
   it("写す文は1つ: 頭に受付番号・版と OS・件数、件ごとに番号・種類・どの画面かの見出し", () => {
     const t = composeReport(draft());
-    expect(t.split("\n").slice(0, 3)).toEqual(["受付番号: R-7K2Q", "アプリの版: 0.1.0（macOS）", "件数: 3件（AI がまとめ、FP が確かめて送りました）"]);
+    expect(t.split("\n").slice(0, 3)).toEqual(["受付番号: R-7K2Q", "アプリの版: 0.1.0（macOS）", "件数: 3件（AI がまとめ、FP が確認して送りました）"]);
     expect(t).toContain("━━ 1件目／3件（不具合）どの画面か: 結果 ━━\n【ファイナンシアの不具合の報告】");
     expect(t).toContain("━━ 2件目／3件（要望）どの画面か: 入力 ━━\n住宅ローンの繰上げ返済を年ごとに何回か入れたい");
     expect(t).toContain("━━ 3件目／3件（質問）どの画面か: 提案書 ━━\n表紙の色は変えられますか");
@@ -212,7 +212,7 @@ describe("送る報告の確認画面（0259）", () => {
   it("件の一覧（件ごとに種類・どの画面か・内容と外す）・アプリの版・OS・受付番号と、世帯の情報が入っていないことを確かめる文を出す", () => {
     const html = renderToString(h(ReportConfirm, { ...props, source: "ai", initialItems: [BUG, REQUEST, QUESTION], connector: "Claude 1.0", onDiscard: async () => undefined }));
     expect(html).toContain("送る報告の確認画面");
-    expect(html).toContain("お客さまの名前・金額など世帯の情報が入っていないことを確かめてください");
+    expect(html).toContain("お客さまの名前・金額など世帯の情報が入っていないことを確認してください");
     expect(html).toContain('data-report-count="3"');
     expect((html.match(/data-report-item=/g) ?? []).length).toBe(3);
     expect((html.match(/data-report-remove/g) ?? []).length).toBe(3);

@@ -61,7 +61,7 @@ function Mark({ f }: { f: FieldView }) {
     );
   if (f.mark === "unknown")
     return (
-      <span class="badge est" title={f.note ?? "書類で確かめるまで代わりの値で計算します"} data-hearing-mark="unknown">
+      <span class="badge est" title={f.note ?? "書類で確認するまで代わりの値で計算します"} data-hearing-mark="unknown">
         書類待ち
       </span>
     );
@@ -326,14 +326,14 @@ export function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt, receiv
           チェックした候補だけを現状に入れます（入れるまでは計算に使いません）。変更は「今 → 届いた値」、回答の無い欄は今の値のままです。
           <details class="wb-help" data-hearing-marks-help>
             <summary aria-label="印の見方">？</summary>
-            <p>「推定」「仮」の印は入力の画面と同じです（推定で補った値・仮の値）。「推定（範囲の真ん中）」は、お客さまが金額の範囲で答えた欄です。空欄・「あとで」の欄は、承認しても今の値のままです。「聞いていない欄」は、新しく入る行の欄のうち事前ヒアリングで聞いていないもので、入力の画面と同じ仮の値・推定で入ります（面談で確かめて直してください）。</p>
+            <p>「推定」「仮」の印は入力の画面と同じです（推定で補った値・仮の値）。「推定（範囲の真ん中）」は、お客さまが金額の範囲で答えた欄です。空欄・「あとで」の欄は、承認しても今の値のままです。「聞いていない欄」は、新しく入る行の欄のうち事前ヒアリングで聞いていないもので、入力の画面と同じ仮の値・推定で入ります（面談で確認して直してください）。</p>
           </details>
         </div>
         <p class="hs-review-sum" data-hearing-sum>
           {sums.join("・")}
           {sentAt !== undefined ? (
             <span data-hearing-sent-at>
-              ｜お客さまが送った日時: {sentAtText(sentAt)}（心当たりがなければ、承認の前にお客さまに確かめてください）
+              ｜お客さまが送った日時: {sentAtText(sentAt)}（心当たりがなければ、承認の前にお客さまに確認してください）
             </span>
           ) : null}
         </p>
@@ -435,7 +435,7 @@ export function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt, receiv
       ) : null}
       {view.checklist.length > 0 ? (
         <div class="hs-group">
-          <h3>面談で確かめること（{view.checklist.length}）</h3>
+          <h3>面談で確認すること（{view.checklist.length}）</h3>
           <ul class="hs-list">
             {view.checklist.map((c, i) => (
               <li key={i}>

@@ -41,7 +41,7 @@ const CASES: { name: string; sample: string; changes?: PatchOp[]; kinds?: string
   },
   { name: "親の介護（推定・介護の目安・計算のお知らせ）", sample: "sampleParentsCare", rules: ["pensionRecord", "careDefault"] },
   { name: "推定だけ・3行まで", sample: "sampleParentsCare", kinds: ["estimated"], max: 3, rules: [] },
-  { name: "前提条件（お客さまと確かめる前提と、FP が決める前提）", sample: "salariedCoupleTwoKids", kinds: ["premise"], max: 60, rules: [] },
+  { name: "前提条件（お客さまと確認する前提と、FP が決める前提）", sample: "salariedCoupleTwoKids", kinds: ["premise"], max: 60, rules: [] },
 ];
 
 interface Answer {
@@ -162,7 +162,7 @@ describe("AI接続口の入力の確かめ（0210）", () => {
     expect(premiseWithClient(asRow("simple"))).toBe(true);
     expect(premiseWithClient(asRow("detail"))).toBe(false);
     expect(premiseWithClient({ ...asRow("simple"), card: "savings" })).toBe(false);
-    for (const i of rows.filter((x) => x.premise === "client")) expect(i.question, i.field).toMatch(/この見込みでよろしいですか（お客さまと確かめる前提です。事務所の既定値）。$/);
+    for (const i of rows.filter((x) => x.premise === "client")) expect(i.question, i.field).toMatch(/この見込みでよろしいですか（お客さまと確認する前提です。事務所の既定値）。$/);
     // ほかの前提条件（預金の利回り・年金の調整率・不動産の評価・資産の種類ごとの利回りなど）は、今までどおり FP が決める側
     const fp = rows.filter((i) => i.premise === "fp");
     expect(fp.length).toBeGreaterThan(0);
@@ -202,6 +202,6 @@ describe("AI接続口の入力の確かめ（0210）", () => {
       mkdirSync(dirname(FIXTURE), { recursive: true });
       writeFileSync(FIXTURE, text);
     }
-    expect(readFileSync(FIXTURE, "utf8"), "入力の確かめの行か聞く文が変わりました。LIFEPLAN_UPDATE_FIXTURES=1 で見本を作り直し、接続口のテスト（cargo test -p lifeplan）も流してください").toBe(text);
+    expect(readFileSync(FIXTURE, "utf8"), "入力の確認の行か聞く文が変わりました。LIFEPLAN_UPDATE_FIXTURES=1 で見本を作り直し、接続口のテスト（cargo test -p lifeplan）も流してください").toBe(text);
   });
 });

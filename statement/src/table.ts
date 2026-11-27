@@ -519,7 +519,7 @@ export function tableToRows(table: Table, m: ColumnMapping, kind: SourceKind, hi
     });
   }
   if (missingYear > 0) issues.push(issue("warning", "S_ROW_YEAR", `年の書かれていない日付が ${missingYear} 行あり、年を決められませんでした。明細の年を選んでから読み直してください`));
-  if (rows.length === 0) issues.push(issue("error", "S_NO_ROWS", "明細の行を1行も読めませんでした。列の対応付けを確かめてください"));
+  if (rows.length === 0) issues.push(issue("error", "S_NO_ROWS", "明細の行を1行も読めませんでした。列の対応付けを確認してください"));
   return { rows, issues, skipped, ...(yearless !== null ? { yearless } : {}) };
 }
 

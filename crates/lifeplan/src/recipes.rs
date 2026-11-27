@@ -79,7 +79,7 @@ pub const RECIPES: &[Recipe] = &[
             ("from", "積立を始める月 YYYY-MM（既定は計算基準月の翌月）"),
             ("nisaMonthly", "NISA のつみたて投資枠の月額（円。既定 30000。0 なら足さない）"),
             ("nisaGrowthMonthly", "NISA の成長投資枠の月額（円。既定 0）"),
-            ("idecoMonthly", "iDeCo の掛金の月額（円。既定 20000。0 なら足さない。限度額はエンジンが確かめる）"),
+            ("idecoMonthly", "iDeCo の掛金の月額（円。既定 20000。0 なら足さない。限度額はエンジンが確認する）"),
         ],
     },
     Recipe {

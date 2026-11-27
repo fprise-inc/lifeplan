@@ -30,12 +30,12 @@ export function AiDisplayCandidateBand({ office, households, openedId, detailed,
   return (
     <div class="ai-code-band" role="status" data-ai-display-band>
       <b>AIから、表示の設定の案が届いています</b>
-      <span class="pl-sub">確かめて「反映する」を押すまで、設定は変わりません</span>
+      <span class="pl-sub">確認して「反映する」を押すまで、設定は変わりません</span>
       {office > 0 ? (
         <span class="ai-band-item" data-ai-display-band-office>
           事務所の既定値（{office}件）
           <button type="button" class="link-btn" onClick={onOpenOffice} data-ai-display-band-open>
-            事務所の既定値で確かめる
+            事務所の既定値で確認する
             <PopIcon />
           </button>
         </span>
@@ -44,7 +44,7 @@ export function AiDisplayCandidateBand({ office, households, openedId, detailed,
         <span class="ai-band-item" data-ai-display-band-opened>
           開いている世帯（{opened.count}件）
           <button type="button" class="link-btn" onClick={onShowOpened} data-ai-display-band-show>
-            結果のタブで確かめる
+            結果のタブで確認する
           </button>
         </span>
       ) : null}

@@ -168,7 +168,7 @@ pub fn check_input(input: &serde_json::Value) -> Result<(), String> {
     match v.get("error") {
         None => Ok(()),
         Some(e) => Err(format!(
-            "アプリの計算エンジンで計算できない入力なので、受け取りませんでした（{}）。calculate で確かめてから出し直してください。",
+            "アプリの計算エンジンで計算できない入力なので、受け取りませんでした（{}）。calculate で確認してから出し直してください。",
             e["code"].as_str().unwrap_or("E_ENGINE")
         )),
     }

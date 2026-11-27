@@ -164,8 +164,8 @@ describe("生年月: 今月より後と120歳より前は入れない・日つ�
   });
 
   it("ありえない日（平年の2月29日・2月30日・6月31日）は理由を出して止める", () => {
-    expect(rejectReason(birth, "1981-02-29")).toBe("1981年2月は28日までです。日を確かめてください");
-    expect(rejectReason(birth, "1980-06-31")).toBe("1980年6月は30日までです。日を確かめてください");
+    expect(rejectReason(birth, "1981-02-29")).toBe("1981年2月は28日までです。日を確認してください");
+    expect(rejectReason(birth, "1980-06-31")).toBe("1980年6月は30日までです。日を確認してください");
     expect(readField(birth, "1980-02-30", o)).toBeUndefined();
     expect(parseDatedYearMonth("1980-02")).toBeNull();
     expect(parseDatedYearMonth("R1.4")).toBeNull();

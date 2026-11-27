@@ -271,7 +271,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
     fields.push(onMember(m.id, plain({ key: `${k}/dependent`, item: "member.support", label: late ? "扶養している（税）" : "扶養している（税・健康保険）", level: "detail", kind: "bool", find, path: ["support", "dependent"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, fallback: false }), ["dependent"]));
     const limit = dependentLimitText(wh, m);
     const short = dependentLimitShort(wh, m);
-    if (limit !== null && short !== null) fields.push(infoLine(`care/outside/${m.id}/dependentLimit`, "扶養の境目（目安）", short, "制度の値から出した目安です。年金のほかに収入がある人は、合計所得で確かめてください", `${limit}。制度の値から出した目安です。年金のほかに収入がある人は、合計所得で確かめてください`));
+    if (limit !== null && short !== null) fields.push(infoLine(`care/outside/${m.id}/dependentLimit`, "扶養の境目（目安）", short, "制度の値から出した目安です。年金のほかに収入がある人は、合計所得で確認してください", `${limit}。制度の値から出した目安です。年金のほかに収入がある人は、合計所得で確認してください`));
     // 仕送りの行（相手がこの人）があれば、扶養の判定は行の額を使うので、仕送りの額の欄は出さない（前に入れた欄の値は残す。行が無くなれば使う）。
     // 行が無ければ欄を出し（扶養の判定にだけ使う）、「＋ 仕送り（毎月）」で行も足せる
     const rowsTo = (h.periodicExpenses ?? []).filter((p) => p.kind === "allowance" && p.counterparty === m.id);

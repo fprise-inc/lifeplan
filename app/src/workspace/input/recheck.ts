@@ -52,10 +52,10 @@ export function setRecheck(wh: WorkingHousehold, row: Pick<CheckRow, "id" | "car
  */
 export function recheckText(marks: readonly RecheckMark[], rows: readonly CheckRow[]): string {
   const byId = new Map(rows.map((r) => [r.id, r]));
-  const lines = ["次回確かめること", ""];
+  const lines = ["次の面談で確認すること", ""];
   for (const m of marks) {
     const r = byId.get(m.id);
-    const now = r === undefined ? "（今は確かめの一覧にありません）" : [r.value != null ? `今: ${r.value}` : null, r.detail].filter((x) => x !== null).join("／");
+    const now = r === undefined ? "（今は確認の一覧にありません）" : [r.value != null ? `今: ${r.value}` : null, r.detail].filter((x) => x !== null).join("／");
     lines.push(`・${m.cardLabel} › ${m.label}${now !== "" ? `\u3000${now}` : ""}`);
   }
   return lines.join("\n");

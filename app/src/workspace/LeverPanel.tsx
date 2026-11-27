@@ -124,7 +124,7 @@ export function reviewGuide(review: readonly ChangeRow[], canAck: boolean, canDr
   const app = review.some((c) => APP_UPDATE.has(c.state));
   const plan = review.some((c) => !APP_UPDATE.has(c.state));
   const why = plan && app ? "現状のプランが変わったか、アプリが更新されたため" : app ? "アプリが更新されたため" : "現状のプランが変わったため";
-  const out = [`${why}、このプランで変えていた所を確かめてください。`];
+  const out = [`${why}、このプランで変えていた所を確認してください。`];
   const changed = review.some((c) => c.state === "changed");
   const unapplied = review.some((c) => c.state !== "changed");
   if (!canAck && !canDrop) out.push("保存していない変更を保存するか取り消すと、ここで選べます。");

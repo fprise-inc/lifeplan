@@ -98,7 +98,7 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     const html = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view(), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
     expect(html).toContain("data-ai-consent-form");
     expect(html).toContain('data-ai-share-blocked="none"');
-    expect(html).toContain("同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確かめると、渡せるようになります");
+    expect(html).toContain("同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確認すると、渡せるようになります");
     expect(html).not.toContain("data-ai-share-start");
     // 同意があるときだけ、渡すボタンが出る
     const given = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view({ consentState: "given", consentDocuments: true }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));

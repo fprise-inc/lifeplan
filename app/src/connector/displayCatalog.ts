@@ -543,7 +543,7 @@ export function buildDisplayCatalog(): DisplayCatalog {
     settings,
     neverHidden: [
       `結果のタブの計算のお知らせの「${short("input")}」「${short("missing")}」（どの設定でも隠せません。カスタム層の説明の文でも消せません）`,
-      "入力のタブの確かめの一覧の確かめの注意（範囲の外の値・ほかの入力と合わない値など）",
+      "入力のタブの確認の一覧の注意（範囲の外の値・ほかの入力と合わない値など）",
       "値の入っている入力項目・入力の欄（出さない設定でも出します）",
     ],
     outOfScope: [

@@ -64,7 +64,7 @@ export function insuranceOverlapNotices(wh: WorkingHousehold): InsuranceNotice[]
     out.push({
       id: `insurance/overlap/${key}`,
       label: `${who}の${what}が${g.names.length}本`,
-      detail: `${who}の${what}が${g.names.length}本あります（${g.names.join("・")}）。${cover}が重なっていないか、保険証券で確かめてください`,
+      detail: `${who}の${what}が${g.names.length}本あります（${g.names.join("・")}）。${cover}が重なっていないか、保険証券で確認してください`,
       of: g.ids,
     });
   }

@@ -13,9 +13,9 @@ export function AiHearingTemplateBand({ count, onOpen }: { count: number; onOpen
   return (
     <div class="ai-code-band" role="status" data-ai-hearing-template-band>
       <b>AIから、ヒアリングのひな形の案が届いています（{count}件）</b>
-      <span class="pl-sub">確かめて「ひな形として保存する」を押すまで、事務所のひな形は変わりません</span>
+      <span class="pl-sub">確認して「ひな形として保存する」を押すまで、事務所のひな形は変わりません</span>
       <button type="button" class="link-btn" onClick={onOpen} data-ai-hearing-template-band-open>
-        事務所の既定値で確かめる
+        事務所の既定値で確認する
       </button>
     </div>
   );

@@ -59,10 +59,10 @@ export function AiDocumentBand({ wh, failed, onOpen, onDismiss }: { wh: WorkingH
           AI から届いた書類の候補のうち {failed.count}通は、読める候補が無いため取り込みませんでした（{failed.issues.join("・")}）
         </b>
       ) : null}
-      <span class="pl-sub">確かめて承認するまで、現状は変わりません</span>
+      <span class="pl-sub">確認して承認するまで、現状は変わりません</span>
       {first !== undefined ? (
         <button type="button" class="link-btn" onClick={() => onOpen(first.id)} data-documents-ai-band-open>
-          確かめる
+          書類の読み取りの確認画面を開く
         </button>
       ) : null}
       {failed.count > 0 ? (
@@ -96,7 +96,7 @@ export function DocumentEntry({ wh, sample, ai, onOpen, onSamples }: { wh: Worki
       ) : null}
       {readings.length > 0 ? (
         <button type="button" class="btn small" onClick={onOpen} data-documents-open>
-          読んだ書類を確かめる{pending > 0 ? `（未決 ${pending}件）` : `（${readings.length}通）`}
+          書類の読み取りの確認画面を開く{pending > 0 ? `（未決 ${pending}件）` : `（${readings.length}通）`}
         </button>
       ) : null}
       {sample ? (
@@ -105,7 +105,7 @@ export function DocumentEntry({ wh, sample, ai, onOpen, onSamples }: { wh: Worki
         </button>
       ) : null}
       <span class="in-note">
-        お使いの AI（Claude など）をファイナンシアと接続すると、AI が書類を読み、読んだ値（保険の契約の値、相続税の試算の土地・建物の値）が「候補」として届きます。確かめて承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。個人番号などの番号・土地の所在は読みません・残しません。面談の履歴とメモは、世帯を AI に渡すときに「メモと面談の履歴も渡す」の印を付けたときだけ渡します（書類の読み取りでは渡しません）。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。
+        お使いの AI（Claude など）をファイナンシアと接続すると、AI が書類を読み、読んだ値（保険の契約の値、相続税の試算の土地・建物の値）が「候補」として届きます。確認して承認したものだけが現状に入ります（書類を含む外部AIへの同意がある世帯と、架空の世帯だけ）。個人番号などの番号・土地の所在は読みません・残しません。面談の履歴とメモは、世帯を AI に渡すときに「メモと面談の履歴も渡す」の印を付けたときだけ渡します（書類の読み取りでは渡しません）。ほかの書類は、書類を見て欄に打ってください（欄の「?」に書類のどこを見るかがあります）。
       </span>
       {ai === undefined ? (
         <span class="in-note" data-imports-ai-unsaved>
@@ -300,7 +300,7 @@ export function DocumentReview(p: DocumentReviewProps) {
                               if (next === null) setMsg({ ok: false, text: "選べませんでした" });
                               else {
                                 put(next);
-                                setMsg({ ok: true, text: `「${t.label}」の値として入れます。値を確かめて承認してください` });
+                                setMsg({ ok: true, text: `「${t.label}」の値として入れます。値を確認して承認してください` });
                               }
                             }}
                             data-documents-object-link={`${g.object?.key ?? ""}:${t.id}`}
@@ -322,10 +322,10 @@ export function DocumentReview(p: DocumentReviewProps) {
                           class="btn small primary"
                           onClick={() => {
                             const res = acceptObject(p.wh, reading, g.object?.key ?? "", approvalTime());
-                            if (res === null) setMsg({ ok: false, text: `足せませんでした（この世帯では、入力の画面に「＋ ${g.object?.noun ?? ""}」のボタンがありません。名義の人の働き方などを確かめてください）` });
+                            if (res === null) setMsg({ ok: false, text: `足せませんでした（この世帯では、入力の画面に「＋ ${g.object?.noun ?? ""}」のボタンがありません。名義の人の働き方などを確認してください）` });
                             else {
                               put(res.reading, res.wh);
-                              setMsg({ ok: true, text: "新しい物を足しました。値を確かめて承認してください" });
+                              setMsg({ ok: true, text: "新しい物を足しました。値を確認して承認してください" });
                             }
                           }}
                           data-documents-object-accept={g.object.key}
@@ -343,7 +343,7 @@ export function DocumentReview(p: DocumentReviewProps) {
                               if (next === null) setMsg({ ok: false, text: "当てられませんでした" });
                               else {
                                 put(next);
-                                setMsg({ ok: true, text: `今の${g.object?.noun ?? ""}「${t.label}」に当てました。値を確かめて承認してください` });
+                                setMsg({ ok: true, text: `今の${g.object?.noun ?? ""}「${t.label}」に当てました。値を確認して承認してください` });
                               }
                             }}
                             data-documents-object-link={`${g.object?.key ?? ""}:${t.id}`}
@@ -419,7 +419,7 @@ export function DocumentReview(p: DocumentReviewProps) {
           <button type="button" class="btn primary" disabled={view.bulk.length === 0} onClick={() => accept(view.bulk)} data-documents-bulk>
             まとめて承認（{view.bulk.length}件）
           </button>
-          <span class="in-note">まとめて承認に入るのは、確からしさが高く、今の値が空・推定・書類待ちか同じ値の行だけです。今の確定の値と違う行・種類を決める行は1つずつ確かめてください。</span>
+          <span class="in-note">まとめて承認に入るのは、確からしさが高く、今の値が空・推定・書類待ちか同じ値の行だけです。今の確定の値と違う行・種類を決める行は1つずつ確認してください。</span>
           <span class="dr-score" data-documents-score>
             読み取りの成績: 合った {view.score.matched}・直した {view.score.corrected}・読めなかった {view.score.unreadable}
           </span>

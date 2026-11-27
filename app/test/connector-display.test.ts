@@ -67,7 +67,7 @@ describe("表示の設定の一覧", () => {
     }
     expect(catalog.neverHidden.join("")).toContain("入力が足りない");
     expect(catalog.neverHidden.join("")).toContain("計算に入れていない");
-    expect(catalog.neverHidden.join("")).toContain("確かめの注意");
+    expect(catalog.neverHidden.join("")).toContain("注意");
     for (const w of ["比べ", "カード", "札"]) expect(text.includes(w), w).toBe(false);
   });
 

@@ -490,7 +490,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
           {stageStart !== undefined ? (
             <p class="ip-docread" data-panel-read-doc={itemId}>
               <span>書類から読む: {stageStart.line}。</span>
-              <button type="button" class="link-btn" onClick={() => readDoc(stageStart.start)} data-panel-read-doc-open title="書類の読み取りへ進みます（保存していない変更は保存します）。読んだ値は確かめて承認したものだけが入ります">
+              <button type="button" class="link-btn" onClick={() => readDoc(stageStart.start)} data-panel-read-doc-open title="書類の読み取りへ進みます（保存していない変更は保存します）。読んだ値は確認して承認したものだけが入ります">
                 書類から読む
               </button>
             </p>
@@ -562,7 +562,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                   </button>
                 </p>
               ) : (
-                <button type="button" class="fld-fill" onClick={() => setAsking(true)} title="見えている推定のままの値を、その値のまま確定にします（押すと確かめの1行が出ます）" data-confirm-all>
+                <button type="button" class="fld-fill" onClick={() => setAsking(true)} title="見えている推定のままの値を、その値のまま確定にします（押すと確認の文が1行出ます）" data-confirm-all>
                   {confirmAllLabel(estimatedShown, estimatedShown < estimatedAll ? "見えている" : "")}
                 </button>
               )}

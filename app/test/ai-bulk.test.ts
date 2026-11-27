@@ -101,7 +101,7 @@ describe("まとめて渡す画面", () => {
     expect(html).toContain("もう共有中の世帯: 1件（A0002）");
     expect(html).toContain('data-ai-bulk-blocked="2"');
     expect(html).toContain("お客さまが「同意しない」と答えた世帯（1件）: A0003");
-    expect(html).toContain("同意が記録されていない世帯（事務所のプライバシーポリシーも確かめていません）（1件）: C0004");
+    expect(html).toContain("同意が記録されていない世帯（事務所のプライバシーポリシーも確認していません）（1件）: C0004");
     expect(html).toContain("data-ai-bulk-destination");
     expect(html).toContain("1時間");
     expect(html).toContain("メモと面談の履歴は、上の印を付けたときだけ");

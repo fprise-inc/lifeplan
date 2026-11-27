@@ -199,10 +199,10 @@ export function assumptionRows(wh: WorkingHousehold): AssumptionRow[] {
   const lr = c.survivor.livingRatio ?? {};
   const cg = (id: string, label: string, v: string, given: boolean, source: string) =>
     rows.push({ id: `cg:${id}`, group: "contingency", label, value: v, state: given ? "確定" : "推定", tone: given ? "plain" : "estimated", source: given ? "入れた値（万一のタブ）" : source, fieldKey: null, level: "simple", card: "万一のタブ", warn: null });
-  cg("living/before", "遺族の生活費（子がいる間）", pctText(lr.beforeIndependence ?? String(presetValue("preset.survivor.livingRatio.beforeIndependence"))), lr.beforeIndependence !== undefined, "既定の値（出典は確かめ前）");
-  cg("living/after", "遺族の生活費（末子の独立の後）", pctText(lr.afterIndependence ?? String(presetValue("preset.survivor.livingRatio.afterIndependence"))), lr.afterIndependence !== undefined, "既定の値（出典は確かめ前）");
-  cg("living/noKids", "遺族の生活費（子がいない世帯）", pctText(lr.noChildren ?? String(presetValue("preset.survivor.livingRatio.noChildren"))), lr.noChildren !== undefined, "既定の値（出典は確かめ前）");
-  cg("illness/months", "大きな病気の働けない期間", `${c.illness?.months ?? ILLNESS_DEFAULT.months}か月`, c.illness?.months !== undefined, "仮の値（事務所で根拠を確かめる）");
+  cg("living/before", "遺族の生活費（子がいる間）", pctText(lr.beforeIndependence ?? String(presetValue("preset.survivor.livingRatio.beforeIndependence"))), lr.beforeIndependence !== undefined, "既定の値（出典は確認前）");
+  cg("living/after", "遺族の生活費（末子の独立の後）", pctText(lr.afterIndependence ?? String(presetValue("preset.survivor.livingRatio.afterIndependence"))), lr.afterIndependence !== undefined, "既定の値（出典は確認前）");
+  cg("living/noKids", "遺族の生活費（子がいない世帯）", pctText(lr.noChildren ?? String(presetValue("preset.survivor.livingRatio.noChildren"))), lr.noChildren !== undefined, "既定の値（出典は確認前）");
+  cg("illness/months", "大きな病気の働けない期間", `${c.illness?.months ?? ILLNESS_DEFAULT.months}か月`, c.illness?.months !== undefined, "仮の値（事務所で根拠を確認する）");
   cg("market/drop", "相場の下がる幅", `${Math.round(Number(c.market?.drop ?? marketDropDefault()) * 10)}割`, c.market?.drop !== undefined, "仮の値");
   return rows;
 }

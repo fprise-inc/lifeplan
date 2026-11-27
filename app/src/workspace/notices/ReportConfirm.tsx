@@ -16,7 +16,7 @@ export function AiIssueReportBand({ count, onOpen }: { count: number; onOpen: ()
   return (
     <div class="ai-code-band" role="status" data-ai-issue-report-band>
       <b>AIから、送る報告が届いています（{count}回分）</b>
-      <span class="pl-sub">確かめて「送る」を押すまで、どこにも送りません</span>
+      <span class="pl-sub">確認して「送る」を押すまで、どこにも送りません</span>
       <button type="button" class="link-btn" onClick={onOpen} data-ai-issue-report-band-open>
         送る報告の確認画面を開く
       </button>
@@ -91,13 +91,13 @@ export function ReportConfirm(p: ReportConfirmProps) {
         <h2 id="rc-title">送る報告の確認</h2>
         {p.source === "ai" ? (
           <p class="pl-sub" data-report-ai>
-            AI がまとめた報告です{who !== "" ? `（${who}）` : ""}。お話しの内容を {p.initialItems.length}件に分けてあります。件ごとに確かめて、直すか外してから送ってください。
+            AI がまとめた報告です{who !== "" ? `（${who}）` : ""}。お話しの内容を {p.initialItems.length}件に分けてあります。件ごとに確認して、直すか外してから送ってください。
           </p>
         ) : (
           <p class="pl-sub">要望や不具合を書いて送ってください。何をしたら、どうなったか。どうなってほしかったか。いくつかあるときは「＋ 件を足す」で分けて書けます。</p>
         )}
         <p class="rc-warn" role="note" data-report-warn>
-          お客さまの名前・金額など世帯の情報が入っていないことを確かめてください。数字は見本の世帯の値か、丸めた言葉にしてください。
+          お客さまの名前・金額など世帯の情報が入っていないことを確認してください。数字は見本の世帯の値か、丸めた言葉にしてください。
         </p>
         <dl class="rc-meta">
           <dt>受付番号</dt>
@@ -191,7 +191,7 @@ function ReportItemEditor({ n, item, onChange, onRemove }: { n: number; item: Re
       {marks.length === 0 ? (
         item.text.trim() !== "" ? (
           <p class="rc-marks-none" data-report-marks-none>
-            名前・金額・電話番号・メールアドレス・住所・生年月日らしい所は見つかりませんでした（名前は形で見分けられないので、目でも確かめてください）。
+            名前・金額・電話番号・メールアドレス・住所・生年月日らしい所は見つかりませんでした（名前は形で見分けられないので、目でも確認してください）。
           </p>
         ) : null
       ) : (

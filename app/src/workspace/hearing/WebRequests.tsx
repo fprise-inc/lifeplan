@@ -147,7 +147,7 @@ function OfficeRow({ row, now, readOnly, onOpen }: { row: IssuedRow; now: Date; 
       </p>
       <div class="rp-actions">
         <button type="button" class="btn" onClick={onOpen} data-web-office-open>
-          AI が発行した URL で確かめる
+          AI が発行した URL の確認画面を開く
         </button>
       </div>
     </li>
@@ -481,7 +481,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                     <span class="rp-actions">
                       {canTake ? takeBtn(true) : null}
                       <button type="button" class="link-btn" disabled={busy !== null} onClick={() => void check(e)} data-web-check>
-                        届いたかを確かめる
+                        届いたかを確認する
                       </button>
                     </span>
                   </div>
@@ -538,7 +538,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                     {/* 届く前: 届いたかを確かめる・延長・案内文をコピー・取り消す（書類だけ先に届いていれば受け取る） */}
                     {canTake ? takeBtn(true) : null}
                     <button type="button" class={`btn${canTake ? "" : " primary"}`} disabled={busy !== null} onClick={() => void check(e)} data-web-check>
-                      届いたかを確かめる
+                      届いたかを確認する
                     </button>
                     <button type="button" class="btn" disabled={busy !== null || !ext.ok} onClick={() => void extend(e)} title={ext.ok ? "押した日から30日に延ばします（発行した日から90日まで）" : undefined} data-web-extend>
                       {ext.ok && ext.to !== null ? `延長（${proseDate(ext.to)}まで）` : "延長（今日から30日）"}
@@ -560,7 +560,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                   <>
                     {e.received !== undefined ? (
                       <button type="button" class={`btn${mode === "toImport" ? " primary" : ""}`} onClick={() => importNow(e)} data-web-import>
-                        {mode === "toImport" ? "取り込む（候補を確かめる）" : "もう一度取り込む"}
+                        {mode === "toImport" ? "取り込む（候補を確認する）" : "もう一度取り込む"}
                       </button>
                     ) : null}
                     {canTake ? takeBtn(false) : null}

@@ -16,9 +16,9 @@ export function AiHouseholdCandidateBand({ count, onOpen }: { count: number; onO
   return (
     <div class="ai-code-band" role="status" data-ai-household-band>
       <b>AIから新しい世帯の候補が届いています（{count}件）</b>
-      <span class="pl-sub">確かめて「世帯として作る」を押すまで、世帯の一覧は変わりません</span>
+      <span class="pl-sub">確認して「世帯として作る」を押すまで、世帯の一覧は変わりません</span>
       <button type="button" class="link-btn" onClick={onOpen} data-ai-household-band-open>
-        候補を確かめる
+        新しい世帯の候補の確認画面を開く
         <PopIcon />
       </button>
     </div>
@@ -48,7 +48,7 @@ export function AiHouseholdCandidates(p: AiHouseholdCandidatesProps) {
       <div ref={panel} class="rk-panel ai-panel ai-hh-panel" role="dialog" aria-modal="true" aria-labelledby="ai-hh-title" tabIndex={-1} data-ai-household-panel>
         <CloseX onClose={p.onClose} what="AIからの新しい世帯の候補" />
         <h2 id="ai-hh-title">AIからの新しい世帯の候補</h2>
-        <p class="in-note">AI が組み立てた世帯です。中身を確かめて「世帯として作る」を押したときだけ、世帯の一覧に入ります。捨てても、ほかの世帯は変わりません。作らなかった候補は、アプリを閉じると消えます。</p>
+        <p class="in-note">AI が組み立てた世帯です。中身を確認して「世帯として作る」を押したときだけ、世帯の一覧に入ります。捨てても、ほかの世帯は変わりません。作らなかった候補は、アプリを閉じると消えます。</p>
         {read.length > 1 ? (
           <nav class="ai-tabs" aria-label="届いた候補">
             {read.map((r, i) => (
@@ -126,7 +126,7 @@ function CandidateReview({ c, check, onCreate, onDiscard }: { c: ReadHousehold; 
     let live = true;
     void check(c).then(
       (reason) => live && setChecked(reason === null ? { state: "ok" } : { state: "error", reason }),
-      () => live && setChecked({ state: "error", reason: "計算で確かめられませんでした" }),
+      () => live && setChecked({ state: "error", reason: "計算で確認できませんでした" }),
     );
     return () => {
       live = false;
@@ -162,7 +162,7 @@ function CandidateReview({ c, check, onCreate, onDiscard }: { c: ReadHousehold; 
             <span class="pl-sub ai-hh-kind-note">{KIND_TEXT[k].share}</span>
           </label>
         ))}
-        {kind === "fictional" ? <p class="in-note">実在のお客さまの情報（年齢・年収・資産などの数字）を入れていないことを確かめてから作ってください。作った後に「お客さまの世帯にする」はできますが、お客さまの世帯を架空の世帯には戻せません。</p> : null}
+        {kind === "fictional" ? <p class="in-note">実在のお客さまの情報（年齢・年収・資産などの数字）を入れていないことを確認してから作ってください。作った後に「お客さまの世帯にする」はできますが、お客さまの世帯を架空の世帯には戻せません。</p> : null}
       </fieldset>
       <div class="ai-hh-grid">
         <Rows title="家族" rows={ov.family} empty="家族がいません" />
@@ -183,7 +183,7 @@ function CandidateReview({ c, check, onCreate, onDiscard }: { c: ReadHousehold; 
         </p>
       ) : null}
       <p class={checked.state === "error" ? "hh-err" : "pl-sub"} role="status" data-ai-household-check={checked.state}>
-        {checked.state === "checking" ? "計算できるかを確かめています…" : checked.state === "ok" ? "この中身で計算できることを確かめました。" : `この中身では計算できないため、作れません（${checked.reason}）。AI に直してもらってください。`}
+        {checked.state === "checking" ? "計算できるかを確認しています…" : checked.state === "ok" ? "この中身で計算できることを確認しました。" : `この中身では計算できないため、作れません（${checked.reason}）。AI に直してもらってください。`}
       </p>
       <div class="ai-cand-foot">
         <button type="button" class="btn primary" disabled={busy || checked.state !== "ok"} onClick={() => void act(() => onCreate(c, kind))} data-ai-household-create>

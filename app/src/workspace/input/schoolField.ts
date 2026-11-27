@@ -54,7 +54,7 @@ function averageText(st: EducationStage): string {
   if (list !== null && typeof code === "string") {
     const t = tuitionPlanFor(list, code, (st.school as { unit?: string }).unit ?? code, st);
     if (t !== null && (t.plan === null || t.plan.status !== "reviewed")) {
-      const what = t.plan === null ? `${TUITION_PLAN_LABELS[t.id]}の額はまだ学費データに無い` : `${TUITION_PLAN_LABELS[t.id]}の額は確かめ待ち`;
+      const what = t.plan === null ? `${TUITION_PLAN_LABELS[t.id]}の額はまだ学費データに無い` : `${TUITION_PLAN_LABELS[t.id]}の額は確認待ち`;
       const stat = stageStatistic(st);
       return `この大学の${what}ので、${stat?.annualBasis ?? "国立大学の標準額（国の省令の額）"}で補って計算しています`;
     }

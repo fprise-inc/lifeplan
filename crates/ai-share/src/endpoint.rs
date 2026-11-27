@@ -232,7 +232,7 @@ async fn serve(
                 .unwrap_or_else(|_| {
                     Err((
                         ErrorCode::Invalid,
-                        "候補を確かめられませんでした。".to_owned(),
+                        "候補を確認できませんでした。".to_owned(),
                     ))
                 })
             }

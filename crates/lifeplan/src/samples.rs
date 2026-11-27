@@ -23,7 +23,7 @@ const NOTICE: &str = "すべて架空の世帯です（実在の顧客ではあ�
 pub struct ListSamplesArgs {
     /// 目印で絞る（例 ["子育て"]・["シニア", "収益不動産"]）。どの目印にも当てはまる見本だけを返す。目印の一部でもよい（「介護」は「親の介護・相続」に当たる）。使える目印は答えの tags
     pub tags: Option<Vec<String>>,
-    /// 開発の試験用の見本（制度の計算を確かめるための世帯。表が短い物が多い）も出すか。既定は出さない。tags に「開発の試験用」を入れても出る
+    /// 開発の試験用の見本（制度の計算を確認するための世帯。表が短い物が多い）も出すか。既定は出さない。tags に「開発の試験用」を入れても出る
     pub include_test: Option<bool>,
 }
 
@@ -205,7 +205,7 @@ pub fn list(args: &ListSamplesArgs) -> Value {
     let mut notice = NOTICE.to_owned();
     if hidden > 0 {
         notice.push_str(&format!(
-            "ほかに開発の試験用の見本が{hidden}件あります（制度の計算を確かめるための世帯で、表が短い物が多い。include_test: true で出ます）。"
+            "ほかに開発の試験用の見本が{hidden}件あります（制度の計算を確認するための世帯で、表が短い物が多い。include_test: true で出ます）。"
         ));
     }
     if households.is_empty() {

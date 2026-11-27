@@ -166,7 +166,7 @@ async function readBook(book: Book, bytes: Uint8Array, o: ReadMarkSheetOptions, 
   if (request === undefined) {
     return fail(
       issues,
-      issue("error", "S_SHEET_OTHER_HOUSEHOLD", `この世帯で書き出した確認シートではありません（依頼番号 ${requestId === "" ? "なし" : requestId}）。別の世帯のファイルか、書き出しの記録が残っていない依頼です。開いている世帯を確かめてください`),
+      issue("error", "S_SHEET_OTHER_HOUSEHOLD", `この世帯で書き出した確認シートではありません（依頼番号 ${requestId === "" ? "なし" : requestId}）。別の世帯のファイルか、書き出しの記録が残っていない依頼です。開いている世帯を確認してください`),
     );
   }
   const file: FileMark = { sha256: await fileDigest(bytes), bytes: bytes.length };
@@ -362,7 +362,7 @@ function readMarks(book: Book, sheet: Sheet, r: number, no: number, rows: readon
   if (category === undefined && bucket === undefined) return { mark: null, ...(memo !== undefined ? { memo } : {}), notes };
   const later = rows.filter((x) => x.row.decidedAt !== undefined && x.row.decidedAt > request.at).length;
   if (later > 0) notes.push(rows.length > 1 ? `書き出した後に FP が決めた行が ${later}行あります（今の決めたことを置き換えます）` : "書き出した後に FP が決めた行です（今の決めたことを置き換えます）");
-  if (rows.length > 1 && memo !== undefined) notes.push("まとめた店の行にメモがあります（回によって違うことがないか、メモを確かめてください）");
+  if (rows.length > 1 && memo !== undefined) notes.push("まとめた店の行にメモがあります（回によって違うことがないか、メモを確認してください）");
   const mark: Mark = { ...(category !== undefined ? { category } : {}), ...(bucket !== undefined ? { bucket } : {}), ...(share !== undefined ? { share } : {}) };
   return { mark, ...(memo !== undefined ? { memo } : {}), notes };
 }

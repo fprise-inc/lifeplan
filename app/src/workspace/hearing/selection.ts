@@ -13,7 +13,7 @@ export type WebTemplateKind = "simple" | "detail" | "review";
 export const WEB_TEMPLATES: readonly { value: WebTemplateKind; label: string; note: string }[] = [
   { value: "simple", label: "シンプル", note: "ご家族・収入・住まい・貯蓄・生活費を大まかに。金額は範囲でも答えられます" },
   { value: "detail", label: "詳細", note: "書類を見ながら答えてもらう詳しい問い" },
-  { value: "review", label: "見直し", note: "詳細の問いで、今の値を見せて確かめてもらう" },
+  { value: "review", label: "見直し", note: "詳細の問いで、今の値を見せて確認してもらう" },
 ];
 
 /** 自分で選んだ・保存した組み合わせの呼び名 */

@@ -239,13 +239,13 @@ export function StoragePanel(p: StoragePanelProps) {
                   }
                   data-sync-accept
                 >
-                  復元キーを確かめて戻る
+                  復元キーを確認して戻る
                 </button>
               </div>
             ) : null}
             <div class="rk-row">
               <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.status()))}>
-                確かめ直す
+                確認し直す
               </button>
               {st.problem === "E_OFFICE_CLOSED" || st.problem === "E_OFFICE_KEY_MISSING" ? (
                 <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => (p.onStatus(await p.office.cancel()), p.onHouseholdsChanged()))} data-sync-back-local>
@@ -259,7 +259,7 @@ export function StoragePanel(p: StoragePanelProps) {
           <>
             <p>
               保存先: <b>同期フォルダ</b>
-              {st.syncFolder ? "" : "（選んだフォルダは、OS の同期サービスの場所の外です。もう1台のPCから見えるか確かめてください）"}。このPCの呼び名は <b>{st.myName}</b>。
+              {st.syncFolder ? "" : "（選んだフォルダは、OS の同期サービスの場所の外です。もう1台のPCから見えるか確認してください）"}。このPCの呼び名は <b>{st.myName}</b>。
             </p>
             {st.notices.length > 0 ? (
               <div class="of-alert" role="alert" data-sync-notice>
@@ -268,16 +268,16 @@ export function StoragePanel(p: StoragePanelProps) {
                     <b>復元キーで「{n.name}」が同期フォルダを開きました</b>（{proseDateTime(n.at, "")}）。
                   </p>
                 ))}
-                <p class="pl-sub">復元キーを持つ人は、承認なしで同期フォルダを開けます。心当たりが無いときは、すぐにそのPCを外し（復元キーも新しくなります）、復元キーの控えの置き場所を確かめてください。</p>
+                <p class="pl-sub">復元キーを持つ人は、承認なしで同期フォルダを開けます。心当たりが無いときは、すぐにそのPCを外し（復元キーも新しくなります）、復元キーの控えの置き場所を確認してください。</p>
                 <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.dismissNotices()))} data-sync-notice-ok>
-                  確かめた
+                  確認した
                 </button>
               </div>
             ) : null}
             {st.requests.length > 0 ? (
               <div class="of-alert" role="alert" data-sync-requests>
                 <p>
-                  <b>この同期フォルダに、共有に加わる申請が置かれています。</b>1人で使う同期フォルダなので、承認はできません。心当たりが無ければ断り、同期フォルダの共有の設定（同期サービス側）を確かめてください。
+                  <b>この同期フォルダに、共有に加わる申請が置かれています。</b>1人で使う同期フォルダなので、承認はできません。心当たりが無ければ断り、同期フォルダの共有の設定（同期サービス側）を確認してください。
                 </p>
                 {st.requests.map((r) => (
                   <p key={r.requestId}>
@@ -424,7 +424,7 @@ export function StoragePanel(p: StoragePanelProps) {
             ) : (
               <div class="of-remove" role="alert" data-sync-end-confirm>
                 <p>
-                  同期フォルダの世帯をすべてこのPCの中へ移し、開けることを確かめてから、同期フォルダの世帯ファイルと鍵の札を消します。
+                  同期フォルダの世帯をすべてこのPCの中へ移し、開けることを確認してから、同期フォルダの世帯ファイルと鍵の札を消します。
                   {st.members.length > 1 ? <b>もう1台のPCでは、同期フォルダの世帯を開けなくなります。</b> : null}
                 </p>
                 {st.members.length > 1 ? <p class="pl-sub">先に、もう1台のPCでファイナンシアを閉じ、同期が終わるのを待ってください（もう1台のPCで世帯を開いている間は戻せません）。</p> : null}

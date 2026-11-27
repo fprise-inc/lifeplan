@@ -40,7 +40,7 @@ interface ConsentForm {
 const BLOCKED_TEXT: Record<string, string> = {
   refused: "お客さまが外部AIへの提供に「同意しない」と答えました。事務所の設定にかかわらず、この世帯は AI に渡せません。",
   withdrawn: "お客さまが外部AIへの提供の同意を撤回しました。事務所の設定にかかわらず、この世帯は AI に渡せません。",
-  none: "外部AIへの提供の同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確かめると、渡せるようになります。",
+  none: "外部AIへの提供の同意を記録するか、事務所の設定で事務所のプライバシーポリシーを確認すると、渡せるようになります。",
 };
 
 /** 同意を得た日が、今の説明（版3）を出した日より前のときの注意（0249。その日付の同意は、メモと面談の記録を含まない同意として記録する） */
@@ -167,14 +167,14 @@ export function AiSharePanel(p: AiSharePanelProps) {
               </p>
             ) : use === "officePolicy" ? (
               <p class="in-note" data-ai-consent-office>
-                まだ記録がありません。事務所の設定で事務所のプライバシーポリシーを確かめているので、事務所のプライバシーポリシーに沿って AI に渡せます。お客さまが「同意しない」と答えたら、下の「同意しなかったことを記録する」で記録してください（記録すると、事務所の設定にかかわらず渡せなくなります）。
+                まだ記録がありません。事務所の設定で事務所のプライバシーポリシーを確認しているので、事務所のプライバシーポリシーに沿って AI に渡せます。お客さまが「同意しない」と答えたら、下の「同意しなかったことを記録する」で記録してください（記録すると、事務所の設定にかかわらず渡せなくなります）。
               </p>
             ) : (
-              <p class="in-note">まだ記録がありません。同意が無い世帯は、AIに渡せません（既定は「渡さない」）。事務所の設定で事務所のプライバシーポリシーを確かめると、同意の答えが無い世帯も渡せます。</p>
+              <p class="in-note">まだ記録がありません。同意が無い世帯は、AIに渡せません（既定は「渡さない」）。事務所の設定で事務所のプライバシーポリシーを確認すると、同意の答えが無い世帯も渡せます。</p>
             )}
             {renew && !noDocuments && !notesRenew ? (
               <p class="in-note" data-ai-consent-renew-office>
-                この世帯の同意は{latest?.method === "hearingSheet" ? "ヒアリングシートの同意欄" : "前の版の説明"}でいただいたもので、書類の読み取りは含まれていませんが、事務所のプライバシーポリシーを確かめているので、書類も AI に渡せます。今の説明で同意を記録し直すこともできます。
+                この世帯の同意は{latest?.method === "hearingSheet" ? "ヒアリングシートの同意欄" : "前の版の説明"}でいただいたもので、書類の読み取りは含まれていませんが、事務所のプライバシーポリシーを確認しているので、書類も AI に渡せます。今の説明で同意を記録し直すこともできます。
               </p>
             ) : null}
             {notesRenew ? (
@@ -246,11 +246,11 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 </fieldset>
                 <label class="ai-check">
                   <input type="checkbox" checked={form.noTraining} onChange={(e) => setForm({ ...form, noTraining: (e.currentTarget as HTMLInputElement).checked })} data-ai-no-training />
-                  使う AI サービスで、渡した情報がAIの学習に使われない設定であることを確かめました
+                  使う AI サービスで、渡した情報がAIの学習に使われない設定であることを確認しました
                 </label>
                 <label class="ai-check">
                   <input type="checkbox" checked={form.confirmed} onChange={(e) => setForm({ ...form, confirmed: (e.currentTarget as HTMLInputElement).checked })} data-ai-confirm />
-                  {sheet ? "顧客がヒアリングシートの同意欄で、上の文に同意していることを確かめました（FPの確認）" : "上の説明を顧客に見せて、同意をいただいたことを確かめました（FPの確認）"}
+                  {sheet ? "顧客がヒアリングシートの同意欄で、上の文に同意していることを確認しました（FPの確認）" : "上の説明を顧客に見せて、同意をいただいたことを確認しました（FPの確認）"}
                 </label>
                 <div class="ai-actions">
                   <button type="submit" class="btn primary" disabled={busy || !form.confirmed} data-ai-record-given>
@@ -295,7 +295,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 </div>
                 <label class="ai-check">
                   <input type="checkbox" checked={withdraw.confirmed} onChange={(e) => setWithdraw({ ...withdraw, confirmed: (e.currentTarget as HTMLInputElement).checked })} data-ai-withdraw-confirm />
-                  顧客から撤回の申し出を受けたことを確かめました（FPの確認）
+                  顧客から撤回の申し出を受けたことを確認しました（FPの確認）
                 </label>
                 <div class="ai-actions">
                   <button type="submit" class="btn danger" disabled={busy || !withdraw.confirmed} data-ai-withdraw>
@@ -378,7 +378,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 ) : null}
                 <ul class="ai-limits">
                   <li>渡すのは計算に要る項目だけ（縮約版）です。メモと面談の履歴は、上の印を付けたときだけ渡します。物の ID は共有ごとの仮の ID に置き換えます。</li>
-                  <li>許可は「このPCの AI との接続全体」に出すものです。申告したアプリの名前は確かめられません（記録には申告として残ります）。</li>
+                  <li>許可は「このPCの AI との接続全体」に出すものです。申告したアプリの名前は確認できません（記録には申告として残ります）。</li>
                   <li>取り消しで止まるのは今後の読み取りだけです。すでに送った内容は、AIの会社の側に残ります。</li>
                   {noDocuments ? <li data-ai-share-no-documents>{NO_DOCUMENTS_NOTE}</li> : null}
                   {use === "officePolicy" ? <li data-ai-share-office>{OFFICE_POLICY_NOTE}</li> : null}
@@ -525,7 +525,7 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
                 <td class="num">{listDateWritten(c.obtainedOn)}</td>
                 <td>{methodLabel(c.method)}</td>
                 {withProvider ? <td>{providerText(c.externalAi) ?? "—"}</td> : null}
-                <td>{c.externalAi !== undefined ? (c.externalAi.noTrainingConfirmed ? "確かめた" : "確かめていない") : "—"}</td>
+                <td>{c.externalAi !== undefined ? (c.externalAi.noTrainingConfirmed ? "確認した" : "確認していない") : "—"}</td>
               </tr>
             ))}
           </tbody>

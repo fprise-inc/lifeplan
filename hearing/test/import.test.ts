@@ -92,9 +92,9 @@ describe("取り込み", () => {
     expect(rows["pensionRecord.months/employee"]).toMatchObject({ state: "unknown" });
     const msgs = Object.fromEntries(r.checklist.filter((c) => c.reason === "unknown").map((c) => [c.key, c.message]));
     expect(msgs).toEqual({
-      "hs.income.residentTax": "わからない（書類で確かめる: 住民税の決定通知書）",
-      "hs.retirement.lumpSum": "わからない（書類で確かめる: 会社の退職金規程・制度の資料）",
-      "hs.pension.months.total": "わからない（書類で確かめる: ねんきん定期便）",
+      "hs.income.residentTax": "わからない（書類で確認する: 住民税の決定通知書）",
+      "hs.retirement.lumpSum": "わからない（書類で確認する: 会社の退職金規程・制度の資料）",
+      "hs.pension.months.total": "わからない（書類で確認する: ねんきん定期便）",
     });
     // 承認すると書類待ちの行にも承認の記録が付き、計算できる
     const approved = approveAll(r, "2026-10-17T10:00:00+09:00");

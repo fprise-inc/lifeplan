@@ -13,7 +13,7 @@ const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !
 
 /** 「書類で確かめる」にしたとき、前に入っていた確定の値を代わりにした印（valueState.ts の PREVIOUS_VALUE と同じ） */
 const PREVIOUS_VALUE = "前に入っていた値を代わりに使う";
-const PREVIOUS_NOTE = "「書類で確かめる」の代わりに使っていた値（前に入っていた値）";
+const PREVIOUS_NOTE = "書類待ちの間に代わりに使っていた値（前に入っていた値）";
 
 const isCarLoanRow = (k: string) => k.startsWith("car.loan/");
 
@@ -53,7 +53,7 @@ function diffValue(v: unknown): boolean {
   const auto = isObj(sub.origin) && sub.origin.kind === "auto" && basis !== "" && basis !== PREVIOUS_VALUE;
   const next: Obj = auto
     ? { ...structuredClone(sub), state: "estimated" }
-    : { value: structuredClone(sub.value), state: "estimated", origin: { kind: "manual" }, estimate: { method, basis: basis === "" || basis === PREVIOUS_VALUE ? PREVIOUS_NOTE : `「書類で確かめる」の代わりに使っていた値（${basis}）` } };
+    : { value: structuredClone(sub.value), state: "estimated", origin: { kind: "manual" }, estimate: { method, basis: basis === "" || basis === PREVIOUS_VALUE ? PREVIOUS_NOTE : `書類待ちの間に代わりに使っていた値（${basis}）` } };
   if (v.approval !== undefined) next.approval = v.approval;
   for (const k of Object.keys(v)) delete v[k];
   Object.assign(v, next);

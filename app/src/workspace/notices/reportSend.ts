@@ -224,7 +224,7 @@ export function canSend(items: readonly ReportItem[]): boolean {
  */
 export function composeReport(d: ReportDraft): string {
   const n = d.items.length;
-  const head = [`受付番号: ${d.code}`, `アプリの版: ${d.appVersion}（${d.os}）`, `件数: ${n}件${d.viaAi ? "（AI がまとめ、FP が確かめて送りました）" : ""}`];
+  const head = [`受付番号: ${d.code}`, `アプリの版: ${d.appVersion}（${d.os}）`, `件数: ${n}件${d.viaAi ? "（AI がまとめ、FP が確認して送りました）" : ""}`];
   const body = d.items.map((it, i) => [`━━ ${i + 1}件目／${n}件（${KIND_LABEL[it.kind]}）どの画面か: ${it.screen} ━━`, it.text.trim()].join("\n"));
   return [...head, "", body.join("\n\n")].join("\n");
 }

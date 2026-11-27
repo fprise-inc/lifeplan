@@ -41,7 +41,7 @@ export function readReceiptInput(text: string): { code: string } | { error: stri
   const body = t.startsWith("R-") ? t.slice(2) : t.startsWith("R") && t.length === 5 ? t.slice(1) : t;
   const chars = body.replace(/-/g, "");
   if (chars === "") return { error: "受付番号を入れてください（例 R-7K2Q）" };
-  if (/[0O1IL]/.test(chars)) return { error: "受付番号には 0・O・1・I・L は使いません。メールの件名の番号をもう一度確かめてください" };
+  if (/[0O1IL]/.test(chars)) return { error: "受付番号には 0・O・1・I・L は使いません。メールの件名の番号をもう一度確認してください" };
   if (chars.length !== 4 || ![...chars].every((c) => RECEIPT_CHARS.includes(c))) return { error: "受付番号は R- と英数字4文字です（例 R-7K2Q）" };
   return { code: `R-${chars}` };
 }

@@ -84,7 +84,7 @@ export function LookPage(p: LookPageProps) {
     setCodeBusy(true);
     try {
       if (p.onCheckCodes !== undefined) await p.onCheckCodes();
-      setCodeMsg({ ok: true, text: "提供元が止めたコードの一覧を確かめに行きました。結果は少しあとに、この下に出ます。" });
+      setCodeMsg({ ok: true, text: "提供元が止めたコードの一覧を取りに行きました。結果は少しあとに、この下に出ます。" });
     } catch (e) {
       setCodeMsg({ ok: false, text: featureErrorText(e) });
     } finally {
@@ -171,7 +171,7 @@ export function LookPage(p: LookPageProps) {
         <OfficeSection
           id="os-code"
           title="機能を有効にするコード"
-          help="受け取ったコードを入れると、その機能が使えるようになります。本物か・期限内かは、この PC の中で確かめます。入れるとすぐ効きます（保存のボタンは押さなくてかまいません）。コードを入れている間は、提供元が止めたコードかどうかを、起動したときと1日1回、配信元の一覧で確かめます（送るのは一覧を取る依頼だけで、コード・お名前・世帯の情報は送りません。つながらないときは今のまま使えます）。"
+          help="受け取ったコードを入れると、その機能が使えるようになります。本物か・期限内かは、この PC の中で確認します。入れるとすぐ効きます（保存のボタンは押さなくてかまいません）。コードを入れている間は、提供元が止めたコードかどうかを、起動したときと1日1回、配信元の一覧で確認します（送るのは一覧を取る依頼だけで、コード・お名前・世帯の情報は送りません。つながらないときは今のまま使えます）。"
           data={{ "data-feature-code-area": "" }}
         >
           <Lead>入れるとすぐ効きます（保存は要りません）。</Lead>
@@ -181,7 +181,7 @@ export function LookPage(p: LookPageProps) {
                 <p class="os-code-cand-title">
                   <b>AIからの候補: 機能を有効にするコードを入れる</b>
                   <span class="pl-sub">
-                    {receivedAtText(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
+                    {receivedAtText(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確認できない参考の情報です）` : ""}
                   </span>
                 </p>
                 {c.ok ? (
@@ -208,7 +208,7 @@ export function LookPage(p: LookPageProps) {
                         ))}
                       </tbody>
                     </table>
-                    <p class="pl-sub">AIが出したのは候補だけです。中身を確かめて、入れてよいときだけ押してください（世帯のデータは変わりません）。</p>
+                    <p class="pl-sub">AIが出したのは候補だけです。中身を確認して、入れてよいときだけ押してください（世帯のデータは変わりません）。</p>
                   </>
                 ) : (
                   <p class="fatal" data-feature-candidate-error>
@@ -248,7 +248,7 @@ export function LookPage(p: LookPageProps) {
             ))}
             {features.invalid.map((c) => (
               <p class="pl-sub os-code-expired" key={c.ref} data-feature-invalid={c.ref}>
-                このアプリでは確かめられないコードが入っています（{c.error}）。新しいコードを受け取って入れ直してください。
+                このアプリでは確認できないコードが入っています（{c.error}）。新しいコードを受け取って入れ直してください。
                 <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void removeCode(c.ref)}>
                   このコードを外す
                 </button>
@@ -264,7 +264,7 @@ export function LookPage(p: LookPageProps) {
                 {checkText(features.check)}
                 {p.onCheckCodes !== undefined ? (
                   <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void checkCodes()} data-feature-check-now>
-                    今すぐ確かめる
+                    今すぐ確認する
                   </button>
                 ) : null}
               </p>
@@ -280,7 +280,7 @@ export function LookPage(p: LookPageProps) {
                 </div>
                 <div class="rp-actions">
                   <button type="button" class="btn primary" disabled={codeBusy || codeText.trim() === ""} onClick={() => void addCode()} data-feature-code-add>
-                    確かめて入れる
+                    確認して入れる
                   </button>
                   <button
                     type="button"

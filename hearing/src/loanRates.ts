@@ -18,7 +18,7 @@ function estimateOf(id: string, fallback: string): LoanRateEstimate {
   // 値の題名の最初の「（」の前が、出典の短い名前
   const source = v.title.split("（")[0] ?? v.title;
   // 事務所の推定の値なら、事務所の根拠の文そのもの（0111。完全に同じ文で見分ける）
-  return { rate: v.value, basis: officeBasisOf(id) ?? `年${pctText(v.value)}（${source}）${v.reviewed ? "" : "（原本での確かめ前）"}` };
+  return { rate: v.value, basis: officeBasisOf(id) ?? `年${pctText(v.value)}（${source}）${v.reviewed ? "" : "（原本での確認前）"}` };
 }
 
 /** 貸与の奨学金の利率の目安（日本学生支援機構 第二種奨学金の貸与利率。基本月額・利率固定方式）。これから借りる奨学金（子ども・教育の入力項目）に使う */

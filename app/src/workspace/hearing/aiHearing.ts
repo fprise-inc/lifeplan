@@ -213,7 +213,7 @@ export interface IssueOutcome {
 export function relayMessage(code: string): string {
   if (code === "E_HEARING_WEB_URL" || code === "E_HEARING_WEB_NO_RELAY")
     return "受け付けのサーバーがまだ用意されていません（この版のアプリには、本番の受け付けのサーバーの設定がありません）。URL は発行していません。";
-  if (code === "E_RELAY_UNREACHABLE") return "受け付けのサーバーにつながりませんでした（インターネットにつながっているか確かめてください）。URL は発行していません。";
+  if (code === "E_RELAY_UNREACHABLE") return "受け付けのサーバーにつながりませんでした（インターネットにつながっているか確認してください）。URL は発行していません。";
   if (code === "E_WEB_TOO_LARGE") return "問いが大きすぎます（項目・独自の質問・書類を減らしてください）。URL は発行していません。";
   return `発行できませんでした（${code}）。URL は発行していません。`;
 }
@@ -234,7 +234,7 @@ export async function runIssueJob(job: IssueJob, ctx: IssueContext, office: Offi
   const again = checkSelection(def, selection);
   if (again.length > 0) return no("E_SELECTION", `番号らしい所を消したら、選び方が使えなくなりました（${again.join("・")}）。番号を書かずに出し直してください。URL は発行していません。`);
   const review = selection.sections.some((s) => s.items.some((i) => i.mode === "confirm"));
-  if (job.householdId === null && review) return no("E_SELECTION", "確かめてもらう項目（見直し）は、渡された世帯の依頼だけで使えます。URL は発行していません。");
+  if (job.householdId === null && review) return no("E_SELECTION", "確認してもらう項目（見直し）は、渡された世帯の依頼だけで使えます。URL は発行していません。");
   if (job.householdId === null && unassignedAccepting(office, ctx.now) >= UNASSIGNED_LIMIT)
     return no("E_LIMIT", `世帯の決まっていない受け付け中の依頼が上限（${UNASSIGNED_LIMIT}件）です。FP がアプリで受け取るか取り消すまで、新しい依頼は発行できません（渡された世帯の依頼は発行できます）。`);
   const purposeIn = typeof job.issue.purpose === "string" && job.issue.purpose.trim() !== "" ? job.issue.purpose.trim().slice(0, AI_PURPOSE_MAX) : null;
@@ -288,7 +288,7 @@ export async function runIssueJob(job: IssueJob, ctx: IssueContext, office: Offi
   const where = job.householdId === null ? "世帯の決まっていない依頼として、アプリの「AI が発行した URL」に置きました（答えが届いたら、FP が新しい世帯を作るか、開いている世帯に取り込むかを選びます）" : "その世帯の「発行した URL」に置きました（その世帯を開いていなければ、開いたときに移ります）";
   const head = `URL を発行しました（依頼番号 ${record.requestId}・期限 ${record.expiresAt.slice(0, 10)}）。${where}。アプリの上の帯に「AI が URL を発行しました」と出て、FP は取り消せます。`;
   const answer: IssueAnswer = review
-    ? { ok: true, requestId: record.requestId, expiresAt: record.expiresAt, selectedCount: count, screens: est?.screens ?? null, minutes: est?.minutes ?? null, household: job.householdId === null ? "new" : "shared", review, masked, message: `${head}見直し（今の値を見せて確かめてもらう項目）を含むので、URL と案内文は返しません（URL の # の後ろの鍵で今の値を読めるため）。FP がアプリの「発行した URL」で案内文をコピーして送ります。` }
+    ? { ok: true, requestId: record.requestId, expiresAt: record.expiresAt, selectedCount: count, screens: est?.screens ?? null, minutes: est?.minutes ?? null, household: job.householdId === null ? "new" : "shared", review, masked, message: `${head}見直し（今の値を見せて確認してもらう項目）を含むので、URL と案内文は返しません（URL の # の後ろの鍵で今の値を読めるため）。FP がアプリの「発行した URL」で案内文をコピーして送ります。` }
     : {
         ok: true,
         requestId: record.requestId,
@@ -350,6 +350,6 @@ export function readTemplateProposal(c: { candidateId: string; name: string; sel
   if (def === undefined) return { ...base, selection: null, problems: ["このアプリの版では使えない票です"], masked: 0 };
   const { selection, masked } = scrubSelection(raw);
   const problems = checkSelection(def, selection);
-  if (selection.sections.some((s) => s.items.some((i) => i.mode === "confirm"))) problems.push("確かめてもらう項目（見直し）は世帯に依るので、ひな形にできません");
+  if (selection.sections.some((s) => s.items.some((i) => i.mode === "confirm"))) problems.push("確認してもらう項目（見直し）は世帯に依るので、ひな形にできません");
   return { ...base, selection: problems.length > 0 ? null : selection, problems, masked: masked + (nameClean.masked ? 1 : 0) };
 }

@@ -19,8 +19,8 @@ export function engineErrorText(code: string, ids: readonly string[], baseMonth:
   // メモリーの上限: 入力で決まる（物がとても多い・表がとても長い）ので、もう一度頼んでも同じ
   if (code === "E_HOST_MEMORY") return "。計算に使えるメモリーの上限を超えました。表の最後の年が遠いか、物（口座・不動産・期間など）がとても多いと起きます（E_HOST_MEMORY）";
   // 金額が安全に扱える整数を超えた・率で割れない（-100% の率など）: 率の欄の範囲の外の値か、長すぎる表の期間で起きる（0098）
-  if (code === "E_UNSAFE_INTEGER") return "。金額が大きくなりすぎて計算できません。運用の利回り・上昇率が高いか、表の最後の年が遠いと起きます。入力の確かめの一覧に出る範囲の外の率と、表の最後の年を見直してください（E_UNSAFE_INTEGER）";
-  if (code === "E_ARGUMENT" && ids[0] === "rateDiv.zero") return "。計算に使えない率（-100% の上昇率など）が入っています。入力の確かめの一覧に出る範囲の外の率を見直してください（E_ARGUMENT）";
+  if (code === "E_UNSAFE_INTEGER") return "。金額が大きくなりすぎて計算できません。運用の利回り・上昇率が高いか、表の最後の年が遠いと起きます。入力の確認の一覧に出る範囲の外の率と、表の最後の年を見直してください（E_UNSAFE_INTEGER）";
+  if (code === "E_ARGUMENT" && ids[0] === "rateDiv.zero") return "。計算に使えない率（-100% の上昇率など）が入っています。入力の確認の一覧に出る範囲の外の率を見直してください（E_ARGUMENT）";
   const id = ids[0];
   if (code !== "E_PARAM_NO_VALUE" || id === undefined) return `（${code}）`;
   const label = PARAM_LABELS[id] ?? id;

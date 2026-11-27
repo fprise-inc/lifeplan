@@ -203,6 +203,6 @@ async function readBook(book: Book, options: ReadOptions, issues: Issue[]): Prom
       });
     } else answers.push({ ...at, status: state ?? "blank" });
   }
-  if (missingNames > 0) issues.push(issue("info", "H_NAME_MISSING", `回答のセルの名前の定義が ${missingNames} か所で見つからないため、決まった位置で読みました（質問の文が合うかを確かめています）`));
+  if (missingNames > 0) issues.push(issue("info", "H_NAME_MISSING", `回答のセルの名前の定義が ${missingNames} か所で見つからないため、決まった位置で読みました（質問の文が合うかを確認しています）`));
   return { ok: true, definition: def, filled: { management, answers }, request: record, issues };
 }

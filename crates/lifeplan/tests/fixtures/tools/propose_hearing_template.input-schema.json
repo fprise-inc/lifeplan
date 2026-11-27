@@ -89,7 +89,7 @@
           "type": "string"
         },
         "mode": {
-          "description": "ask（空欄から聞く。既定）か confirm（今の値を見せて確かめてもらう。詳細の票で、share_id の世帯に値のある項目だけ）",
+          "description": "ask（空欄から聞く。既定）か confirm（今の値を見せて確認してもらう。詳細の票で、share_id の世帯に値のある項目だけ）",
           "type": [
             "string",
             "null"
@@ -147,7 +147,7 @@
       "type": "string"
     },
     "note": {
-      "description": "理由（500文字まで。FP がアプリで確かめるときの手がかり）",
+      "description": "理由（500文字まで。FP がアプリで確認するときの手がかり）",
       "maxLength": 500,
       "type": [
         "string",

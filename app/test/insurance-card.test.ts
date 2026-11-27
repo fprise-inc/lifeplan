@@ -354,7 +354,7 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
     wh = action(wh, "ins/addMedical");
     const rows = overlap(wh);
     expect(rows.map((r) => [r.card, r.label])).toEqual([["insurance", "ご本人の医療保険が2本"]]);
-    expect(rows[0]!.detail).toBe("ご本人の医療保険が2本あります（医療保険 1（ご本人）・医療保険 2（ご本人））。入院・手術の保障が重なっていないか、保険証券で確かめてください");
+    expect(rows[0]!.detail).toBe("ご本人の医療保険が2本あります（医療保険 1（ご本人）・医療保険 2（ご本人））。入院・手術の保障が重なっていないか、保険証券で確認してください");
   });
 
   describe("確かめの注意の「確認した」（0055・0041 の追記）", () => {

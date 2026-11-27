@@ -37,9 +37,9 @@ export interface PresetDef {
 /** エンジンが引く目安（use は engine）。値を変えるときは rev を上げ、docs/estimates-review.md の値も直す */
 export const ENGINE_PRESETS: readonly PresetDef[] = [
   // 万一（死亡）のときの遺族の生活費の割合（expense.living・protection.need。万一の想定の survivor.livingRatio が空欄のとき）
-  { id: "preset.survivor.livingRatio.beforeIndependence", value: "0.7", unit: "pct", group: "万一・保険", name: "遺族の生活費の割合（末子の独立まで）", source: "出典なし（よく使われる目安。出典の確かめ前）", kind: "guide", use: "engine", rev: 1 },
-  { id: "preset.survivor.livingRatio.afterIndependence", value: "0.5", unit: "pct", group: "万一・保険", name: "遺族の生活費の割合（末子の独立の後）", source: "出典なし（よく使われる目安。出典の確かめ前）", kind: "guide", use: "engine", rev: 1 },
-  { id: "preset.survivor.livingRatio.noChildren", value: "0.7", unit: "pct", group: "万一・保険", name: "遺族の生活費の割合（子のいない世帯）", source: "出典なし（よく使われる目安。出典の確かめ前）", kind: "guide", use: "engine", rev: 1 },
+  { id: "preset.survivor.livingRatio.beforeIndependence", value: "0.7", unit: "pct", group: "万一・保険", name: "遺族の生活費の割合（末子の独立まで）", source: "出典なし（よく使われる目安。出典の確認前）", kind: "guide", use: "engine", rev: 1 },
+  { id: "preset.survivor.livingRatio.afterIndependence", value: "0.5", unit: "pct", group: "万一・保険", name: "遺族の生活費の割合（末子の独立の後）", source: "出典なし（よく使われる目安。出典の確認前）", kind: "guide", use: "engine", rev: 1 },
+  { id: "preset.survivor.livingRatio.noChildren", value: "0.7", unit: "pct", group: "万一・保険", name: "遺族の生活費の割合（子のいない世帯）", source: "出典なし（よく使われる目安。出典の確認前）", kind: "guide", use: "engine", rev: 1 },
   // 医療保険の入院の1回の限度日数（insurance.policy。保険の限度日数が空欄のとき。画面の保険の種類のひな形も同じ値）
   { id: "preset.insurance.hospitalMaxDays", value: 60, unit: "days", group: "万一・保険", name: "医療保険の入院の1回の限度日数", source: "ひな形（よくある医療保険の型）", kind: "guide", use: "engine", rev: 1 },
   // 年金を受け取る権利（定期金に関する権利）の評価の予定利率（insurance.policy。契約者と受取人が違う年金の贈与税。相続税法24条の複利年金現価率。0179）

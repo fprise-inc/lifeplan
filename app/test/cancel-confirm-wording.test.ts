@@ -151,7 +151,7 @@ describe("文と2つのボタンを分ける（くっついて「外すやめる
 describe("入力・設定の途中をやめるのは「キャンセル」（進むボタンの右）", () => {
   it("事務所の既定値の「機能を有効にするコードを入れる」", () => {
     const html = renderPressing(h(OfficeSettingsPanel, { value: DEFAULT_OFFICE_SETTINGS, onSave: async () => undefined, shared: false, onClose: noop, onAddCode: async () => null as never }), "data-feature-code-open");
-    expect(buttonTexts(within(html, 'class="os-code-form"'))).toEqual(["確かめて入れる", "キャンセル"]);
+    expect(buttonTexts(within(html, 'class="os-code-form"'))).toEqual(["確認して入れる", "キャンセル"]);
   });
 
   it("事務所の既定値の「推定の値」を変える所", () => {

@@ -74,7 +74,7 @@ describe("世帯・事務所の知らせを一覧の入れ物に入れる（文�
   });
   it("世帯の知らせは種類「世帯」。文は前と同じ", () => {
     const out = barNotices({ ...base, household: [{ id: "n0", kind: "unresolvedDiffs", count: 2 }] });
-    expect(out[0]).toMatchObject({ category: "household", urgency: "normal", target: "plans", text: "古い形式のプランの変更のうち 2件を読み替えられませんでした。プランの一覧の「要確認」で確かめてください" });
+    expect(out[0]).toMatchObject({ category: "household", urgency: "normal", target: "plans", text: "古い形式のプランの変更のうち 2件を読み替えられませんでした。プランの一覧の「要確認」で確認してください" });
   });
 });
 

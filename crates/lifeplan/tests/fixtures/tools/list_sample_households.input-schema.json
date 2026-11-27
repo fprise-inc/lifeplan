@@ -3,7 +3,7 @@
   "additionalProperties": false,
   "properties": {
     "include_test": {
-      "description": "開発の試験用の見本（制度の計算を確かめるための世帯。表が短い物が多い）も出すか。既定は出さない。tags に「開発の試験用」を入れても出る",
+      "description": "開発の試験用の見本（制度の計算を確認するための世帯。表が短い物が多い）も出すか。既定は出さない。tags に「開発の試験用」を入れても出る",
       "type": [
         "boolean",
         "null"
