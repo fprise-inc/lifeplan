@@ -2201,10 +2201,7 @@ async fn check_inputs_match_the_screen() {
         let got = call_ok(&c, "check_inputs", args).await;
         let want = &case["expected"];
         for k in ["total", "counts", "groups", "truncated"] {
-            assert_eq!(
-                got[k], want[k],
-                "{name}: {k} が画面の確認の一覧と違います"
-            );
+            assert_eq!(got[k], want[k], "{name}: {k} が画面の確認の一覧と違います");
         }
         assert!(got["note"].as_str().unwrap().contains("確認の一覧"));
         assert_eq!(got["sampleHouseholdId"], case["sample"]);

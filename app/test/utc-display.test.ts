@@ -81,7 +81,7 @@ describe("AI からのコードの候補の届いた日時（端末の時刻で�
       renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, features: { combinedBs: true } }, onSave: async () => undefined, shared: false, onClose: () => undefined, features, onAddCode: async () => features, onRemoveCode: async () => features, onDismissNotice: async () => features, onCheckCodes: async () => features, onDecideCandidate: async () => features }));
     inZone("Asia/Tokyo", () => {
       const html = panel();
-      expect(html).toContain("2026年11月21日 00:00 に届きました（AIのアプリの名乗り: test-ai 1。確かめられない参考の情報です）");
+      expect(html).toContain("2026年11月21日 00:00 に届きました（AIのアプリの名乗り: test-ai 1。確認できない参考の情報です）");
       expect(html).not.toContain("（UTC）");
       expect(html).not.toContain("2026年11月20日");
     });
