@@ -463,13 +463,14 @@ export const OFF_SHELF_DEMOS: readonly DemoHousehold[] = [
 const CORPORATE_OWNER: readonly DemoHousehold[] = [
   // 2026-11-11 に足した見本（架空）: 合算BS（会社と合わせたバランスシート）を見せる世帯。会社の数字も入れておく（0197 の1）。
   // 会社の名前は出さない（数字だけ）。2026-11-26 に「平均的な中小企業の経営者」の数字に直した（rev 2。0247 の10）。
+  // 2026-11-27 に会社の借入の返済（毎月55万円）を入れた（rev 3。0247 の10 の追記）。
   // 会社の試算表は中小企業庁「中小企業実態基本調査」令和7年確報（令和6年度決算）の売上高1億円超〜5億円の法人の1社あたりの額を丸めた値。
   // 根拠の一覧は data/modelHouseholds/README.md
   {
     id: "sampleOwnerCompany",
     family: 3,
     age: 5,
-    rev: 2,
+    rev: 3,
     title: "社員15人の会社を経営する夫婦と子1人・50代",
     traits: ["役員", "片働き", "持ち家", "教育費", "資産運用"],
     targetAge: 95,
@@ -488,7 +489,7 @@ const CORPORATE_OWNER: readonly DemoHousehold[] = [
     extValues: {
       "ext.official.combinedBs": {
         asOf: "2026-09",
-        // 借入の返済（monthlyLoanPay）は、統計に返済の額が無いので入れていない
+        // 借入の返済（monthlyLoanPay）は統計に無いので、長期借入金6,600万円を10年で返す前提の額（利用者の判断）
         amounts: {
           cash: 67_000_000,
           receivables: 24_000_000,
@@ -505,6 +506,7 @@ const CORPORATE_OWNER: readonly DemoHousehold[] = [
           capital: 10_000_000,
           retained: 93_000_000,
           monthlyFixed: 6_000_000,
+          monthlyLoanPay: 550_000,
         },
         stage: "mature",
         // 実力に直す点検: 統計は無い。前の版と同じ割合（在庫75%・建物など67%・土地140%）を丸めた見本の設定
