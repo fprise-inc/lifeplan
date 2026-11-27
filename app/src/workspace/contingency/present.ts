@@ -8,6 +8,7 @@ import { parseYm } from "../levers.ts";
 import { ageAxis, depletionYear, displayYears, familyText, financialOf, personLabel, sumByYear } from "../present.ts";
 import { OFFICIAL_WORDING, type Wording } from "../resultTexts.ts";
 import { ageInYear, roles } from "../roles.ts";
+import { estimateText, NO_TAX, priceBeforeSpecial, taxKind } from "../input/inheritanceAnswer.ts";
 import { OLD_AGE_CHOICE_LABEL } from "./inputs.ts";
 import type { ContingencyPlan } from "./planData.ts";
 import { hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, partnerOf, type Scenario } from "./requests.ts";
@@ -22,11 +23,13 @@ export const REFORM_NOTICE = "N_REFORM_NOT_REFLECTED";
 export function inheritanceText(r: PreviewResult): string | null {
   const p = r.inheritanceTax?.points.find((x) => x.point === "contingency");
   if (p === undefined || p.status === "noData") return null;
-  const tail = "（目安。お金の流れには入れていません。小規模宅地等の特例・2割加算などは含めていません）";
+  // 相続税も試算する世帯（土地の評価・小規模宅地等の特例・2割加算を入れた世帯。0231）には「含めていません」と書かない
+  const tail = p.lands !== undefined ? "（目安。お金の流れには入れていません）" : "（目安。お金の流れには入れていません。小規模宅地等の特例・2割加算などは含めていません）";
   if (p.status === "noHeirs") return `相続税の目安: 相続人がいないので出していません${tail}`;
   if (p.state === "confirmed") return `相続税: ${manText(p.amount)}（FP が入れた額）`;
-  if (p.noTax) return `相続税の目安: かからない見込み（基礎控除 ${manText(p.basicDeduction)} ${p.margin > 0 ? "＞" : "＝"} 財産 ${manText(p.assets.taxablePrice)}）${tail}`;
-  return `相続税の目安: 約${manText(p.payable)}（財産 ${manText(p.assets.taxablePrice)}、基礎控除 ${manText(p.basicDeduction)}）${tail}`;
+  // 答えの文は相続・贈与の入力項目の目安と同じ決まり（かからない見込み・0円の理由と申告・1万円未満・約○万円。0039 の追記 2026-11-27）
+  if (taxKind(p) === "none") return `相続税の目安: ${NO_TAX}（基礎控除 ${manText(p.basicDeduction)} ${priceBeforeSpecial(p) < p.basicDeduction ? "＞" : "＝"} 財産 ${manText(priceBeforeSpecial(p))}）${tail}`;
+  return `相続税の目安: ${estimateText(p)}（財産 ${manText(p.assets.taxablePrice)}、基礎控除 ${manText(p.basicDeduction)}）${tail}`;
 }
 
 export function hasReformNotice(r: PreviewResult): boolean {

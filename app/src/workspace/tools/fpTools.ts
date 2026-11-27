@@ -12,6 +12,7 @@ import { creditActive } from "../input/stages/housingLoans.ts";
 import { amountText as yenText, formatYearMonth, wareki } from "../input/units.ts";
 import { fieldValueText, objectCards, planIndex } from "../plans/planEdit.ts";
 import { man, toMan } from "../../presentation/format.ts";
+import { UNDER_10K } from "../input/inheritanceAnswer.ts";
 import { OFFICIAL_WORDING, type Wording } from "../resultTexts.ts";
 
 type Obj = Record<string, unknown>;
@@ -666,6 +667,6 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
     const c = creditInsight(years, opts.credit, w);
     if (c !== null) out.push(c);
   }
-  if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: w.text("result:main/pointInheritanceTax", { amount: `${man(opts.inheritanceTax)}万円` }), year: null });
+  if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: w.text("result:main/pointInheritanceTax", { amount: opts.inheritanceTax < 10_000 ? UNDER_10K : `${man(opts.inheritanceTax)}万円` }), year: null });
   return out;
 }

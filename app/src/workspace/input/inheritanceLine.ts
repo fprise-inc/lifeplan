@@ -7,6 +7,7 @@ import type { WorkingHousehold } from "./household.ts";
 import { manText } from "./items.ts";
 import { bothAfterLabel, memberLabel } from "./labels.ts";
 import { divisionText, isDetailed, landTargets, withLandEstimates } from "./inheritanceLand.ts";
+import { estimateText, filingNeeded, reasonText, taxKind, zeroReasons, type ZeroReason } from "./inheritanceAnswer.ts";
 
 /** 一次と二次の推移で比較する分け方（0251。入れた分け方の配偶者の割合だけを替える。spouseShare の省略は法定相続分） */
 export const TIMELINE_ALTERNATIVES = [
@@ -34,11 +35,13 @@ const pointText = (p: InheritancePoint): string | null => {
   if (p.status === "noData") return null;
   if (p.status === "noHeirs") return "相続人がいないので出していません";
   if (p.state === "confirmed") return `${manText(p.amount)}万円（FP が入れた額）`;
-  return p.noTax ? "かからない見込み" : `約${manText(p.payable)}万円`;
+  // かからない見込み・0円（理由と申告）・1万円未満・約○万円（0039 の追記 2026-11-27。inheritanceAnswer.ts）
+  return estimateText(p);
 };
 
 /**
  * 入力項目の要約の下の小さな1行（「相続税（二人とも亡くなった後）: かからない見込み」「相続税（二人とも亡くなった後）: 約120万円」。一人の世帯は「相続税（表の最後の年）: …」）。
+ * 答えの文は、区画「相続税の目安」の時点の行と同じ（0円・1万円未満の出し方も。0039 の追記 2026-11-27）。
  * 二人とも亡くなった後（一人の世帯は表の最後の年）の目安。無ければ、いまの目安の大きい方。主な表示は入れた中身（items.ts。0060 の 2026-10-29 の追記）
  */
 export function inheritanceTaxNote(r: PreviewResult | null, h: Household): string | null {
@@ -48,7 +51,7 @@ export function inheritanceTaxNote(r: PreviewResult | null, h: Household): strin
   // どの場面の相続税かを書く（二人とも亡くなった後の目安と、いま亡くなったときの目安は額が大きく違う。0041 の追記 2026-11-06）
   const head = `相続税（${p.point === "bothAfter" ? bothAfterLabel(h) : "いま亡くなったら"}）`;
   if (p.state === "confirmed") return `${head}: ${manText(p.amount)}万円`;
-  return p.noTax ? `${head}: かからない見込み` : `${head}: 約${manText(p.payable)}万円`;
+  return `${head}: ${estimateText(p)}`;
 }
 
 /** 相続税の目安の計算（今の世帯が変わったら計算し直す）。計算の道が無ければ null のまま。timeline は一次と二次の推移も求める（相続・贈与の入力項目の中だけ。0251） */
@@ -126,26 +129,49 @@ export const ESTIMATE_NOTICE = "ここに出す相続税は、入力をもとに
 /** 土地の評価を入れて試算するボタンの言葉（0231 の追記 2026-11-23。「詳しく」は、相続税を正確に計算すると受け取られるので使わない） */
 export const DETAIL_BUTTON = "土地の評価を入れて試算する";
 
+/** かかりそうな時点の一言（0231 の追記 2026-11-23） */
+export const PROMPT_LIKELY = "相続税がかかりそうです。土地の評価や小規模宅地等の特例を入れると、目安をもう一歩くわしく試算できます。";
+
 /**
- * 土地の評価を入れて試算するボタンの上の一言（0231）: 相続税も試算していない世帯で、目安でかかりそうな時点（FP が入れた額でない）があり、不動産を持つときだけ。
- * 不動産が無ければ土地の試算は要らないので出さない
+ * 土地の評価を入れて試算するボタンの上の一言（0231）: 相続税も試算していない世帯で、目安で基礎控除を超える時点（FP が入れた額でない）があり、不動産を持つときだけ。
+ * 不動産が無ければ土地の試算は要らないので出さない。基礎控除を超えれば、税額が0円の時点（配偶者の税額軽減など）だけでも出す（0039 の追記 2026-11-27。利用者の判断）。
+ * 一言は、納める額のある時点があれば「相続税がかかりそうです。…」、どの時点も0円なら、申告が要る見込み（配偶者の税額軽減）か、基礎控除を超えるが税額控除で0円か
  */
 export function detailPrompt(wh: WorkingHousehold, r: PreviewResult | null): string | null {
   if (isDetailed(wh) || landTargets(wh.request.input.household).length === 0) return null;
-  const likely = (r?.inheritanceTax?.points ?? []).some((p) => p.status === "ok" && p.state === "estimated" && !p.noTax);
-  return likely ? "相続税がかかりそうです。土地の評価や小規模宅地等の特例を入れると、目安をもう一歩くわしく試算できます。" : null;
+  const over = (r?.inheritanceTax?.points ?? []).filter((p) => p.status === "ok" && p.state === "estimated" && taxKind(p) !== "none");
+  if (over.length === 0) return null;
+  if (over.some((p) => taxKind(p) !== "zero")) return PROMPT_LIKELY;
+  const reasons = [...new Set(over.flatMap((p) => zeroReasons(p)))].sort((a, b) => ZERO_ORDER.indexOf(a) - ZERO_ORDER.indexOf(b));
+  const why = reasonText(reasons);
+  if (filingNeeded(reasons))
+    return `基礎控除を超えるので、相続税の申告が要る見込みです（${why}で税額は0円）。土地の評価や小規模宅地等の特例${reasons.includes("spouse") ? "、一次と二次の相続の分け方" : ""}を入れると、目安をもう一歩くわしく試算できます。`;
+  return `基礎控除を超えますが、${why}で税額は0円の見込みです。土地の評価や小規模宅地等の特例を入れると、目安をもう一歩くわしく試算できます。`;
 }
+const ZERO_ORDER: readonly ZeroReason[] = ["smallLand", "spouse", "minor", "settlement", "successive"];
 
 /**
  * 含めていない決まりのうち、相続税も試算する（土地の評価を入れて試算する）と入る物（エンジンの NOT_INCLUDED にあって NOT_INCLUDED_DETAILED に無い物。0231・0251）。
  * 相次相続控除は、試算しても一次と二次の推移の二次にだけ入るので、ここには入れない
  */
 export const DETAIL_ADDS: ReadonlySet<string> = new Set(["twentyPercentSurcharge", "smallLandSpecial", "landValuationDetail", "primarySecondaryComparison", "minorCredit"]);
-/** 試算すると入る物に添える言葉（0231 の追記 2026-11-23） */
-export const DETAIL_ADDS_NOTE = "土地の評価を入れて試算すると入ります";
+/**
+ * 「含めていないもの」の行の頭（0039 の追記 2026-11-27。利用者の判断）。相続税も試算していない世帯は2行に分ける:
+ * 1行目は試算すると入る物（ボタンがあれば「土地の評価を入れて試算すると入るもの」、無ければ「『相続税も試算する』（詳細）にすると入るもの」）、
+ * 2行目は試算しても含めていない物。相続税も試算する世帯は1行（「含めていないもの」）
+ */
+export const NOT_INCLUDED_LABEL = {
+  addsWithButton: "土地の評価を入れて試算すると入るもの",
+  addsNoButton: "「相続税も試算する」（詳細）にすると入るもの",
+  others: "試算しても含めていないもの",
+  detailed: "含めていないもの",
+} as const;
 
-/** 含めていない物の言葉に「（土地の評価を入れて試算すると入ります）」を添える。もとの言葉が「（…）」で終わるときは、その中に「。」でつなぐ */
-const withDetailNote = (text: string): string => (text.endsWith("）") ? `${text.slice(0, -1)}。${DETAIL_ADDS_NOTE}）` : `${text}（${DETAIL_ADDS_NOTE}）`);
+/** 「含めていないもの」の1行 */
+export interface NotIncludedLine {
+  label: string;
+  items: string[];
+}
 
 const RELATION_TEXT: Readonly<Record<string, string>> = { spouse: "配偶者", child: "子", grandchild: "孫（代襲）", parent: "親", grandparent: "祖父母", sibling: "兄弟姉妹" };
 
@@ -170,7 +196,8 @@ type PointFull = InheritancePoint & {
   settlementCredit?: number;
 };
 
-const man = (yen: number) => `${manText(yen)}万円`;
+/** 内訳の額（1万円未満は円で。前は 400円 が「0万円」と出た。0039 の追記 2026-11-27） */
+const man = (yen: number) => (Math.abs(yen) < 10_000 ? `${yen.toLocaleString("ja-JP")}円` : `${manText(yen)}万円`);
 
 /** 相続人がいない時点に添える1行 */
 export const NO_HEIRS_HINT = "兄弟姉妹（亡くなっていれば甥・姪）がいれば、介護・親の項目の「＋ 兄弟姉妹」（詳細）で足すと、相続人に数えます";
@@ -186,7 +213,7 @@ function divisionNote(wh: WorkingHousehold, p: InheritancePoint): string {
 }
 
 /** 時点ごとの見せ方（相続・贈与のカードの区画「相続税の目安」） */
-export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): { points: InheritancePointView[]; notIncluded: string[] } {
+export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): { points: InheritancePointView[]; notIncluded: NotIncludedLine[] } {
   const out: InheritancePointView[] = [];
   for (const p0 of r?.inheritanceTax?.points ?? []) {
     const p = p0 as PointFull;
@@ -245,21 +272,21 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
             .map((b) => `${b.member !== undefined ? memberLabel(wh, b.member) : `ほかの${String(b.count ?? 0)}人`} 取得 ${man(b.acquisition)}${(b.landReduction ?? 0) > 0 ? `（特例 −${man(b.landReduction ?? 0)}）` : ""}・納める額 ${man(b.payable)}`)
             .join("、")}`,
         );
-      if (p.state === "confirmed") details.push(`目安は ${p.noTax ? "かからない見込み" : `約${man(p.payable)}`}（FP が入れた額を使っています）`);
+      if (p.state === "confirmed") details.push(`目安は ${estimateText(p)}（FP が入れた額を使っています）`);
     }
     out.push({ title, answer, details, cautions: p.cautions.map((c) => CAUTION_TEXT[c] ?? c) });
   }
   const hasTimeline = r?.inheritanceTax?.timeline !== undefined;
-  // 相続税も試算していない世帯は、試算すると入る物に「（土地の評価を入れて試算すると入ります）」を添える（0231 の追記 2026-11-23）
-  const detailed = isDetailed(wh);
-  return {
-    points: out,
-    notIncluded: (r?.inheritanceTax?.notIncluded ?? []).map((x) => {
-      if (x === "successiveInheritanceCredit" && hasTimeline) return "相次相続控除（一次と二次の推移の二次には入れています）";
-      const text = NOT_INCLUDED_TEXT[x] ?? x;
-      return !detailed && DETAIL_ADDS.has(x) ? withDetailNote(text) : text;
-    }),
-  };
+  const all = r?.inheritanceTax?.notIncluded ?? [];
+  const textOf = (x: string) => (x === "successiveInheritanceCredit" && hasTimeline ? "相次相続控除（一次と二次の推移の二次には入れています）" : (NOT_INCLUDED_TEXT[x] ?? x));
+  // 相続税も試算していない世帯は、試算すると入る物と、試算しても含めていない物の2行に分ける（0039 の追記 2026-11-27。前は試算すると入る物に「（土地の評価を入れて試算すると入ります）」を添えた1行）
+  const lines: NotIncludedLine[] = isDetailed(wh)
+    ? [{ label: NOT_INCLUDED_LABEL.detailed, items: all.map(textOf) }]
+    : [
+        { label: detailPrompt(wh, r) !== null ? NOT_INCLUDED_LABEL.addsWithButton : NOT_INCLUDED_LABEL.addsNoButton, items: all.filter((x) => DETAIL_ADDS.has(x)).map(textOf) },
+        { label: NOT_INCLUDED_LABEL.others, items: all.filter((x) => !DETAIL_ADDS.has(x)).map(textOf) },
+      ];
+  return { points: out, notIncluded: lines.filter((l) => l.items.length > 0) };
 }
 
 // ---- 一次と二次の相続税の推移（0251。相続税も試算する夫婦の世帯だけ） ----

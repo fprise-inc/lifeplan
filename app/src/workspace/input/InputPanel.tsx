@@ -650,7 +650,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                             </li>
                           ))}
                         </ul>
-                        {/* 目安でかかりそうな世帯にだけ、一言とボタン「土地の評価を入れて試算する」（押すと相続税も試算するにチェックし、区画「相続税の試算」が標準に出る。
+                        {/* 目安で基礎控除を超える世帯にだけ（0円の時点だけでも。0039 の追記 2026-11-27）、一言とボタン「土地の評価を入れて試算する」（押すと相続税も試算するにチェックし、区画「相続税の試算」が標準に出る。
                             ボタンはふつうの段の小。0231・0240。2026-11-23 にリンクからボタンへ） */}
                         {detailPrompt(shown, inheritance) !== null ? (
                           <div class="ip-inherit-detail" data-inherit-detail-prompt>
@@ -660,12 +660,13 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                             </button>
                           </div>
                         ) : null}
-                        {inheritanceView(shown, inheritance).notIncluded.length > 0 ? (
-                          <p class="ip-inherit-note">
-                            含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}
-                            <Help label="含めていないもの">税理士などが試算した額が分かれば、「詳細」の「税理士などが出した相続税の額」に入れると、目安の代わりにその額を出します。</Help>
+                        {/* 含めていないもの: 相続税も試算していない世帯は、試算すると入る物と試算しても含めていない物の2行（0039 の追記 2026-11-27） */}
+                        {inheritanceView(shown, inheritance).notIncluded.map((l, i, all) => (
+                          <p key={l.label} class="ip-inherit-note" data-inherit-not-included>
+                            {l.label}: {l.items.join("・")}
+                            {i === all.length - 1 ? <Help label="含めていないもの">税理士などが試算した額が分かれば、「詳細」の「税理士などが出した相続税の額」に入れると、目安の代わりにその額を出します。</Help> : null}
                           </p>
-                        ) : null}
+                        ))}
                       </>
                     ) : null}
                   </div>

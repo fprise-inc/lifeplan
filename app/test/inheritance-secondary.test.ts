@@ -165,7 +165,7 @@ describe("一次と二次の推移の見せ方", () => {
 
   it("相次相続控除を推移の二次に入れたことを、含めていない一覧の言葉に書く", () => {
     const r = estimate(withHome);
-    expect(inheritanceView(withHome, r).notIncluded).toContain("相次相続控除（一次と二次の推移の二次には入れています）");
-    expect(inheritanceView(withHome, estimate(withHome, false)).notIncluded).toContain("相次相続控除");
+    expect(inheritanceView(withHome, r).notIncluded.flatMap((l) => l.items)).toContain("相次相続控除（一次と二次の推移の二次には入れています）");
+    expect(inheritanceView(withHome, estimate(withHome, false)).notIncluded.flatMap((l) => l.items)).toContain("相次相続控除");
   });
 });
