@@ -362,7 +362,7 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
     const dup = others.find((x) => x.id !== r.id && x.file?.sha256 === r.file?.sha256 && x.at !== r.at);
     if (dup !== undefined) notices.push(`同じファイルを前にも読んでいます（${readDayText(dup.at)}）。`);
   }
-  if (r.asOf !== undefined && r.asOf < addMonths(wh.request.input.baseMonth, -12)) notices.push(`書類の時点（${formatYearMonth(r.asOf)}）が、計算の基準の月より1年以上前です。新しい書類か確かめてください。`);
+  if (r.asOf !== undefined && r.asOf < addMonths(wh.request.input.baseMonth, -12)) notices.push(`書類の時点（${formatYearMonth(r.asOf)}）が、計算の基準の月より1年以上前です。新しい書類か確認してください。`);
   for (const o of objectViews.values())
     if (o.similar.length > 0) notices.push(`${o.label}と同じ${o.noun === "保険契約" ? "契約" : o.noun}が、もうあるかもしれません（${o.similar.join("・")}）。同じなら「今の${o.noun}に当てる」で、今の${o.noun}の欄に入れられます（新しく足しません）。`);
   const memberOpts = roles(wh.request).map((x) => ({ id: x.member.id, label: x.label }));

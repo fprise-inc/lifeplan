@@ -88,7 +88,7 @@ describe("次回確かめるの印", () => {
     expect(text).toContain(`${r.cardLabel} › ${r.label}`);
     expect(text).toContain(`今: ${r.value}`);
     const gone = recheckText([{ id: "field:none", card: "living", cardLabel: "基本生活費", label: "毎月の生活費", on: "2026-10-27" }], rows);
-    expect(gone).toContain("今は確かめの一覧にありません");
+    expect(gone).toContain("今は確認の一覧にありません");
     expect(passesFilter(r, { ...NO_FILTER, kind: "recheck" }, (id) => id === r.id)).toBe(true);
     expect(readRecheck([{ ...on.recheck![0] }, { ...on.recheck![0] }, { id: "x" }, null])).toHaveLength(1);
   });

@@ -138,3 +138,71 @@ describe("タブとプランの表記", () => {
     expect(suggestName([p("x", "B案 借入を減らす")], {}, wh, { items: [] } as never)).toBe("プランC");
   });
 });
+
+/**
+ * 「確かめ」は「確認」系の言葉に言い換えた（利用者の判断 2026-11-27。0263）。画面・提案書・手引き・AI 接続口の説明に「確かめ」を書き戻さない。
+ * 決まった例外だけ残す（ファイルの単位）。コードの注釈・設計の記録・テストは見ない
+ */
+const KAKUNIN_EXCEPT: Readonly<Record<string, string>> = {
+  "crates/ai-share/src/consent.rs": "お客さまが同意した説明文（版1〜3）。指紋で記録しているので、版を上げるときまで変えない",
+  "app/src/workspace/input/searchWords.ts": "「探して開く」で前の名前（加入月数を書類で確かめる・確かめる年）でも探せるように",
+};
+
+/** 手引きなどの文書の行（手引きの「探す言葉:」の行は、前の名前で探せるように残すので見ない） */
+function docLines(file: string): { at: string; text: string }[] {
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .map((l, i) => ({ at: `${relative(REPO_DIR, file)}:${i + 1}`, text: l }))
+    .filter((l) => !l.text.startsWith("探す言葉: "));
+}
+
+/** Rust の文字列のうち、ファイルの中の試験（#[cfg(test)] の mod tests）より前の物 */
+function rustStringsNoTests(file: string): { at: string; text: string }[] {
+  const lines = readFileSync(file, "utf8").split("\n");
+  const end = lines.findIndex((l, i) => /^(pub(\(crate\))? )?mod tests? \{/.test(l) && /^#\[cfg\(test\)\]/.test(lines[i - 1] ?? ""));
+  return end < 0 ? rustStrings(file) : rustStrings(file).filter((s) => Number(s.at.slice(s.at.lastIndexOf(":") + 1)) < end + 1);
+}
+
+describe("「確かめ」を画面の言葉に書き戻さない（確認の一覧・注意・書類待ちにする・次の面談で確認。0263）", () => {
+  const notExcepted = (s: { at: string }) => KAKUNIN_EXCEPT[s.at.replace(/[: ].*$/, "")] === undefined;
+  const left = (strs: { at: string; text: string }[]) => strs.filter((s) => s.text.includes("確かめ") && notExcepted(s)).map((s) => `${s.at} ${s.text}`);
+  const notTest = (f: string) => !/\/tests?\/|\.test\.tsx?$|\/tests\.rs$/.test(f);
+
+  it("アプリの画面・提案書・ヒアリング・明細・計算エンジンの文字列", () => {
+    const strs = ["app/src", "hearing/src", "statement/src", "report/src", "engine/src"].flatMap((d) => files(join(REPO_DIR, d), /\.tsx?$/).filter(notTest).flatMap(tsStrings));
+    expect(strs.length).toBeGreaterThan(5000);
+    expect(left(strs)).toEqual([]);
+  });
+
+  it("アプリ本体と AI 接続口の Rust の文字列（同意の説明文・試験の部分・配布元の道具を除く）", () => {
+    // 配布元の道具（src/bin・コードの発行）はアプリに出ない
+    const tool = (f: string) => f.includes("/src/bin/") || f.endsWith("crates/feature-code/src/issuer.rs");
+    const strs = [join(REPO_DIR, "app", "src-tauri", "src"), join(REPO_DIR, "crates")].flatMap((d) => files(d, /\.rs$/).filter((f) => f.includes("/src/") && notTest(f) && !tool(f))).flatMap(rustStringsNoTests);
+    expect(strs.length).toBeGreaterThan(5000);
+    expect(left(strs)).toEqual([]);
+    // 例外の同意の説明文は、本当に前の言葉のまま（版を上げて言い換えたら、例外を外す）
+    expect(rustStrings(join(REPO_DIR, "crates", "ai-share", "src", "consent.rs")).some((s) => s.text.includes("確かめ"))).toBe(true);
+  });
+
+  it("AI 接続口の道具の入力の説明（/// から作る JSON Schema の見本）", () => {
+    const strs = [join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "tools"), join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-inputs")].flatMap((d) => files(d, /\.json$/)).flatMap(jsonStrings);
+    expect(strs.length).toBeGreaterThan(100);
+    expect(left(strs)).toEqual([]);
+  });
+
+  it("手引き・AI 接続口の説明・対応範囲の一覧・ヒアリングの公開ページ（探す言葉の行は前の名前を残す）", () => {
+    const docs = [
+      ...files(join(REPO_DIR, "docs", "app-guide"), /\.md$/),
+      join(REPO_DIR, "docs", "ai-connector.md"),
+      ...files(join(REPO_DIR, "sdk", "skills"), /\.md$/),
+      ...files(join(REPO_DIR, "docs", "coverage"), /\.yaml$/),
+      join(REPO_DIR, "app", "h", "about", "index.html"),
+    ];
+    const lines = docs.flatMap(docLines);
+    expect(lines.length).toBeGreaterThan(1000);
+    expect(left(lines)).toEqual([]);
+    // 手引きの探す言葉には、前の名前が残っている
+    const words = docs.flatMap((f) => readFileSync(f, "utf8").split("\n")).filter((l) => l.startsWith("探す言葉: ")).join("、");
+    for (const w of ["確かめの一覧", "確認の一覧", "確かめの注意", "次回確かめる", "次の面談で確認", "書類で確かめる", "書類待ちにする"]) expect(words, w).toContain(w);
+  });
+});

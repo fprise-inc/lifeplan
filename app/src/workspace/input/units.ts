@@ -144,7 +144,7 @@ export function readYen(text: string, unit: YenUnit): YenRead {
   // 1円未満は四捨五入（万円で打った小さな端数。画面の入力の便宜。保存は円の整数）
   const unitScale = 10n ** BigInt(SCALE);
   const whole = (total + unitScale / 2n) / unitScale;
-  if (whole > BigInt(Number.MAX_SAFE_INTEGER)) return fail("額が大きすぎます。桁を確かめてください");
+  if (whole > BigInt(Number.MAX_SAFE_INTEGER)) return fail("額が大きすぎます。桁を確認してください");
   const yen = Number(whole) * (neg !== undefined ? -1 : 1);
   const bare = !named && !explicitYen;
   // 欄の単位と違う形で打った（円の欄の「15万」、万円の欄の「4500円」、どちらの欄でも「1.5億」「1万5000」など）なら、読んだ額を1回知らせる
@@ -170,7 +170,7 @@ export function amountWarning(r: Extract<YenRead, { ok: true }>, unit: YenUnit, 
   if (r.bare && unit === "man" && r.yen >= 1_000_000_000) return `${exactYenWords(r.yen)}として入れました。書類に円で書いてある額なら「${group3(digits.replace(/^-/, ""))}円」のように「円」を付けて打ってください`;
   if (r.bare && unit === "yen" && r.yen > 0 && r.yen < 1000) return `${group3(String(r.yen))}円として入れました。万円のつもりなら「${digits}万」と打ってください`;
   const limit = o.typicalMax ?? (o.basis === "monthly" ? 10_000_000 : o.basis === "annual" ? 100_000_000 : null);
-  if (limit !== null && o.stored > limit) return `${o.basis === "monthly" ? "月" : o.basis === "annual" ? "年" : ""}${exactYenWords(o.stored)}として入れました。桁を確かめてください`;
+  if (limit !== null && o.stored > limit) return `${o.basis === "monthly" ? "月" : o.basis === "annual" ? "年" : ""}${exactYenWords(o.stored)}として入れました。桁を確認してください`;
   return null;
 }
 
@@ -254,7 +254,7 @@ export function parseDatedYearMonth(text: string): { ym: string; day: number } |
   const day = Number(m[2]);
   const [y, mo] = ym.split("-").map(Number) as [number, number];
   const last = new Date(Date.UTC(y, mo, 0)).getUTCDate();
-  if (day < 1 || day > last) return { reason: `${y}年${mo}月は${last}日までです。日を確かめてください` };
+  if (day < 1 || day > last) return { reason: `${y}年${mo}月は${last}日までです。日を確認してください` };
   return { ym, day };
 }
 

@@ -40,7 +40,7 @@ export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   missing: "未入力（0円で計算中）",
   notStarted: "まだ入れていない項目",
   unknown: "書類待ち",
-  notice: "確かめの注意",
+  notice: "注意",
   calc: "計算のお知らせ（入力で直せる所）",
   estimated: "推定",
   certainty: "確かさが申告・概算の値",
@@ -196,7 +196,7 @@ export function valueMeta(f: FieldDef, wh: WorkingHousehold): { origin: OriginKi
 /** 書類待ちの行の文: 確かめる書類（欄の定義の docCheck）と、それまで使う代わりの値（0041 の追記 2026-10-31） */
 function unknownDetail(f: FieldDef, s: FieldStatus): string {
   const sub = s.basis !== null ? substituteText(s.basis) : "代わりの値で計算しています";
-  return f.docCheck !== undefined ? `${f.docCheck}で確かめる（${sub}）` : sub;
+  return f.docCheck !== undefined ? `${f.docCheck}で確認する（${sub}）` : sub;
 }
 
 /** 欄の見出し（まとまりの名前: 欄の名前） */
@@ -208,7 +208,7 @@ function asStandard(f: FieldDef, what: string): CheckAction | null {
   return {
     key: "standard",
     label: "推定にする",
-    title: "値はそのままで「推定」の印にします（あとで確かめる）",
+    title: "値はそのままで「推定」の印にします（あとで確認する）",
     run: (w) => {
       const b = f.boxed?.read(w) as { value?: unknown } | undefined;
       if (b === undefined || typeof b.value !== "number") return w;
@@ -420,13 +420,13 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
           ...base,
           id: `field:${f.key}`,
           kind: "notice",
-          detail: `目安のボタンと同じ確定の値です（${what}）。この世帯の値か確かめてください`,
+          detail: `目安のボタンと同じ確定の値です（${what}）。この世帯の値か確認してください`,
           impact: 0,
-          actions: [{ key: "confirm", label: "この値にする", title: "確かめた値として確定にします", run: (w) => explicitConfirm(w, f, what) }, ...(std !== null ? [std] : [])],
+          actions: [{ key: "confirm", label: "この値にする", title: "確認した値として確定にします", run: (w) => explicitConfirm(w, f, what) }, ...(std !== null ? [std] : [])],
         });
       } else if (st.warn != null) rows.push({ ...base, id: `field:${f.key}`, kind: "notice", detail: st.warn, impact: 0, actions: st.warnFix != null ? [{ key: "fix", label: st.warnFix.label, run: st.warnFix.run }] : [] });
       else if (s.status === "confirmed" && (meta.certainty === "declared" || meta.certainty === "rough") && value !== null)
-        rows.push({ ...base, id: `field:${f.key}`, kind: "certainty", detail: `${CERTAINTY_LABELS[meta.certainty]}の値です${meta.origin !== null && meta.origin !== "manual" ? `（${ORIGIN_LABELS[meta.origin]}）` : ""}。書類で確かめるときの候補`, impact: impactOf(f, wh), actions: [] });
+        rows.push({ ...base, id: `field:${f.key}`, kind: "certainty", detail: `${CERTAINTY_LABELS[meta.certainty]}の値です${meta.origin !== null && meta.origin !== "manual" ? `（${ORIGIN_LABELS[meta.origin]}）` : ""}。書類で確認するときの候補`, impact: impactOf(f, wh), actions: [] });
     }
   });
   // 住宅購入の予定に住宅ローンが無い（物件の価格−頭金が計算に入らない。0161）: 「どう買うか」の欄の未入力の行で出ていなければ（欄が出ていない
@@ -475,7 +475,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
 }
 
 /** これから買う家の頭金が0円の行の文（確かめの注意。0210） */
-export const ZERO_DOWN_PAYMENT_TEXT = "これから買う家の頭金が0円です（頭金なしで、物件の価格を住宅ローンか手元のお金で払う計算です）。頭金なしで買う予定か確かめてください";
+export const ZERO_DOWN_PAYMENT_TEXT = "これから買う家の頭金が0円です（頭金なしで、物件の価格を住宅ローンか手元のお金で払う計算です）。頭金なしで買う予定か確認してください";
 
 /**
  * これから買う家（買う月が計算基準月より後か同じ）のうち、頭金が0円（空欄を含む）で物件の価格がある物。
@@ -506,7 +506,7 @@ function countInInsurance(wh: WorkingHousehold, rid: string): WorkingHousehold {
   });
 }
 
-const ACK_TITLE = "確かめ済みとして、この注意を出さないようにします（世帯に残ります。保険を足す・外すなどで重なりが変わると、また出ます）";
+const ACK_TITLE = "確認済みとして、この注意を出さないようにします（世帯に残ります。保険を足す・外すなどで重なりが変わると、また出ます）";
 
 /**
  * 「確認した」で出さないようにしている確かめの注意（今も同じ中身の物だけ。中身が変わった印は当たらないので出ない）。
@@ -528,7 +528,7 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
       fieldKey: null,
       level: "simple",
       impact: 0,
-      actions: [{ key: "unack", label: "また出す", title: "確かめの注意にまた出します", run: (w) => setNoticeAck(w, n.id, n.of, null) }],
+      actions: [{ key: "unack", label: "また出す", title: "注意にまた出します", run: (w) => setNoticeAck(w, n.id, n.of, null) }],
     });
   }
   // 住宅購入の予定の火災保険・地震保険と損害保険（0224）
@@ -547,7 +547,7 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
       fieldKey: null,
       level: "simple",
       impact: 0,
-      actions: [{ key: "unack", label: "また出す", title: "確かめの注意にまた出します", run: (w) => setNoticeAck(w, id, of, null) }],
+      actions: [{ key: "unack", label: "また出す", title: "注意にまた出します", run: (w) => setNoticeAck(w, id, of, null) }],
     });
   }
   return out;
@@ -555,7 +555,7 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
 
 /** 目安のボタンと同じ値を、確かめた値として確定にする（根拠に「確かめた」を残し、記録の無い確定と見分ける） */
 function explicitConfirm(wh: WorkingHousehold, f: FieldDef, what: string): WorkingHousehold {
-  const basis = `目安のボタンと同じ値（${what}）を確かめた`;
+  const basis = `目安のボタンと同じ値（${what}）を確認した`;
   if (f.boxed !== undefined) {
     const b = f.boxed.read(wh) as { value?: unknown } | undefined;
     if (b === undefined || typeof b.value !== "number") return wh;

@@ -65,7 +65,7 @@ export const FLAG_LABELS: Record<Flag, string> = {
   familyCard: "家族カードの行",
   engineTax: "税・社会保険料（計算で出すので除外）",
   durable: "家電・家具の店の3万円以上の買い物（月平均から外し、家電・家具の買い替えの候補）",
-  readUncertain: "読み取りが不確か（写真・スクショの文字。日付・金額・店を確かめる）",
+  readUncertain: "読み取りが不確か（写真・スクショの文字。日付・金額・店を確認する）",
 };
 
 export interface AnnualInfo {

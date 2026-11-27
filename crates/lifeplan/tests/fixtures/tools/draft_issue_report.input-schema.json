@@ -24,7 +24,7 @@
       ]
     },
     "evidence": {
-      "description": "見立ての根拠（道具の名前と、答えの要点。例「check_inputs: 住宅ローンの残高が空（確かめの一覧の行）」「explain_value: 2035年の所得税の式に…」）。1〜20件",
+      "description": "見立ての根拠（道具の名前と、答えの要点。例「check_inputs: 住宅ローンの残高が空（確認の一覧の行）」「explain_value: 2035年の所得税の式に…」）。1〜20件",
       "items": {
         "type": "string"
       },
@@ -65,7 +65,7 @@
       ]
     },
     "reproduced": {
-      "description": "見本の世帯に変更を足して、同じことが起きたか（calculate で確かめた結果）。省くと確かめていない",
+      "description": "見本の世帯に変更を足して、同じことが起きたか（calculate で確認した結果）。省くと確認していない",
       "type": [
         "boolean",
         "null"

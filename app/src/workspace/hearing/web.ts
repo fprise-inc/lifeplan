@@ -333,7 +333,7 @@ export function documentFromCheck(sel: WebSelection, r: DocRequest): RequestedDo
   const kind = docForCheck(r.doc);
   const t = templateOf(kind);
   const fields = [...new Set(r.values.map((v) => v.field))];
-  const doc: RequestedDocument = { id: nextDocId(sel), kind, title: r.title, purpose: t?.purpose ?? "数字を確かめるため", where: fields.length > 0 ? `${fields.join("・")}の欄` : (t?.where ?? ""), docRequest: r.id };
+  const doc: RequestedDocument = { id: nextDocId(sel), kind, title: r.title, purpose: t?.purpose ?? "数字を確認するため", where: fields.length > 0 ? `${fields.join("・")}の欄` : (t?.where ?? ""), docRequest: r.id };
   const owner = t?.whose === "person" ? ownerFrom(r.whose) : undefined;
   return owner === undefined ? doc : withOwner({ ...doc, title: r.doc }, owner);
 }

@@ -304,7 +304,7 @@ pub fn contents() -> Value {
         "statuses": { "included": "入っている", "approximated": "近似している", "notYet": "まだ入っていない" },
         "counts": { "all": count(), "included": n("included"), "approximated": n("approximated"), "notYet": n("notYet") },
         "areas": areas,
-        "note": "全部を網羅した一覧ではありません。載っていない話題は、入っていると推測せず、FP に確かめるよう伝えてください。",
+        "note": "全部を網羅した一覧ではありません。載っていない話題は、入っていると推測せず、FP に確認するよう伝えてください。",
     })
 }
 

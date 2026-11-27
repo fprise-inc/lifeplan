@@ -17,11 +17,11 @@ import type { StoreHost, StoreStatus } from "../../engine/host.ts";
 export type RecoveryMode = "first" | "manage" | "restore";
 
 const MESSAGES: Record<string, string> = {
-  E_RECOVERY_TYPO: "打ち間違いがあります。文字を確かめてください（大文字・小文字、区切りの有無は問いません）",
+  E_RECOVERY_TYPO: "打ち間違いがあります。文字を確認してください（大文字・小文字、区切りの有無は問いません）",
   E_RECOVERY_MISMATCH: "この事務所の復元キーではありません",
 };
 /** 復元キーの形でない中身を入れたときの文（打ち間違いとは分ける） */
-export const NOT_A_KEY_TEXT = "復元キーではない文字が入っています（貼り付けた中身を確かめてください）。復元キーは XXXX-XXXX-… の72文字です（4文字ずつ「-」で区切った英数字）";
+export const NOT_A_KEY_TEXT = "復元キーではない文字が入っています（貼り付けた中身を確認してください）。復元キーは XXXX-XXXX-… の72文字です（4文字ずつ「-」で区切った英数字）";
 
 // 復元キーの形（crates/household-store/src/recovery.rs と同じ）: 数字と英大文字の32文字（I・L・O・U を使わない）で58文字、4文字ずつ「-」で区切って72文字
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -102,7 +102,7 @@ export function RecoveryKeyBox({ value, write }: { value: string; write?: (text:
   );
 }
 
-const message = (code: string) => MESSAGES[code] ?? `確かめられませんでした（${code}）`;
+const message = (code: string) => MESSAGES[code] ?? `確認できませんでした（${code}）`;
 const codeOf = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : "E_STORE");
 
 /** 復元キーを5組ずつの行に分ける（表示用） */
@@ -167,7 +167,7 @@ export function RecoveryPanel({
       const s = mode === "restore" ? await store.restoreWithRecoveryKey(input) : await store.testRecoveryKey(input);
       onStatus(s);
       setInput("");
-      setResult({ ok: true, text: mode === "restore" ? "事務所の鍵を戻しました。保存した世帯を開けます" : personal ? "この復元キーで開けることを確かめました。保管済みとして記録しました" : shared ? "この復元キーで開けることを確かめました。事務所の復元キーを保管済みとして記録しました" : "この復元キーで開けることを確かめました" });
+      setResult({ ok: true, text: mode === "restore" ? "事務所の鍵を戻しました。保存した世帯を開けます" : personal ? "この復元キーで開けることを確認しました。保管済みとして記録しました" : shared ? "この復元キーで開けることを確認しました。事務所の復元キーを保管済みとして記録しました" : "この復元キーで開けることを確認しました" });
     } catch (e) {
       setResult({ ok: false, text: message(codeOf(e)) });
     } finally {
@@ -266,8 +266,8 @@ export function RecoveryPanel({
             <h3>{mode === "restore" ? "復元キーを入れる" : "復元キーで実際に開けるか試す"}</h3>
             {mode !== "restore" ? (
               <p class="in-note">
-                控えた復元キーを下の欄に入れて「試す」を押すと、控えが正しいかを確かめます。世帯のデータは変えません。{shared ? "開けたら、事務所の復元キーを保管済みとして記録します。" : ""}
-                {status?.recoveryVerifiedAt != null ? "（前に確かめた控えがあります）" : ""}
+                控えた復元キーを下の欄に入れて「試す」を押すと、控えが正しいかを確認します。世帯のデータは変えません。{shared ? "開けたら、事務所の復元キーを保管済みとして記録します。" : ""}
+                {status?.recoveryVerifiedAt != null ? "（前に確認した控えがあります）" : ""}
               </p>
             ) : null}
             <div class="rk-row">

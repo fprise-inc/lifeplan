@@ -79,7 +79,7 @@ export function rateWarning(name: string, a: Assumptions | undefined): string | 
   const ret = presetNum("preset.assumptions.warn.investmentReturn");
   const inf = presetNum("preset.assumptions.warn.inflationHigh");
   const pct = (x: number) => `${String(Math.round(x * 100000) / 1000)}%`;
-  if (name === "investmentReturn" && v > ret) return `運用の利回りが年${pct(ret)}を超えています（事務所の注意の線）。長い期間の平均として高すぎないか確かめてください`;
+  if (name === "investmentReturn" && v > ret) return `運用の利回りが年${pct(ret)}を超えています（事務所の注意の線）。長い期間の平均として高すぎないか確認してください`;
   if (name === "inflation" && (v < 0 || v > inf)) return `物価の上昇率が0%未満か${pct(inf)}を超えています（事務所の注意の線）`;
   if (name === "wageGrowth") {
     const inf = num(a?.inflation?.default ?? null) ?? 0;
@@ -168,7 +168,7 @@ export function wageExample(r: string, inflation: string | null): string {
 export function endYearTalk(wh: WorkingHousehold): string {
   const first = firstTableYear(wh.request.input.baseMonth);
   const end = wh.request.input.endYear;
-  return `${String(first)}年から${String(end)}年まで、${String(Math.max(1, end - first + 1))}年分のお金の流れを見ます。長生きしても、暮らしのお金が足りるかを確かめるためです`;
+  return `${String(first)}年から${String(end)}年まで、${String(Math.max(1, end - first + 1))}年分のお金の流れを見ます。長生きしても、暮らしのお金が足りるかを確認するためです`;
 }
 
 /** 欄の下の例と「?」の中の話し方（物価・給与の上昇率だけ。ほかは無し） */

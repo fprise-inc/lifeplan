@@ -150,13 +150,13 @@ describe("期限なしのコードと、提供元が止めたコード（0110 �
 
   it("止めた一覧の確かめの様子（コードを入れている FP にだけ出す）", () => {
     expect(checkText(undefined)).toBeNull();
-    expect(checkText({ checkedAt: null, okAt: null, result: null, serial: null, listed: 0 })).toContain("まだ確かめていません");
-    expect(checkText({ checkedAt: "2026-11-01T03:00:00Z", okAt: "2026-11-01T03:00:00Z", result: "ok", serial: 2, listed: 1 })).toBe("提供元が止めたコードの一覧は 2026年11月1日 に確かめました。");
+    expect(checkText({ checkedAt: null, okAt: null, result: null, serial: null, listed: 0 })).toContain("まだ確認していません");
+    expect(checkText({ checkedAt: "2026-11-01T03:00:00Z", okAt: "2026-11-01T03:00:00Z", result: "ok", serial: 2, listed: 1 })).toBe("提供元が止めたコードの一覧は 2026年11月1日 に確認しました。");
     // 日本の日付で出す（UTC の 15時は翌日）
-    expect(checkText({ checkedAt: "2026-11-01T15:00:00Z", okAt: "2026-11-01T15:00:00Z", result: "ok", serial: 2, listed: 1 })).toContain("2026年11月2日 に確かめました");
+    expect(checkText({ checkedAt: "2026-11-01T15:00:00Z", okAt: "2026-11-01T15:00:00Z", result: "ok", serial: 2, listed: 1 })).toContain("2026年11月2日 に確認しました");
     const off = checkText({ checkedAt: "2026-11-03T00:00:00Z", okAt: "2026-10-30T00:00:00Z", result: "offline", serial: 2, listed: 1 }) ?? "";
     expect(off).toContain("つながりませんでした");
-    expect(off).toContain("2026年11月3日 に確かめに行きました");
+    expect(off).toContain("2026年11月3日 に取りに行きました");
     expect(off).toContain("2026年10月30日 に取れた一覧");
     expect(off).toContain("今の状態のまま");
     expect(checkText({ checkedAt: "2026-11-03T00:00:00Z", okAt: null, result: "offline", serial: null, listed: 0 })).toContain("どのコードも止めていません");
@@ -177,7 +177,7 @@ describe("期限なしのコードと、提供元が止めたコード（0110 �
     expect(html).toContain("捨てる");
     expect(html).toContain("使えない");
     expect(html).toContain("見本 花子さん向け・期限なし");
-    expect(html).toContain("確かめられない参考の情報");
+    expect(html).toContain("確認できない参考の情報");
     // まだ入っていないので、区画は出さない
     expect(html).not.toContain("data-office-features");
     // 入れられない候補は「入れる」を出さず、理由と「捨てる」だけ
@@ -386,7 +386,7 @@ describe("切れた・止めたの知らせは7日で消える（0110 の追記 
     expect(html).toContain("閉じる");
     expect(html).toContain("このコードを外す");
     expect(html).toContain("この知らせは7日たつと消えます。");
-    expect(html).toContain("次に確かめたときに自動で戻ります");
+    expect(html).toContain("次に確認したときに自動で戻ります");
     r.dismiss(reference(c));
     expect(shown(r.read("2026-11-03", ["0001"]))).toBe(false);
     // 戻る（止めるのをやめた）: 使えて、記録は消える

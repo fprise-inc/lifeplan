@@ -149,7 +149,7 @@ export function StateMark({ status, basis, text, label, fieldKey, doc, docKey, e
     lines !== null
       ? lines.join("\n")
       : status === "unknown"
-        ? `書類待ち（${doc !== undefined ? `${doc}で確かめるまで、` : ""}${substituteText(basis ?? "推定")}）`
+        ? `書類待ち（${doc !== undefined ? `${doc}で確認するまで、` : ""}${substituteText(basis ?? "推定")}）`
         : status === "missing"
           ? (basis ?? "空欄（0円で計算しています）")
           : basis;
@@ -186,7 +186,7 @@ export function StateMark({ status, basis, text, label, fieldKey, doc, docKey, e
       {est !== null && basis !== null ? <OfficeTextMark entry={est.office} official={estimateBasisLines(basis, source).join("\n")} /> : null}
       {status === "unknown" && readDoc !== null && readKey !== undefined && doc !== undefined && readableDoc(doc) ? (
         <p>
-          <button type="button" class="link-btn" onClick={() => readDoc(readKey)} data-state-read-doc={readKey} title="この書類の読み取り（AI で読み取る）へ進みます。読んだ値は確かめて承認したものだけが入ります">
+          <button type="button" class="link-btn" onClick={() => readDoc(readKey)} data-state-read-doc={readKey} title="この書類の読み取り（AI で読み取る）へ進みます。読んだ値は確認して承認したものだけが入ります">
             この書類を読む
           </button>
         </p>
@@ -198,7 +198,7 @@ export function StateMark({ status, basis, text, label, fieldKey, doc, docKey, e
 /** 事務所の推定の値から作った推定の、根拠の下の1行（FP 向けの「?」の中だけ） */
 export const OFFICE_SOURCE_NOTE = "事務所の推定の値（事務所の既定値）から作った推定です。";
 /** 作った後に事務所の推定の値を変えた・公式に戻したときの1行 */
-export const OFFICE_SOURCE_CHANGED = "事務所の推定の値から作った推定です。作った後に事務所の値を変えたので、この欄は前の値のままです（確かめの一覧に出ます）。";
+export const OFFICE_SOURCE_CHANGED = "事務所の推定の値から作った推定です。作った後に事務所の値を変えたので、この欄は前の値のままです（確認の一覧に出ます）。";
 
 /** 推定の根拠の文に事務所の文を当てる（書き換え・足すだけ。消す行は本体が承認しない。差し込みの印は {basis} と {value}） */
 export function officeEstimate(e: OfficeTextEntry | undefined, basis: string, value: string): { text: string; office: OfficeTextEntry } | null {

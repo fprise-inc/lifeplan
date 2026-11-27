@@ -1169,7 +1169,7 @@ function sample063(): BodyState {
         requestId: "R-7K3P9Q",
         serverId: fake("A", 22),
         secrets: { secret: fake("B", 43), publicKey: `B${fake("C", 86)}`, privateKey: fake("D", 184), pickupToken: fake("E", 43) },
-        selection: { base: { sheetId: "basic", version: 2 }, sections: [{ id: "family", items: [{ key: "hs.family.adult.birthYearMonth", mode: "ask" }] }, { id: "fp", items: [{ key: "ext.office.qabcd2345", mode: "ask" }] }], custom: [{ key: "ext.office.qabcd2345", label: "ご相談のきっかけ" }], documents: [{ id: "d1", kind: "withholding", title: "源泉徴収票（ご本人）", purpose: "年収の確かめ", where: "支払金額" }] },
+        selection: { base: { sheetId: "basic", version: 2 }, sections: [{ id: "family", items: [{ key: "hs.family.adult.birthYearMonth", mode: "ask" }] }, { id: "fp", items: [{ key: "ext.office.qabcd2345", mode: "ask" }] }], custom: [{ key: "ext.office.qabcd2345", label: "ご相談のきっかけ" }], documents: [{ id: "d1", kind: "withholding", title: "源泉徴収票（ご本人）", purpose: "年収の確認", where: "支払金額" }] },
         digest: "0".repeat(64),
         customerNo: "A0001",
         issuedAt: "2026-11-05T09:00:00Z",
@@ -1305,7 +1305,7 @@ function sample071(): BodyState {
   const s = sample070();
   const log = s.wh.hearing as unknown as { web: Record<string, unknown>[] } & Record<string, unknown>;
   const e = log.web[0] as { record: { selection: { documents: Record<string, unknown>[] } & Record<string, unknown> } & Record<string, unknown> };
-  const documents = [{ ...e.record.selection.documents[0], owner: "self" }, { id: "d2", kind: "deposits", title: "預貯金の残高の分かるもの（配偶者の方）", purpose: "いまの預貯金の額を確かめるため", where: "最近の残高の欄", owner: "spouse" }];
+  const documents = [{ ...e.record.selection.documents[0], owner: "self" }, { id: "d2", kind: "deposits", title: "預貯金の残高の分かるもの（配偶者の方）", purpose: "いまの預貯金の額を確認するため", where: "最近の残高の欄", owner: "spouse" }];
   const web = [{ ...e, record: { ...e.record, selection: { ...e.record.selection, documents } } }];
   return { ...s, wh: { ...s.wh, hearing: { ...log, web } as never } };
 }
@@ -1785,7 +1785,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(stored.household.contingency).toMatchObject({ protection: { method: "reverse", reverseUntilAge: 90 }, incomeDrop: { member: "both" }, stackMarket: true });
     expect(stored.household.agreed).toBeUndefined();
     // 前の版の本文（変換の段を通らない本文）に確かめた記録があっても、作業中の世帯に持たず、書き戻さない
-    const old = { ...stored, household: { ...stored.household, agreed: { current: { "field:assume/inflation": { on: "2026-10-20", note: "面談で確かめた" } } } } };
+    const old = { ...stored, household: { ...stored.household, agreed: { current: { "field:assume/inflation": { on: "2026-10-20", note: "面談で確認した" } } } } };
     const back = fromBody(JSON.stringify(old));
     expect("agreed" in back.wh).toBe(false);
     expect((bodyObject(back) as unknown as { household: Record<string, unknown> }).household.agreed).toBeUndefined();
@@ -1957,7 +1957,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const [n] = barNotices(i);
     expect(n).toMatchObject({ id: "household:n1", target: "input", action: "入力" });
     expect(n?.text).toContain("3か所とプランの変更 1件");
-    expect(n?.text).toContain("書類で確かめる");
+    expect(n?.text).toContain("書類で確認する");
     expect(n?.text).toContain("結果は変わりません");
   });
 
@@ -1968,7 +1968,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect((back.wh.request.input.household.residentTaxAssessments as unknown as { amount: unknown }[])[0]!.amount).toMatchObject({ state: "unknown" });
     expect(() => preview(back.wh.request)).not.toThrow();
     const row = checkList(back.wh).find((r) => r.kind === "unknown");
-    expect(row?.detail).toContain("住民税の決定通知書で確かめる");
+    expect(row?.detail).toContain("住民税の決定通知書で確認する");
   });
 
   it("0.45 の形（0101）: 車の買い替え（この1台だけ・○歳まで）とリース・長期レンタルを保存して読み戻し、計算に使う", () => {

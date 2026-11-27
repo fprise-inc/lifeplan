@@ -246,9 +246,9 @@ export function checkSelection(def: SheetDefinition, s: WebSelection): string[] 
       seen.add(it.key);
       if (it.key.startsWith(CUSTOM_PREFIX)) {
         if (!custom.has(it.key)) errs.push(`独自の質問の中身が無い: ${it.key}`);
-        if (it.mode !== "ask") errs.push(`独自の質問は確かめにできない: ${it.key}`);
+        if (it.mode !== "ask") errs.push(`独自の質問は確認してもらう項目にできない: ${it.key}`);
       } else if (!ok.has(it.key)) errs.push(`選べない項目: ${it.key}`);
-      if (it.mode === "confirm" && def.sheetId !== "full") errs.push(`確かめてもらえるのは詳細のシートだけ: ${it.key}`);
+      if (it.mode === "confirm" && def.sheetId !== "full") errs.push(`確認してもらえるのは詳細のシートだけ: ${it.key}`);
     }
   }
   if (s.custom.length > CUSTOM_MAX) errs.push(`独自の質問は${CUSTOM_MAX}問まで`);

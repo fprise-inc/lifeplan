@@ -16,13 +16,13 @@ export function customCenterNotice(st: CustomTextsStatus | null): CustomCenterNo
   if (st.kind !== undefined && st.kind !== "texts") return otherKindNotice(st);
   const out: CustomCenterNotice[] = [];
   if (st.ledgerReset) {
-    out.push({ ...base, todo: true, key: "office:customTexts:ledger", title: "事務所で書き換えた説明・名前の承認を確かめられませんでした", body: "承認の記録が書き換えられたか、事務所の鍵が変わったため、前の承認を無効にしました。画面には、事務所で書き換える前の公式の説明・名前を出しています。事務所の既定値の画面の「説明の文（カスタム層）」「名前（カスタム層）」「入力の欄の見せ方（カスタム層）」で中身を確かめ、承認し直してください。" });
+    out.push({ ...base, todo: true, key: "office:customTexts:ledger", title: "事務所で書き換えた説明・名前の承認を確認できませんでした", body: "承認の記録が書き換えられたか、事務所の鍵が変わったため、前の承認を無効にしました。画面には、事務所で書き換える前の公式の説明・名前を出しています。事務所の既定値の画面の「説明の文（カスタム層）」「名前（カスタム層）」「入力の欄の見せ方（カスタム層）」で中身を確認し、承認し直してください。" });
   }
   if (st.state === "pending") {
-    out.push({ ...base, todo: true, key: `office:customTexts:pending:${st.fingerprint}`, title: "事務所で書き換えた説明が変わりました（承認待ち）", body: "入力の欄の「?」や結果の画面の文を事務所で書き換えたファイルが変わりました。事務所の既定値の画面の「説明の文（カスタム層）」で中身を確かめ、使ってよいときだけ承認してください。承認するまでは前に承認した説明のまま出します。" });
+    out.push({ ...base, todo: true, key: `office:customTexts:pending:${st.fingerprint}`, title: "事務所で書き換えた説明が変わりました（承認待ち）", body: "入力の欄の「?」や結果の画面の文を事務所で書き換えたファイルが変わりました。事務所の既定値の画面の「説明の文（カスタム層）」で中身を確認し、使ってよいときだけ承認してください。承認するまでは前に承認した説明のまま出します。" });
   }
   if (st.updates.length > 0) {
-    out.push({ ...base, todo: false, key: `office:customTexts:updates:${st.approved?.fingerprint ?? ""}:${st.updates.length}`, title: `アプリの更新で、事務所で書き換えた説明の元の文が${st.updates.length}か所新しくなりました`, body: "事務所の既定値の画面の「説明の文（カスタム層）」で、元の文（公式の説明）の前と後と、事務所で書き換えた説明を並べて確かめられます。ふつうは事務所で書き換えた説明をそのまま使い続け、意味が変わった所だけは確かめるまで公式の説明を出します。" });
+    out.push({ ...base, todo: false, key: `office:customTexts:updates:${st.approved?.fingerprint ?? ""}:${st.updates.length}`, title: `アプリの更新で、事務所で書き換えた説明の元の文が${st.updates.length}か所新しくなりました`, body: "事務所の既定値の画面の「説明の文（カスタム層）」で、元の文（公式の説明）の前と後と、事務所で書き換えた説明を並べて確認できます。ふつうは事務所で書き換えた説明をそのまま使い続け、意味が変わった所だけは確認するまで公式の説明を出します。" });
   }
   return out;
 }
@@ -35,10 +35,10 @@ function otherKindNotice(st: CustomTextsStatus): CustomCenterNotice[] {
       : { key: "customFields", changed: "事務所で変えた入力の欄の見せ方", file: "settings/fields.json", where: "入力の欄の見せ方（カスタム層）", updated: "事務所で見せ方を変えた入力の欄の名前" };
   const out: CustomCenterNotice[] = [];
   if (st.state === "pending") {
-    out.push({ ...base, todo: true, key: `office:${k.key}:pending:${st.fingerprint}`, title: `${k.changed}が変わりました（承認待ち）`, body: `事務所の既定値の画面の「${k.where}」で中身（${k.file}）を確かめ、使ってよいときだけ承認してください。承認するまでは前に承認したまま出します。` });
+    out.push({ ...base, todo: true, key: `office:${k.key}:pending:${st.fingerprint}`, title: `${k.changed}が変わりました（承認待ち）`, body: `事務所の既定値の画面の「${k.where}」で中身（${k.file}）を確認し、使ってよいときだけ承認してください。承認するまでは前に承認したまま出します。` });
   }
   if (st.updates.length > 0) {
-    out.push({ ...base, todo: false, key: `office:${k.key}:updates:${st.approved?.fingerprint ?? ""}:${st.updates.length}`, title: `アプリの更新で、${k.updated}が${st.updates.length}か所新しくなりました`, body: `事務所の既定値の画面の「${k.where}」で、元の名前（公式の名前）の前と後と、事務所で書き換えた名前を並べて確かめられます。ふつうは事務所の物をそのまま使い続けます。` });
+    out.push({ ...base, todo: false, key: `office:${k.key}:updates:${st.approved?.fingerprint ?? ""}:${st.updates.length}`, title: `アプリの更新で、${k.updated}が${st.updates.length}か所新しくなりました`, body: `事務所の既定値の画面の「${k.where}」で、元の名前（公式の名前）の前と後と、事務所で書き換えた名前を並べて確認できます。ふつうは事務所の物をそのまま使い続けます。` });
   }
   return out;
 }
@@ -76,7 +76,7 @@ function noticeBody(u: OfficialUpdate): string {
     parts.push(`${WHERE}で、値を入れ直すか公式に戻してください。`);
     return parts.join("");
   }
-  if (u.kind === "source") return `${sourceChangeText(u)}。事務所の値 ${u.office} をそのまま使っています（計算は変わっていません）。${WHERE}で確かめてください。`;
+  if (u.kind === "source") return `${sourceChangeText(u)}。事務所の値 ${u.office} をそのまま使っています（計算は変わっていません）。${WHERE}で確認してください。`;
   const parts: string[] = [];
   if (u.single !== null) parts.push(`公式の値: 前 ${u.single.before} → 新しい ${u.single.after}。今の事務所の値: ${u.single.office}。`);
   else {

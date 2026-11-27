@@ -173,7 +173,7 @@ describe("ふつうの欄の形（0260。前の「お客さまと確かめる前
     for (const k of ["assume/period", "assume/economy"]) expect(html, k).toContain(`data-section="${k}"`);
     for (const k of ["assume/endYear", "assume/inflation", "assume/wageGrowth"]) expect(at(html, k), k).toBeGreaterThan(0);
     for (const k of ["assume/investmentReturn", "assume/depositReturn", "assume/educationInflation", "assume/pensionMacroSlide"]) expect(at(html, k), k).toBeLessThan(0);
-    expect(html).not.toContain("お客さまと確かめる前提");
+    expect(html).not.toContain("お客さまと確認する前提");
     expect(html).not.toContain("data-premise-fold");
     expect(html).not.toContain("細かい前提");
     // 標準では「▸ 続きを見る」も「＋ 例外の年」も出さない（詳細に切り替えて見る）
@@ -275,7 +275,7 @@ describe("ふつうの欄の形（0260。前の「お客さまと確かめる前
     const html = panel(w, { level: "simple" });
     expect(at(html, "assume/endYear/year")).toBeGreaterThan(0);
     expect(fieldOf(w, "assume/endYear").get(w).hint).toMatch(/^2027年〜2080年の54年分/);
-    expect(fieldOf(w, "assume/endYear").get(w).talkHelp).toBe("2027年から2080年まで、54年分のお金の流れを見ます。長生きしても、暮らしのお金が足りるかを確かめるためです");
+    expect(fieldOf(w, "assume/endYear").get(w).talkHelp).toBe("2027年から2080年まで、54年分のお金の流れを見ます。長生きしても、暮らしのお金が足りるかを確認するためです");
   });
 
   it("運用の利回り: 事務所の既定値どおりなら出さない。この世帯だけ・事務所の既定値が変わった・例外の年のある世帯だけ詳細に1行（計算は変えない）", () => {
@@ -425,7 +425,7 @@ describe("事務所の既定値を後で変えたとき（0214 の5）", () => {
   it("古い世帯: 提供元の既定の値のまま触っていない欄は知らせ、FP が決めた値は「この世帯だけ」（知らせなし）", () => {
     // 事務所の既定値の無いころに作った世帯（物価は既定の値で行が無い・賃金は「この値にする」で確定・運用利回りは打った値）
     const req = structuredClone(modelHousehold("salariedCoupleTwoKids"));
-    (req.input as unknown as { valueStates?: Record<string, unknown> }).valueStates = { "assumptions.wageGrowth/default": { state: "confirmed", origin: { kind: "manual" }, estimate: { method: "standard", basis: "既定の値（仮の値。事務所で根拠を確かめて直してください）" } } };
+    (req.input as unknown as { valueStates?: Record<string, unknown> }).valueStates = { "assumptions.wageGrowth/default": { state: "confirmed", origin: { kind: "manual" }, estimate: { method: "standard", basis: "既定の値（仮の値。事務所で根拠を確認して直してください）" } } };
     const wh = fromRequest(req, {});
     expect(premiseOf(wh, "assume/inflation")?.state).toBe("office");
     expect(premiseOf(wh, "assume/wageGrowth")?.state).toBe("office");

@@ -323,7 +323,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
       setIssued({ entry: r.entry, sel: JSON.stringify([sel, aiConsent]) });
     } catch (e) {
       const code = e instanceof Error ? e.message : String(e);
-      setErr(code === "E_RELAY_UNREACHABLE" ? "受け付けのサーバーにつながりませんでした（インターネットにつながっているか確かめてください）" : `発行できませんでした（${code}）`);
+      setErr(code === "E_RELAY_UNREACHABLE" ? "受け付けのサーバーにつながりませんでした（インターネットにつながっているか確認してください）" : `発行できませんでした（${code}）`);
     } finally {
       setBusy(false);
     }
@@ -368,7 +368,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
         <button type="button" class="btn primary" onClick={() => void copy("msg", invitationText(issued.entry, form.name, wh))} data-web-copy-message>
           案内文をコピー
         </button>
-        {copied !== null ? <p class="rp-note">{copied === "url" ? "URL" : "案内文"}を写しました。送る前に送り先を確かめてください。</p> : null}
+        {copied !== null ? <p class="rp-note">{copied === "url" ? "URL" : "案内文"}を写しました。送る前に送り先を確認してください。</p> : null}
       </div>
     ) : null;
 
@@ -433,7 +433,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
             ) : null}
             {!confirmAny && filled > 0 && def.sheetId !== "full" ? (
               <p class="hs-warn" data-web-has-values>
-                この世帯には、もう入力した値があります。前回の値を見せて確かめてもらうなら「見直し」を選んでください（シンプルの答えは大まかです。取り込むときは、今の値を残すかを候補ごとに選べます）。
+                この世帯には、もう入力した値があります。前回の値を見せて確認してもらうなら「見直し」を選んでください（シンプルの答えは大まかです。取り込むときは、今の値を残すかを候補ごとに選べます）。
               </p>
             ) : null}
           </fieldset>
@@ -524,7 +524,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
                           {chosen !== undefined && def.sheetId === "full" && hasPre(key) ? (
                             <select value={chosen.mode} onChange={(e) => setSection(sid, { id: sid, items: (s?.items ?? []).map((i) => (i.key === key ? { ...i, mode: (e.currentTarget as HTMLSelectElement).value as "ask" | "confirm" } : i)) })} aria-label={`${name}の聞き方`} data-web-mode={key}>
                               <option value="ask">聞く（空欄から）</option>
-                              <option value="confirm">確かめてもらう</option>
+                              <option value="confirm">確認してもらう</option>
                             </select>
                           ) : null}
                           {chosen?.mode === "confirm" ? <small class="wb-pre">今の値: {preText(key) ?? "—"}</small> : null}
@@ -658,7 +658,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
                   ) : null}
                   <label>
                     何のため
-                    <input type="text" value={d.purpose} maxLength={200} placeholder={d.kind === "other" ? "例: 学資保険の満期の額を確かめるため" : undefined} onInput={(e) => setDoc(d.id, { ...d, purpose: (e.currentTarget as HTMLInputElement).value })} />
+                    <input type="text" value={d.purpose} maxLength={200} placeholder={d.kind === "other" ? "例: 学資保険の満期の額を確認するため" : undefined} onInput={(e) => setDoc(d.id, { ...d, purpose: (e.currentTarget as HTMLInputElement).value })} />
                   </label>
                   <label>
                     どこが写っていればよいか
@@ -764,7 +764,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, customerNo
             <p class="rp-note" data-web-expiry-note>
               回答の期限は、発行した日から30日です。足りないときは、依頼の一覧の「延長」で、押した日から30日に延ばせます（発行した日から90日まで）。
             </p>
-            {confirmAny ? <p class="hs-warn">「確かめてもらう」項目の今の値は、問いと一緒に暗号化して送ります。URL を知っている人は今の値を読めるので、送り先を確かめてください。</p> : null}
+            {confirmAny ? <p class="hs-warn">「確認してもらう」項目の今の値は、問いと一緒に暗号化して送ります。URL を知っている人は今の値を読めるので、送り先を確認してください。</p> : null}
             {form.name.trim() === "" ? (
               <p class="hs-warn" data-web-no-office>
                 事務所名が空です。お客さまの最初の画面には「担当の FP」と出ます（どこからの問いか分かるように、事務所名を入れてください）。

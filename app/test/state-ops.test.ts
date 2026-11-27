@@ -38,8 +38,8 @@ describe("書類で確かめる・該当なしは、意味のある欄にだけ�
         const ops = availableOps(f, wh, s);
         for (const o of ops.filter((x) => x !== "confirm")) expect(applyStateOp(wh, f, o), `${stage.id} ${f.label} ${o}`).not.toBe(wh);
         if (ops.includes("unknown")) {
-          expect(f.item === null || !PREMISE.test(f.item), `${f.label}: 前提に書類で確かめるは無い`).toBe(true);
-          expect(f.docCheck, `${f.label}: 書類の無い欄に書類で確かめるは無い`).toBeDefined();
+          expect(f.item === null || !PREMISE.test(f.item), `${f.label}: 前提に書類で確認するは無い`).toBe(true);
+          expect(f.docCheck, `${f.label}: 書類の無い欄に書類で確認するは無い`).toBeDefined();
           // 代わりに使う値（今の値か、空欄の推定）がある
           expect(f.get(wh).value !== null || f.blankIsEstimate === true, f.label).toBe(true);
         }
@@ -160,8 +160,8 @@ describe("値の状態の操作は直接押すリンク（開く形にしない�
       .find((x) => x.item === "residentTaxAssessment.amount")!;
     const out = renderToString(h(FieldStateOps.Provider, { value: applyStateOp }, h(FieldStateLine, { f, wh, onEdit: noop, compact: true })));
     expect(out).not.toContain("…");
-    expect(out).toContain('data-op="unknown">書類で確かめる</button>');
-    expect(out).toContain("住民税の決定通知書で確かめるまで");
+    expect(out).toContain('data-op="unknown">書類待ちにする</button>');
+    expect(out).toContain("住民税の決定通知書で確認するまで");
     expect(out).not.toContain("わからない");
   });
 });

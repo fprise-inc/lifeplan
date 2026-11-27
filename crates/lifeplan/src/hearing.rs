@@ -25,7 +25,7 @@ pub fn check(args: &Value, shared: &str, office: &str) -> Result<Value, String> 
 }
 
 /// 本番の受け付けのサーバーが無いときなどの、アプリの断りの文はアプリが作る。ここでは接続口の側の案内だけ
-pub const NOT_RUNNING_ISSUE: &str = "アプリが起動していないか、アプリの「AI接続口」がオフなので、URL を発行できません（何も発行していません）。アプリを起動して AI接続口をオンにしてから、もう一度呼んでください。preview: true なら、アプリが起動していなくても数を確かめられます（事務所のひな形は使えません）。";
+pub const NOT_RUNNING_ISSUE: &str = "アプリが起動していないか、アプリの「AI接続口」がオフなので、URL を発行できません（何も発行していません）。アプリを起動して AI接続口をオンにしてから、もう一度呼んでください。preview: true なら、アプリが起動していなくても数を確認できます（事務所のひな形は使えません）。";
 
 /// 一覧の答えに添える使い方
 pub const HOW_TO: &str = "issue_hearing_url に template（simple・detail・review・missing か事務所のひな形の名前）と、要るときだけ items（[{ key, mode?, range? }]。書くとひな形の項目を置き換える）・custom（独自の質問）・documents（頼む書類 [{ kind, owner? }]）・name を書いて URL を発行します。preview: true にすると発行せずに数（聞く項目の数・お客さまの画面の数・所要時間）と要約だけを返します。シンプルと詳細の項目は1つの依頼に混ぜられません。review（見直し）・missing（足りない所だけ）・mode: confirm は share_id（FPが渡した世帯）があるときだけで、見直しを含む依頼の URL は返しません（FP がアプリでコピーします）。よく使う組み合わせは propose_hearing_template で事務所のひな形の案を出せます（FP が承認したときだけ入ります）。";

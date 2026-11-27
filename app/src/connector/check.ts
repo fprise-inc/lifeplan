@@ -155,17 +155,17 @@ export const RULES: readonly CheckRule[] = [
   {
     id: "retirementCheck",
     match: idStarts("notice:retirement/"),
-    question: (c) => `${quoted(c.row.label)}について、勤め先の退職金の制度と、見込みの額を確かめさせていただけますか。`,
+    question: (c) => `${quoted(c.row.label)}について、勤め先の退職金の制度と、見込みの額を確認させていただけますか。`,
   },
   {
     id: "insuranceOverlap",
     match: (c) => c.row.kind === "notice" && c.row.card === "insurance" && c.row.fieldKey === null,
-    question: (c) => `${quoted(c.row.label)}について、同じ保障の保険が重なっていないか、保険証券かご契約内容のお知らせで確かめさせていただけますか。`,
+    question: (c) => `${quoted(c.row.label)}について、同じ保障の保険が重なっていないか、保険証券かご契約内容のお知らせで確認させていただけますか。`,
   },
   {
     id: "outOfRange",
     match: (c) => c.row.kind === "notice" && (c.row.detail ?? "").startsWith("範囲（"),
-    question: (c) => `${quoted(c.row.label)}は、${c.row.value ?? "今の値"}で合っていますか（入れ間違いでないかを確かめます）。`,
+    question: (c) => `${quoted(c.row.label)}は、${c.row.value ?? "今の値"}で合っていますか（入れ間違いでないかを確認します）。`,
   },
   // ---- 計算のお知らせ（engineNotices.ts の文の表の鍵。入力で直せる物） ----
   {
@@ -213,14 +213,14 @@ const confirmOrAsk = (c: CheckCtx): string => (c.row.value !== null && c.row.val
 export const FALLBACK: Readonly<Record<CheckKind, (c: CheckCtx) => string>> = {
   missing: (c) => `${quoted(c.row.label)}を教えていただけますか。`,
   notStarted: (c) => `${c.row.cardLabel}について、今の状況やこれからのご予定で当てはまることはありますか。`,
-  unknown: (c) => (c.row.doc !== undefined ? `${c.row.doc.name}をお持ちでしたら、見せていただけますか（${quoted(c.row.doc.field)}を確かめます）。` : `${quoted(c.row.label)}を、書類で確かめさせていただけますか。`),
+  unknown: (c) => (c.row.doc !== undefined ? `${c.row.doc.name}をお持ちでしたら、見せていただけますか（${quoted(c.row.doc.field)}を確認します）。` : `${quoted(c.row.label)}を、書類で確認させていただけますか。`),
   notice: confirmOrAsk,
-  calc: (c) => `${c.row.cardLabel}${subjectsOf(c).length > 0 ? `（${subjectsOf(c).join("・")}）` : ""}について、今の内容を確かめさせていただけますか。`,
+  calc: (c) => `${c.row.cardLabel}${subjectsOf(c).length > 0 ? `（${subjectsOf(c).join("・")}）` : ""}について、今の内容を確認させていただけますか。`,
   estimated: confirmOrAsk,
-  certainty: (c) => `${quoted(c.row.label)}を、書類で確かめさせていただけますか。`,
+  certainty: (c) => `${quoted(c.row.label)}を、書類で確認させていただけますか。`,
   premise: (c) =>
     premiseWithClient(c.row)
-      ? `${quoted(c.row.label)}は、${c.row.value !== null && c.row.value !== undefined ? `${c.row.value}で` : "事務所の既定値で"}見ています。この見込みでよろしいですか（お客さまと確かめる前提です。事務所の既定値）。`
+      ? `${quoted(c.row.label)}は、${c.row.value !== null && c.row.value !== undefined ? `${c.row.value}で` : "事務所の既定値で"}見ています。この見込みでよろしいですか（お客さまと確認する前提です。事務所の既定値）。`
       : `${quoted(c.row.label)}は、事務所の既定値のままでよろしいですか（FP が決める前提です）。`,
 };
 

@@ -339,7 +339,7 @@ function updateOf(id: string, v: OfficeEstimateValue, entry: EstimateEntry, offi
     keepText = "「値を入れ直す」: 新しい段の分け方で、事務所の値を入れ直します。入れ直すまでは新しい公式の値で計算します。";
     revertText = "「公式に戻す」: 事務所の値を外します。今も新しい公式の値で計算しているので、計算は変わりません。";
   } else {
-    const keep = kind === "source" ? "「確かめた」" : "「このまま」";
+    const keep = kind === "source" ? "「確認した」" : "「このまま」";
     keepText = followsOfficial
       ? `${keep}: 事務所で変えた段はその値を使い続け、事務所で変えていない段は新しい公式の値にします。`
       : `${keep}: 事務所の値${single !== null ? ` ${single.office}` : ""}を使い続けます。今の計算は変わりません。`;

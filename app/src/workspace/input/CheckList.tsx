@@ -51,7 +51,7 @@ interface Props {
  */
 export function checkButtonText(counts: Readonly<Record<CheckKind, number>>): string {
   const others = counts.notStarted + counts.unknown + counts.notice + counts.calc;
-  return `確かめの一覧（${kindCount("missing", counts.missing, "未入力")}・${kindCount("estimated", counts.estimated)}${others > 0 ? " ほか" : ""}）`;
+  return `確認の一覧（${kindCount("missing", counts.missing, "未入力")}・${kindCount("estimated", counts.estimated)}${others > 0 ? " ほか" : ""}）`;
 }
 
 /** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・書類待ち・推定。事務所の既定値どおりの前提条件は数えない） */
@@ -137,14 +137,14 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
   };
   const toggleMark = (r: CheckRow) => {
     const on = marked(r.id);
-    onEdit(setRecheck(wh, r, on ? null : today()), on ? `「${r.label}」の「次回確かめる」を外しました` : `「${r.label}」に「次回確かめる」を付けました`);
+    onEdit(setRecheck(wh, r, on ? null : today()), on ? `「${r.label}」の「次の面談で確認」を外しました` : `「${r.label}」に「次の面談で確認」を付けました`);
   };
   const copy = async () => {
     const text = recheckText(marks, all);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(null);
-      setNote("写しました。面談の確かめの一覧や見直しの準備に貼り付けてください（氏名・顧客番号は入っていません）");
+      setNote("写しました。面談で確認することの一覧や見直しの準備に貼り付けてください（氏名・顧客番号は入っていません）");
     } catch {
       // 写せないときは文を見せる（選んで写す）
       setCopied(text);
@@ -194,9 +194,9 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
             開く
           </button>
           {!planRow ? (
-            <label class="ck-mark" title="次の面談・見直しで確かめる所に印を付けます（世帯に残ります。計算は変わりません）">
+            <label class="ck-mark" title="次の面談・見直しで確認する所に印を付けます（世帯に残ります。計算は変わりません）">
               <input type="checkbox" checked={on} onChange={() => toggleMark(r)} data-ck-recheck={r.id} />
-              次回確かめる
+              次の面談で確認
             </label>
           ) : null}
         </span>
@@ -206,19 +206,19 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
   const kinds = kind === "acked" ? [] : kind === "" || kind === "recheck" ? KIND_ORDER : [kind];
   useEscClose(onClose ?? null, onClose !== undefined);
   return (
-    <section class="ck" aria-label="確かめの一覧" data-checklist>
+    <section class="ck" aria-label="確認の一覧" data-checklist>
       <div class="ck-head">
-        {onClose !== undefined ? <CloseX onClose={onClose} what="確かめの一覧" data-ck-close /> : null}
+        {onClose !== undefined ? <CloseX onClose={onClose} what="確認の一覧" data-ck-close /> : null}
         <h2>
-          確かめの一覧
-          <Help label="確かめの一覧" id="checklist">
-            <p>未入力・まだ入れていない項目・書類待ち・確かめの注意・計算のお知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。数は欄の数（○か所）で、注意・お知らせは件数です。</p>
-            <p>仮の値（生年月など、推定できない欄に計算のために置いた値）は、未入力に出します。事務所の既定値どおりの前提条件は、いちばん下の「前提条件（事務所の既定値どおり）」にまとめます（推定ではないので、推定の数には入れません）。事務所の既定値が後で変わった前提条件は、確かめの注意に「事務所の既定値が変わりました」と出ます。</p>
+          確認の一覧
+          <Help label="確認の一覧" id="checklist">
+            <p>未入力・まだ入れていない項目・書類待ち・注意・計算のお知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。数は欄の数（○か所）で、注意・お知らせは件数です。</p>
+            <p>仮の値（生年月など、推定できない欄に計算のために置いた値）は、未入力に出します。事務所の既定値どおりの前提条件は、いちばん下の「前提条件（事務所の既定値どおり）」にまとめます（推定ではないので、推定の数には入れません）。事務所の既定値が後で変わった前提条件は、注意に「事務所の既定値が変わりました」と出ます。</p>
             <p>「入っていない所を推定で入れる」は、入っていない物（教育費・退職金・住居費など）を推定で入れます。「推定のままの値を「この値にする」」は、推定のままの値をその値のまま確定にします（確定にすると、家族や収入を直しても推定で入れ直されません）。</p>
-            <p>書類待ちは、欄で「書類で確かめる」にした所です（住民税は住民税の決定通知書、退職金・企業年金は会社の退職金規程・制度の資料、年金の加入月数はねんきん定期便、住宅ローン・自動車ローンは返済予定表、手術の額は保険証券）。確かめるまでは代わりの値で計算し、書類の値を打つか「この値にする」で消えます。「書類のお願いにまとめる」で、送ってもらう書類の一覧とお願いの文を出せます。</p>
+            <p>書類待ちは、欄で「書類待ちにする」を押した所です（住民税は住民税の決定通知書、退職金・企業年金は会社の退職金規程・制度の資料、年金の加入月数はねんきん定期便、住宅ローン・自動車ローンは返済予定表、手術の額は保険証券）。確認するまでは代わりの値で計算し、書類の値を打つか「この値にする」で消えます。「書類のお願いにまとめる」で、送ってもらう書類の一覧とお願いの文を出せます。</p>
             <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・書類待ち・確かさの行は「根拠」で根拠が開きます。</p>
-            <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次回確かめる」は、次の面談・見直しで確かめる所の印です（世帯に残ります。計算は変わりません）。</p>
-            <p>お客さまと確かめてそのままでよい注意（医療保険を2本とも続けるなど）は「確認した」で隠せます。中身が変わると、また出ます。隠した注意は状態の「確認した注意」で見られ、「また出す」で戻せます。</p>
+            <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次の面談で確認」は、次の面談・見直しで確認する所の印です（世帯に残ります。計算は変わりません）。</p>
+            <p>お客さまと確認してそのままでよい注意（医療保険を2本とも続けるなど）は「確認した」で隠せます。中身が変わると、また出ます。隠した注意は状態の「確認した注意」で見られ、「また出す」で戻せます。</p>
           </Help>
         </h2>
         <p class="ck-lead" data-ck-lead>
@@ -229,7 +229,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
             kindCount("notice", counts.notice),
             ...(counts.calc > 0 ? [kindCount("calc", counts.calc, "計算のお知らせ")] : []),
             kindCount("estimated", counts.estimated),
-            ...(marks.length > 0 ? [`次回確かめる ${marks.length}か所`] : []),
+            ...(marks.length > 0 ? [`次の面談で確認 ${marks.length}か所`] : []),
             ...(acked.length > 0 ? [`確認した注意 ${acked.length}件`] : []),
           ].join("・")}
         </p>
@@ -254,7 +254,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
                   {CHECK_KIND_LABELS[k]}
                 </option>
               ))}
-              <option value="recheck">次回確かめる（印の行）</option>
+              <option value="recheck">次の面談で確認（印の行）</option>
               {acked.length > 0 || kind === "acked" ? <option value="acked">確認した注意（また出せます）</option> : null}
             </select>
           </label>
@@ -296,13 +296,13 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
             </button>
           ) : null}
           {estimated > 0 && !asking ? (
-            <button type="button" class="add-btn" onClick={() => setAsking(true)} title="推定のままの値を、その値のまま確定にします（押すと確かめの1行が出ます）" data-ck-confirm-all>
+            <button type="button" class="add-btn" onClick={() => setAsking(true)} title="推定のままの値を、その値のまま確定にします（押すと確認の文が1行出ます）" data-ck-confirm-all>
               {confirmAllLabel(estimated, card === "" ? "全部" : "この項目")}
             </button>
           ) : null}
           {marks.length > 0 ? (
-            <button type="button" class="add-btn" onClick={() => void copy()} data-ck-recheck-copy title="印の付いた行を、面談で確かめることの文にして写します">
-              次回確かめることを写す（{marks.length}件）
+            <button type="button" class="add-btn" onClick={() => void copy()} data-ck-recheck-copy title="印の付いた行を、面談で確認することの文にして写します">
+              次の面談で確認することを写す（{marks.length}件）
             </button>
           ) : null}
         </div>
@@ -331,10 +331,10 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
             {note}
           </p>
         ) : null}
-        {copied !== null ? <textarea class="ck-copy" readOnly value={copied} rows={Math.min(12, copied.split("\n").length + 1)} aria-label="次回確かめること" data-ck-recheck-text /> : null}
+        {copied !== null ? <textarea class="ck-copy" readOnly value={copied} rows={Math.min(12, copied.split("\n").length + 1)} aria-label="次の面談で確認すること" data-ck-recheck-text /> : null}
       </div>
       {kind === "acked" && shownAcked.length === 0 ? <p class="in-note">「確認した」にした注意はありません。</p> : null}
-      {kind !== "acked" && shown.length === 0 && shownPlan.length === 0 && premise.length === 0 ? <p class="in-note">確かめる所はありません。</p> : null}
+      {kind !== "acked" && shown.length === 0 && shownPlan.length === 0 && premise.length === 0 ? <p class="in-note">確認する所はありません。</p> : null}
       {shownPlan.length > 0 && plan !== undefined ? (
         <div class="ck-kind ck-plan" data-ck-kind="plan">
           <h3>

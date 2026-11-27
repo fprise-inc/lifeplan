@@ -1154,7 +1154,7 @@ export const CHECK_NEW_HELP = [
 /** 入れた後の欄の説明 */
 export const CHECK_ACTUAL_HELP = [
   "1年で実際に増えた貯蓄の額（預金・積立・投資・iDeCo などの合計）です。",
-  "・計算の年間収支との差を使途不明金として、確かめる年から「差を見込む終わり」まで毎年の支出に入れます（物価上昇率で伸ばします）",
+  "・計算の年間収支との差を使途不明金として、比較する年から「差を見込む終わり」まで毎年の支出に入れます（物価上昇率で伸ばします）",
   "・今年の途中から計算するときは、12か月そろう翌年の計算と比較します",
   "・実際のほうが多いときは差を入れず、お知らせだけ出します",
   "・入れないと、計算の黒字はすべて貯蓄に回る前提になります",
@@ -1225,7 +1225,7 @@ function checkSection(wh: WorkingHousehold): SectionDef {
             plain({
               key: `savings/${c.id}/year`,
               item: "savingsCheck.year",
-              label: "確かめる年",
+              label: "比較する年",
               level: "detail",
               kind: "int",
               suffix: "年",

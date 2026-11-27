@@ -143,7 +143,7 @@ export function livingLeverBlock(req: EngineRequest): string | null {
   const h = req.input.household;
   const l = leverLivingOf(h, req.input.baseMonth);
   if (l === undefined)
-    return (h.livingExpenses ?? []).length === 0 ? "毎月の生活費が入っていないので動かせません（入力の画面の基本生活費で入れます）" : "計算の期間に当てはまる毎月の生活費が無いので動かせません（入力の画面の基本生活費で、始まり・終わりを確かめてください）";
+    return (h.livingExpenses ?? []).length === 0 ? "毎月の生活費が入っていないので動かせません（入力の画面の基本生活費で入れます）" : "計算の期間に当てはまる毎月の生活費が無いので動かせません（入力の画面の基本生活費で、始まり・終わりを確認してください）";
   if (livingTotalOf(l) !== null) return null;
   return l.mode === "byCategory" ? "内訳が1つも入っていないので動かせません（入力の画面の基本生活費で内訳を入れます）" : "基本生活費（月額）が空なので動かせません（入力の画面の基本生活費で入れます）";
 }

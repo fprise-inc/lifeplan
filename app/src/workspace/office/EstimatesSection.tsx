@@ -47,7 +47,7 @@ const USE_TEXT: Readonly<Record<string, string>> = {
  * 前提条件の不動産の評価の事務所の既定値でもある目安（土地の割合・建物の残りの価値の下限・売却の費用。0214 の1）の効く所の文。
  * ほかの前提条件と同じく世帯に写すので、作った世帯にはすぐ効かない（0218）
  */
-const PREMISE_USE_TEXT = "前提条件の不動産の評価の事務所の既定値（これから作る世帯に写します。作った世帯は変わらず、確かめの一覧に「事務所の既定値が変わりました」と出ます）";
+const PREMISE_USE_TEXT = "前提条件の不動産の評価の事務所の既定値（これから作る世帯に写します。作った世帯は変わらず、確認の一覧に「事務所の既定値が変わりました」と出ます）";
 const useTextOf = (e: { id: string; use?: string }): string => (PREMISE_DEFS.some((d) => d.live === e.id) ? PREMISE_USE_TEXT : USE_TEXT[e.use ?? ""] ?? "");
 
 /** 欄の後ろの単位 */
@@ -208,7 +208,7 @@ function UpdateNotice({ u, open, busy, onKeep, onReedit, onRevert, onGo }: { u: 
           ) : null
         ) : (
           <button type="button" class="link-btn" disabled={busy} onClick={onKeep} data-office-estimate-keep={u.id}>
-            {u.kind === "source" ? "確かめた（事務所の値のまま）" : "このまま（事務所の値を使う）"}
+            {u.kind === "source" ? "確認した（事務所の値のまま）" : "このまま（事務所の値を使う）"}
           </button>
         )}
         {onGo !== undefined ? (
@@ -306,7 +306,7 @@ export function EstimatesSection({ value, saved, onChange, preview, today, onGoP
               u={u}
               open={updates.length <= 3}
               busy={false}
-              onKeep={() => put(keepOfficeValue(value, u.id), u.kind === "source" ? `${u.name}の出典の更新を確かめました（事務所の値のまま使います）。` : `${u.name}は事務所の値のまま使います。`, u.id)}
+              onKeep={() => put(keepOfficeValue(value, u.id), u.kind === "source" ? `${u.name}の出典の更新を確認しました（事務所の値のまま使います）。` : `${u.name}は事務所の値のまま使います。`, u.id)}
               onReedit={() => {
                 setTab("values");
                 open(estimateEntry(u.id) as EstimateEntry);
@@ -505,7 +505,7 @@ export function EstimatesSection({ value, saved, onChange, preview, today, onGoP
       <div role="tabpanel" id="os-est-panel-nofill" aria-labelledby="os-est-tab-nofill" hidden={tab !== "noFill"} data-office-nofill>
         <p class="os-lead">
           選んだ欄は、新しく入れるとき（新しい世帯・家族や働き方を足したとき・ヒアリングシートの空欄と「わからない」）に推定で埋めず、空欄のまま「未入力（0円で計算中）」にします。
-          <Help label="推定で埋めない入力欄">確かめの一覧に出ます。そこから「推定で埋める」もできます。入れてある値は変えません。「計算のときの統計の目安」の欄は、空欄のときに計算で目安を引かず、0円で計算して「入力が足りない」に出します（どの世帯の計算にもすぐ効きます）。</Help>
+          <Help label="推定で埋めない入力欄">確認の一覧に出ます。そこから「推定で埋める」もできます。入れてある値は変えません。「計算のときの統計の目安」の欄は、空欄のときに計算で目安を引かず、0円で計算して「入力が足りない」に出します（どの世帯の計算にもすぐ効きます）。</Help>
         </p>
         <div class="os-checks os-checks-wide">
           {FILL_TARGETS.map((t) => (

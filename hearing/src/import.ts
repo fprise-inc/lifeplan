@@ -196,7 +196,7 @@ export function keyLabel(def: SheetDefinition, key: string): string {
 }
 
 /** シートで聞いていない項目の不足の知らせに添える文 */
-const NOT_ASKED = "（このシートではお聞きしていません。面談で確かめてください）";
+const NOT_ASKED = "（このシートではお聞きしていません。面談で確認してください）";
 
 /** 範囲の答えの根拠の文 */
 export const rangeBasis = (r: FromRange): string => `ヒアリングシートの範囲 ${r.label}${r.openTop ? "（上が開いた範囲なので下の端）" : "の真ん中"}`;
@@ -317,7 +317,7 @@ class Ctx {
     this.got.set(k, { status: a.status });
     if (a.status === "unknown") {
       const doc = DOC_CHECK_ITEMS[a.key];
-      this.check(a.key, a.index, "unknown", doc !== undefined ? `わからない（書類で確かめる: ${doc}）` : "わからない");
+      this.check(a.key, a.index, "unknown", doc !== undefined ? `わからない（書類で確認する: ${doc}）` : "わからない");
     }
   }
 
@@ -510,7 +510,7 @@ export function importAnswers(def: SheetDefinition, filled: FilledSheet, options
   else if (ymIndex(asOf) > ymIndex(options.baseMonth)) {
     // Web の答えの記入の年月は送った月（お客さまが選んだ年月ではない）。計算基準月が先月などのたびに知らせないよう、1年を超えて離れたときだけ知らせる
     if (options.filledOnIsSubmission !== true) c.contradiction("hs.meta.filledOn", undefined, `記入の年月が計算基準月より後です（計算基準月 ${options.baseMonth} の時点の額として扱いました）`);
-    else if (ymIndex(asOf) - ymIndex(options.baseMonth) > 12) c.contradiction("hs.meta.filledOn", undefined, `お答えを送った年月（${ymText(asOf)}）が計算基準月（${options.baseMonth}）より1年を超えて後です（計算基準月の時点の額として扱いました。計算基準月を確かめてください）`);
+    else if (ymIndex(asOf) - ymIndex(options.baseMonth) > 12) c.contradiction("hs.meta.filledOn", undefined, `お答えを送った年月（${ymText(asOf)}）が計算基準月（${options.baseMonth}）より1年を超えて後です（計算基準月の時点の額として扱いました。計算基準月を確認してください）`);
     asOf = options.baseMonth;
   }
 
@@ -597,7 +597,7 @@ export function birthFromAge(asOf: string, age: number): string {
   return addMonths(asOf, -(age * 12 + 6));
 }
 
-const ageReason = (asOf: string, age: number, birth: string): string => `仮の値（ご記入の年月（${ymText(asOf)}）に${age}歳として、${ymText(birth)}生まれで計算。生年月は面談で確かめてください）`;
+const ageReason = (asOf: string, age: number, birth: string): string => `仮の値（ご記入の年月（${ymText(asOf)}）に${age}歳として、${ymText(birth)}生まれで計算。生年月は面談で確認してください）`;
 
 // ---- 家族 ----
 
@@ -807,7 +807,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
     const row: PeriodicExpense = { id, label: "仕送り", kind: "allowance", row: "cf.expense.other", from: at, to: null, everyYears: 1, monthly: true, amount: c.box(`${P}.allowance`, n, allowance.value), counterparty: m.id, growth: { kind: "none" } };
     c.field(id, `${P}.allowance`, n, "periodicExpense.amount", "/amount", "confirmed");
     (h.periodicExpenses ??= []).push(row);
-    c.candidate("periodicExpenses", "periodicExpense.amount", row, undefined, "今の月から毎月としました。始まり・終わりは面談で確かめてください");
+    c.candidate("periodicExpenses", "periodicExpense.amount", row, undefined, "今の月から毎月としました。始まり・終わりは面談で確認してください");
   }
   const support = c.get<number>(`${P}.support`, n);
   if (support.status === "value" && support.value > 0) {
@@ -815,7 +815,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
     const flow: IncomeFlow = { id, label: "援助・仕送りを受ける", kind: "support", from: at, to: null, everyYears: 1, monthly: true, amount: c.box(`${P}.support`, n, support.value), counterparty: m.id, growth: { kind: "none" } };
     c.field(id, `${P}.support`, n, "incomeFlow.amount", "/amount", "confirmed");
     (h.incomeFlows ??= []).push(flow);
-    c.candidate("incomeFlows", "incomeFlow.amount", flow, undefined, "今の月から毎月としました。始まり・終わりは面談で確かめてください");
+    c.candidate("incomeFlows", "incomeFlow.amount", flow, undefined, "今の月から毎月としました。始まり・終わりは面談で確認してください");
   }
   const care = c.get<string>(`${P}.care`, n);
   if (care.status === "value" && (care.value === "home" || care.value === "facility")) {
@@ -829,7 +829,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
       c.field(id, `${P}.careMonthly`, n, "care.otherMonthly", "/otherMonthly", "confirmed");
     }
     (h.careExpenses ??= []).push(ce);
-    c.candidate("careExpenses", "care.place", ce, undefined, "介護の期間・一時費用・介護保険のサービスの額は、空欄のまま統計の平均で推定します。面談で確かめてください");
+    c.candidate("careExpenses", "care.place", ce, undefined, "介護の期間・一時費用・介護保険のサービスの額は、空欄のまま統計の平均で推定します。面談で確認してください");
   } else if (c.get<number>(`${P}.careMonthly`, n).status === "value") c.contradiction(`${P}.careMonthly`, n, "介護が始まっていないのに、介護の費用の記入があります（取り込みませんでした）");
 }
 
@@ -858,7 +858,7 @@ function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
   // 額の記入が無ければ、お答えの無い欄（今の世帯に同じ行があれば今の額を残す。0139）
   c.field(id, `${I}.amount`, undefined, "incomeFlow.amount", "/amount", amount.status === "value" ? "confirmed" : "estimated");
   (h.incomeFlows ??= []).push(flow);
-  c.candidate("incomeFlows", "incomeFlow.kind", flow, undefined, "見込みは「不確実」（ふだんの計算に入れない）で入れました。相手（誰から）・見込みは面談で確かめてください");
+  c.candidate("incomeFlows", "incomeFlow.kind", flow, undefined, "見込みは「不確実」（ふだんの計算に入れない）で入れました。相手（誰から）・見込みは面談で確認してください");
 }
 
 // ---- 働き方と収入 ----
@@ -919,7 +919,7 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
       c.field(id, "hs.work.retireAge", n, "employment.to", "/to/at", "confirmed");
       if (ymIndex(to) < ymIndex(baseMonth)) {
         // 定年の年齢に達した後も働いている（定年が年度末などで、達した月より後）: 今月まで働くとして取り込む
-        c.contradiction("hs.work.retireAge", n, "定年の年齢を、もう過ぎています（計算基準月まで働くとして取り込みました。辞める月を面談で確かめてください）");
+        c.contradiction("hs.work.retireAge", n, "定年の年齢を、もう過ぎています（計算基準月まで働くとして取り込みました。辞める月を面談で確認してください）");
         to = baseMonth;
       }
     } else {
@@ -932,7 +932,7 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
     const p: EmploymentPeriod = { id, member: m.id, from: { at: from }, to: to === null ? null : { at: to }, type };
     if (type === "leave") {
       p.leaveKind = "other";
-      c.assume(`work/period/${id}/leaveKind`, "仮の値（休業の種類は面談で確かめる）", at("hs.work.type", "employment.leaveKind", "/leaveKind"));
+      c.assume(`work/period/${id}/leaveKind`, "仮の値（休業の種類は面談で確認する）", at("hs.work.type", "employment.leaveKind", "/leaveKind"));
     }
 
     // 健康保険・厚生年金
@@ -1424,7 +1424,7 @@ function importSimpleLoan(c: Ctx, h: Household, adults: Adults, asOf: string): v
       termMonths = m;
       c.assume(`housing/debt/${id}/term`, `逆算（残高 ${balV.toLocaleString("ja-JP")}円・毎月の返済額 ${payV.toLocaleString("ja-JP")}円・仮の金利 年${SIMPLE_LOAN_PCT}から ${m}か月）`, at(PAY, "debt.repayment", "/repayment/termMonths"));
     } else {
-      if (payV !== null) c.contradiction(PAY, undefined, "毎月の返済額では、残高を返しきれない計算になります（返済期間は既定の値で計算しました。面談で確かめてください）");
+      if (payV !== null) c.contradiction(PAY, undefined, "毎月の返済額では、残高を返しきれない計算になります（返済期間は既定の値で計算しました。面談で確認してください）");
       else c.check(PAY, undefined, pay.status === "unknown" ? "unknown" : "missing", "毎月の返済額が無いため、返済期間を既定の値で計算します");
       c.assume(`housing/debt/${id}/term`, `仮の値（返済期間${String(std / 12)}年。完済が80歳を超えないように）`, at(BAL, "debt.repayment", "/repayment/termMonths"));
     }
@@ -1437,7 +1437,7 @@ function importSimpleLoan(c: Ctx, h: Household, adults: Adults, asOf: string): v
     c.field(id, PAY, undefined, "debt.balance", "/balance", bal.status === "unknown" ? "unknown" : "estimated");
     c.assume(`housing/debt/${id}/term`, `仮の値（返済期間${String(std / 12)}年。完済が80歳を超えないように）`, at(PAY, "debt.repayment", "/repayment/termMonths"));
   }
-  c.assume(`housing/debt/${id}/fromBalance`, "仮の値（残高の時点〔記入の年月〕から借りたとみなす。借りた年月・借入額は面談で確かめてください）", at(key, "debt.principal", "/principal"));
+  c.assume(`housing/debt/${id}/fromBalance`, "仮の値（残高の時点〔記入の年月〕から借りたとみなす。借りた年月・借入額は面談で確認してください）", at(key, "debt.principal", "/principal"));
   c.field(id, key, undefined, "debt.start", "/start/at", "assumed");
   c.assume(`housing/debt/${id}/rate`, `仮の値（${currentMortgageRateEstimate().basis}として計算）`, at(key, "debt.rateSchedule", "/rateSchedule/0/rate"));
   c.assume(`housing/debt/${id}/debtor`, "仮の値（ご本人が借りているとして計算）", at(key, "debt.debtors", "/debtors/0/member"));
@@ -1491,7 +1491,7 @@ function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: strin
     rate === null ? "金利" : null,
   ].filter((x): x is string => x !== null);
   if (lacking.length > 0 || principal === null || start === null || years === null || rate === null) {
-    c.missing("hs.loan.debtor", n, `住宅ローンの ${lacking.join("・")} がありません（このローンは取り込みませんでした。面談で確かめてください）`, "error");
+    c.missing("hs.loan.debtor", n, `住宅ローンの ${lacking.join("・")} がありません（このローンは取り込みませんでした。面談で確認してください）`, "error");
     return;
   }
   const id = c.newId();
@@ -1545,7 +1545,7 @@ function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: strin
     const propertyType = provisionalNewType(start);
     d.housing = { ...(ownId !== null ? { residence: ownId } : {}), moveIn: ev.id, propertyType, newBuild: true };
     c.assume(`housing/debt/${id}/credit`, propertyType === "zeh" ? CREDIT_ASSUMED_ZEH : CREDIT_ASSUMED, at("hs.loan.start", "debt.housing", "/housing"));
-    note += `入居は借りた年月・新築の${PROPERTY_TYPE_TEXT[propertyType]}・借りている方の持分100%とした仮の条件で控除を計算します（入力の画面では「仮」の印が付きます）。違うときは面談で確かめてください`;
+    note += `入居は借りた年月・新築の${PROPERTY_TYPE_TEXT[propertyType]}・借りている方の持分100%とした仮の条件で控除を計算します（入力の画面では「仮」の印が付きます）。違うときは面談で確認してください`;
   } else note += `${CREDIT_DATA_FROM_YEAR - 1}年以前に借りたローンの控除は計算しません`;
   (h.debts ??= []).push(d);
   c.candidate("debts", "debt.kind", d, undefined, note);
@@ -1651,7 +1651,7 @@ function importAssets(c: Ctx, h: Household, adults: Adults, periods: Map<string,
       const from = c.src(key, n).key;
       if (from === "hs.assets.depositTotal" || from === "hs.assets.investTotal" || from === "hs.assets.depositTotalRange" || from === "hs.assets.investTotalRange") {
         c.assume(`sav/${id}/owner`, "仮の値（ご家族の合計を、ご本人の名義として計算）", { objectId: id, key, index: n, item: "account.owner", path: "/owner" });
-        if (kind === "taxable") c.assume(`sav/${id}/kind`, "仮の値（NISA・iDeCo・株・投資信託の合計を、課税口座の株式・投資信託として計算。内訳は面談で確かめて口座ごとに分けてください）", { objectId: id, key, index: n, item: "account.kind", path: "/kind" });
+        if (kind === "taxable") c.assume(`sav/${id}/kind`, "仮の値（NISA・iDeCo・株・投資信託の合計を、課税口座の株式・投資信託として計算。内訳は面談で確認して口座ごとに分けてください）", { objectId: id, key, index: n, item: "account.kind", path: "/kind" });
       }
       if (hasMonthly && monthlyKey !== null && monthly?.status === "value") {
         const until = periods.get(m.id)?.to ?? null;
@@ -1688,7 +1688,7 @@ const COMPANY_LOAN_TERM = 60;
 /** 毎月の返済額から逆算した返済期間の仮の印の理由の頭（書き出しで、返済額を記入し直してよい期間かの見分けに使う） */
 export const DERIVED_TERM = "逆算";
 const COMPANY_LOAN_NOTE =
-  "会社からの借入金の残高から置いた借入です（入れ方は「今の残高から」）。利率は契約で決めた率を入れてください（入れなければ利息なしで計算します）。借りた年月・借入額・返済期間は仮の値なので、面談で確かめてください";
+  "会社からの借入金の残高から置いた借入です（入れ方は「今の残高から」）。利率は契約で決めた率を入れてください（入れなければ利息なしで計算します）。借りた年月・借入額・返済期間は仮の値なので、面談で確認してください";
 
 /** 会社の借入の連帯保証の額（構成員の欄。負債には入れない） */
 function companyGuarantee(c: Ctx, m: Member, n: number): void {
@@ -1784,10 +1784,10 @@ function importCompanyLoan(c: Ctx, h: Household, m: Member, n: number, asOf: str
     termMonths = months;
     c.assume(`housing/debt/${id}/term`, `${DERIVED_TERM}（残高 ${bal.value.toLocaleString("ja-JP")}円・毎月の返済額 ${payV.toLocaleString("ja-JP")}円・利息なしとして ${months}か月）`, at(COMPANY_LOAN_MONTHLY, "debt.repayment", "/repayment/termMonths"));
   } else {
-    if (payV !== null) c.contradiction(COMPANY_LOAN_MONTHLY, n, "毎月の返済額では、残高を50年で返しきれない計算になります（返済期間は5年として計算しました。面談で確かめてください）");
+    if (payV !== null) c.contradiction(COMPANY_LOAN_MONTHLY, n, "毎月の返済額では、残高を50年で返しきれない計算になります（返済期間は5年として計算しました。面談で確認してください）");
     c.assume(`housing/debt/${id}/term`, "仮の値（毎月の返済額が無いため、5年で返すとみなしています）", at(COMPANY_LOAN, "debt.repayment", "/repayment/termMonths"));
   }
-  c.assume(`housing/debt/${id}/fromBalance`, "仮の値（残高の時点〔記入の年月〕から借りたとみなす。借りた年月・借入額は面談で確かめてください）", at(COMPANY_LOAN, "debt.principal", "/principal"));
+  c.assume(`housing/debt/${id}/fromBalance`, "仮の値（残高の時点〔記入の年月〕から借りたとみなす。借りた年月・借入額は面談で確認してください）", at(COMPANY_LOAN, "debt.principal", "/principal"));
   c.field(id, COMPANY_LOAN, n, "debt.start", "/start/at", "assumed");
   c.assume(`housing/debt/${id}/rate`, "仮の値（会社からの借入の利率は契約で決めた率を入れてください。入れなければ利息なしで計算します）", at(COMPANY_LOAN, "debt.rateSchedule", "/rateSchedule/0/rate"));
   const d: Debt = {
@@ -1902,7 +1902,7 @@ function importInsurance(c: Ctx, h: Household, adults: Adults, baseMonth: string
       if (DEATH_TEMPLATES.has(template)) {
         coverages.push({ id: c.newId(), role: "main", benefit: "death", amount: death.value });
         c.field(id, "hs.insurance.deathBenefit", n, "insurance.coverages", "/coverages/0/amount", "confirmed");
-      } else c.contradiction("hs.insurance.deathBenefit", n, "この種類の保険の死亡保険金は、面談で確かめて入力してください（取り込みませんでした）");
+      } else c.contradiction("hs.insurance.deathBenefit", n, "この種類の保険の死亡保険金は、面談で確認して入力してください（取り込みませんでした）");
     }
     if (monthlyB.status === "value") {
       if (template === "insurance.incomeProtection") {

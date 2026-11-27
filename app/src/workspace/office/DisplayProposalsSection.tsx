@@ -63,7 +63,7 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
       <h4 id="os-ai-display" class="os-h">AIからの表示の設定の案</h4>
       {candidates.length > 0 ? (
         <p class="pl-sub">
-          AIが出したのは案だけです。設定ごとに今と案を確かめて、「反映する」を押した設定だけが事務所の既定値に入ります（すぐ保存します。パネルの「保存」は要りません）。見せ方だけの設定なので、世帯の値も計算の結果も変わりません。反映した後も「前の値に戻す」で戻せます。
+          AIが出したのは案だけです。設定ごとに今と案を確認して、「反映する」を押した設定だけが事務所の既定値に入ります（すぐ保存します。パネルの「保存」は要りません）。見せ方だけの設定なので、世帯の値も計算の結果も変わりません。反映した後も「前の値に戻す」で戻せます。
         </p>
       ) : null}
       {candidates.map((c) => (
@@ -71,7 +71,7 @@ export function DisplayProposalsSection({ value, candidates, onApply, onDiscard,
           <p class="os-code-cand-title">
             <b>表示の設定の案（{c.changes.length}件）</b>
             <span class="pl-sub">
-              {dateTimeProse(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
+              {dateTimeProse(c.receivedAt)} に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確認できない参考の情報です）` : ""}
             </span>
           </p>
           {c.changes.map((ch) => {

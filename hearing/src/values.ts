@@ -182,7 +182,7 @@ export function rateDoubt(item: SheetItem, value: string): string | null {
   const n = Number(decText(d));
   if (!(n > 0 && n < Number(RATE_LOW[item.key] ?? RATE_LOW_DEFAULT))) return null;
   const where = item.guide !== undefined ? `${item.guide}で` : "";
-  return `「${decText({ ...d, ...shiftUp(d, 2) })}%」は${item.label}としてとても小さい値です。「0.625%」のように % を付けて打った値が、100分の1 の数で読まれた可能性があります。${where}確かめてください`;
+  return `「${decText({ ...d, ...shiftUp(d, 2) })}%」は${item.label}としてとても小さい値です。「0.625%」のように % を付けて打った値が、100分の1 の数で読まれた可能性があります。${where}確認してください`;
 }
 
 /** 値をシートのセルの生の値に戻す（書き出し。parseValue の逆） */

@@ -43,7 +43,7 @@ export const SAMPLE_DOCUMENTS: readonly SampleDocument[] = [
       asOf: "2026-06",
       holder: "self",
       values: [
-        { item: "insurance.premium", at: ["amount"], member: "holder", value: 16200, period: "once", source: { page: 1, where: "合計保険料", text: "月払保険料 16,200円" }, confidence: "high", note: "今の入力の保険料と違います。特約を足したかを確かめてください" },
+        { item: "insurance.premium", at: ["amount"], member: "holder", value: 16200, period: "once", source: { page: 1, where: "合計保険料", text: "月払保険料 16,200円" }, confidence: "high", note: "今の入力の保険料と違います。特約を足したかを確認してください" },
         { item: "insurance.contractDate", member: "holder", value: "2012-06", source: { page: 1, where: "契約日", text: "平成24年6月1日" }, confidence: "high" },
         // 番号の欄（候補ごと落ちる）
         { item: "insurance.label", member: "holder", value: "1234 5678 9012", source: { page: 1, where: "お客さま番号" }, confidence: "high" },

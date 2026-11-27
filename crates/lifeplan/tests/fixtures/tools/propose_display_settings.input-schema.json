@@ -9,7 +9,7 @@
           "type": "string"
         },
         "note": {
-          "description": "理由（500文字まで。FP がアプリで確かめるときの手がかり）",
+          "description": "理由（500文字まで。FP がアプリで確認するときの手がかり）",
           "maxLength": 500,
           "type": [
             "string",

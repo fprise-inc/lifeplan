@@ -288,7 +288,7 @@ const READER_TEXT: Readonly<Record<string, string>> = { csv: "CSV", pdfText: "PD
 const SOURCE_TEXT: Record<ReadOk["mappingSource"], string> = {
   fp: "選び直した列の対応付けで読みました",
   learned: "事務所で覚えた列の対応付けで読みました",
-  guessed: "見出しから列の対応付けを推し量りました。列を確かめてください（確かめた形は事務所で覚えます）",
+  guessed: "見出しから列の対応付けを推し量りました。列を確認してください（確認した形は事務所で覚えます）",
   reader: "明細の行の形（日付・店・金額）から読みました",
 };
 
@@ -528,12 +528,12 @@ export function ImportStep({ wh, log, office, host, readers, onLog, onOffice, on
                 ? `${outs.indexOf(o) + 1}枚目はもう取り込んでいます（同じファイルは2回取り込みません）。その画像を外してから取り込んでください`
                 : "このファイルはもう取り込んでいます（同じファイルは2回取り込みません）"
               : r.reason === "period"
-                ? "期間を確かめてください"
+                ? "期間を確認してください"
                 : r.reason === "tooMany"
                   ? "明細の行が多すぎるため取り込みませんでした（1つの世帯で5万行まで）。使わない明細を外してから取り込んでください"
                   : outs.length > 1
                     ? `${outs.indexOf(o) + 1}枚目に取り込める行がありません。その画像を外すか、行を足してください`
-                    : "取り込める行がありません。列の対応付けを確かめてください",
+                    : "取り込める行がありません。列の対応付けを確認してください",
           );
           return;
         }
@@ -938,7 +938,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
   return (
     <section class="st-sec st-sheet" aria-label="確認シート" data-statement-sheet>
       <h3 class="st-h3">
-        確認シート（お客さまに前もって印を付けてもらう）<small>迷う行を表計算のファイル（.xlsx）に書き出し、お客さまが選んだ印を読み込みます。読み込んだ印は、ここで確かめてから入れます</small>
+        確認シート（お客さまに前もって印を付けてもらう）<small>迷う行を表計算のファイル（.xlsx）に書き出し、お客さまが選んだ印を読み込みます。読み込んだ印は、ここで確認してから入れます</small>
       </h3>
       <div class="rp-actions">
         <button type="button" class="btn" disabled={busy || rest === 0} onClick={() => setAsking(true)} data-statement-sheet-export>
@@ -1005,7 +1005,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
                   <th>店</th>
                   <th class="num">金額</th>
                   <th>お客さまの印</th>
-                  <th>メモ・確かめること</th>
+                  <th>メモ・確認すること</th>
                 </tr>
               </thead>
               <tbody>
@@ -1093,7 +1093,7 @@ function ReviewStep({ wh, log, an, office, host, customerNo, onLog, onLearn, onN
   return (
     <div class="st-step" data-statement-step="review">
       <div class={`st-progress${rest === 0 ? " done" : ""}`} role="status" data-statement-rest={rest}>
-        {rest === 0 ? "迷う行はありません。「生活費の候補」で数を確かめてください" : `迷う行 あと ${rest}行`}
+        {rest === 0 ? "迷う行はありません。「生活費の候補」で数を確認してください" : `迷う行 あと ${rest}行`}
         <small>（取り込んだ行 {an.rows.length}・決めた行 {decided.length}）</small>
       </div>
 
@@ -1540,7 +1540,7 @@ export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose
                   onApproved(n);
                   return;
                 }
-                setMsg(`${n}件を現状に入れました。入力の「基本生活費」などで確かめられます`);
+                setMsg(`${n}件を現状に入れました。入力の「基本生活費」などで確認できます`);
                 panel.current?.querySelector(".ip-body")?.scrollTo({ top: 0 });
               }}
             />

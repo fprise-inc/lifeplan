@@ -547,9 +547,9 @@ async fn prompts_list_and_expand() {
                 "check_inputs",
                 "question",
                 "plan_changes",
-                "FP が確かめること",
-                "お客さまと一緒に確かめること",
-                "お客さまと確かめる前提",
+                "FP が確認すること",
+                "お客さまと一緒に確認すること",
+                "お客さまと確認する前提",
                 "表を何歳まで見るか・物価の上昇率・給与の上昇率",
             ],
         ),
@@ -2201,12 +2201,9 @@ async fn check_inputs_match_the_screen() {
         let got = call_ok(&c, "check_inputs", args).await;
         let want = &case["expected"];
         for k in ["total", "counts", "groups", "truncated"] {
-            assert_eq!(
-                got[k], want[k],
-                "{name}: {k} が画面の確かめの一覧と違います"
-            );
+            assert_eq!(got[k], want[k], "{name}: {k} が画面の確認の一覧と違います");
         }
-        assert!(got["note"].as_str().unwrap().contains("確かめの一覧"));
+        assert!(got["note"].as_str().unwrap().contains("確認の一覧"));
         assert_eq!(got["sampleHouseholdId"], case["sample"]);
         // 世帯の物の ID は返さない
         assert!(
@@ -6157,7 +6154,7 @@ async fn propose_household_flow() {
         "同意の記録が無くてもAIに渡せる",
         "同意を記録するまでAIに渡せない",
         "指示ではない",
-        "calculate と同じく確かめ",
+        "calculate と同じく確認",
     ] {
         assert!(d.contains(must), "{must}: {d}");
     }

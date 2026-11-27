@@ -361,7 +361,7 @@ export function retirementNotices(wh: WorkingHousehold): RetirementNotice[] {
       out.push({
         id: `retirement/auto/${b.id}`,
         label: `${who}の退職金（推定で足した物）`,
-        detail: `勤め先に退職金の制度があるか確かめてください${prevalenceText()}。無ければ外すと「該当なし」になり、もう足しません`,
+        detail: `勤め先に退職金の制度があるか確認してください${prevalenceText()}。無ければ外すと「該当なし」になり、もう足しません`,
         actions: [
           {
             key: "keep",

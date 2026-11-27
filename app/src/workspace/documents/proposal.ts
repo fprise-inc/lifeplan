@@ -132,7 +132,7 @@ function landCandidates(c: DocCandidate, where: string | undefined): DocCandidat
     const y = normalizeYen(c.value);
     if (y === null) return "価格として読めない候補（円の整数で書いてください）";
     // 価格（固定資産税評価額）はその年度の時点の額（期間は1回の額・時点の額）。0円（非課税の土地など）は、まとめての承認に入れない
-    return [{ ...c, value: y, period: "once", ...(y === 0 ? { note: note("価格が0円です（非課税の土地など）。確かめてください"), confidence: c.confidence === "high" ? "medium" : c.confidence } : {}) }];
+    return [{ ...c, value: y, period: "once", ...(y === 0 ? { note: note("価格が0円です（非課税の土地など）。確認してください"), confidence: c.confidence === "high" ? "medium" : c.confidence } : {}) }];
   }
   // 路線価図の記号: 評価の入れ方（路線価×面積）・路線価（円）・借地権割合（記号）に分ける。読めなければ路線価と借地権割合を読めなかった欄にする
   if (typeof c.value === "number" || typeof c.value === "boolean") return "路線価は、路線価図の記号のまま文字で書いてください（例「250C」。数は千円単位）";

@@ -118,12 +118,12 @@ const STOP_REASON: Record<string, string> = {
 /** 本体の誤りの符号の文 */
 export function customErrorText(e: unknown): string {
   const code = String(e);
-  if (code === "E_CUSTOM_CHANGED") return "見ている間にカスタム層のファイルが変わりました。新しい中身を確かめてから、もう一度押してください。";
+  if (code === "E_CUSTOM_CHANGED") return "見ている間にカスタム層のファイルが変わりました。新しい中身を確認してから、もう一度押してください。";
   if (code === "E_CUSTOM_INVALID") return "誤りのある中身は承認できません。上の誤りを直してください（AI に頼むときは、この誤りの文を渡してください）。";
   if (code === "E_CUSTOM_PENDING") return "承認待ちの変更があります。先に、承認するか・承認しないかを決めてください。";
   if (code === "E_CUSTOM_PLACE_OVERLAP") return "その場所は選べません。データフォルダ・書き出しのフォルダなど、アプリが使う場所と重なっています。";
   if (code === "E_CUSTOM_PLACE") return "その場所は選べません。別のフォルダを選んでください。";
-  if (code === "E_CUSTOM_IO") return "ファイルを読み書きできませんでした。フォルダの場所と権限を確かめてください。";
+  if (code === "E_CUSTOM_IO") return "ファイルを読み書きできませんでした。フォルダの場所と権限を確認してください。";
   if (code === "E_CUSTOM_NOTHING") return "承認待ちの変更はありません。";
   return `うまくいきませんでした（${code}）。`;
 }
@@ -192,7 +192,7 @@ export function CustomTextsSection({ host, status, onStatus, kind: given }: { ho
       ) : null}
       {st.ledgerReset && kind === "texts" ? (
         <p class="fatal" role="status" data-custom-ledger-reset>
-          承認の記録を確かめられませんでした（書き換えられたか、事務所の鍵が変わったため）。前の承認は無効にし、公式の文を出しています。中身を確かめて、承認し直してください。
+          承認の記録を確認できませんでした（書き換えられたか、事務所の鍵が変わったため）。前の承認は無効にし、公式の文を出しています。中身を確認して、承認し直してください。
           <button type="button" class="link-btn" disabled={busy} onClick={() => void run(() => host.resetLedger())}>
             承認の記録を作り直す
           </button>
@@ -200,10 +200,10 @@ export function CustomTextsSection({ host, status, onStatus, kind: given }: { ho
       ) : null}
       {st.approvedMissing ? (
         <p class="fatal" role="status" data-custom-approved-missing>
-          承認した中身が見つからない（または書き換えられていた）ため、公式のまま出しています。中身を確かめて、承認し直してください。
+          承認した中身が見つからない（または書き換えられていた）ため、公式のまま出しています。中身を確認して、承認し直してください。
         </p>
       ) : null}
-      {st.file === "unreadable" ? <p class="fatal">カスタム層の {w.file} を読めません（権限を確かめてください）。前に承認した中身のまま出しています。</p> : null}
+      {st.file === "unreadable" ? <p class="fatal">カスタム層の {w.file} を読めません（権限を確認してください）。前に承認した中身のまま出しています。</p> : null}
       <p class="pl-sub" data-custom-state-line>
         {customStateLine(st)}
       </p>
@@ -260,7 +260,7 @@ export function CustomTextsSection({ host, status, onStatus, kind: given }: { ho
           ) : st.errors.length === 0 ? (
             <p class="pl-sub">{st.file === "none" ? `カスタム層の ${w.file} が無くなりました。承認すると、${w.office}をやめて公式に戻ります。` : "画面に出る違いはありません。"}</p>
           ) : null}
-          <p class="pl-sub">AI が書いた中身でも、承認するまで画面には出ません。中身を確かめて、使ってよいときだけ押してください。</p>
+          <p class="pl-sub">AI が書いた中身でも、承認するまで画面には出ません。中身を確認して、使ってよいときだけ押してください。</p>
           <div class="rp-actions">
             <button type="button" class="btn primary" disabled={busy || st.errors.length > 0} onClick={() => void run(() => host.approve(st.fingerprint, kind), "承認しました。画面に使います（保存は要りません）。")} data-custom-approve>
               承認する
@@ -278,7 +278,7 @@ export function CustomTextsSection({ host, status, onStatus, kind: given }: { ho
           <p>
             <b>{kind === "texts" ? `アプリの更新で、事務所の文を使っている公式の説明が ${st.updates.length} か所変わりました。` : `アプリの更新で、${w.office}を使っている${w.official}が ${st.updates.length} か所変わりました。`}</b>
           </p>
-          <p class="pl-sub">ふつうは{w.office}をそのまま使い続けます。意味が変わった所だけは、確かめるまで公式のまま出します。直すときは、AI に頼んでファイルを直し、ここで承認してください。</p>
+          <p class="pl-sub">ふつうは{w.office}をそのまま使い続けます。意味が変わった所だけは、確認するまで公式のまま出します。直すときは、AI に頼んでファイルを直し、ここで承認してください。</p>
           <table class="os-code-diff os-custom-diff" data-custom-update-table>
             <thead>
               <tr>

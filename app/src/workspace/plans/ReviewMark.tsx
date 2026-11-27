@@ -11,7 +11,7 @@ import { helpPlace, type HelpSide } from "../../presentation/Help.tsx";
 import type { ChangeRow } from "./plans.ts";
 
 /** カーソルを合わせたときの短い説明 */
-export const reviewMarkTitle = (n: number): string => `確かめること ${n}件。押すと一覧`;
+export const reviewMarkTitle = (n: number): string => `確認すること ${n}件。押すと一覧`;
 
 export interface ReviewMarkProps {
   /** 要確認の行（changesOf で state が ok でない物） */
@@ -78,7 +78,7 @@ export function ReviewMark({ rows, planName, onShow, initialOpen = false }: Revi
           data-plan-review-pop
         >
           <div class="rv-head">
-            <b>確かめること（{n}件）</b>
+            <b>確認すること（{n}件）</b>
             <button type="button" class="link-btn" aria-label={closeLabel("要確認の一覧")} title="閉じる（Esc）" onClick={close} data-plan-review-close>
               閉じる
             </button>
@@ -103,7 +103,7 @@ export function ReviewMark({ rows, planName, onShow, initialOpen = false }: Revi
                 }}
                 data-plan-review-open
               >
-                対策で確かめる
+                対策で確認する
               </button>
             </div>
           ) : null}

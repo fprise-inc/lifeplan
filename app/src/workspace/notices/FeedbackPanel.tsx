@@ -96,7 +96,7 @@ export function FeedbackPanel(p: FeedbackPanelProps) {
         <CloseX onClose={p.onClose} what="要望・不具合を送る" />
         <h2 id="fb-title">要望・不具合を送る</h2>
         <p class="pl-sub">
-          ファイナンシアへの要望や、不具合の知らせを、ブラウザのフォームから送っていただけます。「フォームを開く」を押すと、下の受付番号をこの PC に覚えて、既定のブラウザでフォームを開きます。{p.onWrite !== undefined ? "「報告の文を書いて送る」では、先にこのアプリで文を書いて確かめてから、文を写してフォームを開きます。" : ""}このアプリ自身は何も送りません。
+          ファイナンシアへの要望や、不具合の知らせを、ブラウザのフォームから送っていただけます。「フォームを開く」を押すと、下の受付番号をこの PC に覚えて、既定のブラウザでフォームを開きます。{p.onWrite !== undefined ? "「報告の文を書いて送る」では、先にこのアプリで文を書いて確認してから、文を写してフォームを開きます。" : ""}このアプリ自身は何も送りません。
         </p>
         <div class="fb-code" data-feedback-code={code}>
           <span class="fb-code-lbl">受付番号</span>

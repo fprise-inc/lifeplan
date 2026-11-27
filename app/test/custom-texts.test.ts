@@ -218,7 +218,7 @@ describe("事務所の既定値の画面の「説明の文（カスタム層）�
 
   it("台帳を確かめられなかったときは知らせる。お知らせの一覧にも事務所の知らせとして出す", () => {
     const st = status({ ledgerReset: true, state: "pending" });
-    expect(renderToString(h(CustomTextsSection, { host, status: st, onStatus: noop }))).toContain("承認の記録を確かめられませんでした");
+    expect(renderToString(h(CustomTextsSection, { host, status: st, onStatus: noop }))).toContain("承認の記録を確認できませんでした");
     const items = customCenterNotice(st);
     expect(items.map((i) => i.category)).toEqual(["office", "office"]);
     expect(items[1]?.title).toContain("承認待ち");

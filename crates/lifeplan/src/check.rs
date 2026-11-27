@@ -37,16 +37,16 @@ pub struct CheckInputsArgs {
     pub share_id: Option<String>,
     /// AIが組み立てた計算の入力（calculate の input と同じ形）
     pub input: Option<Value>,
-    /// プランを確かめるとき: 入力に当てる変更（calculate の changes と同じ JSON Patch）
+    /// プランを確認するとき: 入力に当てる変更（calculate の changes と同じ JSON Patch）
     pub changes: Option<Vec<Change>>,
-    /// プランを確かめるとき: アプリの画面のプランの動かす項目の変更（calculate の plan_changes と同じ書き方。list_plan_items で分かる）。50件まで
+    /// プランを確認するとき: アプリの画面のプランの動かす項目の変更（calculate の plan_changes と同じ書き方。list_plan_items で分かる）。50件まで
     pub plan_changes: Option<Vec<PlanChange>>,
-    /// 出す種類（既定は missing・notStarted・unknown・notice・calc・estimated。画面の確かめの一覧の既定と同じ）。missing＝未入力（0円で計算中）・
-    /// notStarted＝まだ入れていない項目・unknown＝書類待ち・notice＝確かめの注意（範囲の外の値・ほかの入力と合わない値・購入の払い方が無いなど）・
-    /// calc＝計算のお知らせのうち入力で直せる所・estimated＝推定（結果に効く順）・certainty＝確かさが本人の申告・概算の値・premise＝前提条件（事務所の既定値どおり。行の premise が client ならお客さまと確かめる前提、fp なら FP が決める細かい前提）
+    /// 出す種類（既定は missing・notStarted・unknown・notice・calc・estimated。画面の確認の一覧の既定と同じ）。missing＝未入力（0円で計算中）・
+    /// notStarted＝まだ入れていない項目・unknown＝書類待ち・notice＝注意（範囲の外の値・ほかの入力と合わない値・購入の払い方が無いなど）・
+    /// calc＝計算のお知らせのうち入力で直せる所・estimated＝推定（結果に効く順）・certainty＝確かさが本人の申告・概算の値・premise＝前提条件（事務所の既定値どおり。行の premise が client ならお客さまと確認する前提、fp なら FP が決める細かい前提）
     #[schemars(extend("items" = { "type": "string", "enum": ["missing", "notStarted", "unknown", "notice", "calc", "estimated", "certainty", "premise"] }))]
     pub kinds: Option<Vec<String>>,
-    /// 返す行の上限（1〜100。既定 30）。並びは画面の確かめの一覧と同じで、超えた分は truncated と counts で分かる
+    /// 返す行の上限（1〜100。既定 30）。並びは画面の確認の一覧と同じで、超えた分は truncated と counts で分かる
     #[schemars(range(min = 1, max = 100))]
     pub max_items: Option<u16>,
 }
@@ -108,7 +108,7 @@ pub fn run(
 }
 
 /// 答えに添える説明
-pub const NOTE: &str = "アプリの入力のタブの「確かめの一覧」と同じ行（並びも同じ）に、お客さまに聞くことの案（question）と短い理由（reason）を添えた物です。groups は種類ごと（未入力〔0円で計算中〕・まだ入れていない項目・書類待ち・確かめの注意・計算のお知らせ〔入力で直せる所〕・推定）で、item は入力項目、field は欄か物の見出しです。question は FP がお客さまに聞く文の案なので、面談の前に FP が確かめ、要らない物は外してください。rule が無い行は、種類ごとの決まりの文です。お客さまの名前・ID は入れていません。";
+pub const NOTE: &str = "アプリの入力のタブの「確認の一覧」と同じ行（並びも同じ）に、お客さまに聞くことの案（question）と短い理由（reason）を添えた物です。groups は種類ごと（未入力〔0円で計算中〕・まだ入れていない項目・書類待ち・注意・計算のお知らせ〔入力で直せる所〕・推定）で、item は入力項目、field は欄か物の見出しです。question は FP がお客さまに聞く文の案なので、面談の前に FP が確認し、要らない物は外してください。rule が無い行は、種類ごとの決まりの文です。お客さまの名前・ID は入れていません。";
 
 #[cfg(test)]
 mod tests {

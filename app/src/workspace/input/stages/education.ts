@@ -363,7 +363,7 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
       ? lessons.length > 0
         ? `学校外の費用は、ここに入れた塾・習い事 ${lessons.length}件で計算しています（統計の平均は足しません）`
         : "学校外の費用は、ここに入れた塾・習い事だけで計算します（統計の平均は足しません）。まだ入っていません（0円で計算中）。「＋ 塾・習い事」で足します"
-      : `前の形: 統計の平均（塾・習い事を含む）に行 ${lessons.length}件を足しています。二重になっていないか確かめ、「学校外の費用」を「すべて統計の平均」か「塾・習い事を別に入れる」に切り替えてください`;
+      : `前の形: 統計の平均（塾・習い事を含む）に行 ${lessons.length}件を足しています。二重になっていないか確認し、「学校外の費用」を「すべて統計の平均」か「塾・習い事を別に入れる」に切り替えてください`;
   const out: GroupDef[] = [{ key: blockKey, title: "塾・習い事", note, level: "simple", fields: [], actions: [] }];
   const ageOf = (hh: Household) => hh.members.find((m) => m.id === child.id);
   lessons.forEach((l, i) => {
@@ -618,7 +618,7 @@ export function dropStaleEstimates(prev: EducationStage, next: EducationStage, l
 }
 
 /** 数えない推定の理由（学校の種類で決まる統計の平均） */
-const QUIET_STAT = "学校の種類で決まる統計の平均（進路を確かめれば、ここは数えない）";
+const QUIET_STAT = "学校の種類で決まる統計の平均（進路を確認すれば、ここは数えない）";
 
 /**
  * 空欄のとき推定の値を見せる（印「推定」・根拠・「この値にする」で書ける。0041）。est が null なら元の欄のまま。
@@ -838,7 +838,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
       find,
       path: ["annualOverride"],
       optional: true,
-      hint: (v) => (v !== null ? "入れた年額で計算します（今の値段。将来は教育費の上昇率で伸びます）。学校の種類を変えたときは、前の学校の値のままでないか確かめてください" : null),
+      hint: (v) => (v !== null ? "入れた年額で計算します（今の値段。将来は教育費の上昇率で伸びます）。学校の種類を変えたときは、前の学校の値のままでないか確認してください" : null),
       help: annualHelp(s),
     }),
     (wh) => {
@@ -1133,7 +1133,7 @@ const NURSERY_LOCAL_FREE = [
 const NURSERY_LOCAL_FREE_HELP =
   "お住まいの自治体が0〜2歳の保育料を独自に無償にしているときに選びます（認可の施設だけに当てます。認可外の助成は自治体ごとに違うので、助成の後の月額を入れます）。" +
   "例: 東京都の区市町村は、令和7年9月から認可保育所などの0〜2歳の第1子の保育料を無償にしています（延長保育料は対象外）。" +
-  "「第2子から無償」は、世帯に年長のきょうだいがいる間（年齢・保育園に通っているかを問わない）を0円にします。自治体によってきょうだいの数え方が違うので、案内で確かめてください";
+  "「第2子から無償」は、世帯に年長のきょうだいがいる間（年齢・保育園に通っているかを問わない）を0円にします。自治体によってきょうだいの数え方が違うので、案内で確認してください";
 
 /** 保育園の施設の種類の欄（詳細） */
 function nurseryFacilityField(key: string, find: Finder): FieldDef {

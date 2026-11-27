@@ -586,7 +586,7 @@ fn check_row(i: usize, r: &Row, catalog: &Catalog, out: &mut Checked) {
 fn not_hideable_message(kind: &str) -> &'static str {
     match kind {
         "estimate" => "推定の根拠の文は消せません（値がどこから来たかを説明できなくなるため）。言い方は書き換えられます",
-        "check" => "確かめの注意は消せません。言い方は書き換えられます",
+        "check" => "確認の一覧の注意は消せません。言い方は書き換えられます",
         "notice" => "この知らせ（「入力が足りない」「計算に入れていない」）は消せません。結果に入っていない物に気づけなくなるため。言い方は書き換えられます",
         _ => "この文は消せません。言い方は書き換えられます",
     }

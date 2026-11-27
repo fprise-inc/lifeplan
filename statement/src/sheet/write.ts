@@ -145,7 +145,7 @@ export async function createMarkSheet(o: MarkSheetOptions): Promise<MarkSheetRes
   b.set(7, "A", STYLE.heading, text("ご記入のしかた"));
   const shopNote = "同じお店を何度もお使いの分は、1行にまとめています（ご利用日の欄に期間と回数、金額の欄に合計）。選んだ答えは、そのお店の分すべてに使います。回によって使い道が違うときは、メモの欄に書いてください。";
   const noteTexts: [string, number][] = [
-    ["カード・口座の明細のうち、使い道や、家計に入れるかどうかを確かめたい行です。黄色の欄を ▼ から選んでください。分からない行は空欄のままで構いません。", STYLE.text],
+    ["カード・口座の明細のうち、使い道や、家計に入れるかどうかを確認したい行です。黄色の欄を ▼ から選んでください。分からない行は空欄のままで構いません。", STYLE.text],
     ...(plan.shops > 0 ? [[shopNote, STYLE.text] as [string, number]] : []),
     ...(rows.some((l) => l.items.some((x) => x.reasons.includes("readUncertain"))) ? [[UNCERTAIN_NOTE, STYLE.text] as [string, number]] : []),
     ["「何に使ったか」は食費・日用品などの項目です。「どこに入るか」は、ふだんの家計か、お仕事で使った分（会社に請求する立替・事業の経費・会社の経費）か、旅行などの一時的支出かを選びます。選べるものは、お使いになった方の働き方に合わせてあります。", STYLE.text],

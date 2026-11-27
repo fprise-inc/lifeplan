@@ -58,7 +58,7 @@ describe("新しい世帯: 会社員・公務員の退職金を目安で自動�
     const rows = checkList(wh);
     const notice = rows.findIndex((r) => r.id.startsWith("notice:retirement/auto/"));
     expect(notice).toBeGreaterThanOrEqual(0);
-    expect(rows[notice]!.detail).toMatch(/制度があるか確かめてください（制度がある企業は 74\.9%/);
+    expect(rows[notice]!.detail).toMatch(/制度があるか確認してください（制度がある企業は 74\.9%/);
     const firstEstimated = rows.findIndex((r) => r.kind === "estimated");
     expect(firstEstimated === -1 || notice < firstEstimated).toBe(true);
     expect(rowTotal(wh.request, "cf.income.lumpSum.retirement")).toBe(b[0]!.amount!.value);

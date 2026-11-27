@@ -194,7 +194,7 @@ export function OfficePanel(p: OfficePanelProps) {
             <p class="pl-sub">指紋は、あなたのこのPCの鍵の印です。ほかの人が同じ名前で申請を置いても、指紋が合わないので承認されません。</p>
             <div class="rk-row">
               <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.status()))}>
-                承認されたか確かめる
+                承認されたか確認する
               </button>
               <button type="button" class="link-btn danger" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.cancel()))} data-office-cancel>
                 申請を取り下げる
@@ -216,11 +216,11 @@ export function OfficePanel(p: OfficePanelProps) {
             {st.problem === "E_OFFICE_ROSTER_UNVERIFIED" ? (
               <div class="of-lock" data-office-accept-section>
                 <p>
-                  <b>ほかのメンバーに、番号を聞いてください。</b>ほかのメンバーの「事務所の共有」に出ている<b>事務所の確かめ用の番号（16文字）</b>を、電話や対面で読み上げてもらって入れてください。
+                  <b>ほかのメンバーに、番号を聞いてください。</b>ほかのメンバーの「事務所の共有」に出ている<b>事務所の確認用の番号（16文字）</b>を、電話や対面で読み上げてもらって入れてください。
                   番号が合ったときだけ、今の名簿を受け入れます（合わなければ受け入れません）。
                 </p>
                 <label class="of-name">
-                  事務所の確かめ用の番号
+                  事務所の確認用の番号
                   <input
                     class="of-fp-input"
                     value={acceptCode}
@@ -247,13 +247,13 @@ export function OfficePanel(p: OfficePanelProps) {
                   }
                   data-office-accept
                 >
-                  番号を確かめて受け入れる
+                  番号を確認して受け入れる
                 </button>
               </div>
             ) : null}
             <div class="rk-row">
               <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.status()))}>
-                確かめ直す
+                確認し直す
               </button>
               {st.problem === "E_OFFICE_CLOSED" ? (
                 <button
@@ -280,8 +280,8 @@ export function OfficePanel(p: OfficePanelProps) {
               {st.syncFolder ? "（共有フォルダは同期フォルダの中）" : ""}。あなたの表示名は <b>{st.myName}</b>、指紋は <code class="of-code">{st.myFingerprint}</code>
             </p>
             <p class="pl-sub" data-office-code-section>
-              事務所の確かめ用の番号 <code class="of-code" data-office-code>{st.officeCode}</code>
-              （全員の画面で同じになります。参加した人は、承認した人の画面と同じかを確かめてください。しばらくアプリを開かなかったメンバーに聞かれたら、この番号を電話や対面で読み上げてください。メールやチャットに貼らないでください）
+              事務所の確認用の番号 <code class="of-code" data-office-code>{st.officeCode}</code>
+              （全員の画面で同じになります。参加した人は、承認した人の画面と同じかを確認してください。しばらくアプリを開かなかったメンバーに聞かれたら、この番号を電話や対面で読み上げてください。メールやチャットに貼らないでください）
             </p>
             {st.viewOnly ? (
               <p class="hh-warn" role="status" data-office-view-only>
@@ -295,9 +295,9 @@ export function OfficePanel(p: OfficePanelProps) {
                     <b>復元キーで{n.name}さんが加わりました</b>（{proseDateTime(n.at, "")}）。
                   </p>
                 ))}
-                <p class="pl-sub">事務所の復元キーを持つ人は、承認なしで加われます。心当たりが無いときは、すぐにその人を外し（復元キーも新しくなります）、復元キーの控えの置き場所を確かめてください。</p>
+                <p class="pl-sub">事務所の復元キーを持つ人は、承認なしで加われます。心当たりが無いときは、すぐにその人を外し（復元キーも新しくなります）、復元キーの控えの置き場所を確認してください。</p>
                 <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.dismissNotices()))} data-office-notice-ok>
-                  確かめた
+                  確認した
                 </button>
               </div>
             ) : null}
@@ -505,7 +505,7 @@ export function OfficePanel(p: OfficePanelProps) {
             ) : (
               <div class="of-remove" role="alert" data-office-end-confirm>
                 <p>
-                  <b>事務所の共有をやめると</b>、共有フォルダの世帯をすべてこのPCの中へ移し（このPCの鍵で暗号化し直します）、開けることを確かめてから、共有フォルダの世帯ファイル・鍵の札を消します。共有フォルダの事務所には「終えた」印が残り、復元キーでも加われなくなります。
+                  <b>事務所の共有をやめると</b>、共有フォルダの世帯をすべてこのPCの中へ移し（このPCの鍵で暗号化し直します）、開けることを確認してから、共有フォルダの世帯ファイル・鍵の札を消します。共有フォルダの事務所には「終えた」印が残り、復元キーでも加われなくなります。
                 </p>
                 <p class="pl-sub">
                   これからは、このPCの中の事務所の復元キー（共有を始める前のもの）を使います。同期サービスの版の履歴には、暗号化された古い写しが残ります。
@@ -524,7 +524,7 @@ export function OfficePanel(p: OfficePanelProps) {
                         p.onStatus(await p.office.end(ending));
                         setEnding(null);
                         p.onHouseholdsChanged();
-                        setMsg({ ok: true, text: "事務所の共有をやめました。世帯はこのPCの中にあります。このPCの中の事務所の復元キーを保管しているか確かめてください" });
+                        setMsg({ ok: true, text: "事務所の共有をやめました。世帯はこのPCの中にあります。このPCの中の事務所の復元キーを保管しているか確認してください" });
                       })
                     }
                     data-office-end-go

@@ -227,7 +227,7 @@ export function AiAppRegister({ ai, initial = null }: { ai: AiHost; /** 最初�
         </ul>
       )}
       <button type="button" class="btn" disabled={busy} onClick={() => void refresh()} data-ai-apps-refresh>
-        もう一度確かめる
+        もう一度確認する
       </button>
     </div>
   );

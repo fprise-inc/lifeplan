@@ -48,7 +48,7 @@ export type StateOp = "confirm" | "revert" | "unknown" | "notApplicable";
 export const OP_LABELS: Readonly<Record<StateOp, string>> = {
   confirm: "この値にする",
   revert: "推定に戻す",
-  unknown: "書類で確かめる",
+  unknown: "書類待ちにする",
   notApplicable: "該当なし",
 };
 
@@ -56,13 +56,13 @@ export const OP_LABELS: Readonly<Record<StateOp, string>> = {
 export const OP_TITLES: Readonly<Record<StateOp, string>> = {
   confirm: "推定の値をこの欄にそのまま入れます（確定になります）",
   revert: "入れた値を消して、推定の値で計算します",
-  unknown: "書類で確かめるまで、今の値（無ければ推定の値）を代わりに使って計算します（確かめの一覧の「書類待ち」に出ます）",
+  unknown: "書類で確認するまで、今の値（無ければ推定の値）を代わりに使って計算します（確認の一覧の「書類待ち」に出ます）",
   notApplicable: "この額は無いものとして計算します",
 };
 
 /** 操作のリンクの説明（欄ごと）。書類で確かめるは、確かめる書類を添える */
 export const opTitle = (f: Pick<FieldDef, "docCheck">, op: StateOp): string =>
-  op === "unknown" && f.docCheck !== undefined ? `${f.docCheck}で確かめるまで、今の値（無ければ推定の値）を代わりに使って計算します（確かめの一覧の「書類待ち」に出ます）` : OP_TITLES[op];
+  op === "unknown" && f.docCheck !== undefined ? `${f.docCheck}で確認するまで、今の値（無ければ推定の値）を代わりに使って計算します（確認の一覧の「書類待ち」に出ます）` : OP_TITLES[op];
 
 /** 書類待ちの代わりの値の文（状態の印・確かめの一覧の行）。根拠がもう「代わりの値（…）」で始まる（年金の加入月数など）ときは重ねない */
 export const substituteText = (basis: string): string => (basis.startsWith("代わりの値") ? basis : `代わりの値: ${basis}`);

@@ -122,7 +122,7 @@ impl Vary {
             ),
             Some(r) => {
                 let mut m = format!(
-                    "vary（{}）は、この世帯の動かす項目に当てはまりません（{r}）。list_plan_items（入力の欄から作った項目は fields: true）で target・item・at・lever を確かめてください。",
+                    "vary（{}）は、この世帯の動かす項目に当てはまりません（{r}）。list_plan_items（入力の欄から作った項目は fields: true）で target・item・at・lever を確認してください。",
                     self.text()
                 );
                 if !choices.is_empty() {
@@ -814,7 +814,7 @@ pub fn method_of(
             ),
             None => (
                 Method::Scan,
-                "この項目は、動かしたときに主な数字が一方向にだけ動くとは限らない（単調と分かっていない）ので、刻みで振って、端から順に条件を確かめました。範囲の中に、条件を満たす所がほかにもあるかもしれません（sweep で表を見られます）。".to_owned(),
+                "この項目は、動かしたときに主な数字が一方向にだけ動くとは限らない（単調と分かっていない）ので、刻みで振って、端から順に条件を確認しました。範囲の中に、条件を満たす所がほかにもあるかもしれません（sweep で表を見られます）。".to_owned(),
             ),
         }),
         "bisect" => Ok((
@@ -824,7 +824,7 @@ pub fn method_of(
                 None => "頼まれたとおり二分探索で探しました（この項目が単調でなければ、境目がほかにもあるかもしれません）。".to_owned(),
             },
         )),
-        "scan" => Ok((Method::Scan, "頼まれたとおり、刻みで振って、端から順に条件を確かめました。".to_owned())),
+        "scan" => Ok((Method::Scan, "頼まれたとおり、刻みで振って、端から順に条件を確認しました。".to_owned())),
         other => Err(format!("method は auto・bisect・scan のどれかです（{other}）。")),
     }
 }

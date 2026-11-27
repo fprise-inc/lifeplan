@@ -57,9 +57,9 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         <h2 id="ai-conn-title">AI との接続（事務所全体の設定）</h2>
         <p>
           FP がお使いの AI のアプリから、このアプリの計算・制度の値・架空の見本の世帯を使えるようにする口です。このPCの中だけで動き、ネットワークの口は開けません。
-          顧客の世帯は、<b>顧客の同意を記録するか下の事務所のプライバシーポリシーを確かめ、世帯ごとに「AIに渡す」を押したときだけ</b>、計算に要る項目だけ（縮約版）を期限つきで渡します。お名前・ご住所は渡しません。FPのメモと面談の履歴は、渡すときに「メモと面談の履歴も渡す」の印を付けたときだけ、お名前を伏せて渡します。
+          顧客の世帯は、<b>顧客の同意を記録するか下の事務所のプライバシーポリシーを確認し、世帯ごとに「AIに渡す」を押したときだけ</b>、計算に要る項目だけ（縮約版）を期限つきで渡します。お名前・ご住所は渡しません。FPのメモと面談の履歴は、渡すときに「メモと面談の履歴も渡す」の印を付けたときだけ、お名前を伏せて渡します。
         </p>
-        {status !== null && !status.storeReady ? <p class="hh-warn">事務所の鍵が使えないため、設定を変えられません（復元キーを確かめてください）。</p> : null}
+        {status !== null && !status.storeReady ? <p class="hh-warn">事務所の鍵が使えないため、設定を変えられません（復元キーを確認してください）。</p> : null}
         <div class={`ai-switch${enabled ? " on" : ""}`}>
           <label>
             <input
@@ -101,18 +101,18 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
               void run(async () => {
                 onStatus(await setPolicy(on));
                 onChanged();
-                setMsg({ ok: true, text: on ? "事務所のプライバシーポリシーを確かめたことを記録しました" : "確かめた印を外しました。同意の記録が無いまま渡していた世帯の共有は取り消しました" });
+                setMsg({ ok: true, text: on ? "事務所のプライバシーポリシーを確認したことを記録しました" : "確認した印を外しました。同意の記録が無いまま渡していた世帯の共有は取り消しました" });
               });
             }}
             data-ai-privacy-policy
           />
-          事務所のプライバシーポリシーに、お客さまの情報を外部の AI サービスで扱うこと（AI を使った資料の読み取りや分析）を書いていることを確かめました
+          事務所のプライバシーポリシーに、お客さまの情報を外部の AI サービスで扱うこと（AI を使った資料の読み取りや分析）を書いていることを確認しました
         </label>
         <p class="in-note" data-ai-privacy-policy-at>
-          {policyAt !== null ? `確かめた日時: ${dateTimeProse(policyAt)}` : "まだ確かめていません。"}
+          {policyAt !== null ? `確認した日時: ${dateTimeProse(policyAt)}` : "まだ確認していません。"}
         </p>
         <p class="in-note">
-          確かめると、外部AIへの提供の同意の答えが無いお客さまの世帯も、事務所のプライバシーポリシーに沿って AI に渡せます。お客さまが「同意しない」と答えた世帯と、同意を撤回した世帯は、確かめた後も渡せません。印を外すと、同意の記録が無いまま渡していた世帯の共有は、すぐに取り消します。
+          確認すると、外部AIへの提供の同意の答えが無いお客さまの世帯も、事務所のプライバシーポリシーに沿って AI に渡せます。お客さまが「同意しない」と答えた世帯と、同意を撤回した世帯は、確認した後も渡せません。印を外すと、同意の記録が無いまま渡していた世帯の共有は、すぐに取り消します。
         </p>
 
         {setNotesPolicy !== undefined ? (
@@ -127,7 +127,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
                   void run(async () => {
                     onStatus(await setNotesPolicy(on));
                     onChanged();
-                    setMsg({ ok: true, text: on ? "面談の記録やメモも書いていることを確かめた印を記録しました" : "印を外しました。それを理由にメモと面談の履歴を渡していた世帯の共有は取り消しました" });
+                    setMsg({ ok: true, text: on ? "面談の記録やメモも書いていることを確認した印を記録しました" : "印を外しました。それを理由にメモと面談の履歴を渡していた世帯の共有は取り消しました" });
                   });
                 }}
                 data-ai-notes-policy
@@ -135,7 +135,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
               面談の記録やメモを AI で扱うことも、事務所のプライバシーポリシーに書いている
             </label>
             <p class="in-note" data-ai-notes-policy-at>
-              {notesAt !== null ? `確かめた日時: ${dateTimeProse(notesAt)}` : "まだ確かめていません。"}
+              {notesAt !== null ? `確認した日時: ${dateTimeProse(notesAt)}` : "まだ確認していません。"}
               上の印と両方を付けると、同意の答えが無い世帯も、メモと面談の履歴を AI に渡せます。前の版の説明で同意した世帯は、説明で「FPのメモは渡しません」とお伝えしているので、今の説明で同意を記録し直すまで渡せません（「同意しない」と答えた世帯・撤回した世帯も渡せません）。
             </p>
           </>
@@ -251,7 +251,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         <ul class="ai-limits">
           <li>防げる: 渡していない世帯・期限切れ・取り消した世帯の読み取り、ネットワーク越しの接続、別の OS ユーザーのプログラム、AI の候補が勝手に反映されること</li>
           <li>防げない: このPCの同じ OS ユーザーで動く悪いプログラムが、いま渡している世帯の縮約版を読むこと。AI のアプリに渡した後のこと（AI の会社のサーバーに送られます）</li>
-          <li>許可は「このPCの AI との接続全体」に出すものです（呼んだ AI の名前は確かめられません）。取り消しで止まるのは今後の読み取りだけで、すでに送った内容は AI の会社の側に残ります</li>
+          <li>許可は「このPCの AI との接続全体」に出すものです（呼んだ AI の名前は確認できません）。取り消しで止まるのは今後の読み取りだけで、すでに送った内容は AI の会社の側に残ります</li>
         </ul>
         <div class="rk-foot">
           <button type="button" class="btn" onClick={onClose} data-ai-connector-close>

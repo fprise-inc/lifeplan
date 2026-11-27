@@ -145,7 +145,7 @@ describe("数え方（「か所」「件」）と操作の言葉", () => {
   it("確かめの一覧のボタンは「未入力 ○か所・推定 ○か所 ほか」、開いた中の数は単位つき。入っていない物は「推定で入れる」", () => {
     const wh = blankHousehold("2026-11", seq());
     const counts = checkCounts(checkList(wh));
-    expect(checkButtonText(counts)).toBe(`確かめの一覧（未入力 ${counts.missing}か所・推定 ${counts.estimated}か所 ほか）`);
+    expect(checkButtonText(counts)).toBe(`確認の一覧（未入力 ${counts.missing}か所・推定 ${counts.estimated}か所 ほか）`);
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", initialOpen: "check" }));
     expect(html).toContain(`未入力 ${counts.missing}か所`);
     expect(html).toContain(`推定（${counts.estimated}か所）`);

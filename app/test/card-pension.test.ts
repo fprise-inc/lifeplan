@@ -162,10 +162,10 @@ describe("定期便の加入月数（わからない・代わりの値）", () =
     const f = fieldOf(w, "/months/basic");
     const row = checkList(w).find((r) => r.fieldKey === f.key)!;
     expect(row).toMatchObject({ kind: "unknown" });
-    expect(row.detail).toMatch(/^ねんきん定期便で確かめる（代わりの値（国民年金は/);
+    expect(row.detail).toMatch(/^ねんきん定期便で確認する（代わりの値（国民年金は/);
     expect(row.detail).not.toContain("代わりの値: 代わりの値");
     const html = renderToString(h(FieldStateOps.Provider, { value: applyStateOp }, h(Field, { f, wh: w, onEdit: () => undefined })));
-    expect(html).toContain("書類待ち（ねんきん定期便で確かめるまで、代わりの値（国民年金は");
+    expect(html).toContain("書類待ち（ねんきん定期便で確認するまで、代わりの値（国民年金は");
     expect(html).not.toContain("代わりの値: 代わりの値");
   });
 });

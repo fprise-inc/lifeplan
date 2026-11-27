@@ -20,7 +20,7 @@ pub const NOT_RUNNING_ERROR_LOG: &str = "アプリが起動していないか、
 const ERROR_LOG_NOTE: &str = "この PC のアプリで起きたエラーの記録です（新しい順。同じエラーは1件にまとめ、count が回数）。日時・アプリの版・OS・画面（place）・操作（action）・種類（kindLabel）・文（message）だけで、お客さまの名前・金額・生年月日・メモ・ファイルの場所は入っていません（文の中の日本語・数字・引用符の中・場所はアプリが伏せています: … # <場所>）。どの世帯で起きたかは分かりません。報告に入れるときは line をそのまま写してください。";
 
 /// FP の送り方（報告文には入れず、答えの `howToSend` で AI に渡す。報告文はフォームの内容の欄に貼る物なので、送り方の案内は混ぜない。0259）
-pub const HOW_TO_SEND: &str = "送り方: アプリが起動していて AI接続がオンなら、propose_issue_report の items に kind: bug・screen・text（この文）の1件として入れ（ほかに話された要望・不具合があれば、1件ずつに分けて同じ items に並べ）、アプリの「送る報告の確認画面」に出せます。FP が中身を確かめて「送る」を押すと、アプリが文をクリップボードに写して、ブラウザでフォームを開きます（FP はフォームの内容の欄に貼り付けて送ります）。出せないときは、FP がアプリの「要望・不具合を送る」で「報告の文を書いて送る」を押し、この文を貼ります。アプリと AI は何も送りません。";
+pub const HOW_TO_SEND: &str = "送り方: アプリが起動していて AI接続がオンなら、propose_issue_report の items に kind: bug・screen・text（この文）の1件として入れ（ほかに話された要望・不具合があれば、1件ずつに分けて同じ items に並べ）、アプリの「送る報告の確認画面」に出せます。FP が中身を確認して「送る」を押すと、アプリが文をクリップボードに写して、ブラウザでフォームを開きます（FP はフォームの内容の欄に貼り付けて送ります）。出せないときは、FP がアプリの「要望・不具合を送る」で「報告の文を書いて送る」を押し、この文を貼ります。アプリと AI は何も送りません。";
 
 /// propose_issue_report を呼べないとき（アプリが起動していない・AI接続がオフ）
 pub const NOT_RUNNING_PROPOSE: &str = "アプリが起動していないか、AI接続がオフのため、送る報告の確認画面に出せませんでした（何も送っていません）。報告の文を FP に見せ、アプリの「要望・不具合を送る」で「報告の文を書いて送る」を押して、この文を貼ってもらってください。";
@@ -56,7 +56,7 @@ pub struct IssueReportArgs {
     pub actual: Option<String>,
     /// AI の見立て: input＝入力が原因（ここを直せば戻る）・calculation＝計算の仕組みの不具合の疑い・unknown＝まだ分からない
     pub diagnosis: String,
-    /// 見立ての根拠（道具の名前と、答えの要点。例「check_inputs: 住宅ローンの残高が空（確かめの一覧の行）」「explain_value: 2035年の所得税の式に…」）。1〜20件
+    /// 見立ての根拠（道具の名前と、答えの要点。例「check_inputs: 住宅ローンの残高が空（確認の一覧の行）」「explain_value: 2035年の所得税の式に…」）。1〜20件
     pub evidence: Vec<String>,
     /// 入力が原因のとき、どこを直せば戻るか（入力項目と欄の名前）
     pub fix: Option<String>,
@@ -66,7 +66,7 @@ pub struct IssueReportArgs {
     pub reproduce_changes: Option<Vec<String>>,
     /// アプリの画面で再現する手順（例「見本の棚から開く」「結果のタブでキャッシュフロー表を開く」）。20件まで
     pub reproduce_steps: Option<Vec<String>>,
-    /// 見本の世帯に変更を足して、同じことが起きたか（calculate で確かめた結果）。省くと確かめていない
+    /// 見本の世帯に変更を足して、同じことが起きたか（calculate で確認した結果）。省くと確認していない
     pub reproduced: Option<bool>,
     /// エラーの記録（get_error_log の line）のうち、関係する行。20件まで
     pub error_log_lines: Option<Vec<String>>,
@@ -237,7 +237,7 @@ pub fn draft(a: &IssueReportArgs, version: &str) -> Result<Value, String> {
         Some(id) => {
             let Some(s) = samples::get(id) else {
                 return Err(format!(
-                    "見本の世帯 {id} はありません。list_sample_households で確かめてください。"
+                    "見本の世帯 {id} はありません。list_sample_households で確認してください。"
                 ));
             };
             Some(
@@ -300,10 +300,10 @@ pub fn draft(a: &IssueReportArgs, version: &str) -> Result<Value, String> {
                 Some(false) => {
                     "見本での再現: できなかった（実際の世帯の値が要るかは、FP が決めてください）\n"
                 }
-                None => "見本での再現: まだ確かめていない\n",
+                None => "見本での再現: まだ確認していない\n",
             });
             if a.reproduced != Some(true) {
-                cautions.push("見本の世帯で同じことが起きるかを calculate で確かめて、reproduced に書いてください。".into());
+                cautions.push("見本の世帯で同じことが起きるかを calculate で確認して、reproduced に書いてください。".into());
             }
         }
         None => {
@@ -338,16 +338,16 @@ pub fn draft(a: &IssueReportArgs, version: &str) -> Result<Value, String> {
     .collect();
     // エラーの記録の行の日時は、起きた日時なので見ない
     if written.iter().any(|s| has_full_date(s)) {
-        cautions.push("報告文に年・月・日のそろった日付があります。お客さまの生年月日などでないか確かめ、要らなければ消してください（見本の世帯の値と、エラーの記録の日時は書いてよい）。".into());
+        cautions.push("報告文に年・月・日のそろった日付があります。お客さまの生年月日などでないか確認し、要らなければ消してください（見本の世帯の値と、エラーの記録の日時は書いてよい）。".into());
     }
     if a.diagnosis.trim() == "calculation" && sample_title.is_none() {
-        cautions.push("計算の仕組みの不具合の疑いは、見本の世帯に変更を足して再現できると、直す側が確かめやすくなります。".into());
+        cautions.push("計算の仕組みの不具合の疑いは、見本の世帯に変更を足して再現できると、直す側が確認しやすくなります。".into());
     }
     Ok(json!({
         "text": t,
         "cautions": cautions,
         "howToSend": HOW_TO_SEND,
-        "next": "text をそのまま FP に見せ、中身を確かめてもらってください。cautions があれば直してから。FP に送るよう頼まれたら、propose_issue_report の items に kind: bug・screen・text の1件として渡し（ほかの要望・不具合も1件ずつに分けて同じ items に並べ、まとめて1回で）、アプリの「送る報告の確認画面」に出します。FP がその画面で確かめて「送る」を押し、開いたフォームに貼って送ります（この道具も AI も送りません。フォームも開きません。文を URL に載せません）。",
+        "next": "text をそのまま FP に見せ、中身を確認してもらってください。cautions があれば直してから。FP に送るよう頼まれたら、propose_issue_report の items に kind: bug・screen・text の1件として渡し（ほかの要望・不具合も1件ずつに分けて同じ items に並べ、まとめて1回で）、アプリの「送る報告の確認画面」に出します。FP がその画面で確認して「送る」を押し、開いたフォームに貼って送ります（この道具も AI も送りません。フォームも開きません。文を URL に載せません）。",
     }))
 }
 

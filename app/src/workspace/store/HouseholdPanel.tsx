@@ -110,7 +110,7 @@ export const STORE_MESSAGES: Record<string, string> = {
   E_STORE_CUSTOMER_NO: "顧客番号は英数字・ハイフン・下線の16字までです（お名前は入れないでください）",
   E_STORE_CATEGORY: "区分の記号は英大文字1〜2字、名前は20字までで、記号は重ねられません",
   E_STORE_CATEGORY_IN_USE: "世帯が使っている区分は消せません（記号や名前を変えるのはできます）",
-  E_STORE_SAMPLE: "見本の指定を確かめてください（家族の形・本人の年代と、40字までの名前を入れてください。はじめから入っている見本の名前と項目は変えられません）",
+  E_STORE_SAMPLE: "見本の指定を確認してください（家族の形・本人の年代と、40字までの名前を入れてください。はじめから入っている見本の名前と項目は変えられません）",
   E_STORE_SAMPLE_NAME: "同じ名前の見本があります。別の名前にしてください",
   E_STORE_SAMPLE_EXISTS: "ほかの人が先にこの見本を直した版があります",
   E_STORE_SAMPLE_NOT_CHANGED: "この見本は最初の状態から変わっていません",
@@ -520,7 +520,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
             <span>{MAKE_CLIENT_TEXT}</span>
             <label>
               <input type="checkbox" checked={form.value} onChange={(e) => setForm({ ...form, value: (e.currentTarget as HTMLInputElement).checked, error: null })} data-make-client-confirm />
-              架空の世帯には戻せないことを確かめました
+              架空の世帯には戻せないことを確認しました
             </label>
             <button type="submit" class="btn" disabled={busy || !form.value} data-make-client-go>
               お客さまの世帯にする
@@ -1017,7 +1017,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           </table>
         </div>
       ) : null}
-      <p class="pl-sub">自分で作った世帯を見本にするときは、「顧客」の一覧の行の「ほかの操作」の「見本に登録」から（中身が架空であることを確かめます）。</p>
+      <p class="pl-sub">自分で作った世帯を見本にするときは、「顧客」の一覧の行の「ほかの操作」の「見本に登録」から（中身が架空であることを確認します）。</p>
     </>
   );
 

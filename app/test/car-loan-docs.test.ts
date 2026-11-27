@@ -67,7 +67,7 @@ describe("これから買う車のローンの「書類で確かめる」は、�
     const old = oldHousehold();
     const back = read(old);
     const car = back.request.input.household.cars!.at(-1)! as unknown as { valueStates: Obj; loan: unknown };
-    expect(car.valueStates["car.loan/rate"]).toEqual({ state: "estimated", origin: { kind: "manual" }, estimate: { method: "standard", basis: "「書類で確かめる」の代わりに使っていた値（前に入っていた値）" } });
+    expect(car.valueStates["car.loan/rate"]).toEqual({ state: "estimated", origin: { kind: "manual" }, estimate: { method: "standard", basis: "書類待ちの間に代わりに使っていた値（前に入っていた値）" } });
     expect(car.valueStates["car.loan/termMonths"]).toEqual({ state: "estimated", origin: { kind: "manual" }, estimate: { method: "standard", basis: "自動車ローンの年数の目安 5年" } });
     expect(car.loan).toEqual(old.request.input.household.cars!.at(-1)!.loan);
     // 欄は推定に見え、確かめの一覧の書類待ちに出ない
@@ -80,7 +80,7 @@ describe("これから買う車のローンの「書類で確かめる」は、�
   it("プランの差分: 値を変える差分（car.loan）と、車を足す差分の物の中も推定に", () => {
     const back = read(oldHousehold());
     const [set, add] = back.proposals[0]!.diffs;
-    expect(set!.value).toEqual({ value: "0.031", state: "estimated", origin: { kind: "manual" }, estimate: { method: "standard", basis: "「書類で確かめる」の代わりに使っていた値（前に入っていた値）" } });
+    expect(set!.value).toEqual({ value: "0.031", state: "estimated", origin: { kind: "manual" }, estimate: { method: "standard", basis: "書類待ちの間に代わりに使っていた値（前に入っていた値）" } });
     expect(set!.before).toMatchObject({ state: "estimated", estimate: { basis: "自動車ローンの金利の目安" } });
     expect(((add!.value as Obj).valueStates as Obj)["car.loan/share"]).toMatchObject({ state: "estimated" });
   });
@@ -113,6 +113,6 @@ describe("これから買う車のローンの「書類で確かめる」は、�
     const back = read(wh);
     expect(fieldStatus(rate, back).status).toBe("unknown");
     expect((back.notices ?? []).some((x) => x.kind === "carLoanEstimated")).toBe(false);
-    expect(checkList(back).find((r) => r.kind === "unknown" && r.fieldKey === rate.key)?.detail).toContain("返済予定表で確かめる");
+    expect(checkList(back).find((r) => r.kind === "unknown" && r.fieldKey === rate.key)?.detail).toContain("返済予定表で確認する");
   });
 });

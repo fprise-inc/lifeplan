@@ -181,7 +181,7 @@ pub fn check_count(changes: Option<&[PlanChange]>) -> Result<(), String> {
 /// 当てはまらない変更があったときの道具の答え（変更ごとの理由つき）
 pub fn rejected_message(rows: &Value) -> String {
     json!({
-        "message": "plan_changes に、この世帯の動かす項目に当てはまらない変更があるため、計算していません（何も当てていません）。list_plan_items で、対象（target）・入力項目ID（item）・値の形（kind・unit）・範囲を確かめてください。",
+        "message": "plan_changes に、この世帯の動かす項目に当てはまらない変更があるため、計算していません（何も当てていません）。list_plan_items で、対象（target）・入力項目ID（item）・値の形（kind・unit）・範囲を確認してください。",
         "planChanges": rows,
     })
     .to_string()

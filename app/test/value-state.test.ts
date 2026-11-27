@@ -118,7 +118,7 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     // 確かめの一覧の「書類待ち」に、確かめる書類と代わりの値
     const row = checkList(unk).find((x) => x.fieldKey === f.key)!;
     expect(row).toMatchObject({ kind: "unknown" });
-    expect(row.detail).toMatch(/^住民税の決定通知書で確かめる（代わりの値: /);
+    expect(row.detail).toMatch(/^住民税の決定通知書で確認する（代わりの値: /);
     // 書類待ち → 確定（代わりの値で）
     const conf = applyStateOp(unk, f, "confirm");
     expect(fieldStatus(f, conf).status).toBe("confirmed");

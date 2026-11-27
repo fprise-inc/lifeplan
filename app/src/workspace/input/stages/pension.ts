@@ -223,8 +223,8 @@ export function fillMonths(wh: WorkingHousehold, memberId: string, state: "unkno
 /** 加入月数が0か月のままのときの知らせ（年金のパネル・入力のカード・結果のタブで同じ文を使う） */
 export function monthsMissingText(kind: string): string {
   return kind === "statementOver50"
-    ? "加入月数が0か月のままです。このままでは受給資格期間（10年）に届かないため、見込額を入れても年金は0円で計算します。定期便の「加入期間」の月数を写すか、手元に無ければ「加入月数を書類で確かめる」で代わりの値にしてください"
-    : "加入月数が0か月のままです。このままでは、これまでの加入の分を数えずに年金を少なく計算します（受給資格期間の10年に届かなければ0円）。定期便の「加入期間」の月数を写すか、手元に無ければ「加入月数を書類で確かめる」で代わりの値にしてください";
+    ? "加入月数が0か月のままです。このままでは受給資格期間（10年）に届かないため、見込額を入れても年金は0円で計算します。定期便の「加入期間」の月数を写すか、手元に無ければ「加入月数を書類待ちにする」で代わりの値にしてください"
+    : "加入月数が0か月のままです。このままでは、これまでの加入の分を数えずに年金を少なく計算します（受給資格期間の10年に届かなければ0円）。定期便の「加入期間」の月数を写すか、手元に無ければ「加入月数を書類待ちにする」で代わりの値にしてください";
 }
 
 /** 結果のタブに出す、年金の入力の知らせ（加入月数が0か月のままの人） */
@@ -454,7 +454,7 @@ function monthsField(m: Member, rec: PensionRecord, part: "basic" | "employee", 
     get: (w) => {
       const r = find(w.request.input.household, w) as PensionRecord | undefined;
       const missing = statementMonthsMissing(r);
-      return { value: missing ? null : (r?.months?.[part] ?? 0), ...(missing ? { warn: "0か月のままです（写していません）。見込額を入れても、加入月数を写すか「書類で確かめる」にするまでは年金を正しく計算できません" } : {}) };
+      return { value: missing ? null : (r?.months?.[part] ?? 0), ...(missing ? { warn: "0か月のままです（写していません）。見込額を入れても、加入月数を写すか「書類待ちにする」を押すまでは年金を正しく計算できません" } : {}) };
     },
     set: (w, v) =>
       mutate(w, (h, req) => {
@@ -608,7 +608,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     );
   else fields.push(...withoutEmployeeClaim(claimFields(m, find, prefix), hasEmployeePension(h, m, rec)));
   const missing = statementMonthsMissing(rec);
-  const actions: ActionDef[] = missing ? [{ key: `${prefix}/months/unknown`, label: "加入月数を書類で確かめる（それまで代わりの値で計算する）", level: "simple", run: (w) => fillMonths(w, m.id, "unknown") }] : [];
+  const actions: ActionDef[] = missing ? [{ key: `${prefix}/months/unknown`, label: "加入月数を書類待ちにする（それまで代わりの値で計算する）", level: "simple", run: (w) => fillMonths(w, m.id, "unknown") }] : [];
   const notes = [...(missing ? [monthsMissingText(rec.kind)] : []), ...(kept.length > 0 ? ["前の入れ方の記録を残しています（入れ方を戻すと戻ります）"] : [])];
   const groups: GroupDef[] = [{ key: `pension/${m.id}`, title: "公的年金", where: `${who}の公的年金`, ...(notes.length > 0 ? { note: notes.join("。") } : {}), level: "simple", moreLabel: PENSION_MORE, fields, actions }];
 
