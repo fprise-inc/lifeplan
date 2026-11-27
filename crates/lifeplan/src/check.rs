@@ -42,8 +42,8 @@ pub struct CheckInputsArgs {
     /// プランを確認するとき: アプリの画面のプランの動かす項目の変更（calculate の plan_changes と同じ書き方。list_plan_items で分かる）。50件まで
     pub plan_changes: Option<Vec<PlanChange>>,
     /// 出す種類（既定は missing・notStarted・unknown・notice・calc・estimated。画面の確認の一覧の既定と同じ）。missing＝未入力（0円で計算中）・
-    /// notStarted＝まだ入れていない項目・unknown＝書類待ち・notice＝確かめの注意（範囲の外の値・ほかの入力と合わない値・購入の払い方が無いなど）・
-    /// calc＝計算のお知らせのうち入力で直せる所・estimated＝推定（結果に効く順）・certainty＝確かさが本人の申告・概算の値・premise＝前提条件（事務所の既定値どおり。行の premise が client ならお客さまと確かめる前提、fp なら FP が決める細かい前提）
+    /// notStarted＝まだ入れていない項目・unknown＝書類待ち・notice＝注意（範囲の外の値・ほかの入力と合わない値・購入の払い方が無いなど）・
+    /// calc＝計算のお知らせのうち入力で直せる所・estimated＝推定（結果に効く順）・certainty＝確かさが本人の申告・概算の値・premise＝前提条件（事務所の既定値どおり。行の premise が client ならお客さまと確認する前提、fp なら FP が決める細かい前提）
     #[schemars(extend("items" = { "type": "string", "enum": ["missing", "notStarted", "unknown", "notice", "calc", "estimated", "certainty", "premise"] }))]
     pub kinds: Option<Vec<String>>,
     /// 返す行の上限（1〜100。既定 30）。並びは画面の確認の一覧と同じで、超えた分は truncated と counts で分かる

@@ -184,6 +184,12 @@ describe("「確かめ」を画面の言葉に書き戻さない（確認の一�
     expect(rustStrings(join(REPO_DIR, "crates", "ai-share", "src", "consent.rs")).some((s) => s.text.includes("確かめ"))).toBe(true);
   });
 
+  it("AI 接続口の道具の入力の説明（/// から作る JSON Schema の見本）", () => {
+    const strs = [join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "tools"), join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-inputs")].flatMap((d) => files(d, /\.json$/)).flatMap(jsonStrings);
+    expect(strs.length).toBeGreaterThan(100);
+    expect(left(strs)).toEqual([]);
+  });
+
   it("手引き・AI 接続口の説明・対応範囲の一覧・ヒアリングの公開ページ（探す言葉の行は前の名前を残す）", () => {
     const docs = [
       ...files(join(REPO_DIR, "docs", "app-guide"), /\.md$/),

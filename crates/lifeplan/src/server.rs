@@ -669,7 +669,7 @@ pub struct DocValueArg {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("enum" = ["high", "medium", "low", null]))]
     pub confidence: Option<String>,
-    /// 添え書き（200字まで。FPが確かめるときの手がかり。名前・番号は書かない）
+    /// 添え書き（200字まで。FPが確認するときの手がかり。名前・番号は書かない）
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(length(max = 200))]
     pub note: Option<String>,
